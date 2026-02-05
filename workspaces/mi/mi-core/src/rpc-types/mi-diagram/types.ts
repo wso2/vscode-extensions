@@ -2254,3 +2254,12 @@ export interface UpdateRegistryPropertyRequest {
     targetFile: string;
     properties: Property[];
 }
+
+export interface GenerateMappingsParamsRequest {
+    query: string;
+    className?: string;
+    url?: string;
+    username?: string;
+    password?: string;
+    type: 'input' | 'output'
+}

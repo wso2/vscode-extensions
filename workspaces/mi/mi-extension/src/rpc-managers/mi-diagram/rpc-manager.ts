@@ -288,7 +288,8 @@ import {
     GetMockServicesResponse,
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
-    UpdateRegistryPropertyRequest
+    UpdateRegistryPropertyRequest,
+    GenerateMappingsParamsRequest
 } from "@wso2/mi-core";
 import axios from 'axios';
 import { error } from "console";
@@ -6162,6 +6163,14 @@ ${keyValuesXML}`;
                 setTimeout(() => reject(new Error('Wait timeout for document update')), 5000)
             )
         ]);
+    }
+  
+    async getInputOutputMappings(params: GenerateMappingsParamsRequest): Promise<string[]> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.getInputOutputMappings(params);
+            resolve(res);
+        });
     }
 }
 
