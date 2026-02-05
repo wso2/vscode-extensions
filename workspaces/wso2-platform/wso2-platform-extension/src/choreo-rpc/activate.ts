@@ -18,7 +18,7 @@
 
 import { exec } from "child_process";
 import * as fs from "fs";
-import { downloadCLI, getChoreoExecPath, getCliVersion } from "./cli-install";
+import { installCLI, getChoreoExecPath, getCliVersion } from "./cli-install";
 import { RPCClient } from "./client";
 import { getLogger } from "../logger/logger";
 
@@ -58,7 +58,7 @@ export async function initRPCServer() {
 		const installed = await isChoreoCliInstalled();
 		if (!installed) {
 			getLogger().trace(`WSO2 Platform RPC version ${getCliVersion()} not installed`);
-			await downloadCLI();
+			await installCLI();
 		}
 
 		await RPCClient.getInstance();
