@@ -93,7 +93,6 @@ function tokenizeCurl(curl: string): string[] {
 	
 	for (let i = 0; i < curl.length; i++) {
 		const char = curl[i];
-		const nextChar = curl[i + 1];
 		
 		if ((char === '"' || char === "'") && (i === 0 || curl[i - 1] !== '\\')) {
 			if (!inQuotes) {

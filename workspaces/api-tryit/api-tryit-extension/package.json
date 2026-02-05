@@ -33,11 +33,6 @@
           "type": "webview",
           "when": "true",
           "icon": "assets/icon.svg"
-        },
-        {
-          "id": "api-tryit.explorer",
-          "name": "API Explorer Tree",
-          "icon": "assets/icon.svg"
         }
       ]
     },
@@ -105,23 +100,18 @@
           "group": "navigation@0"
         },
         {
-          "command": "api-tryit.newRequest",
-          "when": "view == api-tryit.explorer",
-          "group": "navigation@1"
-        },
-        {
           "command": "api-tryit.refreshExplorer",
-          "when": "view == api-tryit.explorer",
+          "when": "view == api-tryit.activity.panel",
           "group": "navigation@2"
         },
         {
           "command": "api-tryit.newCollection",
-          "when": "view == api-tryit.explorer",
+          "when": "view == api-tryit.activity.panel",
           "group": "navigation@3"
         },
         {
           "command": "api-tryit.settings",
-          "when": "view == api-tryit.explorer",
+          "when": "view == api-tryit.activity.panel",
           "group": "navigation@4"
         }
       ],

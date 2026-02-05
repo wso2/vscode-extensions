@@ -29,14 +29,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Initialize RPC handlers
 	TryItPanel.init();
 
-	// Register the API Explorer tree view
+	// Register the API Explorer tree view provider
 	const apiExplorerProvider = new ApiExplorerProvider();
-	const treeView = vscode.window.createTreeView('api-tryit.explorer', {
-		treeDataProvider: apiExplorerProvider,
-		showCollapseAll: true
-	});
-	// Pass the tree view reference to the provider
-	apiExplorerProvider.setTreeView(treeView);
+
 	// Register the explorer with the state machine so it can trigger direct reloads when needed
 	ApiTryItStateMachine.registerExplorer(apiExplorerProvider);
 
@@ -307,8 +302,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		plusMenuCommand,
 		settingsCommand,
 		clearSelectionCommand,
-		helloCommand,
-		treeView
+		helloCommand
 	);
 }
 
