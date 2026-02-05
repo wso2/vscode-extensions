@@ -33,7 +33,7 @@
     "yup": "1.4.0",
     "react-hook-form": "7.56.4",
     "lodash": "4.17.23",
-    "@tanstack/react-query": "4.0.10",
+    "@tanstack/react-query": "5.77.1",
     "@tanstack/query-core": "5.77.1",
     "@mdxeditor/editor": "3.14.0"
   },
