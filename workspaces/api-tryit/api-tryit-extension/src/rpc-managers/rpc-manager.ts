@@ -38,57 +38,66 @@ export class ApiTryItRpcManager {
         }
 
         try {
-            let existingData: { id?: string; name?: string; request?: ApiRequest, response?: ApiResponse } | null = null;
-            
+            let existingData: { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse } | null = null;
+
             // Try to read existing file
             try {
                 const existingContent = await readFile(filePath, 'utf8');
-                existingData = JSON.parse(existingContent);
+                const parsed = yaml.load(existingContent);
+                if (parsed && typeof parsed === 'object') {
+                    existingData = parsed as { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse };
+                }
             } catch {
-                // File doesn't exist, we'll create it from scratch
+                // File doesn't exist or content can't be parsed, we'll create it from scratch
             }
-            
-            let updatedData;
-            
-            if (existingData) {
-                // Update existing file - only preserve essential data
-                updatedData = {
-                    id: request.id,
-                    name: request.name,
-                    request: {
-                        name: request.name,
-                        method: request.method,
-                        url: request.url,
-                        queryParameters: request.queryParameters,
-                        headers: request.headers,
-                        body: request.body
-                    },
-                    response: response ? {
-                        statusCode: response.statusCode,
-                        headers: response.headers,
-                        body: response.body
-                    } : existingData.response
-                };
-            } else {
-                // Create new file structure
-                updatedData = {
-                    id: request.id,
-                    name: request.name,
-                    request: {
-                        name: request.name,
-                        method: request.method,
-                        url: request.url,
-                        queryParameters: request.queryParameters,
-                        headers: request.headers,
-                        body: request.body
-                    },
-                    response: response ? {
-                        statusCode: response.statusCode,
-                        headers: response.headers,
-                        body: response.body
-                    } : undefined
-                };
+
+            const sanitizedRequest: ApiRequest = {
+                id: request.id,
+                name: request.name,
+                method: request.method,
+                url: request.url,
+                queryParameters: request.queryParameters || [],
+                headers: request.headers || []
+            };
+
+            if (request.body !== undefined) {
+                sanitizedRequest.body = request.body;
             }
+
+            if (request.bodyFormData && request.bodyFormData.length > 0) {
+                sanitizedRequest.bodyFormData = request.bodyFormData;
+            }
+
+            if (request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) {
+                sanitizedRequest.bodyFormUrlEncoded = request.bodyFormUrlEncoded;
+            }
+
+            if (request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0) {
+                sanitizedRequest.bodyBinaryFiles = request.bodyBinaryFiles
+                    .filter(file => file.filePath?.trim())
+                    .map(file => ({
+                        ...file,
+                        enabled: file.enabled ?? true,
+                        contentType: file.contentType?.includes('/') 
+                            ? file.contentType 
+                            : 'application/octet-stream'
+                    }));
+            }
+
+            if (request.assertions && request.assertions.length > 0) {
+                sanitizedRequest.assertions = request.assertions;
+            }
+
+            const updatedData = {
+                id: request.id,
+                name: request.name,
+                request: sanitizedRequest,
+                response: response ? {
+                    statusCode: response.statusCode,
+                    headers: response.headers,
+                    body: response.body
+                } : existingData?.response
+            };
             
             // Convert to YAML
             const requestData = yaml.dump(updatedData);

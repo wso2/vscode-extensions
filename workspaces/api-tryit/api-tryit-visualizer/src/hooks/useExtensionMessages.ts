@@ -30,6 +30,8 @@ interface ExtensionMessage {
 
 interface MessageHandlers {
     onApiRequestSelected?: (item: ApiRequestItem) => void;
+    onShowCreateCollectionForm?: () => void;
+    onCreateCollectionResult?: (result: { success: boolean; message?: string }) => void;
 }
 
 /**
@@ -53,6 +55,7 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
         // Listen for messages from the extension
         const messageHandler = (event: MessageEvent<ExtensionMessage>) => {
             const { type, data } = event.data;
+            console.log('[useExtensionMessages] Received message:', type, data);
             
             if (type === 'apiRequestItemSelected' && handlersRef.current.onApiRequestSelected) {
                 const item = data as ApiRequestItem;
@@ -66,6 +69,15 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
                     }
                 };
                 handlersRef.current.onApiRequestSelected(normalizedItem);
+            }
+
+            if (type === 'showCreateCollectionForm' && handlersRef.current.onShowCreateCollectionForm) {
+                console.log('[useExtensionMessages] Calling onShowCreateCollectionForm handler');
+                handlersRef.current.onShowCreateCollectionForm();
+            }
+
+            if (type === 'createCollectionResult' && handlersRef.current.onCreateCollectionResult) {
+                handlersRef.current.onCreateCollectionResult(data as { success: boolean; message?: string });
             }
         };
 

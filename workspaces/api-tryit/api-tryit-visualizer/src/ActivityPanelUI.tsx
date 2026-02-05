@@ -34,15 +34,36 @@ interface RequestItem {
 export const ActivityPanelUI: React.FC = () => {
 	const [collections, setCollections] = useState<RequestItem[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
+	const [clearSelectionTrigger, setClearSelectionTrigger] = useState(0);
+	const [selectedFromHost, setSelectedFromHost] = useState<{ id: string; parentIds?: string[] }>();
 	const vscode = getVSCodeAPI();
 
 	useEffect(() => {
 		// Listen for messages from the extension
 		const handleMessage = (event: MessageEvent) => {
 			const message = event.data;
+			console.log('[ActivityPanelUI] Received message:', message);
 			if (message.command === 'updateCollections') {
-				setCollections(message.collections || []);
+				// Deduplicate collections by ID to prevent rendering duplicates
+				const newCollections: RequestItem[] = message.collections || [];
+				const uniqueCollections = Array.from(
+					new Map(newCollections.map((col: RequestItem) => [col.id, col])).values()
+				) as RequestItem[];
+				setCollections(uniqueCollections);
 				setIsLoading(false);
+			} else if (message.type === 'clearSelection') {
+				console.log('[ActivityPanelUI] Clearing selection, current trigger:', clearSelectionTrigger);
+				// Trigger selection clear in ExplorerView
+				setClearSelectionTrigger(prev => prev + 1);
+				setSelectedFromHost(undefined);
+			} else if (message.type === 'selectItem') {
+				const payload = (message.data || {}) as { id?: string; parentIds?: unknown };
+				if (payload.id) {
+					const parentIds = Array.isArray(payload.parentIds)
+						? (payload.parentIds as unknown[]).filter((id): id is string => typeof id === 'string')
+						: [];
+					setSelectedFromHost({ id: payload.id, parentIds });
+				}
 			}
 		};
 
@@ -67,5 +88,5 @@ export const ActivityPanelUI: React.FC = () => {
 	useEffect(() => {
 	}, [collections, isLoading]);
 
-	return <ExplorerView collections={collections} isLoading={isLoading} />;
+	return <ExplorerView collections={collections} isLoading={isLoading} clearSelectionTrigger={clearSelectionTrigger} selectedItemId={selectedFromHost?.id} expandItemIds={selectedFromHost?.parentIds} />;
 };

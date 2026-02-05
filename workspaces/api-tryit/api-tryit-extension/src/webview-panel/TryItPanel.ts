@@ -20,6 +20,8 @@ import * as vscode from 'vscode';
 import { getComposerJSFiles } from '../util';
 import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
 import { ApiRequestItem } from '@wso2/api-tryit-core';
+import * as path from 'path';
+import { Buffer } from 'buffer';
 import { Messenger } from 'vscode-messenger';
 import { registerApiTryItRpcHandlers } from '../rpc-managers';
 
@@ -28,6 +30,8 @@ export class TryItPanel {
 	private readonly _panel: vscode.WebviewPanel;
 	private _disposables: vscode.Disposable[] = [];
 	private static _messenger: Messenger = new Messenger();
+	private _webviewReady = false;
+	private _pendingMessages: Array<{ type: string; data?: unknown }> = [];
 
 	private constructor(panel: vscode.WebviewPanel, extensionContext: vscode.ExtensionContext) {
 		this._panel = panel;
@@ -45,7 +49,135 @@ export class TryItPanel {
 		// Set up message handling from webview
 		this._panel.webview.onDidReceiveMessage(
 			async message => {
-				switch (message.type) {
+				const messageType = message.type || message.command;
+				
+				// Handle webviewReady to flush pending messages
+				if (message.type === 'webviewReady') {
+
+					this._webviewReady = true;
+					// Flush pending messages
+					while (this._pendingMessages.length > 0) {
+						const msg = this._pendingMessages.shift();
+						if (msg) {
+							this._panel.webview.postMessage({ type: msg.type, data: msg.data });
+						}
+					}
+					return;
+				}
+				// Handle folder selection for collection creation
+				if (message.type === 'selectCollectionFolder') {
+					try {
+						const folderUris = await vscode.window.showOpenDialog({
+							canSelectFolders: true,
+							canSelectFiles: false,
+							canSelectMany: false,
+							openLabel: 'Select Collection Folder'
+						});
+						if (folderUris && folderUris.length > 0) {
+							const selectedPath = folderUris[0].fsPath;
+							this._panel.webview.postMessage({ 
+								type: 'collectionFolderSelected', 
+								data: { path: selectedPath } 
+							});
+						}
+					} catch (error: unknown) {
+						vscode.window.showErrorMessage(`Error selecting folder: ${error instanceof Error ? error.message : 'Unknown error'}`);
+					}
+					return;
+				}
+				if (message.type === 'createCollectionSubmit') {
+					try {
+						const { name, folderPath } = message.data || {};
+												
+						if (!name || !name.trim()) {
+							this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: false, message: 'Collection name is required' } });
+							return;
+						}
+
+						if (!folderPath) {
+							this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: false, message: 'Folder path is required' } });
+							return;
+						}
+						
+						const safeName = name.trim();
+						const safeId = safeName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+						
+						// 1. Create a folder with the given name in the provided path (only if it doesn't exist)
+						const collectionFolderPath = path.join(folderPath, safeId);
+						const collectionFolderUri = vscode.Uri.file(collectionFolderPath);
+						try {
+							await vscode.workspace.fs.stat(collectionFolderUri);
+							// Directory already exists, skip creation
+						} catch {
+							// Directory doesn't exist, create it
+							await vscode.workspace.fs.createDirectory(collectionFolderUri);
+						}
+						
+						// 2. Create collection.yaml file inside the folder
+						const collectionFilePath = path.join(collectionFolderPath, 'collection.yaml');
+						const collectionFileUri = vscode.Uri.file(collectionFilePath);
+						const yamlContent = `id: ${safeId}\nname: ${safeName}\n`;
+						await vscode.workspace.fs.writeFile(collectionFileUri, Buffer.from(yamlContent, 'utf8'));
+						
+						// 3. Check if the collection is in the current workspace
+						const isInWorkspace = vscode.workspace.workspaceFolders?.some(folder => 
+							collectionFolderPath.startsWith(folder.uri.fsPath)
+						) || false;
+						
+						if (!isInWorkspace) {
+							// Open the folder as a new workspace
+							const openInNewWindow = await vscode.window.showInformationMessage(
+								`Collection "${safeName}" created outside the workspace. Would you like to open it?`,
+								'Open in New Window',
+								'Add to Workspace',
+								'Cancel'
+							);
+							
+							if (openInNewWindow === 'Open in New Window') {
+								await vscode.commands.executeCommand('vscode.openFolder', collectionFolderUri, true);
+							} else if (openInNewWindow === 'Add to Workspace') {
+								vscode.workspace.updateWorkspaceFolders(
+									vscode.workspace.workspaceFolders?.length || 0,
+									0,
+									{ uri: collectionFolderUri, name: safeName }
+								);
+							}
+						} else {
+							vscode.window.showInformationMessage(`Collection "${safeName}" created successfully`);
+						}
+						
+						this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: true, message: `Collection created: ${safeName}` } });
+						
+						// Add a slight delay to ensure file system operations complete, then refresh explorer
+						setTimeout(() => {
+							vscode.commands.executeCommand('api-tryit.refreshExplorer').then(undefined, (error: unknown) => {
+								const msg = error instanceof Error ? error.message : 'Unknown error';
+								vscode.window.showErrorMessage(`Failed to refresh explorer: ${msg}`);
+							});
+						}, 500);
+					} catch (error: unknown) {
+						const msg = error instanceof Error ? error.message : 'Unknown error';
+						this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: false, message: msg } });
+						vscode.window.showErrorMessage(`Failed to create collection: ${msg}`);
+					}
+					return;
+				}
+				switch (messageType) {
+					case 'openFromCurl':
+						// Handle curl to ApiRequestItem conversion
+						try {
+							const { curl } = message.data || {};
+							if (!curl) {
+								vscode.window.showErrorMessage('No curl command provided');
+								break;
+							}
+							// Execute the openFromCurl command with the curl string
+							vscode.commands.executeCommand('api-tryit.openFromCurl', curl);
+						} catch (error: unknown) {
+							const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+							vscode.window.showErrorMessage(`Failed to process curl command: ${errorMsg}`);
+						}
+						break;
 					case 'webviewReady':
 						ApiTryItStateMachine.sendEvent(EVENT_TYPE.WEBVIEW_READY);
 						break;
@@ -57,12 +189,19 @@ export class TryItPanel {
 						try {
 							const { filePath, request, response } = message.data;
 
-							// Get the current state to check for persisted file path
+							// Get the current state to check for persisted file path or collection path
 							const stateContext = ApiTryItStateMachine.getContext();
 							let targetFilePath = filePath || stateContext.selectedFilePath;
 
+							// If no file path but we have a collection path (from "Add Request to Collection" flow)
+							if (!targetFilePath && stateContext.currentCollectionPath) {
+								// Auto-generate filename from request name or use default
+								const fileName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.yaml';
+								targetFilePath = path.join(stateContext.currentCollectionPath, fileName);
+							}
+
+							// If still no file path, prompt user to select folder and file
 							if (!targetFilePath) {
-								// First, prompt user to select a folder
 								const folderUris = await vscode.window.showOpenDialog({
 									canSelectFolders: true,
 									canSelectFiles: false,
@@ -103,6 +242,16 @@ export class TryItPanel {
 								targetFilePath = fileUri.fsPath;
 							}
 
+							// Ensure the directory exists before saving
+							if (targetFilePath) {
+								const dirPath = path.dirname(targetFilePath);
+								try {
+									await vscode.workspace.fs.createDirectory(vscode.Uri.file(dirPath));
+								} catch {
+									// Directory might already exist, ignore error
+								}
+							}
+
 							// Import the RPC manager here to avoid circular dependencies
 							const { ApiTryItRpcManager } = await import('../rpc-managers/rpc-manager');
 							const rpcManager = new ApiTryItRpcManager();
@@ -120,8 +269,7 @@ export class TryItPanel {
 
 							if (saveResponse.success) {
 								vscode.window.showInformationMessage(`Request saved successfully to: ${targetFilePath}`);
-								// Refresh explorer so new/updated request files are reloaded
-								vscode.commands.executeCommand('api-tryit.refreshExplorer');
+								
 								// Inform state machine about the saved request so it can update caches and notify webviews
 								try {
 									const savedItem: ApiRequestItem = {
@@ -134,6 +282,20 @@ export class TryItPanel {
 								} catch {
 									vscode.window.showErrorMessage('Failed to notify state machine about saved request');
 								}
+								
+								// Refresh explorer and select the saved request
+								setTimeout(async () => {
+									try {
+										await vscode.commands.executeCommand('api-tryit.refreshExplorer');
+										// Give the explorer time to load, then select the saved request in the tree
+										setTimeout(async () => {
+											await vscode.commands.executeCommand('api-tryit.selectItemByPath', targetFilePath);
+										}, 300);
+									} catch (error: unknown) {
+										const msg = error instanceof Error ? error.message : 'Unknown error';
+										vscode.window.showErrorMessage(`Failed to refresh explorer: ${msg}`);
+									}
+								}, 100);
 							} else {
 								vscode.window.showErrorMessage(`Failed to save request: ${saveResponse.message}`);
 							}
@@ -143,6 +305,26 @@ export class TryItPanel {
 								data: { success: false, message: error instanceof Error ? error.message : 'Unknown error' }
 							});
 							vscode.window.showErrorMessage(`Error saving request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+						}
+						break;
+					case 'selectFile':
+						try {
+							const { paramId } = message.data;
+							const fileUris = await vscode.window.showOpenDialog({
+								canSelectFiles: true,
+								canSelectFolders: false,
+								canSelectMany: false,
+								openLabel: 'Select File'
+							});
+							if (fileUris && fileUris.length > 0) {
+								const filePath = fileUris[0].fsPath;
+								this._panel.webview.postMessage({
+									type: 'fileSelected',
+									data: { paramId, filePath }
+								});
+							}
+						} catch (error: unknown) {
+							vscode.window.showErrorMessage(`Error selecting file: ${error instanceof Error ? error.message : 'Unknown error'}`);
 						}
 						break;
 				}
@@ -187,11 +369,30 @@ export class TryItPanel {
 	}
 
 	public static sendRequestToWebview(requestItem: unknown) {
-		if (TryItPanel.currentPanel) {
-			TryItPanel.currentPanel._panel.webview.postMessage({
-				type: 'loadRequest',
+		if (!TryItPanel.currentPanel) {
+			return;
+		}
+
+		const panel = TryItPanel.currentPanel;
+		if (panel._webviewReady) {
+			panel._panel.webview.postMessage({
+				type: 'apiRequestItemSelected',
 				data: requestItem
 			});
+		} else {
+			// Queue the message until the webview signals readiness
+			panel._pendingMessages.push({ type: 'apiRequestItemSelected', data: requestItem });
+		}
+	}
+
+	public static postMessage(type: string, data?: unknown) {
+		if (TryItPanel.currentPanel) {
+			const panel = TryItPanel.currentPanel;
+			if (panel._webviewReady) {
+				panel._panel.webview.postMessage({ type, data });
+			} else {
+				panel._pendingMessages.push({ type, data });
+			}
 		}
 	}
 

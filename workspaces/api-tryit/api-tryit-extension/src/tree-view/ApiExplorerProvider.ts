@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
-import { ApiCollection, ApiFolder, ApiRequestItem, ApiRequest, ApiResponse } from '@wso2/api-tryit-core';
+import { ApiCollection, ApiFolder, ApiRequestItem, ApiRequest, ApiResponse, FormDataParameter, FormUrlEncodedParameter } from '@wso2/api-tryit-core';
 
 export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem> {
 	private collections: ApiCollection[] = [];
@@ -28,9 +28,22 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	private _onDidChangeTreeData: vscode.EventEmitter<ApiTreeItem | undefined | null | void> = new vscode.EventEmitter<ApiTreeItem | undefined | null | void>();
 	readonly onDidChangeTreeData: vscode.Event<ApiTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
 	private loadingPromise: Promise<void> | null = null;
+	private treeView?: vscode.TreeView<ApiTreeItem>;
 
 	constructor(private workspacePath?: string) {
 		this.loadingPromise = this.loadCollections();
+	}
+
+	setTreeView(treeView: vscode.TreeView<ApiTreeItem>): void {
+		this.treeView = treeView;
+	}
+
+	clearSelection(): void {
+		if (this.treeView) {
+			// Force a refresh which will rebuild the tree
+			// This is the only reliable way to clear selection since treeView.selection is readonly
+			this._onDidChangeTreeData.fire();
+		}
 	}
 
 	/**
@@ -81,15 +94,82 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						})
 						: [];
 
+					const formDataParams: FormDataParameter[] | undefined = Array.isArray(requestObj.bodyFormData)
+						? (requestObj.bodyFormData as unknown[]).map((param, index) => {
+							const fd = param as Record<string, unknown>;
+							const normalized: FormDataParameter = {
+								id: typeof fd.id === 'string' ? fd.id : `${Date.now()}-form-data-${index}`,
+								key: typeof fd.key === 'string' ? fd.key : '',
+								contentType: typeof fd.contentType === 'string' ? fd.contentType : ''
+							};
+
+							if (typeof fd.filePath === 'string' && fd.filePath.length > 0) {
+								normalized.filePath = fd.filePath;
+							}
+
+							if (typeof fd.value === 'string') {
+								normalized.value = fd.value;
+							}
+
+							return normalized;
+						})
+						: undefined;
+
+					const formUrlEncodedParams: FormUrlEncodedParameter[] | undefined = Array.isArray(requestObj.bodyFormUrlEncoded)
+						? (requestObj.bodyFormUrlEncoded as unknown[]).map((param, index) => {
+							const fe = param as Record<string, unknown>;
+							return {
+								id: typeof fe.id === 'string' ? fe.id : `${Date.now()}-form-urlencoded-${index}`,
+								key: typeof fe.key === 'string' ? fe.key : '',
+								value: typeof fe.value === 'string' ? fe.value : ''
+							};
+						})
+						: undefined;
+
+					const binaryFiles = Array.isArray(requestObj.bodyBinaryFiles)
+						? (requestObj.bodyBinaryFiles as unknown[]).map((file, index) => {
+							const bf = file as Record<string, unknown>;
+							return {
+								id: typeof bf.id === 'string' ? bf.id : `${Date.now()}-binary-${index}`,
+								filePath: typeof bf.filePath === 'string' ? bf.filePath : '',
+								contentType: typeof bf.contentType === 'string' ? bf.contentType : 'application/octet-stream',
+								enabled: typeof bf.enabled === 'boolean' ? bf.enabled : true
+							};
+						})
+						: undefined;
+
+					const assertions = Array.isArray(requestObj.assertions)
+						? (requestObj.assertions as unknown[]).filter((assertion): assertion is string => typeof assertion === 'string')
+						: undefined;
+
 					const requestWithId: ApiRequest = {
 						id: typeof requestObj.id === 'string' ? requestObj.id : id,
 						name: typeof requestObj.name === 'string' ? requestObj.name : name,
 						method: (typeof requestObj.method === 'string' ? requestObj.method : 'GET') as ApiRequest['method'],
 						url: typeof requestObj.url === 'string' ? requestObj.url : '',
 						queryParameters: qp,
-						headers: headers,
-						body: typeof requestObj.body === 'string' ? requestObj.body : undefined
+						headers: headers
 					};
+
+					if (typeof requestObj.body === 'string') {
+						requestWithId.body = requestObj.body;
+					}
+
+					if (formDataParams) {
+						requestWithId.bodyFormData = formDataParams;
+					}
+
+					if (formUrlEncodedParams) {
+						requestWithId.bodyFormUrlEncoded = formUrlEncodedParams;
+					}
+
+					if (binaryFiles) {
+						requestWithId.bodyBinaryFiles = binaryFiles;
+					}
+
+					if (assertions && assertions.length > 0) {
+						requestWithId.assertions = assertions;
+					}
 
 					const item: ApiRequestItem = {
 						id,
@@ -319,6 +399,53 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	}
 
 	/**
+	 * Find a request by its persisted file path and return identifiers needed for selection.
+	 */
+	public findRequestByFilePath(filePath: string): {
+		collection: ApiCollection;
+		folder?: ApiFolder;
+		requestItem: ApiRequestItem;
+		treeItemId: string;
+		parentIds: string[];
+	} | null {
+		const normalizedTarget = path.normalize(filePath);
+
+		for (const collection of this.collections) {
+			// Root-level requests
+			for (const requestItem of collection.rootItems || []) {
+				if (requestItem.filePath && path.normalize(requestItem.filePath) === normalizedTarget) {
+					const treeItemId = `${collection.id}-${requestItem.name}`;
+					return {
+						collection,
+						requestItem,
+						treeItemId,
+						parentIds: [collection.id]
+					};
+				}
+			}
+
+			// Folder requests
+			for (const folder of collection.folders || []) {
+				for (const requestItem of folder.items) {
+					if (requestItem.filePath && path.normalize(requestItem.filePath) === normalizedTarget) {
+						const folderId = `${collection.id}-${folder.name}`;
+						const treeItemId = `${folderId}-${requestItem.name}`;
+						return {
+							collection,
+							folder,
+							requestItem,
+							treeItemId,
+							parentIds: [collection.id, folderId]
+						};
+					}
+				}
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Get collections as JSON-serializable format for webview
 	 */
 	async getCollections(): Promise<Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; children?: Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; children?: Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest}>}>}>> {
@@ -435,9 +562,30 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				)
 			);
 		} else if (element.type === 'collection' && element.collection) {
-			// Collection level - show folders
-			return Promise.resolve(
-				element.collection.folders.map((folder: ApiFolder) =>
+			// Collection level - show root-level requests first, then folders
+			const children: ApiTreeItem[] = [];
+			
+			// Add root-level requests
+			if (element.collection.rootItems && element.collection.rootItems.length > 0) {
+				element.collection.rootItems.forEach((item: ApiRequestItem) => {
+					children.push(
+						new ApiTreeItem(
+							item.name,
+							vscode.TreeItemCollapsibleState.None,
+							'request',
+							'$(symbol-method)',
+							item.request.method,
+							undefined,
+							undefined,
+							item
+						)
+					);
+				});
+			}
+			
+			// Then add folders
+			element.collection.folders.forEach((folder: ApiFolder) => {
+				children.push(
 					new ApiTreeItem(
 						folder.name,
 						vscode.TreeItemCollapsibleState.Collapsed,
@@ -447,8 +595,10 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						undefined,
 						folder
 					)
-				)
-			);
+				);
+			});
+			
+			return Promise.resolve(children);
 		} else if (element.type === 'folder' && element.folder) {
 			// Folder level - show request items
 			return Promise.resolve(

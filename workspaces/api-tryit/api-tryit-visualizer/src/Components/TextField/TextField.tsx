@@ -15,8 +15,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import styled from "@emotion/styled";
+import { TextField as T } from "@wso2/ui-toolkit";
 
-export { CodeInput } from './CodeInput';
-export * from './Types';
-export * from './Constants';
-export * from './Utils';
+export const TextField = styled(T)`
+    ::part(root) {
+        height: 30px;
+    }
+`;

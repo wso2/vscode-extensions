@@ -16,187 +16,239 @@
  * under the License.
  */
 
-import React, { useState } from 'react';
-import { Typography, LinkButton, Codicon, Button } from '@wso2/ui-toolkit';
+import React from 'react';
+import { Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
-import { ParamItem } from './ParamItem';
+import { InputForm } from './Form/InputForm';
+import { InputCode } from './Code/InputCode';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
-import { CodeTextArea } from '../Components/CodeTextArea/CodeTextArea';
-import { CodeInput } from './CodeInput/CodeInput';
+import { getVSCodeAPI } from '../utils/vscode-api';
+import { Output } from '../Output';
 
 type InputMode = 'code' | 'form';
+type BodyFormat = 'json' | 'xml' | 'text' | 'html' | 'javascript' | 'form-data' | 'form-urlencoded' | 'binary' | 'no-body';
 
 interface InputProps {
     request: ApiRequest;
     onRequestChange?: (request: ApiRequest) => void;
     mode?: InputMode;
+    response?: React.ComponentProps<typeof Output>['response'];
+    // A counter that increments when parent requests the Output be scrolled into view
+    bringOutputCounter?: number;
 }
 
 const Container = styled.div`
     width: 100%;
+    height: calc(100vh - 215px);
+    overflow: auto;
 `;
-
-const Section = styled.div`
-    margin-bottom: 12px;
-`;
-
-const AddButtonWrapper = styled.div`
-    margin-top: 4px;
-    margin-left: 4px;
-`;
-
-
 
 export const Input: React.FC<InputProps> = ({ 
     request,
     onRequestChange,
-    mode = 'code'
+    mode = 'code',
+    response,
+    bringOutputCounter
 }) => {
+    // Attach ref to the scrollable container so we can control scroll position precisely
+    const [bodyFormat, setBodyFormat] = React.useState<BodyFormat>('json');
+    const formatMenuRef = React.useRef<HTMLDivElement>(null);
+    const outputRef = React.useRef<HTMLDivElement>(null);
+    const containerRef = React.useRef<HTMLDivElement>(null);
+
+    // Only scroll when parent explicitly requests it (bringOutputCounter increments).
+    // Use a pending mechanism so if the trigger happens before the response arrives we still scroll when it does.
+    const lastBringCounterRef = React.useRef<number>(bringOutputCounter ?? 0);
+    const pendingBringRef = React.useRef<number | null>(null);
+
+    React.useEffect(() => {
+        if (typeof bringOutputCounter !== 'number') return;
+        if (lastBringCounterRef.current === bringOutputCounter) return; // no change
+
+        // Record the new bring counter value
+        lastBringCounterRef.current = bringOutputCounter;
+
+        if (response && outputRef.current && containerRef.current) {
+            // Response already present — perform scroll immediately
+            setTimeout(() => {
+                try {
+                    const container = containerRef.current!;
+                    const outputEl = outputRef.current!;
+                    const containerRect = container.getBoundingClientRect();
+                    const outputRect = outputEl.getBoundingClientRect();
+                    const offset = 16; // small padding from top
+
+                    // Align the top of the output with a small offset
+                    const targetScrollTop = container.scrollTop + (outputRect.top - containerRect.top) - offset;
+                    container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+                    setTimeout(() => outputEl.focus(), 300);
+                } catch (e) {
+                    outputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    outputRef.current?.focus();
+                }
+            }, 150);
+
+            pendingBringRef.current = null;
+        } else {
+            // Response not yet available — remember we need to scroll when it arrives
+            pendingBringRef.current = bringOutputCounter;
+        }
+    }, [bringOutputCounter]);
+
+    // When response arrives, if there's a pending bring request for the current counter, scroll now
+    React.useEffect(() => {
+        if (!response) return;
+        if (pendingBringRef.current === null) return;
+        if (pendingBringRef.current !== lastBringCounterRef.current) return; // stale pending
+
+        if (outputRef.current && containerRef.current) {
+            setTimeout(() => {
+                try {
+                    const container = containerRef.current!;
+                    const outputEl = outputRef.current!;
+                    const containerRect = container.getBoundingClientRect();
+                    const outputRect = outputEl.getBoundingClientRect();
+                    const offset = 16;
+                    const targetScrollTop = container.scrollTop + (outputRect.top - containerRect.top) - offset;
+                    container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+                    setTimeout(() => outputEl.focus(), 300);
+                } catch (e) {
+                    outputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    outputRef.current?.focus();
+                }
+            }, 150);
+        }
+
+        pendingBringRef.current = null;
+    }, [response]);
+
+    const handleFormatChange = (format: BodyFormat) => {
+        setBodyFormat(format);
+        // Clear body immediately when format changes
+        handleBodyChange('');
+    };
+
+    // Get VS Code API
+    const vscode = getVSCodeAPI();
+
+    // Note: File selection is now handled directly via HTML5 File Input API in handleFileSelect
 
     // Safety check to ensure request object exists with required properties
     if (!request) {
         return <Container><Typography>Loading...</Typography></Container>;
     }
 
-    const addQueryParam = () => {
-        const newParam: QueryParameter = {
-            id: Date.now().toString(),
-            key: '',
-            value: ''
-        };
+    const handleBodyChange = (value: string | undefined) => {
         const updatedRequest = {
             ...request,
-            queryParameters: [...(request.queryParameters || []), newParam]
+            body: value || ''
         };
         onRequestChange?.(updatedRequest);
     };
 
-    const updateQueryParam = (id: string, key: string, value: string) => {
+    const updateFormDataParam = (
+        id: string,
+        key: string,
+        filePath: string | undefined,
+        contentType: string,
+        value?: string
+    ) => {
         const updatedRequest = {
             ...request,
-            queryParameters: (request.queryParameters || []).map(param =>
-                param.id === id ? { ...param, key, value } : param
+            bodyFormData: (request.bodyFormData || []).map(param => {
+                if (param.id !== id) {
+                    return param;
+                }
+
+                const updatedParam: any = { ...param, key, contentType };
+
+                if (filePath !== undefined) {
+                    updatedParam.filePath = filePath;
+                } else {
+                    delete updatedParam.filePath;
+                }
+
+                if (value !== undefined) {
+                    updatedParam.value = value;
+                } else {
+                    delete updatedParam.value;
+                }
+
+                return updatedParam;
+            })
+        };
+        onRequestChange?.(updatedRequest);
+    };
+
+    const updateFormDataParamContentType = (id: string, contentType: string) => {
+        const updatedRequest = {
+            ...request,
+            bodyFormData: (request.bodyFormData || []).map(param =>
+                param.id === id ? { ...param, contentType } : param
             )
         };
         onRequestChange?.(updatedRequest);
     };
 
-    const deleteQueryParam = (id: string) => {
-        const updatedRequest = {
-            ...request,
-            queryParameters: (request.queryParameters || []).filter(param => param.id !== id)
+    // Listen for file selection response from extension
+    React.useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            const message = event.data;
+            if (message.type === 'fileSelected') {
+                const { paramId, filePath } = message.data;
+                const param = (request.bodyFormData || []).find(p => p.id === paramId);
+                if (param) {
+                    updateFormDataParam(
+                        paramId,
+                        param.key,
+                        filePath,
+                        param.contentType || 'application/octet-stream'
+                    );
+                }
+            }
         };
-        onRequestChange?.(updatedRequest);
-    };
 
-    const addHeader = () => {
-        const newHeader: HeaderParameter = {
-            id: Date.now().toString(),
-            key: '',
-            value: ''
-        };
-        const updatedRequest = {
-            ...request,
-            headers: [...(request.headers || []), newHeader]
-        };
-        onRequestChange?.(updatedRequest);
-    };
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, [request.bodyFormData, updateFormDataParam]);
 
-    const updateHeader = (id: string, key: string, value: string) => {
-        const updatedRequest = {
-            ...request,
-            headers: (request.headers || []).map(header =>
-                header.id === id ? { ...header, key, value } : header
-            )
-        };
-        onRequestChange?.(updatedRequest);
-    };
-
-    const deleteHeader = (id: string) => {
-        const updatedRequest = {
-            ...request,
-            headers: (request.headers || []).filter(header => header.id !== id)
-        };
-        onRequestChange?.(updatedRequest);
-    };
-
-    const handleBodyChange = (value: string) => {
-        const updatedRequest = {
-            ...request,
-            body: value
-        };
-        onRequestChange?.(updatedRequest);
+    const handleFileSelect = (paramId: string) => {
+        // Request file selection from VS Code extension
+        if (vscode) {
+            vscode.postMessage({
+                command: 'selectFile',
+                data: { paramId }
+            });
+        }
     };
 
     return (
-        <Container>
+        <Container ref={containerRef}>
             {mode === 'code' ? (
-                <CodeInput request={request} onRequestChange={onRequestChange} />
+                <InputCode request={request} onRequestChange={onRequestChange} bodyFormat={bodyFormat} onFormatChange={handleFormatChange} />
             ) : (
-                <>
-                    {/* Query Parameters Section */}
-                    <Section>
-                        <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
-                            Query Parameter
-                        </Typography>
-                        {(request.queryParameters || []).map(param => (
-                            <ParamItem
-                                key={param.id}
-                                keyValue={param.key}
-                                value={param.value}
-                                onKeyChange={(key) => updateQueryParam(param.id, key, param.value)}
-                                onValueChange={(value) => updateQueryParam(param.id, param.key, value)}
-                                onDelete={() => deleteQueryParam(param.id)}
-                            />
-                        ))}
-                        <AddButtonWrapper>
-                            <LinkButton onClick={addQueryParam}>
-                                <Codicon name="add" />
-                                Query Parameter
-                            </LinkButton>
-                        </AddButtonWrapper>
-                    </Section>
-
-                    {/* Headers Section */}
-                    <Section>
-                        <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
-                            Header
-                        </Typography>
-                        {(request.headers || []).map(header => (
-                            <ParamItem
-                                key={header.id}
-                                keyValue={header.key}
-                                value={header.value}
-                                onKeyChange={(key) => updateHeader(header.id, key, header.value)}
-                                onValueChange={(value) => updateHeader(header.id, header.key, value)}
-                                onDelete={() => deleteHeader(header.id)}
-                            />
-                        ))}
-                        <AddButtonWrapper>
-                            <LinkButton onClick={addHeader}>
-                                <Codicon name="add" />
-                                Header
-                            </LinkButton>
-                        </AddButtonWrapper>
-                    </Section>
-
-                    {/* Body Section */}
-                    <Section>
-                        <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
-                            Body
-                        </Typography>
-                        <CodeTextArea
-                            id="body-textarea"
-                            resize="vertical"
-                            growRange={{ start: 5, offset: 10 }}
-                            sx={{ width: '100%', padding: '0 4px' }}
-                            value={request.body || ''}
-                            onChange={(e: any) => handleBodyChange(e.target.value)}
-                            placeholder="Enter request body..."
-                        />
-                    </Section>
-                </>
+                <InputForm
+                    request={request}
+                    onRequestChange={onRequestChange}
+                    bodyFormat={bodyFormat}
+                    updateFormDataParamContentType={updateFormDataParamContentType}
+                    handleFileSelect={handleFileSelect}
+                    onFormatChange={handleFormatChange}
+                />
             )}
+
+            {response && (
+                
+                <div ref={outputRef} tabIndex={-1} role="region" aria-label="Response output" style={{ marginTop: '24px', borderTop: '1px solid var(--vscode-panel-border)', paddingTop: '16px' }}>
+                    <Typography variant='h3' sx={{ margin: 0, marginBottom: '12px' }}>
+                        Response
+                    </Typography>
+                    <Output response={response} embedded />
+                </div>
+            )}
+
+
+        
         </Container>
     );
 };

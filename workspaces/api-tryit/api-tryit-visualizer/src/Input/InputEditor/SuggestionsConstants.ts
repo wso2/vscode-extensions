@@ -16,22 +16,10 @@
  * under the License.
  */
 
-import { CommonHeader, CommonQueryParam, JsonSnippet } from './Types';
-
 /**
- * Language ID for the custom Monaco language
+ * Common HTTP headers with their possible values for auto-completion
  */
-export const LANGUAGE_ID = 'api-tryit-http';
-
-/**
- * Section headers used in the code editor
- */
-export const SECTION_HEADERS = ['Query Parameters', 'Headers', 'Body'] as const;
-
-/**
- * Common HTTP headers for completions
- */
-export const COMMON_HEADERS: CommonHeader[] = [
+export const COMMON_HEADERS = [
     { name: 'Content-Type', values: ['application/json', 'application/xml', 'text/plain', 'text/html', 'multipart/form-data', 'application/x-www-form-urlencoded'] },
     { name: 'Accept', values: ['application/json', 'application/xml', 'text/plain', 'text/html', '*/*'] },
     { name: 'Authorization', values: ['Bearer ', 'Basic ', 'Digest '] },
@@ -48,26 +36,17 @@ export const COMMON_HEADERS: CommonHeader[] = [
 ];
 
 /**
- * Common query parameters for completions
+ * Common query parameter names for auto-completion
  */
-export const COMMON_QUERY_PARAMS: CommonQueryParam[] = [
-    { name: 'page', description: 'Pagination page number' },
-    { name: 'limit', description: 'Number of items per page' },
-    { name: 'offset', description: 'Offset for pagination' },
-    { name: 'sort', description: 'Sort field' },
-    { name: 'order', description: 'Sort order (asc/desc)' },
-    { name: 'filter', description: 'Filter criteria' },
-    { name: 'search', description: 'Search query' },
-    { name: 'q', description: 'Quick search query' },
-    { name: 'id', description: 'Resource ID' },
-    { name: 'fields', description: 'Fields to include in response' },
+export const COMMON_QUERY_KEYS = [
+    'page', 'limit', 'offset', 'sort', 'order', 'filter', 'search', 'q', 'id', 'fields'
 ];
 
 /**
- * JSON snippets for body section
+ * JSON snippets for body section auto-completion
  */
-export const JSON_SNIPPETS: JsonSnippet[] = [
+export const COMMON_BODY_SNIPPETS = [
     { label: 'JSON Object', insertText: '{\n\t"$1": "$2"\n}', description: 'Insert a JSON object' },
     { label: 'JSON Array', insertText: '[\n\t$1\n]', description: 'Insert a JSON array' },
-    { label: 'Key-Value Pair', insertText: '"$1": "$2"', description: 'Insert a key-value pair' },
+    { label: 'Key-Value Pair', insertText: '"$1": "$2"', description: 'Insert a key-value pair' }
 ];
