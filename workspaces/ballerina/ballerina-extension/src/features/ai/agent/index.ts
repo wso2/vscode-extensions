@@ -29,13 +29,14 @@ import { GenerationType, getAllLibraries, LIBRARY_PROVIDER_TOOL } from "../utils
 import { getHealthcareLibraryProviderTool, HEALTHCARE_LIBRARY_PROVIDER_TOOL } from "../tools/healthcare-library";
 import { AIChatStateMachine } from "../../../views/ai-panel/aiChatMachine";
 import { getTempProject as createTempProjectOfWorkspace } from "../utils/project/temp-project";
-import { getSystemPrompt, getUserPrompt } from "./prompts";
+import { getSystemPrompt, getTryItSystemPrompt, getUserPrompt } from "./prompts";
 import { createConnectorGeneratorTool, CONNECTOR_GENERATOR_TOOL } from "../tools/connector-generator";
 import { getProjectSource } from "../utils/project/temp-project";
 import { StateMachine } from "../../../stateMachine";
 import { createAgentEventRegistry } from "./stream-handlers/create-agent-event-registry";
 import { StreamContext } from "./stream-handlers/stream-context";
 import { StreamErrorException, StreamAbortException, StreamFinishException } from "./stream-handlers/stream-event-handler";
+import { createHttpRequestTool, HTTP_REQUEST_TOOL_NAME } from "../tools/http-request";
 
 // ==================================
 // ExecutionContext Factory Functions
@@ -95,7 +96,7 @@ export async function generateAgentCore(
     const allMessages: ModelMessage[] = [
         {
             role: "system",
-            content: getSystemPrompt(projects, params.operationType),
+            content: getTryItSystemPrompt(projects, params.operationType),
             providerOptions: cacheOptions,
         },
         ...historyMessages,
@@ -120,6 +121,7 @@ export async function generateAgentCore(
         [FILE_BATCH_EDIT_TOOL_NAME]: createBatchEditTool(createMultiEditExecute(eventHandler, tempProjectPath, projectPath, modifiedFiles)),
         [FILE_READ_TOOL_NAME]: createReadTool(createReadExecute(eventHandler, tempProjectPath)),
         [DIAGNOSTICS_TOOL_NAME]: createDiagnosticsTool(tempProjectPath),
+        [HTTP_REQUEST_TOOL_NAME]: createHttpRequestTool(eventHandler)
     };
 
     const { fullStream, response } = streamText({
