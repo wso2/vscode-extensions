@@ -108,7 +108,6 @@ const Input = styled.input`
 
 const BrowseButton = styled(VSCodeButton)`
     height: 28px;
-    padding: 0 16px;
     white-space: nowrap;
     display: flex;
     align-items: center;
