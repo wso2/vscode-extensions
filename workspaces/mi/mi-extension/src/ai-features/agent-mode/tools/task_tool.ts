@@ -18,77 +18,215 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { ToolResult, TaskExecuteFn, SubagentType, TASK_TOOL_NAME } from './types';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { TaskResult, TaskExecuteFn, BackgroundSubagent, SubagentResult, TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './types';
 import { logInfo, logError, logDebug } from '../../copilot/logger';
 import { AnthropicModel } from '../../connection';
 
-// Import subagent executors (will be created next)
+// Import subagent executors
 import { executePlanSubagent } from '../agents/subagents/plan/agent';
 import { executeExploreSubagent } from '../agents/subagents/explore/agent';
 
 // ============================================================================
-// Task Tool - Spawns specialized subagents
+// Module State - Background Subagent Tracking
+// ============================================================================
+
+const backgroundSubagents: Map<string, BackgroundSubagent> = new Map();
+
+/**
+ * Get all background subagents (used by task_output tool in bash_tools.ts)
+ */
+export function getBackgroundSubagents(): Map<string, BackgroundSubagent> {
+    return backgroundSubagents;
+}
+
+/**
+ * Clean up completed background subagents older than 1 hour
+ */
+function cleanupOldSubagents(): void {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    for (const [id, subagent] of backgroundSubagents.entries()) {
+        if (subagent.completed && subagent.startTime < oneHourAgo) {
+            backgroundSubagents.delete(id);
+        }
+    }
+}
+
+// ============================================================================
+// JSONL & Output File Utilities
+// ============================================================================
+
+/**
+ * Get the subagents directory for a session
+ */
+function getSubagentsDir(projectPath: string, sessionId: string, taskId: string): string {
+    return path.join(projectPath, '.mi-copilot', sessionId, 'subagents', taskId);
+}
+
+/**
+ * Save subagent conversation steps to JSONL
+ */
+async function saveSubagentHistory(historyDir: string, steps: any[]): Promise<void> {
+    const historyPath = path.join(historyDir, 'history.jsonl');
+    const lines = steps.map(step => JSON.stringify(step)).join('\n') + '\n';
+    await fs.writeFile(historyPath, lines, 'utf8');
+    logDebug(`[TaskTool] Saved ${steps.length} steps to ${historyPath}`);
+}
+
+/**
+ * Write subagent output to a markdown file
+ */
+async function writeOutputFile(outputPath: string, text: string): Promise<void> {
+    await fs.writeFile(outputPath, text, 'utf8');
+    logDebug(`[TaskTool] Wrote output to ${outputPath}`);
+}
+
+// ============================================================================
+// Subagent Execution Helper
+// ============================================================================
+
+/**
+ * Execute a subagent (Plan or Explore) and return the result
+ */
+async function runSubagent(
+    subagentType: string,
+    prompt: string,
+    projectPath: string,
+    model: 'haiku' | 'sonnet',
+    getAnthropicClient: (model: AnthropicModel) => Promise<any>
+): Promise<SubagentResult> {
+    switch (subagentType) {
+        case 'Plan':
+            return await executePlanSubagent(prompt, projectPath, model, getAnthropicClient);
+        case 'Explore':
+            return await executeExploreSubagent(prompt, projectPath, model, getAnthropicClient);
+        default:
+            throw new Error(`Unknown subagent type: ${subagentType}. Available types: Plan, Explore`);
+    }
+}
+
+// ============================================================================
+// Task Tool - Spawns specialized subagents (foreground or background)
 // ============================================================================
 
 /**
  * Creates the execute function for the task tool
  * @param projectPath - The project root path
+ * @param sessionId - Current session ID (for JSONL storage path)
  * @param getAnthropicClient - Function to get the Anthropic client (takes AnthropicModel)
  */
 export function createTaskExecute(
     projectPath: string,
+    sessionId: string,
     getAnthropicClient: (model: AnthropicModel) => Promise<any>
 ): TaskExecuteFn {
-    return async (args): Promise<ToolResult> => {
-        const { description, prompt, subagent_type, model = 'haiku' } = args;
+    return async (args): Promise<TaskResult> => {
+        const { description, prompt, subagent_type, model = 'haiku', run_in_background = false } = args;
 
-        logInfo(`[TaskTool] Spawning ${subagent_type} subagent: ${description}`);
+        logInfo(`[TaskTool] Spawning ${subagent_type} subagent: ${description} (background: ${run_in_background})`);
         logDebug(`[TaskTool] Prompt: ${prompt.substring(0, 200)}...`);
 
-        try {
-            let response: string;
+        // Clean up old subagents periodically
+        cleanupOldSubagents();
 
-            switch (subagent_type) {
-                case 'Plan':
-                    response = await executePlanSubagent(
-                        prompt,
-                        projectPath,
-                        model,
-                        getAnthropicClient
-                    );
-                    break;
+        if (run_in_background) {
+            // ================================================================
+            // Background Execution
+            // ================================================================
+            const taskId = uuidv4();
+            const subagentDir = getSubagentsDir(projectPath, sessionId, taskId);
+            const outputFilePath = path.join(subagentDir, 'output.md');
+            const relativeOutputPath = `.mi-copilot/${sessionId}/subagents/${taskId}/output.md`;
 
-                case 'Explore':
-                    response = await executeExploreSubagent(
-                        prompt,
-                        projectPath,
-                        model,
-                        getAnthropicClient
-                    );
-                    break;
+            // Create directory
+            await fs.mkdir(subagentDir, { recursive: true });
 
-                default:
-                    return {
-                        success: false,
-                        message: `Unknown subagent type: ${subagent_type}. Available types: Plan, Explore`,
-                        error: 'UNKNOWN_SUBAGENT_TYPE'
-                    };
-            }
+            // Register in background map
+            const entry: BackgroundSubagent = {
+                id: taskId,
+                subagentType: subagent_type,
+                description,
+                startTime: new Date(),
+                output: '',
+                completed: false,
+                success: null,
+                outputFilePath,
+                historyDirPath: subagentDir,
+            };
+            backgroundSubagents.set(taskId, entry);
 
-            logInfo(`[TaskTool] ${subagent_type} subagent completed successfully`);
-            logDebug(`[TaskTool] Response length: ${response.length} chars`);
+            logInfo(`[TaskTool] Started background ${subagent_type} subagent: ${taskId}`);
 
+            // Fire-and-forget execution
+            runSubagent(subagent_type, prompt, projectPath, model, getAnthropicClient)
+                .then(async (result: SubagentResult) => {
+                    entry.output = result.text;
+                    entry.completed = true;
+                    entry.success = true;
+
+                    logInfo(`[TaskTool] Background ${subagent_type} subagent completed: ${taskId}`);
+                    logDebug(`[TaskTool] Response length: ${result.text.length} chars`);
+
+                    // Write output file and save history (non-blocking)
+                    try {
+                        await writeOutputFile(outputFilePath, result.text);
+                        await saveSubagentHistory(subagentDir, result.steps);
+                    } catch (writeError: any) {
+                        logError(`[TaskTool] Failed to write output/history for ${taskId}`, writeError);
+                    }
+                })
+                .catch(async (error: any) => {
+                    entry.output = `Subagent execution failed: ${error.message}`;
+                    entry.completed = true;
+                    entry.success = false;
+
+                    logError(`[TaskTool] Background ${subagent_type} subagent failed: ${taskId}`, error);
+
+                    // Write error to output file
+                    try {
+                        await writeOutputFile(outputFilePath, `# Error\n\n${error.message}`);
+                    } catch (writeError: any) {
+                        logError(`[TaskTool] Failed to write error output for ${taskId}`, writeError);
+                    }
+                });
+
+            // Return immediately with task ID and output file path
             return {
                 success: true,
-                message: response
+                message: `${subagent_type} subagent started in background with task ID: ${taskId}. Use ${TASK_OUTPUT_TOOL_NAME} tool to check results.`,
+                taskId,
+                outputFile: relativeOutputPath,
             };
-        } catch (error: any) {
-            logError(`[TaskTool] ${subagent_type} subagent failed`, error);
-            return {
-                success: false,
-                message: `Subagent execution failed: ${error.message}`,
-                error: error.message
-            };
+        } else {
+            // ================================================================
+            // Foreground Execution (existing synchronous behavior)
+            // ================================================================
+            try {
+                const result = await runSubagent(subagent_type, prompt, projectPath, model, getAnthropicClient);
+
+                logInfo(`[TaskTool] ${subagent_type} subagent completed successfully`);
+                logDebug(`[TaskTool] Response length: ${result.text.length} chars`);
+
+                // Save history in background (non-blocking, fire-and-forget)
+                const subagentDir = getSubagentsDir(projectPath, sessionId, uuidv4());
+                fs.mkdir(subagentDir, { recursive: true })
+                    .then(() => saveSubagentHistory(subagentDir, result.steps))
+                    .catch((err: any) => logError('[TaskTool] Failed to save foreground subagent history', err));
+
+                return {
+                    success: true,
+                    message: result.text,
+                };
+            } catch (error: any) {
+                logError(`[TaskTool] ${subagent_type} subagent failed`, error);
+                return {
+                    success: false,
+                    message: `Subagent execution failed: ${error.message}`,
+                    error: error.message,
+                };
+            }
         }
     };
 }
@@ -111,7 +249,10 @@ const taskInputSchema = z.object({
     ),
     model: z.enum(['sonnet', 'haiku']).optional().describe(
         'Optional model selection. Defaults to haiku for cost efficiency. Use sonnet for complex design tasks.'
-    )
+    ),
+    run_in_background: z.boolean().optional().describe(
+        'Set to true to run the subagent in the background. Returns a task_id and output_file path. Use task_output tool to check results later.'
+    ),
 });
 
 /**
@@ -141,6 +282,14 @@ export function createTaskTool(execute: TaskExecuteFn) {
             3. You need to explore unfamiliar parts of the codebase
             4. The implementation approach is unclear
 
+            ## Background Execution
+
+            You can optionally run subagents in the background using the run_in_background parameter:
+            - When run_in_background=true, the tool returns immediately with a task_id and output_file path
+            - Use the ${TASK_OUTPUT_TOOL_NAME} tool to check on progress or retrieve results
+            - You can continue working while background subagents run
+            - Output is saved to a file and subagent conversation is persisted to JSONL
+
             ## Example
 
             User: "Create a REST API that syncs customers with Salesforce"
@@ -153,8 +302,8 @@ export function createTaskTool(execute: TaskExecuteFn) {
 
             ## Important
 
-            - Subagent response will be returned as the tool result
-            - Use the response to inform your next actions
+            - In foreground mode (default): subagent response is returned as the tool result
+            - In background mode: returns task_id immediately; use ${TASK_OUTPUT_TOOL_NAME} to get results
             - Default model is 'haiku' for cost efficiency; use 'sonnet' for complex designs
         `,
         inputSchema: taskInputSchema,

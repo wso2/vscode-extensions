@@ -34,6 +34,11 @@ import {
     ENTER_PLAN_MODE_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
+    BUILD_PROJECT_TOOL_NAME,
+    BASH_TOOL_NAME,
+    SERVER_MANAGEMENT_TOOL_NAME,
+    KILL_SHELL_TOOL_NAME,
+    TASK_OUTPUT_TOOL_NAME,
 } from '../../tools/types';
 import { SYNAPSE_GUIDE } from '../../context/synapse_guide';
 
@@ -91,6 +96,13 @@ You have access to following tools to develop Synapse integrations:
 - ${ENTER_PLAN_MODE_TOOL_NAME}: Enter plan mode to design an implementation before executing. Use for complex tasks (3+ steps) requiring user approval.
 - ${EXIT_PLAN_MODE_TOOL_NAME}: Exit plan mode and request user approval. This tool BLOCKS until user approves or rejects the plan.
 - ${TODO_WRITE_TOOL_NAME}: Create and manage a structured task list for tracking execution progress. Use AFTER plan is approved. MI-specific task types include: create_api, create_sequence, create_endpoint, add_connector, validate_code, build_project, run_project, test, general.
+
+**Bash Tools** (for running background processes):
+- ${BASH_TOOL_NAME}: Run a command in the background and return the output.
+- ${KILL_SHELL_TOOL_NAME}: Kill a running background bash shell by its ID.
+
+**Task Output Tools** (for getting the output of a running background task):
+- ${TASK_OUTPUT_TOOL_NAME}: Get the output of a running background bash shell or a background subagent by its ID.
 
 # Plan Mode Workflow
 
@@ -187,8 +199,17 @@ For complex integration requirements, use the **task** tool to spawn specialized
 - Review validation results and fix any errors reported by the Language Server.
 - Ensure all files are properly structured and error-free.
 
-## Step 5: Review and refine
-- If code validation fails, review the code and fix the errors.
+## Step 5: Build the project and run it and test it if possible
+- Use ${BUILD_PROJECT_TOOL_NAME} to build the project.
+- If the integration can be tested locally without mocking the external services, then test it locally. Else end your task and ask user to test the project manually.
+- If it needs any api keys or credentials ask user to set them then you can test else don't run the project.
+- Clearly explain that you can not test the project if it needs any api keys or credentials or if it is not possible to test locally.
+- Use ${SERVER_MANAGEMENT_TOOL_NAME} to run the project.
+- Use ${SERVER_MANAGEMENT_TOOL_NAME} to check the status of the project.
+- Then use ${BASH_TOOL_NAME} to test the project if possible.
+
+## Step 6: Review and refine
+- If code validation fails, or testing fails, review the code and fix the errors.
 - DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task.
 
 # Important Rules

@@ -20,6 +20,7 @@ import { generateText, stepCountIs } from 'ai';
 import { EXPLORE_SUBAGENT_SYSTEM } from './system';
 import { logInfo, logDebug, logError } from '../../../../copilot/logger';
 import { ANTHROPIC_HAIKU_4_5, ANTHROPIC_SONNET_4_5, AnthropicModel } from '../../../../connection';
+import { SubagentResult } from '../../../tools/types';
 
 // Import tools for subagent (read-only tools only)
 import {
@@ -43,14 +44,14 @@ import {
  * @param projectPath - The project root path
  * @param model - The model to use ('haiku' or 'sonnet')
  * @param getAnthropicClient - Function to get the Anthropic client
- * @returns The exploration findings as a string
+ * @returns SubagentResult with text response and steps for JSONL persistence
  */
 export async function executeExploreSubagent(
     prompt: string,
     projectPath: string,
     model: 'haiku' | 'sonnet',
     getAnthropicClient: (modelId: AnthropicModel) => Promise<any>
-): Promise<string> {
+): Promise<SubagentResult> {
     logInfo(`[ExploreSubagent] Starting with model: ${model}`);
     logDebug(`[ExploreSubagent] Project path: ${projectPath}`);
     logDebug(`[ExploreSubagent] Query: ${prompt.substring(0, 200)}...`);
@@ -97,7 +98,10 @@ Return your findings in the specified markdown format.
         logDebug(`[ExploreSubagent] Response length: ${result.text.length} chars`);
         logDebug(`[ExploreSubagent] Steps used: ${result.steps?.length || 0}`);
 
-        return result.text;
+        return {
+            text: result.text,
+            steps: result.steps || [],
+        };
     } catch (error: any) {
         logError(`[ExploreSubagent] Failed`, error);
         throw error;

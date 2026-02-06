@@ -23,6 +23,7 @@ import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { BashResult, ToolResult, BashExecuteFn, KillShellExecuteFn, TaskOutputExecuteFn, TaskOutputResult, BASH_TOOL_NAME, KILL_SHELL_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './types';
 import { logDebug, logError, logInfo } from '../../copilot/logger';
+import { getBackgroundSubagents } from './task_tool';
 import { setJavaHomeInEnvironmentAndPath } from '../../../debugger/debugHelper';
 import treeKill = require('tree-kill');
 
@@ -417,6 +418,7 @@ const MAX_BLOCK_TIMEOUT = 600000; // 10 minutes
 
 /**
  * Creates the execute function for the task_output tool
+ * Checks both backgroundShells (bash) and backgroundSubagents (task tool) maps
  */
 export function createTaskOutputExecute(): TaskOutputExecuteFn {
     return async (args: {
@@ -429,8 +431,9 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
         logInfo(`[TaskOutputTool] Getting output for task: ${task_id}, block: ${block}`);
 
         const shell = backgroundShells.get(task_id);
+        const subagent = getBackgroundSubagents().get(task_id);
 
-        if (!shell) {
+        if (!shell && !subagent) {
             return {
                 success: false,
                 message: `Task not found: ${task_id}`,
@@ -439,30 +442,35 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
             };
         }
 
+        // Use a unified view: either shell or subagent
+        const task = shell
+            ? { output: shell.output, completed: shell.completed, exitCode: shell.exitCode, type: 'shell' as const }
+            : { output: subagent!.output, completed: subagent!.completed, exitCode: subagent!.success === true ? 0 : subagent!.success === false ? 1 : null, type: 'subagent' as const };
+
         // If not blocking, return current state immediately
         if (!block) {
-            const output = truncateOutput(shell.output);
+            const output = truncateOutput(task.output);
             return {
                 success: true,
-                message: shell.completed
-                    ? `Task ${task_id} completed with exit code ${shell.exitCode}.\n\n**Output:**\n\`\`\`\n${output}\n\`\`\``
+                message: task.completed
+                    ? `Task ${task_id} completed.\n\n**Output:**\n\`\`\`\n${output}\n\`\`\``
                     : `Task ${task_id} is still running.\n\n**Output so far:**\n\`\`\`\n${output}\n\`\`\``,
                 output: output,
-                completed: shell.completed,
-                exitCode: shell.exitCode,
-                running: !shell.completed
+                completed: task.completed,
+                exitCode: task.exitCode,
+                running: !task.completed
             };
         }
 
         // If already completed, return immediately
-        if (shell.completed) {
-            const output = truncateOutput(shell.output);
+        if (task.completed) {
+            const output = truncateOutput(task.output);
             return {
-                success: shell.exitCode === 0,
-                message: `Task ${task_id} completed with exit code ${shell.exitCode}.\n\n**Output:**\n\`\`\`\n${output}\n\`\`\``,
+                success: task.exitCode === 0,
+                message: `Task ${task_id} completed.\n\n**Output:**\n\`\`\`\n${output}\n\`\`\``,
                 output: output,
                 completed: true,
-                exitCode: shell.exitCode,
+                exitCode: task.exitCode,
                 running: false
             };
         }
@@ -476,20 +484,27 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
             const checkInterval = setInterval(() => {
                 const elapsed = Date.now() - startTime;
 
-                if (shell.completed) {
+                // Re-read current state (mutable references)
+                const currentCompleted = shell ? shell.completed : subagent!.completed;
+                const currentOutput = shell ? shell.output : subagent!.output;
+                const currentExitCode = shell
+                    ? shell.exitCode
+                    : (subagent!.success === true ? 0 : subagent!.success === false ? 1 : null);
+
+                if (currentCompleted) {
                     clearInterval(checkInterval);
-                    const output = truncateOutput(shell.output);
+                    const output = truncateOutput(currentOutput);
                     resolve({
-                        success: shell.exitCode === 0,
-                        message: `Task ${task_id} completed with exit code ${shell.exitCode}.\n\n**Output:**\n\`\`\`\n${output}\n\`\`\``,
+                        success: currentExitCode === 0,
+                        message: `Task ${task_id} completed.\n\n**Output:**\n\`\`\`\n${output}\n\`\`\``,
                         output: output,
                         completed: true,
-                        exitCode: shell.exitCode,
+                        exitCode: currentExitCode,
                         running: false
                     });
                 } else if (elapsed >= effectiveTimeout) {
                     clearInterval(checkInterval);
-                    const output = truncateOutput(shell.output);
+                    const output = truncateOutput(currentOutput);
                     resolve({
                         success: true,
                         message: `Task ${task_id} is still running after ${effectiveTimeout / 1000}s wait.\n\n**Output so far:**\n\`\`\`\n${output}\n\`\`\`\n\nUse task_output again to check later, or kill_shell to terminate.`,
@@ -508,7 +523,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
  * Input schema for task_output tool
  */
 const taskOutputInputSchema = z.object({
-    task_id: z.string().describe('The ID of the background task (shell_id returned from bash with run_in_background=true)'),
+    task_id: z.string().describe('The ID of the background task (shell_id from bash or task_id from task tool with run_in_background=true)'),
     block: z.boolean().optional().default(true).describe(
         'Whether to wait for task completion. Default is true. Set to false to check current status immediately.'
     ),
@@ -522,19 +537,21 @@ const taskOutputInputSchema = z.object({
  */
 export function createTaskOutputTool(execute: TaskOutputExecuteFn) {
     return (tool as any)({
-        description: `Get output from a running or completed background task.
+        description: `Get output from a running or completed background task (bash command or subagent).
 
 **Purpose:**
-Check on the status and retrieve output from a background bash command that was started with run_in_background=true.
+Check on the status and retrieve output from:
+- A background bash command (started with bash tool's run_in_background=true)
+- A background subagent (started with task tool's run_in_background=true)
 
 **Parameters:**
-- task_id: The shell_id returned when the background command was started
+- task_id: The shell_id or task_id returned when the background task was started
 - block: If true (default), waits for completion up to the timeout
 - timeout: Max wait time in milliseconds (default 30s, max 10min)
 
 **When to use:**
 - Check if a long-running build has completed
-- Retrieve the output of a completed background task
+- Retrieve the output of a completed background task or subagent
 - Monitor progress of a background operation
 
 **Returns:**
@@ -543,9 +560,10 @@ Check on the status and retrieve output from a background bash command that was 
 - Exit code (if completed)
 
 **Example usage:**
-1. Start background task: bash(command="mvn test", run_in_background=true) → returns shell_id
-2. Check status: task_output(task_id=shell_id, block=false) → current status
-3. Wait for completion: task_output(task_id=shell_id, block=true) → blocks until done`,
+1. Start background bash: bash(command="mvn test", run_in_background=true) → returns shell_id
+2. Start background subagent: task(subagent_type="Explore", run_in_background=true) → returns task_id
+3. Check status: task_output(task_id=id, block=false) → current status
+4. Wait for completion: task_output(task_id=id, block=true) → blocks until done`,
         inputSchema: taskOutputInputSchema,
         execute
     });

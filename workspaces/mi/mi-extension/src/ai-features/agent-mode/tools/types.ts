@@ -99,6 +99,31 @@ export const TASK_OUTPUT_TOOL_NAME = 'task_output';
 
 export type SubagentType = 'Plan' | 'Explore';
 
+/**
+ * Return type from subagent execution (captures messages for JSONL persistence)
+ */
+export interface SubagentResult {
+    /** Final text response from the subagent */
+    text: string;
+    /** AI SDK steps with tool calls/results (for JSONL history) */
+    steps: any[];
+}
+
+/**
+ * Background subagent tracking (mirrors BackgroundShell pattern from bash_tools)
+ */
+export interface BackgroundSubagent {
+    id: string;
+    subagentType: SubagentType;
+    description: string;
+    startTime: Date;
+    output: string;           // accumulated text output
+    completed: boolean;
+    success: boolean | null;
+    outputFilePath: string;   // path to output.md file
+    historyDirPath: string;   // path to subagents/<task-id>/ directory
+}
+
 // ============================================================================
 // Todo Types (Claude Code style - simplified, in-memory only)
 // ============================================================================
@@ -202,12 +227,21 @@ export type ServerManagementExecuteFn = (args: {
 // Plan Mode Tool Execute Function Types
 // ============================================================================
 
+/**
+ * Task tool result (extends ToolResult with background task info)
+ */
+export interface TaskResult extends ToolResult {
+    taskId?: string;
+    outputFile?: string;
+}
+
 export type TaskExecuteFn = (args: {
     description: string;
     prompt: string;
     subagent_type: SubagentType;
     model?: 'sonnet' | 'haiku';
-}) => Promise<ToolResult>;
+    run_in_background?: boolean;
+}) => Promise<TaskResult>;
 
 export interface QuestionOption {
     label: string;
