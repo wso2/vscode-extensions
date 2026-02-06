@@ -776,29 +776,10 @@ const writeInputSchema = z.object({
 export function createWriteTool(execute: WriteExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `
-            Creates a new file with the specified content.
-
-            Usage:
-            - Use this tool to create NEW files only. It will not overwrite existing files with content.
-            - To modify existing files, use ${FILE_EDIT_TOOL_NAME} instead.
-            - The file path should be relative to the project root.
-            - Parent directories will be created automatically if they don't exist.
-            - Valid file extensions: ${VALID_FILE_EXTENSIONS.join(', ')}
-            - Do NOT proactively create documentation files unless requested
-
-            For Synapse/MI projects, common paths include but are not limited to:
-            - src/main/wso2mi/artifacts/apis/ - API configurations
-            - src/main/wso2mi/artifacts/sequences/ - Sequence configurations
-            - src/main/wso2mi/artifacts/endpoints/ - Endpoint configurations
-            - src/main/wso2mi/artifacts/proxy-services/ - Proxy service configurations
-            - src/main/wso2mi/artifacts/inbound-endpoints/ - Inbound endpoint configurations
-
-            Automatic Validation:
-            - XML files are automatically validated after writing using the LemMinx LSP
-            - Validation results (errors/warnings) are included in the tool result
-            - You don't need to separately call validate_code for files you just wrote
-            `,
+        description: `Creates a new file. Will NOT overwrite existing files with content - use ${FILE_EDIT_TOOL_NAME} for that.
+            Parent directories are created automatically. Valid extensions: ${VALID_FILE_EXTENSIONS.join(', ')}.
+            XML files are automatically validated after writing (results included in response).
+            Do NOT create documentation files unless explicitly requested.`,
         inputSchema: writeInputSchema,
         execute
     });
@@ -817,19 +798,9 @@ const readInputSchema = z.object({
 export function createReadTool(execute: ReadExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `
-            Reads a file from the project. You can access any file in the project directly by using this tool.
-
-            Usage:
-            - Reads up to ${MAX_LINE_LENGTH} lines by default
-            - Lines longer than ${MAX_LINE_LENGTH} characters will be truncated.
-            - Returns content with line numbers (cat -n format)
-            - For large files, use offset and limit parameters to read in chunks.
-            - Valid file extensions: ${VALID_FILE_EXTENSIONS.join(', ')}
-            - You can call multiple tools in a single response. It is always better to speculatively read multiple potentially useful files in parallel.
-
-            IMPORTANT: Before editing a file, always read it first to understand its current content and structure.
-            `,
+        description: `Reads a file from the project. Returns content with line numbers.
+            Use offset/limit for large files. ALWAYS read a file before editing it.
+            You can speculatively read multiple files in parallel.`,
         inputSchema: readInputSchema,
         execute
     });
@@ -849,27 +820,11 @@ const editInputSchema = z.object({
 export function createEditTool(execute: EditExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `
-            Performs a find-and-replace operation on an existing file.
-
-            Usage:
-            - ALWAYS read the file first before editing to ensure you have the exact content.
-            - The old_string must match EXACTLY, including all whitespace, indentation, and line breaks.
-            - The edit will FAIL if old_string is not unique. Either:
-            - Provide more surrounding context to make it unique, OR
-            - Set replace_all to true to replace ALL occurrences
-            - Use replace_all=true when renaming variables, updating repeated patterns, etc.
-            - Cannot create new files. Use ${FILE_WRITE_TOOL_NAME} for that.
-
-            Tips for Synapse XML editing:
-            - Include surrounding XML tags to ensure unique matches
-            - Preserve XML indentation exactly
-            - Be careful with XML namespaces and attributes
-
-            Automatic Validation:
-            - XML files are automatically validated after editing using the LemMinx LSP
-            - Validation results (errors/warnings) are included in the tool result
-            - You don't need to separately call validate_code for files you just edited`,
+        description: `Find-and-replace on an existing file. ALWAYS read the file first.
+            old_string must match EXACTLY (whitespace, indentation, line breaks).
+            Fails if old_string is not unique - provide more context or set replace_all=true.
+            Cannot create new files - use ${FILE_WRITE_TOOL_NAME} for that.
+            XML files are automatically validated after editing (results included in response).`,
         inputSchema: editInputSchema,
         execute
     });
@@ -892,23 +847,9 @@ const grepInputSchema = z.object({
 export function createGrepTool(execute: GrepExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `
-            A powerful search tool for finding patterns in Synapse project files.
-
-            - ALWAYS use this tool for search tasks across project files
-            - Supports full regex syntax (e.g., "log.*Error", "function\\\\s+\\\\w+")
-            - Filter files with glob parameter (e.g., "*.xml", "*.{yaml,yml}")
-            - Output modes: "content" shows matching lines with line numbers (default), "files_with_matches" shows only file paths
-            - Case insensitive search with -i parameter
-            - Pattern syntax uses JavaScript regex - literal braces need escaping (use \\\\{ \\\\} for { })
-            - Results limited to head_limit (default: 100)
-            - Automatically searches only in valid file types: ${VALID_FILE_EXTENSIONS.join(', ')}
-            - Skips common directories: node_modules, .git, target, build
-
-            Synapse/MI specific:
-            - Find XML elements: pattern: "<endpoint", glob: "*.xml"
-            - Locate property references: pattern: "\\\\$ctx:[a-zA-Z]+", glob: "*.xml"
-            - Search connector operations: pattern: "<[a-zA-Z]+\\\\.[a-zA-Z]+>", glob: "*.xml"`,
+        description: `Search for regex patterns in project files. Supports glob filtering.
+            Output modes: "content" (matching lines, default) or "files_with_matches" (file paths only).
+            Skips node_modules, .git, target, build. Limited to ${VALID_FILE_EXTENSIONS.join(', ')} files.`,
         inputSchema: grepInputSchema,
         execute
     });
@@ -926,19 +867,7 @@ const globInputSchema = z.object({
 export function createGlobTool(execute: GlobExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `
-            Fast file pattern matching tool that works with any codebase size.
-
-            Usage:
-            - Supports glob patterns like "**/*.xml" or "src/**/*.ts"
-            - Returns matching file paths sorted by modification time (most recent first)
-            - Use this tool when you need to find files by name patterns
-            - Can call this tool speculatively to discover files in parallel
-
-            Synapse/MI examples:
-            - Find all APIs: pattern: "**/*API.xml"
-            - Find sequences: pattern: "**/sequences/*.xml"
-            - Find connectors in config: pattern: "**/lib/*.jar"`,
+        description: `Find files by glob pattern (e.g., "**/*.xml"). Returns paths sorted by modification time (most recent first).`,
         inputSchema: globInputSchema,
         execute
     });

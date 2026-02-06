@@ -354,29 +354,10 @@ const manageConnectorInputSchema = z.object({
  */
 export function createManageConnectorTool(execute: ManageConnectorExecuteFn) {
     return (tool as any)({
-        description: `
-            Manages MI connector and inbound endpoint dependencies in the project (add or remove).
-
-            Operations:
-            - add: Adds connector/inbound endpoint dependencies to pom.xml
-            - remove: Removes connector/inbound endpoint dependencies from pom.xml
-
-            Usage:
-            - Use 'add' when Synapse configs reference connector operations (e.g., <salesforce.query>) or inbound endpoints
-            - Use 'remove' to clean up unused connectors and inbound endpoints
-            - You can add/remove both connectors and inbound endpoints in a single call
-
-            Important:
-            - Connector names should match available connectors (see <AVAILABLE_CONNECTORS>)
-            - Inbound endpoint names should match available inbound endpoints (see <AVAILABLE_INBOUND_ENDPOINTS>)
-            - At least one of connector_names or inbound_endpoint_names must be provided
-            - Dependencies are automatically reloaded after changes
-
-            Examples:
-            - Add connectors: { operation: "add", connector_names: ["AI", "Salesforce"] }
-            - Add inbound endpoint: { operation: "add", inbound_endpoint_names: ["KAFKA"] }
-            - Add both: { operation: "add", connector_names: ["AI"], inbound_endpoint_names: ["KAFKA"] }
-            - Remove: { operation: "remove", connector_names: ["AI"] }`,
+        description: `Add or remove MI connector and inbound endpoint dependencies in pom.xml.
+            Use 'add' when Synapse configs reference connector operations or inbound endpoints.
+            Names must match <AVAILABLE_CONNECTORS> or <AVAILABLE_INBOUND_ENDPOINTS>.
+            Can handle both connectors and inbound endpoints in a single call. Dependencies auto-reload after changes.`,
         inputSchema: manageConnectorInputSchema,
         execute
     });

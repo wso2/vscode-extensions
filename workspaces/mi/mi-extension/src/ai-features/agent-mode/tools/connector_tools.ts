@@ -200,40 +200,11 @@ const connectorInputSchema = z.object({
 export function createConnectorTool(execute: ConnectorExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `
-            Retrieves full definitions for MI connectors and inbound endpoints by name from WSO2 MI Connector Store.
-            If connector store is not available, the tool will return a definition from locally cached connector definitions.
-
-            Usage:
-            - Use this tool to get detailed information about specific connectors or inbound endpoints.
-            - The tool returns complete definitions including:
-              * Description
-              * Maven coordinates (groupId, artifactId, version)
-              * Available operations and their parameters
-              * Configuration options
-              * General connector usage documentation
-              * AI connector documentation (if AI connector is requested)
-            - Available connector names are listed in the <AVAILABLE_CONNECTORS> section of the user prompt.
-            - Available inbound endpoint names are listed in the <AVAILABLE_INBOUND_ENDPOINTS> section.
-
-            When to use:
-            - When you need detailed operation signatures for a connector
-            - When you need to know the exact parameters for a connector operation
-            - When you need Maven coordinates to add a connector to the project
-            - When you need to understand what a connector or inbound endpoint does
-            - When you need connector usage guidelines and best practices
-
-            Example:
-            - To get definitions for AI and Salesforce connectors:
-              connector_names: ["AI", "Salesforce"]
-            - To get definitions for Kafka inbound endpoint:
-              inbound_endpoint_names: ["Kafka (Inbound)"]
-
-            Parameters:
-            - connector_names: Array of connector names to fetch (optional, but at least one of connector_names or inbound_endpoint_names must be provided)
-            - inbound_endpoint_names: Array of inbound endpoint names to fetch (optional, but at least one of connector_names or inbound_endpoint_names must be provided)
-
-            Note: This tool automatically appends connector usage documentation to help you use connectors correctly.`,
+        description: `Retrieves full definitions for MI connectors and/or inbound endpoints by name.
+            Returns: operations, parameters, Maven coordinates, and connector usage documentation.
+            Available names are listed in <AVAILABLE_CONNECTORS> and <AVAILABLE_INBOUND_ENDPOINTS> sections of the user prompt.
+            At least one of connector_names or inbound_endpoint_names must be provided.
+            Automatically includes AI connector documentation when the AI connector is requested.`,
         inputSchema: connectorInputSchema,
         execute
     });
@@ -286,23 +257,7 @@ export function createGetAIConnectorDocumentationExecute(): GetAIConnectorDocume
  */
 export function createGetConnectorDocumentationTool(execute: GetConnectorDocumentationExecuteFn) {
     return (tool as any)({
-        description: `
-            Retrieves the general connector usage documentation and best practices.
-
-            This tool returns comprehensive documentation on:
-            - How to use connectors with connection-based support
-            - Local entry configuration for connectors
-            - Init operation usage patterns
-            - Connector operation response handling (responseVariable and overwriteBody)
-            - Best practices and common patterns
-
-            When to use:
-            - When you need to understand general connector usage patterns
-            - When you're unsure about connection initialization
-            - When you need to know about responseVariable vs overwriteBody
-            - When you want to refresh your knowledge on connector best practices
-
-            This tool takes no parameters and returns the full connector documentation.`,
+        description: `Returns general connector usage documentation: connection patterns, init operations, local entries, responseVariable vs overwriteBody, and best practices. No parameters.`,
         inputSchema: z.object({}),
         execute
     });
@@ -313,25 +268,7 @@ export function createGetConnectorDocumentationTool(execute: GetConnectorDocumen
  */
 export function createGetAIConnectorDocumentationTool(execute: GetAIConnectorDocumentationExecuteFn) {
     return (tool as any)({
-        description: `
-            Retrieves the AI connector documentation for building AI-powered integrations.
-
-            This tool returns comprehensive documentation on:
-            - Creating basic chat operations with LLM and memory connections
-            - Implementing RAG (Retrieval Augmented Generation) chat
-            - Working with vector stores and embeddings
-            - Creating AI agents with custom tools
-            - Using templates for agent tools
-            - Connecting various AI models (OpenAI, etc.)
-
-            When to use:
-            - When you need to implement AI features in Synapse
-            - When building chatbots or conversational interfaces
-            - When implementing RAG patterns
-            - When creating AI agents with tool calling capabilities
-            - When you need to understand AI connector patterns
-
-            This tool takes no parameters and returns the full AI connector documentation.`,
+        description: `Returns AI connector documentation: chat operations, RAG, vector stores, AI agents with tools, and model connections. No parameters.`,
         inputSchema: z.object({}),
         execute
     });

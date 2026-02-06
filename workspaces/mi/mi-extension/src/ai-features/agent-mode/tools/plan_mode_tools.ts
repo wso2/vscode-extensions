@@ -277,49 +277,10 @@ const askUserInputSchema = z.object({
 
 export function createAskUserTool(execute: AskUserExecuteFn) {
     return (tool as any)({
-        description: `
-            Ask the user questions and wait for their responses. This allows you to:
-            1. Gather user preferences or requirements
-            2. Clarify ambiguous instructions
-            3. Get decisions on implementation choices as you work
-            4. Offer choices to the user about what direction to take
-
-            ## When to Use
-
-            Use this tool when you need to:
-            - Clarify ambiguous requirements
-            - Get user preference on implementation choices
-            - Confirm assumptions before proceeding
-            - Ask about technology choices (REST vs SOAP, JSON vs XML)
-            - Get naming conventions or security configurations
-
-            ## Guidelines
-
-            - You can ask 1-4 questions at once
-            - Each question should have 2-4 options with labels and descriptions
-            - Use multiSelect: true when choices are not mutually exclusive
-            - If you recommend a specific option, make it the first option and add "(Recommended)" to the label
-            - Users will always be able to select "Other" to provide custom text input
-
-            ## Example
-
-            questions: [{
-                question: "Which format should the API response use?",
-                header: "API Format",
-                options: [
-                    { label: "JSON (Recommended)", description: "Modern standard, best for web APIs" },
-                    { label: "XML", description: "Traditional format, better for SOAP services" }
-                ],
-                multiSelect: false
-            }]
-
-            ## Important
-
-            - This tool BLOCKS execution until user responds
-            - The user's responses will be returned formatted as: "question"="answer"
-            - If the user cancels/refuses to answer, you'll receive an error message and should proceed without the information
-            - In plan mode, use this to clarify requirements BEFORE finalizing your plan
-        `,
+        description: `Ask the user 1-4 questions with 2-4 options each. BLOCKS until user responds.
+            Use to clarify requirements, get preferences, or confirm implementation choices.
+            Put recommended option first with "(Recommended)" in label. Users can always select "Other" for free text.
+            Use multiSelect=true when choices are not mutually exclusive.`,
         inputSchema: askUserInputSchema,
         execute
     });
@@ -408,94 +369,10 @@ const enterPlanModeInputSchema = z.object({});
 
 export function createEnterPlanModeTool(execute: EnterPlanModeExecuteFn) {
     return (tool as any)({
-        description: `
-            Use this tool proactively when you're about to start a non-trivial integration task. Getting user sign-off on your approach before writing code prevents wasted effort and ensures alignment. This tool transitions you into plan mode where you can explore the codebase and design an implementation approach for user approval.
-
-            ## When to Use This Tool
-
-            **Prefer using enter_plan_mode** for implementation tasks unless they're simple. Use it when ANY of these conditions apply:
-
-            1. **New Integration Implementation**: Adding meaningful new functionality
-               - Example: "Add a REST API to sync customer data" - which endpoint? What transformations?
-               - Example: "Create an order processing flow" - what mediators? What error handling?
-
-            2. **Multiple Valid Approaches**: The task can be solved in several different ways
-               - Example: "Add data transformation" - Data Mapper vs XSLT vs scripting
-               - Example: "Integrate with payment gateway" - sync vs async, which operations
-
-            3. **Integration Modifications**: Changes that affect existing APIs, sequences, or endpoints
-               - Example: "Update the customer sync flow" - what exactly should change?
-               - Example: "Refactor this sequence" - what's the target structure?
-
-            4. **Architectural Decisions**: The task requires choosing between patterns or connectors
-               - Example: "Add real-time sync" - polling vs webhooks vs messaging
-               - Example: "Connect to database" - which connector? Pooling strategy?
-
-            5. **Multi-Artifact Changes**: The task will create/modify multiple Synapse files
-               - Example: "Build order processing" - API + sequences + endpoints + connectors
-               - Example: "Add authentication" - affects multiple APIs and sequences
-
-            6. **Unclear Requirements**: You need to explore before understanding the full scope
-               - Example: "Fix the payment API error" - need to investigate root cause
-               - Example: "Optimize the integration" - need to identify bottlenecks
-
-            7. **User Preferences Matter**: The implementation could reasonably go multiple ways
-               - If you would use ask_user_question to clarify approach, use enter_plan_mode instead
-               - Plan mode lets you explore first, then present options with context
-
-            ## When NOT to Use This Tool
-
-            Only skip enter_plan_mode for simple tasks:
-            - Single-line or few-line fixes (typos, obvious bugs, small tweaks)
-            - Adding a single log mediator or property
-            - Tasks where the user gave very specific, detailed instructions
-            - Pure research/exploration tasks (use task tool with Explore subagent instead)
-
-            ## What Happens in Plan Mode
-
-            In plan mode, you'll:
-            1. Explore the codebase using glob, grep, and file_read or explore subagent using task tool.
-            2. Understand existing patterns and Synapse configurations
-            3. Design an implementation approach
-            4. Create a plan file at .mi-copilot/<session-id>/plan/<slug>.md using ${FILE_WRITE_TOOL_NAME} tool
-            5. Use ask_user_question if you need to clarify approaches
-            6. Present your plan in simple summary format to the user with no code details because we are in a low code environment.
-            7. Only then exit plan mode with ${EXIT_PLAN_MODE_TOOL_NAME} tool to present your plan for approval
-
-            ## Examples
-
-            ### GOOD - Use enter_plan_mode:
-            User: "Add user authentication to the app"
-            - Requires architectural decisions (session vs JWT, where to store tokens, middleware structure)
-
-            User: "Optimize the database queries"
-            - Multiple approaches possible, need to profile first, significant impact
-
-            User: "Implement dark mode"
-            - Architectural decision on theme system, affects many components
-
-            User: "Add a delete button to the user profile"
-            - Seems simple but involves: where to place it, confirmation dialog, API call, error handling, state updates
-
-            User: "Update the error handling in the API"
-            - Affects multiple files, user should approve the approach
-
-            ### BAD - Don't use enter_plan_mode:
-            User: "Fix the typo in the README"
-            - Straightforward, no planning needed
-
-            User: "Add a console.log to debug this function"
-            - Simple, obvious implementation
-
-            User: "What files handle routing?"
-            - Research task, not implementation planning
-
-            ## Important Notes
-
-            - This tool REQUIRES user approval - they must consent to entering plan mode
-            - If unsure whether to use it, err on the side of planning - it's better to get alignment upfront than to redo work
-            - Users appreciate being consulted before significant changes are made to their codebase
-        `,
+        description: `Enter plan mode for non-trivial tasks. Use proactively before multi-file changes, architectural decisions, or unclear requirements.
+            In plan mode: explore codebase (read-only), design approach, write plan file, then use ${EXIT_PLAN_MODE_TOOL_NAME} for approval.
+            Skip for simple fixes, single-line changes, or pure research tasks.
+            When unsure, prefer planning - it's better to align upfront than redo work.`,
         inputSchema: enterPlanModeInputSchema,
         execute
     });
@@ -592,31 +469,10 @@ const exitPlanModeInputSchema = z.object({
 
 export function createExitPlanModeTool(execute: ExitPlanModeExecuteFn) {
     return (tool as any)({
-        description: `
-            Use this tool when you are in plan mode and have finished writing your plan to the plan file and are ready for user approval.
-
-            ## How This Tool Works
-            - You should have already written your plan to the plan file specified in the plan mode system message
-            - This tool does NOT take the plan content as a parameter - it will read the plan from the file you wrote
-            - This tool simply signals that you're done planning and ready for the user to review and approve
-            - The user will see the contents of your plan file when they review it
-
-            ## When to Use This Tool
-            IMPORTANT: Only use this tool when the task requires planning the implementation steps of a task that requires writing code. For research tasks where you're gathering information, searching files, reading files or in general trying to understand the codebase - do NOT use this tool.
-
-            ## Before Using This Tool
-            Ensure your plan is complete and unambiguous:
-            - If you have unresolved questions about requirements or approach, use ask_user_question first (in earlier phases)
-            - Once your plan is finalized, use THIS tool to request approval
-
-            **Important:** Do NOT use ask_user_question to ask "Is this plan okay?" or "Should I proceed?" - that's exactly what THIS tool does. exit_plan_mode inherently requests user approval of your plan.
-
-            ## Examples
-
-            1. Initial task: "Search for and understand the implementation of vim mode in the codebase" - Do not use the exit plan mode tool because you are not planning the implementation steps of a task.
-            2. Initial task: "Help me implement yank mode for vim" - Use the exit plan mode tool after you have finished planning the implementation steps of the task.
-            3. Initial task: "Add a new feature to handle user authentication" - If unsure about auth method (OAuth, JWT, etc.), use ask_user_question first, then use exit plan mode tool after clarifying the approach.
-        `,
+        description: `Signal that your plan is ready for user approval. BLOCKS until user approves or rejects.
+            Write your plan to the plan file BEFORE calling this tool.
+            Only use for implementation tasks, NOT for research/exploration tasks.
+            Do NOT use ask_user_question for "Is this plan okay?" - this tool does that.`,
         inputSchema: exitPlanModeInputSchema,
         execute
     });
@@ -679,39 +535,10 @@ const todoWriteInputSchema = z.object({
 
 export function createTodoWriteTool(execute: TodoWriteExecuteFn) {
     return (tool as any)({
-        description: `
-            Create and manage a structured task list for the current session.
-            This is an IN-MEMORY tool - todos are tracked through chat context.
-
-            ## When to Use
-
-            Use this tool to:
-            - Plan multi-step implementations (3+ steps)
-            - Track progress through complex tasks
-            - Show the user what will be done
-            - Update task status as you work
-
-            ## Important
-
-            - This is a STATEFUL tool - each call replaces the entire todo list
-            - Always include ALL tasks (completed and pending) in each call
-            - Only ONE task should be in_progress at a time
-            - Mark tasks completed IMMEDIATELY after finishing
-
-            ## Task Descriptions
-
-            Each task needs two forms:
-            - content: Imperative form (e.g., "Create CustomerAPI", "Run tests")
-            - activeForm: Present continuous form (e.g., "Creating CustomerAPI", "Running tests")
-
-            ## Example
-
-            todos: [
-                { content: "Create CustomerAPI", status: "completed", activeForm: "Creating CustomerAPI" },
-                { content: "Add Salesforce connector", status: "in_progress", activeForm: "Adding Salesforce connector" },
-                { content: "Create data mapper", status: "pending", activeForm: "Creating data mapper" }
-            ]
-        `,
+        description: `Track task progress with a structured todo list (in-memory, not persisted).
+            Each call REPLACES the entire list - always include ALL tasks (completed + pending).
+            Only ONE task should be in_progress at a time. Mark tasks completed immediately after finishing.
+            Use for multi-step tasks (3+ steps). Each task needs content (imperative) and activeForm (present continuous).`,
         inputSchema: todoWriteInputSchema,
         execute
     });
