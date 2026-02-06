@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button, Codicon, TextField, Typography } from '@wso2/ui-toolkit';
 
 import styled from '@emotion/styled';
@@ -44,8 +44,7 @@ const PageContainer = styled.div`
 `;
 
 const HeaderBar = styled.div`
-    padding: 16px 20px 14px;
-    // border-bottom: 1px solid var(--vscode-panel-border);
+    padding: 16px 20px 10px;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
     position: sticky;
     top: 0;
@@ -72,30 +71,54 @@ const MethodSelectWrapper = styled.div`
     min-width: 100px;
 `;
 
-const MethodSelect = styled.select<{ accent: string }>`
+const MethodSelectButton = styled.button<{ accent: string }>`
     appearance: none;
     width: 100%;
     height: 35px;
     padding: 10px 36px 10px 14px;
     border-radius: 4px;
-    border: 1px solid rgba(0, 0, 0, 0.28);
-    background: ${({ accent }) => accent};
-    color: var(--vscode-editor-foreground);
+    border: 1px solid var(--vscode-dropdown-border);
+    background: transparent;
+    color: ${props => props.accent};
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.35px;
     cursor: pointer;
-    box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.08), 0 8px 20px rgba(0, 0, 0, 0.25);
     transition: transform 0.08s ease, box-shadow 0.18s ease;
-
-    // &:hover {
-    //     transform: translateY(-1px);
-    //     box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.1), 0 12px 26px rgba(0, 0, 0, 0.28);
-    // }
+    text-align: left;
 
     &:focus {
         outline: none;
         outline-offset: 0;
+    }
+`;
+
+const MethodDropdown = styled.ul`
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    width: 100%;
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 6px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    list-style: none;
+    padding: 6px 0;
+    margin: 0;
+    z-index: 30;
+`;
+
+const MethodOption = styled.li<{ active: boolean }>`
+    padding: 10px 14px;
+    cursor: pointer;
+    font-weight: 600;
+    letter-spacing: 0.25px;
+    color: var(--vscode-foreground);
+    background: ${({ active }) => active ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent'};
+    transition: background 0.12s ease;
+
+    &:hover {
+        background: var(--vscode-list-hoverBackground);
     }
 `;
 
@@ -113,7 +136,7 @@ const SelectChevron = styled.span`
 const UrlInputField = styled.input`
     flex: 1;
     height: 32px;
-    background: var(--vscode-input-background);
+    background: transparent;
     border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
     border-radius: 4px;
     padding: 0 12px;
@@ -305,6 +328,8 @@ const methodColors: Record<string, string> = {
     PATCH: '#9b5de5'
 };
 
+const methodOptions: ApiRequest['method'][] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
+
 type InputMode = 'code' | 'form';
 type AssertMode = 'code' | 'form';
 
@@ -318,8 +343,10 @@ export const MainPanel: React.FC = () => {
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(requestItem?.name);
     const outputTabRef = useRef<HTMLDivElement>(null);
+    const methodSelectRef = useRef<HTMLDivElement>(null);
     // Counter used to trigger scrolling the Output inside Input without switching tabs
     const [bringOutputCounter, setBringOutputCounter] = useState(0);
+    const [methodDropdownOpen, setMethodDropdownOpen] = useState(false);
 
 
 
@@ -355,6 +382,28 @@ export const MainPanel: React.FC = () => {
     const handleCloseCollectionForm = () => {
         setShowCollectionForm(false);
     };
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (methodSelectRef.current && !methodSelectRef.current.contains(event.target as Node)) {
+                setMethodDropdownOpen(false);
+            }
+        };
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setMethodDropdownOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('keydown', handleEscape);
+        };
+    }, []);
 
     const handleRequestChange = (updatedRequest: ApiRequest) => {
         if (!requestItem) return;
@@ -598,25 +647,41 @@ export const MainPanel: React.FC = () => {
 
                 {requestItem && (
                     <RequestToolbar>
-                        <MethodSelectWrapper>
-                            <MethodSelect
+                        <MethodSelectWrapper ref={methodSelectRef}>
+                            <MethodSelectButton
+                                type="button"
                                 accent={methodAccent}
-                                value={requestItem.request.method}
-                                onChange={(event) => handleRequestChange({
-                                    ...requestItem.request,
-                                    method: event.target.value as any
-                                })}
+                                onClick={() => setMethodDropdownOpen(open => !open)}
                                 aria-label="HTTP method"
+                                aria-haspopup="listbox"
+                                aria-expanded={methodDropdownOpen}
                             >
-                                <option value="GET">GET</option>
-                                <option value="POST">POST</option>
-                                <option value="PUT">PUT</option>
-                                <option value="DELETE">DELETE</option>
-                                <option value="PATCH">PATCH</option>
-                            </MethodSelect>
+                                {requestItem.request.method}
+                            </MethodSelectButton>
                             <SelectChevron>
                                 <Codicon iconSx={{color: 'var(--vscode-editor-foreground)', fontWeight: 'bold'}} name="chevron-down" />
                             </SelectChevron>
+                            {methodDropdownOpen && (
+                                <MethodDropdown role="listbox" aria-label="HTTP method">
+                                    {methodOptions.map((method) => (
+                                        <MethodOption
+                                            key={method}
+                                            active={requestItem.request.method === method}
+                                            role="option"
+                                            aria-selected={requestItem.request.method === method}
+                                            onClick={() => {
+                                                handleRequestChange({
+                                                    ...requestItem.request,
+                                                    method
+                                                });
+                                                setMethodDropdownOpen(false);
+                                            }}
+                                        >
+                                            {method}
+                                        </MethodOption>
+                                    ))}
+                                </MethodDropdown>
+                            )}
                         </MethodSelectWrapper>
 
                         <UrlInputField
