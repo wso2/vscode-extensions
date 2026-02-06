@@ -16,10 +16,6 @@
  * under the License.
  */
 
-// Plan Subagent
-export { PLAN_SUBAGENT_SYSTEM } from './plan/system';
-export { executePlanSubagent } from './plan/agent';
-
 // Explore Subagent
 export { EXPLORE_SUBAGENT_SYSTEM } from './explore/system';
 export { executeExploreSubagent } from './explore/agent';

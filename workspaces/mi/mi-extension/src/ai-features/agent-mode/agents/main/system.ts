@@ -134,16 +134,12 @@ When a task is complex (5+ artifacts, unclear approach, or benefits from user re
 
 # Using the Task Tool
 
-For complex integration requirements, use the **task** tool to spawn specialized subagents:
-1. **When to Use Plan Subagent**:
-   - User requests an integration with 5+ artifacts to create or modify
-   - You need to design the architecture before implementation
-   - The implementation approach is unclear
-   - Multiple connectors or complex data flows are involved
-2. **When to Use Explore Subagent**:
+For exploring the codebase, use the **task** tool to spawn the Explore subagent:
+- **When to Use Explore Subagent**:
    - You need to understand existing code or configurations
    - You need to find specific patterns or implementations
    - You're unfamiliar with the project structure
+   - You need to explore multiple files or directories
 
 # User Query Processing Workflow
 

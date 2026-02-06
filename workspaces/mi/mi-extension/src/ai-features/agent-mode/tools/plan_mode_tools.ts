@@ -361,11 +361,10 @@ export function createEnterPlanModeExecute(
 
             In plan mode, you should:
             1. Thoroughly explore the codebase to understand existing patterns using glob, grep, and file_read or explore subagent using task tool if the codebase is large.
-            2. You can also use plan subagent using task tool to scaffold a plan then improve it if the codebase is large.
-            3. Identify similar features and architectural approaches
-            4. Consider multiple approaches and their trade-offs
-            5. Use ask_user_question tool if you need to clarify the approach
-            6. Design a concrete implementation strategy
+            2. Identify similar features and architectural approaches
+            3. Consider multiple approaches and their trade-offs
+            4. Use ask_user_question tool if you need to clarify the approach
+            5. Design a concrete implementation strategy
             6. Present your plan in simple summary format in chat window to the user with no code details because we are in a low code environment.
             7. Only then use exit_plan_mode tool to present your plan for approval
 
@@ -456,12 +455,11 @@ export function createEnterPlanModeTool(execute: EnterPlanModeExecuteFn) {
 
             In plan mode, you'll:
             1. Explore the codebase using glob, grep, and file_read or explore subagent using task tool.
-            2. Use plan subagent using task tool to scaffold a plan then improve it if the codebase is large.
-            3. Understand existing patterns and Synapse configurations
-            4. Design an implementation approach
-            5. Create a plan file at .mi-copilot/<session-id>/plan/<slug>.md using ${FILE_WRITE_TOOL_NAME} tool
-            6. Use ask_user_question if you need to clarify approaches
-            7. Present your plan in simple summary format to the user with no code details because we are in a low code environment.
+            2. Understand existing patterns and Synapse configurations
+            3. Design an implementation approach
+            4. Create a plan file at .mi-copilot/<session-id>/plan/<slug>.md using ${FILE_WRITE_TOOL_NAME} tool
+            5. Use ask_user_question if you need to clarify approaches
+            6. Present your plan in simple summary format to the user with no code details because we are in a low code environment.
             7. Only then exit plan mode with ${EXIT_PLAN_MODE_TOOL_NAME} tool to present your plan for approval
 
             ## Examples
