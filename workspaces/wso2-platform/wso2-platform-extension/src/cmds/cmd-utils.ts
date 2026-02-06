@@ -177,7 +177,17 @@ export const createNewProject = async (
 	projectName?: string,
 	isWorkspaceMapping?: boolean
 ): Promise<Project> => {
-	const projectCache = dataCacheStore.getState().getProjects(org.handle);
+	// Ensure we use the latest project list when checking for duplicate names.
+	// We refresh the cache from the server before prompting for the new project name,
+	// so the uniqueness check runs against up-to-date data.
+	let projectCache = dataCacheStore.getState().getProjects(org.handle);
+	try {
+		const latestProjects = await ext.clients.rpcClient.getProjects(org.id.toString());
+		dataCacheStore.getState().setProjects(org.handle, latestProjects);
+		projectCache = latestProjects;
+	} catch {
+		// If fetching the latest projects fails, fall back to whatever is in the cache.
+	}
 
 	const newProjectName = await window.showInputBox({
 		value: projectName || "",
@@ -215,14 +225,30 @@ export const createNewProject = async (
 			title: `Creating new project ${newProjectName}...`,
 			location: ProgressLocation.Notification,
 		},
-		() =>
-			ext.clients.rpcClient.createProject({
+		async () => {
+			const authRegion = ext.authProvider?.getState().state.region as "US" | "EU" | undefined;
+			let region = authRegion ?? "US";
+
+			if (!authRegion) {
+				try {
+					region = (await ext.clients.rpcClient.getCurrentRegion()) ?? "US";
+				} catch {
+					// If fetching the current region fails, fall back to the default.
+					region = "US";
+				}
+			}
+
+			return ext.clients.rpcClient.createProject({
 				orgHandler: org.handle,
 				orgId: org.id.toString(),
 				projectName: newProjectName,
-				region: "US",
-			}),
+				region,
+			});
+		},
 	);
+
+	const currentProjects = dataCacheStore.getState().getProjects(org.handle);
+	dataCacheStore.getState().setProjects(org.handle, [...currentProjects, project]);
 
 	return project;
 };
