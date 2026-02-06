@@ -21,9 +21,9 @@ import { SYNAPSE_EXPRESSION_EXAMPLES } from "./synapse_expression_examples";
 import { SYNAPSE_EXPRESSION_GUIDE } from "./synapse_expression_guide"
 
 export const SYNAPSE_GUIDE = `
-### Latest Synapse integration development guidelines and best practices
+# Latest Synapse integration generation guidelines and best practices
 
-#### Steps for developing integration solutions:
+## Steps for developing integration solutions:
     - Make necessary assumptions to complete the solution.
     - Identify the necessary mediators from the following list of supported mediators
         - Core Mediators: call, call-template, drop, log, loopback, property(deprecated), variable, propertyGroup(deprecated), respond, send, sequence, store
@@ -40,11 +40,9 @@ export const SYNAPSE_GUIDE = `
     - Identify necessary connector operations.
     - Then build the solution using mediators and connector operations following the guidelines given.
     - Separate the solution into different files as used in the WSO2 integration studio.
-    - Provide only the Synapse artifacts and a short explanation if applicable.
-    - Keep the answer as short as possible while still being complete.
     - Use placeholder values if required.
 
-#### Guidelines for generating Synapse artifacts:
+## Guidelines for generating Synapse artifacts:
    - Adhere to Synapse best practices.
    - Create a separate file for each endpoint.
    - Split complex logic into separate sequences for clarity; create a separate file for each sequence and ensure all are called in the main logic using sequence keys.
@@ -54,8 +52,6 @@ export const SYNAPSE_GUIDE = `
    - Provide a meaningful path in the uri-template in APIs.
    - Use &amp; instead of & in XML.
    - Use the Redis connector instead of the cache mediator for Redis cache.
-   - Do not change XML artifact names from the project or chat history.
-   - When updating an XML artifact, provide the entire file with updated content.
    - Do not leave placeholders like "To be implemented". Always implement the complete solution.
    - Use WSO2 Connectors whenever possible instead of directly calling APIs.
    - Do not use new class mediators unless it is absolutely necessary.
@@ -67,15 +63,15 @@ export const SYNAPSE_GUIDE = `
     \`\`\`
    - The respond mediator should be empty; it does not support child elements.
 
-#### WSO2 Synapse Connector Guidelines:
+## WSO2 Synapse Connector Guidelines:
     - You can use WSO2 Synapse Connectors to integrate with WSO2 services and third-party services.
     - Always prefer using WSO2 connectors over direct API calls when applicable.
 
-#### WSO2 Synapse Inbound Endpoints/Event Listeners Guidelines:
+## WSO2 Synapse Inbound Endpoints/Event Listeners Guidelines:
     - Inbound endpoints are also called event listeners in latest versions of WSO2 Micro Integrator.
     - You can use WSO2 Synapse Inbound Endpoints/Event Listeners to listen to events for triggering sequences.
 
-#### Do not use outSequence as it is deprecated. Use the following sample API Template.
+## Do not use outSequence as it is deprecated. Use the following sample API Template.
 \`\`\`xml
 <api xmlns="http://ws.apache.org/ns/synapse" name="name-here" context="context-here">
     <resource methods="GET" uri-template="">
@@ -85,7 +81,7 @@ export const SYNAPSE_GUIDE = `
 </api>
 \`\`\`
 
-#### WSO2 has introduced Synapse Expressions, which should be used instead of JsonPath or XPath. Refer to the following documentation.
+## WSO2 has introduced Synapse Expressions, which should be used instead of JsonPath or XPath. Refer to the following documentation.
 
 <SYNAPSE_EXPRESSIONS_DOCS>
     ${SYNAPSE_EXPRESSION_GUIDE}
@@ -95,7 +91,7 @@ export const SYNAPSE_GUIDE = `
     ${SYNAPSE_EXPRESSION_EXAMPLES}
 </SYNAPSE_EXPRESSION_EXAMPLES>
 
-#### Use the new variable mediator instead of the deprecated property mediator:
+## Use the new variable mediator instead of the deprecated property mediator:
     - Syntax
     \`\`\`xml
     <variable name="string" [type="STRING"|"BOOLEAN"|"INTEGER"|"DOUBLE"|"LONG"|"XML"|"JSON"] (value="string" | expression="expression") />
@@ -128,7 +124,7 @@ export const SYNAPSE_GUIDE = `
     </log>
     \`\`\`
 
-#### Do not use \`level\` in log mediator. It is deprecated. Use \`category\` instead.
+## Do not use \`level\` in log mediator. It is deprecated. Use \`category\` instead.
 
     - Incorrect syntax:
     \`\`\`xml
@@ -164,7 +160,7 @@ export const SYNAPSE_GUIDE = `
     </log>
     \`\`\`
 
-#### Do not use call or send mediators. Instead, use the new HTTP connector:
+## Do not use call or send mediators. Instead, use the new HTTP connector:
     - 	First, define a local entry using http.init:
        \`\`\`xml
        <localEntry key="HTTP_1" xmlns="http://ws.apache.org/ns/synapse">
@@ -235,7 +231,7 @@ export const SYNAPSE_GUIDE = `
     \`\`\`
     - Supported methods: GET, POST, PUT, DELETE, HEAD, PATCH, OPTIONS
 
-#### For the new filter mediator, do not use source. Use only xpath:
+## For the new filter mediator, do not use source. Use only xpath:
 \`\`\`xml
 <filter xpath="[SynapseExpression]">
     <then>
@@ -247,7 +243,7 @@ export const SYNAPSE_GUIDE = `
 </filter>
 \`\`\`
 
-#### Prefer the Scatter-Gather Mediator Over the Deprecated Clone Mediator.
+## Prefer the Scatter-Gather Mediator Over the Deprecated Clone Mediator.
     - The Scatter Gather Mediator can be used to clone a message into several messages and aggregate the responses. It resembles the Scatter-Gather enterprise integration pattern.
     - Syntax:
     \`\`\`xml
@@ -298,7 +294,7 @@ export const SYNAPSE_GUIDE = `
     </scatter-gather>
     \`\`\`
 
-#### Correct syntax for dblookup mediator:
+## Correct syntax for dblookup mediator:
 \`\`\`xml
 <dblookup>
 <connection>
@@ -318,7 +314,7 @@ export const SYNAPSE_GUIDE = `
 </dblookup>
 \`\`\`
 
-#### How to do error handling in Synapse:
+## How to do error handling in Synapse:
 - There is no granular error handling like try-catch in Synapse.
 <INCORRECT_SYNTAX>
     \`\`\`xml
@@ -392,9 +388,9 @@ export const SYNAPSE_GUIDE = `
     </api> 
     \`\`\`
 
-#### Data Mappers
-
+## Data Mappers
 Data mappers transform data between input and output schemas using TypeScript. They are used with the \`<datamapper>\` mediator in Synapse integrations.
+Always use ${CREATE_DATA_MAPPER_TOOL_NAME} tool to create a data mapper. Do not create data mappers manually.
 
 **Folder Structure:**
 Each data mapper creates a folder at \`src/main/wso2mi/resources/datamapper/{name}/\` containing:
@@ -446,8 +442,7 @@ export function mapFunction(input: InputRoot): OutputRoot {
 - Type conversion: \`dmUtils.toNumber()\`, \`dmUtils.toBoolean()\`, \`dmUtils.numberToString()\`, \`dmUtils.booleanToString()\`
 - Property access: \`dmUtils.getPropertyValue(scope, name)\`
 
-#### Registry Resources
-
+## Registry Resources
 When creating supportive resources that are needed for the Integration inside src/main/java/wso2mi/resources, an entry should be added to the src/main/java/wso2mi/resources/artifact.xml. If an artifacts.xml doesn't exist, then create one and add the entry. The format should be as follows:
 For data mappers this is get automatically done by the ${CREATE_DATA_MAPPER_TOOL_NAME} tool. But for other resources, you need to add the entry manually.
 

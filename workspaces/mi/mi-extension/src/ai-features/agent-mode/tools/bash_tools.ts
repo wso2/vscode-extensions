@@ -278,35 +278,34 @@ const bashInputSchema = z.object({
 export function createBashTool(execute: BashExecuteFn) {
     return (tool as any)({
         description: `Execute bash commands in the MI project directory.
+            **Purpose:**
+            Run shell commands for tasks like:
+            - Git operations (status, diff, commit, push)
+            - Maven commands (mvn clean, mvn test)
+            - File system operations (mkdir, rm, cp, mv)
+            - Other CLI tools (curl, docker, etc.)
 
-**Purpose:**
-Run shell commands for tasks like:
-- Git operations (status, diff, commit, push)
-- Maven commands (mvn clean, mvn test)
-- File system operations (mkdir, rm, cp, mv)
-- Other CLI tools (curl, docker, etc.)
+            **Important Notes:**
+            - Commands run in the project directory with JAVA_HOME configured
+            - Default timeout is 2 minutes, max is 10 minutes
+            - Output is truncated if it exceeds 30,000 characters
+            - Use run_in_background for long-running commands
 
-**Important Notes:**
-- Commands run in the project directory with JAVA_HOME configured
-- Default timeout is 2 minutes, max is 10 minutes
-- Output is truncated if it exceeds 30,000 characters
-- Use run_in_background for long-running commands
+            **Examples:**
+            - \`git status\` - Show git working tree status
+            - \`mvn test -Dtest=MyTest\` - Run specific Maven test
+            - \`curl -s http://localhost:8290/health\` - Check server health
+            - \`docker ps\` - List running containers
 
-**Examples:**
-- \`git status\` - Show git working tree status
-- \`mvn test -Dtest=MyTest\` - Run specific Maven test
-- \`curl -s http://localhost:8290/health\` - Check server health
-- \`docker ps\` - List running containers
+            **Background Commands:**
+            Set run_in_background=true for commands that take a long time.
+            Use the kill_shell tool with the returned shell_id to terminate if needed.
 
-**Background Commands:**
-Set run_in_background=true for commands that take a long time.
-Use the kill_shell tool with the returned shell_id to terminate if needed.
-
-**Avoid:**
-- Using cat/head/tail for file reading (use file_read tool)
-- Using grep for content search (use grep tool)
-- Using find for file search (use glob tool)
-- Interactive commands (vim, nano, etc.)`,
+            **Avoid:**
+            - Using cat/head/tail for file reading (use file_read tool)
+            - Using grep for content search (use grep tool)
+            - Using find for file search (use glob tool)
+            - Interactive commands (vim, nano, etc.)`,
         inputSchema: bashInputSchema,
         execute
     });

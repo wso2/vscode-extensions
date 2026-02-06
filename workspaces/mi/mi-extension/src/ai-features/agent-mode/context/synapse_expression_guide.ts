@@ -17,10 +17,10 @@
  */
 
 export const SYNAPSE_EXPRESSION_GUIDE = `
-## **Introduction to Synapse Expressions**
+### **Introduction to Synapse Expressions**
 Synapse Expressions is a powerful, **single-line expression language** designed for WSO2 Synapse to replace JSONPath. Unlike JSONPath, which is limited to extracting JSON data, Synapse Expressions allows arithmetic, logical, and comparison operations while providing access to various system elements such as payloads, headers, properties, registry content, and secrets.
 
-## **Syntax & Basic Structure**
+#### **Syntax & Basic Structure**
 - Synapse Expressions are enclosed within **\`\${}\`**.
 - By default, Synapse Expressions returns a valid **JSON** result. When working with XML payloads, we can use the XPATH function which returns an XML result.
 - Literals are supported in Synapse expressions: 
@@ -36,7 +36,7 @@ Synapse Expressions is a powerful, **single-line expression language** designed 
   \`\`\`
   
 ---
-## Key Concepts
+#### Key Concepts
 Now every synapse mediation has 6 global variables ( payload, vars, headers, properties, params, configs).
 
 - payload : This is the message payload. It is always a valid JSON element. ( Object, array, string, number, boolean, null). Example of accessing payload using Synapse expressions.
@@ -92,8 +92,8 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
   \`\`\`
 ---
 
-## You can do the following operations with Synapse Expressions
-### **Arithmetic Operations**
+You can do the following operations with Synapse Expressions
+#### **Arithmetic Operations**
 \`\`\`xml
 \${vars.num1 + vars.num2}
 \${vars.num1 - vars.num2}
@@ -101,7 +101,7 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 \${vars.num1 / vars.num2}
 \${vars.num1 % vars.num2}
 \`\`\`
-### **Boolean Operations**
+#### **Boolean Operations**
 \`\`\`xml
 \${vars.age > 18}
 \${vars.age < 18}
@@ -111,7 +111,7 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 \${vars.score == 100}
 \${not(value)}
 \`\`\`
-### **Logical Operations**
+#### **Logical Operations**
 \`\`\`xml
 \${vars.active and vars.verified}
 \${vars.isAdmin or vars.isModerator}
@@ -120,24 +120,24 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 \`\`\`xml
 \${(vars.num1 + 5) > vars.num2 && (vars.num3 - 3) < vars.num4}
 \`\`\`
-### **Conditional (Ternary Operator)**
+#### **Conditional (Ternary Operator)**
 \`\`\`xml
 \${vars.age > 18 ? "Adult" : "Child"}
 \`\`\`
 
-### **Accessing Arrays**
+#### **Accessing Arrays**
 \`\`\`xml
 \${payload.students[0].name}
 \`\`\`
-### **String Operations**
+#### **String Operations**
 - String concatenation
 \`\`\`xml
 \${payload.string1 + payload.string2}
 \`\`\`
 ---
 
-## You can use following functions in Synapse Expressions
-### **String Manipulation**
+#### You can use following functions in Synapse Expressions
+##### **String Manipulation**
 - All string operations available: length, toUpper, toLower, subString, startsWith, endsWith, contains, trim, replace, split, charAt, indexOf
 \`\`\`xml
 \${length("text")} <!-- Returns the length of the string if the input is a string. -->
@@ -155,7 +155,7 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 \${indexOf(payload.value, "text", 5)}
 \`\`\`
 
-### **Math Functions**
+##### **Math Functions**
 - All math functions available: abs, floor, ceil, sqrt, log, pow, round
 \`\`\`xml
 \${abs(-5)} <!-- Returns the absolute value of the input. -->
@@ -167,27 +167,27 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 \${round(2.756, 2)} <!-- Returns 2.76 -->
 \`\`\`
 
-### Encoding & Decoding
+##### Encoding & Decoding
 - All encoding and decoding functions available: base64Encode, base64Decode, urlEncode, urlDecode
 \`\`\`xml
 \${base64Encode("Hello World")}
 \${urlEncode("Hello World")}
 \`\`\`
 
-### **Type checking**
+##### **Type checking**
 - All type checking functions available: isString, isNumber, isArray, isObject, isBoolean
 \`\`\`xml
 \${isNumber(vars.amount) ? vars.amount * 2 : 0}
 \`\`\`
 
-### **Type Conversion**
+##### **Type Conversion**
 - All type conversion functions available: integer, float, boolean, string, object, array
 \`\`\`xml
 \${integer(payload.value)}
 \${boolean(payload.status)}
 \`\`\`
 
-### **Registry functions**
+##### **Registry functions**
 - Accesses the registry value at the specified path
 \`\`\`xml
 \${registry("gov:/config/service")}
@@ -206,19 +206,19 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 \${registry(payload.path).student.name}
 \`\`\`
 
-### **Date & Time Functions**
+##### **Date & Time Functions**
 - All date functions available: now, formatDateTime
 \`\`\`xml
 \${now()} <!-- Returns timestamp -->
 \${formatDateTime(now(), "yyyy-MM-dd")}
 \`\`\`
 
-### **Check exists**
+##### **Check exists**
 \`\`\`xml
 \${exists(payload.value)}
 \`\`\`
 
-### **Accessing Secrets**
+##### **Accessing Secrets**
 \`\`\`xml
 \${registry("gov:/config/service")}
 \${wso2-vault("mysqlpassword")} 
@@ -227,7 +227,7 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 
 ---
 
-## Synapse Expressions support JSONPath-style filtering:
+#### Synapse Expressions support JSONPath-style filtering:
 \`\`\`xml
 \${payload.users[?(@.age >= 18)]}
 \${payload.users[?(@.age >= vars.minAge)]}
@@ -235,7 +235,7 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 
 ---
 
-## When you need to work with xpath expressions, you can use the xpath function. It outputs the result of the xpath expression.
+#### When you need to work with xpath expressions, you can use the xpath function. It outputs the result of the xpath expression.
 \`\`\`xml
 \${xpath("//student/text()")}
 \${xpath("//a:parent/b:child/a:value/text()")}
@@ -243,7 +243,7 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 
 ---
 
-## **Best Practices**
+#### **Best Practices**
 1. **Check for Nulls**
    \`\`\`xml
    \${vars.num1 == null ? vars.num2 : vars.num1}
@@ -259,7 +259,7 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 4. **Handle Empty Results**
    - Synapse Expressions fail gracefully—handle potential empty values.
 
-## Where can you use Synapse Expressions?
+#### Where can you use Synapse Expressions?
 - You can use synapse expressions literally anywhere in the synapse configuration to provide dynamic inputs.
 - Example with redis connector
 \`\`\`xml
@@ -269,7 +269,7 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 </redis.put>
 \`\`\`
 
-## What can't you do with Synapse Expressions?
+#### What can't you do with Synapse Expressions?
 - Synapse expressions are single line expressions and do not support multi-line expressions.
 - Therefore, never add multiple lines of code inside \${}.
 `;
