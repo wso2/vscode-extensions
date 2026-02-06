@@ -267,7 +267,15 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 			// Multi-component mode: use batch creation for optimized flow
 			if (isMultiComponentMode) {
 				const selectedToCreate = selectedComponents.filter((comp) => comp.selected);
+				if (selectedToCreate.length === 0) {
+					console.error("No components selected for batch creation");
+					return;
+				}
 				const parsedRepo = parseGitURL(genDetails.repoUrl);
+				if (!parsedRepo) {
+				    console.error("Invalid repo URL", genDetails.repoUrl);
+				    return;
+				}
 				const provider = parsedRepo[2];
 
 				// Build array of component creation requests
@@ -288,7 +296,6 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 
 						const compName = selectedComp.name;
 						const compBuildDetails = componentFormData.buildDetails;
-						const compGitProxyDetails = componentFormData.gitProxyDetails;
 
 						const createParams: Partial<CreateComponentReq> = {
 							orgId: organization.id.toString(),
@@ -313,24 +320,10 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 							createParams.gitCredRef = genDetails?.credential;
 						}
 
-						if (compBuildDetails.buildPackLang === ChoreoImplementationType.Docker) {
-							createParams.dockerFile = compBuildDetails.dockerFile.replace(/\\/g, "/");
-						}
-
 						if (WebAppSPATypes.includes(compBuildDetails.buildPackLang as ChoreoBuildPackNames)) {
 							createParams.spaBuildCommand = compBuildDetails.spaBuildCommand;
 							createParams.spaNodeVersion = compBuildDetails.spaNodeVersion;
 							createParams.spaOutputDir = compBuildDetails.spaOutputDir;
-						}
-
-						if (compType === ChoreoComponentType.ApiProxy) {
-							createParams.proxyAccessibility = "external";
-							createParams.proxyApiContext =
-								compGitProxyDetails.proxyContext?.charAt(0) === "/"
-									? compGitProxyDetails.proxyContext.substring(1)
-									: compGitProxyDetails.proxyContext;
-							createParams.proxyApiVersion = compGitProxyDetails.proxyVersion;
-							createParams.proxyEndpointUrl = compGitProxyDetails.proxyTargetUrl;
 						}
 
 						return {
