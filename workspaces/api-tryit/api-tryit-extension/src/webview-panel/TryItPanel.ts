@@ -231,9 +231,50 @@ export class TryItPanel {
 
 								const selectedFolder = folderUris[0];
 
-								// Now show save dialog in the selected folder
+								// Ensure a subfolder 'Test Collection' exists under the selected folder, and create collection.yaml there
+								const collectionFolderName = 'test-collection';
+								const collectionFolderPath = path.join(selectedFolder.fsPath, collectionFolderName);
+								const collectionFolderUri = vscode.Uri.file(collectionFolderPath);
+								try {
+									try {
+										await vscode.workspace.fs.stat(collectionFolderUri);
+										// Directory exists
+									} catch {
+										// Directory doesn't exist; create it
+										await vscode.workspace.fs.createDirectory(collectionFolderUri);
+										vscode.window.showInformationMessage(`Created folder: ${collectionFolderPath}`);
+									}
+
+									// Ensure collection.yaml exists inside the collection folder
+									const collectionFileUri = vscode.Uri.joinPath(collectionFolderUri, 'collection.yaml');
+									try {
+										await vscode.workspace.fs.stat(collectionFileUri);
+										// collection.yaml already exists
+									} catch {
+										const folderName = collectionFolderName;
+										const safeId = folderName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+										const yamlContent = `id: ${safeId}\nname: ${folderName}\n`;
+										await vscode.workspace.fs.writeFile(collectionFileUri, Buffer.from(yamlContent, 'utf8'));
+										vscode.window.showInformationMessage(`Created collection.yaml in ${collectionFolderPath}`);
+									}
+
+									// Set the state machine collection context so autosaves target this folder
+									try {
+										// ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionFolderPath);
+										ApiTryItStateMachine.sendEvent(EVENT_TYPE.REQUEST_UPDATED, request);
+									} catch {
+										// ignore failures
+									}
+								} catch (err) {
+									const msg = err instanceof Error ? err.message : String(err);
+									vscode.window.showWarningMessage(`Failed to ensure collection folder or file: ${msg}`);
+								}
+
+								// Suggest a file name based on the request name
+								const suggestedFileName = ((request && request.name) ? request.name : 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.yaml';
+
 								const fileUri = await vscode.window.showSaveDialog({
-									defaultUri: vscode.Uri.joinPath(selectedFolder, 'api-request.yaml'),
+									defaultUri: vscode.Uri.joinPath(collectionFolderUri, suggestedFileName),
 									filters: {
 										'YAML files': ['yaml', 'yml']
 									},
