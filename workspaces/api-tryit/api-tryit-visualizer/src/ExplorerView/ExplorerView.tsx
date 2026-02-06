@@ -224,6 +224,28 @@ const IconContainer = styled.span`
 	text-align: center;
 `;
 
+const AddButton = styled.button`
+	background: transparent;
+	border: none;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	padding: 2px;
+	margin-left: auto;
+	margin-right: 6px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 2px;
+	font-size: 12px;
+
+	&:hover {
+		background: var(--vscode-list-hoverBackground);
+		color: var(--vscode-foreground);
+	}
+`;
+
 const CollectionChildren = styled.div`
 	padding-left: 20px;
 `;
@@ -336,6 +358,17 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 				</IconContainer>
 				<Codicon name="library" sx={{ marginRight: 8 }} />
 				<span>{item.name}</span>
+				<AddButton
+					title={`Add request to ${item.name}`}
+					aria-label={`Add request to ${item.name}`}
+					onClick={(e: React.MouseEvent) => {
+						e.stopPropagation();
+						e.preventDefault();
+						handleAddRequest();
+					}}
+				>
+					<Codicon name="plus" />
+				</AddButton>
 			</CollectionHeader>
 			{contextMenu && contextMenu.collectionId === item.id && (
 				<ContextMenu x={contextMenu.x} y={contextMenu.y} visible={true}>
