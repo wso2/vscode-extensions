@@ -19,6 +19,7 @@
 //node related constants
 export const NODE_WIDTH = 180;
 export const NODE_HEIGHT = 60;
+export const LABEL_CHARS_BEFORE_WRAP = 16;
 export const START_NODE_DIAMETER = 50;
 export const END_NODE_DIAMETER = 30;
 export const RETRY_NODE_DIAMETER = 35;

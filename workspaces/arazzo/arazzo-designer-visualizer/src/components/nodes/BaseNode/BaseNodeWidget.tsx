@@ -27,6 +27,7 @@ import {
     PADDING,
     NODE_PADDING,
 } from '../../../constants/nodeConstants';
+import { LABEL_CHARS_BEFORE_WRAP } from '../../../constants/nodeConstants';
 import { BaseNodeData } from './BaseNodeModel';
 
 /**
@@ -167,9 +168,13 @@ export const BaseNodeWidget: React.FC<BaseNodeWidgetProps> = ({
             onMouseLeave={() => setHovered(false)}
         >
             <NodeStyles.Header>
-                <NodeStyles.Title>
+                <NodeStyles.Title title={data.label}>
                     {data.iconClass ? <NodeStyles.Icon className={data.iconClass} /> : null}
-                    {data.label}
+                    {(() => {
+                        const raw = data.label ? String(data.label) : '';
+                        const max = typeof LABEL_CHARS_BEFORE_WRAP === 'number' ? LABEL_CHARS_BEFORE_WRAP : 10;
+                        return raw.length > max ? `${raw.slice(0, max)}...` : raw;
+                    })()}
                 </NodeStyles.Title>
             </NodeStyles.Header>
 

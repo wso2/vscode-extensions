@@ -69,8 +69,8 @@ export class SizingVisitorVertical_v2 {
                 break;
             case 'STEP':
             default:
-                const textWidth = node.label.length * C.PX_PER_CHAR;
-                node.viewState.w = Math.max(C.NODE_WIDTH, textWidth + C.PADDING);
+                // Fixed size for STEP nodes
+                node.viewState.w = C.NODE_WIDTH;
                 node.viewState.h = C.NODE_HEIGHT;
                 break;
         }
