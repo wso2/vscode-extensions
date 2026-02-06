@@ -28,42 +28,42 @@ import { getAvailableConnectors, getAvailableInboundEndpoints } from '../../tool
 
 export const PROMPT_TEMPLATE = `
 {{#if fileList}}
-<PROJECT_STRUCTURE>
+<project_structure>
 {{#each fileList}}
 {{this}}
 {{/each}}
-</PROJECT_STRUCTURE>
+</project_structure>
 {{/if}}
 
 {{#if currentlyOpenedFile}}
-<IDE_OPENED_FILE>
+<ide_opened_file>
 The user has opened the file {{currentlyOpenedFile}} in the IDE. This may or may not be related to the current task. User may refer it as "this".
-</IDE_OPENED_FILE>
+</ide_opened_file>
 {{/if}}
 
 {{#if userPreconfigured}}
-<USER_PRECONFIGURED>
+<user_preconfigured>
 {{payloads}}
-</USER_PRECONFIGURED>
+</user_preconfigured>
 These are preconfigured values that should be accessed using Synapse expressions in the integration flow. Always use Synapse expressions when referring to these values.
 {{/if}}
 
-<AVAILABLE_CONNECTORS>
+<available_connectors>
 {{available_connectors}}
-</AVAILABLE_CONNECTORS>
+</available_connectors>
 
-<AVAILABLE_INBOUND_ENDPOINTS>
+<available_inbound_endpoints>
 {{available_inbound_endpoints}}
-</AVAILABLE_INBOUND_ENDPOINTS>
+</available_inbound_endpoints>
 
-<SYSTEM_REMAINDER>
+<system_reminder>
 {{system_remainder}}
-</SYSTEM_REMAINDER>
+</system_reminder>
 
 **DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task.**
-<USER_QUERY>
+<user_query>
 {{question}}
-</USER_QUERY>
+</user_query>
 **DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task.**
 `;
 
