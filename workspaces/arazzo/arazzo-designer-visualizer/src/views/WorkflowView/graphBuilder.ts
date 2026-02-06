@@ -8,54 +8,89 @@ import { NodeFactoryVisitorHorizontal } from '../../visitors/NodeFactoryVisitorH
 import { NodeFactoryVisitorVertical } from '../../visitors/NodeFactoryVisitorVertical';
 import PortalCreator from '../../visitors/PortalCreator';
 
+import { InitVisitor_v2 } from '../../visitors/InitVisitor_v2';
+import { SizingVisitorVertical_v2 } from '../../visitors/SizingVisitorVertical_v2';
+import { PositionVisitorVertical_v2 } from '../../visitors/PositionVisitorVertical_v2';
+import { NodeFactoryVisitorVertical_v2 } from '../../visitors/NodeFactoryVisitorVertical_v2';
+import { DepthSearch } from '../../visitors/DepthSearch';
+
 /**
  * Builds the graph visualization from the workflow using the Visitor pattern.
  * Layout strategy: Left-to-Right Flow with Vertical Stacking for Branches (or Top-to-Bottom when vertical).
  */
 export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertical: boolean = false) => {
-    // 1. Init: Build Logical Tree from Arazzo Steps
-    const init = new InitVisitor();
-    const root = init.buildTree(workflow);
+    // // 1. Init: Build Logical Tree from Arazzo Steps
+    // const init = new InitVisitor();
+    // const root = init.buildTree(workflow);
 
-    // 2. Sizing: Calculate dimensions (Bottom-Up)
-    if (isVertical) {
-        const sizing = new SizingVisitorVertical();
-        sizing.visit(root);
-    } else {
-        const sizing = new SizingVisitorHorizontal();
-        sizing.visit(root);
-    }
+    // // 2. Sizing: Calculate dimensions (Bottom-Up)
+    // if (isVertical) {
+    //     const sizing = new SizingVisitorVertical();
+    //     sizing.visit(root);
+    // } else {
+    //     const sizing = new SizingVisitorHorizontal();
+    //     sizing.visit(root);
+    // }
 
-    // 3. Positioning: Assign X,Y coordinates (Top-Down)
-    // Start at (50, 300) to give some padding
-    if (isVertical) {
-        const positioning = new PositionVisitorVertical();
-        positioning.visit(root, 300, 50);
-    } else {
-        const positioning = new PositionVisitorHorizontal();
-        positioning.visit(root, 50, 300);
-    }
+    // // 3. Positioning: Assign X,Y coordinates (Top-Down)
+    // // Start at (50, 300) to give some padding
+    // if (isVertical) {
+    //     const positioning = new PositionVisitorVertical();
+    //     positioning.visit(root, 300, 50);
+    // } else {
+    //     const positioning = new PositionVisitorHorizontal();
+    //     positioning.visit(root, 50, 300);
+    // }
 
-    // Create portals for backward jumps (after positioning)
-    const portals = PortalCreator.createPortals(root);
+    // // Create portals for backward jumps (after positioning)
+    // const portals = PortalCreator.createPortals(root);
 
-    // 4. Factory: Generate React Flow Nodes & Edges
-    let factory;
-    if (isVertical) {
-        factory = new NodeFactoryVisitorVertical();    
-    } else {
-        factory = new NodeFactoryVisitorHorizontal();
-    }
-    factory.visit(root);
-        const elems = factory.getElements();
-        // Merge portal nodes/edges produced by PortalCreator
-        return {
-            nodes: [...elems.nodes, ...portals.nodes],
-            edges: [...elems.edges, ...portals.edges]
-        };
+    // // 4. Factory: Generate React Flow Nodes & Edges
+    // let factory;
+    // if (isVertical) {
+    //     factory = new NodeFactoryVisitorVertical();    
+    // } else {
+    //     factory = new NodeFactoryVisitorHorizontal();
+    // }
+    // factory.visit(root);
+    //     const elems = factory.getElements();
+    //     // Merge portal nodes/edges produced by PortalCreator
+    //     return {
+    //         nodes: [...elems.nodes, ...portals.nodes],
+    //         edges: [...elems.edges, ...portals.edges]
+    //     };
     
 
+    // ============================================================
+    // V2 IMPLEMENTATION: Vertical "Happy Path" Layout
+    // ============================================================
 
-    
+    // 1. Init V2: Build optimized tree (no implicit ends, single-path optimization)
+    const initV2 = new InitVisitor_v2();
+    const rootV2 = initV2.buildTree(workflow);
+
+    // 2. Happy Path Detection: Find the longest path (main spine)
+    const depthSearch = new DepthSearch();
+    depthSearch.findHappyPath(rootV2);
+
+    // 3. Sizing V2: Calculate dimensions for vertical layout
+    const sizingV2 = new SizingVisitorVertical_v2();
+    sizingV2.visit(rootV2);
+
+    // 4. Positioning V2: Assign coordinates with happy path spine at X=300
+    const spineX = 300;
+    const startY = 50;
+    const positioningV2 = new PositionVisitorVertical_v2(depthSearch, spineX);
+    positioningV2.visit(rootV2, spineX, startY);
+
+    // 5. Factory V2: Generate React Flow elements
+    const factoryV2 = new NodeFactoryVisitorVertical_v2();
+    factoryV2.visit(rootV2);
+    const elements = factoryV2.getElements();
+
+    return {
+        nodes: elements.nodes,
+        edges: elements.edges
+    };
 };
 
