@@ -46,6 +46,8 @@ import { extension } from "../../../BalExtensionContext";
 import { getProjectMetrics } from "../../telemetry/common/project-metrics";
 import { getHashedProjectId } from "../../telemetry/common/project-id";
 import { workspace } from 'vscode';
+import { StateMachine } from '../../../stateMachine';
+import * as fs from 'fs';
 
 /**
  * Determines which packages have been affected by analyzing modified files
@@ -157,6 +159,18 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 params.operationType,
                 this.config.executionContext
             );
+
+            // Debug: Fetch and save codemap as JSON
+            try {
+                const langClient = StateMachine.langClient();
+                const projectPath = this.config.executionContext.projectPath;
+                const codeMap = await langClient.getCodeMap({ projectPath });
+                const codeMapProjectPath = path.join(projectPath, 'codemap-debug.json');
+                fs.writeFileSync(codeMapProjectPath, JSON.stringify(codeMap, null, 2), 'utf-8');
+                console.log(`[AgentExecutor] CodeMap saved to: ${codeMapProjectPath}`);
+            } catch (error) {
+                console.warn('[AgentExecutor] Failed to fetch codemap for debugging:', error);
+            }
 
             // 2. Send didOpen only if creating NEW temp (not reusing for review continuation)
             if (!this.config.lifecycle?.existingTempPath) {
