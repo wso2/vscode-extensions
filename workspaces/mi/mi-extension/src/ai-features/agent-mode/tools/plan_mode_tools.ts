@@ -327,7 +327,7 @@ export function createEnterPlanModeExecute(
             4. Use ask_user_question tool if you need to clarify the approach
             5. Design a concrete implementation strategy
             6. Present your plan in simple summary format in chat window to the user with no code details because we are in a low code environment.
-            7. Only then use exit_plan_mode tool to present your plan for approval
+            7. Only then use ${EXIT_PLAN_MODE_TOOL_NAME} tool to present your plan for approval
 
             Remember: DO NOT write or edit any files yet. This is a read-only exploration and planning phase.`;
 

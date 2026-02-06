@@ -46,7 +46,6 @@ export const SYNAPSE_GUIDE = `
    - Adhere to Synapse best practices.
    - Create a separate file for each endpoint.
    - Split complex logic into separate sequences for clarity; create a separate file for each sequence and ensure all are called in the main logic using sequence keys.
-   - Use the \`call\` mediator instead of the \`send\` mediator.
    - Do not use \`outSequence\` as it is deprecated.
    - Give meaningful names to Synapse artifacts.
    - Provide a meaningful path in the uri-template in APIs.
