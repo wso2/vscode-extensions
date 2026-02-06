@@ -87,11 +87,11 @@ export {
     createServerManagementTool,
 } from './runtime_tools';
 
-// Export task tool (subagent spawning)
+// Export subagent tool (subagent spawning)
 export {
-    createTaskExecute,
-    createTaskTool,
-} from './task_tool';
+    createSubagentExecute,
+    createSubagentTool,
+} from './subagent_tool';
 
 // Export plan mode tools
 export {
@@ -139,7 +139,7 @@ export {
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
     // Plan mode tool names
-    TASK_TOOL_NAME,
+    SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
     ENTER_PLAN_MODE_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,

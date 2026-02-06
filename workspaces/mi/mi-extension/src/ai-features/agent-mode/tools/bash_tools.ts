@@ -23,7 +23,7 @@ import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { BashResult, ToolResult, BashExecuteFn, KillShellExecuteFn, TaskOutputExecuteFn, TaskOutputResult, BASH_TOOL_NAME, KILL_SHELL_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './types';
 import { logDebug, logError, logInfo } from '../../copilot/logger';
-import { getBackgroundSubagents } from './task_tool';
+import { getBackgroundSubagents } from './subagent_tool';
 import { setJavaHomeInEnvironmentAndPath } from '../../../debugger/debugHelper';
 import treeKill = require('tree-kill');
 
