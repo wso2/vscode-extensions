@@ -47,7 +47,6 @@ export const SERVER_MANAGEMENT_TOOL_NAME = 'server_management';
 
 export type BuildProjectExecuteFn = (args: {
     copy_to_runtime?: boolean;
-    full_output?: boolean;
 }) => Promise<ToolResult>;
 
 export type ServerManagementExecuteFn = (args: {
@@ -60,21 +59,44 @@ export type ServerManagementExecuteFn = (args: {
 
 let serverProcess: childProcess.ChildProcess | null = null;
 
-// Maximum output length to return to LLM (to avoid context overflow)
-const MAX_OUTPUT_LENGTH = 8000;
+// ============================================================================
+// Server Output Buffer (captures server logs during runtime)
+// ============================================================================
+
+let serverOutputBuffer = '';
+const MAX_SERVER_OUTPUT_BUFFER = 512 * 1024; // 512KB cap
+
+function appendToServerOutputBuffer(text: string) {
+    serverOutputBuffer += text;
+    // Keep the tail (most recent output) if buffer exceeds cap
+    if (serverOutputBuffer.length > MAX_SERVER_OUTPUT_BUFFER) {
+        serverOutputBuffer = serverOutputBuffer.slice(-MAX_SERVER_OUTPUT_BUFFER);
+    }
+}
+
+function clearServerOutputBuffer() {
+    serverOutputBuffer = '';
+}
+
+function getServerOutputBuffer(): string {
+    return serverOutputBuffer;
+}
 
 /**
- * Truncates output to fit within limits, keeping most relevant parts
- * For build output, keeps the end (where errors typically appear)
+ * Write output content to a file in the session directory.
+ * Returns the file path on success, empty string on failure.
  */
-function truncateOutput(output: string, maxLength: number = MAX_OUTPUT_LENGTH): string {
-    if (output.length <= maxLength) {
-        return output;
+function writeOutputToFile(sessionDir: string, fileName: string, content: string): string {
+    const filePath = path.join(sessionDir, fileName);
+    try {
+        fs.mkdirSync(sessionDir, { recursive: true });
+        fs.writeFileSync(filePath, content, 'utf8');
+        logDebug(`[RuntimeTools] Wrote ${fileName} (${content.length} chars) to ${filePath}`);
+        return filePath;
+    } catch (error) {
+        logError(`[RuntimeTools] Failed to write ${fileName}: ${error}`);
+        return '';
     }
-    const truncatedNote = '\n... [output truncated] ...\n\n';
-    const availableLength = maxLength - truncatedNote.length;
-    // Keep the last part of output (where build errors typically appear)
-    return truncatedNote + output.slice(-availableLength);
 }
 
 // ============================================================================
@@ -84,9 +106,9 @@ function truncateOutput(output: string, maxLength: number = MAX_OUTPUT_LENGTH): 
 /**
  * Creates the execute function for the build_project tool
  */
-export function createBuildProjectExecute(projectPath: string): BuildProjectExecuteFn {
-    return async (args: { copy_to_runtime?: boolean; full_output?: boolean }): Promise<ToolResult> => {
-        const { copy_to_runtime = false, full_output = false } = args;
+export function createBuildProjectExecute(projectPath: string, sessionDir: string): BuildProjectExecuteFn {
+    return async (args: { copy_to_runtime?: boolean }): Promise<ToolResult> => {
+        const { copy_to_runtime = false } = args;
 
         logInfo(`[BuildProjectTool] Building project at ${projectPath}, copy_to_runtime=${copy_to_runtime}`);
 
@@ -144,9 +166,9 @@ export function createBuildProjectExecute(projectPath: string): BuildProjectExec
                 });
             });
 
-            // Combine stdout and stderr for full output
+            // Combine stdout and stderr for full output and write to file
             const fullOutput = result.output + (result.error ? `\n\nSTDERR:\n${result.error}` : '');
-            const outputToReturn = full_output ? fullOutput : truncateOutput(fullOutput);
+            const buildOutputFile = writeOutputToFile(sessionDir, 'build.txt', fullOutput);
 
             if (!result.success) {
                 logError(`[BuildProjectTool] Build failed: ${result.error}`);
@@ -155,8 +177,8 @@ export function createBuildProjectExecute(projectPath: string): BuildProjectExec
                 serverLog('========================================\n');
                 return {
                     success: false,
-                    message: `Build failed.\n\n**Build Output:**\n\`\`\`\n${outputToReturn}\n\`\`\``,
-                    error: 'Build failed - see output above for details'
+                    message: `Build failed. Full build output saved to: ${buildOutputFile}\nRead this file using file_read to diagnose the build errors.`,
+                    error: 'Build failed - check build output file for details'
                 };
             }
 
@@ -194,7 +216,7 @@ export function createBuildProjectExecute(projectPath: string): BuildProjectExec
             serverLog('========================================\n');
             return {
                 success: true,
-                message: `${summary}\n\n**Build Output:**\n\`\`\`\n${outputToReturn}\n\`\`\``
+                message: `${summary}\nFull build output saved to: ${buildOutputFile}`
             };
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
@@ -214,9 +236,6 @@ export function createBuildProjectExecute(projectPath: string): BuildProjectExec
 const buildProjectInputSchema = z.object({
     copy_to_runtime: z.boolean().optional().default(false).describe(
         'Whether to copy built .car artifacts to the MI runtime carbonapps directory after successful build'
-    ),
-    full_output: z.boolean().optional().default(false).describe(
-        'Whether to return the complete build output without truncation. Use this for debugging when you need to see the full Maven output (default: false, output is truncated to ~8000 chars)'
     ),
 });
 
@@ -238,12 +257,12 @@ This tool runs 'mvn clean install' to build the project and generate .car (Carbo
 1. Executes Maven build command
 2. Generates .car artifacts in the target/ directory
 3. Optionally copies artifacts to the MI runtime for deployment
-4. Returns full build output (stdout/stderr) for error analysis
+4. Overwrites build.txt in the session directory with the full build output (fresh for each build)
 
 **Returns:**
 - Build success/failure status
 - List of generated .car artifacts
-- Full Maven build output (truncated if too long) - useful for diagnosing compilation errors`,
+- Path to build.txt containing full Maven output (overwritten each build). Use file_read to inspect build errors.`,
         inputSchema: buildProjectInputSchema,
         execute
     });
@@ -303,7 +322,7 @@ async function checkServerStatus(projectPath: string): Promise<{ running: boolea
 /**
  * Creates the execute function for the server_management tool
  */
-export function createServerManagementExecute(projectPath: string): ServerManagementExecuteFn {
+export function createServerManagementExecute(projectPath: string, sessionDir: string): ServerManagementExecuteFn {
     return async (args: { action: 'run' | 'stop' | 'status' }): Promise<ToolResult> => {
         const { action } = args;
 
@@ -331,9 +350,17 @@ export function createServerManagementExecute(projectPath: string): ServerManage
             switch (action) {
                 case 'status': {
                     const status = await checkServerStatus(projectPath);
+                    const recentOutput = getServerOutputBuffer();
+                    let outputInfo = '';
+                    if (recentOutput) {
+                        const runOutputFile = writeOutputToFile(sessionDir, 'run.txt', recentOutput);
+                        if (runOutputFile) {
+                            outputInfo = `\nServer output saved to: ${runOutputFile}`;
+                        }
+                    }
                     return {
                         success: true,
-                        message: status.message
+                        message: status.message + outputInfo
                     };
                 }
 
@@ -466,60 +493,98 @@ export function createServerManagementExecute(projectPath: string): ServerManage
                         };
                     }
 
+                    // Clear output buffer and start capturing
+                    clearServerOutputBuffer();
                     logDebug(`[ServerManagementTool] Server process spawned with PID: ${serverProcess.pid}`);
 
-                    // Track if process failed immediately
-                    let immediateError: string | null = null;
+                    // Track process state
+                    let processExited = false;
+                    let processExitCode: number | null = null;
 
                     serverProcess.stdout?.on('data', (data) => {
-                        serverLog(data.toString());
+                        const text = data.toString();
+                        serverLog(text);
+                        appendToServerOutputBuffer(text);
                     });
 
                     serverProcess.stderr?.on('data', (data) => {
-                        serverLog(data.toString());
+                        const text = data.toString();
+                        serverLog(text);
+                        appendToServerOutputBuffer(text);
                     });
 
                     serverProcess.on('error', (error) => {
-                        immediateError = error.message;
                         logError(`[ServerManagementTool] Server process error: ${error.message}`);
                         serverLog(`\nERROR: ${error.message}\n`);
+                        appendToServerOutputBuffer(`\nERROR: ${error.message}\n`);
+                        processExited = true;
                     });
 
                     serverProcess.on('exit', (code, signal) => {
                         logInfo(`[ServerManagementTool] Server process exited with code ${code}, signal ${signal}`);
+                        processExitCode = code;
+                        processExited = true;
                         if (code !== 0 && code !== null) {
                             serverLog(`\nServer process exited with code ${code}\n`);
                         }
                         serverProcess = null;
                     });
 
-                    // Wait briefly to check if process fails immediately
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    // Wait for server to become ready, fail, or timeout
+                    const readinessConfig = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectPath));
+                    const configuredTimeout = readinessConfig.get("serverTimeoutInSecs");
+                    const maxTimeout = (Number.isFinite(Number(configuredTimeout)) && Number(configuredTimeout) > 0)
+                        ? Number(configuredTimeout) * 1000 : 120000;
+                    const pollInterval = 3000;
+                    const startTime = Date.now();
 
-                    if (immediateError) {
-                        return {
-                            success: false,
-                            message: 'Server failed to start',
-                            error: immediateError
-                        };
+                    // Initial wait for process to begin starting
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+
+                    while (Date.now() - startTime < maxTimeout) {
+                        // Check if process died
+                        if (processExited) {
+                            const runOutputFile = writeOutputToFile(sessionDir, 'run.txt', getServerOutputBuffer());
+                            logError(`[ServerManagementTool] Server process exited during startup with code ${processExitCode}`);
+                            serverLog('\n========================================\n');
+                            serverLog('  SERVER FAILED TO START\n');
+                            serverLog('========================================\n');
+                            return {
+                                success: false,
+                                message: `Server process exited with code ${processExitCode} during startup.\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the startup errors.`,
+                                error: `Server process exited with code ${processExitCode}`
+                            };
+                        }
+
+                        // Check health endpoint
+                        const healthStatus = await checkServerStatus(projectPath);
+                        if (healthStatus.ready) {
+                            const port = DebuggerConfig.getServerPort();
+                            const runOutputFile = writeOutputToFile(sessionDir, 'run.txt', getServerOutputBuffer());
+                            logInfo(`[ServerManagementTool] Server is running and ready on port ${port}`);
+                            serverLog('\n========================================\n');
+                            serverLog('  SERVER IS READY\n');
+                            serverLog('========================================\n');
+                            return {
+                                success: true,
+                                message: `Server is running and ready on port ${port}.\nServer startup output saved to: ${runOutputFile}`
+                            };
+                        }
+
+                        await new Promise(resolve => setTimeout(resolve, pollInterval));
                     }
 
-                    // Check if process is still alive
-                    if (serverProcess && serverProcess.exitCode === null) {
-                        const port = DebuggerConfig.getServerPort();
-                        logInfo(`[ServerManagementTool] Server process is running (PID: ${serverProcess.pid})`);
-                        return {
-                            success: true,
-                            message: `Server started (PID: ${serverProcess.pid}). The server is starting on port ${port}. Use 'status' action to check when it's ready.`
-                        };
-                    } else {
-                        const exitCode = serverProcess?.exitCode;
-                        return {
-                            success: false,
-                            message: 'Server process terminated immediately',
-                            error: `Process exited with code ${exitCode}`
-                        };
-                    }
+                    // Timeout reached - server may still be starting
+                    const runOutputFile = writeOutputToFile(sessionDir, 'run.txt', getServerOutputBuffer());
+                    logError(`[ServerManagementTool] Server startup timed out after ${maxTimeout / 1000}s`);
+                    serverLog('\n========================================\n');
+                    serverLog('  SERVER STARTUP TIMED OUT\n');
+                    serverLog('========================================\n');
+                    return {
+                        success: false,
+                        message: `Server startup timed out after ${maxTimeout / 1000} seconds. The server may still be starting or may have encountered deployment issues.\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the issue.`,
+                        error: `Server startup timed out after ${maxTimeout / 1000}s`
+                    };
                 }
 
                 case 'stop': {
@@ -630,13 +695,15 @@ This tool allows you to start, stop, and check the status of the MI runtime.
 
 **Actions:**
 
-1. **run** - Start the MI runtime server
+1. **run** - Start the MI runtime server and wait until ready
    - Shuts down any running tryout server first
    - Syncs deployment.toml from project to server (backs up server config)
    - Copies deployment/libs/*.jar files to server lib directory
    - Loads environment variables from .env file if present
    - Starts the server in non-debug mode
-   - Returns immediately; use 'status' to check when ready
+   - **Waits for the server to become ready** (health check) or fail
+   - Overwrites run.txt with server output (fresh for each server start)
+   - Timeout is configurable via MI.serverTimeoutInSecs (default: 120s)
 
 2. **stop** - Stop the running MI runtime server
    - Attempts graceful shutdown first
@@ -645,6 +712,9 @@ This tool allows you to start, stop, and check the status of the MI runtime.
 3. **status** - Check server status
    - Reports if server is running (port active)
    - Reports if server is ready (health check passed)
+   - Updates run.txt with latest server output since last start
+
+**Output files:** run.txt is overwritten fresh on each server start and updated on status checks. Use file_read to inspect for debugging.
 
 **Prerequisites:**
 - MI runtime must be configured (MI.SERVER_PATH setting)
@@ -654,10 +724,9 @@ This tool allows you to start, stop, and check the status of the MI runtime.
 **Typical workflow:**
 1. Make code changes
 2. Run build_project (with copy_to_runtime=true)
-3. Run server_management with action='run'
-4. Check server_management with action='status' until ready
-5. Test your integration
-6. Run server_management with action='stop' when done`,
+3. Run server_management with action='run' (waits until server is ready)
+4. Test your integration
+5. Run server_management with action='stop' when done`,
         inputSchema: serverManagementInputSchema,
         execute
     });

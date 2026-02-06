@@ -16,6 +16,7 @@
  * under the License.
  */
 
+import { CREATE_DATA_MAPPER_TOOL_NAME } from "../tools/types";
 import { SYNAPSE_EXPRESSION_EXAMPLES } from "./synapse_expression_examples";
 import { SYNAPSE_EXPRESSION_GUIDE } from "./synapse_expression_guide"
 
@@ -390,4 +391,93 @@ export const SYNAPSE_GUIDE = `
         </resource>
     </api> 
     \`\`\`
+
+#### Data Mappers
+
+Data mappers transform data between input and output schemas using TypeScript. They are used with the \`<datamapper>\` mediator in Synapse integrations.
+
+**Folder Structure:**
+Each data mapper creates a folder at \`src/main/wso2mi/resources/datamapper/{name}/\` containing:
+- \`{name}.ts\` - TypeScript mapping file with input/output interfaces and mapFunction
+- \`dm-utils.ts\` - Utility operators (arithmetic, string, type conversion functions)
+
+**TypeScript Mapping File Format:**
+\`\`\`typescript
+import * as dmUtils from "./dm-utils";
+declare var DM_PROPERTIES: any;
+
+/**
+ * inputType:JSON
+ * title:"InputSchemaName"
+ */
+interface InputRoot {
+    // Input schema fields
+}
+
+/**
+ * outputType:JSON
+ * title:"OutputSchemaName"
+ */
+interface OutputRoot {
+    // Output schema fields
+}
+
+export function mapFunction(input: InputRoot): OutputRoot {
+    return {
+        // Field mappings: outputField: input.inputField
+        // Can use dmUtils functions for transformations
+    };
+}
+\`\`\`
+
+**Using Data Mapper in Synapse XML:**
+\`\`\`xml
+<datamapper
+    config="resources:/datamapper/{name}/{name}.dmc"
+    inputSchema="resources:/datamapper/{name}/{name}_inputSchema.json"
+    inputType="JSON"
+    outputSchema="resources:/datamapper/{name}/{name}_outputSchema.json"
+    outputType="JSON"/>
+\`\`\`
+
+**Available dm-utils Functions:**
+- Arithmetic: \`dmUtils.sum()\`, \`dmUtils.max()\`, \`dmUtils.min()\`, \`dmUtils.average()\`, \`dmUtils.ceiling()\`, \`dmUtils.floor()\`, \`dmUtils.round()\`
+- String: \`dmUtils.concat()\`, \`dmUtils.split()\`, \`dmUtils.toUppercase()\`, \`dmUtils.toLowercase()\`, \`dmUtils.trim()\`, \`dmUtils.substring()\`, \`dmUtils.stringLength()\`, \`dmUtils.startsWith()\`, \`dmUtils.endsWith()\`, \`dmUtils.replaceFirst()\`, \`dmUtils.match()\`
+- Type conversion: \`dmUtils.toNumber()\`, \`dmUtils.toBoolean()\`, \`dmUtils.numberToString()\`, \`dmUtils.booleanToString()\`
+- Property access: \`dmUtils.getPropertyValue(scope, name)\`
+
+#### Registry Resources
+
+When creating supportive resources that are needed for the Integration inside src/main/java/wso2mi/resources, an entry should be added to the src/main/java/wso2mi/resources/artifact.xml. If an artifacts.xml doesn't exist, then create one and add the entry. The format should be as follows:
+For data mappers this is get automatically done by the ${CREATE_DATA_MAPPER_TOOL_NAME} tool. But for other resources, you need to add the entry manually.
+
+\`\`\`xml
+<?xml version="1.0" encoding="UTF-8"?>
+<artifacts>
+  <artifact name="resources_json_test_json" groupId="com.microintegrator.projects" version="1.0.0" type="registry/resource" serverRole="EnterpriseIntegrator">
+    <item>
+      <file>test.json</file>
+      <path>/_system/governance/mi-resources/json</path>
+      <mediaType>application/json</mediaType>
+      <properties></properties>
+    </item>
+  </artifact>
+</artifacts>
+\`\`\`
+
+Here the path artifact name should be unique and generally resembles the file path inside the resources folder. The file element should be the name of the file inside the resources folder. The path element should be the registry path where the resource will be added when the integration is deployed. Generally resources are added inside '/_system/governance/mi-resources'. The mediaType should be the media type of the resource. The properties element can be used to add any additional properties to the resource, but it can be left empty if there are no additional properties to add. 
+For an example if an XSLT file is added inside src/main/java/wso2mi/resources/xslt/conversion.xslt, then the artifact entry can be as follows:
+
+\`\`\`xml
+<artifact name="resources_xslt_conversion_xslt" groupId="com.microintegrator.projects" version="1.0.0" type="registry/resource" serverRole="EnterpriseIntegrator">
+    <item>
+      <file>conversion.xslt</file>
+      <path>/_system/governance/mi-resources/xslt</path>
+      <mediaType>application/xslt+xml</mediaType>
+      <properties></properties>
+    </item>
+  </artifact>
+\`\`\`
+
+Content under api-definitions, conf, connectors and metadata are not added as registry resources and hence do not require an entry in the artifact.xml. Only supportive resources that are needed for the integration and are added inside src/main/java/wso2mi/resources need to be added as registry resources and require an entry in the artifact.xml.
 `;

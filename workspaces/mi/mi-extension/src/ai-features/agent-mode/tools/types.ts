@@ -55,7 +55,11 @@ export const VALID_FILE_EXTENSIONS = [
     '.json',
     '.dmc',
     '.ts',
-    '.toml'
+    '.toml',
+    '.txt',
+    '.log',
+    '.java',
+    '.xslt'
 ];
 
 export const MAX_LINE_LENGTH = 2000;
@@ -216,7 +220,6 @@ export type GenerateDataMappingExecuteFn = (args: {
 
 export type BuildProjectExecuteFn = (args: {
     copy_to_runtime?: boolean;
-    full_output?: boolean;
 }) => Promise<ToolResult>;
 
 export type ServerManagementExecuteFn = (args: {

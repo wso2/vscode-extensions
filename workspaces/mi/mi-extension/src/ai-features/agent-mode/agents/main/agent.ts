@@ -22,6 +22,7 @@
 const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
 const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
 
+import * as path from 'path';
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
 import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from '../../../connection';
 import { getSystemPrompt } from './system';
@@ -193,6 +194,9 @@ export async function executeAgent(
     // Session ID for plan mode (defaults to 'default')
     const sessionId = request.sessionId || 'default';
 
+    // Session directory for output files (build.txt, run.txt)
+    const sessionDir = path.join(request.projectPath, '.mi-copilot', sessionId);
+
     try {
         logInfo(`[Agent] Starting agent execution for project: ${request.projectPath}`);
 
@@ -287,10 +291,10 @@ export async function executeAgent(
                 createGenerateDataMappingExecute(request.projectPath, modifiedFiles)
             ),
             [BUILD_PROJECT_TOOL_NAME]: createBuildProjectTool(
-                createBuildProjectExecute(request.projectPath)
+                createBuildProjectExecute(request.projectPath, sessionDir)
             ),
             [SERVER_MANAGEMENT_TOOL_NAME]: createServerManagementTool(
-                createServerManagementExecute(request.projectPath)
+                createServerManagementExecute(request.projectPath, sessionDir)
             ),
             // Plan Mode Tools
             [TASK_TOOL_NAME]: createTaskTool(
