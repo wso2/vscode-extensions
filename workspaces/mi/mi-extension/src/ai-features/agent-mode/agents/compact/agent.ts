@@ -45,7 +45,7 @@ import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 // ============================================================================
 // Dev Feature Flags
 // ============================================================================
-const ENABLE_DEVTOOLS = true; // Set to true to enable AI SDK DevTools (local development only!)
+const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
 
 // ============================================================================
 // Types

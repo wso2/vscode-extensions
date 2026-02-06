@@ -2945,7 +2945,15 @@ ${endpointAttributes}
         if (!fs.lstatSync(params.path).isDirectory()) {
             const uri = Uri.file(params.path);
             workspace.openTextDocument(uri).then((document) => {
-                window.showTextDocument(document, params.beside ? ViewColumn.Beside : undefined);
+                const options: { viewColumn?: ViewColumn; selection?: Selection } = {};
+                if (params.beside) {
+                    options.viewColumn = ViewColumn.Beside;
+                }
+                if (params.line && params.line > 0) {
+                    const pos = new Position(params.line - 1, 0);
+                    options.selection = new Selection(pos, pos);
+                }
+                window.showTextDocument(document, options);
             });
         }
     }
