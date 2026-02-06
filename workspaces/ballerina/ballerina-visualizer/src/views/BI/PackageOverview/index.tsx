@@ -101,10 +101,10 @@ const HeaderControls = styled.div`
     margin-right: 16px;
 `;
 
-const MainContent = styled.div<{ fullWidth?: boolean }>`
+const MainContent = styled.div`
     padding: 16px;
     display: grid;
-    grid-template-columns: ${(props: { fullWidth?: boolean }) => props.fullWidth ? '1fr' : '3fr 1fr'};
+    grid-template-columns: 3fr 1fr;
     min-height: 0; // Prevents grid blowout
     overflow: auto;
     max-height: calc(100vh - 90px); // Adjust based on header and any margins
@@ -617,7 +617,6 @@ export function PackageOverview(props: PackageOverviewProps) {
     const [readmeContent, setReadmeContent] = useState<string>("");
     const [projectStructure, setProjectStructure] = useState<ProjectStructure>();
     const [isWorkspace, setIsWorkspace] = useState(false);
-    const [isLibrary, setIsLibrary] = useState<boolean>(false);
 
     const [enabled, setEnableICP] = useState(false);
     const { data: devantMetadata } = useQuery({
@@ -636,7 +635,6 @@ export function PackageOverview(props: PackageOverviewProps) {
                 setIsWorkspace(res.workspaceName !== undefined);
                 if (project) {
                     setProjectStructure(project);
-                    setIsLibrary(project.isLibrary ?? false);
                 }
             });
 
@@ -828,16 +826,12 @@ export function PackageOverview(props: PackageOverviewProps) {
                 />
                 Configure
             </Button>
-            {!isLibrary && (
-                <>
-                    <Button appearance="icon" onClick={handleLocalRun} buttonSx={{ padding: "4px 8px" }}>
-                        <Codicon name="play" sx={{ marginRight: 5 }} /> Run
-                    </Button>
-                    <Button appearance="icon" onClick={handleLocalDebug} buttonSx={{ padding: "4px 8px" }}>
-                        <Codicon name="debug" sx={{ marginRight: 5 }} /> Debug
-                    </Button>
-                </>
-            )}
+            <Button appearance="icon" onClick={handleLocalRun} buttonSx={{ padding: "4px 8px" }}>
+                <Codicon name="play" sx={{ marginRight: 5 }} /> Run
+            </Button>
+            <Button appearance="icon" onClick={handleLocalDebug} buttonSx={{ padding: "4px 8px" }}>
+                <Codicon name="debug" sx={{ marginRight: 5 }} /> Debug
+            </Button>
         </>
     );
 
@@ -848,7 +842,7 @@ export function PackageOverview(props: PackageOverviewProps) {
                 {isWorkspace ? (
                     <TitleBar
                         title={projectName}
-                        subtitle={isLibrary ? "Library" : "Integration"}
+                        subtitle="Integration"
                         onBack={handleBack}
                         actions={headerActions}
                     />
@@ -864,7 +858,7 @@ export function PackageOverview(props: PackageOverviewProps) {
                         </HeaderControls>
                     </HeaderRow>
                 )}
-                <MainContent fullWidth={isLibrary}>
+                <MainContent>
                     <LeftContent>
                         <DiagramPanel noPadding={true}>
                             {showAlert && (
@@ -900,13 +894,13 @@ export function PackageOverview(props: PackageOverviewProps) {
                                 {isEmptyProject() ? (
                                     <EmptyStateContainer>
                                         <Typography variant="h3" sx={{ marginBottom: "16px" }}>
-                                            {isLibrary ? "Your library is empty" : "Your integration is empty"}
+                                            Your integration is empty
                                         </Typography>
                                         <Typography
                                             variant="body1"
                                             sx={{ marginBottom: "24px", color: "var(--vscode-descriptionForeground)" }}
                                         >
-                                            Start by adding artifacts or use AI to generate your {isLibrary ? "shared logic and utilities" : "integration structure"}
+                                            Start by adding artifacts or use AI to generate your integration structure
                                         </Typography>
                                         <ButtonContainer>
                                             <Button appearance="primary" onClick={handleAddConstruct}>
@@ -950,32 +944,30 @@ export function PackageOverview(props: PackageOverviewProps) {
                             </ReadmeContent>
                         </FooterPanel>
                     </LeftContent>
-                    {!isLibrary && (
-                        <SidePanel>
-                            {!isInDevant &&
-                                <>
-                                    <DeploymentOptions
-                                        handleDockerBuild={handleDockerBuild}
-                                        handleJarBuild={handleJarBuild}
-                                        handleDeploy={handleDeploy}
-                                        goToDevant={goToDevant}
-                                        devantMetadata={devantMetadata}
-                                        hasDeployableIntegration={deployableIntegrationTypes.length > 0}
-                                    />
-                                    <Divider sx={{ margin: "16px 0" }} />
-                                    <IntegrationControlPlane enabled={enabled} handleICP={handleICP} />
-                                </>
-                            }
-                            {isInDevant &&
-                                <DevantDashboard
-                                    projectStructure={projectStructure}
+                    <SidePanel>
+                        {!isInDevant &&
+                            <>
+                                <DeploymentOptions
+                                    handleDockerBuild={handleDockerBuild}
+                                    handleJarBuild={handleJarBuild}
                                     handleDeploy={handleDeploy}
                                     goToDevant={goToDevant}
                                     devantMetadata={devantMetadata}
+                                    hasDeployableIntegration={deployableIntegrationTypes.length > 0}
                                 />
-                            }
-                        </SidePanel>
-                    )}
+                                <Divider sx={{ margin: "16px 0" }} />
+                                <IntegrationControlPlane enabled={enabled} handleICP={handleICP} />
+                            </>
+                        }
+                        {isInDevant &&
+                            <DevantDashboard
+                                projectStructure={projectStructure}
+                                handleDeploy={handleDeploy}
+                                goToDevant={goToDevant}
+                                devantMetadata={devantMetadata}
+                            />
+                        }
+                    </SidePanel>
                 </MainContent>
             </PageLayout>
         </>

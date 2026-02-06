@@ -17,21 +17,55 @@
  */
 
 import { useEffect, useState } from "react";
-import { LocationSelector, TextField, CheckBox } from "@wso2/ui-toolkit";
+import { LocationSelector, TextField, CheckBox, LinkButton, ThemeColors, Codicon, FormCheckBox } from "@wso2/ui-toolkit";
+import styled from "@emotion/styled";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
-import {
-    FieldGroup,
-    CheckboxContainer,
-    Description,
-    SectionDivider,
-    OptionalSectionsLabel,
-} from "./styles";
-import { CollapsibleSection, ProjectTypeSelector, PackageInfoSection } from "./components";
-import { ProjectFormData } from "./types";
 import { sanitizePackageName, validatePackageName } from "./utils";
 
-// Re-export for backwards compatibility
-export type { ProjectFormData } from "./types";
+const FieldGroup = styled.div`
+    margin-bottom: 20px;
+`;
+
+const CheckboxContainer = styled.div`
+    margin: 16px 0;
+`;
+
+const OptionalConfigRow = styled.div`
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 8px;
+`;
+
+const OptionalConfigButtonContainer = styled.div`
+    display: flex;
+    flex-direction: row;
+    flex-grow: 1;
+    justify-content: flex-end;
+`;
+
+const OptionalConfigContent = styled.div`
+    margin-top: 16px;
+`;
+
+const Description = styled.div`
+    color: var(--vscode-list-deemphasizedForeground);
+    margin-top: 4px;
+    text-align: left;
+`;
+
+export interface ProjectFormData {
+    integrationName: string;
+    packageName: string;
+    path: string;
+    createDirectory: boolean;
+    createAsWorkspace: boolean;
+    workspaceName: string;
+    orgName: string;
+    version: string;
+}
 
 export interface ProjectFormFieldsProps {
     formData: ProjectFormData;
@@ -42,10 +76,9 @@ export interface ProjectFormFieldsProps {
 export function ProjectFormFields({ formData, onFormDataChange, onValidationChange }: ProjectFormFieldsProps) {
     const { rpcClient } = useRpcContext();
     const [packageNameTouched, setPackageNameTouched] = useState(false);
+    const [showOptionalConfigurations, setShowOptionalConfigurations] = useState(false);
     const [packageNameError, setPackageNameError] = useState<string | null>(null);
     const [isWorkspaceSupported, setIsWorkspaceSupported] = useState(false);
-    const [isProjectStructureExpanded, setIsProjectStructureExpanded] = useState(false);
-    const [isPackageInfoExpanded, setIsPackageInfoExpanded] = useState(false);
 
     const handleIntegrationName = (value: string) => {
         onFormDataChange({ integrationName: value });
@@ -71,8 +104,17 @@ export function ProjectFormFields({ formData, onFormDataChange, onValidationChan
         onFormDataChange({ path: projectDirectory.path });
     };
 
-    const handleProjectStructureToggle = () => {
-        setIsProjectStructureExpanded(!isProjectStructureExpanded);
+    const handleShowOptionalConfigurations = () => {
+        rpcClient.getLangClientRpcClient().isSupportedSLVersion({ major: 2201, minor: 13, patch: 0 }).then((res) => {
+            if (res) {
+                setIsWorkspaceSupported(res);
+            }
+            setShowOptionalConfigurations(true);
+        });
+    };
+
+    const handleHideOptionalConfigurations = () => {
+        setShowOptionalConfigurations(false);
     };
 
     useEffect(() => {
@@ -81,14 +123,6 @@ export function ProjectFormFields({ formData, onFormDataChange, onValidationChan
                 const currentDir = await rpcClient.getCommonRpcClient().getWorkspaceRoot();
                 onFormDataChange({ path: currentDir.path });
             }
-            const isWorkspaceSupported = await rpcClient
-                .getLangClientRpcClient()
-                .isSupportedSLVersion({ major: 2201, minor: 13, patch: 0 })
-                .catch((err) => {
-                    console.error("Failed to check workspace support:", err);
-                    return false;
-                });
-            setIsWorkspaceSupported(isWorkspaceSupported);
         })();
     }, []);
 
@@ -101,7 +135,6 @@ export function ProjectFormFields({ formData, onFormDataChange, onValidationChan
 
     return (
         <>
-            {/* Primary Fields - Always Visible */}
             <FieldGroup>
                 <TextField
                     onTextChange={handleIntegrationName}
@@ -140,30 +173,45 @@ export function ProjectFormFields({ formData, onFormDataChange, onValidationChan
                 </CheckboxContainer>
             </FieldGroup>
 
-            <SectionDivider />
-            <OptionalSectionsLabel>Optional Configurations</OptionalSectionsLabel>
+            <OptionalConfigRow>
+                Optional Configurations
+                <OptionalConfigButtonContainer>
+                    {!showOptionalConfigurations && (
+                        <LinkButton
+                            onClick={handleShowOptionalConfigurations}
+                            sx={{ fontSize: 12, padding: 8, color: ThemeColors.PRIMARY, gap: 4, userSelect: "none" }}
+                        >
+                            <Codicon name={"chevron-down"} iconSx={{ fontSize: 12 }} sx={{ height: 12 }} />
+                            Expand
+                        </LinkButton>
+                    )}
+                    {showOptionalConfigurations && (
+                        <LinkButton
+                            onClick={handleHideOptionalConfigurations}
+                            sx={{ fontSize: 12, padding: 8, color: ThemeColors.PRIMARY, gap: 4, userSelect: "none" }}
+                        >
+                            <Codicon name={"chevron-up"} iconSx={{ fontSize: 12 }} sx={{ height: 12 }} />
+                            Collapse
+                        </LinkButton>
+                    )}
+                </OptionalConfigButtonContainer>
+            </OptionalConfigRow>
 
-            {/* Project Structure Section */}
-            {isWorkspaceSupported && (
-                <CollapsibleSection
-                    isExpanded={isProjectStructureExpanded}
-                    onToggle={handleProjectStructureToggle}
-                    icon="folder"
-                    title="Project Structure"
-                >
-                    <CheckboxContainer>
-                        <CheckBox
-                            label="Create as workspace"
-                            checked={formData.createAsWorkspace}
-                            onChange={(checked) => onFormDataChange({ createAsWorkspace: checked })}
-                        />
-                        <Description>
-                            Include this integration in a new workspace for multi-project management.
-                        </Description>
-                    </CheckboxContainer>
-                    {formData.createAsWorkspace && (
-                        <>
-                            <FieldGroup>
+            {showOptionalConfigurations && (
+                <OptionalConfigContent>
+                    {isWorkspaceSupported && (
+                        <FieldGroup>
+                            <CheckboxContainer>
+                                <CheckBox
+                                    label="Create as workspace"
+                                    checked={formData.createAsWorkspace}
+                                    onChange={(checked) => onFormDataChange({ createAsWorkspace: checked })}
+                                />
+                                <Description>
+                                    Include this integration in a new workspace for multi-project management.
+                                </Description>
+                            </CheckboxContainer>
+                            {formData.createAsWorkspace && (
                                 <TextField
                                     onTextChange={(value) => onFormDataChange({ workspaceName: value })}
                                     value={formData.workspaceName}
@@ -171,25 +219,28 @@ export function ProjectFormFields({ formData, onFormDataChange, onValidationChan
                                     placeholder="Enter workspace name"
                                     required={true}
                                 />
-                            </FieldGroup>
-
-                            <ProjectTypeSelector
-                                value={formData.isLibrary}
-                                onChange={(isLibrary) => onFormDataChange({ isLibrary })}
-                                note="This sets the type for your first project. You can add more projects or libraries to this workspace later."
-                            />
-                        </>
+                            )}
+                        </FieldGroup>
                     )}
-                </CollapsibleSection>
+                    <FieldGroup>
+                        <TextField
+                            onTextChange={(value) => onFormDataChange({ orgName: value })}
+                            value={formData.orgName}
+                            label="Organization Name"
+                            description="The organization that owns this Ballerina package."
+                        />
+                    </FieldGroup>
+                    <FieldGroup>
+                        <TextField
+                            onTextChange={(value) => onFormDataChange({ version: value })}
+                            value={formData.version}
+                            label="Package Version"
+                            placeholder="0.1.0"
+                            description="Version of the Ballerina package."
+                        />
+                    </FieldGroup>
+                </OptionalConfigContent>
             )}
-
-            {/* Package Information Section */}
-            <PackageInfoSection
-                isExpanded={isPackageInfoExpanded}
-                onToggle={() => setIsPackageInfoExpanded(!isPackageInfoExpanded)}
-                data={{ orgName: formData.orgName, version: formData.version }}
-                onChange={(data) => onFormDataChange(data)}
-            />
         </>
     );
 }

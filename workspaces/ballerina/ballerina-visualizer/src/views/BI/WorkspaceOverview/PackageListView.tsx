@@ -204,10 +204,8 @@ const renderIcon = (iconConfig: { name: string; source: 'icon' | 'codicon' }) =>
     );
 };
 
-const renderPackageIcon = (types: SCOPE[], isLibrary: boolean) => {
-    if (isLibrary) {
-        return renderIcon({ name: 'package', source: 'codicon' });
-    } else if (types.length > 0) {
+const renderPackageIcon = (types: SCOPE[]) => {
+    if (types.length > 0) {
         const iconConfig = getTypeIcon(types[0]);
         return renderIcon(iconConfig);
     }
@@ -225,7 +223,6 @@ export function PackageListView(props: PackageListViewProps) {
                 id: project.projectName,
                 name: project.projectTitle,
                 projectPath: project.projectPath,
-                isLibrary: project?.isLibrary ?? false,
                 types: getIntegrationTypes(project)
             }
         });
@@ -262,7 +259,7 @@ export function PackageListView(props: PackageListViewProps) {
                         <PackageHeader>
                             <PackageTitleRow title={pkg.name}>
                                 <PackageIcon>
-                                    {renderPackageIcon(pkg.types, pkg.isLibrary)}
+                                    {renderPackageIcon(pkg.types)}
                                 </PackageIcon>
                                 <PackageName>{pkg.name}</PackageName>
                             </PackageTitleRow>
@@ -283,11 +280,6 @@ export function PackageListView(props: PackageListViewProps) {
                                     {type !== SCOPE.ANY ? getTypeLabel(type) : ''}
                                 </Chip>
                             ))}
-                            {pkg.isLibrary && (
-                                <Chip key="library-chip" color="var(--vscode-charts-yellow)">
-                                    Library
-                                </Chip>
-                            )}
                         </ChipContainer>
                     </PackageCard>
                 ))}

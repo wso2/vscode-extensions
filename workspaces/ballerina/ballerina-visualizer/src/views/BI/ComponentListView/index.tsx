@@ -43,7 +43,6 @@ export function ComponentListView(props: ComponentListViewProps) {
     const [triggers, setTriggers] = useState<TriggerModelsResponse>({ local: [] });
     const { cacheTriggers, setCacheTriggers } = useVisualizerContext();
     const [isNPSupported, setIsNPSupported] = useState<boolean>(false);
-    const [isLibrary, setIsLibrary] = useState<boolean>(false);
 
     useEffect(() => {
         getTriggers();
@@ -51,14 +50,7 @@ export function ComponentListView(props: ComponentListViewProps) {
         rpcClient.getCommonRpcClient().isNPSupported().then((supported) => {
             setIsNPSupported(supported);
         });
-
-        rpcClient.getBIDiagramRpcClient().getProjectStructure().then((res) => {
-            const project = res.projects.find(project => project.projectPath === projectPath);
-            if (project) {
-                setIsLibrary(project.isLibrary ?? false);
-            }
-        });
-    }, [rpcClient, projectPath]);
+    }, []);
 
     const getTriggers = () => {
         if (cacheTriggers.local.length > 0) {
@@ -75,28 +67,19 @@ export function ComponentListView(props: ComponentListViewProps) {
         }
     };
 
-    const title = isLibrary ? "Library Artifacts" : "Artifacts";
-    const subtitle = isLibrary
-        ? "Add reusable artifacts to your library"
-        : "Add a new artifact to your integration";
-
     return (
         <View>
             <TopNavigationBar projectPath={projectPath} />
-            <TitleBar title={title} subtitle={subtitle} />
+            <TitleBar title="Artifacts" subtitle="Add a new artifact to your integration" />
             <ViewContent padding>
                 <Container>
                     <AddPanel>
-                        {!isLibrary && (
-                            <>
-                                <AutomationPanel scope={scope} />
-                                <AIAgentPanel scope={scope} triggers={triggers} />
-                                <IntegrationAPIPanel scope={scope} />
-                                <EventIntegrationPanel triggers={triggers} scope={scope} />
-                                <FileIntegrationPanel triggers={triggers} scope={scope} />
-                            </>
-                        )}
-                        <OtherArtifactsPanel isNPSupported={isNPSupported} isLibrary={isLibrary} />
+                        <AutomationPanel scope={scope} />
+                        <AIAgentPanel scope={scope} triggers={triggers} />
+                        <IntegrationAPIPanel scope={scope} />
+                        <EventIntegrationPanel triggers={triggers} scope={scope} />
+                        <FileIntegrationPanel triggers={triggers} scope={scope} />
+                        <OtherArtifactsPanel isNPSupported={isNPSupported} />
                     </AddPanel>
                 </Container>
             </ViewContent>

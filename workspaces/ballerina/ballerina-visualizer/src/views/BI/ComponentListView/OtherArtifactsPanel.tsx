@@ -27,18 +27,12 @@ import { useVisualizerContext } from '../../../Context';
 
 interface OtherArtifactsPanelProps {
     isNPSupported: boolean;
-    isLibrary?: boolean;
 }
 
 export function OtherArtifactsPanel(props: OtherArtifactsPanelProps) {
-    const { isNPSupported, isLibrary = false } = props;
+    const { isNPSupported } = props;
     const { rpcClient } = useRpcContext();
     const { setPopupMessage } = useVisualizerContext();
-
-    const panelTitle = isLibrary ? "Library Artifacts" : "Other Artifacts";
-    const panelDescription = isLibrary
-        ? "Create reusable artifacts for your library."
-        : "Create supportive artifacts for your integration.";
 
     const handleClick = async (key: DIRECTORY_MAP) => {
         if (key === DIRECTORY_MAP.CONNECTION) {
@@ -93,9 +87,9 @@ export function OtherArtifactsPanel(props: OtherArtifactsPanelProps) {
     return (
         <PanelViewMore>
             <TitleWrapper>
-                <Title variant="h2">{panelTitle}</Title>
+                <Title variant="h2">Other Artifacts</Title>
                 <BodyText>
-                    {panelDescription}
+                    Create supportive artifacts for your integration.
                 </BodyText>
             </TitleWrapper>
             <CardGrid>
