@@ -32,6 +32,14 @@ export class NodeFactoryVisitorVertical_v2 {
     private reactNodes: Node[] = [];
     private reactEdges: Edge[] = [];
     private visited: Set<string> = new Set();
+    private portalEdgePairs: Set<string> = new Set();
+
+    /**
+     * Set the portal edge pairs to skip when creating edges.
+     */
+    public setPortalEdgePairs(pairs: Set<string>): void {
+        this.portalEdgePairs = pairs;
+    }
 
     public getElements() { 
         return { nodes: this.reactNodes, edges: this.reactEdges }; 
@@ -98,12 +106,21 @@ export class NodeFactoryVisitorVertical_v2 {
      * Determine if edge should be skipped (portal will handle it).
      */
     private shouldSkipEdge(source: FlowNode, target: FlowNode): boolean {
-        // Skip edge if target is significantly before source (backward jump)
-        // Portal will be created by PortalCreator_v2
+        // Skip if a portal was created for this edge
+        const edgeKey = `${source.id}::${target.id}`;
+        if (this.portalEdgePairs.has(edgeKey)) {
+            console.log(`[NodeFactory V2] Skipping edge ${source.id} → ${target.id} (portal exists)`);
+            return true;
+        }
+
+        // Also skip backward jumps (legacy safety check)
         const isBackwardJump = target.viewState.y < source.viewState.y;
-        const isSignificantForwardGoto = target.viewState.y > source.viewState.y + source.viewState.h + 100;
-        
-        return isBackwardJump || isSignificantForwardGoto;
+        if (isBackwardJump) {
+            console.log(`[NodeFactory V2] Skipping edge ${source.id} → ${target.id} (backward jump)`);
+            return true;
+        }
+
+        return false;
     }
 
     private createEdge(source: FlowNode, target: FlowNode, edgeType: 'success' | 'failure'): void {

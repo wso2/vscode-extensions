@@ -84,14 +84,16 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
     const positioningV2 = new PositionVisitorVertical_v2(depthSearch, spineX);
     positioningV2.visit(rootV2, spineX, startY);
 
-    // 5. Factory V2: Generate React Flow elements
-    const factoryV2 = new NodeFactoryVisitorVertical_v2();
-    factoryV2.visit(rootV2);
-    const elements = factoryV2.getElements();
-
-    // 6. Portal Creation V2: Create portals for failure-path-to-main-path jumps
+    // 5. Portal Creation V2: Create portals BEFORE NodeFactory
     const portalCreator = new PortalCreator_v2(depthSearch);
     const portals = portalCreator.createPortals(rootV2);
+    const portalEdgePairs = portalCreator.getPortalEdgePairs();
+
+    // 6. Factory V2: Generate React Flow elements (skips edges handled by portals)
+    const factoryV2 = new NodeFactoryVisitorVertical_v2();
+    factoryV2.setPortalEdgePairs(portalEdgePairs);
+    factoryV2.visit(rootV2);
+    const elements = factoryV2.getElements();
 
     return {
         nodes: [...elements.nodes, ...portals.nodes],

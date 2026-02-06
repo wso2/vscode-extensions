@@ -187,6 +187,7 @@ export class PortalCreator_v2 {
                 label: `→ ${target.label}`,
                 gotoLabel: target.label,
                 gotoNodeId: target.id,
+                sourceNodeId: source.id,
                 gotoX: targetCenterX,
                 gotoY: targetCenterY
             },
@@ -213,6 +214,20 @@ export class PortalCreator_v2 {
 
         // Note: We don't create the portal → target edge here
         // The portal node itself handles navigation via click interaction
+    }
+
+    /**
+     * Get the set of source→target pairs that are handled by portals.
+     * NodeFactory can use this to skip creating duplicate direct edges.
+     */
+    public getPortalEdgePairs(): Set<string> {
+        const pairs = new Set<string>();
+        this.reactNodes.forEach(portal => {
+            if (portal.data.sourceNodeId && portal.data.gotoNodeId) {
+                pairs.add(`${portal.data.sourceNodeId}::${portal.data.gotoNodeId}`);
+            }
+        });
+        return pairs;
     }
 }
 
