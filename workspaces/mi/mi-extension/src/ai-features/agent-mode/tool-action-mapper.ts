@@ -124,11 +124,12 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
 
         // Plan Mode Tools
         case TASK_TOOL_NAME:
-            // Extract subagent type for dynamic messages
+            // Extract subagent type and background mode for dynamic messages
             const subagentType = toolInput?.subagent_type || 'subagent';
+            const isBackgroundTask = toolInput?.run_in_background;
             return {
-                loading: `running ${subagentType} agent`,
-                completed: `${subagentType} agent completed`,
+                loading: isBackgroundTask ? `launching ${subagentType} agent` : `running ${subagentType} agent`,
+                completed: isBackgroundTask ? `launched ${subagentType} agent` : `${subagentType} agent completed`,
                 failed: `${subagentType} agent failed`
             };
 

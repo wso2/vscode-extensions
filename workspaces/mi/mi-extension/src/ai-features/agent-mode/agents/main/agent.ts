@@ -294,7 +294,7 @@ export async function executeAgent(
             ),
             // Plan Mode Tools
             [TASK_TOOL_NAME]: createTaskTool(
-                createTaskExecute(request.projectPath, (model) => getAnthropicClient(model))
+                createTaskExecute(request.projectPath, sessionId, (model) => getAnthropicClient(model))
             ),
             [ASK_USER_TOOL_NAME]: createAskUserTool(
                 createAskUserExecute(eventHandler, pendingQuestions)
