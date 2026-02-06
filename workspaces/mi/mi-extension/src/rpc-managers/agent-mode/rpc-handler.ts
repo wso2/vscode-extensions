@@ -16,8 +16,18 @@
  * under the License.
  */
 
-import { MessengerAPI } from "vscode-messenger-common";
-import { MIAgentPanelRpcManager } from "./rpc-manager";
+import { MessengerAPI, RequestType } from "vscode-messenger-common";
+import {
+    MIAgentPanelRpcManager,
+    ListSessionsRequest,
+    ListSessionsResponse,
+    SwitchSessionRequest,
+    SwitchSessionResponse,
+    CreateNewSessionRequest,
+    CreateNewSessionResponse,
+    DeleteSessionRequest,
+    DeleteSessionResponse
+} from "./rpc-manager";
 import {
     sendAgentMessage,
     abortAgentGeneration,
@@ -29,6 +39,25 @@ import {
     UserQuestionResponse,
     PlanApprovalResponse,
 } from "@wso2/mi-core";
+
+// Session management RPC methods (will be imported from @wso2/mi-core after build)
+const _prefix = "mi-agent-service";
+
+const listSessions: RequestType<ListSessionsRequest, ListSessionsResponse> = {
+    method: `${_prefix}/listSessions`
+};
+
+const switchSession: RequestType<SwitchSessionRequest, SwitchSessionResponse> = {
+    method: `${_prefix}/switchSession`
+};
+
+const createNewSession: RequestType<CreateNewSessionRequest, CreateNewSessionResponse> = {
+    method: `${_prefix}/createNewSession`
+};
+
+const deleteSession: RequestType<DeleteSessionRequest, DeleteSessionResponse> = {
+    method: `${_prefix}/deleteSession`
+};
 
 // Singleton manager to maintain pending questions state across requests
 let rpcManagerInstance: MIAgentPanelRpcManager | null = null;
@@ -52,4 +81,12 @@ export function registerMIAgentPanelRpcHandlers(messenger: MessengerAPI, project
     // ==================================
     messenger.onRequest(respondToQuestion, (request: UserQuestionResponse) => rpcManager.respondToQuestion(request));
     messenger.onRequest(respondToPlanApproval, (request: PlanApprovalResponse) => rpcManager.respondToPlanApproval(request));
+
+    // ==================================
+    // Session Management Functions
+    // ==================================
+    messenger.onRequest(listSessions, (request: ListSessionsRequest) => rpcManager.listSessions(request));
+    messenger.onRequest(switchSession, (request: SwitchSessionRequest) => rpcManager.switchSession(request));
+    messenger.onRequest(createNewSession, (request: CreateNewSessionRequest) => rpcManager.createNewSession(request));
+    messenger.onRequest(deleteSession, (request: DeleteSessionRequest) => rpcManager.deleteSession(request));
 }

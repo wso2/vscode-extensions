@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { FileObject, ImageObject, TodoItem, Question } from "@wso2/mi-core";
 import { LoaderWrapper, ProgressRing } from "../styles";
@@ -26,6 +26,7 @@ import {
     MessageType,
     Role,
 } from "@wso2/mi-core";
+import { GroupedSessions } from "./SessionSwitcher";
 
 // Pending user question type (using structured Question format from mi-core)
 export interface PendingUserQuestion {
@@ -85,8 +86,6 @@ interface MICopilotContextType {
     // State to handle chat events
     isInitialPromptLoaded: boolean;
     setIsInitialPromptLoaded: React.Dispatch<React.SetStateAction<boolean>>;
-    chatClearEventTriggered: boolean;
-    setChatClearEventTriggered: React.Dispatch<React.SetStateAction<boolean>>;
     backendRequestTriggered: boolean;
     setBackendRequestTriggered: React.Dispatch<React.SetStateAction<boolean>>;
     controller: AbortController;
@@ -114,6 +113,16 @@ interface MICopilotContextType {
     setTodos: React.Dispatch<React.SetStateAction<TodoItem[]>>;
     isPlanMode: boolean;
     setIsPlanMode: React.Dispatch<React.SetStateAction<boolean>>;
+
+    // Session management state
+    currentSessionId: string | null;
+    currentSessionTitle: string;
+    sessions: GroupedSessions | null;
+    isSessionsLoading: boolean;
+    refreshSessions: (overrideSessionId?: string) => Promise<void>;
+    switchToSession: (sessionId: string) => Promise<void>;
+    createNewSession: () => Promise<void>;
+    deleteSession: (sessionId: string) => Promise<void>;
 }
 
 // Define the context for MI Copilot
@@ -144,7 +153,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const [images, setImages] = useState<ImageObject[]>([]);
     const [currentUserPrompt, setCurrentUserprompt] = useState("");
     // Event related Data
-    const [chatClearEventTriggered, setChatClearEventTriggered] = useState(false);
     const [backendRequestTriggered, setBackendRequestTriggered] = useState(false);
     const [isInitialPromptLoaded, setIsInitialPromptLoaded] = useState(false);
     const [controller, setController] = useState(new AbortController());
@@ -166,12 +174,120 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const [todos, setTodos] = useState<TodoItem[]>([]);
     const [isPlanMode, setIsPlanMode] = useState<boolean>(false);
 
+    // Session management state
+    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+    const [currentSessionTitle, setCurrentSessionTitle] = useState<string>('New Chat');
+    const [sessions, setSessions] = useState<GroupedSessions | null>(null);
+    const [isSessionsLoading, setIsSessionsLoading] = useState<boolean>(false);
+
     // Feedback functionality
     const { feedbackGiven, setFeedbackGiven, handleFeedback } = useFeedback({
         messages,
         copilotChat,
         rpcClient,
     });
+
+    // Session management functions
+    const refreshSessions = useCallback(async (overrideSessionId?: string) => {
+        if (!rpcClient) return;
+        setIsSessionsLoading(true);
+        try {
+            const response = await rpcClient.getMiAgentPanelRpcClient().listSessions({});
+            if (response.success) {
+                setSessions(response.sessions);
+                // Update current session title if we have sessions
+                const activeSessionId = overrideSessionId || currentSessionId;
+                if (activeSessionId && response.sessions) {
+                    const allSessions = [
+                        ...response.sessions.today,
+                        ...response.sessions.yesterday,
+                        ...response.sessions.pastWeek,
+                        ...response.sessions.older
+                    ];
+                    const activeSession = allSessions.find(s => s.sessionId === activeSessionId);
+                    if (activeSession) {
+                        setCurrentSessionTitle(activeSession.title);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[AI Panel] Failed to refresh sessions', error);
+        } finally {
+            setIsSessionsLoading(false);
+        }
+    }, [rpcClient, currentSessionId]);
+
+    const switchToSession = useCallback(async (sessionId: string) => {
+        if (!rpcClient) return;
+        setIsSessionsLoading(true);
+        try {
+            const response = await rpcClient.getMiAgentPanelRpcClient().switchSession({ sessionId });
+            if (response.success) {
+                setCurrentSessionId(response.sessionId);
+                // Convert events to UI messages
+                const uiMessages = convertEventsToMessages(response.events);
+                setMessages(uiMessages);
+                setCopilotChat([]);
+                // Clear plan mode state when switching sessions
+                setPendingQuestion(null);
+                setPendingPlanApproval(null);
+                setTodos([]);
+                setIsPlanMode(false);
+                // Refresh sessions with the new session ID to avoid stale closure
+                await refreshSessions(response.sessionId);
+            }
+        } catch (error) {
+            console.error('[AI Panel] Failed to switch session', error);
+        } finally {
+            setIsSessionsLoading(false);
+        }
+    }, [rpcClient, refreshSessions]);
+
+    const createNewSession = useCallback(async () => {
+        if (!rpcClient) return;
+        setIsSessionsLoading(true);
+        try {
+            const response = await rpcClient.getMiAgentPanelRpcClient().createNewSession({});
+            if (response.success) {
+                setCurrentSessionId(response.sessionId);
+                setCurrentSessionTitle('New Chat');
+                setMessages([]);
+                setCopilotChat([]);
+                setFiles([]);
+                setImages([]);
+                setCurrentUserprompt('');
+                // Clear plan mode state
+                setPendingQuestion(null);
+                setPendingPlanApproval(null);
+                setTodos([]);
+                setIsPlanMode(false);
+                // Refresh sessions list with the new session ID
+                await refreshSessions(response.sessionId);
+            }
+        } catch (error) {
+            console.error('[AI Panel] Failed to create new session', error);
+        } finally {
+            setIsSessionsLoading(false);
+        }
+    }, [rpcClient, refreshSessions]);
+
+    const deleteSession = useCallback(async (sessionId: string) => {
+        if (!rpcClient) return;
+        // Don't allow deleting current session
+        if (sessionId === currentSessionId) {
+            console.warn('[AI Panel] Cannot delete current session');
+            return;
+        }
+        try {
+            const response = await rpcClient.getMiAgentPanelRpcClient().deleteSession({ sessionId });
+            if (response.success) {
+                // Refresh sessions list
+                await refreshSessions();
+            }
+        } catch (error) {
+            console.error('[AI Panel] Failed to delete session', error);
+        }
+    }, [rpcClient, currentSessionId, refreshSessions]);
 
     useEffect(() => {
         const initializeContext = async () => {
@@ -224,15 +340,41 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                     try {
                         const response = await rpcClient.getMiAgentPanelRpcClient().loadChatHistory({});
 
-                        if (response.success && response.events.length > 0) {
-                            console.log(`[AI Panel] Loaded ${response.events.length} events from backend`);
+                        if (response.success) {
+                            // Store session ID
+                            if (response.sessionId) {
+                                setCurrentSessionId(response.sessionId);
+                            }
 
-                            // Convert events to UI messages using shared utility
-                            const uiMessages = convertEventsToMessages(response.events);
+                            if (response.events.length > 0) {
+                                console.log(`[AI Panel] Loaded ${response.events.length} events from backend`);
 
-                            setMessages(uiMessages);
-                        } else {
-                            console.log('[AI Panel] No previous chat history found');
+                                // Convert events to UI messages using shared utility
+                                const uiMessages = convertEventsToMessages(response.events);
+
+                                setMessages(uiMessages);
+                            } else {
+                                console.log('[AI Panel] No previous chat history found');
+                            }
+
+                            // Load sessions list to get current session title
+                            const sessionsResponse = await rpcClient.getMiAgentPanelRpcClient().listSessions({});
+                            if (sessionsResponse.success) {
+                                setSessions(sessionsResponse.sessions);
+                                // Find current session title
+                                if (response.sessionId && sessionsResponse.sessions) {
+                                    const allSessions = [
+                                        ...sessionsResponse.sessions.today,
+                                        ...sessionsResponse.sessions.yesterday,
+                                        ...sessionsResponse.sessions.pastWeek,
+                                        ...sessionsResponse.sessions.older
+                                    ];
+                                    const currentSession = allSessions.find(s => s.sessionId === response.sessionId);
+                                    if (currentSession) {
+                                        setCurrentSessionTitle(currentSession.title);
+                                    }
+                                }
+                            }
                         }
                     } catch (error) {
                         console.error('[AI Panel] Failed to load chat history from backend', error);
@@ -255,23 +397,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         setRemaingTokenLessThanOne(remainingTokenPercentage < 1 && remainingTokenPercentage > 0);
     }, [remainingTokenPercentage]);
 
-    // handle chat clear event
-    useEffect(() => {
-        if (chatClearEventTriggered) {
-            setMessages([]);
-            setCopilotChat([]);
-            setFiles([]);
-            setImages([]);
-            setCurrentUserprompt("");
-            // Clear the file history from local storage (chat is managed by backend)
-            localStorage.removeItem(localStorageKeys.fileHistory);
-            setChatClearEventTriggered(false);
-        }
-    }, [chatClearEventTriggered]);
-
-    // Chat history is now managed by the backend (no localStorage needed)
-
-    useEffect(() => {
+useEffect(() => {
         if (!isLoading) {
             localStorage.setItem(localStorageKeys.fileHistory, JSON.stringify(FileHistory));
         }
@@ -291,10 +417,8 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         setImages,
         currentUserPrompt,
         setCurrentUserprompt,
-        chatClearEventTriggered,
         isInitialPromptLoaded,
         setIsInitialPromptLoaded,
-        setChatClearEventTriggered,
         backendRequestTriggered,
         setBackendRequestTriggered,
         controller,
@@ -319,6 +443,15 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         setTodos,
         isPlanMode,
         setIsPlanMode,
+        // Session management
+        currentSessionId,
+        currentSessionTitle,
+        sessions,
+        isSessionsLoading,
+        refreshSessions,
+        switchToSession,
+        createNewSession,
+        deleteSession,
     };
 
     return (

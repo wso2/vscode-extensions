@@ -23,7 +23,15 @@ import {
     AgentEvent,
     LoadChatHistoryRequest,
     LoadChatHistoryResponse,
-    PlanApprovalResponse
+    PlanApprovalResponse,
+    ListSessionsRequest,
+    ListSessionsResponse,
+    SwitchSessionRequest,
+    SwitchSessionResponse,
+    CreateNewSessionRequest,
+    CreateNewSessionResponse,
+    DeleteSessionRequest,
+    DeleteSessionResponse
 } from "./types";
 
 const _prefix = "mi-agent-service";
@@ -68,4 +76,28 @@ export const respondToQuestion: RequestType<UserQuestionResponse, void> = {
 // Respond to plan approval request (approve or reject the plan)
 export const respondToPlanApproval: RequestType<PlanApprovalResponse, void> = {
     method: `${_prefix}/respondToPlanApproval`
+};
+
+// ============================================================================
+// Session Management RPC Methods
+// ============================================================================
+
+// List all sessions grouped by time
+export const listSessions: RequestType<ListSessionsRequest, ListSessionsResponse> = {
+    method: `${_prefix}/listSessions`
+};
+
+// Switch to a different session
+export const switchSession: RequestType<SwitchSessionRequest, SwitchSessionResponse> = {
+    method: `${_prefix}/switchSession`
+};
+
+// Create a new empty session
+export const createNewSession: RequestType<CreateNewSessionRequest, CreateNewSessionResponse> = {
+    method: `${_prefix}/createNewSession`
+};
+
+// Delete a session
+export const deleteSession: RequestType<DeleteSessionRequest, DeleteSessionResponse> = {
+    method: `${_prefix}/deleteSession`
 };

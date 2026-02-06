@@ -25,11 +25,51 @@ import { getToolAction, capitalizeAction } from './tool-action-mapper';
 import { BASH_TOOL_NAME } from './tools/types';
 
 // Storage location: <project>/.mi-copilot/<session_id>/history.jsonl
+// Metadata location: <project>/.mi-copilot/<session_id>/metadata.json
 
 /**
- * Metadata entry for session start/end
+ * Session metadata stored in metadata.json
+ * Re-exported from @wso2/mi-core after build
  */
 export interface SessionMetadata {
+    sessionId: string;
+    /** First user message (truncated to 50 chars) */
+    title: string;
+    /** ISO timestamp of session creation */
+    createdAt: string;
+    /** ISO timestamp of last modification (updated on each message) */
+    lastModifiedAt: string;
+    /** Total messages in session */
+    messageCount: number;
+}
+
+/**
+ * Session summary for UI list display
+ */
+export interface SessionSummary {
+    sessionId: string;
+    title: string;
+    createdAt: string;
+    lastModifiedAt: string;
+    messageCount: number;
+    isCurrentSession: boolean;
+}
+
+/**
+ * Time-grouped sessions for UI display
+ */
+export interface GroupedSessions {
+    today: SessionSummary[];
+    yesterday: SessionSummary[];
+    pastWeek: SessionSummary[];
+    older: SessionSummary[];
+}
+
+/**
+ * JSONL entry for session start/end markers
+ * Different from SessionMetadata which is stored in metadata.json
+ */
+export interface SessionJSONLEntry {
     type: 'session_start' | 'session_end';
     timestamp: string;
     sessionId: string;
@@ -41,10 +81,10 @@ export interface SessionMetadata {
 }
 
 /**
- * JSONL entry: either a ModelMessage or session metadata
+ * JSONL entry: either a ModelMessage or session JSONL entry
  * ModelMessages are stored directly as returned by AI SDK
  */
-export type JSONLEntry = any | SessionMetadata;
+export type JSONLEntry = any | SessionJSONLEntry;
 
 /**
  * Chat History Manager
@@ -57,11 +97,13 @@ export type JSONLEntry = any | SessionMetadata;
  * Public API is simple: saveMessage() and getMessages()
  *
  * Storage: <project>/.mi-copilot/<session-id>/history.jsonl
+ * Metadata: <project>/.mi-copilot/<session-id>/metadata.json
  */
 export class ChatHistoryManager {
     private projectPath: string;
     private sessionId: string;
     private sessionFile: string = '';
+    private metadataFile: string = '';
     private writeStream: WriteStream | null = null;
 
     constructor(projectPath: string, sessionId?: string) {
@@ -71,7 +113,7 @@ export class ChatHistoryManager {
 
     /**
      * Initialize the chat history manager
-     * Creates necessary directories and opens write stream
+     * Creates necessary directories, opens write stream, and manages metadata
      */
     async initialize(): Promise<void> {
         try {
@@ -81,6 +123,8 @@ export class ChatHistoryManager {
 
             // Session file path: <project>/.mi-copilot/<session-id>/history.jsonl
             this.sessionFile = path.join(sessionDir, 'history.jsonl');
+            // Metadata file path: <project>/.mi-copilot/<session-id>/metadata.json
+            this.metadataFile = path.join(sessionDir, 'metadata.json');
 
             // Check if session file exists
             let isNewSession = true;
@@ -100,9 +144,10 @@ export class ChatHistoryManager {
             logInfo(`[ChatHistory] Initialized for project: ${this.projectPath}`);
             logDebug(`[ChatHistory] Session file: ${this.sessionFile}`);
 
-            // Write session start entry (only if new session)
+            // Write session start entry and create metadata (only if new session)
             if (isNewSession) {
                 await this.writeSessionStart();
+                await this.createInitialMetadata();
             }
         } catch (error) {
             logError('[ChatHistory] Failed to initialize', error);
@@ -158,7 +203,7 @@ export class ChatHistoryManager {
      * Write session start entry
      */
     private async writeSessionStart(): Promise<void> {
-        const entry: SessionMetadata = {
+        const entry: SessionJSONLEntry = {
             type: 'session_start',
             timestamp: new Date().toISOString(),
             sessionId: this.sessionId,
@@ -176,7 +221,7 @@ export class ChatHistoryManager {
      * Write session end entry
      */
     private async writeSessionEnd(): Promise<void> {
-        const entry: SessionMetadata = {
+        const entry: SessionJSONLEntry = {
             type: 'session_end',
             timestamp: new Date().toISOString(),
             sessionId: this.sessionId,
@@ -187,12 +232,129 @@ export class ChatHistoryManager {
     }
 
     // ============================================================================
+    // Metadata Management
+    // ============================================================================
+
+    /**
+     * Create initial metadata for a new session
+     */
+    private async createInitialMetadata(): Promise<void> {
+        const now = new Date().toISOString();
+        const metadata: SessionMetadata = {
+            sessionId: this.sessionId,
+            title: 'New Chat',
+            createdAt: now,
+            lastModifiedAt: now,
+            messageCount: 0
+        };
+
+        await this.saveMetadata(metadata);
+        logDebug(`[ChatHistory] Created initial metadata for session: ${this.sessionId}`);
+    }
+
+    /**
+     * Save metadata to metadata.json
+     */
+    async saveMetadata(metadata: SessionMetadata): Promise<void> {
+        try {
+            await fs.writeFile(this.metadataFile, JSON.stringify(metadata, null, 2));
+        } catch (error) {
+            logError('[ChatHistory] Failed to save metadata', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load metadata from metadata.json
+     */
+    async loadMetadata(): Promise<SessionMetadata | null> {
+        try {
+            const content = await fs.readFile(this.metadataFile, 'utf8');
+            return JSON.parse(content) as SessionMetadata;
+        } catch {
+            // Metadata file doesn't exist or is invalid
+            return null;
+        }
+    }
+
+    /**
+     * Update metadata with new values
+     */
+    async updateMetadata(updates: Partial<SessionMetadata>): Promise<void> {
+        const metadata = await this.loadMetadata();
+        if (metadata) {
+            const updated = { ...metadata, ...updates, lastModifiedAt: new Date().toISOString() };
+            await this.saveMetadata(updated);
+        }
+    }
+
+    /**
+     * Update session title from first user message (if not already set)
+     */
+    async updateTitleFromMessage(messageContent: string): Promise<void> {
+        const metadata = await this.loadMetadata();
+        if (metadata && metadata.title === 'New Chat') {
+            const title = ChatHistoryManager.extractTitle(messageContent);
+            await this.updateMetadata({ title });
+            logDebug(`[ChatHistory] Updated session title: ${title}`);
+        }
+    }
+
+    /**
+     * Increment message count in metadata
+     */
+    private async incrementMessageCount(): Promise<void> {
+        const metadata = await this.loadMetadata();
+        if (metadata) {
+            await this.updateMetadata({ messageCount: metadata.messageCount + 1 });
+        }
+    }
+
+    /**
+     * Extract title from user message content
+     * Strips <USER_QUERY> tags and truncates to 50 chars
+     */
+    static extractTitle(messageContent: string): string {
+        let content = messageContent;
+
+        // Extract content between <USER_QUERY> tags if present
+        const queryMatch = content.match(/<USER_QUERY>\s*([\s\S]*?)\s*<\/USER_QUERY>/);
+        if (queryMatch && queryMatch[1]) {
+            content = queryMatch[1].trim();
+        }
+
+        // Handle array content (for multi-part messages)
+        if (content.startsWith('[')) {
+            try {
+                const parts = JSON.parse(content);
+                if (Array.isArray(parts)) {
+                    content = parts
+                        .filter((p: any) => p.type === 'text')
+                        .map((p: any) => p.text)
+                        .join(' ');
+                }
+            } catch {
+                // Not JSON, use as-is
+            }
+        }
+
+        // Clean up and truncate
+        content = content.trim().replace(/\s+/g, ' ');
+        if (content.length > 50) {
+            content = content.substring(0, 47) + '...';
+        }
+
+        return content || 'New Chat';
+    }
+
+    // ============================================================================
     // Public API - Simple Methods
     // ============================================================================
 
     /**
      * Save a message to history (JSONL file only)
      * System messages are never saved (they're recreated fresh each time)
+     * Also updates metadata (message count, title for first user message)
      *
      * @param message - ModelMessage from AI SDK
      */
@@ -200,6 +362,19 @@ export class ChatHistoryManager {
         try {
             // Write to JSONL
             await this.writeEntry(message);
+
+            // Update metadata
+            await this.incrementMessageCount();
+
+            // Update title from first user message
+            if (message.role === 'user') {
+                const content = typeof message.content === 'string'
+                    ? message.content
+                    : Array.isArray(message.content)
+                        ? message.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
+                        : '';
+                await this.updateTitleFromMessage(content);
+            }
         } catch (error) {
             logError('[ChatHistory] Failed to save message', error);
             throw error;
@@ -281,7 +456,7 @@ export class ChatHistoryManager {
     /**
      * Clear all messages from the current session
      * Useful for starting fresh
-     * Truncates the file and resets message count
+     * Truncates the file and resets message count and metadata
      */
     async clearMessages(): Promise<void> {
         try {
@@ -303,6 +478,10 @@ export class ChatHistoryManager {
 
             // Write new session start
             await this.writeSessionStart();
+
+            // Reset metadata
+            await this.createInitialMetadata();
+
             logDebug('[ChatHistory] Cleared all messages');
         } catch (error) {
             logError('[ChatHistory] Failed to clear messages', error);
@@ -355,6 +534,137 @@ export class ChatHistoryManager {
         }
     }
 
+    /**
+     * Get session summary for a single session
+     * Handles backward compatibility for sessions without metadata.json
+     */
+    static async getSessionSummary(projectPath: string, sessionId: string, currentSessionId?: string): Promise<SessionSummary | null> {
+        const sessionDir = path.join(projectPath, '.mi-copilot', sessionId);
+        const metadataPath = path.join(sessionDir, 'metadata.json');
+        const historyPath = path.join(sessionDir, 'history.jsonl');
+
+        try {
+            // Try to load existing metadata
+            const metadataContent = await fs.readFile(metadataPath, 'utf8');
+            const metadata: SessionMetadata = JSON.parse(metadataContent);
+            return {
+                sessionId: metadata.sessionId,
+                title: metadata.title,
+                createdAt: metadata.createdAt,
+                lastModifiedAt: metadata.lastModifiedAt,
+                messageCount: metadata.messageCount,
+                isCurrentSession: sessionId === currentSessionId
+            };
+        } catch {
+            // Fallback: extract from JSONL and directory stats
+            try {
+                const stats = await fs.stat(sessionDir);
+                let title = 'New Chat';
+                let messageCount = 0;
+
+                try {
+                    const content = await fs.readFile(historyPath, 'utf8');
+                    const lines = content.trim().split('\n');
+
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        try {
+                            const entry = JSON.parse(line);
+                            // Find first user message for title
+                            if (entry.role === 'user' && entry.content && title === 'New Chat') {
+                                const msgContent = typeof entry.content === 'string'
+                                    ? entry.content
+                                    : Array.isArray(entry.content)
+                                        ? entry.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
+                                        : '';
+                                title = ChatHistoryManager.extractTitle(msgContent);
+                            }
+                            // Count non-metadata entries
+                            if (entry.role && entry.type !== 'session_start' && entry.type !== 'session_end') {
+                                messageCount++;
+                            }
+                        } catch {
+                            // Skip invalid lines
+                        }
+                    }
+                } catch {
+                    // Empty or missing history
+                }
+
+                return {
+                    sessionId,
+                    title,
+                    createdAt: stats.birthtime.toISOString(),
+                    lastModifiedAt: stats.mtime.toISOString(),
+                    messageCount,
+                    isCurrentSession: sessionId === currentSessionId
+                };
+            } catch {
+                // Session directory doesn't exist
+                return null;
+            }
+        }
+    }
+
+    /**
+     * List all sessions with metadata, grouped by time
+     */
+    static async listSessionsWithMetadata(projectPath: string, currentSessionId?: string): Promise<GroupedSessions> {
+        const sessionIds = await ChatHistoryManager.listSessions(projectPath);
+        const summaries: SessionSummary[] = [];
+
+        for (const sessionId of sessionIds) {
+            const summary = await ChatHistoryManager.getSessionSummary(projectPath, sessionId, currentSessionId);
+            if (summary) {
+                summaries.push(summary);
+            }
+        }
+
+        // Group by time
+        return ChatHistoryManager.groupSessionsByTime(summaries);
+    }
+
+    /**
+     * Group sessions by time (today, yesterday, past week, older)
+     */
+    private static groupSessionsByTime(sessions: SessionSummary[]): GroupedSessions {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+        const pastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        const grouped: GroupedSessions = {
+            today: [],
+            yesterday: [],
+            pastWeek: [],
+            older: []
+        };
+
+        for (const session of sessions) {
+            const lastModified = new Date(session.lastModifiedAt);
+
+            if (lastModified >= today) {
+                grouped.today.push(session);
+            } else if (lastModified >= yesterday) {
+                grouped.yesterday.push(session);
+            } else if (lastModified >= pastWeek) {
+                grouped.pastWeek.push(session);
+            } else {
+                grouped.older.push(session);
+            }
+        }
+
+        // Sort each group by lastModifiedAt descending (most recent first)
+        const sortByRecent = (a: SessionSummary, b: SessionSummary) =>
+            new Date(b.lastModifiedAt).getTime() - new Date(a.lastModifiedAt).getTime();
+
+        grouped.today.sort(sortByRecent);
+        grouped.yesterday.sort(sortByRecent);
+        grouped.pastWeek.sort(sortByRecent);
+        grouped.older.sort(sortByRecent);
+
+        return grouped;
+    }
 
     /**
      * Convert ModelMessages to UI event format

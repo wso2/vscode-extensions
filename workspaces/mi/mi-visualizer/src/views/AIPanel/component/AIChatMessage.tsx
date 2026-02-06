@@ -17,19 +17,18 @@
  */
 
 import React from "react";
-import { Button, Codicon } from "@wso2/ui-toolkit";
+import { Codicon } from "@wso2/ui-toolkit";
 import ReactMarkdown from "react-markdown";
 import {
     ChatMessage as StyledChatMessage,
     RoleContainer,
-    EditDeleteButtons,
     FlexRow,
 } from "../styles";
 import { CodeSegment } from "./CodeSegment";
 import { splitContent } from "../utils";
 import { useMICopilotContext } from "./MICopilotContext";
 import { MarkdownRendererProps } from "../types";
-import { Role, MessageType, ChatMessage, CopilotChatEntry } from "@wso2/mi-core";
+import { Role, MessageType, ChatMessage } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 import FeedbackBar from "./FeedbackBar";
 import ToolCallSegment from "./ToolCallSegment";
@@ -71,64 +70,10 @@ interface ChatMessageProps {
 const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
     const {
         messages,
-        setMessages,
-        setCurrentUserprompt,
-        copilotChat,
-        setCopilotChat,
         backendRequestTriggered,
         feedbackGiven,
         handleFeedback
     } = useMICopilotContext();
-
-    // Chat Message Controls : Edit and Delete
-    const handleEditMessage = (index: number) => {
-        const messageToEdit = messages[index];
-        setCurrentUserprompt(messageToEdit.content);
-
-        const deleteMessagesFromId = (messages: ChatMessage[], id: number): ChatMessage[] => {
-            const messageIndex = messages.findIndex((message) => message.id === id);
-            if (messageIndex !== -1) {
-                return messages.filter(
-                    (message, index) => index < messageIndex || message.type === MessageType.Question
-                );
-            }
-            return messages;
-        };
-
-        const deleteCopilotMessagesFromId = (messages: CopilotChatEntry[], id: number): CopilotChatEntry[] => {
-            const messageIndex = messages.findIndex((message) => message.id === id);
-            return messageIndex !== -1 ? messages.slice(0, messageIndex) : messages;
-        };
-
-        setMessages((prevMessages) => deleteMessagesFromId(prevMessages, messageToEdit.id));
-        setCopilotChat((prevMessages) => deleteCopilotMessagesFromId(prevMessages, messageToEdit.id));
-    };
-
-    const handleDeleteMessage = (id: number) => {
-        const deleteMessageById = (messages: ChatMessage[], id: number): ChatMessage[] => {
-            const messageIndex = messages.findIndex((message) => message.id === id);
-            if (messageIndex !== -1) {
-                // Remove the user message and its corresponding response
-                return messages.filter(
-                    (_, index) =>
-                        index !== messageIndex && index !== messageIndex + 1 && message.type !== MessageType.Question
-                );
-            }
-            return messages;
-        };
-
-        const deleteCopilotMessageById = (messages: CopilotChatEntry[], id: number): CopilotChatEntry[] => {
-            const messageIndex = copilotChat.findIndex((message) => message.id === id);
-            if (messageIndex !== -1) {
-                // Remove the user message and its corresponding response
-                return messages.filter((_, index) => index !== messageIndex && index !== messageIndex + 1);
-            }
-            return messages;
-        };
-
-        setMessages((prevMessages) => deleteMessageById(prevMessages, id));
-        setCopilotChat((prevMessages) => deleteCopilotMessageById(prevMessages, id));
-    };
 
     // Skip rendering question or label messages
     if (message.type === MessageType.Question || message.type === MessageType.Label) {
@@ -184,16 +129,6 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
                             <Attachments attachments={message.images} nameAttribute="imageName" addControls={false} />
                         )}
                     </FlexRow>
-                    {!backendRequestTriggered && (
-                        <EditDeleteButtons className="edit-delete-buttons">
-                        <Button appearance="icon" onClick={() => handleEditMessage(index)} tooltip="Edit">
-                            <Codicon name="edit" />
-                        </Button>
-                        <Button appearance="icon" onClick={() => handleDeleteMessage(message.id)} tooltip="Delete">
-                            <Codicon name="trash" />
-                        </Button>
-                    </EditDeleteButtons>
-                    )}
                 </>
             )}
 

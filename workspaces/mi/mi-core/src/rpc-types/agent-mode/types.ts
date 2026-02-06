@@ -203,6 +203,115 @@ export interface PlanApprovalResponse {
     feedback?: string;
 }
 
+// ============================================================================
+// Session Management Types
+// ============================================================================
+
+/**
+ * Session metadata stored in <project>/.mi-copilot/<session-id>/metadata.json
+ */
+export interface SessionMetadata {
+    sessionId: string;
+    /** First user message (truncated to 50 chars) */
+    title: string;
+    /** ISO timestamp of session creation */
+    createdAt: string;
+    /** ISO timestamp of last modification (updated on each message) */
+    lastModifiedAt: string;
+    /** Total messages in session */
+    messageCount: number;
+}
+
+/**
+ * Session summary for UI list display
+ */
+export interface SessionSummary {
+    sessionId: string;
+    title: string;
+    createdAt: string;
+    lastModifiedAt: string;
+    messageCount: number;
+    isCurrentSession: boolean;
+}
+
+/**
+ * Time-grouped sessions for UI display
+ */
+export interface GroupedSessions {
+    today: SessionSummary[];
+    yesterday: SessionSummary[];
+    pastWeek: SessionSummary[];
+    older: SessionSummary[];
+}
+
+/**
+ * Request to list all sessions
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface ListSessionsRequest {
+    // Empty - uses project from context
+}
+
+/**
+ * Response with grouped sessions
+ */
+export interface ListSessionsResponse {
+    success: boolean;
+    sessions: GroupedSessions;
+    currentSessionId?: string;
+    error?: string;
+}
+
+/**
+ * Request to switch to a different session
+ */
+export interface SwitchSessionRequest {
+    sessionId: string;
+}
+
+/**
+ * Response after switching session
+ */
+export interface SwitchSessionResponse {
+    success: boolean;
+    sessionId: string;
+    /** Loaded history for the new session */
+    events: ChatHistoryEvent[];
+    error?: string;
+}
+
+/**
+ * Request to create a new session
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface CreateNewSessionRequest {
+    // Empty - creates fresh session
+}
+
+/**
+ * Response after creating new session
+ */
+export interface CreateNewSessionResponse {
+    success: boolean;
+    sessionId: string;
+    error?: string;
+}
+
+/**
+ * Request to delete a session
+ */
+export interface DeleteSessionRequest {
+    sessionId: string;
+}
+
+/**
+ * Response after deleting session
+ */
+export interface DeleteSessionResponse {
+    success: boolean;
+    error?: string;
+}
+
 /**
  * Agent Panel API interface
  */
@@ -213,4 +322,9 @@ export interface MIAgentPanelAPI {
     // Plan mode
     respondToQuestion: (response: UserQuestionResponseType) => Promise<void>;
     respondToPlanApproval: (response: PlanApprovalResponse) => Promise<void>;
+    // Session management
+    listSessions: (request: ListSessionsRequest) => Promise<ListSessionsResponse>;
+    switchSession: (request: SwitchSessionRequest) => Promise<SwitchSessionResponse>;
+    createNewSession: (request: CreateNewSessionRequest) => Promise<CreateNewSessionResponse>;
+    deleteSession: (request: DeleteSessionRequest) => Promise<DeleteSessionResponse>;
 }

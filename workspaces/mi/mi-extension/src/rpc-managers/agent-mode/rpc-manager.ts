@@ -24,12 +24,55 @@ import {
     LoadChatHistoryResponse,
     UserQuestionResponse,
     PlanApprovalResponse,
+    ChatHistoryEvent,
 } from '@wso2/mi-core';
 import { AgentEventHandler } from './event-handler';
 import { executeAgent, createAgentAbortController, AgentEvent } from '../../ai-features/agent-mode';
 import { logInfo, logError, logDebug } from '../../ai-features/copilot/logger';
-import { ChatHistoryManager } from '../../ai-features/agent-mode/chat-history-manager';
+import { ChatHistoryManager, GroupedSessions } from '../../ai-features/agent-mode/chat-history-manager';
 import { PendingQuestion, PendingPlanApproval } from '../../ai-features/agent-mode/tools/plan_mode_tools';
+
+// Session management types (will be imported from @wso2/mi-core after build)
+export interface ListSessionsRequest {
+    // Empty - uses project from context
+}
+
+export interface ListSessionsResponse {
+    success: boolean;
+    sessions: GroupedSessions;
+    currentSessionId?: string;
+    error?: string;
+}
+
+export interface SwitchSessionRequest {
+    sessionId: string;
+}
+
+export interface SwitchSessionResponse {
+    success: boolean;
+    sessionId: string;
+    events: ChatHistoryEvent[];
+    error?: string;
+}
+
+export interface CreateNewSessionRequest {
+    // Empty - creates fresh session
+}
+
+export interface CreateNewSessionResponse {
+    success: boolean;
+    sessionId: string;
+    error?: string;
+}
+
+export interface DeleteSessionRequest {
+    sessionId: string;
+}
+
+export interface DeleteSessionResponse {
+    success: boolean;
+    error?: string;
+}
 
 export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private eventHandler: AgentEventHandler;
@@ -242,6 +285,156 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 success: false,
                 events: [],
                 error: error instanceof Error ? error.message : 'Failed to load chat history'
+            };
+        }
+    }
+
+    // ============================================================================
+    // Session Management
+    // ============================================================================
+
+    /**
+     * List all sessions with metadata, grouped by time
+     */
+    async listSessions(_request: ListSessionsRequest): Promise<ListSessionsResponse> {
+        try {
+            logInfo('[AgentPanel] Listing sessions...');
+
+            const sessions = await ChatHistoryManager.listSessionsWithMetadata(
+                this.projectUri,
+                this.currentSessionId || undefined
+            );
+
+            const totalCount = sessions.today.length + sessions.yesterday.length +
+                sessions.pastWeek.length + sessions.older.length;
+            logInfo(`[AgentPanel] Found ${totalCount} sessions`);
+
+            return {
+                success: true,
+                sessions,
+                currentSessionId: this.currentSessionId || undefined
+            };
+        } catch (error) {
+            logError('[AgentPanel] Failed to list sessions', error);
+            return {
+                success: false,
+                sessions: { today: [], yesterday: [], pastWeek: [], older: [] },
+                error: error instanceof Error ? error.message : 'Failed to list sessions'
+            };
+        }
+    }
+
+    /**
+     * Switch to a different session
+     */
+    async switchSession(request: SwitchSessionRequest): Promise<SwitchSessionResponse> {
+        try {
+            const { sessionId } = request;
+            logInfo(`[AgentPanel] Switching to session: ${sessionId}`);
+
+            // Don't switch if already on this session
+            if (this.currentSessionId === sessionId) {
+                logDebug('[AgentPanel] Already on requested session');
+                const historyManager = await this.getChatHistoryManager();
+                const messages = await historyManager.getMessages();
+                const events = ChatHistoryManager.convertToEventFormat(messages);
+                return {
+                    success: true,
+                    sessionId,
+                    events
+                };
+            }
+
+            // Close current session
+            await this.closeChatHistory();
+
+            // Open the requested session
+            this.chatHistoryManager = new ChatHistoryManager(this.projectUri, sessionId);
+            await this.chatHistoryManager.initialize();
+            this.currentSessionId = sessionId;
+
+            // Load history from the new session
+            const messages = await this.chatHistoryManager.getMessages();
+            const events = ChatHistoryManager.convertToEventFormat(messages);
+
+            logInfo(`[AgentPanel] Switched to session: ${sessionId}, loaded ${events.length} events`);
+
+            return {
+                success: true,
+                sessionId,
+                events
+            };
+        } catch (error) {
+            logError('[AgentPanel] Failed to switch session', error);
+            return {
+                success: false,
+                sessionId: request.sessionId,
+                events: [],
+                error: error instanceof Error ? error.message : 'Failed to switch session'
+            };
+        }
+    }
+
+    /**
+     * Create a new empty session
+     */
+    async createNewSession(_request: CreateNewSessionRequest): Promise<CreateNewSessionResponse> {
+        try {
+            logInfo('[AgentPanel] Creating new session...');
+
+            // Close current session if exists
+            await this.closeChatHistory();
+
+            // Create new session (no sessionId = new UUID)
+            this.chatHistoryManager = new ChatHistoryManager(this.projectUri);
+            await this.chatHistoryManager.initialize();
+            this.currentSessionId = this.chatHistoryManager.getSessionId();
+
+            logInfo(`[AgentPanel] Created new session: ${this.currentSessionId}`);
+
+            return {
+                success: true,
+                sessionId: this.currentSessionId
+            };
+        } catch (error) {
+            logError('[AgentPanel] Failed to create new session', error);
+            return {
+                success: false,
+                sessionId: '',
+                error: error instanceof Error ? error.message : 'Failed to create new session'
+            };
+        }
+    }
+
+    /**
+     * Delete a session
+     */
+    async deleteSession(request: DeleteSessionRequest): Promise<DeleteSessionResponse> {
+        try {
+            const { sessionId } = request;
+            logInfo(`[AgentPanel] Deleting session: ${sessionId}`);
+
+            // Prevent deleting current session
+            if (this.currentSessionId === sessionId) {
+                return {
+                    success: false,
+                    error: 'Cannot delete the current active session. Switch to another session first.'
+                };
+            }
+
+            // Delete the session
+            await ChatHistoryManager.deleteSession(this.projectUri, sessionId);
+
+            logInfo(`[AgentPanel] Deleted session: ${sessionId}`);
+
+            return {
+                success: true
+            };
+        } catch (error) {
+            logError('[AgentPanel] Failed to delete session', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to delete session'
             };
         }
     }

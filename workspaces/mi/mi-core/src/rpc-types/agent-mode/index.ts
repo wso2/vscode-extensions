@@ -30,6 +30,18 @@ export type {
     TodoStatus,
     TodoItem,
     PlanApprovalResponse,
+    // Session management types
+    SessionMetadata,
+    SessionSummary,
+    GroupedSessions,
+    ListSessionsRequest,
+    ListSessionsResponse,
+    SwitchSessionRequest,
+    SwitchSessionResponse,
+    CreateNewSessionRequest,
+    CreateNewSessionResponse,
+    DeleteSessionRequest,
+    DeleteSessionResponse,
 } from './types';
 
 // Export RPC type definitions
@@ -41,6 +53,11 @@ export {
     // Plan mode RPC
     respondToQuestion,
     respondToPlanApproval,
+    // Session management RPC
+    listSessions,
+    switchSession,
+    createNewSession,
+    deleteSession,
 } from './rpc-type';
 
 // Export RPC request/response types

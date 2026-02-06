@@ -91,7 +91,9 @@ export const Header = styled.header({
 
 export const HeaderButtons = styled.div({
     display: "flex",
+    alignItems: "center",
     justifyContent: "flex-end",
+    gap: "4px",
     marginRight: "10px",
 });
 
@@ -130,7 +132,6 @@ export const Welcome = styled.div({
 
 export const Badge = styled.div`
     padding: 5px;
-    margin-left: 10px;
     display: inline-block;
     text-align: left;
 `;
