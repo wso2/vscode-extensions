@@ -182,7 +182,7 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 					const isSelected = selectionItem?.selected ?? false;
 					const currentType = selectionItem?.componentType || 
 						(extensionName === "Devant" ? DevantScopes.INTEGRATION_AS_API : ChoreoComponentType.Service);
-					const currentName = selectionItem?.name || component.initialValues?.name || component.directoryName;
+					const currentName = selectionItem?.name ?? component.initialValues?.name ?? component.directoryName;
 					const isEditing = editingIndex === index;
 					const nameError = validationErrors[index];
 					const hasError = !!nameError;

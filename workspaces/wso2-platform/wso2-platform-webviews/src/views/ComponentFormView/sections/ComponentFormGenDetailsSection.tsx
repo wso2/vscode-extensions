@@ -397,7 +397,14 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 			}
 		}
 
-		void validateComponentsPushed();
+		// Debounce validation so that rapid selection/name changes don't spam the RPC call.
+		const timeoutId = setTimeout(() => {
+			void validateComponentsPushed();
+		}, 400);
+
+		return () => {
+			clearTimeout(timeoutId);
+		};
 		// We intentionally depend on the raw objects; the hook will still use its cache to avoid repeated network calls.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [isMultiComponentMode, extensionName, repoUrl, organization?.id, selectedComponents]);
@@ -489,9 +496,14 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 	}
 
 	if (!invalidRepoMsg && componentGitErrorCount && componentGitErrorCount > 0) {
+		const selectedComponentsCount = selectedComponents?.filter(c => c.selected)?.length;
 		const baseMessage = componentGitErrorCount === 1
-			? "This component has not been pushed to Git."
-			: `${componentGitErrorCount} selected components have not been pushed to Git.`;
+			? (isMultiComponentMode && selectedComponentsCount > 1
+				? "One of the selected components has not been pushed to Git."
+				: "This component has not been pushed to Git.")
+			: componentGitErrorCount === selectedComponentsCount
+				? "All selected components have not been pushed to Git."
+				: `${componentGitErrorCount} of the selected components have not been pushed to Git.`;
 		invalidRepoMsg = `${baseMessage} Please push your changes to the remote repository before deploying.`;
 		invalidRepoAction = "Source Control";
 		onInvalidRepoActionClick = openSourceControl;

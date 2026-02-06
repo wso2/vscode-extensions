@@ -529,7 +529,7 @@ async function prepareComponentFormParams(
 		project: project,
 		extensionName: webviewStateStore.getState().state.extensionName,
 		components: [componentConfig],
-		rootDirectory: params.componentDir || "",
+		rootDirectory: params?.componentDir || "",
 	}
 
 	const isWithinWorkspace = workspace.workspaceFolders?.some((folder) =>
@@ -909,7 +909,8 @@ export const submitBatchCreateComponentsHandler = async ({
 	const extensionName = webviewStateStore.getState().state?.extensionName;
 	const terminology = getTerminology(extensionName);
 	const totalCount = components.length;
-	const componentTermPlural = terminology.isDevant ? "integrations" : "components";
+	const componentTerm = terminology.isDevant ? "integration" : "component";
+	const componentTermPlural = `${componentTerm}s`;
 
 	const result: SubmitBatchComponentCreateResp = {
 		created: [],
@@ -920,7 +921,9 @@ export const submitBatchCreateComponentsHandler = async ({
 	// Show a single progress notification for the entire batch
 	await window.withProgress(
 		{
-			title: `Creating ${totalCount} ${componentTermPlural}... `,
+			title: totalCount === 1
+				? `Creating ${componentTerm} '${components[0].createParams.displayName || components[0].createParams.name}'... `
+				: `Creating ${totalCount} ${componentTermPlural}... `,
 			location: ProgressLocation.Notification,
 			cancellable: false,
 		},
@@ -929,11 +932,13 @@ export const submitBatchCreateComponentsHandler = async ({
 				const componentReq = components[i];
 				const componentName = componentReq.createParams.displayName || componentReq.createParams.name;
 
-				// Update progress
-				progress.report({
-					message: `(${i + 1}/${totalCount}) ${componentName}`,
-					increment: (100 / totalCount),
-				});
+				if (totalCount > 1) {
+					// Update progress
+					progress.report({
+						message: `(${i + 1}/${totalCount}) ${componentName}`,
+						increment: (100 / totalCount),
+					});
+				}
 
 				try {
 					const createdComponent = await ext.clients.rpcClient.createComponent(componentReq.createParams);
@@ -962,7 +967,7 @@ export const submitBatchCreateComponentsHandler = async ({
 			const firstCreated = result.created[0];
 			const firstComponentDir = components.find(
 				(c) => c.createParams.name === firstCreated.metadata.name,
-			)?.createParams.componentDir;
+			)?.createParams?.componentDir;
 
 			if (firstComponentDir) {
 				const newGit = await initGit(ext.context);
