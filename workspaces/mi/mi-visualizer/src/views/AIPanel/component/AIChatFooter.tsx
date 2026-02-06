@@ -28,6 +28,8 @@ import { Role, MessageType, CopilotChatEntry, AgentEvent } from "@wso2/mi-core";
 import { TodoItem } from "@wso2/mi-core/lib/rpc-types/agent-mode/types";
 import Attachments from "./Attachments";
 
+type AgentMode = 'ask' | 'edit';
+
 // Tool name constant
 const BASH_TOOL_NAME = 'bash';
 
@@ -90,6 +92,11 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const lastUserPromptRef = useRef<string>("");
     const [isFocused, setIsFocused] = useState(false);
     const isDarkMode = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+    // Mode switcher state
+    const [agentMode, setAgentMode] = useState<AgentMode>('ask');
+    const [showModeMenu, setShowModeMenu] = useState(false);
+    const modeMenuRef = useRef<HTMLDivElement>(null);
 
     const placeholderString = USER_INPUT_PLACEHOLDER_MESSAGE;
     const [placeholder, setPlaceholder] = useState(placeholderString);
@@ -748,6 +755,19 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setPlanRejectionFeedback("");
     }, [pendingPlanApproval?.approvalId]);
 
+    // Close mode menu on click outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (modeMenuRef.current && !modeMenuRef.current.contains(e.target as Node)) {
+                setShowModeMenu(false);
+            }
+        };
+        if (showModeMenu) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [showModeMenu]);
+
     // Check if all questions are answered
     const allQuestionsAnswered = pendingQuestion?.questions.every((q, idx) => {
         const answer = answers.get(idx);
@@ -1294,14 +1314,16 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     backgroundColor: isDarkMode
                         ? "var(--vscode-list-hoverBackground)"
                         : "var(--vscode-editorHoverWidget-background)",
+                    padding: "6px 8px",
+                    margin: "4px 10px",
                 }}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 tabIndex={0}
             >
                 {backendRequestTriggered ? (
-                    <FlexRow style={{ alignItems: "center", justifyContent: "center", width: "100%", padding: "10px" }}>
-                        <span style={{ marginLeft: "10px" }}>
+                    <FlexRow style={{ alignItems: "center", justifyContent: "center", width: "100%", padding: "4px" }}>
+                        <span style={{ marginLeft: "10px", fontSize: "12px" }}>
                             {toolStatus || (isResponseReceived.current ? "Generating " : "Thinking ")}
                         </span>
                         <RippleLoader>
@@ -1335,12 +1357,14 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 style={{
                                     flex: 1,
                                     overflowY: "auto",
-                                    padding: "5px 15px 5px 10px",
+                                    padding: "4px 15px 4px 6px",
                                     borderRadius: "4px",
                                     border: "none",
                                     resize: "none",
                                     outline: "none",
-                                    maxHeight: "100px", // Limit height to approximately 5 lines
+                                    fontSize: "13px",
+                                    lineHeight: "1.4",
+                                    maxHeight: "80px",
                                     backgroundColor: isDarkMode
                                         ? "var(--vscode-list-hoverBackground)"
                                         : "var(--vscode-editorHoverWidget-background)",
@@ -1349,7 +1373,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                     opacity: isUsageExceeded ? 0.5 : 1,
                                     cursor: isUsageExceeded ? "not-allowed" : "text"
                                 }}
-                                rows={2}
+                                rows={1}
                             />
                             {currentUserPrompt.trim() !== "" && (<StyledTransParentButton
                                     onClick={() => setCurrentUserprompt("")}
@@ -1367,7 +1391,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 </StyledTransParentButton>
                         )}
                         </FlexRow>
-                        <FlexRow style={{ flexWrap: "wrap", gap: "2px", alignItems: "center", marginTop: "10px" }}>
+                        <FlexRow style={{ flexWrap: "wrap", gap: "2px", alignItems: "center", marginTop: "4px" }}>
                             {files.length > 0 && !isInitialPromptLoaded ? (
                                 <Attachments
                                     attachments={files}
@@ -1388,28 +1412,106 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     </>
                 )}
                 <FlexRow style={{ justifyContent: "space-between", width: "100%", alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <StyledTransParentButton
-                            onClick={() => document.getElementById("fileInput")?.click()}
-                            style={{
-                                width: "30px",
-                                color: isDarkMode
-                                    ? "var(--vscode-input-foreground)"
-                                    : "var(--vscode-editor-foreground)",
-                                opacity: (backendRequestTriggered || isUsageExceeded) ? 0.5 : 1,
-                                cursor: (backendRequestTriggered || isUsageExceeded) ? "not-allowed" : "pointer"
-                            }}
-                        >
-                            <Codicon name="new-file" />
-                        </StyledTransParentButton>
-
-                        {fileUploadStatus.text && fileUploadStatus.type === "error" && (
-                            <span
+                    {/* Left side: Mode switcher + file context */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        {/* Mode Switcher */}
+                        <div ref={modeMenuRef} style={{ position: "relative" }}>
+                            <button
+                                onClick={() => setShowModeMenu(!showModeMenu)}
+                                disabled={backendRequestTriggered || isUsageExceeded}
                                 style={{
-                                    marginLeft: "5px",
-                                    color: "var(--vscode-errorForeground)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    padding: "2px 8px",
+                                    fontSize: "11px",
+                                    backgroundColor: "var(--vscode-badge-background)",
+                                    color: "var(--vscode-badge-foreground)",
+                                    border: "none",
+                                    borderRadius: "10px",
+                                    cursor: (backendRequestTriggered || isUsageExceeded) ? "not-allowed" : "pointer",
+                                    opacity: (backendRequestTriggered || isUsageExceeded) ? 0.5 : 1,
+                                    whiteSpace: "nowrap",
                                 }}
                             >
+                                <Codicon name={agentMode === 'ask' ? 'comment-discussion' : 'edit'} />
+                                {agentMode === 'ask' ? 'Ask' : 'Edit'}
+                                <Codicon name="chevron-down" />
+                            </button>
+                            {showModeMenu && (
+                                <div style={{
+                                    position: "absolute",
+                                    bottom: "100%",
+                                    left: 0,
+                                    marginBottom: "4px",
+                                    backgroundColor: "var(--vscode-dropdown-background)",
+                                    border: "1px solid var(--vscode-dropdown-border)",
+                                    borderRadius: "4px",
+                                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                                    zIndex: 1000,
+                                    minWidth: "120px",
+                                    overflow: "hidden",
+                                }}>
+                                    {(['ask', 'edit'] as AgentMode[]).map((m) => (
+                                        <button
+                                            key={m}
+                                            onClick={() => { setAgentMode(m); setShowModeMenu(false); }}
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "6px",
+                                                width: "100%",
+                                                padding: "6px 10px",
+                                                fontSize: "12px",
+                                                border: "none",
+                                                cursor: "pointer",
+                                                backgroundColor: agentMode === m
+                                                    ? "var(--vscode-list-activeSelectionBackground)"
+                                                    : "transparent",
+                                                color: agentMode === m
+                                                    ? "var(--vscode-list-activeSelectionForeground)"
+                                                    : "var(--vscode-dropdown-foreground)",
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (agentMode !== m) {
+                                                    e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)";
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (agentMode !== m) {
+                                                    e.currentTarget.style.backgroundColor = "transparent";
+                                                }
+                                            }}
+                                        >
+                                            <Codicon name={m === 'ask' ? 'comment-discussion' : 'edit'} />
+                                            {m === 'ask' ? 'Ask' : 'Edit'}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* File context indicator */}
+                        {files.length > 0 && (
+                            <span style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                fontSize: "11px",
+                                color: "var(--vscode-descriptionForeground)",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                maxWidth: "150px",
+                            }}>
+                                <Codicon name="file-code" />
+                                {files[0].name}
+                                {files.length > 1 && ` +${files.length - 1}`}
+                            </span>
+                        )}
+
+                        {fileUploadStatus.text && fileUploadStatus.type === "error" && (
+                            <span style={{ fontSize: "11px", color: "var(--vscode-errorForeground)" }}>
                                 {fileUploadStatus.text}
                             </span>
                         )}
@@ -1427,20 +1529,40 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         disabled={backendRequestTriggered || isUsageExceeded}
                     />
 
-                    <StyledTransParentButton
-                        onClick={() => (backendRequestTriggered ? handleStop() : handleSend())}
-                        style={{
-                            width: "30px",
-                            color: isDarkMode ? "var(--vscode-input-foreground)" : "var(--vscode-editor-foreground)",
-                            opacity: isUsageExceeded ? 0.5 : 1,
-                            cursor: isUsageExceeded ? "not-allowed" : "pointer"
-                        }}
-                        disabled={(currentUserPrompt.trim() === "" && !backendRequestTriggered) || isUsageExceeded}
-                    >
-                        <span
-                            className={`codicon ${backendRequestTriggered ? "codicon-stop-circle" : "codicon-send"}`}
-                        />
-                    </StyledTransParentButton>
+                    {/* Right side: Attach + Send/Stop */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+                        <StyledTransParentButton
+                            onClick={() => document.getElementById("fileInput")?.click()}
+                            style={{
+                                width: "28px",
+                                padding: "4px",
+                                color: isDarkMode
+                                    ? "var(--vscode-input-foreground)"
+                                    : "var(--vscode-editor-foreground)",
+                                opacity: (backendRequestTriggered || isUsageExceeded) ? 0.5 : 1,
+                                cursor: (backendRequestTriggered || isUsageExceeded) ? "not-allowed" : "pointer"
+                            }}
+                            disabled={backendRequestTriggered || isUsageExceeded}
+                        >
+                            <Codicon name="attach" />
+                        </StyledTransParentButton>
+
+                        <StyledTransParentButton
+                            onClick={() => (backendRequestTriggered ? handleStop() : handleSend())}
+                            style={{
+                                width: "28px",
+                                padding: "4px",
+                                color: isDarkMode ? "var(--vscode-input-foreground)" : "var(--vscode-editor-foreground)",
+                                opacity: isUsageExceeded ? 0.5 : 1,
+                                cursor: isUsageExceeded ? "not-allowed" : "pointer"
+                            }}
+                            disabled={(currentUserPrompt.trim() === "" && !backendRequestTriggered) || isUsageExceeded}
+                        >
+                            <span
+                                className={`codicon ${backendRequestTriggered ? "codicon-stop-circle" : "codicon-arrow-up"}`}
+                            />
+                        </StyledTransParentButton>
+                    </div>
                 </FlexRow>
             </FlexColumn>
         </Footer>

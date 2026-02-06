@@ -47,7 +47,7 @@ export const FadeInContainer = styled.div`
 
 // Styles for the AI Chat
 export const Footer = styled.footer({
-    padding: "5px",
+    padding: "2px 5px",
     backgroundColor: "var(--vscode-editor-background)",
 });
 
