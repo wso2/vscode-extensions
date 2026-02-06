@@ -173,7 +173,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         userPreconfigured: params.payloads, // Pre-configured payloads (optional)
         available_connectors: availableConnectors.join(', '), // Available connectors list
         available_inbound_endpoints: availableInboundEndpoints.join(', '), // Available inbound endpoints list
-        system_remainder: 'You are operating in AGENT_MODE.'
+        system_remainder: `You are operating in AGENT_MODE.\nProject root path: ${params.projectPath}`
     };
 
     // Render the template

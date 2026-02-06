@@ -20,7 +20,7 @@
 // Dev Feature Flags
 // ============================================================================
 const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
-const ENABLE_DEVTOOLS = true; // Set to true to enable AI SDK DevTools (local development only!)
+const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
 
 import * as path from 'path';
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';

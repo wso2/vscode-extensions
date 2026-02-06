@@ -38,6 +38,8 @@ import CompactSummarySegment from "./CompactSummarySegment";
 
 // Markdown renderer component
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownContent }) => {
+    const { rpcClient } = useMICopilotContext();
+
     return (
         <ReactMarkdown
             components={{
@@ -52,6 +54,41 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownContent }) 
                 ),
                 p: ({ node, ...props }: { node?: unknown; [key: string]: any }) => (
                     <p style={{ fontSize: "1em", lineHeight: "1.5" }} {...props} />
+                ),
+                a: ({ node, href, children, ...props }: { node?: unknown; href?: string; children?: React.ReactNode; [key: string]: any }) => (
+                    <a
+                        href={href}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            if (!href) return;
+                            // External URLs - ignore (webview blocks them anyway)
+                            if (href.startsWith('http://') || href.startsWith('https://')) return;
+                            // Parse line number from fragment (e.g., #L42 or #L42-L51)
+                            let filePath = href;
+                            let line: number | undefined;
+                            const hashIndex = href.indexOf('#');
+                            if (hashIndex !== -1) {
+                                const fragment = href.substring(hashIndex + 1);
+                                filePath = href.substring(0, hashIndex);
+                                const lineMatch = fragment.match(/^L(\d+)/);
+                                if (lineMatch) {
+                                    line = parseInt(lineMatch[1], 10);
+                                }
+                            }
+                            rpcClient.getMiDiagramRpcClient().openFile({
+                                path: filePath,
+                                line,
+                            });
+                        }}
+                        style={{
+                            cursor: 'pointer',
+                            color: 'var(--vscode-textLink-foreground)',
+                            textDecoration: 'underline',
+                        }}
+                        {...props}
+                    >
+                        {children}
+                    </a>
                 ),
             }}
         >

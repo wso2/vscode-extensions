@@ -461,6 +461,7 @@ export interface ShowErrorMessageRequest {
 export interface OpenDiagramRequest {
     path: string;
     beside?: boolean;
+    line?: number;
 }
 
 export interface CreateAPIResponse {
