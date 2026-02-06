@@ -45,15 +45,17 @@ The user has opened the file {{currentlyOpenedFile}} in the IDE. This may or may
 <user_preconfigured>
 {{payloads}}
 </user_preconfigured>
-These are preconfigured values that should be accessed using Synapse expressions in the integration flow. Always use Synapse expressions when referring to these values.
+These are preconfigured values in the Low-Code IDE that should be accessed using Synapse expressions in the integration flow. Always use Synapse expressions when referring to these values.
 {{/if}}
 
 <available_connectors>
 {{available_connectors}}
+These are the available WSO2 connectors from WSO2 connector store.
 </available_connectors>
 
 <available_inbound_endpoints>
 {{available_inbound_endpoints}}
+These are the available WSO2 inbound endpoints from WSO2 inbound endpoint store.
 </available_inbound_endpoints>
 
 <system_reminder>
