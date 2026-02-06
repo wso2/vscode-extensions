@@ -25,10 +25,27 @@ export interface ValidationResult {
     error?: string;
 }
 
+export interface DiagnosticInfo {
+    severity: 'error' | 'warning' | 'info';
+    line: number;
+    message: string;
+    codeActions?: string[];  // Optional LSP quick fix titles
+}
+
+export interface ValidationDiagnostics {
+    validated: boolean;
+    hasErrors: boolean;
+    hasWarnings: boolean;
+    errorCount: number;
+    warningCount: number;
+    diagnostics: DiagnosticInfo[];
+}
+
 export interface ToolResult {
     success: boolean;
     message: string;
     error?: string;
+    validation?: ValidationDiagnostics;
 }
 
 // ============================================================================

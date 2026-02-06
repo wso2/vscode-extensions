@@ -41,6 +41,7 @@ import {
 } from './types';
 import { getProviderCacheControl } from '../../connection';
 import { logDebug, logError } from '../../copilot/logger';
+import { validateXmlFile, formatValidationMessage } from './validation-utils';
 
 // ============================================================================
 // Validation Functions
@@ -162,6 +163,7 @@ function trackModifiedFile(modifiedFiles: string[] | undefined, filePath: string
     }
 }
 
+
 // ============================================================================
 // Execute Functions (Business Logic)
 // ============================================================================
@@ -257,11 +259,22 @@ export function createWriteExecute(projectPath: string, modifiedFiles?: string[]
         const lineCount = content.split('\n').length;
         const action = fileExists ? 'updated' : 'created';
 
+        // Automatically validate the file and get structured diagnostics
+        const validation = await validateXmlFile(fullPath, projectPath, false);
+
         console.log(`[FileWriteTool] Successfully ${action} and synced file: ${file_path} with ${lineCount} lines`);
-        return {
+
+        // Build result with structured validation data
+        const result: ToolResult = {
             success: true,
-            message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).`
+            message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).${validation ? formatValidationMessage(validation) : ''}`
         };
+
+        if (validation) {
+            result.validation = validation;
+        }
+
+        return result;
     };
 }
 
@@ -467,11 +480,23 @@ export function createEditExecute(projectPath: string, modifiedFiles?: string[])
         trackModifiedFile(modifiedFiles, file_path);
 
         const replacedCount = replace_all ? occurrenceCount : 1;
+
+        // Automatically validate the file and get structured diagnostics
+        const validation = await validateXmlFile(fullPath, projectPath, false);
+
         logDebug(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) and synced file: ${file_path}`);
-        return {
+
+        // Build result with structured validation data
+        const result: ToolResult = {
             success: true,
-            message: `Successfully replaced ${replacedCount} occurrence(s) in '${file_path}'.`
+            message: `Successfully replaced ${replacedCount} occurrence(s) in '${file_path}'.${validation ? formatValidationMessage(validation) : ''}`
         };
+
+        if (validation) {
+            result.validation = validation;
+        }
+
+        return result;
     };
 }
 
@@ -768,6 +793,11 @@ export function createWriteTool(execute: WriteExecuteFn) {
             - src/main/wso2mi/artifacts/endpoints/ - Endpoint configurations
             - src/main/wso2mi/artifacts/proxy-services/ - Proxy service configurations
             - src/main/wso2mi/artifacts/inbound-endpoints/ - Inbound endpoint configurations
+
+            Automatic Validation:
+            - XML files are automatically validated after writing using the LemMinx LSP
+            - Validation results (errors/warnings) are included in the tool result
+            - You don't need to separately call validate_code for files you just wrote
             `,
         inputSchema: writeInputSchema,
         execute
@@ -834,7 +864,12 @@ export function createEditTool(execute: EditExecuteFn) {
             Tips for Synapse XML editing:
             - Include surrounding XML tags to ensure unique matches
             - Preserve XML indentation exactly
-            - Be careful with XML namespaces and attributes`,
+            - Be careful with XML namespaces and attributes
+
+            Automatic Validation:
+            - XML files are automatically validated after editing using the LemMinx LSP
+            - Validation results (errors/warnings) are included in the tool result
+            - You don't need to separately call validate_code for files you just edited`,
         inputSchema: editInputSchema,
         execute
     });

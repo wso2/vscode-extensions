@@ -168,9 +168,10 @@ You can spawn sub agents to avoid filling up your context window with large code
 - Create separate files for each artifact type.
 
 ## Step 4: Validate
-- Use ${VALIDATE_CODE_TOOL_NAME} to validate created/modified Synapse XML files.
-- Review validation results and fix any errors reported by the Language Server.
-- Ensure all files are properly structured and error-free.
+- XML files are AUTOMATICALLY validated when you use ${FILE_WRITE_TOOL_NAME} or file_edit tools
+- Review validation feedback and fix any errors immediately
+- Only use ${VALIDATE_CODE_TOOL_NAME} explicitly when you need to validate files you didn't just write/edit
+- Ensure all files are properly structured and error-free
 
 ## Step 5: Build the project and run it and test it if possible
 - Use ${BUILD_PROJECT_TOOL_NAME} to build the project.
@@ -229,12 +230,12 @@ Diagnosis:
 Check:
 
 - Connector dependencies missing → Use ${MANAGE_CONNECTOR_TOOL_NAME} tool
-- INVALID Synapse XML → Use ${VALIDATE_CODE_TOOL_NAME} tool before building
+- INVALID Synapse XML → Check validation feedback from file_write/file_edit (automatic), or use ${VALIDATE_CODE_TOOL_NAME} tool for existing files
 - Port conflicts → Check if port 8290 is already in use
 
 ## Debugging Workflow
 - Read server logs (use bash tool with cat or grep)
-- Validate XML files with ${VALIDATE_CODE_TOOL_NAME}
+- Review automatic validation feedback from file operations, or use ${VALIDATE_CODE_TOOL_NAME} for existing files
 - Verify artifact.xml matches actual files
 - Rebuild with copy_to_runtime=true
 - Restart server and test
