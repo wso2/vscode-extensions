@@ -17,156 +17,256 @@
  */
 
 /**
- * Conversation Summarization Sub-Agent
+ * Conversation Compaction Agent
  *
- * Specialized agent for compacting long conversation histories into concise summaries.
- * Uses Haiku 4.5 for cost-effective summarization while preserving key context.
+ * Sends the FULL conversation history (system prompt + messages) to Haiku
+ * with a <system-reminder> appended asking it to summarize.
+ *
+ * Tool-call and tool-result messages are converted to text representations
+ * since the Anthropic API requires tool definitions for native tool blocks,
+ * and we don't want to pass all 20+ tool schemas to the compact model.
+ *
+ * Two trigger modes:
+ * - User-triggered (/compact): Summarize and save to JSONL. That's it.
+ * - Auto-triggered (context limit): Summarize, save, then caller triggers new agent run.
  */
 
 import { generateText } from 'ai';
-import { ModelMessage } from 'ai';
-import * as Handlebars from 'handlebars';
 import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from '../../../connection';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
-import { SUMMARIZATION_SYSTEM_PROMPT } from './system';
-import { SUMMARIZATION_USER_PROMPT } from './prompt';
+import { getSystemPrompt } from '../main/system';
+import {
+    COMPACT_SYSTEM_REMINDER_USER_TRIGGERED,
+    COMPACT_SYSTEM_REMINDER_AUTO_TRIGGERED,
+} from './prompt';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export interface SummarizationAgentRequest {
-    /** Conversation history to summarize (including tool calls and results) */
-    messages: ModelMessage[];
-    /** Project path for context */
-    projectPath: string;
+export interface CompactAgentRequest {
+    /** Raw messages from chatHistoryManager.getMessages() (JSONL entries with role-based structure) */
+    messages: any[];
+    /** How the compact was triggered */
+    trigger: 'user' | 'auto';
 }
 
-export interface SummarizationAgentResult {
-    /** Whether summarization was successful */
+export interface CompactAgentResult {
     success: boolean;
-    /** The generated summary (Claude Code format) */
+    /** The generated summary */
     summary?: string;
-    /** Error message if failed */
     error?: string;
 }
 
 // ============================================================================
-// Helper Functions
+// Message Conversion
 // ============================================================================
 
 /**
- * Converts ModelMessage array into a readable conversation transcript
+ * Converts ModelMessages (with native tool-call/tool-result blocks) into
+ * plain text user/assistant messages that Haiku can process without tool definitions.
+ *
+ * Conversion rules:
+ * - system messages: kept as-is
+ * - user messages: kept as-is (text content extracted)
+ * - assistant messages with tool-call parts: tool calls converted to [Tool Call: name] text
+ * - tool role messages (tool results): converted to user messages with [Tool Result: name] text
+ * - compact_summary entries (JSONL markers): converted to user message with summary text
+ *
+ * Consecutive messages of the same role are merged (Anthropic requires alternating roles).
  */
-function formatConversationForSummarization(messages: ModelMessage[]): string {
-    const parts: string[] = [];
+function convertMessagesForCompact(messages: any[]): Array<{ role: 'user' | 'assistant'; content: string }> {
+    const rawMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
-    for (let i = 0; i < messages.length; i++) {
-        const msg = messages[i];
+    for (const msg of messages) {
+        // Handle JSONL compact_summary entries (not role-based messages)
+        if (msg.type === 'compact_summary') {
+            rawMessages.push({
+                role: 'user',
+                content: `[Previous Conversation Summary]\n${msg.summary}`,
+            });
+            continue;
+        }
 
-        if (msg.role === 'user') {
-            parts.push(`\n[USER MESSAGE ${i + 1}]:`);
-            parts.push(String(msg.content));
-        } else if (msg.role === 'assistant') {
-            parts.push(`\n[ASSISTANT MESSAGE ${i + 1}]:`);
+        // Skip session markers
+        if (msg.type === 'session_start' || msg.type === 'session_end') {
+            continue;
+        }
 
-            // Handle text content
-            if (typeof msg.content === 'string') {
-                parts.push(msg.content);
+        // Skip synthetic compact messages (they duplicate the compact_summary entry)
+        if (msg._compactSynthetic) {
+            continue;
+        }
+
+        switch (msg.role) {
+            case 'user': {
+                let text = '';
+                if (typeof msg.content === 'string') {
+                    text = msg.content;
+                } else if (Array.isArray(msg.content)) {
+                    text = msg.content
+                        .filter((p: any) => p.type === 'text')
+                        .map((p: any) => p.text)
+                        .join('\n');
+                }
+                if (text.trim()) {
+                    rawMessages.push({ role: 'user', content: text });
+                }
+                break;
             }
-            // Handle tool_calls (array of objects)
-            else if (Array.isArray(msg.content)) {
-                for (const part of msg.content) {
-                    if (part.type === 'text') {
-                        parts.push(part.text);
-                    } else if (part.type === 'tool-call') {
-                        parts.push(`\n[TOOL CALL: ${part.toolName}]`);
-                        parts.push(`Input: ${JSON.stringify(part.input, null, 2)}`);
-                    } else if (part.type === 'tool-result') {
-                        parts.push(`\n[TOOL RESULT: ${part.toolName}]`);
-                        parts.push(`Output: ${JSON.stringify(part.output, null, 2)}`);
+
+            case 'assistant': {
+                const parts: string[] = [];
+                if (typeof msg.content === 'string') {
+                    parts.push(msg.content);
+                } else if (Array.isArray(msg.content)) {
+                    for (const p of msg.content) {
+                        if (p.type === 'text' && p.text?.trim()) {
+                            parts.push(p.text);
+                        } else if (p.type === 'tool-call') {
+                            parts.push(`[Tool Call: ${p.toolName}]`);
+                            // Include a compact representation of the input
+                            const inputStr = JSON.stringify(p.args || p.input, null, 2);
+                            // Truncate very large tool inputs (e.g. file_write with full content)
+                            if (inputStr.length > 2000) {
+                                parts.push(`Input: ${inputStr.substring(0, 2000)}... [truncated]`);
+                            } else {
+                                parts.push(`Input: ${inputStr}`);
+                            }
+                        }
                     }
                 }
+                const text = parts.join('\n');
+                if (text.trim()) {
+                    rawMessages.push({ role: 'assistant', content: text });
+                }
+                break;
             }
-        } else if (msg.role === 'system') {
-            // Skip system messages as they're just prompts
-            continue;
+
+            case 'tool': {
+                // Tool results → convert to user message (since tool role requires tool definitions)
+                const parts: string[] = [];
+                if (Array.isArray(msg.content)) {
+                    for (const p of msg.content) {
+                        if (p.type === 'tool-result') {
+                            parts.push(`[Tool Result: ${p.toolName}]`);
+                            const outputStr = JSON.stringify(p.result || p.output, null, 2);
+                            if (outputStr.length > 2000) {
+                                parts.push(`Output: ${outputStr.substring(0, 2000)}... [truncated]`);
+                            } else {
+                                parts.push(`Output: ${outputStr}`);
+                            }
+                        }
+                    }
+                }
+                const text = parts.join('\n');
+                if (text.trim()) {
+                    rawMessages.push({ role: 'user', content: text });
+                }
+                break;
+            }
+
+            // Skip system messages (we add the system prompt separately)
+            case 'system':
+                break;
         }
     }
 
-    return parts.join('\n');
+    // Merge consecutive messages of the same role (Anthropic requires alternating)
+    return mergeConsecutiveMessages(rawMessages);
+}
+
+/**
+ * Merges consecutive messages with the same role into a single message.
+ * This is needed because converting tool results to user messages can
+ * create consecutive user messages.
+ */
+function mergeConsecutiveMessages(
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>
+): Array<{ role: 'user' | 'assistant'; content: string }> {
+    if (messages.length === 0) return [];
+
+    const merged: Array<{ role: 'user' | 'assistant'; content: string }> = [{ ...messages[0] }];
+
+    for (let i = 1; i < messages.length; i++) {
+        const prev = merged[merged.length - 1];
+        const curr = messages[i];
+
+        if (prev.role === curr.role) {
+            prev.content += '\n\n' + curr.content;
+        } else {
+            merged.push({ ...curr });
+        }
+    }
+
+    return merged;
 }
 
 // ============================================================================
-// Summarization Sub-Agent
+// Compact Agent
 // ============================================================================
 
 /**
- * Executes the summarization sub-agent to compact conversation history
+ * Executes the compact agent.
  *
- * This agent:
- * 1. Formats conversation messages into readable transcript
- * 2. Sends to AI (Haiku 4.5) with summarization prompt
- * 3. Returns structured summary following Claude Code format
- *
- * @param request - The agent request parameters
- * @returns Result containing the summary or error
+ * Sends the main agent's system prompt + the full conversation (with tool
+ * messages converted to text) + a system-reminder to Haiku for summarization.
  */
-export async function executeSummarizationAgent(
-    request: SummarizationAgentRequest
-): Promise<SummarizationAgentResult> {
+export async function executeCompactAgent(
+    request: CompactAgentRequest
+): Promise<CompactAgentResult> {
     try {
-        logInfo(`[SummarizationAgent] Summarizing ${request.messages.length} messages`);
+        logInfo(`[CompactAgent] Starting compaction (trigger: ${request.trigger}, messages: ${request.messages.length})`);
 
-        // 1. Format conversation
-        const conversationText = formatConversationForSummarization(request.messages);
-        const charCount = conversationText.length;
-        logDebug(`[SummarizationAgent] Formatted conversation: ${charCount} characters`);
+        // 1. Get the main agent's system prompt (same one the agent uses)
+        const systemPrompt = getSystemPrompt();
 
-        if (charCount === 0) {
-            return {
-                success: false,
-                error: 'No conversation content to summarize'
-            };
+        // 2. Convert messages to text-based format (no tool blocks)
+        const textMessages = convertMessagesForCompact(request.messages);
+
+        if (textMessages.length === 0) {
+            return { success: false, error: 'No conversation content to compact' };
         }
 
-        // 2. Build prompt using Handlebars template
-        const template = Handlebars.compile(SUMMARIZATION_USER_PROMPT);
-        const userPrompt = template({
-            conversation: conversationText
-        });
+        logDebug(`[CompactAgent] Converted to ${textMessages.length} text messages`);
 
-        // 3. Call AI
-        logInfo(`[SummarizationAgent] Calling Haiku for summarization...`);
+        // 3. Pick the system-reminder based on trigger type
+        const systemReminder = request.trigger === 'user'
+            ? COMPACT_SYSTEM_REMINDER_USER_TRIGGERED
+            : COMPACT_SYSTEM_REMINDER_AUTO_TRIGGERED;
+
+        // 4. Append the system-reminder as a final user message
+        //    This tells Haiku to summarize instead of continuing the conversation.
+        const allMessages = [
+            ...textMessages,
+            { role: 'user' as const, content: systemReminder },
+        ];
+
+        // 5. Call Haiku with the full conversation
+        logInfo('[CompactAgent] Calling Haiku for summarization...');
         const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
-        const { text } = await generateText({
+
+        const { text, usage } = await generateText({
             model,
-            system: SUMMARIZATION_SYSTEM_PROMPT,
-            prompt: userPrompt,
+            system: systemPrompt,
+            messages: allMessages,
             maxOutputTokens: 16000,
-            temperature: 0.3, // Slightly higher for natural language
-            maxRetries: 0, // Disable retries on quota errors (429)
+            temperature: 0.3,
+            maxRetries: 0,
         });
 
-        logDebug(`[SummarizationAgent] Summary generated: ${text.length} characters`);
+        logInfo(`[CompactAgent] Summary generated: ${text.length} chars, ` +
+            `input: ${usage?.inputTokens || 0}, output: ${usage?.outputTokens || 0}`);
 
         if (!text?.trim()) {
-            throw new Error('AI did not return a summary');
+            return { success: false, error: 'Haiku did not return a summary' };
         }
 
-        logInfo(`[SummarizationAgent] Successfully summarized conversation`);
-
-        return {
-            success: true,
-            summary: text.trim()
-        };
+        return { success: true, summary: text.trim() };
 
     } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        logError(`[SummarizationAgent] Error: ${errorMsg}`, error);
-        return {
-            success: false,
-            error: errorMsg,
-        };
+        logError(`[CompactAgent] Error: ${errorMsg}`, error);
+        return { success: false, error: errorMsg };
     }
 }

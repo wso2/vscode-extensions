@@ -82,6 +82,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setTodos,
         isPlanMode,
         setIsPlanMode,
+        lastTotalInputTokens,
+        setLastTotalInputTokens,
     } = useMICopilotContext();
 
     const [fileUploadStatus, setFileUploadStatus] = useState({ type: "", text: "" });
@@ -98,6 +100,16 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const [showModeMenu, setShowModeMenu] = useState(false);
     const modeMenuRef = useRef<HTMLDivElement>(null);
 
+    // Manual compact state
+    const [isCompacting, setIsCompacting] = useState(false);
+
+    // Context usage tracking (for compact button display)
+    const CONTEXT_TOKEN_THRESHOLD = 180000;
+    const contextUsagePercent = Math.min(
+        Math.round((lastTotalInputTokens / CONTEXT_TOKEN_THRESHOLD) * 100),
+        100
+    );
+
     const placeholderString = USER_INPUT_PLACEHOLDER_MESSAGE;
     const [placeholder, setPlaceholder] = useState(placeholderString);
     const [charIndex, setCharIndex] = useState(0);
@@ -112,10 +124,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     // Refs to hold latest values for the event handler (avoids stale closure)
     const assistantResponseRef = useRef<string>("");
     const currentChatIdRef = useRef<number | null>(null);
+    const backendRequestTriggeredRef = useRef(false);
 
     // Keep refs in sync with state (for use in stale closure of event handler)
     assistantResponseRef.current = assistantResponse;
     currentChatIdRef.current = currentChatId;
+    backendRequestTriggeredRef.current = backendRequestTriggered;
 
     // Helper: immutably update the last message's content
     const updateLastMessage = (
@@ -328,6 +342,47 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 setToolStatus("");
                 break;
 
+            case "compact":
+                // Conversation was compacted (auto or manual). Insert a compact summary tag.
+                if (event.summary) {
+                    setMessages((prev) => {
+                        // If the last message is an in-progress assistant message during agent run, append to it
+                        // Use ref to avoid stale closure (this callback is registered once via onAgentEvent)
+                        if (prev.length > 0 && prev[prev.length - 1].role === Role.MICopilot && backendRequestTriggeredRef.current) {
+                            return updateLastMessage(prev, (c) =>
+                                c + `\n\n<compact>${event.summary}</compact>`
+                            );
+                        }
+                        // Otherwise (manual compact): replace the loading message with the summary
+                        const loadingIdx = prev.findIndex((m) =>
+                            m.content.includes('Compacting conversation...')
+                        );
+                        if (loadingIdx >= 0) {
+                            const updated = [...prev];
+                            updated[loadingIdx] = {
+                                ...updated[loadingIdx],
+                                content: `<compact>${event.summary}</compact>`,
+                            };
+                            return updated;
+                        }
+                        // Fallback: add a new standalone assistant message
+                        return [...prev, {
+                            id: generateId(),
+                            role: Role.MICopilot,
+                            content: `<compact>${event.summary}</compact>`,
+                            type: MessageType.AssistantMessage,
+                        }];
+                    });
+                }
+                break;
+
+            case "usage":
+                // Update context usage via shared context state
+                if (event.totalInputTokens !== undefined) {
+                    setLastTotalInputTokens(event.totalInputTokens);
+                }
+                break;
+
             default:
                 // Handle plan mode events (new types need mi-core rebuild)
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -467,6 +522,49 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             } catch (error) {
                 console.error("Error responding to plan approval:", error);
             }
+        }
+    };
+
+    // Handle manual compact button click
+    const handleManualCompact = async () => {
+        if (isCompacting || backendRequestTriggered) return;
+        setIsCompacting(true);
+
+        // Show a loading indicator in the chat panel
+        setMessages((prev) => [...prev, {
+            id: generateId(),
+            role: Role.MICopilot,
+            content: `<toolcall data-loading="true" data-file="">Compacting conversation...</toolcall>`,
+            type: MessageType.AssistantMessage,
+        }]);
+
+        try {
+            const result = await rpcClient.getMiAgentPanelRpcClient().compactConversation({});
+            if (!result.success) {
+                console.error("Manual compact failed:", result.error);
+                // Remove the loading message and show error
+                setMessages((prev) => {
+                    const filtered = prev.filter((m) =>
+                        !m.content.includes('Compacting conversation...')
+                    );
+                    return [...filtered, {
+                        id: generateId(),
+                        role: Role.MICopilot,
+                        content: `Failed to compact conversation: ${result.error || 'Unknown error'}`,
+                        type: MessageType.Error,
+                    }];
+                });
+            }
+            // The compact event handler in handleAgentEvent will replace the loading message
+            // with the actual compact summary
+        } catch (error) {
+            console.error("Error during manual compact:", error);
+            // Remove the loading message on error
+            setMessages((prev) =>
+                prev.filter((m) => !m.content.includes('Compacting conversation...'))
+            );
+        } finally {
+            setIsCompacting(false);
         }
     };
 
@@ -1479,6 +1577,39 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 </div>
                             )}
                         </div>
+
+                        {/* Compact Button - shows context usage %, hidden below 1% */}
+                        {contextUsagePercent >= 1 && (
+                            <button
+                                onClick={handleManualCompact}
+                                disabled={backendRequestTriggered || isUsageExceeded || isCompacting || messages.length === 0}
+                                title={`Context window ${contextUsagePercent}% used — click to compact conversation`}
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    padding: "2px 8px",
+                                    fontSize: "11px",
+                                    backgroundColor: contextUsagePercent >= 80
+                                        ? "var(--vscode-editorWarning-foreground)"
+                                        : "var(--vscode-badge-background)",
+                                    color: contextUsagePercent >= 80
+                                        ? "var(--vscode-editor-background)"
+                                        : "var(--vscode-badge-foreground)",
+                                    border: "none",
+                                    borderRadius: "10px",
+                                    cursor: (backendRequestTriggered || isUsageExceeded || isCompacting || messages.length === 0) ? "not-allowed" : "pointer",
+                                    opacity: (backendRequestTriggered || isUsageExceeded || isCompacting || messages.length === 0) ? 0.5 : 1,
+                                    whiteSpace: "nowrap",
+                                }}
+                            >
+                                {isCompacting ? (
+                                    <><Codicon name="loading~spin" /> Compacting...</>
+                                ) : (
+                                    <><Codicon name="fold" /> {contextUsagePercent}% used</>
+                                )}
+                            </button>
+                        )}
 
                         {/* File context indicator */}
                         {files.length > 0 && (

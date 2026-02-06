@@ -25,9 +25,12 @@ import {
     UserQuestionResponse,
     PlanApprovalResponse,
     ChatHistoryEvent,
+    CompactConversationRequest,
+    CompactConversationResponse,
 } from '@wso2/mi-core';
 import { AgentEventHandler } from './event-handler';
 import { executeAgent, createAgentAbortController, AgentEvent } from '../../ai-features/agent-mode';
+import { executeCompactAgent } from '../../ai-features/agent-mode/agents/compact/agent';
 import { logInfo, logError, logDebug } from '../../ai-features/copilot/logger';
 import { ChatHistoryManager, GroupedSessions } from '../../ai-features/agent-mode/chat-history-manager';
 import { PendingQuestion, PendingPlanApproval } from '../../ai-features/agent-mode/tools/plan_mode_tools';
@@ -53,6 +56,7 @@ export interface SwitchSessionResponse {
     sessionId: string;
     events: ChatHistoryEvent[];
     error?: string;
+    lastTotalInputTokens?: number;
 }
 
 export interface CreateNewSessionRequest {
@@ -266,18 +270,24 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             logInfo(`[AgentPanel] Loading chat history from session: ${this.currentSessionId}`);
 
-            // Get messages from history manager (reads from JSONL)
+            // Get messages from JSONL (getMessages() handles compact_summary truncation for LLM).
+            // convertToEventFormat() detects the synthetic <CONVERSATION_SUMMARY> message
+            // and emits it as a compact_summary event for proper UI rendering.
             const messages = await historyManager.getMessages();
 
             // Convert to UI events on-the-fly
             const events = ChatHistoryManager.convertToEventFormat(messages);
+
+            // Get last known token usage for context indicator
+            const lastTotalInputTokens = await historyManager.getLastUsage();
 
             logInfo(`[AgentPanel] Loaded ${messages.length} messages, generated ${events.length} events`);
 
             return {
                 success: true,
                 sessionId: this.currentSessionId,
-                events
+                events,
+                lastTotalInputTokens,
             };
         } catch (error) {
             logError('[AgentPanel] Failed to load chat history', error);
@@ -357,12 +367,16 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             const messages = await this.chatHistoryManager.getMessages();
             const events = ChatHistoryManager.convertToEventFormat(messages);
 
+            // Get last known token usage for context indicator
+            const lastTotalInputTokens = await this.chatHistoryManager.getLastUsage();
+
             logInfo(`[AgentPanel] Switched to session: ${sessionId}, loaded ${events.length} events`);
 
             return {
                 success: true,
                 sessionId,
-                events
+                events,
+                lastTotalInputTokens,
             };
         } catch (error) {
             logError('[AgentPanel] Failed to switch session', error);
@@ -435,6 +449,71 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Failed to delete session'
+            };
+        }
+    }
+
+    // ============================================================================
+    // Manual Compact
+    // ============================================================================
+
+    /**
+     * Manually compact/summarize the current conversation.
+     * Reads all messages from the current session, runs the summarization sub-agent,
+     * saves the summary as a JSONL checkpoint, and returns it.
+     */
+    async compactConversation(_request: CompactConversationRequest): Promise<CompactConversationResponse> {
+        try {
+            logInfo('[AgentPanel] Manual compact requested');
+
+            // Get chat history manager (must have an active session)
+            const historyManager = await this.getChatHistoryManager();
+            const messages = await historyManager.getMessages();
+
+            if (messages.length === 0) {
+                return {
+                    success: false,
+                    error: 'No conversation to compact'
+                };
+            }
+
+            logInfo(`[AgentPanel] Compacting ${messages.length} messages...`);
+
+            // Run compact agent (sends full conversation + system-reminder to Haiku)
+            const result = await executeCompactAgent({
+                messages,
+                trigger: 'user',
+            });
+
+            if (!result.success || !result.summary) {
+                logError(`[AgentPanel] Manual compact failed: ${result.error || 'unknown error'}`);
+                return {
+                    success: false,
+                    error: result.error || 'Summarization failed'
+                };
+            }
+
+            // Save compact summary to JSONL (checkpoint)
+            await historyManager.saveSummaryMessage(result.summary);
+
+            // Emit compact event to UI via event handler
+            this.eventHandler.handleEvent({
+                type: 'compact',
+                summary: result.summary,
+                content: result.summary,
+            });
+
+            logInfo(`[AgentPanel] Manual compact complete: ${result.summary.length} chars`);
+
+            return {
+                success: true,
+                summary: result.summary,
+            };
+        } catch (error) {
+            logError('[AgentPanel] Failed to compact conversation', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to compact conversation'
             };
         }
     }

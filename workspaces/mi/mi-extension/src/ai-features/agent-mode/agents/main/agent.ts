@@ -20,7 +20,7 @@
 // Dev Feature Flags
 // ============================================================================
 const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
-const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
+const ENABLE_DEVTOOLS = true; // Set to true to enable AI SDK DevTools (local development only!)
 
 import * as path from 'path';
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
@@ -350,7 +350,6 @@ export async function executeAgent(
         // Simple prepareStep: just mark the last message for caching
         // This tells Anthropic to cache everything up to the last message
         const prepareStep = ({ messages }: { messages: any[] }) => {
-            // length of messages
             return {
                 messages: addCacheControlToMessages({ messages, model })
             };
@@ -378,16 +377,26 @@ export async function executeAgent(
                     logDebug(`[Cache] Step ${currentStepNumber} | ` +
                         `Input: ${inputTokens} | Cache Read: ${cachedInputTokens} | ` +
                         `Output: ${outputTokens} | Cache ratio: ${inputTokens > 0 ? (cachedInputTokens / (inputTokens + cachedInputTokens) * 100).toFixed(1) : '0'}%`);
+
+                    // Emit usage event to UI
+                    const totalInputTokens = inputTokens + cachedInputTokens;
+                    eventHandler({ type: 'usage', totalInputTokens });
                 }
 
                 // Save only unsaved messages from this step
+                // Usage metadata is attached to the last message entry in the JSONL
                 if (request.chatHistoryManager && step.response?.messages) {
                     try {
-                        // Extract only messages we haven't saved yet
                         const unsavedMessages = step.response.messages.slice(savedMessageCount);
 
                         if (unsavedMessages.length > 0) {
-                            await request.chatHistoryManager.saveMessages(unsavedMessages);
+                            const totalInputTokens = step.usage
+                                ? (step.usage.inputTokens || 0) + (step.usage.cachedInputTokens || 0)
+                                : undefined;
+                            await request.chatHistoryManager.saveMessages(
+                                unsavedMessages,
+                                totalInputTokens !== undefined ? { totalInputTokens } : undefined
+                            );
                             savedMessageCount += unsavedMessages.length;
                         }
                     } catch (error) {

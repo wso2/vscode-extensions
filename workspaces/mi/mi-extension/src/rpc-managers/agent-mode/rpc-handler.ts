@@ -38,6 +38,7 @@ import {
     LoadChatHistoryRequest,
     UserQuestionResponse,
     PlanApprovalResponse,
+    CompactConversationRequest,
 } from "@wso2/mi-core";
 
 // Session management RPC methods (will be imported from @wso2/mi-core after build)
@@ -57,6 +58,10 @@ const createNewSession: RequestType<CreateNewSessionRequest, CreateNewSessionRes
 
 const deleteSession: RequestType<DeleteSessionRequest, DeleteSessionResponse> = {
     method: `${_prefix}/deleteSession`
+};
+
+const compactConversation: RequestType<CompactConversationRequest, any> = {
+    method: `${_prefix}/compactConversation`
 };
 
 // Singleton manager to maintain pending questions state across requests
@@ -89,4 +94,9 @@ export function registerMIAgentPanelRpcHandlers(messenger: MessengerAPI, project
     messenger.onRequest(switchSession, (request: SwitchSessionRequest) => rpcManager.switchSession(request));
     messenger.onRequest(createNewSession, (request: CreateNewSessionRequest) => rpcManager.createNewSession(request));
     messenger.onRequest(deleteSession, (request: DeleteSessionRequest) => rpcManager.deleteSession(request));
+
+    // ==================================
+    // Compact Functions
+    // ==================================
+    messenger.onRequest(compactConversation, (request: CompactConversationRequest) => rpcManager.compactConversation(request));
 }

@@ -42,6 +42,9 @@ export type {
     CreateNewSessionResponse,
     DeleteSessionRequest,
     DeleteSessionResponse,
+    // Compact types
+    CompactConversationRequest,
+    CompactConversationResponse,
 } from './types';
 
 // Export RPC type definitions
@@ -58,6 +61,8 @@ export {
     switchSession,
     createNewSession,
     deleteSession,
+    // Compact RPC
+    compactConversation,
 } from './rpc-type';
 
 // Export RPC request/response types

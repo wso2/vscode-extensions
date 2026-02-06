@@ -283,6 +283,22 @@ export function convertEventsToMessages(
                 }
                 break;
 
+            case 'compact_summary':
+                // Flush any pending assistant message
+                if (currentAssistantMessage) {
+                    messages.push(currentAssistantMessage);
+                    currentAssistantMessage = null;
+                }
+                // Render as a standalone assistant message with <compact> tag
+                // (splitContent in utils.ts parses this; CompactSummarySegment renders it)
+                messages.push({
+                    id: generateId(),
+                    role: Role.MICopilot,
+                    content: `<compact>${event.content || ''}</compact>`,
+                    type: MessageType.AssistantMessage,
+                });
+                break;
+
             case 'error':
             case 'abort':
                 // Flush any current message and add error
