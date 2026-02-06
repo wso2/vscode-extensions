@@ -26,7 +26,6 @@ import { logInfo, logError, logDebug } from '../../copilot/logger';
 import { AnthropicModel } from '../../connection';
 
 // Import subagent executors
-import { executePlanSubagent } from '../agents/subagents/plan/agent';
 import { executeExploreSubagent } from '../agents/subagents/explore/agent';
 
 // ============================================================================
@@ -98,12 +97,10 @@ async function runSubagent(
     getAnthropicClient: (model: AnthropicModel) => Promise<any>
 ): Promise<SubagentResult> {
     switch (subagentType) {
-        case 'Plan':
-            return await executePlanSubagent(prompt, projectPath, model, getAnthropicClient);
         case 'Explore':
             return await executeExploreSubagent(prompt, projectPath, model, getAnthropicClient);
         default:
-            throw new Error(`Unknown subagent type: ${subagentType}. Available types: Plan, Explore`);
+            throw new Error(`Unknown subagent type: ${subagentType}. Available types: Explore`);
     }
 }
 
@@ -242,9 +239,8 @@ const taskInputSchema = z.object({
     prompt: z.string().describe(
         'The detailed task for the subagent to perform. Include all necessary context.'
     ),
-    subagent_type: z.enum(['Plan', 'Explore']).describe(
+    subagent_type: z.enum(['Explore']).describe(
         `The type of subagent to spawn:
-        - Plan: Software architect for MI/Synapse integration design. Use when you need to design an implementation approach.
         - Explore: Fast codebase explorer. Use when you need to find and understand existing code.`
     ),
     model: z.enum(['sonnet', 'haiku']).optional().describe(
@@ -265,11 +261,6 @@ export function createTaskTool(execute: TaskExecuteFn) {
 
             ## Available Subagents
 
-            **Plan** - Software architect for MI/Synapse integration design
-            - Use when: Complex integration requirements, need to design architecture before implementation
-            - Capabilities: Explores project structure, analyzes existing artifacts, designs implementation plans
-            - Returns: Detailed implementation plan with artifacts, connectors, and steps
-
             **Explore** - Fast codebase explorer
             - Use when: Need to understand existing code, find patterns, or locate specific files
             - Capabilities: Uses grep/glob to search, reads files to understand structure
@@ -277,10 +268,9 @@ export function createTaskTool(execute: TaskExecuteFn) {
 
             ## When to Use This Tool
 
-            1. User requests a complex integration (3+ artifacts to create)
-            2. You need to design an architecture before implementation
-            3. You need to explore unfamiliar parts of the codebase
-            4. The implementation approach is unclear
+            1. You need to explore unfamiliar parts of the codebase
+            2. You need to understand existing code patterns or configurations
+            3. You need to find specific implementations or files
 
             ## Background Execution
 
@@ -290,21 +280,11 @@ export function createTaskTool(execute: TaskExecuteFn) {
             - You can continue working while background subagents run
             - Output is saved to a file and subagent conversation is persisted to JSONL
 
-            ## Example
-
-            User: "Create a REST API that syncs customers with Salesforce"
-
-            You should:
-            1. Use this tool with Plan subagent to design the integration
-            2. Receive plan with APIs, connectors, data mappers needed
-            3. Present plan to user with todo_write tool
-            4. Execute after user approval
-
             ## Important
 
             - In foreground mode (default): subagent response is returned as the tool result
             - In background mode: returns task_id immediately; use ${TASK_OUTPUT_TOOL_NAME} to get results
-            - Default model is 'haiku' for cost efficiency; use 'sonnet' for complex designs
+            - Default model is 'haiku' for cost efficiency; use 'sonnet' for complex exploration
         `,
         inputSchema: taskInputSchema,
         execute

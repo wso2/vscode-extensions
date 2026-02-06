@@ -101,7 +101,7 @@ export const TASK_OUTPUT_TOOL_NAME = 'task_output';
 // Subagent Types
 // ============================================================================
 
-export type SubagentType = 'Plan' | 'Explore';
+export type SubagentType = 'Explore';
 
 /**
  * Return type from subagent execution (captures messages for JSONL persistence)
