@@ -265,7 +265,7 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
         <>
             {/* Query Parameters Section */}
             <Section>
-                <Typography variant="subtitle2" sx={{ margin: '10px 0' }}>Query Parameter</Typography>
+                <Typography variant="subtitle2" sx={{ margin: '4px 0px 10px 0px' }}>Query Parameters</Typography>
                 <ParamList>
                     {(request.queryParameters || []).map((param, id) => (
                         <ParamItem id={`${id}`} key={param.id} keyValue={param.key} value={param.value} onKeyChange={(key) => updateQueryParam(param.id, key, param.value)} onValueChange={(value) => updateQueryParam(param.id, param.key, value)} onDelete={() => deleteQueryParam(param.id)} />
@@ -278,7 +278,7 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
 
             {/* Headers Section */}
             <Section>
-                <Typography variant="subtitle2" sx={{ margin: '10px 0' }}>Header</Typography>
+                <Typography variant="subtitle2" sx={{ margin: '10px 0' }}>Headers</Typography>
                 <ParamList>
                     {(request.headers || []).map((header, id) => (
                         <ParamItem

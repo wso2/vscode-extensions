@@ -329,7 +329,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
 
     return (
         <>
-            <Typography variant="subtitle2" sx={{ margin: '10px 0' }}> Query Parameters  </Typography>
+            <Typography variant="subtitle2" sx={{ margin: '4px 0 10px 0' }}> Query Parameters  </Typography>
             <InputEditor
                 minHeight='calc((100vh - 420px) / 3)'
                 onChange={handleQueryParametersChange}
