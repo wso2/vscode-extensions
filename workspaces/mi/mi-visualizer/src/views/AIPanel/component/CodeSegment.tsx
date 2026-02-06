@@ -28,6 +28,7 @@ import { useMICopilotContext } from "./MICopilotContext";
 interface CodeSegmentProps {
     segmentText: string;
     loading: boolean;
+    language?: string;
     index: number;
 }
 
@@ -57,16 +58,16 @@ const getFileName = (language: string, segmentText: string, loading: boolean): s
     }
 };
 
-export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, index }) => {
+export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, language: propLanguage, index }) => {
     const { rpcClient, FileHistory, setFileHistory } = useMICopilotContext();
 
     const darkModeEnabled = React.useMemo(() => {
         return isDarkMode();
-    }, []);  
+    }, []);
 
     const [isOpen, setIsOpen] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
-    const language = identifyLanguage(segmentText);
+    const language = propLanguage || identifyLanguage(segmentText);
     const name = getFileName(language, segmentText, loading);
     const { currentAddedfFromChatIndex, maxAddedFromChatIndex } = FileHistory.find(
         (entry) => entry.filepath === name
