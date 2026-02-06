@@ -529,8 +529,8 @@ async function prepareComponentFormParams(
 		project: project,
 		extensionName: webviewStateStore.getState().state.extensionName,
 		components: [componentConfig],
-		rootDirectory: params?.componentDir || "",
-	}
+		rootDirectory: params?.componentDir ? convertFsPathToUriPath(params.componentDir) : "",
+	};
 
 	const isWithinWorkspace = workspace.workspaceFolders?.some((folder) =>
 		isSubpath(folder.uri?.fsPath, componentConfig.directoryFsPath),
@@ -619,8 +619,8 @@ async function prepareComponentFormParamsBatch(
 		project: project,
 		extensionName: webviewStateStore.getState().state.extensionName,
 		components: componentConfigs,
-		rootDirectory: rootDirectory,
-	}
+		rootDirectory: convertFsPathToUriPath(rootDirectory),
+	};
 
 	const isWithinWorkspace = workspace.workspaceFolders?.some((folder) =>
 		isSubpath(folder.uri?.fsPath, directoryUri.fsPath),
@@ -757,6 +757,9 @@ export const continueCreateComponent = () => {
 	if (compParams) {
 		ext.context.globalState.update("create-comp-params", null);
 		const createCompParams: ISingleComponentCreateFormParams | IComponentCreateFormParams = JSON.parse(compParams);
+		if (createCompParams?.rootDirectory) {
+			createCompParams.rootDirectory = convertFsPathToUriPath(createCompParams.rootDirectory);
+		}
 		if (createCompParams?.extensionName) {
 			webviewStateStore.getState().setExtensionName(createCompParams?.extensionName as ExtensionName);
 		}
