@@ -24,14 +24,94 @@ import {
     LoadChatHistoryResponse,
     UserQuestionResponse,
     PlanApprovalResponse,
+    ChatHistoryEvent,
     sendAgentMessage,
     abortAgentGeneration,
     loadChatHistory,
     respondToQuestion,
     respondToPlanApproval,
 } from "@wso2/mi-core";
-import { HOST_EXTENSION } from "vscode-messenger-common";
+import { HOST_EXTENSION, RequestType } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
+
+// Session management types (will be imported from @wso2/mi-core after build)
+export interface SessionSummary {
+    sessionId: string;
+    title: string;
+    createdAt: string;
+    lastModifiedAt: string;
+    messageCount: number;
+    isCurrentSession: boolean;
+}
+
+export interface GroupedSessions {
+    today: SessionSummary[];
+    yesterday: SessionSummary[];
+    pastWeek: SessionSummary[];
+    older: SessionSummary[];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface ListSessionsRequest {
+    // Empty - uses project from context
+}
+
+export interface ListSessionsResponse {
+    success: boolean;
+    sessions: GroupedSessions;
+    currentSessionId?: string;
+    error?: string;
+}
+
+export interface SwitchSessionRequest {
+    sessionId: string;
+}
+
+export interface SwitchSessionResponse {
+    success: boolean;
+    sessionId: string;
+    events: ChatHistoryEvent[];
+    error?: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface CreateNewSessionRequest {
+    // Empty - creates fresh session
+}
+
+export interface CreateNewSessionResponse {
+    success: boolean;
+    sessionId: string;
+    error?: string;
+}
+
+export interface DeleteSessionRequest {
+    sessionId: string;
+}
+
+export interface DeleteSessionResponse {
+    success: boolean;
+    error?: string;
+}
+
+// Session management RPC methods
+const _prefix = "mi-agent-service";
+
+const listSessions: RequestType<ListSessionsRequest, ListSessionsResponse> = {
+    method: `${_prefix}/listSessions`
+};
+
+const switchSession: RequestType<SwitchSessionRequest, SwitchSessionResponse> = {
+    method: `${_prefix}/switchSession`
+};
+
+const createNewSession: RequestType<CreateNewSessionRequest, CreateNewSessionResponse> = {
+    method: `${_prefix}/createNewSession`
+};
+
+const deleteSession: RequestType<DeleteSessionRequest, DeleteSessionResponse> = {
+    method: `${_prefix}/deleteSession`
+};
 
 export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
     private _messenger: Messenger;
@@ -64,5 +144,24 @@ export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
 
     respondToPlanApproval(response: PlanApprovalResponse): Promise<void> {
         return this._messenger.sendRequest(respondToPlanApproval, HOST_EXTENSION, response);
+    }
+
+    // ==================================
+    // Session Management Functions
+    // ==================================
+    listSessions(request: ListSessionsRequest): Promise<ListSessionsResponse> {
+        return this._messenger.sendRequest(listSessions, HOST_EXTENSION, request);
+    }
+
+    switchSession(request: SwitchSessionRequest): Promise<SwitchSessionResponse> {
+        return this._messenger.sendRequest(switchSession, HOST_EXTENSION, request);
+    }
+
+    createNewSession(request: CreateNewSessionRequest): Promise<CreateNewSessionResponse> {
+        return this._messenger.sendRequest(createNewSession, HOST_EXTENSION, request);
+    }
+
+    deleteSession(request: DeleteSessionRequest): Promise<DeleteSessionResponse> {
+        return this._messenger.sendRequest(deleteSession, HOST_EXTENSION, request);
     }
 }
