@@ -214,6 +214,8 @@ import {
     ImportsInfoResponse,
     ProjectArtifactsRequest,
     ProjectArtifacts,
+    CodeMapRequest,
+    CodeMapResponse,
     Artifacts,
     MemoryManagersRequest,
     MemoryManagersResponse,
@@ -473,6 +475,7 @@ enum EXTENDED_APIS {
     WSDL_API_CLIENT_GENERATE = 'wsdlService/genClient',
     GET_PROJECT_INFO = 'designModelService/projectInfo',
     GET_ARTIFACTS = 'designModelService/artifacts',
+    GET_CODEMAP = 'designModelService/codemap',
     PUBLISH_ARTIFACTS = 'designModelService/publishArtifacts',
     COPILOT_ALL_LIBRARIES = 'copilotLibraryManager/getLibrariesList',
     COPILOT_FILTER_LIBRARIES = 'copilotLibraryManager/getFilteredLibraries',
@@ -621,6 +624,10 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
     async getProjectArtifacts(params: ProjectArtifactsRequest): Promise<ProjectArtifacts> {
         return this.sendRequest<ProjectArtifacts>(EXTENDED_APIS.GET_ARTIFACTS, params);
+    }
+
+    async getCodeMap(params: CodeMapRequest): Promise<CodeMapResponse> {
+        return this.sendRequest<CodeMapResponse>(EXTENDED_APIS.GET_CODEMAP, params);
     }
 
     async getProjectInfo(params: ProjectInfoRequest): Promise<ProjectInfo> {
