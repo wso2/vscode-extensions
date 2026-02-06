@@ -29,17 +29,16 @@ interface OutputProps {
 }
 
 const Container = styled.div<{ embedded?: boolean }>`
-    padding: 16px 0 16px 0;
+    padding: 16px 0 16px 4px;
     width: 100%;
     ${props => props.embedded ? `max-height: none; overflow-y: visible;` : `max-height: calc(100vh - 215px); overflow-y: auto;`}
 `;
 
 const Section = styled.div`
-    margin-bottom: 24px;
+    margin-bottom: 10px;
 `;
 
 const StatusCodeContainer = styled.div`
-    margin-bottom: 20px;
 `;
 
 const StatusCode = styled.div<{ statusCode: number }>`
@@ -95,8 +94,7 @@ const HeaderCell = styled.th`
 const TableBody = styled.tbody``;
 
 const EmptyHeadersState = styled.div`
-    padding: 20px 12px;
-    text-align: center;
+    padding: 6px;
     color: var(--vscode-descriptionForeground);
     font-style: italic;
     font-size: 13px;
@@ -245,7 +243,7 @@ export const Output: React.FC<OutputProps> = ({ response }) => {
         <Container>
             {/* Status Code Section */}
             <StatusCodeContainer>
-                <Typography variant="subtitle2" sx={{ margin: '0 0 8px 0' }}>
+                <Typography variant="subtitle2" sx={{ margin: '0 0 4px 0' }}>
                     Status Code
                 </Typography>
                 <StatusCode statusCode={response.statusCode}>
@@ -255,7 +253,7 @@ export const Output: React.FC<OutputProps> = ({ response }) => {
 
             {/* Response Headers Section */}
             <Section>
-                <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
+                <Typography variant="subtitle2" sx={{ margin: '10px 0' }}>
                     Response Headers ({response.headers.length})
                 </Typography>
                 {response.headers.length > 0 ? (
@@ -290,9 +288,16 @@ export const Output: React.FC<OutputProps> = ({ response }) => {
                 <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
                     Response Body
                 </Typography>
-                <ResponseBodyContainer>
-                    {highlightContent(response.body, response)}
-                </ResponseBodyContainer>
+                {response.body ? (
+                    <ResponseBodyContainer>
+                        {highlightContent(response.body, response)
+                        }
+                    </ResponseBodyContainer>
+                ) : (
+                    <EmptyHeadersState>
+                        No response body available
+                    </EmptyHeadersState>
+                )}
             </Section>
         </Container>
     );

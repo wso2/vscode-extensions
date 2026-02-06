@@ -240,7 +240,7 @@ export const Input: React.FC<InputProps> = ({
             {response && (
                 
                 <div ref={outputRef} tabIndex={-1} role="region" aria-label="Response output" style={{ marginTop: '24px', borderTop: '1px solid var(--vscode-panel-border)', paddingTop: '16px' }}>
-                    <Typography variant='h3' sx={{ margin: 0, marginBottom: '12px' }}>
+                    <Typography variant='h3' sx={{ margin: 0 }}>
                         Response
                     </Typography>
                     <Output response={response} embedded />

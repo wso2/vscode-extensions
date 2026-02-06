@@ -17,23 +17,204 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Codicon, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
+import { Button, Codicon, TextField, Typography } from '@wso2/ui-toolkit';
 
 import styled from '@emotion/styled';
 import { Input } from '../Input/Input';
-import { Output } from '../Output/Output';
 import { Assert } from '../Assert/Assert';
 import { ApiRequestItem, ApiRequest, ApiResponse, ResponseHeader } from '@wso2/api-tryit-core';
 import axios, { AxiosError } from 'axios';
 import { useExtensionMessages } from '../hooks/useExtensionMessages';
 import CollectionForm from '../CollectionForm/CollectionForm';
 import { getVSCodeAPI } from '../utils/vscode-api';
+import { getMethodBgColor } from '../utils/methods';
 
 // Get VS Code API instance (singleton)
 const vscode = getVSCodeAPI();
 
 const PanelsWrapper = styled.div`
     position: relative;
+`;
+
+const PageContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--vscode-editor-background);
+    color: var(--vscode-foreground);
+`;
+
+const HeaderBar = styled.div`
+    padding: 16px 20px 10px;
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    backdrop-filter: blur(4px);
+`;
+
+const TitleRow = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+`;
+
+const RequestToolbar = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+`;
+
+const MethodSelectWrapper = styled.div`
+    position: relative;
+    min-width: 100px;
+`;
+
+const MethodSelectButton = styled.button<{ accent: string }>`
+    appearance: none;
+    width: 100%;
+    height: 35px;
+    padding: 10px 36px 10px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--vscode-dropdown-border);
+    background: transparent;
+    color: ${props => props.accent};
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    cursor: pointer;
+    transition: transform 0.08s ease, box-shadow 0.18s ease;
+    text-align: left;
+
+    &:focus {
+        outline: none;
+        outline-offset: 0;
+    }
+`;
+
+const MethodDropdown = styled.ul`
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    width: 100%;
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 6px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    list-style: none;
+    padding: 6px 0;
+    margin: 0;
+    z-index: 30;
+`;
+
+const MethodOption = styled.li<{ active: boolean }>`
+    padding: 10px 14px;
+    cursor: pointer;
+    font-weight: 600;
+    letter-spacing: 0.25px;
+    color: var(--vscode-foreground);
+    background: ${({ active }) => active ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent'};
+    transition: background 0.12s ease;
+
+    &:hover {
+        background: var(--vscode-list-hoverBackground);
+    }
+`;
+
+const SelectChevron = styled.span`
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #0d1f14;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0.8;
+`;
+
+const UrlInputWrapper = styled.div`
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+`;
+
+const UrlInputField = styled.input`
+    width: 100%;
+    height: 32px;
+    background: transparent;
+    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+    border-radius: 4px;
+    padding: 0 12px 0 12px;
+    padding-right: 110px; /* Reserve space for inline Save button */
+    color: var(--vscode-foreground);
+    font-size: 14px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 16px rgba(0, 0, 0, 0.28);
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+
+    &::placeholder {
+        color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground));
+    }
+
+    &:focus {
+        outline: 2px solid var(--vscode-focusBorder);
+        box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+    }
+`;
+
+const SaveInlineButton = styled.button`
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    background: var(--vscode-secondaryButton-background);
+    color: var(--vscode-secondaryButton-foreground);
+    border: 1px solid var(--vscode-button-border, transparent);
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+
+    &:hover {
+        filter: brightness(0.95);
+    }
+`;
+
+const Content = styled.div`
+    flex: 1;
+    overflow-y: auto;
+    padding: 0px 20px 16px 20px;
+`;
+
+const TabsBar = styled.div`
+    display: flex;
+    gap: 14px;
+    padding-top: 6px;
+    margin-bottom: 8px;
+`;
+
+const TabButton = styled.button<{ active?: boolean }>`
+    background: transparent;
+    border: none;
+    border-bottom: ${({ active }) => active ? '2px solid var(--vscode-textLink-activeForeground)' : '1px solid transparent'};
+    color: ${({ active }) => active ? 'var(--vscode-textLink-activeForeground)' : 'var(--vscode-foreground)'};
+    padding: 10px 0 8px;
+    cursor: pointer;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    opacity: ${({ active }) => active ? 1 : 0.72};
+    transition: color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+
+    &:hover {
+        color: var(--vscode-foreground);
+        opacity: 1;
+    }
 `;
 
 const ControlsWrapper = styled.div`
@@ -154,7 +335,7 @@ const EditableNameWrapper = styled.div`
 
 const NameDisplay = styled.div`
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 4px 0;
     border-radius: 4px;
     transition: background-color 0.2s ease;
     
@@ -170,6 +351,9 @@ const NameTextField = styled(TextField)`
     }
 `;
 
+// TODO: Support TRACE
+const methodOptions: ApiRequest['method'][] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+
 type InputMode = 'code' | 'form';
 type AssertMode = 'code' | 'form';
 
@@ -182,9 +366,10 @@ export const MainPanel: React.FC = () => {
     const [showHelp, setShowHelp] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(requestItem?.name);
-    const outputTabRef = useRef<HTMLDivElement>(null);
+    const methodSelectRef = useRef<HTMLDivElement>(null);
     // Counter used to trigger scrolling the Output inside Input without switching tabs
     const [bringOutputCounter, setBringOutputCounter] = useState(0);
+    const [methodDropdownOpen, setMethodDropdownOpen] = useState(false);
 
 
 
@@ -220,6 +405,28 @@ export const MainPanel: React.FC = () => {
     const handleCloseCollectionForm = () => {
         setShowCollectionForm(false);
     };
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (methodSelectRef.current && !methodSelectRef.current.contains(event.target as Node)) {
+                setMethodDropdownOpen(false);
+            }
+        };
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setMethodDropdownOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('keydown', handleEscape);
+        };
+    }, []);
 
     const handleRequestChange = (updatedRequest: ApiRequest) => {
         if (!requestItem) return;
@@ -435,93 +642,103 @@ export const MainPanel: React.FC = () => {
     };
 
     return (
-        <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-            fontFamily: 'var(--vscode-font-family)',
-            color: 'var(--vscode-foreground)',
-        }}>
-            {/* Header */}
-            <div style={{
-                padding: '16px 20px',
-                borderBottom: '1px solid var(--vscode-panel-border)',
-                backgroundColor: 'var(--vscode-editor-background)',
-            }}>
-                <EditableNameWrapper>
-                    {isEditingName ? (
-                        <NameTextField
-                            id="request-name-input"
-                            value={tempName}
-                            onTextChange={handleNameChange}
-                            onKeyDown={handleNameKeyDown}
-                            onBlur={handleNameBlur}
-                            autoFocus
-                            placeholder="Enter request name"
-                        />
-                    ) : (
-                        <NameDisplay onClick={handleNameClick}>
-                            <Typography variant="h3" sx={{ margin: 0 }}>
-                                {requestItem?.name || 'Untitled Request'}
-                            </Typography>
-                        </NameDisplay>
-                    )}
-                </EditableNameWrapper>
-            </div>
+        <PageContainer>
+            <HeaderBar>
+                <TitleRow>
+                    <EditableNameWrapper>
+                        {isEditingName ? (
+                            <NameTextField
+                                id="request-name-input"
+                                value={tempName}
+                                onTextChange={handleNameChange}
+                                onKeyDown={handleNameKeyDown}
+                                onBlur={handleNameBlur}
+                                autoFocus
+                                placeholder="Enter request name"
+                            />
+                        ) : (
+                            <NameDisplay onClick={handleNameClick}>
+                                <Typography variant="h3" sx={{ margin: 0 }}>
+                                    {requestItem?.name || 'Untitled Request'}
+                                </Typography>
+                            </NameDisplay>
+                        )}
+                    </EditableNameWrapper>
+                </TitleRow>
 
-            {/* Request Section */}
-            <div style={{
-                flex: 1,
-                padding: '20px',
-                overflowY: 'auto',
-            }}>
-                {!showCollectionForm && requestItem ? (
-                <div style={{ margin: '0 auto' }}>
-                    {/* Method and URL */}
-                    <div style={{
-                        display: 'flex',
-                        gap: '12px',
-                        marginBottom: '10px',
-                    }}>
-                        <Dropdown
-                            id="method-dropdown"
-                            value={requestItem?.request.method || 'GET'}
-                            onValueChange={(value) => handleRequestChange({
-                                ...requestItem.request,
-                                method: value as any
-                            })}
-                            items={[
-                                { id: 'GET', value: 'GET', content: 'GET' },
-                                { id: 'POST', value: 'POST', content: 'POST' },
-                                { id: 'PUT', value: 'PUT', content: 'PUT' },
-                                { id: 'DELETE', value: 'DELETE', content: 'DELETE' },
-                                { id: 'PATCH', value: 'PATCH', content: 'PATCH' },
-                            ]}
-                            sx={{ minWidth: '100px' }}
-                        />
+                {requestItem && (
+                    <RequestToolbar>
+                        <MethodSelectWrapper ref={methodSelectRef}>
+                            <MethodSelectButton
+                                type="button"
+                                accent={getMethodBgColor(requestItem.request.method)}
+                                onClick={() => setMethodDropdownOpen(open => !open)}
+                                aria-label="HTTP method"
+                                aria-haspopup="listbox"
+                                aria-expanded={methodDropdownOpen}
+                            >
+                                {requestItem.request.method}
+                            </MethodSelectButton>
+                            <SelectChevron>
+                                <Codicon iconSx={{color: 'var(--vscode-editor-foreground)', fontWeight: 'bold'}} name="chevron-down" />
+                            </SelectChevron>
+                            {methodDropdownOpen && (
+                                <MethodDropdown role="listbox" aria-label="HTTP method">
+                                    {methodOptions.map((method) => (
+                                        <MethodOption
+                                            key={method}
+                                            active={requestItem.request.method === method}
+                                            role="option"
+                                            aria-selected={requestItem.request.method === method}
+                                            onClick={() => {
+                                                handleRequestChange({
+                                                    ...requestItem.request,
+                                                    method
+                                                });
+                                                setMethodDropdownOpen(false);
+                                            }}
+                                        >
+                                            {method}
+                                        </MethodOption>
+                                    ))}
+                                </MethodDropdown>
+                            )}
+                        </MethodSelectWrapper>
 
-                        <TextField
-                            id="url-input"
-                            value={requestItem.request.url || ''}
-                            onTextChange={(value) => handleRequestChange({
-                                ...requestItem.request,
-                                url: value
-                            })}
-                            placeholder="Enter API URL"
-                            sx={{ flex: 1 }}
-                            icon={{ iconComponent: <span onMouseDown={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); }} role="button" aria-label="Save request"><Codicon name="save" /></span>, position: 'end', onClick: handleSaveRequest }}
-                        />
+                        <UrlInputWrapper>
+                            <UrlInputField
+                                id="url-input"
+                                value={requestItem.request.url || ''}
+                                placeholder="Enter URL or paste text"
+                                onChange={(event) => handleRequestChange({
+                                    ...requestItem.request,
+                                    url: event.target.value
+                                })}
+                            />
+
+                            <SaveInlineButton
+                                type="button"
+                                aria-label="Save request"
+                                onClick={handleSaveRequest}
+                            >
+                                <Codicon sx={{ height: 20 }} iconSx={{ fontSize: 20 }} tooltip='Save request' name="save" />
+                            </SaveInlineButton>
+                        </UrlInputWrapper>
 
                         <Button
+                            buttonSx={{height: 35, borderRadius: 4, width: 75}}
                             appearance="primary"
                             onClick={handleSendRequest}
                             disabled={isLoading}
                         >
                             {isLoading ? 'Sending...' : 'Send'}
                         </Button>
-                    </div>
+                    </RequestToolbar>
+                )}
+            </HeaderBar>
 
-                    {/* VSCodePanels with Input, Output, and Assert tabs */}
+            <Content>
+                {!showCollectionForm && requestItem ? (
                     <PanelsWrapper>
                         <ControlsWrapper>
                             {activeTab === 'input' && inputMode === 'code' && (
@@ -536,7 +753,6 @@ export const MainPanel: React.FC = () => {
                                         <strong>Write your request with auto-completions:</strong><br/>
                                         • <CodeHint>key: value</CodeHint> for query parameters<br/>
                                         • <CodeHint>Header-Name: value</CodeHint> for headers<br/>
-                                        • Prefix with <CodeHint>//</CodeHint> to disable a line<br/>
                                         • Press <CodeHint>Cmd+Space</CodeHint> or <CodeHint>Cmd+/</CodeHint> for suggestions
                                     </HelpTooltip>
                                 </HelpButton>
@@ -577,50 +793,20 @@ export const MainPanel: React.FC = () => {
                             )}
                         </ControlsWrapper>
 
-                        {/* Custom Tabs */}
                         <div>
-                            <div style={{ display: 'flex', gap: 12, paddingTop: 10 }}>
-                                <button
-                                    onClick={() => setActiveTab('input')}
-                                    style={{
-                                        background: 'transparent',
-                                        border: 'none',
-                                        borderBottom: activeTab === 'input' ? '1px solid var(--vscode-editor-foreground)' : '2px solid transparent',
-                                        color: activeTab === 'input' ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)',
-                                        paddingLeft: 4,
-                                        cursor: 'pointer'
-                                    }}
-                                >
+                            <TabsBar>
+                                <TabButton active={activeTab === 'input'} onClick={() => setActiveTab('input')}>
                                     Request
-                                </button>
+                                </TabButton>
 
-                                <button
-                                    onClick={() => { setBringOutputCounter(c => c + 1); setActiveTab('input'); }}
-                                    style={{
-                                        background: 'transparent',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        color: 'var(--vscode-foreground)',
-                                        padding: 8
-                                    }}
-                                >
-                                    Output
-                                </button>
+                                <TabButton onClick={() => { setBringOutputCounter(c => c + 1); setActiveTab('input'); }}>
+                                    Response
+                                </TabButton>
 
-                                <button
-                                    onClick={() => setActiveTab('assert')}
-                                    style={{
-                                        background: 'transparent',
-                                        border: 'none',
-                                        borderBottom: activeTab === 'assert' ? '1px solid var(--vscode-editor-foreground)' : '2px solid transparent',
-                                        color: activeTab === 'assert' ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)',
-                                        paddingLeft: 4,
-                                        cursor: 'pointer'
-                                    }}
-                                >
+                                <TabButton active={activeTab === 'assert'} onClick={() => setActiveTab('assert')}>
                                     Assert
-                                </button>
-                            </div>
+                                </TabButton>
+                            </TabsBar>
 
                             <div style={{ marginTop: 12 }}>
                                 {activeTab === 'input' && (
@@ -647,7 +833,6 @@ export const MainPanel: React.FC = () => {
                             </div>
                         </div>
                     </PanelsWrapper>
-                </div>
                 ) : !showCollectionForm ? (
                     <Typography variant="subtitle2" sx={{ opacity: 0.6 }}>
                         No request selected
@@ -656,7 +841,7 @@ export const MainPanel: React.FC = () => {
                 {showCollectionForm && (
                     <CollectionForm onCancel={handleCloseCollectionForm} />
                 )}
-            </div>
-        </div>
+            </Content>
+        </PageContainer>
     );
 };

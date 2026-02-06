@@ -18,8 +18,9 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import styled from '@emotion/styled';
-import { TreeView, TreeViewItem, Codicon } from '@wso2/ui-toolkit';
+import { TreeViewItem, Codicon } from '@wso2/ui-toolkit';
 import { getVSCodeAPI } from '../utils/vscode-api';
+import { getMethodBgColor } from '../utils/methods';
 import type { ApiRequest } from '@wso2/api-tryit-core';
 
 interface RequestItem {
@@ -593,17 +594,3 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 	);
 };
 
-// Helper function to get method-specific background color
-function getMethodBgColor(method: string): string {
-	const methods: Record<string, string> = {
-		GET: '#3498DB',
-		POST: '#2ECC71',
-		PUT: '#F39C12',
-		DELETE: '#E74C3C',
-		PATCH: '#9B59B6',
-		HEAD: '#95A5A6',
-		OPTIONS: '#1ABC9C'
-	};
-
-	return methods[method.toUpperCase()] || '#95A5A6';
-}
