@@ -244,25 +244,9 @@ const buildProjectInputSchema = z.object({
  */
 export function createBuildProjectTool(execute: BuildProjectExecuteFn) {
     return (tool as any)({
-        description: `Build the MI integration project using Maven.
-
-This tool runs 'mvn clean install' to build the project and generate .car (Carbon Application) artifacts.
-
-**When to use:**
-- After creating or modifying integration artifacts (APIs, sequences, endpoints, etc.)
-- Before running the server to test changes
-- To verify that code changes compile successfully
-
-**What it does:**
-1. Executes Maven build command
-2. Generates .car artifacts in the target/ directory
-3. Optionally copies artifacts to the MI runtime for deployment
-4. Overwrites build.txt in the session directory with the full build output (fresh for each build)
-
-**Returns:**
-- Build success/failure status
-- List of generated .car artifacts
-- Path to build.txt containing full Maven output (overwritten each build). Use file_read to inspect build errors.`,
+        description: `Build the MI project using Maven ('mvn clean install'). Generates .car artifacts in target/.
+            Optionally copies artifacts to MI runtime if copy_to_runtime=true.
+            Saves full build output to build.txt - use file_read to diagnose build errors.`,
         inputSchema: buildProjectInputSchema,
         execute
     });
@@ -678,9 +662,9 @@ export function createServerManagementExecute(projectPath: string, sessionDir: s
 const serverManagementInputSchema = z.object({
     action: z.enum(['run', 'stop', 'status']).describe(
         `The server management action to perform:
-- 'run': Start the MI runtime server (builds should be done first using build_project)
-- 'stop': Stop the running MI runtime server
-- 'status': Check if the server is running and ready`
+        - 'run': Start the MI runtime server (builds should be done first using build_project)
+        - 'stop': Stop the running MI runtime server
+        - 'status': Check if the server is running and ready`
     ),
 });
 
@@ -689,44 +673,11 @@ const serverManagementInputSchema = z.object({
  */
 export function createServerManagementTool(execute: ServerManagementExecuteFn) {
     return (tool as any)({
-        description: `Manage the WSO2 Micro Integrator runtime server.
-
-This tool allows you to start, stop, and check the status of the MI runtime.
-
-**Actions:**
-
-1. **run** - Start the MI runtime server and wait until ready
-   - Shuts down any running tryout server first
-   - Syncs deployment.toml from project to server (backs up server config)
-   - Copies deployment/libs/*.jar files to server lib directory
-   - Loads environment variables from .env file if present
-   - Starts the server in non-debug mode
-   - **Waits for the server to become ready** (health check) or fail
-   - Overwrites run.txt with server output (fresh for each server start)
-   - Timeout is configurable via MI.serverTimeoutInSecs (default: 120s)
-
-2. **stop** - Stop the running MI runtime server
-   - Attempts graceful shutdown first
-   - Force kills after 8 seconds if needed
-
-3. **status** - Check server status
-   - Reports if server is running (port active)
-   - Reports if server is ready (health check passed)
-   - Updates run.txt with latest server output since last start
-
-**Output files:** run.txt is overwritten fresh on each server start and updated on status checks. Use file_read to inspect for debugging.
-
-**Prerequisites:**
-- MI runtime must be configured (MI.SERVER_PATH setting)
-- For 'run': Build the project first using build_project tool
-- For 'run': JAVA_HOME must be configured
-
-**Typical workflow:**
-1. Make code changes
-2. Run build_project (with copy_to_runtime=true)
-3. Run server_management with action='run' (waits until server is ready)
-4. Test your integration
-5. Run server_management with action='stop' when done`,
+        description: `Manage the MI runtime server (run/stop/status).
+            - run: Syncs configs, copies libs, starts server, waits until ready (health check). Build first using build_project.
+            - stop: Graceful shutdown (force kill after 8s timeout).
+            - status: Check if server is running and ready.
+            Server output saved to run.txt - use file_read to debug issues.`,
         inputSchema: serverManagementInputSchema,
         execute
     });

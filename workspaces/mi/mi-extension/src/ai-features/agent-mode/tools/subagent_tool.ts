@@ -333,32 +333,10 @@ const subagentInputSchema = z.object({
  */
 export function createSubagentTool(execute: SubagentToolExecuteFn) {
     return (tool as any)({
-        description: `
-            Spawns a specialized subagent to handle complex tasks autonomously.
-
-            ## Available Subagents
-
-            **Explore** - Fast codebase explorer
-            - Use when: Need to explore the codebase to understand existing code, find patterns, or locate specific files without filling up your context window with large codebases and complex exploration tasks.
-            - Capabilities: Uses grep/glob to search, reads files to understand structure
-            - Returns: Summary of findings
-
-            ## Background Execution
-            You can optionally run subagents in the background using the run_in_background parameter:
-            - When run_in_background=true, the tool returns immediately with a subagentId and output_file path
-            - Use the ${TASK_OUTPUT_TOOL_NAME} tool to check on progress or retrieve results using the subagentId
-            - You can continue working while background subagents run
-
-            ## Resuming Subagents
-            You can resume a previously executed subagent using the resume parameter:
-            - Pass the subagentId (format: subagent-xxxxxxxx) to continue from where it left off
-            - The subagent will load its previous conversation history and continue exploring
-            - Useful when you need to go deeper into a previously explored area
-            - Works with both foreground and background execution
-
-            ## Important
-            - Subagent IDs are in format: subagent-xxxxxxxx (8-character short UUID)
-        `,
+        description: `Spawn an Explore subagent for codebase exploration without filling your context window.
+            The subagent uses grep/glob/file_read to search and understand code, then returns a summary.
+            Supports background execution (run_in_background=true) and resuming previous subagents (resume=subagentId).
+            Use ${TASK_OUTPUT_TOOL_NAME} to check background subagent results.`,
         inputSchema: subagentInputSchema,
         execute
     });

@@ -118,16 +118,11 @@ const validateCodeInputSchema = z.object({
  */
 export function createValidateCodeTool(execute: ValidateCodeExecuteFn) {
     return (tool as any)({
-        description: `
-            Validates Synapse XML configuration files using the Extended LemMinx XML Language Server for Synapse.
-            Includes LSP code actions (quick fixes) for each diagnostic.
-
-            NOTE: file_write and file_edit already validate automatically.
-            Only use this tool to:
-            - Validate existing files you haven't just written/edited
-            - Batch-validate multiple files at once
-            - Re-validate after adding connectors via ${MANAGE_CONNECTOR_TOOL_NAME}
-            - When the user explicitly requests validation`,
+        description: `Validate Synapse XML files using LemMinx LSP. Includes code actions (quick fixes).
+            NOTE: file_write/file_edit already validate automatically. Only use to:
+            - Validate files you haven't just written/edited
+            - Batch-validate multiple files
+            - Re-validate after adding connectors via ${MANAGE_CONNECTOR_TOOL_NAME}`,
         inputSchema: validateCodeInputSchema,
         execute
     });

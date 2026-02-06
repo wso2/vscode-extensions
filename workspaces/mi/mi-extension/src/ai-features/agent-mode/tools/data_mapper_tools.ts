@@ -233,24 +233,9 @@ const createDataMapperInputSchema = z.object({
 
 export function createCreateDataMapperTool(execute: CreateDataMapperExecuteFn) {
     return (tool as any)({
-        description: `
-        Create a new data mapper for transforming data between input and output schemas.
-
-        This tool:
-        1. Creates the data mapper folder structure at src/main/wso2mi/resources/datamapper/{name}/
-        2. Generates TypeScript file with input/output interfaces from schemas
-        3. Copies dm-utils.ts utility functions (arithmetic, string, type conversion)
-        4. Optionally generates AI-powered field mappings if auto_map is true
-
-        Use this when the user wants to transform data between different formats/schemas.
-
-        Example use cases:
-        - Transform API response to internal format
-        - Map database records to DTO objects
-        - Convert between different XML/JSON structures
-
-        The created data mapper can be used in Synapse XML with:
-        <datamapper config="resources:/datamapper/{name}/{name}.dmc" inputType="JSON" outputType="JSON"/>`,
+        description: `Creates a new data mapper with input/output schemas and TypeScript mapping file.
+        Optionally generates AI-powered field mappings if auto_map=true.
+        Use in Synapse XML: <datamapper config="resources:/datamapper/{name}/{name}.dmc" inputType="JSON" outputType="JSON"/>`,
         inputSchema: createDataMapperInputSchema,
         execute,
     });
@@ -359,21 +344,9 @@ const generateDataMappingInputSchema = z.object({
 
 export function createGenerateDataMappingTool(execute: GenerateDataMappingExecuteFn) {
     return (tool as any)({
-        description: `
-        Generate AI-powered field mappings for an existing data mapper.
-
-        This tool reads the TypeScript mapping file with input/output interfaces and uses a specialized AI mapping agent to generate appropriate field mappings in the mapFunction.
-
-        Use this when:
-        - A data mapper exists but has empty or incomplete mappings
-        - You want to regenerate mappings with different instructions
-        - The user wants AI assistance with complex field transformations
-
-        The AI mapping agent will:
-        1. Analyze input and output interface structures
-        2. Match fields by name and type similarity
-        3. Handle nested objects and arrays
-        4. Apply any user-provided mapping instructions`,
+        description: `Generate AI-powered field mappings for an existing data mapper.
+        Reads the TypeScript file's input/output interfaces and generates appropriate mapFunction logic.
+        Use when a data mapper has empty/incomplete mappings or needs regeneration with new instructions.`,
         inputSchema: generateDataMappingInputSchema,
         execute,
     });
