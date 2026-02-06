@@ -27,6 +27,7 @@ import axios, { AxiosError } from 'axios';
 import { useExtensionMessages } from '../hooks/useExtensionMessages';
 import CollectionForm from '../CollectionForm/CollectionForm';
 import { getVSCodeAPI } from '../utils/vscode-api';
+import { getMethodBgColor } from '../utils/methods';
 
 // Get VS Code API instance (singleton)
 const vscode = getVSCodeAPI();
@@ -352,15 +353,8 @@ const NameTextField = styled(TextField)`
     }
 `;
 
-const methodColors: Record<string, string> = {
-    GET: '#25b06b',
-    POST: '#2f80ed',
-    PUT: '#d08c34',
-    DELETE: '#d3455b',
-    PATCH: '#9b5de5'
-};
-
-const methodOptions: ApiRequest['method'][] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
+// TODO: Support TRACE
+const methodOptions: ApiRequest['method'][] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
 
 type InputMode = 'code' | 'form';
 type AssertMode = 'code' | 'form';
@@ -374,7 +368,6 @@ export const MainPanel: React.FC = () => {
     const [showHelp, setShowHelp] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(requestItem?.name);
-    const outputTabRef = useRef<HTMLDivElement>(null);
     const methodSelectRef = useRef<HTMLDivElement>(null);
     // Counter used to trigger scrolling the Output inside Input without switching tabs
     const [bringOutputCounter, setBringOutputCounter] = useState(0);
@@ -650,8 +643,6 @@ export const MainPanel: React.FC = () => {
         }
     };
 
-    const methodAccent = methodColors[requestItem?.request.method || ''] || methodColors.GET;
-
     return (
         <PageContainer>
             <HeaderBar>
@@ -682,7 +673,7 @@ export const MainPanel: React.FC = () => {
                         <MethodSelectWrapper ref={methodSelectRef}>
                             <MethodSelectButton
                                 type="button"
-                                accent={methodAccent}
+                                accent={getMethodBgColor(requestItem.request.method)}
                                 onClick={() => setMethodDropdownOpen(open => !open)}
                                 aria-label="HTTP method"
                                 aria-haspopup="listbox"
@@ -764,7 +755,6 @@ export const MainPanel: React.FC = () => {
                                         <strong>Write your request with auto-completions:</strong><br/>
                                         • <CodeHint>key: value</CodeHint> for query parameters<br/>
                                         • <CodeHint>Header-Name: value</CodeHint> for headers<br/>
-                                        • Prefix with <CodeHint>//</CodeHint> to disable a line<br/>
                                         • Press <CodeHint>Cmd+Space</CodeHint> or <CodeHint>Cmd+/</CodeHint> for suggestions
                                     </HelpTooltip>
                                 </HelpButton>
