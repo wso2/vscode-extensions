@@ -17,6 +17,7 @@
  */
 
 import { VSCodeCheckbox, VSCodeDropdown, VSCodeOption } from "@vscode/webview-ui-toolkit/react";
+import classNames from "classnames";
 import {
 	ChoreoBuildPackNames,
 	ChoreoComponentType,
@@ -100,6 +101,7 @@ interface MultiComponentSelectorProps {
 	allComponents: ComponentConfig[];
 	selectedComponents: ComponentSelectionItem[];
 	onComponentSelectionChange: (updated: ComponentSelectionItem[]) => void;
+	notPushedComponentIndices?: number[];
 }
 
 export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
@@ -107,6 +109,7 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 	allComponents,
 	selectedComponents,
 	onComponentSelectionChange,
+	notPushedComponentIndices,
 }) => {
 	// Track which component names are being edited
 	const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -157,6 +160,8 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 
 	const hasSelectedComponents = selectedComponents.some((comp) => comp.selected);
 
+	const notPushedIndexSet = useMemo(() => new Set(notPushedComponentIndices ?? []), [notPushedComponentIndices]);
+
 	/** Get display text for component type */
 	const getTypeDisplayText = (type: string) => {
 		if (extensionName === "Devant") {
@@ -186,6 +191,7 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 					const isEditing = editingIndex === index;
 					const nameError = validationErrors[index];
 					const hasError = !!nameError;
+					const isNotPushedToGit = notPushedIndexSet.has(index);
 
 					// Per-component: check if this component supports multiple types
 					const supportedTypes = getSupportedTypesForComponent(component);
@@ -194,11 +200,18 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 					return (
 						<div
 							key={`component-${index}-${component.directoryName}`}
-							className={`group border-b border-vsc-input-border transition-colors last:border-b-0 ${
-								isSelected
-									? "bg-vsc-list-hoverBackground/50"
-									: "hover:bg-vsc-list-hoverBackground/25"
-							}`}
+							className={classNames(
+								"group border-b transition-colors last:border-b-0",
+								{
+									"border-vsc-input-border": !isNotPushedToGit,
+									"bg-vsc-list-hoverBackground/50": isSelected && !isNotPushedToGit,
+									"hover:bg-vsc-list-hoverBackground/25": !isSelected && !isNotPushedToGit,
+									// Highlight components that are not pushed to Git using the same warning palette as Banner
+									"border-vsc-list-warningForeground bg-vsc-inputValidation-warningBackground text-vsc-list-warningForeground":
+										isNotPushedToGit,
+								},
+							)}
+							title={isNotPushedToGit ? "This component has not been pushed to Git." : undefined}
 						>
 							<div className="flex items-start gap-4 p-4">
 								{/* Checkbox */}
@@ -391,7 +404,7 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 				<Banner
 					type="error"
 					className="mt-3"
-					title={`${selectedComponentsWithErrors.length === 1 ? "This component name is invalid" : `${selectedComponentsWithErrors.length} selected components have invalid names`}. Please fix the errors above.`}
+					title={`${selectedComponentsWithErrors.length} selected component(s) have invalid names. Please fix the errors above.`}
 				/>
 			)}
 		</div>

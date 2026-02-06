@@ -67,6 +67,7 @@ const useComponentGitValidation = ({
 	form,
 }: UseComponentGitValidationParams) => {
 	const [componentGitErrorCount, setComponentGitErrorCount] = useState<number | null>(null);
+	const [componentGitInvalidTargets, setComponentGitInvalidTargets] = useState<string[]>([]);
 
 	const branch = form.watch("branch");
 	const repoUrlValue = form.watch("repoUrl");
@@ -102,6 +103,7 @@ const useComponentGitValidation = ({
 	useEffect(() => {
 		if (!shouldRunValidation) {
 			setComponentGitErrorCount(null);
+			setComponentGitInvalidTargets([]);
 		}
 	}, [shouldRunValidation, targetsSignature]);
 
@@ -123,12 +125,12 @@ const useComponentGitValidation = ({
 		refetchOnWindowFocus: false,
 		queryFn: async () => {
 			if (!shouldRunValidation || !gitData?.gitRoot) {
-				return { invalidCount: 0 };
+				return { invalidCount: 0, invalidTargets: [] as string[] };
 			}
 
 			const parsed = parseGitURL(repoUrlValue);
 			if (!parsed) {
-				return { invalidCount: 0 };
+				return { invalidCount: 0, invalidTargets: [] as string[] };
 			}
 
 			const [gitOrgName, gitRepoName] = parsed;
@@ -179,27 +181,37 @@ const useComponentGitValidation = ({
 			}
 
 			if (metadataRequests.length === 0) {
-				return { invalidCount: 0 };
+				return { invalidCount: 0, invalidTargets: [] as string[] };
 			}
 
 			let invalidCount = 0;
+			const invalidTargets: string[] = [];
 
 			try {
 				const results = await ChoreoWebViewAPI.getInstance()
 					.getChoreoRpcClient()
 					.getGitRepoMetadataBatch(metadataRequests);
 
-				for (const metadata of results) {
+				results.forEach((metadata, idx) => {
 					if (!metadata?.metadata || metadata.metadata.isSubPathEmpty) {
 						invalidCount += 1;
+						const targetPath = targets[idx]?.directoryFsPath;
+						if (targetPath) {
+							invalidTargets.push(targetPath);
+						}
 					}
-				}
+				});
 			} catch {
 				// If batch call fails, mark all as invalid
 				invalidCount = metadataRequests.length;
+				invalidTargets.push(
+					...targets
+						.map((t) => t.directoryFsPath)
+						.filter((p): p is string => !!p),
+				);
 			}
 
-			return { invalidCount };
+			return { invalidCount, invalidTargets };
 		},
 	});
 
@@ -207,19 +219,24 @@ const useComponentGitValidation = ({
 		async (options?: { force?: boolean }): Promise<boolean> => {
 			if (!shouldRunValidation) {
 				setComponentGitErrorCount(null);
+				setComponentGitInvalidTargets([]);
 				return true;
 			}
 
 			// If we have fresh cached data and not forcing, reuse it
 			if (!options?.force && validationQuery.data && !validationQuery.isStale) {
 				const invalidCount = validationQuery.data.invalidCount ?? 0;
+				const invalidTargets = validationQuery.data.invalidTargets ?? [];
 				setComponentGitErrorCount(invalidCount || null);
+				setComponentGitInvalidTargets(invalidTargets);
 				return invalidCount === 0;
 			}
 
 			const result = await validationQuery.refetch();
 			const invalidCount = result.data?.invalidCount ?? 0;
+			const invalidTargets = result.data?.invalidTargets ?? [];
 			setComponentGitErrorCount(invalidCount || null);
+			setComponentGitInvalidTargets(invalidTargets);
 			return invalidCount === 0;
 		},
 		[shouldRunValidation, validationQuery, setComponentGitErrorCount],
@@ -227,6 +244,7 @@ const useComponentGitValidation = ({
 
 	return {
 		componentGitErrorCount,
+		componentGitInvalidTargets,
 		isValidatingComponents: validationQuery.isFetching,
 		validateComponentsPushed,
 	};
@@ -366,7 +384,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 		}
 	}, [branches, gitData]);
 
-	const { componentGitErrorCount, isValidatingComponents, validateComponentsPushed } = useComponentGitValidation({
+	const { componentGitErrorCount, componentGitInvalidTargets, isValidatingComponents, validateComponentsPushed } = useComponentGitValidation({
 		extensionName,
 		organization,
 		directoryFsPath,
@@ -515,6 +533,21 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 
 	const hasSelectedComponents = selectedComponents?.some((comp) => comp.selected) ?? false;
 
+	const notPushedComponentIndices = useMemo(() => {
+		if (!componentGitInvalidTargets?.length || !allComponents) {
+			return [] as number[];
+		}
+
+		const indices: number[] = [];
+		for (const path of componentGitInvalidTargets) {
+			const idx = allComponents.findIndex((c) => c.directoryFsPath === path);
+			if (idx !== -1) {
+				indices.push(idx);
+			}
+		}
+		return indices;
+	}, [componentGitInvalidTargets, allComponents]);
+
 	return (
 		<>
 			{/* Multi-component selection list */}
@@ -524,6 +557,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 					allComponents={allComponents}
 					selectedComponents={selectedComponents}
 					onComponentSelectionChange={onComponentSelectionChange}
+					notPushedComponentIndices={notPushedComponentIndices}
 				/>
 			)}
 
