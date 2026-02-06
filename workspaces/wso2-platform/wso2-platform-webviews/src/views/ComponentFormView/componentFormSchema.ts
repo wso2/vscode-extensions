@@ -67,16 +67,10 @@ export const componentGeneralDetailsSchema = z.object({
 	branch: z.string().min(1, "Required"),
 });
 
-/** Schema for multi-component mode where name field is not required */
-export const componentGeneralDetailsSchemaMultiComponent = z.object({
-	name: z.string(), // No validation - name is derived from workspace in multi-component mode
-	subPath: z.string(),
-	gitRoot: z.string(),
-	repoUrl: z.string().min(1, "Required"),
-	gitProvider: z.string().min(1, "Required"),
-	credential: z.string(),
-	branch: z.string().min(1, "Required"),
-});
+/** Schema for multi-component mode where name field is not validated */
+export const componentGeneralDetailsSchemaMultiComponent = componentGeneralDetailsSchema
+	.omit({ name: true })
+	.extend({ name: z.string() });
 
 export const componentBuildDetailsSchema = z.object({
 	buildPackLang: z.string().min(1, "Required"),
