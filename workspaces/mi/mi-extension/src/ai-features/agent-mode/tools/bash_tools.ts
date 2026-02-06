@@ -277,35 +277,10 @@ const bashInputSchema = z.object({
  */
 export function createBashTool(execute: BashExecuteFn) {
     return (tool as any)({
-        description: `Execute bash commands in the MI project directory.
-            **Purpose:**
-            Run shell commands for tasks like:
-            - Git operations (status, diff, commit, push)
-            - Maven commands (mvn clean, mvn test)
-            - File system operations (mkdir, rm, cp, mv)
-            - Other CLI tools (curl, docker, etc.)
-
-            **Important Notes:**
-            - Commands run in the project directory with JAVA_HOME configured
-            - Default timeout is 2 minutes, max is 10 minutes
-            - Output is truncated if it exceeds 30,000 characters
-            - Use run_in_background for long-running commands
-
-            **Examples:**
-            - \`git status\` - Show git working tree status
-            - \`mvn test -Dtest=MyTest\` - Run specific Maven test
-            - \`curl -s http://localhost:8290/health\` - Check server health
-            - \`docker ps\` - List running containers
-
-            **Background Commands:**
-            Set run_in_background=true for commands that take a long time.
-            Use the kill_shell tool with the returned shell_id to terminate if needed.
-
-            **Avoid:**
-            - Using cat/head/tail for file reading (use file_read tool)
-            - Using grep for content search (use grep tool)
-            - Using find for file search (use glob tool)
-            - Interactive commands (vim, nano, etc.)`,
+        description: `Execute bash commands in the MI project directory (JAVA_HOME pre-configured).
+            Use run_in_background=true for long-running commands; use ${KILL_SHELL_TOOL_NAME} to terminate.
+            Do NOT use bash for file reading (use file_read), content search (use grep), or file search (use glob).
+            No interactive commands (vim, nano, etc.).`,
         inputSchema: bashInputSchema,
         execute
     });
@@ -390,19 +365,7 @@ const killShellInputSchema = z.object({
  */
 export function createKillShellTool(execute: KillShellExecuteFn) {
     return (tool as any)({
-        description: `Kill a running background bash shell by its ID.
-
-**Purpose:**
-Terminate a long-running background command that was started with the bash tool's run_in_background option.
-
-**When to use:**
-- A background command is taking too long
-- You need to stop a process that's no longer needed
-- A background command is stuck or unresponsive
-
-**Returns:**
-- Success status
-- Any output the command produced before being killed`,
+        description: `Terminate a background bash command by its shell_id. Returns any output produced before termination.`,
         inputSchema: killShellInputSchema,
         execute
     });
@@ -522,7 +485,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
  * Input schema for task_output tool
  */
 const taskOutputInputSchema = z.object({
-    task_id: z.string().describe('The ID of the background task (shell_id from bash or task_id from task tool with run_in_background=true)'),
+    task_id: z.string().describe('The ID of the background task (shell_id from bash or subagentId from task tool with run_in_background=true)'),
     block: z.boolean().optional().default(true).describe(
         'Whether to wait for task completion. Default is true. Set to false to check current status immediately.'
     ),
@@ -536,33 +499,9 @@ const taskOutputInputSchema = z.object({
  */
 export function createTaskOutputTool(execute: TaskOutputExecuteFn) {
     return (tool as any)({
-        description: `Get output from a running or completed background task (bash command or subagent).
-
-**Purpose:**
-Check on the status and retrieve output from:
-- A background bash command (started with bash tool's run_in_background=true)
-- A background subagent (started with task tool's run_in_background=true)
-
-**Parameters:**
-- task_id: The shell_id or task_id returned when the background task was started
-- block: If true (default), waits for completion up to the timeout
-- timeout: Max wait time in milliseconds (default 30s, max 10min)
-
-**When to use:**
-- Check if a long-running build has completed
-- Retrieve the output of a completed background task or subagent
-- Monitor progress of a background operation
-
-**Returns:**
-- Current output (truncated if very long)
-- Completion status
-- Exit code (if completed)
-
-**Example usage:**
-1. Start background bash: bash(command="mvn test", run_in_background=true) → returns shell_id
-2. Start background subagent: task(subagent_type="Explore", run_in_background=true) → returns task_id
-3. Check status: task_output(task_id=id, block=false) → current status
-4. Wait for completion: task_output(task_id=id, block=true) → blocks until done`,
+        description: `Retrieve output from a background bash command or subagent by subagentId.
+            Use block=true (default) to wait for completion, block=false for immediate status check.
+            Works with both shell_id from bash and subagentId from subagent background execution.`,
         inputSchema: taskOutputInputSchema,
         execute
     });

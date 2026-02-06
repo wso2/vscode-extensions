@@ -19,15 +19,15 @@
 export const SYNAPSE_EXPRESSION_EXAMPLES = `
 - Example filter mediator configuration:
 \`\`\`xml
-<filter source="\${payload.store.book[?(@.price < 10)])}">
+<filter xpath="\${payload.store.book[?(@.price < 10)]}">
     <then>
-        <log level="custom">
-            <property name="message" value="Book price is less than 10"/>
+        <log category="INFO">
+            <message>Book price is less than 10</message>
         </log>
     </then>
     <else>
-        <log level="custom">
-            <property name="message" value="Book price is greater than 10"/>
+        <log category="INFO">
+            <message>Book price is greater than 10</message>
         </log>
     </else>
 </filter>
@@ -36,20 +36,17 @@ export const SYNAPSE_EXPRESSION_EXAMPLES = `
 - Example switch mediator configuration:
 \`\`\`xml
 <switch source="\${vars.store.book[0].category}">
-    <case regex="http://services.samples/.*">
-        <send>
-            <endpoint>
-                <address uri="http://localhost:9000/services/SimpleStockQuoteService"/>
-            </endpoint>
-        </send>
+    <case regex="fiction">
+        <log category="INFO">
+            <message>Processing fiction book: \${vars.store.book[0].title}</message>
+        </log>
     </case>
     <default>
-        <send>
-            <endpoint>
-                <address uri="http://localhost:9000/services/SimpleStockQuoteService"/>
-            </endpoint>
-        </send>
+        <log category="INFO">
+            <message>Processing other category: \${vars.store.book[0].category}</message>
+        </log>
     </default>
+</switch>
 \`\`\`
 
 - Example of complex filtering using Synapse expressions:
