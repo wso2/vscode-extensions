@@ -72,6 +72,7 @@ export interface SwitchSessionResponse {
     sessionId: string;
     events: ChatHistoryEvent[];
     error?: string;
+    lastTotalInputTokens?: number;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -111,6 +112,22 @@ const createNewSession: RequestType<CreateNewSessionRequest, CreateNewSessionRes
 
 const deleteSession: RequestType<DeleteSessionRequest, DeleteSessionResponse> = {
     method: `${_prefix}/deleteSession`
+};
+
+// Compact RPC method
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface CompactConversationRequest {
+    // Empty - uses current session
+}
+
+export interface CompactConversationResponse {
+    success: boolean;
+    summary?: string;
+    error?: string;
+}
+
+const compactConversation: RequestType<CompactConversationRequest, CompactConversationResponse> = {
+    method: `${_prefix}/compactConversation`
 };
 
 export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
@@ -163,5 +180,12 @@ export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
 
     deleteSession(request: DeleteSessionRequest): Promise<DeleteSessionResponse> {
         return this._messenger.sendRequest(deleteSession, HOST_EXTENSION, request);
+    }
+
+    // ==================================
+    // Compact Functions
+    // ==================================
+    compactConversation(request: CompactConversationRequest): Promise<CompactConversationResponse> {
+        return this._messenger.sendRequest(compactConversation, HOST_EXTENSION, request);
     }
 }

@@ -34,6 +34,7 @@ import FeedbackBar from "./FeedbackBar";
 import ToolCallSegment from "./ToolCallSegment";
 import TodoListSegment from "./TodoListSegment";
 import BashOutputSegment from "./BashOutputSegment";
+import CompactSummarySegment from "./CompactSummarySegment";
 
 // Markdown renderer component
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownContent }) => {
@@ -108,6 +109,8 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
                         console.error("Failed to parse bashoutput JSON:", e);
                         return null;
                     }
+                } else if (segment.isCompactSummary) {
+                    return <CompactSummarySegment key={i} text={segment.text} />;
                 } else if (message.type === "Error") {
                     return (
                         <div style={{ color: "red", marginTop: "10px" }} key={i}>

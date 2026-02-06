@@ -17,19 +17,81 @@
  */
 
 /**
- * User prompt template for conversation summarization
+ * System-reminder prompt for conversation compaction.
  *
- * Template variables:
- * - conversation: The formatted conversation history
+ * This gets appended as a user message with <system-reminder> tags
+ * to the exact conversation history sent to Haiku.
+ *
+ * Two variants:
+ * - USER_TRIGGERED: User explicitly ran /compact command
+ * - AUTO_TRIGGERED: Context window is running out mid-agent-run
  */
-export const SUMMARIZATION_USER_PROMPT = `
-Please analyze and summarize the following conversation history.
 
-Follow the exact structure specified in the system prompt.
+const PROMPT = `
+Produce a comprehensive summary of the conversation so far so that a new session of this agent can continue the work seamlessly from the summary alone. The summary will replace the entire conversation history.
 
-**CONVERSATION:**
-{{conversation}}
+Your summary should follow the structure below: 
 
-**END OF CONVERSATION**
+---
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
 
-Now generate the summary following the required format (Analysis section followed by Summary section with 9 numbered subsections).`;
+# Analysis:
+A short chronological narrative of what the user and agent did. Be specific: include file paths, function names, line numbers, and error messages where available.
+
+# Summary:
+
+## 1. Primary Request and Intent ( Ignore this section if it is not relevant to the conversation )
+What the user wanted to achieve. If multiple distinct requests, list each separately.
+
+## 2. Key Technical Concepts ( Ignore this section if it is not relevant to the conversation )
+Bullet list of key technologies, patterns, and concepts discussed. Use **bold** for concept names.
+
+## 3. Files and Code Sections ( Ignore this section if it is not relevant to the conversation ) 
+For each file read, modified, or created:
+- File path in inline code
+- Whether read-only, modified, or created
+- Key code changes in fenced code blocks
+- Brief explanation of what changed and why
+
+## 4. Errors and Fixes ( Ignore this section if it is not relevant to the conversation )
+For each error: the message, root cause, and fix. If none, state "No errors encountered."
+
+## 5. Problem Solving ( Ignore this section if it is not relevant to the conversation ) 
+Problems solved, approach used, key design decisions and tradeoffs.
+
+## 6. All User Messages ( Ignore this section if it is not relevant to the conversation )
+Every user message, verbatim, in chronological order using quoted format.
+
+## 7. Pending Tasks ( Ignore this section if it is not relevant to the conversation )
+Incomplete work or known issues. If all done, state "None - all tasks completed."
+
+## 8. Current Work ( Ignore this section if it is not relevant to the conversation )
+What was last being worked on? State of builds/tests? Uncommitted changes?
+
+## 9. Optional Next Step ( Ignore this section if it is not relevant to the conversation )
+1-3 specific logical next steps.
+
+---
+
+**CRITICAL RULES:**
+- The summary must be self-contained: a new agent session must be able to resume work from the summary alone.
+- Be comprehensive but concise. Prioritize information density.
+- Include specific technical details: file paths, line numbers, function names, error messages, tool names.
+- Preserve key code snippets in fenced code blocks.
+- Do NOT fabricate information. Only include what actually happened.
+- Keep the total summary under 12,000 tokens.
+</system-reminder>`;
+
+export const COMPACT_SYSTEM_REMINDER_USER_TRIGGERED = `
+<system-reminder>
+The user has triggered a /compact command to summarize this conversation.
+${PROMPT}
+<system-reminder>
+`;
+
+export const COMPACT_SYSTEM_REMINDER_AUTO_TRIGGERED = `
+<system-reminder>
+The conversation context window is running out. You must summarize the conversation immediately so that work can continue in a fresh context.
+${PROMPT}
+<system-reminder>
+`;

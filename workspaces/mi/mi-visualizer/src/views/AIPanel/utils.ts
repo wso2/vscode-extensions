@@ -92,6 +92,7 @@ interface ContentSegment {
     isToolCall?: boolean;
     isTodoList?: boolean;
     isBashOutput?: boolean;
+    isCompactSummary?: boolean;
     loading: boolean;
     text: string;
     language?: string;
@@ -104,9 +105,9 @@ export function splitContent(content: string): ContentSegment[] {
     }
     const segments: ContentSegment[] = [];
     let match;
-    // Updated regex to include <toolcall>, <todolist>, and <bashoutput> tags with optional data attributes
+    // Updated regex to include <toolcall>, <todolist>, <bashoutput>, and <compact> tags with optional data attributes
     // Code block regex matches any language (or no language) followed by a newline
-    const regex = /```(\w*)\n([\s\S]*?)```|<toolcall(?:\s+[^>]*)?>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>/g;
+    const regex = /```(\w*)\n([\s\S]*?)```|<toolcall(?:\s+[^>]*)?>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>|<compact>([\s\S]*?)<\/compact>/g;
     let start = 0;
 
     // Helper function to mark the last toolcall segment as complete
@@ -145,6 +146,10 @@ export function splitContent(content: string): ContentSegment[] {
             // <bashoutput> block matched
             updateLastToolCallSegmentLoading();
             segments.push({ isBashOutput: true, loading: false, text: match[5] });
+        } else if (match[6] !== undefined) {
+            // <compact> block matched
+            updateLastToolCallSegmentLoading();
+            segments.push({ isCompactSummary: true, loading: false, text: match[6] });
         }
         start = regex.lastIndex;
     }

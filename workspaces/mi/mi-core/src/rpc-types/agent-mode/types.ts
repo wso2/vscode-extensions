@@ -60,7 +60,11 @@ export type AgentEventType =
     | "plan_mode_entered"       // Agent entered plan mode
     | "plan_mode_exited"        // Agent exited plan mode
     | "todo_updated"            // Todo list was updated
-    | "plan_approval_requested";// Agent requesting approval for plan (exit_plan_mode)
+    | "plan_approval_requested" // Agent requesting approval for plan (exit_plan_mode)
+    // Compact event
+    | "compact"                // Conversation was compacted (auto-summarized)
+    // Usage event
+    | "usage";                 // Token usage update (emitted per step)
 
 /**
  * Todo item status (matches Claude Code)
@@ -124,6 +128,12 @@ export interface AgentEvent {
     approvalId?: string;
     /** Path to the plan file for plan_approval_requested event */
     planFilePath?: string;
+    /** Summary text for compact event */
+    summary?: string;
+
+    // Usage fields (for usage event)
+    /** Total input tokens (input + cached) for context usage tracking */
+    totalInputTokens?: number;
 
     // Bash tool fields (for tool_result display)
     /** Bash command that was executed */
@@ -145,7 +155,7 @@ export interface AgentEvent {
  * Frontend will convert these to UI messages with inline tool call formatting
  */
 export interface ChatHistoryEvent {
-    type: 'user' | 'assistant' | 'tool_call' | 'tool_result';
+    type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary';
     content?: string;
     toolName?: string;
     toolInput?: unknown;
@@ -181,6 +191,8 @@ export interface LoadChatHistoryResponse {
     sessionId?: string;
     events: ChatHistoryEvent[];
     error?: string;
+    /** Last known total input tokens for context usage display */
+    lastTotalInputTokens?: number;
 }
 
 /**
@@ -278,6 +290,8 @@ export interface SwitchSessionResponse {
     /** Loaded history for the new session */
     events: ChatHistoryEvent[];
     error?: string;
+    /** Last known total input tokens for context usage display */
+    lastTotalInputTokens?: number;
 }
 
 /**
@@ -312,6 +326,28 @@ export interface DeleteSessionResponse {
     error?: string;
 }
 
+// ============================================================================
+// Manual Compact Types
+// ============================================================================
+
+/**
+ * Request to manually compact/summarize the current conversation
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface CompactConversationRequest {
+    // Empty - uses current session
+}
+
+/**
+ * Response from manual compact
+ */
+export interface CompactConversationResponse {
+    success: boolean;
+    /** The generated summary */
+    summary?: string;
+    error?: string;
+}
+
 /**
  * Agent Panel API interface
  */
@@ -327,4 +363,6 @@ export interface MIAgentPanelAPI {
     switchSession: (request: SwitchSessionRequest) => Promise<SwitchSessionResponse>;
     createNewSession: (request: CreateNewSessionRequest) => Promise<CreateNewSessionResponse>;
     deleteSession: (request: DeleteSessionRequest) => Promise<DeleteSessionResponse>;
+    // Compact
+    compactConversation: (request: CompactConversationRequest) => Promise<CompactConversationResponse>;
 }

@@ -66,25 +66,32 @@ export interface GroupedSessions {
 }
 
 /**
- * JSONL entry for session start/end markers
- * Different from SessionMetadata which is stored in metadata.json
+ * JSONL entry format (Claude Code style).
+ * Every line in the JSONL file is a JournalEntry.
+ * Model messages are stored in the `message` field; metadata lives at the top level.
+ * Usage data (totalInputTokens) is attached to the last message entry of each step.
  */
-export interface SessionJSONLEntry {
-    type: 'session_start' | 'session_end';
+export interface JournalEntry {
+    /** Entry type: message role for model messages, or a special marker */
+    type: 'user' | 'assistant' | 'tool' | 'session_start' | 'session_end' | 'compact_summary';
+    /** The model message (for user/assistant/tool entries) */
+    message?: any;
+    /** ISO timestamp */
     timestamp: string;
+    /** Session ID */
     sessionId: string;
-    projectPath: string;
+    /** Project path (session_start / session_end) */
+    projectPath?: string;
+    /** Session metadata (session_start) */
     metadata?: {
         projectName?: string;
         gitBranch?: string;
     };
+    /** Summary content (compact_summary) */
+    summary?: string;
+    /** Total input tokens — attached to last message entry of each agent step */
+    totalInputTokens?: number;
 }
-
-/**
- * JSONL entry: either a ModelMessage or session JSONL entry
- * ModelMessages are stored directly as returned by AI SDK
- */
-export type JSONLEntry = any | SessionJSONLEntry;
 
 /**
  * Chat History Manager
@@ -203,7 +210,7 @@ export class ChatHistoryManager {
      * Write session start entry
      */
     private async writeSessionStart(): Promise<void> {
-        const entry: SessionJSONLEntry = {
+        const entry: JournalEntry = {
             type: 'session_start',
             timestamp: new Date().toISOString(),
             sessionId: this.sessionId,
@@ -221,7 +228,7 @@ export class ChatHistoryManager {
      * Write session end entry
      */
     private async writeSessionEnd(): Promise<void> {
-        const entry: SessionJSONLEntry = {
+        const entry: JournalEntry = {
             type: 'session_end',
             timestamp: new Date().toISOString(),
             sessionId: this.sessionId,
@@ -353,15 +360,28 @@ export class ChatHistoryManager {
 
     /**
      * Save a message to history (JSONL file only)
+     * Wraps the ModelMessage in a JournalEntry with metadata.
      * System messages are never saved (they're recreated fresh each time)
      * Also updates metadata (message count, title for first user message)
      *
      * @param message - ModelMessage from AI SDK
+     * @param options - Optional metadata to attach (e.g. totalInputTokens)
      */
-    async saveMessage(message: any): Promise<void> {
+    async saveMessage(message: any, options?: { totalInputTokens?: number }): Promise<void> {
         try {
+            // Wrap in JournalEntry
+            const entry: JournalEntry = {
+                type: message.role,
+                message,
+                timestamp: new Date().toISOString(),
+                sessionId: this.sessionId,
+            };
+            if (options?.totalInputTokens !== undefined) {
+                entry.totalInputTokens = options.totalInputTokens;
+            }
+
             // Write to JSONL
-            await this.writeEntry(message);
+            await this.writeEntry(entry);
 
             // Update metadata
             await this.incrementMessageCount();
@@ -383,17 +403,20 @@ export class ChatHistoryManager {
 
     /**
      * Save multiple messages at once (batch operation)
-     * Caller is responsible for filtering out already-saved messages
+     * Caller is responsible for filtering out already-saved messages.
+     * Usage metadata (if provided) is attached to the last entry only.
      *
      * @param messages - ModelMessages from AI SDK (only new messages to save)
+     * @param options - Optional metadata to attach to the last message (e.g. totalInputTokens)
      */
-    async saveMessages(messages: any[]): Promise<void> {
+    async saveMessages(messages: any[], options?: { totalInputTokens?: number }): Promise<void> {
         if (messages.length === 0) {
             return;
         }
 
-        for (const message of messages) {
-            await this.saveMessage(message);
+        for (let i = 0; i < messages.length; i++) {
+            const isLast = i === messages.length - 1;
+            await this.saveMessage(messages[i], isLast ? options : undefined);
         }
     }
 
@@ -409,7 +432,7 @@ export class ChatHistoryManager {
             ? '[Request interrupted by user during tool use]'
             : '[Request interrupted by user]';
 
-        const interruptionMessage = {
+        const message = {
             role: 'user',
             content: [{
                 type: 'text',
@@ -417,11 +440,65 @@ export class ChatHistoryManager {
             }]
         };
 
+        const entry: JournalEntry = {
+            type: 'user',
+            message,
+            timestamp: new Date().toISOString(),
+            sessionId: this.sessionId,
+        };
+
         try {
-            await this.writeEntry(interruptionMessage);
+            await this.writeEntry(entry);
             logDebug(`[ChatHistory] Saved interruption message: ${interruptionText}`);
         } catch (error) {
             logError('[ChatHistory] Failed to save interruption message', error);
+        }
+    }
+
+    /**
+     * Save a compact summary to history
+     * This creates a special JSONL entry that acts as a checkpoint.
+     * When loading history, everything before the last compact_summary is ignored.
+     * The summary is reattached as a user message for the next LLM turn.
+     *
+     * @param summary - The generated summary text
+     */
+    async saveSummaryMessage(summary: string): Promise<void> {
+        const entry: JournalEntry = {
+            type: 'compact_summary',
+            timestamp: new Date().toISOString(),
+            sessionId: this.sessionId,
+            summary,
+        };
+
+        try {
+            await this.writeEntry(entry);
+            logInfo(`[ChatHistory] Saved compact summary (${summary.length} chars)`);
+        } catch (error) {
+            logError('[ChatHistory] Failed to save compact summary', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get the last known total input tokens from JSONL.
+     * Scans backward for the most recent entry that has totalInputTokens.
+     */
+    async getLastUsage(): Promise<number | undefined> {
+        try {
+            const content = await fs.readFile(this.sessionFile, 'utf8');
+            const lines = content.trim().split('\n');
+
+            for (let i = lines.length - 1; i >= 0; i--) {
+                if (!lines[i].trim()) continue;
+                const entry = JSON.parse(lines[i]);
+                if (entry.totalInputTokens !== undefined) {
+                    return entry.totalInputTokens;
+                }
+            }
+            return undefined;
+        } catch {
+            return undefined;
         }
     }
 
@@ -435,15 +512,62 @@ export class ChatHistoryManager {
         try {
             const content = await fs.readFile(this.sessionFile, 'utf8');
             const lines = content.trim().split('\n');
-            const messages: any[] = [];
+            const allEntries: JournalEntry[] = [];
 
+            // Parse all entries first
             for (const line of lines) {
                 if (line.trim()) {
-                    const entry = JSON.parse(line);
-                    // Skip session metadata, only return messages
-                    if (entry.type !== 'session_start' && entry.type !== 'session_end') {
-                        messages.push(entry);
+                    const entry = JSON.parse(line) as JournalEntry;
+                    allEntries.push(entry);
+                }
+            }
+
+            // Find the index of the last compact_summary entry
+            let lastCompactIndex = -1;
+            for (let i = allEntries.length - 1; i >= 0; i--) {
+                if (allEntries[i].type === 'compact_summary') {
+                    lastCompactIndex = i;
+                    break;
+                }
+            }
+
+            // If a compact summary exists, return it as a synthetic user message
+            // followed by any messages that appear after it in the JSONL
+            if (lastCompactIndex >= 0) {
+                const summaryEntry = allEntries[lastCompactIndex];
+
+                // Synthetic user message for the LLM (provides conversation context).
+                // Flagged with _compactSynthetic so convertToEventFormat() skips it for UI.
+                const summaryMessage = {
+                    role: 'user',
+                    content: [{
+                        type: 'text',
+                        text: `<CONVERSATION_SUMMARY>\n${summaryEntry.summary}\n</CONVERSATION_SUMMARY>`
+                    }],
+                    _compactSynthetic: true,
+                };
+
+                // Include the raw compact_summary entry first (for UI rendering via convertToEventFormat),
+                // then the synthetic user message (for LLM context)
+                const messages: any[] = [summaryEntry, summaryMessage];
+
+                // Add unwrapped model messages after the compact summary
+                for (let i = lastCompactIndex + 1; i < allEntries.length; i++) {
+                    const entry = allEntries[i];
+                    if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'tool') {
+                        messages.push(entry.message);
                     }
+                }
+
+                logInfo(`[ChatHistory] Loaded messages from compact summary checkpoint (${messages.length} messages)`);
+                return messages;
+            }
+
+            // No compact summary: return all unwrapped model messages
+            const messages: any[] = [];
+            for (const entry of allEntries) {
+                if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'tool') {
+                    messages.push(entry.message);
                 }
             }
             return messages;
@@ -569,18 +693,18 @@ export class ChatHistoryManager {
                     for (const line of lines) {
                         if (!line.trim()) continue;
                         try {
-                            const entry = JSON.parse(line);
+                            const entry = JSON.parse(line) as JournalEntry;
                             // Find first user message for title
-                            if (entry.role === 'user' && entry.content && title === 'New Chat') {
-                                const msgContent = typeof entry.content === 'string'
-                                    ? entry.content
-                                    : Array.isArray(entry.content)
-                                        ? entry.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
+                            if (entry.type === 'user' && entry.message?.content && title === 'New Chat') {
+                                const msgContent = typeof entry.message.content === 'string'
+                                    ? entry.message.content
+                                    : Array.isArray(entry.message.content)
+                                        ? entry.message.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
                                         : '';
                                 title = ChatHistoryManager.extractTitle(msgContent);
                             }
-                            // Count non-metadata entries
-                            if (entry.role && entry.type !== 'session_start' && entry.type !== 'session_end') {
+                            // Count model message entries
+                            if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'tool') {
                                 messageCount++;
                             }
                         } catch {
@@ -674,7 +798,7 @@ export class ChatHistoryManager {
      * @returns UI events for display
      */
     static convertToEventFormat(messages: any[]): Array<{
-        type: 'user' | 'assistant' | 'tool_call' | 'tool_result';
+        type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary';
         content?: string;
         toolName?: string;
         toolInput?: unknown;
@@ -690,8 +814,24 @@ export class ChatHistoryManager {
         for (const msg of messages) {
             const timestamp = new Date().toISOString();  // Could store timestamps if needed
 
+            // Handle compact_summary entries (JSONL session entries, not role-based messages)
+            if (msg.type === 'compact_summary') {
+                events.push({
+                    type: 'compact_summary',
+                    content: msg.summary,
+                    timestamp: msg.timestamp || timestamp,
+                });
+                continue;
+            }
+
             switch (msg.role) {
                 case 'user':
+                    // Skip synthetic compact summary messages (they're for LLM context only;
+                    // the raw compact_summary entry is handled above for UI rendering)
+                    if (msg._compactSynthetic) {
+                        continue;
+                    }
+
                     // User content can be string or array of content parts
                     let userContent = '';
                     if (typeof msg.content === 'string') {

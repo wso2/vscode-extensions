@@ -114,6 +114,10 @@ interface MICopilotContextType {
     isPlanMode: boolean;
     setIsPlanMode: React.Dispatch<React.SetStateAction<boolean>>;
 
+    // Context usage tracking (for compact button)
+    lastTotalInputTokens: number;
+    setLastTotalInputTokens: React.Dispatch<React.SetStateAction<number>>;
+
     // Session management state
     currentSessionId: string | null;
     currentSessionTitle: string;
@@ -175,6 +179,9 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const [isPlanMode, setIsPlanMode] = useState<boolean>(false);
 
     // Session management state
+    // Context usage tracking
+    const [lastTotalInputTokens, setLastTotalInputTokens] = useState(0);
+
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
     const [currentSessionTitle, setCurrentSessionTitle] = useState<string>('New Chat');
     const [sessions, setSessions] = useState<GroupedSessions | null>(null);
@@ -228,6 +235,8 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 const uiMessages = convertEventsToMessages(response.events);
                 setMessages(uiMessages);
                 setCopilotChat([]);
+                // Update context usage from switched session
+                setLastTotalInputTokens(response.lastTotalInputTokens ?? 0);
                 // Clear plan mode state when switching sessions
                 setPendingQuestion(null);
                 setPendingPlanApproval(null);
@@ -256,6 +265,8 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 setFiles([]);
                 setImages([]);
                 setCurrentUserprompt('');
+                // Reset context usage for new session
+                setLastTotalInputTokens(0);
                 // Clear plan mode state
                 setPendingQuestion(null);
                 setPendingPlanApproval(null);
@@ -357,6 +368,11 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                                 console.log('[AI Panel] No previous chat history found');
                             }
 
+                            // Initialize context usage from last known tokens
+                            if (response.lastTotalInputTokens) {
+                                setLastTotalInputTokens(response.lastTotalInputTokens);
+                            }
+
                             // Load sessions list to get current session title
                             const sessionsResponse = await rpcClient.getMiAgentPanelRpcClient().listSessions({});
                             if (sessionsResponse.success) {
@@ -443,6 +459,9 @@ useEffect(() => {
         setTodos,
         isPlanMode,
         setIsPlanMode,
+        // Context usage tracking
+        lastTotalInputTokens,
+        setLastTotalInputTokens,
         // Session management
         currentSessionId,
         currentSessionTitle,

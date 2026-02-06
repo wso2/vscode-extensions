@@ -31,7 +31,9 @@ import {
     CreateNewSessionRequest,
     CreateNewSessionResponse,
     DeleteSessionRequest,
-    DeleteSessionResponse
+    DeleteSessionResponse,
+    CompactConversationRequest,
+    CompactConversationResponse,
 } from "./types";
 
 const _prefix = "mi-agent-service";
@@ -100,4 +102,13 @@ export const createNewSession: RequestType<CreateNewSessionRequest, CreateNewSes
 // Delete a session
 export const deleteSession: RequestType<DeleteSessionRequest, DeleteSessionResponse> = {
     method: `${_prefix}/deleteSession`
+};
+
+// ============================================================================
+// Compact RPC Method
+// ============================================================================
+
+// Manually compact/summarize the current conversation
+export const compactConversation: RequestType<CompactConversationRequest, CompactConversationResponse> = {
+    method: `${_prefix}/compactConversation`
 };
