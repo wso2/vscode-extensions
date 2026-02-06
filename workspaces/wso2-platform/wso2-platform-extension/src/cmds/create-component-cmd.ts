@@ -345,10 +345,12 @@ async function handleExistingComponent(
 function generateUniqueComponentName(
 	baseName: string,
 	existingComponents: ComponentKind[],
+	reservedNames: Set<string> = new Set(),
 ): string {
 	const existingNames = new Set(
 		existingComponents.map((c) => c.metadata?.name?.toLowerCase?.()),
 	);
+	reservedNames.forEach((name) => existingNames.add(name.toLowerCase()));
 
 	if (!existingNames.has(baseName.toLowerCase())) {
 		return baseName;
@@ -424,13 +426,14 @@ async function buildComponentConfigWithoutExistenceCheck(
 	param: ICreateComponentCmdParams,
 	components: ComponentKind[],
 	terminology: TerminologyContext,
+	reservedNames: Set<string> = new Set(),
 ): Promise<ComponentConfig | null> {
 	const typeSelection = await resolveComponentType(param, terminology);
 	const selectedUri = await selectComponentDirectory(param, terminology);
 	const gitInfo = await getGitInfo(context, selectedUri.fsPath);
 
 	const baseName = param?.name || path.basename(selectedUri.fsPath) || typeSelection.type;
-	const componentName = generateUniqueComponentName(baseName, components);
+	const componentName = generateUniqueComponentName(baseName, components, reservedNames);
 
 	return buildCreateFormParams(
 		selectedUri,
@@ -567,6 +570,7 @@ async function prepareComponentFormParamsBatch(
 	}
 
 	const componentConfigs: ComponentConfig[] = [];
+	const reservedNames = new Set<string>();
 	const gitInfo = await getGitInfo(context, directoryUri.fsPath);
 
 	// Pre-check: identify which components already exist and filter to only new ones
@@ -602,10 +606,14 @@ async function prepareComponentFormParamsBatch(
 			context, 
 			param, 
 			components, 
-			terminology
+			terminology,
+			reservedNames
 		);
 		if (!componentConfig) {
 			continue;
+		}
+		if (componentConfig.initialValues?.name) {
+			reservedNames.add(componentConfig.initialValues.name);
 		}
 		componentConfigs.push(componentConfig);
 	}
