@@ -64,17 +64,21 @@ export class NodeFactoryVisitorVertical_v2 {
 
         this.reactNodes.push(reactNode);
 
-        // 2. Create Edges
+        // 2. Create Edges (skip if portal will handle it)
 
         // Success children
         node.children.forEach(child => {
-            this.createEdge(node, child, 'success');
+            if (!this.shouldSkipEdge(node, child)) {
+                this.createEdge(node, child, 'success');
+            }
             this.visit(child);
         });
 
         // Failure path
         if (node.failureNode) {
-            this.createEdge(node, node.failureNode, 'failure');
+            if (!this.shouldSkipEdge(node, node.failureNode)) {
+                this.createEdge(node, node.failureNode, 'failure');
+            }
             this.visit(node.failureNode);
         }
 
@@ -82,10 +86,24 @@ export class NodeFactoryVisitorVertical_v2 {
         node.branches?.forEach(branch => {
             if (branch.length > 0) {
                 const head = branch[0];
-                this.createEdge(node, head, 'success');
+                if (!this.shouldSkipEdge(node, head)) {
+                    this.createEdge(node, head, 'success');
+                }
                 this.visit(head);
             }
         });
+    }
+
+    /**
+     * Determine if edge should be skipped (portal will handle it).
+     */
+    private shouldSkipEdge(source: FlowNode, target: FlowNode): boolean {
+        // Skip edge if target is significantly before source (backward jump)
+        // Portal will be created by PortalCreator_v2
+        const isBackwardJump = target.viewState.y < source.viewState.y;
+        const isSignificantForwardGoto = target.viewState.y > source.viewState.y + source.viewState.h + 100;
+        
+        return isBackwardJump || isSignificantForwardGoto;
     }
 
     private createEdge(source: FlowNode, target: FlowNode, edgeType: 'success' | 'failure'): void {

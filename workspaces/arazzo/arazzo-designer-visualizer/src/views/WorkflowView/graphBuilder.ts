@@ -13,6 +13,7 @@ import { SizingVisitorVertical_v2 } from '../../visitors/SizingVisitorVertical_v
 import { PositionVisitorVertical_v2 } from '../../visitors/PositionVisitorVertical_v2';
 import { NodeFactoryVisitorVertical_v2 } from '../../visitors/NodeFactoryVisitorVertical_v2';
 import { DepthSearch } from '../../visitors/DepthSearch';
+import { PortalCreator_v2 } from '../../visitors/PortalCreator_v2';
 
 /**
  * Builds the graph visualization from the workflow using the Visitor pattern.
@@ -88,9 +89,13 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
     factoryV2.visit(rootV2);
     const elements = factoryV2.getElements();
 
+    // 6. Portal Creation V2: Create portals for failure-path-to-main-path jumps
+    const portalCreator = new PortalCreator_v2(depthSearch);
+    const portals = portalCreator.createPortals(rootV2);
+
     return {
-        nodes: elements.nodes,
-        edges: elements.edges
+        nodes: [...elements.nodes, ...portals.nodes],
+        edges: [...elements.edges, ...portals.edges]
     };
 };
 
