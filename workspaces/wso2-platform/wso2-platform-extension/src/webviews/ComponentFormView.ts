@@ -71,6 +71,7 @@ export class ComponentFormView {
 					directoryName: legacyParams.directoryName,
 					initialValues: legacyParams.initialValues,
 					isNewCodeServerComp: legacyParams.isNewCodeServerComp,
+					supportedIntegrationTypes: legacyParams.supportedIntegrationTypes,
 				},
 			],
 			rootDirectory: legacyParams.rootDirectory,
