@@ -319,13 +319,13 @@ export class ChatHistoryManager {
 
     /**
      * Extract title from user message content
-     * Strips <USER_QUERY> tags and truncates to 50 chars
+     * Strips <user_query> tags and truncates to 50 chars
      */
     static extractTitle(messageContent: string): string {
         let content = messageContent;
 
-        // Extract content between <USER_QUERY> tags if present
-        const queryMatch = content.match(/<USER_QUERY>\s*([\s\S]*?)\s*<\/USER_QUERY>/);
+        // Extract content between <user_query> tags if present
+        const queryMatch = content.match(/<user_query>\s*([\s\S]*?)\s*<\/user_query>/);
         if (queryMatch && queryMatch[1]) {
             content = queryMatch[1].trim();
         }
@@ -850,8 +850,8 @@ export class ChatHistoryManager {
                         continue;
                     }
 
-                    // Extract content between <USER_QUERY> tags (user's actual query)
-                    const queryMatch = userContent.match(/<USER_QUERY>\s*([\s\S]*?)\s*<\/USER_QUERY>/);
+                    // Extract content between <user_query> tags (user's actual query)
+                    const queryMatch = userContent.match(/<user_query>\s*([\s\S]*?)\s*<\/user_query>/);
                     if (queryMatch && queryMatch[1]) {
                         userContent = queryMatch[1].trim();
                     }

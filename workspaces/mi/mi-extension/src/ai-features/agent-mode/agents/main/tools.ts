@@ -57,9 +57,9 @@ import {
     createServerManagementExecute,
 } from '../../tools/runtime_tools';
 import {
-    createTaskTool,
-    createTaskExecute,
-} from '../../tools/task_tool';
+    createSubagentTool,
+    createSubagentExecute,
+} from '../../tools/subagent_tool';
 import {
     createAskUserTool,
     createAskUserExecute,
@@ -96,7 +96,7 @@ import {
     GENERATE_DATA_MAPPING_TOOL_NAME,
     BUILD_PROJECT_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
-    TASK_TOOL_NAME,
+    SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
     ENTER_PLAN_MODE_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,
@@ -122,7 +122,7 @@ export {
     GENERATE_DATA_MAPPING_TOOL_NAME,
     BUILD_PROJECT_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
-    TASK_TOOL_NAME,
+    SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
     ENTER_PLAN_MODE_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,
@@ -230,8 +230,8 @@ export function createAgentTools(params: CreateToolsParams) {
         ),
 
         // Plan Mode Tools (5 tools)
-        [TASK_TOOL_NAME]: createTaskTool(
-            createTaskExecute(projectPath, sessionId, getAnthropicClient)
+        [SUBAGENT_TOOL_NAME]: createSubagentTool(
+            createSubagentExecute(projectPath, sessionId, getAnthropicClient)
         ),
         [ASK_USER_TOOL_NAME]: createAskUserTool(
             createAskUserExecute(eventHandler, pendingQuestions)

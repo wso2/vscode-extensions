@@ -86,7 +86,7 @@ export const BUILD_PROJECT_TOOL_NAME = 'build_project';
 export const SERVER_MANAGEMENT_TOOL_NAME = 'server_management';
 
 // Plan Mode Tool Names
-export const TASK_TOOL_NAME = 'task';
+export const SUBAGENT_TOOL_NAME = 'create_subagent';
 export const ASK_USER_TOOL_NAME = 'ask_user_question';
 export const ENTER_PLAN_MODE_TOOL_NAME = 'enter_plan_mode';
 export const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
@@ -109,8 +109,8 @@ export type SubagentType = 'Explore';
 export interface SubagentResult {
     /** Final text response from the subagent */
     text: string;
-    /** AI SDK steps with tool calls/results (for JSONL history) */
-    steps: any[];
+    /** AI SDK messages array (for JSONL history and resume) - same format as ChatHistoryManager */
+    messages: any[];
 }
 
 /**
@@ -231,20 +231,21 @@ export type ServerManagementExecuteFn = (args: {
 // ============================================================================
 
 /**
- * Task tool result (extends ToolResult with background task info)
+ * Subagent tool result (extends ToolResult with background subagent info)
  */
-export interface TaskResult extends ToolResult {
-    taskId?: string;
+export interface SubagentToolResult extends ToolResult {
+    subagentId?: string;
     outputFile?: string;
 }
 
-export type TaskExecuteFn = (args: {
+export type SubagentToolExecuteFn = (args: {
     description: string;
     prompt: string;
     subagent_type: SubagentType;
     model?: 'sonnet' | 'haiku';
     run_in_background?: boolean;
-}) => Promise<TaskResult>;
+    resume?: string;
+}) => Promise<SubagentToolResult>;
 
 export interface QuestionOption {
     label: string;

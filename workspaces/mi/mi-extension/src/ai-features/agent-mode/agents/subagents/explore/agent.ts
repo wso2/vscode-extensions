@@ -44,17 +44,23 @@ import {
  * @param projectPath - The project root path
  * @param model - The model to use ('haiku' or 'sonnet')
  * @param getAnthropicClient - Function to get the Anthropic client
+ * @param previousMessages - Optional previous conversation history for resuming
  * @returns SubagentResult with text response and steps for JSONL persistence
  */
 export async function executeExploreSubagent(
     prompt: string,
     projectPath: string,
     model: 'haiku' | 'sonnet',
-    getAnthropicClient: (modelId: AnthropicModel) => Promise<any>
+    getAnthropicClient: (modelId: AnthropicModel) => Promise<any>,
+    previousMessages?: any[]
 ): Promise<SubagentResult> {
-    logInfo(`[ExploreSubagent] Starting with model: ${model}`);
+    const isResume = previousMessages && previousMessages.length > 0;
+    logInfo(`[ExploreSubagent] Starting with model: ${model}${isResume ? ' (resuming from previous)' : ''}`);
     logDebug(`[ExploreSubagent] Project path: ${projectPath}`);
     logDebug(`[ExploreSubagent] Query: ${prompt.substring(0, 200)}...`);
+    if (isResume) {
+        logDebug(`[ExploreSubagent] Resuming with ${previousMessages!.length} previous messages`);
+    }
 
     try {
         // Select model - prefer haiku for speed
@@ -70,37 +76,86 @@ export async function executeExploreSubagent(
 
         logDebug(`[ExploreSubagent] Tools available: ${Object.keys(tools).join(', ')}`);
 
+        // Build messages array for continuation
+        // If resuming, include previous messages and add new prompt as continuation
+        // If starting fresh, just use the prompt
+        const messages: any[] = [];
+
+        if (isResume && previousMessages) {
+            // Add all previous messages
+            messages.push(...previousMessages);
+            // Add new continuation prompt
+            messages.push({
+                role: 'user',
+                content: `
+                ## Continue Exploration
+
+                ${prompt}
+
+                Continue from where you left off. Use the tools to explore further.
+                `
+            });
+        } else {
+            // Fresh start
+            messages.push({
+                role: 'user',
+                content: `
+                ## Exploration Query
+
+                ${prompt}
+
+                ## Instructions
+
+                1. Use glob and grep to efficiently find relevant files
+                2. Read files that are likely to contain the answer
+                3. Summarize your findings concisely
+
+                Return your findings in the specified markdown format.
+                `
+            });
+        }
+
         // Execute the subagent with tool access
-        // stopWhen: stepCountIs(10) allows up to 10 tool calling steps
+        // stopWhen: stepCountIs(30) allows up to 30 tool calling steps
         const result = await generateText({
             model: anthropicModel,
             system: EXPLORE_SUBAGENT_SYSTEM,
-            prompt: `
-## Exploration Query
-
-${prompt}
-
-## Instructions
-
-1. Use glob and grep to efficiently find relevant files
-2. Read files that are likely to contain the answer
-3. Summarize your findings concisely
-
-Return your findings in the specified markdown format.
-`,
+            messages,
             tools,
-            stopWhen: stepCountIs(10), // Allow up to 10 tool calls for thorough exploration
+            stopWhen: stepCountIs(30), // Allow up to 30 tool calls for thorough exploration
             temperature: 0.2, // Lower temperature for more focused exploration
-            maxOutputTokens: 4000, // Allow more output for comprehensive findings
+            maxOutputTokens: 8000, // Allow more output for comprehensive findings
         });
 
         logInfo(`[ExploreSubagent] Completed successfully`);
         logDebug(`[ExploreSubagent] Response length: ${result.text.length} chars`);
-        logDebug(`[ExploreSubagent] Steps used: ${result.steps?.length || 0}`);
+
+        // Build the full conversation history for saving
+        // Same pattern as main agent: extract messages from steps
+        const fullMessages = [...messages];
+
+        // Extract messages from each step (following main agent pattern)
+        if (result.steps && result.steps.length > 0) {
+            for (const step of result.steps) {
+                if ((step as any).response?.messages) {
+                    fullMessages.push(...(step as any).response.messages);
+                }
+            }
+            logDebug(`[ExploreSubagent] Extracted messages from ${result.steps.length} steps`);
+        } else {
+            // Fallback: add final response as assistant message
+            logDebug(`[ExploreSubagent] No steps found, using final text as response`);
+            fullMessages.push({
+                role: 'assistant',
+                content: result.text
+            });
+        }
+
+        logDebug(`[ExploreSubagent] Total messages in history: ${fullMessages.length}`);
 
         return {
             text: result.text,
-            steps: result.steps || [],
+            messages: fullMessages,
         };
     } catch (error: any) {
         logError(`[ExploreSubagent] Failed`, error);

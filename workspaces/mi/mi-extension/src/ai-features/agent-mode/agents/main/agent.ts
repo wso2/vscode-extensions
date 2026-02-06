@@ -230,7 +230,7 @@ export async function executeAgent(
         // Setup Langfuse tracing if enabled
         const streamConfig: any = {
             model,
-            maxOutputTokens: 8192,
+            maxOutputTokens: 10000,
             temperature: 0,
             messages: allMessages,
             stopWhen: stepCountIs(50),

@@ -50,8 +50,8 @@ import {
     createServerManagementTool,
 } from '../../tools/runtime_tools';
 import {
-    createTaskTool,
-} from '../../tools/task_tool';
+    createSubagentTool,
+} from '../../tools/subagent_tool';
 import {
     createAskUserTool,
     createEnterPlanModeTool,
@@ -78,7 +78,7 @@ import {
     GENERATE_DATA_MAPPING_TOOL_NAME,
     BUILD_PROJECT_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
-    TASK_TOOL_NAME,
+    SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
     ENTER_PLAN_MODE_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,
@@ -104,7 +104,7 @@ export {
     GENERATE_DATA_MAPPING_TOOL_NAME,
     BUILD_PROJECT_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
-    TASK_TOOL_NAME,
+    SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
     ENTER_PLAN_MODE_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,
@@ -176,7 +176,7 @@ export function createCompactAgentTools() {
         [SERVER_MANAGEMENT_TOOL_NAME]: createServerManagementTool(createBlockedExecute()),
 
         // Plan Mode Tools (4 tools) - execution blocked
-        [TASK_TOOL_NAME]: createTaskTool(createBlockedExecute()),
+        [SUBAGENT_TOOL_NAME]: createSubagentTool(createBlockedExecute()),
         [ASK_USER_TOOL_NAME]: createAskUserTool(createBlockedExecute()),
         [ENTER_PLAN_MODE_TOOL_NAME]: createEnterPlanModeTool(createBlockedExecute()),
         [EXIT_PLAN_MODE_TOOL_NAME]: createExitPlanModeTool(createBlockedExecute()),
