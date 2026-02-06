@@ -55,7 +55,7 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		this._view = webviewView;
 		ActivityPanel.currentPanel = this;
 		const isDevMode = process.env.WEB_VIEW_WATCH_MODE === 'true';
-		const devHost = process.env.WEB_VIEW_DEV_HOST || 'http://localhost:8080';
+		const devHost = process.env.TRY_VIEW_DEV_HOST || 'http://localhost:9092';
 
 		webviewView.webview.options = {
 			enableScripts: true,
