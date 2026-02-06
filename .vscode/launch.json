@@ -313,12 +313,12 @@
                 "BALLERINA_STAGE_CENTRAL": "false",
 
                 "PLATFORM_WEB_VIEW_DEV_MODE": "true",
-                "PLATFORM_WEB_VIEW_DEV_HOST": "http://localhost:3000/main.js",
+                "PLATFORM_WEB_VIEW_DEV_HOST": "http://localhost:3000/main.js"
             },
             "outFiles": [
                 "${workspaceFolder}/workspaces/ballerina/ballerina-extension/dist/**/*.js",
                 "${workspaceFolder}/workspaces/bi/bi-extension/out/**/*.js",
-                "${workspaceFolder}/workspaces/wso2-platform/wso2-platform-extension/dist/**/*.js",
+                "${workspaceFolder}/workspaces/wso2-platform/wso2-platform-extension/dist/**/*.js"
             ],
             "preLaunchTask": "watch-all",
             "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
