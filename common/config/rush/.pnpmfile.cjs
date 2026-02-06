@@ -34,9 +34,6 @@ module.exports = {
         if (pkg.dependencies['js-yaml']) {
           pkg.dependencies['js-yaml'] = '4.1.1';
         }
-        if (pkg.dependencies['@modelcontextprotocol/sdk']) {
-          pkg.dependencies['@modelcontextprotocol/sdk'] = '1.25.2';
-        }
         if (pkg.dependencies['diff']) {
           pkg.dependencies['diff'] = '^8.0.3';
         }
@@ -69,9 +66,6 @@ module.exports = {
         }
         if (pkg.devDependencies['micromatch']) {
           pkg.devDependencies['micromatch'] = '4.0.8';
-        }
-        if (pkg.devDependencies['@modelcontextprotocol/sdk']) {
-          pkg.devDependencies['@modelcontextprotocol/sdk'] = '1.25.2';
         }
         if (pkg.devDependencies['diff']) {
           pkg.devDependencies['diff'] = '^8.0.3';
