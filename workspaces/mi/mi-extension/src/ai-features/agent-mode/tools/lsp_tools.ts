@@ -18,13 +18,10 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { MANAGE_CONNECTOR_TOOL_NAME, ToolResult } from './types';
-import { MILanguageClient } from '../../../lang-client/activator';
+import { MANAGE_CONNECTOR_TOOL_NAME, ToolResult, ValidationDiagnostics } from './types';
 import * as path from 'path';
-import * as fs from 'fs';
-import { Uri } from 'vscode';
 import { logDebug, logError } from '../../copilot/logger';
-import { getProviderCacheControl } from '../../connection';
+import { validateXmlFile, formatValidationMessage } from './validation-utils';
 
 // ============================================================================
 // Execute Function Types
@@ -56,173 +53,44 @@ export function createValidateCodeExecute(projectPath: string): ValidateCodeExec
         }
 
         try {
-            const langClient = await MILanguageClient.getInstance(projectPath);
-            if (!langClient) {
-                return {
-                    success: false,
-                    message: 'Language client not available',
-                    error: 'Error: Language client not initialized'
-                };
-            }
-
             const results: Array<{
                 file: string;
-                diagnostics: any[];
-                hasErrors: boolean;
-                hasWarnings: boolean;
+                validation: ValidationDiagnostics | null;
             }> = [];
 
-            // Validate each file
+            // Validate each file using shared utility
             for (const filePath of file_paths) {
-                try {
-                    // Resolve relative paths against project path
-                    const absolutePath = path.isAbsolute(filePath)
-                        ? filePath
-                        : path.join(projectPath, filePath);
+                const absolutePath = path.isAbsolute(filePath)
+                    ? filePath
+                    : path.join(projectPath, filePath);
 
-                    // Check if file exists
-                    if (!fs.existsSync(absolutePath)) {
-                        results.push({
-                            file: filePath,
-                            diagnostics: [{
-                                severity: 1, // Error
-                                message: 'File not found',
-                                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }
-                            }],
-                            hasErrors: true,
-                            hasWarnings: false
-                        });
-                        continue;
-                    }
+                logDebug(`[ValidateCodeTool] Validating file: ${absolutePath}`);
+                const validation = await validateXmlFile(absolutePath, projectPath, true);
+                results.push({ file: filePath, validation });
+            }
 
-                    logDebug(`[ValidateCodeTool] Validating file: ${absolutePath}`);
+            // Build response message using shared formatter per file
+            const parts: string[] = [];
 
-                    // Get diagnostics from language server
-                    const diagnosticsResponse = await langClient.getCodeDiagnostics({
-                        fileName: absolutePath,
-                        code: fs.readFileSync(absolutePath, 'utf8')
-                    });
-
-                    logDebug(`[ValidateCodeTool] Diagnostics response: ${JSON.stringify(diagnosticsResponse)}`);
-
-                    const diagnostics = diagnosticsResponse.diagnostics || [];
-                    const hasErrors = diagnostics.some((d: any) => d.severity === 1);
-                    const hasWarnings = diagnostics.some((d: any) => d.severity === 2);
-
-                    // Fetch code actions for each diagnostic
-                    const diagnosticsWithActions = await Promise.all(
-                        diagnostics.map(async (diagnostic: any) => {
-                            try {
-                                const codeActions = await langClient.getCodeActions({
-                                    textDocument: { uri: Uri.file(absolutePath).toString() },
-                                    range: diagnostic.range,
-                                    context: {
-                                        diagnostics: [diagnostic],
-                                        only: ['quickfix']
-                                    }
-                                });
-
-                                return {
-                                    ...diagnostic,
-                                    codeActions: codeActions || []
-                                };
-                            } catch (error) {
-                                logDebug(`[ValidateCodeTool] Failed to get code actions for diagnostic: ${error}`);
-                                return {
-                                    ...diagnostic,
-                                    codeActions: []
-                                };
-                            }
-                        })
-                    );
-
-                    results.push({
-                        file: filePath,
-                        diagnostics: diagnosticsWithActions,
-                        hasErrors,
-                        hasWarnings
-                    });
-
-                    logDebug(`[ValidateCodeTool] Diagnostics with actions: ${JSON.stringify(diagnosticsWithActions)}`);
-                } catch (error) {
-                    results.push({
-                        file: filePath,
-                        diagnostics: [{
-                            severity: 1,
-                            message: error instanceof Error ? error.message : String(error),
-                            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }
-                        }],
-                        hasErrors: true,
-                        hasWarnings: false
-                    });
+            for (const r of results) {
+                if (!r.validation) {
+                    parts.push(`${r.file}: skipped (not XML or validation unavailable)`);
+                } else {
+                    const formatted = formatValidationMessage(r.validation);
+                    parts.push(`${r.file}:${formatted || ' No issues found.'}`);
                 }
             }
 
-            // Build response message
-            const filesWithErrors = results.filter(r => r.hasErrors);
-            const filesWithWarnings = results.filter(r => r.hasWarnings && !r.hasErrors);
-            const filesClean = results.filter(r => !r.hasErrors && !r.hasWarnings);
+            const validated = results.filter(r => r.validation);
+            const errCount = results.filter(r => r.validation?.hasErrors).length;
+            const warnCount = results.filter(r => r.validation?.hasWarnings && !r.validation?.hasErrors).length;
+            const cleanCount = validated.length - errCount - warnCount;
 
-            let message = '';
-
-            if (filesClean.length > 0) {
-                message += `✓ ${filesClean.length} file(s) validated successfully with no issues:\n`;
-                filesClean.forEach(r => {
-                    message += `  - ${r.file}\n`;
-                });
-            }
-
-            if (filesWithWarnings.length > 0) {
-                message += `\n⚠ ${filesWithWarnings.length} file(s) have warnings:\n`;
-                filesWithWarnings.forEach(r => {
-                    message += `  - ${r.file}: ${r.diagnostics.length} warning(s)\n`;
-                    r.diagnostics.forEach((d: any, idx: number) => {
-                        if (idx < 3) { // Show first 3 warnings
-                            message += `    • Line ${d.range?.start?.line || 0}: ${d.message}\n`;
-                            // Show available code actions/fixes
-                            if (d.codeActions && d.codeActions.length > 0) {
-                                message += `      Available fixes:\n`;
-                                d.codeActions.forEach((action: any) => {
-                                    message += `        - ${action.title}\n`;
-                                });
-                            }
-                        }
-                    });
-                    if (r.diagnostics.length > 3) {
-                        message += `    ... and ${r.diagnostics.length - 3} more\n`;
-                    }
-                });
-            }
-
-            if (filesWithErrors.length > 0) {
-                message += `\n✗ ${filesWithErrors.length} file(s) have errors:\n`;
-                filesWithErrors.forEach(r => {
-                    const errorDiagnostics = r.diagnostics.filter((d: any) => d.severity === 1);
-                    message += `  - ${r.file}: ${errorDiagnostics.length} error(s)\n`;
-                    errorDiagnostics.forEach((d: any, idx: number) => {
-                        if (idx < 3) { // Show first 3 errors
-                            message += `    • Line ${d.range?.start?.line || 0}: ${d.message}\n`;
-                            // Show available code actions/fixes
-                            if (d.codeActions && d.codeActions.length > 0) {
-                                message += `      Available fixes:\n`;
-                                d.codeActions.forEach((action: any) => {
-                                    message += `        - ${action.title}\n`;
-                                });
-                            }
-                        }
-                    });
-                    if (errorDiagnostics.length > 3) {
-                        message += `    ... and ${errorDiagnostics.length - 3} more\n`;
-                    }
-                });
-            }
-
-            logDebug(`[ValidateCodeTool] Validation complete: ${filesClean.length} clean, ${filesWithWarnings.length} warnings, ${filesWithErrors.length} errors`);
-            logDebug(`[ValidateCodeTool] Message: ${message}`);
+            logDebug(`[ValidateCodeTool] Validation complete: ${cleanCount} clean, ${warnCount} warnings, ${errCount} errors`);
 
             return {
                 success: true,
-                message: message.trim()
+                message: parts.join('\n')
             };
         } catch (error) {
             logError(`[ValidateCodeTool] Error validating files: ${error instanceof Error ? error.message : String(error)}`);
@@ -252,29 +120,14 @@ export function createValidateCodeTool(execute: ValidateCodeExecuteFn) {
     return (tool as any)({
         description: `
             Validates Synapse XML configuration files using the Extended LemMinx XML Language Server for Synapse.
+            Includes LSP code actions (quick fixes) for each diagnostic.
 
-            This tool:
-            - Checks XML syntax and structure
-            - Validates against Synapse schema and Synapse Expressions.
-            - Reports errors and warnings with line numbers
-            - Provides available LSP quick fixes for each diagnostic
-            - Works with any Synapse artifact type (API, Sequence, Endpoint, etc.)
-
-            Usage:
-            - Use this tool after creating or editing Synapse XML files
-            - Validates multiple files in a single call
-            - Returns detailed diagnostics with available fixes for each file
-
-            When to use:
-            - After using file_write or file_edit tools
-            - Before completing a task to ensure code quality
-            - When the user requests validation
-            - To check for errors in existing files
-            - To see what automatic fixes are available for errors
-
-            Important:
-            - Ensure required connectors are added before validating files that use them using ${MANAGE_CONNECTOR_TOOL_NAME}
-            - Available fixes are provided by the LemMinx LSP and show what can be auto-corrected`,
+            NOTE: file_write and file_edit already validate automatically.
+            Only use this tool to:
+            - Validate existing files you haven't just written/edited
+            - Batch-validate multiple files at once
+            - Re-validate after adding connectors via ${MANAGE_CONNECTOR_TOOL_NAME}
+            - When the user explicitly requests validation`,
         inputSchema: validateCodeInputSchema,
         execute
     });
