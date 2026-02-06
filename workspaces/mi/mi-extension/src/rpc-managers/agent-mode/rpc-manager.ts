@@ -483,6 +483,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             const result = await executeCompactAgent({
                 messages,
                 trigger: 'user',
+                projectPath: this.projectUri,
             });
 
             if (!result.success || !result.summary) {

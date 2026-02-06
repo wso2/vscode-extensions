@@ -31,7 +31,7 @@
  * - Auto-triggered (context limit): Summarize, save, then caller triggers new agent run.
  */
 
-import { generateText } from 'ai';
+import { generateText, wrapLanguageModel } from 'ai';
 import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from '../../../connection';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { getSystemPrompt } from '../main/system';
@@ -39,6 +39,13 @@ import {
     COMPACT_SYSTEM_REMINDER_USER_TRIGGERED,
     COMPACT_SYSTEM_REMINDER_AUTO_TRIGGERED,
 } from './prompt';
+import { createCompactAgentTools } from './tools';
+import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
+
+// ============================================================================
+// Dev Feature Flags
+// ============================================================================
+const ENABLE_DEVTOOLS = true; // Set to true to enable AI SDK DevTools (local development only!)
 
 // ============================================================================
 // Types
@@ -49,6 +56,7 @@ export interface CompactAgentRequest {
     messages: any[];
     /** How the compact was triggered */
     trigger: 'user' | 'auto';
+    projectPath: string;
 }
 
 export interface CompactAgentResult {
@@ -242,27 +250,50 @@ export async function executeCompactAgent(
             { role: 'user' as const, content: systemReminder },
         ];
 
-        // 5. Call Haiku with the full conversation
+        // 5. Create tools object (provides context about tool schemas for better summarization)
+        // All execute functions are blocked with system reminder messages
+        const tools = createCompactAgentTools();
+
+        // 6. Call Haiku with the full conversation
         logInfo('[CompactAgent] Calling Haiku for summarization...');
-        const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
+        let model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
+
+        if (ENABLE_DEVTOOLS) {
+            const originalCwd = process.cwd();
+            process.chdir(request.projectPath);
+            const { devToolsMiddleware } = await import('@ai-sdk/devtools');
+            model = wrapLanguageModel({
+                model,
+                // Cast to any to handle potential version mismatch between AI SDK and DevTools
+                middleware: devToolsMiddleware() as any,
+            });
+            process.chdir(originalCwd);  // Restore immediately after middleware creation
+        }
 
         const { text, usage } = await generateText({
             model,
             system: systemPrompt,
             messages: allMessages,
+            tools, // Provide tool definitions for context (won't be executed)
             maxOutputTokens: 16000,
-            temperature: 0.3,
-            maxRetries: 0,
+            temperature: 0,
+            maxRetries: 3,
         });
 
         logInfo(`[CompactAgent] Summary generated: ${text.length} chars, ` +
             `input: ${usage?.inputTokens || 0}, output: ${usage?.outputTokens || 0}`);
 
-        if (!text?.trim()) {
+        // Extract the summary from the text
+        const summary = text.match(/<summary>(.*?)<\/summary>/s)?.[1]?.trim() || text.trim();
+
+        if (!summary) {
             return { success: false, error: 'Haiku did not return a summary' };
         }
 
-        return { success: true, summary: text.trim() };
+        return { 
+            success: true,
+            summary: `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. \n ${summary}` 
+        };
 
     } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);

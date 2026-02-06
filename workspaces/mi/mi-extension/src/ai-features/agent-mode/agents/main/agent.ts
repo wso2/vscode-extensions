@@ -30,75 +30,14 @@ import { getUserPrompt, UserPromptParams } from './prompt';
 import { addCacheControlToMessages } from '../../../cache-utils';
 
 import {
-    createWriteTool,
-    createReadTool,
-    createEditTool,
-    createGrepTool,
-    createGlobTool,
-    createWriteExecute,
-    createReadExecute,
-    createEditExecute,
-    createGrepExecute,
-    createGlobExecute,
-} from '../../tools/file_tools';
-import {
-    createConnectorTool,
-    createConnectorExecute,
-    createGetConnectorDocumentationTool,
-    createGetConnectorDocumentationExecute,
-    createGetAIConnectorDocumentationTool,
-    createGetAIConnectorDocumentationExecute,
-} from '../../tools/connector_tools';
-import {
-    createManageConnectorTool,
-    createManageConnectorExecute,
-} from '../../tools/project_tools';
-import {
-    createValidateCodeTool,
-    createValidateCodeExecute,
-} from '../../tools/lsp_tools';
-import {
-    createCreateDataMapperTool,
-    createCreateDataMapperExecute,
-    createGenerateDataMappingTool,
-    createGenerateDataMappingExecute,
-} from '../../tools/data_mapper_tools';
-import {
-    createBuildProjectTool,
-    createBuildProjectExecute,
-    createServerManagementTool,
-    createServerManagementExecute,
-} from '../../tools/runtime_tools';
-import {
-    createTaskTool,
-    createTaskExecute,
-} from '../../tools/task_tool';
-import {
-    createAskUserTool,
-    createAskUserExecute,
-    createEnterPlanModeTool,
-    createEnterPlanModeExecute,
-    createExitPlanModeTool,
-    createExitPlanModeExecute,
-    createTodoWriteTool,
-    createTodoWriteExecute,
     PendingQuestion,
     PendingPlanApproval,
 } from '../../tools/plan_mode_tools';
 import {
-    createBashTool,
-    createBashExecute,
-    createKillShellTool,
-    createKillShellExecute,
-    createTaskOutputTool,
-    createTaskOutputExecute,
-} from '../../tools/bash_tools';
-import {
+    createAgentTools,
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
-    FILE_GREP_TOOL_NAME,
-    FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
@@ -108,15 +47,10 @@ import {
     GENERATE_DATA_MAPPING_TOOL_NAME,
     BUILD_PROJECT_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
-    TASK_TOOL_NAME,
-    ASK_USER_TOOL_NAME,
-    ENTER_PLAN_MODE_TOOL_NAME,
-    EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
     BASH_TOOL_NAME,
     KILL_SHELL_TOOL_NAME,
-    TASK_OUTPUT_TOOL_NAME,
-} from '../../tools/types';
+} from './tools';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { ChatHistoryManager } from '../../chat-history-manager';
 import { getToolAction } from '../../tool-action-mapper';
@@ -253,76 +187,16 @@ export async function executeAgent(
         let savedMessageCount = 0;
 
         // Create tools (cache control will be added dynamically by prepareStep)
-        const tools = {
-            [FILE_WRITE_TOOL_NAME]: createWriteTool(
-                createWriteExecute(request.projectPath, modifiedFiles)
-            ),
-            [FILE_READ_TOOL_NAME]: createReadTool(
-                createReadExecute(request.projectPath)
-            ),
-            [FILE_EDIT_TOOL_NAME]: createEditTool(
-                createEditExecute(request.projectPath, modifiedFiles)
-            ),
-            [FILE_GREP_TOOL_NAME]: createGrepTool(
-                createGrepExecute(request.projectPath)
-            ),
-            [FILE_GLOB_TOOL_NAME]: createGlobTool(
-                createGlobExecute(request.projectPath)
-            ),
-            [CONNECTOR_TOOL_NAME]: createConnectorTool(
-                createConnectorExecute()
-            ),
-            [MANAGE_CONNECTOR_TOOL_NAME]: createManageConnectorTool(
-                createManageConnectorExecute(request.projectPath)
-            ),
-            [VALIDATE_CODE_TOOL_NAME]: createValidateCodeTool(
-                createValidateCodeExecute(request.projectPath)
-            ),
-            [GET_CONNECTOR_DOCUMENTATION_TOOL_NAME]: createGetConnectorDocumentationTool(
-                createGetConnectorDocumentationExecute()
-            ),
-            [GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME]: createGetAIConnectorDocumentationTool(
-                createGetAIConnectorDocumentationExecute()
-            ),
-            [CREATE_DATA_MAPPER_TOOL_NAME]: createCreateDataMapperTool(
-                createCreateDataMapperExecute(request.projectPath, modifiedFiles)
-            ),
-            [GENERATE_DATA_MAPPING_TOOL_NAME]: createGenerateDataMappingTool(
-                createGenerateDataMappingExecute(request.projectPath, modifiedFiles)
-            ),
-            [BUILD_PROJECT_TOOL_NAME]: createBuildProjectTool(
-                createBuildProjectExecute(request.projectPath, sessionDir)
-            ),
-            [SERVER_MANAGEMENT_TOOL_NAME]: createServerManagementTool(
-                createServerManagementExecute(request.projectPath, sessionDir)
-            ),
-            // Plan Mode Tools
-            [TASK_TOOL_NAME]: createTaskTool(
-                createTaskExecute(request.projectPath, sessionId, (model) => getAnthropicClient(model))
-            ),
-            [ASK_USER_TOOL_NAME]: createAskUserTool(
-                createAskUserExecute(eventHandler, pendingQuestions)
-            ),
-            [ENTER_PLAN_MODE_TOOL_NAME]: createEnterPlanModeTool(
-                createEnterPlanModeExecute(request.projectPath, sessionId, eventHandler)
-            ),
-            [EXIT_PLAN_MODE_TOOL_NAME]: createExitPlanModeTool(
-                createExitPlanModeExecute(request.projectPath, sessionId, eventHandler, pendingApprovals)
-            ),
-            [TODO_WRITE_TOOL_NAME]: createTodoWriteTool(
-                createTodoWriteExecute(eventHandler)  // In-memory only
-            ),
-            // Bash Tools
-            [BASH_TOOL_NAME]: createBashTool(
-                createBashExecute(request.projectPath)
-            ),
-            [KILL_SHELL_TOOL_NAME]: createKillShellTool(
-                createKillShellExecute()
-            ),
-            [TASK_OUTPUT_TOOL_NAME]: createTaskOutputTool(
-                createTaskOutputExecute()
-            ),
-        };
+        const tools = createAgentTools({
+            projectPath: request.projectPath,
+            modifiedFiles,
+            sessionId,
+            sessionDir,
+            eventHandler,
+            pendingQuestions,
+            pendingApprovals,
+            getAnthropicClient,
+        });
 
         // Track step number for logging
         let currentStepNumber = 0;
@@ -343,8 +217,6 @@ export async function executeAgent(
                 middleware: devToolsMiddleware() as any,
             });
             process.chdir(originalCwd);  // Restore immediately after middleware creation
-            logInfo(`[DevTools] Enabled - data at ${request.projectPath}/.devtools`);
-            logInfo('[DevTools] Run "npx @ai-sdk/devtools" to view at http://localhost:4983');
         }
 
         // Simple prepareStep: just mark the last message for caching

@@ -28,70 +28,85 @@
  */
 
 const PROMPT = `
-Produce a comprehensive summary of the conversation so far so that a new session of this agent can continue the work seamlessly from the summary alone. The summary will replace the entire conversation history.
+Your task is to create a detailed summary of the conversation so far, paying close attention to the user's explicit requests and your previous actions.
+This summary should be thorough in capturing technical details, code patterns, and architectural decisions that would be essential for continuing development work without losing context.
 
-Your summary should follow the structure below: 
+Before providing your final summary, wrap your analysis in <analysis> tags to organize your thoughts and ensure you've covered all necessary points. In your analysis process:
 
----
-This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+1. Chronologically analyze each message and section of the conversation. For each section thoroughly identify:
+   - The user's explicit requests and intents
+   - Your approach to addressing the user's requests
+   - Key decisions, technical concepts and code patterns
+   - Specific details like file names, full code snippets, function signatures, file edits, etc
+2. Double-check for technical accuracy and completeness, addressing each required element thoroughly.
+3. Do not include what's in your system prompt or tool definitions in the summary because you will have the same system prompt and tool definitions in the next session.
 
-# Analysis:
-A short chronological narrative of what the user and agent did. Be specific: include file paths, function names, line numbers, and error messages where available.
+Your summary should include the following sections:
 
-# Summary:
+1. Primary Request and Intent: Capture all of the user's explicit requests and intents in detail
+2. Key Technical Concepts if any: List all important technical concepts, technologies discussed.
+3. Files and Code Sections: Enumerate specific files and code sections examined, modified, or created. Pay special attention to the most recent messages and include full code snippets where applicable and include a summary of why this file read or edit is important.
+4. Problem Solving: Document problems solved and any ongoing troubleshooting efforts.
+5. Pending Tasks: Outline any pending tasks that you have explicitly been asked to work on.
+6. Current Work: Describe in detail precisely what was being worked on immediately before this summary request, paying special attention to the most recent messages from both user and assistant. Include file names and code snippets where applicable.
+7. Optional Next Step: List the next step that you will take that is related to the most recent work you were doing. IMPORTANT: ensure that this step is DIRECTLY in line with the user's explicit requests, and the task you were working on immediately before this summary request. If your last task was concluded, then only list next steps if they are explicitly in line with the users request. Do not start on tangential requests without confirming with the user first.
+8. If there is a next step, include direct quotes from the most recent conversation showing exactly what task you were working on and where you left off. This should be verbatim to ensure there's no drift in task interpretation.
 
-## 1. Primary Request and Intent ( Ignore this section if it is not relevant to the conversation )
-What the user wanted to achieve. If multiple distinct requests, list each separately.
+Here's an example of how your output should be structured:
 
-## 2. Key Technical Concepts ( Ignore this section if it is not relevant to the conversation )
-Bullet list of key technologies, patterns, and concepts discussed. Use **bold** for concept names.
+<example>
+<analysis>
+[Your thought process, ensuring all points are covered thoroughly and accurately]
+</analysis>
 
-## 3. Files and Code Sections ( Ignore this section if it is not relevant to the conversation ) 
-For each file read, modified, or created:
-- File path in inline code
-- Whether read-only, modified, or created
-- Key code changes in fenced code blocks
-- Brief explanation of what changed and why
+<summary>
+1. Primary Request and Intent:
+   [Detailed description]
 
-## 4. Errors and Fixes ( Ignore this section if it is not relevant to the conversation )
-For each error: the message, root cause, and fix. If none, state "No errors encountered."
+2. Key Technical Concepts:
+   - [Concept 1]
+   - [Concept 2]
+   - [...]
 
-## 5. Problem Solving ( Ignore this section if it is not relevant to the conversation ) 
-Problems solved, approach used, key design decisions and tradeoffs.
+3. Files and Code Sections:
+   - [File Name 1]
+      - [Summary of why this file is important]
+      - [Summary of the changes made to this file, if any]
+      - [Important Code Snippet]
+   - [File Name 2]
+      - [Important Code Snippet]
+   - [...]
 
-## 6. All User Messages ( Ignore this section if it is not relevant to the conversation )
-Every user message, verbatim, in chronological order using quoted format.
+4. Problem Solving:
+   [Description of solved problems and ongoing troubleshooting]
 
-## 7. Pending Tasks ( Ignore this section if it is not relevant to the conversation )
-Incomplete work or known issues. If all done, state "None - all tasks completed."
+5. Pending Tasks:
+   - [Task 1]
+   - [Task 2]
+   - [...]
 
-## 8. Current Work ( Ignore this section if it is not relevant to the conversation )
-What was last being worked on? State of builds/tests? Uncommitted changes?
+6. Current Work:
+   [Precise description of current work]
 
-## 9. Optional Next Step ( Ignore this section if it is not relevant to the conversation )
-1-3 specific logical next steps.
+7. Optional Next Step:
+   [Optional Next step to take]
 
----
+</summary>
+</example>
 
-**CRITICAL RULES:**
-- The summary must be self-contained: a new agent session must be able to resume work from the summary alone.
-- Be comprehensive but concise. Prioritize information density.
-- Include specific technical details: file paths, line numbers, function names, error messages, tool names.
-- Preserve key code snippets in fenced code blocks.
-- Do NOT fabricate information. Only include what actually happened.
-- Keep the total summary under 12,000 tokens.
-</system-reminder>`;
+Please provide your summary based on the conversation so far, following this structure and ensuring precision and thoroughness in your response. 
+`;
 
 export const COMPACT_SYSTEM_REMINDER_USER_TRIGGERED = `
-<system-reminder>
-The user has triggered a /compact command to summarize this conversation.
+<system_reminder>
+The user has triggered a /compact command to summarize this conversation to reduce token usage and reduce the context window.
 ${PROMPT}
-<system-reminder>
+</system_reminder>
 `;
 
 export const COMPACT_SYSTEM_REMINDER_AUTO_TRIGGERED = `
-<system-reminder>
+<system_reminder>
 The conversation context window is running out. You must summarize the conversation immediately so that work can continue in a fresh context.
 ${PROMPT}
-<system-reminder>
+</system_reminder>
 `;
