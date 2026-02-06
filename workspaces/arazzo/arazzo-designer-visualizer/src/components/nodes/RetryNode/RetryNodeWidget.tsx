@@ -27,7 +27,7 @@ const RetryNodeContainer = styled.div`
     width: ${RETRY_NODE_DIAMETER}px;
     height: ${RETRY_NODE_DIAMETER}px;
     border-radius: 50%;
-    background-color: ${ThemeColors.SECONDARY};
+    background-color: ${ThemeColors.SURFACE_DIM};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -44,7 +44,7 @@ const RetryNodeContainer = styled.div`
 `;
 
 const RetryIcon = styled.div`
-    color: ${ThemeColors.ON_SECONDARY};
+    color: ${ThemeColors.ON_SURFACE};
     font-size: 22px;
     font-weight: 700;
     user-select: none;
