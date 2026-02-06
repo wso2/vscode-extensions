@@ -56,6 +56,7 @@ const HeaderBar = styled.div`
 const TitleRow = styled.div`
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
     margin-bottom: 12px;
 `;
@@ -133,13 +134,21 @@ const SelectChevron = styled.span`
     opacity: 0.8;
 `;
 
-const UrlInputField = styled.input`
+const UrlInputWrapper = styled.div`
+    position: relative;
     flex: 1;
+    display: flex;
+    align-items: center;
+`;
+
+const UrlInputField = styled.input`
+    width: 100%;
     height: 32px;
     background: transparent;
     border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
     border-radius: 4px;
-    padding: 0 12px;
+    padding: 0 12px 0 12px;
+    padding-right: 110px; /* Reserve space for inline Save button */
     color: var(--vscode-foreground);
     font-size: 14px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 16px rgba(0, 0, 0, 0.28);
@@ -152,6 +161,29 @@ const UrlInputField = styled.input`
     &:focus {
         outline: 2px solid var(--vscode-focusBorder);
         box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+    }
+`;
+
+const SaveInlineButton = styled.button`
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    background: var(--vscode-secondaryButton-background);
+    color: var(--vscode-secondaryButton-foreground);
+    border: 1px solid var(--vscode-button-border, transparent);
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+
+    &:hover {
+        filter: brightness(0.95);
     }
 `;
 
@@ -684,15 +716,25 @@ export const MainPanel: React.FC = () => {
                             )}
                         </MethodSelectWrapper>
 
-                        <UrlInputField
-                            id="url-input"
-                            value={requestItem.request.url || ''}
-                            placeholder="Enter URL or paste text"
-                            onChange={(event) => handleRequestChange({
-                                ...requestItem.request,
-                                url: event.target.value
-                            })}
-                        />
+                        <UrlInputWrapper>
+                            <UrlInputField
+                                id="url-input"
+                                value={requestItem.request.url || ''}
+                                placeholder="Enter URL or paste text"
+                                onChange={(event) => handleRequestChange({
+                                    ...requestItem.request,
+                                    url: event.target.value
+                                })}
+                            />
+
+                            <SaveInlineButton
+                                type="button"
+                                aria-label="Save request"
+                                onClick={handleSaveRequest}
+                            >
+                                <Codicon sx={{ height: 20 }} iconSx={{ fontSize: 20 }} tooltip='Save request' name="save" />
+                            </SaveInlineButton>
+                        </UrlInputWrapper>
 
                         <Button
                             buttonSx={{height: 35, borderRadius: 4, width: 75}}
