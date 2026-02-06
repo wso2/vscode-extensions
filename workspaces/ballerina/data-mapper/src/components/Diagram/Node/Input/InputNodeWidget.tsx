@@ -68,6 +68,8 @@ export function InputNodeWidget(props: InputNodeWidgetProps) {
 
     if (dmType.kind === TypeKind.Record) {
         fields = dmType.fields;
+    } else if (dmType.kind === TypeKind.Tuple) {
+        fields = dmType.members;
     } else if (dmType.kind === TypeKind.Array) {
         fields = [ dmType.member ];
     } else if (dmType.kind === TypeKind.Enum) {
@@ -172,6 +174,7 @@ export function InputNodeWidget(props: InputNodeWidgetProps) {
                                     treeDepth={0}
                                     hasHoveredParent={isHovered}
                                     focusedInputs={focusedInputs}
+                                    parentFieldKind={dmType.kind}
                                 />
                             );
                         })

@@ -113,8 +113,9 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 
 		const fieldName = field?.name;
 		const isArray = this.isArrayTypedField(field);
-		const fieldFQN = this.getInputFieldFQN(field?.isFocused ? "" : parentId, fieldName, isOptional);
-		const unsafeFieldFQN = this.getUnsafeFieldFQN(field?.isFocused ? "" : unsafeParentId, fieldName);
+		const parentFieldKind = parent?.attributes.field?.kind;
+		const fieldFQN = this.getInputFieldFQN(field?.isFocused ? "" : parentId, fieldName, isOptional, parentFieldKind);
+		const unsafeFieldFQN = this.getUnsafeFieldFQN(field?.isFocused ? "" : unsafeParentId, fieldName, parentFieldKind);
 		const portName = this.getPortName(portPrefix, unsafeFieldFQN);
 		const isFocused = this.isFocusedField(focusedFieldFQNs, portName);
 		const isPreview = parent.attributes.isPreview || this.isPreviewPort(focusedFieldFQNs, parent.attributes.field);
@@ -174,7 +175,8 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 
 		const isArray = this.isArrayTypedField(field);
 		const newParentId = this.getNewParentId(parentId, elementIndex);
-		let fieldFQN = this.getOutputFieldFQN(newParentId, field, elementIndex);
+		const parentFieldKind = parent?.attributes.field?.kind;
+		let fieldFQN = this.getOutputFieldFQN(newParentId, field, parentFieldKind, elementIndex);
 		const portName = this.getPortName(portPrefix, fieldFQN);
 		
 		const mapping = findMappingByOutput(mappings, fieldFQN);
@@ -211,6 +213,8 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 	protected async processOutputFieldKind(attributes: OutputPortAttributes) {
 		if (attributes.field?.kind === TypeKind.Record) {
 			await this.processRecordField(attributes);
+		} else if (attributes.field?.kind === TypeKind.Tuple) {
+			await this.processTupleField(attributes);
 		} else if (attributes.field?.kind === TypeKind.Array) {
 			await this.processArrayField(attributes);
 		}
@@ -266,13 +270,21 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 			focusedFieldFQNs.some(fqn => fqn.startsWith(fieldFQN + ".") || fqn === fieldFQN);
 	}
 
-	private getInputFieldFQN(parentId: string, fieldName: string, isOptional: boolean): string {
+	private getInputFieldFQN(parentId: string, fieldName: string, isOptional: boolean, parentFieldKind: TypeKind | undefined): string {
+		if (parentFieldKind === TypeKind.Tuple) {
+			return `${parentId}${fieldName}`;
+		}
+
 		return parentId
 			? `${parentId}${fieldName && isOptional ? `?.${fieldName}` : `.${fieldName}`}`
 			: fieldName || '';
 	}
 
-	private getUnsafeFieldFQN(unsafeParentId: string, fieldName: string): string {
+	private getUnsafeFieldFQN(unsafeParentId: string, fieldName: string, parentFieldKind: TypeKind | undefined): string {
+		if (parentFieldKind === TypeKind.Tuple) {
+			return `${unsafeParentId}${fieldName}`;
+		}	
+
 		return unsafeParentId ? `${unsafeParentId}.${fieldName}` : fieldName || '';
 	}
 
@@ -280,10 +292,15 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		return elementIndex !== undefined ? `${parentId}.${elementIndex}` : parentId;
 	}
 
-	private getOutputFieldFQN(newParentId: string, field: IOType, elementIndex?: number): string {
+	private getOutputFieldFQN(newParentId: string, field: IOType, parentFieldKind: TypeKind | undefined, elementIndex?: number): string {
 		if (elementIndex !== undefined) {
 			return newParentId;
 		}
+
+		if (parentFieldKind === TypeKind.Tuple) {
+			return `${newParentId}${field?.name}`;
+		}
+
 		const fieldName = field?.name || '';
 		return newParentId !== '' ? fieldName !== '' ? `${newParentId}.${fieldName}` : newParentId : fieldName;
 	}
@@ -300,7 +317,7 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		isFocused: boolean
 	): boolean {
 		// In Inline Data Mapper, the inputs are always collapsed by default except focused view.
-		// Hence we explicitly check expandedFields for input header ports. 
+		// Hence we explicitly check expandedFields for input header ports.
 		if (portType === "IN" || isFocused) {
 			return collapsedFields?.includes(portName);
 		} else {
@@ -353,6 +370,9 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 			case TypeKind.Record:
 				numberOfFields += await this.createInputPortsForRecordField(attributes, isHidden);
 				break;
+			case TypeKind.Tuple:
+				numberOfFields += await this.createInputPortsForTupleField(attributes, isHidden);
+				break;
 			case TypeKind.Array:
 				numberOfFields += await this.createInputPortsForArrayField(attributes, isHidden);
 				break;
@@ -380,6 +400,23 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		return total;
 	}
 
+	private async createInputPortsForTupleField(attributes: InputPortAttributes, isHidden: boolean): Promise<number> {
+		const members = attributes.field?.members?.filter(m => !!m) || [];
+		if (members.length === 0) {
+			return 0;
+		}
+		let total = 0;
+		for (const member of members) {
+			total += await this.addPortsForInputField({
+				...attributes,
+				hidden: isHidden,
+				field: member,
+				isOptional: member.optional || attributes.isOptional
+			});
+		}
+		return total;
+	}
+
 	private async createInputPortsForArrayField(attributes: InputPortAttributes, isHidden: boolean): Promise<number> {
 		const memberField = attributes.field?.member;
 		return await this.addPortsForInputField({
@@ -397,6 +434,19 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 				await this.addPortsForOutputField({
 					...attributes,
 					field: subField,
+					elementIndex: undefined
+				});
+			}
+		}
+	}
+
+	private async processTupleField(attributes: OutputPortAttributes) {
+		const members = attributes.field?.members?.filter(m => !!m);
+		if (members && members.length) {
+			for (const member of members) {
+				await this.addPortsForOutputField({
+					...attributes,
+					field: member,
 					elementIndex: undefined
 				});
 			}

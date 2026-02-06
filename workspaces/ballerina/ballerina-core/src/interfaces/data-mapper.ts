@@ -37,6 +37,7 @@ export enum TypeKind {
     Boolean = "boolean",
     Enum = "enum",
     Union = "union",
+    Tuple = "tuple",
     Unknown = "$CompilationError$",
     Anydata = "anydata",
     Byte = "byte",

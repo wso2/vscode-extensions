@@ -234,6 +234,7 @@ export function SubMappingItemWidget(props: SubMappingItemProps) {
                                     parentId={id}
                                     treeDepth={0}
                                     hasHoveredParent={isHovered}
+                                    parentFieldKind={type.kind}
                                 />
                             );
                         })}

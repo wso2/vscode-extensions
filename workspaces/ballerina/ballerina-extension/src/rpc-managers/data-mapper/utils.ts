@@ -537,6 +537,14 @@ function processTypeKind(
             }
             break;
 
+        case TypeKind.Tuple:
+            if (type.members) {
+                return {
+                    members: processTuple(type.members, parentId, model, visitedRefs)
+                };
+            }
+            break;
+
         case TypeKind.Record:
             if (type.ref) {
                 return processTypeReference(type.ref, parentId, model, visitedRefs);
@@ -786,5 +794,37 @@ function processEnum(
         kind: member.kind,
         ...(member.optional && { optional: member.optional })
     }));
+}
+
+/**
+ * Processes tuple type members and returns an array of IOType objects
+ * Each tuple member is processed with its index-based identifier
+ */
+function processTuple(
+    tupleMembers: IOTypeField[],
+    parentId: string,
+    model: DMModel,
+    visitedRefs: Set<string>
+): IOType[] {
+    return tupleMembers.map((tupleMember, index) => {
+        const memberFieldId = `${parentId}[${index}]`;
+
+        const tupleMemberType: IOType = {
+            id: memberFieldId,
+            name: tupleMember.name,
+            displayName: tupleMember.displayName,
+            typeName: tupleMember.typeName,
+            kind: tupleMember.kind,
+            ...(tupleMember.optional && { optional: tupleMember.optional }),
+            ...(tupleMember.typeInfo && { typeInfo: tupleMember.typeInfo })
+        };
+
+        const typeSpecificProps = processTypeKind(tupleMember, memberFieldId, model, new Set(visitedRefs));
+
+        return {
+            ...tupleMemberType,
+            ...typeSpecificProps
+        };
+    });
 }
 

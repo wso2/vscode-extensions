@@ -84,6 +84,22 @@ export class InputNode extends DataMapperNodeModel {
                         focusedFieldFQNs
                     });
                 }
+            } else if (this.filteredInputType.kind === TypeKind.Tuple) {
+                const members = this.filteredInputType.members?.filter(m => !!m);
+                for (const member of members) {
+                    this.numberOfFields += await this.addPortsForInputField({
+                        field: member,
+                        portType: "OUT",
+                        parentId: this.identifier,
+                        unsafeParentId: this.identifier,
+                        parent: parentPort,
+                        collapsedFields,
+                        expandedFields,
+                        hidden: parentPort.attributes.collapsed,
+                        isOptional: member.optional,
+                        focusedFieldFQNs
+                    });
+                }
             } else if (this.filteredInputType.kind === TypeKind.Enum) {
                 for (const member of this.filteredInputType.members ?? []) {
                     this.numberOfFields += await this.addPortsForInputField({
