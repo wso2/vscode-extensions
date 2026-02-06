@@ -105,7 +105,8 @@ export function splitContent(content: string): ContentSegment[] {
     const segments: ContentSegment[] = [];
     let match;
     // Updated regex to include <toolcall>, <todolist>, and <bashoutput> tags with optional data attributes
-    const regex = /```(xml|bash|json|javascript|java|python)([\s\S]*?)```|<toolcall(?:\s+[^>]*)?>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>/g;
+    // Code block regex matches any language (or no language) followed by a newline
+    const regex = /```(\w*)\n([\s\S]*?)```|<toolcall(?:\s+[^>]*)?>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>/g;
     let start = 0;
 
     // Helper function to mark the last toolcall segment as complete
@@ -125,22 +126,22 @@ export function splitContent(content: string): ContentSegment[] {
             segments.push(...splitHalfGeneratedCode(segment));
         }
 
-        if (match[1]) {
-            // Code block matched
+        if (match[2] !== undefined) {
+            // Code block matched (match[1] is language, may be empty for bare ``` fences)
             updateLastToolCallSegmentLoading();
-            segments.push({ isCode: true, loading: false, language: match[1], text: match[2] });
-        } else if (match[3]) {
+            segments.push({ isCode: true, loading: false, language: match[1] || undefined, text: match[2] });
+        } else if (match[3] !== undefined) {
             // <toolcall> block matched
             updateLastToolCallSegmentLoading();
             const toolcallText = match[3];
             // Determine loading state: if text ends with "...", it's still loading
             const isLoading = toolcallText.trim().endsWith('...');
             segments.push({ isToolCall: true, loading: isLoading, text: toolcallText, failed: false });
-        } else if (match[4]) {
+        } else if (match[4] !== undefined) {
             // <todolist> block matched
             updateLastToolCallSegmentLoading();
             segments.push({ isTodoList: true, loading: false, text: match[4] });
-        } else if (match[5]) {
+        } else if (match[5] !== undefined) {
             // <bashoutput> block matched
             updateLastToolCallSegmentLoading();
             segments.push({ isBashOutput: true, loading: false, text: match[5] });

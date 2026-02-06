@@ -89,7 +89,7 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
 
             {splitContent(message.content).map((segment, i) => {
                 if (segment.isCode) {
-                    return <CodeSegment key={i} segmentText={segment.text} loading={segment.loading} index={index} />;
+                    return <CodeSegment key={i} segmentText={segment.text} loading={segment.loading} language={segment.language} index={index} />;
                 } else if (segment.isToolCall) {
                     return <ToolCallSegment key={i} text={segment.text} loading={segment.loading} failed={segment.failed || false} />;
                 } else if (segment.isTodoList) {

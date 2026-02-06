@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { FlexRow, Footer, StyledTransParentButton, RippleLoader, FlexColumn } from "../styles";
 import { Codicon } from "@wso2/ui-toolkit";
 import { useMICopilotContext } from "./MICopilotContext";
@@ -24,7 +24,7 @@ import { handleFileAttach, convertChatHistoryToModelMessages } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
 import { generateId, updateTokenInfo } from "../utils";
 import { BackendRequestType } from "../types";
-import { Role, MessageType, CopilotChatEntry, AgentEvent } from "@wso2/mi-core";
+import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage } from "@wso2/mi-core";
 import { TodoItem } from "@wso2/mi-core/lib/rpc-types/agent-mode/types";
 import Attachments from "./Attachments";
 
@@ -109,8 +109,33 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     // Tool status for agent tool calls
     const [toolStatus, setToolStatus] = useState<string>("");
 
+    // Refs to hold latest values for the event handler (avoids stale closure)
+    const assistantResponseRef = useRef<string>("");
+    const currentChatIdRef = useRef<number | null>(null);
+
+    // Keep refs in sync with state (for use in stale closure of event handler)
+    assistantResponseRef.current = assistantResponse;
+    currentChatIdRef.current = currentChatId;
+
+    // Helper: immutably update the last message's content
+    const updateLastMessage = (
+        prevMessages: ChatMessage[],
+        updater: (content: string) => string
+    ): ChatMessage[] => {
+        if (prevMessages.length === 0) return prevMessages;
+        const newMessages = [...prevMessages];
+        const lastIdx = newMessages.length - 1;
+        newMessages[lastIdx] = {
+            ...newMessages[lastIdx],
+            content: updater(newMessages[lastIdx].content),
+        };
+        return newMessages;
+    };
+
     // Handle agent streaming events from extension
-    const handleAgentEvent = (event: AgentEvent) => {
+    // Uses refs for values that change between renders (assistantResponseRef, currentChatIdRef)
+    // to avoid stale closure issues since this callback is registered once via onAgentEvent.
+    const handleAgentEvent = useCallback((event: AgentEvent) => {
         // Ignore all events if generation was aborted
         if (abortedRef.current) {
             return;
@@ -131,14 +156,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     // Update assistant response state
                     setAssistantResponse(prev => prev + content);
 
-                    // Update the last copilot message in real-time
-                    setMessages((prevMessages) => {
-                        const newMessages = [...prevMessages];
-                        if (newMessages.length > 0) {
-                            newMessages[newMessages.length - 1].content += content;
-                        }
-                        return newMessages;
-                    });
+                    // Update the last copilot message in real-time (immutable update)
+                    setMessages((prev) => updateLastMessage(prev, (c) => c + content));
                 }
                 break;
 
@@ -160,14 +179,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         };
 
                         setToolStatus(toolInfo?.description || "Running command...");
-
-                        setMessages((prevMessages) => {
-                            const newMessages = [...prevMessages];
-                            if (newMessages.length > 0) {
-                                newMessages[newMessages.length - 1].content += `\n\n<bashoutput data-loading="true">${JSON.stringify(bashData)}</bashoutput>`;
-                            }
-                            return newMessages;
-                        });
+                        setMessages((prev) => updateLastMessage(prev, (c) =>
+                            c + `\n\n<bashoutput data-loading="true">${JSON.stringify(bashData)}</bashoutput>`
+                        ));
                         break;
                     }
 
@@ -182,14 +196,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     setToolStatus(toolMessage);
 
                     // Insert toolcall tag with loading state
-                    // Store loading action for potential fallback (backend provides completed action in tool_result)
-                    setMessages((prevMessages) => {
-                        const newMessages = [...prevMessages];
-                        if (newMessages.length > 0) {
-                            newMessages[newMessages.length - 1].content += `\n\n<toolcall data-loading="true" data-file="${filePath}">${toolMessage}</toolcall>`;
-                        }
-                        return newMessages;
-                    });
+                    setMessages((prev) => updateLastMessage(prev, (c) =>
+                        c + `\n\n<toolcall data-loading="true" data-file="${filePath}">${toolMessage}</toolcall>`
+                    ));
                 }
                 break;
 
@@ -198,68 +207,67 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 // Completed action is provided by backend from shared utility
                 setToolStatus("");
 
-                // Update the last toolcall tag to show completion
+                // Update the last toolcall tag to show completion (immutable update)
                 setMessages((prevMessages) => {
+                    if (prevMessages.length === 0) return prevMessages;
                     const newMessages = [...prevMessages];
-                    if (newMessages.length > 0) {
-                        const lastMessageContent = newMessages[newMessages.length - 1].content;
+                    const lastIdx = newMessages.length - 1;
+                    const lastMessageContent = newMessages[lastIdx].content;
 
-                        // Check if this is a bash tool result - look for loading bashoutput tag
-                        const bashPattern = /<bashoutput data-loading="true">[\s\S]*?<\/bashoutput>/g;
-                        const bashMatches = [...lastMessageContent.matchAll(bashPattern)];
+                    // Check if this is a bash tool result - look for loading bashoutput tag
+                    const bashPattern = /<bashoutput data-loading="true">[\s\S]*?<\/bashoutput>/g;
+                    const bashMatches = [...lastMessageContent.matchAll(bashPattern)];
 
-                        if (bashMatches.length > 0) {
-                            // Handle bash tool result - replace loading bashoutput with completed one
-                            const lastMatch = bashMatches[bashMatches.length - 1];
-                            const fullMatch = lastMatch[0];
+                    if (bashMatches.length > 0) {
+                        // Handle bash tool result - replace loading bashoutput with completed one
+                        const lastMatch = bashMatches[bashMatches.length - 1];
+                        const fullMatch = lastMatch[0];
 
-                            // Create completed bash output data structure
-                            const bashData = {
-                                command: event.bashCommand || '',
-                                description: event.bashDescription || '',
-                                output: event.bashStdout || '',
-                                exitCode: event.bashExitCode ?? 0,
-                                running: event.bashRunning || false,
-                                loading: false
-                            };
+                        const bashData = {
+                            command: event.bashCommand || '',
+                            description: event.bashDescription || '',
+                            output: event.bashStdout || '',
+                            exitCode: event.bashExitCode ?? 0,
+                            running: event.bashRunning || false,
+                            loading: false
+                        };
 
-                            const completedBashTag = `<bashoutput>${JSON.stringify(bashData)}</bashoutput>`;
+                        const completedBashTag = `<bashoutput>${JSON.stringify(bashData)}</bashoutput>`;
+                        const lastIndex = lastMessageContent.lastIndexOf(fullMatch);
+                        const beforeMatch = lastMessageContent.substring(0, lastIndex);
+                        const afterMatch = lastMessageContent.substring(lastIndex + fullMatch.length);
 
-                            // Replace the loading version with completed version
-                            const lastIndex = lastMessageContent.lastIndexOf(fullMatch);
-                            const beforeMatch = lastMessageContent.substring(0, lastIndex);
-                            const afterMatch = lastMessageContent.substring(lastIndex + fullMatch.length);
+                        newMessages[lastIdx] = {
+                            ...newMessages[lastIdx],
+                            content: beforeMatch + completedBashTag + afterMatch,
+                        };
+                        return newMessages;
+                    }
 
-                            newMessages[newMessages.length - 1].content = beforeMatch + completedBashTag + afterMatch;
-                            return newMessages;
-                        }
+                    // Find the last <toolcall> tag with loading state (non-bash tools)
+                    const toolPattern = /<toolcall data-loading="true" data-file="([^"]*)">([^<]*?)<\/toolcall>/g;
+                    const matches = [...lastMessageContent.matchAll(toolPattern)];
 
-                        // Find the last <toolcall> tag with loading state (non-bash tools)
-                        const toolPattern = /<toolcall data-loading="true" data-file="([^"]*)">([^<]*?)<\/toolcall>/g;
-                        const matches = [...lastMessageContent.matchAll(toolPattern)];
+                    if (matches.length > 0) {
+                        const lastMatch = matches[matches.length - 1];
+                        const fileName = lastMatch[1];
+                        const fullMatch = lastMatch[0];
 
-                        if (matches.length > 0) {
-                            // Get the last match (most recent tool call)
-                            const lastMatch = matches[matches.length - 1];
-                            const fileName = lastMatch[1];
-                            const fullMatch = lastMatch[0];
+                        const completedAction = event.completedAction || "executed";
+                        const capitalizedAction = completedAction.charAt(0).toUpperCase() + completedAction.slice(1);
 
-                            // Use completed action from backend (already in user-friendly format)
-                            const completedAction = event.completedAction || "executed";
-                            const capitalizedAction = completedAction.charAt(0).toUpperCase() + completedAction.slice(1);
+                        const completedMessage = fileName
+                            ? `<toolcall>${capitalizedAction} ${fileName}</toolcall>`
+                            : `<toolcall>${capitalizedAction}</toolcall>`;
 
-                            // Create completion message
-                            const completedMessage = fileName
-                                ? `<toolcall>${capitalizedAction} ${fileName}</toolcall>`
-                                : `<toolcall>${capitalizedAction}</toolcall>`;
+                        const lastIndex = lastMessageContent.lastIndexOf(fullMatch);
+                        const beforeMatch = lastMessageContent.substring(0, lastIndex);
+                        const afterMatch = lastMessageContent.substring(lastIndex + fullMatch.length);
 
-                            // Replace the loading version with completed version
-                            const lastIndex = lastMessageContent.lastIndexOf(fullMatch);
-                            const beforeMatch = lastMessageContent.substring(0, lastIndex);
-                            const afterMatch = lastMessageContent.substring(lastIndex + fullMatch.length);
-
-                            newMessages[newMessages.length - 1].content = beforeMatch + completedMessage + afterMatch;
-                        }
+                        newMessages[lastIdx] = {
+                            ...newMessages[lastIdx],
+                            content: beforeMatch + completedMessage + afterMatch,
+                        };
                     }
                     return newMessages;
                 });
@@ -278,25 +286,19 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
             case "abort":
                 // Abort acknowledged - finalize with partial content and "[Interrupted]" marker
-                // Keep the UI as-is, just add the interruption marker (Claude Code pattern)
                 setBackendRequestTriggered(false);
                 setMessages((prevMessages) => {
+                    if (prevMessages.length === 0) return prevMessages;
                     const newMessages = [...prevMessages];
-                    if (newMessages.length > 0) {
-                        const lastMessage = newMessages[newMessages.length - 1];
-                        // Only add marker if this is the assistant's message
-                        if (lastMessage.role === Role.MICopilot) {
-                            // Remove any pending toolcall tags with loading state
-                            let content = lastMessage.content.replace(/<toolcall data-loading="true"[^>]*>[^<]*<\/toolcall>/g, '');
-                            // Add interrupted marker
-                            content = content.trim();
-                            if (content) {
-                                content += "\n\n*[Interrupted by user]*";
-                            } else {
-                                content = "*[Interrupted by user]*";
-                            }
-                            newMessages[newMessages.length - 1].content = content;
-                        }
+                    const lastIdx = newMessages.length - 1;
+                    const lastMessage = newMessages[lastIdx];
+                    if (lastMessage.role === Role.MICopilot) {
+                        let content = lastMessage.content.replace(/<toolcall data-loading="true"[^>]*>[^<]*<\/toolcall>/g, '');
+                        content = content.trim();
+                        content = content
+                            ? content + "\n\n*[Interrupted by user]*"
+                            : "*[Interrupted by user]*";
+                        newMessages[lastIdx] = { ...lastMessage, content };
                     }
                     return newMessages;
                 });
@@ -305,9 +307,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 break;
 
             case "stop":
-                // Agent response completed - extract modelMessages from the event
-                if (assistantResponse) {
-                    handleAgentComplete(assistantResponse, event.modelMessages || []);
+                // Agent response completed - use ref to read latest assistantResponse (avoids stale closure)
+                if (assistantResponseRef.current) {
+                    handleAgentComplete(assistantResponseRef.current, event.modelMessages || []);
+                } else {
+                    // Even if no accumulated text, still mark as completed
+                    setBackendRequestTriggered(false);
                 }
                 // Fetch and update usage after agent response
                 rpcClient?.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
@@ -329,7 +334,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 const planEvent = event as any;
                 switch (planEvent.type) {
                     case "ask_user":
-                        // Agent is asking user questions - show question dialog
                         if (planEvent.questionId && planEvent.questions) {
                             setPendingQuestion({
                                 questionId: planEvent.questionId,
@@ -347,51 +351,35 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         break;
 
                     case "todo_updated":
-                        // Update todo list
                         if (planEvent.todos) {
                             setTodos(planEvent.todos);
 
-                            // Calculate overall status
                             const status = calculateTodoStatus(planEvent.todos);
-
-                            // Create JSON payload for todolist tag
-                            const todoData = {
-                                status,
-                                items: planEvent.todos
-                            };
+                            const todoData = { status, items: planEvent.todos };
                             const todoTag = `<todolist>${JSON.stringify(todoData)}</todolist>`;
 
-                            // Update or insert todolist in the last assistant message
+                            // Update or insert todolist in the last assistant message (immutable)
                             setMessages(prevMessages => {
                                 const newMessages = [...prevMessages];
-
-                                // Find the last assistant message
                                 for (let i = newMessages.length - 1; i >= 0; i--) {
                                     if (newMessages[i].role === Role.MICopilot) {
                                         const msg = newMessages[i];
-
-                                        // Check if message already has a todolist tag
                                         const todolistRegex = /<todolist>[\s\S]*?<\/todolist>/;
 
-                                        if (todolistRegex.test(msg.content)) {
-                                            // Replace existing todolist
-                                            msg.content = msg.content.replace(todolistRegex, todoTag);
-                                        } else {
-                                            // Append todolist to message
-                                            msg.content = msg.content + '\n\n' + todoTag;
-                                        }
+                                        const newContent = todolistRegex.test(msg.content)
+                                            ? msg.content.replace(todolistRegex, todoTag)
+                                            : msg.content + '\n\n' + todoTag;
 
+                                        newMessages[i] = { ...msg, content: newContent };
                                         break;
                                     }
                                 }
-
                                 return newMessages;
                             });
                         }
                         break;
 
                     case "plan_approval_requested":
-                        // Agent is requesting plan approval - show approval dialog
                         if (planEvent.approvalId) {
                             setPendingPlanApproval({
                                 approvalId: planEvent.approvalId,
@@ -403,7 +391,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 }
                 break;
         }
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rpcClient]);
 
     // Handle user cancelling the question dialog
     const handleQuestionCancel = async () => {
@@ -482,10 +471,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     };
 
     // Handle completion of agent response
-    const handleAgentComplete = async (finalContent: string, modelMessages?: any[]) => {
-        // Add backend response to copilot chat with modelMessages
+    // Uses currentChatIdRef to avoid stale closure (called from event handler)
+    const handleAgentComplete = useCallback((finalContent: string, modelMessages?: any[]) => {
         const newEntry: CopilotChatEntry = {
-            id: currentChatId || generateId(),
+            id: currentChatIdRef.current || generateId(),
             role: Role.CopilotAssistant,
             content: finalContent,
             modelMessages: modelMessages || []
@@ -493,7 +482,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
         setCopilotChat((prevCopilotChat) => [...prevCopilotChat, newEntry]);
         setBackendRequestTriggered(false);
-    };
+    }, []);
 
     // Handle text input keydown events
     const handleTextKeydown = (event: React.KeyboardEvent) => {
@@ -713,7 +702,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         if (rpcClient) {
             rpcClient.onAgentEvent(handleAgentEvent);
         }
-    }, [rpcClient]);
+    }, [rpcClient, handleAgentEvent]);
 
     // Local state for answers to questions
     // For single-select: questionIndex -> selected label
