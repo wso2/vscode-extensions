@@ -46,12 +46,10 @@ const PageContainer = styled.div`
 
 const HeaderBar = styled.div`
     padding: 16px 20px 10px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
     position: sticky;
     top: 0;
     z-index: 15;
     backdrop-filter: blur(4px);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
 `;
 
 const TitleRow = styled.div`
