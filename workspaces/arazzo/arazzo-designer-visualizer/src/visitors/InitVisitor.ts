@@ -128,7 +128,7 @@ export class InitVisitor {
                 x: 0, y: 0, w: 0, h: 0,
                 subtreeW: 0, subtreeH: 0,
                 // Initialize recursive container props
-                containerW: 0, containerH: 0,
+                //containerW: 0, containerH: 0,
                 topH: 0, bottomH: 0
             }
         };

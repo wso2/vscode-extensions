@@ -26,8 +26,8 @@ export interface ViewState {
     h: number; // Actual height of the node
 
     // For recursive layout strategy (Container Model)
-    containerW: number; // Full width of node + children
-    containerH: number; // Full height of node + children
+    //containerW: number; // Full width of node + children
+    //containerH: number; // Full height of node + children
 
     // Distances from the connection point (vertical center of the node entry)
     // to the top and bottom boundaries of the container

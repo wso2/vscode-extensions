@@ -69,7 +69,7 @@ export class InitVisitor_v2 {
                         { count: successTargets.length }
                     );
                     currentNode.children.push(conditionNode);
-                    conditionNode.branches = successTargets.map(target => [target]);
+                    conditionNode.branches = successTargets.map(target => [target]);        //an array of arrays. but we only use 1 element in each inside array
                 }
                 // If no valid targets (shouldn't happen), fall through to default
             } else {
@@ -88,7 +88,7 @@ export class InitVisitor_v2 {
 
             // --- FAILURE PATH HANDLING ---
             if (step.onFailure && step.onFailure.length > 0) {
-                const failureTargets = this.resolveTargets(step.onFailure, step.stepId, 'failure');
+                const failureTargets = this.resolveTargets(step.onFailure, step.stepId, 'failure');        //resolve the failure targets into FlowNodes
 
                 if (failureTargets.length === 1) {
                     // OPTIMIZATION: Single target - attach directly (no condition node)
@@ -117,7 +117,7 @@ export class InitVisitor_v2 {
      * Handles: goto, end, retry, and reference actions.
      */
     private resolveTargets(
-        actions: (SuccessActionObject | FailureActionObject | ReusableObject)[], 
+        actions: (SuccessActionObject | FailureActionObject | ReusableObject)[],    //an array of successAction objects. passed as step.onSuccess or step.onFailure
         currentStepId: string,
         pathType: 'success' | 'failure'
     ): FlowNode[] {
@@ -129,7 +129,7 @@ export class InitVisitor_v2 {
         const endActions = actions.filter((a: any) => a.type === 'end');
         const refActions = actions.filter((a: any) => a.reference);
 
-        const orderedActions = [...gotoActions, ...retryActions, ...endActions, ...refActions];
+        const orderedActions = [...gotoActions, ...retryActions, ...endActions, ...refActions]; //order the successAction objects based on their type. goto and retry actions are prioritized over end actions)
 
         orderedActions.forEach((action: any, index: number) => {
             // Handle reference (placeholder for future implementation)
@@ -143,7 +143,7 @@ export class InitVisitor_v2 {
             }
 
             // Handle 'end' action
-            if (action.type === 'end') {
+            if (action.type === 'end') {        // this is the type defined in the arazzo extension for the end action.
                 targets.push(this.createNode(
                     `end_${pathType}_${currentStepId}_${index}`, 
                     'END', 
@@ -168,7 +168,7 @@ export class InitVisitor_v2 {
             if (action.type === 'goto') {
                 const targetId = action.stepId || action.name;
                 if (targetId && this.stepNodeMap.has(targetId)) {
-                    targets.push(this.stepNodeMap.get(targetId)!);
+                    targets.push(this.stepNodeMap.get(targetId)!);      //no need to create flowNodes for steps as  all the steps are made into flownodes at the top of the file when creating the step NodemMap
                 } else {
                     targets.push(this.createNode(
                         `missing_${targetId}`, 
@@ -183,7 +183,7 @@ export class InitVisitor_v2 {
         return targets;
     }
 
-    private createNode(id: string, type: any, label: string, data?: any): FlowNode {
+    private createNode(id: string, type: any, label: string, data?: any): FlowNode {        //this creats a flownode object for a given step
         return {
             id, 
             type, 
@@ -193,7 +193,7 @@ export class InitVisitor_v2 {
             viewState: {
                 x: 0, y: 0, w: 0, h: 0,
                 subtreeW: 0, subtreeH: 0,
-                containerW: 0, containerH: 0,
+                //containerW: 0, containerH: 0,
                 topH: 0, bottomH: 0
             }
         };
