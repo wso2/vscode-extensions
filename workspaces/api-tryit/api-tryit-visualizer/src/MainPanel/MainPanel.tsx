@@ -16,12 +16,11 @@
  * under the License.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Button, Codicon, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
+import React, { useState, useRef } from 'react';
+import { Button, Codicon, TextField, Typography } from '@wso2/ui-toolkit';
 
 import styled from '@emotion/styled';
 import { Input } from '../Input/Input';
-import { Output } from '../Output/Output';
 import { Assert } from '../Assert/Assert';
 import { ApiRequestItem, ApiRequest, ApiResponse, ResponseHeader } from '@wso2/api-tryit-core';
 import axios, { AxiosError } from 'axios';
@@ -34,6 +33,134 @@ const vscode = getVSCodeAPI();
 
 const PanelsWrapper = styled.div`
     position: relative;
+`;
+
+const PageContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--vscode-editor-background);
+    color: var(--vscode-foreground);
+`;
+
+const HeaderBar = styled.div`
+    padding: 16px 20px 14px;
+    // border-bottom: 1px solid var(--vscode-panel-border);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+`;
+
+const TitleRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+`;
+
+const RequestToolbar = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+`;
+
+const MethodSelectWrapper = styled.div`
+    position: relative;
+    min-width: 100px;
+`;
+
+const MethodSelect = styled.select<{ accent: string }>`
+    appearance: none;
+    width: 100%;
+    height: 35px;
+    padding: 10px 36px 10px 14px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.28);
+    background: ${({ accent }) => accent};
+    color: var(--vscode-editor-foreground);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    cursor: pointer;
+    box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.08), 0 8px 20px rgba(0, 0, 0, 0.25);
+    transition: transform 0.08s ease, box-shadow 0.18s ease;
+
+    // &:hover {
+    //     transform: translateY(-1px);
+    //     box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.1), 0 12px 26px rgba(0, 0, 0, 0.28);
+    // }
+
+    &:focus {
+        outline: none;
+        outline-offset: 0;
+    }
+`;
+
+const SelectChevron = styled.span`
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #0d1f14;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0.8;
+`;
+
+const UrlInputField = styled.input`
+    flex: 1;
+    height: 32px;
+    background: var(--vscode-input-background);
+    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+    border-radius: 4px;
+    padding: 0 12px;
+    color: var(--vscode-foreground);
+    font-size: 14px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 16px rgba(0, 0, 0, 0.28);
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+
+    &::placeholder {
+        color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground));
+    }
+
+    &:focus {
+        outline: 2px solid var(--vscode-focusBorder);
+        box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+    }
+`;
+
+const Content = styled.div`
+    flex: 1;
+    overflow-y: auto;
+    padding: 0px 20px 16px 20px;
+`;
+
+const TabsBar = styled.div`
+    display: flex;
+    gap: 14px;
+    padding-top: 6px;
+    margin-bottom: 8px;
+`;
+
+const TabButton = styled.button<{ active?: boolean }>`
+    background: transparent;
+    border: none;
+    border-bottom: ${({ active }) => active ? '2px solid var(--vscode-textLink-activeForeground)' : '1px solid transparent'};
+    color: ${({ active }) => active ? 'var(--vscode-textLink-activeForeground)' : 'var(--vscode-foreground)'};
+    padding: 10px 0 8px;
+    cursor: pointer;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    opacity: ${({ active }) => active ? 1 : 0.72};
+    transition: color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+
+    &:hover {
+        color: var(--vscode-foreground);
+        opacity: 1;
+    }
 `;
 
 const ControlsWrapper = styled.div`
@@ -154,7 +281,7 @@ const EditableNameWrapper = styled.div`
 
 const NameDisplay = styled.div`
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 4px 0;
     border-radius: 4px;
     transition: background-color 0.2s ease;
     
@@ -169,6 +296,14 @@ const NameTextField = styled(TextField)`
         max-width: 100%;
     }
 `;
+
+const methodColors: Record<string, string> = {
+    GET: '#25b06b',
+    POST: '#2f80ed',
+    PUT: '#d08c34',
+    DELETE: '#d3455b',
+    PATCH: '#9b5de5'
+};
 
 type InputMode = 'code' | 'form';
 type AssertMode = 'code' | 'form';
@@ -434,94 +569,80 @@ export const MainPanel: React.FC = () => {
         }
     };
 
+    const methodAccent = methodColors[requestItem?.request.method || ''] || methodColors.GET;
+
     return (
-        <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-            fontFamily: 'var(--vscode-font-family)',
-            color: 'var(--vscode-foreground)',
-        }}>
-            {/* Header */}
-            <div style={{
-                padding: '16px 20px',
-                borderBottom: '1px solid var(--vscode-panel-border)',
-                backgroundColor: 'var(--vscode-editor-background)',
-            }}>
-                <EditableNameWrapper>
-                    {isEditingName ? (
-                        <NameTextField
-                            id="request-name-input"
-                            value={tempName}
-                            onTextChange={handleNameChange}
-                            onKeyDown={handleNameKeyDown}
-                            onBlur={handleNameBlur}
-                            autoFocus
-                            placeholder="Enter request name"
-                        />
-                    ) : (
-                        <NameDisplay onClick={handleNameClick}>
-                            <Typography variant="h3" sx={{ margin: 0 }}>
-                                {requestItem?.name || 'Untitled Request'}
-                            </Typography>
-                        </NameDisplay>
-                    )}
-                </EditableNameWrapper>
-            </div>
+        <PageContainer>
+            <HeaderBar>
+                <TitleRow>
+                    <EditableNameWrapper>
+                        {isEditingName ? (
+                            <NameTextField
+                                id="request-name-input"
+                                value={tempName}
+                                onTextChange={handleNameChange}
+                                onKeyDown={handleNameKeyDown}
+                                onBlur={handleNameBlur}
+                                autoFocus
+                                placeholder="Enter request name"
+                            />
+                        ) : (
+                            <NameDisplay onClick={handleNameClick}>
+                                <Typography variant="h3" sx={{ margin: 0 }}>
+                                    {requestItem?.name || 'Untitled Request'}
+                                </Typography>
+                            </NameDisplay>
+                        )}
+                    </EditableNameWrapper>
+                </TitleRow>
 
-            {/* Request Section */}
-            <div style={{
-                flex: 1,
-                padding: '20px',
-                overflowY: 'auto',
-            }}>
-                {!showCollectionForm && requestItem ? (
-                <div style={{ margin: '0 auto' }}>
-                    {/* Method and URL */}
-                    <div style={{
-                        display: 'flex',
-                        gap: '12px',
-                        marginBottom: '10px',
-                    }}>
-                        <Dropdown
-                            id="method-dropdown"
-                            value={requestItem?.request.method || 'GET'}
-                            onValueChange={(value) => handleRequestChange({
-                                ...requestItem.request,
-                                method: value as any
-                            })}
-                            items={[
-                                { id: 'GET', value: 'GET', content: 'GET' },
-                                { id: 'POST', value: 'POST', content: 'POST' },
-                                { id: 'PUT', value: 'PUT', content: 'PUT' },
-                                { id: 'DELETE', value: 'DELETE', content: 'DELETE' },
-                                { id: 'PATCH', value: 'PATCH', content: 'PATCH' },
-                            ]}
-                            sx={{ minWidth: '100px' }}
-                        />
+                {requestItem && (
+                    <RequestToolbar>
+                        <MethodSelectWrapper>
+                            <MethodSelect
+                                accent={methodAccent}
+                                value={requestItem.request.method}
+                                onChange={(event) => handleRequestChange({
+                                    ...requestItem.request,
+                                    method: event.target.value as any
+                                })}
+                                aria-label="HTTP method"
+                            >
+                                <option value="GET">GET</option>
+                                <option value="POST">POST</option>
+                                <option value="PUT">PUT</option>
+                                <option value="DELETE">DELETE</option>
+                                <option value="PATCH">PATCH</option>
+                            </MethodSelect>
+                            <SelectChevron>
+                                <Codicon iconSx={{color: 'var(--vscode-editor-foreground)', fontWeight: 'bold'}} name="chevron-down" />
+                            </SelectChevron>
+                        </MethodSelectWrapper>
 
-                        <TextField
+                        <UrlInputField
                             id="url-input"
                             value={requestItem.request.url || ''}
-                            onTextChange={(value) => handleRequestChange({
+                            placeholder="Enter URL or paste text"
+                            onChange={(event) => handleRequestChange({
                                 ...requestItem.request,
-                                url: value
+                                url: event.target.value
                             })}
-                            placeholder="Enter API URL"
-                            sx={{ flex: 1 }}
-                            icon={{ iconComponent: <span onMouseDown={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); }} role="button" aria-label="Save request"><Codicon name="save" /></span>, position: 'end', onClick: handleSaveRequest }}
                         />
 
                         <Button
+                            buttonSx={{height: 35, borderRadius: 4, width: 75}}
                             appearance="primary"
                             onClick={handleSendRequest}
                             disabled={isLoading}
                         >
                             {isLoading ? 'Sending...' : 'Send'}
                         </Button>
-                    </div>
+                    </RequestToolbar>
+                )}
+            </HeaderBar>
 
-                    {/* VSCodePanels with Input, Output, and Assert tabs */}
+            <Content>
+                {!showCollectionForm && requestItem ? (
                     <PanelsWrapper>
                         <ControlsWrapper>
                             {activeTab === 'input' && inputMode === 'code' && (
@@ -577,50 +698,20 @@ export const MainPanel: React.FC = () => {
                             )}
                         </ControlsWrapper>
 
-                        {/* Custom Tabs */}
                         <div>
-                            <div style={{ display: 'flex', gap: 12, paddingTop: 10 }}>
-                                <button
-                                    onClick={() => setActiveTab('input')}
-                                    style={{
-                                        background: 'transparent',
-                                        border: 'none',
-                                        borderBottom: activeTab === 'input' ? '1px solid var(--vscode-editor-foreground)' : '2px solid transparent',
-                                        color: activeTab === 'input' ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)',
-                                        paddingLeft: 4,
-                                        cursor: 'pointer'
-                                    }}
-                                >
+                            <TabsBar>
+                                <TabButton active={activeTab === 'input'} onClick={() => setActiveTab('input')}>
                                     Request
-                                </button>
+                                </TabButton>
 
-                                <button
-                                    onClick={() => { setBringOutputCounter(c => c + 1); setActiveTab('input'); }}
-                                    style={{
-                                        background: 'transparent',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        color: 'var(--vscode-foreground)',
-                                        padding: 8
-                                    }}
-                                >
+                                <TabButton onClick={() => { setBringOutputCounter(c => c + 1); setActiveTab('input'); }}>
                                     Response
-                                </button>
+                                </TabButton>
 
-                                <button
-                                    onClick={() => setActiveTab('assert')}
-                                    style={{
-                                        background: 'transparent',
-                                        border: 'none',
-                                        borderBottom: activeTab === 'assert' ? '1px solid var(--vscode-editor-foreground)' : '2px solid transparent',
-                                        color: activeTab === 'assert' ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)',
-                                        paddingLeft: 4,
-                                        cursor: 'pointer'
-                                    }}
-                                >
+                                <TabButton active={activeTab === 'assert'} onClick={() => setActiveTab('assert')}>
                                     Assert
-                                </button>
-                            </div>
+                                </TabButton>
+                            </TabsBar>
 
                             <div style={{ marginTop: 12 }}>
                                 {activeTab === 'input' && (
@@ -647,7 +738,6 @@ export const MainPanel: React.FC = () => {
                             </div>
                         </div>
                     </PanelsWrapper>
-                </div>
                 ) : !showCollectionForm ? (
                     <Typography variant="subtitle2" sx={{ opacity: 0.6 }}>
                         No request selected
@@ -656,7 +746,7 @@ export const MainPanel: React.FC = () => {
                 {showCollectionForm && (
                     <CollectionForm onCancel={handleCloseCollectionForm} />
                 )}
-            </div>
-        </div>
+            </Content>
+        </PageContainer>
     );
 };
