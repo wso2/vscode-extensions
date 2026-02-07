@@ -23,11 +23,7 @@ export const HTTP_REQUEST_TOOL_NAME = "Send-HTTP-request";
 
 
 export const HTTPInputSchema = z.object({
-    method: z.string().describe("HTTP method (GET, POST, etc.)"),
-    url: z.string().describe("Valid URL to send the request to. query and path parameters should be injected in the url if any"),
-    headers: z.record(z.string(), z.string()).describe("Optional HTTP headers").optional(),
-    body: z.string().describe("Optional request body").optional(),
-    tag: z.string().describe("A suitable tag to identify and group this request with similar requests for better retrieval in future").optional()
+    curlCommand: z.string().describe("The curl command to execute, including the URL, method, headers, and body. For example: `curl -X POST https://api.example.com/data -H 'Content-Type: application/json' -d '{\"key\":\"value\"}'`")
 });
 
 export type HTTPInput = z.infer<typeof HTTPInputSchema>;
@@ -69,16 +65,110 @@ export function createHttpRequestTool(eventHandler: CopilotEventHandler) {
     });
 }
 
+/**
+ * Parse a curl command string into components
+ * Handles quoted strings and various curl options
+ */
+function parseCurl(curl: string): {
+	method: string;
+	url: string;
+	headers: Record<string, string>;
+	body: string;
+} {
+	// Remove line breaks and continuations
+	const cleanCurl = curl.replace(/\\\s*\n/g, ' ').trim();
+	
+	let method = 'GET';
+	let url = '';
+	const headers: Record<string, string> = {};
+	let body = '';
+	
+	// Parse the curl string while respecting quoted values
+	const tokens = tokenizeCurl(cleanCurl);
+	
+	for (let i = 0; i < tokens.length; i++) {
+		const token = tokens[i];
+		
+		if (token === 'curl') {
+			continue;
+		}
+		
+		if (token === '-X' || token === '--request') {
+			if (i + 1 < tokens.length) {
+				method = tokens[i + 1];
+				i++;
+			}
+		} else if (token === '-H' || token === '--header') {
+			if (i + 1 < tokens.length) {
+				const headerStr = tokens[i + 1];
+				const colonIndex = headerStr.indexOf(':');
+				if (colonIndex !== -1) {
+					const key = headerStr.substring(0, colonIndex).trim();
+					const value = headerStr.substring(colonIndex + 1).trim();
+					headers[key] = value;
+				}
+				i++;
+			}
+		} else if (token === '-d' || token === '--data' || token === '--data-raw') {
+			if (i + 1 < tokens.length) {
+				body = tokens[i + 1];
+				i++;
+			}
+		} else if (token.startsWith('http://') || token.startsWith('https://') || token.startsWith('localhost') || token.includes('://')) {
+			url = token;
+		} else if (!token.startsWith('-') && !url && token !== method) {
+			// Treat as URL if it doesn't start with a flag and no URL found yet
+			url = token;
+		}
+	}
+	
+	return { method, url, headers, body };
+}
+
+/**
+ * Tokenize curl command while respecting quoted strings
+ */
+function tokenizeCurl(curl: string): string[] {
+	const tokens: string[] = [];
+	let current = '';
+	let inQuotes = false;
+	let quoteChar = '';
+	
+	for (let i = 0; i < curl.length; i++) {
+		const char = curl[i];
+		
+		if ((char === '"' || char === "'") && (i === 0 || curl[i - 1] !== '\\')) {
+			if (!inQuotes) {
+				inQuotes = true;
+				quoteChar = char;
+			} else if (char === quoteChar) {
+				inQuotes = false;
+				quoteChar = '';
+			} else {
+				current += char;
+			}
+		} else if (char === ' ' && !inQuotes) {
+			if (current) {
+				tokens.push(current);
+				current = '';
+			}
+		} else {
+			current += char;
+		}
+	}
+	
+	if (current) {
+		tokens.push(current);
+	}
+	
+	return tokens;
+}
+
 export const executeHttpRequest =  async (input: HTTPInput, eventHandler: CopilotEventHandler): Promise<HTTPResponse | HTTPErrorResponse | Error> => {
             try {
                 console.log(`Executing HTTP request: input:`, input);
                 eventHandler({type:"tool_call", toolName: HTTP_REQUEST_TOOL_NAME, toolInput: input});
-                const response = await axios.request({
-                    method: input.method,
-                    url: input.url,
-                    headers: input.headers,
-                    data: input.body
-                });
+                const response = await axios.request(parseCurl(input.curlCommand));
                 console.log("HTTP request successful:", response);
                 const successResponse = createSuccessResponse(response);
                 return successResponse;
