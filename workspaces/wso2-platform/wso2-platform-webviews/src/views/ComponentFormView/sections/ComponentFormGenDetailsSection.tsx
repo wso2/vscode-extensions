@@ -415,7 +415,6 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 			}
 		}
 
-		// Debounce validation so that rapid selection/name changes don't spam the RPC call.
 		const timeoutId = setTimeout(() => {
 			void validateComponentsPushed();
 		}, 400);

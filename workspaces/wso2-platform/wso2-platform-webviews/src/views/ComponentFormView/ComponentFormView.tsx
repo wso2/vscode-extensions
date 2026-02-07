@@ -348,7 +348,7 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 				return;
 			}
 
-			// Single component mode: existing logic
+			// Single component mode
 			const buildDetails = buildDetailsForm.getValues();
 			const gitProxyDetails = gitProxyForm.getValues();
 
