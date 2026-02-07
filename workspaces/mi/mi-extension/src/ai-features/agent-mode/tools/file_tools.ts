@@ -27,6 +27,7 @@ import {
     ValidationResult,
     ToolResult,
     VALID_FILE_EXTENSIONS,
+    VALID_SPECIAL_FILE_NAMES,
     MAX_LINE_LENGTH,
     PREVIEW_LENGTH,
     ErrorMessages,
@@ -47,6 +48,30 @@ import { validateXmlFile, formatValidationMessage } from './validation-utils';
 // Validation Functions
 // ============================================================================
 
+function isAllowedFilePath(filePath: string): boolean {
+    const normalizedPath = filePath.trim();
+    if (!normalizedPath) {
+        return false;
+    }
+
+    const fileName = path.basename(normalizedPath);
+    const lowerFileName = fileName.toLowerCase();
+    const hasValidExtension = VALID_FILE_EXTENSIONS.some(ext =>
+        lowerFileName.endsWith(ext)
+    );
+    if (hasValidExtension) {
+        return true;
+    }
+
+    return VALID_SPECIAL_FILE_NAMES.some(
+        (specialName) => specialName.toLowerCase() === lowerFileName
+    );
+}
+
+function getAllowedFileTypesDescription(): string {
+    return [...VALID_FILE_EXTENSIONS, ...VALID_SPECIAL_FILE_NAMES].join(', ');
+}
+
 /**
  * Validates a file path for security and extension requirements
  */
@@ -66,15 +91,10 @@ function validateFilePath(filePath: string): ValidationResult {
         };
     }
 
-    // Check for valid extension
-    const hasValidExtension = VALID_FILE_EXTENSIONS.some(ext =>
-        filePath.toLowerCase().endsWith(ext)
-    );
-
-    if (!hasValidExtension) {
+    if (!isAllowedFilePath(filePath)) {
         return {
             valid: false,
-            error: `File must have a valid extension: ${VALID_FILE_EXTENSIONS.join(', ')}`
+            error: `File must use an allowed file type: ${getAllowedFileTypesDescription()}`
         };
     }
 
@@ -563,9 +583,7 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
                             }
                         }
 
-                        // Check if file has valid extension
-                        const ext = path.extname(entry.name);
-                        if (!VALID_FILE_EXTENSIONS.includes(ext)) {
+                        if (!isAllowedFilePath(entry.name)) {
                             continue;
                         }
 
@@ -777,7 +795,7 @@ export function createWriteTool(execute: WriteExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
         description: `Creates a new file. Will NOT overwrite existing files with content - use ${FILE_EDIT_TOOL_NAME} for that.
-            Parent directories are created automatically. Valid extensions: ${VALID_FILE_EXTENSIONS.join(', ')}.
+            Parent directories are created automatically. Allowed file types: ${getAllowedFileTypesDescription()}.
             XML files are automatically validated after writing (results included in response).
             Do NOT create documentation files unless explicitly requested.`,
         inputSchema: writeInputSchema,
@@ -849,7 +867,7 @@ export function createGrepTool(execute: GrepExecuteFn) {
     return (tool as any)({
         description: `Search for regex patterns in project files. Supports glob filtering.
             Output modes: "content" (matching lines, default) or "files_with_matches" (file paths only).
-            Skips node_modules, .git, target, build. Limited to ${VALID_FILE_EXTENSIONS.join(', ')} files.`,
+            Skips node_modules, .git, target, build. Limited to allowed file types: ${getAllowedFileTypesDescription()}.`,
         inputSchema: grepInputSchema,
         execute
     });

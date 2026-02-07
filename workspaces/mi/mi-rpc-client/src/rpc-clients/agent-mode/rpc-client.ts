@@ -126,8 +126,30 @@ export interface CompactConversationResponse {
     error?: string;
 }
 
+export type MentionablePathType = 'file' | 'folder';
+
+export interface MentionablePathItem {
+    path: string;
+    type: MentionablePathType;
+}
+
+export interface SearchMentionablePathsRequest {
+    query?: string;
+    limit?: number;
+}
+
+export interface SearchMentionablePathsResponse {
+    success: boolean;
+    items: MentionablePathItem[];
+    error?: string;
+}
+
 const compactConversation: RequestType<CompactConversationRequest, CompactConversationResponse> = {
     method: `${_prefix}/compactConversation`
+};
+
+const searchMentionablePaths: RequestType<SearchMentionablePathsRequest, SearchMentionablePathsResponse> = {
+    method: `${_prefix}/searchMentionablePaths`
 };
 
 export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
@@ -187,5 +209,9 @@ export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
     // ==================================
     compactConversation(request: CompactConversationRequest): Promise<CompactConversationResponse> {
         return this._messenger.sendRequest(compactConversation, HOST_EXTENSION, request);
+    }
+
+    searchMentionablePaths(request: SearchMentionablePathsRequest): Promise<SearchMentionablePathsResponse> {
+        return this._messenger.sendRequest(searchMentionablePaths, HOST_EXTENSION, request);
     }
 }

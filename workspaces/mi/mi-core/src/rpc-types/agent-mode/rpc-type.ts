@@ -34,6 +34,8 @@ import {
     DeleteSessionResponse,
     CompactConversationRequest,
     CompactConversationResponse,
+    SearchMentionablePathsRequest,
+    SearchMentionablePathsResponse,
 } from "./types";
 
 const _prefix = "mi-agent-service";
@@ -111,4 +113,9 @@ export const deleteSession: RequestType<DeleteSessionRequest, DeleteSessionRespo
 // Manually compact/summarize the current conversation
 export const compactConversation: RequestType<CompactConversationRequest, CompactConversationResponse> = {
     method: `${_prefix}/compactConversation`
+};
+
+// Search mentionable file/folder paths for @mentions in chat input
+export const searchMentionablePaths: RequestType<SearchMentionablePathsRequest, SearchMentionablePathsResponse> = {
+    method: `${_prefix}/searchMentionablePaths`
 };

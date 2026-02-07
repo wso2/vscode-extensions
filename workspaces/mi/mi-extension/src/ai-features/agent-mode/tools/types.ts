@@ -79,6 +79,13 @@ export const VALID_FILE_EXTENSIONS = [
     '.xslt'
 ];
 
+/**
+ * Valid file names without extensions
+ */
+export const VALID_SPECIAL_FILE_NAMES = [
+    'Dockerfile',
+];
+
 export const MAX_LINE_LENGTH = 2000;
 export const DEFAULT_READ_LIMIT = 2000;
 export const PREVIEW_LENGTH = 200;

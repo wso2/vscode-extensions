@@ -374,6 +374,31 @@ export interface CompactConversationResponse {
     error?: string;
 }
 
+// ============================================================================
+// Mention Search Types
+// ============================================================================
+
+export type MentionablePathType = 'file' | 'folder';
+
+export interface MentionablePathItem {
+    /** Workspace-relative path. Folder paths end with "/" */
+    path: string;
+    type: MentionablePathType;
+}
+
+export interface SearchMentionablePathsRequest {
+    /** User-typed text after "@" */
+    query: string;
+    /** Max number of items to return */
+    limit?: number;
+}
+
+export interface SearchMentionablePathsResponse {
+    success: boolean;
+    items: MentionablePathItem[];
+    error?: string;
+}
+
 /**
  * Agent Panel API interface
  */
@@ -391,4 +416,6 @@ export interface MIAgentPanelAPI {
     deleteSession: (request: DeleteSessionRequest) => Promise<DeleteSessionResponse>;
     // Compact
     compactConversation: (request: CompactConversationRequest) => Promise<CompactConversationResponse>;
+    // Mention search
+    searchMentionablePaths: (request: SearchMentionablePathsRequest) => Promise<SearchMentionablePathsResponse>;
 }

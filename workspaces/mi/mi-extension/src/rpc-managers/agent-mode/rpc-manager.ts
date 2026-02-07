@@ -29,6 +29,9 @@ import {
     CompactConversationRequest,
     CompactConversationResponse,
 } from '@wso2/mi-core';
+import type { Dirent } from 'fs';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { AgentEventHandler } from './event-handler';
 import { executeAgent, createAgentAbortController, AgentEvent } from '../../ai-features/agent-mode';
 import { executeCompactAgent } from '../../ai-features/agent-mode/agents/compact/agent';
@@ -40,11 +43,29 @@ import {
 } from '../../ai-features/agent-mode/chat-history-manager';
 import { PendingQuestion, PendingPlanApproval, initializePlanModeSession } from '../../ai-features/agent-mode/tools/plan_mode_tools';
 import { validateAttachments } from '../../ai-features/agent-mode/attachment-utils';
+import { VALID_FILE_EXTENSIONS, VALID_SPECIAL_FILE_NAMES } from '../../ai-features/agent-mode/tools/types';
 
 const AUTO_COMPACT_TOKEN_THRESHOLD = 180000;
 const AUTO_COMPACT_TOOL_NAME = 'compact_conversation';
 const DEFAULT_AGENT_MODE: AgentMode = 'edit';
 const USER_CANCELLED_RESPONSE = '__USER_CANCELLED__';
+const MENTION_CACHE_TTL_MS = 15000;
+const MAX_MENTION_SEARCH_LIMIT = 100;
+const DEFAULT_MENTION_SEARCH_LIMIT = 30;
+const MENTION_ROOT_DIRS = ['deployment', 'src'];
+const MENTION_POM_FILE = 'pom.xml';
+const MENTION_SKIP_DIRS = new Set([
+    '.git',
+    'node_modules',
+    '.mi-copilot',
+    '.vscode',
+    '.idea',
+    '.settings',
+    'dist',
+    'build',
+    'out',
+    'target',
+]);
 
 // Session management types (will be imported from @wso2/mi-core after build)
 export interface ListSessionsRequest {
@@ -91,6 +112,24 @@ export interface DeleteSessionResponse {
     error?: string;
 }
 
+export type MentionablePathType = 'file' | 'folder';
+
+export interface MentionablePathItem {
+    path: string;
+    type: MentionablePathType;
+}
+
+export interface SearchMentionablePathsRequest {
+    query?: string;
+    limit?: number;
+}
+
+export interface SearchMentionablePathsResponse {
+    success: boolean;
+    items: MentionablePathItem[];
+    error?: string;
+}
+
 export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private eventHandler: AgentEventHandler;
     private currentAbortController: AbortController | null = null;
@@ -103,6 +142,9 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
     // Map to track pending plan approvals from exit_plan_mode tool
     private pendingApprovals: Map<string, PendingPlanApproval> = new Map();
+    private mentionablePathCache: MentionablePathItem[] = [];
+    private mentionableRootPathSet: Set<string> = new Set();
+    private mentionablePathCacheBuiltAt = 0;
 
     constructor(private projectUri: string) {
         this.eventHandler = new AgentEventHandler(projectUri);
@@ -735,6 +777,238 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Failed to compact conversation'
+            };
+        }
+    }
+
+    // ============================================================================
+    // Mention Search
+    // ============================================================================
+
+    private normalizeRelativePath(relativePath: string): string {
+        return relativePath.split(path.sep).join('/');
+    }
+
+    private getFileName(relativePath: string): string {
+        const normalized = relativePath.endsWith('/') ? relativePath.slice(0, -1) : relativePath;
+        const parts = normalized.split('/');
+        return parts[parts.length - 1] || normalized;
+    }
+
+    private isMentionableFile(fileName: string): boolean {
+        const lowerFileName = fileName.toLowerCase();
+        const ext = path.extname(fileName).toLowerCase();
+        if (VALID_FILE_EXTENSIONS.includes(ext)) {
+            return true;
+        }
+        return VALID_SPECIAL_FILE_NAMES.some(
+            (specialName) => specialName.toLowerCase() === lowerFileName
+        );
+    }
+
+    private async pathExists(targetPath: string): Promise<boolean> {
+        try {
+            await fs.access(targetPath);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    private async isDirectory(targetPath: string): Promise<boolean> {
+        try {
+            const stats = await fs.stat(targetPath);
+            return stats.isDirectory();
+        } catch {
+            return false;
+        }
+    }
+
+    private async getPomModulePaths(rootPath: string): Promise<string[]> {
+        const pomPath = path.join(rootPath, MENTION_POM_FILE);
+        try {
+            const pomContent = await fs.readFile(pomPath, 'utf8');
+            const moduleRegex = /<module>\s*([^<]+?)\s*<\/module>/g;
+            const modulePaths = new Set<string>();
+            let match: RegExpExecArray | null = null;
+
+            while ((match = moduleRegex.exec(pomContent)) !== null) {
+                const rawModulePath = (match[1] || '').trim();
+                if (!rawModulePath || rawModulePath.includes('${')) {
+                    continue;
+                }
+
+                const normalized = this
+                    .normalizeRelativePath(rawModulePath)
+                    .replace(/^\.?\//, '')
+                    .replace(/\/+$/, '');
+                if (!normalized) {
+                    continue;
+                }
+
+                const absoluteModulePath = path.join(rootPath, normalized);
+                if (await this.isDirectory(absoluteModulePath)) {
+                    modulePaths.add(normalized);
+                }
+            }
+
+            return Array.from(modulePaths);
+        } catch {
+            return [];
+        }
+    }
+
+    private async buildMentionablePathCache(): Promise<MentionablePathItem[]> {
+        const mentionables = new Map<string, MentionablePathItem>();
+        const rootPathSet = new Set<string>();
+        const rootPath = this.projectUri;
+
+        const addMentionable = (item: MentionablePathItem): void => {
+            mentionables.set(item.path, item);
+        };
+
+        const walk = async (absoluteDir: string, relativeDir: string): Promise<void> => {
+            let entries: Dirent[] = [];
+            try {
+                entries = await fs.readdir(absoluteDir, { withFileTypes: true });
+            } catch {
+                return;
+            }
+
+            entries.sort((a, b) => a.name.localeCompare(b.name));
+
+            for (const entry of entries) {
+                if (entry.isSymbolicLink()) {
+                    continue;
+                }
+
+                const relativePath = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
+                const absolutePath = path.join(absoluteDir, entry.name);
+
+                if (entry.isDirectory()) {
+                    if (MENTION_SKIP_DIRS.has(entry.name)) {
+                        continue;
+                    }
+                    addMentionable({
+                        path: `${this.normalizeRelativePath(relativePath)}/`,
+                        type: 'folder',
+                    });
+                    await walk(absolutePath, relativePath);
+                    continue;
+                }
+
+                if (entry.isFile() && this.isMentionableFile(entry.name)) {
+                    addMentionable({
+                        path: this.normalizeRelativePath(relativePath),
+                        type: 'file',
+                    });
+                }
+            }
+        };
+
+        const rootTopLevelFiles = [MENTION_POM_FILE, ...VALID_SPECIAL_FILE_NAMES];
+        for (const topLevelFile of rootTopLevelFiles) {
+            const fullPath = path.join(rootPath, topLevelFile);
+            if (await this.pathExists(fullPath)) {
+                addMentionable({ path: topLevelFile, type: 'file' });
+                rootPathSet.add(topLevelFile);
+            }
+        }
+
+        const configuredRoots = new Set<string>(MENTION_ROOT_DIRS);
+        const pomModulePaths = await this.getPomModulePaths(rootPath);
+        for (const modulePath of pomModulePaths) {
+            configuredRoots.add(modulePath);
+        }
+
+        for (const configuredRoot of configuredRoots) {
+            const normalizedRoot = this.normalizeRelativePath(configuredRoot).replace(/\/+$/, '');
+            if (!normalizedRoot) {
+                continue;
+            }
+
+            const absoluteRoot = path.join(rootPath, normalizedRoot);
+            if (!(await this.isDirectory(absoluteRoot))) {
+                continue;
+            }
+
+            addMentionable({
+                path: `${normalizedRoot}/`,
+                type: 'folder',
+            });
+            rootPathSet.add(`${normalizedRoot}/`);
+            await walk(absoluteRoot, normalizedRoot);
+        }
+
+        this.mentionablePathCache = Array.from(mentionables.values());
+        this.mentionableRootPathSet = rootPathSet;
+        this.mentionablePathCacheBuiltAt = Date.now();
+        return this.mentionablePathCache;
+    }
+
+    private async getMentionablePathCache(): Promise<MentionablePathItem[]> {
+        const cacheAge = Date.now() - this.mentionablePathCacheBuiltAt;
+        if (this.mentionablePathCache.length === 0 || cacheAge > MENTION_CACHE_TTL_MS) {
+            return this.buildMentionablePathCache();
+        }
+        return this.mentionablePathCache;
+    }
+
+    async searchMentionablePaths(request: SearchMentionablePathsRequest): Promise<SearchMentionablePathsResponse> {
+        try {
+            const query = (request.query || '').trim().toLowerCase();
+            const requestedLimit = request.limit ?? DEFAULT_MENTION_SEARCH_LIMIT;
+            const limit = Math.max(1, Math.min(requestedLimit, MAX_MENTION_SEARCH_LIMIT));
+            const cache = await this.getMentionablePathCache();
+
+            let matches = cache;
+            if (!query) {
+                matches = cache.filter((item) => this.mentionableRootPathSet.has(item.path));
+            } else {
+                matches = cache.filter((item) => {
+                    const pathLower = item.path.toLowerCase();
+                    const nameLower = this.getFileName(item.path).toLowerCase();
+                    return pathLower.includes(query) || nameLower.includes(query);
+                });
+            }
+
+            const score = (item: MentionablePathItem): number => {
+                if (!query) {
+                    if (item.path === 'src/') return 120;
+                    if (item.path === 'deployment/') return 110;
+                    if (item.path === MENTION_POM_FILE) return 100;
+                    return 90;
+                }
+                const pathLower = item.path.toLowerCase();
+                const nameLower = this.getFileName(item.path).toLowerCase();
+                if (nameLower === query) return 100;
+                if (nameLower.startsWith(query)) return 90;
+                if (pathLower.startsWith(query)) return 80;
+                if (nameLower.includes(query)) return 60;
+                return 40;
+            };
+
+            const sorted = matches
+                .slice()
+                .sort((a, b) => {
+                    const scoreDiff = score(b) - score(a);
+                    if (scoreDiff !== 0) {
+                        return scoreDiff;
+                    }
+                    return a.path.localeCompare(b.path);
+                })
+                .slice(0, limit);
+
+            return {
+                success: true,
+                items: sorted,
+            };
+        } catch (error) {
+            logError('[AgentPanel] Failed to search mentionable paths', error);
+            return {
+                success: false,
+                items: [],
+                error: error instanceof Error ? error.message : 'Failed to search mentionable paths',
             };
         }
     }
