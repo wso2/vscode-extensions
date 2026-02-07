@@ -21,38 +21,47 @@ import styled from "@emotion/styled";
 import ReactMarkdown from "react-markdown";
 
 const CompactContainer = styled.div`
-    margin: 8px 0;
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 4px;
-    overflow: hidden;
+    margin: 6px 0;
 `;
 
 const CompactHeader = styled.button`
     display: flex;
     align-items: center;
     gap: 6px;
-    width: 100%;
-    padding: 8px 12px;
-    background-color: var(--vscode-sideBarSectionHeader-background);
-    color: var(--vscode-foreground);
+    padding: 0;
     border: none;
     cursor: pointer;
+    background: transparent;
+    color: var(--vscode-descriptionForeground);
     font-size: 12px;
     font-weight: 500;
     font-family: var(--vscode-editor-font-family);
-
-    &:hover {
-        opacity: 0.9;
-    }
 `;
 
 const CompactBody = styled.div`
-    padding: 8px 12px;
+    margin-top: 4px;
+    padding-left: 16px;
     font-size: 12px;
-    opacity: 0.85;
-    line-height: 1.5;
-    color: var(--vscode-editor-foreground);
-    background-color: var(--vscode-textCodeBlock-background);
+    line-height: 1.45;
+    color: var(--vscode-descriptionForeground);
+    overflow-wrap: anywhere;
+
+    p {
+        margin: 0 0 6px;
+    }
+
+    p:last-child {
+        margin-bottom: 0;
+    }
+
+    ul, ol {
+        margin: 0 0 6px 18px;
+        padding-left: 0;
+    }
+
+    li {
+        margin: 2px 0;
+    }
 `;
 
 interface CompactSummarySegmentProps {
@@ -66,7 +75,7 @@ const CompactSummarySegment: React.FC<CompactSummarySegmentProps> = ({ text }) =
         <CompactContainer>
             <CompactHeader onClick={() => setIsExpanded(!isExpanded)}>
                 <span className={`codicon codicon-chevron-${isExpanded ? 'down' : 'right'}`} />
-                Conversation compacted
+                Summary
             </CompactHeader>
             {isExpanded && (
                 <CompactBody>

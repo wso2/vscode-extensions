@@ -253,8 +253,30 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
         return null;
     }
 
+    const parsedSegments = splitContent(message.content);
+
+    const hasAnswerContent = parsedSegments.some((segment) => {
+        const isSystemSegment = Boolean(
+            segment.isToolCall ||
+            segment.isTodoList ||
+            segment.isBashOutput ||
+            segment.isCompactSummary ||
+            segment.isThinking
+        );
+
+        if (isSystemSegment) {
+            return false;
+        }
+
+        if (segment.isCode) {
+            return true;
+        }
+
+        return segment.text.trim().length > 0;
+    });
+
     const renderSegments = () =>
-        splitContent(message.content).map((segment, i) => {
+        parsedSegments.map((segment, i) => {
             if (segment.isCode) {
                 return <CodeSegment key={i} segmentText={segment.text} loading={segment.loading} language={segment.language} index={index} />;
             } else if (segment.isToolCall) {
@@ -314,7 +336,8 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
 
             {message.type === MessageType.AssistantMessage &&
              !backendRequestTriggered &&
-             index === messages.length - 1 && (
+             index === messages.length - 1 &&
+             hasAnswerContent && (
                 <FeedbackBar
                     messageIndex={index}
                     onFeedback={handleFeedback}
