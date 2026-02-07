@@ -47,17 +47,19 @@ const DropdownTrigger = styled.button`
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 8px;
-    background: transparent;
-    border: 1px solid var(--vscode-input-border);
-    border-radius: 4px;
+    padding: 6px 10px;
+    background: var(--vscode-input-background);
+    border: 1px solid var(--vscode-widget-border, var(--vscode-input-border));
+    border-radius: 8px;
     color: var(--vscode-foreground);
     cursor: pointer;
     font-size: 12px;
-    max-width: 200px;
+    max-width: 240px;
+    transition: border-color 0.15s ease, background 0.15s ease;
 
     &:hover {
         background: var(--vscode-list-hoverBackground);
+        border-color: var(--vscode-focusBorder);
     }
 
     &:disabled {
@@ -70,33 +72,36 @@ const TriggerText = styled.span`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 150px;
+    max-width: 185px;
+    font-weight: 500;
 `;
 
 const Dropdown = styled.div<{ isOpen: boolean }>`
     position: absolute;
     top: 100%;
-    left: 0;
-    width: 300px;
-    max-height: 400px;
-    overflow-y: auto;
+    right: 0;
+    width: min(360px, calc(100vw - 40px));
+    max-height: 430px;
+    display: flex;
+    flex-direction: column;
     background: var(--vscode-dropdown-background);
-    border: 1px solid var(--vscode-dropdown-border);
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--vscode-widget-border, var(--vscode-dropdown-border));
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
     z-index: 1000;
-    display: ${(props: { isOpen: boolean }) => props.isOpen ? 'block' : 'none'};
+    display: ${(props: { isOpen: boolean }) => props.isOpen ? 'flex' : 'none'};
     margin-top: 4px;
+    overflow: hidden;
 `;
 
 const SearchInput = styled.input`
     width: 100%;
-    padding: 8px 12px;
+    padding: 10px 12px;
     border: none;
-    border-bottom: 1px solid var(--vscode-panel-border);
-    background: transparent;
+    border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+    background: var(--vscode-input-background);
     color: var(--vscode-input-foreground);
-    font-size: 12px;
+    font-size: 13px;
     box-sizing: border-box;
 
     &::placeholder {
@@ -108,31 +113,63 @@ const SearchInput = styled.input`
     }
 `;
 
+const SessionList = styled.div`
+    overflow-y: auto;
+    max-height: 320px;
+
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background-color: var(--vscode-scrollbarSlider-background);
+        border-radius: 3px;
+    }
+`;
+
 const GroupHeader = styled.div`
-    padding: 6px 12px;
+    padding: 8px 12px;
     font-size: 10px;
     font-weight: 600;
     color: var(--vscode-descriptionForeground);
-    background: var(--vscode-sideBarSectionHeader-background);
+    background: var(--vscode-editorWidget-background);
     text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
 `;
 
 const SessionItem = styled.div<{ isActive?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
+    gap: 8px;
+    padding: 9px 12px;
     cursor: pointer;
-    background: ${(props: { isActive?: boolean }) => props.isActive ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent'};
-    color: ${(props: { isActive?: boolean }) => props.isActive ? 'var(--vscode-list-activeSelectionForeground)' : 'inherit'};
+    border-left: 2px solid ${(props: { isActive?: boolean }) => props.isActive ? 'var(--vscode-focusBorder)' : 'transparent'};
+    background: ${(props: { isActive?: boolean }) =>
+        props.isActive ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent'};
+    color: ${(props: { isActive?: boolean }) =>
+        props.isActive ? 'var(--vscode-list-activeSelectionForeground)' : 'inherit'};
 
     &:hover {
-        background: ${(props: { isActive?: boolean }) => props.isActive ? 'var(--vscode-list-activeSelectionBackground)' : 'var(--vscode-list-hoverBackground)'};
+        background: ${(props: { isActive?: boolean }) =>
+            props.isActive ? 'var(--vscode-list-activeSelectionBackground)' : 'var(--vscode-list-hoverBackground)'};
     }
 
     &:hover .delete-btn {
         opacity: 1;
     }
+`;
+
+const SessionMarker = styled.span<{ isActive?: boolean }>`
+    display: inline-flex;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: ${(props: { isActive?: boolean }) =>
+        props.isActive ? 'var(--vscode-focusBorder)' : 'var(--vscode-descriptionForeground)'};
+    opacity: ${(props: { isActive?: boolean }) => props.isActive ? 1 : 0.5};
 `;
 
 const SessionInfo = styled.div`
@@ -144,7 +181,8 @@ const SessionInfo = styled.div`
 `;
 
 const SessionTitle = styled.span`
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -165,7 +203,7 @@ const DeleteButton = styled.button`
     color: var(--vscode-descriptionForeground);
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.15s;
+    transition: opacity 0.15s ease, color 0.15s ease;
 
     &:hover {
         color: var(--vscode-errorForeground);
@@ -177,13 +215,14 @@ const NewChatButton = styled.button`
     align-items: center;
     gap: 6px;
     width: 100%;
-    padding: 10px 12px;
+    padding: 11px 12px;
     border: none;
-    border-top: 1px solid var(--vscode-panel-border);
+    border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
     background: transparent;
     color: var(--vscode-textLink-foreground);
     cursor: pointer;
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 500;
 
     &:hover {
         background: var(--vscode-list-hoverBackground);
@@ -191,7 +230,7 @@ const NewChatButton = styled.button`
 `;
 
 const EmptyState = styled.div`
-    padding: 20px 12px;
+    padding: 22px 12px;
     text-align: center;
     color: var(--vscode-descriptionForeground);
     font-size: 12px;
@@ -325,6 +364,7 @@ const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
                         isActive={session.isCurrentSession}
                         onClick={() => handleSessionClick(session.sessionId)}
                     >
+                        <SessionMarker isActive={session.isCurrentSession} />
                         <SessionInfo>
                             <SessionTitle>{session.title}</SessionTitle>
                             <SessionTimestamp>
@@ -363,18 +403,20 @@ const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
 
-                {filteredSessions && totalFiltered > 0 ? (
-                    <>
-                        {renderSessionGroup('Today', filteredSessions.today)}
-                        {renderSessionGroup('Yesterday', filteredSessions.yesterday)}
-                        {renderSessionGroup('Past Week', filteredSessions.pastWeek)}
-                        {renderSessionGroup('Older', filteredSessions.older)}
-                    </>
-                ) : (
-                    <EmptyState>
-                        {searchQuery ? 'No sessions match your search' : 'No chat sessions yet'}
-                    </EmptyState>
-                )}
+                <SessionList>
+                    {filteredSessions && totalFiltered > 0 ? (
+                        <>
+                            {renderSessionGroup('Today', filteredSessions.today)}
+                            {renderSessionGroup('Yesterday', filteredSessions.yesterday)}
+                            {renderSessionGroup('Past Week', filteredSessions.pastWeek)}
+                            {renderSessionGroup('Older', filteredSessions.older)}
+                        </>
+                    ) : (
+                        <EmptyState>
+                            {searchQuery ? 'No sessions match your search' : 'No chat sessions yet'}
+                        </EmptyState>
+                    )}
+                </SessionList>
 
                 <NewChatButton onClick={handleNewSession}>
                     <Codicon name="add" />
