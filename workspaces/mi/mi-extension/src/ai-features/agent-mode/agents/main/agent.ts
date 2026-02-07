@@ -24,6 +24,7 @@ const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local d
 
 import * as path from 'path';
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
+import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from '../../../connection';
 import { getSystemPrompt } from './system';
 import { getUserPrompt, UserPromptParams } from './prompt';
@@ -77,6 +78,8 @@ export interface AgentRequest {
     files?: FileObject[];
     /** Optional image attachments */
     images?: ImageObject[];
+    /** Enable Claude thinking mode (reasoning blocks) */
+    thinking?: boolean;
     /** Path to the MI project */
     projectPath: string;
     /** Map of file path to content for relevant existing code (optional, for future use) */
@@ -253,15 +256,33 @@ export async function executeAgent(
             };
         };
 
+        // Configure Anthropic provider options.
+        // When thinking is enabled, keep reasoning in model messages for JSONL replay.
+        const anthropicOptions: AnthropicProviderOptions = request.thinking
+            ? {
+                thinking: { type: 'enabled', budgetTokens: 1024 },
+                sendReasoning: true,
+            }
+            : {
+                sendReasoning: true,
+            };
+
+        if (request.thinking) {
+            logInfo('[Agent] Thinking mode enabled for this request');
+        }
+
         // Setup Langfuse tracing if enabled
         const streamConfig: any = {
             model,
             maxOutputTokens: 10000,
-            temperature: 0,
+            temperature: request.thinking ? undefined : 0,
             messages: allMessages,
             stopWhen: stepCountIs(50),
             tools,
             abortSignal: request.abortSignal,
+            providerOptions: {
+                anthropic: anthropicOptions,
+            },
             prepareStep,
             onStepFinish: async (step) => {
                 currentStepNumber++;
@@ -319,6 +340,8 @@ export async function executeAgent(
 
         // Track tool inputs for use in tool results (by toolCallId)
         const toolInputMap = new Map<string, any>();
+        // Track reasoning text by block ID and emit complete thinking blocks on end.
+        const reasoningById = new Map<string, string>();
 
         // Process stream
         for await (const part of fullStream) {
@@ -336,6 +359,41 @@ export async function executeAgent(
                     eventHandler({
                         type: 'content_block',
                         content: part.text,
+                    });
+                    break;
+                }
+
+                case 'reasoning-start': {
+                    reasoningById.set(part.id, '');
+                    eventHandler({
+                        type: 'thinking_start',
+                        thinkingId: part.id,
+                    });
+                    break;
+                }
+
+                case 'reasoning-delta': {
+                    const delta = ('text' in part ? part.text : (part as any).delta) || '';
+                    if (!delta) {
+                        break;
+                    }
+
+                    const current = reasoningById.get(part.id) || '';
+                    reasoningById.set(part.id, current + delta);
+
+                    eventHandler({
+                        type: 'thinking_delta',
+                        thinkingId: part.id,
+                        content: delta,
+                    });
+                    break;
+                }
+
+                case 'reasoning-end': {
+                    reasoningById.delete(part.id);
+                    eventHandler({
+                        type: 'thinking_end',
+                        thinkingId: part.id,
                     });
                     break;
                 }

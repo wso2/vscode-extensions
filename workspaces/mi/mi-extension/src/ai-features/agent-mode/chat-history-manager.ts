@@ -969,7 +969,7 @@ export class ChatHistoryManager {
                             });
                         }
                     } else if (Array.isArray(msg.content)) {
-                        // Array of content parts (text and tool-calls)
+                        // Array of content parts (text, reasoning, and tool-calls)
                         for (const part of msg.content) {
                             if (part.type === 'text') {
                                 // Only add non-empty text
@@ -977,6 +977,15 @@ export class ChatHistoryManager {
                                     events.push({
                                         type: 'assistant',
                                         content: part.text,
+                                        timestamp
+                                    });
+                                }
+                            } else if (part.type === 'reasoning') {
+                                const reasoningText = (part.text || '').trim();
+                                if (reasoningText) {
+                                    events.push({
+                                        type: 'assistant',
+                                        content: `\n\n<thinking>${reasoningText}</thinking>\n\n`,
                                         timestamp
                                     });
                                 }
