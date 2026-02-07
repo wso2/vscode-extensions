@@ -36,6 +36,10 @@ import { ChatHistoryManager, GroupedSessions } from '../../ai-features/agent-mod
 import { PendingQuestion, PendingPlanApproval } from '../../ai-features/agent-mode/tools/plan_mode_tools';
 import { validateAttachments } from '../../ai-features/agent-mode/attachment-utils';
 
+// Low threshold for initial auto-compact testing.
+const AUTO_COMPACT_TOKEN_THRESHOLD = 6000;
+const AUTO_COMPACT_TOOL_NAME = 'compact_conversation';
+
 // Session management types (will be imported from @wso2/mi-core after build)
 export interface ListSessionsRequest {
     // Empty - uses project from context
@@ -110,6 +114,85 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     }
 
     /**
+     * Detect context-window related model errors from AI SDK / provider messages.
+     */
+    private isContextLimitError(errorMessage?: string): boolean {
+        if (!errorMessage) {
+            return false;
+        }
+
+        const normalized = errorMessage.toLowerCase();
+        return (
+            normalized.includes('context window') ||
+            normalized.includes('context length') ||
+            normalized.includes('maximum context length') ||
+            normalized.includes('prompt is too long') ||
+            normalized.includes('input is too long') ||
+            normalized.includes('too many tokens') ||
+            normalized.includes('max input tokens')
+        );
+    }
+
+    /**
+     * Run compact agent, save checkpoint, and emit compact/usage events.
+     */
+    private async runAutoCompact(
+        historyManager: ChatHistoryManager,
+        reason: 'threshold' | 'context_error'
+    ): Promise<boolean> {
+        this.eventHandler.handleEvent({
+            type: 'tool_call',
+            toolName: AUTO_COMPACT_TOOL_NAME,
+            loadingAction: 'compacting conversation',
+            toolInput: {},
+        });
+
+        const messagesForCompact = await historyManager.getMessages({ includeCompactSummaryEntry: true });
+        if (messagesForCompact.length === 0) {
+            logDebug(`[AgentPanel] Skipping auto compact (${reason}): no messages`);
+            this.eventHandler.handleEvent({
+                type: 'tool_result',
+                toolName: AUTO_COMPACT_TOOL_NAME,
+                toolOutput: { success: false },
+                completedAction: 'failed to compact conversation',
+            });
+            return false;
+        }
+
+        const compactResult = await executeCompactAgent({
+            messages: messagesForCompact,
+            trigger: 'auto',
+            projectPath: this.projectUri,
+        });
+
+        if (!compactResult.success || !compactResult.summary) {
+            logError(`[AgentPanel] Auto compact failed (${reason}): ${compactResult.error || 'unknown error'}`);
+            this.eventHandler.handleEvent({
+                type: 'tool_result',
+                toolName: AUTO_COMPACT_TOOL_NAME,
+                toolOutput: { success: false },
+                completedAction: 'failed to compact conversation',
+            });
+            return false;
+        }
+
+        await historyManager.saveSummaryMessage(compactResult.summary);
+        this.eventHandler.handleEvent({
+            type: 'compact',
+            summary: compactResult.summary,
+            content: compactResult.summary,
+        });
+        // Reset usage indicator after checkpoint.
+        this.eventHandler.handleEvent({
+            type: 'usage',
+            totalInputTokens: 0,
+        });
+
+        logInfo(`[AgentPanel] Auto compact complete (${reason}): ${compactResult.summary.length} chars`);
+        return true;
+    }
+
+    /**
      * Initialize or get existing chat history manager
      */
     private async getChatHistoryManager(): Promise<ChatHistoryManager> {
@@ -166,30 +249,76 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             // Get or create chat history manager
             const historyManager = await this.getChatHistoryManager();
 
-            // Create abort controller for this request
-            this.currentAbortController = createAgentAbortController();
+            // Auto-compact before the new run when context usage exceeds threshold.
+            // We compact between runs (not mid-stream) to keep AI SDK orchestration stable.
+            const lastUsage = await historyManager.getLastUsage();
+            const shouldAutoCompact = lastUsage !== undefined && lastUsage >= AUTO_COMPACT_TOKEN_THRESHOLD;
+            if (shouldAutoCompact) {
+                logInfo(`[AgentPanel] Auto compact triggered at ${lastUsage} tokens (threshold: ${AUTO_COMPACT_TOKEN_THRESHOLD})`);
+                await this.runAutoCompact(historyManager, 'threshold');
+            }
 
-            const result = await executeAgent(
-                {
-                    query: request.message,
-                    files: request.files,
-                    images: request.images,
-                    thinking: request.thinking,
-                    projectPath: this.projectUri,
-                    sessionId: this.currentSessionId || undefined,
-                    abortSignal: this.currentAbortController.signal,
-                    chatHistoryManager: historyManager,
-                    pendingQuestions: this.pendingQuestions,
-                    pendingApprovals: this.pendingApprovals
-                },
-                (event: AgentEvent) => {
-                    // Forward events to the visualizer
-                    this.eventHandler.handleEvent(event);
+            // Use these flags to recover from context-limit failures once per request.
+            let suppressedContextErrorFromStream = false;
+            let retriedAfterContextCompact = false;
+
+            const runAgentOnce = async () => {
+                const abortController = createAgentAbortController();
+                this.currentAbortController = abortController;
+
+                try {
+                    return await executeAgent(
+                        {
+                            query: request.message,
+                            files: request.files,
+                            images: request.images,
+                            thinking: request.thinking,
+                            projectPath: this.projectUri,
+                            sessionId: this.currentSessionId || undefined,
+                            abortSignal: abortController.signal,
+                            chatHistoryManager: historyManager,
+                            pendingQuestions: this.pendingQuestions,
+                            pendingApprovals: this.pendingApprovals
+                        },
+                        (event: AgentEvent) => {
+                            // When context is exceeded, suppress the immediate error event,
+                            // compact, and retry once for seamless UX.
+                            if (event.type === 'error' && this.isContextLimitError(event.error)) {
+                                suppressedContextErrorFromStream = true;
+                                logInfo('[AgentPanel] Suppressed context-limit error event; attempting compact-and-retry');
+                                return;
+                            }
+                            this.eventHandler.handleEvent(event);
+                        }
+                    );
+                } finally {
+                    this.currentAbortController = null;
                 }
-            );
+            };
 
-            // Clean up abort controller
-            this.currentAbortController = null;
+            let result = await runAgentOnce();
+
+            const hitContextLimit = () =>
+                suppressedContextErrorFromStream || this.isContextLimitError(result.error);
+
+            if (!result.success && hitContextLimit() && !retriedAfterContextCompact) {
+                retriedAfterContextCompact = true;
+                logInfo('[AgentPanel] Context limit reached mid-run. Triggering auto compact and retrying once');
+
+                const compacted = await this.runAutoCompact(historyManager, 'context_error');
+                if (compacted) {
+                    suppressedContextErrorFromStream = false;
+                    result = await runAgentOnce();
+                }
+            }
+
+            // If context-limit error was suppressed but we still failed, surface it now.
+            if (!result.success && (suppressedContextErrorFromStream || this.isContextLimitError(result.error))) {
+                this.eventHandler.handleEvent({
+                    type: 'error',
+                    error: result.error || 'Context window exceeded',
+                });
+            }
 
             if (result.success) {
                 logInfo(`[AgentPanel] Agent completed successfully. Modified ${result.modifiedFiles.length} files.`);
@@ -285,10 +414,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             logInfo(`[AgentPanel] Loading chat history from session: ${this.currentSessionId}`);
 
-            // Get messages from JSONL (getMessages() handles compact_summary truncation for LLM).
-            // convertToEventFormat() detects the synthetic <CONVERSATION_SUMMARY> message
-            // and emits it as a compact_summary event for proper UI rendering.
-            const messages = await historyManager.getMessages();
+            // Get messages from JSONL for UI replay (includes compact_summary checkpoint entry).
+            const messages = await historyManager.getMessages({ includeCompactSummaryEntry: true });
 
             // Convert to UI events on-the-fly
             const events = ChatHistoryManager.convertToEventFormat(messages);
@@ -361,7 +488,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             if (this.currentSessionId === sessionId) {
                 logDebug('[AgentPanel] Already on requested session');
                 const historyManager = await this.getChatHistoryManager();
-                const messages = await historyManager.getMessages();
+                const messages = await historyManager.getMessages({ includeCompactSummaryEntry: true });
                 const events = ChatHistoryManager.convertToEventFormat(messages);
                 return {
                     success: true,
@@ -379,7 +506,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.currentSessionId = sessionId;
 
             // Load history from the new session
-            const messages = await this.chatHistoryManager.getMessages();
+            const messages = await this.chatHistoryManager.getMessages({ includeCompactSummaryEntry: true });
             const events = ChatHistoryManager.convertToEventFormat(messages);
 
             // Get last known token usage for context indicator
@@ -483,7 +610,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             // Get chat history manager (must have an active session)
             const historyManager = await this.getChatHistoryManager();
-            const messages = await historyManager.getMessages();
+            const messages = await historyManager.getMessages({ includeCompactSummaryEntry: true });
 
             if (messages.length === 0) {
                 return {
@@ -517,6 +644,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 type: 'compact',
                 summary: result.summary,
                 content: result.summary,
+            });
+            this.eventHandler.handleEvent({
+                type: 'usage',
+                totalInputTokens: 0,
             });
 
             logInfo(`[AgentPanel] Manual compact complete: ${result.summary.length} chars`);

@@ -34,6 +34,13 @@ type AgentMode = 'ask' | 'edit';
 const BASH_TOOL_NAME = 'bash';
 const THINKING_PREFERENCE_KEY = 'mi-agent-thinking-enabled';
 
+function removeCompactingPlaceholder(content: string): string {
+    return content
+        .replace(/\n\n<toolcall(?:\s+[^>]*)?>Compacting conversation\.\.\.<\/toolcall>/g, '')
+        .replace(/<toolcall(?:\s+[^>]*)?>Compacting conversation\.\.\.<\/toolcall>/g, '')
+        .trimEnd();
+}
+
 function appendThinkingPlaceholder(content: string, thinkingId: string): string {
     return `${content}\n\n<thinking data-id="${thinkingId}" data-loading="true"></thinking>`;
 }
@@ -163,6 +170,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     // Context usage tracking (for compact button display)
     const CONTEXT_TOKEN_THRESHOLD = 180000;
+    // Keep this aligned with backend auto-compact threshold in rpc-manager.ts.
+    const PRE_SEND_AUTO_COMPACT_THRESHOLD = 6000;
     const contextUsagePercent = Math.min(
         Math.round((lastTotalInputTokens / CONTEXT_TOKEN_THRESHOLD) * 100),
         100
@@ -183,6 +192,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const assistantResponseRef = useRef<string>("");
     const currentChatIdRef = useRef<number | null>(null);
     const backendRequestTriggeredRef = useRef(false);
+    const sendInProgressRef = useRef(false);
 
     // Keep refs in sync with state (for use in stale closure of event handler)
     assistantResponseRef.current = assistantResponse;
@@ -430,13 +440,17 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             case "compact":
                 // Conversation was compacted (auto or manual). Insert a compact summary tag.
                 if (event.summary) {
+                    setToolStatus("");
                     setMessages((prev) => {
                         // If the last message is an in-progress assistant message during agent run, append to it
                         // Use ref to avoid stale closure (this callback is registered once via onAgentEvent)
                         if (prev.length > 0 && prev[prev.length - 1].role === Role.MICopilot && backendRequestTriggeredRef.current) {
-                            return updateLastMessage(prev, (c) =>
-                                c + `\n\n<compact>${event.summary}</compact>`
-                            );
+                            return updateLastMessage(prev, (c) => {
+                                const cleaned = removeCompactingPlaceholder(c);
+                                return cleaned
+                                    ? `${cleaned}\n\n<compact>${event.summary}</compact>`
+                                    : `<compact>${event.summary}</compact>`;
+                            });
                         }
                         // Otherwise (manual compact): replace the loading message with the summary
                         const loadingIdx = prev.findIndex((m) =>
@@ -671,6 +685,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const handleTextKeydown = (event: React.KeyboardEvent) => {
         if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
+            if (isCompacting || backendRequestTriggered) {
+                return;
+            }
             if (currentUserPrompt.trim() !== "") {
                 handleSend();
             }
@@ -729,22 +746,42 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     };
 
     async function handleSend(requestType: BackendRequestType = BackendRequestType.UserPrompt, prompt?: string | "") {
+        if (sendInProgressRef.current || isCompacting || backendRequestTriggered) {
+            return;
+        }
+
+        const outgoingPrompt = (prompt ?? currentUserPrompt ?? "").toString();
+
         // Reset stop button flag at the start of a new send
         isStopButtonClicked.current = false;
 
         // Block empty user inputs and avoid state conflicts
-        if (currentUserPrompt === "" && !Object.values(BackendRequestType).includes(requestType)) {
+        if (outgoingPrompt.trim() === "") {
             return;
-        } else {
-            // Remove all messages marked as label or questions from history before a backend call
-            setMessages((prevMessages) =>
-                prevMessages.filter(
-                    (message) => message.type !== MessageType.Label && message.type !== MessageType.Question
-                )
-            );
-            setBackendRequestTriggered(true);
-            isResponseReceived.current = false;
         }
+
+        sendInProgressRef.current = true;
+        // Clear input immediately so user can't send the same message again while compacting.
+        setCurrentUserprompt("");
+
+        // Auto-compact first (when threshold is reached) so the compact UI appears
+        // before rendering the next user message.
+        if (
+            lastTotalInputTokens >= PRE_SEND_AUTO_COMPACT_THRESHOLD &&
+            !isCompacting &&
+            !backendRequestTriggered
+        ) {
+            await handleManualCompact();
+        }
+
+        // Remove all messages marked as label or questions from history before a backend call
+        setMessages((prevMessages) =>
+            prevMessages.filter(
+                (message) => message.type !== MessageType.Label && message.type !== MessageType.Question
+            )
+        );
+        setBackendRequestTriggered(true);
+        isResponseReceived.current = false;
 
         // Add the current user prompt to the chats based on the request type
         let currentCopilotChat: CopilotChatEntry[] = [...copilotChat];
@@ -777,13 +814,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         };
 
         // Determine the message to send
-        let messageToSend = currentUserPrompt;
+        let messageToSend = outgoingPrompt;
         switch (requestType) {
             case BackendRequestType.InitialPrompt:
-                updateChats(currentUserPrompt, MessageType.InitialPrompt);
+                updateChats(outgoingPrompt, MessageType.InitialPrompt);
                 break;
             default:
-                updateChats(currentUserPrompt, MessageType.UserMessage);
+                updateChats(outgoingPrompt, MessageType.UserMessage);
                 break;
         }
 
@@ -829,6 +866,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 setCurrentUserprompt("");
             }
             setBackendRequestTriggered(false);
+            sendInProgressRef.current = false;
         }
     }
 
@@ -1754,7 +1792,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
                                 <button
                                     onClick={() => currentUserPrompt.trim() !== "" && handleSend()}
-                                    disabled={isUsageExceeded || currentUserPrompt.trim() === ""}
+                                    disabled={isUsageExceeded || isCompacting || backendRequestTriggered || currentUserPrompt.trim() === ""}
                                     style={{
                                         display: "flex",
                                         alignItems: "center",
@@ -1769,7 +1807,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                             ? "var(--vscode-button-foreground)" 
                                             : "var(--vscode-button-secondaryForeground)",
                                         border: "none",
-                                        cursor: (currentUserPrompt.trim() !== "") ? "pointer" : "default",
+                                        cursor: (currentUserPrompt.trim() !== "" && !isCompacting && !backendRequestTriggered) ? "pointer" : "default",
                                         transition: "all 0.2s ease"
                                     }}
                                     title="Send Message"
