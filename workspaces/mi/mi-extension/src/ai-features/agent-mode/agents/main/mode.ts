@@ -1,0 +1,125 @@
+/**
+ * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com/) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import { AgentMode } from '@wso2/mi-core';
+import {
+    FILE_READ_TOOL_NAME,
+    FILE_GREP_TOOL_NAME,
+    FILE_GLOB_TOOL_NAME,
+    CONNECTOR_TOOL_NAME,
+    GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
+    GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
+    VALIDATE_CODE_TOOL_NAME,
+    EXIT_PLAN_MODE_TOOL_NAME,
+    TODO_WRITE_TOOL_NAME,
+    ENTER_PLAN_MODE_TOOL_NAME,
+    FILE_WRITE_TOOL_NAME,
+} from '../../tools/types';
+
+
+const ASK_MODE_POLICY = `
+User selected ASK mode.
+
+###ASK MODE_POLICY:
+- ASK mode is STRICTLY READ-ONLY.
+- Use ONLY read-only tools:
+  - ${FILE_READ_TOOL_NAME}
+  - ${FILE_GREP_TOOL_NAME}
+  - ${FILE_GLOB_TOOL_NAME}
+  - ${CONNECTOR_TOOL_NAME}
+  - ${GET_CONNECTOR_DOCUMENTATION_TOOL_NAME}
+  - ${GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME}
+  - ${VALIDATE_CODE_TOOL_NAME}
+- Do NOT attempt mutation/tooling actions (write/edit/build/run/bash/connector changes/subagents/plan-mode/todo updates).
+- If you need to provide codes/synapse configurations provide the fully updated code in a code block. Not just the edits. System provides an option called "Add to project" in ASK mode which replaces entire files with the code you provide.
+- If user asks for complex changes, explain they are in ASK mode and ask them to switch to EDIT mode.`;
+
+const EDIT_MODE_POLICY = `
+User selected EDIT mode.
+
+### EDIT MODE_POLICY:
+- EDIT mode allows full tool usage.
+- You may read, modify files, manage connectors, run validations, use runtime tools, and execute implementation tasks.
+
+## Edit Mode Workflow
+- If you have a simple task carry out the task using the tools provided.
+- When you have multiple sub tasks in mind always use the ${TODO_WRITE_TOOL_NAME} tool to track the tasks.
+- If the task is too complex to handle just with ${TODO_WRITE_TOOL_NAME} tool, enter the PLAN mode with the ${ENTER_PLAN_MODE_TOOL_NAME} tool.
+`;
+
+export interface ModeReminderParams {
+    mode?: AgentMode;
+}
+
+export const PLAN_MODE_SHARED_GUIDELINES = `
+- PLAN mode is for exploration and implementation planning.
+- Allowed actions: read-only investigation, subagent-based exploration, todo tracking, and asking clarification questions.
+- Do NOT perform project mutations (write/edit/manage connectors/build/run/bash/data-mapper generation).
+- Produce a decision-complete implementation plan in chat before any execution.
+
+# Plan Mode Workflow
+
+1. **Read the plan file first**: It may contain a previous or unfinished plan.
+2. **Write structured plan or Edit previous plan**: Use the following reference structure. You are free to use any other structure or format you prefer.
+   \`\`\`markdown
+   # <Plan Title>
+
+   ## Overview
+   <Brief description of what will be implemented>
+
+   ## Files to Create
+   - \`path/to/file1.xml\` - Description
+   - \`path/to/file2.xml\` - Description
+
+   ## Files to Modify
+   - \`path/to/existing.xml\` - What changes
+
+   ## Implementation Steps
+   1. Step one
+   2. Step two
+   3. ...
+
+   ## Verification
+   - How to test the implementation
+   \`\`\`
+3. **Request approval**: Call \`${EXIT_PLAN_MODE_TOOL_NAME}\` - this BLOCKS until user approves or rejects
+`;
+
+const PLAN_MODE_POLICY = `
+User selected PLAN mode.
+
+###PLAN MODE_POLICY:
+${PLAN_MODE_SHARED_GUIDELINES}
+`;
+
+/**
+ * Returns mode-specific policy text injected via <system_reminder>.
+ */
+export async function getModeReminder(params: ModeReminderParams): Promise<string> {
+    const mode = params.mode || 'edit';
+
+    if (mode === 'ask') {
+        return ASK_MODE_POLICY;
+    }
+
+    if (mode === 'plan') {
+        return PLAN_MODE_POLICY;
+    }
+
+    return EDIT_MODE_POLICY;
+}

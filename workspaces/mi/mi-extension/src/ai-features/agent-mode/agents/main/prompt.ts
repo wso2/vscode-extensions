@@ -21,15 +21,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { formatFileTree, getExistingFiles } from '../../../utils/file-utils';
 import { getAvailableConnectors, getAvailableInboundEndpoints } from '../../tools/connector_tools';
-import {
-    FILE_READ_TOOL_NAME,
-    FILE_GREP_TOOL_NAME,
-    FILE_GLOB_TOOL_NAME,
-    CONNECTOR_TOOL_NAME,
-    GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
-    GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
-    VALIDATE_CODE_TOOL_NAME,
-} from '../../tools/types';
+import { getPlanModeReminder as getPlanModeSessionReminder } from '../../tools/plan_mode_tools';
+import { AgentMode } from '@wso2/mi-core';
+import { getModeReminder } from './mode';
 
 // ============================================================================
 // User Prompt Template
@@ -88,10 +82,12 @@ These are the available WSO2 inbound endpoints from WSO2 inbound endpoint store.
 export interface UserPromptParams {
     /** User's query or requirement */
     query: string;
-    /** Agent mode: ask (read-only) or edit (full tool access) */
-    mode?: 'ask' | 'edit';
+    /** Agent mode: ask (read-only), edit (full tool access), or plan (planning read-only) */
+    mode?: AgentMode;
     /** Path to the MI project */
     projectPath: string;
+    /** Session ID for plan file path generation */
+    sessionId?: string;
     /** Pre-configured payloads, query params, or path params (optional) */
     payloads?: string;
 }
@@ -177,27 +173,15 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     const availableInboundEndpoints = getAvailableInboundEndpoints();
 
     const mode = params.mode || 'edit';
-    const modeReminder = mode === 'ask'
-        ? [
-            'ASK MODE_POLICY:',
-            '- ASK mode is STRICTLY READ-ONLY.',
-            '- Use ONLY read-only tools:',
-            `  - ${FILE_READ_TOOL_NAME}`,
-            `  - ${FILE_GREP_TOOL_NAME}`,
-            `  - ${FILE_GLOB_TOOL_NAME}`,
-            `  - ${CONNECTOR_TOOL_NAME}`,
-            `  - ${GET_CONNECTOR_DOCUMENTATION_TOOL_NAME}`,
-            `  - ${GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME}`,
-            `  - ${VALIDATE_CODE_TOOL_NAME}`,
-            '- Do NOT attempt mutation/tooling actions (write/edit/build/run/bash/connector changes/subagents/plan-mode/todo updates).',
-            '- If you need to provide codes/synapse configurations provide the fuly updated code in a code block. Not just the edits. System provides an option called "Add to project" in ASK mode which replaces entire files with the code you provide.',
-            '- If user asks for complex changes, explain they are in ASK mode and ask them to switch to EDIT mode.',
-        ].join('\n')
-        : [
-            'EDIT MODE_POLICY:',
-            '- EDIT mode allows full tool usage.',
-            '- You may read, modify files, manage connectors, run validations, use runtime tools, and execute implementation tasks.',
-        ].join('\n');
+    const modePolicyReminder = await getModeReminder({
+        mode,
+    });
+    const planFileReminder = mode === 'plan'
+        ? await getPlanModeSessionReminder(params.projectPath, params.sessionId || 'default')
+        : '';
+    const modeReminder = planFileReminder
+        ? `${modePolicyReminder}\n\n${planFileReminder}`
+        : modePolicyReminder;
 
     // Prepare template context
     const context: Record<string, any> = {

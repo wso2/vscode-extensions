@@ -35,12 +35,23 @@ import {
     TODO_WRITE_TOOL_NAME,
     FILE_WRITE_TOOL_NAME,
 } from './types';
+import { PLAN_MODE_SHARED_GUIDELINES } from '../agents/main/mode';
 import { logInfo, logDebug, logError } from '../../copilot/logger';
 import { AgentEvent } from '@wso2/mi-core';
 
 // ============================================================================
 // Plan File Utilities (Simple - no PlanManager class needed)
 // ============================================================================
+
+interface PlanModeSessionState {
+    planPath: string;
+    relativePath: string;
+    baselineMtimeMs: number;
+}
+
+// Tracks the last "accepted baseline" timestamp for each session's plan file.
+// exit_plan_mode requires a newer mtime to ensure the plan was updated.
+const planModeSessionStates = new Map<string, PlanModeSessionState>();
 
 /**
  * Generate a memorable slug for the plan file
@@ -119,6 +130,79 @@ async function ensureGitignore(projectPath: string): Promise<void> {
         await fs.writeFile(gitignorePath, content, 'utf8');
         logDebug('[PlanMode] Created .mi-copilot/.gitignore');
     }
+}
+
+async function getFileMtimeMs(filePath: string): Promise<number | undefined> {
+    try {
+        const stats = await fs.stat(filePath);
+        return stats.mtimeMs;
+    } catch {
+        return undefined;
+    }
+}
+
+function createPlanModeSystemReminder(planInfo: {
+    exists: boolean;
+    relativePath: string;
+}): string {
+    return [
+        'Plan mode is active. You MUST NOT make any edits except to the plan file mentioned below.',
+        '',
+        '## Plan File Info:',
+        planInfo.exists
+            ? `A plan file already exists at ${planInfo.relativePath}. You can read it and make incremental edits using the file_edit tool. If that is an old plan write a new plan to the file.`
+            : `Your plan file is: ${planInfo.relativePath}. Create this file using file_write to write your plan.`,
+        '',
+        'You should build your plan incrementally by writing to or editing this file.',
+        'This is the ONLY file you are allowed to edit during plan mode.',
+        '',
+        `IMPORTANT: Always present your plan in simple summary format in chat window to the user with no code details because we are in a low code environment before using ${EXIT_PLAN_MODE_TOOL_NAME} tool.`,
+        `Then when your plan is ready for user approval, call ${EXIT_PLAN_MODE_TOOL_NAME} tool.`,
+    ].join('\n');
+}
+
+export async function initializePlanModeSession(
+    projectPath: string,
+    sessionId: string,
+    options?: { forceBaselineReset?: boolean }
+): Promise<{
+    exists: boolean;
+    slug: string;
+    planPath: string;
+    relativePath: string;
+}> {
+    await ensureGitignore(projectPath);
+    const planInfo = await getOrCreatePlanInfo(projectPath, sessionId);
+    const existingState = planModeSessionStates.get(sessionId);
+
+    const forceBaselineReset = options?.forceBaselineReset === true;
+    if (forceBaselineReset || !existingState || existingState.planPath !== planInfo.planPath) {
+        const baselineMtimeMs = await getFileMtimeMs(planInfo.planPath) ?? Date.now();
+        planModeSessionStates.set(sessionId, {
+            planPath: planInfo.planPath,
+            relativePath: planInfo.relativePath,
+            baselineMtimeMs,
+        });
+    }
+
+    return planInfo;
+}
+
+export async function getPlanModeReminder(projectPath: string, sessionId: string): Promise<string> {
+    const planInfo = await initializePlanModeSession(projectPath, sessionId);
+    return createPlanModeSystemReminder(planInfo);
+}
+
+function updatePlanModeBaseline(sessionId: string, planPath: string, relativePath: string, baselineMtimeMs: number): void {
+    planModeSessionStates.set(sessionId, {
+        planPath,
+        relativePath,
+        baselineMtimeMs,
+    });
+}
+
+function clearPlanModeSession(sessionId: string): void {
+    planModeSessionStates.delete(sessionId);
 }
 
 // ============================================================================
@@ -306,11 +390,9 @@ export function createEnterPlanModeExecute(
         logInfo(`[EnterPlanMode] Entering plan mode`);
 
         try {
-            // Ensure .gitignore exists
-            await ensureGitignore(projectPath);
-            
-            // Get or create plan info (checks if file exists, generates slug if not)
-            const planInfo = await getOrCreatePlanInfo(projectPath, sessionId);
+            // Initialize plan mode state and plan file metadata for this session.
+            await initializePlanModeSession(projectPath, sessionId, { forceBaselineReset: true });
+            const planReminder = await getPlanModeReminder(projectPath, sessionId);
 
             // Send event to UI
             eventHandler({
@@ -318,35 +400,16 @@ export function createEnterPlanModeExecute(
             } as any);
 
             // Build the response with <system-reminder> containing plan file info
-            const baseMessage = `Entered plan mode. You should now focus on exploring the codebase and designing an implementation approach.
+            const baseMessage = `Entered plan mode. You should now focus on exploration and planning before implementation.
 
-            In plan mode, you should:
-            1. Thoroughly explore the codebase to understand existing patterns using glob, grep, and file_read or explore subagent using task tool if the codebase is large.
-            2. Identify similar features and architectural approaches
-            3. Consider multiple approaches and their trade-offs
-            4. Use ask_user_question tool if you need to clarify the approach
-            5. Design a concrete implementation strategy
-            6. Present your plan in simple summary format in chat window to the user with no code details because we are in a low code environment.
-            7. Only then use ${EXIT_PLAN_MODE_TOOL_NAME} tool to present your plan for approval
+            ${PLAN_MODE_SHARED_GUIDELINES}
 
-            Remember: DO NOT write or edit any files yet. This is a read-only exploration and planning phase.`;
+            Remember: DO NOT write or edit project files yet. This is a planning phase.`;
 
-            // Inject <system-reminder> with plan file path (like Claude Code does)
+            // Inject <system-reminder> with concrete plan-file instructions.
             const systemReminder = `
             <system-reminder>
-            Plan mode is active. You MUST NOT make any edits except to the plan file mentioned below.
-
-            ## Plan File Info:
-            ${planInfo.exists
-                ? `A plan file already exists at ${planInfo.relativePath}. You can read it and make incremental edits using the file_edit tool. If that is an old plan write a new plan to the file.`
-                : `Your plan file is: ${planInfo.relativePath}. Create this file using file_write to write your plan.`
-            }
-
-            You should build your plan incrementally by writing to or editing this file.
-            This is the ONLY file you are allowed to edit during plan mode.
-
-            IMPORTANT: Always present your plan in simple summary format in chat window to the user with no code details because we are in a low code environment before using ${EXIT_PLAN_MODE_TOOL_NAME} tool.
-            Then when your plan is ready for user approval, call ${EXIT_PLAN_MODE_TOOL_NAME} tool.
+            ${planReminder}
             </system-reminder>`;
 
             return {
@@ -402,23 +465,54 @@ export function createExitPlanModeExecute(
 
         logInfo(`[ExitPlanMode] Requesting plan approval: ${approvalId}`);
 
-        // Try to find the plan file path
-        let planFilePath: string | undefined;
+        // Validate that the plan file exists, has content, and was updated after entering plan mode.
+        const planInfo = await initializePlanModeSession(projectPath, sessionId);
+        if (!planInfo.exists) {
+            return {
+                success: false,
+                message: `Plan file does not exist yet at ${planInfo.relativePath}. Write your plan first, then call ${EXIT_PLAN_MODE_TOOL_NAME}.`,
+                error: 'PLAN_FILE_MISSING',
+            };
+        }
+
+        let planContent = '';
+        let planMtimeMs = 0;
         try {
-            const planInfo = await getOrCreatePlanInfo(projectPath, sessionId);
-            if (planInfo.exists) {
-                planFilePath = planInfo.planPath;
-            }
-        } catch {
-            // Ignore errors, planFilePath will be undefined
+            const rawPlanContent = await fs.readFile(planInfo.planPath, 'utf8');
+            planContent = rawPlanContent.trim();
+            const mtime = await getFileMtimeMs(planInfo.planPath);
+            planMtimeMs = mtime ?? 0;
+        } catch (error: any) {
+            return {
+                success: false,
+                message: `Failed to read plan file at ${planInfo.relativePath}: ${error.message}`,
+                error: 'PLAN_FILE_READ_FAILED',
+            };
+        }
+
+        if (!planContent) {
+            return {
+                success: false,
+                message: `Plan file ${planInfo.relativePath} is empty. Write a concrete plan before requesting approval.`,
+                error: 'PLAN_FILE_EMPTY',
+            };
+        }
+
+        const planState = planModeSessionStates.get(sessionId);
+        if (planState && planState.planPath === planInfo.planPath && planMtimeMs <= planState.baselineMtimeMs + 1) {
+            return {
+                success: false,
+                message: `Plan file ${planInfo.relativePath} was not updated after entering/reviewing plan mode. Update the plan file, then call ${EXIT_PLAN_MODE_TOOL_NAME} again.`,
+                error: 'PLAN_NOT_UPDATED',
+            };
         }
 
         // Send plan_approval_requested event to UI
         eventHandler({
             type: 'plan_approval_requested',
             approvalId,
-            planFilePath,
-            content: summary || 'Plan ready for approval',
+            planFilePath: planInfo.planPath,
+            content: planContent || summary || 'Plan ready for approval',
         } as any);
 
         // Wait for user approval (Promise resolves when respondToPlanApproval is called)
@@ -431,6 +525,7 @@ export function createExitPlanModeExecute(
 
                     if (result.approved) {
                         logInfo(`[ExitPlanMode] Plan approved`);
+                        clearPlanModeSession(sessionId);
 
                         // Send plan_mode_exited event
                         eventHandler({
@@ -444,11 +539,21 @@ export function createExitPlanModeExecute(
                         });
                     } else {
                         logInfo(`[ExitPlanMode] Plan not approved. Feedback: ${result.feedback || 'none'}`);
+                        const latestMtime = (await getFileMtimeMs(planInfo.planPath)) ?? planMtimeMs ?? Date.now();
+                        updatePlanModeBaseline(sessionId, planInfo.planPath, planInfo.relativePath, latestMtime);
+                        const planReminder = await getPlanModeReminder(projectPath, sessionId);
                         resolve({
                             success: false,
-                            message: result.feedback
-                                ? `Plan not approved. User feedback: ${result.feedback}. Please revise the plan and try again.`
-                                : 'Plan not approved by user. Please revise the plan based on user requirements and try again.'
+                            message: [
+                                result.feedback
+                                    ? `Plan not approved. User feedback: ${result.feedback}. Please revise the plan and try again.`
+                                    : 'Plan not approved by user. Please revise the plan based on user requirements and try again.',
+                                '',
+                                '<system-reminder>',
+                                'Plan mode remains active. Update the plan file and request approval again.',
+                                planReminder,
+                                '</system-reminder>',
+                            ].join('\n')
                         });
                     }
                 },
@@ -462,9 +567,12 @@ export function createExitPlanModeExecute(
 }
 
 const exitPlanModeInputSchema = z.object({
+    summary: z.string().optional().describe(
+        'Optional short summary shown while requesting approval. The actual plan is read from the plan file.'
+    ),
     plan: z.string().optional().describe(
-        'The plan to be implemented which is written to the plan file'
-    )
+        'Deprecated alias for summary. The actual plan is always read from the plan file.'
+    ),
 });
 
 export function createExitPlanModeTool(execute: ExitPlanModeExecuteFn) {

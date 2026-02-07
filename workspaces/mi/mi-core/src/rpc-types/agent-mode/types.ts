@@ -21,14 +21,14 @@
 // ============================================================================
 import { FileObject, ImageObject } from "../../interfaces/mi-copilot";
 
-export type AgentMode = 'ask' | 'edit';
+export type AgentMode = 'ask' | 'edit' | 'plan';
 
 /**
  * Request to send a message to the agent
  */
 export interface SendAgentMessageRequest {
     message: string;
-    /** Agent mode: ask (read-only) or edit (full tool access) */
+    /** Agent mode: ask (read-only), edit (full tool access), or plan (planning-focused read-only) */
     mode?: AgentMode;
     /** Optional file attachments (text/PDF) for multimodal prompts */
     files?: FileObject[];
@@ -211,6 +211,8 @@ export interface LoadChatHistoryResponse {
     sessionId?: string;
     events: ChatHistoryEvent[];
     error?: string;
+    /** Last known mode for this session */
+    mode?: AgentMode;
     /** Last known total input tokens for context usage display */
     lastTotalInputTokens?: number;
 }
@@ -310,6 +312,8 @@ export interface SwitchSessionResponse {
     /** Loaded history for the new session */
     events: ChatHistoryEvent[];
     error?: string;
+    /** Last known mode for the switched session */
+    mode?: AgentMode;
     /** Last known total input tokens for context usage display */
     lastTotalInputTokens?: number;
 }
@@ -328,6 +332,8 @@ export interface CreateNewSessionRequest {
 export interface CreateNewSessionResponse {
     success: boolean;
     sessionId: string;
+    /** Initial mode for the new session */
+    mode?: AgentMode;
     error?: string;
 }
 

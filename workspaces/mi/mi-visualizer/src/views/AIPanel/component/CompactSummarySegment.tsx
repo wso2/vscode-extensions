@@ -66,16 +66,17 @@ const CompactBody = styled.div`
 
 interface CompactSummarySegmentProps {
     text: string;
+    title?: string;
 }
 
-const CompactSummarySegment: React.FC<CompactSummarySegmentProps> = ({ text }) => {
+const CompactSummarySegment: React.FC<CompactSummarySegmentProps> = ({ text, title = "Summary" }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
         <CompactContainer>
             <CompactHeader onClick={() => setIsExpanded(!isExpanded)}>
                 <span className={`codicon codicon-chevron-${isExpanded ? 'down' : 'right'}`} />
-                Summary
+                {title}
             </CompactHeader>
             {isExpanded && (
                 <CompactBody>

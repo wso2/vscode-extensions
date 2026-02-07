@@ -23,6 +23,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { logDebug, logError, logInfo } from '../copilot/logger';
 import { getToolAction, capitalizeAction } from './tool-action-mapper';
 import { BASH_TOOL_NAME } from './tools/types';
+import { AgentMode } from '@wso2/mi-core';
 
 // Storage location: <project>/.mi-copilot/<session_id>/history.jsonl
 // Metadata location: <project>/.mi-copilot/<session_id>/metadata.json
@@ -73,7 +74,7 @@ export interface GroupedSessions {
  */
 export interface JournalEntry {
     /** Entry type: message role for model messages, or a special marker */
-    type: 'user' | 'assistant' | 'tool' | 'session_start' | 'session_end' | 'compact_summary';
+    type: 'user' | 'assistant' | 'tool' | 'session_start' | 'session_end' | 'compact_summary' | 'mode_change';
     /** The model message (for user/assistant/tool entries) */
     message?: any;
     /** ISO timestamp */
@@ -89,6 +90,8 @@ export interface JournalEntry {
     };
     /** Summary content (compact_summary) */
     summary?: string;
+    /** Mode value (mode_change) */
+    mode?: AgentMode;
     /** Total input tokens — attached to last message entry of each agent step */
     totalInputTokens?: number;
     /** Lightweight attachment metadata for user messages (for UI replay) */
@@ -495,6 +498,48 @@ export class ChatHistoryManager {
             logError('[ChatHistory] Failed to save compact summary', error);
             throw error;
         }
+    }
+
+    /**
+     * Save a mode change entry to history
+     */
+    async saveModeChange(mode: AgentMode): Promise<void> {
+        const entry: JournalEntry = {
+            type: 'mode_change',
+            timestamp: new Date().toISOString(),
+            sessionId: this.sessionId,
+            mode,
+        };
+
+        try {
+            await this.writeEntry(entry);
+            logInfo(`[ChatHistory] Saved mode change: ${mode}`);
+        } catch (error) {
+            logError('[ChatHistory] Failed to save mode change', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get the latest known mode from JSONL. Defaults to edit if no mode entry exists.
+     */
+    async getLatestMode(defaultMode: AgentMode = 'edit'): Promise<AgentMode> {
+        try {
+            const content = await fs.readFile(this.sessionFile, 'utf8');
+            const lines = content.trim().split('\n');
+
+            for (let i = lines.length - 1; i >= 0; i--) {
+                if (!lines[i].trim()) continue;
+                const entry = JSON.parse(lines[i]) as JournalEntry;
+                if (entry.type === 'mode_change' && entry.mode) {
+                    return entry.mode;
+                }
+            }
+        } catch {
+            // Ignore and return default
+        }
+
+        return defaultMode;
     }
 
     /**

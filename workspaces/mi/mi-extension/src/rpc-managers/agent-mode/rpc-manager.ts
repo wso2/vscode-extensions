@@ -18,6 +18,7 @@
 
 import {
     MIAgentPanelAPI,
+    AgentMode,
     SendAgentMessageRequest,
     SendAgentMessageResponse,
     LoadChatHistoryRequest,
@@ -33,12 +34,13 @@ import { executeAgent, createAgentAbortController, AgentEvent } from '../../ai-f
 import { executeCompactAgent } from '../../ai-features/agent-mode/agents/compact/agent';
 import { logInfo, logError, logDebug } from '../../ai-features/copilot/logger';
 import { ChatHistoryManager, GroupedSessions } from '../../ai-features/agent-mode/chat-history-manager';
-import { PendingQuestion, PendingPlanApproval } from '../../ai-features/agent-mode/tools/plan_mode_tools';
+import { PendingQuestion, PendingPlanApproval, initializePlanModeSession } from '../../ai-features/agent-mode/tools/plan_mode_tools';
 import { validateAttachments } from '../../ai-features/agent-mode/attachment-utils';
 
 // Low threshold for initial auto-compact testing.
 const AUTO_COMPACT_TOKEN_THRESHOLD = 6000;
 const AUTO_COMPACT_TOOL_NAME = 'compact_conversation';
+const DEFAULT_AGENT_MODE: AgentMode = 'edit';
 
 // Session management types (will be imported from @wso2/mi-core after build)
 export interface ListSessionsRequest {
@@ -61,6 +63,7 @@ export interface SwitchSessionResponse {
     sessionId: string;
     events: ChatHistoryEvent[];
     error?: string;
+    mode?: AgentMode;
     lastTotalInputTokens?: number;
 }
 
@@ -71,6 +74,7 @@ export interface CreateNewSessionRequest {
 export interface CreateNewSessionResponse {
     success: boolean;
     sessionId: string;
+    mode?: AgentMode;
     error?: string;
 }
 
@@ -88,6 +92,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private currentAbortController: AbortController | null = null;
     private chatHistoryManager: ChatHistoryManager | null = null;
     private currentSessionId: string | null = null;
+    private currentMode: AgentMode = DEFAULT_AGENT_MODE;
 
     // Map to track pending questions from ask_user tool
     private pendingQuestions: Map<string, PendingQuestion> = new Map();
@@ -206,6 +211,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.chatHistoryManager = new ChatHistoryManager(this.projectUri, sessionId);
             await this.chatHistoryManager.initialize();
             this.currentSessionId = this.chatHistoryManager.getSessionId();
+            this.currentMode = await this.chatHistoryManager.getLatestMode(DEFAULT_AGENT_MODE);
 
             if (sessionId) {
                 logInfo(`[AgentPanel] Continuing existing session: ${this.currentSessionId}`);
@@ -225,6 +231,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             logInfo(`[AgentPanel] Closed chat session: ${this.currentSessionId}`);
             this.chatHistoryManager = null;
             this.currentSessionId = null;
+            this.currentMode = DEFAULT_AGENT_MODE;
         }
     }
 
@@ -248,6 +255,14 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             // Get or create chat history manager
             const historyManager = await this.getChatHistoryManager();
+            const effectiveMode = request.mode || this.currentMode || DEFAULT_AGENT_MODE;
+            if (effectiveMode !== this.currentMode) {
+                if (effectiveMode === 'plan' && this.currentSessionId) {
+                    await initializePlanModeSession(this.projectUri, this.currentSessionId, { forceBaselineReset: true });
+                }
+                await historyManager.saveModeChange(effectiveMode);
+                this.currentMode = effectiveMode;
+            }
 
             // Auto-compact before the new run when context usage exceeds threshold.
             // We compact between runs (not mid-stream) to keep AI SDK orchestration stable.
@@ -261,6 +276,15 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             // Use these flags to recover from context-limit failures once per request.
             let suppressedContextErrorFromStream = false;
             let retriedAfterContextCompact = false;
+            const persistModeChange = (mode: AgentMode) => {
+                if (this.currentMode === mode) {
+                    return;
+                }
+                this.currentMode = mode;
+                historyManager.saveModeChange(mode).catch((error) => {
+                    logError(`[AgentPanel] Failed to persist mode change to '${mode}'`, error);
+                });
+            };
 
             const runAgentOnce = async () => {
                 const abortController = createAgentAbortController();
@@ -270,7 +294,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                     return await executeAgent(
                         {
                             query: request.message,
-                            mode: request.mode || 'edit',
+                            mode: effectiveMode,
                             files: request.files,
                             images: request.images,
                             thinking: request.thinking,
@@ -282,6 +306,12 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                             pendingApprovals: this.pendingApprovals
                         },
                         (event: AgentEvent) => {
+                            if (event.type === 'plan_mode_entered') {
+                                persistModeChange('plan');
+                            } else if (event.type === 'plan_mode_exited') {
+                                persistModeChange('edit');
+                            }
+
                             // When context is exceeded, suppress the immediate error event,
                             // compact, and retry once for seamless UX.
                             if (event.type === 'error' && this.isContextLimitError(event.error)) {
@@ -423,6 +453,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             // Get last known token usage for context indicator
             const lastTotalInputTokens = await historyManager.getLastUsage();
+            this.currentMode = await historyManager.getLatestMode(DEFAULT_AGENT_MODE);
 
             logInfo(`[AgentPanel] Loaded ${messages.length} messages, generated ${events.length} events`);
 
@@ -430,6 +461,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 success: true,
                 sessionId: this.currentSessionId,
                 events,
+                mode: this.currentMode,
                 lastTotalInputTokens,
             };
         } catch (error) {
@@ -491,10 +523,15 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 const historyManager = await this.getChatHistoryManager();
                 const messages = await historyManager.getMessages({ includeCompactSummaryEntry: true });
                 const events = ChatHistoryManager.convertToEventFormat(messages);
+                const lastTotalInputTokens = await historyManager.getLastUsage();
+                const mode = await historyManager.getLatestMode(DEFAULT_AGENT_MODE);
+                this.currentMode = mode;
                 return {
                     success: true,
                     sessionId,
-                    events
+                    events,
+                    mode,
+                    lastTotalInputTokens,
                 };
             }
 
@@ -505,6 +542,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.chatHistoryManager = new ChatHistoryManager(this.projectUri, sessionId);
             await this.chatHistoryManager.initialize();
             this.currentSessionId = sessionId;
+            this.currentMode = await this.chatHistoryManager.getLatestMode(DEFAULT_AGENT_MODE);
 
             // Load history from the new session
             const messages = await this.chatHistoryManager.getMessages({ includeCompactSummaryEntry: true });
@@ -519,6 +557,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 success: true,
                 sessionId,
                 events,
+                mode: this.currentMode,
                 lastTotalInputTokens,
             };
         } catch (error) {
@@ -546,12 +585,14 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.chatHistoryManager = new ChatHistoryManager(this.projectUri);
             await this.chatHistoryManager.initialize();
             this.currentSessionId = this.chatHistoryManager.getSessionId();
+            this.currentMode = DEFAULT_AGENT_MODE;
 
             logInfo(`[AgentPanel] Created new session: ${this.currentSessionId}`);
 
             return {
                 success: true,
-                sessionId: this.currentSessionId
+                sessionId: this.currentSessionId,
+                mode: this.currentMode,
             };
         } catch (error) {
             logError('[AgentPanel] Failed to create new session', error);

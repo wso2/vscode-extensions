@@ -55,6 +55,8 @@ import {
 import { convertEventsToMessages } from "../utils/eventToMessageConverter";
 import { useFeedback } from "./useFeedback";
 
+export type AgentMode = 'ask' | 'edit' | 'plan';
+
 // MI Copilot context type
 interface MICopilotContextType {
     rpcClient: RpcClientType;
@@ -127,6 +129,8 @@ interface MICopilotContextType {
     switchToSession: (sessionId: string) => Promise<void>;
     createNewSession: () => Promise<void>;
     deleteSession: (sessionId: string) => Promise<void>;
+    agentMode: AgentMode;
+    setAgentMode: React.Dispatch<React.SetStateAction<AgentMode>>;
 }
 
 // Define the context for MI Copilot
@@ -177,6 +181,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const [pendingPlanApproval, setPendingPlanApproval] = useState<PendingPlanApproval | null>(null);
     const [todos, setTodos] = useState<TodoItem[]>([]);
     const [isPlanMode, setIsPlanMode] = useState<boolean>(false);
+    const [agentMode, setAgentMode] = useState<AgentMode>('edit');
 
     // Session management state
     // Context usage tracking
@@ -230,6 +235,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         try {
             const response = await rpcClient.getMiAgentPanelRpcClient().switchSession({ sessionId });
             if (response.success) {
+                const responseMode = (response as { mode?: AgentMode }).mode;
                 setCurrentSessionId(response.sessionId);
                 // Convert events to UI messages
                 const uiMessages = convertEventsToMessages(response.events);
@@ -237,6 +243,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 setCopilotChat([]);
                 // Update context usage from switched session
                 setLastTotalInputTokens(response.lastTotalInputTokens ?? 0);
+                setAgentMode(responseMode ?? 'edit');
                 // Clear plan mode state when switching sessions
                 setPendingQuestion(null);
                 setPendingPlanApproval(null);
@@ -258,6 +265,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         try {
             const response = await rpcClient.getMiAgentPanelRpcClient().createNewSession({});
             if (response.success) {
+                const responseMode = (response as { mode?: AgentMode }).mode;
                 setCurrentSessionId(response.sessionId);
                 setCurrentSessionTitle('New Chat');
                 setMessages([]);
@@ -267,6 +275,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 setCurrentUserprompt('');
                 // Reset context usage for new session
                 setLastTotalInputTokens(0);
+                setAgentMode(responseMode ?? 'edit');
                 // Clear plan mode state
                 setPendingQuestion(null);
                 setPendingPlanApproval(null);
@@ -352,10 +361,12 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                         const response = await rpcClient.getMiAgentPanelRpcClient().loadChatHistory({});
 
                         if (response.success) {
+                            const responseMode = (response as { mode?: AgentMode }).mode;
                             // Store session ID
                             if (response.sessionId) {
                                 setCurrentSessionId(response.sessionId);
                             }
+                            setAgentMode(responseMode ?? 'edit');
 
                             if (response.events.length > 0) {
                                 console.log(`[AI Panel] Loaded ${response.events.length} events from backend`);
@@ -471,6 +482,8 @@ useEffect(() => {
         switchToSession,
         createNewSession,
         deleteSession,
+        agentMode,
+        setAgentMode,
     };
 
     return (
