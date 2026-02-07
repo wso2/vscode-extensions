@@ -26,8 +26,8 @@ const spin = keyframes`
 `;
 
 const BashContainer = styled.div`
-    background-color: var(--vscode-textCodeBlock-background);
-    border: 1px solid var(--vscode-panel-border);
+    background-color: rgba(128, 128, 128, 0.06);
+    border: 1px solid rgba(128, 128, 128, 0.15);
     border-radius: 4px;
     margin: 8px 0;
     overflow: hidden;
@@ -39,13 +39,13 @@ const BashHeader = styled.div`
     display: flex;
     align-items: center;
     padding: 6px 10px;
-    background-color: var(--vscode-editor-lineHighlightBackground, rgba(128, 128, 128, 0.1));
-    border-bottom: 1px solid var(--vscode-panel-border);
+    background-color: rgba(128, 128, 128, 0.05);
+    border-bottom: 1px solid rgba(128, 128, 128, 0.12);
     cursor: pointer;
     user-select: none;
 
     &:hover {
-        background-color: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.15));
+        background-color: rgba(128, 128, 128, 0.1);
     }
 `;
 
@@ -92,7 +92,7 @@ const BashContent = styled.div`
 
 const Section = styled.div`
     padding: 6px 10px;
-    border-bottom: 1px solid var(--vscode-panel-border);
+    border-bottom: 1px solid rgba(128, 128, 128, 0.12);
 
     &:last-child {
         border-bottom: none;
