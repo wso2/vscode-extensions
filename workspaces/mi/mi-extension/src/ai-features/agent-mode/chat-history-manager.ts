@@ -500,6 +500,8 @@ export class ChatHistoryManager {
     /**
      * Get the last known total input tokens from JSONL.
      * Scans backward for the most recent entry that has totalInputTokens.
+     * Stops at the latest compact_summary checkpoint so usage prior to the
+     * checkpoint does not trigger repeated auto-compaction loops.
      */
     async getLastUsage(): Promise<number | undefined> {
         try {
@@ -509,6 +511,9 @@ export class ChatHistoryManager {
             for (let i = lines.length - 1; i >= 0; i--) {
                 if (!lines[i].trim()) continue;
                 const entry = JSON.parse(lines[i]);
+                if (entry.type === 'compact_summary') {
+                    return undefined;
+                }
                 if (entry.totalInputTokens !== undefined) {
                     return entry.totalInputTokens;
                 }
@@ -523,10 +528,12 @@ export class ChatHistoryManager {
      * Get all messages for the current session
      * Reads directly from JSONL file (single source of truth)
      *
-     * @returns Array of ModelMessages
+     * @param options - Controls inclusion of non-ModelMessage checkpoint entries
+     * @returns Array of ModelMessages (plus compact_summary entry when requested)
      */
-    async getMessages(): Promise<any[]> {
+    async getMessages(options?: { includeCompactSummaryEntry?: boolean }): Promise<any[]> {
         try {
+            const includeCompactSummaryEntry = options?.includeCompactSummaryEntry === true;
             const content = await fs.readFile(this.sessionFile, 'utf8');
             const lines = content.trim().split('\n');
             const allEntries: JournalEntry[] = [];
@@ -564,9 +571,11 @@ export class ChatHistoryManager {
                     _compactSynthetic: true,
                 };
 
-                // Include the raw compact_summary entry first (for UI rendering via convertToEventFormat),
-                // then the synthetic user message (for LLM context)
-                const messages: any[] = [summaryEntry, summaryMessage];
+                // LLM path: only include valid model messages.
+                // UI/history path can opt-in to include the raw compact_summary checkpoint entry.
+                const messages: any[] = includeCompactSummaryEntry
+                    ? [summaryEntry, summaryMessage]
+                    : [summaryMessage];
 
                 // Add unwrapped model messages after the compact summary
                 for (let i = lastCompactIndex + 1; i < allEntries.length; i++) {
