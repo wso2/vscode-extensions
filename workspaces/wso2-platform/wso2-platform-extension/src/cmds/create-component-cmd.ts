@@ -558,7 +558,7 @@ async function prepareComponentFormParamsBatch(
 	terminology: TerminologyContext,
 	rootDirectory: string,
 ): Promise<PreparedComponentResult | null> {
-	if (components.length > 1 && rootDirectory === "") {
+	if (rootDirectory === "" || params?.length === 0) {
 		return null;
 	}
 

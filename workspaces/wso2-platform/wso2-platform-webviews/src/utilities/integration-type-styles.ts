@@ -66,6 +66,7 @@ export const getIntegrationTypeIcon = (type: string, subType?: string): TypeIcon
 		[ChoreoComponentType.Webhook]: { name: "Event", isCodicon: false },
 		[ChoreoComponentType.WebApplication]: { name: "browser", isCodicon: true },
 		[ChoreoComponentType.TestRunner]: { name: "beaker", isCodicon: true },
+		[ChoreoComponentType.Library]: { name: "package", isCodicon: true },
 	};
 
 	return choreoIcons[type] || { name: "symbol-class", isCodicon: true };
@@ -108,6 +109,7 @@ export const getIntegrationTypeColor = (type: string, subType?: string): string 
 		[ChoreoComponentType.Webhook]: "var(--vscode-charts-orange)",
 		[ChoreoComponentType.WebApplication]: "var(--vscode-charts-yellow)",
 		[ChoreoComponentType.TestRunner]: "var(--vscode-charts-gray)",
+		[ChoreoComponentType.Library]: "var(--vscode-charts-yellow)",
 	};
 
 	return choreoColors[type];

@@ -97,7 +97,7 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 			if (props.extensionName === "Devant" && comp.initialValues?.type) {
 				const convertedType = getIntegrationTypeFromComponentType(
 					comp.initialValues.type,
-					comp.initialValues.subType
+					comp.initialValues?.subType
 				);
 				componentType = convertedType || comp.initialValues.type;
 			}
@@ -356,6 +356,10 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 			const componentName = makeURLSafe(isNewCodeServerComp ? repoInitDetails.name : genDetails.name);
 			const branch = isNewCodeServerComp ? repoInitDetails.branch : genDetails.branch;
 			const parsedRepo = parseGitURL(genDetails.repoUrl);
+			if (!parsedRepo && !isNewCodeServerComp) {
+				console.error("Invalid repo URL", genDetails.repoUrl);
+				return;
+			}
 			const provider = isNewCodeServerComp ? repoInitDetails.gitProvider : parsedRepo[2];
 
 			const repoUrl = isNewCodeServerComp

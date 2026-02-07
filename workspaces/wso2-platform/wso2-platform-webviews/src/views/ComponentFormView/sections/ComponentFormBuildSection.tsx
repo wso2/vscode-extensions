@@ -204,7 +204,7 @@ export const ComponentFormBuildSection: FC<Props> = (props) => {
 						value: item.language,
 					}))}
 					loading={isLoadingBuildPacks}
-					disabled={buildpacks.length === 0 || !!initialValues.buildPackLang}
+					disabled={buildpacks.length === 0 || !!initialValues?.buildPackLang}
 				/>
 				{buildConfigs}
 				{/** TODO: enable autoBuildOnCommit once its stable */}
