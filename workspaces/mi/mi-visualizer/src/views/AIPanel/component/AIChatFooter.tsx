@@ -32,6 +32,57 @@ type AgentMode = 'ask' | 'edit';
 
 // Tool name constant
 const BASH_TOOL_NAME = 'bash';
+const THINKING_PREFERENCE_KEY = 'mi-agent-thinking-enabled';
+
+function appendThinkingPlaceholder(content: string, thinkingId: string): string {
+    return `${content}\n\n<thinking data-id="${thinkingId}" data-loading="true"></thinking>`;
+}
+
+function updateThinkingContent(
+    content: string,
+    thinkingId: string,
+    updater: (current: string) => string
+): string {
+    const loadingTag = `<thinking data-id="${thinkingId}" data-loading="true">`;
+    const doneTag = `<thinking data-id="${thinkingId}">`;
+
+    const loadingIndex = content.lastIndexOf(loadingTag);
+    const doneIndex = content.lastIndexOf(doneTag);
+    const startTag = loadingIndex >= doneIndex ? loadingTag : doneTag;
+    const startIndex = content.lastIndexOf(startTag);
+
+    if (startIndex === -1) {
+        return content;
+    }
+
+    const contentStart = startIndex + startTag.length;
+    const endIndex = content.indexOf("</thinking>", contentStart);
+    if (endIndex === -1) {
+        return content;
+    }
+
+    const current = content.substring(contentStart, endIndex);
+    const updated = updater(current);
+    return content.substring(0, contentStart) + updated + content.substring(endIndex);
+}
+
+function appendThinkingDelta(content: string, thinkingId: string, delta: string): string {
+    const hasExistingBlock =
+        content.includes(`<thinking data-id="${thinkingId}" data-loading="true">`) ||
+        content.includes(`<thinking data-id="${thinkingId}">`);
+
+    if (!hasExistingBlock) {
+        return appendThinkingPlaceholder(content, thinkingId).replace("</thinking>", `${delta}</thinking>`);
+    }
+
+    return updateThinkingContent(content, thinkingId, (current) => current + delta);
+}
+
+function finalizeThinkingBlock(content: string, thinkingId: string): string {
+    const loadingTag = `<thinking data-id="${thinkingId}" data-loading="true">`;
+    const doneTag = `<thinking data-id="${thinkingId}">`;
+    return content.replace(loadingTag, doneTag);
+}
 
 interface AIChatFooterProps {
     isUsageExceeded?: boolean;
@@ -99,6 +150,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const [agentMode, setAgentMode] = useState<AgentMode>('ask');
     const [showModeMenu, setShowModeMenu] = useState(false);
     const modeMenuRef = useRef<HTMLDivElement>(null);
+    const [isThinkingEnabled, setIsThinkingEnabled] = useState<boolean>(() => {
+        try {
+            return localStorage.getItem(THINKING_PREFERENCE_KEY) === 'true';
+        } catch {
+            return false;
+        }
+    });
 
     // Manual compact state
     const [isCompacting, setIsCompacting] = useState(false);
@@ -172,6 +230,33 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
                     // Update the last copilot message in real-time (immutable update)
                     setMessages((prev) => updateLastMessage(prev, (c) => c + content));
+                }
+                break;
+
+            case "thinking_start":
+                if (event.thinkingId) {
+                    setAssistantResponse((prev) => appendThinkingPlaceholder(prev, event.thinkingId!));
+                    setMessages((prev) => updateLastMessage(prev, (c) =>
+                        appendThinkingPlaceholder(c, event.thinkingId!)
+                    ));
+                }
+                break;
+
+            case "thinking_delta":
+                if (event.thinkingId && event.content) {
+                    setAssistantResponse((prev) => appendThinkingDelta(prev, event.thinkingId!, event.content!));
+                    setMessages((prev) => updateLastMessage(prev, (c) =>
+                        appendThinkingDelta(c, event.thinkingId!, event.content!)
+                    ));
+                }
+                break;
+
+            case "thinking_end":
+                if (event.thinkingId) {
+                    setAssistantResponse((prev) => finalizeThinkingBlock(prev, event.thinkingId!));
+                    setMessages((prev) => updateLastMessage(prev, (c) =>
+                        finalizeThinkingBlock(c, event.thinkingId!)
+                    ));
                 }
                 break;
 
@@ -713,6 +798,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 message: messageToSend,
                 files,
                 images,
+                thinking: isThinkingEnabled,
                 chatHistory: chatHistory
             });
 
@@ -800,6 +886,15 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             return () => clearTimeout(timer);
         }
     }, [fileUploadStatus]);
+
+    // Persist thinking preference across panel reloads
+    useEffect(() => {
+        try {
+            localStorage.setItem(THINKING_PREFERENCE_KEY, String(isThinkingEnabled));
+        } catch {
+            // Ignore localStorage errors in restricted environments
+        }
+    }, [isThinkingEnabled]);
 
     // Set up agent event listener
     useEffect(() => {
@@ -1566,6 +1661,58 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                             ))}
                                         </div>
                                     )}
+                                </div>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "6px",
+                                        marginLeft: "4px"
+                                    }}
+                                    title="Enable Claude thinking mode"
+                                >
+                                    <span
+                                        style={{
+                                            fontSize: "10px",
+                                            color: "var(--vscode-descriptionForeground)",
+                                            userSelect: "none"
+                                        }}
+                                    >
+                                        Thinking
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsThinkingEnabled((prev) => !prev)}
+                                        disabled={isUsageExceeded || backendRequestTriggered}
+                                        aria-pressed={isThinkingEnabled}
+                                        style={{
+                                            position: "relative",
+                                            width: "34px",
+                                            height: "18px",
+                                            borderRadius: "999px",
+                                            border: "none",
+                                            padding: 0,
+                                            cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
+                                            backgroundColor: isThinkingEnabled
+                                                ? "var(--vscode-button-background)"
+                                                : "var(--vscode-input-border)",
+                                            opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1,
+                                            transition: "background-color 0.2s ease"
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                position: "absolute",
+                                                top: "2px",
+                                                left: isThinkingEnabled ? "18px" : "2px",
+                                                width: "14px",
+                                                height: "14px",
+                                                borderRadius: "50%",
+                                                backgroundColor: "var(--vscode-button-foreground)",
+                                                transition: "left 0.2s ease"
+                                            }}
+                                        />
+                                    </button>
                                 </div>
                                 {contextUsagePercent >= 1 && (
                                     <button

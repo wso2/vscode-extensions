@@ -174,6 +174,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                     query: request.message,
                     files: request.files,
                     images: request.images,
+                    thinking: request.thinking,
                     projectPath: this.projectUri,
                     sessionId: this.currentSessionId || undefined,
                     abortSignal: this.currentAbortController.signal,

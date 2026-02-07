@@ -158,6 +158,12 @@ function convertMessagesForCompact(messages: any[]): Array<{ role: 'user' | 'ass
                     for (const p of msg.content) {
                         if (p.type === 'text' && p.text?.trim()) {
                             parts.push(p.text);
+                        } else if (p.type === 'reasoning' && p.text?.trim()) {
+                            const reasoningText = p.text.trim();
+                            const compactReasoning = reasoningText.length > 1200
+                                ? `${reasoningText.substring(0, 1200)}... [truncated]`
+                                : reasoningText;
+                            parts.push(`[Assistant Thinking]\n${compactReasoning}`);
                         } else if (p.type === 'tool-call') {
                             parts.push(`[Tool Call: ${p.toolName}]`);
                             // Include a compact representation of the input

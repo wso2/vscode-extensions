@@ -30,6 +30,8 @@ export interface SendAgentMessageRequest {
     files?: FileObject[];
     /** Optional image attachments for multimodal prompts */
     images?: ImageObject[];
+    /** Enable Claude thinking mode (reasoning blocks) */
+    thinking?: boolean;
     /** Chat history for context (AI SDK format with tool calls/results) */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     chatHistory?: any[];
@@ -54,6 +56,9 @@ export interface SendAgentMessageResponse {
 export type AgentEventType =
     | "start"
     | "content_block"
+    | "thinking_start"
+    | "thinking_delta"
+    | "thinking_end"
     | "tool_call"
     | "tool_result"
     | "error"
@@ -110,6 +115,8 @@ export interface Question {
 export interface AgentEvent {
     type: AgentEventType;
     content?: string;
+    /** Thinking block ID for thinking_* events */
+    thinkingId?: string;
     toolName?: string;
     toolInput?: unknown;
     toolOutput?: unknown;
