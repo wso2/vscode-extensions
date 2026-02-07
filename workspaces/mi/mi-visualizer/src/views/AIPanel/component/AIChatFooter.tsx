@@ -117,6 +117,44 @@ interface AIChatFooterProps {
     isUsageExceeded?: boolean;
 }
 
+interface MentionContext {
+    start: number;
+    end: number;
+    query: string;
+}
+
+interface MentionablePathItem {
+    path: string;
+    type: 'file' | 'folder';
+}
+
+const MENTION_SEARCH_LIMIT = 40;
+
+function getMentionContext(input: string, cursor: number): MentionContext | null {
+    const textBeforeCursor = input.slice(0, cursor);
+    const atIndex = textBeforeCursor.lastIndexOf("@");
+    if (atIndex < 0) {
+        return null;
+    }
+
+    const prefixChar = atIndex > 0 ? textBeforeCursor[atIndex - 1] : " ";
+    // Mention trigger must be at token boundary.
+    if (atIndex > 0 && !/\s|[([{"'`]/.test(prefixChar)) {
+        return null;
+    }
+
+    const query = textBeforeCursor.slice(atIndex + 1);
+    if (/\s/.test(query)) {
+        return null;
+    }
+
+    return {
+        start: atIndex,
+        end: cursor,
+        query,
+    };
+}
+
 /**
  * Calculate overall status from todo items
  */
@@ -190,6 +228,11 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     // Manual compact state
     const [isCompacting, setIsCompacting] = useState(false);
     const [runningPlaceholderDotCount, setRunningPlaceholderDotCount] = useState(3);
+    const [mentionContext, setMentionContext] = useState<MentionContext | null>(null);
+    const [mentionSuggestions, setMentionSuggestions] = useState<MentionablePathItem[]>([]);
+    const [activeMentionIndex, setActiveMentionIndex] = useState(0);
+    const [isMentionLoading, setIsMentionLoading] = useState(false);
+    const mentionSearchRequestIdRef = useRef(0);
 
     // Context usage tracking (for compact button display)
     const CONTEXT_TOKEN_THRESHOLD = 200000;
@@ -781,8 +824,83 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setBackendRequestTriggered(false);
     }, []);
 
+    const updateMentionStateFromInput = (inputValue: string, cursorPosition: number) => {
+        const context = getMentionContext(inputValue, cursorPosition);
+        setMentionContext(context);
+        if (!context) {
+            setMentionSuggestions([]);
+            setActiveMentionIndex(0);
+        }
+    };
+
+    const closeMentionSuggestions = () => {
+        setMentionContext(null);
+        setMentionSuggestions([]);
+        setActiveMentionIndex(0);
+        setIsMentionLoading(false);
+    };
+
+    const handleMentionSelect = (item: MentionablePathItem) => {
+        if (!mentionContext) {
+            return;
+        }
+
+        const mentionToken = `@${item.path}`;
+        const before = currentUserPrompt.slice(0, mentionContext.start);
+        const after = currentUserPrompt.slice(mentionContext.end);
+        const spacer = after.startsWith(' ') || after.length === 0 ? '' : ' ';
+        const updatedPrompt = `${before}${mentionToken}${spacer}${after}`;
+        const cursorPosition = (before + mentionToken + spacer).length;
+
+        setCurrentUserprompt(updatedPrompt);
+        closeMentionSuggestions();
+
+        setTimeout(() => {
+            if (textAreaRef.current) {
+                textAreaRef.current.focus();
+                textAreaRef.current.setSelectionRange(cursorPosition, cursorPosition);
+            }
+        }, 0);
+    };
+
     // Handle text input keydown events
     const handleTextKeydown = (event: React.KeyboardEvent) => {
+        if (mentionContext) {
+            const hasMentionQuery = mentionContext.query.trim().length > 0;
+
+            if (event.key === "ArrowDown" && hasMentionQuery) {
+                event.preventDefault();
+                if (mentionSuggestions.length > 0) {
+                    setActiveMentionIndex((prev) => Math.min(prev + 1, mentionSuggestions.length - 1));
+                }
+                return;
+            }
+
+            if (event.key === "ArrowUp" && hasMentionQuery) {
+                event.preventDefault();
+                if (mentionSuggestions.length > 0) {
+                    setActiveMentionIndex((prev) => Math.max(prev - 1, 0));
+                }
+                return;
+            }
+
+            if (
+                (event.key === "Enter" || event.key === "Tab")
+                && hasMentionQuery
+                && mentionSuggestions.length > 0
+            ) {
+                event.preventDefault();
+                handleMentionSelect(mentionSuggestions[activeMentionIndex]);
+                return;
+            }
+
+            if (event.key === "Escape") {
+                event.preventDefault();
+                closeMentionSuggestions();
+                return;
+            }
+        }
+
         if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
             if (isCompacting || backendRequestTriggered) {
@@ -818,6 +936,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
 
         sendInProgressRef.current = true;
+        closeMentionSuggestions();
         // Clear input immediately so user can't send the same message again while compacting.
         setCurrentUserprompt("");
 
@@ -1030,6 +1149,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     useEffect(() => {
         if (backendRequestTriggered) {
             setShowModeMenu(false);
+            setMentionContext(null);
+            setMentionSuggestions([]);
+            setActiveMentionIndex(0);
+            setIsMentionLoading(false);
         }
     }, [backendRequestTriggered]);
 
@@ -1045,6 +1168,51 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
         return () => clearInterval(interval);
     }, [backendRequestTriggered]);
+
+    useEffect(() => {
+        if (!mentionContext || backendRequestTriggered || isUsageExceeded) {
+            setMentionSuggestions([]);
+            setIsMentionLoading(false);
+            return;
+        }
+
+        const requestId = ++mentionSearchRequestIdRef.current;
+        setIsMentionLoading(true);
+
+        const timer = setTimeout(async () => {
+            try {
+                const response = await rpcClient.getMiAgentPanelRpcClient().searchMentionablePaths({
+                    query: mentionContext.query,
+                    limit: MENTION_SEARCH_LIMIT,
+                });
+
+                if (mentionSearchRequestIdRef.current !== requestId) {
+                    return;
+                }
+
+                if (response.success) {
+                    setMentionSuggestions(response.items || []);
+                } else {
+                    setMentionSuggestions([]);
+                }
+            } catch (error) {
+                console.error("Error searching mentionable paths:", error);
+                if (mentionSearchRequestIdRef.current === requestId) {
+                    setMentionSuggestions([]);
+                }
+            } finally {
+                if (mentionSearchRequestIdRef.current === requestId) {
+                    setIsMentionLoading(false);
+                }
+            }
+        }, 120);
+
+        return () => clearTimeout(timer);
+    }, [mentionContext, rpcClient, backendRequestTriggered, isUsageExceeded]);
+
+    useEffect(() => {
+        setActiveMentionIndex(0);
+    }, [mentionContext?.query]);
 
     const isOtherLabel = (value: string): boolean => value.trim().toLowerCase() === "other";
 
@@ -1625,6 +1793,148 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             )}
 
 
+            {mentionContext && !backendRequestTriggered && !isUsageExceeded && (
+                <div
+                    style={{
+                        margin: "0 16px 8px 16px",
+                        border: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
+                        borderRadius: "10px",
+                        backgroundColor: "var(--vscode-editorWidget-background)",
+                        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.22)",
+                        maxHeight: "220px",
+                        overflowY: "auto",
+                        position: "relative",
+                        zIndex: 12,
+                    }}
+                >
+                    {mentionContext.query.trim().length === 0 ? (
+                        <div style={{ padding: "12px" }}>
+                            <div
+                                style={{
+                                    padding: "10px 12px",
+                                    border: "1px solid var(--vscode-input-border)",
+                                    borderRadius: "8px",
+                                    backgroundColor: "var(--vscode-input-background)",
+                                    color: "var(--vscode-descriptionForeground)",
+                                    fontSize: "12px",
+                                    marginBottom: "10px",
+                                }}
+                            >
+                                Type after @ to search for files in...
+                            </div>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    flexWrap: "wrap",
+                                    gap: "6px",
+                                }}
+                            >
+                                {(mentionSuggestions.length > 0 ? mentionSuggestions : [
+                                    { path: "src/", type: "folder" as const },
+                                    { path: "deployment/", type: "folder" as const },
+                                    { path: "pom.xml", type: "file" as const },
+                                ]).map((item) => (
+                                    <span
+                                        key={`scope-${item.path}`}
+                                        style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "5px",
+                                            padding: "4px 8px",
+                                            borderRadius: "999px",
+                                            backgroundColor: "var(--vscode-badge-background)",
+                                            color: "var(--vscode-badge-foreground)",
+                                            fontSize: "11px",
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        <span className={`codicon codicon-${item.type === "folder" ? "folder" : "file"}`} />
+                                        {item.path}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    ) : isMentionLoading && mentionSuggestions.length === 0 ? (
+                        <div
+                            style={{
+                                padding: "10px 12px",
+                                fontSize: "12px",
+                                color: "var(--vscode-descriptionForeground)",
+                            }}
+                        >
+                            Searching files and folders...
+                        </div>
+                    ) : mentionSuggestions.length === 0 ? (
+                        <div
+                            style={{
+                                padding: "10px 12px",
+                                fontSize: "12px",
+                                color: "var(--vscode-descriptionForeground)",
+                            }}
+                        >
+                            No matching files or folders
+                        </div>
+                    ) : (
+                        mentionSuggestions.map((item, index) => {
+                            const isActive = index === activeMentionIndex;
+                            const normalizedPath = item.path.endsWith("/") ? item.path.slice(0, -1) : item.path;
+                            const pathParts = normalizedPath.split("/");
+                            const itemName = pathParts[pathParts.length - 1] + (item.type === "folder" ? "/" : "");
+                            const parentPath = pathParts.slice(0, -1).join("/");
+
+                            return (
+                                <button
+                                    key={`${item.type}:${item.path}`}
+                                    onClick={() => handleMentionSelect(item)}
+                                    onMouseEnter={() => setActiveMentionIndex(index)}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    style={{
+                                        width: "100%",
+                                        border: "none",
+                                        backgroundColor: isActive
+                                            ? "var(--vscode-list-activeSelectionBackground)"
+                                            : "transparent",
+                                        color: isActive
+                                            ? "var(--vscode-list-activeSelectionForeground)"
+                                            : "var(--vscode-foreground)",
+                                        padding: "8px 10px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "8px",
+                                        textAlign: "left",
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    <span
+                                        className={`codicon codicon-${item.type === "folder" ? "folder" : "file"}`}
+                                        style={{ fontSize: "13px", opacity: 0.9 }}
+                                    />
+                                    <span style={{ fontSize: "12px", fontWeight: 500 }}>
+                                        {itemName}
+                                    </span>
+                                    {parentPath && (
+                                        <span
+                                            style={{
+                                                fontSize: "12px",
+                                                color: isActive
+                                                    ? "var(--vscode-list-activeSelectionForeground)"
+                                                    : "var(--vscode-descriptionForeground)",
+                                                opacity: 0.85,
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            {parentPath}
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })
+                    )}
+                </div>
+            )}
+
             <FloatingInputContainer
                 style={{
                     border: isFocused ? "1px solid var(--vscode-focusBorder)" : "1px solid var(--vscode-widget-border)",
@@ -1643,7 +1953,17 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         ref={textAreaRef}
                         value={currentUserPrompt}
                         onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-                            setCurrentUserprompt(e.target.value);
+                            const value = e.target.value;
+                            setCurrentUserprompt(value);
+                            updateMentionStateFromInput(value, e.target.selectionStart ?? value.length);
+                        }}
+                        onClick={(e: React.MouseEvent<HTMLTextAreaElement>) => {
+                            const target = e.currentTarget;
+                            updateMentionStateFromInput(target.value, target.selectionStart ?? target.value.length);
+                        }}
+                        onKeyUp={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                            const target = e.currentTarget;
+                            updateMentionStateFromInput(target.value, target.selectionStart ?? target.value.length);
                         }}
                         onFocus={() => {
                             setIsFocused(true);

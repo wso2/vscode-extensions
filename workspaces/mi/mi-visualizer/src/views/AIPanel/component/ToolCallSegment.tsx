@@ -19,6 +19,7 @@
 import React from "react";
 import styled from "@emotion/styled";
 import { keyframes } from "@emotion/css";
+import { useMICopilotContext } from "./MICopilotContext";
 
 const spin = keyframes`
     from { transform: rotate(0deg); }
@@ -74,33 +75,69 @@ interface ToolCallSegmentProps {
     text: string;
     loading: boolean;
     failed?: boolean;
+    filePath?: string;
 }
 
-const ToolCallSegment: React.FC<ToolCallSegmentProps> = ({ text, loading, failed }) => {
-    
-    // Parse text: "Reading file /path/to/file.ts" -> Action: "Reading file", Target: "/path..."
-    // Simple heuristic: assume target is the last word or path-like
-    const words = text.split(' ');
-    let action = text;
-    let target = '';
+const PATH_CANDIDATE_REGEX = /([A-Za-z]:\\[^\s]+|(?:\.{1,2}\/|\/)?[^\s]*[\\/][^\s]+|[^\s]+\.[A-Za-z0-9]+(?:[^\s]*)?)/g;
 
-    if (words.length > 1) {
-        // Check if last word is a file path or distinct entity
-        const lastWord = words[words.length - 1];
-        if (lastWord.includes('/') || lastWord.includes('.') || lastWord.length > 15) {
-             target = lastWord;
-             action = words.slice(0, words.length - 1).join(' ');
+function cleanPathCandidate(raw: string): string {
+    return raw.replace(/[),.;:!?]+$/, "").replace(/^["'`]/, "").replace(/["'`]$/, "");
+}
+
+function extractPathFromText(text: string): string | undefined {
+    const matches = Array.from(text.matchAll(PATH_CANDIDATE_REGEX));
+    if (matches.length === 0) {
+        return undefined;
+    }
+    const last = matches[matches.length - 1];
+    if (!last[1]) {
+        return undefined;
+    }
+    return cleanPathCandidate(last[1]);
+}
+
+function basename(path: string): string {
+    const parts = path.split(/[\\/]/);
+    return parts[parts.length - 1] || path;
+}
+
+const ToolCallSegment: React.FC<ToolCallSegmentProps> = ({ text, loading, failed, filePath }) => {
+    const { rpcClient } = useMICopilotContext();
+
+    const resolvedPath = filePath || extractPathFromText(text);
+    let action = text;
+    let target = "";
+    if (resolvedPath) {
+        target = resolvedPath;
+        const index = text.lastIndexOf(resolvedPath);
+        if (index >= 0) {
+            action = text.slice(0, index).trim();
+        } else {
+            action = text.replace(/\s+$/, "");
         }
     }
 
     const status = loading ? 'loading' : (failed ? 'error' : 'success');
     const iconClass = loading ? 'codicon-loading spin' : (failed ? 'codicon-error' : 'codicon-check');
 
+    const handleTargetClick = () => {
+        if (!target || !rpcClient) {
+            return;
+        }
+        rpcClient.getMiDiagramRpcClient().openFile({
+            path: target,
+        });
+    };
+
     return (
         <ToolRow>
             <StatusIcon status={status} className={`codicon ${iconClass}`} />
             <ToolText>{action}</ToolText>
-            {target && <ToolTarget title={target}>{target.split('/').pop()}</ToolTarget>}
+            {target && (
+                <ToolTarget title={target} onClick={handleTargetClick}>
+                    {basename(target)}
+                </ToolTarget>
+            )}
         </ToolRow>
     );
 };

@@ -26,7 +26,9 @@ import {
     CreateNewSessionRequest,
     CreateNewSessionResponse,
     DeleteSessionRequest,
-    DeleteSessionResponse
+    DeleteSessionResponse,
+    SearchMentionablePathsRequest,
+    SearchMentionablePathsResponse,
 } from "./rpc-manager";
 import {
     sendAgentMessage,
@@ -64,6 +66,10 @@ const compactConversation: RequestType<CompactConversationRequest, any> = {
     method: `${_prefix}/compactConversation`
 };
 
+const searchMentionablePaths: RequestType<SearchMentionablePathsRequest, SearchMentionablePathsResponse> = {
+    method: `${_prefix}/searchMentionablePaths`
+};
+
 // Singleton manager to maintain pending questions state across requests
 let rpcManagerInstance: MIAgentPanelRpcManager | null = null;
 
@@ -99,4 +105,11 @@ export function registerMIAgentPanelRpcHandlers(messenger: MessengerAPI, project
     // Compact Functions
     // ==================================
     messenger.onRequest(compactConversation, (request: CompactConversationRequest) => rpcManager.compactConversation(request));
+
+    // ==================================
+    // Mention Search Functions
+    // ==================================
+    messenger.onRequest(searchMentionablePaths, (request: SearchMentionablePathsRequest) =>
+        rpcManager.searchMentionablePaths(request)
+    );
 }

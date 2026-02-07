@@ -281,7 +281,15 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             if (segment.isCode) {
                 return <CodeSegment key={i} segmentText={segment.text} loading={segment.loading} language={segment.language} index={index} />;
             } else if (segment.isToolCall) {
-                return <ToolCallSegment key={i} text={segment.text} loading={segment.loading} failed={segment.failed || false} />;
+                return (
+                    <ToolCallSegment
+                        key={i}
+                        text={segment.text}
+                        loading={segment.loading}
+                        failed={segment.failed || false}
+                        filePath={segment.filePath}
+                    />
+                );
             } else if (segment.isTodoList) {
                 try {
                     const todoData = JSON.parse(segment.text);

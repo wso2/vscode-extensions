@@ -46,6 +46,11 @@ export type {
     // Compact types
     CompactConversationRequest,
     CompactConversationResponse,
+    // Mention search types
+    MentionablePathType,
+    MentionablePathItem,
+    SearchMentionablePathsRequest,
+    SearchMentionablePathsResponse,
 } from './types';
 
 // Export RPC type definitions
@@ -64,6 +69,8 @@ export {
     deleteSession,
     // Compact RPC
     compactConversation,
+    // Mention search RPC
+    searchMentionablePaths,
 } from './rpc-type';
 
 // Export RPC request/response types
