@@ -271,7 +271,7 @@ export interface QuestionOption {
 
 export interface Question {
     question: string;
-    header: string;
+    header?: string;
     options: QuestionOption[];
     multiSelect: boolean;
 }

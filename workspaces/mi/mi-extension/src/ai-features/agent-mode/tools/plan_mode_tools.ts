@@ -254,12 +254,12 @@ export function createAskUserExecute(
         // Validate each question
         for (let i = 0; i < questions.length; i++) {
             const q = questions[i];
-            if (!q.question || !q.header || !q.options || q.options.length < 2) {
+            if (!q.question || !q.options || q.options.length < 2) {
                 logError(`[AskUserTool] Invalid question at index ${i}: missing required fields or insufficient options`);
                 logError(`[AskUserTool] Question data: ${JSON.stringify(q)}`);
                 return {
                     success: false,
-                    message: `Question ${i + 1} is invalid. Each question must have: question text, header, and at least 2 options with labels and descriptions.`,
+                    message: `Question ${i + 1} is invalid. Each question must have: question text and at least 2 options with labels and descriptions.`,
                     error: 'INVALID_QUESTION_FORMAT'
                 };
             }
@@ -270,7 +270,6 @@ export function createAskUserExecute(
         questions.forEach((q, idx) => {
             logDebug(`[AskUserTool] Question ${idx + 1}:`);
             logDebug(`  - Question: ${q.question}`);
-            logDebug(`  - Header: ${q.header}`);
             logDebug(`  - MultiSelect: ${q.multiSelect}`);
             logDebug(`  - Options (${q.options.length}):`);
             q.options.forEach((opt, optIdx) => {
@@ -346,7 +345,6 @@ const questionOptionSchema = z.object({
 
 const questionSchema = z.object({
     question: z.string().describe('The complete question to ask the user. Should be clear, specific, and end with a question mark.'),
-    header: z.string().max(12).describe('Very short label displayed as a chip/tag (max 12 chars). Examples: "Auth method", "Library", "Approach"'),
     options: z.array(questionOptionSchema).min(2).max(4).describe(
         'The available choices for this question. Must have 2-4 options. Each option should be a distinct choice.'
     ),
