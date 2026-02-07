@@ -18,6 +18,7 @@
 
 // Export types
 export type {
+    AgentMode,
     SendAgentMessageRequest,
     SendAgentMessageResponse,
     AgentEvent,

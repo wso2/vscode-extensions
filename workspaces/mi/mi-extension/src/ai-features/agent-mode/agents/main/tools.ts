@@ -105,6 +105,7 @@ import {
     KILL_SHELL_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
 } from '../../tools/types';
+import { ToolResult } from '../../tools/types';
 
 // Re-export tool name constants for use in agent.ts
 export {
@@ -139,6 +140,8 @@ import { AgentEventHandler } from './agent';
 export interface CreateToolsParams {
     /** Path to the MI project */
     projectPath: string;
+    /** Agent mode: ask (read-only) or edit (full tool access) */
+    mode: 'ask' | 'edit';
     /** List to track modified files */
     modifiedFiles: string[];
     /** Session ID for plan mode */
@@ -155,6 +158,36 @@ export interface CreateToolsParams {
     getAnthropicClient: (model: AnthropicModel) => Promise<any>;
 }
 
+const ASK_MODE_ALLOWED_TOOLS = new Set<string>([
+    FILE_READ_TOOL_NAME,
+    FILE_GREP_TOOL_NAME,
+    FILE_GLOB_TOOL_NAME,
+    CONNECTOR_TOOL_NAME,
+    GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
+    GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
+    VALIDATE_CODE_TOOL_NAME,
+]);
+
+function createAskModeBlockedExecute(toolName: string) {
+    return async (_args: unknown): Promise<ToolResult> => ({
+        success: false,
+        message: `Tool '${toolName}' is disabled in Ask mode. Switch to Edit mode to use modification tools.`,
+        error: 'ASK_MODE_RESTRICTED',
+    });
+}
+
+function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
+    mode: 'ask' | 'edit',
+    toolName: string,
+    execute: T
+): T {
+    if (mode === 'edit' || ASK_MODE_ALLOWED_TOOLS.has(toolName)) {
+        return execute;
+    }
+
+    return createAskModeBlockedExecute(toolName) as unknown as T;
+}
+
 /**
  * Creates the complete tools object for the agent.
  * This ensures consistent tool definitions across main agent and compact agent.
@@ -165,6 +198,7 @@ export interface CreateToolsParams {
 export function createAgentTools(params: CreateToolsParams) {
     const {
         projectPath,
+        mode,
         modifiedFiles,
         sessionId,
         sessionDir,
@@ -177,84 +211,84 @@ export function createAgentTools(params: CreateToolsParams) {
     return {
         // File Operations (6 tools)
         [FILE_WRITE_TOOL_NAME]: createWriteTool(
-            createWriteExecute(projectPath, modifiedFiles)
+            getModeAwareExecute(mode, FILE_WRITE_TOOL_NAME, createWriteExecute(projectPath, modifiedFiles))
         ),
         [FILE_READ_TOOL_NAME]: createReadTool(
-            createReadExecute(projectPath)
+            getModeAwareExecute(mode, FILE_READ_TOOL_NAME, createReadExecute(projectPath))
         ),
         [FILE_EDIT_TOOL_NAME]: createEditTool(
-            createEditExecute(projectPath, modifiedFiles)
+            getModeAwareExecute(mode, FILE_EDIT_TOOL_NAME, createEditExecute(projectPath, modifiedFiles))
         ),
         [FILE_GREP_TOOL_NAME]: createGrepTool(
-            createGrepExecute(projectPath)
+            getModeAwareExecute(mode, FILE_GREP_TOOL_NAME, createGrepExecute(projectPath))
         ),
         [FILE_GLOB_TOOL_NAME]: createGlobTool(
-            createGlobExecute(projectPath)
+            getModeAwareExecute(mode, FILE_GLOB_TOOL_NAME, createGlobExecute(projectPath))
         ),
 
         // Connector Tools (3 tools)
         [CONNECTOR_TOOL_NAME]: createConnectorTool(
-            createConnectorExecute()
+            getModeAwareExecute(mode, CONNECTOR_TOOL_NAME, createConnectorExecute())
         ),
         [GET_CONNECTOR_DOCUMENTATION_TOOL_NAME]: createGetConnectorDocumentationTool(
-            createGetConnectorDocumentationExecute()
+            getModeAwareExecute(mode, GET_CONNECTOR_DOCUMENTATION_TOOL_NAME, createGetConnectorDocumentationExecute())
         ),
         [GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME]: createGetAIConnectorDocumentationTool(
-            createGetAIConnectorDocumentationExecute()
+            getModeAwareExecute(mode, GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME, createGetAIConnectorDocumentationExecute())
         ),
 
         // Project Tools (1 tool)
         [MANAGE_CONNECTOR_TOOL_NAME]: createManageConnectorTool(
-            createManageConnectorExecute(projectPath)
+            getModeAwareExecute(mode, MANAGE_CONNECTOR_TOOL_NAME, createManageConnectorExecute(projectPath))
         ),
 
         // LSP Tools (1 tool)
         [VALIDATE_CODE_TOOL_NAME]: createValidateCodeTool(
-            createValidateCodeExecute(projectPath)
+            getModeAwareExecute(mode, VALIDATE_CODE_TOOL_NAME, createValidateCodeExecute(projectPath))
         ),
 
         // Data Mapper Tools (2 tools)
         [CREATE_DATA_MAPPER_TOOL_NAME]: createCreateDataMapperTool(
-            createCreateDataMapperExecute(projectPath, modifiedFiles)
+            getModeAwareExecute(mode, CREATE_DATA_MAPPER_TOOL_NAME, createCreateDataMapperExecute(projectPath, modifiedFiles))
         ),
         [GENERATE_DATA_MAPPING_TOOL_NAME]: createGenerateDataMappingTool(
-            createGenerateDataMappingExecute(projectPath, modifiedFiles)
+            getModeAwareExecute(mode, GENERATE_DATA_MAPPING_TOOL_NAME, createGenerateDataMappingExecute(projectPath, modifiedFiles))
         ),
 
         // Runtime Tools (2 tools)
         [BUILD_PROJECT_TOOL_NAME]: createBuildProjectTool(
-            createBuildProjectExecute(projectPath, sessionDir)
+            getModeAwareExecute(mode, BUILD_PROJECT_TOOL_NAME, createBuildProjectExecute(projectPath, sessionDir))
         ),
         [SERVER_MANAGEMENT_TOOL_NAME]: createServerManagementTool(
-            createServerManagementExecute(projectPath, sessionDir)
+            getModeAwareExecute(mode, SERVER_MANAGEMENT_TOOL_NAME, createServerManagementExecute(projectPath, sessionDir))
         ),
 
         // Plan Mode Tools (5 tools)
         [SUBAGENT_TOOL_NAME]: createSubagentTool(
-            createSubagentExecute(projectPath, sessionId, getAnthropicClient)
+            getModeAwareExecute(mode, SUBAGENT_TOOL_NAME, createSubagentExecute(projectPath, sessionId, getAnthropicClient))
         ),
         [ASK_USER_TOOL_NAME]: createAskUserTool(
-            createAskUserExecute(eventHandler, pendingQuestions)
+            getModeAwareExecute(mode, ASK_USER_TOOL_NAME, createAskUserExecute(eventHandler, pendingQuestions))
         ),
         [ENTER_PLAN_MODE_TOOL_NAME]: createEnterPlanModeTool(
-            createEnterPlanModeExecute(projectPath, sessionId, eventHandler)
+            getModeAwareExecute(mode, ENTER_PLAN_MODE_TOOL_NAME, createEnterPlanModeExecute(projectPath, sessionId, eventHandler))
         ),
         [EXIT_PLAN_MODE_TOOL_NAME]: createExitPlanModeTool(
-            createExitPlanModeExecute(projectPath, sessionId, eventHandler, pendingApprovals)
+            getModeAwareExecute(mode, EXIT_PLAN_MODE_TOOL_NAME, createExitPlanModeExecute(projectPath, sessionId, eventHandler, pendingApprovals))
         ),
         [TODO_WRITE_TOOL_NAME]: createTodoWriteTool(
-            createTodoWriteExecute(eventHandler)
+            getModeAwareExecute(mode, TODO_WRITE_TOOL_NAME, createTodoWriteExecute(eventHandler))
         ),
 
         // Bash Tools (3 tools)
         [BASH_TOOL_NAME]: createBashTool(
-            createBashExecute(projectPath)
+            getModeAwareExecute(mode, BASH_TOOL_NAME, createBashExecute(projectPath))
         ),
         [KILL_SHELL_TOOL_NAME]: createKillShellTool(
-            createKillShellExecute()
+            getModeAwareExecute(mode, KILL_SHELL_TOOL_NAME, createKillShellExecute())
         ),
         [TASK_OUTPUT_TOOL_NAME]: createTaskOutputTool(
-            createTaskOutputExecute()
+            getModeAwareExecute(mode, TASK_OUTPUT_TOOL_NAME, createTaskOutputExecute())
         ),
     };
 }

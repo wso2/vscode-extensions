@@ -21,6 +21,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { formatFileTree, getExistingFiles } from '../../../utils/file-utils';
 import { getAvailableConnectors, getAvailableInboundEndpoints } from '../../tools/connector_tools';
+import {
+    FILE_READ_TOOL_NAME,
+    FILE_GREP_TOOL_NAME,
+    FILE_GLOB_TOOL_NAME,
+    CONNECTOR_TOOL_NAME,
+    GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
+    GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
+    VALIDATE_CODE_TOOL_NAME,
+} from '../../tools/types';
 
 // ============================================================================
 // User Prompt Template
@@ -79,6 +88,8 @@ These are the available WSO2 inbound endpoints from WSO2 inbound endpoint store.
 export interface UserPromptParams {
     /** User's query or requirement */
     query: string;
+    /** Agent mode: ask (read-only) or edit (full tool access) */
+    mode?: 'ask' | 'edit';
     /** Path to the MI project */
     projectPath: string;
     /** Pre-configured payloads, query params, or path params (optional) */
@@ -165,6 +176,29 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     const availableConnectors = getAvailableConnectors();
     const availableInboundEndpoints = getAvailableInboundEndpoints();
 
+    const mode = params.mode || 'edit';
+    const modeReminder = mode === 'ask'
+        ? [
+            'ASK MODE_POLICY:',
+            '- ASK mode is STRICTLY READ-ONLY.',
+            '- Use ONLY read-only tools:',
+            `  - ${FILE_READ_TOOL_NAME}`,
+            `  - ${FILE_GREP_TOOL_NAME}`,
+            `  - ${FILE_GLOB_TOOL_NAME}`,
+            `  - ${CONNECTOR_TOOL_NAME}`,
+            `  - ${GET_CONNECTOR_DOCUMENTATION_TOOL_NAME}`,
+            `  - ${GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME}`,
+            `  - ${VALIDATE_CODE_TOOL_NAME}`,
+            '- Do NOT attempt mutation/tooling actions (write/edit/build/run/bash/connector changes/subagents/plan-mode/todo updates).',
+            '- If you need to provide codes/synapse configurations provide the fuly updated code in a code block. Not just the edits. System provides an option called "Add to project" in ASK mode which replaces entire files with the code you provide.',
+            '- If user asks for complex changes, explain they are in ASK mode and ask them to switch to EDIT mode.',
+        ].join('\n')
+        : [
+            'EDIT MODE_POLICY:',
+            '- EDIT mode allows full tool usage.',
+            '- You may read, modify files, manage connectors, run validations, use runtime tools, and execute implementation tasks.',
+        ].join('\n');
+
     // Prepare template context
     const context: Record<string, any> = {
         question: params.query,
@@ -173,7 +207,12 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         userPreconfigured: params.payloads, // Pre-configured payloads (optional)
         available_connectors: availableConnectors.join(', '), // Available connectors list
         available_inbound_endpoints: availableInboundEndpoints.join(', '), // Available inbound endpoints list
-        system_remainder: `You are operating in AGENT_MODE.\nProject root path: ${params.projectPath}`
+        system_remainder: `.
+        <mode>
+        ${mode.toUpperCase()}
+        </mode>
+        ${modeReminder}\n
+        Project root path: ${params.projectPath}`
     };
 
     // Render the template

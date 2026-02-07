@@ -21,11 +21,15 @@
 // ============================================================================
 import { FileObject, ImageObject } from "../../interfaces/mi-copilot";
 
+export type AgentMode = 'ask' | 'edit';
+
 /**
  * Request to send a message to the agent
  */
 export interface SendAgentMessageRequest {
     message: string;
+    /** Agent mode: ask (read-only) or edit (full tool access) */
+    mode?: AgentMode;
     /** Optional file attachments (text/PDF) for multimodal prompts */
     files?: FileObject[];
     /** Optional image attachments for multimodal prompts */

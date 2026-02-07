@@ -58,7 +58,7 @@ import { ChatHistoryManager } from '../../chat-history-manager';
 import { getToolAction } from '../../tool-action-mapper';
 
 // Import types from mi-core (shared with visualizer)
-import { AgentEvent, AgentEventType, FileObject, ImageObject } from '@wso2/mi-core';
+import { AgentEvent, AgentEventType, FileObject, ImageObject, AgentMode } from '@wso2/mi-core';
 
 // Re-export types for other modules that import from agent.ts
 export type { AgentEvent, AgentEventType };
@@ -74,6 +74,8 @@ export type AgentEventHandler = (event: AgentEvent) => void;
 export interface AgentRequest {
     /** User's query/requirement */
     query: string;
+    /** Agent mode: ask (read-only) or edit (full tool access) */
+    mode?: AgentMode;
     /** Optional file attachments (text/PDF) */
     files?: FileObject[];
     /** Optional image attachments */
@@ -164,6 +166,7 @@ export async function executeAgent(
         // Build user prompt
         const userPromptParams: UserPromptParams = {
             query: request.query,
+            mode: request.mode || 'edit',
             projectPath: request.projectPath,
             // Note: existingFiles and currentlyOpenedFile are fetched internally by getUserPrompt
         };
@@ -218,6 +221,7 @@ export async function executeAgent(
         // Create tools (cache control will be added dynamically by prepareStep)
         const tools = createAgentTools({
             projectPath: request.projectPath,
+            mode: request.mode || 'edit',
             modifiedFiles,
             sessionId,
             sessionDir,
