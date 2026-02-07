@@ -120,7 +120,7 @@ export const DirectorySelector: React.FC<DirectorySelectorProps> = props => {
     const { 
         id, 
         label, 
-        placeholder = "Choose a folder for your project...", 
+        placeholder = "Enter or browse to select a folder...", 
         selectedPath, 
         required, 
         description,

@@ -81,7 +81,7 @@ export const Default: Story = {
     render: (args: DirectorySelectorProps) => <DirectorySelectorWithState {...args} />,
     args: {
         label: 'Select Path',
-        placeholder: 'Choose a folder for your project...',
+        placeholder: 'Enter path or browse to select a folder...',
     },
 };
 
@@ -89,7 +89,7 @@ export const WithSelectedPath: Story = {
     render: (args: DirectorySelectorProps) => <DirectorySelectorWithState {...args} />,
     args: {
         label: 'Select Path',
-        placeholder: 'Choose a folder for your project...',
+        placeholder: 'Enter path or browse to select a folder...',
         selectedPath: '/Users/username/projects/my-project',
     },
 };
@@ -98,7 +98,7 @@ export const Required: Story = {
     render: (args: DirectorySelectorProps) => <DirectorySelectorWithState {...args} />,
     args: {
         label: 'Select Path',
-        placeholder: 'Choose a folder for your project...',
+        placeholder: 'Enter path or browse to select a folder...',
         required: true,
     },
 };
@@ -107,7 +107,7 @@ export const WithDescription: Story = {
     render: (args: DirectorySelectorProps) => <DirectorySelectorWithState {...args} />,
     args: {
         label: 'Select Path',
-        placeholder: 'Choose a folder for your project...',
+        placeholder: 'Enter path or browse to select a folder...',
         description: 'Select the directory where you want to create your project',
     },
 };
@@ -116,7 +116,7 @@ export const WithError: Story = {
     render: (args: DirectorySelectorProps) => <DirectorySelectorWithState {...args} />,
     args: {
         label: 'Select Path',
-        placeholder: 'Choose a folder for your project...',
+        placeholder: 'Enter path or browse to select a folder...',
         errorMsg: 'This directory does not exist or you do not have permission to access it',
     },
 };
@@ -125,7 +125,7 @@ export const Complete: Story = {
     render: (args: DirectorySelectorProps) => <DirectorySelectorWithState {...args} />,
     args: {
         label: 'Project Directory',
-        placeholder: 'Choose a folder for your project...',
+        placeholder: 'Enter path or browse to select a folder...',
         selectedPath: '/Users/username/projects/my-project',
         required: true,
         description: 'Select the directory where you want to create your project',
