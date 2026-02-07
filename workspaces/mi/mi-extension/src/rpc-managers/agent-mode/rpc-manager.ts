@@ -33,14 +33,18 @@ import { AgentEventHandler } from './event-handler';
 import { executeAgent, createAgentAbortController, AgentEvent } from '../../ai-features/agent-mode';
 import { executeCompactAgent } from '../../ai-features/agent-mode/agents/compact/agent';
 import { logInfo, logError, logDebug } from '../../ai-features/copilot/logger';
-import { ChatHistoryManager, GroupedSessions } from '../../ai-features/agent-mode/chat-history-manager';
+import {
+    ChatHistoryManager,
+    GroupedSessions,
+    TOOL_USE_INTERRUPTION_CONTEXT,
+} from '../../ai-features/agent-mode/chat-history-manager';
 import { PendingQuestion, PendingPlanApproval, initializePlanModeSession } from '../../ai-features/agent-mode/tools/plan_mode_tools';
 import { validateAttachments } from '../../ai-features/agent-mode/attachment-utils';
 
-// Low threshold for initial auto-compact testing.
-const AUTO_COMPACT_TOKEN_THRESHOLD = 6000;
+const AUTO_COMPACT_TOKEN_THRESHOLD = 180000;
 const AUTO_COMPACT_TOOL_NAME = 'compact_conversation';
 const DEFAULT_AGENT_MODE: AgentMode = 'edit';
+const USER_CANCELLED_RESPONSE = '__USER_CANCELLED__';
 
 // Session management types (will be imported from @wso2/mi-core after build)
 export interface ListSessionsRequest {
@@ -102,6 +106,19 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
     constructor(private projectUri: string) {
         this.eventHandler = new AgentEventHandler(projectUri);
+    }
+
+    /**
+     * Reject all pending interactive tool waits (ask_user / exit_plan_mode approval)
+     * so an abort can terminate execution immediately even when waiting for user input.
+     */
+    private rejectPendingInteractions(reason: Error): void {
+        for (const pending of this.pendingQuestions.values()) {
+            pending.reject(reason);
+        }
+        for (const pending of this.pendingApprovals.values()) {
+            pending.reject(reason);
+        }
     }
 
     /**
@@ -381,6 +398,9 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      * Abort the current agent generation
      */
     async abortAgentGeneration(): Promise<void> {
+        // Ensure tool-wait states are also interrupted (ask_user / plan approval waits).
+        this.rejectPendingInteractions(new Error(`AbortError: ${TOOL_USE_INTERRUPTION_CONTEXT}`));
+
         if (this.currentAbortController) {
             logInfo('[AgentPanel] Aborting agent generation...');
             this.currentAbortController.abort();
@@ -400,6 +420,12 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
         const pending = this.pendingQuestions.get(questionId);
         if (pending) {
+            if (answer === USER_CANCELLED_RESPONSE) {
+                logDebug(`[AgentPanel] User cancelled question flow: ${questionId}`);
+                pending.reject(new Error(`AbortError: ${TOOL_USE_INTERRUPTION_CONTEXT}`));
+                return;
+            }
+
             logDebug(`[AgentPanel] Resolving pending question: ${questionId}`);
             pending.resolve(answer);
             // Note: The pendingQuestions.delete is handled in the resolve callback
@@ -418,6 +444,12 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
         const pending = this.pendingApprovals.get(approvalId);
         if (pending) {
+            if (!approved && feedback === USER_CANCELLED_RESPONSE) {
+                logDebug(`[AgentPanel] User cancelled plan approval flow: ${approvalId}`);
+                pending.reject(new Error(`AbortError: ${TOOL_USE_INTERRUPTION_CONTEXT}`));
+                return;
+            }
+
             logDebug(`[AgentPanel] Resolving pending plan approval: ${approvalId}`);
             pending.resolve({ approved, feedback });
             // Note: The pendingApprovals.delete is handled in the resolve callback

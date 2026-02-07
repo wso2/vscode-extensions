@@ -400,7 +400,7 @@ export function createEnterPlanModeExecute(
             } as any);
 
             // Build the response with <system-reminder> containing plan file info
-            const baseMessage = `Entered plan mode. You should now focus on exploration and planning before implementation.
+            const baseMessage = `Entered plan mode. You should now focus on exploration and implementation planning before implementation.
 
             ${PLAN_MODE_SHARED_GUIDELINES}
 
@@ -432,10 +432,10 @@ const enterPlanModeInputSchema = z.object({});
 
 export function createEnterPlanModeTool(execute: EnterPlanModeExecuteFn) {
     return (tool as any)({
-        description: `Enter plan mode for non-trivial tasks. Use proactively before multi-file changes, architectural decisions, or unclear requirements.
-            In plan mode: explore codebase (read-only), design approach, write plan file, then use ${EXIT_PLAN_MODE_TOOL_NAME} for approval.
-            Skip for simple fixes, single-line changes, or pure research tasks.
-            When unsure, prefer planning - it's better to align upfront than redo work.`,
+        description: `Enter plan mode for non-trivial implementation tasks. Prefer this before new features, multi-file changes, architectural decisions, or unclear requirements.
+            In plan mode: explore codebase (read-only), design approach, write/update the plan file, then use ${EXIT_PLAN_MODE_TOOL_NAME} for approval.
+            Do NOT use this for simple fixes (single/few-line obvious changes) or pure research-only requests.
+            When unsure, prefer planning to align with the user before implementation.`,
         inputSchema: enterPlanModeInputSchema,
         execute
     });
@@ -577,10 +577,10 @@ const exitPlanModeInputSchema = z.object({
 
 export function createExitPlanModeTool(execute: ExitPlanModeExecuteFn) {
     return (tool as any)({
-        description: `Signal that your plan is ready for user approval. BLOCKS until user approves or rejects.
-            Write your plan to the plan file BEFORE calling this tool.
-            Only use for implementation tasks, NOT for research/exploration tasks.
-            Do NOT use ask_user_question for "Is this plan okay?" - this tool does that.`,
+        description: `Signal that your implementation plan is ready for user approval. BLOCKS until user approves or rejects.
+            Write/update your plan in the assigned plan file BEFORE calling this tool.
+            Use only when planning implementation work; do NOT use for research/exploration-only tasks.
+            Resolve open requirement questions with ask_user first. Do NOT ask "Is this plan okay?" via ask_user - this tool handles plan approval.`,
         inputSchema: exitPlanModeInputSchema,
         execute
     });

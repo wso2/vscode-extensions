@@ -17,18 +17,19 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { FlexRow, Footer, StyledTransParentButton, RippleLoader, FlexColumn, FloatingInputContainer } from "../styles";
+import { FlexRow, Footer, StyledTransParentButton, FloatingInputContainer } from "../styles";
 import { Codicon } from "@wso2/ui-toolkit";
 import { useMICopilotContext, AgentMode } from "./MICopilotContext";
 import { handleFileAttach, convertChatHistoryToModelMessages } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
 import { generateId, updateTokenInfo } from "../utils";
 import { BackendRequestType } from "../types";
-import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem } from "@wso2/mi-core";
+import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem, Question } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 
 // Tool name constant
 const BASH_TOOL_NAME = 'bash';
+const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
 const THINKING_PREFERENCE_KEY = 'mi-agent-thinking-enabled';
 
 function removeCompactingPlaceholder(content: string): string {
@@ -88,6 +89,30 @@ function finalizeThinkingBlock(content: string, thinkingId: string): string {
     return content.replace(loadingTag, doneTag);
 }
 
+function extractPlanTitle(planContent: string): string | undefined {
+    const lines = planContent.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    for (const line of lines) {
+        const match = line.match(/^#{1,6}\s+(.+)$/);
+        if (match?.[1]) {
+            return match[1].trim();
+        }
+    }
+    return undefined;
+}
+
+function getPlanApprovalPrompt(planContent?: string, planFilePath?: string): string {
+    const title = planContent ? extractPlanTitle(planContent) : undefined;
+    if (title) {
+        return `Review "${title}" and choose Approve Plan or Request Changes.`;
+    }
+
+    if (planFilePath) {
+        return `Review the plan in ${planFilePath} and choose Approve Plan or Request Changes.`;
+    }
+
+    return "Review the plan above and choose Approve Plan or Request Changes.";
+}
+
 interface AIChatFooterProps {
     isUsageExceeded?: boolean;
 }
@@ -144,7 +169,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     } = useMICopilotContext();
 
     const [fileUploadStatus, setFileUploadStatus] = useState({ type: "", text: "" });
-    const isStopButtonClicked = useRef(false);
     const isResponseReceived = useRef(false);
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
     const abortedRef = useRef(false);
@@ -176,9 +200,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     );
 
     const placeholderString = USER_INPUT_PLACEHOLDER_MESSAGE;
-    const [placeholder, setPlaceholder] = useState(placeholderString);
-    const [charIndex, setCharIndex] = useState(0);
-    const [showDots, setShowDots] = useState(false);
 
     // State for streaming agent response
     const [currentChatId, setCurrentChatId] = useState<number | null>(null);
@@ -284,6 +305,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 // Show tool status and insert toolcall tag into message content
                 // Action text is provided by backend from shared utility
                 if (event.toolName) {
+                    // Do not show intermediate loading UI for exit_plan_mode.
+                    // Plan approval dialog is the UI for this stage.
+                    if (event.toolName === EXIT_PLAN_MODE_TOOL_NAME) {
+                        break;
+                    }
+
                     const toolInfo = event.toolInput as { file_path?: string, file_paths?: string[], command?: string, description?: string };
                     const filePath = toolInfo?.file_path || toolInfo?.file_paths?.[0] || "";
 
@@ -325,6 +352,19 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 // Clear tool status and mark toolcall as complete in message
                 // Completed action is provided by backend from shared utility
                 setToolStatus("");
+
+                // For exit_plan_mode, show completion only after successful exit.
+                if (event.toolName === EXIT_PLAN_MODE_TOOL_NAME) {
+                    const wasSuccessful = (event.toolOutput as { success?: boolean } | undefined)?.success === true;
+                    if (wasSuccessful) {
+                        const completedAction = event.completedAction || "exited plan mode";
+                        const capitalizedAction = completedAction.charAt(0).toUpperCase() + completedAction.slice(1);
+                        setMessages((prev) => updateLastMessage(prev, (c) =>
+                            `${c}\n\n<toolcall>${capitalizedAction}</toolcall>`
+                        ));
+                    }
+                    break;
+                }
 
                 // Update the last toolcall tag to show completion (immutable update)
                 setMessages((prevMessages) => {
@@ -565,7 +605,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             setPendingPlanApproval({
                                 approvalId: planEvent.approvalId,
                                 planFilePath: planEvent.planFilePath,
-                                content: planEvent.content
+                                content: getPlanApprovalPrompt(planContent, planEvent.planFilePath)
                             });
                         }
                         break;
@@ -577,21 +617,22 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     // Handle user cancelling the question dialog
     const handleQuestionCancel = async () => {
-        if (pendingQuestion) {
+        if (pendingQuestion || pendingPlanApproval) {
             try {
-                // Send cancellation signal to backend
-                await rpcClient.getMiAgentPanelRpcClient().respondToQuestion({
-                    questionId: pendingQuestion.questionId,
-                    answer: '__USER_CANCELLED__'
-                });
+                // Hard interrupt current run without sending a response to the model.
+                await rpcClient.getMiAgentPanelRpcClient().abortAgentGeneration();
             } catch (error) {
-                console.error("Error sending cancellation:", error);
+                console.error("Error aborting generation:", error);
             }
-            // Clear state
-            setPendingQuestion(null);
-            setAnswers(new Map());
-            setOtherAnswers(new Map());
         }
+
+        // Clear local dialog state immediately.
+        setPendingQuestion(null);
+        setPendingPlanApproval(null);
+        setAnswers(new Map());
+        setOtherAnswers(new Map());
+        setShowRejectionInput(false);
+        setPlanRejectionFeedback("");
     };
 
     // Handle user response to ask_user questions
@@ -721,46 +762,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
     };
 
-    // Handle stopping the response generation
-    const handleStop = async () => {
-        isStopButtonClicked.current = true;
-        // Set abort flag BEFORE making any async calls to prevent race conditions
-        abortedRef.current = true;
-
-        try {
-            // Request the extension to abort agent generation
-            // This will save an interruption message to chat history (Claude Code pattern)
-            await rpcClient.getMiAgentPanelRpcClient().abortAgentGeneration();
-
-            // Abort the local controller (for any local operations)
-            controller.abort();
-
-            // Create a new AbortController for future fetches
-            resetController();
-
-            // Clear tool status but keep assistant response for display
-            setToolStatus("");
-
-            // Keep the UI as-is with partial response, just mark as interrupted
-            // The abort event handler will add "[Aborted]" marker to the message
-            // Don't remove messages or restore prompt - user explicitly stopped the generation
-
-            // Reset abort flag after a delay to ensure all buffered events are ignored
-            setTimeout(() => {
-                abortedRef.current = false;
-            }, 200);
-        } catch (error) {
-            console.error("Error stopping agent generation:", error);
-            // Reset abort flag on error as well
-            abortedRef.current = false;
-        } finally {
-            // Reset backend request triggered state
-            setBackendRequestTriggered(false);
-            // Clear the input prompt since the message was already sent
-            setCurrentUserprompt("");
-        }
-    };
-
     // File handling
     const removeAllFiles = () => {
         setFiles([]);
@@ -778,9 +779,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
 
         const outgoingPrompt = (prompt ?? currentUserPrompt ?? "").toString();
-
-        // Reset stop button flag at the start of a new send
-        isStopButtonClicked.current = false;
 
         // Block empty user inputs and avoid state conflicts
         if (outgoingPrompt.trim() === "") {
@@ -879,20 +877,20 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             // modelMessages will arrive with the "stop" event
 
         } catch (error) {
-            if (!isStopButtonClicked.current) {
-                const errorMessage = error instanceof Error ? error.message : "Request failed";
-                setMessages((prevMessages) => {
-                    const newMessages = [...prevMessages];
-                    newMessages[newMessages.length - 1].content += errorMessage;
-                    newMessages[newMessages.length - 1].type = MessageType.Error;
-                    return newMessages;
-                });
-                console.error("Error sending agent message:", error);
+            const errorMessage = error instanceof Error ? error.message : "Request failed";
+            if (errorMessage.toLowerCase().includes('aborted by user')) {
+                // Abort event already updates UI with interruption state.
+                return;
             }
+            setMessages((prevMessages) => {
+                const newMessages = [...prevMessages];
+                newMessages[newMessages.length - 1].content += errorMessage;
+                newMessages[newMessages.length - 1].type = MessageType.Error;
+                return newMessages;
+            });
+            console.error("Error sending agent message:", error);
         } finally {
-            if (!isStopButtonClicked.current) {
-                setCurrentUserprompt("");
-            }
+            setCurrentUserprompt("");
             setBackendRequestTriggered(false);
             sendInProgressRef.current = false;
         }
@@ -913,35 +911,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             textAreaRef.current.style.height = `${textAreaRef.current.scrollHeight}px`;
         }
     }, [currentUserPrompt]);
-
-    // Handle placeholder animation
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (charIndex < placeholderString.length) {
-                setPlaceholder(placeholderString.substring(0, charIndex + 1));
-                setCharIndex(charIndex + 1);
-            }
-        }, 100);
-        return () => clearTimeout(timer);
-    }, [charIndex]);
-
-    // Handle dots animation for placeholder
-    useEffect(() => {
-        if (showDots) {
-            const dotsTimer = setInterval(() => {
-                setPlaceholder((prev) => (prev.endsWith("...") ? placeholderString : prev + "."));
-            }, 500);
-            return () => clearInterval(dotsTimer);
-        }
-    }, [showDots]);
-
-    // Reset placeholder when focus is lost
-    useEffect(() => {
-        if (!isFocused) {
-            setPlaceholder(placeholderString);
-            setCharIndex(placeholderString.length);
-        }
-    }, [isFocused]);
 
     // Clear file upload status after 5 seconds
     useEffect(() => {
@@ -978,6 +947,11 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     // State for plan rejection feedback
     const [planRejectionFeedback, setPlanRejectionFeedback] = useState("");
     const [showRejectionInput, setShowRejectionInput] = useState(false);
+    const [activeQuestionTab, setActiveQuestionTab] = useState(0);
+
+    const handlePlanApprovalCancel = async () => {
+        await handleQuestionCancel();
+    };
 
     // Handle escape key to cancel question dialog or plan approval dialog
     useEffect(() => {
@@ -987,9 +961,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     handleQuestionCancel();
                 }
                 if (pendingPlanApproval) {
-                    setPendingPlanApproval(null);
-                    setShowRejectionInput(false);
-                    setPlanRejectionFeedback("");
+                    void handlePlanApprovalCancel();
                 }
             }
         };
@@ -1001,6 +973,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     useEffect(() => {
         setAnswers(new Map());
         setOtherAnswers(new Map());
+        setActiveQuestionTab(0);
     }, [pendingQuestion?.questionId]);
 
     // Reset rejection feedback when plan approval changes
@@ -1022,8 +995,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [showModeMenu]);
 
-    // Check if all questions are answered
-    const allQuestionsAnswered = pendingQuestion?.questions.every((q, idx) => {
+    const isQuestionAnswered = (q: Question, idx: number): boolean => {
         const answer = answers.get(idx);
         const otherAnswer = otherAnswers.get(idx);
 
@@ -1032,36 +1004,39 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         if (!q.multiSelect && typeof answer === 'string' && answer.trim()) return true;
 
         return false;
-    }) ?? false;
+    };
+
+    // Check if all questions are answered
+    const allQuestionsAnswered = pendingQuestion?.questions.every((q, idx) => isQuestionAnswered(q, idx)) ?? false;
+
+    const totalQuestions = pendingQuestion?.questions.length ?? 0;
+    const activeQuestion = pendingQuestion?.questions[activeQuestionTab];
 
     return (
         <Footer>
-            {/* User Question Dialog - Claude Code style with structured questions */}
-            {pendingQuestion && (
+            {/* User Question Dialog */}
+            {pendingQuestion && activeQuestion && (
                 <div style={{
-                    marginBottom: "6px",
+                    marginBottom: "8px",
                     backgroundColor: "var(--vscode-editor-background)",
                     border: "1px solid var(--vscode-panel-border)",
-                    borderRadius: "4px",
+                    borderRadius: "8px",
                     overflow: "hidden"
                 }}>
-                    {/* Header */}
                     <div style={{
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        padding: "6px 10px",
+                        padding: "8px 12px",
                         borderBottom: "1px solid var(--vscode-panel-border)",
                         backgroundColor: "var(--vscode-sideBarSectionHeader-background)"
                     }}>
                         <span style={{
-                            fontSize: "11px",
+                            fontSize: "12px",
                             fontWeight: 600,
-                            color: "var(--vscode-foreground)",
-                            borderBottom: "2px solid var(--vscode-focusBorder)",
-                            paddingBottom: "2px"
+                            color: "var(--vscode-foreground)"
                         }}>
-                            {pendingQuestion.questions.length === 1 ? "Question" : `Questions (${pendingQuestion.questions.length})`}
+                            {totalQuestions === 1 ? "Question" : `Questions (${totalQuestions})`}
                         </span>
                         <button
                             onClick={handleQuestionCancel}
@@ -1081,260 +1056,342 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         </button>
                     </div>
 
-                    {/* Content - Multiple Questions */}
-                    <div style={{ padding: "8px 10px", maxHeight: "350px", overflowY: "auto" }}>
-                        {pendingQuestion.questions.map((question, questionIndex) => (
-                            <div key={questionIndex} style={{
-                                marginBottom: questionIndex < pendingQuestion.questions.length - 1 ? "12px" : "0",
-                                paddingBottom: questionIndex < pendingQuestion.questions.length - 1 ? "10px" : "0",
-                                borderBottom: questionIndex < pendingQuestion.questions.length - 1 ? "1px solid var(--vscode-panel-border)" : "none"
-                            }}>
-                                {/* Question header chip */}
-                                <div style={{
-                                    display: "inline-block",
-                                    fontSize: "10px",
-                                    fontWeight: 600,
-                                    padding: "1px 6px",
-                                    marginBottom: "6px",
-                                    backgroundColor: "var(--vscode-badge-background)",
-                                    color: "var(--vscode-badge-foreground)",
-                                    borderRadius: "8px"
-                                }}>
-                                    {question.header}
-                                </div>
-
-                                {/* Question text */}
-                                <div style={{
-                                    fontSize: "12px",
-                                    marginBottom: "8px",
-                                    color: "var(--vscode-foreground)",
-                                    lineHeight: "1.4"
-                                }}>
-                                    {question.question}
-                                </div>
-
-                                {/* Options */}
-                                <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-                                    {question.options.map((option, optionIndex) => {
-                                        const currentAnswer = answers.get(questionIndex);
-                                        const isSelected = question.multiSelect
-                                            ? (currentAnswer instanceof Set && currentAnswer.has(option.label))
-                                            : currentAnswer === option.label;
-
-                                        return (
-                                            <label
-                                                key={optionIndex}
-                                                style={{
-                                                    display: "flex",
-                                                    alignItems: "flex-start",
-                                                    gap: "8px",
-                                                    padding: "6px 8px",
-                                                    borderRadius: "3px",
-                                                    cursor: "pointer",
-                                                    backgroundColor: isSelected
-                                                        ? "var(--vscode-list-activeSelectionBackground)"
-                                                        : "var(--vscode-list-hoverBackground)",
-                                                    border: "1px solid " + (isSelected ? "var(--vscode-focusBorder)" : "transparent")
-                                                }}
-                                                onClick={() => {
-                                                    if (question.multiSelect) {
-                                                        // Multi-select: toggle in set
-                                                        const newAnswers = new Map(answers);
-                                                        let currentSet = newAnswers.get(questionIndex) as Set<string> | undefined;
-
-                                                        if (!currentSet || !(currentSet instanceof Set)) {
-                                                            currentSet = new Set();
-                                                        }
-
-                                                        if (currentSet.has(option.label)) {
-                                                            currentSet.delete(option.label);
-                                                        } else {
-                                                            currentSet.add(option.label);
-                                                        }
-
-                                                        newAnswers.set(questionIndex, currentSet);
-                                                        setAnswers(newAnswers);
-
-                                                        // Clear "Other" if selecting an option
-                                                        if (currentSet.size > 0) {
-                                                            const newOtherAnswers = new Map(otherAnswers);
-                                                            newOtherAnswers.delete(questionIndex);
-                                                            setOtherAnswers(newOtherAnswers);
-                                                        }
-                                                    } else {
-                                                        // Single-select: replace
-                                                        const newAnswers = new Map(answers);
-                                                        newAnswers.set(questionIndex, option.label);
-                                                        setAnswers(newAnswers);
-
-                                                        // Clear "Other" if selecting an option
-                                                        const newOtherAnswers = new Map(otherAnswers);
-                                                        newOtherAnswers.delete(questionIndex);
-                                                        setOtherAnswers(newOtherAnswers);
-                                                    }
-                                                }}
-                                            >
-                                                {/* Checkbox or Radio */}
-                                                <span style={{
-                                                    width: "14px",
-                                                    height: "14px",
-                                                    borderRadius: question.multiSelect ? "2px" : "50%",
-                                                    border: isSelected
-                                                        ? `2px solid var(--vscode-focusBorder)`
-                                                        : "1px solid var(--vscode-input-border)",
-                                                    backgroundColor: isSelected
-                                                        ? "var(--vscode-focusBorder)"
-                                                        : "transparent",
-                                                    flexShrink: 0,
-                                                    marginTop: "1px",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                    fontSize: "9px",
-                                                    color: "var(--vscode-editor-background)"
-                                                }}>
-                                                    {isSelected && "✓"}
-                                                </span>
-
-                                                {/* Label and description */}
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontSize: "12px", fontWeight: 500, marginBottom: "1px", lineHeight: "1.3" }}>
-                                                        {option.label}
-                                                    </div>
-                                                    <div style={{ fontSize: "11px", opacity: 0.75, lineHeight: "1.3" }}>
-                                                        {option.description}
-                                                    </div>
-                                                </div>
-                                            </label>
-                                        );
-                                    })}
-
-                                    {/* Other option */}
-                                    <div style={{ marginTop: "3px" }}>
-                                        <label
+                    {totalQuestions > 1 && (
+                        <div style={{
+                            display: "flex",
+                            gap: "6px",
+                            overflowX: "auto",
+                            padding: "8px 12px",
+                            borderBottom: "1px solid var(--vscode-panel-border)",
+                            backgroundColor: "var(--vscode-editorWidget-background)"
+                        }}>
+                            {pendingQuestion.questions.map((question, index) => {
+                                const isActive = index === activeQuestionTab;
+                                const isAnswered = isQuestionAnswered(question, index);
+                                return (
+                                    <button
+                                        key={`${question.header}-${index}`}
+                                        onClick={() => setActiveQuestionTab(index)}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "6px",
+                                            whiteSpace: "nowrap",
+                                            padding: "4px 10px",
+                                            borderRadius: "999px",
+                                            border: isActive
+                                                ? "1px solid var(--vscode-focusBorder)"
+                                                : "1px solid var(--vscode-input-border)",
+                                            backgroundColor: isActive
+                                                ? "var(--vscode-list-activeSelectionBackground)"
+                                                : "var(--vscode-input-background)",
+                                            color: isActive
+                                                ? "var(--vscode-list-activeSelectionForeground)"
+                                                : "var(--vscode-foreground)",
+                                            cursor: "pointer",
+                                            fontSize: "11px",
+                                            fontWeight: 500
+                                        }}
+                                    >
+                                        <span
                                             style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "8px",
-                                                padding: "6px 8px",
-                                                borderRadius: "3px",
-                                                cursor: "pointer",
-                                                backgroundColor: otherAnswers.has(questionIndex)
-                                                    ? "var(--vscode-list-activeSelectionBackground)"
-                                                    : "transparent"
+                                                width: "8px",
+                                                height: "8px",
+                                                borderRadius: "50%",
+                                                backgroundColor: isAnswered
+                                                    ? "var(--vscode-testing-iconPassed)"
+                                                    : "var(--vscode-descriptionForeground)"
                                             }}
-                                            onClick={() => {
-                                                // Clear regular answers when selecting "Other"
-                                                const newAnswers = new Map(answers);
-                                                newAnswers.delete(questionIndex);
-                                                setAnswers(newAnswers);
-                                            }}
-                                        >
-                                            <span style={{
-                                                width: "14px",
-                                                height: "14px",
-                                                borderRadius: question.multiSelect ? "2px" : "50%",
-                                                border: otherAnswers.has(questionIndex)
-                                                    ? "2px solid var(--vscode-focusBorder)"
-                                                    : "1px solid var(--vscode-input-border)",
-                                                backgroundColor: otherAnswers.has(questionIndex)
-                                                    ? "var(--vscode-focusBorder)"
-                                                    : "transparent",
-                                                flexShrink: 0,
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                fontSize: "9px",
-                                                color: "var(--vscode-editor-background)"
-                                            }}>
-                                                {otherAnswers.has(questionIndex) && "✓"}
-                                            </span>
-                                            <span style={{ fontSize: "12px" }}>Other</span>
-                                        </label>
+                                        />
+                                        {question.header}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
 
-                                        {/* Free text input for "Other" */}
-                                        {(otherAnswers.has(questionIndex) || (!answers.has(questionIndex) && pendingQuestion.questions.length === 1)) && (
-                                            <input
-                                                type="text"
-                                                value={otherAnswers.get(questionIndex) || ""}
-                                                onChange={(e) => {
+                    <div style={{ padding: "12px", maxHeight: "340px", overflowY: "auto" }}>
+                        <div style={{
+                            display: "inline-block",
+                            fontSize: "10px",
+                            fontWeight: 600,
+                            padding: "2px 8px",
+                            marginBottom: "10px",
+                            backgroundColor: "var(--vscode-badge-background)",
+                            color: "var(--vscode-badge-foreground)",
+                            borderRadius: "999px"
+                        }}>
+                            {activeQuestion.header}
+                        </div>
+
+                        <div style={{
+                            fontSize: "13px",
+                            marginBottom: "10px",
+                            color: "var(--vscode-foreground)",
+                            lineHeight: "1.4"
+                        }}>
+                            {activeQuestion.question}
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                            {activeQuestion.options.map((option, optionIndex) => {
+                                const currentAnswer = answers.get(activeQuestionTab);
+                                const isSelected = activeQuestion.multiSelect
+                                    ? (currentAnswer instanceof Set && currentAnswer.has(option.label))
+                                    : currentAnswer === option.label;
+
+                                return (
+                                    <button
+                                        key={optionIndex}
+                                        onClick={() => {
+                                            if (activeQuestion.multiSelect) {
+                                                const newAnswers = new Map(answers);
+                                                let currentSet = newAnswers.get(activeQuestionTab) as Set<string> | undefined;
+
+                                                if (!currentSet || !(currentSet instanceof Set)) {
+                                                    currentSet = new Set();
+                                                }
+
+                                                if (currentSet.has(option.label)) {
+                                                    currentSet.delete(option.label);
+                                                } else {
+                                                    currentSet.add(option.label);
+                                                }
+
+                                                newAnswers.set(activeQuestionTab, currentSet);
+                                                setAnswers(newAnswers);
+
+                                                if (currentSet.size > 0) {
                                                     const newOtherAnswers = new Map(otherAnswers);
-                                                    newOtherAnswers.set(questionIndex, e.target.value);
+                                                    newOtherAnswers.delete(activeQuestionTab);
                                                     setOtherAnswers(newOtherAnswers);
-                                                }}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === "Enter" && allQuestionsAnswered) {
-                                                        handleQuestionResponse();
-                                                    }
-                                                }}
-                                                placeholder="Type your answer..."
-                                                style={{
-                                                    width: "100%",
-                                                    marginTop: "4px",
-                                                    marginLeft: "22px",
-                                                    padding: "6px 8px",
-                                                    backgroundColor: "var(--vscode-input-background)",
-                                                    color: "var(--vscode-input-foreground)",
-                                                    border: "1px solid var(--vscode-input-border)",
-                                                    borderRadius: "3px",
-                                                    fontSize: "12px",
-                                                    boxSizing: "border-box",
-                                                    maxWidth: "calc(100% - 22px)"
-                                                }}
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+                                                }
+                                                return;
+                                            }
+
+                                            const newAnswers = new Map(answers);
+                                            newAnswers.set(activeQuestionTab, option.label);
+                                            setAnswers(newAnswers);
+
+                                            const newOtherAnswers = new Map(otherAnswers);
+                                            newOtherAnswers.delete(activeQuestionTab);
+                                            setOtherAnswers(newOtherAnswers);
+                                        }}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "flex-start",
+                                            gap: "8px",
+                                            textAlign: "left",
+                                            width: "100%",
+                                            padding: "8px 10px",
+                                            borderRadius: "6px",
+                                            cursor: "pointer",
+                                            backgroundColor: isSelected
+                                                ? "var(--vscode-list-activeSelectionBackground)"
+                                                : "var(--vscode-list-hoverBackground)",
+                                            border: isSelected
+                                                ? "1px solid var(--vscode-focusBorder)"
+                                                : "1px solid transparent",
+                                            color: "var(--vscode-foreground)"
+                                        }}
+                                    >
+                                        <span style={{
+                                            width: "14px",
+                                            height: "14px",
+                                            borderRadius: activeQuestion.multiSelect ? "2px" : "50%",
+                                            border: isSelected
+                                                ? `2px solid var(--vscode-focusBorder)`
+                                                : "1px solid var(--vscode-input-border)",
+                                            backgroundColor: isSelected
+                                                ? "var(--vscode-focusBorder)"
+                                                : "transparent",
+                                            flexShrink: 0,
+                                            marginTop: "1px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            fontSize: "9px",
+                                            color: "var(--vscode-editor-background)"
+                                        }}>
+                                            {isSelected && "✓"}
+                                        </span>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: "12px", fontWeight: 500, marginBottom: "2px", lineHeight: "1.3" }}>
+                                                {option.label}
+                                            </div>
+                                            <div style={{ fontSize: "11px", opacity: 0.8, lineHeight: "1.3" }}>
+                                                {option.description}
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+
+                            <button
+                                onClick={() => {
+                                    const newAnswers = new Map(answers);
+                                    newAnswers.delete(activeQuestionTab);
+                                    setAnswers(newAnswers);
+
+                                    if (!otherAnswers.has(activeQuestionTab)) {
+                                        const newOtherAnswers = new Map(otherAnswers);
+                                        newOtherAnswers.set(activeQuestionTab, "");
+                                        setOtherAnswers(newOtherAnswers);
+                                    }
+                                }}
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                    width: "100%",
+                                    padding: "8px 10px",
+                                    borderRadius: "6px",
+                                    cursor: "pointer",
+                                    border: "1px solid transparent",
+                                    backgroundColor: otherAnswers.has(activeQuestionTab)
+                                        ? "var(--vscode-list-activeSelectionBackground)"
+                                        : "var(--vscode-list-hoverBackground)",
+                                    color: "var(--vscode-foreground)"
+                                }}
+                            >
+                                <span style={{
+                                    width: "14px",
+                                    height: "14px",
+                                    borderRadius: activeQuestion.multiSelect ? "2px" : "50%",
+                                    border: otherAnswers.has(activeQuestionTab)
+                                        ? "2px solid var(--vscode-focusBorder)"
+                                        : "1px solid var(--vscode-input-border)",
+                                    backgroundColor: otherAnswers.has(activeQuestionTab)
+                                        ? "var(--vscode-focusBorder)"
+                                        : "transparent",
+                                    flexShrink: 0,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: "9px",
+                                    color: "var(--vscode-editor-background)"
+                                }}>
+                                    {otherAnswers.has(activeQuestionTab) && "✓"}
+                                </span>
+                                <span style={{ fontSize: "12px" }}>Other</span>
+                            </button>
+
+                            {(otherAnswers.has(activeQuestionTab) || (totalQuestions === 1 && !answers.has(activeQuestionTab))) && (
+                                <input
+                                    type="text"
+                                    value={otherAnswers.get(activeQuestionTab) || ""}
+                                    onChange={(e) => {
+                                        const newOtherAnswers = new Map(otherAnswers);
+                                        newOtherAnswers.set(activeQuestionTab, e.target.value);
+                                        setOtherAnswers(newOtherAnswers);
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && allQuestionsAnswered) {
+                                            handleQuestionResponse();
+                                        }
+                                    }}
+                                    placeholder="Type your answer..."
+                                    style={{
+                                        width: "100%",
+                                        marginTop: "2px",
+                                        padding: "8px 10px",
+                                        backgroundColor: "var(--vscode-input-background)",
+                                        color: "var(--vscode-input-foreground)",
+                                        border: "1px solid var(--vscode-input-border)",
+                                        borderRadius: "6px",
+                                        fontSize: "12px",
+                                        boxSizing: "border-box"
+                                    }}
+                                />
+                            )}
+                        </div>
                     </div>
 
-                    {/* Footer */}
                     <div style={{
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        padding: "6px 10px",
+                        gap: "8px",
+                        padding: "8px 12px",
                         borderTop: "1px solid var(--vscode-panel-border)",
                         backgroundColor: "var(--vscode-sideBarSectionHeader-background)"
                     }}>
                         <span style={{
-                            fontSize: "10px",
+                            fontSize: "11px",
                             color: "var(--vscode-descriptionForeground)"
                         }}>
                             Esc to cancel
                         </span>
-                        <button
-                            onClick={handleQuestionResponse}
-                            disabled={!allQuestionsAnswered}
-                            style={{
-                                padding: "4px 12px",
-                                backgroundColor: allQuestionsAnswered
-                                    ? "var(--vscode-button-background)"
-                                    : "var(--vscode-button-secondaryBackground)",
-                                color: allQuestionsAnswered
-                                    ? "var(--vscode-button-foreground)"
-                                    : "var(--vscode-button-secondaryForeground)",
-                                border: "none",
-                                borderRadius: "3px",
-                                cursor: allQuestionsAnswered ? "pointer" : "not-allowed",
-                                fontSize: "11px",
-                                opacity: allQuestionsAnswered ? 1 : 0.6
-                            }}
-                        >
-                            Submit {pendingQuestion.questions.length === 1 ? "answer" : "answers"}
-                        </button>
+
+                        <div style={{ display: "flex", gap: "8px" }}>
+                            {totalQuestions > 1 && (
+                                <>
+                                    <button
+                                        onClick={() => setActiveQuestionTab((prev) => Math.max(0, prev - 1))}
+                                        disabled={activeQuestionTab === 0}
+                                        style={{
+                                            padding: "6px 10px",
+                                            backgroundColor: "transparent",
+                                            color: "var(--vscode-foreground)",
+                                            border: "1px solid var(--vscode-input-border)",
+                                            borderRadius: "4px",
+                                            cursor: activeQuestionTab === 0 ? "not-allowed" : "pointer",
+                                            fontSize: "12px",
+                                            opacity: activeQuestionTab === 0 ? 0.6 : 1
+                                        }}
+                                    >
+                                        Previous
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveQuestionTab((prev) => Math.min(totalQuestions - 1, prev + 1))}
+                                        disabled={activeQuestionTab >= totalQuestions - 1}
+                                        style={{
+                                            padding: "6px 10px",
+                                            backgroundColor: "transparent",
+                                            color: "var(--vscode-foreground)",
+                                            border: "1px solid var(--vscode-input-border)",
+                                            borderRadius: "4px",
+                                            cursor: activeQuestionTab >= totalQuestions - 1 ? "not-allowed" : "pointer",
+                                            fontSize: "12px",
+                                            opacity: activeQuestionTab >= totalQuestions - 1 ? 0.6 : 1
+                                        }}
+                                    >
+                                        Next
+                                    </button>
+                                </>
+                            )}
+                            <button
+                                onClick={handleQuestionResponse}
+                                disabled={!allQuestionsAnswered}
+                                style={{
+                                    padding: "6px 12px",
+                                    backgroundColor: allQuestionsAnswered
+                                        ? "var(--vscode-button-background)"
+                                        : "var(--vscode-button-secondaryBackground)",
+                                    color: allQuestionsAnswered
+                                        ? "var(--vscode-button-foreground)"
+                                        : "var(--vscode-button-secondaryForeground)",
+                                    border: "none",
+                                    borderRadius: "4px",
+                                    cursor: allQuestionsAnswered ? "pointer" : "not-allowed",
+                                    fontSize: "12px",
+                                    opacity: allQuestionsAnswered ? 1 : 0.65
+                                }}
+                            >
+                                Submit {totalQuestions === 1 ? "answer" : "answers"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
 
-            {/* Plan Approval Dialog - Claude Code style */}
+            {/* Plan Approval Dialog */}
             {pendingPlanApproval && (
                 <div style={{
                     marginBottom: "8px",
                     backgroundColor: "var(--vscode-editor-background)",
                     border: "1px solid var(--vscode-panel-border)",
-                    borderRadius: "6px",
+                    borderRadius: "8px",
                     overflow: "hidden"
                 }}>
                     {/* Header */}
@@ -1348,23 +1405,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     }}>
                         <span style={{
                             fontSize: "12px",
-                            fontWeight: 500,
-                            color: "var(--vscode-foreground)",
-                            borderBottom: "2px solid var(--vscode-focusBorder)",
-                            paddingBottom: "4px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "6px"
+                            fontWeight: 600,
+                            color: "var(--vscode-foreground)"
                         }}>
-                            <span>📋</span>
-                            MI Copilot's Plan
+                            Plan Approval
                         </span>
                         <button
-                            onClick={() => {
-                                setPendingPlanApproval(null);
-                                setShowRejectionInput(false);
-                                setPlanRejectionFeedback("");
-                            }}
+                            onClick={() => { void handlePlanApprovalCancel(); }}
                             style={{
                                 background: "none",
                                 border: "none",
@@ -1390,6 +1437,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             color: "var(--vscode-foreground)"
                         }}>
                             {pendingPlanApproval.content || "The plan is ready for your review."}
+                            <div style={{
+                                marginTop: "6px",
+                                fontSize: "12px",
+                                color: "var(--vscode-descriptionForeground)"
+                            }}>
+                                Full plan details are shown above in chat.
+                            </div>
                         </div>
 
                         {/* Rejection feedback input (shown when rejecting) */}
@@ -1515,28 +1569,14 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             <FloatingInputContainer
                 style={{
                     border: isFocused ? "1px solid var(--vscode-focusBorder)" : "1px solid var(--vscode-widget-border)",
-                    boxShadow: isFocused ? "0 0 0 1px var(--vscode-focusBorder), 0 4px 12px rgba(0,0,0,0.1)" : "0 4px 12px rgba(0,0,0,0.1)",
-                    transition: "all 0.2s ease"
+                    boxShadow: isFocused ? "0 0 0 1px var(--vscode-focusBorder), 0 4px 12px rgba(0,0,0,0.1)" : "0 4px 12px rgba(0,0,0,0.1)"
                 }}
             >
                 {backendRequestTriggered ? (
                     <FlexRow style={{ alignItems: "center", justifyContent: "center", width: "100%", padding: "12px" }}>
-                        <span style={{ marginLeft: "10px", fontSize: "13px", color: "var(--vscode-descriptionForeground)" }}>
+                        <span style={{ fontSize: "13px", color: "var(--vscode-descriptionForeground)" }}>
                             {toolStatus || (isResponseReceived.current ? "Generating response..." : "Thinking...")}
                         </span>
-                        <RippleLoader>
-                            <div className="ldio">
-                                <div></div>
-                                <div></div>
-                            </div>
-                        </RippleLoader>
-                        <StyledTransParentButton
-                            onClick={handleStop}
-                            style={{ marginLeft: "auto", color: "var(--vscode-errorForeground)" }}
-                            title="Stop Generation"
-                        >
-                            <Codicon name="stop-circle" />
-                        </StyledTransParentButton>
                     </FlexRow>
                 ) : (
                     <>
@@ -1553,18 +1593,15 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 value={currentUserPrompt}
                                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                                     setCurrentUserprompt(e.target.value);
-                                    setShowDots(false);
                                 }}
                                 onFocus={() => {
-                                    setShowDots(true);
                                     setIsFocused(true);
                                 }}
                                 onBlur={() => {
-                                    setShowDots(false);
                                     setIsFocused(false);
                                 }}
                                 onKeyDown={handleTextKeydown}
-                                placeholder={isUsageExceeded ? "Usage quota exceeded..." : placeholder}
+                                placeholder={isUsageExceeded ? "Usage quota exceeded..." : placeholderString}
                                 disabled={isUsageExceeded}
                                 style={{
                                     width: "100%",
@@ -1712,8 +1749,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                             backgroundColor: isThinkingEnabled
                                                 ? "var(--vscode-button-background)"
                                                 : "var(--vscode-input-border)",
-                                            opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1,
-                                            transition: "background-color 0.2s ease"
+                                            opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1
                                         }}
                                     >
                                         <span
@@ -1724,8 +1760,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                                 width: "14px",
                                                 height: "14px",
                                                 borderRadius: "50%",
-                                                backgroundColor: "var(--vscode-button-foreground)",
-                                                transition: "left 0.2s ease"
+                                                backgroundColor: "var(--vscode-button-foreground)"
                                             }}
                                         />
                                     </button>
@@ -1785,8 +1820,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                             ? "var(--vscode-button-foreground)" 
                                             : "var(--vscode-button-secondaryForeground)",
                                         border: "none",
-                                        cursor: (currentUserPrompt.trim() !== "" && !isCompacting && !backendRequestTriggered) ? "pointer" : "default",
-                                        transition: "all 0.2s ease"
+                                        cursor: (currentUserPrompt.trim() !== "" && !isCompacting && !backendRequestTriggered) ? "pointer" : "default"
                                     }}
                                     title="Send Message"
                                 >
