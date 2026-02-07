@@ -54,6 +54,7 @@
         "build:wso2-platform": "rush build --to wso2-platform",
         "build:mi": "rush build --to micro-integrator",
         "build:api-designer": "rush build --to api-designer",
+        "test:diagrams": "cd workspaces/ballerina/bi-diagram && pnpm run test && cd ../component-diagram && pnpm run test && cd ../type-diagram && pnpm run test && cd ../sequence-diagram && pnpm run test",
         "setup-e2e-test-debug": "workspaces/ballerina/ballerina-extension/node_modules/vscode-extension-tester/out/cli.js get-vscode && workspaces/ballerina/ballerina-extension/node_modules/vscode-extension-tester/out/cli.js get-chromedriver",
         "ui-toolkit-stories": "npm run --prefix ./workspaces/common-libs/ui-toolkit serve-storybook"
     }
