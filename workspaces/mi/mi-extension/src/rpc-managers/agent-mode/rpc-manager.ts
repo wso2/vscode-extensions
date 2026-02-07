@@ -34,6 +34,7 @@ import { executeCompactAgent } from '../../ai-features/agent-mode/agents/compact
 import { logInfo, logError, logDebug } from '../../ai-features/copilot/logger';
 import { ChatHistoryManager, GroupedSessions } from '../../ai-features/agent-mode/chat-history-manager';
 import { PendingQuestion, PendingPlanApproval } from '../../ai-features/agent-mode/tools/plan_mode_tools';
+import { validateAttachments } from '../../ai-features/agent-mode/attachment-utils';
 
 // Session management types (will be imported from @wso2/mi-core after build)
 export interface ListSessionsRequest {
@@ -151,6 +152,17 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         try {
             logInfo(`[AgentPanel] Received message: ${request.message.substring(0, 100)}...`);
 
+            // Fail fast if attachments are invalid (same behavior as legacy copilot flow)
+            const validationWarnings = validateAttachments(request.files, request.images);
+            if (validationWarnings.length > 0) {
+                const errorMessage = `Cannot proceed with agent request. Invalid attachments: ${validationWarnings.join('; ')}`;
+                logError(`[AgentPanel] ${errorMessage}`);
+                return {
+                    success: false,
+                    error: errorMessage
+                };
+            }
+
             // Get or create chat history manager
             const historyManager = await this.getChatHistoryManager();
 
@@ -160,6 +172,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             const result = await executeAgent(
                 {
                     query: request.message,
+                    files: request.files,
+                    images: request.images,
                     projectPath: this.projectUri,
                     sessionId: this.currentSessionId || undefined,
                     abortSignal: this.currentAbortController.signal,

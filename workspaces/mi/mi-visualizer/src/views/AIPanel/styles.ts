@@ -138,7 +138,6 @@ export const UserMessageBox = styled.div({
     lineHeight: "1.4",
     maxWidth: "90%",
     marginLeft: "auto",
-    marginBottom: "4px",
     "& p": {
         margin: "0",
     },

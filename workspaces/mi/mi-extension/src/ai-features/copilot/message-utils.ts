@@ -81,6 +81,17 @@ const TEXT_MIMETYPES = new Set([
 ]);
 
 /**
+ * Supported image mimetypes for Claude multimodal input
+ */
+const IMAGE_MIMETYPES = new Set([
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/gif",
+    "image/webp"
+]);
+
+/**
  * Validates if a string is properly base64-encoded
  * @param str - The string to validate
  * @returns true if the string is valid base64, false otherwise
@@ -116,11 +127,19 @@ function isValidImageDataUri(dataUri: string): boolean {
         return false;
     }
 
-    // Data URI format: data:image/<type>;base64,<base64data>
-    // Supported image types: jpeg, jpg, png, gif, webp, svg+xml
-    const dataUriRegex = /^data:image\/(jpeg|jpg|png|gif|webp|svg\+xml);base64,/;
+    // Data URI format: data:<mimetype>;base64,<base64data>
+    const dataUriRegex = /^data:([^;]+);base64,([A-Za-z0-9+/]*={0,2})$/;
+    const match = dataUri.match(dataUriRegex);
+    if (!match || !match[1] || !match[2]) {
+        return false;
+    }
 
-    if (!dataUriRegex.test(dataUri)) {
+    const mimeType = match[1].toLowerCase();
+    if (!IMAGE_MIMETYPES.has(mimeType)) {
+        return false;
+    }
+
+    if (!isValidBase64(match[2])) {
         return false;
     }
 
@@ -252,7 +271,7 @@ export function validateAttachments(files?: FileObject[], images?: ImageObject[]
     if (images && images.length > 0) {
         for (const image of images) {
             if (!isValidImageDataUri(image.imageBase64)) {
-                warnings.push(`Invalid image data URI format`);
+                warnings.push(`Invalid image format: ${image.imageName}`);
             }
         }
     }

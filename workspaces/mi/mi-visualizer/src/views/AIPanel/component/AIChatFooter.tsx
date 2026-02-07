@@ -709,13 +709,18 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             // Call the agent RPC method for streaming response
             // The streaming will be handled via events in handleAgentEvent
             // modelMessages will be sent with the "stop" event
-            await rpcClient.getMiAgentPanelRpcClient().sendAgentMessage({
+            const response = await rpcClient.getMiAgentPanelRpcClient().sendAgentMessage({
                 message: messageToSend,
+                files,
+                images,
                 chatHistory: chatHistory
             });
 
+            if (!response.success) {
+                throw new Error(response.error || "Failed to send agent request");
+            }
+
             // Remove the user uploaded files and images after sending them to the backend
-            // (File upload functionality preserved for future use)
             removeAllFiles();
             removeAllImages();
 
@@ -724,13 +729,14 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
         } catch (error) {
             if (!isStopButtonClicked.current) {
+                const errorMessage = error instanceof Error ? error.message : "Request failed";
                 setMessages((prevMessages) => {
                     const newMessages = [...prevMessages];
-                    newMessages[newMessages.length - 1].content += "Network error. Please check your connectivity.";
+                    newMessages[newMessages.length - 1].content += errorMessage;
                     newMessages[newMessages.length - 1].type = MessageType.Error;
                     return newMessages;
                 });
-                console.error("Network error:", error);
+                console.error("Error sending agent message:", error);
             }
         } finally {
             if (!isStopButtonClicked.current) {
@@ -1514,7 +1520,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                             cursor: isUsageExceeded ? "not-allowed" : "pointer",
                                             opacity: isUsageExceeded ? 0.5 : 0.8
                                         }}
-                                        title="Switch Mode"
+                                        title="Switch between Ask and Edit modes"
                                     >
                                         <Codicon name={agentMode === 'ask' ? 'comment-discussion' : 'edit'} />
                                         {agentMode === 'ask' ? 'Ask' : 'Edit'}
@@ -1565,7 +1571,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                     <button
                                         onClick={handleManualCompact}
                                         disabled={isUsageExceeded || isCompacting || messages.length === 0}
-                                        title={`Context window ${contextUsagePercent}% used`}
+                                        title="Click to compact conversation and free up context space"
                                         style={{
                                             fontSize: "10px",
                                             color: contextUsagePercent >= 80 ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)",
@@ -1594,7 +1600,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                         color: "var(--vscode-descriptionForeground)"
                                     }}
                                     disabled={isUsageExceeded}
-                                    title="Attach File"
+                                    title="Attach files or images"
                                 >
                                     <Codicon name="attach" />
                                 </StyledTransParentButton>

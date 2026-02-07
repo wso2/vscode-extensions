@@ -28,6 +28,7 @@ import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from '../../../connection';
 import { getSystemPrompt } from './system';
 import { getUserPrompt, UserPromptParams } from './prompt';
 import { addCacheControlToMessages } from '../../../cache-utils';
+import { buildMessageContent } from '../../attachment-utils';
 
 import {
     PendingQuestion,
@@ -56,7 +57,7 @@ import { ChatHistoryManager } from '../../chat-history-manager';
 import { getToolAction } from '../../tool-action-mapper';
 
 // Import types from mi-core (shared with visualizer)
-import { AgentEvent, AgentEventType } from '@wso2/mi-core';
+import { AgentEvent, AgentEventType, FileObject, ImageObject } from '@wso2/mi-core';
 
 // Re-export types for other modules that import from agent.ts
 export type { AgentEvent, AgentEventType };
@@ -72,6 +73,10 @@ export type AgentEventHandler = (event: AgentEvent) => void;
 export interface AgentRequest {
     /** User's query/requirement */
     query: string;
+    /** Optional file attachments (text/PDF) */
+    files?: FileObject[];
+    /** Optional image attachments */
+    images?: ImageObject[];
     /** Path to the MI project */
     projectPath: string;
     /** Map of file path to content for relevant existing code (optional, for future use) */
@@ -161,13 +166,22 @@ export async function executeAgent(
         };
         const userMessageContent = await getUserPrompt(userPromptParams);
 
-        // Build user message
+        const hasFiles = request.files && request.files.length > 0;
+        const hasImages = request.images && request.images.length > 0;
+
+        if (hasFiles || hasImages) {
+            logInfo(`[Agent] Including ${request.files?.length || 0} files and ${request.images?.length || 0} images in user message`);
+        }
+
+        // Build user message (multimodal when attachments are present)
         const userMessage: UserModelMessage = {
             role: 'user',
-            content: [{
-                type: 'text',
-                text: userMessageContent,
-            }]
+            content: (hasFiles || hasImages)
+                ? buildMessageContent(userMessageContent, request.files, request.images)
+                : [{
+                    type: 'text',
+                    text: userMessageContent,
+                }]
         } as UserModelMessage;
 
         // Build messages array
@@ -179,7 +193,19 @@ export async function executeAgent(
 
         // Save user message to history
         if (request.chatHistoryManager) {
-            await request.chatHistoryManager.saveMessage(userMessage);
+            await request.chatHistoryManager.saveMessage(userMessage, {
+                attachmentMetadata: (hasFiles || hasImages)
+                    ? {
+                        files: request.files?.map((file) => ({
+                            name: file.name,
+                            mimetype: file.mimetype,
+                        })),
+                        images: request.images?.map((image) => ({
+                            imageName: image.imageName,
+                        })),
+                    }
+                    : undefined,
+            });
         }
 
         // Track how many messages have been saved from step.response.messages
