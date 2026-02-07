@@ -458,12 +458,45 @@ export async function fetchCodeGenerationsWithRetry(
 }
 
 // Utilities for file handling
+const FILE_EXTENSION_TO_MIME: Record<string, string> = {
+    txt: "text/plain",
+    md: "text/markdown",
+    markdown: "text/markdown",
+    csv: "text/csv",
+    json: "application/json",
+    xml: "application/xml",
+    yaml: "application/x-yaml",
+    yml: "application/x-yaml",
+    html: "text/html",
+    js: "text/javascript",
+    mjs: "text/javascript",
+    cjs: "text/javascript",
+    ts: "text/typescript",
+    css: "text/css",
+    rtf: "text/rtf",
+    pdf: "application/pdf",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+};
+
+function resolveMimeType(file: File): string {
+    if (file.type) {
+        return file.type;
+    }
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    return extension ? FILE_EXTENSION_TO_MIME[extension] || "" : "";
+}
+
 export const handleFileAttach = (e: any, existingFiles: FileObject[], setFiles: Function, existingImages: ImageObject[], setImages: Function, setFileUploadStatus: Function) => {
     const files = e.target.files;
     const validFileTypes = VALID_FILE_TYPES.files;
     const validImageTypes = VALID_FILE_TYPES.images;
 
     for (const file of files) {
+        const mimeType = resolveMimeType(file);
 
         if (file.size > MAX_FILE_SIZE) {
             setFileUploadStatus({ type: "error", text: `File '${file.name}' exceeds the size limit of 5 MB.` });
@@ -478,28 +511,39 @@ export const handleFileAttach = (e: any, existingFiles: FileObject[], setFiles: 
             continue;
         }
 
-        if (validFileTypes.includes(file.type)) {
+        if (validFileTypes.includes(mimeType)) {
             const reader = new FileReader();
             reader.onload = (event: any) => {
                 let fileContents = event.target.result;
-                if (file.type === "application/pdf" && fileContents.startsWith("data:application/pdf;base64,")) {
-                    fileContents = fileContents.replace("data:application/pdf;base64,", "");
+                if (mimeType === "application/pdf" && typeof fileContents === "string") {
+                    const [, base64Content] = fileContents.split(",", 2);
+                    if (base64Content) {
+                        fileContents = base64Content;
+                    }
                 }
                 setFiles((prevFiles: any) => [
                     ...prevFiles,
-                    { name: file.name, mimetype: file.type, content: fileContents },
+                    { name: file.name, mimetype: mimeType, content: fileContents },
                 ]);
                 setFileUploadStatus({ type: "success", text: `File uploaded successfully.` });
             };
-            if (file.type === "application/pdf") {
+            if (mimeType === "application/pdf") {
                 reader.readAsDataURL(file); // Convert PDF to base64
             } else {
                 reader.readAsText(file);
             }
-        } else if (validImageTypes.includes(file.type)) {
+        } else if (validImageTypes.includes(mimeType)) {
             const reader = new FileReader();
             reader.onload = (event: any) => {
-                const imageBase64 = event.target.result;
+                let imageBase64 = event.target.result;
+                if (typeof imageBase64 === "string") {
+                    const base64Marker = "base64,";
+                    const base64Index = imageBase64.indexOf(base64Marker);
+                    if (base64Index !== -1) {
+                        const base64Content = imageBase64.substring(base64Index + base64Marker.length);
+                        imageBase64 = `data:${mimeType};base64,${base64Content}`;
+                    }
+                }
                 setImages((prevImages: any) => [...prevImages, { imageName: file.name, imageBase64: imageBase64 }]);
                 setFileUploadStatus({ type: "success", text: `File uploaded successfully.` });
             };
@@ -529,6 +573,7 @@ export const getFileIcon = (fileName: string): string => {
         case 'jpg':
         case 'jpeg':
         case 'gif':
+        case 'webp':
         case 'svg':
             return 'file-media';
         case 'pdf':

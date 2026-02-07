@@ -108,15 +108,42 @@ function convertMessagesForCompact(messages: any[]): Array<{ role: 'user' | 'ass
 
         switch (msg.role) {
             case 'user': {
-                let text = '';
+                const parts: string[] = [];
+
                 if (typeof msg.content === 'string') {
-                    text = msg.content;
+                    parts.push(msg.content);
                 } else if (Array.isArray(msg.content)) {
-                    text = msg.content
-                        .filter((p: any) => p.type === 'text')
-                        .map((p: any) => p.text)
-                        .join('\n');
+                    let fileCount = 0;
+                    let imageCount = 0;
+
+                    for (const p of msg.content) {
+                        if (p.type === 'text' && p.text?.trim()) {
+                            parts.push(p.text);
+                        } else if (p.type === 'file') {
+                            fileCount++;
+                        } else if (p.type === 'image') {
+                            imageCount++;
+                        }
+                    }
+
+                    if (fileCount > 0) {
+                        parts.push(`[Attached files: ${fileCount}]`);
+                    }
+                    if (imageCount > 0) {
+                        parts.push(`[Attached images: ${imageCount}]`);
+                    }
                 }
+
+                // Include saved attachment names when available
+                const attachmentMetadata = msg._attachmentMetadata;
+                if (attachmentMetadata?.files?.length) {
+                    parts.push(`[Attached file names: ${attachmentMetadata.files.map((f: any) => f.name).join(', ')}]`);
+                }
+                if (attachmentMetadata?.images?.length) {
+                    parts.push(`[Attached image names: ${attachmentMetadata.images.map((i: any) => i.imageName).join(', ')}]`);
+                }
+
+                const text = parts.join('\n');
                 if (text.trim()) {
                     rawMessages.push({ role: 'user', content: text });
                 }

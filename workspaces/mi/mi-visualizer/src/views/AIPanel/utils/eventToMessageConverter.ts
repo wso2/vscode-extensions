@@ -70,7 +70,9 @@ export function convertEventsToMessages(
                     id: generateId(),
                     role: Role.MIUser,
                     content: event.content || '',
-                    type: MessageType.UserMessage
+                    type: MessageType.UserMessage,
+                    files: (event as ChatHistoryEvent).files,
+                    images: (event as ChatHistoryEvent).images,
                 };
                 messages.push(currentUserMessage);
                 currentUserMessage = null;

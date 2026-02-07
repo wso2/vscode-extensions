@@ -91,6 +91,11 @@ export interface JournalEntry {
     summary?: string;
     /** Total input tokens — attached to last message entry of each agent step */
     totalInputTokens?: number;
+    /** Lightweight attachment metadata for user messages (for UI replay) */
+    attachmentMetadata?: {
+        files?: Array<{ name: string; mimetype: string }>;
+        images?: Array<{ imageName: string }>;
+    };
 }
 
 /**
@@ -367,7 +372,16 @@ export class ChatHistoryManager {
      * @param message - ModelMessage from AI SDK
      * @param options - Optional metadata to attach (e.g. totalInputTokens)
      */
-    async saveMessage(message: any, options?: { totalInputTokens?: number }): Promise<void> {
+    async saveMessage(
+        message: any,
+        options?: {
+            totalInputTokens?: number;
+            attachmentMetadata?: {
+                files?: Array<{ name: string; mimetype: string }>;
+                images?: Array<{ imageName: string }>;
+            };
+        }
+    ): Promise<void> {
         try {
             // Wrap in JournalEntry
             const entry: JournalEntry = {
@@ -378,6 +392,9 @@ export class ChatHistoryManager {
             };
             if (options?.totalInputTokens !== undefined) {
                 entry.totalInputTokens = options.totalInputTokens;
+            }
+            if (options?.attachmentMetadata) {
+                entry.attachmentMetadata = options.attachmentMetadata;
             }
 
             // Write to JSONL
@@ -555,7 +572,14 @@ export class ChatHistoryManager {
                 for (let i = lastCompactIndex + 1; i < allEntries.length; i++) {
                     const entry = allEntries[i];
                     if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'tool') {
-                        messages.push(entry.message);
+                        let modelMessage = entry.message;
+                        if (entry.type === 'user' && entry.attachmentMetadata && modelMessage) {
+                            modelMessage = {
+                                ...modelMessage,
+                                _attachmentMetadata: entry.attachmentMetadata,
+                            };
+                        }
+                        messages.push(modelMessage);
                     }
                 }
 
@@ -567,7 +591,14 @@ export class ChatHistoryManager {
             const messages: any[] = [];
             for (const entry of allEntries) {
                 if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'tool') {
-                    messages.push(entry.message);
+                    let modelMessage = entry.message;
+                    if (entry.type === 'user' && entry.attachmentMetadata && modelMessage) {
+                        modelMessage = {
+                            ...modelMessage,
+                            _attachmentMetadata: entry.attachmentMetadata,
+                        };
+                    }
+                    messages.push(modelMessage);
                 }
             }
             return messages;
@@ -800,6 +831,8 @@ export class ChatHistoryManager {
     static convertToEventFormat(messages: any[]): Array<{
         type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary';
         content?: string;
+        files?: Array<{ name: string; mimetype: string; content: string }>;
+        images?: Array<{ imageName: string; imageBase64: string }>;
         toolName?: string;
         toolInput?: unknown;
         toolOutput?: unknown;
@@ -834,14 +867,73 @@ export class ChatHistoryManager {
 
                     // User content can be string or array of content parts
                     let userContent = '';
+                    const files: Array<{ name: string; mimetype: string; content: string }> = [];
+                    const images: Array<{ imageName: string; imageBase64: string }> = [];
+
+                    // Prefer explicit metadata captured at save time
+                    const attachmentMetadata = msg._attachmentMetadata;
+                    if (attachmentMetadata?.files && Array.isArray(attachmentMetadata.files)) {
+                        for (const file of attachmentMetadata.files) {
+                            files.push({
+                                name: file.name,
+                                mimetype: file.mimetype,
+                                content: '',
+                            });
+                        }
+                    }
+                    if (attachmentMetadata?.images && Array.isArray(attachmentMetadata.images)) {
+                        for (const image of attachmentMetadata.images) {
+                            images.push({
+                                imageName: image.imageName,
+                                imageBase64: '',
+                            });
+                        }
+                    }
+
                     if (typeof msg.content === 'string') {
                         userContent = msg.content;
                     } else if (Array.isArray(msg.content)) {
-                        // Extract text from content parts
-                        userContent = msg.content
-                            .filter((part: any) => part.type === 'text')
-                            .map((part: any) => part.text)
-                            .join('');
+                        // Extract text from content parts and fallback attachment markers for older history
+                        const textParts: string[] = [];
+                        let unnamedPdfCount = 0;
+                        let unnamedImageCount = 0;
+
+                        for (const part of msg.content) {
+                            if (part.type === 'text') {
+                                if (part.text) {
+                                    textParts.push(part.text);
+                                }
+                                // Fallback extraction for text file names from formatted text block
+                                const fileRegex = /---\s*File:\s*(.+?)\s*---/g;
+                                let match: RegExpExecArray | null = null;
+                                while ((match = fileRegex.exec(part.text || '')) !== null) {
+                                    const fileName = match[1]?.trim();
+                                    if (fileName && !files.some((f) => f.name === fileName)) {
+                                        files.push({
+                                            name: fileName,
+                                            mimetype: 'text/plain',
+                                            content: '',
+                                        });
+                                    }
+                                }
+                            } else if (part.type === 'file' && !attachmentMetadata?.files?.length) {
+                                // Older history fallback: file blocks don't include original names
+                                unnamedPdfCount++;
+                                files.push({
+                                    name: `attachment-${unnamedPdfCount}.pdf`,
+                                    mimetype: part.mediaType || 'application/pdf',
+                                    content: '',
+                                });
+                            } else if (part.type === 'image' && !attachmentMetadata?.images?.length) {
+                                // Older history fallback: image blocks don't include original names
+                                unnamedImageCount++;
+                                images.push({
+                                    imageName: `image-${unnamedImageCount}`,
+                                    imageBase64: '',
+                                });
+                            }
+                        }
+                        userContent = textParts.join('');
                     }
 
                     // Skip interruption messages from UI display (they're only for LLM context)
@@ -859,6 +951,8 @@ export class ChatHistoryManager {
                     events.push({
                         type: 'user',
                         content: userContent,
+                        files: files.length > 0 ? files : undefined,
+                        images: images.length > 0 ? images : undefined,
                         timestamp
                     });
                     break;

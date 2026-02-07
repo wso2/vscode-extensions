@@ -19,12 +19,17 @@
 // ============================================================================
 // Agent Panel Types
 // ============================================================================
+import { FileObject, ImageObject } from "../../interfaces/mi-copilot";
 
 /**
  * Request to send a message to the agent
  */
 export interface SendAgentMessageRequest {
     message: string;
+    /** Optional file attachments (text/PDF) for multimodal prompts */
+    files?: FileObject[];
+    /** Optional image attachments for multimodal prompts */
+    images?: ImageObject[];
     /** Chat history for context (AI SDK format with tool calls/results) */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     chatHistory?: any[];
@@ -157,6 +162,10 @@ export interface AgentEvent {
 export interface ChatHistoryEvent {
     type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary';
     content?: string;
+    /** User attachments for replay rendering */
+    files?: FileObject[];
+    /** User image attachments for replay rendering */
+    images?: ImageObject[];
     toolName?: string;
     toolInput?: unknown;
     toolOutput?: unknown;
