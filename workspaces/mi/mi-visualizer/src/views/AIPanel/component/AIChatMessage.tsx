@@ -17,11 +17,10 @@
  */
 
 import React from "react";
-import { Codicon } from "@wso2/ui-toolkit";
 import ReactMarkdown from "react-markdown";
 import {
     ChatMessage as StyledChatMessage,
-    RoleContainer,
+    UserMessageBox,
     FlexRow,
 } from "../styles";
 import { CodeSegment } from "./CodeSegment";
@@ -118,49 +117,46 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
         return null;
     }
 
-    return (
-        <StyledChatMessage>
-            <RoleContainer>
-                {message.role === Role.MIUser ? <Codicon name="account" /> : <Codicon name="hubot" />}
-                <h3 style={{ margin: 0 }}>{message.role}</h3>
-            </RoleContainer>
-
-            {splitContent(message.content).map((segment, i) => {
-                if (segment.isCode) {
-                    return <CodeSegment key={i} segmentText={segment.text} loading={segment.loading} language={segment.language} index={index} />;
-                } else if (segment.isToolCall) {
-                    return <ToolCallSegment key={i} text={segment.text} loading={segment.loading} failed={segment.failed || false} />;
-                } else if (segment.isTodoList) {
-                    try {
-                        const todoData = JSON.parse(segment.text);
-                        return <TodoListSegment key={i} items={todoData.items} status={todoData.status} />;
-                    } catch (e) {
-                        console.error("Failed to parse todolist JSON:", e);
-                        return null;
-                    }
-                } else if (segment.isBashOutput) {
-                    try {
-                        const bashData = JSON.parse(segment.text);
-                        return <BashOutputSegment key={i} data={bashData} />;
-                    } catch (e) {
-                        console.error("Failed to parse bashoutput JSON:", e);
-                        return null;
-                    }
-                } else if (segment.isCompactSummary) {
-                    return <CompactSummarySegment key={i} text={segment.text} />;
-                } else if (message.type === "Error") {
-                    return (
-                        <div style={{ color: "red", marginTop: "10px" }} key={i}>
-                            {segment.text}
-                        </div>
-                    );
-                } else {
-                    return <MarkdownRenderer key={i} markdownContent={segment.text} />;
+    const renderSegments = () =>
+        splitContent(message.content).map((segment, i) => {
+            if (segment.isCode) {
+                return <CodeSegment key={i} segmentText={segment.text} loading={segment.loading} language={segment.language} index={index} />;
+            } else if (segment.isToolCall) {
+                return <ToolCallSegment key={i} text={segment.text} loading={segment.loading} failed={segment.failed || false} />;
+            } else if (segment.isTodoList) {
+                try {
+                    const todoData = JSON.parse(segment.text);
+                    return <TodoListSegment key={i} items={todoData.items} status={todoData.status} />;
+                } catch (e) {
+                    console.error("Failed to parse todolist JSON:", e);
+                    return null;
                 }
-            })}
+            } else if (segment.isBashOutput) {
+                try {
+                    const bashData = JSON.parse(segment.text);
+                    return <BashOutputSegment key={i} data={bashData} />;
+                } catch (e) {
+                    console.error("Failed to parse bashoutput JSON:", e);
+                    return null;
+                }
+            } else if (segment.isCompactSummary) {
+                return <CompactSummarySegment key={i} text={segment.text} />;
+            } else if (message.type === "Error") {
+                return (
+                    <div style={{ color: "red", marginTop: "10px" }} key={i}>
+                        {segment.text}
+                    </div>
+                );
+            } else {
+                return <MarkdownRenderer key={i} markdownContent={segment.text} />;
+            }
+        });
 
-            {message.role === Role.MIUser && (
-                <>
+    if (message.role === Role.MIUser) {
+        return (
+            <StyledChatMessage>
+                <UserMessageBox>
+                    {renderSegments()}
                     <FlexRow>
                         {message.files && message.files.length > 0 && (
                             <Attachments attachments={message.files} nameAttribute="name" addControls={false} />
@@ -169,11 +165,16 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
                             <Attachments attachments={message.images} nameAttribute="imageName" addControls={false} />
                         )}
                     </FlexRow>
-                </>
-            )}
+                </UserMessageBox>
+            </StyledChatMessage>
+        );
+    }
 
-            {message.role === Role.MICopilot && 
-             message.type === MessageType.AssistantMessage && 
+    return (
+        <StyledChatMessage>
+            {renderSegments()}
+
+            {message.type === MessageType.AssistantMessage &&
              !backendRequestTriggered &&
              index === messages.length - 1 && (
                 <FeedbackBar
