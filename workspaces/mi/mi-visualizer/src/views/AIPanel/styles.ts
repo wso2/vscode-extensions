@@ -110,11 +110,22 @@ export const RoleContainer = styled.div({
 });
 
 export const ChatMessage = styled.div({
-    padding: "20px",
-    borderTop: "1px solid var(--vscode-editorWidget-border)",
+    padding: "4px 16px",
     position: "relative",
     "&:hover .edit-delete-buttons": {
         display: "flex",
+    },
+});
+
+export const UserMessageBox = styled.div({
+    border: "1px solid var(--vscode-panel-border)",
+    borderRadius: "8px",
+    padding: "10px 14px",
+    fontSize: "13px",
+    lineHeight: "1.5",
+    color: "var(--vscode-foreground)",
+    "& p": {
+        margin: "0",
     },
 });
 
