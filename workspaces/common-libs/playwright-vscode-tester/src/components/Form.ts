@@ -177,20 +177,15 @@ export class Form {
                         break;
                     }
                     case 'directory': {
-                        // Find the input field by label and set its value (readonly field)
+                        // Find the input field by label and fill it
                         const labelElement = this.container.locator(`label:has-text("${key}")`);
                         await labelElement.waitFor();
                         // Find the parent container and then the input field
                         const parentContainer = labelElement.locator('../..');
-                        const input = parentContainer.locator('input[type="text"][readonly]');
+                        const input = parentContainer.locator('input[type="text"]');
                         await input.waitFor();
-                        // Set value directly using JavaScript evaluation since input is readonly
-                        await input.evaluate((el: any, value: string) => {
-                            el.value = value;
-                            // Trigger input and change events to ensure any listeners are notified
-                            el.dispatchEvent(new Event('input', { bubbles: true }));
-                            el.dispatchEvent(new Event('change', { bubbles: true }));
-                        }, data.value);
+                        // Fill the input field (now that it's editable)
+                        await input.fill(data.value);
                         break;
                     }
                     case 'radio': {

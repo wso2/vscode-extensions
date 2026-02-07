@@ -58,8 +58,13 @@ const DirectorySelectorWithState = (args: DirectorySelectorProps) => {
     const [selectedPath, setSelectedPath] = useState(args.selectedPath || '');
 
     const handleSelect = () => {
-        // Simulating a directory selection
+        // Simulating a directory selection via browse button
         setSelectedPath('/Users/username/projects/my-project');
+    };
+
+    const handleChange = (value: string) => {
+        // Handle manual text input
+        setSelectedPath(value);
     };
 
     return (
@@ -67,6 +72,7 @@ const DirectorySelectorWithState = (args: DirectorySelectorProps) => {
             {...args}
             selectedPath={selectedPath}
             onSelect={handleSelect}
+            onChange={handleChange}
         />
     );
 };

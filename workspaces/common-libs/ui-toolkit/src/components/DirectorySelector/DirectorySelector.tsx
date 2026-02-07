@@ -30,7 +30,9 @@ export interface DirectorySelectorProps {
     description?: string;
     errorMsg?: string;
     sx?: any;
+    'data-testid'?: string;
     onSelect: () => void;
+    onChange?: (value: string) => void;
 }
 
 interface ContainerProps {
@@ -123,16 +125,20 @@ export const DirectorySelector: React.FC<DirectorySelectorProps> = props => {
         required, 
         description,
         errorMsg, 
-        sx, 
-        onSelect 
+        sx,
+        'data-testid': dataTestId,
+        onSelect,
+        onChange 
     } = props;
 
-    const handleInputClick = () => {
-        onSelect();
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (onChange) {
+            onChange(e.target.value);
+        }
     };
 
     return (
-        <Container id={id} sx={sx}>
+        <Container id={id} sx={sx} data-testid={dataTestId}>
             {label && (
                 <LabelContainer>
                     <Label htmlFor={`${id}-input`}>{label}</Label>
@@ -147,8 +153,7 @@ export const DirectorySelector: React.FC<DirectorySelectorProps> = props => {
                         type="text"
                         value={selectedPath || ''}
                         placeholder={placeholder}
-                        readOnly
-                        onClick={handleInputClick}
+                        onChange={handleInputChange}
                     />
                 </InputWrapper>
                 <BrowseButton 
