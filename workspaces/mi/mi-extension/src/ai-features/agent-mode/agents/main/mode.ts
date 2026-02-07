@@ -29,6 +29,7 @@ import {
     TODO_WRITE_TOOL_NAME,
     ENTER_PLAN_MODE_TOOL_NAME,
     FILE_WRITE_TOOL_NAME,
+    ASK_USER_TOOL_NAME,
 } from '../../tools/types';
 
 
@@ -67,10 +68,13 @@ export interface ModeReminderParams {
 }
 
 export const PLAN_MODE_SHARED_GUIDELINES = `
-- PLAN mode is for exploration and implementation planning.
+- PLAN mode is for implementation planning, not implementation.
 - Allowed actions: read-only investigation, subagent-based exploration, todo tracking, and asking clarification questions.
-- Do NOT perform project mutations (write/edit/manage connectors/build/run/bash/data-mapper generation).
-- Produce a decision-complete implementation plan in chat before any execution.
+- Do NOT mutate project artifacts (no connector changes, no build/run/bash, no implementation file edits).
+- Exception: You may create/edit ONLY the assigned plan file while in PLAN mode.
+- If requirements are unclear, use ${ASK_USER_TOOL_NAME} to clarify before finalizing the plan.
+- Do NOT use ${ASK_USER_TOOL_NAME} to ask "should I proceed?" or "is this plan okay?".
+- Produce a decision-complete implementation plan, then use ${EXIT_PLAN_MODE_TOOL_NAME} for approval.
 
 # Plan Mode Workflow
 
@@ -97,7 +101,9 @@ export const PLAN_MODE_SHARED_GUIDELINES = `
    ## Verification
    - How to test the implementation
    \`\`\`
-3. **Request approval**: Call \`${EXIT_PLAN_MODE_TOOL_NAME}\` - this BLOCKS until user approves or rejects
+3. **Then present extreamly brief summary of the plan to the user in the chat** - System will attach full plan as a collapsable markdown block in the chat window for the user to review if needed.
+4. **Request approval**: Call \`${EXIT_PLAN_MODE_TOOL_NAME}\` - this BLOCKS until user approves or rejects.
+5. **If rejected**: Stay in PLAN mode, revise the plan file, and request approval again.
 `;
 
 const PLAN_MODE_POLICY = `

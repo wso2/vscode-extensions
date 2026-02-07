@@ -301,7 +301,7 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             } else if (segment.isCompactSummary) {
                 return <CompactSummarySegment key={i} text={segment.text} />;
             } else if (segment.isPlan) {
-                return <CompactSummarySegment key={i} text={segment.text} title="Plan" />;
+                return <CompactSummarySegment key={i} text={segment.text} title="Full Plan" />;
             } else if (segment.isThinking) {
                 return <ThinkingSegment key={i} text={segment.text} loading={segment.loading} />;
             } else if (message.type === "Error") {

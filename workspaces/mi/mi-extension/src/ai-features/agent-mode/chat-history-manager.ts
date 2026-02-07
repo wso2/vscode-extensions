@@ -44,6 +44,8 @@ export interface SessionMetadata {
     messageCount: number;
 }
 
+export const TOOL_USE_INTERRUPTION_CONTEXT = `The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.`;
+
 /**
  * Session summary for UI list display
  */
@@ -449,7 +451,7 @@ export class ChatHistoryManager {
      */
     async saveInterruptionMessage(wasToolUse: boolean = false): Promise<void> {
         const interruptionText = wasToolUse
-            ? '[Request interrupted by user during tool use]'
+            ? TOOL_USE_INTERRUPTION_CONTEXT
             : '[Request interrupted by user]';
 
         const message = {
@@ -992,7 +994,10 @@ export class ChatHistoryManager {
 
                     // Skip interruption messages from UI display (they're only for LLM context)
                     // These are saved when user aborts a request
-                    if (userContent.includes('[Request interrupted by user')) {
+                    if (
+                        userContent.includes('[Request interrupted by user') ||
+                        userContent.includes("The user doesn't want to proceed with this tool use.")
+                    ) {
                         continue;
                     }
 
