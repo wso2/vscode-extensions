@@ -25,35 +25,49 @@ const spin = keyframes`
     to { transform: rotate(360deg); }
 `;
 
-const Spinner = styled.span`
-    display: inline-block;
-    margin-right: 8px;
-    font-size: 14px;
-    animation: ${spin} 1s linear infinite;
-`;
-
-const CheckIcon = styled.span`
-    display: inline-block;
-    margin-right: 8px;
-    font-size: 14px;
-`;
-
-const ToolCallContainer = styled.pre`
-    background-color: var(--vscode-textCodeBlock-background);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 4px;
-    padding: 8px 12px;
-    margin: 8px 0;
-    font-family: var(--vscode-editor-font-family);
-    font-size: 12px;
-    color: var(--vscode-editor-foreground);
-    white-space: pre-wrap;
-    overflow-x: auto;
-`;
-
-const ToolCallLine = styled.div`
+const ToolRow = styled.div`
     display: flex;
     align-items: center;
+    padding: 4px 0;
+    margin: 2px 0;
+    font-family: var(--vscode-editor-font-family);
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+`;
+
+const StatusIcon = styled.span<{ status: 'success' | 'error' | 'loading' }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+    width: 14px;
+    height: 14px;
+    color: ${(props: { status: 'success' | 'error' | 'loading' }) => {
+        switch (props.status) {
+            case 'success': return 'var(--vscode-testing-iconPassed, #4caf50)';
+            case 'error': return 'var(--vscode-testing-iconFailed, #f44336)';
+            case 'loading': return 'var(--vscode-progressBar-background, #007acc)';
+            default: return 'currentColor';
+        }
+    }};
+    
+    &.spin {
+        animation: ${spin} 1s linear infinite;
+    }
+`;
+
+const ToolText = styled.span`
+    margin-right: 4px;
+`;
+
+const ToolTarget = styled.span`
+    color: var(--vscode-textLink-foreground);
+    font-weight: 500;
+    cursor: pointer;
+    
+    &:hover {
+        text-decoration: underline;
+    }
 `;
 
 interface ToolCallSegmentProps {
@@ -63,20 +77,31 @@ interface ToolCallSegmentProps {
 }
 
 const ToolCallSegment: React.FC<ToolCallSegmentProps> = ({ text, loading, failed }) => {
+    
+    // Parse text: "Reading file /path/to/file.ts" -> Action: "Reading file", Target: "/path..."
+    // Simple heuristic: assume target is the last word or path-like
+    const words = text.split(' ');
+    let action = text;
+    let target = '';
+
+    if (words.length > 1) {
+        // Check if last word is a file path or distinct entity
+        const lastWord = words[words.length - 1];
+        if (lastWord.includes('/') || lastWord.includes('.') || lastWord.length > 15) {
+             target = lastWord;
+             action = words.slice(0, words.length - 1).join(' ');
+        }
+    }
+
+    const status = loading ? 'loading' : (failed ? 'error' : 'success');
+    const iconClass = loading ? 'codicon-loading spin' : (failed ? 'codicon-error' : 'codicon-check');
+
     return (
-        <ToolCallContainer>
-            <ToolCallLine>
-                {loading ? (
-                    <Spinner className="codicon codicon-loading spin" role="img"></Spinner>
-                ) : (
-                    <CheckIcon
-                        className={`codicon ${failed ? "codicon-chrome-close" : "codicon-check"}`}
-                        role="img"
-                    ></CheckIcon>
-                )}
-                <span>{text}</span>
-            </ToolCallLine>
-        </ToolCallContainer>
+        <ToolRow>
+            <StatusIcon status={status} className={`codicon ${iconClass}`} />
+            <ToolText>{action}</ToolText>
+            {target && <ToolTarget title={target}>{target.split('/').pop()}</ToolTarget>}
+        </ToolRow>
     );
 };
 

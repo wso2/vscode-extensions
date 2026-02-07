@@ -30,21 +30,21 @@ const TodoListContainer = styled.div`
     background-color: var(--vscode-editor-background);
     border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
     border-radius: 6px;
-    padding: 12px 14px;
-    margin: 12px 0;
+    padding: 8px 10px;
+    margin: 8px 0;
     font-family: var(--vscode-font-family);
-    font-size: 13px;
+    font-size: 12px;
 `;
 
 const TodoHeader = styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding-bottom: 10px;
-    margin-bottom: 8px;
+    gap: 6px;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
     border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
     font-weight: 600;
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--vscode-descriptionForeground);
@@ -54,9 +54,9 @@ const StatusIndicator = styled.span<{ status: 'active' | 'completed' | 'pending'
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
-    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    font-size: 12px;
     color: ${(props: { status: 'active' | 'completed' | 'pending' }) =>
         props.status === 'active'
             ? 'var(--vscode-testing-iconPassed)'
@@ -90,8 +90,8 @@ const TodoList = styled.div`
 const TodoItemRow = styled.div<{ status: string }>`
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    padding: 6px 8px;
+    gap: 8px;
+    padding: 3px 6px;
     border-radius: 4px;
     transition: background-color 0.1s ease;
     background-color: ${(props: { status: string }) =>
@@ -109,11 +109,11 @@ const CheckboxIcon = styled.span<{ status: string }>`
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
-    margin-top: 2px;
-    font-size: 16px;
+    margin-top: 1px;
+    font-size: 14px;
 
     color: ${(props: { status: string }) =>
         props.status === 'completed'
@@ -131,7 +131,7 @@ const CheckboxIcon = styled.span<{ status: string }>`
 
 const TodoText = styled.span<{ status: string }>`
     flex: 1;
-    line-height: 1.5;
+    line-height: 1.3;
     color: ${(props: { status: string }) =>
         props.status === 'completed'
             ? 'var(--vscode-disabledForeground)'
@@ -148,7 +148,7 @@ const TodoText = styled.span<{ status: string }>`
 `;
 
 const TaskCount = styled.span`
-    font-size: 11px;
+    font-size: 10px;
     color: var(--vscode-descriptionForeground);
     font-weight: 400;
 `;

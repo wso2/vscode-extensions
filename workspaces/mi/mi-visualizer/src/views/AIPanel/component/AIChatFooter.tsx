@@ -17,7 +17,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { FlexRow, Footer, StyledTransParentButton, RippleLoader, FlexColumn } from "../styles";
+import { FlexRow, Footer, StyledTransParentButton, RippleLoader, FlexColumn, FloatingInputContainer } from "../styles";
 import { Codicon } from "@wso2/ui-toolkit";
 import { useMICopilotContext } from "./MICopilotContext";
 import { handleFileAttach, convertChatHistoryToModelMessages } from "../utils";
@@ -1395,23 +1395,17 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             )}
 
 
-            <FlexColumn
+            <FloatingInputContainer
                 style={{
-                    border: isFocused ? "1px solid var(--vscode-focusBorder)" : "none",
-                    backgroundColor: isDarkMode
-                        ? "var(--vscode-list-hoverBackground)"
-                        : "var(--vscode-editorHoverWidget-background)",
-                    padding: "6px 8px",
-                    margin: "4px 10px",
+                    border: isFocused ? "1px solid var(--vscode-focusBorder)" : "1px solid var(--vscode-widget-border)",
+                    boxShadow: isFocused ? "0 0 0 1px var(--vscode-focusBorder), 0 4px 12px rgba(0,0,0,0.1)" : "0 4px 12px rgba(0,0,0,0.1)",
+                    transition: "all 0.2s ease"
                 }}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                tabIndex={0}
             >
                 {backendRequestTriggered ? (
-                    <FlexRow style={{ alignItems: "center", justifyContent: "center", width: "100%", padding: "4px" }}>
-                        <span style={{ marginLeft: "10px", fontSize: "12px" }}>
-                            {toolStatus || (isResponseReceived.current ? "Generating " : "Thinking ")}
+                    <FlexRow style={{ alignItems: "center", justifyContent: "center", width: "100%", padding: "12px" }}>
+                        <span style={{ marginLeft: "10px", fontSize: "13px", color: "var(--vscode-descriptionForeground)" }}>
+                            {toolStatus || (isResponseReceived.current ? "Generating response..." : "Thinking...")}
                         </span>
                         <RippleLoader>
                             <div className="ldio">
@@ -1419,10 +1413,24 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 <div></div>
                             </div>
                         </RippleLoader>
+                        <StyledTransParentButton
+                            onClick={handleStop}
+                            style={{ marginLeft: "auto", color: "var(--vscode-errorForeground)" }}
+                            title="Stop Generation"
+                        >
+                            <Codicon name="stop-circle" />
+                        </StyledTransParentButton>
                     </FlexRow>
                 ) : (
                     <>
-                        <FlexRow style={{ alignItems: "center", width: "100%", position: "relative" }}>
+                        <div 
+                            style={{ 
+                                position: "relative", 
+                                padding: "8px 8px 0 8px" 
+                            }}
+                            onFocus={() => setIsFocused(true)}
+                            onBlur={() => setIsFocused(false)}
+                        >
                             <textarea
                                 ref={textAreaRef}
                                 value={currentUserPrompt}
@@ -1439,252 +1447,199 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                     setIsFocused(false);
                                 }}
                                 onKeyDown={handleTextKeydown}
-                                placeholder={isUsageExceeded ? "Usage quota exceeded. Please logout and log in with your own API key to continue." : placeholder}
+                                placeholder={isUsageExceeded ? "Usage quota exceeded..." : placeholder}
                                 disabled={isUsageExceeded}
                                 style={{
-                                    flex: 1,
+                                    width: "100%",
                                     overflowY: "auto",
-                                    padding: "4px 15px 4px 6px",
-                                    borderRadius: "4px",
+                                    padding: "0",
                                     border: "none",
                                     resize: "none",
                                     outline: "none",
                                     fontSize: "13px",
-                                    lineHeight: "1.4",
-                                    maxHeight: "80px",
-                                    backgroundColor: isDarkMode
-                                        ? "var(--vscode-list-hoverBackground)"
-                                        : "var(--vscode-editorHoverWidget-background)",
+                                    lineHeight: "1.5",
+                                    maxHeight: "120px",
+                                    minHeight: "24px",
+                                    backgroundColor: "transparent",
                                     color: "var(--vscode-input-foreground)",
-                                    position: "relative",
-                                    opacity: isUsageExceeded ? 0.5 : 1,
-                                    cursor: isUsageExceeded ? "not-allowed" : "text"
+                                    fontFamily: "var(--vscode-font-family)"
                                 }}
                                 rows={1}
                             />
-                            {currentUserPrompt.trim() !== "" && (<StyledTransParentButton
-                                    onClick={() => setCurrentUserprompt("")}
-                                    style={{
-                                        width: "20px",
-                                        position: "absolute",
-                                        right: "2px",
-                                        top: "2px",
-                                        color: isDarkMode
-                                            ? "var(--vscode-input-foreground)"
-                                            : "var(--vscode-editor-foreground)",
-                                    }}
-                                >
-                                    <Codicon name="clear-all" />
-                                </StyledTransParentButton>
-                        )}
-                        </FlexRow>
-                        <FlexRow style={{ flexWrap: "wrap", gap: "2px", alignItems: "center", marginTop: "4px" }}>
-                            {files.length > 0 && !isInitialPromptLoaded ? (
-                                <Attachments
-                                    attachments={files}
-                                    nameAttribute="name"
-                                    addControls={true}
-                                    setAttachments={setFiles}
-                                />
-                            ) : null}
-                            {images.length > 0 && !isInitialPromptLoaded ? (
-                                <Attachments
-                                    attachments={images}
-                                    nameAttribute="imageName"
-                                    addControls={true}
-                                    setAttachments={setImages}
-                                />
-                            ) : null}
-                        </FlexRow>
-                    </>
-                )}
-                <FlexRow style={{ justifyContent: "space-between", width: "100%", alignItems: "center" }}>
-                    {/* Left side: Mode switcher + file context */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        {/* Mode Switcher */}
-                        <div ref={modeMenuRef} style={{ position: "relative" }}>
-                            <button
-                                onClick={() => setShowModeMenu(!showModeMenu)}
-                                disabled={backendRequestTriggered || isUsageExceeded}
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "4px",
-                                    padding: "2px 8px",
-                                    fontSize: "11px",
-                                    backgroundColor: "var(--vscode-badge-background)",
-                                    color: "var(--vscode-badge-foreground)",
-                                    border: "none",
-                                    borderRadius: "10px",
-                                    cursor: (backendRequestTriggered || isUsageExceeded) ? "not-allowed" : "pointer",
-                                    opacity: (backendRequestTriggered || isUsageExceeded) ? 0.5 : 1,
-                                    whiteSpace: "nowrap",
-                                }}
-                            >
-                                <Codicon name={agentMode === 'ask' ? 'comment-discussion' : 'edit'} />
-                                {agentMode === 'ask' ? 'Ask' : 'Edit'}
-                                <Codicon name="chevron-down" />
-                            </button>
-                            {showModeMenu && (
-                                <div style={{
-                                    position: "absolute",
-                                    bottom: "100%",
-                                    left: 0,
-                                    marginBottom: "4px",
-                                    backgroundColor: "var(--vscode-dropdown-background)",
-                                    border: "1px solid var(--vscode-dropdown-border)",
-                                    borderRadius: "4px",
-                                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                                    zIndex: 1000,
-                                    minWidth: "120px",
-                                    overflow: "hidden",
-                                }}>
-                                    {(['ask', 'edit'] as AgentMode[]).map((m) => (
-                                        <button
-                                            key={m}
-                                            onClick={() => { setAgentMode(m); setShowModeMenu(false); }}
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "6px",
-                                                width: "100%",
-                                                padding: "6px 10px",
-                                                fontSize: "12px",
-                                                border: "none",
-                                                cursor: "pointer",
-                                                backgroundColor: agentMode === m
-                                                    ? "var(--vscode-list-activeSelectionBackground)"
-                                                    : "transparent",
-                                                color: agentMode === m
-                                                    ? "var(--vscode-list-activeSelectionForeground)"
-                                                    : "var(--vscode-dropdown-foreground)",
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (agentMode !== m) {
-                                                    e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)";
-                                                }
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                if (agentMode !== m) {
-                                                    e.currentTarget.style.backgroundColor = "transparent";
-                                                }
-                                            }}
-                                        >
-                                            <Codicon name={m === 'ask' ? 'comment-discussion' : 'edit'} />
-                                            {m === 'ask' ? 'Ask' : 'Edit'}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
                         </div>
 
-                        {/* Compact Button - shows context usage %, hidden below 1% */}
-                        {contextUsagePercent >= 1 && (
-                            <button
-                                onClick={handleManualCompact}
-                                disabled={backendRequestTriggered || isUsageExceeded || isCompacting || messages.length === 0}
-                                title={`Context window ${contextUsagePercent}% used — click to compact conversation`}
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "4px",
-                                    padding: "2px 8px",
-                                    fontSize: "11px",
-                                    backgroundColor: contextUsagePercent >= 80
-                                        ? "var(--vscode-editorWarning-foreground)"
-                                        : "var(--vscode-badge-background)",
-                                    color: contextUsagePercent >= 80
-                                        ? "var(--vscode-editor-background)"
-                                        : "var(--vscode-badge-foreground)",
-                                    border: "none",
-                                    borderRadius: "10px",
-                                    cursor: (backendRequestTriggered || isUsageExceeded || isCompacting || messages.length === 0) ? "not-allowed" : "pointer",
-                                    opacity: (backendRequestTriggered || isUsageExceeded || isCompacting || messages.length === 0) ? 0.5 : 1,
-                                    whiteSpace: "nowrap",
-                                }}
-                            >
-                                {isCompacting ? (
-                                    <><Codicon name="loading~spin" /> Compacting...</>
-                                ) : (
-                                    <><Codicon name="fold" /> {contextUsagePercent}% used</>
+                        {(files.length > 0 || images.length > 0) && !isInitialPromptLoaded && (
+                            <FlexRow style={{ flexWrap: "wrap", gap: "4px", padding: "0 8px 4px 8px" }}>
+                                {files.length > 0 && (
+                                    <Attachments
+                                        attachments={files}
+                                        nameAttribute="name"
+                                        addControls={true}
+                                        setAttachments={setFiles}
+                                    />
                                 )}
-                            </button>
+                                {images.length > 0 && (
+                                    <Attachments
+                                        attachments={images}
+                                        nameAttribute="imageName"
+                                        addControls={true}
+                                        setAttachments={setImages}
+                                    />
+                                )}
+                            </FlexRow>
                         )}
 
-                        {/* File context indicator */}
-                        {files.length > 0 && (
-                            <span style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "4px",
-                                fontSize: "11px",
-                                color: "var(--vscode-descriptionForeground)",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                maxWidth: "150px",
-                            }}>
-                                <Codicon name="file-code" />
-                                {files[0].name}
-                                {files.length > 1 && ` +${files.length - 1}`}
-                            </span>
-                        )}
+                        <div style={{ 
+                            display: "flex", 
+                            justifyContent: "space-between", 
+                            alignItems: "center", 
+                            padding: "4px 8px",
+                            marginTop: "4px"
+                        }}>
+                             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <div ref={modeMenuRef} style={{ position: "relative" }}>
+                                    <button
+                                        onClick={() => setShowModeMenu(!showModeMenu)}
+                                        disabled={isUsageExceeded}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "4px",
+                                            padding: "2px 6px",
+                                            fontSize: "11px",
+                                            backgroundColor: "var(--vscode-badge-background)",
+                                            color: "var(--vscode-badge-foreground)",
+                                            border: "none",
+                                            borderRadius: "4px",
+                                            cursor: isUsageExceeded ? "not-allowed" : "pointer",
+                                            opacity: isUsageExceeded ? 0.5 : 0.8
+                                        }}
+                                        title="Switch Mode"
+                                    >
+                                        <Codicon name={agentMode === 'ask' ? 'comment-discussion' : 'edit'} />
+                                        {agentMode === 'ask' ? 'Ask' : 'Edit'}
+                                    </button>
+                                     {showModeMenu && (
+                                        <div style={{
+                                            position: "absolute",
+                                            bottom: "100%",
+                                            left: 0,
+                                            marginBottom: "4px",
+                                            backgroundColor: "var(--vscode-dropdown-background)",
+                                            border: "1px solid var(--vscode-dropdown-border)",
+                                            borderRadius: "4px",
+                                            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                                            zIndex: 1000,
+                                            minWidth: "100px",
+                                            overflow: "hidden",
+                                        }}>
+                                            {(['ask', 'edit'] as AgentMode[]).map((m) => (
+                                                <button
+                                                    key={m}
+                                                    onClick={() => { setAgentMode(m); setShowModeMenu(false); }}
+                                                    style={{
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        gap: "6px",
+                                                        width: "100%",
+                                                        padding: "6px 10px",
+                                                        fontSize: "12px",
+                                                        border: "none",
+                                                        cursor: "pointer",
+                                                        backgroundColor: agentMode === m
+                                                            ? "var(--vscode-list-activeSelectionBackground)"
+                                                            : "transparent",
+                                                        color: agentMode === m
+                                                            ? "var(--vscode-list-activeSelectionForeground)"
+                                                            : "var(--vscode-dropdown-foreground)",
+                                                    }}
+                                                >
+                                                    <Codicon name={m === 'ask' ? 'comment-discussion' : 'edit'} />
+                                                    {m === 'ask' ? 'Ask' : 'Edit'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                {contextUsagePercent >= 1 && (
+                                    <button
+                                        onClick={handleManualCompact}
+                                        disabled={isUsageExceeded || isCompacting || messages.length === 0}
+                                        title={`Context window ${contextUsagePercent}% used`}
+                                        style={{
+                                            fontSize: "10px",
+                                            color: contextUsagePercent >= 80 ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)",
+                                            background: "transparent",
+                                            border: "none",
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "4px"
+                                        }}
+                                    >
+                                        <Codicon name="history" />
+                                        {contextUsagePercent}%
+                                    </button>
+                                )}
+                            </div>
 
-                        {fileUploadStatus.text && fileUploadStatus.type === "error" && (
-                            <span style={{ fontSize: "11px", color: "var(--vscode-errorForeground)" }}>
-                                {fileUploadStatus.text}
-                            </span>
-                        )}
-                    </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <StyledTransParentButton
+                                    onClick={() => document.getElementById("fileInput")?.click()}
+                                    style={{
+                                        width: "24px",
+                                        padding: "4px",
+                                        opacity: isUsageExceeded ? 0.5 : 1,
+                                        cursor: isUsageExceeded ? "not-allowed" : "pointer",
+                                        color: "var(--vscode-descriptionForeground)"
+                                    }}
+                                    disabled={isUsageExceeded}
+                                    title="Attach File"
+                                >
+                                    <Codicon name="attach" />
+                                </StyledTransParentButton>
 
-                    <input
-                        id="fileInput"
-                        type="file"
-                        style={{ display: "none" }}
-                        multiple
-                        accept={[...VALID_FILE_TYPES.files, ...VALID_FILE_TYPES.images].join(",")}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                            handleFileAttach(e, files, setFiles, images, setImages, setFileUploadStatus)
-                        }
-                        disabled={backendRequestTriggered || isUsageExceeded}
-                    />
-
-                    {/* Right side: Attach + Send/Stop */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
-                        <StyledTransParentButton
-                            onClick={() => document.getElementById("fileInput")?.click()}
-                            style={{
-                                width: "28px",
-                                padding: "4px",
-                                color: isDarkMode
-                                    ? "var(--vscode-input-foreground)"
-                                    : "var(--vscode-editor-foreground)",
-                                opacity: (backendRequestTriggered || isUsageExceeded) ? 0.5 : 1,
-                                cursor: (backendRequestTriggered || isUsageExceeded) ? "not-allowed" : "pointer"
-                            }}
-                            disabled={backendRequestTriggered || isUsageExceeded}
-                        >
-                            <Codicon name="attach" />
-                        </StyledTransParentButton>
-
-                        <StyledTransParentButton
-                            onClick={() => (backendRequestTriggered ? handleStop() : handleSend())}
-                            style={{
-                                width: "28px",
-                                padding: "4px",
-                                color: isDarkMode ? "var(--vscode-input-foreground)" : "var(--vscode-editor-foreground)",
-                                opacity: isUsageExceeded ? 0.5 : 1,
-                                cursor: isUsageExceeded ? "not-allowed" : "pointer"
-                            }}
-                            disabled={(currentUserPrompt.trim() === "" && !backendRequestTriggered) || isUsageExceeded}
-                        >
-                            <span
-                                className={`codicon ${backendRequestTriggered ? "codicon-stop-circle" : "codicon-arrow-up"}`}
-                            />
-                        </StyledTransParentButton>
-                    </div>
-                </FlexRow>
-            </FlexColumn>
+                                <button
+                                    onClick={() => currentUserPrompt.trim() !== "" && handleSend()}
+                                    disabled={isUsageExceeded || currentUserPrompt.trim() === ""}
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        width: "24px",
+                                        height: "24px",
+                                        borderRadius: "50%",
+                                        backgroundColor: currentUserPrompt.trim() !== "" 
+                                            ? "var(--vscode-button-background)" 
+                                            : "var(--vscode-button-secondaryBackground)",
+                                        color: currentUserPrompt.trim() !== "" 
+                                            ? "var(--vscode-button-foreground)" 
+                                            : "var(--vscode-button-secondaryForeground)",
+                                        border: "none",
+                                        cursor: (currentUserPrompt.trim() !== "") ? "pointer" : "default",
+                                        transition: "all 0.2s ease"
+                                    }}
+                                    title="Send Message"
+                                >
+                                    <Codicon name="arrow-up" />
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <input
+                            id="fileInput"
+                            type="file"
+                            style={{ display: "none" }}
+                            multiple
+                            accept={[...VALID_FILE_TYPES.files, ...VALID_FILE_TYPES.images].join(",")}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                handleFileAttach(e, files, setFiles, images, setImages, setFileUploadStatus)
+                            }
+                            disabled={isUsageExceeded}
+                        />
+                    </>
+                )}
+            </FloatingInputContainer>
         </Footer>
     );
 };

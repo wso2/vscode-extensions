@@ -18,6 +18,9 @@
 
 import React from "react";
 import ReactMarkdown from "react-markdown";
+import styled from "@emotion/styled";
+import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import {
     ChatMessage as StyledChatMessage,
     UserMessageBox,
@@ -35,66 +38,198 @@ import TodoListSegment from "./TodoListSegment";
 import BashOutputSegment from "./BashOutputSegment";
 import CompactSummarySegment from "./CompactSummarySegment";
 
+// Styled markdown container
+const StyledMarkdown = styled.div`
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    font-weight: 450;
+    line-height: 1.45;
+    color: var(--vscode-editor-foreground);
+    -webkit-font-smoothing: antialiased;
+
+    h1, h2, h3, h4, h5, h6 {
+        font-weight: 600;
+        margin-top: 0.8em;
+        margin-bottom: 0.2em;
+        color: var(--vscode-editor-foreground);
+    }
+
+    h1 { font-size: 1.1em; }
+    h2 { font-size: 1.05em; }
+    h3 { font-size: 1em; }
+
+    p {
+        margin-bottom: 0.4em;
+        &:last-child { margin-bottom: 0; }
+    }
+
+    strong {
+        font-weight: 600;
+    }
+
+    em {
+        font-style: italic;
+        opacity: 0.92;
+    }
+
+    ul, ol {
+        margin-left: 1.2em;
+        margin-bottom: 0.4em;
+        padding-left: 0;
+    }
+
+    li {
+        margin-bottom: 0.15em;
+
+        &::marker {
+            color: var(--vscode-descriptionForeground);
+        }
+    }
+
+    a {
+        color: var(--vscode-textLink-foreground);
+        text-decoration: none;
+        &:hover { text-decoration: underline; }
+    }
+
+    code {
+        font-family: var(--vscode-editor-font-family);
+        background-color: rgba(128, 128, 128, 0.12);
+        padding: 1.5px 5px;
+        border-radius: 4px;
+        font-size: 0.88em;
+        border: 1px solid rgba(128, 128, 128, 0.1);
+    }
+
+    pre {
+        background-color: rgba(128, 128, 128, 0.06);
+        border: 1px solid rgba(128, 128, 128, 0.12);
+        padding: 10px 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 0.5em 0;
+
+        code {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+            border: none;
+            font-size: 0.92em;
+            line-height: 1.5;
+        }
+    }
+
+    blockquote {
+        margin: 0.5em 0;
+        padding: 4px 12px;
+        border-left: 3px solid var(--vscode-textLink-foreground);
+        background-color: rgba(128, 128, 128, 0.05);
+        border-radius: 0 4px 4px 0;
+        color: var(--vscode-descriptionForeground);
+
+        p { margin-bottom: 0.2em; }
+    }
+
+    hr {
+        border: none;
+        border-top: 1px solid rgba(128, 128, 128, 0.15);
+        margin: 0.8em 0;
+    }
+
+    table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 0.5em 0;
+        font-size: 0.92em;
+    }
+
+    th, td {
+        padding: 4px 10px;
+        border: 1px solid rgba(128, 128, 128, 0.15);
+        text-align: left;
+    }
+
+    th {
+        font-weight: 600;
+        background-color: rgba(128, 128, 128, 0.08);
+    }
+
+    tr:nth-of-type(even) {
+        background-color: rgba(128, 128, 128, 0.03);
+    }
+`;
+
 // Markdown renderer component
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownContent }) => {
     const { rpcClient } = useMICopilotContext();
 
     return (
-        <ReactMarkdown
-            components={{
-                h1: ({ node, ...props }: { node?: any; [key: string]: any }) => (
-                    <h1 style={{ fontSize: "1.3em", fontWeight: "bold", marginTop: "20px" }} {...props} />
-                ),
-                h2: ({ node, ...props }: { node?: unknown; [key: string]: any }) => (
-                    <h2 style={{ fontSize: "1.0em", fontWeight: "bold" }} {...props} />
-                ),
-                h3: ({ node, ...props }: { node?: unknown; [key: string]: any }) => (
-                    <h3 style={{ fontSize: "1em", fontWeight: "bold" }} {...props} />
-                ),
-                p: ({ node, ...props }: { node?: unknown; [key: string]: any }) => (
-                    <p style={{ fontSize: "1em", lineHeight: "1.5" }} {...props} />
-                ),
-                a: ({ node, href, children, ...props }: { node?: unknown; href?: string; children?: React.ReactNode; [key: string]: any }) => (
-                    <a
-                        href={href}
-                        onClick={(e) => {
-                            e.preventDefault();
-                            if (!href) return;
-                            // External URLs - ignore (webview blocks them anyway)
-                            if (href.startsWith('http://') || href.startsWith('https://')) return;
-                            // Parse line number from fragment (e.g., #L42 or #L42-L51)
-                            let filePath = href;
-                            let line: number | undefined;
-                            const hashIndex = href.indexOf('#');
-                            if (hashIndex !== -1) {
-                                const fragment = href.substring(hashIndex + 1);
-                                filePath = href.substring(0, hashIndex);
-                                const lineMatch = fragment.match(/^L(\d+)/);
-                                if (lineMatch) {
-                                    line = parseInt(lineMatch[1], 10);
+        <StyledMarkdown>
+            <ReactMarkdown
+                components={{
+                    code({ node, inline, className, children, ...props }: any) {
+                        const match = /language-(\w+)/.exec(className || "");
+                        return !inline && match ? (
+                            <SyntaxHighlighter
+                                style={vscDarkPlus}
+                                language={match[1]}
+                                PreTag="div"
+                                {...props}
+                            >
+                                {String(children).replace(/\n$/, "")}
+                            </SyntaxHighlighter>
+                        ) : (
+                            <code className={className} {...props}>
+                                {children}
+                            </code>
+                        );
+                    },
+                    a: ({ node, href, children, ...props }: { node?: unknown; href?: string; children?: React.ReactNode; [key: string]: any }) => (
+                         // Use standard anchor but handle onClick for local file links if needed, 
+                         // or just let the global handler (if any) or RPC client handle it.
+                         // The existing code had a complex onClick handler. I should preserve it.
+                        <a
+                            href={href}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                if (!href) return;
+                                
+                                let filePath = href;
+                                if (href.startsWith("file://")) {
+                                    filePath = href.replace("file://", "");
                                 }
-                            }
-                            rpcClient.getMiDiagramRpcClient().openFile({
-                                path: filePath,
-                                line,
-                            });
-                        }}
-                        style={{
-                            cursor: 'pointer',
-                            color: 'var(--vscode-textLink-foreground)',
-                            textDecoration: 'underline',
-                        }}
-                        {...props}
-                    >
-                        {children}
-                    </a>
-                ),
-            }}
-        >
-            {markdownContent}
-        </ReactMarkdown>
+                                
+                                let line: number | undefined;
+                                const hashIndex = filePath.indexOf("#");
+                                if (hashIndex !== -1) {
+                                    const fragment = filePath.substring(hashIndex + 1);
+                                    filePath = filePath.substring(0, hashIndex);
+                                    const lineMatch = fragment.match(/^L(\d+)/);
+                                    if (lineMatch) {
+                                        line = parseInt(lineMatch[1], 10);
+                                    }
+                                }
+
+                                if (rpcClient) {
+                                  rpcClient.getMiDiagramRpcClient().openFile({
+                                      path: filePath,
+                                      line
+                                  });
+                                }
+                            }}
+                            {...props}
+                        >
+                            {children}
+                        </a>
+                    )
+                }}
+            >
+                {markdownContent}
+            </ReactMarkdown>
+        </StyledMarkdown>
     );
 };
+
 
 interface ChatMessageProps {
     message: ChatMessage;
