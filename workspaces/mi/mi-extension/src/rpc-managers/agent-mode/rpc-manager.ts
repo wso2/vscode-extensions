@@ -270,6 +270,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                     return await executeAgent(
                         {
                             query: request.message,
+                            mode: request.mode || 'edit',
                             files: request.files,
                             images: request.images,
                             thinking: request.thinking,

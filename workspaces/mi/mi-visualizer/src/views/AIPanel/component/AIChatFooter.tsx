@@ -154,7 +154,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const isDarkMode = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 
     // Mode switcher state
-    const [agentMode, setAgentMode] = useState<AgentMode>('ask');
+    const [agentMode, setAgentMode] = useState<AgentMode>('edit');
     const [showModeMenu, setShowModeMenu] = useState(false);
     const modeMenuRef = useRef<HTMLDivElement>(null);
     const [isThinkingEnabled, setIsThinkingEnabled] = useState<boolean>(() => {
@@ -833,6 +833,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             // modelMessages will be sent with the "stop" event
             const response = await rpcClient.getMiAgentPanelRpcClient().sendAgentMessage({
                 message: messageToSend,
+                mode: agentMode,
                 files,
                 images,
                 thinking: isThinkingEnabled,
