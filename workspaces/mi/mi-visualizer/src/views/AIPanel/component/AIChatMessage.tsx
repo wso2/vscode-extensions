@@ -261,6 +261,7 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             segment.isTodoList ||
             segment.isBashOutput ||
             segment.isCompactSummary ||
+            segment.isPlan ||
             segment.isThinking
         );
 
@@ -299,6 +300,8 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
                 }
             } else if (segment.isCompactSummary) {
                 return <CompactSummarySegment key={i} text={segment.text} />;
+            } else if (segment.isPlan) {
+                return <CompactSummarySegment key={i} text={segment.text} title="Plan" />;
             } else if (segment.isThinking) {
                 return <ThinkingSegment key={i} text={segment.text} loading={segment.loading} />;
             } else if (message.type === "Error") {

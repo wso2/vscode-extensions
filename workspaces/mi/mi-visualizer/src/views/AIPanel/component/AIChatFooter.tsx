@@ -19,16 +19,13 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { FlexRow, Footer, StyledTransParentButton, RippleLoader, FlexColumn, FloatingInputContainer } from "../styles";
 import { Codicon } from "@wso2/ui-toolkit";
-import { useMICopilotContext } from "./MICopilotContext";
+import { useMICopilotContext, AgentMode } from "./MICopilotContext";
 import { handleFileAttach, convertChatHistoryToModelMessages } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
 import { generateId, updateTokenInfo } from "../utils";
 import { BackendRequestType } from "../types";
-import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage } from "@wso2/mi-core";
-import { TodoItem } from "@wso2/mi-core/lib/rpc-types/agent-mode/types";
+import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem } from "@wso2/mi-core";
 import Attachments from "./Attachments";
-
-type AgentMode = 'ask' | 'edit';
 
 // Tool name constant
 const BASH_TOOL_NAME = 'bash';
@@ -142,6 +139,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setIsPlanMode,
         lastTotalInputTokens,
         setLastTotalInputTokens,
+        agentMode,
+        setAgentMode,
     } = useMICopilotContext();
 
     const [fileUploadStatus, setFileUploadStatus] = useState({ type: "", text: "" });
@@ -154,7 +153,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const isDarkMode = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 
     // Mode switcher state
-    const [agentMode, setAgentMode] = useState<AgentMode>('edit');
     const [showModeMenu, setShowModeMenu] = useState(false);
     const modeMenuRef = useRef<HTMLDivElement>(null);
     const [isThinkingEnabled, setIsThinkingEnabled] = useState<boolean>(() => {
@@ -187,6 +185,18 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const [assistantResponse, setAssistantResponse] = useState<string>("");
     // Tool status for agent tool calls
     const [toolStatus, setToolStatus] = useState<string>("");
+
+    const getModeLabel = (mode: AgentMode): string => {
+        if (mode === 'ask') return 'Ask';
+        if (mode === 'plan') return 'Plan';
+        return 'Edit';
+    };
+
+    const getModeIcon = (mode: AgentMode): string => {
+        if (mode === 'ask') return 'comment-discussion';
+        if (mode === 'plan') return 'checklist';
+        return 'edit';
+    };
 
     // Refs to hold latest values for the event handler (avoids stale closure)
     const assistantResponseRef = useRef<string>("");
@@ -498,10 +508,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
                     case "plan_mode_entered":
                         setIsPlanMode(true);
+                        setAgentMode('plan');
                         break;
 
                     case "plan_mode_exited":
                         setIsPlanMode(false);
+                        setAgentMode('edit');
                         break;
 
                     case "todo_updated":
@@ -535,6 +547,21 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
                     case "plan_approval_requested":
                         if (planEvent.approvalId) {
+                            const planContent = typeof planEvent.content === "string" ? planEvent.content.trim() : "";
+                            if (planContent) {
+                                setMessages((prev) => {
+                                    const planTag = `<plan>${planContent}</plan>`;
+                                    if (prev.length > 0 && prev[prev.length - 1].role === Role.MICopilot) {
+                                        return updateLastMessage(prev, (c) => `${c}\n\n${planTag}`);
+                                    }
+                                    return [...prev, {
+                                        id: generateId(),
+                                        role: Role.MICopilot,
+                                        content: planTag,
+                                        type: MessageType.AssistantMessage,
+                                    }];
+                                });
+                            }
                             setPendingPlanApproval({
                                 approvalId: planEvent.approvalId,
                                 planFilePath: planEvent.planFilePath,
@@ -1365,56 +1392,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             {pendingPlanApproval.content || "The plan is ready for your review."}
                         </div>
 
-                        {/* Plan file link - clickable to open in editor */}
-                        {pendingPlanApproval.planFilePath && (
-                            <button
-                                onClick={() => {
-                                    rpcClient.getMiDiagramRpcClient().openFile({
-                                        path: pendingPlanApproval.planFilePath!,
-                                        beside: true
-                                    });
-                                }}
-                                style={{
-                                    fontSize: "12px",
-                                    marginBottom: "12px",
-                                    padding: "8px 12px",
-                                    backgroundColor: "var(--vscode-textBlockQuote-background)",
-                                    border: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
-                                    borderRadius: "4px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "8px",
-                                    cursor: "pointer",
-                                    width: "100%",
-                                    textAlign: "left",
-                                    transition: "background-color 0.15s ease"
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)";
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = "var(--vscode-textBlockQuote-background)";
-                                }}
-                                title={`Click to open: ${pendingPlanApproval.planFilePath}`}
-                            >
-                                <span className="codicon codicon-file" style={{
-                                    fontSize: "14px",
-                                    color: "var(--vscode-symbolIcon-fileForeground, var(--vscode-foreground))"
-                                }} />
-                                <span style={{
-                                    color: "var(--vscode-textLink-foreground)",
-                                    textDecoration: "underline",
-                                    flex: 1
-                                }}>
-                                    {pendingPlanApproval.planFilePath.split('/').pop()}
-                                </span>
-                                <span className="codicon codicon-link-external" style={{
-                                    fontSize: "12px",
-                                    opacity: 0.6
-                                }} />
-                            </button>
-                        )}
-
                         {/* Rejection feedback input (shown when rejecting) */}
                         {showRejectionInput && (
                             <div style={{ marginTop: "12px" }}>
@@ -1654,10 +1631,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                             cursor: isUsageExceeded ? "not-allowed" : "pointer",
                                             opacity: isUsageExceeded ? 0.5 : 0.8
                                         }}
-                                        title="Switch between Ask and Edit modes"
+                                        title="Switch between Ask, Plan, and Edit modes"
                                     >
-                                        <Codicon name={agentMode === 'ask' ? 'comment-discussion' : 'edit'} />
-                                        {agentMode === 'ask' ? 'Ask' : 'Edit'}
+                                        <Codicon name={getModeIcon(agentMode)} />
+                                        {getModeLabel(agentMode)}
                                     </button>
                                      {showModeMenu && (
                                         <div style={{
@@ -1673,7 +1650,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                             minWidth: "100px",
                                             overflow: "hidden",
                                         }}>
-                                            {(['ask', 'edit'] as AgentMode[]).map((m) => (
+                                            {(['ask', 'plan', 'edit'] as AgentMode[]).map((m) => (
                                                 <button
                                                     key={m}
                                                     onClick={() => { setAgentMode(m); setShowModeMenu(false); }}
@@ -1694,8 +1671,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                                             : "var(--vscode-dropdown-foreground)",
                                                     }}
                                                 >
-                                                    <Codicon name={m === 'ask' ? 'comment-discussion' : 'edit'} />
-                                                    {m === 'ask' ? 'Ask' : 'Edit'}
+                                                    <Codicon name={getModeIcon(m)} />
+                                                    {getModeLabel(m)}
                                                 </button>
                                             ))}
                                         </div>

@@ -74,7 +74,7 @@ export type AgentEventHandler = (event: AgentEvent) => void;
 export interface AgentRequest {
     /** User's query/requirement */
     query: string;
-    /** Agent mode: ask (read-only) or edit (full tool access) */
+    /** Agent mode: ask (read-only), plan (planning read-only), or edit (full tool access) */
     mode?: AgentMode;
     /** Optional file attachments (text/PDF) */
     files?: FileObject[];
@@ -168,6 +168,7 @@ export async function executeAgent(
             query: request.query,
             mode: request.mode || 'edit',
             projectPath: request.projectPath,
+            sessionId,
             // Note: existingFiles and currentlyOpenedFile are fetched internally by getUserPrompt
         };
         const userMessageContent = await getUserPrompt(userPromptParams);

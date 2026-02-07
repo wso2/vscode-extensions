@@ -81,6 +81,7 @@ import {
     createTaskOutputExecute,
 } from '../../tools/bash_tools';
 import { AnthropicModel } from '../../../connection';
+import { AgentMode } from '@wso2/mi-core';
 import {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
@@ -140,8 +141,8 @@ import { AgentEventHandler } from './agent';
 export interface CreateToolsParams {
     /** Path to the MI project */
     projectPath: string;
-    /** Agent mode: ask (read-only) or edit (full tool access) */
-    mode: 'ask' | 'edit';
+    /** Agent mode: ask (read-only), plan (planning read-only), or edit (full tool access) */
+    mode: AgentMode;
     /** List to track modified files */
     modifiedFiles: string[];
     /** Session ID for plan mode */
@@ -158,7 +159,7 @@ export interface CreateToolsParams {
     getAnthropicClient: (model: AnthropicModel) => Promise<any>;
 }
 
-const ASK_MODE_ALLOWED_TOOLS = new Set<string>([
+const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
     FILE_READ_TOOL_NAME,
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
@@ -168,24 +169,43 @@ const ASK_MODE_ALLOWED_TOOLS = new Set<string>([
     VALIDATE_CODE_TOOL_NAME,
 ]);
 
-function createAskModeBlockedExecute(toolName: string) {
+const PLAN_MODE_ALLOWED_TOOLS = new Set<string>([
+    ...READ_ONLY_MODE_ALLOWED_TOOLS,
+    SUBAGENT_TOOL_NAME,
+    ASK_USER_TOOL_NAME,
+    EXIT_PLAN_MODE_TOOL_NAME,
+    TODO_WRITE_TOOL_NAME,
+]);
+
+function createModeBlockedExecute(toolName: string, mode: AgentMode) {
+    const modeLabel = mode === 'plan' ? 'Plan' : 'Ask';
+    const errorCode = mode === 'plan' ? 'PLAN_MODE_RESTRICTED' : 'ASK_MODE_RESTRICTED';
+    const guidance = mode === 'plan'
+        ? 'Plan mode only supports read-only exploration and planning tools. Switch to Edit mode to make project changes.'
+        : 'Switch to Edit mode to use modification tools.';
+
     return async (_args: unknown): Promise<ToolResult> => ({
         success: false,
-        message: `Tool '${toolName}' is disabled in Ask mode. Switch to Edit mode to use modification tools.`,
-        error: 'ASK_MODE_RESTRICTED',
+        message: `Tool '${toolName}' is disabled in ${modeLabel} mode. ${guidance}`,
+        error: errorCode,
     });
 }
 
 function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
-    mode: 'ask' | 'edit',
+    mode: AgentMode,
     toolName: string,
     execute: T
 ): T {
-    if (mode === 'edit' || ASK_MODE_ALLOWED_TOOLS.has(toolName)) {
+    if (mode === 'edit') {
         return execute;
     }
 
-    return createAskModeBlockedExecute(toolName) as unknown as T;
+    const allowedTools = mode === 'plan' ? PLAN_MODE_ALLOWED_TOOLS : READ_ONLY_MODE_ALLOWED_TOOLS;
+    if (allowedTools.has(toolName)) {
+        return execute;
+    }
+
+    return createModeBlockedExecute(toolName, mode) as unknown as T;
 }
 
 /**

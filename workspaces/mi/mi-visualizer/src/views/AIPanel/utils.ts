@@ -93,6 +93,7 @@ interface ContentSegment {
     isTodoList?: boolean;
     isBashOutput?: boolean;
     isCompactSummary?: boolean;
+    isPlan?: boolean;
     isThinking?: boolean;
     loading: boolean;
     text: string;
@@ -106,9 +107,9 @@ export function splitContent(content: string): ContentSegment[] {
     }
     const segments: ContentSegment[] = [];
     let match;
-    // Updated regex to include <toolcall>, <todolist>, <bashoutput>, <compact>, and <thinking> tags.
+    // Updated regex to include <toolcall>, <todolist>, <bashoutput>, <compact>, <plan>, and <thinking> tags.
     // Code block regex matches any language (or no language) followed by a newline
-    const regex = /```(\w*)\n([\s\S]*?)```|<toolcall(?:\s+[^>]*)?>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>|<compact>([\s\S]*?)<\/compact>|<thinking(?:\s+[^>]*)?>([\s\S]*?)<\/thinking>/g;
+    const regex = /```(\w*)\n([\s\S]*?)```|<toolcall(?:\s+[^>]*)?>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>|<compact>([\s\S]*?)<\/compact>|<plan>([\s\S]*?)<\/plan>|<thinking(?:\s+[^>]*)?>([\s\S]*?)<\/thinking>/g;
     let start = 0;
 
     // Helper function to mark the last toolcall segment as complete
@@ -152,10 +153,14 @@ export function splitContent(content: string): ContentSegment[] {
             updateLastToolCallSegmentLoading();
             segments.push({ isCompactSummary: true, loading: false, text: match[6] });
         } else if (match[7] !== undefined) {
+            // <plan> block matched
+            updateLastToolCallSegmentLoading();
+            segments.push({ isPlan: true, loading: false, text: match[7] });
+        } else if (match[8] !== undefined) {
             // <thinking> block matched
             updateLastToolCallSegmentLoading();
             const isLoading = /data-loading="true"/.test(match[0]);
-            segments.push({ isThinking: true, loading: isLoading, text: match[7] });
+            segments.push({ isThinking: true, loading: isLoading, text: match[8] });
         }
         start = regex.lastIndex;
     }
