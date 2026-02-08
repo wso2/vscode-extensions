@@ -775,6 +775,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     feedback
                 });
                 setPendingPlanApproval(null);
+                setShowRejectionInput(false);
                 setPlanRejectionFeedback("");
             } catch (error) {
                 console.error("Error responding to plan approval:", error);
@@ -1277,7 +1278,33 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     const totalQuestions = pendingQuestion?.questions.length ?? 0;
     const activeQuestion = pendingQuestion?.questions[activeQuestionTab];
-    const activeQuestionLabel = `Question ${activeQuestionTab + 1}`;
+    const isLastQuestion = totalQuestions > 0 && activeQuestionTab === totalQuestions - 1;
+    const activeQuestionAnswered = activeQuestion ? isQuestionAnswered(activeQuestion, activeQuestionTab) : false;
+    const canNavigatePrev = activeQuestionTab > 0;
+    const canNavigateNext = activeQuestionTab < totalQuestions - 1;
+    const questionProgressText = totalQuestions > 0 ? `${activeQuestionTab + 1} of ${totalQuestions}` : '';
+
+    const handleQuestionNavigate = (direction: -1 | 1) => {
+        setActiveQuestionTab((prev) => {
+            const next = prev + direction;
+            return Math.max(0, Math.min(next, totalQuestions - 1));
+        });
+    };
+
+    const handleContinueQuestionFlow = async () => {
+        if (!activeQuestionAnswered) {
+            return;
+        }
+
+        if (isLastQuestion) {
+            if (allQuestionsAnswered) {
+                await handleQuestionResponse();
+            }
+            return;
+        }
+
+        setActiveQuestionTab((prev) => Math.min(prev + 1, totalQuestions - 1));
+    };
     const planApprovalAllowsFeedback =
         (pendingPlanApproval?.allowFeedback ?? (pendingPlanApproval?.approvalKind === 'exit_plan_mode')) === true;
     const planApprovalTitle = pendingPlanApproval?.approvalTitle
@@ -1290,136 +1317,98 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             {/* User Question Dialog */}
             {pendingQuestion && activeQuestion && (
                 <div style={{
-                    margin: "0 16px 10px 16px",
+                    margin: "0 12px 8px 12px",
                     backgroundColor: "var(--vscode-editor-background)",
                     border: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
-                    borderRadius: "10px",
+                    borderRadius: "8px",
                     overflow: "hidden",
                     boxShadow: "0 10px 30px rgba(0, 0, 0, 0.18)"
                 }}>
                     <div style={{
                         display: "flex",
-                        justifyContent: "space-between",
+                        justifyContent: "flex-start",
                         alignItems: "center",
-                        padding: "10px 12px",
+                        padding: "7px 10px",
                         borderBottom: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))"
                     }}>
                         <div style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: "8px",
+                            gap: "6px",
                             fontSize: "11px",
                             fontWeight: 600,
                             color: "var(--vscode-descriptionForeground)",
                             textTransform: "uppercase",
-                            letterSpacing: "0.5px"
+                            letterSpacing: "0.4px"
                         }}>
                             <span className="codicon codicon-comment-discussion" />
-                            {totalQuestions === 1 ? "Question" : `Questions (${totalQuestions})`}
+                            Asking Questions
                         </div>
-                        <button
-                            onClick={handleQuestionCancel}
-                            style={{
-                                width: "24px",
-                                height: "24px",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                borderRadius: "6px",
-                                border: "none",
-                                background: "transparent",
-                                color: "var(--vscode-foreground)",
-                                cursor: "pointer",
-                                opacity: 0.75
-                            }}
-                            title="Cancel"
-                        >
-                            <span className="codicon codicon-close" />
-                        </button>
-                    </div>
-
-                    {totalQuestions > 1 && (
-                        <div style={{
-                            display: "flex",
-                            gap: "8px",
-                            overflowX: "auto",
-                            padding: "10px 12px",
-                            borderBottom: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))"
-                        }}>
-                            {pendingQuestion.questions.map((question, index) => {
-                                const isActive = index === activeQuestionTab;
-                                const isAnswered = isQuestionAnswered(question, index);
-                                return (
-                                    <button
-                                        key={`question-tab-${index}`}
-                                        onClick={() => setActiveQuestionTab(index)}
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "6px",
-                                            whiteSpace: "nowrap",
-                                            padding: "5px 10px",
-                                            borderRadius: "999px",
-                                            border: isActive
-                                                ? "1px solid var(--vscode-focusBorder)"
-                                                : "1px solid var(--vscode-input-border)",
-                                            backgroundColor: isActive
-                                                ? "var(--vscode-list-activeSelectionBackground)"
-                                                : "var(--vscode-input-background)",
-                                            color: isActive
-                                                ? "var(--vscode-list-activeSelectionForeground)"
-                                                : "var(--vscode-foreground)",
-                                            cursor: "pointer",
-                                            fontSize: "11px",
-                                            fontWeight: 500
-                                        }}
-                                    >
-                                        <span
-                                            style={{
-                                                width: "8px",
-                                                height: "8px",
-                                                borderRadius: "50%",
-                                                backgroundColor: isAnswered
-                                                    ? "var(--vscode-testing-iconPassed)"
-                                                    : "var(--vscode-descriptionForeground)"
-                                            }}
-                                        />
-                                        {`Question ${index + 1}`}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    <div style={{ padding: "12px", maxHeight: "340px", overflowY: "auto" }}>
                         <div style={{
                             display: "inline-flex",
                             alignItems: "center",
-                            gap: "6px",
-                            fontSize: "10px",
-                            fontWeight: 600,
-                            padding: "3px 8px",
-                            marginBottom: "10px",
-                            backgroundColor: "var(--vscode-list-hoverBackground)",
+                            gap: "5px",
                             color: "var(--vscode-descriptionForeground)",
-                            borderRadius: "999px",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.4px"
+                            fontSize: "11px"
                         }}>
-                            <span className="codicon codicon-primitive-dot" />
-                            {activeQuestionLabel}
+                            <button
+                                onClick={() => handleQuestionNavigate(-1)}
+                                disabled={!canNavigatePrev}
+                                style={{
+                                    width: "22px",
+                                    height: "22px",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    borderRadius: "5px",
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "var(--vscode-foreground)",
+                                    cursor: canNavigatePrev ? "pointer" : "default",
+                                    opacity: canNavigatePrev ? 0.75 : 0.35
+                                }}
+                                title="Previous question"
+                            >
+                                <span className="codicon codicon-chevron-left" />
+                            </button>
+                            <span style={{ minWidth: "48px", textAlign: "center", fontWeight: 500 }}>
+                                {questionProgressText}
+                            </span>
+                            <button
+                                onClick={() => handleQuestionNavigate(1)}
+                                disabled={!canNavigateNext}
+                                style={{
+                                    width: "22px",
+                                    height: "22px",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    borderRadius: "5px",
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "var(--vscode-foreground)",
+                                    cursor: canNavigateNext ? "pointer" : "default",
+                                    opacity: canNavigateNext ? 0.75 : 0.35
+                                }}
+                                title="Next question"
+                            >
+                                <span className="codicon codicon-chevron-right" />
+                            </button>
                         </div>
+                    </div>
 
+                    <div style={{ padding: "10px 10px 8px 10px", maxHeight: "280px", overflowY: "auto" }}>
                         <div style={{
-                            fontSize: "13px",
-                            marginBottom: "12px",
+                            fontSize: "12.5px",
+                            marginBottom: "8px",
                             color: "var(--vscode-foreground)",
-                            lineHeight: "1.45"
+                            lineHeight: "1.4",
+                            fontWeight: 600
                         }}>
                             {activeQuestion.question}
                         </div>
 
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                             {activeQuestion.options.map((option, optionIndex) => {
                                 const currentAnswer = answers.get(activeQuestionTab);
                                 const isSelected = activeQuestion.multiSelect
@@ -1468,45 +1457,37 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                         style={{
                                             display: "flex",
                                             alignItems: "center",
-                                            gap: "10px",
+                                            gap: "8px",
                                             textAlign: "left",
                                             width: "100%",
-                                            padding: "10px 12px",
-                                            borderRadius: "8px",
+                                            padding: "7px 10px",
+                                            borderRadius: "5px",
                                             cursor: "pointer",
-                                            border: isSelected
-                                                ? "1px solid var(--vscode-focusBorder)"
-                                                : "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
+                                            border: "1px solid transparent",
                                             backgroundColor: isSelected
-                                                ? "var(--vscode-list-activeSelectionBackground)"
-                                                : "var(--vscode-list-hoverBackground)",
+                                                ? "var(--vscode-list-hoverBackground)"
+                                                : "transparent",
                                             color: isSelected
-                                                ? "var(--vscode-list-activeSelectionForeground)"
+                                                ? "var(--vscode-foreground)"
                                                 : "var(--vscode-foreground)"
                                         }}
                                     >
                                         <span style={{
-                                            width: "16px",
-                                            height: "16px",
-                                            borderRadius: activeQuestion.multiSelect ? "3px" : "50%",
-                                            border: isSelected
-                                                ? "2px solid var(--vscode-focusBorder)"
-                                                : "1px solid var(--vscode-input-border)",
-                                            backgroundColor: isSelected
-                                                ? "var(--vscode-focusBorder)"
-                                                : "transparent",
-                                            flexShrink: 0,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
+                                            width: "18px",
+                                            textAlign: "right",
+                                            color: "var(--vscode-descriptionForeground)",
                                             fontSize: "10px",
-                                            color: "var(--vscode-editor-background)"
+                                            fontWeight: 600,
+                                            flexShrink: 0
                                         }}>
-                                            {isSelected && "✓"}
+                                            {`${optionIndex + 1}.`}
                                         </span>
-                                        <span style={{ fontSize: "13px", fontWeight: 500, lineHeight: "1.3" }}>
+                                        <span style={{ fontSize: "12px", fontWeight: isSelected ? 600 : 500, lineHeight: "1.25", flex: 1 }}>
                                             {option.label}
                                         </span>
+                                        {isSelected && (
+                                            <span className="codicon codicon-check" style={{ opacity: 0.9 }} />
+                                        )}
                                     </button>
                                 );
                             })}
@@ -1527,42 +1508,35 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                     style={{
                                         display: "flex",
                                         alignItems: "center",
-                                        gap: "10px",
+                                        gap: "8px",
+                                        textAlign: "left",
                                         width: "100%",
-                                        padding: "10px 12px",
-                                        borderRadius: "8px",
+                                        padding: "7px 10px",
+                                        borderRadius: "5px",
                                         cursor: "pointer",
-                                        border: otherAnswers.has(activeQuestionTab)
-                                            ? "1px solid var(--vscode-focusBorder)"
-                                            : "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
+                                        border: "1px solid transparent",
                                         backgroundColor: otherAnswers.has(activeQuestionTab)
-                                            ? "var(--vscode-list-activeSelectionBackground)"
-                                            : "var(--vscode-list-hoverBackground)",
-                                        color: otherAnswers.has(activeQuestionTab)
-                                            ? "var(--vscode-list-activeSelectionForeground)"
-                                            : "var(--vscode-foreground)"
+                                            ? "var(--vscode-list-hoverBackground)"
+                                            : "transparent",
+                                        color: "var(--vscode-foreground)"
                                     }}
                                 >
                                     <span style={{
-                                        width: "16px",
-                                        height: "16px",
-                                        borderRadius: activeQuestion.multiSelect ? "3px" : "50%",
-                                        border: otherAnswers.has(activeQuestionTab)
-                                            ? "2px solid var(--vscode-focusBorder)"
-                                            : "1px solid var(--vscode-input-border)",
-                                        backgroundColor: otherAnswers.has(activeQuestionTab)
-                                            ? "var(--vscode-focusBorder)"
-                                            : "transparent",
-                                        flexShrink: 0,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
+                                        width: "18px",
+                                        textAlign: "right",
+                                        color: "var(--vscode-descriptionForeground)",
                                         fontSize: "10px",
-                                        color: "var(--vscode-editor-background)"
+                                        fontWeight: 600,
+                                        flexShrink: 0
                                     }}>
-                                        {otherAnswers.has(activeQuestionTab) && "✓"}
+                                        {`${activeQuestion.options.length + 1}.`}
                                     </span>
-                                    <span style={{ fontSize: "13px", fontWeight: 500 }}>Other</span>
+                                    <span style={{ fontSize: "12px", fontWeight: otherAnswers.has(activeQuestionTab) ? 600 : 500, flex: 1 }}>
+                                        Other
+                                    </span>
+                                    {otherAnswers.has(activeQuestionTab) && (
+                                        <span className="codicon codicon-check" style={{ opacity: 0.9 }} />
+                                    )}
                                 </button>
                             )}
 
@@ -1580,20 +1554,20 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                         setOtherAnswers(newOtherAnswers);
                                     }}
                                     onKeyDown={(e) => {
-                                        if (e.key === "Enter" && allQuestionsAnswered) {
-                                            handleQuestionResponse();
+                                        if (e.key === "Enter" && activeQuestionAnswered) {
+                                            void handleContinueQuestionFlow();
                                         }
                                     }}
                                     placeholder="Type your answer..."
                                     style={{
                                         width: "100%",
-                                        marginTop: "2px",
-                                        padding: "8px 10px",
+                                        marginTop: "1px",
+                                        padding: "7px 9px",
                                         backgroundColor: "var(--vscode-input-background)",
                                         color: "var(--vscode-input-foreground)",
                                         border: "1px solid var(--vscode-input-border)",
-                                        borderRadius: "8px",
-                                        fontSize: "12px",
+                                        borderRadius: "5px",
+                                        fontSize: "11.5px",
                                         boxSizing: "border-box"
                                     }}
                                 />
@@ -1605,35 +1579,64 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         display: "flex",
                         justifyContent: "flex-end",
                         alignItems: "center",
-                        gap: "8px",
-                        padding: "10px 12px",
+                        gap: "6px",
+                        padding: "7px 10px",
                         borderTop: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
-                        backgroundColor: "var(--vscode-editorWidget-background)"
+                        backgroundColor: "var(--vscode-editor-background)"
                     }}>
                         <button
-                            onClick={handleQuestionResponse}
-                            disabled={!allQuestionsAnswered}
+                            onClick={handleQuestionCancel}
                             style={{
                                 display: "inline-flex",
                                 alignItems: "center",
-                                gap: "6px",
-                                padding: "7px 12px",
-                                backgroundColor: allQuestionsAnswered
+                                gap: "5px",
+                                padding: "6px 9px",
+                                backgroundColor: "transparent",
+                                color: "var(--vscode-foreground)",
+                                border: "none",
+                                borderRadius: "5px",
+                                cursor: "pointer",
+                                fontSize: "11.5px",
+                                fontWeight: 500,
+                                opacity: 0.85
+                            }}
+                            title="Dismiss"
+                        >
+                            <span>Dismiss</span>
+                            <span style={{
+                                fontSize: "9px",
+                                opacity: 0.8,
+                                border: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
+                                borderRadius: "8px",
+                                padding: "1px 4px"
+                            }}>
+                                ESC
+                            </span>
+                        </button>
+                        <button
+                            onClick={() => { void handleContinueQuestionFlow(); }}
+                            disabled={isLastQuestion ? !allQuestionsAnswered : !activeQuestionAnswered}
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "5px",
+                                padding: "6px 10px",
+                                backgroundColor: ((isLastQuestion ? allQuestionsAnswered : activeQuestionAnswered))
                                     ? "var(--vscode-button-background)"
                                     : "var(--vscode-button-secondaryBackground)",
-                                color: allQuestionsAnswered
+                                color: ((isLastQuestion ? allQuestionsAnswered : activeQuestionAnswered))
                                     ? "var(--vscode-button-foreground)"
                                     : "var(--vscode-button-secondaryForeground)",
                                 border: "none",
-                                borderRadius: "6px",
-                                cursor: allQuestionsAnswered ? "pointer" : "not-allowed",
-                                fontSize: "12px",
+                                borderRadius: "5px",
+                                cursor: ((isLastQuestion ? allQuestionsAnswered : activeQuestionAnswered)) ? "pointer" : "not-allowed",
+                                fontSize: "11.5px",
                                 fontWeight: 500,
-                                opacity: allQuestionsAnswered ? 1 : 0.65
+                                opacity: ((isLastQuestion ? allQuestionsAnswered : activeQuestionAnswered)) ? 1 : 0.65
                             }}
                         >
-                            <span className="codicon codicon-check" />
-                            Submit {totalQuestions === 1 ? "answer" : "answers"}
+                            <span className={`codicon ${isLastQuestion ? "codicon-check" : "codicon-arrow-right"}`} />
+                            {isLastQuestion ? `Submit ${totalQuestions === 1 ? "answer" : "answers"}` : "Continue"}
                         </button>
                     </div>
                 </div>
@@ -1642,60 +1645,41 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             {/* Plan Approval Dialog */}
             {pendingPlanApproval && (
                 <div style={{
-                    margin: "0 16px 10px 16px",
+                    margin: "0 12px 8px 12px",
                     backgroundColor: "var(--vscode-editor-background)",
                     border: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
-                    borderRadius: "10px",
+                    borderRadius: "8px",
                     overflow: "hidden",
                     boxShadow: "0 10px 30px rgba(0, 0, 0, 0.18)"
                 }}>
                     <div style={{
                         display: "flex",
-                        justifyContent: "space-between",
+                        justifyContent: "flex-start",
                         alignItems: "center",
-                        padding: "10px 12px",
+                        padding: "7px 10px",
                         borderBottom: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))"
                     }}>
                         <div style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: "8px",
+                            gap: "6px",
                             fontSize: "11px",
                             fontWeight: 600,
                             color: "var(--vscode-descriptionForeground)",
                             textTransform: "uppercase",
-                            letterSpacing: "0.5px"
+                            letterSpacing: "0.4px"
                         }}>
                             <span className="codicon codicon-checklist" />
                             {planApprovalTitle}
                         </div>
-                        <button
-                            onClick={() => { void handlePlanApprovalCancel(); }}
-                            style={{
-                                width: "24px",
-                                height: "24px",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                borderRadius: "6px",
-                                border: "none",
-                                background: "transparent",
-                                color: "var(--vscode-foreground)",
-                                cursor: "pointer",
-                                opacity: 0.75
-                            }}
-                            title="Cancel"
-                        >
-                            <span className="codicon codicon-close" />
-                        </button>
                     </div>
 
-                    <div style={{ padding: "12px" }}>
+                    <div style={{ padding: "10px" }}>
                         <div style={{
-                            fontSize: "13px",
-                            marginBottom: "10px",
+                            fontSize: "12.5px",
+                            marginBottom: "8px",
                             color: "var(--vscode-foreground)",
-                            lineHeight: "1.45"
+                            lineHeight: "1.4"
                         }}>
                             {pendingPlanApproval.content || "The plan is ready for your review."}
                         </div>
@@ -1703,12 +1687,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             <div style={{
                                 display: "inline-flex",
                                 alignItems: "center",
-                                gap: "6px",
-                                fontSize: "11px",
+                                gap: "5px",
+                                fontSize: "10.5px",
                                 color: "var(--vscode-descriptionForeground)",
                                 backgroundColor: "var(--vscode-list-hoverBackground)",
                                 borderRadius: "999px",
-                                padding: "3px 8px"
+                                padding: "2px 7px"
                             }}>
                                 <span className="codicon codicon-file-code" />
                                 Full plan details are shown above in chat.
@@ -1716,11 +1700,11 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         )}
 
                         {planApprovalAllowsFeedback && showRejectionInput && (
-                            <div style={{ marginTop: "12px" }}>
+                            <div style={{ marginTop: "8px" }}>
                                 <label style={{
-                                    fontSize: "12px",
+                                    fontSize: "11.5px",
                                     color: "var(--vscode-descriptionForeground)",
-                                    marginBottom: "4px",
+                                    marginBottom: "3px",
                                     display: "block"
                                 }}>
                                     What changes would you like? (optional)
@@ -1731,13 +1715,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                     placeholder="Describe the changes you'd like to see..."
                                     style={{
                                         width: "100%",
-                                        minHeight: "72px",
-                                        padding: "10px",
+                                        minHeight: "64px",
+                                        padding: "8px",
                                         backgroundColor: "var(--vscode-input-background)",
                                         color: "var(--vscode-input-foreground)",
                                         border: "1px solid var(--vscode-input-border)",
-                                        borderRadius: "8px",
-                                        fontSize: "13px",
+                                        borderRadius: "6px",
+                                        fontSize: "12px",
                                         boxSizing: "border-box",
                                         resize: "vertical"
                                     }}
@@ -1750,23 +1734,52 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         display: "flex",
                         justifyContent: "flex-end",
                         alignItems: "center",
-                        gap: "8px",
-                        padding: "10px 12px",
+                        gap: "6px",
+                        padding: "7px 10px",
                         borderTop: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
-                        backgroundColor: "var(--vscode-editorWidget-background)"
+                        backgroundColor: "var(--vscode-editor-background)"
                     }}>
+                        <button
+                            onClick={() => { void handlePlanApprovalCancel(); }}
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "5px",
+                                padding: "6px 9px",
+                                backgroundColor: "transparent",
+                                color: "var(--vscode-foreground)",
+                                border: "none",
+                                borderRadius: "5px",
+                                cursor: "pointer",
+                                fontSize: "11.5px",
+                                fontWeight: 500,
+                                opacity: 0.85
+                            }}
+                            title="Dismiss"
+                        >
+                            <span>Dismiss</span>
+                            <span style={{
+                                fontSize: "9px",
+                                opacity: 0.8,
+                                border: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
+                                borderRadius: "8px",
+                                padding: "1px 4px"
+                            }}>
+                                ESC
+                            </span>
+                        </button>
                         {planApprovalAllowsFeedback && !showRejectionInput ? (
                             <>
                                 <button
                                     onClick={() => setShowRejectionInput(true)}
                                     style={{
-                                        padding: "7px 12px",
+                                        padding: "6px 10px",
                                         backgroundColor: "var(--vscode-button-secondaryBackground)",
                                         color: "var(--vscode-button-secondaryForeground)",
                                         border: "none",
-                                        borderRadius: "6px",
+                                        borderRadius: "5px",
                                         cursor: "pointer",
-                                        fontSize: "12px",
+                                        fontSize: "11.5px",
                                         fontWeight: 500
                                     }}
                                 >
@@ -1777,14 +1790,14 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                     style={{
                                         display: "inline-flex",
                                         alignItems: "center",
-                                        gap: "6px",
-                                        padding: "7px 12px",
+                                        gap: "5px",
+                                        padding: "6px 10px",
                                         backgroundColor: "var(--vscode-button-background)",
                                         color: "var(--vscode-button-foreground)",
                                         border: "none",
-                                        borderRadius: "6px",
+                                        borderRadius: "5px",
                                         cursor: "pointer",
-                                        fontSize: "12px",
+                                        fontSize: "11.5px",
                                         fontWeight: 500
                                     }}
                                 >
@@ -1800,13 +1813,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                         setPlanRejectionFeedback("");
                                     }}
                                     style={{
-                                        padding: "7px 12px",
+                                        padding: "6px 10px",
                                         backgroundColor: "transparent",
                                         color: "var(--vscode-foreground)",
                                         border: "1px solid var(--vscode-input-border)",
-                                        borderRadius: "6px",
+                                        borderRadius: "5px",
                                         cursor: "pointer",
-                                        fontSize: "12px",
+                                        fontSize: "11.5px",
                                         fontWeight: 500
                                     }}
                                 >
@@ -1817,14 +1830,14 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                     style={{
                                         display: "inline-flex",
                                         alignItems: "center",
-                                        gap: "6px",
-                                        padding: "7px 12px",
+                                        gap: "5px",
+                                        padding: "6px 10px",
                                         backgroundColor: "var(--vscode-button-background)",
                                         color: "var(--vscode-button-foreground)",
                                         border: "none",
-                                        borderRadius: "6px",
+                                        borderRadius: "5px",
                                         cursor: "pointer",
-                                        fontSize: "12px",
+                                        fontSize: "11.5px",
                                         fontWeight: 500
                                     }}
                                 >
@@ -1837,13 +1850,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 <button
                                     onClick={() => handlePlanApproval(false)}
                                     style={{
-                                        padding: "7px 12px",
+                                        padding: "6px 10px",
                                         backgroundColor: "var(--vscode-button-secondaryBackground)",
                                         color: "var(--vscode-button-secondaryForeground)",
                                         border: "none",
-                                        borderRadius: "6px",
+                                        borderRadius: "5px",
                                         cursor: "pointer",
-                                        fontSize: "12px",
+                                        fontSize: "11.5px",
                                         fontWeight: 500
                                     }}
                                 >
@@ -1854,14 +1867,14 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                     style={{
                                         display: "inline-flex",
                                         alignItems: "center",
-                                        gap: "6px",
-                                        padding: "7px 12px",
+                                        gap: "5px",
+                                        padding: "6px 10px",
                                         backgroundColor: "var(--vscode-button-background)",
                                         color: "var(--vscode-button-foreground)",
                                         border: "none",
-                                        borderRadius: "6px",
+                                        borderRadius: "5px",
                                         cursor: "pointer",
-                                        fontSize: "12px",
+                                        fontSize: "11.5px",
                                         fontWeight: 500
                                     }}
                                 >
