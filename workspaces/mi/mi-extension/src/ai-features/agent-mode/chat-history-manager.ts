@@ -1169,7 +1169,7 @@ export class ChatHistoryManager {
                                     timestamp
                                 };
 
-                                // Add bash-specific fields for bash tool
+                                // Add shell-specific fields for shell tool
                                 if (part.toolName === BASH_TOOL_NAME && toolInput) {
                                     event.bashCommand = toolInput.command;
                                     event.bashDescription = toolInput.description;

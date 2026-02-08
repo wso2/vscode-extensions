@@ -80,11 +80,11 @@ function cleanupOldShells(): void {
 }
 
 // ============================================================================
-// Bash Tool
+// Shell Tool
 // ============================================================================
 
 /**
- * Creates the execute function for the bash tool
+ * Creates the execute function for the shell tool
  */
 export function createBashExecute(projectPath: string): BashExecuteFn {
     return async (args: {
@@ -100,7 +100,7 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
             run_in_background = false
         } = args;
 
-        logInfo(`[BashTool] Executing: ${command}${description ? ` (${description})` : ''}`);
+        logInfo(`[ShellTool] Executing: ${command}${description ? ` (${description})` : ''}`);
 
         // Validate timeout
         const effectiveTimeout = Math.min(Math.max(timeout, 1000), MAX_TIMEOUT);
@@ -118,8 +118,13 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
             // Background execution
             const shellId = uuidv4();
 
-            const proc = childProcess.spawn(command, [], {
-                shell: true,
+            const isWindows = process.platform === 'win32';
+            const proc = childProcess.spawn(
+                isWindows ? 'powershell.exe' : 'bash',
+                isWindows
+                    ? ['-NoProfile', '-NonInteractive', '-Command', command]
+                    : ['-lc', command],
+                {
                 cwd: projectPath,
                 env: envVariables,
                 detached: false
@@ -148,17 +153,17 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
             proc.on('close', (code) => {
                 shell.completed = true;
                 shell.exitCode = code;
-                logInfo(`[BashTool] Background shell ${shellId} completed with code ${code}`);
+                logInfo(`[ShellTool] Background shell ${shellId} completed with code ${code}`);
             });
 
             proc.on('error', (error) => {
                 shell.completed = true;
                 shell.exitCode = -1;
                 shell.output += `\nError: ${error.message}`;
-                logError(`[BashTool] Background shell ${shellId} error: ${error.message}`);
+                logError(`[ShellTool] Background shell ${shellId} error: ${error.message}`);
             });
 
-            logInfo(`[BashTool] Started background shell: ${shellId}`);
+            logInfo(`[ShellTool] Started background shell: ${shellId}`);
 
             return {
                 success: true,
@@ -172,8 +177,13 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
                 let stderr = '';
                 let timedOut = false;
 
-                const proc = childProcess.spawn(command, [], {
-                    shell: true,
+                const isWindows = process.platform === 'win32';
+                const proc = childProcess.spawn(
+                    isWindows ? 'powershell.exe' : 'bash',
+                    isWindows
+                        ? ['-NoProfile', '-NonInteractive', '-Command', command]
+                        : ['-lc', command],
+                    {
                     cwd: projectPath,
                     env: envVariables
                 });
@@ -242,10 +252,12 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
 }
 
 /**
- * Input schema for bash tool
+ * Input schema for shell tool
  */
 const bashInputSchema = z.object({
-    command: z.string().describe('The bash command to execute'),
+    command: z.string().describe(
+        'The shell command to execute. Use platform-specific syntax based on <env> (Windows: PowerShell, macOS/Linux: bash).'
+    ),
     description: z.string().optional().describe(
         'Clear, concise description of what this command does. Keep it brief (5-10 words) for simple commands. Add more context for complex commands.'
     ),
@@ -258,13 +270,14 @@ const bashInputSchema = z.object({
 });
 
 /**
- * Creates the bash tool
+ * Creates the shell tool
  */
 export function createBashTool(execute: BashExecuteFn) {
     return (tool as any)({
-        description: `Execute bash commands in the MI project directory (JAVA_HOME pre-configured).
+        description: `Execute shell commands in the MI project directory (JAVA_HOME pre-configured).
+            Always provide platform-specific commands according to <env> (Windows: PowerShell syntax, macOS/Linux: bash syntax).
             Use run_in_background=true for long-running commands; use ${KILL_SHELL_TOOL_NAME} to terminate.
-            Do NOT use bash for file reading (use file_read), content search (use grep), or file search (use glob).
+            Do NOT use shell for file reading (use file_read), content search (use grep), or file search (use glob).
             No interactive commands (vim, nano, etc.).`,
         inputSchema: bashInputSchema,
         execute
@@ -350,7 +363,7 @@ const killShellInputSchema = z.object({
  */
 export function createKillShellTool(execute: KillShellExecuteFn) {
     return (tool as any)({
-        description: `Terminate a background bash command by its shell_id. Returns any output produced before termination.`,
+        description: `Terminate a background shell command by its shell_id. Returns any output produced before termination.`,
         inputSchema: killShellInputSchema,
         execute
     });
@@ -365,7 +378,7 @@ const MAX_BLOCK_TIMEOUT = 600000; // 10 minutes
 
 /**
  * Creates the execute function for the task_output tool
- * Checks both backgroundShells (bash) and backgroundSubagents (task tool) maps
+ * Checks both backgroundShells (shell) and backgroundSubagents (task tool) maps
  */
 export function createTaskOutputExecute(): TaskOutputExecuteFn {
     return async (args: {
@@ -470,7 +483,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
  * Input schema for task_output tool
  */
 const taskOutputInputSchema = z.object({
-    task_id: z.string().describe('The ID of the background task (shell_id from bash or subagentId from task tool with run_in_background=true)'),
+    task_id: z.string().describe('The ID of the background task (shell_id from shell tool or subagentId from task tool with run_in_background=true)'),
     block: z.boolean().optional().default(true).describe(
         'Whether to wait for task completion. Default is true. Set to false to check current status immediately.'
     ),
@@ -484,9 +497,9 @@ const taskOutputInputSchema = z.object({
  */
 export function createTaskOutputTool(execute: TaskOutputExecuteFn) {
     return (tool as any)({
-        description: `Retrieve output from a background bash command or subagent by subagentId.
+        description: `Retrieve output from a background shell command or subagent by subagentId.
             Use block=true (default) to wait for completion, block=false for immediate status check.
-            Works with both shell_id from bash and subagentId from subagent background execution.`,
+            Works with both shell_id from shell tool and subagentId from subagent background execution.`,
         inputSchema: taskOutputInputSchema,
         execute
     });

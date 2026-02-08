@@ -26,7 +26,7 @@ interface FileChangesSegmentProps {
 }
 
 const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) => {
-    const { rpcClient } = useMICopilotContext();
+    const { rpcClient, setMessages } = useMICopilotContext();
     const [isUndoing, setIsUndoing] = useState(false);
     const [isUndone, setIsUndone] = useState(false);
     const [error, setError] = useState<string>("");
@@ -55,7 +55,10 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) 
         setIsUndoing(true);
         setError("");
         try {
-            let response = await rpcClient.getMiAgentPanelRpcClient().undoLastCheckpoint({ force: false });
+            let response = await rpcClient.getMiAgentPanelRpcClient().undoLastCheckpoint({
+                force: false,
+                checkpointId: summary.checkpointId,
+            } as any);
             if (response.requiresConfirmation) {
                 const conflicts = response.conflicts || [];
                 const shouldForceUndo = window.confirm(
@@ -65,12 +68,45 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) 
                     setIsUndoing(false);
                     return;
                 }
-                response = await rpcClient.getMiAgentPanelRpcClient().undoLastCheckpoint({ force: true });
+                response = await rpcClient.getMiAgentPanelRpcClient().undoLastCheckpoint({
+                    force: true,
+                    checkpointId: summary.checkpointId,
+                } as any);
             }
 
             if (!response.success) {
                 throw new Error(response.error || "Undo failed");
             }
+
+            setMessages((prevMessages) => {
+                const markSummaryUndoable = (summaryJson: string): string => {
+                    try {
+                        const parsedSummary = JSON.parse(summaryJson) as UndoCheckpointSummary;
+                        if (!parsedSummary || typeof parsedSummary !== "object") {
+                            return summaryJson;
+                        }
+
+                        const latestCheckpointId = (response as any).latestUndoCheckpoint?.checkpointId as string | undefined;
+                        const isLatest = latestCheckpointId !== undefined
+                            && parsedSummary.checkpointId === latestCheckpointId;
+
+                        return JSON.stringify({
+                            ...parsedSummary,
+                            undoable: isLatest,
+                        });
+                    } catch {
+                        return summaryJson;
+                    }
+                };
+
+                return prevMessages.map((message) => ({
+                    ...message,
+                    content: (message.content || "").replace(
+                        /<filechanges>([\s\S]*?)<\/filechanges>/g,
+                        (_fullMatch, summaryJson) => `<filechanges>${markSummaryUndoable(summaryJson)}</filechanges>`
+                    ),
+                }));
+            });
 
             setIsUndone(true);
         } catch (undoError) {

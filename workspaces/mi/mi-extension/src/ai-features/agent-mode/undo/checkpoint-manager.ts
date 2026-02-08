@@ -55,6 +55,13 @@ interface PendingUndoCheckpoint {
 
 const MISSING_FILE_HASH = '__MISSING_FILE__';
 const UNDO_CHECKPOINT_FILE_NAME = 'undo-checkpoint.json';
+const UNDO_CHECKPOINT_STORE_VERSION = 2;
+const MAX_UNDO_CHECKPOINTS = 25;
+
+interface StoredUndoCheckpointStore {
+    version: number;
+    checkpoints: StoredUndoCheckpoint[];
+}
 
 function hashContent(content?: string): string {
     if (content === undefined) {
@@ -125,6 +132,53 @@ export class AgentUndoCheckpointManager {
 
     private async ensureCheckpointDir(): Promise<void> {
         await fs.mkdir(path.dirname(this.getCheckpointFilePath()), { recursive: true });
+    }
+
+    private normalizeCheckpoint(checkpoint: StoredUndoCheckpoint): StoredUndoCheckpoint | null {
+        if (!checkpoint?.summary || !Array.isArray(checkpoint.files)) {
+            return null;
+        }
+
+        return {
+            ...checkpoint,
+            summary: {
+                ...checkpoint.summary,
+                undoable: Boolean(checkpoint.summary.undoable),
+            },
+        };
+    }
+
+    private async readCheckpointStack(): Promise<StoredUndoCheckpoint[]> {
+        try {
+            const payload = await fs.readFile(this.getCheckpointFilePath(), 'utf8');
+            const parsed = JSON.parse(payload) as StoredUndoCheckpointStore | StoredUndoCheckpoint;
+
+            if (Array.isArray((parsed as StoredUndoCheckpointStore).checkpoints)) {
+                const checkpoints = (parsed as StoredUndoCheckpointStore).checkpoints
+                    .map((checkpoint) => this.normalizeCheckpoint(checkpoint))
+                    .filter((checkpoint): checkpoint is StoredUndoCheckpoint => checkpoint !== null);
+                return checkpoints;
+            }
+
+            const legacyCheckpoint = this.normalizeCheckpoint(parsed as StoredUndoCheckpoint);
+            return legacyCheckpoint ? [legacyCheckpoint] : [];
+        } catch {
+            return [];
+        }
+    }
+
+    private async writeCheckpointStack(checkpoints: StoredUndoCheckpoint[]): Promise<void> {
+        if (checkpoints.length === 0) {
+            await this.clearLatestCheckpoint();
+            return;
+        }
+
+        await this.ensureCheckpointDir();
+        const payload: StoredUndoCheckpointStore = {
+            version: UNDO_CHECKPOINT_STORE_VERSION,
+            checkpoints,
+        };
+        await fs.writeFile(this.getCheckpointFilePath(), JSON.stringify(payload), 'utf8');
     }
 
     private createCheckpointId(): string {
@@ -245,22 +299,32 @@ export class AgentUndoCheckpointManager {
             files: fileDetails,
         };
 
-        await this.ensureCheckpointDir();
-        await fs.writeFile(this.getCheckpointFilePath(), JSON.stringify(payload), 'utf8');
+        const existingCheckpoints = await this.readCheckpointStack();
+        const normalizedExisting = existingCheckpoints.map((checkpoint) => ({
+            ...checkpoint,
+            summary: {
+                ...checkpoint.summary,
+                undoable: false,
+            },
+        }));
+
+        const nextCheckpoints = [...normalizedExisting, payload];
+        const trimmedCheckpoints = nextCheckpoints.slice(-MAX_UNDO_CHECKPOINTS);
+        if (trimmedCheckpoints.length > 0) {
+            const lastCheckpoint = trimmedCheckpoints[trimmedCheckpoints.length - 1];
+            lastCheckpoint.summary = {
+                ...lastCheckpoint.summary,
+                undoable: true,
+            };
+        }
+
+        await this.writeCheckpointStack(trimmedCheckpoints);
         return summary;
     }
 
     async getLatestCheckpoint(): Promise<StoredUndoCheckpoint | undefined> {
-        try {
-            const payload = await fs.readFile(this.getCheckpointFilePath(), 'utf8');
-            const parsed = JSON.parse(payload) as StoredUndoCheckpoint;
-            if (!parsed?.summary || !Array.isArray(parsed.files)) {
-                return undefined;
-            }
-            return parsed;
-        } catch {
-            return undefined;
-        }
+        const checkpoints = await this.readCheckpointStack();
+        return checkpoints.length > 0 ? checkpoints[checkpoints.length - 1] : undefined;
     }
 
     async getConflictedFiles(checkpoint: StoredUndoCheckpoint): Promise<string[]> {
@@ -276,7 +340,25 @@ export class AgentUndoCheckpointManager {
 
     async clearLatestCheckpoint(): Promise<void> {
         try {
-            await fs.unlink(this.getCheckpointFilePath());
+            const checkpoints = await this.readCheckpointStack();
+            if (checkpoints.length === 0) {
+                await fs.unlink(this.getCheckpointFilePath());
+                return;
+            }
+
+            checkpoints.pop();
+            if (checkpoints.length === 0) {
+                await fs.unlink(this.getCheckpointFilePath());
+                return;
+            }
+
+            const lastCheckpoint = checkpoints[checkpoints.length - 1];
+            lastCheckpoint.summary = {
+                ...lastCheckpoint.summary,
+                undoable: true,
+            };
+
+            await this.writeCheckpointStack(checkpoints);
         } catch (error) {
             const err = error as NodeJS.ErrnoException;
             if (err?.code !== 'ENOENT') {

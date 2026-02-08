@@ -182,7 +182,7 @@ export function createCompactAgentTools() {
         [EXIT_PLAN_MODE_TOOL_NAME]: createExitPlanModeTool(createBlockedExecute()),
         [TODO_WRITE_TOOL_NAME]: createTodoWriteTool(createBlockedExecute()),
 
-        // Bash Tools (3 tools) - execution blocked
+        // Shell Tools (3 tools) - execution blocked
         [BASH_TOOL_NAME]: createBashTool(createBlockedExecute()),
         [KILL_SHELL_TOOL_NAME]: createKillShellTool(createBlockedExecute()),
         [TASK_OUTPUT_TOOL_NAME]: createTaskOutputTool(createBlockedExecute()),

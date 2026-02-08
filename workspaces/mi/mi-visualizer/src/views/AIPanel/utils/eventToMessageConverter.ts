@@ -21,7 +21,7 @@ import { generateId } from "../utils";
 
 // Tool name constants
 const TODO_WRITE_TOOL_NAME = 'todo_write';
-const BASH_TOOL_NAME = 'bash';
+const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
 
 /**
  * Calculate overall status from todo items
@@ -153,7 +153,7 @@ export function convertEventsToMessages(
 
                 // Handle bash tool specially - show loading bash component with command
                 // Include toolCallId in the tag for proper matching with tool_result
-                if (event.toolName === BASH_TOOL_NAME) {
+                if (event.toolName && SHELL_TOOL_NAMES.has(event.toolName)) {
                     const bashData = {
                         command: toolInput?.command || '',
                         description: toolInput?.description || '',
@@ -197,7 +197,7 @@ export function convertEventsToMessages(
                     }
 
                     // Handle bash tool specially - replace loading bashoutput tag with completed one
-                    if (pendingToolCall.toolName === BASH_TOOL_NAME) {
+                    if (SHELL_TOOL_NAMES.has(pendingToolCall.toolName)) {
                         const bashCommand = 'bashCommand' in event ? event.bashCommand : undefined;
                         const bashDescription = 'bashDescription' in event ? event.bashDescription : undefined;
                         const bashStdout = 'bashStdout' in event ? event.bashStdout : undefined;

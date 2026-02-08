@@ -19,6 +19,7 @@
 import * as Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { formatFileTree, getExistingFiles } from '../../../utils/file-utils';
 import { getAvailableConnectors, getAvailableInboundEndpoints } from '../../tools/connector_tools';
 import { getPlanModeReminder as getPlanModeSessionReminder } from '../../tools/plan_mode_tools';
@@ -60,6 +61,14 @@ These are the available WSO2 connectors from WSO2 connector store.
 {{available_inbound_endpoints}}
 These are the available WSO2 inbound endpoints from WSO2 inbound endpoint store.
 </available_inbound_endpoints>
+
+<env>
+Working directory: {{env_working_directory}}
+Is directory a git repo: {{env_is_git_repo}}
+Platform: {{env_platform}}
+OS Version: {{env_os_version}}
+Today's date: {{env_today}}
+</env>
 
 <system_reminder>
 {{system_remainder}}
@@ -184,6 +193,8 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         : modePolicyReminder;
 
     // Prepare template context
+    const isGitRepo = fs.existsSync(path.join(params.projectPath, '.git'));
+    const today = new Date().toISOString().split('T')[0];
     const context: Record<string, any> = {
         question: params.query,
         fileList: fileList,
@@ -191,12 +202,16 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         userPreconfigured: params.payloads, // Pre-configured payloads (optional)
         available_connectors: availableConnectors.join(', '), // Available connectors list
         available_inbound_endpoints: availableInboundEndpoints.join(', '), // Available inbound endpoints list
+        env_working_directory: params.projectPath,
+        env_is_git_repo: isGitRepo ? 'true' : 'false',
+        env_platform: process.platform,
+        env_os_version: `${os.type()} ${os.release()}`,
+        env_today: today,
         system_remainder: `.
         <mode>
         ${mode.toUpperCase()}
         </mode>
-        ${modeReminder}\n
-        Project root path: ${params.projectPath}`
+        ${modeReminder}`
     };
 
     // Render the template

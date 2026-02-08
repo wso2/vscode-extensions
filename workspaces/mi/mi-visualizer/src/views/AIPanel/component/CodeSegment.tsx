@@ -24,6 +24,7 @@ import { Codicon } from "@wso2/ui-toolkit";
 import { identifyLanguage, isDarkMode } from "../utils";
 import { EntryContainer, StyledTransParentButton, StyledContrastButton } from "../styles";
 import { useMICopilotContext } from "./MICopilotContext";
+import { UndoCheckpointSummary } from "@wso2/mi-core";
 
 interface CodeSegmentProps {
     segmentText: string;
@@ -73,6 +74,20 @@ export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, 
     const language = propLanguage || identifyLanguage(segmentText);
     const name = getFileName(language, segmentText, loading);
 
+    const markExistingFileChangesAsNonUndoable = (content: string): string => {
+        return content.replace(/<filechanges>([\s\S]*?)<\/filechanges>/g, (_fullMatch, summaryText) => {
+            try {
+                const summary = JSON.parse(summaryText) as UndoCheckpointSummary;
+                if (!summary || typeof summary !== "object") {
+                    return _fullMatch;
+                }
+                return `<filechanges>${JSON.stringify({ ...summary, undoable: false })}</filechanges>`;
+            } catch {
+                return _fullMatch;
+            }
+        });
+    };
+
     const handleToggle = () => setIsOpen(!isOpen);
 
     const handleCopy = async (e: React.MouseEvent) => {
@@ -106,15 +121,22 @@ export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, 
             if (response.undoCheckpoint) {
                 const fileChangesTag = `<filechanges>${JSON.stringify(response.undoCheckpoint)}</filechanges>`;
                 setMessages((prevMessages) => {
-                    if (index < 0 || index >= prevMessages.length) {
+                    if (prevMessages.length === 0 || index < 0 || index >= prevMessages.length) {
                         return prevMessages;
                     }
-                    const updated = [...prevMessages];
-                    const content = updated[index].content || "";
-                    if (!content.includes(fileChangesTag)) {
+
+                    const updated = prevMessages.map((message) => ({
+                        ...message,
+                        content: markExistingFileChangesAsNonUndoable(message.content || ""),
+                    }));
+
+                    const contentWithLockedHistory = updated[index].content || "";
+                    if (!contentWithLockedHistory.includes(fileChangesTag)) {
                         updated[index] = {
                             ...updated[index],
-                            content: content ? `${content}\n\n${fileChangesTag}` : fileChangesTag,
+                            content: contentWithLockedHistory
+                                ? `${contentWithLockedHistory}\n\n${fileChangesTag}`
+                                : fileChangesTag,
                         };
                     }
                     return updated;
@@ -148,10 +170,17 @@ export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, 
                 <div style={{ marginLeft: "auto" }}>
                     {!loading &&
                         language === "xml" && (
-                            <StyledContrastButton appearance="icon" onClick={handleAddToWorkspace} disabled={isApplying}>
-                                <Codicon name={isApplied ? "check" : "add"} />
-                                &nbsp;&nbsp;{isApplying ? "Adding..." : isApplied ? "Added" : "Add to Project"}
-                            </StyledContrastButton>
+                            isApplying ? (
+                                <StyledContrastButton appearance="icon" onClick={handleAddToWorkspace} disabled>
+                                    <Codicon name={isApplied ? "check" : "add"} />
+                                    &nbsp;&nbsp;Adding...
+                                </StyledContrastButton>
+                            ) : (
+                                <StyledContrastButton appearance="icon" onClick={handleAddToWorkspace}>
+                                    <Codicon name={isApplied ? "check" : "add"} />
+                                    &nbsp;&nbsp;{isApplied ? "Added" : "Add to Project"}
+                                </StyledContrastButton>
+                            )
                         )}
                 </div>
                 {!loading && (

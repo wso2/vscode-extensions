@@ -506,7 +506,7 @@ export async function executeAgent(
 
                     // Skip tool result UI for todo_write (handled by inline todo list)
                     if (part.toolName !== TODO_WRITE_TOOL_NAME) {
-                        // Build event with bash-specific fields if applicable
+                        // Build event with shell-specific fields if applicable
                         const toolResultEvent: any = {
                             type: 'tool_result',
                             toolName: part.toolName,
@@ -514,7 +514,7 @@ export async function executeAgent(
                             completedAction: resultAction,
                         };
 
-                        // Add bash output fields for bash tool
+                        // Add shell output fields for shell tool
                         if (part.toolName === BASH_TOOL_NAME) {
                             toolResultEvent.bashCommand = toolInput?.command;
                             toolResultEvent.bashDescription = toolInput?.description;

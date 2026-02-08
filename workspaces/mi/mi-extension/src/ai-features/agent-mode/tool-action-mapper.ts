@@ -151,7 +151,7 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                 failed: 'failed to update tasks'
             };
 
-        // Bash Tools
+        // Shell Tools
         case BASH_TOOL_NAME:
             // Use description if provided, otherwise show command preview
             const bashDesc = toolInput?.description;
