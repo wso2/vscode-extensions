@@ -26,6 +26,9 @@ import { getPlanModeReminder as getPlanModeSessionReminder } from '../../tools/p
 import { AgentMode } from '@wso2/mi-core';
 import { getModeReminder } from './mode';
 
+const MAX_PROJECT_STRUCTURE_FILES = 50;
+const MAX_PROJECT_STRUCTURE_CHARS = 10000;
+
 // ============================================================================
 // User Prompt Template
 // ============================================================================
@@ -129,6 +132,15 @@ function formatProjectStructure(files: string[]): string {
     );
 }
 
+function capProjectStructureLength(projectStructure: string): string {
+    if (projectStructure.length <= MAX_PROJECT_STRUCTURE_CHARS) {
+        return projectStructure;
+    }
+
+    const truncated = projectStructure.slice(0, MAX_PROJECT_STRUCTURE_CHARS).trimEnd();
+    return `${truncated}\n... (project structure truncated due to size limit).`;
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -171,8 +183,12 @@ async function getCurrentlyOpenedFile(projectPath: string): Promise<string | nul
  */
 export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     // Get all files in the project (relative paths from project root)
-    const existingFiles = getExistingFiles(params.projectPath);
-    const fileList = [formatProjectStructure(existingFiles)];
+    const existingFiles = getExistingFiles(params.projectPath, MAX_PROJECT_STRUCTURE_FILES);
+    let projectStructure = formatProjectStructure(existingFiles);
+    if (existingFiles.length >= MAX_PROJECT_STRUCTURE_FILES) {
+        projectStructure += `\n... (project structure truncated to first ${MAX_PROJECT_STRUCTURE_FILES} files)`;
+    }
+    const fileList = [capProjectStructureLength(projectStructure)];
 
     // Get currently opened file content
     const currentlyOpenedFile = await getCurrentlyOpenedFile(params.projectPath);

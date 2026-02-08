@@ -52,21 +52,31 @@ const EXCLUDED_FILES = [
  * Returns relative paths from the project root
  *
  * @param projectPath - Absolute path to the project root
+ * @param maxFiles - Optional maximum number of files to collect
  * @returns Array of relative file paths (e.g., ["pom.xml", "src/main/wso2mi/artifacts/apis/CustomerAPI.xml"])
  */
-export function getExistingFiles(projectPath: string): string[] {
+export function getExistingFiles(projectPath: string, maxFiles?: number): string[] {
     const files: string[] = [];
+    let reachedLimit = false;
 
     /**
      * Recursively scans a directory and collects file paths
      * @param dir - Absolute path to the directory to scan
      * @param relativePath - Relative path from project root
      */
-    const scanDir = (dir: string, relativePath: string = ''): void => {
+    const scanDir = (dir: string, relativePath: string = '', maxFiles?: number): void => {
+        if (reachedLimit) {
+            return;
+        }
+
         try {
             const entries = fs.readdirSync(dir, { withFileTypes: true });
 
             for (const entry of entries) {
+                if (reachedLimit) {
+                    break;
+                }
+
                 const entryName = entry.name;
 
                 // Skip excluded directories and files
@@ -82,10 +92,15 @@ export function getExistingFiles(projectPath: string): string[] {
 
                 if (entry.isDirectory()) {
                     // Recursively scan subdirectories
-                    scanDir(fullPath, relPath);
+                    scanDir(fullPath, relPath, maxFiles);
                 } else if (entry.isFile()) {
                     // Add file to the list
                     files.push(relPath);
+
+                    if (maxFiles !== undefined && files.length >= maxFiles) {
+                        reachedLimit = true;
+                        break;
+                    }
                 }
             }
         } catch (error) {
@@ -95,7 +110,7 @@ export function getExistingFiles(projectPath: string): string[] {
 
     // Start scanning from project root
     if (fs.existsSync(projectPath)) {
-        scanDir(projectPath);
+        scanDir(projectPath, '', maxFiles);
     }
 
     return files.sort(); // Sort alphabetically for consistent output
