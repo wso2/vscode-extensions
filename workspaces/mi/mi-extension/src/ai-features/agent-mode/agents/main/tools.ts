@@ -295,7 +295,7 @@ export function createAgentTools(params: CreateToolsParams) {
             getModeAwareExecute(mode, ASK_USER_TOOL_NAME, createAskUserExecute(eventHandler, pendingQuestions))
         ),
         [ENTER_PLAN_MODE_TOOL_NAME]: createEnterPlanModeTool(
-            getModeAwareExecute(mode, ENTER_PLAN_MODE_TOOL_NAME, createEnterPlanModeExecute(projectPath, sessionId, eventHandler))
+            getModeAwareExecute(mode, ENTER_PLAN_MODE_TOOL_NAME, createEnterPlanModeExecute(projectPath, sessionId, eventHandler, pendingApprovals))
         ),
         [EXIT_PLAN_MODE_TOOL_NAME]: createExitPlanModeTool(
             getModeAwareExecute(mode, EXIT_PLAN_MODE_TOOL_NAME, createExitPlanModeExecute(projectPath, sessionId, eventHandler, pendingApprovals))

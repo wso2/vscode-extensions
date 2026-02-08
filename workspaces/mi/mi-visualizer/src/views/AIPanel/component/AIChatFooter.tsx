@@ -657,8 +657,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
                     case "plan_approval_requested":
                         if (planEvent.approvalId) {
+                            const approvalKind = (planEvent.approvalKind || 'exit_plan_mode') as
+                                | 'enter_plan_mode'
+                                | 'exit_plan_mode'
+                                | 'exit_plan_mode_without_plan';
                             const planContent = typeof planEvent.content === "string" ? planEvent.content.trim() : "";
-                            if (planContent) {
+                            if (approvalKind === 'exit_plan_mode' && planContent) {
                                 setMessages((prev) => {
                                     const planTag = `<plan>${planContent}</plan>`;
                                     if (prev.length > 0 && prev[prev.length - 1].role === Role.MICopilot) {
@@ -672,10 +676,26 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                     }];
                                 });
                             }
+
+                            const fallbackContent = approvalKind === 'enter_plan_mode'
+                                ? 'Agent recommends entering Plan mode. Do you want to switch now?'
+                                : approvalKind === 'exit_plan_mode_without_plan'
+                                    ? 'Agent wants to exit Plan mode without a full plan. Do you want to continue?'
+                                    : getPlanApprovalPrompt(planContent, planEvent.planFilePath);
+
+                            const dialogContent = approvalKind === 'exit_plan_mode'
+                                ? getPlanApprovalPrompt(planContent, planEvent.planFilePath)
+                                : (planContent || fallbackContent);
+
                             setPendingPlanApproval({
                                 approvalId: planEvent.approvalId,
+                                approvalKind,
+                                approvalTitle: planEvent.approvalTitle,
+                                approveLabel: planEvent.approveLabel,
+                                rejectLabel: planEvent.rejectLabel,
+                                allowFeedback: planEvent.allowFeedback,
                                 planFilePath: planEvent.planFilePath,
-                                content: getPlanApprovalPrompt(planContent, planEvent.planFilePath)
+                                content: dialogContent,
                             });
                         }
                         break;
@@ -1258,6 +1278,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const totalQuestions = pendingQuestion?.questions.length ?? 0;
     const activeQuestion = pendingQuestion?.questions[activeQuestionTab];
     const activeQuestionLabel = `Question ${activeQuestionTab + 1}`;
+    const planApprovalAllowsFeedback =
+        (pendingPlanApproval?.allowFeedback ?? (pendingPlanApproval?.approvalKind === 'exit_plan_mode')) === true;
+    const planApprovalTitle = pendingPlanApproval?.approvalTitle
+        || (pendingPlanApproval?.approvalKind === 'exit_plan_mode' ? 'Plan Approval' : 'Approval Required');
+    const planApproveLabel = pendingPlanApproval?.approveLabel || 'Approve';
+    const planRejectLabel = pendingPlanApproval?.rejectLabel || 'Reject';
 
     return (
         <Footer>
@@ -1641,7 +1667,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             letterSpacing: "0.5px"
                         }}>
                             <span className="codicon codicon-checklist" />
-                            Plan Approval
+                            {planApprovalTitle}
                         </div>
                         <button
                             onClick={() => { void handlePlanApprovalCancel(); }}
@@ -1673,21 +1699,23 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         }}>
                             {pendingPlanApproval.content || "The plan is ready for your review."}
                         </div>
-                        <div style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            fontSize: "11px",
-                            color: "var(--vscode-descriptionForeground)",
-                            backgroundColor: "var(--vscode-list-hoverBackground)",
-                            borderRadius: "999px",
-                            padding: "3px 8px"
-                        }}>
-                            <span className="codicon codicon-file-code" />
-                            Full plan details are shown above in chat.
-                        </div>
+                        {pendingPlanApproval.approvalKind === 'exit_plan_mode' && (
+                            <div style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                fontSize: "11px",
+                                color: "var(--vscode-descriptionForeground)",
+                                backgroundColor: "var(--vscode-list-hoverBackground)",
+                                borderRadius: "999px",
+                                padding: "3px 8px"
+                            }}>
+                                <span className="codicon codicon-file-code" />
+                                Full plan details are shown above in chat.
+                            </div>
+                        )}
 
-                        {showRejectionInput && (
+                        {planApprovalAllowsFeedback && showRejectionInput && (
                             <div style={{ marginTop: "12px" }}>
                                 <label style={{
                                     fontSize: "12px",
@@ -1727,7 +1755,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         borderTop: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
                         backgroundColor: "var(--vscode-editorWidget-background)"
                     }}>
-                        {!showRejectionInput ? (
+                        {planApprovalAllowsFeedback && !showRejectionInput ? (
                             <>
                                 <button
                                     onClick={() => setShowRejectionInput(true)}
@@ -1742,7 +1770,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                         fontWeight: 500
                                     }}
                                 >
-                                    Request Changes
+                                    {planRejectLabel}
                                 </button>
                                 <button
                                     onClick={() => handlePlanApproval(true)}
@@ -1761,10 +1789,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                     }}
                                 >
                                     <span className="codicon codicon-check" />
-                                    Approve Plan
+                                    {planApproveLabel}
                                 </button>
                             </>
-                        ) : (
+                        ) : planApprovalAllowsFeedback ? (
                             <>
                                 <button
                                     onClick={() => {
@@ -1802,6 +1830,43 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 >
                                     <span className="codicon codicon-send" />
                                     Submit Feedback
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => handlePlanApproval(false)}
+                                    style={{
+                                        padding: "7px 12px",
+                                        backgroundColor: "var(--vscode-button-secondaryBackground)",
+                                        color: "var(--vscode-button-secondaryForeground)",
+                                        border: "none",
+                                        borderRadius: "6px",
+                                        cursor: "pointer",
+                                        fontSize: "12px",
+                                        fontWeight: 500
+                                    }}
+                                >
+                                    {planRejectLabel}
+                                </button>
+                                <button
+                                    onClick={() => handlePlanApproval(true)}
+                                    style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "6px",
+                                        padding: "7px 12px",
+                                        backgroundColor: "var(--vscode-button-background)",
+                                        color: "var(--vscode-button-foreground)",
+                                        border: "none",
+                                        borderRadius: "6px",
+                                        cursor: "pointer",
+                                        fontSize: "12px",
+                                        fontWeight: 500
+                                    }}
+                                >
+                                    <span className="codicon codicon-check" />
+                                    {planApproveLabel}
                                 </button>
                             </>
                         )}
