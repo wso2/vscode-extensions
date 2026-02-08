@@ -23,7 +23,7 @@ import { INBOUND_DB } from '../context/inbound_db';
 import { CONNECTOR_DOCUMENTATION, AI_CONNECTOR_DOCUMENTATION } from '../context/connectors_guide';
 import { ToolResult, CONNECTOR_TOOL_NAME } from './types';
 import { logInfo, logDebug } from '../../copilot/logger';
-import { getProviderCacheControl } from '../../connection';
+import { getConnectorStoreCatalog } from './connector_store_cache';
 
 // ============================================================================
 // Utility Functions
@@ -32,11 +32,11 @@ import { getProviderCacheControl } from '../../connection';
 /**
  * Get full connector definitions by names
  */
-function getConnectorDefinitions(connectorNames: string[]): Record<string, any> {
+function getConnectorDefinitions(connectorNames: string[], connectors: any[]): Record<string, any> {
     const definitions: Record<string, any> = {};
 
     for (const name of connectorNames) {
-        const connector = CONNECTOR_DB.find(c => c.connectorName === name);
+        const connector = connectors.find(c => c.connectorName === name);
         if (connector) {
             definitions[name] = connector;
         }
@@ -48,11 +48,11 @@ function getConnectorDefinitions(connectorNames: string[]): Record<string, any> 
 /**
  * Get full inbound endpoint definitions by names
  */
-function getInboundEndpointDefinitions(inboundNames: string[]): Record<string, any> {
+function getInboundEndpointDefinitions(inboundNames: string[], inbounds: any[]): Record<string, any> {
     const definitions: Record<string, any> = {};
 
     for (const name of inboundNames) {
-        const inbound = INBOUND_DB.find(i => i.connectorName === name);
+        const inbound = inbounds.find(i => i.connectorName === name);
         if (inbound) {
             definitions[name] = inbound;
         }
@@ -61,18 +61,44 @@ function getInboundEndpointDefinitions(inboundNames: string[]): Record<string, a
     return definitions;
 }
 
+function toNames(items: any[]): string[] {
+    const names = new Set<string>();
+    for (const item of items) {
+        const name = item?.connectorName;
+        if (typeof name === 'string' && name.length > 0) {
+            names.add(name);
+        }
+    }
+    return Array.from(names);
+}
+
+export interface AvailableConnectorCatalog {
+    connectors: string[];
+    inboundEndpoints: string[];
+}
+
+export async function getAvailableConnectorCatalog(projectPath: string): Promise<AvailableConnectorCatalog> {
+    const { connectors, inbounds } = await getConnectorStoreCatalog(projectPath, CONNECTOR_DB, INBOUND_DB);
+    return {
+        connectors: toNames(connectors),
+        inboundEndpoints: toNames(inbounds),
+    };
+}
+
 /**
  * Get all available connector names
  */
-export function getAvailableConnectors(): string[] {
-    return CONNECTOR_DB.map(connector => connector.connectorName);
+export async function getAvailableConnectors(projectPath: string): Promise<string[]> {
+    const catalog = await getAvailableConnectorCatalog(projectPath);
+    return catalog.connectors;
 }
 
 /**
  * Get all available inbound endpoint names
  */
-export function getAvailableInboundEndpoints(): string[] {
-    return INBOUND_DB.map(inbound => inbound.connectorName);
+export async function getAvailableInboundEndpoints(projectPath: string): Promise<string[]> {
+    const catalog = await getAvailableConnectorCatalog(projectPath);
+    return catalog.inboundEndpoints;
 }
 
 // ============================================================================
@@ -91,7 +117,7 @@ export type ConnectorExecuteFn = (args: {
 /**
  * Creates the execute function for get_connector_definitions tool
  */
-export function createConnectorExecute(): ConnectorExecuteFn {
+export function createConnectorExecute(projectPath: string): ConnectorExecuteFn {
     return async (args: {
         connector_names?: string[];
         inbound_endpoint_names?: string[];
@@ -109,14 +135,16 @@ export function createConnectorExecute(): ConnectorExecuteFn {
             };
         }
 
+        const { connectors, inbounds } = await getConnectorStoreCatalog(projectPath, CONNECTOR_DB, INBOUND_DB);
+
         // Get connector definitions
         const connectorDefinitions = connector_names.length > 0
-            ? getConnectorDefinitions(connector_names)
+            ? getConnectorDefinitions(connector_names, connectors)
             : {};
 
         // Get inbound endpoint definitions
         const inboundDefinitions = inbound_endpoint_names.length > 0
-            ? getInboundEndpointDefinitions(inbound_endpoint_names)
+            ? getInboundEndpointDefinitions(inbound_endpoint_names, inbounds)
             : {};
 
         // Count found vs requested

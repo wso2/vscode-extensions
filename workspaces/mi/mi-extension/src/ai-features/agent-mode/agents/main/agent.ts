@@ -26,7 +26,7 @@ import * as path from 'path';
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from '../../../connection';
-import { getSystemPrompt } from './system';
+import { getSystemPrompt } from '../main/system';
 import { getUserPrompt, UserPromptParams } from './prompt';
 import { addCacheControlToMessages } from '../../../cache-utils';
 import { buildMessageContent } from '../../attachment-utils';

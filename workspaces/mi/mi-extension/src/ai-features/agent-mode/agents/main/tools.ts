@@ -279,7 +279,7 @@ export function createAgentTools(params: CreateToolsParams) {
 
         // Connector Tools (3 tools)
         [CONNECTOR_TOOL_NAME]: createConnectorTool(
-            getWrappedExecute(CONNECTOR_TOOL_NAME, createConnectorExecute())
+            getWrappedExecute(CONNECTOR_TOOL_NAME, createConnectorExecute(projectPath))
         ),
         [GET_CONNECTOR_DOCUMENTATION_TOOL_NAME]: createGetConnectorDocumentationTool(
             getWrappedExecute(GET_CONNECTOR_DOCUMENTATION_TOOL_NAME, createGetConnectorDocumentationExecute())
