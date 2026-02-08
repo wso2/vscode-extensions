@@ -53,6 +53,7 @@ const Form = styled.form`
 
 const Actions = styled.div`
     display: flex;
+    justify-content: flex-end;
     gap: 8px;
     margin-top: 8px;
 `;

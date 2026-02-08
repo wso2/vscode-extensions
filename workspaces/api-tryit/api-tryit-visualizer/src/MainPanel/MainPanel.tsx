@@ -659,7 +659,7 @@ export const MainPanel: React.FC = () => {
                         ) : (
                             <NameDisplay onClick={handleNameClick}>
                                 <Typography variant="h3" sx={{ margin: 0 }}>
-                                    {requestItem?.name || 'Untitled Request'}
+                                    {requestItem?.name}
                                 </Typography>
                             </NameDisplay>
                         )}
@@ -827,7 +827,7 @@ export const MainPanel: React.FC = () => {
                                             mode={assertMode}
                                         />
                                     ) : (
-                                        <div style={{ padding: 16, opacity: 0.6 }}>No request selected</div>
+                                        <div style={{ padding: 16, opacity: 0.6 }}>No request selected. Select a request from the sidebar to add assertions.</div>
                                     )
                                 )}
                             </div>
@@ -835,7 +835,7 @@ export const MainPanel: React.FC = () => {
                     </PanelsWrapper>
                 ) : !showCollectionForm ? (
                     <Typography variant="subtitle2" sx={{ opacity: 0.6 }}>
-                        No request selected
+                        No request selected. Select a request from the sidebar or create a new collection to get started.
                     </Typography>
                 ) : null}
                 {showCollectionForm && (
