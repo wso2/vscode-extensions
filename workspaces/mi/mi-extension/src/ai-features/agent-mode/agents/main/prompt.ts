@@ -21,7 +21,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { formatFileTree, getExistingFiles } from '../../../utils/file-utils';
-import { getAvailableConnectors, getAvailableInboundEndpoints } from '../../tools/connector_tools';
+import { getAvailableConnectorCatalog } from '../../tools/connector_tools';
 import { getPlanModeReminder as getPlanModeSessionReminder } from '../../tools/plan_mode_tools';
 import { AgentMode } from '@wso2/mi-core';
 import { getModeReminder } from './mode';
@@ -178,8 +178,8 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     const currentlyOpenedFile = await getCurrentlyOpenedFile(params.projectPath);
 
     // Get available connectors and inbound endpoints
-    const availableConnectors = getAvailableConnectors();
-    const availableInboundEndpoints = getAvailableInboundEndpoints();
+    const { connectors: availableConnectors, inboundEndpoints: availableInboundEndpoints } =
+        await getAvailableConnectorCatalog(params.projectPath);
 
     const mode = params.mode || 'edit';
     const modePolicyReminder = await getModeReminder({
