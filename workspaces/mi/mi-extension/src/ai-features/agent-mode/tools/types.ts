@@ -148,7 +148,6 @@ export interface BackgroundSubagent {
     output: string;           // accumulated text output
     completed: boolean;
     success: boolean | null;
-    outputFilePath: string;   // path to output.md file
     historyDirPath: string;   // path to subagents/<task-id>/ directory
 }
 
@@ -259,7 +258,6 @@ export type ServerManagementExecuteFn = (args: {
  */
 export interface SubagentToolResult extends ToolResult {
     subagentId?: string;
-    outputFile?: string;
 }
 
 export type SubagentToolExecuteFn = (args: {

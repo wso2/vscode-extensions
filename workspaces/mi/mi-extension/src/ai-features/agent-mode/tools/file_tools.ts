@@ -179,6 +179,13 @@ function truncateLongLines(content: string, maxLength: number = MAX_LINE_LENGTH)
  * Adds a file path to the modified files list if not already present
  */
 function trackModifiedFile(modifiedFiles: string[] | undefined, filePath: string): void {
+    const normalizedPath = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+    const isCopilotInternalPath = normalizedPath === '.mi-copilot' || normalizedPath.startsWith('.mi-copilot/');
+
+    if (isCopilotInternalPath) {
+        return;
+    }
+
     if (modifiedFiles && !modifiedFiles.includes(filePath)) {
         modifiedFiles.push(filePath);
     }

@@ -39,7 +39,6 @@ export { BASH_TOOL_NAME, KILL_SHELL_TOOL_NAME, TASK_OUTPUT_TOOL_NAME };
 
 const DEFAULT_TIMEOUT = 120000; // 2 minutes
 const MAX_TIMEOUT = 600000; // 10 minutes
-const MAX_OUTPUT_LENGTH = 30000; // Characters before truncation
 
 // ============================================================================
 // Module State - Background Shell Tracking
@@ -67,19 +66,6 @@ export function getBackgroundShells(): Map<string, BackgroundShell> {
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-/**
- * Truncates output to fit within limits
- * Keeps the end of output (where errors typically appear)
- */
-function truncateOutput(output: string, maxLength: number = MAX_OUTPUT_LENGTH): string {
-    if (output.length <= maxLength) {
-        return output;
-    }
-    const truncatedNote = '\n... [output truncated] ...\n\n';
-    const availableLength = maxLength - truncatedNote.length;
-    return truncatedNote + output.slice(-availableLength);
-}
 
 /**
  * Clean up completed background shells older than 1 hour
@@ -211,31 +197,30 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
                     clearTimeout(timeoutHandle);
 
                     const combinedOutput = stdout + (stderr ? `\n\nSTDERR:\n${stderr}` : '');
-                    const truncatedOutput = truncateOutput(combinedOutput);
 
                     if (timedOut) {
                         resolve({
                             success: false,
-                            message: `Command timed out after ${effectiveTimeout / 1000} seconds.\n\n**Output before timeout:**\n\`\`\`\n${truncatedOutput}\n\`\`\``,
-                            stdout: truncateOutput(stdout),
-                            stderr: truncateOutput(stderr),
+                            message: `Command timed out after ${effectiveTimeout / 1000} seconds.\n\n**Output before timeout:**\n\`\`\`\n${combinedOutput}\n\`\`\``,
+                            stdout: stdout,
+                            stderr: stderr,
                             exitCode: -1,
                             error: 'Command timed out'
                         });
                     } else if (code === 0) {
                         resolve({
                             success: true,
-                            message: truncatedOutput || 'Command completed successfully with no output.',
-                            stdout: truncateOutput(stdout),
-                            stderr: truncateOutput(stderr),
+                            message: combinedOutput || 'Command completed successfully with no output.',
+                            stdout: stdout,
+                            stderr: stderr,
                             exitCode: code
                         });
                     } else {
                         resolve({
                             success: false,
-                            message: `Command failed with exit code ${code}.\n\n**Output:**\n\`\`\`\n${truncatedOutput}\n\`\`\``,
-                            stdout: truncateOutput(stdout),
-                            stderr: truncateOutput(stderr),
+                            message: `Command failed with exit code ${code}.\n\n**Output:**\n\`\`\`\n${combinedOutput}\n\`\`\``,
+                            stdout: stdout,
+                            stderr: stderr,
                             exitCode: code ?? -1,
                             error: `Exit code: ${code}`
                         });
@@ -310,7 +295,7 @@ export function createKillShellExecute(): KillShellExecuteFn {
         }
 
         if (shell.completed) {
-            const output = truncateOutput(shell.output);
+            const output = shell.output;
             backgroundShells.delete(shell_id);
             return {
                 success: true,
@@ -340,7 +325,7 @@ export function createKillShellExecute(): KillShellExecuteFn {
                 } else {
                     shell.completed = true;
                     shell.exitCode = -9; // SIGKILL
-                    const output = truncateOutput(shell.output);
+                    const output = shell.output;
                     backgroundShells.delete(shell_id);
                     logInfo(`[KillShellTool] Successfully killed shell ${shell_id}`);
                     resolve({
@@ -411,7 +396,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
 
         // If not blocking, return current state immediately
         if (!block) {
-            const output = truncateOutput(task.output);
+            const output = task.output;
             return {
                 success: true,
                 message: task.completed
@@ -426,7 +411,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
 
         // If already completed, return immediately
         if (task.completed) {
-            const output = truncateOutput(task.output);
+            const output = task.output;
             return {
                 success: task.exitCode === 0,
                 message: `Task ${task_id} completed.\n\n**Output:**\n\`\`\`\n${output}\n\`\`\``,
@@ -455,7 +440,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
 
                 if (currentCompleted) {
                     clearInterval(checkInterval);
-                    const output = truncateOutput(currentOutput);
+                    const output = currentOutput;
                     resolve({
                         success: currentExitCode === 0,
                         message: `Task ${task_id} completed.\n\n**Output:**\n\`\`\`\n${output}\n\`\`\``,
@@ -466,7 +451,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
                     });
                 } else if (elapsed >= effectiveTimeout) {
                     clearInterval(checkInterval);
-                    const output = truncateOutput(currentOutput);
+                    const output = currentOutput;
                     resolve({
                         success: true,
                         message: `Task ${task_id} is still running after ${effectiveTimeout / 1000}s wait.\n\n**Output so far:**\n\`\`\`\n${output}\n\`\`\`\n\nUse task_output again to check later, or kill_shell to terminate.`,

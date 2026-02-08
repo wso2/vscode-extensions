@@ -46,6 +46,11 @@ import { logInfo, logError, logDebug } from '../../copilot/logger';
 import { MiDataMapperRpcManager } from '../../../rpc-managers/mi-data-mapper/rpc-manager';
 import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
 
+function isCopilotInternalPath(relativePath: string): boolean {
+    const normalized = relativePath.replace(/\\/g, '/').replace(/^\.\//, '');
+    return normalized === '.mi-copilot' || normalized.startsWith('.mi-copilot/');
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -185,7 +190,9 @@ export function createCreateDataMapperExecute(
 
             // 7. Track modified files
             if (modifiedFiles) {
-                modifiedFiles.push(relativeTsPath);
+                if (!isCopilotInternalPath(relativeTsPath)) {
+                    modifiedFiles.push(relativeTsPath);
+                }
             }
 
             // 8. Auto-map if requested
@@ -317,7 +324,9 @@ export function createGenerateDataMappingExecute(
             if (result.success) {
                 const relativePath = path.relative(projectPath, tsFilePath);
                 if (modifiedFiles) {
-                    modifiedFiles.push(relativePath);
+                    if (!isCopilotInternalPath(relativePath)) {
+                        modifiedFiles.push(relativePath);
+                    }
                 }
                 return {
                     success: true,
