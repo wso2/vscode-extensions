@@ -42,6 +42,11 @@ export interface SessionMetadata {
     lastModifiedAt: string;
     /** Total messages in session */
     messageCount: number;
+    /**
+     * Session storage version written by this release.
+     * Used to skip loading unsupported sessions after breaking storage changes.
+     */
+    sessionVersion?: number;
 }
 
 export const TOOL_USE_INTERRUPTION_CONTEXT = `The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.`;
@@ -67,6 +72,12 @@ export interface GroupedSessions {
     pastWeek: SessionSummary[];
     older: SessionSummary[];
 }
+
+/**
+ * Session storage version for compatibility checks.
+ * Increase this only when introducing breaking changes to persisted session data.
+ */
+export const SESSION_STORAGE_VERSION = 1;
 
 /**
  * JSONL entry format (Claude Code style).
@@ -131,6 +142,32 @@ export class ChatHistoryManager {
     }
 
     /**
+     * Returns true when the session metadata is compatible with the current history schema.
+     * Sessions without a metadata version are treated as legacy-compatible.
+     */
+    static isCompatibleSessionVersion(version: unknown): boolean {
+        if (version === undefined) {
+            return true;
+        }
+        return version === SESSION_STORAGE_VERSION;
+    }
+
+    /**
+     * Check whether a session can be safely loaded with the current history schema.
+     */
+    static async isSessionCompatible(projectPath: string, sessionId: string): Promise<boolean> {
+        const metadataPath = path.join(projectPath, '.mi-copilot', sessionId, 'metadata.json');
+        try {
+            const content = await fs.readFile(metadataPath, 'utf8');
+            const metadata = JSON.parse(content) as SessionMetadata;
+            return ChatHistoryManager.isCompatibleSessionVersion(metadata.sessionVersion);
+        } catch {
+            // Missing/invalid metadata is treated as legacy-compatible; per-entry guards still apply.
+            return true;
+        }
+    }
+
+    /**
      * Initialize the chat history manager
      * Creates necessary directories, opens write stream, and manages metadata
      */
@@ -155,6 +192,15 @@ export class ChatHistoryManager {
             } catch {
                 // File doesn't exist, start fresh
                 logInfo('[ChatHistory] Starting new session');
+            }
+
+            if (!isNewSession) {
+                const isCompatible = await ChatHistoryManager.isSessionCompatible(this.projectPath, this.sessionId);
+                if (!isCompatible) {
+                    throw new Error(
+                        `Session ${this.sessionId} has incompatible session version (expected ${SESSION_STORAGE_VERSION})`
+                    );
+                }
             }
 
             // Open write stream for appending
@@ -264,7 +310,8 @@ export class ChatHistoryManager {
             title: 'New Chat',
             createdAt: now,
             lastModifiedAt: now,
-            messageCount: 0
+            messageCount: 0,
+            sessionVersion: SESSION_STORAGE_VERSION,
         };
 
         await this.saveMetadata(metadata);
@@ -289,7 +336,14 @@ export class ChatHistoryManager {
     async loadMetadata(): Promise<SessionMetadata | null> {
         try {
             const content = await fs.readFile(this.metadataFile, 'utf8');
-            return JSON.parse(content) as SessionMetadata;
+            const metadata = JSON.parse(content) as SessionMetadata;
+            if (metadata.sessionVersion === undefined) {
+                return {
+                    ...metadata,
+                    sessionVersion: SESSION_STORAGE_VERSION,
+                };
+            }
+            return metadata;
         } catch {
             // Metadata file doesn't exist or is invalid
             return null;
@@ -784,12 +838,21 @@ export class ChatHistoryManager {
                 sessionDirs.map(async sessionId => {
                     const dirPath = path.join(copilotDir, sessionId);
                     const stats = await fs.stat(dirPath);
-                    return { sessionId, mtime: stats.mtime.getTime() };
+                    const isCompatible = await ChatHistoryManager.isSessionCompatible(projectPath, sessionId);
+                    return { sessionId, mtime: stats.mtime.getTime(), isCompatible };
                 })
             );
 
-            sorted.sort((a, b) => b.mtime - a.mtime);
-            return sorted.map(s => s.sessionId);
+            const compatibleSessions = sorted.filter((entry) => entry.isCompatible);
+            const skippedSessions = sorted.length - compatibleSessions.length;
+            if (skippedSessions > 0) {
+                logInfo(
+                    `[ChatHistory] Skipped ${skippedSessions} incompatible session(s) while listing sessions (expected session version ${SESSION_STORAGE_VERSION})`
+                );
+            }
+
+            compatibleSessions.sort((a, b) => b.mtime - a.mtime);
+            return compatibleSessions.map(s => s.sessionId);
         } catch (error) {
             logError('[ChatHistory] Failed to list sessions', error);
             return [];
@@ -824,6 +887,12 @@ export class ChatHistoryManager {
             // Try to load existing metadata
             const metadataContent = await fs.readFile(metadataPath, 'utf8');
             const metadata: SessionMetadata = JSON.parse(metadataContent);
+            if (!ChatHistoryManager.isCompatibleSessionVersion(metadata.sessionVersion)) {
+                logInfo(
+                    `[ChatHistory] Skipping incompatible session summary for ${sessionId} (expected session version ${SESSION_STORAGE_VERSION})`
+                );
+                return null;
+            }
             return {
                 sessionId: metadata.sessionId,
                 title: metadata.title,

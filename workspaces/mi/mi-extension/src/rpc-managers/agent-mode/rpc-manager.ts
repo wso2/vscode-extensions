@@ -899,6 +899,16 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             const { sessionId } = request;
             logInfo(`[AgentPanel] Switching to session: ${sessionId}`);
 
+            const isCompatible = await ChatHistoryManager.isSessionCompatible(this.projectUri, sessionId);
+            if (!isCompatible) {
+                return {
+                    success: false,
+                    sessionId,
+                    events: [],
+                    error: 'This session uses an incompatible session version and cannot be loaded. Create a new session instead.',
+                };
+            }
+
             // Don't switch if already on this session
             if (this.currentSessionId === sessionId) {
                 logDebug('[AgentPanel] Already on requested session');

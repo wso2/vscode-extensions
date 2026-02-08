@@ -297,6 +297,11 @@ export interface SessionMetadata {
     lastModifiedAt: string;
     /** Total messages in session */
     messageCount: number;
+    /**
+     * Session storage version written by this release.
+     * Used to skip loading unsupported sessions after breaking storage changes.
+     */
+    sessionVersion?: number;
 }
 
 /**
