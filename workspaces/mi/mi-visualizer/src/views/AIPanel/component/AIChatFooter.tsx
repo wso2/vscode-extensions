@@ -28,7 +28,7 @@ import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem,
 import Attachments from "./Attachments";
 
 // Tool name constant
-const BASH_TOOL_NAME = 'bash';
+const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
 const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
 const THINKING_PREFERENCE_KEY = 'mi-agent-thinking-enabled';
 
@@ -113,17 +113,33 @@ function getPlanApprovalPrompt(planContent?: string, planFilePath?: string): str
     return "Review the plan above and choose Approve Plan or Request Changes.";
 }
 
+function markFileChangesTagsAsNonUndoable(content: string): string {
+    return content.replace(/<filechanges>([\s\S]*?)<\/filechanges>/g, (fullMatch, summaryText) => {
+        try {
+            const summary = JSON.parse(summaryText) as UndoCheckpointSummary;
+            if (!summary || typeof summary !== "object") {
+                return fullMatch;
+            }
+            return `<filechanges>${JSON.stringify({ ...summary, undoable: false })}</filechanges>`;
+        } catch {
+            return fullMatch;
+        }
+    });
+}
+
 function appendFileChangesTag(content: string, checkpoint?: UndoCheckpointSummary): string {
     if (!checkpoint) {
         return content;
     }
 
+    const normalizedContent = markFileChangesTagsAsNonUndoable(content);
+
     const fileChangesTag = `<filechanges>${JSON.stringify(checkpoint)}</filechanges>`;
-    if (content.includes(fileChangesTag)) {
-        return content;
+    if (normalizedContent.includes(fileChangesTag)) {
+        return normalizedContent;
     }
 
-    return content ? `${content}\n\n${fileChangesTag}` : fileChangesTag;
+    return normalizedContent ? `${normalizedContent}\n\n${fileChangesTag}` : fileChangesTag;
 }
 
 interface AIChatFooterProps {
@@ -379,7 +395,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     const filePath = toolInfo?.file_path || toolInfo?.file_paths?.[0] || "";
 
                     // Handle bash tool specially - show loading bash component
-                    if (event.toolName === BASH_TOOL_NAME) {
+                    if (event.toolName && SHELL_TOOL_NAMES.has(event.toolName)) {
                         const bashData = {
                             command: toolInfo?.command || '',
                             description: toolInfo?.description || '',
@@ -1055,7 +1071,16 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             }
 
             if (response.undoCheckpoint) {
-                setMessages((prev) => updateLastMessage(prev, (c) => appendFileChangesTag(c, response.undoCheckpoint)));
+                setMessages((prev) => {
+                    if (prev.length === 0) {
+                        return prev;
+                    }
+                    const normalized = prev.map((message) => ({
+                        ...message,
+                        content: markFileChangesTagsAsNonUndoable(message.content || ""),
+                    }));
+                    return updateLastMessage(normalized, (c) => appendFileChangesTag(c, response.undoCheckpoint));
+                });
             }
 
             // Remove the user uploaded files and images after sending them to the backend

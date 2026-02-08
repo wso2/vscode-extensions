@@ -73,6 +73,7 @@ export interface SendAgentMessageResponse {
 
 export interface UndoLastCheckpointRequest {
     force?: boolean;
+    checkpointId?: string;
 }
 
 export interface UndoLastCheckpointResponse {
@@ -81,6 +82,7 @@ export interface UndoLastCheckpointResponse {
     conflicts?: string[];
     restoredFiles?: string[];
     undoCheckpoint?: UndoCheckpointSummary;
+    latestUndoCheckpoint?: UndoCheckpointSummary;
     error?: string;
 }
 
@@ -191,16 +193,16 @@ export interface AgentEvent {
     /** Total input tokens (input + cached) for context usage tracking */
     totalInputTokens?: number;
 
-    // Bash tool fields (for tool_result display)
-    /** Bash command that was executed */
+    // Shell tool fields (for tool_result display)
+    /** Shell command that was executed */
     bashCommand?: string;
-    /** Bash command description */
+    /** Shell command description */
     bashDescription?: string;
-    /** Bash stdout output */
+    /** Shell stdout output */
     bashStdout?: string;
-    /** Bash stderr output */
+    /** Shell stderr output */
     bashStderr?: string;
-    /** Bash exit code */
+    /** Shell exit code */
     bashExitCode?: number;
     /** Whether command is still running in background */
     bashRunning?: boolean;
@@ -225,14 +227,14 @@ export interface ChatHistoryEvent {
     undoCheckpoint?: UndoCheckpointSummary;
     timestamp: string;
 
-    // Bash tool fields (for history display)
-    /** Bash command that was executed */
+    // Shell tool fields (for history display)
+    /** Shell command that was executed */
     bashCommand?: string;
-    /** Bash command description */
+    /** Shell command description */
     bashDescription?: string;
-    /** Bash stdout output */
+    /** Shell stdout output */
     bashStdout?: string;
-    /** Bash exit code */
+    /** Shell exit code */
     bashExitCode?: number;
 }
 

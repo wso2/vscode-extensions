@@ -116,8 +116,8 @@ export const ENTER_PLAN_MODE_TOOL_NAME = 'enter_plan_mode';
 export const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
 export const TODO_WRITE_TOOL_NAME = 'todo_write';
 
-// Bash Tool Names
-export const BASH_TOOL_NAME = 'bash';
+// Shell Tool Names
+export const BASH_TOOL_NAME = 'shell';
 export const KILL_SHELL_TOOL_NAME = 'kill_shell';
 export const TASK_OUTPUT_TOOL_NAME = 'task_output';
 
@@ -299,7 +299,7 @@ export type TodoWriteExecuteFn = (args: {
 }) => Promise<ToolResult>;
 
 // ============================================================================
-// Bash Tool Execute Function Types
+// Shell Tool Execute Function Types
 // ============================================================================
 
 export interface BashResult extends ToolResult {

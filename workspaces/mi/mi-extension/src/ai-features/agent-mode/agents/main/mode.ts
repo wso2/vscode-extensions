@@ -46,7 +46,7 @@ User selected ASK mode.
   - ${GET_CONNECTOR_DOCUMENTATION_TOOL_NAME}
   - ${GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME}
   - ${VALIDATE_CODE_TOOL_NAME}
-- Do NOT attempt mutation/tooling actions (write/edit/build/run/bash/connector changes/subagents/plan-mode/todo updates).
+- Do NOT attempt mutation/tooling actions (write/edit/build/run/shell/connector changes/subagents/plan-mode/todo updates).
 - If you need to provide codes/synapse configurations provide the fully updated code in a code block. Not just the edits. System provides an option called "Add to project" in ASK mode which replaces entire files with the code you provide.
 - If user asks for complex changes, explain they are in ASK mode and ask them to switch to EDIT mode.`;
 
@@ -70,7 +70,7 @@ export interface ModeReminderParams {
 export const PLAN_MODE_SHARED_GUIDELINES = `
 - PLAN mode is for implementation planning, not implementation.
 - Allowed actions: read-only investigation, subagent-based exploration, todo tracking, and asking clarification questions.
-- Do NOT mutate project artifacts (no connector changes, no build/run/bash, no implementation file edits).
+- Do NOT mutate project artifacts (no connector changes, no build/run/shell, no implementation file edits).
 - Exception: You may create/edit ONLY the assigned plan file while in PLAN mode.
 - If requirements are unclear, use ${ASK_USER_TOOL_NAME} to clarify before finalizing the plan.
 - Do NOT use ${ASK_USER_TOOL_NAME} to ask "should I proceed?" or "is this plan okay?".

@@ -331,7 +331,7 @@ export function createAgentTools(params: CreateToolsParams) {
             getWrappedExecute(TODO_WRITE_TOOL_NAME, createTodoWriteExecute(eventHandler))
         ),
 
-        // Bash Tools (3 tools)
+        // Shell Tools (3 tools)
         [BASH_TOOL_NAME]: createBashTool(
             getWrappedExecute(BASH_TOOL_NAME, createBashExecute(projectPath))
         ),

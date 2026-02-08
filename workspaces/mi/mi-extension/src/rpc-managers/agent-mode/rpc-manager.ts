@@ -319,6 +319,28 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         return this.undoCheckpointManager;
     }
 
+    private applyLatestUndoAvailabilityToEvents(
+        events: ChatHistoryEvent[],
+        latestCheckpointId?: string
+    ): ChatHistoryEvent[] {
+        return events.map((event) => {
+            if (event.type !== 'undo_checkpoint' || !event.undoCheckpoint) {
+                return event;
+            }
+
+            const isLatest = latestCheckpointId !== undefined &&
+                event.undoCheckpoint.checkpointId === latestCheckpointId;
+
+            return {
+                ...event,
+                undoCheckpoint: {
+                    ...event.undoCheckpoint,
+                    undoable: isLatest,
+                },
+            };
+        });
+    }
+
     private resolveLegacyCodeSegmentPath(segmentText: string): string | null {
         const cleaned = segmentText
             .replace(/```xml/g, '')
@@ -608,6 +630,15 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 };
             }
 
+            const requestedCheckpointId = (request as UndoLastCheckpointRequest & { checkpointId?: string }).checkpointId;
+            if (requestedCheckpointId && requestedCheckpointId !== checkpoint.summary.checkpointId) {
+                return {
+                    success: false,
+                    undoCheckpoint: checkpoint.summary,
+                    error: 'A newer checkpoint exists. Undo the latest checkpoint first.',
+                };
+            }
+
             const conflicts = await undoCheckpointManager.getConflictedFiles(checkpoint);
             if (conflicts.length > 0 && !request.force) {
                 return {
@@ -621,6 +652,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             const restoredFiles = await this.applyUndoCheckpointRestore(checkpoint);
             await undoCheckpointManager.clearLatestCheckpoint();
+            const latestCheckpoint = await undoCheckpointManager.getLatestCheckpoint();
             const historyManager = await this.getChatHistoryManager();
             await historyManager.saveUndoReminderMessage(checkpoint.summary, restoredFiles);
 
@@ -631,7 +663,13 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                     ...checkpoint.summary,
                     undoable: false,
                 },
-            };
+                latestUndoCheckpoint: latestCheckpoint?.summary
+                    ? {
+                        ...latestCheckpoint.summary,
+                        undoable: true,
+                    }
+                    : undefined,
+            } as UndoLastCheckpointResponse;
         } catch (error) {
             logError('[AgentPanel] Failed to undo checkpoint', error);
             return {
@@ -788,17 +826,23 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             // Convert to UI events on-the-fly
             const events = ChatHistoryManager.convertToEventFormat(messages);
+            const undoCheckpointManager = await this.getUndoCheckpointManager();
+            const latestCheckpoint = await undoCheckpointManager.getLatestCheckpoint();
+            const normalizedEvents = this.applyLatestUndoAvailabilityToEvents(
+                events,
+                latestCheckpoint?.summary?.checkpointId
+            );
 
             // Get last known token usage for context indicator
             const lastTotalInputTokens = await historyManager.getLastUsage();
             this.currentMode = await historyManager.getLatestMode(DEFAULT_AGENT_MODE);
 
-            logInfo(`[AgentPanel] Loaded ${messages.length} messages, generated ${events.length} events`);
+            logInfo(`[AgentPanel] Loaded ${messages.length} messages, generated ${normalizedEvents.length} events`);
 
             return {
                 success: true,
                 sessionId: this.currentSessionId,
-                events,
+                events: normalizedEvents,
                 mode: this.currentMode,
                 lastTotalInputTokens,
             };
@@ -864,13 +908,19 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                     includeUndoCheckpointEntry: true,
                 });
                 const events = ChatHistoryManager.convertToEventFormat(messages);
+                const undoCheckpointManager = await this.getUndoCheckpointManager();
+                const latestCheckpoint = await undoCheckpointManager.getLatestCheckpoint();
+                const normalizedEvents = this.applyLatestUndoAvailabilityToEvents(
+                    events,
+                    latestCheckpoint?.summary?.checkpointId
+                );
                 const lastTotalInputTokens = await historyManager.getLastUsage();
                 const mode = await historyManager.getLatestMode(DEFAULT_AGENT_MODE);
                 this.currentMode = mode;
                 return {
                     success: true,
                     sessionId,
-                    events,
+                    events: normalizedEvents,
                     mode,
                     lastTotalInputTokens,
                 };
@@ -891,16 +941,22 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 includeUndoCheckpointEntry: true,
             });
             const events = ChatHistoryManager.convertToEventFormat(messages);
+            const undoCheckpointManager = await this.getUndoCheckpointManager();
+            const latestCheckpoint = await undoCheckpointManager.getLatestCheckpoint();
+            const normalizedEvents = this.applyLatestUndoAvailabilityToEvents(
+                events,
+                latestCheckpoint?.summary?.checkpointId
+            );
 
             // Get last known token usage for context indicator
             const lastTotalInputTokens = await this.chatHistoryManager.getLastUsage();
 
-            logInfo(`[AgentPanel] Switched to session: ${sessionId}, loaded ${events.length} events`);
+            logInfo(`[AgentPanel] Switched to session: ${sessionId}, loaded ${normalizedEvents.length} events`);
 
             return {
                 success: true,
                 sessionId,
-                events,
+                events: normalizedEvents,
                 mode: this.currentMode,
                 lastTotalInputTokens,
             };

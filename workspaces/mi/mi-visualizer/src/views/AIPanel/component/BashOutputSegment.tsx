@@ -187,7 +187,7 @@ const BashOutputSegment: React.FC<BashOutputSegmentProps> = ({ data }) => {
                 ) : (
                     <StatusDot />
                 )}
-                <HeaderTitle>Bash</HeaderTitle>
+                <HeaderTitle>Shell</HeaderTitle>
                 {description && <HeaderDescription>{description}</HeaderDescription>}
                 {!loading && (
                     <ExpandIcon>

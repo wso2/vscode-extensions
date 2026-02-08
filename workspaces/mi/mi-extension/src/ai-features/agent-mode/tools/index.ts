@@ -110,7 +110,7 @@ export {
     type AgentEventHandler,
 } from './plan_mode_tools';
 
-// Export bash tools
+// Export shell tools
 export {
     // Execute function creators
     createBashExecute,
@@ -144,7 +144,7 @@ export {
     ENTER_PLAN_MODE_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
-    // Bash tool names
+    // Shell tool names
     BASH_TOOL_NAME,
     KILL_SHELL_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
