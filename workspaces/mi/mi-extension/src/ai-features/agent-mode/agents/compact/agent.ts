@@ -40,7 +40,6 @@ import {
     COMPACT_SYSTEM_REMINDER_AUTO_TRIGGERED,
 } from './prompt';
 import { createCompactAgentTools } from './tools';
-import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 
 // ============================================================================
 // Dev Feature Flags

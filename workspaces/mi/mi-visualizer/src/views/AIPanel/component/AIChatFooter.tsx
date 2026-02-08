@@ -24,7 +24,7 @@ import { handleFileAttach, convertChatHistoryToModelMessages } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
 import { generateId, updateTokenInfo } from "../utils";
 import { BackendRequestType } from "../types";
-import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem, Question } from "@wso2/mi-core";
+import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem, Question, UndoCheckpointSummary } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 
 // Tool name constant
@@ -111,6 +111,19 @@ function getPlanApprovalPrompt(planContent?: string, planFilePath?: string): str
     }
 
     return "Review the plan above and choose Approve Plan or Request Changes.";
+}
+
+function appendFileChangesTag(content: string, checkpoint?: UndoCheckpointSummary): string {
+    if (!checkpoint) {
+        return content;
+    }
+
+    const fileChangesTag = `<filechanges>${JSON.stringify(checkpoint)}</filechanges>`;
+    if (content.includes(fileChangesTag)) {
+        return content;
+    }
+
+    return content ? `${content}\n\n${fileChangesTag}` : fileChangesTag;
 }
 
 interface AIChatFooterProps {
@@ -1018,6 +1031,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
             if (!response.success) {
                 throw new Error(response.error || "Failed to send agent request");
+            }
+
+            if (response.undoCheckpoint) {
+                setMessages((prev) => updateLastMessage(prev, (c) => appendFileChangesTag(c, response.undoCheckpoint)));
             }
 
             // Remove the user uploaded files and images after sending them to the backend

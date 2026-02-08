@@ -28,10 +28,15 @@ import {
     ChatHistoryEvent,
     CompactConversationRequest,
     CompactConversationResponse,
+    UndoLastCheckpointRequest,
+    UndoLastCheckpointResponse,
+    ApplyCodeSegmentWithCheckpointRequest,
+    ApplyCodeSegmentWithCheckpointResponse,
 } from '@wso2/mi-core';
 import type { Dirent } from 'fs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import { AgentEventHandler } from './event-handler';
 import { executeAgent, createAgentAbortController, AgentEvent } from '../../ai-features/agent-mode';
 import { executeCompactAgent } from '../../ai-features/agent-mode/agents/compact/agent';
@@ -44,6 +49,8 @@ import {
 import { PendingQuestion, PendingPlanApproval, initializePlanModeSession } from '../../ai-features/agent-mode/tools/plan_mode_tools';
 import { validateAttachments } from '../../ai-features/agent-mode/attachment-utils';
 import { VALID_FILE_EXTENSIONS, VALID_SPECIAL_FILE_NAMES } from '../../ai-features/agent-mode/tools/types';
+import { AgentUndoCheckpointManager, StoredUndoCheckpoint } from '../../ai-features/agent-mode/undo/checkpoint-manager';
+import { MiDiagramRpcManager } from '../mi-diagram/rpc-manager';
 
 const AUTO_COMPACT_TOKEN_THRESHOLD = 180000;
 const AUTO_COMPACT_TOOL_NAME = 'compact_conversation';
@@ -145,6 +152,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private mentionablePathCache: MentionablePathItem[] = [];
     private mentionableRootPathSet: Set<string> = new Set();
     private mentionablePathCacheBuiltAt = 0;
+    private undoCheckpointManager: AgentUndoCheckpointManager | null = null;
+    private undoCheckpointManagerSessionId: string | null = null;
 
     constructor(private projectUri: string) {
         this.eventHandler = new AgentEventHandler(projectUri);
@@ -291,7 +300,138 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.chatHistoryManager = null;
             this.currentSessionId = null;
             this.currentMode = DEFAULT_AGENT_MODE;
+            this.undoCheckpointManager = null;
+            this.undoCheckpointManagerSessionId = null;
         }
+    }
+
+    private async getUndoCheckpointManager(): Promise<AgentUndoCheckpointManager> {
+        const historyManager = await this.getChatHistoryManager();
+        const sessionId = historyManager.getSessionId();
+
+        if (!this.undoCheckpointManager || this.undoCheckpointManagerSessionId !== sessionId) {
+            this.undoCheckpointManager = new AgentUndoCheckpointManager(this.projectUri, sessionId);
+            this.undoCheckpointManagerSessionId = sessionId;
+        }
+
+        return this.undoCheckpointManager;
+    }
+
+    private resolveLegacyCodeSegmentPath(segmentText: string): string | null {
+        const cleaned = segmentText
+            .replace(/```xml/g, '')
+            .replace(/```/g, '')
+            .trimStart();
+
+        const nameMatch = cleaned.match(/(name|key)="([^"]+)"/);
+        if (!nameMatch?.[2]) {
+            return null;
+        }
+        const artifactName = nameMatch[2];
+
+        const tagMatch = cleaned.match(/<(\w+)/);
+        if (!tagMatch?.[1]) {
+            return null;
+        }
+
+        let fileType = '';
+        switch (tagMatch[1]) {
+            case 'api':
+                fileType = 'apis';
+                break;
+            case 'endpoint':
+                fileType = 'endpoints';
+                break;
+            case 'sequence':
+                fileType = 'sequences';
+                break;
+            case 'proxy':
+                fileType = 'proxy-services';
+                break;
+            case 'inboundEndpoint':
+                fileType = 'inbound-endpoints';
+                break;
+            case 'messageStore':
+                fileType = 'message-stores';
+                break;
+            case 'messageProcessor':
+                fileType = 'message-processors';
+                break;
+            case 'task':
+                fileType = 'tasks';
+                break;
+            case 'localEntry':
+                fileType = 'local-entries';
+                break;
+            case 'template':
+                fileType = 'templates';
+                break;
+            case 'registry':
+                fileType = 'registry';
+                break;
+            case 'unit':
+                fileType = 'unit-test';
+                break;
+            default:
+                fileType = '';
+        }
+
+        if (!fileType) {
+            return null;
+        }
+
+        if (fileType === 'apis') {
+            const versionMatch = cleaned.match(/<api [^>]*version="([^"]+)"/);
+            if (versionMatch?.[1]) {
+                return path.join('src', 'main', 'wso2mi', 'artifacts', fileType, `${artifactName}_v${versionMatch[1]}.xml`);
+            }
+            return path.join('src', 'main', 'wso2mi', 'artifacts', fileType, `${artifactName}.xml`);
+        }
+
+        if (fileType === 'unit-test') {
+            return path.join('src', 'main', 'test', `${artifactName}.xml`);
+        }
+
+        return path.join('src', 'main', 'wso2mi', 'artifacts', fileType, `${artifactName}.xml`);
+    }
+
+    private async applyUndoCheckpointRestore(checkpoint: StoredUndoCheckpoint): Promise<string[]> {
+        const restoredFiles: string[] = [];
+        const workspaceEdit = new vscode.WorkspaceEdit();
+
+        for (const file of checkpoint.files) {
+            const fullPath = path.resolve(this.projectUri, file.path);
+            const relative = path.relative(this.projectUri, fullPath).replace(/\\/g, '/');
+            if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+                logError(`[AgentPanel] Skipping unsafe undo path: ${file.path}`);
+                continue;
+            }
+
+            const fileUri = vscode.Uri.file(fullPath);
+            restoredFiles.push(file.path);
+            if (file.before.exists) {
+                workspaceEdit.createFile(fileUri, { ignoreIfExists: true, overwrite: true });
+                workspaceEdit.replace(
+                    fileUri,
+                    new vscode.Range(
+                        new vscode.Position(0, 0),
+                        new vscode.Position(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)
+                    ),
+                    file.before.content || ''
+                );
+            } else {
+                workspaceEdit.deleteFile(fileUri, { ignoreIfNotExists: true });
+            }
+        }
+
+        const success = await vscode.workspace.applyEdit(workspaceEdit);
+        if (!success) {
+            throw new Error('Failed to apply undo workspace edit');
+        }
+
+        await vscode.workspace.saveAll();
+        await vscode.commands.executeCommand('MI.project-explorer.refresh');
+        return restoredFiles;
     }
 
     /**
@@ -314,6 +454,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             // Get or create chat history manager
             const historyManager = await this.getChatHistoryManager();
+            const undoCheckpointManager = await this.getUndoCheckpointManager();
             const effectiveMode = request.mode || this.currentMode || DEFAULT_AGENT_MODE;
             if (effectiveMode !== this.currentMode) {
                 if (effectiveMode === 'plan' && this.currentSessionId) {
@@ -331,6 +472,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 logInfo(`[AgentPanel] Auto compact triggered at ${lastUsage} tokens (threshold: ${AUTO_COMPACT_TOKEN_THRESHOLD})`);
                 await this.runAutoCompact(historyManager, 'threshold');
             }
+
+            await undoCheckpointManager.beginRun('agent');
 
             // Use these flags to recover from context-limit failures once per request.
             let suppressedContextErrorFromStream = false;
@@ -362,7 +505,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                             abortSignal: abortController.signal,
                             chatHistoryManager: historyManager,
                             pendingQuestions: this.pendingQuestions,
-                            pendingApprovals: this.pendingApprovals
+                            pendingApprovals: this.pendingApprovals,
+                            undoCheckpointManager,
                         },
                         (event: AgentEvent) => {
                             if (event.type === 'plan_mode_entered') {
@@ -397,6 +541,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
                 const compacted = await this.runAutoCompact(historyManager, 'context_error');
                 if (compacted) {
+                    await undoCheckpointManager.discardPendingRun();
+                    await undoCheckpointManager.beginRun('agent');
                     suppressedContextErrorFromStream = false;
                     result = await runAgentOnce();
                 }
@@ -411,14 +557,20 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             }
 
             if (result.success) {
+                const undoCheckpoint = await undoCheckpointManager.commitRun();
+                if (undoCheckpoint) {
+                    await historyManager.saveUndoCheckpoint(undoCheckpoint);
+                }
                 logInfo(`[AgentPanel] Agent completed successfully. Modified ${result.modifiedFiles.length} files.`);
                 return {
                     success: true,
                     message: 'Agent completed successfully',
                     modifiedFiles: result.modifiedFiles,
+                    undoCheckpoint,
                     modelMessages: result.modelMessages
                 };
             } else {
+                await undoCheckpointManager.discardPendingRun();
                 logError(`[AgentPanel] Agent failed: ${result.error}`);
                 return {
                     success: false,
@@ -429,9 +581,114 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         } catch (error) {
             logError('[AgentPanel] Error executing agent', error);
             this.currentAbortController = null;
+            if (this.undoCheckpointManager) {
+                try {
+                    await this.undoCheckpointManager.discardPendingRun();
+                } catch (discardError) {
+                    logError('[AgentPanel] Failed to discard pending undo checkpoint run', discardError);
+                }
+            }
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error'
+            };
+        }
+    }
+
+    async undoLastCheckpoint(request: UndoLastCheckpointRequest): Promise<UndoLastCheckpointResponse> {
+        try {
+            const undoCheckpointManager = await this.getUndoCheckpointManager();
+            const checkpoint = await undoCheckpointManager.getLatestCheckpoint();
+            if (!checkpoint || !checkpoint.summary?.undoable) {
+                return {
+                    success: false,
+                    error: 'No undo checkpoint available',
+                };
+            }
+
+            const conflicts = await undoCheckpointManager.getConflictedFiles(checkpoint);
+            if (conflicts.length > 0 && !request.force) {
+                return {
+                    success: false,
+                    requiresConfirmation: true,
+                    conflicts,
+                    undoCheckpoint: checkpoint.summary,
+                    error: 'Files were modified after checkpoint creation',
+                };
+            }
+
+            const restoredFiles = await this.applyUndoCheckpointRestore(checkpoint);
+            await undoCheckpointManager.clearLatestCheckpoint();
+
+            return {
+                success: true,
+                restoredFiles,
+                undoCheckpoint: {
+                    ...checkpoint.summary,
+                    undoable: false,
+                },
+            };
+        } catch (error) {
+            logError('[AgentPanel] Failed to undo checkpoint', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to undo checkpoint',
+            };
+        }
+    }
+
+    async applyCodeSegmentWithCheckpoint(
+        request: ApplyCodeSegmentWithCheckpointRequest
+    ): Promise<ApplyCodeSegmentWithCheckpointResponse> {
+        const segmentText = request.segmentText || '';
+        if (!segmentText.trim()) {
+            return {
+                success: false,
+                error: 'Code segment content is required',
+            };
+        }
+
+        const targetRelativePath = this.resolveLegacyCodeSegmentPath(segmentText);
+        if (!targetRelativePath) {
+            return {
+                success: false,
+                error: 'Unable to resolve artifact path from code segment',
+            };
+        }
+
+        const undoCheckpointManager = await this.getUndoCheckpointManager();
+        try {
+            await undoCheckpointManager.beginRun('code_segment');
+            await undoCheckpointManager.captureBeforeChange(targetRelativePath);
+
+            const diagramRpcManager = new MiDiagramRpcManager(this.projectUri);
+            const writeResult = await diagramRpcManager.writeContentToFile({ content: [segmentText] });
+            if (!writeResult.status) {
+                await undoCheckpointManager.discardPendingRun();
+                return {
+                    success: false,
+                    error: 'Failed to apply code segment',
+                };
+            }
+
+            await vscode.commands.executeCommand('MI.project-explorer.refresh');
+            const undoCheckpoint = await undoCheckpointManager.commitRun();
+
+            if (undoCheckpoint) {
+                const historyManager = await this.getChatHistoryManager();
+                await historyManager.saveUndoCheckpoint(undoCheckpoint);
+            }
+
+            return {
+                success: true,
+                undoCheckpoint,
+            };
+        } catch (error) {
+            await undoCheckpointManager.discardPendingRun();
+            logError('[AgentPanel] Failed to apply code segment with checkpoint', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to apply code segment',
             };
         }
     }
@@ -520,7 +777,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             logInfo(`[AgentPanel] Loading chat history from session: ${this.currentSessionId}`);
 
             // Get messages from JSONL for UI replay (includes compact_summary checkpoint entry).
-            const messages = await historyManager.getMessages({ includeCompactSummaryEntry: true });
+            const messages = await historyManager.getMessages({
+                includeCompactSummaryEntry: true,
+                includeUndoCheckpointEntry: true,
+            });
 
             // Convert to UI events on-the-fly
             const events = ChatHistoryManager.convertToEventFormat(messages);
@@ -595,7 +855,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             if (this.currentSessionId === sessionId) {
                 logDebug('[AgentPanel] Already on requested session');
                 const historyManager = await this.getChatHistoryManager();
-                const messages = await historyManager.getMessages({ includeCompactSummaryEntry: true });
+                const messages = await historyManager.getMessages({
+                    includeCompactSummaryEntry: true,
+                    includeUndoCheckpointEntry: true,
+                });
                 const events = ChatHistoryManager.convertToEventFormat(messages);
                 const lastTotalInputTokens = await historyManager.getLastUsage();
                 const mode = await historyManager.getLatestMode(DEFAULT_AGENT_MODE);
@@ -619,7 +882,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.currentMode = await this.chatHistoryManager.getLatestMode(DEFAULT_AGENT_MODE);
 
             // Load history from the new session
-            const messages = await this.chatHistoryManager.getMessages({ includeCompactSummaryEntry: true });
+            const messages = await this.chatHistoryManager.getMessages({
+                includeCompactSummaryEntry: true,
+                includeUndoCheckpointEntry: true,
+            });
             const events = ChatHistoryManager.convertToEventFormat(messages);
 
             // Get last known token usage for context indicator

@@ -301,6 +301,28 @@ export function convertEventsToMessages(
                 });
                 break;
 
+            case 'undo_checkpoint': {
+                const checkpoint = event.undoCheckpoint;
+                if (!checkpoint) {
+                    break;
+                }
+
+                const fileChangesTag = `<filechanges>${JSON.stringify(checkpoint)}</filechanges>`;
+                if (!currentAssistantMessage) {
+                    currentAssistantMessage = {
+                        id: generateId(),
+                        role: Role.MICopilot,
+                        content: fileChangesTag,
+                        type: MessageType.AssistantMessage,
+                    };
+                } else {
+                    currentAssistantMessage.content = currentAssistantMessage.content
+                        ? `${currentAssistantMessage.content}\n\n${fileChangesTag}`
+                        : fileChangesTag;
+                }
+                break;
+            }
+
             case 'error':
             case 'abort':
                 // Flush any current message and add error

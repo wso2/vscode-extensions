@@ -23,7 +23,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { logDebug, logError, logInfo } from '../copilot/logger';
 import { getToolAction, capitalizeAction } from './tool-action-mapper';
 import { BASH_TOOL_NAME } from './tools/types';
-import { AgentMode } from '@wso2/mi-core';
+import { AgentMode, UndoCheckpointSummary } from '@wso2/mi-core';
 
 // Storage location: <project>/.mi-copilot/<session_id>/history.jsonl
 // Metadata location: <project>/.mi-copilot/<session_id>/metadata.json
@@ -76,7 +76,7 @@ export interface GroupedSessions {
  */
 export interface JournalEntry {
     /** Entry type: message role for model messages, or a special marker */
-    type: 'user' | 'assistant' | 'tool' | 'session_start' | 'session_end' | 'compact_summary' | 'mode_change';
+    type: 'user' | 'assistant' | 'tool' | 'session_start' | 'session_end' | 'compact_summary' | 'mode_change' | 'undo_checkpoint';
     /** The model message (for user/assistant/tool entries) */
     message?: any;
     /** ISO timestamp */
@@ -94,6 +94,8 @@ export interface JournalEntry {
     summary?: string;
     /** Mode value (mode_change) */
     mode?: AgentMode;
+    /** Undo checkpoint summary (undo_checkpoint) */
+    undoCheckpoint?: UndoCheckpointSummary;
     /** Total input tokens — attached to last message entry of each agent step */
     totalInputTokens?: number;
     /** Lightweight attachment metadata for user messages (for UI replay) */
@@ -523,6 +525,26 @@ export class ChatHistoryManager {
     }
 
     /**
+     * Save an undo checkpoint summary to history for session replay.
+     */
+    async saveUndoCheckpoint(summary: UndoCheckpointSummary): Promise<void> {
+        const entry: JournalEntry = {
+            type: 'undo_checkpoint',
+            timestamp: new Date().toISOString(),
+            sessionId: this.sessionId,
+            undoCheckpoint: summary,
+        };
+
+        try {
+            await this.writeEntry(entry);
+            logInfo(`[ChatHistory] Saved undo checkpoint: ${summary.checkpointId}`);
+        } catch (error) {
+            logError('[ChatHistory] Failed to save undo checkpoint', error);
+            throw error;
+        }
+    }
+
+    /**
      * Get the latest known mode from JSONL. Defaults to edit if no mode entry exists.
      */
     async getLatestMode(defaultMode: AgentMode = 'edit'): Promise<AgentMode> {
@@ -578,9 +600,10 @@ export class ChatHistoryManager {
      * @param options - Controls inclusion of non-ModelMessage checkpoint entries
      * @returns Array of ModelMessages (plus compact_summary entry when requested)
      */
-    async getMessages(options?: { includeCompactSummaryEntry?: boolean }): Promise<any[]> {
+    async getMessages(options?: { includeCompactSummaryEntry?: boolean; includeUndoCheckpointEntry?: boolean }): Promise<any[]> {
         try {
             const includeCompactSummaryEntry = options?.includeCompactSummaryEntry === true;
+            const includeUndoCheckpointEntry = options?.includeUndoCheckpointEntry === true;
             const content = await fs.readFile(this.sessionFile, 'utf8');
             const lines = content.trim().split('\n');
             const allEntries: JournalEntry[] = [];
@@ -636,6 +659,8 @@ export class ChatHistoryManager {
                             };
                         }
                         messages.push(modelMessage);
+                    } else if (includeUndoCheckpointEntry && entry.type === 'undo_checkpoint') {
+                        messages.push(entry);
                     }
                 }
 
@@ -655,6 +680,8 @@ export class ChatHistoryManager {
                         };
                     }
                     messages.push(modelMessage);
+                } else if (includeUndoCheckpointEntry && entry.type === 'undo_checkpoint') {
+                    messages.push(entry);
                 }
             }
             return messages;
@@ -885,7 +912,7 @@ export class ChatHistoryManager {
      * @returns UI events for display
      */
     static convertToEventFormat(messages: any[]): Array<{
-        type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary';
+        type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint';
         content?: string;
         files?: Array<{ name: string; mimetype: string; content: string }>;
         images?: Array<{ imageName: string; imageBase64: string }>;
@@ -894,6 +921,7 @@ export class ChatHistoryManager {
         toolOutput?: unknown;
         toolCallId?: string;
         action?: string;
+        undoCheckpoint?: UndoCheckpointSummary;
         timestamp: string;
     }> {
         const events: any[] = [];
@@ -910,6 +938,17 @@ export class ChatHistoryManager {
                     content: msg.summary,
                     timestamp: msg.timestamp || timestamp,
                 });
+                continue;
+            }
+
+            if (msg.type === 'undo_checkpoint') {
+                if (msg.undoCheckpoint) {
+                    events.push({
+                        type: 'undo_checkpoint',
+                        undoCheckpoint: msg.undoCheckpoint,
+                        timestamp: msg.timestamp || timestamp,
+                    });
+                }
                 continue;
             }
 

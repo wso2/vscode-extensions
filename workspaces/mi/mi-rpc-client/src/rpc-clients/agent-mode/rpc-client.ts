@@ -22,12 +22,18 @@ import {
     SendAgentMessageResponse,
     LoadChatHistoryRequest,
     LoadChatHistoryResponse,
+    UndoLastCheckpointRequest,
+    UndoLastCheckpointResponse,
+    ApplyCodeSegmentWithCheckpointRequest,
+    ApplyCodeSegmentWithCheckpointResponse,
     UserQuestionResponse,
     PlanApprovalResponse,
     ChatHistoryEvent,
     sendAgentMessage,
     abortAgentGeneration,
     loadChatHistory,
+    undoLastCheckpoint,
+    applyCodeSegmentWithCheckpoint,
     respondToQuestion,
     respondToPlanApproval,
 } from "@wso2/mi-core";
@@ -172,6 +178,14 @@ export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
 
     loadChatHistory(request: LoadChatHistoryRequest): Promise<LoadChatHistoryResponse> {
         return this._messenger.sendRequest(loadChatHistory, HOST_EXTENSION, request);
+    }
+
+    undoLastCheckpoint(request: UndoLastCheckpointRequest): Promise<UndoLastCheckpointResponse> {
+        return this._messenger.sendRequest(undoLastCheckpoint, HOST_EXTENSION, request);
+    }
+
+    applyCodeSegmentWithCheckpoint(request: ApplyCodeSegmentWithCheckpointRequest): Promise<ApplyCodeSegmentWithCheckpointResponse> {
+        return this._messenger.sendRequest(applyCodeSegmentWithCheckpoint, HOST_EXTENSION, request);
     }
 
     // ==================================

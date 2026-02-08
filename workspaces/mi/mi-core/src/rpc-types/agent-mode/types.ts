@@ -41,6 +41,22 @@ export interface SendAgentMessageRequest {
     chatHistory?: any[];
 }
 
+export interface ChangedFileSummary {
+    path: string;
+    addedLines: number;
+    deletedLines: number;
+}
+
+export interface UndoCheckpointSummary {
+    checkpointId: string;
+    source: 'agent' | 'code_segment';
+    createdAt: string;
+    files: ChangedFileSummary[];
+    totalAdded: number;
+    totalDeleted: number;
+    undoable: boolean;
+}
+
 /**
  * Response from the agent
  */
@@ -48,10 +64,34 @@ export interface SendAgentMessageResponse {
     success: boolean;
     message?: string;
     modifiedFiles?: string[];
+    undoCheckpoint?: UndoCheckpointSummary;
     error?: string;
     /** Full AI SDK messages from this turn (includes tool calls/results) */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     modelMessages?: any[];
+}
+
+export interface UndoLastCheckpointRequest {
+    force?: boolean;
+}
+
+export interface UndoLastCheckpointResponse {
+    success: boolean;
+    requiresConfirmation?: boolean;
+    conflicts?: string[];
+    restoredFiles?: string[];
+    undoCheckpoint?: UndoCheckpointSummary;
+    error?: string;
+}
+
+export interface ApplyCodeSegmentWithCheckpointRequest {
+    segmentText: string;
+}
+
+export interface ApplyCodeSegmentWithCheckpointResponse {
+    success: boolean;
+    undoCheckpoint?: UndoCheckpointSummary;
+    error?: string;
 }
 
 /**
@@ -171,7 +211,7 @@ export interface AgentEvent {
  * Frontend will convert these to UI messages with inline tool call formatting
  */
 export interface ChatHistoryEvent {
-    type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary';
+    type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint';
     content?: string;
     /** User attachments for replay rendering */
     files?: FileObject[];
@@ -182,6 +222,7 @@ export interface ChatHistoryEvent {
     toolOutput?: unknown;
     /** User-friendly action text for tool result (e.g., "Created", "Read", "Failed to create") */
     action?: string;
+    undoCheckpoint?: UndoCheckpointSummary;
     timestamp: string;
 
     // Bash tool fields (for history display)
@@ -406,6 +447,8 @@ export interface MIAgentPanelAPI {
     sendAgentMessage: (request: SendAgentMessageRequest) => Promise<SendAgentMessageResponse>;
     abortAgentGeneration: () => Promise<void>;
     loadChatHistory: (request: LoadChatHistoryRequest) => Promise<LoadChatHistoryResponse>;
+    undoLastCheckpoint: (request: UndoLastCheckpointRequest) => Promise<UndoLastCheckpointResponse>;
+    applyCodeSegmentWithCheckpoint: (request: ApplyCodeSegmentWithCheckpointRequest) => Promise<ApplyCodeSegmentWithCheckpointResponse>;
     // Plan mode
     respondToQuestion: (response: UserQuestionResponseType) => Promise<void>;
     respondToPlanApproval: (response: PlanApprovalResponse) => Promise<void>;

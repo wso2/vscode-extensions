@@ -32,14 +32,6 @@ export interface EntryContainerProps {
     isOpen: boolean;
 }
 
-export interface FileHistoryEntry {
-    filepath: string; 
-    content: string;
-    timestamp: number;
-    currentAddedfFromChatIndex: number; 
-    maxAddedFromChatIndex: number;
-}
-
 export enum BackendRequestType {
     InitialPrompt = "initial_prompt",
     QuestionClick = "question_click",

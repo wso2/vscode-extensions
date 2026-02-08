@@ -21,7 +21,7 @@ import { Collapse } from "react-collapse";
 import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
 import { duotoneDark, duotoneLight } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { Codicon } from "@wso2/ui-toolkit";
-import { identifyLanguage, handleAddSelectiveCodetoWorkspace, identifyArtifactTypeAndPath, isDarkMode } from "../utils";
+import { identifyLanguage, isDarkMode } from "../utils";
 import { EntryContainer, StyledTransParentButton, StyledContrastButton } from "../styles";
 import { useMICopilotContext } from "./MICopilotContext";
 
@@ -59,7 +59,7 @@ const getFileName = (language: string, segmentText: string, loading: boolean): s
 };
 
 export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, language: propLanguage, index }) => {
-    const { rpcClient, FileHistory, setFileHistory } = useMICopilotContext();
+    const { rpcClient, setMessages } = useMICopilotContext();
 
     const darkModeEnabled = React.useMemo(() => {
         return isDarkMode();
@@ -67,26 +67,11 @@ export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, 
 
     const [isOpen, setIsOpen] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
+    const [isApplying, setIsApplying] = useState(false);
+    const [isApplied, setIsApplied] = useState(false);
+    const [applyError, setApplyError] = useState<string>("");
     const language = propLanguage || identifyLanguage(segmentText);
     const name = getFileName(language, segmentText, loading);
-    const { currentAddedfFromChatIndex, maxAddedFromChatIndex } = FileHistory.find(
-        (entry) => entry.filepath === name
-    ) || {
-        currentAddedfFromChatIndex: -1,
-        maxAddedFromChatIndex: -1,
-    }; // File was never added/updated from MI Copilot
-    let filePath = "";
-
-    // Dynamically determine if the segment is revertable
-    const isRevertable = currentAddedfFromChatIndex !== -1 && currentAddedfFromChatIndex === index;
-
-    // Get file path depending on the artifact type
-    const fetchFileInfo = async () => {
-        const fileInfo = await identifyArtifactTypeAndPath(name, segmentText, rpcClient);
-        if (fileInfo) {
-            filePath = fileInfo.path;
-        }
-    };
 
     const handleToggle = () => setIsOpen(!isOpen);
 
@@ -103,98 +88,45 @@ export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, 
 
     const handleAddToWorkspace = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        await fetchFileInfo();
-
-        let originalContent = "";
-        let fileContent = await rpcClient
-            .getMiDiagramRpcClient()
-            .handleFileWithFS({ fileName: name, operation: "read", filePath: filePath });
-
-        // Handle the case where the file does not exist
-        if (fileContent.status) {
-            originalContent = fileContent.content;
-        } else {
-            originalContent = "notExists"; // File does not exist and will be created by MI Copilot
+        if (isApplying) {
+            return;
         }
 
-        // Find the last checkpoint for the file
-        const lastCheckpoint = FileHistory.find((entry) => entry.filepath === name);
+        setApplyError("");
+        setIsApplying(true);
+        try {
+            const response = await rpcClient.getMiAgentPanelRpcClient().applyCodeSegmentWithCheckpoint({
+                segmentText,
+            });
 
-        if (lastCheckpoint) {
-            // if the file is in history add fromChatIndex to the current index
-            setFileHistory((prevHistory) =>
-                prevHistory.map(
-                    (entry) =>
-                        entry.filepath === name
-                            ? {
-                                  ...entry,
-                                  currentAddedfFromChatIndex: index,
-                                  maxAddedFromChatIndex: index,
-                                  content: originalContent,
-                              } // Update the matching entry
-                            : entry // Keep other entries unchanged
-                )
-            );
-        } else {
-            // if the file is not in history add the current index to the history
-            setFileHistory((prevHistory) => [
-                ...prevHistory,
-                {
-                    filepath: name,
-                    content: originalContent,
-                    timestamp: Date.now(),
-                    currentAddedfFromChatIndex: index,
-                    maxAddedFromChatIndex: index,
-                },
-            ]);
-        }
-
-        // Add the new code segment to the workspace.
-        handleAddSelectiveCodetoWorkspace(rpcClient, segmentText);
-    };
-
-    const handleRevertToLastCheckpoint = async (e: React.MouseEvent) => {
-        e.stopPropagation();
-        await fetchFileInfo();
-
-        // Find the last checkpoint for the file
-        const lastCheckpoint = FileHistory.find((entry) => entry.filepath === name);
-
-        if (lastCheckpoint) {
-            if (lastCheckpoint.content !== "notExists") {
-                // Check if the file is already in the workspace
-                const { content } = lastCheckpoint;
-
-                // Revert the file to the last checkpoint
-                await rpcClient
-                    .getMiDiagramRpcClient()
-                    .handleFileWithFS({ fileName: name, operation: "write", filePath: filePath, content: content });
-                rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ["MI.project-explorer.refresh"] });
-
-            } else {
-                await rpcClient
-                    .getMiDiagramRpcClient()
-                    .handleFileWithFS({ fileName: name, operation: "delete", filePath: filePath });
-                rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ["MI.project-explorer.refresh"] });
-                rpcClient.getMiDiagramRpcClient()
-                .executeCommand({ commands: ["MI.project-explorer.open-project-overview"] });
+            if (!response.success) {
+                throw new Error(response.error || "Failed to add code segment to project");
             }
-            
-            // Update FileHistory
-            setFileHistory((prevHistory) =>
-                prevHistory.map(
-                    (entry) =>
-                        entry.filepath === name
-                            ? {
-                                  ...entry,
-                                  currentAddedfFromChatIndex: -1,
-                                  maxAddedFromChatIndex: index,
-                              } // Update the matching entry
-                            : entry // Keep other entries unchanged
-                )
-            );
-        } else {
-            console.error(`No checkpoint found for ${name}.`);
+
+            if (response.undoCheckpoint) {
+                const fileChangesTag = `<filechanges>${JSON.stringify(response.undoCheckpoint)}</filechanges>`;
+                setMessages((prevMessages) => {
+                    if (index < 0 || index >= prevMessages.length) {
+                        return prevMessages;
+                    }
+                    const updated = [...prevMessages];
+                    const content = updated[index].content || "";
+                    if (!content.includes(fileChangesTag)) {
+                        updated[index] = {
+                            ...updated[index],
+                            content: content ? `${content}\n\n${fileChangesTag}` : fileChangesTag,
+                        };
+                    }
+                    return updated;
+                });
+            }
+            setIsApplied(true);
+        } catch (error) {
+            setApplyError(error instanceof Error ? error.message : "Failed to add code segment to project");
+            setIsApplied(false);
+            console.error("Failed to apply code segment with checkpoint", error);
+        } finally {
+            setIsApplying(false);
         }
     };
 
@@ -215,19 +147,12 @@ export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, 
                 <div style={{ flex: 9, fontWeight: "bold" }}>{name}</div>
                 <div style={{ marginLeft: "auto" }}>
                     {!loading &&
-                        language === "xml" &&
-                        maxAddedFromChatIndex <= index &&
-                        (isRevertable ? (
-                            <StyledContrastButton appearance="icon" onClick={handleRevertToLastCheckpoint}>
-                                <Codicon name="history" />
-                                &nbsp;&nbsp;Revert to Checkpoint
+                        language === "xml" && (
+                            <StyledContrastButton appearance="icon" onClick={handleAddToWorkspace} disabled={isApplying}>
+                                <Codicon name={isApplied ? "check" : "add"} />
+                                &nbsp;&nbsp;{isApplying ? "Adding..." : isApplied ? "Added" : "Add to Project"}
                             </StyledContrastButton>
-                        ) : (
-                            <StyledContrastButton appearance="icon" onClick={handleAddToWorkspace}>
-                                <Codicon name="add" />
-                                &nbsp;&nbsp;Add to Project
-                            </StyledContrastButton>
-                        ))}
+                        )}
                 </div>
                 {!loading && (
                     <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -246,6 +171,17 @@ export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, 
                 )}
             </EntryContainer>
             <Collapse isOpened={isOpen}>
+                {applyError && (
+                    <div
+                        style={{
+                            color: "var(--vscode-errorForeground)",
+                            marginTop: "8px",
+                            marginBottom: "8px",
+                        }}
+                    >
+                        {applyError}
+                    </div>
+                )}
                 <SyntaxHighlighter
                     language={language}
                     style={darkModeEnabled ? duotoneDark : duotoneLight} 
