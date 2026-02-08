@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { ApiRequestItem } from '@wso2/api-tryit-core';
+import { ApiRequestItem, ApiRequest } from '@wso2/api-tryit-core';
 import { getVSCodeAPI } from '../utils/vscode-api';
 
 // Get VS Code API instance (singleton)
@@ -59,13 +59,21 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
             
             if (type === 'apiRequestItemSelected' && handlersRef.current.onApiRequestSelected) {
                 const item = data as ApiRequestItem;
-                // Ensure arrays are initialized
+                // Normalize request safely (handle missing request or non-array fields)
+                const req: ApiRequest = item && item.request ? item.request : {
+                    id: item?.id || `new-${Date.now()}`,
+                    name: item?.name || 'New Request',
+                    method: 'GET',
+                    url: '',
+                    queryParameters: [],
+                    headers: []
+                } as ApiRequest;
                 const normalizedItem: ApiRequestItem = {
                     ...item,
                     request: {
-                        ...item.request,
-                        queryParameters: item.request.queryParameters || [],
-                        headers: item.request.headers || []
+                        ...req,
+                        queryParameters: Array.isArray(req.queryParameters) ? req.queryParameters : [],
+                        headers: Array.isArray(req.headers) ? req.headers : []
                     }
                 };
                 handlersRef.current.onApiRequestSelected(normalizedItem);
@@ -74,6 +82,28 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
             if (type === 'showCreateCollectionForm' && handlersRef.current.onShowCreateCollectionForm) {
                 console.log('[useExtensionMessages] Calling onShowCreateCollectionForm handler');
                 handlersRef.current.onShowCreateCollectionForm();
+            }
+
+            // Treat 'requestUpdated' like a selection so UI updates the current request form after a save
+            if (type === 'requestUpdated' && handlersRef.current.onApiRequestSelected) {
+                const item = data as ApiRequestItem;
+                const req: ApiRequest = item && item.request ? item.request : {
+                    id: item?.id || `new-${Date.now()}`,
+                    name: item?.name || 'New Request',
+                    method: 'GET',
+                    url: '',
+                    queryParameters: [],
+                    headers: []
+                } as ApiRequest;
+                const normalizedItem: ApiRequestItem = {
+                    ...item,
+                    request: {
+                        ...req,
+                        queryParameters: Array.isArray(req.queryParameters) ? req.queryParameters : [],
+                        headers: Array.isArray(req.headers) ? req.headers : []
+                    }
+                };
+                handlersRef.current.onApiRequestSelected(normalizedItem);
             }
 
             if (type === 'createCollectionResult' && handlersRef.current.onCreateCollectionResult) {

@@ -258,13 +258,10 @@ export const ApiTryItStateMachine = {
                 vscode.window.showErrorMessage('Failed to directly reload explorer provider');
             }
             // Notify the registered webview (if any) that a request has been updated/saved
-            if (webviewPanel) {
-                const context = stateMachineService.getSnapshot().context;
-                webviewPanel.webview.postMessage({
-                    type: 'requestUpdated',
-                    data: context.selectedItem
-                });
-            }
+            const context = stateMachineService.getSnapshot().context;
+            TryItPanel.postMessage('requestUpdated', context.selectedItem);
+            // Also send selection update so UI's selection handler updates the form
+            TryItPanel.postMessage('apiRequestItemSelected', context.selectedItem);
         } else if (eventType === EVENT_TYPE.ADD_REQUEST_TO_COLLECTION && filePath) {
             // Update context with collection info and create new request
             stateMachineService.send({ type: 'ADD_REQUEST_TO_COLLECTION', collectionId: filePath, collectionPath: filePath });
