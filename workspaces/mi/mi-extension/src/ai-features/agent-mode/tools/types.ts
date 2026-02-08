@@ -292,6 +292,8 @@ export type EnterPlanModeExecuteFn = () => Promise<ToolResult>;
 
 export type ExitPlanModeExecuteFn = (args: {
     summary?: string;
+    force_exit_without_plan?: boolean;
+    reason?: string;
 }) => Promise<ToolResult>;
 
 export type TodoWriteExecuteFn = (args: {

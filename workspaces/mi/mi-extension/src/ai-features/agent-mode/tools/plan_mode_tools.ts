@@ -218,11 +218,55 @@ export interface PendingQuestion {
 
 export interface PendingPlanApproval {
     approvalId: string;
+    approvalKind: 'enter_plan_mode' | 'exit_plan_mode' | 'exit_plan_mode_without_plan';
     resolve: (result: { approved: boolean; feedback?: string }) => void;
     reject: (error: Error) => void;
 }
 
 export type AgentEventHandler = (event: AgentEvent) => void;
+
+async function requestPlanApproval(
+    eventHandler: AgentEventHandler,
+    pendingApprovals: Map<string, PendingPlanApproval>,
+    request: {
+        approvalKind: 'enter_plan_mode' | 'exit_plan_mode' | 'exit_plan_mode_without_plan';
+        content: string;
+        planFilePath?: string;
+        approvalTitle: string;
+        approveLabel: string;
+        rejectLabel: string;
+        allowFeedback: boolean;
+    }
+): Promise<{ approved: boolean; feedback?: string }> {
+    const approvalId = uuidv4();
+
+    eventHandler({
+        type: 'plan_approval_requested',
+        approvalId,
+        planFilePath: request.planFilePath,
+        content: request.content,
+        approvalKind: request.approvalKind,
+        approvalTitle: request.approvalTitle,
+        approveLabel: request.approveLabel,
+        rejectLabel: request.rejectLabel,
+        allowFeedback: request.allowFeedback,
+    } as any);
+
+    return new Promise((resolve, reject) => {
+        pendingApprovals.set(approvalId, {
+            approvalId,
+            approvalKind: request.approvalKind,
+            resolve: (result) => {
+                pendingApprovals.delete(approvalId);
+                resolve(result);
+            },
+            reject: (error: Error) => {
+                pendingApprovals.delete(approvalId);
+                reject(error);
+            }
+        });
+    });
+}
 
 // ============================================================================
 // Ask User Tool
@@ -382,12 +426,33 @@ export function createAskUserTool(execute: AskUserExecuteFn) {
 export function createEnterPlanModeExecute(
     projectPath: string,
     sessionId: string,
-    eventHandler: AgentEventHandler
+    eventHandler: AgentEventHandler,
+    pendingApprovals: Map<string, PendingPlanApproval>
 ): EnterPlanModeExecuteFn {
     return async (): Promise<ToolResult> => {
-        logInfo(`[EnterPlanMode] Entering plan mode`);
+        logInfo(`[EnterPlanMode] Requesting user consent to enter plan mode`);
 
         try {
+            const approval = await requestPlanApproval(eventHandler, pendingApprovals, {
+                approvalKind: 'enter_plan_mode',
+                approvalTitle: 'Enter Plan Mode?',
+                approveLabel: 'Enter Plan Mode',
+                rejectLabel: 'Stay in Edit Mode',
+                allowFeedback: false,
+                content: 'Agent recommends entering Plan mode before implementation. Do you want to switch to Plan mode?',
+            });
+
+            if (!approval.approved) {
+                logInfo('[EnterPlanMode] User declined plan mode entry');
+                return {
+                    success: false,
+                    message: 'User declined entering plan mode. Continue in Edit mode and proceed without switching.',
+                    error: 'PLAN_MODE_ENTRY_DECLINED'
+                };
+            }
+
+            logInfo(`[EnterPlanMode] Entering plan mode`);
+
             // Initialize plan mode state and plan file metadata for this session.
             await initializePlanModeSession(projectPath, sessionId, { forceBaselineReset: true });
             const planReminder = await getPlanModeReminder(projectPath, sessionId);
@@ -430,7 +495,8 @@ const enterPlanModeInputSchema = z.object({});
 
 export function createEnterPlanModeTool(execute: EnterPlanModeExecuteFn) {
     return (tool as any)({
-        description: `Enter plan mode for non-trivial implementation tasks. Prefer this before new features, multi-file changes, architectural decisions, or unclear requirements.
+        description: `Request entering plan mode for non-trivial implementation tasks. BLOCKS until user approves or declines.
+            Prefer this before new features, multi-file changes, architectural decisions, or unclear requirements.
             In plan mode: explore codebase (read-only), design approach, write/update the plan file, then use ${EXIT_PLAN_MODE_TOOL_NAME} for approval.
             Do NOT use this for simple fixes (single/few-line obvious changes) or pure research-only requests.
             When unsure, prefer planning to align with the user before implementation.`,
@@ -458,10 +524,60 @@ export function createExitPlanModeExecute(
     pendingApprovals: Map<string, PendingPlanApproval>
 ): ExitPlanModeExecuteFn {
     return async (args): Promise<ToolResult> => {
-        const { summary } = args;
-        const approvalId = uuidv4();
+        const { summary, force_exit_without_plan, reason } = args;
+        const forceExitWithoutPlan = force_exit_without_plan === true;
 
-        logInfo(`[ExitPlanMode] Requesting plan approval: ${approvalId}`);
+        logInfo(`[ExitPlanMode] Request received (force_exit_without_plan=${forceExitWithoutPlan})`);
+
+        if (forceExitWithoutPlan) {
+            try {
+                const approval = await requestPlanApproval(eventHandler, pendingApprovals, {
+                    approvalKind: 'exit_plan_mode_without_plan',
+                    approvalTitle: 'Exit Plan Mode?',
+                    approveLabel: 'Exit Plan Mode',
+                    rejectLabel: 'Stay in Plan Mode',
+                    allowFeedback: false,
+                    content: reason
+                        ? `Agent wants to exit plan mode without requiring a full plan. Reason: ${reason}`
+                        : 'Agent wants to exit plan mode without requiring a full plan. Do you want to continue?',
+                });
+
+                if (approval.approved) {
+                    logInfo('[ExitPlanMode] User approved exiting plan mode without plan');
+                    clearPlanModeSession(sessionId);
+                    eventHandler({
+                        type: 'plan_mode_exited',
+                        content: 'Exited plan mode without plan',
+                    } as any);
+                    return {
+                        success: true,
+                        message: 'User approved exiting plan mode without a plan. Continue in Edit mode.'
+                    };
+                }
+
+                logInfo('[ExitPlanMode] User declined exiting plan mode without plan');
+                const planReminder = await getPlanModeReminder(projectPath, sessionId);
+                return {
+                    success: false,
+                    message: [
+                        'User declined exiting plan mode without a plan. Plan mode remains active.',
+                        '',
+                        '<system-reminder>',
+                        'Continue planning and either prepare a plan for approval or ask the user for further clarification.',
+                        planReminder,
+                        '</system-reminder>',
+                    ].join('\n'),
+                    error: 'EXIT_WITHOUT_PLAN_DECLINED'
+                };
+            } catch (error: any) {
+                logError('[ExitPlanMode] Failed while requesting exit-without-plan approval', error);
+                return {
+                    success: false,
+                    message: `Failed to request approval to exit plan mode: ${error.message}`,
+                    error: error.message
+                };
+            }
+        }
 
         // Validate that the plan file exists, has content, and was updated after entering plan mode.
         const planInfo = await initializePlanModeSession(projectPath, sessionId);
@@ -505,62 +621,57 @@ export function createExitPlanModeExecute(
             };
         }
 
-        // Send plan_approval_requested event to UI
-        eventHandler({
-            type: 'plan_approval_requested',
-            approvalId,
-            planFilePath: planInfo.planPath,
-            content: planContent || summary || 'Plan ready for approval',
-        } as any);
-
-        // Wait for user approval (Promise resolves when respondToPlanApproval is called)
-        // No timeout - we wait indefinitely for user approval
-        return new Promise((resolve, reject) => {
-            pendingApprovals.set(approvalId, {
-                approvalId,
-                resolve: async (result: { approved: boolean; feedback?: string }) => {
-                    pendingApprovals.delete(approvalId);
-
-                    if (result.approved) {
-                        logInfo(`[ExitPlanMode] Plan approved`);
-                        clearPlanModeSession(sessionId);
-
-                        // Send plan_mode_exited event
-                        eventHandler({
-                            type: 'plan_mode_exited',
-                            content: 'Plan approved',
-                        } as any);
-
-                        resolve({
-                            success: true,
-                            message: `Plan approved by user. You can now proceed with implementation. Now create a Todo list to track the implementation steps using the ${TODO_WRITE_TOOL_NAME} tool.`
-                        });
-                    } else {
-                        logInfo(`[ExitPlanMode] Plan not approved. Feedback: ${result.feedback || 'none'}`);
-                        const latestMtime = (await getFileMtimeMs(planInfo.planPath)) ?? planMtimeMs ?? Date.now();
-                        updatePlanModeBaseline(sessionId, planInfo.planPath, planInfo.relativePath, latestMtime);
-                        const planReminder = await getPlanModeReminder(projectPath, sessionId);
-                        resolve({
-                            success: false,
-                            message: [
-                                result.feedback
-                                    ? `Plan not approved. User feedback: ${result.feedback}. Please revise the plan and try again.`
-                                    : 'Plan not approved by user. Please revise the plan based on user requirements and try again.',
-                                '',
-                                '<system-reminder>',
-                                'Plan mode remains active. Update the plan file and request approval again.',
-                                planReminder,
-                                '</system-reminder>',
-                            ].join('\n')
-                        });
-                    }
-                },
-                reject: (error: Error) => {
-                    pendingApprovals.delete(approvalId);
-                    reject(error);
-                }
+        try {
+            const approval = await requestPlanApproval(eventHandler, pendingApprovals, {
+                approvalKind: 'exit_plan_mode',
+                approvalTitle: 'Plan Approval',
+                approveLabel: 'Approve Plan',
+                rejectLabel: 'Request Changes',
+                allowFeedback: true,
+                planFilePath: planInfo.planPath,
+                content: planContent || summary || 'Plan ready for approval',
             });
-        });
+
+            if (approval.approved) {
+                logInfo(`[ExitPlanMode] Plan approved`);
+                clearPlanModeSession(sessionId);
+
+                // Send plan_mode_exited event
+                eventHandler({
+                    type: 'plan_mode_exited',
+                    content: 'Plan approved',
+                } as any);
+
+                return {
+                    success: true,
+                    message: `Plan approved by user. You can now proceed with implementation. Now create a Todo list to track the implementation steps using the ${TODO_WRITE_TOOL_NAME} tool.`
+                };
+            }
+
+            logInfo(`[ExitPlanMode] Plan not approved. Feedback: ${approval.feedback || 'none'}`);
+            const latestMtime = (await getFileMtimeMs(planInfo.planPath)) ?? planMtimeMs ?? Date.now();
+            updatePlanModeBaseline(sessionId, planInfo.planPath, planInfo.relativePath, latestMtime);
+            const planReminder = await getPlanModeReminder(projectPath, sessionId);
+            return {
+                success: false,
+                message: [
+                    approval.feedback
+                        ? `Plan not approved. User feedback: ${approval.feedback}. Please revise the plan and try again.`
+                        : 'Plan not approved by user. Please revise the plan based on user requirements and try again.',
+                    '',
+                    '<system-reminder>',
+                    'Plan mode remains active. Update the plan file and request approval again.',
+                    planReminder,
+                    '</system-reminder>',
+                ].join('\n')
+            };
+        } catch (error: any) {
+            return {
+                success: false,
+                message: `Failed to request plan approval: ${error.message}`,
+                error: error.message
+            };
+        }
     };
 }
 
@@ -571,12 +682,19 @@ const exitPlanModeInputSchema = z.object({
     plan: z.string().optional().describe(
         'Deprecated alias for summary. The actual plan is always read from the plan file.'
     ),
+    force_exit_without_plan: z.boolean().optional().describe(
+        'Set true to request exiting plan mode without requiring a plan file update. Use only when planning is unnecessary.'
+    ),
+    reason: z.string().optional().describe(
+        'Short reason for why exiting plan mode without a plan is acceptable.'
+    ),
 });
 
 export function createExitPlanModeTool(execute: ExitPlanModeExecuteFn) {
     return (tool as any)({
         description: `Signal that your implementation plan is ready for user approval. BLOCKS until user approves or rejects.
             Write/update your plan in the assigned plan file BEFORE calling this tool.
+            If planning is not required, set force_exit_without_plan=true (with optional reason) to request user consent to exit plan mode without a plan.
             Use only when planning implementation work; do NOT use for research/exploration-only tasks.
             Resolve open requirement questions with ask_user first. Do NOT ask "Is this plan okay?" via ask_user - this tool handles plan approval.`,
         inputSchema: exitPlanModeInputSchema,

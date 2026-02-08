@@ -619,6 +619,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             const restoredFiles = await this.applyUndoCheckpointRestore(checkpoint);
             await undoCheckpointManager.clearLatestCheckpoint();
+            const historyManager = await this.getChatHistoryManager();
+            await historyManager.saveUndoReminderMessage(checkpoint.summary, restoredFiles);
 
             return {
                 success: true,

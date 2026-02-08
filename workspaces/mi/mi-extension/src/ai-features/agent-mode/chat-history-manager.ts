@@ -480,6 +480,45 @@ export class ChatHistoryManager {
     }
 
     /**
+     * Save an undo reminder as a user message with <system-reminder> tags.
+     * This is used for future model turns and should not be shown in UI replay.
+     */
+    async saveUndoReminderMessage(summary: UndoCheckpointSummary, restoredFiles: string[]): Promise<void> {
+        const restored = restoredFiles.length > 0
+            ? restoredFiles.join(', ')
+            : summary.files.map((file) => file.path).join(', ');
+        const reminderText = [
+            '<system-reminder>',
+            `The user executed an undo for the latest checkpoint (${summary.checkpointId}).`,
+            `Restored files: ${restored || 'none'}.`,
+            'Treat the undone changes as reverted and use the restored file state for subsequent edits.',
+            '</system-reminder>',
+        ].join('\n');
+
+        const message = {
+            role: 'user',
+            content: [{
+                type: 'text',
+                text: reminderText,
+            }]
+        };
+
+        const entry: JournalEntry = {
+            type: 'user',
+            message,
+            timestamp: new Date().toISOString(),
+            sessionId: this.sessionId,
+        };
+
+        try {
+            await this.writeEntry(entry);
+            logDebug(`[ChatHistory] Saved undo reminder message for checkpoint: ${summary.checkpointId}`);
+        } catch (error) {
+            logError('[ChatHistory] Failed to save undo reminder message', error);
+        }
+    }
+
+    /**
      * Save a compact summary to history
      * This creates a special JSONL entry that acts as a checkpoint.
      * When loading history, everything before the last compact_summary is ignored.
@@ -1035,7 +1074,8 @@ export class ChatHistoryManager {
                     // These are saved when user aborts a request
                     if (
                         userContent.includes('[Request interrupted by user') ||
-                        userContent.includes("The user doesn't want to proceed with this tool use.")
+                        userContent.includes("The user doesn't want to proceed with this tool use.") ||
+                        userContent.includes('<system-reminder>')
                     ) {
                         continue;
                     }
