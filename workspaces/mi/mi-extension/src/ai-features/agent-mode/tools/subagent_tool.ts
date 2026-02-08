@@ -97,7 +97,7 @@ function cleanupOldSubagents(): void {
 }
 
 // ============================================================================
-// JSONL & Output File Utilities
+// JSONL Utilities
 // ============================================================================
 
 /**
@@ -116,14 +116,6 @@ async function saveSubagentHistory(historyDir: string, messages: any[]): Promise
     const lines = messages.map(message => JSON.stringify(message)).join('\n') + '\n';
     await fs.writeFile(historyPath, lines, 'utf8');
     logDebug(`[SubagentTool] Saved ${messages.length} messages to ${historyPath}`);
-}
-
-/**
- * Write subagent output to a markdown file
- */
-async function writeOutputFile(outputPath: string, text: string): Promise<void> {
-    await fs.writeFile(outputPath, text, 'utf8');
-    logDebug(`[SubagentTool] Wrote output to ${outputPath}`);
 }
 
 // ============================================================================
@@ -204,8 +196,6 @@ export function createSubagentExecute(
             // Use existing subagent ID when resuming, otherwise generate new one
             const subagentId = isResume ? resume! : generateSubagentId();
             const subagentDir = getSubagentsDir(projectPath, sessionId, subagentId);
-            const outputFilePath = path.join(subagentDir, 'output.md');
-            const relativeOutputPath = `.mi-copilot/${sessionId}/subagents/${subagentId}/output.md`;
 
             // Create directory
             await fs.mkdir(subagentDir, { recursive: true });
@@ -219,7 +209,6 @@ export function createSubagentExecute(
                 output: '',
                 completed: false,
                 success: null,
-                outputFilePath,
                 historyDirPath: subagentDir,
             };
             backgroundSubagents.set(subagentId, entry);
@@ -236,35 +225,26 @@ export function createSubagentExecute(
                     logInfo(`[SubagentTool] Background ${subagent_type} subagent completed: ${subagentId}`);
                     logDebug(`[SubagentTool] Response length: ${result.text.length} chars`);
 
-                    // Write output file and save history (non-blocking)
+                    // Save history (non-blocking)
                     try {
-                        await writeOutputFile(outputFilePath, result.text);
                         await saveSubagentHistory(subagentDir, result.messages);
                     } catch (writeError: any) {
-                        logError(`[SubagentTool] Failed to write output/history for ${subagentId}`, writeError);
+                        logError(`[SubagentTool] Failed to write history for ${subagentId}`, writeError);
                     }
                 })
-                .catch(async (error: any) => {
+                .catch((error: any) => {
                     entry.output = `Subagent execution failed: ${error.message}`;
                     entry.completed = true;
                     entry.success = false;
 
                     logError(`[SubagentTool] Background ${subagent_type} subagent failed: ${subagentId}`, error);
-
-                    // Write error to output file
-                    try {
-                        await writeOutputFile(outputFilePath, `# Error\n\n${error.message}`);
-                    } catch (writeError: any) {
-                        logError(`[SubagentTool] Failed to write error output for ${subagentId}`, writeError);
-                    }
                 });
 
-            // Return immediately with subagent ID and output file path
+            // Return immediately with subagent ID
             return {
                 success: true,
                 message: `${subagent_type} subagent ${isResume ? 'resumed' : 'started'} in background with ID: ${subagentId}. Use ${TASK_OUTPUT_TOOL_NAME} tool to check results.`,
                 subagentId,
-                outputFile: relativeOutputPath,
             };
         } else {
             // ================================================================
@@ -321,7 +301,8 @@ const subagentInputSchema = z.object({
         'Optional model selection. Defaults to haiku for cost efficiency. Use sonnet for complex design tasks.'
     ),
     run_in_background: z.boolean().optional().describe(
-        'Set to true to run the subagent in the background. Returns a task_id and output_file path. Use task_output tool to check results later using the subagentId.'
+        `Set to true to run the subagent in the background.
+        Returns a task_id (subagentId). Use ${TASK_OUTPUT_TOOL_NAME} later to check results using that task_id.`
     ),
     resume: z.string().optional().describe(
         'Optional subagent ID to resume from (format: subagent-xxxxxxxx). If provided, the subagent will continue from its previous execution. Use this to continue a previously started exploration.'

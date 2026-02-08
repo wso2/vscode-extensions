@@ -47,6 +47,7 @@ import {
     TOOL_USE_INTERRUPTION_CONTEXT,
 } from '../../ai-features/agent-mode/chat-history-manager';
 import { PendingQuestion, PendingPlanApproval, initializePlanModeSession } from '../../ai-features/agent-mode/tools/plan_mode_tools';
+import { cleanupPersistedToolResultsForProject } from '../../ai-features/agent-mode/tools/tool-result-persistence';
 import { validateAttachments } from '../../ai-features/agent-mode/attachment-utils';
 import { VALID_FILE_EXTENSIONS, VALID_SPECIAL_FILE_NAMES } from '../../ai-features/agent-mode/tools/types';
 import { AgentUndoCheckpointManager, StoredUndoCheckpoint } from '../../ai-features/agent-mode/undo/checkpoint-manager';
@@ -280,6 +281,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             await this.chatHistoryManager.initialize();
             this.currentSessionId = this.chatHistoryManager.getSessionId();
             this.currentMode = await this.chatHistoryManager.getLatestMode(DEFAULT_AGENT_MODE);
+            await cleanupPersistedToolResultsForProject(this.projectUri);
 
             if (sessionId) {
                 logInfo(`[AgentPanel] Continuing existing session: ${this.currentSessionId}`);

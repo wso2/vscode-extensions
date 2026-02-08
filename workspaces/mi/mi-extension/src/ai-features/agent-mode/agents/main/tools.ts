@@ -82,6 +82,7 @@ import {
 } from '../../tools/bash_tools';
 import { AnthropicModel } from '../../../connection';
 import { AgentMode } from '@wso2/mi-core';
+import { persistOversizedToolResult } from '../../tools/tool-result-persistence';
 import {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
@@ -211,6 +212,23 @@ function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
     return createModeBlockedExecute(toolName, mode) as unknown as T;
 }
 
+function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResult>>(
+    toolName: string,
+    sessionDir: string,
+    execute: T
+): T {
+    return (async (...args: Parameters<T>): Promise<ToolResult> => {
+        const result = await execute(...args);
+        const processed = await persistOversizedToolResult({
+            sessionDir,
+            toolName,
+            toolArgs: args[0],
+            result,
+        });
+        return processed as ToolResult;
+    }) as T;
+}
+
 /**
  * Creates the complete tools object for the agent.
  * This ensures consistent tool definitions across main agent and compact agent.
@@ -232,87 +250,96 @@ export function createAgentTools(params: CreateToolsParams) {
         undoCheckpointManager,
     } = params;
 
+    const getWrappedExecute = <T extends (...args: any[]) => Promise<ToolResult>>(
+        toolName: string,
+        execute: T
+    ): T => withPersistedToolResult(
+        toolName,
+        sessionDir,
+        getModeAwareExecute(mode, toolName, execute)
+    );
+
     return {
         // File Operations (6 tools)
         [FILE_WRITE_TOOL_NAME]: createWriteTool(
-            getModeAwareExecute(mode, FILE_WRITE_TOOL_NAME, createWriteExecute(projectPath, modifiedFiles, undoCheckpointManager))
+            getWrappedExecute(FILE_WRITE_TOOL_NAME, createWriteExecute(projectPath, modifiedFiles, undoCheckpointManager))
         ),
         [FILE_READ_TOOL_NAME]: createReadTool(
-            getModeAwareExecute(mode, FILE_READ_TOOL_NAME, createReadExecute(projectPath))
+            getWrappedExecute(FILE_READ_TOOL_NAME, createReadExecute(projectPath))
         ),
         [FILE_EDIT_TOOL_NAME]: createEditTool(
-            getModeAwareExecute(mode, FILE_EDIT_TOOL_NAME, createEditExecute(projectPath, modifiedFiles, undoCheckpointManager))
+            getWrappedExecute(FILE_EDIT_TOOL_NAME, createEditExecute(projectPath, modifiedFiles, undoCheckpointManager))
         ),
         [FILE_GREP_TOOL_NAME]: createGrepTool(
-            getModeAwareExecute(mode, FILE_GREP_TOOL_NAME, createGrepExecute(projectPath))
+            getWrappedExecute(FILE_GREP_TOOL_NAME, createGrepExecute(projectPath))
         ),
         [FILE_GLOB_TOOL_NAME]: createGlobTool(
-            getModeAwareExecute(mode, FILE_GLOB_TOOL_NAME, createGlobExecute(projectPath))
+            getWrappedExecute(FILE_GLOB_TOOL_NAME, createGlobExecute(projectPath))
         ),
 
         // Connector Tools (3 tools)
         [CONNECTOR_TOOL_NAME]: createConnectorTool(
-            getModeAwareExecute(mode, CONNECTOR_TOOL_NAME, createConnectorExecute())
+            getWrappedExecute(CONNECTOR_TOOL_NAME, createConnectorExecute())
         ),
         [GET_CONNECTOR_DOCUMENTATION_TOOL_NAME]: createGetConnectorDocumentationTool(
-            getModeAwareExecute(mode, GET_CONNECTOR_DOCUMENTATION_TOOL_NAME, createGetConnectorDocumentationExecute())
+            getWrappedExecute(GET_CONNECTOR_DOCUMENTATION_TOOL_NAME, createGetConnectorDocumentationExecute())
         ),
         [GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME]: createGetAIConnectorDocumentationTool(
-            getModeAwareExecute(mode, GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME, createGetAIConnectorDocumentationExecute())
+            getWrappedExecute(GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME, createGetAIConnectorDocumentationExecute())
         ),
 
         // Project Tools (1 tool)
         [MANAGE_CONNECTOR_TOOL_NAME]: createManageConnectorTool(
-            getModeAwareExecute(mode, MANAGE_CONNECTOR_TOOL_NAME, createManageConnectorExecute(projectPath, undoCheckpointManager))
+            getWrappedExecute(MANAGE_CONNECTOR_TOOL_NAME, createManageConnectorExecute(projectPath, undoCheckpointManager))
         ),
 
         // LSP Tools (1 tool)
         [VALIDATE_CODE_TOOL_NAME]: createValidateCodeTool(
-            getModeAwareExecute(mode, VALIDATE_CODE_TOOL_NAME, createValidateCodeExecute(projectPath))
+            getWrappedExecute(VALIDATE_CODE_TOOL_NAME, createValidateCodeExecute(projectPath))
         ),
 
         // Data Mapper Tools (2 tools)
         [CREATE_DATA_MAPPER_TOOL_NAME]: createCreateDataMapperTool(
-            getModeAwareExecute(mode, CREATE_DATA_MAPPER_TOOL_NAME, createCreateDataMapperExecute(projectPath, modifiedFiles, undoCheckpointManager))
+            getWrappedExecute(CREATE_DATA_MAPPER_TOOL_NAME, createCreateDataMapperExecute(projectPath, modifiedFiles, undoCheckpointManager))
         ),
         [GENERATE_DATA_MAPPING_TOOL_NAME]: createGenerateDataMappingTool(
-            getModeAwareExecute(mode, GENERATE_DATA_MAPPING_TOOL_NAME, createGenerateDataMappingExecute(projectPath, modifiedFiles, undoCheckpointManager))
+            getWrappedExecute(GENERATE_DATA_MAPPING_TOOL_NAME, createGenerateDataMappingExecute(projectPath, modifiedFiles, undoCheckpointManager))
         ),
 
         // Runtime Tools (2 tools)
         [BUILD_PROJECT_TOOL_NAME]: createBuildProjectTool(
-            getModeAwareExecute(mode, BUILD_PROJECT_TOOL_NAME, createBuildProjectExecute(projectPath, sessionDir))
+            getWrappedExecute(BUILD_PROJECT_TOOL_NAME, createBuildProjectExecute(projectPath, sessionDir))
         ),
         [SERVER_MANAGEMENT_TOOL_NAME]: createServerManagementTool(
-            getModeAwareExecute(mode, SERVER_MANAGEMENT_TOOL_NAME, createServerManagementExecute(projectPath, sessionDir))
+            getWrappedExecute(SERVER_MANAGEMENT_TOOL_NAME, createServerManagementExecute(projectPath, sessionDir))
         ),
 
         // Plan Mode Tools (5 tools)
         [SUBAGENT_TOOL_NAME]: createSubagentTool(
-            getModeAwareExecute(mode, SUBAGENT_TOOL_NAME, createSubagentExecute(projectPath, sessionId, getAnthropicClient))
+            getWrappedExecute(SUBAGENT_TOOL_NAME, createSubagentExecute(projectPath, sessionId, getAnthropicClient))
         ),
         [ASK_USER_TOOL_NAME]: createAskUserTool(
-            getModeAwareExecute(mode, ASK_USER_TOOL_NAME, createAskUserExecute(eventHandler, pendingQuestions))
+            getWrappedExecute(ASK_USER_TOOL_NAME, createAskUserExecute(eventHandler, pendingQuestions))
         ),
         [ENTER_PLAN_MODE_TOOL_NAME]: createEnterPlanModeTool(
-            getModeAwareExecute(mode, ENTER_PLAN_MODE_TOOL_NAME, createEnterPlanModeExecute(projectPath, sessionId, eventHandler, pendingApprovals))
+            getWrappedExecute(ENTER_PLAN_MODE_TOOL_NAME, createEnterPlanModeExecute(projectPath, sessionId, eventHandler, pendingApprovals))
         ),
         [EXIT_PLAN_MODE_TOOL_NAME]: createExitPlanModeTool(
-            getModeAwareExecute(mode, EXIT_PLAN_MODE_TOOL_NAME, createExitPlanModeExecute(projectPath, sessionId, eventHandler, pendingApprovals))
+            getWrappedExecute(EXIT_PLAN_MODE_TOOL_NAME, createExitPlanModeExecute(projectPath, sessionId, eventHandler, pendingApprovals))
         ),
         [TODO_WRITE_TOOL_NAME]: createTodoWriteTool(
-            getModeAwareExecute(mode, TODO_WRITE_TOOL_NAME, createTodoWriteExecute(eventHandler))
+            getWrappedExecute(TODO_WRITE_TOOL_NAME, createTodoWriteExecute(eventHandler))
         ),
 
         // Bash Tools (3 tools)
         [BASH_TOOL_NAME]: createBashTool(
-            getModeAwareExecute(mode, BASH_TOOL_NAME, createBashExecute(projectPath))
+            getWrappedExecute(BASH_TOOL_NAME, createBashExecute(projectPath))
         ),
         [KILL_SHELL_TOOL_NAME]: createKillShellTool(
-            getModeAwareExecute(mode, KILL_SHELL_TOOL_NAME, createKillShellExecute())
+            getWrappedExecute(KILL_SHELL_TOOL_NAME, createKillShellExecute())
         ),
         [TASK_OUTPUT_TOOL_NAME]: createTaskOutputTool(
-            getModeAwareExecute(mode, TASK_OUTPUT_TOOL_NAME, createTaskOutputExecute())
+            getWrappedExecute(TASK_OUTPUT_TOOL_NAME, createTaskOutputExecute())
         ),
     };
 }

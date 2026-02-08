@@ -81,6 +81,11 @@ function normalizeRelativePath(projectPath: string, candidatePath: string): stri
     return relative;
 }
 
+function isCopilotInternalPath(relativePath: string): boolean {
+    const normalized = relativePath.replace(/\\/g, '/').replace(/^\.\//, '');
+    return normalized === '.mi-copilot' || normalized.startsWith('.mi-copilot/');
+}
+
 function calculateLineChanges(beforeContent: string, afterContent: string): { addedLines: number; deletedLines: number } {
     const beforeLines = beforeContent.split('\n');
     const afterLines = afterContent.split('\n');
@@ -164,6 +169,11 @@ export class AgentUndoCheckpointManager {
         const normalizedPath = normalizeRelativePath(this.projectPath, relativePath);
         if (!normalizedPath) {
             logDebug(`[UndoCheckpoint] Ignoring invalid path capture: ${relativePath}`);
+            return;
+        }
+
+        if (isCopilotInternalPath(normalizedPath)) {
+            logDebug(`[UndoCheckpoint] Ignoring internal copilot path: ${normalizedPath}`);
             return;
         }
 
@@ -275,4 +285,3 @@ export class AgentUndoCheckpointManager {
         }
     }
 }
-
