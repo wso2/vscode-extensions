@@ -79,19 +79,24 @@ export const PLAN_MODE_SHARED_GUIDELINES = `
 # Plan Mode Workflow
 
 1. **Read the plan file first**: It may contain a previous or unfinished plan.
-2. **Write structured plan or Edit previous plan**: Use the following reference structure. You are free to use any other structure or format you prefer.
+2. **Write structured plan or Edit previous plan**: A reference plan file structure is provided below. You are free to modify the structure as you see fit.
    \`\`\`markdown
    # <Plan Title>
 
    ## Overview
    <Brief description of what will be implemented>
 
-   ## Files to Create
-   - \`path/to/file1.xml\` - Description
-   - \`path/to/file2.xml\` - Description
+   ## Context section
+   <Why the change is being made: the problem/need, what prompted it, and the intended outcome.>
 
-   ## Files to Modify
-   - \`path/to/existing.xml\` - What changes
+   ## Recommended approach
+   <Only the chosen approach (not all alternatives considered). Should be concise enough to scan quickly but detailed enough to execute effectively.>
+
+   ## Critical files 
+   <Paths of files to be modified.>
+
+   ## Reusable code
+   <References to existing functions/utilities found during exploration, with their file paths.>
 
    ## Implementation Steps
    1. Step one
@@ -99,7 +104,7 @@ export const PLAN_MODE_SHARED_GUIDELINES = `
    3. ...
 
    ## Verification
-   - How to test the implementation
+   <How to test the changes end-to-end (run code, tests, etc.).>
    \`\`\`
 3. **Then present extreamly brief summary of the plan to the user in the chat** - System will attach full plan as a collapsable markdown block in the chat window for the user to review if needed.
 4. **Request approval**: Call \`${EXIT_PLAN_MODE_TOOL_NAME}\` - this BLOCKS until user approves or rejects.

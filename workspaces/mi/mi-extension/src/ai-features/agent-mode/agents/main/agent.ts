@@ -56,6 +56,7 @@ import {
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { ChatHistoryManager } from '../../chat-history-manager';
 import { getToolAction } from '../../tool-action-mapper';
+import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
 
 // Import types from mi-core (shared with visualizer)
 import { AgentEvent, AgentEventType, FileObject, ImageObject, AgentMode } from '@wso2/mi-core';
@@ -96,6 +97,8 @@ export interface AgentRequest {
     pendingQuestions?: Map<string, PendingQuestion>;
     /** Pending plan approvals map for exit_plan_mode tool (shared with RPC layer) */
     pendingApprovals?: Map<string, PendingPlanApproval>;
+    /** Optional checkpoint manager for undo support */
+    undoCheckpointManager?: AgentUndoCheckpointManager;
 }
 
 /**
@@ -230,6 +233,7 @@ export async function executeAgent(
             pendingQuestions,
             pendingApprovals,
             getAnthropicClient,
+            undoCheckpointManager: request.undoCheckpointManager,
         });
 
         // Track step number for logging

@@ -25,6 +25,7 @@ import { getMIVersionFromPom } from '../../../util/onboardingUtils';
 import { APIS } from '../../../constants';
 import { DependencyDetails } from '@wso2/mi-core';
 import { logDebug, logError } from '../../copilot/logger';
+import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
 
 // ============================================================================
 // Execute Function Types
@@ -44,7 +45,10 @@ export type ManageConnectorExecuteFn = (args: {
  * Creates the execute function for manage_connector tool
  * Handles both add and remove operations for connectors and inbound endpoints
  */
-export function createManageConnectorExecute(projectPath: string): ManageConnectorExecuteFn {
+export function createManageConnectorExecute(
+    projectPath: string,
+    undoCheckpointManager?: AgentUndoCheckpointManager
+): ManageConnectorExecuteFn {
     return async (args: { operation: 'add' | 'remove'; connector_names?: string[]; inbound_endpoint_names?: string[] }): Promise<ToolResult> => {
         const { operation, connector_names = [], inbound_endpoint_names = [] } = args;
         const isAdd = operation === 'add';
@@ -63,6 +67,7 @@ export function createManageConnectorExecute(projectPath: string): ManageConnect
 
         try {
             const miVisualizerRpcManager = new MiVisualizerRpcManager(projectPath);
+            await undoCheckpointManager?.captureBeforeChange('pom.xml');
 
             // Get MI runtime version from pom.xml
             const runtimeVersion = await getMIVersionFromPom(projectPath);

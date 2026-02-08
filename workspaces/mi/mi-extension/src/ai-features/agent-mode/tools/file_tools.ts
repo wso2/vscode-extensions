@@ -43,6 +43,7 @@ import {
 import { getProviderCacheControl } from '../../connection';
 import { logDebug, logError } from '../../copilot/logger';
 import { validateXmlFile, formatValidationMessage } from './validation-utils';
+import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
 
 // ============================================================================
 // Validation Functions
@@ -191,7 +192,11 @@ function trackModifiedFile(modifiedFiles: string[] | undefined, filePath: string
 /**
  * Creates the execute function for file_write tool
  */
-export function createWriteExecute(projectPath: string, modifiedFiles?: string[]): WriteExecuteFn {
+export function createWriteExecute(
+    projectPath: string,
+    modifiedFiles?: string[],
+    undoCheckpointManager?: AgentUndoCheckpointManager
+): WriteExecuteFn {
     return async (args: { file_path: string; content: string }): Promise<ToolResult> => {
         const { file_path, content } = args;
         console.log(`[FileWriteTool] Writing to ${file_path}, content length: ${content.length}`);
@@ -218,6 +223,7 @@ export function createWriteExecute(projectPath: string, modifiedFiles?: string[]
         }
 
         const fullPath = path.join(projectPath, file_path);
+        await undoCheckpointManager?.captureBeforeChange(file_path);
 
         // Check if file exists with non-empty content
         const fileExists = fs.existsSync(fullPath);
@@ -391,7 +397,11 @@ export function createReadExecute(projectPath: string): ReadExecuteFn {
 /**
  * Creates the execute function for file_edit tool
  */
-export function createEditExecute(projectPath: string, modifiedFiles?: string[]): EditExecuteFn {
+export function createEditExecute(
+    projectPath: string,
+    modifiedFiles?: string[],
+    undoCheckpointManager?: AgentUndoCheckpointManager
+): EditExecuteFn {
     return async (args: {
         file_path: string;
         old_string: string;
@@ -423,6 +433,7 @@ export function createEditExecute(projectPath: string, modifiedFiles?: string[])
         }
 
         const fullPath = path.join(projectPath, file_path);
+        await undoCheckpointManager?.captureBeforeChange(file_path);
 
         // Check if file exists
         if (!fs.existsSync(fullPath)) {

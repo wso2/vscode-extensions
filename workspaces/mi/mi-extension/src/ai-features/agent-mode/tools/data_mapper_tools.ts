@@ -44,6 +44,7 @@ import { MILanguageClient } from '../../../lang-client/activator';
 import { compareVersions } from '../../../util/onboardingUtils';
 import { logInfo, logError, logDebug } from '../../copilot/logger';
 import { MiDataMapperRpcManager } from '../../../rpc-managers/mi-data-mapper/rpc-manager';
+import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
 
 // ============================================================================
 // Helper Functions
@@ -91,7 +92,8 @@ async function getDataMapperFolder(projectPath: string, dmName: string): Promise
 
 export function createCreateDataMapperExecute(
     projectPath: string,
-    modifiedFiles?: string[]
+    modifiedFiles?: string[],
+    undoCheckpointManager?: AgentUndoCheckpointManager
 ): CreateDataMapperExecuteFn {
     return async (args): Promise<ToolResult> => {
         const { name, input_schema, input_type, output_schema, output_type, auto_map, mapping_instructions } = args;
@@ -111,6 +113,8 @@ export function createCreateDataMapperExecute(
             // 2. Get data mapper folder path
             const dmFolder = await getDataMapperFolder(projectPath, name);
             const tsFilePath = path.join(dmFolder, `${name}.ts`);
+            const relativeTsPath = path.relative(projectPath, tsFilePath);
+            await undoCheckpointManager?.captureBeforeChange(relativeTsPath);
 
             // 3. Check if data mapper already exists
             if (fs.existsSync(tsFilePath)) {
@@ -180,7 +184,6 @@ export function createCreateDataMapperExecute(
             logDebug(`[CreateDataMapper] Updated output interface`);
 
             // 7. Track modified files
-            const relativeTsPath = path.relative(projectPath, tsFilePath);
             if (modifiedFiles) {
                 modifiedFiles.push(relativeTsPath);
             }
@@ -247,7 +250,8 @@ export function createCreateDataMapperTool(execute: CreateDataMapperExecuteFn) {
 
 export function createGenerateDataMappingExecute(
     projectPath: string,
-    modifiedFiles?: string[]
+    modifiedFiles?: string[],
+    undoCheckpointManager?: AgentUndoCheckpointManager
 ): GenerateDataMappingExecuteFn {
     return async (args): Promise<ToolResult> => {
         const { dm_config_path, instructions } = args;
@@ -293,6 +297,7 @@ export function createGenerateDataMappingExecute(
 
             // Verify it's a valid data mapper file
             const content = fs.readFileSync(tsFilePath, 'utf8');
+            await undoCheckpointManager?.captureBeforeChange(path.relative(projectPath, tsFilePath));
             if (!content.includes('mapFunction')) {
                 return {
                     success: false,

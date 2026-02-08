@@ -107,6 +107,7 @@ import {
     TASK_OUTPUT_TOOL_NAME,
 } from '../../tools/types';
 import { ToolResult } from '../../tools/types';
+import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
 
 // Re-export tool name constants for use in agent.ts
 export {
@@ -157,6 +158,8 @@ export interface CreateToolsParams {
     pendingApprovals: Map<string, PendingPlanApproval>;
     /** Function to get Anthropic client for task tool */
     getAnthropicClient: (model: AnthropicModel) => Promise<any>;
+    /** Optional undo checkpoint manager for capturing pre-change states */
+    undoCheckpointManager?: AgentUndoCheckpointManager;
 }
 
 const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
@@ -226,18 +229,19 @@ export function createAgentTools(params: CreateToolsParams) {
         pendingQuestions,
         pendingApprovals,
         getAnthropicClient,
+        undoCheckpointManager,
     } = params;
 
     return {
         // File Operations (6 tools)
         [FILE_WRITE_TOOL_NAME]: createWriteTool(
-            getModeAwareExecute(mode, FILE_WRITE_TOOL_NAME, createWriteExecute(projectPath, modifiedFiles))
+            getModeAwareExecute(mode, FILE_WRITE_TOOL_NAME, createWriteExecute(projectPath, modifiedFiles, undoCheckpointManager))
         ),
         [FILE_READ_TOOL_NAME]: createReadTool(
             getModeAwareExecute(mode, FILE_READ_TOOL_NAME, createReadExecute(projectPath))
         ),
         [FILE_EDIT_TOOL_NAME]: createEditTool(
-            getModeAwareExecute(mode, FILE_EDIT_TOOL_NAME, createEditExecute(projectPath, modifiedFiles))
+            getModeAwareExecute(mode, FILE_EDIT_TOOL_NAME, createEditExecute(projectPath, modifiedFiles, undoCheckpointManager))
         ),
         [FILE_GREP_TOOL_NAME]: createGrepTool(
             getModeAwareExecute(mode, FILE_GREP_TOOL_NAME, createGrepExecute(projectPath))
@@ -259,7 +263,7 @@ export function createAgentTools(params: CreateToolsParams) {
 
         // Project Tools (1 tool)
         [MANAGE_CONNECTOR_TOOL_NAME]: createManageConnectorTool(
-            getModeAwareExecute(mode, MANAGE_CONNECTOR_TOOL_NAME, createManageConnectorExecute(projectPath))
+            getModeAwareExecute(mode, MANAGE_CONNECTOR_TOOL_NAME, createManageConnectorExecute(projectPath, undoCheckpointManager))
         ),
 
         // LSP Tools (1 tool)
@@ -269,10 +273,10 @@ export function createAgentTools(params: CreateToolsParams) {
 
         // Data Mapper Tools (2 tools)
         [CREATE_DATA_MAPPER_TOOL_NAME]: createCreateDataMapperTool(
-            getModeAwareExecute(mode, CREATE_DATA_MAPPER_TOOL_NAME, createCreateDataMapperExecute(projectPath, modifiedFiles))
+            getModeAwareExecute(mode, CREATE_DATA_MAPPER_TOOL_NAME, createCreateDataMapperExecute(projectPath, modifiedFiles, undoCheckpointManager))
         ),
         [GENERATE_DATA_MAPPING_TOOL_NAME]: createGenerateDataMappingTool(
-            getModeAwareExecute(mode, GENERATE_DATA_MAPPING_TOOL_NAME, createGenerateDataMappingExecute(projectPath, modifiedFiles))
+            getModeAwareExecute(mode, GENERATE_DATA_MAPPING_TOOL_NAME, createGenerateDataMappingExecute(projectPath, modifiedFiles, undoCheckpointManager))
         ),
 
         // Runtime Tools (2 tools)

@@ -38,6 +38,7 @@ import TodoListSegment from "./TodoListSegment";
 import BashOutputSegment from "./BashOutputSegment";
 import CompactSummarySegment from "./CompactSummarySegment";
 import ThinkingSegment from "./ThinkingSegment";
+import FileChangesSegment from "./FileChangesSegment";
 
 // Styled markdown container
 const StyledMarkdown = styled.div`
@@ -261,6 +262,7 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             segment.isTodoList ||
             segment.isBashOutput ||
             segment.isCompactSummary ||
+            segment.isFileChanges ||
             segment.isPlan ||
             segment.isThinking
         );
@@ -308,6 +310,8 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
                 }
             } else if (segment.isCompactSummary) {
                 return <CompactSummarySegment key={i} text={segment.text} />;
+            } else if (segment.isFileChanges) {
+                return <FileChangesSegment key={i} summaryText={segment.text} />;
             } else if (segment.isPlan) {
                 return <CompactSummarySegment key={i} text={segment.text} title="Full Plan" />;
             } else if (segment.isThinking) {

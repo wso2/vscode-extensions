@@ -42,7 +42,6 @@ export interface PendingPlanApproval {
 }
 import {
     RpcClientType,
-    FileHistoryEntry,
 } from "../types";
 import {
     getProjectRuntimeVersion,
@@ -76,10 +75,6 @@ interface MICopilotContextType {
     setFiles: React.Dispatch<React.SetStateAction<FileObject[]>>;
     images: ImageObject[];
     setImages: React.Dispatch<React.SetStateAction<ImageObject[]>>;
-
-    // State to handle file history
-    FileHistory: FileHistoryEntry[];
-    setFileHistory: React.Dispatch<React.SetStateAction<FileHistoryEntry[]>>
 
     // State to handle current user input
     currentUserPrompt: string;
@@ -141,11 +136,6 @@ interface MICopilotProviderProps {
   children: React.ReactNode;
 }
 
-// Define Local Storage Keys (only for file history now, chat is managed by backend)
-const localStorageKeys = {
-    fileHistory: "",
-};
-
 export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const { rpcClient } = useVisualizerContext();
 
@@ -172,9 +162,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const [remainingTokenPercentage, setRemainingTokenPercentage] = useState<number>(0);
     const [remaingTokenLessThanOne, setRemaingTokenLessThanOne] = useState<boolean>(false);
     const [timeToReset, setTimeToReset] = useState<number>(0);
-
-    // State to handle file history
-    const [FileHistory, setFileHistory] = useState<FileHistoryEntry[]>([]);
 
     // Plan mode state
     const [pendingQuestion, setPendingQuestion] = useState<PendingUserQuestion | null>(null);
@@ -319,9 +306,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 const uuid = await getProjectUUID(rpcClient);
                 setProjectUUID(uuid);
 
-                // Update localStorageKeys with the UUID (only for file history)
-                localStorageKeys.fileHistory = `fileHistory-AIGenerationChat-${uuid}`;
-
                 const machineView = await rpcClient.getAIVisualizerState();
 
                 // Fetch and update usage information
@@ -407,12 +391,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                         console.error('[AI Panel] Failed to load chat history from backend', error);
                     }
 
-                    // Load file history from localStorage
-                    const storedFileHistory = localStorage.getItem(localStorageKeys.fileHistory);
-                    if (storedFileHistory) {
-                        const fileHistoryFromStorage = JSON.parse(storedFileHistory);
-                        setFileHistory(fileHistoryFromStorage);
-                    }
                 }
                 setIsLoading(false);
             }
@@ -423,12 +401,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     useEffect(() => {
         setRemaingTokenLessThanOne(remainingTokenPercentage < 1 && remainingTokenPercentage > 0);
     }, [remainingTokenPercentage]);
-
-useEffect(() => {
-        if (!isLoading) {
-            localStorage.setItem(localStorageKeys.fileHistory, JSON.stringify(FileHistory));
-        }
-    }, [isLoading, FileHistory]);
 
     const currentContext: MICopilotContextType = {
         rpcClient,
@@ -456,8 +428,6 @@ useEffect(() => {
             isLessThanOne: remaingTokenLessThanOne,
             timeToReset: timeToReset,
         },
-        FileHistory,
-        setFileHistory,
         feedbackGiven,
         setFeedbackGiven,
         handleFeedback,

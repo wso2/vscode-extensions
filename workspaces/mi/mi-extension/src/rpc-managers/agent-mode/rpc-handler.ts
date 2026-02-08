@@ -34,10 +34,14 @@ import {
     sendAgentMessage,
     abortAgentGeneration,
     loadChatHistory,
+    undoLastCheckpoint,
+    applyCodeSegmentWithCheckpoint,
     respondToQuestion,
     respondToPlanApproval,
     SendAgentMessageRequest,
     LoadChatHistoryRequest,
+    UndoLastCheckpointRequest,
+    ApplyCodeSegmentWithCheckpointRequest,
     UserQuestionResponse,
     PlanApprovalResponse,
     CompactConversationRequest,
@@ -86,6 +90,11 @@ export function registerMIAgentPanelRpcHandlers(messenger: MessengerAPI, project
     messenger.onRequest(sendAgentMessage, (request: SendAgentMessageRequest) => rpcManager.sendAgentMessage(request));
     messenger.onRequest(abortAgentGeneration, () => rpcManager.abortAgentGeneration());
     messenger.onRequest(loadChatHistory, (request: LoadChatHistoryRequest) => rpcManager.loadChatHistory(request));
+    messenger.onRequest(undoLastCheckpoint, (request: UndoLastCheckpointRequest) => rpcManager.undoLastCheckpoint(request));
+    messenger.onRequest(
+        applyCodeSegmentWithCheckpoint,
+        (request: ApplyCodeSegmentWithCheckpointRequest) => rpcManager.applyCodeSegmentWithCheckpoint(request)
+    );
 
     // ==================================
     // Plan Mode Functions

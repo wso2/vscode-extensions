@@ -23,6 +23,10 @@ import {
     AgentEvent,
     LoadChatHistoryRequest,
     LoadChatHistoryResponse,
+    UndoLastCheckpointRequest,
+    UndoLastCheckpointResponse,
+    ApplyCodeSegmentWithCheckpointRequest,
+    ApplyCodeSegmentWithCheckpointResponse,
     PlanApprovalResponse,
     ListSessionsRequest,
     ListSessionsResponse,
@@ -53,6 +57,16 @@ export const abortAgentGeneration: RequestType<void, void> = {
 // Load chat history
 export const loadChatHistory: RequestType<LoadChatHistoryRequest, LoadChatHistoryResponse> = {
     method: `${_prefix}/loadChatHistory`
+};
+
+// Undo the latest checkpoint
+export const undoLastCheckpoint: RequestType<UndoLastCheckpointRequest, UndoLastCheckpointResponse> = {
+    method: `${_prefix}/undoLastCheckpoint`
+};
+
+// Apply legacy code block with a backend checkpoint
+export const applyCodeSegmentWithCheckpoint: RequestType<ApplyCodeSegmentWithCheckpointRequest, ApplyCodeSegmentWithCheckpointResponse> = {
+    method: `${_prefix}/applyCodeSegmentWithCheckpoint`
 };
 
 // Notification for agent streaming events
