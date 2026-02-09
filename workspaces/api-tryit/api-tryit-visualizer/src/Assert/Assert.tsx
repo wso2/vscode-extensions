@@ -19,7 +19,7 @@
 import React from 'react';
 import { Typography, LinkButton, Codicon, TextField, Button } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
-import { ApiRequest } from '@wso2/api-tryit-core';
+import { ApiRequest, ApiResponse } from '@wso2/api-tryit-core';
 import { InputEditor } from '../Input/InputEditor/InputEditor';
 import { COMMON_HEADERS } from '../Input/InputEditor/SuggestionsConstants';
 
@@ -27,6 +27,7 @@ type AssertMode = 'code' | 'form';
 
 interface AssertProps {
     request: ApiRequest;
+    response?: ApiResponse;
     onRequestChange?: (request: ApiRequest) => void;
     mode?: AssertMode;
 }
@@ -96,11 +97,98 @@ const AssertionInput = styled(TextField)`
     flex-grow: 1;
 `;
 
+const AssertionStatusIcon = styled(Codicon)<{ status: 'pass' | 'fail' }>`
+    color: ${({ status }) => status === 'pass'
+        ? 'var(--vscode-testing-iconPassed, #2ea043)'
+        : 'var(--vscode-testing-iconFailed, #f85149)'};
+`;
+
+const AssertionResultsList = styled.div`
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+`;
+
+const AssertionResultRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 4px;
+    font-size: 12px;
+    color: var(--vscode-foreground);
+`;
+
+const AssertionResultText = styled.div`
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.85;
+`;
+
 export const Assert: React.FC<AssertProps> = ({ 
     request,
+    response,
     onRequestChange,
     mode = 'form'
 }) => {
+
+    const evaluateAssertion = React.useCallback((assertion: string, apiResponse?: ApiResponse) => {
+        if (!apiResponse) {
+            return undefined;
+        }
+
+        const trimmed = assertion.trim();
+        if (!trimmed) {
+            return undefined;
+        }
+
+        const match = trimmed.match(/^res\.(status|body|headers\.([A-Za-z0-9-]+))\s*={1,2}\s*(.+)$/i);
+        if (!match) {
+            return false;
+        }
+
+        const [, target, headerName, rawExpected] = match;
+        const expected = rawExpected.trim().replace(/^['"]|['"]$/g, '');
+
+        if (target.toLowerCase() === 'status') {
+            const expectedStatus = Number(expected);
+            return Number.isFinite(expectedStatus) && apiResponse.statusCode === expectedStatus;
+        }
+
+        if (target.toLowerCase() === 'body') {
+            const responseBody = apiResponse.body ?? '';
+            const isExpectedJson = expected.startsWith('{') || expected.startsWith('[');
+            if (isExpectedJson) {
+                try {
+                    const expectedJson = JSON.parse(expected);
+                    const responseJson = JSON.parse(responseBody);
+                    return JSON.stringify(expectedJson) === JSON.stringify(responseJson);
+                } catch {
+                    return false;
+                }
+            }
+            return responseBody === expected;
+        }
+
+        if (headerName) {
+            const headerValue = (apiResponse.headers || []).find(
+                (h) => h.key.toLowerCase() === headerName.toLowerCase()
+            )?.value;
+            if (headerValue === undefined) {
+                return false;
+            }
+            return headerValue.trim() === expected;
+        }
+
+        return false;
+    }, []);
+
+    const assertionResults = React.useMemo(() => {
+        return (request.assertions || []).map((assertion) => evaluateAssertion(assertion, response));
+    }, [request.assertions, response, evaluateAssertion]);
 
     // Code lenses for Assertions editor
     const assertionsCodeLenses = React.useMemo(() => [
@@ -187,6 +275,7 @@ export const Assert: React.FC<AssertProps> = ({
                         onChange={handleAssertionsChange}
                         value={(request.assertions || []).join('\n')}
                         codeLenses={assertionsCodeLenses}
+                        assertionStatuses={assertionResults}
                         suggestions={{
                             assertions: {
                                 initial: ['res'],
@@ -200,6 +289,28 @@ export const Assert: React.FC<AssertProps> = ({
                             }
                         }}
                     />
+                    {(request.assertions || []).length > 0 && (
+                        <AssertionResultsList>
+                            {(request.assertions || []).map((assertion, index) => (
+                                <AssertionResultRow key={`assertion-result-${index}`}>
+                                    {response ? (
+                                        <AssertionStatusIcon
+                                            status={assertionResults[index] ? 'pass' : 'fail'}
+                                            name={assertionResults[index] ? 'check' : 'close'}
+                                        />
+                                    ) : (
+                                        <Codicon
+                                            sx={{ color: 'var(--vscode-disabledForeground)' }}
+                                            name="close"
+                                        />
+                                    )}
+                                    <AssertionResultText title={assertion}>
+                                        {assertion}
+                                    </AssertionResultText>
+                                </AssertionResultRow>
+                            ))}
+                        </AssertionResultsList>
+                    )}
                 </>
             ) : (
                 <>
@@ -218,6 +329,17 @@ export const Assert: React.FC<AssertProps> = ({
                             <Button appearance='icon' onClick={() => deleteAssertion(index)}>
                                 <Codicon sx={{color: 'var(--vscode-editorGutter-deletedBackground)'}} name="trash" />
                             </Button>
+                            {response ? (
+                                <AssertionStatusIcon
+                                    status={assertionResults[index] ? 'pass' : 'fail'}
+                                    name={assertionResults[index] ? 'check' : 'close'}
+                                />
+                            ) : (
+                                <Codicon
+                                    sx={{ color: 'var(--vscode-disabledForeground)' }}
+                                    name="close"
+                                />
+                            )}
                         </AssertionItem>
                     ))}
                     <AddButtonWrapper>

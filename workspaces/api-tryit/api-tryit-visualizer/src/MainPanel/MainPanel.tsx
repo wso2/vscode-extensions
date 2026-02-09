@@ -819,6 +819,7 @@ export const MainPanel: React.FC = () => {
                                     requestItem ? (
                                         <Assert
                                             request={requestItem.request}
+                                            response={requestItem.response}
                                             onRequestChange={handleRequestChange}
                                             mode={assertMode}
                                         />
