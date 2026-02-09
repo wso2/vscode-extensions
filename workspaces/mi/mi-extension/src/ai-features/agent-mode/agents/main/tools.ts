@@ -167,6 +167,8 @@ export interface CreateToolsParams {
     pendingApprovals: Map<string, PendingPlanApproval>;
     /** Function to get Anthropic client for task tool */
     getAnthropicClient: (model: AnthropicModel) => Promise<any>;
+    /** Skip per-call web approval prompts for this run */
+    webAccessPreapproved: boolean;
     /** Optional undo checkpoint manager for capturing pre-change states */
     undoCheckpointManager?: AgentUndoCheckpointManager;
 }
@@ -256,6 +258,7 @@ export function createAgentTools(params: CreateToolsParams) {
         pendingQuestions,
         pendingApprovals,
         getAnthropicClient,
+        webAccessPreapproved,
         undoCheckpointManager,
     } = params;
 
@@ -340,10 +343,10 @@ export function createAgentTools(params: CreateToolsParams) {
 
         // Web Tools (2 tools)
         [WEB_SEARCH_TOOL_NAME]: createWebSearchTool(
-            getWrappedExecute(WEB_SEARCH_TOOL_NAME, createWebSearchExecute(getAnthropicClient, eventHandler, pendingApprovals))
+            getWrappedExecute(WEB_SEARCH_TOOL_NAME, createWebSearchExecute(getAnthropicClient, eventHandler, pendingApprovals, webAccessPreapproved))
         ),
         [WEB_FETCH_TOOL_NAME]: createWebFetchTool(
-            getWrappedExecute(WEB_FETCH_TOOL_NAME, createWebFetchExecute(getAnthropicClient, eventHandler, pendingApprovals))
+            getWrappedExecute(WEB_FETCH_TOOL_NAME, createWebFetchExecute(getAnthropicClient, eventHandler, pendingApprovals, webAccessPreapproved))
         ),
 
         // Shell Tools (3 tools)

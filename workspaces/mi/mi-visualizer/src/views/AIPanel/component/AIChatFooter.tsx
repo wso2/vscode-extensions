@@ -31,6 +31,7 @@ import Attachments from "./Attachments";
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
 const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
 const THINKING_PREFERENCE_KEY = 'mi-agent-thinking-enabled';
+const WEB_ACCESS_PREFERENCE_KEY = 'mi-agent-web-access-enabled';
 
 function removeCompactingPlaceholder(content: string): string {
     return content
@@ -157,6 +158,59 @@ interface MentionablePathItem {
     type: 'file' | 'folder';
 }
 
+const FooterTooltip: React.FC<{
+    content: React.ReactNode;
+    children: React.ReactNode;
+    align?: 'start' | 'center' | 'end';
+    variant?: 'simple' | 'card';
+}> = ({ content, children, align = 'center', variant = 'simple' }) => {
+    const [visible, setVisible] = useState(false);
+    const positionStyle = align === 'start'
+        ? { left: 0, transform: 'none' as const }
+        : align === 'end'
+            ? { right: 0, transform: 'none' as const }
+            : { left: '50%', transform: 'translateX(-50%)' };
+
+    return (
+        <span
+            style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
+            onMouseEnter={() => setVisible(true)}
+            onMouseLeave={() => setVisible(false)}
+            onFocus={() => setVisible(true)}
+            onBlur={() => setVisible(false)}
+        >
+            {children}
+            {visible && (
+                <span
+                    style={{
+                        position: "absolute",
+                        bottom: "calc(100% + 6px)",
+                        ...positionStyle,
+                        padding: variant === 'card' ? "10px 12px" : "4px 7px",
+                        borderRadius: variant === 'card' ? "14px" : "4px",
+                        backgroundColor: variant === 'card'
+                            ? "color-mix(in srgb, var(--vscode-editorWidget-background) 92%, black 8%)"
+                            : "var(--vscode-editorHoverWidget-background)",
+                        color: "var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground))",
+                        border: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
+                        fontSize: "10px",
+                        whiteSpace: variant === 'card' ? "normal" : "nowrap",
+                        wordBreak: variant === 'card' ? "break-word" : "normal",
+                        lineHeight: variant === 'card' ? 1.35 : 1.2,
+                        minWidth: variant === 'card' ? "220px" : undefined,
+                        maxWidth: variant === 'card' ? "280px" : undefined,
+                        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.28)",
+                        pointerEvents: "none",
+                        zIndex: 1200,
+                    }}
+                >
+                    {content}
+                </span>
+            )}
+        </span>
+    );
+};
+
 const MENTION_SEARCH_LIMIT = 40;
 
 function getMentionContext(input: string, cursor: number): MentionContext | null {
@@ -253,6 +307,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             return false;
         }
     });
+    const [isWebAccessEnabled, setIsWebAccessEnabled] = useState<boolean>(() => {
+        try {
+            return localStorage.getItem(WEB_ACCESS_PREFERENCE_KEY) === 'true';
+        } catch {
+            return false;
+        }
+    });
 
     // Manual compact state
     const [isCompacting, setIsCompacting] = useState(false);
@@ -272,6 +333,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         Math.round((lastTotalInputTokens / CONTEXT_TOKEN_THRESHOLD) * 100),
         100
     );
+    const remainingContextPercent = Math.max(0, 100 - contextUsagePercent);
 
     const placeholderString = USER_INPUT_PLACEHOLDER_MESSAGE;
     const runningPlaceholder = `Copilot is running${'.'.repeat(runningPlaceholderDotCount)}`;
@@ -1069,6 +1131,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 files,
                 images,
                 thinking: isThinkingEnabled,
+                webAccessPreapproved: isWebAccessEnabled,
                 chatHistory: chatHistory
             });
 
@@ -1150,6 +1213,14 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             // Ignore localStorage errors in restricted environments
         }
     }, [isThinkingEnabled]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(WEB_ACCESS_PREFERENCE_KEY, String(isWebAccessEnabled));
+        } catch {
+            // Ignore localStorage errors in restricted environments
+        }
+    }, [isWebAccessEnabled]);
 
     // Set up agent event listener
     useEffect(() => {
@@ -2153,27 +2224,31 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         <div ref={modeMenuRef} style={{ position: "relative" }}>
-                            <button
-                                onClick={() => setShowModeMenu(!showModeMenu)}
-                                disabled={isUsageExceeded || backendRequestTriggered}
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "4px",
-                                    padding: "2px 6px",
-                                    fontSize: "11px",
-                                    backgroundColor: "var(--vscode-badge-background)",
-                                    color: "var(--vscode-badge-foreground)",
-                                    border: "none",
-                                    borderRadius: "4px",
-                                    cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
-                                    opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 0.8
-                                }}
-                                title="Switch between Ask, Plan, and Edit modes"
+                            <FooterTooltip
+                                content="Switch Ask, Plan, and Edit modes"
+                                align="start"
                             >
-                                <Codicon name={getModeIcon(agentMode)} />
-                                {getModeLabel(agentMode)}
-                            </button>
+                                <button
+                                    onClick={() => setShowModeMenu(!showModeMenu)}
+                                    disabled={isUsageExceeded || backendRequestTriggered}
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "4px",
+                                        padding: "2px 6px",
+                                        fontSize: "11px",
+                                        backgroundColor: "var(--vscode-badge-background)",
+                                        color: "var(--vscode-badge-foreground)",
+                                        border: "none",
+                                        borderRadius: "4px",
+                                        cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
+                                        opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 0.8
+                                    }}
+                                >
+                                    <Codicon name={getModeIcon(agentMode)} />
+                                    {getModeLabel(agentMode)}
+                                </button>
+                            </FooterTooltip>
                                 {showModeMenu && (
                                 <div style={{
                                     position: "absolute",
@@ -2218,148 +2293,197 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 </div>
                             )}
                         </div>
-                        <div
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "6px",
-                                marginLeft: "4px"
-                            }}
-                            title="Enable Claude thinking mode"
-                        >
-                            <span
+                        <FooterTooltip content="Enable Claude thinking mode">
+                            <div
                                 style={{
-                                    fontSize: "10px",
-                                    color: "var(--vscode-descriptionForeground)",
-                                    userSelect: "none"
-                                }}
-                            >
-                                Thinking
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => setIsThinkingEnabled((prev) => !prev)}
-                                disabled={isUsageExceeded || backendRequestTriggered}
-                                aria-pressed={isThinkingEnabled}
-                                style={{
-                                    position: "relative",
-                                    width: "34px",
-                                    height: "18px",
-                                    borderRadius: "999px",
-                                    border: "none",
-                                    padding: 0,
-                                    cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
-                                    backgroundColor: isThinkingEnabled
-                                        ? "var(--vscode-button-background)"
-                                        : "var(--vscode-input-border)",
-                                    opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "6px",
+                                    marginLeft: "4px"
                                 }}
                             >
                                 <span
                                     style={{
-                                        position: "absolute",
-                                        top: "2px",
-                                        left: isThinkingEnabled ? "18px" : "2px",
-                                        width: "14px",
-                                        height: "14px",
-                                        borderRadius: "50%",
-                                        backgroundColor: "var(--vscode-button-foreground)"
+                                        fontSize: "10px",
+                                        color: "var(--vscode-descriptionForeground)",
+                                        userSelect: "none"
                                     }}
-                                />
-                            </button>
-                        </div>
-                        {contextUsagePercent >= 1 && (
+                                >
+                                    Thinking
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsThinkingEnabled((prev) => !prev)}
+                                    disabled={isUsageExceeded || backendRequestTriggered}
+                                    aria-pressed={isThinkingEnabled}
+                                    style={{
+                                        position: "relative",
+                                        width: "34px",
+                                        height: "18px",
+                                        borderRadius: "999px",
+                                        border: "none",
+                                        padding: 0,
+                                        cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
+                                        backgroundColor: isThinkingEnabled
+                                            ? "var(--vscode-button-background)"
+                                            : "var(--vscode-input-border)",
+                                        opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            position: "absolute",
+                                            top: "2px",
+                                            left: isThinkingEnabled ? "18px" : "2px",
+                                            width: "14px",
+                                            height: "14px",
+                                            borderRadius: "50%",
+                                            backgroundColor: "var(--vscode-button-foreground)"
+                                        }}
+                                    />
+                                </button>
+                            </div>
+                        </FooterTooltip>
+                        <FooterTooltip content="Enable web search and fetch without approval prompts">
                             <button
-                                onClick={handleManualCompact}
-                                disabled={isUsageExceeded || isCompacting || backendRequestTriggered || messages.length === 0}
-                                title="Click to compact conversation and free up context space"
+                                type="button"
+                                onClick={() => setIsWebAccessEnabled((prev) => !prev)}
+                                disabled={isUsageExceeded || backendRequestTriggered}
+                                aria-pressed={isWebAccessEnabled}
                                 style={{
-                                    fontSize: "10px",
-                                    color: contextUsagePercent >= 80 ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)",
-                                    background: "transparent",
-                                    border: "none",
-                                    cursor: (isUsageExceeded || isCompacting || backendRequestTriggered || messages.length === 0) ? "not-allowed" : "pointer",
-                                    display: "flex",
+                                    display: "inline-flex",
                                     alignItems: "center",
-                                    gap: "4px",
-                                    opacity: (isUsageExceeded || isCompacting || backendRequestTriggered || messages.length === 0) ? 0.5 : 1
+                                    justifyContent: "center",
+                                    width: "22px",
+                                    height: "22px",
+                                    borderRadius: "6px",
+                                    border: "none",
+                                    cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
+                                    backgroundColor: isWebAccessEnabled
+                                        ? "var(--vscode-button-background)"
+                                        : "transparent",
+                                    color: isWebAccessEnabled
+                                        ? "var(--vscode-button-foreground)"
+                                        : "var(--vscode-descriptionForeground)",
+                                    opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1
                                 }}
                             >
-                                <Codicon name="history" />
-                                {contextUsagePercent}%
+                                <Codicon name="globe" />
                             </button>
+                        </FooterTooltip>
+                        {contextUsagePercent >= 1 && (
+                            <FooterTooltip
+                                variant="card"
+                                align="start"
+                                content={
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                        <div style={{ fontWeight: 600 }}>Summarize context</div>
+                                        <div style={{ color: "var(--vscode-descriptionForeground)" }}>
+                                            Click to summarize earlier messages and free up context.
+                                        </div>
+                                        <div style={{ color: "var(--vscode-descriptionForeground)" }}>
+                                            {`${remainingContextPercent}% context remaining.`}
+                                        </div>
+                                        <div style={{ color: "var(--vscode-descriptionForeground)" }}>
+                                            Copilot also summarizes automatically near the limit.
+                                        </div>
+                                    </div>
+                                }
+                            >
+                                <button
+                                    onClick={handleManualCompact}
+                                    disabled={isUsageExceeded || isCompacting || backendRequestTriggered || messages.length === 0}
+                                    style={{
+                                        fontSize: "10px",
+                                        color: contextUsagePercent >= 80 ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)",
+                                        background: "transparent",
+                                        border: "none",
+                                        cursor: (isUsageExceeded || isCompacting || backendRequestTriggered || messages.length === 0) ? "not-allowed" : "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "4px",
+                                        opacity: (isUsageExceeded || isCompacting || backendRequestTriggered || messages.length === 0) ? 0.5 : 1
+                                    }}
+                                >
+                                    <Codicon name="history" />
+                                    {contextUsagePercent}%
+                                </button>
+                            </FooterTooltip>
                         )}
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <StyledTransParentButton
-                            onClick={() => document.getElementById("fileInput")?.click()}
-                            style={{
-                                width: "24px",
-                                padding: "4px",
-                                opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1,
-                                cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
-                                color: "var(--vscode-descriptionForeground)"
-                            }}
-                            disabled={isUsageExceeded || backendRequestTriggered}
-                            title="Attach files or images"
-                        >
-                            <Codicon name="attach" />
-                        </StyledTransParentButton>
+                        <FooterTooltip content="Attach files or images">
+                            <StyledTransParentButton
+                                onClick={() => document.getElementById("fileInput")?.click()}
+                                style={{
+                                    width: "24px",
+                                    padding: "4px",
+                                    opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1,
+                                    cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
+                                    color: "var(--vscode-descriptionForeground)"
+                                }}
+                                disabled={isUsageExceeded || backendRequestTriggered}
+                            >
+                                <Codicon name="attach" />
+                            </StyledTransParentButton>
+                        </FooterTooltip>
 
                         {backendRequestTriggered ? (
-                            <button
-                                onClick={handleInterrupt}
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    width: "24px",
-                                    height: "24px",
-                                    borderRadius: "50%",
-                                    backgroundColor: "var(--vscode-button-background)",
-                                    color: "var(--vscode-button-foreground)",
-                                    border: "none",
-                                    cursor: "pointer",
-                                    padding: 0,
-                                    lineHeight: 0
-                                }}
-                                title="Interrupt"
-                            >
-                                <span
-                                    className="codicon codicon-primitive-square"
+                            <FooterTooltip content="Interrupt">
+                                <button
+                                    onClick={handleInterrupt}
                                     style={{
-                                        fontSize: "15px",
-                                        lineHeight: 1,
-                                        display: "block",
-                                        transform: "translateY(-0.5px)"
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        width: "24px",
+                                        height: "24px",
+                                        borderRadius: "50%",
+                                        backgroundColor: "var(--vscode-button-background)",
+                                        color: "var(--vscode-button-foreground)",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        padding: 0,
+                                        lineHeight: 0
                                     }}
-                                />
-                            </button>
+                                >
+                                    <span
+                                        className="codicon codicon-primitive-square"
+                                        style={{
+                                            fontSize: "15px",
+                                            lineHeight: 1,
+                                            display: "block",
+                                            transform: "translateY(-0.5px)"
+                                        }}
+                                    />
+                                </button>
+                            </FooterTooltip>
                         ) : (
-                            <button
-                                onClick={() => currentUserPrompt.trim() !== "" && handleSend()}
-                                disabled={isUsageExceeded || isCompacting || currentUserPrompt.trim() === ""}
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    width: "24px",
-                                    height: "24px",
-                                    borderRadius: "50%",
-                                    backgroundColor: currentUserPrompt.trim() !== "" 
-                                        ? "var(--vscode-button-background)" 
-                                        : "var(--vscode-button-secondaryBackground)",
-                                    color: currentUserPrompt.trim() !== "" 
-                                        ? "var(--vscode-button-foreground)" 
-                                        : "var(--vscode-button-secondaryForeground)",
-                                    border: "none",
-                                    cursor: (currentUserPrompt.trim() !== "" && !isCompacting) ? "pointer" : "default"
-                                }}
-                                title="Send Message"
-                            >
-                                <Codicon name="arrow-up" />
-                            </button>
+                            <FooterTooltip content="Send message">
+                                <button
+                                    onClick={() => currentUserPrompt.trim() !== "" && handleSend()}
+                                    disabled={isUsageExceeded || isCompacting || currentUserPrompt.trim() === ""}
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        width: "24px",
+                                        height: "24px",
+                                        borderRadius: "50%",
+                                        backgroundColor: currentUserPrompt.trim() !== "" 
+                                            ? "var(--vscode-button-background)" 
+                                            : "var(--vscode-button-secondaryBackground)",
+                                        color: currentUserPrompt.trim() !== "" 
+                                            ? "var(--vscode-button-foreground)" 
+                                            : "var(--vscode-button-secondaryForeground)",
+                                        border: "none",
+                                        cursor: (currentUserPrompt.trim() !== "" && !isCompacting) ? "pointer" : "default"
+                                    }}
+                                >
+                                    <Codicon name="arrow-up" />
+                                </button>
+                            </FooterTooltip>
                         )}
                     </div>
                 </div>
