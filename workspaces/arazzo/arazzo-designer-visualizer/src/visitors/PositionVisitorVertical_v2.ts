@@ -81,7 +81,7 @@ export class PositionVisitorVertical_v2 {
         // Position this node at the spine (center-aligned)
         node.viewState.x = this.spineX - (node.viewState.w / 2);
         node.viewState.y = currentY;
-        node.viewState.isPositioned = true;
+        node.isPositioned = true;
 
         console.log(`[Phase 1] Positioned ${node.id} at (${node.viewState.x}, ${node.viewState.y}) [center-aligned on spine]`);
 
@@ -150,13 +150,13 @@ export class PositionVisitorVertical_v2 {
         // Process children
         if (node.children && node.children.length > 0) {
             node.children.forEach((child, index) => {
-                if (!child.viewState.isPositioned) {
+                if (!child.isPositioned) {
                     // Alternative child - position to the right (center-aligned)
                     //const branchCenterX = this.spineX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (index + 1);
                     //child.viewState.x = branchCenterX - (child.viewState.w / 2);
                     child.viewState.x = nodeX + (node.viewState.w/2) - (child.viewState.w/2); // Position to the right of parent
                     child.viewState.y = nextY;
-                    child.viewState.isPositioned = true;
+                    child.isPositioned = true;
                     console.log(`[Phase 2] Positioned child ${child.id} at (${child.viewState.x}, ${child.viewState.y}) [center-aligned]`);
                 }
                 this.positionBranches(child);
@@ -180,12 +180,12 @@ export class PositionVisitorVertical_v2 {
                 const head = positioningHeads[i];
                 if (!head) continue;
 
-                if (!head.viewState.isPositioned) {
+                if (!head.isPositioned) {
                     //const branchCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (i + 1);
                     const branchCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (isFailPathCondition? (i) : (i + 1)); // Position to the right of parent
                     head.viewState.x = branchCenterX - (head.viewState.w / 2);
                     head.viewState.y = nextY;
-                    head.viewState.isPositioned = true;
+                    head.isPositioned = true;
                     console.log(`[Phase 2] Positioned branch head ${head.id} at (${head.viewState.x}, ${head.viewState.y}) [center-aligned immediate heads]`);
                 }
             }
@@ -199,13 +199,13 @@ export class PositionVisitorVertical_v2 {
         // Process failure node
         if (node.failureNode && !this.visited.has(node.failureNode.id)) {
             const failNode = node.failureNode;
-            if (!failNode.viewState.isPositioned) {
+            if (!failNode.isPositioned) {
                 // Position failure node to the right (center-aligned)
                 const failCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical);
                 const failY = nodeY; // Same level as parent
                 failNode.viewState.x = failCenterX - (failNode.viewState.w / 2);
                 failNode.viewState.y = node.viewState.y + (node.viewState.h / 2) - (failNode.viewState.h / 2); // Center-aligned vertically with parent
-                failNode.viewState.isPositioned = true;
+                failNode.isPositioned = true;
                 console.log(`[Phase 2] Positioned failure node ${failNode.id} at (${failNode.viewState.x}, ${failNode.viewState.y}) [center-aligned]`);
             }
             if(failNode.type === 'CONDITION'){

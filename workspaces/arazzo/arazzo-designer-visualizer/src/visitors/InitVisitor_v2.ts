@@ -197,7 +197,8 @@ export class InitVisitor_v2 {
                 subtreeW: 0, subtreeH: 0,
                 //containerW: 0, containerH: 0,
                 topH: 0, bottomH: 0
-            }
+            },
+            isMainSpine: false
         };
     }
 }

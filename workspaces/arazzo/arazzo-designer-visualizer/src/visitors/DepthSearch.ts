@@ -60,6 +60,7 @@ export class DepthSearch {
     private buildMainPath(node: FlowNode): void {
         // Add current node to path
         this.mainPath.push(node);
+        node.isMainSpine = true; // Mark as main spine node
 
         // Stop at END nodes
         if (node.type === 'END') {
