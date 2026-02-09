@@ -80,7 +80,7 @@ interface EmptyNodeWidgetProps {
 
 export function EmptyNodeWidget(props: EmptyNodeWidgetProps) {
     const { node, engine } = props;
-    const { onAddNode, onAddNodePrompt, readOnly, isUserAuthenticated } = useDiagramContext();
+    const { onAddNode, onAddNodePrompt, readOnly, isUserAuthenticated, isPositionLocked } = useDiagramContext();
 
     const [isHovered, setIsHovered] = useState(false);
     const [isCommentButtonHovered, setIsCommentButtonHovered] = useState(false);
@@ -89,16 +89,21 @@ export function EmptyNodeWidget(props: EmptyNodeWidgetProps) {
     const [commentAnchorEl, setCommentAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
     const isCommentBoxOpen = Boolean(commentAnchorEl);
 
+    // Check if this position is locked by another user
+    const topNode = node.getTopNode();
+    const target = node.getTarget();
+    const positionIsLocked = topNode && target && isPositionLocked 
+        ? isPositionLocked(topNode, { startLine: target, endLine: target })
+        : false;
+
     const handleAddNode = () => {
-        if (readOnly) {
+        if (readOnly || positionIsLocked) {
             return;
         }
-        const topNode = node.getTopNode();
         if (!topNode) {
             console.error(">>> EmptyNodeWidget: handleAddNode: top node not found");
             return;
         }
-        const target = node.getTarget();
         if (!target) {
             console.error(">>> EmptyNodeWidget: handleAddNode: target not found");
             return;
@@ -107,7 +112,7 @@ export function EmptyNodeWidget(props: EmptyNodeWidgetProps) {
     };
 
     const handleAddPrompt = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
-        if (readOnly) {
+        if (readOnly || positionIsLocked) {
             return;
         }
         if (!onAddNodePrompt) {
@@ -186,19 +191,21 @@ export function EmptyNodeWidget(props: EmptyNodeWidgetProps) {
                             width="20"
                             height="20"
                             viewBox="0 0 24 24"
-                            onClick={handleAddNode}
-                            onMouseEnter={() => !readOnly && setIsNodeButtonHovered(true)}
+                            onClick={positionIsLocked ? undefined : handleAddNode}
+                            onMouseEnter={() => !readOnly && !positionIsLocked && setIsNodeButtonHovered(true)}
                             onMouseLeave={() => setIsNodeButtonHovered(false)}
-                            // css={css`
-                            //     cursor: pointer;
-                            // `}
+                            style={{
+                                cursor: positionIsLocked ? 'not-allowed' : 'pointer',
+                                opacity: positionIsLocked ? 0.4 : 1
+                            }}
                         >
+                            {positionIsLocked && <title>Position locked by another user</title>}
                             <path
                                 fill={ThemeColors.SURFACE_BRIGHT}
                                 d="M12 0C5 0 0 5 0 12s5 12 12 12 12-5 12-12S19 0 12 0z"
                             />
                             <path
-                                fill={isNodeButtonHovered ? ThemeColors.SECONDARY : ThemeColors.PRIMARY}
+                                fill={positionIsLocked ? ThemeColors.OUTLINE : isNodeButtonHovered ? ThemeColors.SECONDARY : ThemeColors.PRIMARY}
                                 d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8 8 0 0 1-8 8m4-9h-3V8a1 1 0 0 0-2 0v3H8a1 1 0 0 0 0 2h3v3a1 1 0 0 0 2 0v-3h3a1 1 0 0 0 0-2"
                             />
                         </svg>
