@@ -109,6 +109,8 @@ export class InitVisitor_v2 {
             // Leave failureNode as undefined to represent "no explicit failure handling"
         });
 
+        // Log the built root FlowNode for debugging/inspection
+        console.log('[InitVisitor_v2] Built root FlowNode:', startNode);
         return startNode;
     }
 

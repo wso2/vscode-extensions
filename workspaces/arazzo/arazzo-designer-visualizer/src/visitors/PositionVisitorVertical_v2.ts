@@ -38,11 +38,15 @@ import { DepthSearch } from './DepthSearch';
  */
 export class PositionVisitorVertical_v2 {
     private mainPathNodes: Set<string>;
+    private mainPathOrder: FlowNode[];
+    private mainPathIndex: Map<string, number> = new Map();
     private spineX: number;
     private visited = new Set<string>();
 
     constructor(private depthSearch: DepthSearch, spineX: number = 0) {
         this.mainPathNodes = depthSearch.getHappyPathNodes();
+        this.mainPathOrder = depthSearch.getLongestPath();
+        this.mainPathOrder.forEach((n, i) => this.mainPathIndex.set(n.id, i));
         this.spineX = spineX;
         console.log('[PositionVisitor V2] Main path nodes:', Array.from(this.mainPathNodes));
         console.log('[PositionVisitor V2] Spine X:', spineX);
@@ -100,14 +104,26 @@ export class PositionVisitorVertical_v2 {
 
         // Check branches for main path continuation
         if (node.branches && node.branches.length > 0) {
+            // Find the earliest (lowest index) branch head that appears on the main path
+            let bestHead: FlowNode | undefined;
+            let bestIdx = Number.POSITIVE_INFINITY;
+
             for (const branch of node.branches) {
                 if (branch.length > 0) {
                     const head = branch[0];
                     if (this.mainPathNodes.has(head.id)) {
-                        this.positionMainSpine(head, nextY);
-                        return;
+                        const idx = this.mainPathIndex.get(head.id) ?? Number.POSITIVE_INFINITY;
+                        if (idx < bestIdx) {
+                            bestIdx = idx;
+                            bestHead = head;
+                        }
                     }
                 }
+            }
+
+            if (bestHead) {
+                this.positionMainSpine(bestHead, nextY);
+                return;
             }
         }
     }
@@ -116,11 +132,15 @@ export class PositionVisitorVertical_v2 {
      * Phase 2: Position all nodes, respecting already-positioned nodes.
      * Alternative branches are positioned to the RIGHT of the main spine (center-aligned).
      */
-    private positionBranches(node: FlowNode): void {
+    private positionBranches(node: FlowNode, isImmediateCondition_and_Firsttime: boolean = false): void {
         if (this.visited.has(node.id)) {
             return;
         }
-        this.visited.add(node.id);
+        console.log(`came to ${node.id}`);
+        if (!isImmediateCondition_and_Firsttime) {
+            this.visited.add(node.id);
+            console.log(`VISITED:${node.id}`);
+        }
 
         // Node dimensions should already be set by SimpleNodeSizing visitor
         const nodeX = node.viewState.x;
@@ -131,18 +151,13 @@ export class PositionVisitorVertical_v2 {
         if (node.children && node.children.length > 0) {
             node.children.forEach((child, index) => {
                 if (!child.viewState.isPositioned) {
-                    // Position child below parent (inherit X if on main path, or use parent's X)
-                    if (this.mainPathNodes.has(child.id)) {
-                        // Child is on main path - already positioned in Phase 1
-                        // Just recurse
-                    } else {
-                        // Alternative child - position to the right (center-aligned)
-                        const branchCenterX = this.spineX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (index + 1);
-                        child.viewState.x = branchCenterX - (child.viewState.w / 2);
-                        child.viewState.y = nextY;
-                        child.viewState.isPositioned = true;
-                        console.log(`[Phase 2] Positioned child ${child.id} at (${child.viewState.x}, ${child.viewState.y}) [center-aligned]`);
-                    }
+                    // Alternative child - position to the right (center-aligned)
+                    //const branchCenterX = this.spineX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (index + 1);
+                    //child.viewState.x = branchCenterX - (child.viewState.w / 2);
+                    child.viewState.x = nodeX + (node.viewState.w/2) - (child.viewState.w/2); // Position to the right of parent
+                    child.viewState.y = nextY;
+                    child.viewState.isPositioned = true;
+                    console.log(`[Phase 2] Positioned child ${child.id} at (${child.viewState.x}, ${child.viewState.y}) [center-aligned]`);
                 }
                 this.positionBranches(child);
             });
@@ -150,25 +165,34 @@ export class PositionVisitorVertical_v2 {
 
         // Process branches (condition nodes)
         if (node.branches && node.branches.length > 0) {
-            node.branches.forEach((branch, branchIndex) => {
-                if (branch.length > 0) {
-                    const head = branch[0];
-                    if (!head.viewState.isPositioned) {
-                        // Position branch head to the right (center-aligned)
-                        // Main path branch is at index 0, alternatives start at index 1
-                        if (this.mainPathNodes.has(head.id)) {
-                            // This branch head is on the main path - already positioned
-                        } else {
-                            const branchCenterX = this.spineX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (branchIndex + 1);
-                            head.viewState.x = branchCenterX - (head.viewState.w / 2);
-                            head.viewState.y = nextY;
-                            head.viewState.isPositioned = true;
-                            console.log(`[Phase 2] Positioned branch head ${head.id} at (${head.viewState.x}, ${head.viewState.y}) [center-aligned]`);
-                        }
-                    }
-                    this.positionBranches(head);
-                }
+            // First pass: position immediate branch heads left-to-right (do not recurse yet)
+            const positioningHeads: FlowNode[] = [];
+            const visitingHeads: FlowNode[] = [];
+            node.branches.forEach((branch) => {
+                if (branch.length > 0 && !this.mainPathNodes.has(branch[0].id)) positioningHeads.push(branch[0]);
             });
+            node.branches.forEach((branch) => {
+                if (branch.length > 0) visitingHeads.push(branch[0]);
+            });
+
+            // Position each head one to the right of the other (center-aligned)
+            for (let i = 0; i < positioningHeads.length; i++) {
+                const head = positioningHeads[i];
+                if (!head) continue;
+
+                if (!head.viewState.isPositioned) {
+                    const branchCenterX = this.spineX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (i + 1);
+                    head.viewState.x = branchCenterX - (head.viewState.w / 2);
+                    head.viewState.y = nextY;
+                    head.viewState.isPositioned = true;
+                    console.log(`[Phase 2] Positioned branch head ${head.id} at (${head.viewState.x}, ${head.viewState.y}) [center-aligned immediate heads]`);
+                }
+            }
+
+            // Second pass: recurse into each head and render their children beneath them
+            for (const head of visitingHeads) {
+                if (head) this.positionBranches(head);
+            }
         }
 
         // Process failure node
