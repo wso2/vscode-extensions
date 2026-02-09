@@ -42,6 +42,7 @@ export class PositionVisitorVertical_v2 {
     private mainPathIndex: Map<string, number> = new Map();
     private spineX: number;
     private visited = new Set<string>();
+    private nodePositions: Array<{ id: string; x: number; y: number; w: number; h: number }> = [];
 
     constructor(private depthSearch: DepthSearch, spineX: number = 0) {
         this.mainPathNodes = depthSearch.getHappyPathNodes();
@@ -82,6 +83,17 @@ export class PositionVisitorVertical_v2 {
         node.viewState.x = this.spineX - (node.viewState.w / 2);
         node.viewState.y = currentY;
         node.isPositioned = true;
+
+        // Track positioned node for collision detection
+        if (node.type === 'STEP') {
+            this.nodePositions.push({
+                id: node.id,
+                x: node.viewState.x,
+                y: node.viewState.y,
+                w: node.viewState.w,
+                h: node.viewState.h
+            });
+        }
 
         console.log(`[Phase 1] Positioned ${node.id} at (${node.viewState.x}, ${node.viewState.y}) [center-aligned on spine]`);
 
@@ -157,6 +169,18 @@ export class PositionVisitorVertical_v2 {
                     child.viewState.x = nodeX + (node.viewState.w/2) - (child.viewState.w/2); // Position to the right of parent
                     child.viewState.y = nextY;
                     child.isPositioned = true;
+
+                    // Track positioned node for collision detection
+                    if (child.type === 'STEP') {
+                        this.nodePositions.push({
+                            id: child.id,
+                            x: child.viewState.x,
+                            y: child.viewState.y,
+                            w: child.viewState.w,
+                            h: child.viewState.h
+                        });
+                    }
+
                     console.log(`[Phase 2] Positioned child ${child.id} at (${child.viewState.x}, ${child.viewState.y}) [center-aligned]`);
                 }
                 this.positionBranches(child);
@@ -186,6 +210,18 @@ export class PositionVisitorVertical_v2 {
                     head.viewState.x = branchCenterX - (head.viewState.w / 2);
                     head.viewState.y = nextY;
                     head.isPositioned = true;
+
+                    // Track positioned node for collision detection
+                    if (head.type === 'STEP') {
+                        this.nodePositions.push({
+                            id: head.id,
+                            x: head.viewState.x,
+                            y: head.viewState.y,
+                            w: head.viewState.w,
+                            h: head.viewState.h
+                        });
+                    }
+
                     console.log(`[Phase 2] Positioned branch head ${head.id} at (${head.viewState.x}, ${head.viewState.y}) [center-aligned immediate heads]`);
                 }
             }
@@ -217,5 +253,12 @@ export class PositionVisitorVertical_v2 {
 
     public reset(): void {
         this.visited.clear();
+    }
+
+    /**
+     * Get all positioned node rectangles (for edge routing collision detection).
+     */
+    public getNodePositions(): Array<{ id: string; x: number; y: number; w: number; h: number }> {
+        return this.nodePositions;
     }
 }

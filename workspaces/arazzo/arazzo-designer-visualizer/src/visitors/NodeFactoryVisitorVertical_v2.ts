@@ -19,6 +19,7 @@
 import { FlowNode } from '../utils/types';
 import { Node, Edge, MarkerType } from '@xyflow/react';
 import * as C from '../constants/nodeConstants';
+import WaypointCreator from '../components/edges/WaypointCreator';
 
 /**
  * NodeFactoryVisitorVertical V2: Generate React Flow nodes and edges for vertical layout.
@@ -33,6 +34,14 @@ export class NodeFactoryVisitorVertical_v2 {
     private reactEdges: Edge[] = [];
     private visited: Set<string> = new Set();
     private portalEdgePairs: Set<string> = new Set();
+    private allNodePositions: Array<{ id: string; x: number; y: number; w: number; h: number }> = [];
+
+    /**
+     * Set the node positions array from PositionVisitor (for collision detection).
+     */
+    public setNodePositions(positions: Array<{ id: string; x: number; y: number; w: number; h: number }>): void {
+        this.allNodePositions = positions;
+    }
 
     /**
      * Set the portal edge pairs to skip when creating edges.
@@ -52,14 +61,14 @@ export class NodeFactoryVisitorVertical_v2 {
         // 1. Create React Flow Node
         const composedData = { label: node.label, ...node.data } as any;
         if (node.type === 'STEP' && !composedData.iconClass) {
-            composedData.iconClass = 'fw fw-bi-arrow-outward';
+            composedData.iconClass = 'fw fw-bi-arrow-outward'; // Default icon for steps
         }
 
         const reactNode = {
             id: node.id,
             type: this.mapType(node.type),
             position: { x: node.viewState.x, y: node.viewState.y },
-            data: composedData,
+            data: composedData,                 //when rerndering a node component in reactflow each node has its label, data section unharmed
             style: { width: node.viewState.w, height: node.viewState.h },
             connectable: false
         };
@@ -153,6 +162,71 @@ export class NodeFactoryVisitorVertical_v2 {
             targetHandleId = 'h-left';
         }
 
+        // Compute handle coordinates for both nodes
+        const computeHandlePoint = (n: FlowNode, handleId: string) => {
+            const xLeft = n.viewState.x;
+            const xRight = n.viewState.x + n.viewState.w;
+            const yTop = n.viewState.y;
+            const yBottom = n.viewState.y + n.viewState.h;
+            switch (handleId) {
+                case 'h-bottom': return { x: (xLeft + xRight) / 2, y: yBottom };
+                case 'h-top': return { x: (xLeft + xRight) / 2, y: yTop };
+                case 'h-left': return { x: xLeft, y: (yTop + yBottom) / 2 };
+                case 'h-right': return { x: xRight, y: (yTop + yBottom) / 2 };
+                default: return { x: (xLeft + xRight) / 2, y: (yTop + yBottom) / 2 };
+            }
+        };
+
+        const sourcePt = computeHandlePoint(source, sourceHandleId);
+        const targetPt = computeHandlePoint(target, targetHandleId);
+
+        // Geometry helpers
+        const pointInRect = (p: {x:number,y:number}, r: {x:number,y:number,w:number,h:number}) =>
+            p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+
+        const segIntersectsSeg = (p1: {x:number,y:number}, p2: {x:number,y:number}, p3: {x:number,y:number}, p4: {x:number,y:number}) => {
+            const orient = (a: {x:number,y:number}, b: {x:number,y:number}, c: {x:number,y:number}) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+            const o1 = orient(p1,p2,p3);
+            const o2 = orient(p1,p2,p4);
+            const o3 = orient(p3,p4,p1);
+            const o4 = orient(p3,p4,p2);
+            return (o1 * o2 < 0) && (o3 * o4 < 0);
+        };
+
+        const segmentIntersectsRect = (a: {x:number,y:number}, b: {x:number,y:number}, rect: {x:number,y:number,w:number,h:number}) => {
+            if (pointInRect(a, rect) || pointInRect(b, rect)) return true;
+            const r1 = { x: rect.x, y: rect.y };
+            const r2 = { x: rect.x + rect.w, y: rect.y };
+            const r3 = { x: rect.x + rect.w, y: rect.y + rect.h };
+            const r4 = { x: rect.x, y: rect.y + rect.h };
+            if (segIntersectsSeg(a,b,r1,r2)) return true;
+            if (segIntersectsSeg(a,b,r2,r3)) return true;
+            if (segIntersectsSeg(a,b,r3,r4)) return true;
+            if (segIntersectsSeg(a,b,r4,r1)) return true;
+            return false;
+        };
+
+        // Check all positioned step nodes for blocking rectangles (exclude source/target)
+        let foundBlockingRect: {x:number,y:number,w:number,h:number} | null = null;
+        for (const nodePos of this.allNodePositions) {
+            if (nodePos.id === source.id || nodePos.id === target.id) continue;
+            const rect = { x: nodePos.x, y: nodePos.y, w: nodePos.w, h: nodePos.h };
+            if (segmentIntersectsRect(sourcePt, targetPt, rect)) {
+                foundBlockingRect = rect;
+                console.log(`[NodeFactory V2] Edge ${source.id} → ${target.id} blocked by ${nodePos.id}`);
+                break;
+            }
+        }
+
+        let computedWaypoints: { x:number; y:number }[] = [];
+        if (foundBlockingRect) {
+            try {
+                computedWaypoints = WaypointCreator(sourcePt, targetPt, foundBlockingRect, 'skip');
+            } catch (e) {
+                computedWaypoints = [];
+            }
+        }
+
         const edge = {
             id: `e_${source.id}-${target.id}`,
             source: source.id,
@@ -160,7 +234,7 @@ export class NodeFactoryVisitorVertical_v2 {
             sourceHandle: sourceHandleId,
             targetHandle: targetHandleId,
             type: 'plannedPath',
-            data: { waypoints: [] as { x: number; y: number }[] },
+            data: { waypoints: computedWaypoints as { x: number; y: number }[] },
             markerEnd: { type: MarkerType.ArrowClosed },
             style: edgeType === 'failure' 
                 ? { stroke: 'red', strokeWidth: 2 } 

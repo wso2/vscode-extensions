@@ -51,3 +51,7 @@ export const FAIL_GAP_X_Vertical = 50;  // Horizontal gap for failure paths
 //portal node constants
 export const PORTALNODE_GAP_X = 35;
 export const PORTALNODE_GAP_Y = 40;
+
+//Waypoint realted constants
+export const WAYPOINT_SKIP_VERTICAL_OFFSET = 30; // Distance to offset waypoints from node edges
+export const WAYPOINT_SKIP_HORIZONTAL_OFFSET_MULTIPLIER = 1.5;

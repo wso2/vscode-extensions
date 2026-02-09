@@ -94,6 +94,7 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
 
     // 6. Factory: Generate React Flow elements
     const factoryV2 = new NodeFactoryVisitorVertical_v2();
+    factoryV2.setNodePositions(positioningV2.getNodePositions());
     factoryV2.setPortalEdgePairs(portalEdgePairs);
     factoryV2.visit(rootV2);
     const elements = factoryV2.getElements();
