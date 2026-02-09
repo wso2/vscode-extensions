@@ -22,7 +22,6 @@
 const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
 const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
 
-import * as path from 'path';
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from '../../../connection';
@@ -57,6 +56,7 @@ import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { ChatHistoryManager } from '../../chat-history-manager';
 import { getToolAction } from '../../tool-action-mapper';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
+import { getCopilotSessionDir } from '../../storage-paths';
 
 // Import types from mi-core (shared with visualizer)
 import { AgentEvent, AgentEventType, FileObject, ImageObject, AgentMode } from '@wso2/mi-core';
@@ -142,7 +142,7 @@ export async function executeAgent(
     const sessionId = request.sessionId || 'default';
 
     // Session directory for output files (build.txt, run.txt)
-    const sessionDir = path.join(request.projectPath, '.mi-copilot', sessionId);
+    const sessionDir = getCopilotSessionDir(request.projectPath, sessionId);
 
     try {
         logInfo(`[Agent] Starting agent execution for project: ${request.projectPath}`);

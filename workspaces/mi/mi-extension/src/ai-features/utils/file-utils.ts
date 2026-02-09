@@ -26,6 +26,7 @@ import { logError } from '../copilot/logger';
 const EXCLUDED_DIRS = [
     'node_modules',
     '.git',
+    '.mi-copilot',
     'dist',
     'build',
     'out',

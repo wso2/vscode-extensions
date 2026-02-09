@@ -24,9 +24,10 @@ import { logDebug, logError, logInfo } from '../copilot/logger';
 import { getToolAction, capitalizeAction } from './tool-action-mapper';
 import { BASH_TOOL_NAME } from './tools/types';
 import { AgentMode, UndoCheckpointSummary } from '@wso2/mi-core';
+import { getCopilotProjectStorageDir, getCopilotSessionDir } from './storage-paths';
 
-// Storage location: <project>/.mi-copilot/<session_id>/history.jsonl
-// Metadata location: <project>/.mi-copilot/<session_id>/metadata.json
+// Storage location: ~/.wso2-mi/copilot/projects/<encoded-project>/<session_id>/history.jsonl
+// Metadata location: ~/.wso2-mi/copilot/projects/<encoded-project>/<session_id>/metadata.json
 
 /**
  * Session metadata stored in metadata.json
@@ -126,8 +127,8 @@ export interface JournalEntry {
  * JSONL file is the single source of truth - no in-memory caching.
  * Public API is simple: saveMessage() and getMessages()
  *
- * Storage: <project>/.mi-copilot/<session-id>/history.jsonl
- * Metadata: <project>/.mi-copilot/<session-id>/metadata.json
+ * Storage: ~/.wso2-mi/copilot/projects/<encoded-project>/<session-id>/history.jsonl
+ * Metadata: ~/.wso2-mi/copilot/projects/<encoded-project>/<session-id>/metadata.json
  */
 export class ChatHistoryManager {
     private projectPath: string;
@@ -156,7 +157,7 @@ export class ChatHistoryManager {
      * Check whether a session can be safely loaded with the current history schema.
      */
     static async isSessionCompatible(projectPath: string, sessionId: string): Promise<boolean> {
-        const metadataPath = path.join(projectPath, '.mi-copilot', sessionId, 'metadata.json');
+        const metadataPath = path.join(getCopilotSessionDir(projectPath, sessionId), 'metadata.json');
         try {
             const content = await fs.readFile(metadataPath, 'utf8');
             const metadata = JSON.parse(content) as SessionMetadata;
@@ -173,13 +174,13 @@ export class ChatHistoryManager {
      */
     async initialize(): Promise<void> {
         try {
-            // Create session directory: <project>/.mi-copilot/<session-id>/
-            const sessionDir = path.join(this.projectPath, '.mi-copilot', this.sessionId);
+            // Create session directory: ~/.wso2-mi/copilot/projects/<encoded-project>/<session-id>/
+            const sessionDir = getCopilotSessionDir(this.projectPath, this.sessionId);
             await fs.mkdir(sessionDir, { recursive: true });
 
-            // Session file path: <project>/.mi-copilot/<session-id>/history.jsonl
+            // Session file path
             this.sessionFile = path.join(sessionDir, 'history.jsonl');
-            // Metadata file path: <project>/.mi-copilot/<session-id>/metadata.json
+            // Metadata file path
             this.metadataFile = path.join(sessionDir, 'metadata.json');
 
             // Check if session file exists
@@ -826,7 +827,7 @@ export class ChatHistoryManager {
      */
     static async listSessions(projectPath: string): Promise<string[]> {
         try {
-            const copilotDir = path.join(projectPath, '.mi-copilot');
+            const copilotDir = getCopilotProjectStorageDir(projectPath);
 
             const entries = await fs.readdir(copilotDir, { withFileTypes: true });
             const sessionDirs = entries
@@ -864,7 +865,7 @@ export class ChatHistoryManager {
      */
     static async deleteSession(projectPath: string, sessionId: string): Promise<void> {
         try {
-            const sessionDir = path.join(projectPath, '.mi-copilot', sessionId);
+            const sessionDir = getCopilotSessionDir(projectPath, sessionId);
             // Delete the entire session directory recursively
             await fs.rm(sessionDir, { recursive: true, force: true });
             logInfo(`[ChatHistory] Deleted session: ${sessionId}`);
@@ -879,7 +880,7 @@ export class ChatHistoryManager {
      * Handles backward compatibility for sessions without metadata.json
      */
     static async getSessionSummary(projectPath: string, sessionId: string, currentSessionId?: string): Promise<SessionSummary | null> {
-        const sessionDir = path.join(projectPath, '.mi-copilot', sessionId);
+        const sessionDir = getCopilotSessionDir(projectPath, sessionId);
         const metadataPath = path.join(sessionDir, 'metadata.json');
         const historyPath = path.join(sessionDir, 'history.jsonl');
 

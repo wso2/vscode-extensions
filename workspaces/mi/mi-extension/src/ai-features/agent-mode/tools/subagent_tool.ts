@@ -24,6 +24,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { SubagentToolResult, SubagentToolExecuteFn, BackgroundSubagent, SubagentResult, SUBAGENT_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './types';
 import { logInfo, logError, logDebug } from '../../copilot/logger';
 import { AnthropicModel } from '../../connection';
+import { getCopilotSessionDir } from '../storage-paths';
 
 // Import subagent executors
 import { executeExploreSubagent } from '../agents/subagents';
@@ -104,7 +105,7 @@ function cleanupOldSubagents(): void {
  * Get the subagents directory for a session
  */
 function getSubagentsDir(projectPath: string, sessionId: string, subagentId: string): string {
-    return path.join(projectPath, '.mi-copilot', sessionId, 'subagents', subagentId);
+    return path.join(getCopilotSessionDir(projectPath, sessionId), 'subagents', subagentId);
 }
 
 /**

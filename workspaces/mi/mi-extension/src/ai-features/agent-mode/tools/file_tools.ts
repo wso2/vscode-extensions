@@ -43,6 +43,7 @@ import {
 import { logDebug, logError } from '../../copilot/logger';
 import { validateXmlFile, formatValidationMessage } from './validation-utils';
 import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
+import { getCopilotProjectsRootDir } from '../storage-paths';
 
 // ============================================================================
 // Validation Functions
@@ -151,10 +152,29 @@ function getImageMediaType(filePath: string): string | undefined {
     return IMAGE_MEDIA_TYPE_BY_EXTENSION[path.extname(filePath).toLowerCase()];
 }
 
+function normalizePathForComparison(targetPath: string): string {
+    const normalized = path.resolve(targetPath).replace(/\\/g, '/').replace(/\/+$/, '');
+    return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+function isPathWithin(basePath: string, targetPath: string): boolean {
+    const normalizedBase = normalizePathForComparison(basePath);
+    const normalizedTarget = normalizePathForComparison(targetPath);
+    return normalizedTarget === normalizedBase || normalizedTarget.startsWith(`${normalizedBase}/`);
+}
+
+function resolveFullPath(projectPath: string, filePath: string): string {
+    return path.isAbsolute(filePath) ? path.resolve(filePath) : path.resolve(projectPath, filePath);
+}
+
+function isCopilotGlobalPath(fullPath: string): boolean {
+    return isPathWithin(getCopilotProjectsRootDir(), fullPath);
+}
+
 /**
  * Validates path security rules that apply to all file tools.
  */
-function validateFilePathSecurity(filePath: string): ValidationResult {
+function validateFilePathSecurity(projectPath: string, filePath: string): ValidationResult {
     if (!filePath || typeof filePath !== 'string') {
         return {
             valid: false,
@@ -162,22 +182,38 @@ function validateFilePathSecurity(filePath: string): ValidationResult {
         };
     }
 
-    // Security: prevent path traversal
-    if (filePath.includes('..') || filePath.includes('~')) {
+    const normalizedPath = filePath.trim();
+    if (!normalizedPath) {
         return {
             valid: false,
-            error: 'File path contains invalid characters (.., ~). Use relative paths within the project.'
+            error: 'File path is required and must be a string.'
         };
     }
 
-    return { valid: true };
+    // Security: prevent home shorthand and traversal in relative paths
+    if (normalizedPath.includes('~') || (!path.isAbsolute(normalizedPath) && normalizedPath.includes('..'))) {
+        return {
+            valid: false,
+            error: 'File path contains invalid characters (.., ~).'
+        };
+    }
+
+    const fullPath = resolveFullPath(projectPath, normalizedPath);
+    if (isPathWithin(projectPath, fullPath) || isCopilotGlobalPath(fullPath)) {
+        return { valid: true };
+    }
+
+    return {
+        valid: false,
+        error: 'File path must be within the project or ~/.wso2-mi/copilot/projects.'
+    };
 }
 
 /**
  * Validates file paths for text-only operations (write/edit/grep).
  */
-function validateTextFilePath(filePath: string): ValidationResult {
-    const securityValidation = validateFilePathSecurity(filePath);
+function validateTextFilePath(projectPath: string, filePath: string): ValidationResult {
+    const securityValidation = validateFilePathSecurity(projectPath, filePath);
     if (!securityValidation.valid) {
         return securityValidation;
     }
@@ -195,8 +231,8 @@ function validateTextFilePath(filePath: string): ValidationResult {
 /**
  * Validates file paths for read operations (text + multimodal).
  */
-function validateReadableFilePath(filePath: string): ValidationResult {
-    const securityValidation = validateFilePathSecurity(filePath);
+function validateReadableFilePath(projectPath: string, filePath: string): ValidationResult {
+    const securityValidation = validateFilePathSecurity(projectPath, filePath);
     if (!securityValidation.valid) {
         return securityValidation;
     }
@@ -335,7 +371,7 @@ async function buildReadToolModelOutput(
         return { type: 'text', value: textOutput };
     }
 
-    const fullPath = path.join(projectPath, filePath);
+    const fullPath = resolveFullPath(projectPath, filePath);
     if (!fs.existsSync(fullPath)) {
         return { type: 'text', value: textOutput };
     }
@@ -387,15 +423,15 @@ async function buildReadToolModelOutput(
 /**
  * Validates a file path for security and extension requirements
  */
-function validateFilePath(filePath: string): ValidationResult {
-    return validateTextFilePath(filePath);
+function validateFilePath(projectPath: string, filePath: string): ValidationResult {
+    return validateTextFilePath(projectPath, filePath);
 }
 
 /**
  * Validates a file path for read operations
  */
-function validateReadFilePath(filePath: string): ValidationResult {
-    return validateReadableFilePath(filePath);
+function validateReadFilePath(projectPath: string, filePath: string): ValidationResult {
+    return validateReadableFilePath(projectPath, filePath);
 }
 
 /**
@@ -508,9 +544,18 @@ function truncateLongLines(content: string, maxLength: number = MAX_LINE_LENGTH)
  */
 function trackModifiedFile(modifiedFiles: string[] | undefined, filePath: string): void {
     const normalizedPath = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+    const normalizedCopilotRoot = getCopilotProjectsRootDir().replace(/\\/g, '/');
+    const normalizedComparablePath = process.platform === 'win32' ? normalizedPath.toLowerCase() : normalizedPath;
+    const normalizedComparableCopilotRoot = process.platform === 'win32'
+        ? normalizedCopilotRoot.toLowerCase()
+        : normalizedCopilotRoot;
     const isCopilotInternalPath = normalizedPath === '.mi-copilot' || normalizedPath.startsWith('.mi-copilot/');
+    const isCopilotGlobalPath = path.isAbsolute(filePath) && (
+        normalizedComparablePath === normalizedComparableCopilotRoot ||
+        normalizedComparablePath.startsWith(`${normalizedComparableCopilotRoot}/`)
+    );
 
-    if (isCopilotInternalPath) {
+    if (isCopilotInternalPath || isCopilotGlobalPath) {
         return;
     }
 
@@ -537,7 +582,7 @@ export function createWriteExecute(
         console.log(`[FileWriteTool] Writing to ${file_path}, content length: ${content.length}`);
 
         // Validate file path
-        const pathValidation = validateFilePath(file_path);
+        const pathValidation = validateFilePath(projectPath, file_path);
         if (!pathValidation.valid) {
             console.error(`[FileWriteTool] Invalid file path: ${file_path}`);
             return {
@@ -557,7 +602,7 @@ export function createWriteExecute(
             };
         }
 
-        const fullPath = path.join(projectPath, file_path);
+        const fullPath = resolveFullPath(projectPath, file_path);
         await undoCheckpointManager?.captureBeforeChange(file_path);
 
         // Check if file exists with non-empty content
@@ -648,7 +693,7 @@ export function createReadExecute(projectPath: string): ReadExecuteFn {
         logDebug(`[FileReadTool] Reading ${file_path}, offset: ${offset}, limit: ${limit}, pages: ${pages}`);
 
         // Validate file path
-        const pathValidation = validateReadFilePath(file_path);
+        const pathValidation = validateReadFilePath(projectPath, file_path);
         if (!pathValidation.valid) {
             logError(`[FileReadTool] Invalid file path: ${file_path}`);
             return {
@@ -658,7 +703,7 @@ export function createReadExecute(projectPath: string): ReadExecuteFn {
             };
         }
 
-        const fullPath = path.join(projectPath, file_path);
+        const fullPath = resolveFullPath(projectPath, file_path);
 
         // Check if file exists
         if (!fs.existsSync(fullPath)) {
@@ -797,7 +842,7 @@ export function createEditExecute(
         logDebug(`[FileEditTool] Editing ${file_path}, replace_all: ${replace_all}`);
 
         // Validate file path
-        const pathValidation = validateFilePath(file_path);
+        const pathValidation = validateFilePath(projectPath, file_path);
         if (!pathValidation.valid) {
             logError(`[FileEditTool] Invalid file path: ${file_path}`);
             return {
@@ -817,7 +862,7 @@ export function createEditExecute(
             };
         }
 
-        const fullPath = path.join(projectPath, file_path);
+        const fullPath = resolveFullPath(projectPath, file_path);
         await undoCheckpointManager?.captureBeforeChange(file_path);
 
         // Check if file exists
@@ -1190,7 +1235,7 @@ export function createGlobExecute(projectPath: string): GlobExecuteFn {
  */
 
 const writeInputSchema = z.object({
-    file_path: z.string().describe(`The relative path to the file to write. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")`),
+    file_path: z.string().describe(`The file path to write. Use a path relative to the project root, or an absolute path under ~/.wso2-mi/copilot/projects for copilot session artifacts (e.g., plan files).`),
     content: z.string().describe(`The content to write to the file. Cannot be empty.`)
 });
 
@@ -1211,7 +1256,7 @@ export function createWriteTool(execute: WriteExecuteFn) {
  */
 
 const readInputSchema = z.object({
-    file_path: z.string().describe(`The relative path to the file to read. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")`),
+    file_path: z.string().describe(`The file path to read. Use a path relative to the project root, or an absolute path under ~/.wso2-mi/copilot/projects for copilot session artifacts.`),
     offset: z.number().optional().describe(`The line number to start reading from`),
     limit: z.number().optional().describe(`The number of lines to read`),
     pages: z.string().optional().describe(`PDF page selection. Use "N" or "N-M" (e.g., "3" or "1-5"). Maximum 5 pages per request.`)
@@ -1239,7 +1284,7 @@ export function createReadTool(execute: ReadExecuteFn, projectPath: string) {
  */
 
 const editInputSchema = z.object({
-    file_path: z.string().describe(`The relative path to the file to edit. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")`),
+    file_path: z.string().describe(`The file path to edit. Use a path relative to the project root, or an absolute path under ~/.wso2-mi/copilot/projects for copilot session artifacts.`),
     old_string: z.string().describe(`The exact text to replace (must match file contents exactly, including whitespace)`),
     new_string: z.string().describe(`The replacement text (must be different from old_string)`),
     replace_all: z.boolean().optional().describe(`Replace all occurrences (default false)`)
