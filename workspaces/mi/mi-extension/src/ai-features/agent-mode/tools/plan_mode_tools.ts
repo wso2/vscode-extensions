@@ -214,18 +214,25 @@ export interface PendingQuestion {
 
 export interface PendingPlanApproval {
     approvalId: string;
-    approvalKind: 'enter_plan_mode' | 'exit_plan_mode' | 'exit_plan_mode_without_plan';
+    approvalKind: PlanApprovalKind;
     resolve: (result: { approved: boolean; feedback?: string }) => void;
     reject: (error: Error) => void;
 }
 
 export type AgentEventHandler = (event: AgentEvent) => void;
 
+export type PlanApprovalKind =
+    | 'enter_plan_mode'
+    | 'exit_plan_mode'
+    | 'exit_plan_mode_without_plan'
+    | 'web_search'
+    | 'web_fetch';
+
 async function requestPlanApproval(
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
     request: {
-        approvalKind: 'enter_plan_mode' | 'exit_plan_mode' | 'exit_plan_mode_without_plan';
+        approvalKind: PlanApprovalKind;
         content: string;
         planFilePath?: string;
         approvalTitle: string;

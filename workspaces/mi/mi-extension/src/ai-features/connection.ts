@@ -154,7 +154,7 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
  * Returns a singleton Anthropic client instance.
  * Re-initializes the client if the login method has changed.
  */
-export const getAnthropicClient = async (model: AnthropicModel): Promise<any> => {
+export const getAnthropicProvider = async (): Promise<ReturnType<typeof createAnthropic>> => {
     const loginMethod = await getLoginMethod();
 
     // Recreate client if login method has changed or no cached instance
@@ -184,7 +184,12 @@ export const getAnthropicClient = async (model: AnthropicModel): Promise<any> =>
         logDebug('Using cached Anthropic client');
     }
 
-    return cachedAnthropic!(model);
+    return cachedAnthropic!;
+};
+
+export const getAnthropicClient = async (model: AnthropicModel): Promise<any> => {
+    const provider = await getAnthropicProvider();
+    return provider(model);
 };
 
 /**

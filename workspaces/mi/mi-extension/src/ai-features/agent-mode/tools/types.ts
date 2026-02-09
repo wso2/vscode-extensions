@@ -120,6 +120,10 @@ export const BASH_TOOL_NAME = 'shell';
 export const KILL_TASK_TOOL_NAME = 'kill_task';
 export const TASK_OUTPUT_TOOL_NAME = 'task_output';
 
+// Web Tools
+export const WEB_SEARCH_TOOL_NAME = 'web_search';
+export const WEB_FETCH_TOOL_NAME = 'web_fetch';
+
 // ============================================================================
 // Subagent Types
 // ============================================================================
@@ -303,6 +307,23 @@ export type ExitPlanModeExecuteFn = (args: {
 
 export type TodoWriteExecuteFn = (args: {
     todos: TodoItem[];
+}) => Promise<ToolResult>;
+
+// ============================================================================
+// Web Tool Execute Function Types
+// ============================================================================
+
+export type WebSearchExecuteFn = (args: {
+    query: string;
+    allowed_domains?: string[];
+    blocked_domains?: string[];
+}) => Promise<ToolResult>;
+
+export type WebFetchExecuteFn = (args: {
+    url: string;
+    prompt: string;
+    allowed_domains?: string[];
+    blocked_domains?: string[];
 }) => Promise<ToolResult>;
 
 // ============================================================================

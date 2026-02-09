@@ -24,6 +24,7 @@ import { formatFileTree, getExistingFiles } from '../../../utils/file-utils';
 import { getAvailableConnectorCatalog } from '../../tools/connector_tools';
 import { getAvailableSkills } from '../../tools/skill_tools';
 import { getPlanModeReminder as getPlanModeSessionReminder } from '../../tools/plan_mode_tools';
+import { getRuntimeVersionFromPom } from '../../tools/connector_store_cache';
 import { AgentMode } from '@wso2/mi-core';
 import { getModeReminder } from './mode';
 
@@ -77,6 +78,7 @@ Is directory a git repo: {{env_is_git_repo}}
 Platform: {{env_platform}}
 OS Version: {{env_os_version}}
 Today's date: {{env_today}}
+MI Runtime version: {{env_mi_runtime_version}}
 </env>
 
 <system_reminder>
@@ -230,6 +232,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     // Prepare template context
     const isGitRepo = fs.existsSync(path.join(params.projectPath, '.git'));
     const today = new Date().toISOString().split('T')[0];
+    const runtimeVersion = await getRuntimeVersionFromPom(params.projectPath);
     const context: Record<string, any> = {
         question: params.query,
         fileList: fileList,
@@ -243,6 +246,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         env_platform: process.platform,
         env_os_version: `${os.type()} ${os.release()}`,
         env_today: today,
+        env_mi_runtime_version: runtimeVersion || 'unknown',
         system_remainder: `.
         <mode>
         ${mode.toUpperCase()}

@@ -80,6 +80,12 @@ import {
     createTaskOutputTool,
     createTaskOutputExecute,
 } from '../../tools/bash_tools';
+import {
+    createWebSearchTool,
+    createWebSearchExecute,
+    createWebFetchTool,
+    createWebFetchExecute,
+} from '../../tools/web_tools';
 import { AnthropicModel } from '../../../connection';
 import { AgentMode } from '@wso2/mi-core';
 import { persistOversizedToolResult } from '../../tools/tool-result-persistence';
@@ -105,6 +111,8 @@ import {
     BASH_TOOL_NAME,
     KILL_TASK_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
+    WEB_SEARCH_TOOL_NAME,
+    WEB_FETCH_TOOL_NAME,
 } from '../../tools/types';
 import { ToolResult } from '../../tools/types';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
@@ -132,6 +140,8 @@ export {
     BASH_TOOL_NAME,
     KILL_TASK_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
+    WEB_SEARCH_TOOL_NAME,
+    WEB_FETCH_TOOL_NAME,
 };
 import { AgentEventHandler } from './agent';
 
@@ -168,6 +178,8 @@ const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
     CONNECTOR_TOOL_NAME,
     SKILL_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
+    WEB_SEARCH_TOOL_NAME,
+    WEB_FETCH_TOOL_NAME,
 ]);
 
 const PLAN_MODE_ALLOWED_TOOLS = new Set<string>([
@@ -324,6 +336,14 @@ export function createAgentTools(params: CreateToolsParams) {
         ),
         [TODO_WRITE_TOOL_NAME]: createTodoWriteTool(
             getWrappedExecute(TODO_WRITE_TOOL_NAME, createTodoWriteExecute(eventHandler))
+        ),
+
+        // Web Tools (2 tools)
+        [WEB_SEARCH_TOOL_NAME]: createWebSearchTool(
+            getWrappedExecute(WEB_SEARCH_TOOL_NAME, createWebSearchExecute(getAnthropicClient, eventHandler, pendingApprovals))
+        ),
+        [WEB_FETCH_TOOL_NAME]: createWebFetchTool(
+            getWrappedExecute(WEB_FETCH_TOOL_NAME, createWebFetchExecute(getAnthropicClient, eventHandler, pendingApprovals))
         ),
 
         // Shell Tools (3 tools)
