@@ -78,14 +78,14 @@ workflows:
             stepId: final-disbursement
         # Deep Failure Branching
         onFailure:
-          # Sub-Branch 1: Needs more info -> Jump to Step 6
+           #Sub-Branch 1: Needs more info -> Jump to Step 6
           - name: request-docs
             type: goto
             stepId: request-more-documents
             criteria:
               - condition: "$statusCode == 400"
-          
-          # Sub-Branch 2: Officer Rejected -> Jump to Step 9
+        
+           #Sub-Branch 2: Officer Rejected -> Jump to Step 9
           - name: officer-rejected
             type: goto
             stepId: send-rejection-email
