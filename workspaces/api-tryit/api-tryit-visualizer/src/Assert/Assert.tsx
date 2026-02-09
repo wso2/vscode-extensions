@@ -38,62 +38,21 @@ const Container = styled.div`
     overflow: auto;
 `;
 
-const Section = styled.div`
-    margin-bottom: 12px;
-    width: 100%;
-    padding: 0 12px;
-`;
-
 const AddButtonWrapper = styled.div`
-    margin-top: 4px;
+    margin-top: 8px;
     margin-left: 4px;
 `;
 
 const AssertionItem = styled.div`
     display: flex;
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     margin-left: 4px;
     gap: 8px;
     width: 100%;
 `;
 
-const AssertionInputWrapper = styled.div`
-    flex: 1;
-    min-width: 0;
-    height: 44px;
-    border-radius: 4px;
-    background-color: #262626ff;
-    border: 1px solid #3a3a3a;
-    display: flex;
-    align-items: center;
-    padding: 0 8px;
-    
-    /* Light theme */
-    body.vscode-light & {
-        background-color: #f5f5f5;
-        border-color: #d0d0d0;
-    }
-    
-    /* High contrast theme */
-    body.vscode-high-contrast & {
-        background-color: #000000;
-        border-color: #ffffff;
-    }
-    
-    &:focus-within {
-        border-color: #528BFF;
-        box-shadow: 0 0 0 2px rgba(82, 139, 255, 0.1);
-    }
-    
-    .monaco-editor {
-        flex: 1;
-        height: 100% !important;
-        min-width: 0;
-    }
-`;
-
-const AssertionInput = styled(TextField)<{ status?: 'pass' | 'fail' }>`
+const AssertionInput = styled(TextField) <{ status?: 'pass' | 'fail' }>`
     flex-grow: 1;
 
     ${({ status }) => status === 'pass' && `
@@ -117,7 +76,7 @@ const AssertionInput = styled(TextField)<{ status?: 'pass' | 'fail' }>`
     `}
 `;
 
-const AssertionStatusIcon = styled(Codicon)<{ status: 'pass' | 'fail' }>`
+const AssertionStatusIcon = styled(Codicon) <{ status: 'pass' | 'fail' }>`
     color: ${({ status }) => status === 'pass'
         ? 'var(--vscode-testing-iconPassed, #2ea043)'
         : 'var(--vscode-testing-iconFailed, #f85149)'};
@@ -127,7 +86,6 @@ const AssertionResultsList = styled.div`
     margin-top: 8px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
 `;
 
 const AssertionResultRow = styled.div`
@@ -145,15 +103,175 @@ const AssertionResultText = styled.div`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    opacity: 0.85;
 `;
 
-export const Assert: React.FC<AssertProps> = ({ 
+const AssertionFailureDetails = styled.div<{ isForm: boolean }>`
+    margin-left: ${({ isForm }) => isForm ? '14px' : '0'};
+    margin-top: 4px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: var(--vscode-errorForeground);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+`;
+
+const AssertionDetailLine = styled.div`
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+`;
+
+const getAssertionKey = (assertion: string) => {
+    const trimmed = assertion.trim();
+    if (!trimmed) {
+        return undefined;
+    }
+
+    const match = trimmed.match(/^res\.(status|body|headers\.([A-Za-z0-9-]+))\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    if (!match) {
+        return undefined;
+    }
+
+    const [, target, headerName] = match;
+    if (target.toLowerCase() === 'status') {
+        return 'status';
+    }
+
+    if (target.toLowerCase() === 'body') {
+        return 'body';
+    }
+
+    if (headerName) {
+        return `headers.${headerName}`;
+    }
+
+    return undefined;
+};
+
+const getAssertionValue = (assertion: string) => {
+    const trimmed = assertion.trim();
+    if (!trimmed) {
+        return undefined;
+    }
+
+    const match = trimmed.match(/^res\.(status|body|headers\.([A-Za-z0-9-]+))\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);  
+    if (!match) {
+        return undefined;
+    }
+    
+    const [, , , , rawExpected] = match;
+    const expected = rawExpected.trim().replace(/^['"]|['"]$/g, '');
+    return expected;
+};
+
+const getOperator = (assertion: string) => {
+    const trimmed = assertion.trim();
+    if (!trimmed) {
+        return undefined;
+    }
+    
+    const match = trimmed.match(/^res\.(status|body|headers\.([A-Za-z0-9-]+))\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    if (!match) {
+        return undefined;
+    }
+    
+    const [, , , operator] = match;
+    return operator;
+};
+
+const getAssertionDetails = (assertion: string, apiResponse?: ApiResponse) => {
+    if (!apiResponse) {
+        return undefined;
+    }
+
+    const key = getAssertionKey(assertion);
+    const expected = getAssertionValue(assertion);
+    const operator = getOperator(assertion);
+    if (!key || expected === undefined || !operator) {
+        return undefined;
+    }
+
+    if (key === 'status') {
+        return {
+            expected,
+            actual: String(apiResponse.statusCode)
+        };
+    }
+
+    if (key === 'body') {
+        return {
+            expected,
+            actual: apiResponse.body ?? ''
+        };
+    }
+
+    if (key.startsWith('headers.')) {
+        const headerName = key.substring(8);
+        const headerValue = (apiResponse.headers || []).find(
+            (h) => h.key.toLowerCase() === headerName.toLowerCase()
+        )?.value;
+        return {
+            expected,
+            actual: headerValue ?? ''
+        };
+    }
+};
+
+export const Assert: React.FC<AssertProps> = ({
     request,
     response,
     onRequestChange,
     mode = 'form'
 }) => {
+
+    const getAssertionDetails = React.useCallback((assertion: string, apiResponse?: ApiResponse) => {
+        if (!apiResponse) {
+            return undefined;
+        }
+
+        const trimmed = assertion.trim();
+        if (!trimmed) {
+            return undefined;
+        }
+
+        const match = trimmed.match(/^res\.(status|body|headers\.([A-Za-z0-9-]+))\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+        if (!match) {
+            return undefined;
+        }
+
+        const [, target, headerName, operator, rawExpected] = match;
+        const expected = rawExpected.trim().replace(/^['"]|['"]$/g, '');
+
+        if (target.toLowerCase() === 'status') {
+            return {
+                expected,
+                actual: String(apiResponse.statusCode),
+                operator
+            };
+        }
+
+        if (target.toLowerCase() === 'body') {
+            return {
+                expected,
+                actual: apiResponse.body ?? '',
+                operator
+            };
+        }
+
+        if (headerName) {
+            const headerValue = (apiResponse.headers || []).find(
+                (h) => h.key.toLowerCase() === headerName.toLowerCase()
+            )?.value;
+            return {
+                expected,
+                actual: headerValue ?? '',
+                operator
+            };
+        }
+
+        return undefined;
+    }, []);
 
     const evaluateAssertion = React.useCallback((assertion: string, apiResponse?: ApiResponse) => {
         if (!apiResponse) {
@@ -165,23 +283,42 @@ export const Assert: React.FC<AssertProps> = ({
             return undefined;
         }
 
-        const match = trimmed.match(/^res\.(status|body|headers\.([A-Za-z0-9-]+))\s*={1,2}\s*(.+)$/i);
+        const match = trimmed.match(/^res\.(status|body|headers\.([A-Za-z0-9-]+))\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
         if (!match) {
             return false;
         }
 
-        const [, target, headerName, rawExpected] = match;
+        const [, target, headerName, operator, rawExpected] = match;
         const expected = rawExpected.trim().replace(/^['"]|['"]$/g, '');
 
+        const compareValues = (actual: string, expected: string, operator: string): boolean => {
+            switch (operator) {
+                case '=':
+                case '==':
+                    return actual === expected;
+                case '!=':
+                    return actual !== expected;
+                case '>':
+                    return Number(actual) > Number(expected);
+                case '<':
+                    return Number(actual) < Number(expected);
+                case '>=':
+                    return Number(actual) >= Number(expected);
+                case '<=':
+                    return Number(actual) <= Number(expected);
+                default:
+                    return false;
+            }
+        };
+
         if (target.toLowerCase() === 'status') {
-            const expectedStatus = Number(expected);
-            return Number.isFinite(expectedStatus) && apiResponse.statusCode === expectedStatus;
+            return compareValues(String(apiResponse.statusCode), expected, operator);
         }
 
         if (target.toLowerCase() === 'body') {
             const responseBody = apiResponse.body ?? '';
             const isExpectedJson = expected.startsWith('{') || expected.startsWith('[');
-            if (isExpectedJson) {
+            if (isExpectedJson && (operator === '=' || operator === '==')) {
                 try {
                     const expectedJson = JSON.parse(expected);
                     const responseJson = JSON.parse(responseBody);
@@ -190,7 +327,7 @@ export const Assert: React.FC<AssertProps> = ({
                     return false;
                 }
             }
-            return responseBody === expected;
+            return compareValues(responseBody, expected, operator);
         }
 
         if (headerName) {
@@ -200,7 +337,7 @@ export const Assert: React.FC<AssertProps> = ({
             if (headerValue === undefined) {
                 return false;
             }
-            return headerValue.trim() === expected;
+            return compareValues(headerValue.trim(), expected, operator);
         }
 
         return false;
@@ -221,7 +358,7 @@ export const Assert: React.FC<AssertProps> = ({
                 const lineCount = model.getLineCount();
                 const lastLineLength = model.getLineLength(lineCount);
                 const textToInsert = model.getValue() ? '\nres.status = 200' : 'res.status = 200';
-                
+
                 editor.executeEdits('add-assertion', [{
                     range: {
                         startLineNumber: lineCount,
@@ -231,7 +368,7 @@ export const Assert: React.FC<AssertProps> = ({
                     },
                     text: textToInsert
                 }]);
-                
+
                 // Move cursor to the new line
                 setTimeout(() => {
                     editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
@@ -312,22 +449,46 @@ export const Assert: React.FC<AssertProps> = ({
                     {(request.assertions || []).length > 0 && (
                         <AssertionResultsList>
                             {(request.assertions || []).map((assertion, index) => (
-                                <AssertionResultRow key={`assertion-result-${index}`}>
-                                    {response ? (
-                                        <AssertionStatusIcon
-                                            status={assertionResults[index] ? 'pass' : 'fail'}
-                                            name={assertionResults[index] ? 'check' : 'close'}
-                                        />
-                                    ) : (
-                                        <Codicon
-                                            sx={{ color: 'var(--vscode-disabledForeground)' }}
-                                            name="close"
-                                        />
-                                    )}
-                                    <AssertionResultText title={assertion}>
-                                        {assertion}
-                                    </AssertionResultText>
-                                </AssertionResultRow>
+                                <React.Fragment key={`assertion-result-${index}`}>
+                                    <AssertionResultRow>
+                                        {response && getAssertionKey(assertion) && getAssertionValue(assertion) ? (
+                                            <AssertionStatusIcon
+                                                status={assertionResults[index] ? 'pass' : 'fail'}
+                                                name={assertionResults[index] ? 'check' : 'close'}
+                                            />
+                                        ) : (
+                                            response && assertionResults[index] === false && getAssertionKey(assertion) && getAssertionValue(assertion) && (
+                                                <Codicon
+                                                    sx={{ color: 'var(--vscode-disabledForeground)' }}
+                                                    name="close"
+                                                />
+                                            )
+                                        )}
+                                        <AssertionResultText title={assertion}>
+                                            {response && assertionResults[index] === false && (
+                                                <AssertionFailureDetails isForm={false}>
+                                                    {getAssertionDetails(assertion, response) ? (
+                                                        <AssertionDetailLine>
+                                                            res.{getAssertionKey(assertion)} is expected to be {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}. Actual res.{getAssertionKey(assertion)} {getAssertionDetails(assertion, response)?.actual ?? ''} is not {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}.
+                                                        </AssertionDetailLine>
+                                                    ) : (
+                                                        <AssertionDetailLine>
+                                                            Assertion format is invalid. Please use the format: res.[target] [operator] [value]. E.g., res.status = 200, res.headers.Content-Type = application/json, res.body != ''
+                                                        </AssertionDetailLine>
+                                                    )}
+                                                </AssertionFailureDetails>
+                                            )}
+                                            {response && assertionResults[index] === true && (
+                                                <AssertionDetailLine>
+                                                    {getAssertionDetails(assertion, response) && (
+                                                        <>res.{getAssertionKey(assertion)} is {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''} as expected.</>
+                                                    )}
+                                                </AssertionDetailLine>
+                                            )}
+                                        </AssertionResultText>
+                                    </AssertionResultRow>
+
+                                </React.Fragment>
                             ))}
                         </AssertionResultsList>
                     )}
@@ -338,30 +499,40 @@ export const Assert: React.FC<AssertProps> = ({
                         Assertions
                     </Typography>
                     {(request.assertions || []).map((assertion, index) => (
-                        <AssertionItem key={index}>
-                            <AssertionInput  
-                                id={`assertion-${index}`}
-                                value={assertion}
-                                onTextChange={(value) => updateAssertion(index, value)}
-                                placeholder="e.g., res.status = 200"
-                                status={response ? (assertionResults[index] ? 'pass' : 'fail') : undefined}
-                                sx={{flex: 1}}
-                            />
-                            <Button appearance='icon' onClick={() => deleteAssertion(index)}>
-                                <Codicon sx={{color: 'var(--vscode-editorGutter-deletedBackground)'}} name="trash" />
-                            </Button>
-                            {/* {response ? (
-                                <AssertionStatusIcon
-                                    status={assertionResults[index] ? 'pass' : 'fail'}
-                                    name={assertionResults[index] ? 'check' : 'close'}
+                        <React.Fragment key={index}>
+                            <AssertionItem>
+                                <AssertionInput
+                                    id={`assertion-${index}`}
+                                    value={assertion}
+                                    onTextChange={(value) => updateAssertion(index, value)}
+                                    placeholder="e.g., res.status = 200"
+                                    status={response ? (assertionResults[index] ? 'pass' : 'fail') : undefined}
+                                    sx={{ flex: 1 }}
                                 />
-                            ) : (
-                                <Codicon
-                                    sx={{ color: 'var(--vscode-disabledForeground)' }}
-                                    name="close"
-                                />
-                            )} */}
-                        </AssertionItem>
+                                <Button appearance='icon' onClick={() => deleteAssertion(index)}>
+                                    <Codicon sx={{ color: 'var(--vscode-editorGutter-deletedBackground)' }} name="trash" />
+                                </Button>
+                            </AssertionItem>
+                            {response && assertionResults[index] === false && (
+                                <>
+                                    {getAssertionDetails(assertion, response) ? (
+                                        <>
+                                            <AssertionFailureDetails isForm={true}>
+                                                <AssertionDetailLine>
+                                                    res.{getAssertionKey(assertion)} is expected to be {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}. Actual res.{getAssertionKey(assertion)} {getAssertionDetails(assertion, response)?.actual ?? ''} is not {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}.
+                                                </AssertionDetailLine>
+                                            </AssertionFailureDetails>
+                                        </>
+                                    ) : (
+                                         <AssertionFailureDetails isForm={true}>
+                                            <AssertionDetailLine>
+                                                Assertion format is invalid. Please use the format: res.[target] [operator] [value]. E.g., res.status = 200, res.headers.Content-Type = application/json, res.body != ''
+                                            </AssertionDetailLine>
+                                        </AssertionFailureDetails>
+                                    )}
+                                </>
+                            )}
+                        </React.Fragment>
                     ))}
                     <AddButtonWrapper>
                         <LinkButton onClick={addAssertion}>
