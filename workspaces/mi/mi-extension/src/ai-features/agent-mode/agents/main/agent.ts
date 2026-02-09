@@ -40,10 +40,9 @@ import {
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
+    SKILL_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
-    GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
-    GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
     BUILD_PROJECT_TOOL_NAME,
@@ -433,6 +432,10 @@ export async function executeAgent(
                             connector_names: toolInput?.connector_names,
                             inbound_endpoint_names: toolInput?.inbound_endpoint_names,
                         };
+                    } else if (part.toolName === SKILL_TOOL_NAME) {
+                        displayInput = {
+                            skill_name: toolInput?.skill_name,
+                        };
                     } else if (part.toolName === MANAGE_CONNECTOR_TOOL_NAME) {
                         displayInput = {
                             operation: toolInput?.operation,
@@ -443,8 +446,6 @@ export async function executeAgent(
                         displayInput = {
                             file_paths: toolInput?.file_paths,
                         };
-                    } else if (part.toolName === GET_CONNECTOR_DOCUMENTATION_TOOL_NAME || part.toolName === GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME) {
-                        displayInput = {}; // No input parameters
                     } else if (part.toolName === CREATE_DATA_MAPPER_TOOL_NAME) {
                         displayInput = {
                             name: toolInput?.name,

@@ -22,6 +22,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { formatFileTree, getExistingFiles } from '../../../utils/file-utils';
 import { getAvailableConnectorCatalog } from '../../tools/connector_tools';
+import { getAvailableSkills } from '../../tools/skill_tools';
 import { getPlanModeReminder as getPlanModeSessionReminder } from '../../tools/plan_mode_tools';
 import { AgentMode } from '@wso2/mi-core';
 import { getModeReminder } from './mode';
@@ -64,6 +65,11 @@ These are the available WSO2 connectors from WSO2 connector store.
 {{available_inbound_endpoints}}
 These are the available WSO2 inbound endpoints from WSO2 inbound endpoint store.
 </available_inbound_endpoints>
+
+<available_skills>
+{{available_skills}}
+These are optional specialized skill contexts. Load them on demand with load_skill_context when needed.
+</available_skills>
 
 <env>
 Working directory: {{env_working_directory}}
@@ -208,6 +214,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     // Get available connectors and inbound endpoints
     const { connectors: availableConnectors, inboundEndpoints: availableInboundEndpoints } =
         await getAvailableConnectorCatalog(params.projectPath);
+    const availableSkills = getAvailableSkills();
 
     const mode = params.mode || 'edit';
     const modePolicyReminder = await getModeReminder({
@@ -230,6 +237,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         userPreconfigured: params.payloads, // Pre-configured payloads (optional)
         available_connectors: availableConnectors.join(', '), // Available connectors list
         available_inbound_endpoints: availableInboundEndpoints.join(', '), // Available inbound endpoints list
+        available_skills: availableSkills.map((skill) => `${skill.name} - ${skill.description}`).join('\n'), // Specialized skills
         env_working_directory: params.projectPath,
         env_is_git_repo: isGitRepo ? 'true' : 'false',
         env_platform: process.platform,

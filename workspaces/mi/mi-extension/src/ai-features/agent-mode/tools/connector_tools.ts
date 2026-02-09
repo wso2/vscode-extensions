@@ -20,8 +20,8 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { CONNECTOR_DB } from '../context/connector_db';
 import { INBOUND_DB } from '../context/inbound_db';
-import { CONNECTOR_DOCUMENTATION, AI_CONNECTOR_DOCUMENTATION } from '../context/connectors_guide';
-import { ToolResult, CONNECTOR_TOOL_NAME } from './types';
+import { CONNECTOR_DOCUMENTATION } from '../context/connectors_guide';
+import { ToolResult } from './types';
 import { logInfo, logDebug } from '../../copilot/logger';
 import { getConnectorStoreCatalog } from './connector_store_cache';
 
@@ -108,6 +108,7 @@ export async function getAvailableInboundEndpoints(projectPath: string): Promise
 export type ConnectorExecuteFn = (args: {
     connector_names?: string[];
     inbound_endpoint_names?: string[];
+    include_documentation?: boolean;
 }) => Promise<ToolResult>;
 
 // ============================================================================
@@ -121,8 +122,13 @@ export function createConnectorExecute(projectPath: string): ConnectorExecuteFn 
     return async (args: {
         connector_names?: string[];
         inbound_endpoint_names?: string[];
+        include_documentation?: boolean;
     }): Promise<ToolResult> => {
-        const { connector_names = [], inbound_endpoint_names = [] } = args;
+        const {
+            connector_names = [],
+            inbound_endpoint_names = [],
+            include_documentation = true,
+        } = args;
         
         logInfo(`[ConnectorTool] Fetching ${connector_names.length} connectors and ${inbound_endpoint_names.length} inbound endpoints`);
 
@@ -189,18 +195,17 @@ export function createConnectorExecute(projectPath: string): ConnectorExecuteFn 
             message += `\n Inbound endpoints not found: ${inboundsNotFound.join(', ')}`;
         }
 
-        // Append general connector documentation
-        message += `\n\n---\n\n${CONNECTOR_DOCUMENTATION}`;
-
-        // If AI connector is selected, append AI-specific documentation
-        const hasAIConnector = connector_names.some(name => name.toLowerCase() === 'ai');
-        if (hasAIConnector) {
-            message += `\n\n---\n\n${AI_CONNECTOR_DOCUMENTATION}`;
+        // Append general connector documentation by default, unless explicitly disabled.
+        if (include_documentation) {
+            message += `\n\n---\n\n${CONNECTOR_DOCUMENTATION}`;
         }
 
         const success = connectorsFound > 0 || inboundsFound > 0;
 
-        logDebug(`[ConnectorTool] Retrieved ${connectorsFound} connectors and ${inboundsFound} inbound endpoints${hasAIConnector ? ' (with AI guide)' : ''}`);
+        logDebug(
+            `[ConnectorTool] Retrieved ${connectorsFound} connectors and ${inboundsFound} inbound endpoints` +
+            `${include_documentation ? ' (with connector docs)' : ' (without docs)'}`
+        );
 
         return {
             success,
@@ -220,6 +225,10 @@ const connectorInputSchema = z.object({
     inbound_endpoint_names: z.array(z.string())
         .optional()
         .describe('Array of inbound endpoint names to fetch definitions for (e.g., ["Kafka (Inbound)", "HTTP (Inbound)"])'),
+    include_documentation: z.boolean()
+        .optional()
+        .default(true)
+        .describe('Whether to append connector usage documentation to the response. Defaults to true. Set false to save context when docs are already available.'),
 });
 
 /**
@@ -232,72 +241,9 @@ export function createConnectorTool(execute: ConnectorExecuteFn) {
             Returns: operations, parameters, Maven coordinates, and connector usage documentation.
             Available names are listed in <AVAILABLE_CONNECTORS> and <AVAILABLE_INBOUND_ENDPOINTS> sections of the user prompt.
             At least one of connector_names or inbound_endpoint_names must be provided.
-            Automatically includes AI connector documentation when the AI connector is requested.`,
+            include_documentation defaults to true; set it to false when connector documentation is already in context to save tokens.
+            For specialized guidance (for example, AI connector app development), use load_skill_context on demand.`,
         inputSchema: connectorInputSchema,
-        execute
-    });
-}
-
-// ============================================================================
-// Documentation Reading Tools
-// ============================================================================
-
-/**
- * Execute function type for get_connector_guide tool
- */
-export type GetConnectorDocumentationExecuteFn = () => Promise<ToolResult>;
-
-/**
- * Execute function type for get_ai_connector_documentation tool
- */
-export type GetAIConnectorDocumentationExecuteFn = () => Promise<ToolResult>;
-
-/**
- * * Creates the execute function for get_connector_documentation tool
- */
-export function createGetConnectorDocumentationExecute(): GetConnectorDocumentationExecuteFn {
-    return async (): Promise<ToolResult> => {
-        logDebug(`[GetConnectorDocumentationTool] Fetching connector usage documentation`);
-
-        return {
-            success: true,
-            message: CONNECTOR_DOCUMENTATION
-        };
-    };
-}
-
-/**
- * Creates the execute function for get_ai_connector_documentation tool
- */
-export function createGetAIConnectorDocumentationExecute(): GetAIConnectorDocumentationExecuteFn {
-    return async (): Promise<ToolResult> => {
-        logDebug(`[GetAIConnectorDocumentationTool] Fetching AI connector documentation`);
-
-        return {
-            success: true,
-            message: AI_CONNECTOR_DOCUMENTATION
-        };
-    };
-}
-
-/**
- * Creates the get_connector_documentation tool
- */
-export function createGetConnectorDocumentationTool(execute: GetConnectorDocumentationExecuteFn) {
-    return (tool as any)({
-        description: `Returns general connector usage documentation: connection patterns, init operations, local entries, responseVariable vs overwriteBody, and best practices. No parameters.`,
-        inputSchema: z.object({}),
-        execute
-    });
-}
-
-/**
- * Creates the get_ai_connector_documentation tool
- */
-export function createGetAIConnectorDocumentationTool(execute: GetAIConnectorDocumentationExecuteFn) {
-    return (tool as any)({
-        description: `Returns AI connector documentation: chat operations, RAG, vector stores, AI agents with tools, and model connections. No parameters.`,
-        inputSchema: z.object({}),
         execute
     });
 }

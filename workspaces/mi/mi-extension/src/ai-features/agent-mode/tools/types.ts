@@ -100,10 +100,9 @@ export const FILE_EDIT_TOOL_NAME = 'file_edit';
 export const FILE_GREP_TOOL_NAME = 'grep';
 export const FILE_GLOB_TOOL_NAME = 'glob';
 export const CONNECTOR_TOOL_NAME = 'get_connector_definitions';
+export const SKILL_TOOL_NAME = 'load_skill_context';
 export const MANAGE_CONNECTOR_TOOL_NAME = 'add_or_remove_connector';
 export const VALIDATE_CODE_TOOL_NAME = 'validate_code';
-export const GET_CONNECTOR_DOCUMENTATION_TOOL_NAME = 'get_connector_documentation';
-export const GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME = 'get_ai_connector_documentation';
 export const CREATE_DATA_MAPPER_TOOL_NAME = 'create_data_mapper';
 export const GENERATE_DATA_MAPPING_TOOL_NAME = 'generate_data_mapping';
 export const BUILD_PROJECT_TOOL_NAME = 'build_project';
@@ -218,6 +217,10 @@ export type GrepExecuteFn = (args: {
 export type GlobExecuteFn = (args: {
     pattern: string;
     path?: string;
+}) => Promise<ToolResult>;
+
+export type SkillExecuteFn = (args: {
+    skill_name: string;
 }) => Promise<ToolResult>;
 
 // ============================================================================

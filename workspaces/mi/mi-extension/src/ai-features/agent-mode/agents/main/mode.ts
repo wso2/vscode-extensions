@@ -22,8 +22,7 @@ import {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
-    GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
+    SKILL_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
@@ -43,8 +42,7 @@ User selected ASK mode.
   - ${FILE_GREP_TOOL_NAME}
   - ${FILE_GLOB_TOOL_NAME}
   - ${CONNECTOR_TOOL_NAME}
-  - ${GET_CONNECTOR_DOCUMENTATION_TOOL_NAME}
-  - ${GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME}
+  - ${SKILL_TOOL_NAME}
   - ${VALIDATE_CODE_TOOL_NAME}
 - Do NOT attempt mutation/tooling actions (write/edit/build/run/shell/connector changes/subagents/plan-mode/todo updates).
 - If you need to provide codes/synapse configurations provide the fully updated code in a code block. Not just the edits. System provides an option called "Add to project" in ASK mode which replaces entire files with the code you provide.
