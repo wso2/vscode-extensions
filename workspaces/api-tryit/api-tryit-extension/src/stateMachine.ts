@@ -169,13 +169,17 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                             // Preserve the filePath from the previous selectedItem
                             return {
                                 ...event.data,
-                                filePath: context.selectedItem?.filePath || event.data.filePath
+                                filePath: context.selectedItem?.filePath || context.selectedFilePath || event.data.filePath
                             };
                         },
                         savedItems: (context: ApiTryItContext, event: RequestUpdatedEvent) => {
-                            // Save the updated item to cache
+                            // Save the updated item to cache (preserving filePath)
+                            const updatedItem: ApiRequestItem = {
+                                ...event.data,
+                                filePath: context.selectedItem?.filePath || context.selectedFilePath || event.data.filePath
+                            };
                             const newMap = new Map(context.savedItems);
-                            newMap.set(event.data.id, event.data);
+                            newMap.set(event.data.id, updatedItem);
                             return newMap;
                         }
                     })

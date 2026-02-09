@@ -201,13 +201,37 @@ export class TryItPanel {
 
 							// Get the current state to check for persisted file path or collection path
 							const stateContext = ApiTryItStateMachine.getContext();
-						// Prefer explicit filePath from the message, then the request's filePath (if present),
-						// then any previously-selected file path in the state context or the selected item
-						let targetFilePath = filePath || (request && (request.filePath as string | undefined)) || stateContext.selectedFilePath || stateContext.selectedItem?.filePath;
+							// Prefer explicit filePath from the message, then the request's filePath (if present)
+							let targetFilePath = filePath || (request && (request.filePath as string | undefined));
+
+							// Fallback: check savedItems cache (preserved by state machine) for filePath if missing
+							try {
+								if (!targetFilePath && request && (request.id as string | undefined) && stateContext.savedItems instanceof Map) {
+									const cached = stateContext.savedItems.get(request.id as string);
+									if (cached && cached.filePath) {
+										targetFilePath = cached.filePath;
+									}
+								}
+							} catch {
+								// ignore
+							}
+
 							if (!targetFilePath && stateContext.currentCollectionPath) {
 								// Auto-generate filename from request name or use default
-								const fileName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.yaml';
-								targetFilePath = path.join(stateContext.currentCollectionPath, fileName);
+								const baseName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+								let candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}.yaml`);
+								let counter = 1;
+								while (true) {
+									try {
+										await vscode.workspace.fs.stat(vscode.Uri.file(candidatePath));
+										candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}-${counter}.yaml`);
+										counter++;
+									} catch {
+										// Not found, candidatePath is available
+										break;
+									}
+								}
+								targetFilePath = candidatePath;
 							}
 
 							// If still no file path, prompt user to select folder and file
@@ -293,47 +317,10 @@ export class TryItPanel {
 								targetFilePath = fileUri.fsPath;
 							}
 
-							// If the request already has an associated file, prefer updating/renaming that file
-							const existingFilePath = (request && (request.filePath as string | undefined)) || stateContext.selectedFilePath || stateContext.selectedItem?.filePath;
+							// If the request already has an associated file, always overwrite that file without renaming
+							const existingFilePath = request && (request.filePath as string | undefined);
 							if (existingFilePath) {
-								try {
-									const dir = path.dirname(existingFilePath);
-									const ext = path.extname(existingFilePath) || '.yaml';
-									const baseFromName = (request && request.name) ? request.name : path.basename(existingFilePath, ext);
-									const safeBase = baseFromName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-									let candidatePath = path.join(dir, `${safeBase}${ext}`);
-									// If candidate differs from existing file, attempt to rename; ensure uniqueness
-									if (candidatePath !== existingFilePath) {
-										let counter = 1;
-										while (true) {
-											try {
-												await vscode.workspace.fs.stat(vscode.Uri.file(candidatePath));
-												// File exists, try next suffix
-												candidatePath = path.join(dir, `${safeBase}-${counter}${ext}`);
-												counter++;
-											} catch {
-												// Not found, candidatePath is available
-												break;
-											}
-										}
-										// Try to rename original to candidatePath. If this fails, we'll fall back to overwrite original file.
-										try {
-											await vscode.workspace.fs.rename(vscode.Uri.file(existingFilePath), vscode.Uri.file(candidatePath));
-											targetFilePath = candidatePath;
-											vscode.window.showInformationMessage(`Renamed file to ${path.basename(candidatePath)}`);
-										} catch (err) {
-												const msg = err instanceof Error ? err.message : String(err);
-												vscode.window.showWarningMessage(`Failed to rename file; will overwrite original. ${msg}`);
-											targetFilePath = existingFilePath;
-										}
-									} else {
-										// No rename needed, keep writing to existing file
-										targetFilePath = existingFilePath;
-									}
-								} catch (err) {
-										const msg = err instanceof Error ? err.message : String(err);
-										vscode.window.showWarningMessage(`Error while preparing file for save: ${msg}`);
-								}
+								targetFilePath = existingFilePath;
 							}
 
 			// Ensure the directory exists before saving
