@@ -28,6 +28,7 @@ import { createToolRegistry } from './tool-registry';
 import { getProjectSource, cleanupTempProject } from '../utils/project/temp-project';
 import { StreamContext } from './stream-handlers/stream-context';
 import { checkCompilationErrors } from './tools/diagnostics-utils';
+import { generateCodeMapMarkdown } from './codemap-markdown';
 import { updateAndSaveChat } from '../utils/events';
 import { chatStateStorage } from '../../../views/ai-panel/chatStateStorage';
 import { RPCLayer } from '../../../RPCLayer';
@@ -146,16 +147,25 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 this.config.executionContext
             );
 
-            // Debug: Fetch and save codemap as JSON
+            // Generate bal.md from codemap
             try {
                 const langClient = StateMachine.langClient();
                 const projectPath = this.config.executionContext.projectPath;
                 const codeMap = await langClient.getCodeMap({ projectPath });
-                const codeMapProjectPath = path.join(projectPath, 'codemap-debug.json');
+                
+
+                // Debug: Fetch and save codemap as JSON
+                const codeMapProjectPath = path.join(projectPath, 'codemap.json');
                 fs.writeFileSync(codeMapProjectPath, JSON.stringify(codeMap, null, 2), 'utf-8');
                 console.log(`[AgentExecutor] CodeMap saved to: ${codeMapProjectPath}`);
+
+
+                const balMd = generateCodeMapMarkdown(codeMap);
+                const balMdPath = path.join(projectPath, 'bal.md');
+                fs.writeFileSync(balMdPath, balMd, 'utf-8');
+                console.log(`[AgentExecutor] bal.md saved to: ${balMdPath}`);
             } catch (error) {
-                console.warn('[AgentExecutor] Failed to fetch codemap for debugging:', error);
+                console.warn('[AgentExecutor] Failed to generate bal.md:', error);
             }
 
             // 2. Send didOpen only if creating NEW temp (not reusing for review continuation)
