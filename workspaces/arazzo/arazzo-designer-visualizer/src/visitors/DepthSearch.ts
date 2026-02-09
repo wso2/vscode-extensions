@@ -65,43 +65,76 @@ export class DepthSearch {
         if (node.type === 'END') {
             return;
         }
+        // Choose the longest continuation among success children and branches.
+        // We intentionally IGNORE failure paths here because the "happy path"
+        // is defined as the longest path through success routes.
+        let bestNext: FlowNode | undefined;
+        let bestDepth = -1;
 
-        // Priority 1: First success child (most common continuation)
-        if (node.children.length > 0) {
-            const primaryChild = node.children[0];
-            this.buildMainPath(primaryChild);
-            return;
+        // Evaluate direct children (compute depths so we can compare with branch heads)
+        if (node.children && node.children.length > 0) {
+            for (const child of node.children) {
+                const d = this.computeDepth(child);
+                if (d > bestDepth) {
+                    bestDepth = d;
+                    bestNext = child;
+                }
+            }
         }
 
-        // Priority 2: Branches (condition node) - take first STEP branch
+        // Evaluate condition branches (each branch's head)
         if (node.branches && node.branches.length > 0) {
-            // Find first branch that leads to a STEP (not END)
             for (const branch of node.branches) {
                 if (branch.length > 0) {
                     const head = branch[0];
-                    if (head.type === 'STEP') {
-                        this.buildMainPath(head);
-                        return;
+                    const d = this.computeDepth(head);
+                    if (d > bestDepth) {
+                        bestDepth = d;
+                        bestNext = head;
                     }
                 }
             }
-            
-            // Fallback: take first branch even if it's an END
-            const firstBranch = node.branches[0];
-            if (firstBranch.length > 0) {
-                this.buildMainPath(firstBranch[0]);
-                return;
+        }
+
+        // Follow the best continuation if any
+        if (bestNext) {
+            this.buildMainPath(bestNext);
+        }
+    }
+
+    /**
+     * Compute the depth (number of nodes) of the longest path starting at `node`.
+     * This function only considers success continuations (children and branches)
+     * and deliberately ignores failureNode paths.
+     */
+    private computeDepth(node: FlowNode, visited: Set<string> = new Set()): number {
+        if (!node || visited.has(node.id)) return 0;
+        visited.add(node.id);
+
+        // End node contributes depth 1
+        if (node.type === 'END') return 1;
+
+        let maxChildDepth = 0;
+
+        // Children
+        if (node.children && node.children.length > 0) {
+            for (const child of node.children) {
+                maxChildDepth = Math.max(maxChildDepth, this.computeDepth(child, new Set(visited)));
             }
         }
 
-        // Priority 3: Failure path (only if no success path exists)
-        if (node.failureNode) {
-            // Don't include failure path in main spine unless it's the only option
-            // and leads to more steps (not just an END)
-            if (node.failureNode.type !== 'END') {
-                this.buildMainPath(node.failureNode);
+        // Branch heads
+        if (node.branches && node.branches.length > 0) {
+            for (const branch of node.branches) {
+                if (branch.length > 0) {
+                    const head = branch[0];
+                    maxChildDepth = Math.max(maxChildDepth, this.computeDepth(head, new Set(visited)));
+                }
             }
         }
+
+        // Count current node + best continuation
+        return 1 + maxChildDepth;
     }
 
     /**
