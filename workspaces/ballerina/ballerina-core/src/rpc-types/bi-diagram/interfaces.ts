@@ -231,3 +231,44 @@ export interface GetNodeLocksRequest {
 export interface GetNodeLocksResponse {
     locks: Record<string, { userId: string; userName: string; timestamp: number }>;
 }
+
+// Cursor Awareness Interfaces
+export interface CursorPosition {
+    x: number;
+    y: number;
+    nodeId?: string;
+    timestamp: number;
+}
+
+export interface UserPresence {
+    user: {
+        id: string;
+        name: string;
+    };
+    cursor?: CursorPosition;
+    selection?: string[];
+    status?: 'editing' | 'viewing';
+}
+
+export interface UpdateDiagramCursorRequest {
+    filePath: string;
+    x: number;
+    y: number;
+    nodeId?: string;
+}
+
+export interface GetDiagramCursorsRequest {
+    filePath: string;
+}
+
+export interface GetDiagramCursorsResponse {
+    cursors: UserPresence[];
+}
+
+export interface DiagramCursorUpdate {
+    cursors: UserPresence[];
+}
+
+export interface IsCollaborationActiveResponse {
+    isActive: boolean;
+}

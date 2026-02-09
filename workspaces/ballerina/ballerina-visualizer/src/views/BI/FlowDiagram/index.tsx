@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import styled from "@emotion/styled";
+import { debounce } from "lodash";
 import { removeMcpServerFromAgentNode, findAgentNodeFromAgentCallNode, findFlowNode } from "../AIChatAgent/utils";
 import { MemoizedDiagram } from "@wso2/bi-diagram";
 import {
@@ -73,7 +74,7 @@ import { findFunctionByName, transformCategories, getNodeTemplateForConnection }
 import { PanelOverlayProvider } from "./context/PanelOverlayContext";
 import { PanelOverlayRenderer } from "./PanelOverlayRenderer";
 import { ExpressionFormField, Category as PanelCategory } from "@wso2/ballerina-side-panel";
-import { cloneDeep, debounce } from "lodash";
+import { cloneDeep } from "lodash";
 import { ConnectionKind } from "../../../components/ConnectionSelector";
 import {
     findFlowNodeByModuleVarName,
@@ -136,6 +137,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const [currentUserId, setCurrentUserId] = useState<string>("");
     const [currentUserName, setCurrentUserName] = useState<string>("Unknown User");
     const [nodeLocks, setNodeLocks] = useState<Record<string, any>>({});
+    const [isCollaborationActive, setIsCollaborationActive] = useState<boolean>(false);
+    const [remoteCursors, setRemoteCursors] = useState<Map<number, any>>(new Map());
+
 
     // Navigation stack for back navigation
     const [navigationStack, setNavigationStack] = useState<NavigationStackItem[]>([]);
@@ -244,11 +248,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         const fetchInitialLocks = async () => {
             if (model?.fileName) {
                 try {
-                    // Normalize path for OCT collaboration (host & guest use same key)
-                    const normalizedPath = normalizeFilePath(model.fileName);
-                    
+                    // Send original path - backend UriCache will handle path matching
                     const response = await rpcClient.getBIDiagramRpcClient().getNodeLocks({
-                        filePath: normalizedPath,
+                        filePath: model.fileName,
                     });
                     setNodeLocks(response.locks);
                 } catch (error) {
@@ -259,14 +261,91 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
         fetchInitialLocks();
 
-        // Subscribe to lock updates from other users
-        const unsubscribe = rpcClient.onNodeLockUpdated((updatedLocks) => {
-            console.log(`[Lock Frontend] Received lock update broadcast:`, updatedLocks);
-            setNodeLocks(updatedLocks.locks);
+        // Subscribe to lock updates from other users (optional feature)
+        let unsubscribe: (() => void) | undefined;
+        try {
+            const rpcClientAny = rpcClient as any;
+            if (typeof rpcClientAny.onNodeLockUpdated === 'function') {
+                unsubscribe = rpcClientAny.onNodeLockUpdated((updatedLocks: any) => {
+                    console.log(`[Lock Frontend] Received lock update broadcast:`, updatedLocks);
+                    setNodeLocks(updatedLocks.locks);
+                });
+            }
+        } catch (error) {
+            console.log('[Collaboration] Lock subscription not available');
+        }
+
+        // Check if collaboration is active (optional feature - don't block rendering if unavailable)
+        let collaborationCheckInterval: ReturnType<typeof setInterval> | undefined;
+        let unsubscribeCursors: (() => void) | undefined;
+
+        const checkCollaboration = async () => {
+            try {
+                // Check if the method exists before calling
+                const biClient = rpcClient.getBIDiagramRpcClient() as any;
+                if (typeof biClient.isCollaborationActive === 'function') {
+                    const response = await biClient.isCollaborationActive();
+                    setIsCollaborationActive(response.isActive);
+                    console.log(`[Collaboration] Session active: ${response.isActive}`);
+                } else {
+                    // Method doesn't exist, collaboration not available
+                    setIsCollaborationActive(false);
+                }
+            } catch (error) {
+                // Silently fail - collaboration is optional
+                console.log('[Collaboration] OCT extension has no exported API');
+                setIsCollaborationActive(false);
+            }
+        };
+
+        // Initialize collaboration features (non-blocking)
+        checkCollaboration().catch(() => {
+            // Ignore errors during initialization
         });
 
+        // Re-check periodically (every 5 seconds) to detect when collaboration starts/stops
+        collaborationCheckInterval = setInterval(() => {
+            checkCollaboration().catch(() => {
+                // Ignore errors during periodic checks
+            });
+        }, 5000);
+
+        // Subscribe to cursor updates from other users (only if collaboration is active)
+        try {
+            const rpcClientAny = rpcClient as any;
+            if (typeof rpcClientAny.onDiagramCursorUpdated === 'function') {
+                unsubscribeCursors = rpcClientAny.onDiagramCursorUpdated((update: any) => {
+                    console.log(`[Cursor Frontend] Received cursor update:`, update);
+                    const cursorsMap = new Map();
+                    update.cursors.forEach((cursor: any, index: number) => {
+                        cursorsMap.set(index, cursor);
+                    });
+                    setRemoteCursors(cursorsMap);
+                });
+            }
+        } catch (error) {
+            // Silently fail - cursor updates are optional
+            console.log('[Collaboration] Cursor subscription not available');
+        }
+
         return () => {
-            unsubscribe();
+            if (unsubscribe) {
+                try {
+                    unsubscribe();
+                } catch (error) {
+                    // Ignore cleanup errors
+                }
+            }
+            if (unsubscribeCursors) {
+                try {
+                    unsubscribeCursors();
+                } catch (error) {
+                    // Ignore cleanup errors
+                }
+            }
+            if (collaborationCheckInterval) {
+                clearInterval(collaborationCheckInterval);
+            }
         };
     }, [rpcClient]);
 
@@ -891,18 +970,27 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
     // Lock management functions
     const acquireNodeLock = async (nodeId: string) => {
-        if (!currentUserId || !nodeId || !model?.fileName) return;
+        console.log(`[Lock Frontend] acquireNodeLock called with:`, {
+            nodeId,
+            currentUserId,
+            fileName: model?.fileName,
+            willProceed: !!(currentUserId && nodeId && model?.fileName)
+        });
+        
+        if (!currentUserId || !nodeId || !model?.fileName) {
+            console.warn(`[Lock Frontend] Early return - missing required data`);
+            return;
+        }
         
         try {
-            // Normalize path for OCT collaboration (host & guest use same key)
-            const normalizedPath = normalizeFilePath(model.fileName);
-            console.log(`[Lock Frontend] Acquiring lock for node ${nodeId} at ${normalizedPath} (original: ${model.fileName})`);
+            // Send original path - backend UriCache will handle path matching
+            console.log(`[Lock Frontend] Acquiring lock for node ${nodeId} at ${model.fileName}`);
             
             const response = await rpcClient.getBIDiagramRpcClient().acquireNodeLock({
                 nodeId,
                 userId: currentUserId,
                 userName: currentUserName,
-                filePath: normalizedPath,
+                filePath: model.fileName,
                 timestamp: Date.now(),
             });
             
@@ -934,13 +1022,11 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         if (!currentUserId || !nodeId || !model?.fileName) return;
         
         try {
-            // Normalize path for OCT collaboration (host & guest use same key)
-            const normalizedPath = normalizeFilePath(model.fileName);
-            
+            // Send original path - backend UriCache will handle path matching
             await rpcClient.getBIDiagramRpcClient().releaseNodeLock({
                 nodeId,
                 userId: currentUserId,
-                filePath: normalizedPath,
+                filePath: model.fileName,
             });
             
             // Update local state
@@ -953,6 +1039,21 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             console.error('Error releasing node lock:', error);
         }
     };
+
+    // Throttled cursor position update (only send if collaboration is active)
+    const updateCursorPosition = useCallback(
+        debounce((x: number, y: number, nodeId?: string) => {
+            if (!model?.fileName || !isCollaborationActive) return;
+            
+            (rpcClient.getBIDiagramRpcClient() as any).updateDiagramCursor({
+                filePath: model.fileName,
+                x,
+                y,
+                nodeId,
+            });
+        }, 100), // Update every 100ms
+        [model?.fileName, isCollaborationActive]
+    );
 
     const closeSidePanelAndFetchUpdatedFlowModel = () => {
         resetNodeSelectionStates();
@@ -984,6 +1085,13 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         fetchAiSuggestions = true,
         updateFlowModel = true
     ) => {
+        console.log(`[Lock Frontend] fetchNodesAndAISuggestions called`, {
+            hasParent: !!parent,
+            hasTarget: !!target,
+            fetchAiSuggestions,
+            updateFlowModel
+        });
+        
         if (!parent || !target) {
             console.error(">>> No parent or target found");
             return;
@@ -995,6 +1103,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         // show side panel with available nodes
         setShowProgressIndicator(true);
         // Add draft node to model using hook
+        console.log(`[Lock Frontend] updateFlowModel=${updateFlowModel}, will ${updateFlowModel ? 'ENTER' : 'SKIP'} lock acquisition block`);
         if (updateFlowModel) {
             const modelWithDraft = addDraftNode(parent, target);
             
@@ -1068,14 +1177,22 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     };
 
     const handleOnAddNode = (parent: FlowNode | Branch, target: LineRange) => {
+        console.log(`[Lock Frontend] handleOnAddNode called`, {
+            hasTopNodeRef: !!topNodeRef.current,
+            hasTargetRef: !!targetRef.current,
+            willReturnEarly: !!(topNodeRef.current || targetRef.current)
+        });
+        
         // clear previous selections if had
         if (topNodeRef.current || targetRef.current) {
+            console.log(`[Lock Frontend] Returning early - refs already set`);
             closeSidePanelAndFetchUpdatedFlowModel();
             return;
         }
         // store parent and target in refs
         topNodeRef.current = parent;
         changeTargetRange(target)
+        console.log(`[Lock Frontend] Calling fetchNodesAndAISuggestions`);
         fetchNodesAndAISuggestions(parent, target);
     };
 
@@ -2625,6 +2742,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             currentUserId,
             nodeLocks,
             isPositionLocked,
+            isCollaborationActive,
+            remoteCursors: isCollaborationActive ? remoteCursors : new Map(),
+            onCursorMove: isCollaborationActive ? updateCursorPosition : undefined,
         }),
         [
             flowModel,
@@ -2640,6 +2760,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             isUserAuthenticated,
             currentUserId,
             nodeLocks,
+            isCollaborationActive,
+            remoteCursors,
+            updateCursorPosition,
         ]
     );
 

@@ -129,7 +129,12 @@ import {
     ReleaseNodeLockRequest,
     ReleaseNodeLockResponse,
     GetNodeLocksRequest,
-    GetNodeLocksResponse
+    GetNodeLocksResponse,
+    UpdateDiagramCursorRequest,
+    GetDiagramCursorsRequest,
+    GetDiagramCursorsResponse,
+    DiagramCursorUpdate,
+    IsCollaborationActiveResponse
 } from "./interfaces";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -213,6 +218,13 @@ export const releaseNodeLock: RequestType<ReleaseNodeLockRequest, ReleaseNodeLoc
 export const getNodeLocks: RequestType<GetNodeLocksRequest, GetNodeLocksResponse> = { method: `${_preFix}/getNodeLocks` };
 export const nodeLockUpdated: NotificationType<GetNodeLocksResponse> = { method: `${_preFix}/nodeLockUpdated` };
 export const getSystemUsername: RequestType<void, string> = { method: `${_preFix}/getSystemUsername` };
+
+// Cursor Awareness RPC Methods
+export const updateDiagramCursor: NotificationType<UpdateDiagramCursorRequest> = { method: `${_preFix}/updateDiagramCursor` };
+export const getDiagramCursors: RequestType<GetDiagramCursorsRequest, GetDiagramCursorsResponse> = { method: `${_preFix}/getDiagramCursors` };
+export const diagramCursorUpdated: NotificationType<DiagramCursorUpdate> = { method: `${_preFix}/diagramCursorUpdated` };
+export const isCollaborationActive: RequestType<void, IsCollaborationActiveResponse> = { method: `${_preFix}/isCollaborationActive` };
+
 export const generateOpenApiClient: RequestType<OpenAPIClientGenerationRequest, GeneratedClientSaveResponse> = { method: `${_preFix}/generateOpenApiClient` };
 export const getOpenApiGeneratedModules: RequestType<OpenAPIGeneratedModulesRequest, OpenAPIGeneratedModulesResponse> = { method: `${_preFix}/getOpenApiGeneratedModules` };
 export const deleteOpenApiGeneratedModules: RequestType<OpenAPIClientDeleteRequest, OpenAPIClientDeleteResponse> = { method: `${_preFix}/deleteOpenApiGeneratedModules` };

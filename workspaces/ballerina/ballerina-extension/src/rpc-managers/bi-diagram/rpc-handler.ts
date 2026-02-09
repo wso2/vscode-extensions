@@ -136,6 +136,11 @@ import {
     RecordSourceGenRequest,
     releaseNodeLock,
     ReleaseNodeLockRequest,
+    updateDiagramCursor,
+    UpdateDiagramCursorRequest,
+    getDiagramCursors,
+    GetDiagramCursorsRequest,
+    isCollaborationActive,
     removeBreakpointFromSource,
     renameIdentifier,
     RenameIdentifierRequest,
@@ -248,4 +253,9 @@ export function registerBiDiagramRpcHandlers(messenger: Messenger) {
     messenger.onRequest(releaseNodeLock, (args: ReleaseNodeLockRequest) => rpcManger.releaseNodeLock(args));
     messenger.onRequest(getNodeLocks, (args: GetNodeLocksRequest) => rpcManger.getNodeLocks(args));
     messenger.onRequest(getSystemUsername, () => rpcManger.getSystemUsername());
+    
+    // Cursor awareness handlers
+    messenger.onNotification(updateDiagramCursor, (args: UpdateDiagramCursorRequest) => rpcManger.updateDiagramCursor(args));
+    messenger.onRequest(getDiagramCursors, (args: GetDiagramCursorsRequest) => rpcManger.getDiagramCursors(args));
+    messenger.onRequest(isCollaborationActive, () => rpcManger.isCollaborationActive());
 }

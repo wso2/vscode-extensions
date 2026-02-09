@@ -89,6 +89,10 @@ import {
     GetConfigVariableNodeTemplateRequest,
     GetNodeLocksRequest,
     GetNodeLocksResponse,
+    UpdateDiagramCursorRequest,
+    GetDiagramCursorsRequest,
+    GetDiagramCursorsResponse,
+    IsCollaborationActiveResponse,
     GetRecordConfigRequest,
     GetRecordConfigResponse,
     GetRecordModelFromSourceRequest,
@@ -105,6 +109,7 @@ import {
     NodeKind,
     NodeLock,
     nodeLockUpdated,
+    diagramCursorUpdated,
     OpenAPIClientDeleteRequest,
     OpenAPIClientDeleteResponse,
     OpenAPIClientGenerationRequest,
@@ -188,21 +193,39 @@ import { checkProjectDiagnostics, removeUnusedImports } from "../ai-panel/repair
 import { getCurrentBallerinaProject } from "../../utils/project-utils";
 import { getUsername } from "../../utils/bi";
 import { Messenger } from "vscode-messenger";
+import { CollaborationLockManager } from '../../features/collaboration/lock-manager';
 
 export class BiDiagramRpcManager implements BIDiagramAPI {
     OpenConfigTomlRequest: (params: OpenConfigTomlRequest) => Promise<void>;
-    
-    // Node lock storage: Map<filePath, Map<nodeId, NodeLock>>
-    private static nodeLocks: Map<string, Map<string, NodeLock>> = new Map();
-    // Track lock timeouts for automatic cleanup
-    private static lockTimeouts: Map<string, NodeJS.Timeout> = new Map();
-    private static readonly LOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
     
     // Messenger instance for broadcasting notifications
     private messenger: Messenger;
     
     constructor(messenger: Messenger) {
         this.messenger = messenger;
+        
+        // Subscribe to lock changes from OCT and broadcast to webviews
+        const lockManager = CollaborationLockManager.getInstance();
+        lockManager.onLocksChanged((filePath, locks) => {
+            console.log(`[Lock] Broadcasting lock update for ${filePath} to webviews`);
+            this.messenger.sendNotification(nodeLockUpdated, {
+                type: 'webview',
+                webviewType: 'ballerina.visualizer'
+            }, {
+                locks,
+            });
+        });
+
+        // Subscribe to cursor changes and broadcast to webviews
+        lockManager.onCursorsChanged((cursors) => {
+            console.log(`[Cursor] Broadcasting cursor update to webviews`);
+            this.messenger.sendNotification(diagramCursorUpdated, {
+                type: 'webview',
+                webviewType: 'ballerina.visualizer'
+            }, {
+                cursors: Array.from(cursors.values()),
+            });
+        });
     }
 
     async getFlowModel(params: BIFlowModelRequest): Promise<BIFlowModelResponse> {
@@ -2129,142 +2152,27 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
 
     // Node lock management methods
     async acquireNodeLock(params: AcquireNodeLockRequest): Promise<AcquireNodeLockResponse> {
-        const { nodeId, userId, userName, filePath, timestamp } = params;
-        
-        console.log(`[Lock] Acquiring lock for node ${nodeId} at ${filePath} by user ${userName}`);
-        
-        // Find matching file path using UriCache comparison
-        let matchingPath: string | undefined = filePath;
-        for (const existingPath of BiDiagramRpcManager.nodeLocks.keys()) {
-            if (uriCache && uriCache.isSamePath(existingPath, filePath)) {
-                matchingPath = existingPath;
-                console.log(`[Lock] Found matching path: ${existingPath} for ${filePath}`);
-                break;
-            }
-        }
-        
-        // Get or create file lock map
-        if (!BiDiagramRpcManager.nodeLocks.has(matchingPath)) {
-            BiDiagramRpcManager.nodeLocks.set(matchingPath, new Map());
-        }
-        const fileLocks = BiDiagramRpcManager.nodeLocks.get(matchingPath)!;
-        
-        // Check if node is already locked by another user
-        const existingLock = fileLocks.get(nodeId);
-        if (existingLock && existingLock.userId !== userId) {
-            console.log(`[Lock] Lock denied - already locked by ${existingLock.userName}`);
-            return {
-                success: false,
-                error: `Node is already locked by ${existingLock.userName}`,
-            };
-        }
-        
-        // Acquire lock
-        const lock: NodeLock = { userId, userName, timestamp: timestamp || Date.now() };
-        fileLocks.set(nodeId, lock);
-        console.log(`[Lock] Lock acquired successfully`);
-        
-        // Set timeout for automatic lock release
-        const timeoutKey = `${matchingPath}:${nodeId}`;
-        const existingTimeout = BiDiagramRpcManager.lockTimeouts.get(timeoutKey);
-        if (existingTimeout) {
-            clearTimeout(existingTimeout);
-        }
-        
-        const timeout = setTimeout(() => {
-            this.releaseNodeLock({ nodeId, userId, filePath });
-            console.log(`[Lock] Auto-released lock for node ${nodeId} after timeout`);
-        }, BiDiagramRpcManager.LOCK_TIMEOUT_MS);
-        
-        BiDiagramRpcManager.lockTimeouts.set(timeoutKey, timeout);
-        
-        // Broadcast lock update to all matching paths
-        this.broadcastLockUpdate(matchingPath);
-        
-        return { success: true };
+        const lockManager = CollaborationLockManager.getInstance();
+        return await lockManager.acquireLock(
+            params.filePath,
+            params.nodeId,
+            params.userId,
+            params.userName
+        );
     }
 
     async releaseNodeLock(params: ReleaseNodeLockRequest): Promise<ReleaseNodeLockResponse> {
-        const { nodeId, userId, filePath } = params;
-        
-        console.log(`[Lock] Releasing lock for node ${nodeId} at ${filePath} by user ${userId}`);
-        
-        // Find matching file path using UriCache comparison
-        let matchingPath: string | undefined;
-        for (const existingPath of BiDiagramRpcManager.nodeLocks.keys()) {
-            if (uriCache && uriCache.isSamePath(existingPath, filePath)) {
-                matchingPath = existingPath;
-                console.log(`[Lock] Found matching path: ${existingPath} for ${filePath}`);
-                break;
-            }
-        }
-        
-        if (!matchingPath) {
-            return { success: true };
-        }
-        
-        const fileLocks = BiDiagramRpcManager.nodeLocks.get(matchingPath);
-        if (!fileLocks) {
-            return { success: true };
-        }
-        
-        const existingLock = fileLocks.get(nodeId);
-        // Only allow the lock owner to release it
-        if (existingLock && existingLock.userId === userId) {
-            fileLocks.delete(nodeId);
-            console.log(`[Lock] Lock released successfully`);
-            
-            // Clear timeout
-            const timeoutKey = `${matchingPath}:${nodeId}`;
-            const timeout = BiDiagramRpcManager.lockTimeouts.get(timeoutKey);
-            if (timeout) {
-                clearTimeout(timeout);
-                BiDiagramRpcManager.lockTimeouts.delete(timeoutKey);
-            }
-            
-            // Clean up empty maps
-            if (fileLocks.size === 0) {
-                BiDiagramRpcManager.nodeLocks.delete(matchingPath);
-            }
-            
-            // Broadcast lock update to all webviews
-            this.broadcastLockUpdate(matchingPath);
-        }
-        
-        return { success: true };
+        const lockManager = CollaborationLockManager.getInstance();
+        return await lockManager.releaseLock(
+            params.filePath,
+            params.nodeId,
+            params.userId
+        );
     }
 
     async getNodeLocks(params: GetNodeLocksRequest): Promise<GetNodeLocksResponse> {
-        const { filePath } = params;
-        
-        console.log(`[Lock] Getting locks for ${filePath}`);
-        
-        // Find matching file path using UriCache comparison
-        let matchingPath: string | undefined;
-        for (const existingPath of BiDiagramRpcManager.nodeLocks.keys()) {
-            if (uriCache && uriCache.isSamePath(existingPath, filePath)) {
-                matchingPath = existingPath;
-                console.log(`[Lock] Found matching path: ${existingPath} for ${filePath}`);
-                break;
-            }
-        }
-        
-        if (!matchingPath) {
-            return { locks: {} };
-        }
-        
-        const fileLocks = BiDiagramRpcManager.nodeLocks.get(matchingPath);
-        
-        if (!fileLocks) {
-            return { locks: {} };
-        }
-        
-        // Convert Map to plain object
-        const locks: Record<string, NodeLock> = {};
-        fileLocks.forEach((lock, nodeId) => {
-            locks[nodeId] = lock;
-        });
-        
+        const lockManager = CollaborationLockManager.getInstance();
+        const locks = await lockManager.getLocks(params.filePath);
         return { locks };
     }
 
@@ -2272,27 +2180,25 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         return getUsername();
     }
 
-    private broadcastLockUpdate(filePath: string): void {
-        console.log(`[Lock] Broadcasting lock update for ${filePath}`);
-        const fileLocks = BiDiagramRpcManager.nodeLocks.get(filePath);
-        const locks: Record<string, NodeLock> = {};
-        
-        if (fileLocks) {
-            fileLocks.forEach((lock, nodeId) => {
-                locks[nodeId] = lock;
-            });
-            console.log(`[Lock] Broadcasting ${Object.keys(locks).length} locks:`, locks);
-        } else {
-            console.log(`[Lock] No locks to broadcast (file locks cleared)`);
+    // Cursor awareness methods
+    async updateDiagramCursor(params: UpdateDiagramCursorRequest): Promise<void> {
+        const lockManager = CollaborationLockManager.getInstance();
+        // Only update cursor if collaboration is active
+        if (!lockManager.isCollaborationActive()) {
+            return;
         }
-        
-        // Broadcast to all BI diagram webviews
-        this.messenger.sendNotification(nodeLockUpdated, {
-            type: 'webview',
-            webviewType: 'ballerina.bi-diagram'
-        }, {
-            locks,
-        });
+        lockManager.updateCursor(params.x, params.y, params.nodeId);
+    }
+
+    async getDiagramCursors(params: GetDiagramCursorsRequest): Promise<GetDiagramCursorsResponse> {
+        const lockManager = CollaborationLockManager.getInstance();
+        const users = lockManager.getConnectedUsers();
+        return { cursors: users };
+    }
+
+    async isCollaborationActive(): Promise<IsCollaborationActiveResponse> {
+        const lockManager = CollaborationLockManager.getInstance();
+        return { isActive: lockManager.isCollaborationActive() };
     }
 
 }

@@ -359,16 +359,16 @@ export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
                     cursor: isLocked ? 'not-allowed' : readOnly ? 'default' : 'pointer'
                 }}
             >
-                {/* Lock indicator
+                {/* Lock indicator */}
                 {isLocked && (
-                    <Tooltip title={`Locked by ${model.node.locked.userName}`} placement="top">
+                    <Tooltip content={`Locked by ${model.node.locked.userName}`}>
                         <NodeStyles.LockIndicator>
                             <NodeStyles.LockIcon>
                                 🔒
                             </NodeStyles.LockIcon>
                         </NodeStyles.LockIndicator>
                     </Tooltip>
-                )} */}
+                )}
                 {hasBreakpoint && (
                     <div
                         style={{
