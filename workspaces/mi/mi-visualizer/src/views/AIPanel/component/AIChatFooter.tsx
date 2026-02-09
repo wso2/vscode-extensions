@@ -676,7 +676,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             const approvalKind = (planEvent.approvalKind || 'exit_plan_mode') as
                                 | 'enter_plan_mode'
                                 | 'exit_plan_mode'
-                                | 'exit_plan_mode_without_plan';
+                                | 'exit_plan_mode_without_plan'
+                                | 'web_search'
+                                | 'web_fetch';
                             const planContent = typeof planEvent.content === "string" ? planEvent.content.trim() : "";
                             if (approvalKind === 'exit_plan_mode' && planContent) {
                                 setMessages((prev) => {
@@ -697,7 +699,11 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 ? 'Agent recommends entering Plan mode. Do you want to switch now?'
                                 : approvalKind === 'exit_plan_mode_without_plan'
                                     ? 'Agent wants to exit Plan mode without a full plan. Do you want to continue?'
-                                    : getPlanApprovalPrompt(planContent, planEvent.planFilePath);
+                                    : approvalKind === 'web_search'
+                                        ? 'Agent wants permission to run a web search.'
+                                        : approvalKind === 'web_fetch'
+                                            ? 'Agent wants permission to fetch a web page.'
+                                            : getPlanApprovalPrompt(planContent, planEvent.planFilePath);
 
                             const dialogContent = approvalKind === 'exit_plan_mode'
                                 ? getPlanApprovalPrompt(planContent, planEvent.planFilePath)
@@ -1333,7 +1339,11 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const planApprovalAllowsFeedback =
         (pendingPlanApproval?.allowFeedback ?? (pendingPlanApproval?.approvalKind === 'exit_plan_mode')) === true;
     const planApprovalTitle = pendingPlanApproval?.approvalTitle
-        || (pendingPlanApproval?.approvalKind === 'exit_plan_mode' ? 'Plan Approval' : 'Approval Required');
+        || (pendingPlanApproval?.approvalKind === 'exit_plan_mode'
+            ? 'Plan Approval'
+            : pendingPlanApproval?.approvalKind === 'web_search' || pendingPlanApproval?.approvalKind === 'web_fetch'
+                ? 'Web Access Approval'
+                : 'Approval Required');
     const planApproveLabel = pendingPlanApproval?.approveLabel || 'Approve';
     const planRejectLabel = pendingPlanApproval?.rejectLabel || 'Reject';
 

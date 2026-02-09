@@ -129,6 +129,16 @@ export {
     getBackgroundShells,
 } from './bash_tools';
 
+// Export web tools
+export {
+    // Execute function creators
+    createWebSearchExecute,
+    createWebFetchExecute,
+    // Tool creators
+    createWebSearchTool,
+    createWebFetchTool,
+} from './web_tools';
+
 // Re-export tool names for convenience
 export {
     FILE_WRITE_TOOL_NAME,
@@ -152,6 +162,8 @@ export {
     BASH_TOOL_NAME,
     KILL_TASK_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
+    WEB_SEARCH_TOOL_NAME,
+    WEB_FETCH_TOOL_NAME,
 } from './types';
 
 /**

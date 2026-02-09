@@ -29,6 +29,8 @@ import {
     ENTER_PLAN_MODE_TOOL_NAME,
     FILE_WRITE_TOOL_NAME,
     ASK_USER_TOOL_NAME,
+    WEB_SEARCH_TOOL_NAME,
+    WEB_FETCH_TOOL_NAME,
 } from '../../tools/types';
 
 
@@ -44,6 +46,8 @@ User selected ASK mode.
   - ${CONNECTOR_TOOL_NAME}
   - ${SKILL_TOOL_NAME}
   - ${VALIDATE_CODE_TOOL_NAME}
+  - ${WEB_SEARCH_TOOL_NAME}
+  - ${WEB_FETCH_TOOL_NAME}
 - Do NOT attempt mutation/tooling actions (write/edit/build/run/shell/connector changes/subagents/plan-mode/todo updates).
 - If you need to provide codes/synapse configurations provide the fully updated code in a code block. Not just the edits. System provides an option called "Add to project" in ASK mode which replaces entire files with the code you provide.
 - If user asks for complex changes, explain they are in ASK mode and ask them to switch to EDIT mode.`;

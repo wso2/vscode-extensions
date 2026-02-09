@@ -65,6 +65,10 @@ import {
     createTaskOutputTool,
 } from '../../tools/bash_tools';
 import {
+    createWebSearchTool,
+    createWebFetchTool,
+} from '../../tools/web_tools';
+import {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
@@ -86,6 +90,8 @@ import {
     BASH_TOOL_NAME,
     KILL_TASK_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
+    WEB_SEARCH_TOOL_NAME,
+    WEB_FETCH_TOOL_NAME,
 } from '../../tools/types';
 
 // Re-export tool name constants for use in compact agent
@@ -111,6 +117,8 @@ export {
     BASH_TOOL_NAME,
     KILL_TASK_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
+    WEB_SEARCH_TOOL_NAME,
+    WEB_FETCH_TOOL_NAME,
 };
 
 /**
@@ -175,6 +183,10 @@ export function createCompactAgentTools() {
         [ENTER_PLAN_MODE_TOOL_NAME]: createEnterPlanModeTool(createBlockedExecute()),
         [EXIT_PLAN_MODE_TOOL_NAME]: createExitPlanModeTool(createBlockedExecute()),
         [TODO_WRITE_TOOL_NAME]: createTodoWriteTool(createBlockedExecute()),
+
+        // Web Tools (2 tools) - execution blocked
+        [WEB_SEARCH_TOOL_NAME]: createWebSearchTool(createBlockedExecute()),
+        [WEB_FETCH_TOOL_NAME]: createWebFetchTool(createBlockedExecute()),
 
         // Shell Tools (3 tools) - execution blocked
         [BASH_TOOL_NAME]: createBashTool(createBlockedExecute()),

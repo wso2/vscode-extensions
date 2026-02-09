@@ -47,7 +47,7 @@ export interface ConnectorStoreCatalog {
     inbounds: any[];
 }
 
-async function getRuntimeVersionFromPom(projectPath: string): Promise<string | null> {
+export async function getRuntimeVersionFromPom(projectPath: string): Promise<string | null> {
     const pomPath = path.join(projectPath, 'pom.xml');
 
     try {

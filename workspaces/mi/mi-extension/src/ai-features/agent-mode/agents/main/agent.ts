@@ -50,6 +50,8 @@ import {
     TODO_WRITE_TOOL_NAME,
     BASH_TOOL_NAME,
     KILL_TASK_TOOL_NAME,
+    WEB_SEARCH_TOOL_NAME,
+    WEB_FETCH_TOOL_NAME,
 } from './tools';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { ChatHistoryManager } from '../../chat-history-manager';
@@ -472,6 +474,19 @@ export async function executeAgent(
                     } else if (part.toolName === KILL_TASK_TOOL_NAME) {
                         displayInput = {
                             task_id: toolInput?.task_id,
+                        };
+                    } else if (part.toolName === WEB_SEARCH_TOOL_NAME) {
+                        displayInput = {
+                            query: toolInput?.query,
+                            allowed_domains: toolInput?.allowed_domains,
+                            blocked_domains: toolInput?.blocked_domains,
+                        };
+                    } else if (part.toolName === WEB_FETCH_TOOL_NAME) {
+                        displayInput = {
+                            url: toolInput?.url,
+                            prompt: toolInput?.prompt,
+                            allowed_domains: toolInput?.allowed_domains,
+                            blocked_domains: toolInput?.blocked_domains,
                         };
                     }
 
