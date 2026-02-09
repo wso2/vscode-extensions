@@ -36,6 +36,8 @@ export interface SendAgentMessageRequest {
     images?: ImageObject[];
     /** Enable Claude thinking mode (reasoning blocks) */
     thinking?: boolean;
+    /** When true, web_search and web_fetch run without per-call approval prompts */
+    webAccessPreapproved?: boolean;
     /** Chat history for context (AI SDK format with tool calls/results) */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     chatHistory?: any[];

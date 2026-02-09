@@ -122,17 +122,21 @@ async function requestWebApproval(
 export function createWebSearchExecute(
     getAnthropicClient: (model: AnthropicModel) => Promise<any>,
     eventHandler: AgentEventHandler,
-    pendingApprovals: Map<string, PendingPlanApproval>
+    pendingApprovals: Map<string, PendingPlanApproval>,
+    webAccessPreapproved: boolean
 ): WebSearchExecuteFn {
     return async (args): Promise<ToolResult> => {
         const allowedDomains = sanitizeDomainList(args.allowed_domains);
         const blockedDomains = sanitizeDomainList(args.blocked_domains);
 
-        const approved = await requestWebApproval(eventHandler, pendingApprovals, {
-            kind: 'web_search',
-            approvalTitle: 'Allow Web Search?',
-            content: `Agent wants to search the web for: "${args.query}"`,
-        });
+        let approved = true;
+        if (!webAccessPreapproved) {
+            approved = await requestWebApproval(eventHandler, pendingApprovals, {
+                kind: 'web_search',
+                approvalTitle: 'Allow Web Search?',
+                content: `Agent wants to search the web for: "${args.query}"`,
+            });
+        }
 
         if (!approved) {
             return {
@@ -205,7 +209,8 @@ export function createWebSearchExecute(
 export function createWebFetchExecute(
     getAnthropicClient: (model: AnthropicModel) => Promise<any>,
     eventHandler: AgentEventHandler,
-    pendingApprovals: Map<string, PendingPlanApproval>
+    pendingApprovals: Map<string, PendingPlanApproval>,
+    webAccessPreapproved: boolean
 ): WebFetchExecuteFn {
     return async (args): Promise<ToolResult> => {
         try {
@@ -224,11 +229,14 @@ export function createWebFetchExecute(
         const allowedDomains = sanitizeDomainList(args.allowed_domains);
         const blockedDomains = sanitizeDomainList(args.blocked_domains);
 
-        const approved = await requestWebApproval(eventHandler, pendingApprovals, {
-            kind: 'web_fetch',
-            approvalTitle: 'Allow Web Fetch?',
-            content: `Agent wants to fetch content from: ${args.url}`,
-        });
+        let approved = true;
+        if (!webAccessPreapproved) {
+            approved = await requestWebApproval(eventHandler, pendingApprovals, {
+                kind: 'web_fetch',
+                approvalTitle: 'Allow Web Fetch?',
+                content: `Agent wants to fetch content from: ${args.url}`,
+            });
+        }
 
         if (!approved) {
             return {

@@ -84,6 +84,8 @@ export interface AgentRequest {
     images?: ImageObject[];
     /** Enable Claude thinking mode (reasoning blocks) */
     thinking?: boolean;
+    /** Skip per-call web approval prompts when true */
+    webAccessPreapproved?: boolean;
     /** Path to the MI project */
     projectPath: string;
     /** Map of file path to content for relevant existing code (optional, for future use) */
@@ -234,6 +236,7 @@ export async function executeAgent(
             pendingQuestions,
             pendingApprovals,
             getAnthropicClient,
+            webAccessPreapproved: request.webAccessPreapproved === true,
             undoCheckpointManager: request.undoCheckpointManager,
         });
 
