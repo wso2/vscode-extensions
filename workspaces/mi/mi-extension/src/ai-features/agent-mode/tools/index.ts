@@ -119,11 +119,11 @@ export {
 export {
     // Execute function creators
     createBashExecute,
-    createKillShellExecute,
+    createKillTaskExecute,
     createTaskOutputExecute,
     // Tool creators
     createBashTool,
-    createKillShellTool,
+    createKillTaskTool,
     createTaskOutputTool,
     // Utility functions
     getBackgroundShells,
@@ -150,7 +150,7 @@ export {
     TODO_WRITE_TOOL_NAME,
     // Shell tool names
     BASH_TOOL_NAME,
-    KILL_SHELL_TOOL_NAME,
+    KILL_TASK_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
 } from './types';
 

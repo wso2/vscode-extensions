@@ -21,7 +21,15 @@ import { z } from 'zod';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { SubagentToolResult, SubagentToolExecuteFn, BackgroundSubagent, SubagentResult, SUBAGENT_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './types';
+import {
+    SubagentToolResult,
+    SubagentToolExecuteFn,
+    BackgroundSubagent,
+    SubagentResult,
+    SUBAGENT_TOOL_NAME,
+    KILL_TASK_TOOL_NAME,
+    TASK_OUTPUT_TOOL_NAME,
+} from './types';
 import { logInfo, logError, logDebug } from '../../copilot/logger';
 import { AnthropicModel } from '../../connection';
 import { getCopilotSessionDir } from '../storage-paths';
@@ -39,7 +47,7 @@ import { executeExploreSubagent } from '../agents/subagents';
 function generateSubagentId(): string {
     const uuid = uuidv4();
     const shortUuid = uuid.split('-')[0]; // First 8 characters
-    return `subagent-${shortUuid}`;
+    return `task-subagent-${shortUuid}`;
 }
 
 /**
@@ -137,11 +145,12 @@ async function runSubagent(
     projectPath: string,
     model: 'haiku' | 'sonnet',
     getAnthropicClient: (model: AnthropicModel) => Promise<any>,
-    previousMessages?: any[]
+    previousMessages?: any[],
+    abortSignal?: AbortSignal
 ): Promise<SubagentResult> {
     switch (subagentType) {
         case 'Explore':
-            return await executeExploreSubagent(prompt, projectPath, model, getAnthropicClient, previousMessages);
+            return await executeExploreSubagent(prompt, projectPath, model, getAnthropicClient, previousMessages, abortSignal);
         default:
             throw new Error(`Unknown subagent type: ${subagentType}. Available types: Explore. (Note: DataMapper is accessible via generate_data_mapping tool)`);
     }
@@ -197,6 +206,7 @@ export function createSubagentExecute(
             // Use existing subagent ID when resuming, otherwise generate new one
             const subagentId = isResume ? resume! : generateSubagentId();
             const subagentDir = getSubagentsDir(projectPath, sessionId, subagentId);
+            const abortController = new AbortController();
 
             // Create directory
             await fs.mkdir(subagentDir, { recursive: true });
@@ -211,13 +221,23 @@ export function createSubagentExecute(
                 completed: false,
                 success: null,
                 historyDirPath: subagentDir,
+                aborted: false,
+                abortController,
             };
             backgroundSubagents.set(subagentId, entry);
 
             logInfo(`[SubagentTool] Started background ${subagent_type} subagent: ${subagentId}${isResume ? ' (resumed)' : ''}`);
 
             // Fire-and-forget execution
-            runSubagent(subagent_type, prompt, projectPath, model, getAnthropicClient, previousMessages)
+            runSubagent(
+                subagent_type,
+                prompt,
+                projectPath,
+                model,
+                getAnthropicClient,
+                previousMessages,
+                abortController.signal
+            )
                 .then(async (result: SubagentResult) => {
                     entry.output = result.text;
                     entry.completed = true;
@@ -234,6 +254,14 @@ export function createSubagentExecute(
                     }
                 })
                 .catch((error: any) => {
+                    if (entry.aborted) {
+                        entry.output = `Subagent ${subagentId} was terminated by user request.`;
+                        entry.completed = true;
+                        entry.success = false;
+                        logInfo(`[SubagentTool] Background ${subagent_type} subagent aborted: ${subagentId}`);
+                        return;
+                    }
+
                     entry.output = `Subagent execution failed: ${error.message}`;
                     entry.completed = true;
                     entry.success = false;
@@ -244,7 +272,7 @@ export function createSubagentExecute(
             // Return immediately with subagent ID
             return {
                 success: true,
-                message: `${subagent_type} subagent ${isResume ? 'resumed' : 'started'} in background with ID: ${subagentId}. Use ${TASK_OUTPUT_TOOL_NAME} tool to check results.`,
+                message: `${subagent_type} subagent ${isResume ? 'resumed' : 'started'} in background with ID: ${subagentId}. Use ${TASK_OUTPUT_TOOL_NAME} tool to check results, or ${KILL_TASK_TOOL_NAME} to terminate it.`,
                 subagentId,
             };
         } else {
@@ -303,10 +331,10 @@ const subagentInputSchema = z.object({
     ),
     run_in_background: z.boolean().optional().describe(
         `Set to true to run the subagent in the background.
-        Returns a task_id (subagentId). Use ${TASK_OUTPUT_TOOL_NAME} later to check results using that task_id.`
+        Returns a task_id (subagentId). Use ${TASK_OUTPUT_TOOL_NAME} later to check results using that task_id, or ${KILL_TASK_TOOL_NAME} to terminate it.`
     ),
     resume: z.string().optional().describe(
-        'Optional subagent ID to resume from (format: subagent-xxxxxxxx). If provided, the subagent will continue from its previous execution. Use this to continue a previously started exploration.'
+        'Optional subagent ID to resume from (format: task-subagent-xxxxxxxx). If provided, the subagent will continue from its previous execution. Use this to continue a previously started exploration.'
     ),
 });
 
@@ -318,7 +346,7 @@ export function createSubagentTool(execute: SubagentToolExecuteFn) {
         description: `Spawn an Explore subagent for codebase exploration without filling your context window.
             The subagent uses grep/glob/file_read to search and understand code, then returns a summary.
             Supports background execution (run_in_background=true) and resuming previous subagents (resume=subagentId).
-            Use ${TASK_OUTPUT_TOOL_NAME} to check background subagent results.`,
+            Use ${TASK_OUTPUT_TOOL_NAME} to check background subagent results and ${KILL_TASK_TOOL_NAME} to terminate a running one.`,
         inputSchema: subagentInputSchema,
         execute
     });

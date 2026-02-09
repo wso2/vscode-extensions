@@ -117,7 +117,7 @@ export const TODO_WRITE_TOOL_NAME = 'todo_write';
 
 // Shell Tool Names
 export const BASH_TOOL_NAME = 'shell';
-export const KILL_SHELL_TOOL_NAME = 'kill_shell';
+export const KILL_TASK_TOOL_NAME = 'kill_task';
 export const TASK_OUTPUT_TOOL_NAME = 'task_output';
 
 // ============================================================================
@@ -148,6 +148,8 @@ export interface BackgroundSubagent {
     completed: boolean;
     success: boolean | null;
     historyDirPath: string;   // path to subagents/<task-id>/ directory
+    aborted: boolean;
+    abortController: AbortController;
 }
 
 // ============================================================================
@@ -311,7 +313,7 @@ export interface BashResult extends ToolResult {
     stdout?: string;
     stderr?: string;
     exitCode?: number;
-    shellId?: string;
+    taskId?: string;
 }
 
 export type BashExecuteFn = (args: {
@@ -321,8 +323,8 @@ export type BashExecuteFn = (args: {
     run_in_background?: boolean;
 }) => Promise<BashResult>;
 
-export type KillShellExecuteFn = (args: {
-    shell_id: string;
+export type KillTaskExecuteFn = (args: {
+    task_id: string;
 }) => Promise<ToolResult>;
 
 export interface TaskOutputResult extends ToolResult {
