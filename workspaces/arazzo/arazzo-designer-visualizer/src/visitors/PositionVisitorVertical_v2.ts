@@ -132,7 +132,7 @@ export class PositionVisitorVertical_v2 {
      * Phase 2: Position all nodes, respecting already-positioned nodes.
      * Alternative branches are positioned to the RIGHT of the main spine (center-aligned).
      */
-    private positionBranches(node: FlowNode, isImmediateCondition_and_Firsttime: boolean = false): void {
+    private positionBranches(node: FlowNode, isImmediateCondition_and_Firsttime: boolean = false, isFailPathCondition: boolean = false): void {
         if (this.visited.has(node.id)) {
             return;
         }
@@ -181,7 +181,8 @@ export class PositionVisitorVertical_v2 {
                 if (!head) continue;
 
                 if (!head.viewState.isPositioned) {
-                    const branchCenterX = this.spineX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (i + 1);
+                    //const branchCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (i + 1);
+                    const branchCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (isFailPathCondition? (i) : (i + 1)); // Position to the right of parent
                     head.viewState.x = branchCenterX - (head.viewState.w / 2);
                     head.viewState.y = nextY;
                     head.viewState.isPositioned = true;
@@ -200,14 +201,17 @@ export class PositionVisitorVertical_v2 {
             const failNode = node.failureNode;
             if (!failNode.viewState.isPositioned) {
                 // Position failure node to the right (center-aligned)
-                const failCenterX = this.spineX + (C.NODE_WIDTH + C.FAIL_GAP_X_Vertical);
+                const failCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical);
                 const failY = nodeY; // Same level as parent
                 failNode.viewState.x = failCenterX - (failNode.viewState.w / 2);
-                failNode.viewState.y = failY;
+                failNode.viewState.y = node.viewState.y + (node.viewState.h / 2) - (failNode.viewState.h / 2); // Center-aligned vertically with parent
                 failNode.viewState.isPositioned = true;
                 console.log(`[Phase 2] Positioned failure node ${failNode.id} at (${failNode.viewState.x}, ${failNode.viewState.y}) [center-aligned]`);
             }
-            this.positionBranches(failNode);
+            if(failNode.type === 'CONDITION'){
+                let isFailPathCondition = true;
+            this.positionBranches(failNode, false, isFailPathCondition);
+            }
         }
     }
 
