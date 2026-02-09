@@ -45,7 +45,7 @@ export class SizingVisitorVertical_v2 {
         this.calculateSubtreeDimensions(node);
     }
 
-    private calculateNodeSize(node: FlowNode): void {
+    private calculateNodeSize(node: FlowNode): void {       //calculate base width and height based on node type
         switch (node.type) {
             case 'START':
                 node.viewState.w = C.START_NODE_DIAMETER;

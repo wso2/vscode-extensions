@@ -82,6 +82,11 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
     const spineX = 300;
     const startY = 50;
     const positioningV2 = new PositionVisitorVertical_v2(depthSearch, spineX);
+    
+    // 4a. Analyze merge points BEFORE positioning (must be called first!)
+    positioningV2.analyzeMergePointsForPositioning(rootV2);
+    
+    // 4b. Now position nodes with merge point awareness
     positioningV2.visit(rootV2, spineX, startY);
 
     // 5. Portal Creation V2: Create portals BEFORE NodeFactory

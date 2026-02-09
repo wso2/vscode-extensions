@@ -19,6 +19,7 @@
 import { FlowNode } from '../utils/types';
 import * as C from '../constants/nodeConstants';
 import { DepthSearch } from './DepthSearch';
+import { MergePointAnalyzer, MergePointInfo } from './MergePointAnalyzer';
 
 /**
  * PositionVisitorVertical V2: Enforces strict "Main Path Spine" layout.
@@ -26,7 +27,7 @@ import { DepthSearch } from './DepthSearch';
  * Rules:
  * 1. Main Path nodes: X = spineX (constant, forms vertical line)
  * 2. Alternative branches: X shifts RIGHT from parent
- * 3. Merge points: Y waits for all incoming paths to complete
+ * 3. Merge points: Y waits for all incoming paths to complete (uses MergePointAnalyzer)
  * 4. Failure paths: Always to the RIGHT of their step
  */
 export class PositionVisitorVertical_v2 {
@@ -34,34 +35,25 @@ export class PositionVisitorVertical_v2 {
     private positioned = new Set<string>();
     private mainPathNodes: Set<string>;
     private spineX: number;
+    private mergePointAnalyzer: MergePointAnalyzer;
+    private mergePoints: Map<string, MergePointInfo> = new Map();
     private incomingEdges: Map<string, number> = new Map(); // Track number of paths leading to each node
     private maxYBeforeNode: Map<string, number> = new Map(); // Max Y from all incoming paths
 
     constructor(private depthSearch: DepthSearch, spineX: number = 300) {
         this.mainPathNodes = depthSearch.getHappyPathNodes();
         this.spineX = spineX;
+        this.mergePointAnalyzer = new MergePointAnalyzer();
         console.log('[PositionVisitor V2] Main path nodes:', Array.from(this.mainPathNodes));
     }
 
     /**
-     * Pre-pass: Analyze the tree to identify merge points.
+     * Analyze merge points before positioning. Must be called before visit().
      */
-    public analyzeMergePoints(node: FlowNode, visited: Set<string> = new Set()): void {
-        if (visited.has(node.id)) {
-            // This node is reached again - it's a merge point
-            const count = this.incomingEdges.get(node.id) || 0;
-            this.incomingEdges.set(node.id, count + 1);
-            return;
-        }
-        visited.add(node.id);
-        this.incomingEdges.set(node.id, 1);
-
-        // Traverse all children
-        node.children.forEach(child => this.analyzeMergePoints(child, visited));
-        if (node.failureNode) this.analyzeMergePoints(node.failureNode, visited);
-        node.branches?.forEach(branch => {
-            if (branch.length > 0) this.analyzeMergePoints(branch[0], visited);
-        });
+    public analyzeMergePointsForPositioning(root: FlowNode): void {
+        this.mergePoints = this.mergePointAnalyzer.analyze(root);
+        console.log('[PositionVisitor V2] Detected merge points:', 
+            Array.from(this.mergePoints.keys()));
     }
 
     public visit(node: FlowNode, x: number, y: number): void {
@@ -69,9 +61,19 @@ export class PositionVisitorVertical_v2 {
 
         // Determine final position
         if (!this.positioned.has(node.id)) {
-            // Merge handling: use max Y from all incoming paths
-            const requiredY = this.maxYBeforeNode.get(node.id) || y;
-            const finalY = Math.max(y, requiredY);
+            // Check if this is a merge point - use analyzer's calculated Y
+            const mergeInfo = this.mergePoints.get(node.id);
+            let finalY = y;
+            
+            if (mergeInfo && mergeInfo.requiredY > 0) {
+                // This is a merge point - position at the max Y of all incoming paths
+                finalY = Math.max(y, mergeInfo.requiredY);
+                console.log(`[Position V2] Merge point ${node.id}: base Y=${y}, required Y=${mergeInfo.requiredY}, final Y=${finalY}`);
+            } else {
+                // Use the old merge handling as fallback
+                const requiredY = this.maxYBeforeNode.get(node.id) || y;
+                finalY = Math.max(y, requiredY);
+            }
 
             // Spine enforcement: Main path nodes MUST be centered on spineX
             const isOnMainPath = this.mainPathNodes.has(node.id);
