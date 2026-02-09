@@ -37,6 +37,9 @@ export interface ViewState {
     // Legacy fields (can be removed later if unused, keeping for safety)
     subtreeW: number;
     subtreeH: number;
+
+    // Phase tracking for two-phase positioning
+    isPositioned?: boolean; // True if node was positioned in Phase 1 (main spine)
 }
 
 // Wrapper types to build our Tree

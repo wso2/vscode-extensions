@@ -14,6 +14,7 @@ import { PositionVisitorVertical_v2 } from '../../visitors/PositionVisitorVertic
 import { NodeFactoryVisitorVertical_v2 } from '../../visitors/NodeFactoryVisitorVertical_v2';
 import { DepthSearch } from '../../visitors/DepthSearch';
 import { PortalCreator_v2 } from '../../visitors/PortalCreator_v2';
+import { SimpleNodeSizing } from '../../visitors/SimpleNodeSizing';
 
 /**
  * Builds the graph visualization from the workflow using the Visitor pattern.
@@ -63,38 +64,35 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
     
 
     // ============================================================
-    // V2 IMPLEMENTATION: Vertical "Happy Path" Layout
+    // NEW SIMPLIFIED PIPELINE: Main Spine First, Branches Right
     // ============================================================
 
-    // 1. Init V2: Build optimized tree (no implicit ends, single-path optimization)
+    // 1. Init: Build optimized tree
     const initV2 = new InitVisitor_v2();
     const rootV2 = initV2.buildTree(workflow);
 
-    // 2. Happy Path Detection: Find the longest path (main spine)
+    // 2. Calculate Depth: Find the longest success path (main spine)
     const depthSearch = new DepthSearch();
     depthSearch.findHappyPath(rootV2);
 
-    // 3. Sizing V2: Calculate dimensions for vertical layout
-    const sizingV2 = new SizingVisitorVertical_v2();
-    sizingV2.visit(rootV2);
+    // 3. Simple Sizing: Set width and height for all nodes
+    const simpleSizing = new SimpleNodeSizing();
+    simpleSizing.visit(rootV2);
 
-    // 4. Positioning V2: Assign coordinates with happy path spine at X=300
-    const spineX = 300;
+    // 4. Two-Phase Positioning:
+    //    Phase 1: Position main spine vertically at x=0
+    //    Phase 2: Position branches to the right
+    const spineX = 0; // Main spine at x=0
     const startY = 50;
     const positioningV2 = new PositionVisitorVertical_v2(depthSearch, spineX);
-    
-    // 4a. Analyze merge points BEFORE positioning (must be called first!)
-    positioningV2.analyzeMergePointsForPositioning(rootV2);
-    
-    // 4b. Now position nodes with merge point awareness
-    positioningV2.visit(rootV2, spineX, startY);
+    positioningV2.positionGraph(rootV2, spineX, startY);
 
-    // 5. Portal Creation V2: Create portals BEFORE NodeFactory
+    // 5. Portal Creation: Create portals for backward jumps
     const portalCreator = new PortalCreator_v2(depthSearch);
     const portals = portalCreator.createPortals(rootV2);
     const portalEdgePairs = portalCreator.getPortalEdgePairs();
 
-    // 6. Factory V2: Generate React Flow elements (skips edges handled by portals)
+    // 6. Factory: Generate React Flow elements
     const factoryV2 = new NodeFactoryVisitorVertical_v2();
     factoryV2.setPortalEdgePairs(portalEdgePairs);
     factoryV2.visit(rootV2);

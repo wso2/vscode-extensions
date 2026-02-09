@@ -19,153 +19,175 @@
 import { FlowNode } from '../utils/types';
 import * as C from '../constants/nodeConstants';
 import { DepthSearch } from './DepthSearch';
-import { MergePointAnalyzer, MergePointInfo } from './MergePointAnalyzer';
 
 /**
- * PositionVisitorVertical V2: Enforces strict "Main Path Spine" layout.
+ * PositionVisitorVertical V2: Simplified Two-Phase Positioning
  * 
- * Rules:
- * 1. Main Path nodes: X = spineX (constant, forms vertical line)
- * 2. Alternative branches: X shifts RIGHT from parent
- * 3. Merge points: Y waits for all incoming paths to complete (uses MergePointAnalyzer)
- * 4. Failure paths: Always to the RIGHT of their step
+ * New Strategy (Main Spine First, Branches Right):
+ * 
+ * Phase 1: Position the Main Happy Path
+ *   - Traverse ONLY the main path nodes (from DepthSearch)
+ *   - Position them vertically at x = spineX (default 0)
+ *   - Mark each as isPositioned = true
+ * 
+ * Phase 2: Position the Branches
+ *   - Run a full graph traversal (DFS/BFS)
+ *   - Rule: If a node is already isPositioned, skip moving it (use its coords as reference)
+ *   - Alternative branches are positioned to the RIGHT of the main path
+ *   - Branch spacing: x = spineX + (nodeWidth + gap) * branchIndex
  */
 export class PositionVisitorVertical_v2 {
-    private visited = new Set<string>();
-    private positioned = new Set<string>();
     private mainPathNodes: Set<string>;
     private spineX: number;
-    private mergePointAnalyzer: MergePointAnalyzer;
-    private mergePoints: Map<string, MergePointInfo> = new Map();
-    private incomingEdges: Map<string, number> = new Map(); // Track number of paths leading to each node
-    private maxYBeforeNode: Map<string, number> = new Map(); // Max Y from all incoming paths
+    private visited = new Set<string>();
 
-    constructor(private depthSearch: DepthSearch, spineX: number = 300) {
+    constructor(private depthSearch: DepthSearch, spineX: number = 0) {
         this.mainPathNodes = depthSearch.getHappyPathNodes();
         this.spineX = spineX;
-        this.mergePointAnalyzer = new MergePointAnalyzer();
         console.log('[PositionVisitor V2] Main path nodes:', Array.from(this.mainPathNodes));
+        console.log('[PositionVisitor V2] Spine X:', spineX);
     }
 
     /**
-     * Analyze merge points before positioning. Must be called before visit().
+     * Entry point: Execute two-phase positioning.
      */
-    public analyzeMergePointsForPositioning(root: FlowNode): void {
-        this.mergePoints = this.mergePointAnalyzer.analyze(root);
-        console.log('[PositionVisitor V2] Detected merge points:', 
-            Array.from(this.mergePoints.keys()));
+    public positionGraph(root: FlowNode, x: number, y: number): void {
+        console.log('[PositionVisitor V2] Starting two-phase positioning...');
+        
+        // Phase 1: Position main spine nodes vertically at x = spineX
+        this.positionMainSpine(root, y);
+
+        // Phase 2: Position all branches (using already-positioned main spine as reference)
+        this.visited.clear();
+        this.positionBranches(root);
+
+        console.log('[PositionVisitor V2] Positioning complete.');
     }
 
-    public visit(node: FlowNode, x: number, y: number): void {
-        if (this.visited.has(node.id)) return;
-
-        // Determine final position
-        if (!this.positioned.has(node.id)) {
-            // Check if this is a merge point - use analyzer's calculated Y
-            const mergeInfo = this.mergePoints.get(node.id);
-            let finalY = y;
-            
-            if (mergeInfo && mergeInfo.requiredY > 0) {
-                // This is a merge point - position at the max Y of all incoming paths
-                finalY = Math.max(y, mergeInfo.requiredY);
-                console.log(`[Position V2] Merge point ${node.id}: base Y=${y}, required Y=${mergeInfo.requiredY}, final Y=${finalY}`);
-            } else {
-                // Use the old merge handling as fallback
-                const requiredY = this.maxYBeforeNode.get(node.id) || y;
-                finalY = Math.max(y, requiredY);
-            }
-
-            // Spine enforcement: Main path nodes MUST be centered on spineX
-            const isOnMainPath = this.mainPathNodes.has(node.id);
-            const finalX = isOnMainPath ? (this.spineX - (node.viewState.w / 2)) : x;
-
-            node.viewState.x = finalX;
-            node.viewState.y = finalY;
-            this.positioned.add(node.id);
-
-            console.log(`[Position V2] Node ${node.id}: x=${finalX}, y=${finalY}, onMainPath=${isOnMainPath}`);
+    /**
+     * Phase 1: Position main spine nodes only.
+     * Traverse the happy path and position nodes vertically at x = spineX (center-aligned).
+     */
+    private positionMainSpine(node: FlowNode, currentY: number): void {
+        // Only process main path nodes
+        if (!this.mainPathNodes.has(node.id)) {
+            return;
         }
 
+        // Position this node at the spine (center-aligned)
+        node.viewState.x = this.spineX - (node.viewState.w / 2);
+        node.viewState.y = currentY;
+        node.viewState.isPositioned = true;
+
+        console.log(`[Phase 1] Positioned ${node.id} at (${node.viewState.x}, ${node.viewState.y}) [center-aligned on spine]`);
+
+        // Stop at END nodes
+        if (node.type === 'END') {
+            return;
+        }
+
+        // Calculate next Y position
+        const nextY = currentY + node.viewState.h + C.NODE_GAP_Y_Vertical;
+
+        // Continue down the main path (first child or first branch head)
+        if (node.children && node.children.length > 0) {
+            const firstChild = node.children[0];
+            if (this.mainPathNodes.has(firstChild.id)) {
+                this.positionMainSpine(firstChild, nextY);
+                return;
+            }
+        }
+
+        // Check branches for main path continuation
+        if (node.branches && node.branches.length > 0) {
+            for (const branch of node.branches) {
+                if (branch.length > 0) {
+                    const head = branch[0];
+                    if (this.mainPathNodes.has(head.id)) {
+                        this.positionMainSpine(head, nextY);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Phase 2: Position all nodes, respecting already-positioned nodes.
+     * Alternative branches are positioned to the RIGHT of the main spine (center-aligned).
+     */
+    private positionBranches(node: FlowNode): void {
+        if (this.visited.has(node.id)) {
+            return;
+        }
         this.visited.add(node.id);
 
+        // Node dimensions should already be set by SimpleNodeSizing visitor
         const nodeX = node.viewState.x;
         const nodeY = node.viewState.y;
         const nextY = nodeY + node.viewState.h + C.NODE_GAP_Y_Vertical;
 
-        // Process success children
-        if (node.children.length > 0) {
+        // Process children
+        if (node.children && node.children.length > 0) {
             node.children.forEach((child, index) => {
-                const isChildOnMainPath = this.mainPathNodes.has(child.id);
-                
-                let childX: number;
-                if (isChildOnMainPath) {
-                    // Child is on main path - center it on the spine
-                    childX = this.spineX - (child.viewState.w / 2);
-                } else {
-                    // Child is an alternative branch - shift RIGHT and center
-                    const baseRight = this.spineX + 200 + (index * 150);
-                    childX = baseRight - (child.viewState.w / 2);
+                if (!child.viewState.isPositioned) {
+                    // Position child below parent (inherit X if on main path, or use parent's X)
+                    if (this.mainPathNodes.has(child.id)) {
+                        // Child is on main path - already positioned in Phase 1
+                        // Just recurse
+                    } else {
+                        // Alternative child - position to the right (center-aligned)
+                        const branchCenterX = this.spineX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (index + 1);
+                        child.viewState.x = branchCenterX - (child.viewState.w / 2);
+                        child.viewState.y = nextY;
+                        child.viewState.isPositioned = true;
+                        console.log(`[Phase 2] Positioned child ${child.id} at (${child.viewState.x}, ${child.viewState.y}) [center-aligned]`);
+                    }
                 }
-
-                this.registerMergePoint(child.id, nextY);
-                
-                if (!this.visited.has(child.id)) {
-                    this.visit(child, childX, nextY);
-                }
+                this.positionBranches(child);
             });
-        }
-
-        // Process failure node (always to the RIGHT)
-        if (node.failureNode && !this.visited.has(node.failureNode.id)) {
-            // Position failure node to the right of the parent, centered vertically
-            // Compute top-left X so that the failure node's center is offset from the spine
-            const failX = this.spineX + (node.viewState.w / 2) + C.FAIL_GAP_X_Vertical;
-            const failY = nodeY; // Same level or slightly offset
-            
-            this.registerMergePoint(node.failureNode.id, failY);
-            this.visit(node.failureNode, failX, failY);
         }
 
         // Process branches (condition nodes)
         if (node.branches && node.branches.length > 0) {
-            node.branches.forEach((branch, index) => {
+            node.branches.forEach((branch, branchIndex) => {
                 if (branch.length > 0) {
                     const head = branch[0];
-                    const isHeadOnMainPath = this.mainPathNodes.has(head.id);
-                    
-                    let branchX: number;
-                    if (isHeadOnMainPath) {
-                        // Branch head is part of the main path - center it on the spine
-                        branchX = this.spineX - (head.viewState.w / 2);
-                    } else {
-                        // Alternative branches go RIGHT and are centered
-                        const baseRight = this.spineX + 200 + (index * 150);
-                        branchX = baseRight - (head.viewState.w / 2);
+                    if (!head.viewState.isPositioned) {
+                        // Position branch head to the right (center-aligned)
+                        // Main path branch is at index 0, alternatives start at index 1
+                        if (this.mainPathNodes.has(head.id)) {
+                            // This branch head is on the main path - already positioned
+                        } else {
+                            const branchCenterX = this.spineX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (branchIndex + 1);
+                            head.viewState.x = branchCenterX - (head.viewState.w / 2);
+                            head.viewState.y = nextY;
+                            head.viewState.isPositioned = true;
+                            console.log(`[Phase 2] Positioned branch head ${head.id} at (${head.viewState.x}, ${head.viewState.y}) [center-aligned]`);
+                        }
                     }
-
-                    this.registerMergePoint(head.id, nextY);
-                    
-                    if (!this.visited.has(head.id)) {
-                        this.visit(head, branchX, nextY);
-                    }
+                    this.positionBranches(head);
                 }
             });
         }
-    }
 
-    /**
-     * Register that a path reaches a node at a certain Y position.
-     * The node must wait for all paths before positioning.
-     */
-    private registerMergePoint(nodeId: string, yPos: number): void {
-        const currentMaxY = this.maxYBeforeNode.get(nodeId) || 0;
-        this.maxYBeforeNode.set(nodeId, Math.max(currentMaxY, yPos));
+        // Process failure node
+        if (node.failureNode && !this.visited.has(node.failureNode.id)) {
+            const failNode = node.failureNode;
+            if (!failNode.viewState.isPositioned) {
+                // Position failure node to the right (center-aligned)
+                const failCenterX = this.spineX + (C.NODE_WIDTH + C.FAIL_GAP_X_Vertical);
+                const failY = nodeY; // Same level as parent
+                failNode.viewState.x = failCenterX - (failNode.viewState.w / 2);
+                failNode.viewState.y = failY;
+                failNode.viewState.isPositioned = true;
+                console.log(`[Phase 2] Positioned failure node ${failNode.id} at (${failNode.viewState.x}, ${failNode.viewState.y}) [center-aligned]`);
+            }
+            this.positionBranches(failNode);
+        }
     }
 
     public reset(): void {
         this.visited.clear();
-        this.positioned.clear();
-        this.maxYBeforeNode.clear();
-        this.incomingEdges.clear();
     }
 }
