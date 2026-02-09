@@ -189,8 +189,8 @@ export const CollectionForm: React.FC<{ onCancel: () => void }> = ({ onCancel })
                     </div>
 
                     <Actions>
-                        <Button onClick={handleSubmit}>Create</Button>
                         <Button appearance="secondary" onClick={onCancel}>Cancel</Button>
+                        <Button onClick={handleSubmit}>Create</Button>
                     </Actions>
                 </Form>
             </FormContainer>

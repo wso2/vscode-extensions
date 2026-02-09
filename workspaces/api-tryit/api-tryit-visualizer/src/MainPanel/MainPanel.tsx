@@ -370,9 +370,6 @@ export const MainPanel: React.FC = () => {
     // Counter used to trigger scrolling the Output inside Input without switching tabs
     const [bringOutputCounter, setBringOutputCounter] = useState(0);
     const [methodDropdownOpen, setMethodDropdownOpen] = useState(false);
-
-
-
     // Handle messages from VS Code extension
     const [showCollectionForm, setShowCollectionForm] = React.useState(false);
 
@@ -381,7 +378,6 @@ export const MainPanel: React.FC = () => {
             setRequestItem(item);
             setTempName(item.name);
             setIsEditingName(false);
-            setActiveTab('input');
             // Close collection form when a request is selected
             setShowCollectionForm(false);
         },
