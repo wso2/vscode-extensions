@@ -34,6 +34,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { buildGraphFromWorkflow } from './graphBuilder';
 import { nodeTypes } from '../../components/nodes';
+import { PlannedPathEdge } from '../../components/edges';
 import { SidePanel, SidePanelTitleContainer, SidePanelBody, Button, Codicon, ThemeColors } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
 
@@ -102,6 +103,11 @@ export function WorkflowView(props: WorkflowViewProps) {
     const [workflow, setWorkflow] = useState<ArazzoWorkflow | undefined>(undefined);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
     const [isPanelOpen, setIsPanelOpen] = useState(false);
+
+    // Edge types configuration
+    const edgeTypes = {
+        plannedPath: PlannedPathEdge
+    };
 
     // rpcClient?.onStateChanged((newState: MachineStateValue) => {
     //     if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
@@ -353,6 +359,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                 onConnect={onConnect}
                 onNodeClick={onNodeClick}
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
                 fitView
                 proOptions={proOptions}
             >

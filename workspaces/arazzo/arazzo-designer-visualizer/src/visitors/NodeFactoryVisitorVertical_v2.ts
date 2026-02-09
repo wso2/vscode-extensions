@@ -159,7 +159,8 @@ export class NodeFactoryVisitorVertical_v2 {
             target: target.id,
             sourceHandle: sourceHandleId,
             targetHandle: targetHandleId,
-            type: 'smoothstep',
+            type: 'plannedPath',
+            data: { waypoints: [] as { x: number; y: number }[] },
             markerEnd: { type: MarkerType.ArrowClosed },
             style: edgeType === 'failure' 
                 ? { stroke: 'red', strokeWidth: 2 } 
