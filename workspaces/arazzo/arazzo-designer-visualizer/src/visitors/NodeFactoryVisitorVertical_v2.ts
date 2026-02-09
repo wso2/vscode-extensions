@@ -188,8 +188,9 @@ export class NodeFactoryVisitorVertical_v2 {
             }
         };
 
-        const sourcePt = computeHandlePoint(source, sourceHandleId);
-        const targetPt = computeHandlePoint(target, targetHandleId);
+        let sourcePt = computeHandlePoint(source, sourceHandleId);
+        let targetPt = computeHandlePoint(target, targetHandleId);
+        let labelPos = 0.8
 
         // Geometry helpers
         const pointInRect = (p: {x:number,y:number}, r: {x:number,y:number,w:number,h:number}) =>
@@ -232,6 +233,9 @@ export class NodeFactoryVisitorVertical_v2 {
         let computedWaypoints: { x:number; y:number }[] = [];
         if (foundBlockingRect) {
             try {
+                targetHandleId = 'h-right';
+                targetPt = computeHandlePoint(target, targetHandleId);
+                labelPos = 0.35;
                 computedWaypoints = WaypointCreator(sourcePt, targetPt, foundBlockingRect, 'skip');
             } catch (e) {
                 computedWaypoints = [];
@@ -249,11 +253,14 @@ export class NodeFactoryVisitorVertical_v2 {
                 waypoints: computedWaypoints as { x: number; y: number }[],
                 ...(conditionLabel ? { 
                     label: conditionLabel, 
-                    labelPos: 0.15,
+                    labelPos: labelPos,
                     labelOffset: { x: 0, y: -10 }
                 } : {})
             },
-            markerEnd: { type: MarkerType.ArrowClosed },
+            markerEnd: { 
+                type: MarkerType.ArrowClosed,
+                color: edgeType === 'failure' ? 'red' : '#0099ff'
+            },
             style: edgeType === 'failure' 
                 ? { stroke: 'red', strokeWidth: 2 } 
                 : { stroke: '#0099ff', strokeWidth: 2 }

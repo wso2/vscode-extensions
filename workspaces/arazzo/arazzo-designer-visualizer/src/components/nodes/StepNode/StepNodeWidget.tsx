@@ -50,6 +50,12 @@ export const StepNodeWidget: React.FC<NodeProps<StepNodeData>> = (props) => {
                 isConnectable={isConnectable}
             />
             <NodeStyles.StyledHandle
+                type="target"
+                position={Position.Right}
+                id="h-right"
+                isConnectable={isConnectable}
+            />
+            <NodeStyles.StyledHandle
                 type="source"
                 position={Position.Bottom}
                 id="h-bottom"

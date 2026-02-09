@@ -31,7 +31,7 @@ export default function WaypointCreator(source: Point, target: Point, block: Rec
             const wp2: Point = { x: columnX, y: wp1.y };
 
             // 3) move down to just above target.y
-            const wp3: Point = { x: columnX, y: target.y - C.WAYPOINT_SKIP_VERTICAL_OFFSET };
+            const wp3: Point = { x: columnX, y: target.y };
 
             // 4) move left to be right above the target X
             const wp4: Point = { x: target.x, y: wp3.y };
