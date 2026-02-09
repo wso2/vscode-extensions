@@ -18,9 +18,11 @@
 import React, { useRef, forwardRef, useImperativeHandle } from 'react';
 import styled from '@emotion/styled';
 import { Codicon } from '../Codicon/Codicon';
+import { ThemeColors } from '../../styles/Theme';
 
 const Wrapper = styled.div({
-    position: 'relative'
+    position: 'relative',
+    paddingBottom: '20px'
 });
 
 interface ContainerProps {
@@ -34,24 +36,29 @@ const Container = styled.div<ContainerProps>(({ maxHeight }: ContainerProps) => 
 }));
 
 const ScrollIndicator = styled.button({
+    position: 'absolute',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    bottom: '-16px',
+    zIndex: 2,
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: '2px 0',
+    padding: '4px',
     opacity: 0.6,
     cursor: 'pointer',
-    background: 'none',
+    background: ThemeColors.SURFACE_BRIGHT,
     border: 'none',
+    color: ThemeColors.ON_SURFACE_VARIANT,
+    borderRadius: '2px',
     '&:hover': {
         opacity: 1
     },
     '&:focus': {
-        outline: '2px solid var(--vscode-focusBorder, #0078d4)',
-        outlineOffset: '2px'
+        outline: 'none'
     },
     '&:focus-visible': {
-        outline: '2px solid var(--vscode-focusBorder, #0078d4)',
-        outlineOffset: '2px'
+        outline: 'none'
     }
 });
 
@@ -129,7 +136,7 @@ export const ScrollableList = forwardRef<ScrollableListRef, ScrollableListProps>
                     aria-label="Scroll down"
                     onClick={handleScrollDown}
                 >
-                    <Codicon name="chevron-down" sx={{ fontSize: '12px' }} />
+                    <Codicon name="chevron-down" iconSx={{ color: 'inherit', fontSize: '14px' }} sx={{ width: '16px', height: '16px' }} />
                 </ScrollIndicator>
             )}
         </Wrapper>
