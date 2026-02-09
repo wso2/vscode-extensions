@@ -195,7 +195,7 @@ export function createFileTools(projectPath: string, modifiedFiles?: string[]) {
 
     return {
         [FILE_WRITE_TOOL_NAME]: createWriteTool(createWriteExecute(projectPath, modifiedFiles)),
-        [FILE_READ_TOOL_NAME]: createReadTool(createReadExecute(projectPath)),
+        [FILE_READ_TOOL_NAME]: createReadTool(createReadExecute(projectPath), projectPath),
         [FILE_EDIT_TOOL_NAME]: createEditTool(createEditExecute(projectPath, modifiedFiles)),
         [FILE_GREP_TOOL_NAME]: createGrepTool(createGrepExecute(projectPath)),
         [FILE_GLOB_TOOL_NAME]: createGlobTool(createGlobExecute(projectPath)),

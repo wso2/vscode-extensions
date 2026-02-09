@@ -265,7 +265,8 @@ export function createAgentTools(params: CreateToolsParams) {
             getWrappedExecute(FILE_WRITE_TOOL_NAME, createWriteExecute(projectPath, modifiedFiles, undoCheckpointManager))
         ),
         [FILE_READ_TOOL_NAME]: createReadTool(
-            getWrappedExecute(FILE_READ_TOOL_NAME, createReadExecute(projectPath))
+            getWrappedExecute(FILE_READ_TOOL_NAME, createReadExecute(projectPath)),
+            projectPath
         ),
         [FILE_EDIT_TOOL_NAME]: createEditTool(
             getWrappedExecute(FILE_EDIT_TOOL_NAME, createEditExecute(projectPath, modifiedFiles, undoCheckpointManager))

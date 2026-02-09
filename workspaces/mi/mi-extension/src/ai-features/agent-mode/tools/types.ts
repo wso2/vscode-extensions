@@ -178,6 +178,7 @@ export const ErrorMessages = {
     MULTIPLE_MATCHES: 'Multiple matches found - old_string must be unique',
     IDENTICAL_STRINGS: 'old_string and new_string are identical',
     INVALID_LINE_RANGE: 'Invalid line range',
+    INVALID_READ_OPTIONS: 'Invalid read options',
     EDIT_FAILED: 'Edit operation failed',
     NO_EDITS: 'No edits provided',
 };
@@ -195,6 +196,7 @@ export type ReadExecuteFn = (args: {
     file_path: string;
     offset?: number;
     limit?: number;
+    pages?: string;
 }) => Promise<ToolResult>;
 
 export type EditExecuteFn = (args: {

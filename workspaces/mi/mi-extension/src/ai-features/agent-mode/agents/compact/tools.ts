@@ -147,7 +147,7 @@ export function createCompactAgentTools() {
     return {
         // File Operations (5 tools) - execution blocked
         [FILE_WRITE_TOOL_NAME]: createWriteTool(createBlockedExecute()),
-        [FILE_READ_TOOL_NAME]: createReadTool(createBlockedExecute()),
+        [FILE_READ_TOOL_NAME]: createReadTool(createBlockedExecute(), ''),
         [FILE_EDIT_TOOL_NAME]: createEditTool(createBlockedExecute()),
         [FILE_GREP_TOOL_NAME]: createGrepTool(createBlockedExecute()),
         [FILE_GLOB_TOOL_NAME]: createGlobTool(createBlockedExecute()),

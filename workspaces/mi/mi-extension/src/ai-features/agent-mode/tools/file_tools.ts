@@ -40,7 +40,6 @@ import {
     GrepExecuteFn,
     GlobExecuteFn,
 } from './types';
-import { getProviderCacheControl } from '../../connection';
 import { logDebug, logError } from '../../copilot/logger';
 import { validateXmlFile, formatValidationMessage } from './validation-utils';
 import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
@@ -49,7 +48,61 @@ import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
 // Validation Functions
 // ============================================================================
 
-function isAllowedFilePath(filePath: string): boolean {
+const READ_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'] as const;
+const READ_PDF_EXTENSION = '.pdf';
+const PDF_MAX_PAGES_PER_REQUEST = 5;
+
+const IMAGE_MEDIA_TYPE_BY_EXTENSION: Record<string, string> = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+};
+
+type ReadFileKind = 'text' | 'pdf' | 'image' | 'unsupported';
+
+interface PdfPageSelection {
+    start: number;
+    end: number;
+    count: number;
+}
+
+interface PdfPageSelectionResult {
+    valid: boolean;
+    error?: string;
+    selection?: PdfPageSelection;
+}
+
+interface PdfDocumentInstanceLike {
+    getPageCount(): number;
+    copyPages(sourceDoc: PdfDocumentInstanceLike, indices: number[]): Promise<any[]>;
+    addPage(page: any): void;
+    save(): Promise<Uint8Array>;
+}
+
+interface PdfDocumentStaticLike {
+    load(data: Uint8Array | Buffer): Promise<PdfDocumentInstanceLike>;
+    create(): Promise<PdfDocumentInstanceLike>;
+}
+
+function getPdfDocumentStatic(): PdfDocumentStaticLike {
+    try {
+        // Use lazy require so TypeScript compilation does not hard-fail when dependency is not installed yet.
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const pdfLib = require('pdf-lib');
+        if (!pdfLib?.PDFDocument) {
+            throw new Error('Invalid pdf-lib export');
+        }
+        return pdfLib.PDFDocument as PdfDocumentStaticLike;
+    } catch {
+        throw new Error(
+            'PDF support requires the optional dependency "pdf-lib". Run `pnpm install --filter micro-integrator` and retry.'
+        );
+    }
+}
+
+function isTextAllowedFilePath(filePath: string): boolean {
     const normalizedPath = filePath.trim();
     if (!normalizedPath) {
         return false;
@@ -73,10 +126,35 @@ function getAllowedFileTypesDescription(): string {
     return [...VALID_FILE_EXTENSIONS, ...VALID_SPECIAL_FILE_NAMES].join(', ');
 }
 
+function getReadAllowedFileTypesDescription(): string {
+    return [...VALID_FILE_EXTENSIONS, ...VALID_SPECIAL_FILE_NAMES, READ_PDF_EXTENSION, ...READ_IMAGE_EXTENSIONS].join(', ');
+}
+
+function getReadFileKind(filePath: string): ReadFileKind {
+    if (isTextAllowedFilePath(filePath)) {
+        return 'text';
+    }
+
+    const lowerExt = path.extname(filePath).toLowerCase();
+    if (lowerExt === READ_PDF_EXTENSION) {
+        return 'pdf';
+    }
+
+    if ((READ_IMAGE_EXTENSIONS as readonly string[]).includes(lowerExt)) {
+        return 'image';
+    }
+
+    return 'unsupported';
+}
+
+function getImageMediaType(filePath: string): string | undefined {
+    return IMAGE_MEDIA_TYPE_BY_EXTENSION[path.extname(filePath).toLowerCase()];
+}
+
 /**
- * Validates a file path for security and extension requirements
+ * Validates path security rules that apply to all file tools.
  */
-function validateFilePath(filePath: string): ValidationResult {
+function validateFilePathSecurity(filePath: string): ValidationResult {
     if (!filePath || typeof filePath !== 'string') {
         return {
             valid: false,
@@ -92,10 +170,260 @@ function validateFilePath(filePath: string): ValidationResult {
         };
     }
 
-    if (!isAllowedFilePath(filePath)) {
+    return { valid: true };
+}
+
+/**
+ * Validates file paths for text-only operations (write/edit/grep).
+ */
+function validateTextFilePath(filePath: string): ValidationResult {
+    const securityValidation = validateFilePathSecurity(filePath);
+    if (!securityValidation.valid) {
+        return securityValidation;
+    }
+
+    if (!isTextAllowedFilePath(filePath)) {
         return {
             valid: false,
             error: `File must use an allowed file type: ${getAllowedFileTypesDescription()}`
+        };
+    }
+
+    return { valid: true };
+}
+
+/**
+ * Validates file paths for read operations (text + multimodal).
+ */
+function validateReadableFilePath(filePath: string): ValidationResult {
+    const securityValidation = validateFilePathSecurity(filePath);
+    if (!securityValidation.valid) {
+        return securityValidation;
+    }
+
+    if (getReadFileKind(filePath) === 'unsupported') {
+        return {
+            valid: false,
+            error: `File must use an allowed read type: ${getReadAllowedFileTypesDescription()}`
+        };
+    }
+
+    return { valid: true };
+}
+
+function parsePdfPageSelection(pages: string, totalPages: number): PdfPageSelectionResult {
+    const normalizedPages = pages.trim();
+    const match = /^(\d+)(?:\s*-\s*(\d+))?$/.exec(normalizedPages);
+    if (!match) {
+        return {
+            valid: false,
+            error: `Invalid pages format '${pages}'. Use "N" or "N-M" (e.g., "3" or "1-5").`
+        };
+    }
+
+    const start = Number(match[1]);
+    const end = match[2] ? Number(match[2]) : start;
+    if (start < 1 || end < 1) {
+        return {
+            valid: false,
+            error: `Invalid pages '${pages}'. Page numbers are 1-indexed and must be positive.`
+        };
+    }
+
+    if (start > end) {
+        return {
+            valid: false,
+            error: `Invalid pages '${pages}'. Start page cannot be greater than end page.`
+        };
+    }
+
+    if (end > totalPages) {
+        return {
+            valid: false,
+            error: `Invalid pages '${pages}'. PDF has ${totalPages} page(s).`
+        };
+    }
+
+    const count = end - start + 1;
+    if (count > PDF_MAX_PAGES_PER_REQUEST) {
+        return {
+            valid: false,
+            error: `Invalid pages '${pages}'. You can read at most ${PDF_MAX_PAGES_PER_REQUEST} pages per request.`
+        };
+    }
+
+    return {
+        valid: true,
+        selection: { start, end, count }
+    };
+}
+
+function resolvePdfPageSelection(pages: string | undefined, totalPages: number): PdfPageSelectionResult {
+    if (pages && pages.trim().length > 0) {
+        return parsePdfPageSelection(pages, totalPages);
+    }
+
+    if (totalPages > PDF_MAX_PAGES_PER_REQUEST) {
+        return {
+            valid: false,
+            error: `PDF has ${totalPages} pages. Specify a page range using pages (e.g., "1-5"). Maximum ${PDF_MAX_PAGES_PER_REQUEST} pages per request.`
+        };
+    }
+
+    return {
+        valid: true,
+        selection: {
+            start: 1,
+            end: totalPages,
+            count: totalPages
+        }
+    };
+}
+
+async function createPdfSubsetBase64(fileBuffer: Buffer, selection: PdfPageSelection): Promise<string> {
+    const PDFDocument = getPdfDocumentStatic();
+    const sourcePdf = await PDFDocument.load(fileBuffer);
+    const subsetPdf = await PDFDocument.create();
+    const pageIndices = Array.from({ length: selection.count }, (_, idx) => selection.start + idx - 1);
+    const copiedPages = await subsetPdf.copyPages(sourcePdf, pageIndices);
+
+    for (const page of copiedPages) {
+        subsetPdf.addPage(page);
+    }
+
+    const subsetBytes = await subsetPdf.save();
+    return Buffer.from(subsetBytes).toString('base64');
+}
+
+function formatPdfSelection(selection: PdfPageSelection): string {
+    return selection.start === selection.end ? `${selection.start}` : `${selection.start}-${selection.end}`;
+}
+
+function getToolResultText(output: unknown): string {
+    if (typeof output === 'string') {
+        return output;
+    }
+
+    if (output && typeof output === 'object' && 'message' in output) {
+        const message = (output as { message?: unknown }).message;
+        if (typeof message === 'string') {
+            return message;
+        }
+    }
+
+    return JSON.stringify(output ?? '');
+}
+
+async function buildReadToolModelOutput(
+    projectPath: string,
+    input: { file_path?: string; pages?: string },
+    output: unknown
+): Promise<unknown> {
+    const textOutput = getToolResultText(output);
+    const filePath = input?.file_path;
+    if (!filePath) {
+        return { type: 'text', value: textOutput };
+    }
+
+    const readFileKind = getReadFileKind(filePath);
+    if (readFileKind === 'text' || readFileKind === 'unsupported') {
+        return { type: 'text', value: textOutput };
+    }
+
+    const isSuccess = output && typeof output === 'object' && (output as { success?: unknown }).success === true;
+    if (!isSuccess) {
+        return { type: 'text', value: textOutput };
+    }
+
+    const fullPath = path.join(projectPath, filePath);
+    if (!fs.existsSync(fullPath)) {
+        return { type: 'text', value: textOutput };
+    }
+
+    try {
+        if (readFileKind === 'image') {
+            const mediaType = getImageMediaType(filePath);
+            if (!mediaType) {
+                return { type: 'text', value: textOutput };
+            }
+
+            const imageData = fs.readFileSync(fullPath).toString('base64');
+            return {
+                type: 'content',
+                value: [
+                    { type: 'text', text: textOutput },
+                    { type: 'image-data', data: imageData, mediaType }
+                ]
+            };
+        }
+
+        const pdfBuffer = fs.readFileSync(fullPath);
+        const PDFDocument = getPdfDocumentStatic();
+        const pdfDoc = await PDFDocument.load(pdfBuffer);
+        const pageSelection = resolvePdfPageSelection(input.pages, pdfDoc.getPageCount());
+        if (!pageSelection.valid || !pageSelection.selection) {
+            return { type: 'text', value: textOutput };
+        }
+
+        const pdfData = await createPdfSubsetBase64(pdfBuffer, pageSelection.selection);
+        return {
+            type: 'content',
+            value: [
+                { type: 'text', text: textOutput },
+                {
+                    type: 'file-data',
+                    data: pdfData,
+                    mediaType: 'application/pdf',
+                    filename: path.basename(filePath),
+                }
+            ]
+        };
+    } catch (error) {
+        logError(`[FileReadTool] Failed to build multimodal model output for ${filePath}`, error);
+        return { type: 'text', value: textOutput };
+    }
+}
+
+/**
+ * Validates a file path for security and extension requirements
+ */
+function validateFilePath(filePath: string): ValidationResult {
+    return validateTextFilePath(filePath);
+}
+
+/**
+ * Validates a file path for read operations
+ */
+function validateReadFilePath(filePath: string): ValidationResult {
+    return validateReadableFilePath(filePath);
+}
+
+/**
+ * Validates read options for multimodal files (images/PDFs).
+ */
+function validateMultimodalReadOptions(
+    filePath: string,
+    options: { offset?: number; limit?: number; pages?: string }
+): ValidationResult {
+    const fileKind = getReadFileKind(filePath);
+    if (fileKind === 'text' || fileKind === 'unsupported') {
+        return { valid: true };
+    }
+
+    if (fileKind === 'image') {
+        if (options.offset !== undefined || options.limit !== undefined || options.pages !== undefined) {
+            return {
+                valid: false,
+                error: 'offset/limit/pages are not supported for image files. Read the whole image without range options.'
+            };
+        }
+        return { valid: true };
+    }
+
+    if (options.offset !== undefined || options.limit !== undefined) {
+        return {
+            valid: false,
+            error: 'offset/limit are not supported for PDF files. Use pages (e.g., "1-5").'
         };
     }
 
@@ -315,12 +643,12 @@ export function createWriteExecute(
  * Creates the execute function for file_read tool
  */
 export function createReadExecute(projectPath: string): ReadExecuteFn {
-    return async (args: { file_path: string; offset?: number; limit?: number }): Promise<ToolResult> => {
-        const { file_path, offset, limit } = args;
-        logDebug(`[FileReadTool] Reading ${file_path}, offset: ${offset}, limit: ${limit}`);
+    return async (args: { file_path: string; offset?: number; limit?: number; pages?: string }): Promise<ToolResult> => {
+        const { file_path, offset, limit, pages } = args;
+        logDebug(`[FileReadTool] Reading ${file_path}, offset: ${offset}, limit: ${limit}, pages: ${pages}`);
 
         // Validate file path
-        const pathValidation = validateFilePath(file_path);
+        const pathValidation = validateReadFilePath(file_path);
         if (!pathValidation.valid) {
             logError(`[FileReadTool] Invalid file path: ${file_path}`);
             return {
@@ -340,6 +668,56 @@ export function createReadExecute(projectPath: string): ReadExecuteFn {
                 message: `File '${file_path}' not found.`,
                 error: `Error: ${ErrorMessages.FILE_NOT_FOUND}`
             };
+        }
+
+        const readOptionValidation = validateMultimodalReadOptions(file_path, { offset, limit, pages });
+        if (!readOptionValidation.valid) {
+            logError(`[FileReadTool] Invalid read options for file: ${file_path}`);
+            return {
+                success: false,
+                message: readOptionValidation.error!,
+                error: `Error: ${ErrorMessages.INVALID_READ_OPTIONS}`
+            };
+        }
+
+        const fileKind = getReadFileKind(file_path);
+        if (fileKind === 'image') {
+            const mediaType = getImageMediaType(file_path) || 'image/*';
+            logDebug(`[FileReadTool] Read image file: ${file_path}`);
+            return {
+                success: true,
+                message: `Read image file '${file_path}' (${mediaType}). Image content is available for multimodal analysis.`,
+            };
+        }
+
+        if (fileKind === 'pdf') {
+            try {
+                const pdfBuffer = fs.readFileSync(fullPath);
+                const PDFDocument = getPdfDocumentStatic();
+                const pdfDoc = await PDFDocument.load(pdfBuffer);
+                const totalPages = pdfDoc.getPageCount();
+                const selectionResult = resolvePdfPageSelection(pages, totalPages);
+                if (!selectionResult.valid || !selectionResult.selection) {
+                    return {
+                        success: false,
+                        message: selectionResult.error!,
+                        error: `Error: ${ErrorMessages.INVALID_READ_OPTIONS}`
+                    };
+                }
+
+                logDebug(`[FileReadTool] Read PDF file: ${file_path}, pages: ${formatPdfSelection(selectionResult.selection)}`);
+                return {
+                    success: true,
+                    message: `Read PDF file '${file_path}' pages ${formatPdfSelection(selectionResult.selection)} (${selectionResult.selection.count} page(s) of ${totalPages}). PDF content is available for multimodal analysis.`,
+                };
+            } catch (error) {
+                logError(`[FileReadTool] Failed to parse PDF file: ${file_path}`, error);
+                return {
+                    success: false,
+                    message: `Failed to read PDF file '${file_path}': ${error instanceof Error ? error.message : String(error)}`,
+                    error: `Error: ${ErrorMessages.INVALID_READ_OPTIONS}`
+                };
+            }
         }
 
         // Read file content
@@ -601,7 +979,7 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
                             }
                         }
 
-                        if (!isAllowedFilePath(entry.name)) {
+                        if (!isTextAllowedFilePath(entry.name)) {
                             continue;
                         }
 
@@ -642,6 +1020,13 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
             if (stats.isDirectory()) {
                 searchInDirectory(fullSearchPath);
             } else if (stats.isFile()) {
+                if (!isTextAllowedFilePath(path.basename(fullSearchPath))) {
+                    return {
+                        success: true,
+                        message: `No matches found for pattern '${pattern}' in ${searchPath}.`
+                    };
+                }
+
                 // Search in single file
                 const content = fs.readFileSync(fullSearchPath, 'utf-8');
                 const lines = content.split('\n');
@@ -828,17 +1213,24 @@ export function createWriteTool(execute: WriteExecuteFn) {
 const readInputSchema = z.object({
     file_path: z.string().describe(`The relative path to the file to read. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")`),
     offset: z.number().optional().describe(`The line number to start reading from`),
-    limit: z.number().optional().describe(`The number of lines to read`)
+    limit: z.number().optional().describe(`The number of lines to read`),
+    pages: z.string().optional().describe(`PDF page selection. Use "N" or "N-M" (e.g., "3" or "1-5"). Maximum 5 pages per request.`)
 });
 
-export function createReadTool(execute: ReadExecuteFn) {
+export function createReadTool(execute: ReadExecuteFn, projectPath: string) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Reads a file from the project. Returns content with line numbers.
-            Use offset/limit for large files. ALWAYS read a file before editing it.
+        description: `Reads a file from the project.
+            Text files return line-numbered content (supports offset/limit).
+            Image files (.png, .jpg, .jpeg, .gif, .webp) are provided for multimodal analysis.
+            PDFs can be read with pages ("N" or "N-M"). For PDFs over ${PDF_MAX_PAGES_PER_REQUEST} pages, pages is required. Maximum ${PDF_MAX_PAGES_PER_REQUEST} pages per request.
+            ALWAYS read a file before editing it.
             You can speculatively read multiple files in parallel.`,
         inputSchema: readInputSchema,
-        execute
+        execute,
+        toModelOutput: async ({ input, output }: { input: { file_path?: string; pages?: string }; output: unknown }) => {
+            return buildReadToolModelOutput(projectPath, input, output);
+        }
     });
 }
 
