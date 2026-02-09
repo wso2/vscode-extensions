@@ -93,8 +93,28 @@ const AssertionInputWrapper = styled.div`
     }
 `;
 
-const AssertionInput = styled(TextField)`
+const AssertionInput = styled(TextField)<{ status?: 'pass' | 'fail' }>`
     flex-grow: 1;
+
+    ${({ status }) => status === 'pass' && `
+        &&::part(root) {
+            background-color: rgba(46, 160, 67, 0.12);
+        }
+
+        &&::part(input) {
+            background-color: rgba(46, 160, 67, 0.12);
+        }
+    `}
+
+    ${({ status }) => status === 'fail' && `
+        &&::part(root) {
+            background-color: rgba(248, 81, 73, 0.12);
+        }
+
+        &&::part(input) {
+            background-color: rgba(248, 81, 73, 0.12);
+        }
+    `}
 `;
 
 const AssertionStatusIcon = styled(Codicon)<{ status: 'pass' | 'fail' }>`
@@ -319,17 +339,18 @@ export const Assert: React.FC<AssertProps> = ({
                     </Typography>
                     {(request.assertions || []).map((assertion, index) => (
                         <AssertionItem key={index}>
-                            <TextField  
+                            <AssertionInput  
                                 id={`assertion-${index}`}
                                 value={assertion}
                                 onTextChange={(value) => updateAssertion(index, value)}
                                 placeholder="e.g., res.status = 200"
-                                sx={{ flex: 1 }}
+                                status={response ? (assertionResults[index] ? 'pass' : 'fail') : undefined}
+                                sx={{flex: 1}}
                             />
                             <Button appearance='icon' onClick={() => deleteAssertion(index)}>
                                 <Codicon sx={{color: 'var(--vscode-editorGutter-deletedBackground)'}} name="trash" />
                             </Button>
-                            {response ? (
+                            {/* {response ? (
                                 <AssertionStatusIcon
                                     status={assertionResults[index] ? 'pass' : 'fail'}
                                     name={assertionResults[index] ? 'check' : 'close'}
@@ -339,7 +360,7 @@ export const Assert: React.FC<AssertProps> = ({
                                     sx={{ color: 'var(--vscode-disabledForeground)' }}
                                     name="close"
                                 />
-                            )}
+                            )} */}
                         </AssertionItem>
                     ))}
                     <AddButtonWrapper>
