@@ -66,7 +66,7 @@ export class InitVisitor_v2 {
                         `cond_success_${step.stepId}`, 
                         'CONDITION', 
                         'Success', 
-                        { count: successTargets.length }
+                        { count: successTargets.length, onSuccess: step.onSuccess }
                     );
                     currentNode.children.push(conditionNode);
                     conditionNode.branches = successTargets.map(target => [target]);        //an array of arrays. but we only use 1 element in each inside array
@@ -99,7 +99,7 @@ export class InitVisitor_v2 {
                         `cond_fail_${step.stepId}`, 
                         'CONDITION', 
                         'On Failure', 
-                        { count: failureTargets.length }
+                        { count: failureTargets.length, onFailure: step.onFailure }
                     );
                     currentNode.failureNode = failCond;
                     failCond.branches = failureTargets.map(target => [target]);

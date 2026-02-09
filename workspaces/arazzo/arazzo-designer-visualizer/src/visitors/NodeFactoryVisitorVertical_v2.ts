@@ -100,11 +100,22 @@ export class NodeFactoryVisitorVertical_v2 {
         }
 
         // Branches (condition node)
-        node.branches?.forEach(branch => {
+        node.branches?.forEach((branch, branchIndex) => {
             if (branch.length > 0) {
                 const head = branch[0];
                 if (!this.shouldSkipEdge(node, head)) {
-                    this.createEdge(node, head, 'success');
+                    // For condition nodes, add branch label (condition name)
+                    let conditionLabel: string | undefined = undefined;
+                    if (node.type === 'CONDITION' && node.data?.onSuccess) {
+                        // Extract the actual name from the onSuccess array
+                        const successAction = node.data.onSuccess[branchIndex];
+                        if (successAction && typeof successAction === 'object' && 'name' in successAction) {
+                            conditionLabel = successAction.name;
+                        } else {
+                            conditionLabel = `Branch ${branchIndex + 1}`; // Fallback
+                        }
+                    }
+                    this.createEdge(node, head, 'success', conditionLabel);
                 }
                 this.visit(head);
             }
@@ -132,7 +143,7 @@ export class NodeFactoryVisitorVertical_v2 {
         return false;
     }
 
-    private createEdge(source: FlowNode, target: FlowNode, edgeType: 'success' | 'failure'): void {
+    private createEdge(source: FlowNode, target: FlowNode, edgeType: 'success' | 'failure', conditionLabel?: string): void {
         // Determine handle positions based on relative positions
         const isTargetBelow = target.viewState.y > source.viewState.y + source.viewState.h;
         const isTargetRight = target.viewState.x > source.viewState.x + source.viewState.w;
@@ -234,7 +245,14 @@ export class NodeFactoryVisitorVertical_v2 {
             sourceHandle: sourceHandleId,
             targetHandle: targetHandleId,
             type: 'plannedPath',
-            data: { waypoints: computedWaypoints as { x: number; y: number }[] },
+            data: { 
+                waypoints: computedWaypoints as { x: number; y: number }[],
+                ...(conditionLabel ? { 
+                    label: conditionLabel, 
+                    labelPos: 0.15,
+                    labelOffset: { x: 0, y: -10 }
+                } : {})
+            },
             markerEnd: { type: MarkerType.ArrowClosed },
             style: edgeType === 'failure' 
                 ? { stroke: 'red', strokeWidth: 2 } 

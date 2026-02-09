@@ -17,6 +17,7 @@
  */
 
 import { EdgeProps, BaseEdge, getSmoothStepPath } from '@xyflow/react';
+import { useRef, useLayoutEffect, useState } from 'react';
 
 interface Waypoint {
     x: number;
@@ -25,6 +26,9 @@ interface Waypoint {
 
 interface PlannedPathData {
     waypoints?: Waypoint[];
+    label?: string;
+    labelPos?: number; // 0..1 position along the path
+    labelOffset?: { x: number; y: number };
 }
 
 /**
@@ -45,6 +49,8 @@ export default function PlannedPathEdge({
     style,
     markerEnd,
 }: EdgeProps<PlannedPathData>) {
+    const pathRef = useRef<SVGPathElement>(null);
+    const [labelPosition, setLabelPosition] = useState<{ x: number; y: number } | null>(null);
     let edgePath: string;
 
     // Check if waypoints exist and are valid
@@ -78,12 +84,46 @@ export default function PlannedPathEdge({
         console.log(`[PlannedPathEdge] ${id} using fallback smooth step path`);
     }
 
+    // Compute label position along the path
+    useLayoutEffect(() => {
+        if (data?.label && pathRef.current) {
+            try {
+                // Find the path element inside the BaseEdge
+                const pathEl = pathRef.current.querySelector('path');
+                if (pathEl) {
+                    const pathLength = pathEl.getTotalLength();
+                    const t = data.labelPos ?? 0.5; // default to middle
+                    const point = pathEl.getPointAtLength(pathLength * t);
+                    setLabelPosition(point);
+                }
+            } catch (e) {
+                console.warn(`[PlannedPathEdge] Could not compute label position for ${id}`);
+            }
+        }
+    }, [edgePath, data?.label, data?.labelPos, id]);
+
     return (
-        <BaseEdge
-            id={id}
-            path={edgePath}
-            style={style}
-            markerEnd={markerEnd}
-        />
+        <g ref={pathRef}>
+            <BaseEdge
+                id={id}
+                path={edgePath}
+                style={style}
+                markerEnd={markerEnd}
+            />
+            {data?.label && labelPosition && (
+                <text
+                    x={labelPosition.x + (data.labelOffset?.x ?? 0)}
+                    y={labelPosition.y + (data.labelOffset?.y ?? -8)}
+                    fill="var(--vscode-editor-foreground, #333)"
+                    fontSize="12px"
+                    fontFamily="var(--vscode-font-family, sans-serif)"
+                    textAnchor="middle"
+                    pointerEvents="none"
+                    style={{ userSelect: 'none' }}
+                >
+                    {data.label}
+                </text>
+            )}
+        </g>
     );
 }
