@@ -20,6 +20,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { logDebug, logError } from '../../copilot/logger';
 import { FILE_READ_TOOL_NAME } from './types';
+import { getCopilotProjectStorageDir } from '../storage-paths';
 
 const PERSIST_THRESHOLD_CHARS = 30_000;
 const PREVIEW_CHARS = 2_048;
@@ -56,11 +57,6 @@ function formatBytes(bytes: number): string {
 }
 
 function getDisplayPath(filePath: string): string {
-    const marker = `${path.sep}.mi-copilot${path.sep}`;
-    const markerIndex = filePath.indexOf(marker);
-    if (markerIndex >= 0) {
-        return filePath.substring(markerIndex + 1).split(path.sep).join('/');
-    }
     return filePath;
 }
 
@@ -90,7 +86,9 @@ function shouldSkipPersistenceForResult(
     }
 
     const normalized = filePath.replace(/\\/g, '/');
-    return normalized.includes('.mi-copilot/') && normalized.includes('/tool-results/');
+    const isLegacyPath = normalized.includes('.mi-copilot/') && normalized.includes('/tool-results/');
+    const isWso2MiPath = normalized.includes('/.wso2-mi/copilot/projects/') && normalized.includes('/tool-results/');
+    return isLegacyPath || isWso2MiPath;
 }
 
 async function getToolResultFiles(toolResultsDir: string): Promise<FileEntry[]> {
@@ -162,7 +160,7 @@ export async function cleanupPersistedToolResults(sessionDir: string): Promise<v
 }
 
 export async function cleanupPersistedToolResultsForProject(projectPath: string): Promise<void> {
-    const miCopilotDir = path.join(projectPath, '.mi-copilot');
+    const miCopilotDir = getCopilotProjectStorageDir(projectPath);
     try {
         const entries = await fs.readdir(miCopilotDir, { withFileTypes: true });
         for (const entry of entries) {
@@ -172,7 +170,7 @@ export async function cleanupPersistedToolResultsForProject(projectPath: string)
             await cleanupPersistedToolResults(path.join(miCopilotDir, entry.name));
         }
     } catch {
-        // .mi-copilot may not exist yet.
+        // Project storage directory may not exist yet.
     }
 }
 
@@ -263,4 +261,3 @@ export async function persistOversizedToolResult({
         return result;
     }
 }
-

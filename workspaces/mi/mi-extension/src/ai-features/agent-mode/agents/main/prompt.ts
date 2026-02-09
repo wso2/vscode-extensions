@@ -127,8 +127,20 @@ function formatProjectStructure(files: string[]): string {
     // Use the tree formatter to display files in a hierarchical structure
     return formatFileTree(
         files,
-        ['.devtools/**', '.mvn/**', '.git/**', '.vscode/**', '.idea/**', '.env', '.env.local', '.env.development.local', '.env.test.local', '.env.production.local', '**.jsonl'],
-        ['src', 'deployment', 'pom.xml', '.mi-copilot']
+        [
+            '.devtools/**',
+            '.mvn/**',
+            '.git/**',
+            '.vscode/**',
+            '.idea/**',
+            '.mi-copilot/**',
+            '.env',
+            '.env.local',
+            '.env.development.local',
+            '.env.test.local',
+            '.env.production.local',
+            '**.jsonl'
+        ]
     );
 }
 

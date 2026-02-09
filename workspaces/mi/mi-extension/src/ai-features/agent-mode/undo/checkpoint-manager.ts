@@ -24,6 +24,7 @@ import {
     UndoCheckpointSummary,
 } from '@wso2/mi-core';
 import { logDebug, logError } from '../../copilot/logger';
+import { getCopilotSessionDir } from '../storage-paths';
 
 export type UndoCheckpointSource = 'agent' | 'code_segment';
 
@@ -127,7 +128,7 @@ export class AgentUndoCheckpointManager {
     ) {}
 
     private getCheckpointFilePath(): string {
-        return path.join(this.projectPath, '.mi-copilot', this.sessionId, UNDO_CHECKPOINT_FILE_NAME);
+        return path.join(getCopilotSessionDir(this.projectPath, this.sessionId), UNDO_CHECKPOINT_FILE_NAME);
     }
 
     private async ensureCheckpointDir(): Promise<void> {

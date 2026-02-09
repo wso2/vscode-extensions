@@ -38,6 +38,7 @@ import {
 import { PLAN_MODE_SHARED_GUIDELINES } from '../agents/main/mode';
 import { logInfo, logDebug, logError } from '../../copilot/logger';
 import { AgentEvent } from '@wso2/mi-core';
+import { getCopilotSessionDir } from '../storage-paths';
 
 // ============================================================================
 // Plan File Utilities (Simple - no PlanManager class needed)
@@ -70,7 +71,11 @@ function generatePlanSlug(): string {
  * Get the plan directory path for a session
  */
 function getPlanDir(projectPath: string, sessionId: string): string {
-    return path.join(projectPath, '.mi-copilot', sessionId, 'plan');
+    return path.join(getCopilotSessionDir(projectPath, sessionId), 'plan');
+}
+
+function toPlanDisplayPath(planPath: string): string {
+    return planPath.replace(/\\/g, '/');
 }
 
 /**
@@ -97,7 +102,7 @@ async function getOrCreatePlanInfo(projectPath: string, sessionId: string): Prom
             // Use existing plan file
             const slug = planFiles[0].replace('.md', '');
             const planPath = path.join(planDir, planFiles[0]);
-            const relativePath = `.mi-copilot/${sessionId}/plan/${slug}.md`;
+            const relativePath = toPlanDisplayPath(planPath);
             logInfo(`[PlanMode] Found existing plan: ${slug}`);
             return { exists: true, slug, planPath, relativePath };
         }
@@ -109,27 +114,18 @@ async function getOrCreatePlanInfo(projectPath: string, sessionId: string): Prom
     // Generate new slug
     const slug = generatePlanSlug();
     const planPath = path.join(planDir, `${slug}.md`);
-    const relativePath = `.mi-copilot/${sessionId}/plan/${slug}.md`;
+    const relativePath = toPlanDisplayPath(planPath);
     logInfo(`[PlanMode] Generated new plan slug: ${slug}`);
     return { exists: false, slug, planPath, relativePath };
 }
 
 /**
- * Ensure .gitignore exists in .mi-copilot folder
+ * Ensure plan storage directory exists
  */
-async function ensureGitignore(projectPath: string): Promise<void> {
-    const miCopilotDir = path.join(projectPath, '.mi-copilot');
-    const gitignorePath = path.join(miCopilotDir, '.gitignore');
-    
-    try {
-        await fs.access(gitignorePath);
-    } catch {
-        // Create .gitignore
-        await fs.mkdir(miCopilotDir, { recursive: true });
-        const content = `# MI Copilot session files - auto-generated\n# Each session folder contains chat history and plans\n*/\n`;
-        await fs.writeFile(gitignorePath, content, 'utf8');
-        logDebug('[PlanMode] Created .mi-copilot/.gitignore');
-    }
+async function ensurePlanStorageDir(projectPath: string, sessionId: string): Promise<void> {
+    const sessionDir = getCopilotSessionDir(projectPath, sessionId);
+    await fs.mkdir(sessionDir, { recursive: true });
+    logDebug(`[PlanMode] Ensured plan session storage: ${toPlanDisplayPath(sessionDir)}`);
 }
 
 async function getFileMtimeMs(filePath: string): Promise<number | undefined> {
@@ -171,7 +167,7 @@ export async function initializePlanModeSession(
     planPath: string;
     relativePath: string;
 }> {
-    await ensureGitignore(projectPath);
+    await ensurePlanStorageDir(projectPath, sessionId);
     const planInfo = await getOrCreatePlanInfo(projectPath, sessionId);
     const existingState = planModeSessionStates.get(sessionId);
 

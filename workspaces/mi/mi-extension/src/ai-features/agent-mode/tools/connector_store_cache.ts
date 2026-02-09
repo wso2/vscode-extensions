@@ -21,6 +21,7 @@ import * as path from 'path';
 import { parseStringPromise } from 'xml2js';
 import { APIS } from '../../../constants';
 import { logDebug, logError, logInfo } from '../../copilot/logger';
+import { getCopilotProjectStorageDir } from '../storage-paths';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const CONNECTOR_CACHE_FILE_NAME = 'connector-store-connectors.json';
@@ -159,7 +160,7 @@ async function fetchStoreItems(urlTemplate: string, runtimeVersion: string | nul
 
 async function loadStoreItems(params: LoadStoreItemsParams): Promise<any[]> {
     const { projectPath, cacheFileName, urlTemplate, runtimeVersion, fallbackItems, label } = params;
-    const cachePath = path.join(projectPath, '.mi-copilot', cacheFileName);
+    const cachePath = path.join(getCopilotProjectStorageDir(projectPath), cacheFileName);
     const cached = await readCacheFile(cachePath);
 
     if (cached && isCacheFresh(cached, runtimeVersion)) {
