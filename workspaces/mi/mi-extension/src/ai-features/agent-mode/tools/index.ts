@@ -44,12 +44,17 @@ export {
     // Utility functions
     getAvailableConnectors,
     getAvailableInboundEndpoints,
-    // Documentation tools
-    createGetConnectorDocumentationExecute,
-    createGetConnectorDocumentationTool,
-    createGetAIConnectorDocumentationExecute,
-    createGetAIConnectorDocumentationTool,
 } from './connector_tools';
+
+// Export skill tools
+export {
+    // Execute function creator
+    createSkillExecute,
+    // Tool creator
+    createSkillTool,
+    // Utility functions
+    getAvailableSkills,
+} from './skill_tools';
 
 // Export project tools
 export {
@@ -132,10 +137,9 @@ export {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
+    SKILL_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
-    GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
-    GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
     // Plan mode tool names

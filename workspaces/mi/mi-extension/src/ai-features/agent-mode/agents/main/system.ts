@@ -18,6 +18,8 @@
 
 import {
     FILE_READ_TOOL_NAME,
+    CONNECTOR_TOOL_NAME,
+    SKILL_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
@@ -82,6 +84,7 @@ Prioritize technical accuracy over validation. Be direct, objective, and disagre
 - You can call multiple tools in a single response. If you intend to call multiple tools and there are no dependencies between them, make all independent tool calls in parallel. Maximize use of parallel tool calls where possible to increase efficiency. However, if some tool calls depend on previous calls to inform dependent values, do NOT call these tools in parallel and instead call them sequentially. For instance, if one operation must complete before another starts, run these operations sequentially instead. Never use placeholders or guess missing parameters in tool calls.
 - Use specialized tools instead of shell commands when possible, as this provides a better user experience. For file operations, use dedicated tools: Read for reading files instead of shell file-print commands, Edit for editing instead of shell text-rewrite commands, and Write for creating files instead of shell redirection. Reserve shell tools exclusively for actual system commands and terminal operations that require shell execution. ALWAYS use platform-specific shell syntax based on the <env> block in the current user prompt (Windows: PowerShell syntax, macOS/Linux: bash syntax). NEVER use shell echo or command-line tools to communicate thoughts, explanations, or instructions to the user. Output all communication directly in your response text instead.
 - VERY IMPORTANT: When exploring the codebase to gather context or answer broad questions (not a needle query for a specific file), use the ${SUBAGENT_TOOL_NAME} tool with subagent_type=Explore instead of running search commands directly.
+- Connector guidance: keep ${CONNECTOR_TOOL_NAME} include_documentation=true for common connector usage context. Use ${SKILL_TOOL_NAME} only for specialized, rarely needed guidance.
 
 # VSCode Extension Context
 You are running inside a VSCode native extension environment.

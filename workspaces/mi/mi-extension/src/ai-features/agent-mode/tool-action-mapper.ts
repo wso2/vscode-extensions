@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_PROJECT_TOOL_NAME, CONNECTOR_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME, GET_CONNECTOR_DOCUMENTATION_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_SHELL_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './tools/types';
+import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_PROJECT_TOOL_NAME, CONNECTOR_TOOL_NAME, SKILL_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_SHELL_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './tools/types';
 /**
  * Tool action states for UI display
  */
@@ -70,9 +70,8 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
         case CONNECTOR_TOOL_NAME:
             return { loading: 'fetching connectors', completed: 'fetched connectors', failed: 'failed to fetch connectors' };
 
-        case GET_CONNECTOR_DOCUMENTATION_TOOL_NAME:
-        case GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME:
-            return { loading: 'retrieving documentation', completed: 'retrieved', failed: 'failed to retrieve' };
+        case SKILL_TOOL_NAME:
+            return { loading: 'loading skill context', completed: 'loaded skill context', failed: 'failed to load skill context' };
 
         case MANAGE_CONNECTOR_TOOL_NAME:
             // Extract operation, connector names, and inbound endpoint names from tool input

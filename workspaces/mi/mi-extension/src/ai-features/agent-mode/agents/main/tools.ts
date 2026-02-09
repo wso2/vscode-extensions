@@ -31,11 +31,11 @@ import {
 import {
     createConnectorTool,
     createConnectorExecute,
-    createGetConnectorDocumentationTool,
-    createGetConnectorDocumentationExecute,
-    createGetAIConnectorDocumentationTool,
-    createGetAIConnectorDocumentationExecute,
 } from '../../tools/connector_tools';
+import {
+    createSkillTool,
+    createSkillExecute,
+} from '../../tools/skill_tools';
 import {
     createManageConnectorTool,
     createManageConnectorExecute,
@@ -90,10 +90,9 @@ import {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
+    SKILL_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
-    GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
-    GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
     BUILD_PROJECT_TOOL_NAME,
@@ -118,10 +117,9 @@ export {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
+    SKILL_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
-    GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
-    GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
     BUILD_PROJECT_TOOL_NAME,
@@ -168,8 +166,7 @@ const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
-    GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
+    SKILL_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
 ]);
 
@@ -278,15 +275,12 @@ export function createAgentTools(params: CreateToolsParams) {
             getWrappedExecute(FILE_GLOB_TOOL_NAME, createGlobExecute(projectPath))
         ),
 
-        // Connector Tools (3 tools)
+        // Connector Tools (2 tools)
         [CONNECTOR_TOOL_NAME]: createConnectorTool(
             getWrappedExecute(CONNECTOR_TOOL_NAME, createConnectorExecute(projectPath))
         ),
-        [GET_CONNECTOR_DOCUMENTATION_TOOL_NAME]: createGetConnectorDocumentationTool(
-            getWrappedExecute(GET_CONNECTOR_DOCUMENTATION_TOOL_NAME, createGetConnectorDocumentationExecute())
-        ),
-        [GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME]: createGetAIConnectorDocumentationTool(
-            getWrappedExecute(GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME, createGetAIConnectorDocumentationExecute())
+        [SKILL_TOOL_NAME]: createSkillTool(
+            getWrappedExecute(SKILL_TOOL_NAME, createSkillExecute())
         ),
 
         // Project Tools (1 tool)
