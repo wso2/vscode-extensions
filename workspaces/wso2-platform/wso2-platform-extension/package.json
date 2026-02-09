@@ -254,7 +254,7 @@
     "typescript": "5.8.3",
     "vscode-extension-tester": "8.14.1",
     "ts-loader": "9.5.4",
-    "webpack": "5.103.0",
+    "webpack": "5.104.1",
     "webpack-cli": "6.0.1",
     "webpack-permissions-plugin": "1.0.10",
     "copy-webpack-plugin": "13.0.0",
