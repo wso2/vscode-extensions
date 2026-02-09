@@ -1810,16 +1810,16 @@ importers:
         version: 6.0.1
       tslint:
         specifier: 6.1.3
-        version: 6.1.3(typescript@4.1.3)
+        version: 6.1.3(typescript@4.2.4)
       tslint-react:
         specifier: 5.0.0
-        version: 5.0.0(tslint@6.1.3(typescript@4.1.3))(typescript@4.1.3)
+        version: 5.0.0(tslint@6.1.3(typescript@4.2.4))(typescript@4.2.4)
       tslint-react-hooks:
         specifier: 2.2.2
-        version: 2.2.2(tslint@6.1.3(typescript@4.1.3))(typescript@4.1.3)
+        version: 2.2.2(tslint@6.1.3(typescript@4.2.4))(typescript@4.2.4)
       typescript:
-        specifier: 4.1.3
-        version: 4.1.3
+        specifier: 4.2.4
+        version: 4.2.4
       vscode-uri:
         specifier: 3.1.0
         version: 3.1.0
@@ -23796,8 +23796,8 @@ packages:
     engines: {node: '>=4.2.0'}
     hasBin: true
 
-  typescript@4.1.3:
-    resolution: {integrity: sha512-B3ZIOf1IKeH2ixgHhj6la6xdwR9QrLC5d1VKeCSY4tvkqhF2eqd9O7txNlS0PO3GrBAFIdr3L1ndNwteUbZLYg==}
+  typescript@4.2.4:
+    resolution: {integrity: sha512-V+evlYHZnQkaz8TRBuxTA92yZBPotr5H+WhQ7bD3hZUndx5tGOa1fuCgeSjxAzM1RiN5IzvadIXTVefuuwZCRg==}
     engines: {node: '>=4.2.0'}
     hasBin: true
 
@@ -48978,10 +48978,7 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:
@@ -57248,10 +57245,10 @@ snapshots:
 
   tslint-config-prettier@1.18.0: {}
 
-  tslint-react-hooks@2.2.2(tslint@6.1.3(typescript@4.1.3))(typescript@4.1.3):
+  tslint-react-hooks@2.2.2(tslint@6.1.3(typescript@4.2.4))(typescript@4.2.4):
     dependencies:
-      tslint: 6.1.3(typescript@4.1.3)
-      typescript: 4.1.3
+      tslint: 6.1.3(typescript@4.2.4)
+      typescript: 4.2.4
 
   tslint-react-hooks@2.2.2(tslint@6.1.3(typescript@4.9.4))(typescript@4.9.4):
     dependencies:
@@ -57275,11 +57272,11 @@ snapshots:
       tsutils: 3.21.0(typescript@4.9.4)
       typescript: 4.9.4
 
-  tslint-react@5.0.0(tslint@6.1.3(typescript@4.1.3))(typescript@4.1.3):
+  tslint-react@5.0.0(tslint@6.1.3(typescript@4.2.4))(typescript@4.2.4):
     dependencies:
-      tslint: 6.1.3(typescript@4.1.3)
-      tsutils: 3.21.0(typescript@4.1.3)
-      typescript: 4.1.3
+      tslint: 6.1.3(typescript@4.2.4)
+      tsutils: 3.21.0(typescript@4.2.4)
+      typescript: 4.2.4
 
   tslint-react@5.0.0(tslint@6.1.3(typescript@5.8.3))(typescript@5.8.3):
     dependencies:
@@ -57304,7 +57301,7 @@ snapshots:
       tsutils: 2.29.0(typescript@5.8.3)
       typescript: 5.8.3
 
-  tslint@6.1.3(typescript@4.1.3):
+  tslint@6.1.3(typescript@4.2.4):
     dependencies:
       '@babel/code-frame': 7.29.0
       builtin-modules: 1.1.1
@@ -57318,8 +57315,8 @@ snapshots:
       resolve: 1.22.11
       semver: 5.7.2
       tslib: 1.14.1
-      tsutils: 2.29.0(typescript@4.1.3)
-      typescript: 4.1.3
+      tsutils: 2.29.0(typescript@4.2.4)
+      typescript: 4.2.4
 
   tslint@6.1.3(typescript@4.9.4):
     dependencies:
@@ -57355,10 +57352,10 @@ snapshots:
       tsutils: 2.29.0(typescript@5.8.3)
       typescript: 5.8.3
 
-  tsutils@2.29.0(typescript@4.1.3):
+  tsutils@2.29.0(typescript@4.2.4):
     dependencies:
       tslib: 1.14.1
-      typescript: 4.1.3
+      typescript: 4.2.4
 
   tsutils@2.29.0(typescript@4.9.4):
     dependencies:
@@ -57375,10 +57372,10 @@ snapshots:
       tslib: 1.14.1
       typescript: 3.9.10
 
-  tsutils@3.21.0(typescript@4.1.3):
+  tsutils@3.21.0(typescript@4.2.4):
     dependencies:
       tslib: 1.14.1
-      typescript: 4.1.3
+      typescript: 4.2.4
 
   tsutils@3.21.0(typescript@4.9.4):
     dependencies:
@@ -57528,7 +57525,7 @@ snapshots:
 
   typescript@3.9.10: {}
 
-  typescript@4.1.3: {}
+  typescript@4.2.4: {}
 
   typescript@4.9.4: {}
 
