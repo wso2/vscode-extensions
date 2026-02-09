@@ -49,7 +49,7 @@ import {
     SERVER_MANAGEMENT_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
     BASH_TOOL_NAME,
-    KILL_SHELL_TOOL_NAME,
+    KILL_TASK_TOOL_NAME,
 } from './tools';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { ChatHistoryManager } from '../../chat-history-manager';
@@ -469,9 +469,9 @@ export async function executeAgent(
                             command: toolInput?.command,
                             description: toolInput?.description,
                         };
-                    } else if (part.toolName === KILL_SHELL_TOOL_NAME) {
+                    } else if (part.toolName === KILL_TASK_TOOL_NAME) {
                         displayInput = {
-                            shell_id: toolInput?.shell_id,
+                            task_id: toolInput?.task_id,
                         };
                     }
 
@@ -522,7 +522,7 @@ export async function executeAgent(
                             toolResultEvent.bashStdout = result?.stdout || result?.message;
                             toolResultEvent.bashStderr = result?.stderr;
                             toolResultEvent.bashExitCode = result?.exitCode;
-                            toolResultEvent.bashRunning = !!result?.shellId;
+                            toolResultEvent.bashRunning = !!result?.taskId;
                         }
 
                         // Send to visualizer with result action for display

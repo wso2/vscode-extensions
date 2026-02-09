@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_PROJECT_TOOL_NAME, CONNECTOR_TOOL_NAME, SKILL_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_SHELL_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './tools/types';
+import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_PROJECT_TOOL_NAME, CONNECTOR_TOOL_NAME, SKILL_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './tools/types';
 /**
  * Tool action states for UI display
  */
@@ -162,12 +162,12 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                 failed: `failed: ${displayText}`
             };
 
-        case KILL_SHELL_TOOL_NAME:
-            const shellId = toolInput?.shell_id?.substring(0, 8) || 'shell';
+        case KILL_TASK_TOOL_NAME:
+            const taskToKillId = toolInput?.task_id?.substring(0, 8) || 'task';
             return {
-                loading: `killing shell ${shellId}`,
-                completed: `killed shell ${shellId}`,
-                failed: `failed to kill shell ${shellId}`
+                loading: `killing task ${taskToKillId}`,
+                completed: `killed task ${taskToKillId}`,
+                failed: `failed to kill task ${taskToKillId}`
             };
 
         case TASK_OUTPUT_TOOL_NAME:

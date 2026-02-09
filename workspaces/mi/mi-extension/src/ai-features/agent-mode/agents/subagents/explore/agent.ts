@@ -52,7 +52,8 @@ export async function executeExploreSubagent(
     projectPath: string,
     model: 'haiku' | 'sonnet',
     getAnthropicClient: (modelId: AnthropicModel) => Promise<any>,
-    previousMessages?: any[]
+    previousMessages?: any[],
+    abortSignal?: AbortSignal
 ): Promise<SubagentResult> {
     const isResume = previousMessages && previousMessages.length > 0;
     logInfo(`[ExploreSubagent] Starting with model: ${model}${isResume ? ' (resuming from previous)' : ''}`);
@@ -125,6 +126,7 @@ export async function executeExploreSubagent(
             stopWhen: stepCountIs(30), // Allow up to 30 tool calls for thorough exploration
             temperature: 0.2, // Lower temperature for more focused exploration
             maxOutputTokens: 8000, // Allow more output for comprehensive findings
+            abortSignal,
         });
 
         logInfo(`[ExploreSubagent] Completed successfully`);

@@ -21,7 +21,7 @@ import { z } from 'zod';
 import * as childProcess from 'child_process';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { BashResult, ToolResult, BashExecuteFn, KillShellExecuteFn, TaskOutputExecuteFn, TaskOutputResult, BASH_TOOL_NAME, KILL_SHELL_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './types';
+import { BashResult, ToolResult, BashExecuteFn, KillTaskExecuteFn, TaskOutputExecuteFn, TaskOutputResult, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './types';
 import { logDebug, logError, logInfo } from '../../copilot/logger';
 import { getBackgroundSubagents } from './subagent_tool';
 import { setJavaHomeInEnvironmentAndPath } from '../../../debugger/debugHelper';
@@ -31,7 +31,7 @@ import treeKill = require('tree-kill');
 // Tool Name Constants (re-exported for convenience)
 // ============================================================================
 
-export { BASH_TOOL_NAME, KILL_SHELL_TOOL_NAME, TASK_OUTPUT_TOOL_NAME };
+export { BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME };
 
 // ============================================================================
 // Constants
@@ -79,6 +79,10 @@ function cleanupOldShells(): void {
     }
 }
 
+function generateShellTaskId(): string {
+    return `task-shell-${uuidv4().split('-')[0]}`;
+}
+
 // ============================================================================
 // Shell Tool
 // ============================================================================
@@ -116,7 +120,7 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
 
         if (run_in_background) {
             // Background execution
-            const shellId = uuidv4();
+            const taskId = generateShellTaskId();
 
             const isWindows = process.platform === 'win32';
             const proc = childProcess.spawn(
@@ -131,7 +135,7 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
             });
 
             const shell: BackgroundShell = {
-                id: shellId,
+                id: taskId,
                 process: proc,
                 command,
                 startTime: new Date(),
@@ -140,7 +144,7 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
                 exitCode: null
             };
 
-            backgroundShells.set(shellId, shell);
+            backgroundShells.set(taskId, shell);
 
             proc.stdout?.on('data', (data) => {
                 shell.output += data.toString();
@@ -153,22 +157,22 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
             proc.on('close', (code) => {
                 shell.completed = true;
                 shell.exitCode = code;
-                logInfo(`[ShellTool] Background shell ${shellId} completed with code ${code}`);
+                logInfo(`[ShellTool] Background shell ${taskId} completed with code ${code}`);
             });
 
             proc.on('error', (error) => {
                 shell.completed = true;
                 shell.exitCode = -1;
                 shell.output += `\nError: ${error.message}`;
-                logError(`[ShellTool] Background shell ${shellId} error: ${error.message}`);
+                logError(`[ShellTool] Background shell ${taskId} error: ${error.message}`);
             });
 
-            logInfo(`[ShellTool] Started background shell: ${shellId}`);
+            logInfo(`[ShellTool] Started background shell: ${taskId}`);
 
             return {
                 success: true,
-                message: `Command started in background with shell ID: ${shellId}. Use ${KILL_SHELL_TOOL_NAME} tool to terminate if needed. and use ${TASK_OUTPUT_TOOL_NAME} tool to get the output of the command.`,
-                shellId
+                message: `Command started in background with task ID: ${taskId}. Use ${KILL_TASK_TOOL_NAME} tool to terminate if needed and ${TASK_OUTPUT_TOOL_NAME} tool to get output.`,
+                taskId
             };
         } else {
             // Foreground execution with timeout
@@ -265,7 +269,7 @@ const bashInputSchema = z.object({
         `Optional timeout in milliseconds (default: ${DEFAULT_TIMEOUT}ms, max: ${MAX_TIMEOUT}ms)`
     ),
     run_in_background: z.boolean().optional().default(false).describe(
-        'Set to true to run the command in the background. Returns a shell_id that can be used with kill_shell tool.'
+        'Set to true to run the command in the background. Returns a task_id that can be used with kill_task tool.'
     ),
 });
 
@@ -276,7 +280,7 @@ export function createBashTool(execute: BashExecuteFn) {
     return (tool as any)({
         description: `Execute shell commands in the MI project directory (JAVA_HOME pre-configured).
             Always provide platform-specific commands according to <env> (Windows: PowerShell syntax, macOS/Linux: bash syntax).
-            Use run_in_background=true for long-running commands; use ${KILL_SHELL_TOOL_NAME} to terminate.
+            Use run_in_background=true for long-running commands; use ${KILL_TASK_TOOL_NAME} to terminate.
             Do NOT use shell for file reading (use file_read), content search (use grep), or file search (use glob).
             No interactive commands (vim, nano, etc.).`,
         inputSchema: bashInputSchema,
@@ -285,86 +289,113 @@ export function createBashTool(execute: BashExecuteFn) {
 }
 
 // ============================================================================
-// Kill Shell Tool
+// Kill Task Tool
 // ============================================================================
 
 /**
- * Creates the execute function for the kill_shell tool
+ * Creates the execute function for the kill_task tool
  */
-export function createKillShellExecute(): KillShellExecuteFn {
-    return async (args: { shell_id: string }): Promise<ToolResult> => {
-        const { shell_id } = args;
+export function createKillTaskExecute(): KillTaskExecuteFn {
+    return async (args: { task_id: string }): Promise<ToolResult> => {
+        const taskId = args.task_id;
 
-        logInfo(`[KillShellTool] Attempting to kill shell: ${shell_id}`);
+        logInfo(`[KillTaskTool] Attempting to kill task: ${taskId}`);
 
-        const shell = backgroundShells.get(shell_id);
+        const shell = backgroundShells.get(taskId);
+        const subagent = getBackgroundSubagents().get(taskId);
 
-        if (!shell) {
-            return {
-                success: false,
-                message: `Shell not found: ${shell_id}`,
-                error: 'No background shell with that ID exists. It may have already completed or been killed.'
-            };
-        }
-
-        if (shell.completed) {
-            const output = shell.output;
-            backgroundShells.delete(shell_id);
-            return {
-                success: true,
-                message: `Shell ${shell_id} had already completed with exit code ${shell.exitCode}.\n\n**Final output:**\n\`\`\`\n${output}\n\`\`\``
-            };
-        }
-
-        // Kill the process tree
-        return new Promise<ToolResult>((resolve) => {
-            if (!shell.process.pid) {
-                resolve({
-                    success: false,
-                    message: `Shell ${shell_id} has no process ID`,
-                    error: 'Cannot kill shell without process ID'
-                });
-                return;
+        if (shell) {
+            if (shell.completed) {
+                const output = shell.output;
+                backgroundShells.delete(taskId);
+                return {
+                    success: true,
+                    message: `Shell ${taskId} had already completed with exit code ${shell.exitCode}.\n\n**Final output:**\n\`\`\`\n${output}\n\`\`\``
+                };
             }
 
-            treeKill(shell.process.pid, 'SIGKILL', (err) => {
-                if (err) {
-                    logError(`[KillShellTool] Error killing shell ${shell_id}: ${err.message}`);
+            // Kill the process tree
+            return new Promise<ToolResult>((resolve) => {
+                if (!shell.process.pid) {
                     resolve({
                         success: false,
-                        message: `Failed to kill shell ${shell_id}`,
-                        error: err.message
+                        message: `Shell ${taskId} has no process ID`,
+                        error: 'Cannot kill shell without process ID'
                     });
-                } else {
-                    shell.completed = true;
-                    shell.exitCode = -9; // SIGKILL
-                    const output = shell.output;
-                    backgroundShells.delete(shell_id);
-                    logInfo(`[KillShellTool] Successfully killed shell ${shell_id}`);
-                    resolve({
-                        success: true,
-                        message: `Successfully killed shell ${shell_id}.\n\n**Output before kill:**\n\`\`\`\n${output}\n\`\`\``
-                    });
+                    return;
                 }
+
+                treeKill(shell.process.pid, 'SIGKILL', (err) => {
+                    if (err) {
+                        logError(`[KillTaskTool] Error killing shell ${taskId}: ${err.message}`);
+                        resolve({
+                            success: false,
+                            message: `Failed to kill shell ${taskId}`,
+                            error: err.message
+                        });
+                    } else {
+                        shell.completed = true;
+                        shell.exitCode = -9; // SIGKILL
+                        const output = shell.output;
+                        backgroundShells.delete(taskId);
+                        logInfo(`[KillTaskTool] Successfully killed shell ${taskId}`);
+                        resolve({
+                            success: true,
+                            message: `Successfully killed shell ${taskId}.\n\n**Output before kill:**\n\`\`\`\n${output}\n\`\`\``
+                        });
+                    }
+                });
             });
-        });
+        }
+
+        if (!subagent) {
+            return {
+                success: false,
+                message: `Task not found: ${taskId}`,
+                error: 'No background shell or subagent with that ID exists. It may have already completed or been killed.'
+            };
+        }
+
+        if (subagent.completed) {
+            const output = subagent.output;
+            getBackgroundSubagents().delete(taskId);
+            return {
+                success: true,
+                message: `Subagent ${taskId} had already completed.\n\n**Final output:**\n\`\`\`\n${output}\n\`\`\``
+            };
+        }
+
+        subagent.aborted = true;
+        subagent.abortController.abort();
+        subagent.completed = true;
+        subagent.success = false;
+        if (!subagent.output) {
+            subagent.output = `Subagent ${taskId} was terminated by user request.`;
+        }
+        const output = subagent.output;
+        getBackgroundSubagents().delete(taskId);
+        logInfo(`[KillTaskTool] Successfully terminated subagent ${taskId}`);
+        return {
+            success: true,
+            message: `Successfully terminated subagent ${taskId}.\n\n**Output before termination:**\n\`\`\`\n${output}\n\`\`\``
+        };
     };
 }
 
 /**
- * Input schema for kill_shell tool
+ * Input schema for kill_task tool
  */
-const killShellInputSchema = z.object({
-    shell_id: z.string().describe('The ID of the background shell to kill'),
+const killTaskInputSchema = z.object({
+    task_id: z.string().describe('The ID of the background task to terminate (shell or subagent).'),
 });
 
 /**
- * Creates the kill_shell tool
+ * Creates the kill_task tool
  */
-export function createKillShellTool(execute: KillShellExecuteFn) {
+export function createKillTaskTool(execute: KillTaskExecuteFn) {
     return (tool as any)({
-        description: `Terminate a background shell command by its shell_id. Returns any output produced before termination.`,
-        inputSchema: killShellInputSchema,
+        description: `Terminate a background task by ID. Supports both shell IDs and subagent IDs. Returns any output produced before termination.`,
+        inputSchema: killTaskInputSchema,
         execute
     });
 }
@@ -467,7 +498,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
                     const output = currentOutput;
                     resolve({
                         success: true,
-                        message: `Task ${task_id} is still running after ${effectiveTimeout / 1000}s wait.\n\n**Output so far:**\n\`\`\`\n${output}\n\`\`\`\n\nUse task_output again to check later, or kill_shell to terminate.`,
+                        message: `Task ${task_id} is still running after ${effectiveTimeout / 1000}s wait.\n\n**Output so far:**\n\`\`\`\n${output}\n\`\`\`\n\nUse task_output again to check later, or ${KILL_TASK_TOOL_NAME} to terminate.`,
                         output: output,
                         completed: false,
                         exitCode: null,
@@ -483,7 +514,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
  * Input schema for task_output tool
  */
 const taskOutputInputSchema = z.object({
-    task_id: z.string().describe('The ID of the background task (shell_id from shell tool or subagentId from task tool with run_in_background=true)'),
+    task_id: z.string().describe('The ID of the background task (from shell tool or subagent tool with run_in_background=true)'),
     block: z.boolean().optional().default(true).describe(
         'Whether to wait for task completion. Default is true. Set to false to check current status immediately.'
     ),
@@ -497,9 +528,9 @@ const taskOutputInputSchema = z.object({
  */
 export function createTaskOutputTool(execute: TaskOutputExecuteFn) {
     return (tool as any)({
-        description: `Retrieve output from a background shell command or subagent by subagentId.
+        description: `Retrieve output from a background shell command or subagent by task_id.
             Use block=true (default) to wait for completion, block=false for immediate status check.
-            Works with both shell_id from shell tool and subagentId from subagent background execution.`,
+            Works with task IDs returned from shell and subagent background execution.`,
         inputSchema: taskOutputInputSchema,
         execute
     });

@@ -61,7 +61,7 @@ import {
 } from '../../tools/plan_mode_tools';
 import {
     createBashTool,
-    createKillShellTool,
+    createKillTaskTool,
     createTaskOutputTool,
 } from '../../tools/bash_tools';
 import {
@@ -84,7 +84,7 @@ import {
     EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
     BASH_TOOL_NAME,
-    KILL_SHELL_TOOL_NAME,
+    KILL_TASK_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
 } from '../../tools/types';
 
@@ -109,7 +109,7 @@ export {
     EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
     BASH_TOOL_NAME,
-    KILL_SHELL_TOOL_NAME,
+    KILL_TASK_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
 };
 
@@ -178,7 +178,7 @@ export function createCompactAgentTools() {
 
         // Shell Tools (3 tools) - execution blocked
         [BASH_TOOL_NAME]: createBashTool(createBlockedExecute()),
-        [KILL_SHELL_TOOL_NAME]: createKillShellTool(createBlockedExecute()),
+        [KILL_TASK_TOOL_NAME]: createKillTaskTool(createBlockedExecute()),
         [TASK_OUTPUT_TOOL_NAME]: createTaskOutputTool(createBlockedExecute()),
     };
 }

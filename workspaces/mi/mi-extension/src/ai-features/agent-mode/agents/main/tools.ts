@@ -75,8 +75,8 @@ import {
 import {
     createBashTool,
     createBashExecute,
-    createKillShellTool,
-    createKillShellExecute,
+    createKillTaskTool,
+    createKillTaskExecute,
     createTaskOutputTool,
     createTaskOutputExecute,
 } from '../../tools/bash_tools';
@@ -103,7 +103,7 @@ import {
     EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
     BASH_TOOL_NAME,
-    KILL_SHELL_TOOL_NAME,
+    KILL_TASK_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
 } from '../../tools/types';
 import { ToolResult } from '../../tools/types';
@@ -130,7 +130,7 @@ export {
     EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
     BASH_TOOL_NAME,
-    KILL_SHELL_TOOL_NAME,
+    KILL_TASK_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
 };
 import { AgentEventHandler } from './agent';
@@ -330,8 +330,8 @@ export function createAgentTools(params: CreateToolsParams) {
         [BASH_TOOL_NAME]: createBashTool(
             getWrappedExecute(BASH_TOOL_NAME, createBashExecute(projectPath))
         ),
-        [KILL_SHELL_TOOL_NAME]: createKillShellTool(
-            getWrappedExecute(KILL_SHELL_TOOL_NAME, createKillShellExecute())
+        [KILL_TASK_TOOL_NAME]: createKillTaskTool(
+            getWrappedExecute(KILL_TASK_TOOL_NAME, createKillTaskExecute())
         ),
         [TASK_OUTPUT_TOOL_NAME]: createTaskOutputTool(
             getWrappedExecute(TASK_OUTPUT_TOOL_NAME, createTaskOutputExecute())

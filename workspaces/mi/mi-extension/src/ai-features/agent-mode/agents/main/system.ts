@@ -31,6 +31,7 @@ import {
     BUILD_PROJECT_TOOL_NAME,
     BASH_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
+    KILL_TASK_TOOL_NAME,
 } from '../../tools/types';
 import { SYNAPSE_GUIDE } from '../../context/synapse_guide';
 
@@ -143,6 +144,10 @@ The user's IDE selection (if any) is included in the conversation context and ma
 ## Step 6: Review and refine
 - If code validation fails, or testing fails, review the code and fix the errors.
 - DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task.
+
+## Step 7: Clean up
+- Always shutdown the server using ${SERVER_MANAGEMENT_TOOL_NAME} before ending the task.
+- Kill all the background tasks (shells/subagents) you started and still running during the task if any using ${KILL_TASK_TOOL_NAME} tool.
 
 # Important Rules
 1. **Always Read Before Edit**: Before editing any file, use ${FILE_READ_TOOL_NAME} to see the current content
