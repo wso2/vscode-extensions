@@ -147,14 +147,24 @@ export class TryItPanel {
 						}
 						
 						this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: true, message: `Collection created: ${safeName}` } });
-						
-						// Add a slight delay to ensure file system operations complete, then refresh explorer
-						setTimeout(() => {
-							vscode.commands.executeCommand('api-tryit.refreshExplorer').then(undefined, (error: unknown) => {
-								const msg = error instanceof Error ? error.message : 'Unknown error';
-								vscode.window.showErrorMessage(`Failed to refresh explorer: ${msg}`);
-							});
-						}, 500);
+
+				// Add a slight delay to ensure file system operations complete, then refresh explorer
+				setTimeout(() => {
+					vscode.commands.executeCommand('api-tryit.refreshExplorer').then(undefined, (error: unknown) => {
+						const msg = error instanceof Error ? error.message : 'Unknown error';
+						vscode.window.showErrorMessage(`Failed to refresh explorer: ${msg}`);
+					});
+				}, 500);
+
+				// Close the webview after a short delay so the webview can receive the success message
+				setTimeout(() => {
+					try {
+						this._panel.dispose();
+					} catch (err) {
+						const msg = err instanceof Error ? err.message : String(err);
+                        vscode.window.showErrorMessage(`Failed to close TryIt webview: ${msg}`);
+					}
+				}, 700);
 					} catch (error: unknown) {
 						const msg = error instanceof Error ? error.message : 'Unknown error';
 						this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: false, message: msg } });

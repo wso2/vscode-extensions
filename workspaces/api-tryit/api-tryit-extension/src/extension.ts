@@ -68,7 +68,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Send the selected item through the state machine with file path
 		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, requestItem, requestItem.filePath);
 		
-		vscode.window.showInformationMessage(`Opening: ${requestItem.request.method} ${requestItem.name}`);
+		// vscode.window.showInformationMessage(`Opening: ${requestItem.request.method} ${requestItem.name}`);
 	});
 
 	// Register command to select an item in the explorer by file path (used after save)
@@ -284,11 +284,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(setCollectionsPathCommand);
 
-	// Register a simple hello command
-	const helloCommand = vscode.commands.registerCommand('api-tryit.hello', () => {
-		vscode.window.showInformationMessage('Hello from API TryIt!');
-	});
-
 	context.subscriptions.push(
 		refreshCommand, 
 		openTryItCommand, 
@@ -302,7 +297,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		plusMenuCommand,
 		settingsCommand,
 		clearSelectionCommand,
-		helloCommand
 	);
 }
 

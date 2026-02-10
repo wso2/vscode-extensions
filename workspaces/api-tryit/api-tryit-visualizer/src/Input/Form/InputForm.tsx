@@ -103,8 +103,6 @@ const FormatOption = styled.div<{ isSelected: boolean }>`
     &:not(:last-child) { border-bottom: 1px solid rgba(255,255,255,0.1); }
 `;
 const Section = styled.div`
-    margin-bottom: 16px;
-    padding: 8px 0;
 `;
 const AddButtonWrapper = styled.div`
     margin-top: 8px;
@@ -267,7 +265,7 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
         <>
             {/* Query Parameters Section */}
             <Section>
-                <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>Query Parameter</Typography>
+                <Typography variant="subtitle2" sx={{ margin: '4px 0px 10px 0px' }}>Query Parameters</Typography>
                 <ParamList>
                     {(request.queryParameters || []).map((param, id) => (
                         <ParamItem id={`${id}`} key={param.id} keyValue={param.key} value={param.value} onKeyChange={(key) => updateQueryParam(param.id, key, param.value)} onValueChange={(value) => updateQueryParam(param.id, param.key, value)} onDelete={() => deleteQueryParam(param.id)} />
@@ -280,7 +278,7 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
 
             {/* Headers Section */}
             <Section>
-                <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>Header</Typography>
+                <Typography variant="subtitle2" sx={{ margin: '10px 0' }}>Headers</Typography>
                 <ParamList>
                     {(request.headers || []).map((header, id) => (
                         <ParamItem
@@ -304,7 +302,7 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
             {/* Body Section: form-data, form-urlencoded, binary, and raw handled by parent */}
             <BodyHeaderContainer>
                 <BodyTitleWrapper>
-                    <Typography variant="subtitle2">Body</Typography>
+                    <Typography variant="subtitle2" sx={{ margin: 0 }}>Body</Typography>
                 </BodyTitleWrapper>
                 <FormatSelectorWrapper ref={formatRef}>
                     <FormatButton onClick={() => setFormatOpen(!formatOpen)}>
