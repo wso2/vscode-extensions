@@ -17,9 +17,11 @@
  */
 
 import React from 'react';
-import { Typography, LinkButton, Codicon, TextField, Button } from '@wso2/ui-toolkit';
+import { Typography, LinkButton, Codicon, Button } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { ApiRequest, ApiResponse } from '@wso2/api-tryit-core';
+import { InputEditor } from '../../Input/InputEditor/InputEditor';
+import { COMMON_HEADERS } from '../../Input/InputEditor/SuggestionsConstants';
 import { evaluateAssertion, getAssertionDetails, getAssertionKey, getOperator } from '../assertionUtils';
 
 const AddButtonWrapper = styled.div`
@@ -36,28 +38,9 @@ const AssertionItem = styled.div`
     width: 100%;
 `;
 
-const AssertionInput = styled(TextField) <{ status?: 'pass' | 'fail' }>`
+const AssertionEditorWrapper = styled.div`
     flex-grow: 1;
-
-    ${({ status }) => status === 'pass' && `
-        &&::part(root) {
-            background-color: rgba(46, 160, 67, 0.12);
-        }
-
-        &&::part(input) {
-            background-color: rgba(46, 160, 67, 0.12);
-        }
-    `}
-
-    ${({ status }) => status === 'fail' && `
-        &&::part(root) {
-            background-color: rgba(248, 81, 73, 0.12);
-        }
-
-        &&::part(input) {
-            background-color: rgba(248, 81, 73, 0.12);
-        }
-    `}
+    min-width: 0;
 `;
 
 const AssertionFailureDetails = styled.div<{ isForm: boolean }>`
@@ -124,14 +107,39 @@ export const AssertForm: React.FC<AssertFormProps> = ({
             {(request.assertions || []).map((assertion, index) => (
                 <React.Fragment key={index}>
                     <AssertionItem>
-                        <AssertionInput
-                            id={`assertion-${index}`}
-                            value={assertion}
-                            onTextChange={(value) => updateAssertion(index, value)}
-                            placeholder="e.g., res.status = 200"
-                            status={response ? (assertionResults[index] ? 'pass' : 'fail') : undefined}
-                            sx={{ flex: 1 }}
-                        />
+                        <AssertionEditorWrapper>
+                            <InputEditor
+                                value={assertion}
+                                minHeight="34px"
+                                compact
+                                onChange={(value) => updateAssertion(index, value ?? '')}
+                                options={{
+                                    lineNumbers: 'off',
+                                    wordWrap: 'off',
+                                    scrollBeyondLastLine: false,
+                                    scrollbar: {
+                                        vertical: 'hidden',
+                                        horizontal: 'hidden',
+                                        alwaysConsumeMouseWheel: false
+                                    },
+                                    padding: { top: 8, bottom: 8 },
+                                    minimap: { enabled: false }
+                                }}
+                                assertionStatuses={response ? [assertionResults[index]] : [undefined]}
+                                suggestions={{
+                                    assertions: {
+                                        initial: ['res'],
+                                        properties: {
+                                            'res': ['status', 'headers', 'body'],
+                                            'headers': {
+                                                names: COMMON_HEADERS.map(h => h.name),
+                                                values: Object.fromEntries(COMMON_HEADERS.map(h => [h.name, h.values]))
+                                            }
+                                        }
+                                    }
+                                }}
+                            />
+                        </AssertionEditorWrapper>
                         <Button appearance='icon' onClick={() => deleteAssertion(index)}>
                             <Codicon sx={{ color: 'var(--vscode-editorGutter-deletedBackground)' }} name="trash" />
                         </Button>

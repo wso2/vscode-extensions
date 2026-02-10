@@ -55,9 +55,9 @@ const LANGUAGE_ID = 'input-editor-lang';
 /**
  * Styled container for the editor with padding
  */
-const EditorContainer = styled.div<{ minHeight?: string }>`
-    padding: 0 12px;
-    margin: 0 5px;
+const EditorContainer = styled.div<{ minHeight?: string; compact?: boolean }>`
+    padding: ${props => props.compact ? '0' : '0 12px'};
+    margin: ${props => props.compact ? '0' : '0 5px'};
     border-radius: 4px;
     background-color: #262626ff;
     min-height: ${props => props.minHeight || '100px'};
@@ -166,6 +166,10 @@ const inferSectionType = (
 interface InputEditorProps {
     value: string;
     minHeight?: string;
+    /**
+     * Compact single-line mode (TextField-sized). Disables auto-resize and line action widgets.
+     */
+    compact?: boolean;
     language?: string;
     theme?: string;
     onChange: (value: string | undefined) => void;
@@ -192,6 +196,7 @@ interface InputEditorProps {
 export const InputEditor: React.FC<InputEditorProps> = ({
     value,
     minHeight = '100px',
+    compact = false,
     language = 'json',
     theme: propTheme,
     onChange,
@@ -224,8 +229,14 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     const previousBodyFormatRef = useRef(bodyFormat);
     const suggestionsKeyRef = useRef<string>(serializeSuggestions(suggestions));
 
-    // Dynamic height state
+    // Dynamic height state (fixed to minHeight in compact mode)
     const [dynamicHeight, setDynamicHeight] = useState(minHeight);
+
+    useEffect(() => {
+        if (compact) {
+            setDynamicHeight(minHeight);
+        }
+    }, [compact, minHeight]);
 
     // Use propTheme if provided, otherwise let Monaco inherit VS Code theme
     const theme = propTheme;
@@ -301,6 +312,9 @@ export const InputEditor: React.FC<InputEditorProps> = ({
      * Updates the editor height based on content
      */
     const updateHeight = useCallback(() => {
+        if (compact) {
+            return;
+        }
         if (!editorRef.current) return;
 
         const model = editorRef.current.getModel();
@@ -325,7 +339,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                 editorRef.current.trigger('', 'codelens', {});
             }
         }
-    }, [dynamicHeight]);
+    }, [compact, dynamicHeight]);
 
     /**
      * Sets up code lens provider using configurations from props
@@ -1181,14 +1195,16 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         if (editorRef.current) {
             const model = editorRef.current.getModel();
             if (model) {
-                updateContentWidgets(model);
+                if (!compact) {
+                    updateContentWidgets(model);
+                }
                 updateAssertionDecorations(model);
             }
         }
-    }, [bodyFormat, assertionStatuses]);
+    }, [bodyFormat, assertionStatuses, compact]);
 
     return (
-        <EditorContainer>
+        <EditorContainer minHeight={minHeight} compact={compact}>
             <Editor
                 height={dynamicHeight}
                 language={languageIdRef.current}
@@ -1328,16 +1344,21 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                     const editorModel = editor.getModel();
                     if (editorModel) {
                         contentChangeDisposableRef.current = editorModel.onDidChangeContent(() => {
-                            updateHeight();
-                            // Update content widgets for delete icons
-                            updateContentWidgets(editorModel);
+                            if (!compact) {
+                                updateHeight();
+                                // Update content widgets for delete icons
+                                updateContentWidgets(editorModel);
+                            }
                             updateAssertionDecorations(editorModel);
                             triggerInitialSuggestionsIfNeeded();
                         });
-                        // Initial height update
-                        updateHeight();
-                        // Initial content widgets update
-                        updateContentWidgets(editorModel);
+
+                        if (!compact) {
+                            // Initial height update
+                            updateHeight();
+                            // Initial content widgets update
+                            updateContentWidgets(editorModel);
+                        }
                         updateAssertionDecorations(editorModel);
                     }
                     

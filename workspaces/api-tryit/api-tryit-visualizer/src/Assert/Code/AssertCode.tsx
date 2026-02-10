@@ -140,7 +140,7 @@ export const AssertCode: React.FC<AssertCodeProps> = ({
                 Assertions
             </Typography>
             <InputEditor
-                minHeight='calc(100vh - 280px)'
+                minHeight='calc(100vh - 380px)'
                 onChange={handleAssertionsChange}
                 value={(request.assertions || []).join('\n')}
                 codeLenses={assertionsCodeLenses}
