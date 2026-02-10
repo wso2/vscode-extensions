@@ -97,6 +97,9 @@ export namespace NodeStyles {
     `;
 
     export const Title = styled.div`
+        display: flex;
+        align-items: center;
+        gap: 8px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -106,7 +109,6 @@ export namespace NodeStyles {
 
     export const Icon = styled.i`
         display: inline-block;
-        margin-right: 8px;
         font-size: 14px;
         line-height: 1;
         opacity: 0.95;

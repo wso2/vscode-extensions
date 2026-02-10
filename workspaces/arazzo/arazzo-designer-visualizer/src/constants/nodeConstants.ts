@@ -66,3 +66,4 @@ export const CANVAS_ZOOM = 1.25;
 export const DOT_GAP = 20;
 
 export const FONT_SIZE = 15;
+export const ICON_SIZE_STEP = 24;

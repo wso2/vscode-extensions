@@ -66,6 +66,8 @@ export class NodeFactoryVisitorVertical_v2 {
         // Ensure step nodes use the shared FONT_SIZE constant for title text
         if (node.type === 'STEP') {
             composedData.fontSize = C.FONT_SIZE;
+            // Increase icon size for step nodes by default
+            if (!('iconSize' in composedData)) composedData.iconSize = C.ICON_SIZE_STEP;
         }
 
         const reactNode = {
