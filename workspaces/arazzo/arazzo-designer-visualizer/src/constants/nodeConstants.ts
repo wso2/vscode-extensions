@@ -25,6 +25,8 @@ export const END_NODE_DIAMETER = 30;
 export const RETRY_NODE_DIAMETER = 35;
 export const DIAMOND_SIZE = 50; // Width/Height of condition node
 export const PX_PER_CHAR = 10;  // Approximate width per character for auto-sizing
+export const START_NODE_WIDTH = 80;
+export const START_NODE_HEIGHT = 40;
 
 export const LABEL_HEIGHT = 20;
 export const LABEL_WIDTH = 180;

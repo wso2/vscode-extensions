@@ -48,8 +48,8 @@ export class SizingVisitorVertical_v2 {
     private calculateNodeSize(node: FlowNode): void {       //calculate base width and height based on node type
         switch (node.type) {
             case 'START':
-                node.viewState.w = C.START_NODE_DIAMETER;
-                node.viewState.h = C.START_NODE_DIAMETER;
+                node.viewState.w = C.START_NODE_WIDTH;
+                node.viewState.h = C.START_NODE_HEIGHT;
                 break;
             case 'END':
                 node.viewState.w = C.END_NODE_DIAMETER;
