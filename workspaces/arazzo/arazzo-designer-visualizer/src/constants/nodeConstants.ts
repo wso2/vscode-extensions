@@ -17,13 +17,13 @@
  */
 
 //node related constants
-export const NODE_WIDTH = 180;
-export const NODE_HEIGHT = 60;
+export const NODE_WIDTH = 280;
+export const NODE_HEIGHT = 50;
 export const LABEL_CHARS_BEFORE_WRAP = 16;
 export const START_NODE_DIAMETER = 50;
 export const END_NODE_DIAMETER = 30;
 export const RETRY_NODE_DIAMETER = 35;
-export const DIAMOND_SIZE = 30; // Width/Height of condition node
+export const DIAMOND_SIZE = 65; // Width/Height of condition node
 export const PX_PER_CHAR = 10;  // Approximate width per character for auto-sizing
 
 export const LABEL_HEIGHT = 20;
@@ -42,8 +42,8 @@ export const FAIL_GAP_Y_Horizontal = 50;  // Vertical gap for failure paths
 //export const FAIL_GAP_X_Horizontal = 50;  // Horizontal gap for failure paths
 
 // Vertical layout constants (main flow goes down, branches go right)
-export const NODE_GAP_X_Vertical = 80;  // Horizontal gap between steps
-export const NODE_GAP_Y_Vertical = 100;  // Vertical gap between branches/failure paths
+export const NODE_GAP_X_Vertical = 60;  // Horizontal gap between steps
+export const NODE_GAP_Y_Vertical = 70;  // Vertical gap between branches/failure paths
 //export const FAIL_GAP_Y_Vertical = 50;  // Vertical gap for failure paths
 export const FAIL_GAP_X_Vertical = 50;  // Horizontal gap for failure paths
 
