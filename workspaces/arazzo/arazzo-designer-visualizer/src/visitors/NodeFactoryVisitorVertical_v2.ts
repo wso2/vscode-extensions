@@ -190,7 +190,7 @@ export class NodeFactoryVisitorVertical_v2 {
 
         let sourcePt = computeHandlePoint(source, sourceHandleId);
         let targetPt = computeHandlePoint(target, targetHandleId);
-        let labelPos = 0.8
+        let labelPos = 0.8;
 
         // Geometry helpers
         const pointInRect = (p: {x:number,y:number}, r: {x:number,y:number,w:number,h:number}) =>

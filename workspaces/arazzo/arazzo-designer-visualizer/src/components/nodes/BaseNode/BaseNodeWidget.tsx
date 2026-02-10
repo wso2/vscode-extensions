@@ -29,6 +29,7 @@ import {
 } from '../../../constants/nodeConstants';
 import { LABEL_CHARS_BEFORE_WRAP } from '../../../constants/nodeConstants';
 import { BaseNodeData } from './BaseNodeModel';
+import * as C from '../../../constants/nodeConstants';
 
 /**
  * Styled Components - Matching BI styling exactly
@@ -60,7 +61,7 @@ export namespace NodeStyles {
         background-color: ${ThemeColors.SURFACE_DIM};
         color: ${ThemeColors.ON_SURFACE};
         opacity: ${(props: NodeStyleProp) => (props.disabled ? 0.7 : 1)};
-        border: ${(props: NodeStyleProp) => (props.disabled ? 2 : 1)}px;
+        border: ${(props: NodeStyleProp) => (props.disabled ? 2 : C.NODE_BORDER_WIDTH)}px;
         border-style: ${(props: NodeStyleProp) => (props.disabled ? 'dashed' : 'solid')};
         border-color: ${(props: NodeStyleProp) =>
             props.hasError

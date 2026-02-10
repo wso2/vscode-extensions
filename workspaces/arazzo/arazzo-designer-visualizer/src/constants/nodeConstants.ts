@@ -28,7 +28,7 @@ export const PX_PER_CHAR = 10;  // Approximate width per character for auto-sizi
 
 export const LABEL_HEIGHT = 20;
 export const LABEL_WIDTH = 180;
-export const NODE_BORDER_WIDTH = 1.8;
+export const NODE_BORDER_WIDTH = 3;
 export const NODE_PADDING = 8;
 export const DIAGRAM_CENTER_X = 0;
 export const END_NODE_INNER_DIAMETER = 15;
@@ -59,6 +59,6 @@ export const WAYPOINT_SKIP_HORIZONTAL_OFFSET_MULTIPLIER = 1.5;
 
 //canvas constants
 export const CANVAS_PADDING = 100;
-export const DOT_SIZE = 10;
+export const DOT_SIZE = 1.5;
 export const CANVAS_ZOOM = 1.25;
-export const DOT_GAP = 32;
+export const DOT_GAP = 20;

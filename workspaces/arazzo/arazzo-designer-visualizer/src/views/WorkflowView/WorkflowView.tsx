@@ -362,7 +362,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                 outline: 'none',
                 position: 'relative',
                 backgroundColor: ThemeColors.SURFACE_BRIGHT,
-                backgroundImage: `radial-gradient(${ThemeColors.SURFACE_CONTAINER} ${C.DOT_SIZE}%, transparent 0px)`,
+                backgroundImage: `radial-gradient(${ThemeColors.SURFACE_CONTAINER} ${C.DOT_SIZE}px, transparent 0px)`,
                 backgroundSize: `${C.DOT_GAP}px ${C.DOT_GAP}px`,
             }}
             tabIndex={0}
@@ -414,7 +414,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                                 const vp: any = reactFlowInstance.getViewport ? reactFlowInstance.getViewport() : { x: 0, y: 0, zoom: 1 };
                                 (reactFlowInstance as any).setViewport({ x: vp.x, y: vp.y, zoom: C.CANVAS_ZOOM });
                             } else if (reactFlowInstance && typeof (reactFlowInstance as any).setZoom === 'function') {
-                                (reactFlowInstance as any).setZoom(1.5);
+                                (reactFlowInstance as any).setZoom(C.CANVAS_ZOOM);
                             }
                         }, 10);
                     } catch (e) {

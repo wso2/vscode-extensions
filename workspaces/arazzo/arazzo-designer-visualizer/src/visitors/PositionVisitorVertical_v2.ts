@@ -243,7 +243,6 @@ export class PositionVisitorVertical_v2 {
             if (!failNode.isPositioned) {
                 // Position failure node to the right (center-aligned)
                 const failCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical);
-                const failY = nodeY; // Same level as parent
                 failNode.viewState.x = failCenterX - (failNode.viewState.w / 2);
                 failNode.viewState.y = node.viewState.y + (node.viewState.h / 2) - (failNode.viewState.h / 2); // Center-aligned vertically with parent
                 failNode.isPositioned = true;
