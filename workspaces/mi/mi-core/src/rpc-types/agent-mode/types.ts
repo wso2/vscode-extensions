@@ -28,6 +28,8 @@ export type AgentMode = 'ask' | 'edit' | 'plan';
  */
 export interface SendAgentMessageRequest {
     message: string;
+    /** UI chat message id to anchor replay metadata (undo cards) to the matching assistant message */
+    chatId?: number;
     /** Agent mode: ask (read-only), edit (full tool access), or plan (planning-focused read-only) */
     mode?: AgentMode;
     /** Optional file attachments (text/PDF) for multimodal prompts */
@@ -90,6 +92,8 @@ export interface UndoLastCheckpointResponse {
 
 export interface ApplyCodeSegmentWithCheckpointRequest {
     segmentText: string;
+    /** UI chat message id to anchor replay metadata (undo cards) to the matching assistant message */
+    targetChatId?: number;
 }
 
 export interface ApplyCodeSegmentWithCheckpointResponse {
@@ -216,6 +220,8 @@ export interface AgentEvent {
  */
 export interface ChatHistoryEvent {
     type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint';
+    /** Stable UI chat id for grouping a user turn and its assistant output */
+    chatId?: number;
     content?: string;
     /** User attachments for replay rendering */
     files?: FileObject[];
@@ -227,6 +233,8 @@ export interface ChatHistoryEvent {
     /** User-friendly action text for tool result (e.g., "Created", "Read", "Failed to create") */
     action?: string;
     undoCheckpoint?: UndoCheckpointSummary;
+    /** Assistant chat id this undo checkpoint should attach to during UI replay */
+    targetChatId?: number;
     timestamp: string;
 
     // Shell tool fields (for history display)

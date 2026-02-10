@@ -302,7 +302,16 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
     const renderSegments = () =>
         parsedSegments.map((segment, i) => {
             if (segment.isCode) {
-                return <CodeSegment key={i} segmentText={segment.text} loading={segment.loading} language={segment.language} index={index} />;
+                return (
+                    <CodeSegment
+                        key={i}
+                        segmentText={segment.text}
+                        loading={segment.loading}
+                        language={segment.language}
+                        index={index}
+                        chatId={message.id}
+                    />
+                );
             } else if (segment.isToolCall) {
                 return (
                     <ToolCallSegment

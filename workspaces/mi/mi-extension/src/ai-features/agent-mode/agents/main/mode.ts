@@ -50,6 +50,7 @@ User selected ASK mode.
   - ${WEB_FETCH_TOOL_NAME}
 - Do NOT attempt mutation/tooling actions (write/edit/build/run/shell/connector changes/subagents/plan-mode/todo updates).
 - If you need to provide codes/synapse configurations provide the fully updated code in a code block. Not just the edits. System provides an option called "Add to project" in ASK mode which replaces entire files with the code you provide.
+- ASK mode "Add to project" creates Undo cards only when the applied code actually changes project files (no-op applies do not create undo checkpoints).
 - If user asks for complex changes, explain they are in ASK mode and ask them to switch to EDIT mode.`;
 
 const EDIT_MODE_POLICY = `
@@ -58,6 +59,7 @@ User selected EDIT mode.
 ### EDIT MODE_POLICY:
 - EDIT mode allows full tool usage.
 - You may read, modify files, manage connectors, run validations, use runtime tools, and execute implementation tasks.
+- Applied project-file changes in EDIT mode create undo checkpoints and corresponding Undo cards in chat.
 
 ## Edit Mode Workflow
 - If you have a simple task carry out the task using the tools provided.

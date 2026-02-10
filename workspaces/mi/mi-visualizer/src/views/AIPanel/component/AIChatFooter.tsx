@@ -128,12 +128,34 @@ function markFileChangesTagsAsNonUndoable(content: string): string {
     });
 }
 
+function hasFileChangesCheckpoint(content: string, checkpointId?: string): boolean {
+    if (!checkpointId) {
+        return false;
+    }
+
+    const regex = /<filechanges>([\s\S]*?)<\/filechanges>/g;
+    for (const match of content.matchAll(regex)) {
+        try {
+            const summary = JSON.parse(match[1]) as UndoCheckpointSummary;
+            if (summary?.checkpointId === checkpointId) {
+                return true;
+            }
+        } catch {
+            // Ignore malformed checkpoint tags.
+        }
+    }
+    return false;
+}
+
 function appendFileChangesTag(content: string, checkpoint?: UndoCheckpointSummary): string {
     if (!checkpoint) {
         return content;
     }
 
     const normalizedContent = markFileChangesTagsAsNonUndoable(content);
+    if (hasFileChangesCheckpoint(normalizedContent, checkpoint.checkpointId)) {
+        return normalizedContent;
+    }
 
     const fileChangesTag = `<filechanges>${JSON.stringify(checkpoint)}</filechanges>`;
     if (normalizedContent.includes(fileChangesTag)) {
@@ -1127,6 +1149,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             // modelMessages will be sent with the "stop" event
             const response = await rpcClient.getMiAgentPanelRpcClient().sendAgentMessage({
                 message: messageToSend,
+                chatId,
                 mode: agentMode,
                 files,
                 images,
