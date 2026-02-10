@@ -74,10 +74,7 @@ function parseCurl(curl: string): {
 				body = tokens[i + 1];
 				i++;
 			}
-		} else if (token.startsWith('http://') || token.startsWith('https://') || token.startsWith('localhost') || token.includes('://')) {
-			url = token;
-		} else if (!token.startsWith('-') && !url && token !== method) {
-			// Treat as URL if it doesn't start with a flag and no URL found yet
+		} else if (token.startsWith('http://') || token.startsWith('https://')) {
 			url = token;
 		}
 	}

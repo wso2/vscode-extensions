@@ -24,7 +24,7 @@ import * as vscode from 'vscode';
 import { BallerinaExtension } from "src/core";
 import Handlebars from "handlebars";
 import { clientManager, findRunningBallerinaProcesses, handleError, HTTPYAC_CONFIG_TEMPLATE, TRYIT_TEMPLATE, waitForBallerinaService } from "./utils";
-import { BIDesignModelResponse, EVENT_TYPE, MACHINE_VIEW, OpenAPISpec, ProjectInfo } from "@wso2/ballerina-core";
+import { AIPanelPrompt, BIDesignModelResponse, EVENT_TYPE, MACHINE_VIEW, OASpec, OpenAPISpec, ProjectInfo, SHARED_COMMANDS } from "@wso2/ballerina-core";
 import { getProjectWorkingDirectory } from "../../utils/file-utils";
 import { startDebugging } from "../editor-support/activator";
 import { v4 as uuidv4 } from "uuid";
@@ -164,8 +164,19 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
             const selectedPort: number = await getServicePort(projectPath, selectedService, openapiSpec);
             selectedService.port = selectedPort;
 
-            const tryitFileUri = await generateTryItFileContent(targetDir, openapiSpec, selectedService, resourceMetadata);
-            await openInSplitView(tryitFileUri, 'http');
+            // const tryitFileUri = await generateTryItFileContent(targetDir, openapiSpec, selectedService, resourceMetadata);
+            // await openInSplitView(tryitFileUri, 'http');
+            const prompt: AIPanelPrompt = {
+                type: 'text',
+                text: `
+                OpenAPI specification for the service '${selectedService.name || selectedService.basePath}':
+                ${JSON.stringify(openapiSpec)}
+                Here is the current API Specifiction.
+                How to start API testing ?`,
+                planMode: true,
+                autoSendConfig: { autosend: true, hidden_init: true }
+            };
+            commands.executeCommand(SHARED_COMMANDS.OPEN_AI_PANEL, prompt);
         } else if (selectedService.type === ServiceType.GRAPHQL) {
             const selectedPort: number = await getServicePort(projectPath, selectedService);
             const port = selectedPort;

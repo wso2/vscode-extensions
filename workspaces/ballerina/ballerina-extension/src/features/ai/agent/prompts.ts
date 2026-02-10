@@ -27,45 +27,70 @@ import { extractResourceDocumentContent, flattenProjectToFiles } from "../utils/
 import { HTTP_REQUEST_TOOL_NAME } from "./tools/http-request";
 
 /**
- * Generates the system prompt for the try-it agent
+ * The instructions for the API testing
  */
-export function getTryItSystemPrompt(_projects: ProjectSource[], _op: OperationType): string {
-    return `You are an expert assistant to help test API endpoints implemented in Ballerina. You will be helping with designing test cases and making HTTP requests to the API endpoints in a step-by-step manner.
+export function getAPITestingInstructions(): string {
+    return `
+# API testing guidelines:
+API testing is carried out with the idea of scenario-based testing. Each scenario represents a specific request to a particular API endpoint with defined parameters, headers, and body. 
+## Use cases:
+### Testing an API endpoint you implemented: 
+After implementing an API endpoint, create test scenarios to validate its functionality, performance, and error handling. then use the ${HTTP_REQUEST_TOOL_NAME} tool to execute the test scenarios.
+### Testing an existing API endpoint:
+If the user explicitly asks for testing an existing API endpoint, follow the following steps:
+1. Identify the API endpoint(s) to be tested based on the user query.
+2. Ask the user to provide a specific test scenario. 
+- If this is the initial message, provide a set of 1-2 example test scenarios as prompt suggestions under some of the identified endpoints and ask the user to choose from them or provide their own scenario.
+- each scenario must be surrounded by <prompt_suggestion> tags and should be catagirized by the endpoint if multiple endpoints are involved.
+Eg:
+### POST /users
+<prompt_suggestion>Valid request to create a user</prompt_suggestion>
+<prompt_suggestion>Invalid user creation request with missing parameters</prompt_suggestion>
 
-ONLY answer Ballerina-related or API testing related queries.
+### GET /users/{id}
+<prompt_suggestion>Valid request to get user details</prompt_suggestion>
 
-<system-reminder> tags contain useful information and reminders. They are NOT part of the user's provided input or the tool result. therefore avoid responding using them.
+- You should only run these scenarios once the user have provided the scenario by chosing from your suggestions or by providing their own scenario. Do not run any scenario without the user explicitly providing/choosing the scenario.
+- Once the scenarios is clear, create and send HTTP requests to the relevant API endpoints using ${HTTP_REQUEST_TOOL_NAME} tool.
 
-# Guidelines for Testing APIs
-1. Identify all the API endpoints available in the provided specification.
-2. Identify the relevent endpoint(s) based on the user query.
-3. If the user provides specific test scenarios, focus on those scenarios.
-   Otherwise, create a diverse set of test cases covering:
-   - Valid requests with expected parameters and payloads.
-   - Invalid requests with missing or incorrect parameters.
-   - Boundary cases (e.g., maximum/minimum values).
-   - Error handling scenarios.
-4. Once the test cases are identified, create and send HTTP requests to the relevant API endpoints using ${HTTP_REQUEST_TOOL_NAME} tool.
-5. In case of any request related errors, debug the requests and re-send them.
-6. Analyze the responses received from the API endpoints.
-7. Provide a concise summary of the test results to the user, highlighting any issues or unexpected behaviors.
+In both cases, after executing the test scenarios, if you identify request related errors, debug the requests and re-send them. If you identify server related errors, try to fix the implementation and then re-run the tests. Avoid going for more than 2 iterations of fixing and re-running. If you can't fix the issue within 2 iterations, provide a concise summary of the issue, what you tried so far, and what else you can try.
 
-# ${HTTP_REQUEST_TOOL_NAME} Tool Usage Guidelines
+# ${HTTP_REQUEST_TOOL_NAME} Tool Usage Guidelines:
+When using the ${HTTP_REQUEST_TOOL_NAME} tool, follow the below guidelines:
 - Before making the request, provide the scenario number and the topic Eg. 
 ## Scenario 1: Valid request to create a user
 - immediately call the ${HTTP_REQUEST_TOOL_NAME} tool with the necessary parameters.
-- Once the tool returns a response, show both the request and response details to the user. Eg:
-**Request**:
-- Method: GET
-- URL: http://api.example.com/users/123
-- Headers: { "Authorization": "Bearer token" }
-- Body: N/A
+- Once the tool returns a response, show both the request and response details as below. Be mindful to only show relevant details to the user and avoid showing unnecessary information that might be confusing. For example, if the response has a lot of headers, only show the relevant headers instead of all of them.
+Request and response details format with Eg.:
+**Request**
+\`\`\`http
+POST /users
+Content-Type: application/json
 
-**Response**:
-- Status: 200 OK
-- Headers: { "Content-Type": "application/json" }
-- Body: { "id": 123, "name": "John Doe", "email": "john.doe@example.com" }
+{
+  "name": "John",
+  "email": "john.doe@example.com"
+}
+\`\`\`
 
+**Response**
+\`\`\`http
+201 Created
+Content-Type: application/json
+
+{
+  "id": "123",
+  "name": "John",
+  "email": "john.doe@example.com"
+}
+\`\`\`
+**Evaluation**
+- The request was processed successfully.
+- The response status code is \`201 Created\`.
+- The response body contains a generated \`id\`.
+- The returned \`name\` and \`email\` match the request payload.
+
+**Result:** ✅ **PASS**
 `;
 }
 /**
@@ -224,6 +249,10 @@ ${getLanglibInstructions()}
 - Do NOT create a new markdown file to document each change or summarize your work unless specifically requested by the user.
 - Do not add/modify toml files (Config.toml/Ballerina.toml/Dependencies.toml) as you don't have access to those files.
 - Prefer modifying existing bal files over creating new files unless explicitly asked to create a new file in the query.
+
+# API Testing Guidelines
+- You have the capability of testing HTTP APIs. Use this capability to test the API endpoints you implement or if the user explicitly asks for testing their API endpoints. Follow the guidelines below when testing APIs.
+${getAPITestingInstructions()}
 
 ${getNPSuffix(projects, op)}
 `;

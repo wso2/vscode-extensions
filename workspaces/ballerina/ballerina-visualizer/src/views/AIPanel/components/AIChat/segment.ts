@@ -1,4 +1,3 @@
-
 export enum SegmentType {
     Code = "Code",
     Text = "Text",
@@ -12,6 +11,7 @@ export enum SegmentType {
     Button = "Button",
     SpecFetcher = "SpecFetcher",
     ReviewActions = "ReviewActions",
+    PromptSuggestion = "PromptSuggestion",
 }
 
 interface Segment {
@@ -31,6 +31,49 @@ function getCommand(command: string) {
     } else {
         return command.replaceAll(/"/g, "");
     }
+}
+
+export interface ActionButton {
+    type: string;
+    content: string;
+}
+
+/**
+ * Parses <action_button> tags from the input string and extracts raw button data.
+ * @param input The string to parse for action button tags
+ * @returns A tuple containing an array of raw button data (type and content pairs) and the remaining text with tags removed
+ */
+function parseActionButtons(input: string): [ActionButton[], string] {
+    const rawButtons: ActionButton[] = [];
+    let remainingText = "";  // Start empty
+    
+    const actionButtonRegex = /<action_button\s+type="([^"]+)">([\s\S]*?)<\/action_button>/g;
+    const matches = Array.from(input.matchAll(actionButtonRegex));
+
+    let lastIndex = 0;
+    for (const match of matches) {
+        // Append text between last index and current match
+        if (match.index! > lastIndex) {
+            remainingText += input.slice(lastIndex, match.index);
+        }
+        
+        const buttonType = match[1];
+        const buttonContent = match[2].trim();
+    
+        rawButtons.push({
+            type: buttonType,
+            content: buttonContent,
+        });
+        
+        lastIndex = match.index! + match[0].length;
+    }
+    
+    // Append remaining text after last match
+    if (lastIndex < input.length) {
+        remainingText += input.slice(lastIndex);
+    }
+    
+    return [rawButtons, remainingText];
 }
 
 function splitHalfGeneratedCode(content: string): Segment[] {
@@ -86,7 +129,7 @@ export function splitContent(content: string): Segment[] {
     // Combined regex to capture either <code ...>```<language> code ```</code> or <progress>Text</progress>
     // Using matchAll for stateless iteration to avoid regex lastIndex corruption during streaming
     const regexPattern =
-        /<code\s+filename="([^"]+)"(?:\s+type=("test"|"ai_map"|"type_creator"))?>\s*```(\w+)\s*([\s\S]*?)```\s*<\/code>|<progress>([\s\S]*?)<\/progress>|<toolcall>([\s\S]*?)<\/toolcall>|<toolresult>([\s\S]*?)<\/toolresult>|<todo>([\s\S]*?)<\/todo>|<attachment>([\s\S]*?)<\/attachment>|<scenario>([\s\S]*?)<\/scenario>|<button\s+type="([^"]+)">([\s\S]*?)<\/button>|<inlineCode>([\s\S]*?)<inlineCode>|<references>([\s\S]*?)<references>|<connectorgenerator>([\s\S]*?)<\/connectorgenerator>|<reviewactions>([\s\S]*?)<\/reviewactions>/g;
+        /<code\s+filename="([^"]+)"(?:\s+type=("test"|"ai_map"|"type_creator"))?>\s*```(\w+)\s*([\s\S]*?)```\s*<\/code>|<progress>([\s\S]*?)<\/progress>|<toolcall>([\s\S]*?)<\/toolcall>|<toolresult>([\s\S]*?)<\/toolresult>|<todo>([\s\S]*?)<\/todo>|<attachment>([\s\S]*?)<\/attachment>|<scenario>([\s\S]*?)<\/scenario>|<button\s+type="([^"]+)">([\s\S]*?)<\/button>|<inlineCode>([\s\S]*?)<inlineCode>|<references>([\s\S]*?)<references>|<connectorgenerator>([\s\S]*?)<\/connectorgenerator>|<reviewactions>([\s\S]*?)<\/reviewactions>|<prompt_suggestion>([\s\S]*?)<\/prompt_suggestion>/g;
 
     // Convert to array to avoid stateful regex iteration issues
     const matches = Array.from(content.matchAll(regexPattern));
@@ -105,7 +148,7 @@ export function splitContent(content: string): Segment[] {
         if (match.index > lastIndex) {
             updateLastProgressSegmentLoading();
 
-            const textSegment = content.slice(lastIndex, match.index);
+            const textSegment = content.slice(lastIndex, match.index).replace(/<prompt_suggestion>[\s\S]*$/g, '');// Remove any trailing text after an unmatched <prompt_suggestion> to prevent it from being treated as normal text
             segments.push(...splitHalfGeneratedCode(textSegment));
         }
 
@@ -136,13 +179,14 @@ export function splitContent(content: string): Segment[] {
             });
         } else if (match[6]) {
             // <toolcall> block matched
-            const toolcallText = match[6];
-
+            const toolcallContent = match[6];
+            const [actionButtons, toolcallText] = parseActionButtons(toolcallContent);
             updateLastProgressSegmentLoading();
             segments.push({
                 type: SegmentType.ToolCall,
                 loading: true,
                 text: toolcallText,
+                actionButtons: actionButtons,
             });
         } else if (match[7]) {
             // <toolresult> block matched
@@ -248,6 +292,16 @@ export function splitContent(content: string): Segment[] {
                 loading: false,
                 text: "",
             });
+        } else if (match[17]) {
+            // <prompt_suggestion> block matched
+            const suggestionText = match[17];
+
+            updateLastProgressSegmentLoading();
+            segments.push({
+                type: SegmentType.PromptSuggestion,
+                loading: false,
+                text: suggestionText,
+            });
         }
 
         // Update lastIndex to the end of the current match
@@ -258,7 +312,7 @@ export function splitContent(content: string): Segment[] {
     if (lastIndex < content.length) {
         updateLastProgressSegmentLoading();
 
-        const remainingText = content.slice(lastIndex);
+        const remainingText = content.slice(lastIndex).replace(/<prompt_suggestion>[\s\S]*$/g, '');// Remove any trailing text after an unmatched <prompt_suggestion> to prevent it from being treated as normal text
         segments.push(...splitHalfGeneratedCode(remainingText));
     }
 

@@ -41,7 +41,7 @@ import { Button, Codicon } from "@wso2/ui-toolkit";
 
 import { AIChatInputRef } from "../AIChatInput";
 import ProgressTextSegment from "../ProgressTextSegment";
-import ToolCallSegment from "../ToolCallSegment";
+import ToolCallSegment, { ActionButtonConfig } from "../ToolCallSegment";
 import TodoSection from "../TodoSection";
 import { ConnectorGeneratorSegment } from "../ConnectorGeneratorSegment";
 import RoleContainer from "../RoleContainter";
@@ -76,8 +76,12 @@ import { getOnboardingOpens, incrementOnboardingOpens, convertToUIMessages, isCo
 
 import FeedbackBar from "./../FeedbackBar";
 import { useFeedback } from "./utils/useFeedback";
-import { SegmentType, splitContent } from "./segment";
+import { SegmentType, splitContent, ActionButton } from "./segment";
 import ReviewActions from "../ReviewActions";
+import PromptSuggestions from "../PromptSuggestions";
+
+// var projectUuid = "";
+// var chatLocation = "";
 
 const NO_DRIFT_FOUND = "No drift identified between the code and the documentation.";
 const DRIFT_CHECK_ERROR = "Failed to check drift between the code and the documentation. Please try again.";
@@ -172,6 +176,16 @@ const AIChat: React.FC = () => {
                 .getDefaultPrompt()
                 .then((defaultPrompt: AIPanelPrompt) => {
                     if (defaultPrompt) {
+                        // Handle text-type prompts
+                        if (defaultPrompt.type === 'text') {
+                            setIsPlanModeEnabled(defaultPrompt.planMode);
+                            if (defaultPrompt.autoSendConfig?.autosend) {
+                                const message_type = defaultPrompt.autoSendConfig.hidden_init ? "question" : "user_message";
+                                // Auto Send the prompt
+                                handleSend({ input: [{ content: defaultPrompt.text ? defaultPrompt.text : "" }], attachments: [] }, message_type);
+                                return; // Skip setting the prompt in the input box since it's auto-sent
+                            }
+                        }
                         aiChatInputRef.current?.setInputContent(defaultPrompt);
 
                         // Extract CodeContext from both command-template metadata and text-type direct param
@@ -185,10 +199,6 @@ const AIChat: React.FC = () => {
                             setCodeContext(codeCtx);
                         }
 
-                        // Handle plan mode for text-type prompts
-                        if (defaultPrompt.type === 'text') {
-                            setIsPlanModeEnabled(defaultPrompt.planMode);
-                        }
                     }
                 });
         };
@@ -392,8 +402,7 @@ const AIChat: React.FC = () => {
                 setMessages((prevMessages) => {
                     const newMessages = [...prevMessages];
                     if (newMessages.length > 0) {
-                        newMessages[newMessages.length - 1].content += `\n\n<toolcall>Sending HTTP request ...</toolcall>`;
-                        newMessages[newMessages.length - 1].content += `\n\n<button type="open_api_tryit">${response.toolInput?.url ? response.toolInput.url : ""}</button>`;
+                        newMessages[newMessages.length - 1].content += `\n\n<toolcall>Sending HTTP request ... <action_button type="input-json-viewer">${response.toolInput ? JSON.stringify(response.toolInput) : ""}</action_button> <action_button type="open_api_tryit">${response.toolInput?.curlCommand ? response.toolInput.curlCommand : ""}</action_button></toolcall>`;
                     }
                     return newMessages;
                 });
@@ -840,7 +849,7 @@ const AIChat: React.FC = () => {
         }
     }
 
-    async function handleSend(content: { input: Input[]; attachments: Attachment[]; metadata?: Record<string, any> }) {
+    async function handleSend(content: { input: Input[]; attachments: Attachment[]; metadata?: Record<string, any> }, type: string = "user_message") {
         setCurrentGeneratingPromptIndex(otherMessages.length);
         setIsPromptExecutedInCurrentWindow(true);
         setFeedbackGiven(null);
@@ -862,7 +871,7 @@ const AIChat: React.FC = () => {
         const uerMessage = getUserMessage([stringifiedContent, content.attachments]);
         setMessages((prevMessages) => [
             ...prevMessages,
-            { role: "User", content: uerMessage, type: "user_message" },
+            { role: "User", content: uerMessage, type: type },
             { role: "Copilot", content: "", type: "assistant_message" }, // Add a new message for the assistant
         ]);
 
@@ -1310,9 +1319,46 @@ const AIChat: React.FC = () => {
 
         setApprovalRequest(null);
     };
-    
-    const handleOpenAPITryIt = (apiUrl: string) => {
-        console.log("Trying API URL:", apiUrl);
+
+    /**
+     * Converts raw action button data into ActionButtonConfig objects for ToolCallSegment.
+     * @param rawButtons Array of raw button data with type and content
+     * @returns Array of ActionButtonConfig objects ready for rendering
+     */
+    function convertActionButtonsToConfigs(rawButtons: ActionButton[]): ActionButtonConfig[] {
+        const actionButtons: ActionButtonConfig[] = [];
+
+        for (const rawButton of rawButtons) {
+            if (rawButton.type === "input-json-viewer") {
+                try {
+                    const jsonData = JSON.parse(rawButton.content);
+                    actionButtons.push({
+                        type: "json-viewer",
+                        data: jsonData,
+                        label: "Input",
+                        title: "View input data",
+                    });
+                } catch (error) {
+                    console.error("Failed to parse JSON for action button:", error);
+                }
+            } else if (rawButton.type === "open_api_tryit") {    
+            actionButtons.push({
+                type: "custom",
+                icon: "codicon-open-preview",
+                title: "Edit in API TryIt",
+                onClick: () => { handleOpenAPITryIt(rawButton.content) },
+            });
+
+            }
+        }
+        return actionButtons;
+    }
+
+    const handleOpenAPITryIt = (curl: string) => {
+        console.log("[Try It] Opening CURL Command:", curl);
+        const commands = ["api-tryit.openFromCurl", curl];
+        rpcClient.getCommonRpcClient()
+        .executeCommand({commands})
     }
 
     async function processLLMDiagnostics() {
@@ -1518,12 +1564,16 @@ const AIChat: React.FC = () => {
                                                 />
                                             );
                                         } else if (segment.type === SegmentType.ToolCall) {
+                                            const actionButtonConfigs = segment.actionButtons 
+                                                ? convertActionButtonsToConfigs(segment.actionButtons)
+                                                : [];
                                             return (
                                                 <ToolCallSegment
                                                     key={`tool-call-${i}`}
                                                     text={segment.text}
                                                     loading={segment.loading}
                                                     failed={segment.failed}
+                                                    actionButtons={actionButtonConfigs}
                                                 />
                                             );
                                         } else if (segment.type === SegmentType.Todo) {
@@ -1581,6 +1631,14 @@ const AIChat: React.FC = () => {
                                             );
                                         } else if (segment.type === SegmentType.References) {
                                             return <ReferenceDropdown key={`references-${i}`} links={JSON.parse(segment.text)} />;
+                                        } else if (segment.type === SegmentType.PromptSuggestion) {
+                                            return (
+                                                <PromptSuggestions
+                                                    key={`prompt-suggestion-${i}`}
+                                                    text={segment.text}
+                                                    aiChatInputRef={aiChatInputRef}
+                                                />
+                                            );
                                         } else if (segment.type === SegmentType.Button) {
                                              if (
                                                 "buttonType" in segment &&
@@ -1613,19 +1671,6 @@ const AIChat: React.FC = () => {
                                                 return (
                                                     <VSCodeButton key={`btn-saved-${i}`} title="Documentation has been saved" disabled>
                                                         {"Saved"}
-                                                    </VSCodeButton>
-                                                );
-                                            } else if (
-                                                "buttonType" in segment && 
-                                                segment.buttonType === "open_api_tryit"
-                                            ){
-                                                return (
-                                                    <VSCodeButton
-                                                        key={`btn-openapi-${i}`}
-                                                        title="Open API in TryIt"
-                                                        onClick={() => handleOpenAPITryIt(segment.text)}
-                                                    >
-                                                        {"Open in TryIt"}
                                                     </VSCodeButton>
                                                 );
                                             }
