@@ -73,9 +73,9 @@ export interface ModeReminderParams {
 
 export const PLAN_MODE_SHARED_GUIDELINES = `
 - PLAN mode is for implementation planning, not implementation.
-- Allowed actions: read-only investigation, subagent-based exploration, todo tracking, and asking clarification questions.
-- Do NOT mutate project artifacts (no connector changes, no build/run/shell, no implementation file edits).
-- Exception: You may create/edit ONLY the assigned plan file while in PLAN mode.
+- Allowed actions: read-only investigation, subagent-based exploration, todo tracking, asking clarification questions, and read-only shell exploration.
+- Do NOT mutate project artifacts (no connector changes, no build/run, no mutating shell commands, no implementation file edits).
+- Write operations are disabled in PLAN mode, except creating/editing the assigned plan file via file_write/file_edit.
 - If requirements are unclear, use ${ASK_USER_TOOL_NAME} to clarify before finalizing the plan.
 - Do NOT use ${ASK_USER_TOOL_NAME} to ask "should I proceed?" or "is this plan okay?".
 - Produce a decision-complete implementation plan, then use ${EXIT_PLAN_MODE_TOOL_NAME} for approval.
