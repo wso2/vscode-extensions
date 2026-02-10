@@ -169,7 +169,7 @@ export const BaseNodeWidget: React.FC<BaseNodeWidgetProps> = ({
             onMouseLeave={() => setHovered(false)}
         >
             <NodeStyles.Header>
-                <NodeStyles.Title title={data.label}>
+                <NodeStyles.Title title={data.label} style={{ fontSize: (data as any).fontSize ?? 14 }}>
                     {data.iconClass ? (
                         <NodeStyles.Icon
                             className={data.iconClass}

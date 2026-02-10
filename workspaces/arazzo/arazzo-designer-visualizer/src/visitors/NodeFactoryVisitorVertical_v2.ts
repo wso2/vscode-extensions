@@ -63,6 +63,10 @@ export class NodeFactoryVisitorVertical_v2 {
         if (node.type === 'STEP' && !composedData.iconClass) {
             composedData.iconClass = 'fw fw-bi-arrow-outward'; // Default icon for steps
         }
+        // Ensure step nodes use the shared FONT_SIZE constant for title text
+        if (node.type === 'STEP') {
+            composedData.fontSize = C.FONT_SIZE;
+        }
 
         const reactNode = {
             id: node.id,

@@ -64,3 +64,5 @@ export const CANVAS_PADDING = 100;
 export const DOT_SIZE = 1.5;
 export const CANVAS_ZOOM = 1.25;
 export const DOT_GAP = 20;
+
+export const FONT_SIZE = 15;
