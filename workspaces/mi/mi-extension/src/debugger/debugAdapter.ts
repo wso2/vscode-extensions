@@ -26,6 +26,7 @@ import { getStateMachine, openView, refreshUI } from '../stateMachine';
 import { webviews } from '../visualizer/webview';
 import { ViewColumn } from 'vscode';
 import { COMMANDS } from '../constants';
+import { LOCALHOST, ADMIN, REMOTE } from './constants';
 import { INCORRECT_SERVER_PATH_MSG } from './constants';
 import { extension } from '../MIExtensionContext';
 import { EVENT_TYPE, miServerRunStateChanged } from '@wso2/mi-core';
@@ -47,13 +48,39 @@ export class MiDebugAdapter extends LoggingDebugSession {
 
     private variableHandles: Handles<any>;
 
-    public constructor(private projectUri: string) {
+    public constructor(private projectUri: string, session?: vscode.DebugSession) {
         super();
         // debugger uses zero-based lines and columns
         this.setDebuggerLinesStartAt1(false);
         this.setDebuggerColumnsStartAt1(false);
 
-        this.debuggerHandler = new Debugger(DebuggerConfig.getCommandPort(), DebuggerConfig.getEventPort(), DebuggerConfig.getHost(), projectUri);
+        const debuggerProperties = session?.configuration?.properties;
+        if (debuggerProperties) {
+            DebuggerConfig.setRemoteDebuggingEnabled(debuggerProperties.type === REMOTE);
+        } else {
+            DebuggerConfig.setRemoteDebuggingEnabled(false);
+        }
+        if (DebuggerConfig.isRemoteDebuggingEnabled()) {
+            const commandPort = debuggerProperties.commandPort || 9005;
+            const eventPort = debuggerProperties.eventPort || 9006;
+            const serverHost = debuggerProperties.serverHost || LOCALHOST;
+            DebuggerConfig.setHost(serverHost);
+            DebuggerConfig.setServerPort(debuggerProperties.serverPort || 8290);
+            DebuggerConfig.setServerReadinessPort(debuggerProperties.serverReadinessPort || 9201);
+            DebuggerConfig.setManagementPort(debuggerProperties.managementPort || 9164);
+            DebuggerConfig.setManagementUserName(debuggerProperties.managementUsername || ADMIN);
+            DebuggerConfig.setManagementPassword(debuggerProperties.managementPassword || ADMIN);
+            DebuggerConfig.setConnectionTimeout(debuggerProperties.connectionTimeoutInSecs || 10);
+            this.debuggerHandler = new Debugger(commandPort, eventPort, serverHost, projectUri);
+        } else {
+            DebuggerConfig.setHost(LOCALHOST);
+            DebuggerConfig.setServerPort(DebuggerConfig.getDefaultServerPort());
+            DebuggerConfig.setServerReadinessPort(9201);
+            DebuggerConfig.setManagementPort(9164);
+            DebuggerConfig.setManagementUserName(ADMIN);
+            DebuggerConfig.setManagementPassword(ADMIN);
+            this.debuggerHandler = new Debugger(DebuggerConfig.getCommandPort(), DebuggerConfig.getEventPort(), DebuggerConfig.getHost(), projectUri);
+        }
         // setup event handlers
         this.debuggerHandler.on('stopOnEntry', () => {
             this.sendEvent(new StoppedEvent('entry', MiDebugAdapter.threadID));
@@ -284,10 +311,23 @@ export class MiDebugAdapter extends LoggingDebugSession {
 
                         DebuggerConfig.setVmArgs(args?.vmArgs ? args?.vmArgs : []);
 
-                        await setManagementCredentials(serverPath);
-
                         vscode.commands.executeCommand('setContext', 'MI.isRunning', 'true');
-                        executeTasks(this.projectUri, serverPath, isDebugAllowed)
+                        if (DebuggerConfig.isRemoteDebuggingEnabled()) {
+                            this.debuggerHandler?.initializeDebugger().then(() => {
+                                openRuntimeServicesWebview(this.projectUri);
+                                extension.isServerStarted = true;
+                                RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: 'micro-integrator.runtime-services-panel' }, 'Running');
+                                response.success = true;
+                                this.sendResponse(response);
+                            }).catch(error => {
+                                const completeError = `Error while initializing the Debugger: ${error}`;
+                                vscode.window.showErrorMessage(completeError);
+                                this.sendError(response, 1, completeError);
+                                vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
+                            });
+                        } else {
+                            await setManagementCredentials(serverPath);
+                            executeTasks(this.projectUri, serverPath, isDebugAllowed)
                             .then(async () => {
                                 if (args?.noDebug) {
                                     checkServerReadiness(this.projectUri).then(() => {
@@ -328,6 +368,7 @@ export class MiDebugAdapter extends LoggingDebugSession {
                                 }
                                 this.sendError(response, 1, completeError);
                             });
+                        }
                     });
                 }
             });

@@ -449,7 +449,9 @@ import {
     Property,
     updatePropertiesInArtifactXML,
     getPropertiesFromArtifactXML,
-    formatPomFile
+    formatPomFile,
+    GenerateMappingsParamsRequest,
+    getInputOutputMappings
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -1183,5 +1185,9 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getPropertiesFromArtifactXML(params: string): Promise<Property[] | undefined> {
         return this._messenger.sendRequest(getPropertiesFromArtifactXML, HOST_EXTENSION, params);
+    }
+
+    getInputOutputMappings(params: GenerateMappingsParamsRequest): Promise<string[]> {
+        return this._messenger.sendRequest(getInputOutputMappings, HOST_EXTENSION, params);
     }
 }
