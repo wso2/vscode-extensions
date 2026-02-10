@@ -34,10 +34,10 @@ export default function WaypointCreator(source: Point, target: Point, block: Rec
             const wp3: Point = { x: columnX, y: target.y };
 
             // 4) move left to be right above the target X
-            const wp4: Point = { x: target.x, y: wp3.y };
+            //const wp4: Point = { x: target.x, y: wp3.y };
 
             // Return waypoints in order (react-flow will draw lines between these and then to target)
-            return [wp1, wp2, wp3, wp4];
+            return [wp1, wp2, wp3];
         default:
             return [];
     }
