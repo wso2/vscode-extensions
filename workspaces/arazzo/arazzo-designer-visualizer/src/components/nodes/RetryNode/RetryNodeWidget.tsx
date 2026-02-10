@@ -26,6 +26,8 @@ import { RetryNodeData } from './RetryNodeModel';
 const RetryNodeContainer = styled.div`
     width: ${RETRY_NODE_DIAMETER}px;
     height: ${RETRY_NODE_DIAMETER}px;
+    box-sizing: border-box;
+    transform-origin: center;
     border-radius: 50%;
     background-color: ${ThemeColors.SURFACE_DIM};
     display: flex;
@@ -48,7 +50,10 @@ const RetryIcon = styled.div`
     font-size: 22px;
     font-weight: 700;
     user-select: none;
-    margin-top: -2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
 `;
 
 const StyledHandle = styled(Handle)`
