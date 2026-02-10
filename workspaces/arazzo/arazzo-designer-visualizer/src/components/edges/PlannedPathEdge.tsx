@@ -51,6 +51,7 @@ export default function PlannedPathEdge({
 }: EdgeProps<PlannedPathData>) {
     const pathRef = useRef<SVGPathElement>(null);
     const [labelPosition, setLabelPosition] = useState<{ x: number; y: number } | null>(null);
+    const floatingLabelRef = useRef<SVGTextElement | null>(null);
     let edgePath: string;
 
     // Check if waypoints exist and are valid
@@ -66,7 +67,7 @@ export default function PlannedPathEdge({
         });
         
         // End at target
-        pathCommands += ` L ${targetX} ${targetY}`;
+        pathCommands += ` L ${targetX + 20} ${targetY}`;
         
         edgePath = pathCommands;
         console.log(`[PlannedPathEdge] ${id} using waypoints:`, waypoints);
@@ -102,6 +103,57 @@ export default function PlannedPathEdge({
         }
     }, [edgePath, data?.label, data?.labelPos, id]);
 
+    // Keep label rendered on top by creating a floating <text> element appended to the top-level SVG.
+    useLayoutEffect(() => {
+        const svg = pathRef.current?.ownerSVGElement;
+        if (!svg) return;
+
+        // If no label, remove any floating label
+        if (!data?.label || !labelPosition) {
+            if (floatingLabelRef.current && floatingLabelRef.current.parentNode) {
+                floatingLabelRef.current.parentNode.removeChild(floatingLabelRef.current);
+                floatingLabelRef.current = null;
+            }
+            return;
+        }
+
+        // Create floating text if missing
+        if (!floatingLabelRef.current) {
+            const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            t.setAttribute('fill', 'var(--vscode-editor-foreground, #333)');
+            t.setAttribute('font-size', '12px');
+            t.setAttribute('font-family', 'var(--vscode-font-family, sans-serif)');
+            t.setAttribute('text-anchor', 'middle');
+            t.setAttribute('pointer-events', 'none');
+            (t as any).style.userSelect = 'none';
+            svg.appendChild(t);
+            floatingLabelRef.current = t;
+        }
+
+        // Update label content and position
+        const t = floatingLabelRef.current!;
+        t.textContent = data.label as string;
+        const offsetX = data.labelOffset?.x ?? 0;
+        const offsetY = data.labelOffset?.y ?? -8;
+        t.setAttribute('x', String(labelPosition.x + offsetX));
+        t.setAttribute('y', String(labelPosition.y + offsetY));
+
+        return () => {
+            // cleanup will be handled by effect above when label removed, but ensure removal on unmount
+            // (do not remove here to avoid flicker when just updating)
+        };
+    }, [data?.label, data?.labelOffset, labelPosition]);
+
+    // Remove floating label on unmount
+    useLayoutEffect(() => {
+        return () => {
+            if (floatingLabelRef.current && floatingLabelRef.current.parentNode) {
+                floatingLabelRef.current.parentNode.removeChild(floatingLabelRef.current);
+                floatingLabelRef.current = null;
+            }
+        };
+    }, []);
+
     return (
         <g ref={pathRef}>
             <BaseEdge
@@ -110,20 +162,6 @@ export default function PlannedPathEdge({
                 style={style}
                 markerEnd={markerEnd}
             />
-            {data?.label && labelPosition && (
-                <text
-                    x={labelPosition.x + (data.labelOffset?.x ?? 0)}
-                    y={labelPosition.y + (data.labelOffset?.y ?? -8)}
-                    fill="var(--vscode-editor-foreground, #333)"
-                    fontSize="12px"
-                    fontFamily="var(--vscode-font-family, sans-serif)"
-                    textAnchor="middle"
-                    pointerEvents="none"
-                    style={{ userSelect: 'none' }}
-                >
-                    {data.label}
-                </text>
-            )}
         </g>
     );
 }
