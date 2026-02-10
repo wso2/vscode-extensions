@@ -249,9 +249,10 @@ export class PositionVisitorVertical_v2 {
                 console.log(`[Phase 2] Positioned failure node ${failNode.id} at (${failNode.viewState.x}, ${failNode.viewState.y}) [center-aligned]`);
             }
             if(failNode.type === 'CONDITION'){
-                let isFailPathCondition = true;
-            this.positionBranches(failNode, false, isFailPathCondition);
+                isFailPathCondition = true;
             }
+            this.positionBranches(failNode, false, isFailPathCondition);
+            
         }
     }
 

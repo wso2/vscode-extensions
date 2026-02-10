@@ -81,7 +81,7 @@ export const StartNodeWidget: React.FC<NodeProps<StartNodeData>> = ({ data, isCo
             <StyledHandle
                 type="source"
                 position={Position.Right}
-                id="h-right"
+                id="h-right-source"
                 isConnectable={isConnectable}
             />
 

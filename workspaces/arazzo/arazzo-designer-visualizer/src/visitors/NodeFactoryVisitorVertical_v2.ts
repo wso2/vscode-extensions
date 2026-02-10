@@ -159,7 +159,7 @@ export class NodeFactoryVisitorVertical_v2 {
         } 
         // Horizontal flow logic (target to the right - branches/failures)
         else if (isTargetRight) {
-            sourceHandleId = 'h-right';  // Exit from right
+            sourceHandleId = 'h-right-source';  // Exit from right
             targetHandleId = 'h-left';   // Enter from left
         }
         // Loop back / goto (target above or to the left)
@@ -169,7 +169,7 @@ export class NodeFactoryVisitorVertical_v2 {
         }
         // Fallback (same level or other)
         else {
-            sourceHandleId = 'h-right';
+            sourceHandleId = 'h-right-source';
             targetHandleId = 'h-left';
         }
 
@@ -183,7 +183,8 @@ export class NodeFactoryVisitorVertical_v2 {
                 case 'h-bottom': return { x: (xLeft + xRight) / 2, y: yBottom };
                 case 'h-top': return { x: (xLeft + xRight) / 2, y: yTop };
                 case 'h-left': return { x: xLeft, y: (yTop + yBottom) / 2 };
-                case 'h-right': return { x: xRight, y: (yTop + yBottom) / 2 };
+                case 'h-right-source': return { x: xRight, y: (yTop + yBottom) / 2 };
+                case 'h-right-target': return { x: xRight, y: (yTop + yBottom) / 2 };
                 default: return { x: (xLeft + xRight) / 2, y: (yTop + yBottom) / 2 };
             }
         };
@@ -233,7 +234,7 @@ export class NodeFactoryVisitorVertical_v2 {
         let computedWaypoints: { x:number; y:number }[] = [];
         if (foundBlockingRect) {
             try {
-                targetHandleId = 'h-right';
+                targetHandleId = 'h-right-target';
                 targetPt = computeHandlePoint(target, targetHandleId);
                 labelPos = 0.35;
                 computedWaypoints = WaypointCreator(sourcePt, targetPt, foundBlockingRect, 'skip');

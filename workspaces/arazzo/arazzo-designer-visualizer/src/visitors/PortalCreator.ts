@@ -76,7 +76,7 @@ export class PortalCreator {
         });
 
         // Map logical sourceHandle ('right' success, 'bottom' failure) to actual handle IDs
-        const sourceHandleId = sourceHandle === 'bottom' ? 'h-bottom' : 'h-right';
+        const sourceHandleId = sourceHandle === 'bottom' ? 'h-bottom' : 'h-right-source';
 
         // Portal handle for the portal node
         const portalNodeHandle = 'h-bottom';

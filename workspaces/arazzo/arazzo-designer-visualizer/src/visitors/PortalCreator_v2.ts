@@ -195,7 +195,7 @@ export class PortalCreator_v2 {
         });
 
         // Determine source handle based on edge type
-        const sourceHandleId = edgeType === 'failure' ? 'h-right' : 'h-bottom';
+        const sourceHandleId = edgeType === 'failure' ? 'h-right-source' : 'h-bottom';
         const edgeStyle = edgeType === 'failure' 
             ? { stroke: 'red', strokeDasharray: '4 4' } 
             : { stroke: '#00f3ff', strokeDasharray: '4 4' };

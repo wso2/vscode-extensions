@@ -98,7 +98,7 @@ export const ConditionNodeWidget: React.FC<NodeProps<ConditionNodeData>> = ({ da
             <StyledHandle
                 type="source"
                 position={Position.Right}
-                id="h-right"
+                id="h-right-source"
                 isConnectable={isConnectable}
                 style={{
                     right: 0,
