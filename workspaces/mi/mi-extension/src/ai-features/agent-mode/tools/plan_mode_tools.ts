@@ -143,6 +143,7 @@ function createPlanModeSystemReminder(planInfo: {
 }): string {
     return [
         'Plan mode is active. You MUST NOT make any edits except to the plan file mentioned below.',
+        'Write operations are disabled except for file_write/file_edit on the assigned plan file.',
         '',
         '## Plan File Info:',
         planInfo.exists

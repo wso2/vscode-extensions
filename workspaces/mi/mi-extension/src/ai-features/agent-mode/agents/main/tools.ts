@@ -114,8 +114,10 @@ import {
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
 } from '../../tools/types';
-import { ToolResult } from '../../tools/types';
+import { BashExecuteFn, ToolResult } from '../../tools/types';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
+import * as path from 'path';
+import { getCopilotSessionDir } from '../../storage-paths';
 
 // Re-export tool name constants for use in agent.ts
 export {
@@ -186,6 +188,11 @@ const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
 
 const PLAN_MODE_ALLOWED_TOOLS = new Set<string>([
     ...READ_ONLY_MODE_ALLOWED_TOOLS,
+    FILE_WRITE_TOOL_NAME,
+    FILE_EDIT_TOOL_NAME,
+    BASH_TOOL_NAME,
+    KILL_TASK_TOOL_NAME,
+    TASK_OUTPUT_TOOL_NAME,
     SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,
@@ -206,13 +213,125 @@ function createModeBlockedExecute(toolName: string, mode: AgentMode) {
     });
 }
 
+function normalizePathForComparison(targetPath: string): string {
+    const normalized = path.resolve(targetPath).replace(/\\/g, '/').replace(/\/+$/, '');
+    return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+function isPathWithin(basePath: string, targetPath: string): boolean {
+    const normalizedBase = normalizePathForComparison(basePath);
+    const normalizedTarget = normalizePathForComparison(targetPath);
+    return normalizedTarget === normalizedBase || normalizedTarget.startsWith(`${normalizedBase}/`);
+}
+
+function createPlanModePlanFileOnlyExecute<T extends (...args: any[]) => Promise<ToolResult>>(
+    execute: T,
+    toolName: string,
+    projectPath: string,
+    sessionId: string
+): T {
+    const planDir = path.join(getCopilotSessionDir(projectPath, sessionId), 'plan');
+    const planDirDisplayPath = planDir.replace(/\\/g, '/');
+
+    return (async (...args: Parameters<T>): Promise<ToolResult> => {
+        const toolArgs = args[0] as { file_path?: unknown } | undefined;
+        const filePathArg = typeof toolArgs?.file_path === 'string' ? toolArgs.file_path.trim() : '';
+        if (!filePathArg) {
+            return {
+                success: false,
+                message: `Tool '${toolName}' in Plan mode requires a valid file_path for the assigned plan file.`,
+                error: 'PLAN_MODE_RESTRICTED',
+            };
+        }
+
+        const fullPath = path.isAbsolute(filePathArg)
+            ? path.resolve(filePathArg)
+            : path.resolve(projectPath, filePathArg);
+        const isMarkdown = path.extname(fullPath).toLowerCase() === '.md';
+        const isInPlanDir = isPathWithin(planDir, fullPath);
+
+        if (!isMarkdown || !isInPlanDir) {
+            return {
+                success: false,
+                message: `Tool '${toolName}' is restricted in Plan mode. You may only modify the plan file under ${planDirDisplayPath}.`,
+                error: 'PLAN_MODE_RESTRICTED',
+            };
+        }
+
+        return execute(...args);
+    }) as T;
+}
+
+function getPlanModeShellRestrictionReason(command: string): string | null {
+    const normalized = command.trim();
+    if (!normalized) {
+        return 'Plan mode shell command cannot be empty.';
+    }
+
+    // Block output redirection and stream writes.
+    if (/>>\s*\S/.test(normalized) || /(^|[^<])>\s*\S/.test(normalized) || /\|\s*tee\b/i.test(normalized)) {
+        return 'Plan mode shell is read-only and does not allow file/output redirection.';
+    }
+
+    // Block common write/mutation commands across bash and PowerShell.
+    const blockedPatterns: RegExp[] = [
+        /\b(rm|rmdir|mv|cp|mkdir|touch|chmod|chown|chgrp|ln|truncate|dd|install)\b/i,
+        /\b(git)\s+(add|commit|reset|checkout|switch|restore|clean|stash|rebase|merge|cherry-pick|revert|am|apply|pull|push|fetch)\b/i,
+        /\b(npm|pnpm|yarn|bun|pip|pip3|poetry|cargo|go|dotnet|mvn|gradle)\s+(install|add|remove|update|upgrade|uninstall|init|build|run|test|publish)\b/i,
+        /\b(make|cmake|meson|ninja)\b/i,
+        /\b(sed|perl)\s+-i\b/i,
+        /\b(New-Item|Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|Rename-Item|Clear-Content)\b/i,
+    ];
+
+    for (const pattern of blockedPatterns) {
+        if (pattern.test(normalized)) {
+            return 'Plan mode shell only allows read-only exploration commands.';
+        }
+    }
+
+    return null;
+}
+
+function createPlanModeReadOnlyBashExecute(execute: BashExecuteFn): BashExecuteFn {
+    return async (args) => {
+        const restrictionReason = getPlanModeShellRestrictionReason(args.command);
+        if (restrictionReason) {
+            return {
+                success: false,
+                message: `${restrictionReason} Use read-only commands like ls, cat, grep, rg, find, git status, or git diff.`,
+                error: 'PLAN_MODE_RESTRICTED',
+            };
+        }
+
+        return execute(args);
+    };
+}
+
 function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
     mode: AgentMode,
     toolName: string,
-    execute: T
+    execute: T,
+    options?: { projectPath: string; sessionId: string }
 ): T {
     if (mode === 'edit') {
         return execute;
+    }
+
+    if (
+        mode === 'plan' &&
+        options &&
+        (toolName === FILE_WRITE_TOOL_NAME || toolName === FILE_EDIT_TOOL_NAME)
+    ) {
+        return createPlanModePlanFileOnlyExecute(
+            execute,
+            toolName,
+            options.projectPath,
+            options.sessionId
+        );
+    }
+
+    if (mode === 'plan' && toolName === BASH_TOOL_NAME) {
+        return createPlanModeReadOnlyBashExecute(execute as unknown as BashExecuteFn) as unknown as T;
     }
 
     const allowedTools = mode === 'plan' ? PLAN_MODE_ALLOWED_TOOLS : READ_ONLY_MODE_ALLOWED_TOOLS;
@@ -268,10 +387,10 @@ export function createAgentTools(params: CreateToolsParams) {
     ): T => withPersistedToolResult(
         toolName,
         sessionDir,
-        getModeAwareExecute(mode, toolName, execute)
+        getModeAwareExecute(mode, toolName, execute, { projectPath, sessionId })
     );
 
-    return {
+    const allTools = {
         // File Operations (6 tools)
         [FILE_WRITE_TOOL_NAME]: createWriteTool(
             getWrappedExecute(FILE_WRITE_TOOL_NAME, createWriteExecute(projectPath, modifiedFiles, undoCheckpointManager))
@@ -360,4 +479,13 @@ export function createAgentTools(params: CreateToolsParams) {
             getWrappedExecute(TASK_OUTPUT_TOOL_NAME, createTaskOutputExecute())
         ),
     };
+
+    if (mode === 'edit') {
+        return allTools;
+    }
+
+    const visibleToolNames = mode === 'plan' ? PLAN_MODE_ALLOWED_TOOLS : READ_ONLY_MODE_ALLOWED_TOOLS;
+    return Object.fromEntries(
+        Object.entries(allTools).filter(([toolName]) => visibleToolNames.has(toolName))
+    );
 }
