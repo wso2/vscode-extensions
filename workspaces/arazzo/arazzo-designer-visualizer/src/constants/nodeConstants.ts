@@ -56,3 +56,9 @@ export const PORTALNODE_GAP_Y = 40;
 //Waypoint realted constants
 export const WAYPOINT_SKIP_VERTICAL_OFFSET = 30; // Distance to offset waypoints from node edges
 export const WAYPOINT_SKIP_HORIZONTAL_OFFSET_MULTIPLIER = 1.5;
+
+//canvas constants
+export const CANVAS_PADDING = 100;
+export const DOT_SIZE = 10;
+export const CANVAS_ZOOM = 1.25;
+export const DOT_GAP = 32;

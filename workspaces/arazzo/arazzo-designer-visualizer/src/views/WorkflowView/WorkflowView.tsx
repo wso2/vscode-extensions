@@ -37,6 +37,7 @@ import { nodeTypes } from '../../components/nodes';
 import { PlannedPathEdge } from '../../components/edges';
 import { SidePanel, SidePanelTitleContainer, SidePanelBody, Button, Codicon, ThemeColors } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
+import * as C from '../../constants/nodeConstants';
 
 interface WorkflowViewProps {
     fileUri: string;
@@ -355,7 +356,15 @@ export function WorkflowView(props: WorkflowViewProps) {
     return (
         <div
             ref={reactFlowWrapper}
-            style={{ width: '100%', height: '100vh', outline: 'none', position: 'relative' }}
+            style={{
+                width: '100%',
+                height: '100vh',
+                outline: 'none',
+                position: 'relative',
+                backgroundColor: ThemeColors.SURFACE_BRIGHT,
+                backgroundImage: `radial-gradient(${ThemeColors.SURFACE_CONTAINER} ${C.DOT_SIZE}%, transparent 0px)`,
+                backgroundSize: `${C.DOT_GAP}px ${C.DOT_GAP}px`,
+            }}
             tabIndex={0}
             onClick={onPaneClick}
             onWheel={onWrapperWheel}
@@ -403,7 +412,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                         setTimeout(() => {
                             if (reactFlowInstance && typeof (reactFlowInstance as any).setViewport === 'function') {
                                 const vp: any = reactFlowInstance.getViewport ? reactFlowInstance.getViewport() : { x: 0, y: 0, zoom: 1 };
-                                (reactFlowInstance as any).setViewport({ x: vp.x, y: vp.y, zoom: 1.3 });
+                                (reactFlowInstance as any).setViewport({ x: vp.x, y: vp.y, zoom: C.CANVAS_ZOOM });
                             } else if (reactFlowInstance && typeof (reactFlowInstance as any).setZoom === 'function') {
                                 (reactFlowInstance as any).setZoom(1.5);
                             }
@@ -414,12 +423,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                 }}
                 proOptions={proOptions}
             >
-                <Background
-                    variant={BackgroundVariant.Dots}
-                    gap={20}
-                    size={1}
-                    color="#b9b7b7"
-                />
+                {/* Background dots provided by container CSS to match bi-diagram */}
                 <Controls />
             </ReactFlow>
             <SidePanel
