@@ -96,6 +96,7 @@ export function WorkflowView(props: WorkflowViewProps) {
     const { rpcClient } = useVisualizerContext();
     const [arazzoDefinition, setArazzoDefinition] = useState<ArazzoDefinition | undefined>(undefined);
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
+    const reactFlowInstanceRef = useRef<any>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [graphKey, setGraphKey] = useState(0);
@@ -158,6 +159,34 @@ export function WorkflowView(props: WorkflowViewProps) {
             }
         }
     }, [arazzoDefinition, workflowId, isVertical]);
+
+    // Wheel handler: ctrl+wheel => zoom, wheel alone => pan (React Flow handles panOnScroll)
+    const onWrapperWheel = useCallback((e: React.WheelEvent) => {
+        const instance = reactFlowInstanceRef.current;
+        if (!instance) return;
+
+        if (e.ctrlKey) {
+            // Zoom instead of scrolling/panning
+            e.preventDefault();
+            try {
+                const vp = (typeof instance.getViewport === 'function') ? instance.getViewport() : { x: 0, y: 0, zoom: 1 };
+                // Adjust zoom by small factor (deltaY positive -> zoom out)
+                const delta = -e.deltaY; // invert so wheel up -> positive
+                const factor = 1 + (delta * 0.0015); // tweak sensitivity
+                let newZoom = (vp.zoom || 1) * factor;
+                // Clamp zoom
+                newZoom = Math.max(0.2, Math.min(3, newZoom));
+                if (typeof instance.setViewport === 'function') {
+                    instance.setViewport({ x: vp.x, y: vp.y, zoom: newZoom });
+                } else if (typeof instance.setZoom === 'function') {
+                    instance.setZoom(newZoom);
+                }
+            } catch (err) {
+                // ignore
+            }
+        }
+        // else: let React Flow handle panOnScroll
+    }, []);
 
     const onConnect = useCallback((params: Connection) => {
         setEdges((eds) => addEdge(params, eds));
@@ -329,6 +358,7 @@ export function WorkflowView(props: WorkflowViewProps) {
             style={{ width: '100%', height: '100vh', outline: 'none', position: 'relative' }}
             tabIndex={0}
             onClick={onPaneClick}
+            onWheel={onWrapperWheel}
         >
             <button
                 onClick={toggleOrientation}
@@ -361,16 +391,21 @@ export function WorkflowView(props: WorkflowViewProps) {
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 fitView
+                panOnScroll
+                zoomOnScroll={false}
                 onInit={(reactFlowInstance) => {
+                    // Store instance for programmatic zoom and ctrl+wheel handling
+                    reactFlowInstanceRef.current = reactFlowInstance;
+
                     // After React Flow initializes and fitView runs, set zoom to 150%.
                     // Small timeout ensures fitView has applied its transform first.
                     try {
                         setTimeout(() => {
-                            if (reactFlowInstance && typeof (reactFlowInstance as any).setZoom === 'function') {
-                                (reactFlowInstance as any).setZoom(1.5);
-                            } else if (reactFlowInstance && typeof (reactFlowInstance as any).setViewport === 'function') {
+                            if (reactFlowInstance && typeof (reactFlowInstance as any).setViewport === 'function') {
                                 const vp: any = reactFlowInstance.getViewport ? reactFlowInstance.getViewport() : { x: 0, y: 0, zoom: 1 };
                                 (reactFlowInstance as any).setViewport({ x: vp.x, y: vp.y, zoom: 1.3 });
+                            } else if (reactFlowInstance && typeof (reactFlowInstance as any).setZoom === 'function') {
+                                (reactFlowInstance as any).setZoom(1.5);
                             }
                         }, 10);
                     } catch (e) {
