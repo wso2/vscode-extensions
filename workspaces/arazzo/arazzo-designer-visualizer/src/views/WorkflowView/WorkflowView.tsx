@@ -361,6 +361,22 @@ export function WorkflowView(props: WorkflowViewProps) {
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 fitView
+                onInit={(reactFlowInstance) => {
+                    // After React Flow initializes and fitView runs, set zoom to 150%.
+                    // Small timeout ensures fitView has applied its transform first.
+                    try {
+                        setTimeout(() => {
+                            if (reactFlowInstance && typeof (reactFlowInstance as any).setZoom === 'function') {
+                                (reactFlowInstance as any).setZoom(1.5);
+                            } else if (reactFlowInstance && typeof (reactFlowInstance as any).setViewport === 'function') {
+                                const vp: any = reactFlowInstance.getViewport ? reactFlowInstance.getViewport() : { x: 0, y: 0, zoom: 1 };
+                                (reactFlowInstance as any).setViewport({ x: vp.x, y: vp.y, zoom: 1.3 });
+                            }
+                        }, 10);
+                    } catch (e) {
+                        console.warn('[WorkflowView] Could not set initial zoom to 150%', e);
+                    }
+                }}
                 proOptions={proOptions}
             >
                 <Background
