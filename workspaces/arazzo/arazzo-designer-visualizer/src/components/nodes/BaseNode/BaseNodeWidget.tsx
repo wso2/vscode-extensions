@@ -169,7 +169,12 @@ export const BaseNodeWidget: React.FC<BaseNodeWidgetProps> = ({
         >
             <NodeStyles.Header>
                 <NodeStyles.Title title={data.label}>
-                    {data.iconClass ? <NodeStyles.Icon className={data.iconClass} /> : null}
+                    {data.iconClass ? (
+                        <NodeStyles.Icon
+                            className={data.iconClass}
+                            style={{ fontSize: data.iconSize ?? 20 }}
+                        />
+                    ) : null}
                     {(() => {
                         const raw = data.label ? String(data.label) : '';
                         const max = typeof LABEL_CHARS_BEFORE_WRAP === 'number' ? LABEL_CHARS_BEFORE_WRAP : 10;
