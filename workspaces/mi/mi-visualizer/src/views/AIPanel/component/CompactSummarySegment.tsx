@@ -19,6 +19,7 @@
 import React, { useState } from "react";
 import styled from "@emotion/styled";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const CompactContainer = styled.div`
     margin: 6px 0;
@@ -69,8 +70,28 @@ interface CompactSummarySegmentProps {
     title?: string;
 }
 
+const GFM_TABLE_SEPARATOR_REGEX = /\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?/;
+
+function normalizeInlineMarkdownTables(markdown: string): string {
+    if (!markdown.includes("|") || !GFM_TABLE_SEPARATOR_REGEX.test(markdown)) {
+        return markdown;
+    }
+
+    return markdown
+        .split("\n")
+        .map((line) => {
+            const trimmed = line.trim();
+            if (!trimmed || !GFM_TABLE_SEPARATOR_REGEX.test(trimmed) || !/\|\s+\|/.test(trimmed)) {
+                return line;
+            }
+            return line.replace(/\|\s+\|/g, "|\n|");
+        })
+        .join("\n");
+}
+
 const CompactSummarySegment: React.FC<CompactSummarySegmentProps> = ({ text, title = "Summary" }) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const normalizedText = normalizeInlineMarkdownTables(text);
 
     return (
         <CompactContainer>
@@ -80,7 +101,7 @@ const CompactSummarySegment: React.FC<CompactSummarySegmentProps> = ({ text, tit
             </CompactHeader>
             {isExpanded && (
                 <CompactBody>
-                    <ReactMarkdown>{text}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizedText}</ReactMarkdown>
                 </CompactBody>
             )}
         </CompactContainer>
