@@ -19,7 +19,7 @@
 //node related constants
 export const NODE_WIDTH = 280;
 export const NODE_HEIGHT = 50;
-export const LABEL_CHARS_BEFORE_WRAP = 16;
+export const LABEL_CHARS_BEFORE_WRAP = 24;
 export const START_NODE_DIAMETER = 50;
 export const END_NODE_DIAMETER = 30;
 export const RETRY_NODE_DIAMETER = 35;
@@ -46,6 +46,7 @@ export const NODE_GAP_X_Vertical = 60;  // Horizontal gap between steps
 export const NODE_GAP_Y_Vertical = 70;  // Vertical gap between branches/failure paths
 //export const FAIL_GAP_Y_Vertical = 50;  // Vertical gap for failure paths
 export const FAIL_GAP_X_Vertical = 50;  // Horizontal gap for failure paths
+export const NODE_GAP_Y_AFTERCONDITION = 100; // Vertical gap between node and edge label
 
 
 //portal node constants

@@ -103,7 +103,12 @@ export class PositionVisitorVertical_v2 {
         }
 
         // Calculate next Y position
-        const nextY = currentY + node.viewState.h + C.NODE_GAP_Y_Vertical;
+        let nextY: number;
+        if(node.type === 'CONDITION'){
+            nextY = currentY + node.viewState.h + C.NODE_GAP_Y_AFTERCONDITION;
+        } else {
+            nextY = currentY + node.viewState.h + C.NODE_GAP_Y_Vertical;
+        }
 
         // Continue down the main path (first child or first branch head)
         if (node.children && node.children.length > 0) {
