@@ -23,7 +23,7 @@ export const LABEL_CHARS_BEFORE_WRAP = 24;
 export const START_NODE_DIAMETER = 50;
 export const END_NODE_DIAMETER = 30;
 export const RETRY_NODE_DIAMETER = 35;
-export const DIAMOND_SIZE = 65; // Width/Height of condition node
+export const DIAMOND_SIZE = 50; // Width/Height of condition node
 export const PX_PER_CHAR = 10;  // Approximate width per character for auto-sizing
 
 export const LABEL_HEIGHT = 20;
