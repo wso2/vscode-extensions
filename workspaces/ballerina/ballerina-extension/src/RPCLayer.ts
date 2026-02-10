@@ -45,6 +45,7 @@ import { extension } from './BalExtensionContext';
 import { registerAgentChatRpcHandlers } from './rpc-managers/agent-chat/rpc-handler';
 import { ArtifactsUpdated, ArtifactNotificationHandler } from './utils/project-artifacts-handler';
 import { registerMigrateIntegrationRpcHandlers } from './rpc-managers/migrate-integration/rpc-handler';
+import { registerCollaborationRpcHandlers } from './rpc-managers/collaboration/rpc-handler';
 
 export class RPCLayer {
     static _messenger: Messenger = new Messenger();
@@ -105,6 +106,9 @@ export class RPCLayer {
 
         // ----- Register Integration Migration RPC Methods
         registerMigrateIntegrationRpcHandlers(RPCLayer._messenger);
+
+        // ----- Register Collaboration RPC Methods
+        registerCollaborationRpcHandlers(RPCLayer._messenger);
 
         // ----- Artifact Updated Common Notification
         RPCLayer._messenger.onRequest(onArtifactUpdatedRequest, (artifactData: ArtifactData) => {

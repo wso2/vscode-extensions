@@ -379,6 +379,63 @@ export const onParentPopupSubmitted: NotificationType<ParentPopupData> = { metho
 export const popupStateChanged: NotificationType<PopupMachineStateValue> = { method: 'popupStateChanged' };
 export const getPopupVisualizerState: RequestType<void, PopupVisualizerLocation> = { method: 'getPopupVisualizerState' };
 
+// OCT (Open Collaboration Tools) types and notifications
+// These types handle collaboration state in the webview (diagram editor)
+export interface WebviewCursorPosition {
+    x: number;
+    y: number;
+    nodeId?: string; // ID of the diagram node being hovered/edited
+    timestamp: number;
+}
+
+export interface WebviewNodeLock {
+    filePath: string;
+    nodeId: string;
+    userId: string;
+    userName: string;
+    timestamp: number;
+}
+
+export interface WebviewUserPresence {
+    userId: string;
+    userName: string;
+    color?: string;
+    cursor?: WebviewCursorPosition;
+    selectedNodes?: string[]; // IDs of selected diagram nodes
+    status?: 'editing' | 'viewing';
+}
+
+export interface WebviewCollaborationState {
+    filePath: string;
+    locks: Record<string, WebviewNodeLock>; // nodeId -> lock
+    presences: WebviewUserPresence[];
+}
+
+// Payload when user updates their cursor/selection in webview
+export interface CollaborationTextSelection {
+    filePath: string;
+    selectedNodes?: string[];
+    cursor?: WebviewCursorPosition;
+}
+
+// Payload when broadcasting presence/lock updates to other webviews
+export interface CollaborationPresenceData {
+    peerId: string;
+    peerName: string;
+    color?: string;
+    filePath: string;
+    cursor?: WebviewCursorPosition;
+    selectedNodes?: string[];
+    locks?: WebviewNodeLock[];
+}
+
+export const onOctUpdateTextSelection: NotificationType<CollaborationTextSelection> = { method: 'onOctUpdateTextSelection' };
+export const onOctRerenderPresence: NotificationType<CollaborationPresenceData> = { method: 'onOctRerenderPresence' };
+
+// RPC methods for webview to send collaboration state to extension
+export const updateWebviewCollaborationSelection: RequestType<CollaborationTextSelection, void> = { method: 'updateWebviewCollaborationSelection' };
+export const updateWebviewCollaborationPresence: RequestType<CollaborationPresenceData, void> = { method: 'updateWebviewCollaborationPresence' };
+
 export const breakpointChanged: NotificationType<boolean> = { method: 'breakpointChanged' };
 
 // ------------------> AI Related state types <-----------------------

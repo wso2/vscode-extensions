@@ -21,13 +21,14 @@
             "preLaunchTask": "npm: watch-api-designer"
         },
         {
-            "name": "Ballerina & BI Extensions",
+            "name": "Ballerina, BI & OCT Extensions",
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension",
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/bi/bi-extension"
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/bi/bi-extension",
+                "--extensionDevelopmentPath=/Users/vinuka/projects/open-collaboration-tools/packages/open-collaboration-vscode"
             ],
             "env": {
                 "LS_EXTENSIONS_PATH": "",
@@ -39,7 +40,8 @@
             },
             "outFiles": [
                 "${workspaceFolder}/workspaces/ballerina/ballerina-extension/dist/**/*.js",
-                "${workspaceFolder}/workspaces/bi/bi-extension/out/**/*.js"
+                "${workspaceFolder}/workspaces/bi/bi-extension/out/**/*.js",
+                "/Users/vinuka/projects/open-collaboration-tools/packages/open-collaboration-vscode/dist/**/*.js"
             ],
             "preLaunchTask": "watch-all",
             "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"

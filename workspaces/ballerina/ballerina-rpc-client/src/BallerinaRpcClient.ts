@@ -60,7 +60,11 @@ import {
     onMigratedProject,
     refreshReviewMode,
     onHideReviewActions,
-    nodeLockUpdated
+    nodeLockUpdated,
+    onOctUpdateTextSelection,
+    onOctRerenderPresence,
+    CollaborationTextSelection,
+    CollaborationPresenceData
 } from "@wso2/ballerina-core";
 // import { NotificationType } from "vscode-messenger-common";
 
@@ -289,6 +293,36 @@ export class BallerinaRpcClient {
         this.messenger.onNotification(nodeLockUpdated, callback);
         return () => {
             // Return unsubscribe function if needed
+        };
+    }
+
+    /**
+     * Send a generic request to the extension host
+     * Useful for OCT collaboration and other custom RPC calls
+     */
+    sendRequest<TParams, TResult>(requestType: any, params: TParams): Promise<TResult> {
+        return this.messenger.sendRequest(requestType, HOST_EXTENSION, params);
+    }
+
+    /**
+     * Listen for OCT text selection updates (webview collaboration)
+     * Returns an unsubscribe function
+     */
+    onOctUpdateTextSelection(callback: (data: CollaborationTextSelection) => void) {
+        this.messenger.onNotification(onOctUpdateTextSelection, callback);
+        return () => {
+            // Cleanup handled by messenger
+        };
+    }
+
+    /**
+     * Listen for OCT presence re-render events (webview collaboration)
+     * Returns an unsubscribe function
+     */
+    onOctRerenderPresence(callback: (data: CollaborationPresenceData) => void) {
+        this.messenger.onNotification(onOctRerenderPresence, callback);
+        return () => {
+            // Cleanup handled by messenger
         };
     }
 

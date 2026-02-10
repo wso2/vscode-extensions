@@ -51,6 +51,12 @@ import {
     CodeContext,
     AIPanelPrompt,
     LinePosition,
+    onOctUpdateTextSelection,
+    onOctRerenderPresence,
+    updateWebviewCollaborationSelection,
+    updateWebviewCollaborationPresence,
+    CollaborationTextSelection,
+    CollaborationPresenceData,
 } from "@wso2/ballerina-core";
 
 import {
@@ -138,7 +144,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const [currentUserName, setCurrentUserName] = useState<string>("Unknown User");
     const [nodeLocks, setNodeLocks] = useState<Record<string, any>>({});
     const [isCollaborationActive, setIsCollaborationActive] = useState<boolean>(false);
-    const [remoteCursors, setRemoteCursors] = useState<Map<number, any>>(new Map());
+    const [remoteCursors, setRemoteCursors] = useState<Map<string, any>>(new Map());
 
 
     // Navigation stack for back navigation
@@ -293,7 +299,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 }
             } catch (error) {
                 // Silently fail - collaboration is optional
-                console.log('[Collaboration] OCT extension has no exported API');
                 setIsCollaborationActive(false);
             }
         };
@@ -328,6 +333,62 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             console.log('[Collaboration] Cursor subscription not available');
         }
 
+        // Subscribe to OCT collaboration notifications
+        // These notifications are broadcast when other users update their cursor/selection
+        let unsubscribeOctSelection: (() => void) | undefined;
+        let unsubscribeOctPresence: (() => void) | undefined;
+
+        try {
+            // Listen for text selection updates from OCT (webview collaboration)
+            unsubscribeOctSelection = rpcClient.onOctUpdateTextSelection((data: CollaborationTextSelection) => {
+                console.log(`[OCT Webview] Received selection update:`, data);
+                // Update UI with remote user's selection
+                // You can highlight selected nodes or show indicators
+                if (data.selectedNodes && data.selectedNodes.length > 0) {
+                    // Handle remote node selection visualization
+                    // For example: highlight the nodes selected by remote user
+                }
+            });
+
+            // Listen for presence updates from OCT (cursor position, locks, etc.)
+            unsubscribeOctPresence = rpcClient.onOctRerenderPresence((data: CollaborationPresenceData) => {
+                console.log(`[OCT Webview] Received presence update:`, data);
+                
+                // Update remote cursors
+                if (data.cursor) {
+                    setRemoteCursors((prev) => {
+                        const updated = new Map(prev);
+                        updated.set(data.peerId, {
+                            x: data.cursor.x,
+                            y: data.cursor.y,
+                            nodeId: data.cursor.nodeId,
+                            userName: data.peerName,
+                            color: data.color,
+                            timestamp: data.cursor.timestamp,
+                        });
+                        return updated;
+                    });
+                }
+                
+                // Update node locks from remote user
+                if (data.locks && data.locks.length > 0) {
+                    setNodeLocks((prev) => {
+                        const updated = { ...prev };
+                        data.locks.forEach((lock) => {
+                            updated[lock.nodeId] = {
+                                userId: lock.userId,
+                                userName: lock.userName,
+                                timestamp: lock.timestamp,
+                            };
+                        });
+                        return updated;
+                    });
+                }
+            });
+        } catch (error) {
+            console.log('[OCT] Collaboration notifications not available:', error);
+        }
+
         return () => {
             if (unsubscribe) {
                 try {
@@ -339,6 +400,20 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             if (unsubscribeCursors) {
                 try {
                     unsubscribeCursors();
+                } catch (error) {
+                    // Ignore cleanup errors
+                }
+            }
+            if (unsubscribeOctSelection) {
+                try {
+                    unsubscribeOctSelection();
+                } catch (error) {
+                    // Ignore cleanup errors
+                }
+            }
+            if (unsubscribeOctPresence) {
+                try {
+                    unsubscribeOctPresence();
                 } catch (error) {
                     // Ignore cleanup errors
                 }
@@ -1010,6 +1085,11 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     console.log(`[Lock Frontend] Local locks updated:`, updated);
                     return updated;
                 });
+                
+                // Send selection update to OCT when a node is locked (selected)
+                if (isCollaborationActive) {
+                    sendSelectionUpdate([nodeId]);
+                }
             } else {
                 console.error('[Lock Frontend] Failed to acquire lock:', response.error);
             }
@@ -1040,20 +1120,68 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
     };
 
-    // Throttled cursor position update (only send if collaboration is active)
+    // Throttled cursor position update (send to both backend and OCT)
     const updateCursorPosition = useCallback(
         debounce((x: number, y: number, nodeId?: string) => {
             if (!model?.fileName || !isCollaborationActive) return;
             
+            // Send to backend for diagram-specific features
             (rpcClient.getBIDiagramRpcClient() as any).updateDiagramCursor({
                 filePath: model.fileName,
                 x,
                 y,
                 nodeId,
             });
+            
+            // Send to OCT for cross-extension collaboration
+            try {
+                const presenceData: CollaborationPresenceData = {
+                    peerId: currentUserId,
+                    peerName: currentUserName,
+                    color: '#007ACC', // You can generate unique colors per user
+                    filePath: normalizeFilePath(model.fileName),
+                    cursor: {
+                        x,
+                        y,
+                        nodeId,
+                        timestamp: Date.now(),
+                    },
+                    selectedNodes: selectedNodeRef.current ? [selectedNodeRef.current.id] : [],
+                    locks: Object.entries(nodeLocks)
+                        .filter(([_, lock]) => lock.userId === currentUserId)
+                        .map(([nodeId, lock]) => ({
+                            filePath: normalizeFilePath(model.fileName),
+                            nodeId,
+                            userId: lock.userId,
+                            userName: lock.userName,
+                            timestamp: lock.timestamp,
+                        })),
+                };
+                
+                rpcClient.sendRequest(updateWebviewCollaborationPresence, presenceData);
+            } catch (error) {
+                console.log('[OCT] Failed to send presence update:', error);
+            }
         }, 100), // Update every 100ms
-        [model?.fileName, isCollaborationActive]
+        [model?.fileName, isCollaborationActive, currentUserId, currentUserName, nodeLocks]
     );
+    
+    // Send selection updates when nodes are selected
+    const sendSelectionUpdate = useCallback((selectedNodeIds: string[]) => {
+        if (!model?.fileName || !isCollaborationActive) return;
+        
+        try {
+            const selectionData: CollaborationTextSelection = {
+                filePath: normalizeFilePath(model.fileName),
+                selectedNodes: selectedNodeIds,
+                cursor: undefined, // Will be sent via updateCursorPosition
+            };
+            
+            rpcClient.sendRequest(updateWebviewCollaborationSelection, selectionData);
+        } catch (error) {
+            console.log('[OCT] Failed to send selection update:', error);
+        }
+    }, [model?.fileName, isCollaborationActive]);
 
     const closeSidePanelAndFetchUpdatedFlowModel = () => {
         resetNodeSelectionStates();

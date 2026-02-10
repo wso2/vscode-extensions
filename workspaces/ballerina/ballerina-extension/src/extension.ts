@@ -43,7 +43,13 @@ import { StateMachine } from './stateMachine';
 import { activateSubscriptions } from './views/visualizer/activate';
 import { VisualizerWebview } from './views/visualizer/webview';
 import { extension } from './BalExtensionContext';
-import { ExtendedClientCapabilities } from '@wso2/ballerina-core';
+import { 
+    ExtendedClientCapabilities, 
+    onOctUpdateTextSelection, 
+    onOctRerenderPresence,
+    CollaborationTextSelection,
+    CollaborationPresenceData
+} from '@wso2/ballerina-core';
 import { RPCLayer } from './RPCLayer';
 import { activateAIFeatures } from './features/ai/activator';
 import { activateTryItCommand } from './features/tryit/activator';
@@ -51,10 +57,65 @@ import { activate as activateNPFeatures } from './features/natural-programming/a
 import { activateAgentChatPanel } from './views/agent-chat/activate';
 import { activateTracing } from './features/tracing';
 import { UriCache } from './utils/remote-fs/uri-cache';
+import { registerGlobalHelpers } from './features/collaboration/oct-helper';
 
 let langClient: ExtendedLangClient;
 export let isPluginStartup = true;
 export let uriCache: UriCache;
+
+
+const collaborationState: {
+    latestSelectionState?: CollaborationTextSelection;
+    latestPresenceData?: CollaborationPresenceData;
+} = {};
+
+/**
+ * Update collaboration state from webview
+ * Called by RPC handlers when webview sends cursor/selection updates
+ */
+export function updateCollaborationState(
+    selection?: CollaborationTextSelection, 
+    presence?: CollaborationPresenceData
+) {
+    if (selection) {
+        collaborationState.latestSelectionState = selection;
+        debug(`[Collaboration] Updated selection state: ${JSON.stringify(selection)}`);
+    }
+    if (presence) {
+        collaborationState.latestPresenceData = presence;
+        debug(`[Collaboration] Updated presence data: ${JSON.stringify(presence)}`);
+    }
+}
+
+/**
+ * Broadcast selection update to webviews
+ * Called by OCT integration when remote peer updates their selection
+ */
+export function broadcastSelectionToWebviews() {
+    if (collaborationState.latestSelectionState && VisualizerWebview.currentPanel) {
+        RPCLayer._messenger.sendNotification(
+            onOctUpdateTextSelection, 
+            { type: 'webview', webviewType: VisualizerWebview.viewType }, 
+            collaborationState.latestSelectionState
+        );
+        debug(`[OCT] Broadcasting selection state to webview: ${JSON.stringify(collaborationState.latestSelectionState)}`);
+    }
+}
+
+/**
+ * Broadcast presence update to webviews
+ * Called by OCT integration when remote peer updates their presence
+ */
+export function broadcastPresenceToWebviews() {
+    if (collaborationState.latestPresenceData && VisualizerWebview.currentPanel) {
+        RPCLayer._messenger.sendNotification(
+            onOctRerenderPresence, 
+            { type: 'webview', webviewType: VisualizerWebview.viewType }, 
+            collaborationState.latestPresenceData
+        );
+        debug(`[OCT] Broadcasting presence data to webview: ${JSON.stringify(collaborationState.latestPresenceData)}`);
+    }
+}
 
 /**
  * Utility class to expose Ballerina extension state to other extensions
@@ -216,8 +277,23 @@ export async function activate(context: ExtensionContext) {
     // Init RPC Layer methods
     RPCLayer.init();
     
+    // Store latest collaboration state from webview (module-level for export)
+    collaborationState.latestSelectionState = undefined;
+    collaborationState.latestPresenceData = undefined;
+    
+    // Initialize OCT integration (must happen after RPCLayer is initialized)
+    const { initializeOctIntegration } = await import('./rpc-managers/collaboration/rpc-handler');
+    await initializeOctIntegration();
+    
     // Wait for the ballerina extension to be ready
     await StateMachine.initialize();
+    
+    // Register OCT debugging helpers (accessible via DevTools console)
+    // This helps debug collaborative locking and OCT integration issues
+    if (process.env.VSCODE_DEBUG_MODE || context.extensionMode === vscode.ExtensionMode.Development) {
+        debug('Registering OCT debug helpers');
+        registerGlobalHelpers();
+    }
     
     // Then return the ballerina extension context
     return { 
