@@ -69,6 +69,7 @@ import {
     createExitPlanModeExecute,
     createTodoWriteTool,
     createTodoWriteExecute,
+    isPlanModeSessionActive,
     PendingQuestion,
     PendingPlanApproval,
 } from '../../tools/plan_mode_tools';
@@ -317,29 +318,54 @@ function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
         return execute;
     }
 
-    if (
-        mode === 'plan' &&
-        options &&
-        (toolName === FILE_WRITE_TOOL_NAME || toolName === FILE_EDIT_TOOL_NAME)
-    ) {
-        return createPlanModePlanFileOnlyExecute(
+    const blockedExecute = createModeBlockedExecute(toolName, mode);
+    const planFileOnlyExecute = mode === 'plan'
+        && options
+        && (toolName === FILE_WRITE_TOOL_NAME || toolName === FILE_EDIT_TOOL_NAME)
+        ? createPlanModePlanFileOnlyExecute(
             execute,
             toolName,
             options.projectPath,
             options.sessionId
-        );
-    }
+        )
+        : undefined;
+    const planReadOnlyBashExecute = mode === 'plan' && toolName === BASH_TOOL_NAME
+        ? createPlanModeReadOnlyBashExecute(execute as unknown as BashExecuteFn)
+        : undefined;
 
-    if (mode === 'plan' && toolName === BASH_TOOL_NAME) {
-        return createPlanModeReadOnlyBashExecute(execute as unknown as BashExecuteFn) as unknown as T;
-    }
+    return (async (...args: Parameters<T>): Promise<ToolResult> => {
+        if (mode === 'plan') {
+            const planRestrictionsActive = options
+                ? isPlanModeSessionActive(options.sessionId)
+                : true;
 
-    const allowedTools = mode === 'plan' ? PLAN_MODE_ALLOWED_TOOLS : READ_ONLY_MODE_ALLOWED_TOOLS;
-    if (allowedTools.has(toolName)) {
-        return execute;
-    }
+            // Plan mode can transition to Edit mode mid-run after exit_plan_mode approval.
+            // Once plan session state is cleared, stop applying Plan-mode restrictions.
+            if (!planRestrictionsActive) {
+                return execute(...args);
+            }
 
-    return createModeBlockedExecute(toolName, mode) as unknown as T;
+            if (planFileOnlyExecute) {
+                return planFileOnlyExecute(...args);
+            }
+
+            if (planReadOnlyBashExecute) {
+                return planReadOnlyBashExecute(args[0] as Parameters<BashExecuteFn>[0]);
+            }
+
+            if (PLAN_MODE_ALLOWED_TOOLS.has(toolName)) {
+                return execute(...args);
+            }
+
+            return blockedExecute(args[0]);
+        }
+
+        if (READ_ONLY_MODE_ALLOWED_TOOLS.has(toolName)) {
+            return execute(...args);
+        }
+
+        return blockedExecute(args[0]);
+    }) as T;
 }
 
 function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResult>>(
@@ -484,7 +510,13 @@ export function createAgentTools(params: CreateToolsParams) {
         return allTools;
     }
 
-    const visibleToolNames = mode === 'plan' ? PLAN_MODE_ALLOWED_TOOLS : READ_ONLY_MODE_ALLOWED_TOOLS;
+    // Keep all tools visible in Plan mode so approved exit_plan_mode can continue
+    // implementation in the same run. Execution restrictions are enforced dynamically.
+    if (mode === 'plan') {
+        return allTools;
+    }
+
+    const visibleToolNames = READ_ONLY_MODE_ALLOWED_TOOLS;
     return Object.fromEntries(
         Object.entries(allTools).filter(([toolName]) => visibleToolNames.has(toolName))
     );
