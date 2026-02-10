@@ -49,15 +49,25 @@ const AssertionFailureDetails = styled.div<{ isForm: boolean }>`
     margin-bottom: 4px;
     font-size: 12px;
     color: var(--vscode-errorForeground);
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
 `;
 
 const AssertionDetailLine = styled.div`
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: inline-block;
+    min-width: max-content;
+`;
+
+const StickyHeader = styled.div`
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--vscode-editor-background);
+    padding-top: 4px;
+    padding-bottom: 8px;
 `;
 
 interface AssertFormProps {
@@ -101,9 +111,11 @@ export const AssertForm: React.FC<AssertFormProps> = ({
 
     return (
         <>
-            <Typography variant="h3" sx={{ margin: 0, marginBottom: '8px' }}>
-                Assertions
-            </Typography>
+            <StickyHeader>
+                <Typography variant="h3" sx={{ margin: 0 }}>
+                    Assertions
+                </Typography>
+            </StickyHeader>
             {(request.assertions || []).map((assertion, index) => (
                 <React.Fragment key={index}>
                     <AssertionItem>

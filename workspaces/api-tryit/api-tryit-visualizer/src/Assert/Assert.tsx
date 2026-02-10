@@ -36,6 +36,14 @@ interface AssertProps {
 const Container = styled.div`
     width: 100%;
     height: calc(100vh - 215px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+`;
+
+const ScrollArea = styled.div`
+    flex: 1;
+    min-height: 0;
     overflow: auto;
 `;
 
@@ -106,19 +114,21 @@ export const Assert: React.FC<AssertProps> = ({
 
     return (
         <Container>
-            {mode === 'code' ? (
-                <AssertCode
-                    request={request}
-                    response={response}
-                    onRequestChange={onRequestChange}
-                />
-            ) : (
-                <AssertForm
-                    request={request}
-                    response={response}
-                    onRequestChange={onRequestChange}
-                />
-            )}
+            <ScrollArea>
+                {mode === 'code' ? (
+                    <AssertCode
+                        request={request}
+                        response={response}
+                        onRequestChange={onRequestChange}
+                    />
+                ) : (
+                    <AssertForm
+                        request={request}
+                        response={response}
+                        onRequestChange={onRequestChange}
+                    />
+                )}
+            </ScrollArea>
             {response && (request.assertions || []).length > 0 && (
                 <SummarySection>
                     <SummaryItem>
