@@ -60,6 +60,7 @@ export const ViewRuntimeLogs: RequestType<ViewRuntimeLogsReq, void> = { method: 
 export const TriggerGithubAuthFlow: RequestType<string, void> = { method: "triggerGithubAuthFlow" };
 export const TriggerGithubInstallFlow: RequestType<string, void> = { method: "triggerGithubInstallFlow" };
 export const SubmitComponentCreate: RequestType<SubmitComponentCreateReq, ComponentKind> = { method: "submitComponentCreate" };
+export const SubmitBatchComponentCreate: RequestType<SubmitBatchComponentCreateReq, SubmitBatchComponentCreateResp> = { method: "submitBatchComponentCreate" };
 export const GetDirectoryFileNames: RequestType<string, string[]> = { method: "getDirectoryFileNames" };
 export const FileExists: RequestType<string, boolean> = { method: "fileExists" };
 export const ReadFile: RequestType<string, string | null> = { method: "readFile" };
@@ -127,6 +128,28 @@ export interface SubmitComponentCreateReq {
 	createParams: CreateComponentReq;
 	autoBuildOnCommit?: boolean;
 	type: string;
+}
+
+/** Request for batch component creation */
+export interface SubmitBatchComponentCreateReq {
+	org: Organization;
+	project: Project;
+	/** Array of component creation requests */
+	components: Array<{
+		createParams: CreateComponentReq;
+		autoBuildOnCommit?: boolean;
+		type: string;
+	}>;
+}
+
+/** Response for batch component creation */
+export interface SubmitBatchComponentCreateResp {
+	/** Successfully created components */
+	created: ComponentKind[];
+	/** Failed component names with error messages */
+	failed: Array<{ name: string; error: string }>;
+	/** Total components attempted */
+	total: number;
 }
 
 export interface CreateLocalEndpointsConfigReq {

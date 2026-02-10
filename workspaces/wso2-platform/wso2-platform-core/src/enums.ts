@@ -112,6 +112,7 @@ export enum ChoreoComponentType {
 	EventHandler = "eventHandler",
 	TestRunner = "testRunner",
 	ApiProxy = "proxy",
+	Library = "library",
 }
 
 export enum ChoreoComponentSubType {
@@ -126,6 +127,7 @@ export enum DevantScopes {
 	FILE_INTEGRATION = "file-integration",
 	AI_AGENT = "ai-agent",
 	ANY = "any",
+	LIBRARY = "library", 
 }
 
 export enum ComponentViewDrawers {
