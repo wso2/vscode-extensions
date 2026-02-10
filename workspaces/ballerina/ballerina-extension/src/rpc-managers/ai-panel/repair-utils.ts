@@ -43,11 +43,16 @@ export async function attemptRepairProject(langClient: ExtendedLangClient, tempD
     return projectDiags;
 }
 
-export async function checkProjectDiagnostics(langClient: ExtendedLangClient, tempDir: string): Promise<Diagnostics[]> {
+export async function checkProjectDiagnostics(langClient: ExtendedLangClient, tempDir: string, isAISchema: boolean = false): Promise<Diagnostics[]> {
     const allDiags: Diagnostics[] = [];
+    let projectUri = Uri.file(tempDir).toString();
+    if (isAISchema) {
+        projectUri = Uri.file(tempDir).with({ scheme: 'ai' }).toString();
+    }
+    console.log("Getting project diagnostics for URI:", projectUri);
     let response: ProjectDiagnosticsResponse = await langClient.getProjectDiagnostics({
         projectRootIdentifier: {
-            uri: Uri.file(tempDir).toString()
+            uri: projectUri
         }
     });
     if (!response.errorDiagnosticMap) {
@@ -87,31 +92,17 @@ export async function isModuleNotFoundDiagsExist(diagnosticsResult: Diagnostics[
     // Process each unique diagnostic only once
     let projectModified = false;
     for (const [_, { uri }] of uniqueDiagnosticMap.entries()) {
-        const dependenciesResponse = await langClient.resolveMissingDependencies({
+        const dependenciesResponse = await langClient.resolveModuleDependencies({
             documentIdentifier: {
                 uri: uri
             }
         });
 
-        const response = dependenciesResponse as SyntaxTree;
-        if (response.parseSuccess) {
-            // Read and save content to a string
-            const sourceFile = await workspace.openTextDocument(Uri.parse(uri));
-            const content = sourceFile.getText();
-
-            langClient.didOpen({
-                textDocument: {
-                    uri: uri,
-                    languageId: 'ballerina',
-                    version: 1,
-                    text: content
-                }
-            });
-            projectModified = true;
-        } else {
-            console.log("Module resolving failed for uri: " + uri + " with response: " + JSON.stringify(response) + "\n" + uniqueDiagnosticMap + "\n");
-            throw Error("Module resolving failed");
+        const response = dependenciesResponse;
+        if (!response.success) {
+            throw new Error("Module resolving failed");
         }
+        projectModified = true;
     }
 
     return projectModified;

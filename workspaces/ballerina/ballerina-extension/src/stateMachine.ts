@@ -40,7 +40,6 @@ import { extension } from './BalExtensionContext';
 import { AIStateMachine } from './views/ai-panel/aiMachine';
 import { StateMachinePopup } from './stateMachinePopup';
 import { checkIsBallerinaPackage, checkIsBI, fetchScope, getOrgPackageName, UndoRedoManager, getProjectTomlValues, getOrgAndPackageName, checkIsBallerinaWorkspace } from './utils';
-import { AIChatStateMachine } from './views/ai-panel/aiChatMachine';
 import { activateDevantFeatures } from './features/devant/activator';
 import { buildProjectsStructure } from './utils/project-artifacts';
 import { runCommandWithOutput } from './utils/runCommand';
@@ -61,6 +60,7 @@ interface MachineContext extends VisualizerLocation {
     errorCode: string | null;
     dependenciesResolved?: boolean;
     isInDevant: boolean;
+    isViewUpdateTransition?: boolean;
 }
 
 export let history: History;
@@ -314,7 +314,8 @@ const stateMachine = createMachine<MachineContext>(
                                 dataMapperMetadata: (context, event) => event.viewLocation?.dataMapperMetadata,
                                 artifactInfo: (context, event) => event.viewLocation?.artifactInfo,
                                 rootDiagramId: (context, event) => event.viewLocation?.rootDiagramId,
-                                reviewData: (context, event) => event.viewLocation?.reviewData
+                                reviewData: (context, event) => event.viewLocation?.reviewData,
+                                isViewUpdateTransition: false
                             }),
                             (context, event) => notifyTreeView(
                                 context.projectPath,
@@ -375,7 +376,8 @@ const stateMachine = createMachine<MachineContext>(
                                     syntaxTree: (context, event) => event.data.syntaxTree,
                                     focusFlowDiagramView: (context, event) => event.data.focusFlowDiagramView,
                                     dataMapperMetadata: (context, event) => event.data.dataMapperMetadata,
-                                    reviewData: (context, event) => event.data.reviewData
+                                    reviewData: (context, event) => event.data.reviewData,
+                                    isViewUpdateTransition: false
                                 })
                             }
                         }
@@ -401,7 +403,8 @@ const stateMachine = createMachine<MachineContext>(
                                         dataMapperMetadata: (context, event) => event.viewLocation?.dataMapperMetadata,
                                         artifactInfo: (context, event) => event.viewLocation?.artifactInfo,
                                         rootDiagramId: (context, event) => event.viewLocation?.rootDiagramId,
-                                        reviewData: (context, event) => event.viewLocation?.reviewData
+                                        reviewData: (context, event) => event.viewLocation?.reviewData,
+                                        isViewUpdateTransition: false
                                     }),
                                     (context, event) => notifyTreeView(
                                         event.viewLocation?.projectPath || context?.projectPath,
@@ -424,7 +427,8 @@ const stateMachine = createMachine<MachineContext>(
                                         isGraphql: (context, event) => event.viewLocation?.isGraphql,
                                         addType: (context, event) => event.viewLocation?.addType,
                                         dataMapperMetadata: (context, event) => event.viewLocation?.dataMapperMetadata,
-                                        reviewData: (context, event) => event.viewLocation?.reviewData
+                                        reviewData: (context, event) => event.viewLocation?.reviewData,
+                                        isViewUpdateTransition: true
                                     }),
                                     (context, event) => notifyTreeView(
                                         context.projectPath,
@@ -458,7 +462,6 @@ const stateMachine = createMachine<MachineContext>(
                     const ls = await activateBallerina();
                     fetchAndCacheLibraryData();
                     AIStateMachine.initialize();
-                    AIChatStateMachine.initialize();
                     StateMachinePopup.initialize();
                     commands.executeCommand('setContext', 'BI.status', 'loadingDone');
                     if (!ls.biSupported) {
@@ -673,6 +676,11 @@ const stateMachine = createMachine<MachineContext>(
                 }
 
                 if (selectedEntry && (selectedEntry.location.view === MACHINE_VIEW.ERDiagram || selectedEntry.location.view === MACHINE_VIEW.ServiceDesigner || selectedEntry.location.view === MACHINE_VIEW.BIDiagram || selectedEntry.location.view === MACHINE_VIEW.ReviewMode)) {
+                    // Get updated location and identifier if transition was from VIEW_UPDATE event
+                    if (context.isViewUpdateTransition && selectedEntry.location.view !== MACHINE_VIEW.ReviewMode) {
+                        const updatedView = await getView(selectedEntry.location.documentUri, selectedEntry.location.position, context?.projectPath);
+                        return resolve(updatedView.location);
+                    }
                     return resolve(selectedEntry.location);
                 }
 

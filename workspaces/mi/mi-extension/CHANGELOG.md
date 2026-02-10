@@ -2,6 +2,20 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
+## [3.1.3] - 2026-02-05
+
+### Fixed
+
+Fixed: Minor issues in the project migration flow
+
+## [3.1.2] - 2026-01-22
+
+### Fixed
+
+Fixed: Invalid Synapse Expressions ([#1374](https://github.com/wso2/mi-vscode/issues/1374))  
+Fixed: Data service Synapse configuration gets corrupted ([#1377](https://github.com/wso2/mi-vscode/issues/1377))  
+Fixed: Artifact ID of the project changes while migrating the project  ([#1378](https://github.com/wso2/mi-vscode/issues/1378))  
+
 ## [3.1.1] - 2025-12-12
 
 ### Fixed
