@@ -68,8 +68,8 @@ importers:
         specifier: 0.5.14
         version: 0.5.14
       axios:
-        specifier: 1.12.0
-        version: 1.12.0
+        specifier: 1.13.5
+        version: 1.13.5
       copyfiles:
         specifier: 2.4.1
         version: 2.4.1
@@ -670,8 +670,8 @@ importers:
         specifier: 18.2.0
         version: 18.2.0
       '@types/vscode':
-        specifier: 1.83.1
-        version: 1.83.1
+        specifier: 1.100.0
+        version: 1.100.0
       '@typescript-eslint/eslint-plugin':
         specifier: 8.32.1
         version: 8.32.1(@typescript-eslint/parser@8.32.1(eslint@9.39.2(jiti@2.6.1))(typescript@5.8.3))(eslint@9.39.2(jiti@2.6.1))(typescript@5.8.3)
@@ -833,8 +833,8 @@ importers:
         specifier: 1.0.3
         version: 1.0.3
       '@types/vscode':
-        specifier: 1.83.1
-        version: 1.83.1
+        specifier: 1.100.0
+        version: 1.100.0
       '@types/vscode-notebook-renderer':
         specifier: 1.72.2
         version: 1.72.2
@@ -842,8 +842,8 @@ importers:
         specifier: 0.5.16
         version: 0.5.16
       axios:
-        specifier: 1.12.0
-        version: 1.12.0
+        specifier: 1.13.5
+        version: 1.13.5
       chai:
         specifier: 4.3.10
         version: 4.3.10
@@ -2032,8 +2032,8 @@ importers:
         specifier: 2.4.1
         version: 2.4.1
       html-to-image:
-        specifier: 1.10.8
-        version: 1.10.8
+        specifier: 1.11.11
+        version: 1.11.11
       lodash:
         specifier: 4.17.23
         version: 4.17.23
@@ -2175,8 +2175,8 @@ importers:
         specifier: 6.2.0
         version: 6.2.0(webpack@5.104.1)
       html-to-image:
-        specifier: 1.10.8
-        version: 1.10.8
+        specifier: 1.11.11
+        version: 1.11.11
       lodash:
         specifier: 4.17.23
         version: 4.17.23
@@ -2995,8 +2995,8 @@ importers:
         specifier: workspace:*
         version: link:../../common-libs/playwright-vscode-tester
       axios:
-        specifier: 1.12.0
-        version: 1.12.0
+        specifier: 1.13.5
+        version: 1.13.5
       copy-webpack-plugin:
         specifier: 13.0.0
         version: 13.0.0(webpack@5.104.1)
@@ -4011,8 +4011,8 @@ importers:
         specifier: 5.0.76
         version: 5.0.76(zod@4.1.11)
       axios:
-        specifier: 1.12.0
-        version: 1.12.0
+        specifier: 1.13.5
+        version: 1.13.5
       copyfiles:
         specifier: 2.4.1
         version: 2.4.1
@@ -4611,8 +4611,8 @@ importers:
         specifier: workspace:*
         version: link:../../common-libs/playwright-vscode-tester
       axios:
-        specifier: 1.9.0
-        version: 1.9.0
+        specifier: 1.13.5
+        version: 1.13.5
       copy-webpack-plugin:
         specifier: 13.0.0
         version: 13.0.0(webpack@5.104.1)
@@ -11654,9 +11654,6 @@ packages:
   '@types/vscode@1.81.0':
     resolution: {integrity: sha512-YIaCwpT+O2E7WOMq0eCgBEABE++SX3Yl/O02GoMIF2DO3qAtvw7m6BXFYsxnc6XyzwZgh6/s/UG78LSSombl2w==}
 
-  '@types/vscode@1.83.1':
-    resolution: {integrity: sha512-BHu51NaNKOtDf3BOonY3sKFFmZKEpRkzqkZVpSYxowLbs5JqjOQemYFob7Gs5rpxE5tiGhfpnMpcdF/oKrLg4w==}
-
   '@types/vscode@1.84.0':
     resolution: {integrity: sha512-lCGOSrhT3cL+foUEqc8G1PVZxoDbiMmxgnUZZTEnHF4mC47eKAUtBGAuMLY6o6Ua8PAuNCoKXbqPmJd1JYnQfg==}
 
@@ -12912,14 +12909,8 @@ packages:
     resolution: {integrity: sha512-BASOg+YwO2C+346x3LZOeoovTIoTrRqEsqMa6fmfAV0P+U9mFr9NsyOEpiYvFjbc64NMrSswhV50WdXzdb/Z5A==}
     engines: {node: '>=4'}
 
-  axios@1.12.0:
-    resolution: {integrity: sha512-oXTDccv8PcfjZmPGlWsPSwtOJCZ/b6W5jAMCNcfwJbCzDckwG0jrYJFaWH1yvivfCXjVzV/SPDEhMB3Q+DSurg==}
-
   axios@1.13.5:
     resolution: {integrity: sha512-cz4ur7Vb0xS4/KUN0tPWe44eqxrIu31me+fbang3ijiNscE129POzipJJA6zniq2C/Z6sJCjMimjS8Lc/GAs8Q==}
-
-  axios@1.9.0:
-    resolution: {integrity: sha512-re4CqKTJaURpzbLHtIi6XpDv20/CnpXOtjRY5/CU32L8gU8ek9UIivcfvSWvmKEngmVbrUtPpdDwWDWL7DNHvg==}
 
   axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
@@ -16911,9 +16902,6 @@ packages:
   html-tags@3.3.1:
     resolution: {integrity: sha512-ztqyC3kLto0e9WbNp0aeP+M3kTt+nbaIveGmUxAtZa+8iFgKLUOD4YKM5j+f3QD89bra7UeumolZHKuOXnTmeQ==}
     engines: {node: '>=8'}
-
-  html-to-image@1.10.8:
-    resolution: {integrity: sha512-t+JyFJwKDCp4ZwBp4iC/wqw0meQDDc77Qs8OFl5P7RGlIP3LQMvwpD7VXxqQfC7/TfC+GKYlFP6WDYfXTmXHfw==}
 
   html-to-image@1.11.11:
     resolution: {integrity: sha512-9gux8QhvjRO/erSnDPv28noDZcPZmYE7e1vFsBLKLlRlKDSqNJYebj6Qz1TGd5lsRV+X+xYyjCKjuZdABinWjA==}
@@ -40382,8 +40370,6 @@ snapshots:
 
   '@types/vscode@1.81.0': {}
 
-  '@types/vscode@1.83.1': {}
-
   '@types/vscode@1.84.0': {}
 
   '@types/webpack-env@1.18.8': {}
@@ -41999,23 +41985,7 @@ snapshots:
 
   axe-core@4.11.1: {}
 
-  axios@1.12.0:
-    dependencies:
-      follow-redirects: 1.15.11(debug@3.2.7)
-      form-data: 4.0.5
-      proxy-from-env: 1.1.0
-    transitivePeerDependencies:
-      - debug
-
   axios@1.13.5:
-    dependencies:
-      follow-redirects: 1.15.11(debug@3.2.7)
-      form-data: 4.0.5
-      proxy-from-env: 1.1.0
-    transitivePeerDependencies:
-      - debug
-
-  axios@1.9.0:
     dependencies:
       follow-redirects: 1.15.11(debug@3.2.7)
       form-data: 4.0.5
@@ -47793,8 +47763,6 @@ snapshots:
       uglify-js: 3.4.10
 
   html-tags@3.3.1: {}
-
-  html-to-image@1.10.8: {}
 
   html-to-image@1.11.11: {}
 
