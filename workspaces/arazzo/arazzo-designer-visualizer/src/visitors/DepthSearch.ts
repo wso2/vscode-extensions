@@ -56,6 +56,7 @@ export class DepthSearch {
      * - Always take the FIRST child (primary success path)
      * - If branches exist, take the FIRST branch that leads to a STEP node
      * - Avoid END nodes unless no other choice
+     * - Skip nodes that are already in the main spine (prevent infinite loops from goto)
      */
     private buildMainPath(node: FlowNode): void {
         // Add current node to path
@@ -72,9 +73,16 @@ export class DepthSearch {
         let bestNext: FlowNode | undefined;
         let bestDepth = -1;
 
+        // Build a Set of current main spine node IDs to prevent loops
+        const spineNodeIds = new Set(this.mainPath.map(n => n.id));
+
         // Evaluate direct children (compute depths so we can compare with branch heads)
         if (node.children && node.children.length > 0) {
             for (const child of node.children) {
+                // Skip if child is already in the main spine (prevents goto infinite loop)
+                if (spineNodeIds.has(child.id)) {
+                    continue;
+                }
                 const d = this.computeDepth(child);
                 if (d > bestDepth) {
                     bestDepth = d;
@@ -88,6 +96,10 @@ export class DepthSearch {
             for (const branch of node.branches) {
                 if (branch.length > 0) {
                     const head = branch[0];
+                    // Skip if branch head is already in the main spine (prevents goto infinite loop)
+                    if (spineNodeIds.has(head.id)) {
+                        continue;
+                    }
                     const d = this.computeDepth(head);
                     if (d > bestDepth) {
                         bestDepth = d;

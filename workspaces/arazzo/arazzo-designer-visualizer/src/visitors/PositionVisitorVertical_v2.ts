@@ -42,6 +42,7 @@ export class PositionVisitorVertical_v2 {
     private mainPathIndex: Map<string, number> = new Map();
     private spineX: number;
     private visited = new Set<string>();
+    private mainSpineVisited = new Set<string>(); // Track visited nodes during main spine positioning
     private nodePositions: Array<{ id: string; x: number; y: number; w: number; h: number }> = [];
 
     constructor(private depthSearch: DepthSearch, spineX: number = 0) {
@@ -78,6 +79,8 @@ export class PositionVisitorVertical_v2 {
         if (!this.mainPathNodes.has(node.id)) {
             return;
         }
+
+        this.mainSpineVisited.add(node.id);
 
         // Position this node at the spine (center-aligned)
         node.viewState.x = this.spineX - (node.viewState.w / 2);
@@ -128,7 +131,7 @@ export class PositionVisitorVertical_v2 {
             for (const branch of node.branches) {
                 if (branch.length > 0) {
                     const head = branch[0];
-                    if (this.mainPathNodes.has(head.id)) {
+                    if (this.mainPathNodes.has(head.id) && !this.mainSpineVisited.has(head.id)) {
                         const idx = this.mainPathIndex.get(head.id) ?? Number.POSITIVE_INFINITY;
                         if (idx < bestIdx) {
                             bestIdx = idx;
