@@ -91,6 +91,8 @@ export interface JournalEntry {
     type: 'user' | 'assistant' | 'tool' | 'session_start' | 'session_end' | 'compact_summary' | 'mode_change' | 'undo_checkpoint';
     /** The model message (for user/assistant/tool entries) */
     message?: any;
+    /** Stable UI chat id for grouping a user turn and assistant output */
+    chatId?: number;
     /** ISO timestamp */
     timestamp: string;
     /** Session ID */
@@ -108,6 +110,8 @@ export interface JournalEntry {
     mode?: AgentMode;
     /** Undo checkpoint summary (undo_checkpoint) */
     undoCheckpoint?: UndoCheckpointSummary;
+    /** Assistant chat id this undo checkpoint belongs to (undo_checkpoint) */
+    targetChatId?: number;
     /** Total input tokens — attached to last message entry of each agent step */
     totalInputTokens?: number;
     /** Lightweight attachment metadata for user messages (for UI replay) */
@@ -438,6 +442,7 @@ export class ChatHistoryManager {
         message: any,
         options?: {
             totalInputTokens?: number;
+            chatId?: number;
             attachmentMetadata?: {
                 files?: Array<{ name: string; mimetype: string }>;
                 images?: Array<{ imageName: string }>;
@@ -452,6 +457,9 @@ export class ChatHistoryManager {
                 timestamp: new Date().toISOString(),
                 sessionId: this.sessionId,
             };
+            if (options?.chatId !== undefined) {
+                entry.chatId = options.chatId;
+            }
             if (options?.totalInputTokens !== undefined) {
                 entry.totalInputTokens = options.totalInputTokens;
             }
@@ -488,14 +496,14 @@ export class ChatHistoryManager {
      * @param messages - ModelMessages from AI SDK (only new messages to save)
      * @param options - Optional metadata to attach to the last message (e.g. totalInputTokens)
      */
-    async saveMessages(messages: any[], options?: { totalInputTokens?: number }): Promise<void> {
+    async saveMessages(messages: any[], options?: { totalInputTokens?: number; chatId?: number }): Promise<void> {
         if (messages.length === 0) {
             return;
         }
 
         for (let i = 0; i < messages.length; i++) {
             const isLast = i === messages.length - 1;
-            await this.saveMessage(messages[i], isLast ? options : undefined);
+            await this.saveMessage(messages[i], isLast ? options : options?.chatId !== undefined ? { chatId: options.chatId } : undefined);
         }
     }
 
@@ -621,12 +629,13 @@ export class ChatHistoryManager {
     /**
      * Save an undo checkpoint summary to history for session replay.
      */
-    async saveUndoCheckpoint(summary: UndoCheckpointSummary): Promise<void> {
+    async saveUndoCheckpoint(summary: UndoCheckpointSummary, targetChatId?: number): Promise<void> {
         const entry: JournalEntry = {
             type: 'undo_checkpoint',
             timestamp: new Date().toISOString(),
             sessionId: this.sessionId,
             undoCheckpoint: summary,
+            targetChatId,
         };
 
         try {
@@ -746,6 +755,12 @@ export class ChatHistoryManager {
                     const entry = allEntries[i];
                     if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'tool') {
                         let modelMessage = entry.message;
+                        if (entry.chatId !== undefined && modelMessage && typeof modelMessage === 'object') {
+                            modelMessage = {
+                                ...modelMessage,
+                                _chatId: entry.chatId,
+                            };
+                        }
                         if (entry.type === 'user' && entry.attachmentMetadata && modelMessage) {
                             modelMessage = {
                                 ...modelMessage,
@@ -767,6 +782,12 @@ export class ChatHistoryManager {
             for (const entry of allEntries) {
                 if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'tool') {
                     let modelMessage = entry.message;
+                    if (entry.chatId !== undefined && modelMessage && typeof modelMessage === 'object') {
+                        modelMessage = {
+                            ...modelMessage,
+                            _chatId: entry.chatId,
+                        };
+                    }
                     if (entry.type === 'user' && entry.attachmentMetadata && modelMessage) {
                         modelMessage = {
                             ...modelMessage,
@@ -1022,6 +1043,7 @@ export class ChatHistoryManager {
      */
     static convertToEventFormat(messages: any[]): Array<{
         type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint';
+        chatId?: number;
         content?: string;
         files?: Array<{ name: string; mimetype: string; content: string }>;
         images?: Array<{ imageName: string; imageBase64: string }>;
@@ -1031,6 +1053,7 @@ export class ChatHistoryManager {
         toolCallId?: string;
         action?: string;
         undoCheckpoint?: UndoCheckpointSummary;
+        targetChatId?: number;
         timestamp: string;
     }> {
         const events: any[] = [];
@@ -1055,6 +1078,7 @@ export class ChatHistoryManager {
                     events.push({
                         type: 'undo_checkpoint',
                         undoCheckpoint: msg.undoCheckpoint,
+                        targetChatId: typeof msg.targetChatId === 'number' ? msg.targetChatId : undefined,
                         timestamp: msg.timestamp || timestamp,
                     });
                 }
@@ -1158,6 +1182,7 @@ export class ChatHistoryManager {
 
                     events.push({
                         type: 'user',
+                        chatId: typeof msg._chatId === 'number' ? msg._chatId : undefined,
                         content: userContent,
                         files: files.length > 0 ? files : undefined,
                         images: images.length > 0 ? images : undefined,
@@ -1172,6 +1197,7 @@ export class ChatHistoryManager {
                         if (msg.content.trim()) {
                             events.push({
                                 type: 'assistant',
+                                chatId: typeof msg._chatId === 'number' ? msg._chatId : undefined,
                                 content: msg.content,
                                 timestamp
                             });
@@ -1184,6 +1210,7 @@ export class ChatHistoryManager {
                                 if (part.text && part.text.trim()) {
                                     events.push({
                                         type: 'assistant',
+                                        chatId: typeof msg._chatId === 'number' ? msg._chatId : undefined,
                                         content: part.text,
                                         timestamp
                                     });
@@ -1193,6 +1220,7 @@ export class ChatHistoryManager {
                                 if (reasoningText) {
                                     events.push({
                                         type: 'assistant',
+                                        chatId: typeof msg._chatId === 'number' ? msg._chatId : undefined,
                                         content: `\n\n<thinking>${reasoningText}</thinking>\n\n`,
                                         timestamp
                                     });
@@ -1204,6 +1232,7 @@ export class ChatHistoryManager {
                                 }
                                 events.push({
                                     type: 'tool_call',
+                                    chatId: typeof msg._chatId === 'number' ? msg._chatId : undefined,
                                     toolName: part.toolName,
                                     toolInput: part.input,
                                     toolCallId: part.toolCallId,
@@ -1232,6 +1261,7 @@ export class ChatHistoryManager {
 
                                 const event: any = {
                                     type: 'tool_result',
+                                    chatId: typeof msg._chatId === 'number' ? msg._chatId : undefined,
                                     toolName: part.toolName,
                                     toolOutput: output,
                                     toolCallId: part.toolCallId,

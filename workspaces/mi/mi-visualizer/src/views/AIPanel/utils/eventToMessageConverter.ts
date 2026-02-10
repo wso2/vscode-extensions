@@ -22,6 +22,7 @@ import { generateId } from "../utils";
 // Tool name constants
 const TODO_WRITE_TOOL_NAME = 'todo_write';
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
+const FILE_CHANGES_TAG_REGEX = /<filechanges>([\s\S]*?)<\/filechanges>/g;
 
 /**
  * Calculate overall status from todo items
@@ -34,6 +35,56 @@ function calculateTodoStatus(todos: TodoItem[]): 'active' | 'completed' | 'pendi
         return 'completed';
     }
     return 'pending';
+}
+
+function getFileChangesCheckpointIds(content: string): Set<string> {
+    const checkpointIds = new Set<string>();
+    for (const match of content.matchAll(FILE_CHANGES_TAG_REGEX)) {
+        const summaryText = match[1];
+        try {
+            const summary = JSON.parse(summaryText) as { checkpointId?: string };
+            if (summary?.checkpointId) {
+                checkpointIds.add(summary.checkpointId);
+            }
+        } catch {
+            // Ignore malformed tags and continue.
+        }
+    }
+    return checkpointIds;
+}
+
+function hasFileChangesCheckpoint(content: string, checkpointId?: string): boolean {
+    if (!checkpointId) {
+        return false;
+    }
+    return getFileChangesCheckpointIds(content).has(checkpointId);
+}
+
+function appendFileChangesTagToMessage(message: ChatMessage, tag: string): void {
+    message.content = message.content ? `${message.content}\n\n${tag}` : tag;
+}
+
+function findLastAssistantMessage(
+    messages: ChatMessage[],
+    matcher?: (message: ChatMessage) => boolean
+): ChatMessage | undefined {
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const candidate = messages[i];
+        if (candidate.role !== Role.MICopilot) {
+            continue;
+        }
+        if (!matcher || matcher(candidate)) {
+            return candidate;
+        }
+    }
+    return undefined;
+}
+
+function getEventChatId(event: AgentEvent | ChatHistoryEvent): number | undefined {
+    if ('chatId' in event && typeof event.chatId === 'number') {
+        return event.chatId;
+    }
+    return undefined;
 }
 
 /**
@@ -49,6 +100,9 @@ export function convertEventsToMessages(
     const messages: ChatMessage[] = [];
     let currentUserMessage: ChatMessage | null = null;
     let currentAssistantMessage: ChatMessage | null = null;
+    let activeChatId: number | undefined = undefined;
+    let nextSyntheticChatId = -1;
+    const allocateSyntheticChatId = (): number => nextSyntheticChatId--;
     // Track pending tool calls by toolCallId for proper matching
     const pendingToolCalls = new Map<string, {
         toolName: string;
@@ -65,9 +119,12 @@ export function convertEventsToMessages(
                     currentAssistantMessage = null;
                 }
 
+                const userChatId = getEventChatId(event) ?? allocateSyntheticChatId();
+                activeChatId = userChatId;
+
                 // Create new user message
                 currentUserMessage = {
-                    id: generateId(),
+                    id: userChatId,
                     role: Role.MIUser,
                     content: event.content || '',
                     type: MessageType.UserMessage,
@@ -80,10 +137,11 @@ export function convertEventsToMessages(
 
             case 'assistant':
             case 'content_block':
+                activeChatId = getEventChatId(event) ?? activeChatId;
                 // Create or append to assistant message
                 if (!currentAssistantMessage) {
                     currentAssistantMessage = {
-                        id: generateId(),
+                        id: activeChatId ?? allocateSyntheticChatId(),
                         role: Role.MICopilot,
                         content: event.content || '',
                         type: MessageType.AssistantMessage
@@ -94,6 +152,7 @@ export function convertEventsToMessages(
                 break;
 
             case 'tool_call':
+                activeChatId = getEventChatId(event) ?? activeChatId;
                 // Handle todo_write tool calls - generate inline todolist tag
                 if (event.toolName === TODO_WRITE_TOOL_NAME) {
                     const todoInput = event.toolInput as { todos?: TodoItem[] };
@@ -109,7 +168,7 @@ export function convertEventsToMessages(
                         // Ensure assistant message exists
                         if (!currentAssistantMessage) {
                             currentAssistantMessage = {
-                                id: generateId(),
+                                id: activeChatId ?? allocateSyntheticChatId(),
                                 role: Role.MICopilot,
                                 content: '',
                                 type: MessageType.AssistantMessage
@@ -144,7 +203,7 @@ export function convertEventsToMessages(
                 // Ensure assistant message exists
                 if (!currentAssistantMessage) {
                     currentAssistantMessage = {
-                        id: generateId(),
+                        id: activeChatId ?? allocateSyntheticChatId(),
                         role: Role.MICopilot,
                         content: '',
                         type: MessageType.AssistantMessage
@@ -176,6 +235,7 @@ export function convertEventsToMessages(
                 break;
 
             case 'tool_result':
+                activeChatId = getEventChatId(event) ?? activeChatId;
                 // Skip todo_write tool results (handled by inline todo list in tool_call)
                 if ('toolName' in event && event.toolName === TODO_WRITE_TOOL_NAME) {
                     continue;
@@ -189,7 +249,7 @@ export function convertEventsToMessages(
                     // Ensure assistant message exists
                     if (!currentAssistantMessage) {
                         currentAssistantMessage = {
-                            id: generateId(),
+                            id: activeChatId ?? allocateSyntheticChatId(),
                             role: Role.MICopilot,
                             content: '',
                             type: MessageType.AssistantMessage
@@ -291,6 +351,7 @@ export function convertEventsToMessages(
                     messages.push(currentAssistantMessage);
                     currentAssistantMessage = null;
                 }
+                activeChatId = undefined;
                 // Render as a standalone assistant message with <compact> tag
                 // (splitContent in utils.ts parses this; CompactSummarySegment renders it)
                 messages.push({
@@ -306,19 +367,44 @@ export function convertEventsToMessages(
                 if (!checkpoint) {
                     break;
                 }
+                const targetChatId = 'targetChatId' in event && typeof event.targetChatId === 'number'
+                    ? event.targetChatId
+                    : undefined;
+
+                const checkpointId = checkpoint.checkpointId;
+                const alreadyExistsInCurrent = currentAssistantMessage
+                    ? hasFileChangesCheckpoint(currentAssistantMessage.content || '', checkpointId)
+                    : false;
+                const alreadyExistsInMessages = messages.some((message) =>
+                    message.role === Role.MICopilot
+                    && hasFileChangesCheckpoint(message.content || '', checkpointId)
+                );
+
+                if (alreadyExistsInCurrent || alreadyExistsInMessages) {
+                    break;
+                }
+
+                if (targetChatId === undefined) {
+                    break;
+                }
 
                 const fileChangesTag = `<filechanges>${JSON.stringify(checkpoint)}</filechanges>`;
-                if (!currentAssistantMessage) {
-                    currentAssistantMessage = {
-                        id: generateId(),
-                        role: Role.MICopilot,
-                        content: fileChangesTag,
-                        type: MessageType.AssistantMessage,
-                    };
-                } else {
-                    currentAssistantMessage.content = currentAssistantMessage.content
-                        ? `${currentAssistantMessage.content}\n\n${fileChangesTag}`
-                        : fileChangesTag;
+                if (
+                    currentAssistantMessage
+                    && currentAssistantMessage.role === Role.MICopilot
+                    && currentAssistantMessage.id === targetChatId
+                ) {
+                    appendFileChangesTagToMessage(currentAssistantMessage, fileChangesTag);
+                    break;
+                }
+
+                const targetedAssistantMessage = findLastAssistantMessage(
+                    messages,
+                    (message) => message.id === targetChatId
+                );
+                if (targetedAssistantMessage) {
+                    appendFileChangesTagToMessage(targetedAssistantMessage, fileChangesTag);
+                    break;
                 }
                 break;
             }

@@ -419,6 +419,23 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         return path.join('src', 'main', 'wso2mi', 'artifacts', fileType, `${artifactName}.xml`);
     }
 
+    private async resolveLatestAssistantChatId(): Promise<number | undefined> {
+        try {
+            const historyManager = await this.getChatHistoryManager();
+            const messages = await historyManager.getMessages();
+
+            for (let i = messages.length - 1; i >= 0; i--) {
+                const message = messages[i] as { role?: string; _chatId?: number };
+                if (message?.role === 'assistant' && typeof message._chatId === 'number') {
+                    return message._chatId;
+                }
+            }
+        } catch (error) {
+            logDebug(`[AgentPanel] Failed to resolve latest assistant chat id: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        return undefined;
+    }
+
     private async applyUndoCheckpointRestore(checkpoint: StoredUndoCheckpoint): Promise<string[]> {
         const restoredFiles: string[] = [];
         const workspaceEdit = new vscode.WorkspaceEdit();
@@ -520,6 +537,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                     return await executeAgent(
                         {
                             query: request.message,
+                            chatId: request.chatId,
                             mode: effectiveMode,
                             files: request.files,
                             images: request.images,
@@ -584,7 +602,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             if (result.success) {
                 const undoCheckpoint = await undoCheckpointManager.commitRun();
                 if (undoCheckpoint) {
-                    await historyManager.saveUndoCheckpoint(undoCheckpoint);
+                    await historyManager.saveUndoCheckpoint(undoCheckpoint, request.chatId);
                 }
                 logInfo(`[AgentPanel] Agent completed successfully. Modified ${result.modifiedFiles.length} files.`);
                 return {
@@ -700,6 +718,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         }
 
         const undoCheckpointManager = await this.getUndoCheckpointManager();
+        const targetChatId = request.targetChatId ?? await this.resolveLatestAssistantChatId();
         try {
             await undoCheckpointManager.beginRun('code_segment');
             await undoCheckpointManager.captureBeforeChange(targetRelativePath);
@@ -719,7 +738,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             if (undoCheckpoint) {
                 const historyManager = await this.getChatHistoryManager();
-                await historyManager.saveUndoCheckpoint(undoCheckpoint);
+                await historyManager.saveUndoCheckpoint(undoCheckpoint, targetChatId);
             }
 
             return {

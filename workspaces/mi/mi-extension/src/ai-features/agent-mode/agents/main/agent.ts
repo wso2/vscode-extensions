@@ -76,6 +76,8 @@ export type AgentEventHandler = (event: AgentEvent) => void;
 export interface AgentRequest {
     /** User's query/requirement */
     query: string;
+    /** Stable UI chat id for this user turn */
+    chatId?: number;
     /** Agent mode: ask (read-only), plan (planning read-only), or edit (full tool access) */
     mode?: AgentMode;
     /** Optional file attachments (text/PDF) */
@@ -207,6 +209,7 @@ export async function executeAgent(
         // Save user message to history
         if (request.chatHistoryManager) {
             await request.chatHistoryManager.saveMessage(userMessage, {
+                chatId: request.chatId,
                 attachmentMetadata: (hasFiles || hasImages)
                     ? {
                         files: request.files?.map((file) => ({
@@ -327,7 +330,9 @@ export async function executeAgent(
                                 : undefined;
                             await request.chatHistoryManager.saveMessages(
                                 unsavedMessages,
-                                totalInputTokens !== undefined ? { totalInputTokens } : undefined
+                                totalInputTokens !== undefined
+                                    ? { totalInputTokens, chatId: request.chatId }
+                                    : { chatId: request.chatId }
                             );
                             savedMessageCount += unsavedMessages.length;
                         }
