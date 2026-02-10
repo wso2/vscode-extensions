@@ -38,6 +38,53 @@ const Container = styled.div`
     overflow: auto;
 `;
 
+const SummarySection = styled.div`
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background-color: #262626ff;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    margin-left: 4px;
+    margin-right: 4px;
+    margin-top: 12px;
+    
+    /* Light theme */
+    body.vscode-light & {
+        background-color: #f5f5f5;
+        border-color: #d0d0d0;
+    }
+    
+    /* High contrast theme */
+    body.vscode-high-contrast & {
+        background-color: #000000;
+        border-color: #ffffff;
+    }
+`;
+
+const SummaryItem = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+`;
+
+const SummaryCount = styled.span<{ type: 'pass' | 'fail' | 'total' }>`
+    color: ${({ type }) => {
+        switch (type) {
+            case 'pass':
+                return 'var(--vscode-testing-iconPassed, #2ea043)';
+            case 'fail':
+                return 'var(--vscode-testing-iconFailed, #f85149)';
+            default:
+                return 'var(--vscode-foreground)';
+        }
+    }};
+    font-weight: 600;
+`;
+
 const AddButtonWrapper = styled.div`
     margin-top: 8px;
     margin-left: 4px;
@@ -454,11 +501,19 @@ export const Assert: React.FC<AssertProps> = ({
         onRequestChange?.(updatedRequest);
     };
 
+    const passCount = React.useMemo(() => {
+        return assertionResults.filter(result => result === true).length;
+    }, [assertionResults]);
+
+    const failCount = React.useMemo(() => {
+        return assertionResults.filter(result => result === false).length;
+    }, [assertionResults]);
+
     return (
         <Container>
             {mode === 'code' ? (
                 <>
-                    <Typography variant="h3" sx={{ marginBottom: '8px' }}>
+                    <Typography variant="h3" sx={{ margin: 0,marginBottom: '8px' }}>
                         Assertions
                     </Typography>
                     <InputEditor
@@ -529,7 +584,7 @@ export const Assert: React.FC<AssertProps> = ({
                 </>
             ) : (
                 <>
-                    <Typography variant="h3" sx={{ marginBottom: '8px' }}>
+                    <Typography variant="h3" sx={{ margin: 0, marginBottom: '8px' }}>
                         Assertions
                     </Typography>
                     {(request.assertions || []).map((assertion, index) => (
@@ -574,8 +629,27 @@ export const Assert: React.FC<AssertProps> = ({
                             Add Assertion
                         </LinkButton>
                     </AddButtonWrapper>
+                    
                 </>
             )}
+            {response && (request.assertions || []).length > 0 && (
+                        <SummarySection>
+                            <SummaryItem>
+                                <Codicon name="check-all" sx={{ color: 'var(--vscode-testing-iconPassed, #2ea043)' }} />
+                                <span>Passed:</span>
+                                <SummaryCount type="pass">{passCount}</SummaryCount>
+                            </SummaryItem>
+                            <SummaryItem>
+                                <Codicon name="close-all" sx={{ color: 'var(--vscode-testing-iconFailed, #f85149)' }} />
+                                <span>Failed:</span>
+                                <SummaryCount type="fail">{failCount}</SummaryCount>
+                            </SummaryItem>
+                            <SummaryItem style={{ marginLeft: 'auto' }}>
+                                <span>Total:</span>
+                                <SummaryCount type="total">{passCount + failCount}</SummaryCount>
+                            </SummaryItem>
+                        </SummarySection>
+                    )}
         </Container>
     );
 };
