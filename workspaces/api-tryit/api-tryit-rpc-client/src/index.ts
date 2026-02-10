@@ -18,7 +18,7 @@
 
 import { Messenger } from 'vscode-messenger-webview';
 import { HOST_EXTENSION } from 'vscode-messenger-common';
-import { sendMessage, showNotification, saveRequest, SaveRequestRequest, SaveRequestResponse } from '@wso2/api-tryit-core';
+import { sendMessage, showNotification, saveRequest, SaveRequestRequest, SaveRequestResponse, sendHttpRequest, HttpRequestOptions, HttpResponseResult } from '@wso2/api-tryit-core';
 
 export class ApiTryItRpcClient {
     private _messenger: Messenger;
@@ -37,6 +37,10 @@ export class ApiTryItRpcClient {
 
     saveRequest(params: SaveRequestRequest): Promise<SaveRequestResponse> {
         return this._messenger.sendRequest(saveRequest, HOST_EXTENSION, params);
+    }
+
+    sendHttpRequest(options: HttpRequestOptions): Promise<HttpResponseResult> {
+        return this._messenger.sendRequest(sendHttpRequest, HOST_EXTENSION, options);
     }
 }
 

@@ -23,7 +23,7 @@ import { ApiRequestItem } from '@wso2/api-tryit-core';
 import * as path from 'path';
 import { Buffer } from 'buffer';
 import { Messenger } from 'vscode-messenger';
-import { registerApiTryItRpcHandlers } from '../rpc-managers';
+import { registerApiTryItRpcHandlers, ApiTryItRpcManager } from '../rpc-managers';
 
 export class TryItPanel {
 	public static currentPanel: TryItPanel | undefined;
@@ -186,6 +186,41 @@ export class TryItPanel {
 						} catch (error: unknown) {
 							const errorMsg = error instanceof Error ? error.message : 'Unknown error';
 							vscode.window.showErrorMessage(`Failed to process curl command: ${errorMsg}`);
+						}
+						break;
+					case 'sendHttpRequest':
+						// Handle HTTP request sent from webview
+						try {
+							const { requestId, data } = message;
+							const { method, url, params, headers, data: body } = data || {};
+							
+							// Delegate to RPC manager to handle the HTTP request
+							const rpcManager = new ApiTryItRpcManager();
+							rpcManager.sendHttpRequest({ method, url, params, headers, data: body }).then(
+								(result: any) => {
+									this._panel.webview.postMessage({
+										type: 'httpRequestResponse',
+										requestId,
+										data: result
+									});
+								},
+								(error: unknown) => {
+									const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+									this._panel.webview.postMessage({
+										type: 'httpRequestResponse',
+										requestId,
+										data: {
+											statusCode: 0,
+											headers: [],
+											body: JSON.stringify({ error: errorMsg }),
+											error: errorMsg
+										}
+									});
+								}
+							);
+						} catch (error: unknown) {
+							const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+							vscode.window.showErrorMessage(`Failed to send HTTP request: ${errorMsg}`);
 						}
 						break;
 					case 'webviewReady':

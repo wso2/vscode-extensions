@@ -68,6 +68,23 @@ export interface SaveRequestResponse {
     message: string;
 }
 
+// HTTP Request execution types
+export interface HttpRequestOptions {
+    method: string;
+    url: string;
+    params?: Record<string, string>;
+    headers?: Record<string, string>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data?: any;
+}
+
+export interface HttpResponseResult {
+    statusCode: number;
+    headers: ResponseHeader[];
+    body: string;
+    error?: string;
+}
+
 // Request definition
 export interface ApiRequest {
     id: string;
