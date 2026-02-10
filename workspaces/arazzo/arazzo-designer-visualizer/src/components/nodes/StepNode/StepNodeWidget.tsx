@@ -43,6 +43,14 @@ export const StepNodeWidget: React.FC<NodeProps<StepNodeData>> = (props) => {
                 id="h-top"
                 isConnectable={isConnectable}
             />
+            {/* Additional target for goto (3/4 from left on top edge) */}
+            <NodeStyles.StyledHandle
+                type="target"
+                position={Position.Top}
+                id="goto-top-target"
+                isConnectable={isConnectable}
+                style={{ left: '75%' }}
+            />
             <NodeStyles.StyledHandle
                 type="source"
                 position={Position.Right}

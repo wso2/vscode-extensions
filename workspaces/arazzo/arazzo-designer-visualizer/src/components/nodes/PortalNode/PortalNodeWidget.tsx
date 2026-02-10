@@ -77,7 +77,7 @@ export const PortalNodeWidget: React.FC<NodeProps<PortalNodeData>> = ({ id, data
                     source: id,
                     target: targetId,
                     sourceHandle: 'h-top',
-                    targetHandle: 'h-top',
+                    targetHandle: 'goto-top-target',
                     type: 'smoothstep',
                     style: { stroke: ThemeColors.SECONDARY, strokeDasharray: '4 4' },
                     animated: false,

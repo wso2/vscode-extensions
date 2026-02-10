@@ -77,8 +77,8 @@ export const RetryNodeWidget: React.FC<NodeProps<RetryNodeData>> = ({ id, data, 
                     id: hoverEdgeId,
                     source: id,
                     target: targetId,
-                    sourceHandle: 'h-top-source',
-                    targetHandle: 'h-top',
+                    sourceHandle: 'h-left-source',
+                    targetHandle: 'goto-top-target',
                     type: 'smoothstep',
                     style: { stroke: ThemeColors.SECONDARY, strokeDasharray: '4 4' },
                     animated: false,
@@ -155,7 +155,13 @@ export const RetryNodeWidget: React.FC<NodeProps<RetryNodeData>> = ({ id, data, 
             <StyledHandle
                 type="target"
                 position={Position.Left}
-                id="h-left"
+                id="h-left-target"
+                isConnectable={isConnectable}
+            />
+            <StyledHandle
+                type="source"
+                position={Position.Left}
+                id="h-left-source"
                 isConnectable={isConnectable}
             />
             <StyledHandle

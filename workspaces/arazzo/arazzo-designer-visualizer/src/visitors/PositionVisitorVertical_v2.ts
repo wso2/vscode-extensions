@@ -165,7 +165,12 @@ export class PositionVisitorVertical_v2 {
         // Node dimensions should already be set by SimpleNodeSizing visitor
         const nodeX = node.viewState.x;
         const nodeY = node.viewState.y;
-        const nextY = nodeY + node.viewState.h + C.NODE_GAP_Y_Vertical;
+        let nextY: number;
+        if(node.type === 'CONDITION'){
+            nextY = nodeY + node.viewState.h + C.NODE_GAP_Y_AFTERCONDITION;
+        } else {
+            nextY = nodeY + node.viewState.h + C.NODE_GAP_Y_Vertical;
+        }
 
         // Process children
         if (node.children && node.children.length > 0) {
