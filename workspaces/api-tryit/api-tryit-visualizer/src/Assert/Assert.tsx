@@ -128,22 +128,24 @@ const getAssertionKey = (assertion: string) => {
         return undefined;
     }
 
-    const match = trimmed.match(/^res\.(status|body|headers\.([A-Za-z0-9-]+))\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
     if (!match) {
         return undefined;
     }
 
-    const [, target, headerName] = match;
-    if (target.toLowerCase() === 'status') {
+    const [, target, property] = match;
+    const lowerTarget = target.toLowerCase();
+    
+    if (lowerTarget === 'status') {
         return 'status';
     }
 
-    if (target.toLowerCase() === 'body') {
-        return 'body';
+    if (lowerTarget === 'body') {
+        return property ? `body.${property}` : 'body';
     }
 
-    if (headerName) {
-        return `headers.${headerName}`;
+    if (lowerTarget === 'headers' && property) {
+        return `headers.${property}`;
     }
 
     return undefined;
@@ -155,7 +157,7 @@ const getAssertionValue = (assertion: string) => {
         return undefined;
     }
 
-    const match = trimmed.match(/^res\.(status|body|headers\.([A-Za-z0-9-]+))\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);  
+    const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);  
     if (!match) {
         return undefined;
     }
@@ -171,13 +173,21 @@ const getOperator = (assertion: string) => {
         return undefined;
     }
     
-    const match = trimmed.match(/^res\.(status|body|headers\.([A-Za-z0-9-]+))\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
     if (!match) {
         return undefined;
     }
     
     const [, , , operator] = match;
     return operator;
+};
+
+const getNestedProperty = (obj: any, path: string): any => {
+    try {
+        return path.split('.').reduce((current, prop) => current?.[prop], obj);
+    } catch {
+        return undefined;
+    }
 };
 
 const getAssertionDetails = (assertion: string, apiResponse?: ApiResponse) => {
@@ -235,12 +245,12 @@ export const Assert: React.FC<AssertProps> = ({
             return undefined;
         }
 
-        const match = trimmed.match(/^res\.(status|body|headers\.([A-Za-z0-9-]+))\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+        const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
         if (!match) {
             return undefined;
         }
 
-        const [, target, headerName, operator, rawExpected] = match;
+        const [, target, property, operator, rawExpected] = match;
         const expected = rawExpected.trim().replace(/^['"]|['"]$/g, '');
 
         if (target.toLowerCase() === 'status') {
@@ -252,16 +262,26 @@ export const Assert: React.FC<AssertProps> = ({
         }
 
         if (target.toLowerCase() === 'body') {
+            let actual = apiResponse.body ?? '';
+            if (property) {
+                try {
+                    const bodyObj = JSON.parse(apiResponse.body ?? '');
+                    const value = getNestedProperty(bodyObj, property);
+                    actual = String(value ?? '');
+                } catch {
+                    actual = '';
+                }
+            }
             return {
                 expected,
-                actual: apiResponse.body ?? '',
+                actual,
                 operator
             };
         }
 
-        if (headerName) {
+        if (target.toLowerCase() === 'headers' && property) {
             const headerValue = (apiResponse.headers || []).find(
-                (h) => h.key.toLowerCase() === headerName.toLowerCase()
+                (h) => h.key.toLowerCase() === property.toLowerCase()
             )?.value;
             return {
                 expected,
@@ -283,12 +303,12 @@ export const Assert: React.FC<AssertProps> = ({
             return undefined;
         }
 
-        const match = trimmed.match(/^res\.(status|body|headers\.([A-Za-z0-9-]+))\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+        const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
         if (!match) {
             return false;
         }
 
-        const [, target, headerName, operator, rawExpected] = match;
+        const [, target, property, operator, rawExpected] = match;
         const expected = rawExpected.trim().replace(/^['"]|['"]$/g, '');
 
         const compareValues = (actual: string, expected: string, operator: string): boolean => {
@@ -317,22 +337,36 @@ export const Assert: React.FC<AssertProps> = ({
 
         if (target.toLowerCase() === 'body') {
             const responseBody = apiResponse.body ?? '';
-            const isExpectedJson = expected.startsWith('{') || expected.startsWith('[');
-            if (isExpectedJson && (operator === '=' || operator === '==')) {
+            
+            if (property) {
+                // Handle nested property access
                 try {
-                    const expectedJson = JSON.parse(expected);
-                    const responseJson = JSON.parse(responseBody);
-                    return JSON.stringify(expectedJson) === JSON.stringify(responseJson);
+                    const bodyObj = JSON.parse(responseBody);
+                    const value = getNestedProperty(bodyObj, property);
+                    const actualStr = String(value ?? '');
+                    return compareValues(actualStr, expected, operator);
                 } catch {
                     return false;
                 }
+            } else {
+                // Handle entire body comparison
+                const isExpectedJson = expected.startsWith('{') || expected.startsWith('[');
+                if (isExpectedJson && (operator === '=' || operator === '==')) {
+                    try {
+                        const expectedJson = JSON.parse(expected);
+                        const responseJson = JSON.parse(responseBody);
+                        return JSON.stringify(expectedJson) === JSON.stringify(responseJson);
+                    } catch {
+                        return false;
+                    }
+                }
+                return compareValues(responseBody, expected, operator);
             }
-            return compareValues(responseBody, expected, operator);
         }
 
-        if (headerName) {
+        if (target.toLowerCase() === 'headers' && property) {
             const headerValue = (apiResponse.headers || []).find(
-                (h) => h.key.toLowerCase() === headerName.toLowerCase()
+                (h) => h.key.toLowerCase() === property.toLowerCase()
             )?.value;
             if (headerValue === undefined) {
                 return false;

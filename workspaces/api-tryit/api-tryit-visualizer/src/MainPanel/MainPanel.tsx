@@ -585,7 +585,9 @@ export const MainPanel: React.FC = () => {
 
             // Trigger scrolling to output in the Input panel and switch to Input view
             setBringOutputCounter(c => c + 1);
-            setActiveTab('input');            
+            if (activeTab !== 'assert') {
+                setActiveTab('input');     
+            }       
         } catch (error) {
             console.error('Request failed:', error);
             
