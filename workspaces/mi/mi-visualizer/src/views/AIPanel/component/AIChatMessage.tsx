@@ -18,6 +18,7 @@
 
 import React from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import styled from "@emotion/styled";
 import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/cjs/styles/prism";
@@ -161,72 +162,92 @@ const StyledMarkdown = styled.div`
     }
 `;
 
+const GFM_TABLE_SEPARATOR_REGEX = /\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?/;
+
+function normalizeInlineMarkdownTables(markdown: string): string {
+    if (!markdown.includes("|") || !GFM_TABLE_SEPARATOR_REGEX.test(markdown)) {
+        return markdown;
+    }
+
+    return markdown
+        .split("\n")
+        .map((line) => {
+            const trimmed = line.trim();
+            if (!trimmed || !GFM_TABLE_SEPARATOR_REGEX.test(trimmed) || !/\|\s+\|/.test(trimmed)) {
+                return line;
+            }
+            return line.replace(/\|\s+\|/g, "|\n|");
+        })
+        .join("\n");
+}
+
 // Markdown renderer component
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownContent }) => {
     const { rpcClient } = useMICopilotContext();
+    const normalizedMarkdown = normalizeInlineMarkdownTables(markdownContent);
+
+    const markdownComponents = {
+        code({ node, inline, className, children, ...props }: any) {
+            const match = /language-(\w+)/.exec(className || "");
+            return !inline && match ? (
+                <SyntaxHighlighter
+                    style={vscDarkPlus}
+                    language={match[1]}
+                    PreTag="div"
+                    {...props}
+                >
+                    {String(children).replace(/\n$/, "")}
+                </SyntaxHighlighter>
+            ) : (
+                <code className={className} {...props}>
+                    {children}
+                </code>
+            );
+        },
+        a: ({ node, href, children, ...props }: { node?: unknown; href?: string; children?: React.ReactNode; [key: string]: any }) => (
+                <a
+                    href={href}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        if (!href) return;
+
+                        let filePath = href;
+                        if (href.startsWith("file://")) {
+                            filePath = href.replace("file://", "");
+                        }
+
+                        let line: number | undefined;
+                        const hashIndex = filePath.indexOf("#");
+                        if (hashIndex !== -1) {
+                            const fragment = filePath.substring(hashIndex + 1);
+                            filePath = filePath.substring(0, hashIndex);
+                            const lineMatch = fragment.match(/^L(\d+)/);
+                            if (lineMatch) {
+                                line = parseInt(lineMatch[1], 10);
+                            }
+                        }
+
+                        if (rpcClient) {
+                            rpcClient.getMiDiagramRpcClient().openFile({
+                                path: filePath,
+                                line
+                            });
+                        }
+                    }}
+                    {...props}
+                >
+                    {children}
+                </a>
+        )
+    };
 
     return (
         <StyledMarkdown>
             <ReactMarkdown
-                components={{
-                    code({ node, inline, className, children, ...props }: any) {
-                        const match = /language-(\w+)/.exec(className || "");
-                        return !inline && match ? (
-                            <SyntaxHighlighter
-                                style={vscDarkPlus}
-                                language={match[1]}
-                                PreTag="div"
-                                {...props}
-                            >
-                                {String(children).replace(/\n$/, "")}
-                            </SyntaxHighlighter>
-                        ) : (
-                            <code className={className} {...props}>
-                                {children}
-                            </code>
-                        );
-                    },
-                    a: ({ node, href, children, ...props }: { node?: unknown; href?: string; children?: React.ReactNode; [key: string]: any }) => (
-                         // Use standard anchor but handle onClick for local file links if needed, 
-                         // or just let the global handler (if any) or RPC client handle it.
-                         // The existing code had a complex onClick handler. I should preserve it.
-                        <a
-                            href={href}
-                            onClick={(e) => {
-                                e.preventDefault();
-                                if (!href) return;
-                                
-                                let filePath = href;
-                                if (href.startsWith("file://")) {
-                                    filePath = href.replace("file://", "");
-                                }
-                                
-                                let line: number | undefined;
-                                const hashIndex = filePath.indexOf("#");
-                                if (hashIndex !== -1) {
-                                    const fragment = filePath.substring(hashIndex + 1);
-                                    filePath = filePath.substring(0, hashIndex);
-                                    const lineMatch = fragment.match(/^L(\d+)/);
-                                    if (lineMatch) {
-                                        line = parseInt(lineMatch[1], 10);
-                                    }
-                                }
-
-                                if (rpcClient) {
-                                  rpcClient.getMiDiagramRpcClient().openFile({
-                                      path: filePath,
-                                      line
-                                  });
-                                }
-                            }}
-                            {...props}
-                        >
-                            {children}
-                        </a>
-                    )
-                }}
+                remarkPlugins={[remarkGfm]}
+                components={markdownComponents}
             >
-                {markdownContent}
+                {normalizedMarkdown}
             </ReactMarkdown>
         </StyledMarkdown>
     );

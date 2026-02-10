@@ -1112,6 +1112,7 @@
     "mustache": "4.2.0",
     "node-fetch": "3.3.2",
     "node-loader": "2.1.0",
+    "pdf-lib": "1.17.1",
     "portfinder": "1.0.37",
     "recast": "0.23.11",
     "tmp": "0.2.4",
