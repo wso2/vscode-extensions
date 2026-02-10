@@ -24,7 +24,7 @@ import { formatCodebaseStructure, formatCodeContext } from "./utils";
 import { GenerateAgentCodeRequest, OperationType, ProjectSource } from "@wso2/ballerina-core";
 import { getRequirementAnalysisCodeGenPrefix, getRequirementAnalysisTestGenPrefix } from "./np/prompts";
 import { extractResourceDocumentContent, flattenProjectToFiles } from "../utils/ai-utils";
-import { HTTP_REQUEST_TOOL_NAME } from "../tools/http-request";
+import { HTTP_REQUEST_TOOL_NAME } from "./tools/http-request";
 
 /**
  * Generates the system prompt for the try-it agent

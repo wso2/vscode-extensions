@@ -17,7 +17,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import axios, { AxiosError, AxiosResponse, AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
-import { CopilotEventHandler } from '../utils/events';
+import { CopilotEventHandler } from '../../utils/events';
 
 export const HTTP_REQUEST_TOOL_NAME = "Send-HTTP-request";
 
