@@ -598,8 +598,8 @@ importers:
         specifier: 0.5.16
         version: 0.5.16
       axios:
-        specifier: 1.12.0
-        version: 1.12.0
+        specifier: 1.13.5
+        version: 1.13.5
       chai:
         specifier: 4.3.10
         version: 4.3.10
@@ -12668,8 +12668,8 @@ packages:
   axios@1.12.0:
     resolution: {integrity: sha512-oXTDccv8PcfjZmPGlWsPSwtOJCZ/b6W5jAMCNcfwJbCzDckwG0jrYJFaWH1yvivfCXjVzV/SPDEhMB3Q+DSurg==}
 
-  axios@1.13.4:
-    resolution: {integrity: sha512-1wVkUaAO6WyaYtCkcYCOx12ZgpGf9Zif+qXa4n+oYzK558YryKqiL6UWwd5DqiH3VRW0GYhTZQ/vlgJrCoNQlg==}
+  axios@1.13.5:
+    resolution: {integrity: sha512-cz4ur7Vb0xS4/KUN0tPWe44eqxrIu31me+fbang3ijiNscE129POzipJJA6zniq2C/Z6sJCjMimjS8Lc/GAs8Q==}
 
   axios@1.9.0:
     resolution: {integrity: sha512-re4CqKTJaURpzbLHtIi6XpDv20/CnpXOtjRY5/CU32L8gU8ek9UIivcfvSWvmKEngmVbrUtPpdDwWDWL7DNHvg==}
@@ -39159,7 +39159,7 @@ snapshots:
       '@swagger-api/apidom-core': 1.4.0
       '@swagger-api/apidom-error': 1.4.0
       '@types/ramda': 0.30.2
-      axios: 1.13.4
+      axios: 1.13.5
       minimatch: 7.4.6
       process: 0.11.10
       ramda: 0.30.1
@@ -40922,7 +40922,7 @@ snapshots:
   '@webpack-cli/configtest@2.1.1(webpack-cli@5.1.4)(webpack@5.104.1)':
     dependencies:
       webpack: 5.104.1(webpack-cli@5.1.4)
-      webpack-cli: 5.1.4(webpack@5.104.1)
+      webpack-cli: 5.1.4(webpack-dev-server@5.2.1)(webpack@5.104.1)
 
   '@webpack-cli/configtest@3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)':
     dependencies:
@@ -40937,7 +40937,7 @@ snapshots:
   '@webpack-cli/info@2.0.2(webpack-cli@5.1.4)(webpack@5.104.1)':
     dependencies:
       webpack: 5.104.1(webpack-cli@5.1.4)
-      webpack-cli: 5.1.4(webpack@5.104.1)
+      webpack-cli: 5.1.4(webpack-dev-server@5.2.1)(webpack@5.104.1)
 
   '@webpack-cli/info@3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)':
     dependencies:
@@ -41614,7 +41614,7 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  axios@1.13.4:
+  axios@1.13.5:
     dependencies:
       follow-redirects: 1.15.11(debug@3.2.7)
       form-data: 4.0.5
@@ -59141,7 +59141,7 @@ snapshots:
       watchpack: 2.5.1
       webpack-sources: 3.3.3
     optionalDependencies:
-      webpack-cli: 5.1.4(webpack@5.104.1)
+      webpack-cli: 5.1.4(webpack-dev-server@5.2.1)(webpack@5.104.1)
     transitivePeerDependencies:
       - '@swc/core'
       - esbuild
