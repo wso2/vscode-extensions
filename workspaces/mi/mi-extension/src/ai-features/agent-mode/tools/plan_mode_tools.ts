@@ -202,6 +202,10 @@ function clearPlanModeSession(sessionId: string): void {
     planModeSessionStates.delete(sessionId);
 }
 
+export function isPlanModeSessionActive(sessionId: string): boolean {
+    return planModeSessionStates.has(sessionId);
+}
+
 // ============================================================================
 // Types for Event Handler
 // ============================================================================
@@ -648,7 +652,14 @@ export function createExitPlanModeExecute(
 
                 return {
                     success: true,
-                    message: `Plan approved by user. You can now proceed with implementation. Now create a Todo list to track the implementation steps using the ${TODO_WRITE_TOOL_NAME} tool.`
+                    message: [
+                        `Plan approved by user. Continue implementation immediately in this same run.`,
+                        '',
+                        '<system-reminder>',
+                        'Plan mode has ended. You are now in EDIT mode.',
+                        `Start executing the approved implementation now. First create/update a todo list using ${TODO_WRITE_TOOL_NAME}, then apply the planned project changes.`,
+                        '</system-reminder>',
+                    ].join('\n'),
                 };
             }
 
