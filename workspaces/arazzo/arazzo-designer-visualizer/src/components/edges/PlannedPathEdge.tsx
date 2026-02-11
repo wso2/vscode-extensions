@@ -129,7 +129,7 @@ export default function PlannedPathEdge({
                 
                 const dx = nextPoint.x - secondBend.x;
                 const dy = nextPoint.y - secondBend.y;
-                const t = 0.2; // 20% along this segment
+                const t = 0.5; // 50% along this segment
                 
                 labelPosition = {
                     x: secondBend.x + dx * t,
