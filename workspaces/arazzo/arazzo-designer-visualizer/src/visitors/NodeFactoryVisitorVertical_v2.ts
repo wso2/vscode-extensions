@@ -236,7 +236,7 @@ export class NodeFactoryVisitorVertical_v2 {
             if (segmentIntersectsRect(sourcePt, targetPt, rect)) {
                 foundBlockingRect = rect;
                 console.log(`[NodeFactory V2] Edge ${source.id} → ${target.id} blocked by ${nodePos.id}`);
-                shiftamount = findshifts({x: sourcePt.x + C.WAYPOINT_SKIP_HORIZONTAL_OFFSET, y: sourcePt.y}, {x: targetPt.x  + C.WAYPOINT_SKIP_HORIZONTAL_OFFSET, y: targetPt.y});
+                shiftamount = findshifts({x: sourcePt.x + C.NODE_WIDTH/2 + C.WAYPOINT_SKIP_HORIZONTAL_OFFSET, y: sourcePt.y}, {x: targetPt.x + C.NODE_WIDTH/2 + C.WAYPOINT_SKIP_HORIZONTAL_OFFSET, y: targetPt.y});
             }
         }
 

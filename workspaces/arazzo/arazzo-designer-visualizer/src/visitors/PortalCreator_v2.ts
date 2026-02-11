@@ -148,19 +148,29 @@ export class PortalCreator_v2 {
         const isLeftwardJump = targetCenterX < sourceCenterX; // Target center is to the left of source center
         const isForwardGoto = target.viewState.y > source.viewState.y + source.viewState.h + 100; // Significant gap
 
-        // Unified rule: NodeFactory currently skips *all* backward jumps.
-        // Ensure PortalCreator creates portals for any backward jump whose target
-        // is already positioned (main path or failure path). This aligns portal
-        // creation with NodeFactory's skipping behaviour so skipped edges have
-        // corresponding portals.
-        if (isBackwardJump && (targetIsOnMainPath || targetIsInFailurePath)) {
-            const reason = sourceIsInFailurePath ? 'failure-path backward goto to positioned node' : 'backward goto to positioned main/failure node';
-            console.log(`[PortalCreator V2] Creating portal for backward jump: ${source.id} → ${target.id} (${reason})`);
+        // Rule 1: Failure path → existing positioned step via leftward goto = CREATE PORTAL
+        // Only create a portal when the target is to the LEFT of source AND the target
+        // is already an existing positioned node (on main path or failure path).
+        // If the goto targets a *new* node (not on main/failure paths), create a direct edge instead.
+        if (sourceIsInFailurePath && isLeftwardJump && (targetIsOnMainPath || targetIsInFailurePath)) {
+            const reason = 'failure path goto (leftward to positioned node)';
+            console.log(`[PortalCreator V2] Creating portal: ${source.id} → ${target.id} (${reason})`);
             this.createPortal(source, target, edgeType, reason);
             return;
         }
 
-        // Old conservative rule (forward merges, branches): do not create a portal
+        // Rule 2: Main path/alternative branch backward jump to main path = CREATE PORTAL
+        // In vertical layout, any backward jump (target.y < source.y) to an already-positioned
+        // node (main or failure path) should create a portal, regardless of X position.
+        if (!sourceIsInFailurePath && isBackwardJump && (targetIsOnMainPath || targetIsInFailurePath)) {
+            const reason = 'backward jump to positioned node';
+            console.log(`[PortalCreator V2] Creating portal: ${source.id} → ${target.id} (${reason})`);
+            this.createPortal(source, target, edgeType, reason);
+            return;
+        }
+
+        // Rule 3: Main path branch → Main path merge (forward, close proximity) = NO PORTAL
+        // Direct edge handled by NodeFactory
         console.log(`[PortalCreator V2] No portal: ${source.id} → ${target.id} (direct flow)`);
     }
 

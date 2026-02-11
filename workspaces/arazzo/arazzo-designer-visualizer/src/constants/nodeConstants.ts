@@ -46,7 +46,7 @@ export const FAIL_GAP_Y_Horizontal = 50;  // Vertical gap for failure paths
 
 // Vertical layout constants (main flow goes down, branches go right)
 export const NODE_GAP_X_Vertical = 80;  // Horizontal gap between steps
-export const NODE_GAP_Y_Vertical = 50;  // Vertical gap between branches/failure paths
+export const NODE_GAP_Y_Vertical = 55;  // Vertical gap between branches/failure paths
 //export const FAIL_GAP_Y_Vertical = 50;  // Vertical gap for failure paths
 export const FAIL_GAP_X_Vertical = 50;  // Horizontal gap for failure paths
 export const NODE_GAP_Y_AFTERCONDITION = 150; // Vertical gap between node and edge label
