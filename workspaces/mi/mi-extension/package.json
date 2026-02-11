@@ -3,7 +3,7 @@
   "displayName": "WSO2 Integrator: MI",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
   "icon": "resources/images/wso2-micro-integrator-image.png",
-  "version": "3.1.2",
+  "version": "3.1.3",
   "publisher": "wso2",
   "engines": {
     "vscode": "^1.100.0"
@@ -1063,7 +1063,7 @@
     "ts-loader": "9.5.2",
     "ts-morph": "26.0.0",
     "typescript": "5.8.3",
-    "webpack": "5.99.9",
+    "webpack": "5.104.1",
     "webpack-cli": "4.10.0",
     "yaml": "2.8.0"
   },
@@ -1089,7 +1089,7 @@
     "@wso2/mi-syntax-tree": "workspace:*",
     "@wso2/playwright-vscode-tester": "workspace:*",
     "adm-zip": "0.5.16",
-    "axios": "1.12.0",
+    "axios": "1.13.5",
     "copyfiles": "2.4.1",
     "cors-anywhere": "0.4.4",
     "dotenv": "16.5.0",
