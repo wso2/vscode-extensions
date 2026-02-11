@@ -21,8 +21,14 @@ module.exports = {
         }
         
         // Security vulnerability fixes
+        if (pkg.dependencies['@modelcontextprotocol/sdk']) {
+          pkg.dependencies['@modelcontextprotocol/sdk'] = '^1.26.0';
+        }
         if (pkg.dependencies['@isaacs/brace-expansion']) {
           pkg.dependencies['@isaacs/brace-expansion'] = '^5.0.1';
+        }
+        if (pkg.dependencies['axios']) {
+          pkg.dependencies['axios'] = '^1.13.5';
         }
         if (pkg.dependencies['brace-expansion']) {
           pkg.dependencies['brace-expansion'] = '^2.0.2';
@@ -75,12 +81,24 @@ module.exports = {
         if (pkg.dependencies['fast-xml-parser']) {
           pkg.dependencies['fast-xml-parser'] = '5.3.4';
         }
+        if (pkg.dependencies['hono']) {
+          pkg.dependencies['hono'] = '^4.11.7';
+        }
+        if (pkg.dependencies['lodash']) {
+          pkg.dependencies['lodash'] = '4.17.23';
+        }
       }
 
       if (pkg.devDependencies) {
         // Security vulnerability fixes for dev dependencies
+        if (pkg.devDependencies['@modelcontextprotocol/sdk']) {
+          pkg.devDependencies['@modelcontextprotocol/sdk'] = '^1.26.0';
+        }
         if (pkg.devDependencies['@isaacs/brace-expansion']) {
           pkg.devDependencies['@isaacs/brace-expansion'] = '^5.0.1';
+        }
+        if (pkg.devDependencies['axios']) {
+          pkg.devDependencies['axios'] = '^1.13.5';
         }
         if (pkg.devDependencies['brace-expansion']) {
           pkg.devDependencies['brace-expansion'] = '^2.0.2';
@@ -129,6 +147,12 @@ module.exports = {
         }
         if (pkg.devDependencies['fast-xml-parser']) {
           pkg.devDependencies['fast-xml-parser'] = '5.3.4';
+        }
+        if (pkg.devDependencies['hono']) {
+          pkg.devDependencies['hono'] = '^4.11.7';
+        }
+        if (pkg.devDependencies['lodash']) {
+          pkg.devDependencies['lodash'] = '4.17.23';
         }
       }
 
