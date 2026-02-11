@@ -233,7 +233,7 @@ jobs:
     name: Run Ballerina extension tests
     needs: Build_Stage
     if: false
-    # if: ${{ inputs.runTests || (inputs.isReleaseBuild && (inputs.ballerina || inputs.bi)) || needs.Build_Stage.outputs.runBalExtTests == 'true' || github.base_ref == 'release-ballerina' }}
+    # if: ${{ inputs.runTests || (inputs.isReleaseBuild && (inputs.ballerina || inputs.bi)) || needs.Build_Stage.outputs.runBalExtTests == 'true' || github.base_ref == 'stable/ballerina' }}
     timeout-minutes: 45
     runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     steps:
@@ -281,7 +281,7 @@ jobs:
   ExtTest_MI:
     name: Run MI diagram tests
     needs: Build_Stage
-    if: ${{ inputs.runTests || (inputs.isReleaseBuild && inputs.mi) || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'release-mi' }}
+    if: ${{ inputs.runTests || (inputs.isReleaseBuild && inputs.mi) || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'stable/mi' }}
     timeout-minutes: 30
     runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     steps:

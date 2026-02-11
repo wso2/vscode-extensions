@@ -128,17 +128,17 @@ runs:
         run: |
           baseBranch=""
           if [ "${{ inputs.ballerina }}" == 'true' ]; then
-            baseBranch="release-ballerina"
+            baseBranch="stable/ballerina"
           elif [ "${{ inputs.bi }}" == 'true' ]; then
-            baseBranch="release-bi"
+            baseBranch="stable/bi"
           elif [ "${{ inputs.wso2-platform }}" == 'true' ]; then
-            baseBranch="release-platform"
+            baseBranch="stable/platform"
           elif [ "${{ inputs.choreo }}" == 'true' ]; then
-            baseBranch="release-choreo"
+            baseBranch="stable/choreo"
           elif [ "${{ inputs.apk }}" == 'true' ]; then
-            baseBranch="release-apk"
+            baseBranch="stable/apk"
           elif [ "${{ inputs.mi }}" == 'true' ]; then
-            baseBranch="release-mi"
+            baseBranch="stable/mi"
           fi
           pr=$(gh pr create -B "$baseBranch" -H "${{ inputs.version }}" --title "Merge \"${{ inputs.version }}\" into \"$baseBranch\"" --body '$subject')
           echo "prURL=$pr" >> $GITHUB_OUTPUT

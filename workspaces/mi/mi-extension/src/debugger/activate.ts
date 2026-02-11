@@ -368,6 +368,6 @@ class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory 
             window.showErrorMessage(errorMessage);
             return;
         }
-        return new vscode.DebugAdapterInlineImplementation(new MiDebugAdapter(projectUri));
+        return new vscode.DebugAdapterInlineImplementation(new MiDebugAdapter(projectUri, session));
     }
 }
