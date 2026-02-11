@@ -26,8 +26,8 @@ export interface ViewState {
     h: number; // Actual height of the node
 
     // For recursive layout strategy (Container Model)
-    containerW: number; // Full width of node + children
-    containerH: number; // Full height of node + children
+    //containerW: number; // Full width of node + children
+    //containerH: number; // Full height of node + children
 
     // Distances from the connection point (vertical center of the node entry)
     // to the top and bottom boundaries of the container
@@ -37,6 +37,9 @@ export interface ViewState {
     // Legacy fields (can be removed later if unused, keeping for safety)
     subtreeW: number;
     subtreeH: number;
+
+    // Phase tracking for two-phase positioning
+     // True if node was positioned in Phase 1 (main spine)
 }
 
 // Wrapper types to build our Tree
@@ -57,6 +60,8 @@ export interface FlowNode {     //this is the actual node that we see on the can
     children: FlowNode[]; // For sequential flow (Right side)
     branches?: FlowNode[][]; // For parallel/conditional flow (Stacked vertically)
     failureNode?: FlowNode; // Specific child for "OnFailure" (Bottom side)
+    isPositioned?: boolean; // To track if the node has been positioned during layout
+    isMainSpine?: boolean; // To identify if the node is on the main spine (for two-phase layout)
 }
 
 export interface BaseVisitor {

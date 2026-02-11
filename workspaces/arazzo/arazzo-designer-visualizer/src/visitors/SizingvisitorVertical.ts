@@ -17,8 +17,8 @@ export class SizingVisitorVertical {
         // 2. Calculate My Base Size
         switch (node.type) {
             case 'START':
-                node.viewState.w = C.START_NODE_DIAMETER;
-                node.viewState.h = C.START_NODE_DIAMETER;
+                node.viewState.w = C.START_NODE_WIDTH;
+                node.viewState.h = C.START_NODE_HEIGHT;
                 break;
             case 'END':
                 node.viewState.w = C.END_NODE_DIAMETER;

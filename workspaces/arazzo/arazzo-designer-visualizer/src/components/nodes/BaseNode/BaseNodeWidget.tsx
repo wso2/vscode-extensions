@@ -27,7 +27,9 @@ import {
     PADDING,
     NODE_PADDING,
 } from '../../../constants/nodeConstants';
+import { LABEL_CHARS_BEFORE_WRAP } from '../../../constants/nodeConstants';
 import { BaseNodeData } from './BaseNodeModel';
+import * as C from '../../../constants/nodeConstants';
 
 /**
  * Styled Components - Matching BI styling exactly
@@ -53,13 +55,14 @@ export namespace NodeStyles {
         flex-direction: column;
         justify-content: space-between;
         align-items: center;
+        box-sizing: border-box;
         width: 100%;
         min-height: ${NODE_HEIGHT}px;
         padding: 0 ${PADDING / 2}px;
         background-color: ${ThemeColors.SURFACE_DIM};
         color: ${ThemeColors.ON_SURFACE};
         opacity: ${(props: NodeStyleProp) => (props.disabled ? 0.7 : 1)};
-        border: ${(props: NodeStyleProp) => (props.disabled ? 2 : 1)}px;
+        border: ${(props: NodeStyleProp) => (props.disabled ? 2 : C.NODE_BORDER_WIDTH)}px;
         border-style: ${(props: NodeStyleProp) => (props.disabled ? 'dashed' : 'solid')};
         border-color: ${(props: NodeStyleProp) =>
             props.hasError
@@ -95,6 +98,9 @@ export namespace NodeStyles {
     `;
 
     export const Title = styled.div`
+        display: flex;
+        align-items: center;
+        gap: 8px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -104,7 +110,6 @@ export namespace NodeStyles {
 
     export const Icon = styled.i`
         display: inline-block;
-        margin-right: 8px;
         font-size: 14px;
         line-height: 1;
         opacity: 0.95;
@@ -167,9 +172,18 @@ export const BaseNodeWidget: React.FC<BaseNodeWidgetProps> = ({
             onMouseLeave={() => setHovered(false)}
         >
             <NodeStyles.Header>
-                <NodeStyles.Title>
-                    {data.iconClass ? <NodeStyles.Icon className={data.iconClass} /> : null}
-                    {data.label}
+                <NodeStyles.Title title={data.label} style={{ fontSize: (data as any).fontSize ?? 14 }}>
+                    {data.iconClass ? (
+                        <NodeStyles.Icon
+                            className={data.iconClass}
+                            style={{ fontSize: data.iconSize ?? 20 }}
+                        />
+                    ) : null}
+                    {(() => {
+                        const raw = data.label ? String(data.label) : '';
+                        const max = typeof LABEL_CHARS_BEFORE_WRAP === 'number' ? LABEL_CHARS_BEFORE_WRAP : 10;
+                        return raw.length > max ? `${raw.slice(0, max)}...` : raw;
+                    })()}
                 </NodeStyles.Title>
             </NodeStyles.Header>
 

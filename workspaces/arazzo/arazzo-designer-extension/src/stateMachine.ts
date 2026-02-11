@@ -246,21 +246,28 @@ export const stateService = interpret(stateMachine);
 
 // Listen to all state transitions and broadcast to open webviews
 stateService.onTransition((state) => {
-    // 1. Only act if the state actually changed
-    if (state.changed) {
+    try {
+        // 1. Only act if the state actually changed
+        if (state.changed) {
 
-        // 2. Check if ANY panel is currently open
-        const isAnyPanelOpen = VisualizerWebview.currentPanel || VisualizerWebview.workflowPanel;
+            // 2. Check if ANY panel is currently open
+            const isAnyPanelOpen = VisualizerWebview.currentPanel || VisualizerWebview.workflowPanel;
 
-        if (isAnyPanelOpen) {
-            // 3. Send the Broadcast ONCE
-            // The target recipient filter reaches ALL open instances of this webviewType.
-            RPCLayer._messenger.sendNotification(
-                stateChanged,
-                { type: 'webview', webviewType: VisualizerWebview.viewType },
-                state.value
-            );
+            console.debug('stateService.onTransition:', { changed: state.changed, isAnyPanelOpen, stateValue: state.value });
+
+            if (isAnyPanelOpen) {
+                // 3. Send the Broadcast ONCE
+                // The target recipient filter reaches ALL open instances of this webviewType.
+                RPCLayer._messenger.sendNotification(
+                    stateChanged,
+                    { type: 'webview', webviewType: VisualizerWebview.viewType },
+                    state.value
+                );
+            }
         }
+    } catch (err) {
+        console.error('Error in stateService.onTransition handler:', err, '\nstate snapshot:', state);
+        try { vscode.window.showErrorMessage(`StateMachine transition error: ${String(err)}`); } catch (e) { /* ignore */ }
     }
 });
 
@@ -271,7 +278,18 @@ export const StateMachine = {
     context: () => { return stateService.getSnapshot().context; },
     state: () => { return stateService.getSnapshot().value as MachineStateValue; },
     sendEvent: (eventType: EVENT_TYPE) => { stateService.send({ type: eventType }); },
-    reset: () => { stateService.send({ type: EVENT_TYPE.RESET_TO_VIEW_READY }); },
+    reset: () => {
+        try {
+            stateService.send({ type: EVENT_TYPE.RESET_TO_VIEW_READY });
+        } catch (err) {
+            console.error('StateMachine.reset error:', err);
+            try {
+                vscode.window.showErrorMessage(`StateMachine.reset error: ${String(err)}`);
+            } catch (e) {
+                // ignore if vscode API is not available
+            }
+        }
+    },
 };
 
 export function openView(type: EVENT_TYPE, viewLocation?: VisualizerLocation) {

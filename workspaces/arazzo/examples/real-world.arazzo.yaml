@@ -1,0 +1,167 @@
+arazzo: 1.0.1
+info:
+  title: E-Commerce Fulfillment Pipeline
+  version: 2.5.0
+sourceDescriptions:
+  - name: shop-api
+    url: https://api.shop.com/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: full-fulfillment-test
+    summary: A complex flow with loops, merges, and nested branches.
+    steps:
+      # ---------------------------------------------------
+      # PHASE 1: Validation & Payment (Linear + Retry)
+      # ---------------------------------------------------
+      - stepId: validate-order
+        operationId: checkOrderSchema
+        description: "Entry point"
+
+      - stepId: process-payment
+        operationId: chargeCard
+        description: "Flaky step with retry logic"
+        onFailure:
+          # Case 1: Soft Decline -> Retry
+          - name: retry-charge
+            type: retry
+            stepId: process-payment
+            retryLimit: 2
+            criteria:
+              - condition: "$statusCode == 402"
+          # Case 2: Hard Decline -> Cancel
+          - name: cancel-order
+            type: goto
+            stepId: cancel-order-process
+        onSuccess:
+          - name: payment-ok
+            type: goto
+            stepId: check-order-type
+
+      # ---------------------------------------------------
+      # PHASE 2: The Major Split (Digital vs Physical)
+      # ---------------------------------------------------
+      - stepId: check-order-type
+        operationId: getType
+        description: "Splits flow entirely based on item type"
+        onSuccess:
+          # Path A: Digital Item (Short Path)
+          - name: is-digital
+            type: goto
+            stepId: email-license-key
+            criteria:
+              - condition: "$body.type == 'DIGITAL'"
+
+          # Path B: Physical Item (Long Path)
+          - name: is-physical
+            type: goto
+            stepId: check-inventory
+            criteria:
+              - condition: "$body.type == 'PHYSICAL'"
+
+      # ---------------------------------------------------
+      # PATH A: Digital Flow (Ends Early)
+      # ---------------------------------------------------
+      - stepId: email-license-key
+        operationId: sendKey
+        onSuccess:
+          - name: finish-digital
+            type: end
+
+      # ---------------------------------------------------
+      # PATH B: Physical Flow (Nested Loop)
+      # ---------------------------------------------------
+      - stepId: check-inventory
+        operationId: checkStock
+        description: "Checks if item is in warehouse"
+        onSuccess:
+          # Sub-Path 1: In Stock -> Move forward
+          - name: in-stock
+            type: goto
+            stepId: determine-shipping
+            criteria:
+              - condition: "$body.stock > 0"
+
+          # Sub-Path 2: Out of Stock -> Trigger Replenishment Loop
+          - name: out-of-stock
+            type: goto
+            stepId: request-replenishment
+            criteria:
+              - condition: "$body.stock == 0"
+
+      # The Replenishment Loop (Detour)
+      - stepId: request-replenishment
+        operationId: orderSupplier
+        onSuccess:
+          - name: wait
+            type: goto
+            stepId: wait-for-delivery
+
+      - stepId: wait-for-delivery
+        operationId: sleep
+        description: "Simulates waiting for truck"
+        onSuccess:
+          - name: try-again
+            type: goto
+            stepId: check-inventory  # <--- LOOPS BACK UP to 'check-inventory'
+
+      # ---------------------------------------------------
+      # PHASE 3: Shipping Split & Merge
+      # ---------------------------------------------------
+      - stepId: determine-shipping
+        operationId: getShippingMethod
+        onSuccess:
+          # Branch 1: Express
+          - name: express
+            type: goto
+            stepId: print-express-label
+            criteria:
+              - condition: "$body.method == 'EXPRESS'"
+
+          # Branch 2: Standard
+          - name: standard
+            type: goto
+            stepId: print-standard-label
+            criteria:
+              - condition: "$body.method == 'STANDARD'"
+
+      # The Split Nodes
+      - stepId: print-express-label
+        operationId: labelExpress
+        onSuccess:
+          - name: merge-express
+            type: goto
+            stepId: ship-package
+
+      - stepId: print-standard-label
+        operationId: labelStandard
+        onSuccess:
+          - name: merge-standard
+            type: goto
+            stepId: ship-package
+
+      # ---------------------------------------------------
+      # PHASE 4: Convergence & Final
+      # ---------------------------------------------------
+      - stepId: ship-package
+        operationId: handoverToCarrier
+        description: "The Merge Point for shipping methods"
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: send-tracking-email
+
+      - stepId: send-tracking-email
+        operationId: emailCustomer
+        onSuccess:
+          - name: finish-physical
+            type: end
+
+      # ---------------------------------------------------
+      # FAILURE END STATE
+      # ---------------------------------------------------
+      - stepId: cancel-order-process
+        operationId: updateStatusCancelled
+        onSuccess:
+          - name: fail-end
+            type: end

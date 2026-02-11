@@ -78,7 +78,7 @@ export class NodeFactoryVisitorHorizontal {
 
     private createEdge(source: FlowNode, target: FlowNode, sourceHandle: 'right' | 'bottom') {
         // Horizontal behavior
-        let sourceHandleId = sourceHandle === 'bottom' ? 'h-bottom' : 'h-right';
+        let sourceHandleId = sourceHandle === 'bottom' ? 'h-bottom' : 'h-right-source';
         let targetHandleId = 'h-left';
         // Failure connections: map handles specially
         if (sourceHandle === 'bottom') {

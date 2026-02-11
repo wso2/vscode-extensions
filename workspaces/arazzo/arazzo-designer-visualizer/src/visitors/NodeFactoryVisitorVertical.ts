@@ -79,7 +79,7 @@ export class NodeFactoryVisitorVertical {
     private createEdge(source: FlowNode, target: FlowNode, sourceHandle: 'right' | 'bottom') {
         // Vertical behavior
         // Step nodes: target top, source bottom; failure (logical bottom) uses right
-        let sourceHandleId = sourceHandle === 'right' ? 'h-bottom' : 'h-right';
+        let sourceHandleId = sourceHandle === 'right' ? 'h-bottom' : 'h-right-source';
         let targetHandleId = 'h-top';
         // If failure connecting to END/RETRY or CONDITION, target should be left
         if (sourceHandle === 'bottom' && (target.type === 'END' || target.type === 'RETRY' || target.type === 'CONDITION')) {
