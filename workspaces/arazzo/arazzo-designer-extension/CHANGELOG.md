@@ -50,11 +50,3 @@ All notable changes to the "arazzo-designer" extension will be documented in thi
 - Explicit diagnostic clearing mechanism to prevent stale errors
 - Build script (`build.sh`) automates compilation and deployment
 
-## [1.0.1] (2024-07-26)
-
-- Fixed inbound endpoint editing 
-- Other minor bug fixes
-
-## [1.0.0]
-
-- Initial release

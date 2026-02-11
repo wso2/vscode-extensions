@@ -6,10 +6,10 @@ info:
   version: 1.0.0
 sourceDescriptions:
   - name: BnplApi
-    url: https://raw.githubusercontent.com/OAI/Arazzo-Specification/main/examples/1.0.0/bnpl-openapi.yaml
+    url: https://raw.githubusercontent.com/OAI
     type: openapi
 workflows:
-- workflowId: ApplyForLoanAtCheckout
+- workflowId: ApplyForLoanAtCheckoutXX
   summary: Apply for a loan at checkout using a BNPL platform
   description: Describes the steps to secure a loan at checkout from a BNPL platform. It is a multistep process that requires multiple API calls across several API providers to be completed successfully.
   inputs:
@@ -228,7 +228,7 @@ workflows:
     parameters:
       - name: redirectAuthToken
         in: query
-        value: $steps.authenticateCustomerAndAuthorizeLoan.outputs.redirectAuthToken
+        value: $steps.initiateBnplTransaction.outputs.redirectAuthToken
     successCriteria:
       - condition: $statusCode == 302
     outputs:

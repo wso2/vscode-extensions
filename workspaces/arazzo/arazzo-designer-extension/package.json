@@ -3,6 +3,7 @@
   "displayName": "Arazzo Designer",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing Arazzo Specification.",
   "version": "0.1.0",
+  "icon": "assets/arazzo-language.png",
   "publisher": "wso2",
   "engines": {
     "vscode": "^1.81.0"
@@ -141,7 +142,8 @@
     "compile": "tsc -p .",
     "watch": "tsc -p . -w",
     "package": "node ../../common-libs/scripts/package-vsix.js",
-    "build": "pnpm clean && pnpm run copyFonts && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run postbuild",
+    "build-lsp": "cd ../arazzo-designer-lsp && bash build.sh",
+    "build": "pnpm clean && pnpm run copyFonts && pnpm run build-lsp && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run postbuild",
     "compile-tests": "pnpm run compile",
     "watch-tests": "pnpm run watch",
     "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",

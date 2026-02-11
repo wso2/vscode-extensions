@@ -89,6 +89,36 @@ const StyledButton = styled(Button)`
     border-radius: 5px;
 `;
 
+const LoaderContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100%;
+    background-color: var(--vscode-editor-background);
+`;
+
+const Spinner = styled.div`
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--vscode-editor-foreground);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+`;
+
+const LoaderText = styled.div`
+    margin-top: 20px;
+    color: var(--vscode-editor-foreground);
+    font-family: var(--vscode-font-family);
+    font-size: 14px;
+`;
+
 export function WorkflowView(props: WorkflowViewProps) {
     const { fileUri, workflowId } = props;
     console.log('WorkflowView rendered with props:', { fileUri, workflowId });
@@ -102,6 +132,8 @@ export function WorkflowView(props: WorkflowViewProps) {
     const [workflow, setWorkflow] = useState<ArazzoWorkflow | undefined>(undefined);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
     const [isPanelOpen, setIsPanelOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadingError, setLoadingError] = useState<string | null>(null);
 
     // rpcClient?.onStateChanged((newState: MachineStateValue) => {
     //     if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
@@ -110,11 +142,20 @@ export function WorkflowView(props: WorkflowViewProps) {
     // });
 
     const fetchData = async () => {
-        const resp = await rpcClient.getVisualizerRpcClient().getArazzoModel({
-            uri: fileUri,
-        });
-        console.log('getArazzoModel response:', resp);
-        setArazzoDefinition(resp.model);
+        try {
+            setIsLoading(true);
+            setLoadingError(null);
+            const resp = await rpcClient.getVisualizerRpcClient().getArazzoModel({
+                uri: fileUri,
+            });
+            console.log('getArazzoModel response:', resp);
+            setArazzoDefinition(resp.model);
+        } catch (error) {
+            console.error('Error fetching Arazzo model:', error);
+            setLoadingError(error instanceof Error ? error.message : 'Failed to load Arazzo model');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -303,8 +344,31 @@ export function WorkflowView(props: WorkflowViewProps) {
         );
     };
 
+    if (isLoading) {
+        return (
+            <LoaderContainer>
+                <Spinner />
+                <LoaderText>Loading workflow data...</LoaderText>
+            </LoaderContainer>
+        );
+    }
+
+    if (loadingError) {
+        return (
+            <LoaderContainer>
+                <DataValue style={{ color: 'var(--vscode-errorForeground)' }}>
+                    Error: {loadingError}
+                </DataValue>
+            </LoaderContainer>
+        );
+    }
+
     if (!arazzoDefinition) {
-        return <div style={{ padding: '20px' }}>Loading...</div>;
+        return (
+            <LoaderContainer>
+                <DataValue>No Arazzo definition available</DataValue>
+            </LoaderContainer>
+        );
     }
 
     return (

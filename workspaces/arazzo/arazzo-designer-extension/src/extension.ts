@@ -50,6 +50,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	activateVisualizer(context);
 	StateMachine.initialize();
 
+	// Prompt user to enable Arazzo file icon theme (one-time)
+	await promptForFileIconTheme(context);
+
 	// Register the createOpenAPIFile command
 	let disposable = vscode.commands.registerCommand('ArazzoDesigner.createOpenAPIFile', createOpenAPIFile);
 	context.subscriptions.push(disposable);
@@ -66,18 +69,52 @@ export async function activate(context: vscode.ExtensionContext) {
 	initializeLanguageServer(context);
 }
 
+function getLanguageServerBinaryName(): string {
+	const platform = process.platform; // 'win32', 'darwin', 'linux'
+	const arch = process.arch; // 'x64', 'arm64', etc.
+
+	// Map Node.js platform/arch to our binary naming convention
+	const platformMap: Record<string, string> = {
+		'darwin': 'darwin',
+		'linux': 'linux',
+		'win32': 'win32'
+	};
+	const archMap: Record<string, string> = {
+		'x64': 'amd64',
+		'arm64': 'arm64'
+	};
+
+	const osPart = platformMap[platform];
+	const archPart = archMap[arch];
+
+	if (!osPart || !archPart) {
+		throw new Error(`Unsupported platform: ${platform}/${arch}`);
+	}
+
+	const ext = platform === 'win32' ? '.exe' : '';
+	return `arazzo-language-server-${osPart}-${archPart}${ext}`;
+}
+
 function initializeLanguageServer(context: vscode.ExtensionContext) {
 	console.log('Initializing Arazzo Language Server...');
 	console.log('To view LSP logs: View > Output > Select "Arazzo Language Server" from dropdown');
 
-	// Path to the language server binary (add .exe on Windows)
-	const serverExecutable = process.platform === 'win32' ? 'arazzo-language-server.exe' : 'arazzo-language-server';
+	// Determine the correct binary for this platform + architecture
+	let serverExecutable: string;
+	try {
+		serverExecutable = getLanguageServerBinaryName();
+	} catch (e: any) {
+		console.error(`Language server not available: ${e.message}`);
+		vscode.window.showWarningMessage(`Arazzo Language Server is not available for your platform (${process.platform}/${process.arch}). Procode features will be limited.`);
+		return;
+	}
+
 	const serverPath = path.join(context.extensionPath, 'ls', serverExecutable);
 
 	// Check if the server binary exists
 	if (!fs.existsSync(serverPath)) {
 		console.error(`Language server binary not found at: ${serverPath}`);
-		vscode.window.showWarningMessage('Arazzo Language Server binary not found. Procode features will be limited.');
+		vscode.window.showWarningMessage(`Arazzo Language Server binary not found for ${process.platform}/${process.arch}. Procode features will be limited.`);
 		return;
 	}
 
@@ -175,6 +212,37 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 	context.subscriptions.push(designerCommand);
 }
 
+async function promptForFileIconTheme(context: vscode.ExtensionContext) {
+	const iconThemePromptKey = 'arazzoIconThemePromptDismissed';
+	const hasUserDismissed = context.globalState.get(iconThemePromptKey, false);
+
+	// Check if user has dismissed the prompt
+	if (hasUserDismissed) {
+		return;
+	}
+
+	// Check if the Arazzo icon theme is already set
+	const currentIconTheme = vscode.workspace.getConfiguration('workbench').get<string>('iconTheme');
+	if (currentIconTheme === 'arazzo-icon-theme') {
+		return; // Already using our icon theme, no need to prompt
+	}
+
+	// Show the prompt since user hasn't dismissed it and isn't using our icon theme
+	const selection = await vscode.window.showInformationMessage(
+		'Enable Arazzo File Icons to see custom icons for .arazzo files?',
+		'Enable',
+		"Don't Show Again"
+	);
+
+	if (selection === 'Enable') {
+		await vscode.workspace.getConfiguration('workbench')
+			.update('iconTheme', 'arazzo-icon-theme', vscode.ConfigurationTarget.Global);
+	} else if (selection === "Don't Show Again") {
+		// Only mark as dismissed if user explicitly clicks "Don't Show Again"
+		await context.globalState.update(iconThemePromptKey, true);
+	}
+	// If user clicks the X or outside the dialog, do nothing (prompt will show again next time)
+}
 
 function checkDocumentForOpenAPI(document?: vscode.TextDocument) {
 	if (!document) {

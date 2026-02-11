@@ -163,11 +163,59 @@ export class VisualizerWebview {
                 padding: 0px;
                 overflow: hidden;
             }
+
+            /* Loading screen styles */
+            #loading-screen {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                background-color: var(--vscode-editor-background);
+                z-index: 9999;
+                transition: opacity 0.3s ease-out;
+            }
+
+            #loading-screen.hidden {
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .loading-spinner {
+                width: 50px;
+                height: 50px;
+                border: 4px solid var(--vscode-editor-foreground);
+                border-top-color: transparent;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+            }
+
+            .loading-text {
+                margin-top: 20px;
+                color: var(--vscode-editor-foreground);
+                font-family: var(--vscode-font-family);
+                font-size: 14px;
+            }
+
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
           </style>
           ${scriptUri}
         </head>
         <body>
             <noscript>You need to enable JavaScript to run this app.</noscript>
+            
+            <!-- Loading screen -->
+            <div id="loading-screen">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Loading Arazzo Designer...</div>
+            </div>
+            
             <div id="root">
             </div>
             <script>
@@ -175,6 +223,18 @@ export class VisualizerWebview {
                 visualizerWebview.renderWebview(
                     document.getElementById("root"), "visualizer", ${this._isWorkflowPanel}
                 );
+                
+                // Hide loading screen after a short delay to ensure content is rendered
+                setTimeout(() => {
+                    const loadingScreen = document.getElementById("loading-screen");
+                    if (loadingScreen) {
+                        loadingScreen.classList.add("hidden");
+                        // Remove from DOM after transition completes
+                        setTimeout(() => {
+                            loadingScreen.remove();
+                        }, 300);
+                    }
+                }, 500);
             }
             render();
         </script>
