@@ -20,6 +20,7 @@ import { FlowNode } from '../utils/types';
 import { Node, Edge, MarkerType } from '@xyflow/react';
 import * as C from '../constants/nodeConstants';
 import WaypointCreator from '../components/edges/WaypointCreator';
+import { pointInRect, segIntersectsSeg, segmentIntersectsRect } from '../components/edges/edgeUtils';;
 
 /**
  * NodeFactoryVisitorVertical V2: Generate React Flow nodes and edges for vertical layout.
@@ -200,31 +201,13 @@ export class NodeFactoryVisitorVertical_v2 {
         let targetPt = computeHandlePoint(target, targetHandleId);
         let labelPos = 0.8;
 
-        // Geometry helpers
-        const pointInRect = (p: {x:number,y:number}, r: {x:number,y:number,w:number,h:number}) =>
-            p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+        // Geometry helpers (moved to shared utility to avoid duplication)
+        // NOTE: exact logic preserved — see `src/components/edges/edgeUtils.ts` for implementation
+        // geometry helpers (imported at top-level from `edgeUtils`)
 
-        const segIntersectsSeg = (p1: {x:number,y:number}, p2: {x:number,y:number}, p3: {x:number,y:number}, p4: {x:number,y:number}) => {
-            const orient = (a: {x:number,y:number}, b: {x:number,y:number}, c: {x:number,y:number}) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-            const o1 = orient(p1,p2,p3);
-            const o2 = orient(p1,p2,p4);
-            const o3 = orient(p3,p4,p1);
-            const o4 = orient(p3,p4,p2);
-            return (o1 * o2 < 0) && (o3 * o4 < 0);
-        };
 
-        const segmentIntersectsRect = (a: {x:number,y:number}, b: {x:number,y:number}, rect: {x:number,y:number,w:number,h:number}) => {
-            if (pointInRect(a, rect) || pointInRect(b, rect)) return true;
-            const r1 = { x: rect.x, y: rect.y };
-            const r2 = { x: rect.x + rect.w, y: rect.y };
-            const r3 = { x: rect.x + rect.w, y: rect.y + rect.h };
-            const r4 = { x: rect.x, y: rect.y + rect.h };
-            if (segIntersectsSeg(a,b,r1,r2)) return true;
-            if (segIntersectsSeg(a,b,r2,r3)) return true;
-            if (segIntersectsSeg(a,b,r3,r4)) return true;
-            if (segIntersectsSeg(a,b,r4,r1)) return true;
-            return false;
-        };
+        // (local wrappers removed; functions above are used unchanged)
+
 
         const findshifts = (sourcePt: {x:number,y:number}, targetPt: {x:number,y:number}): number => {
             let shifts = 0;
