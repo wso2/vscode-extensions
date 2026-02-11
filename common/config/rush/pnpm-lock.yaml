@@ -369,6 +369,9 @@ importers:
       '@wso2/api-tryit-rpc-client':
         specifier: workspace:*
         version: link:../api-tryit-rpc-client
+      axios:
+        specifier: ~1.13.2
+        version: 1.13.2
       js-yaml:
         specifier: ^4.1.1
         version: 4.1.1

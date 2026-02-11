@@ -160,9 +160,8 @@ export const AssertCode: React.FC<AssertCodeProps> = ({
                 assertionStatuses={assertionResults}
                 suggestions={{
                     assertions: {
-                        initial: ['res'],
+                        initial: ['status', 'headers', 'body'],
                         properties: {
-                            'res': ['status', 'headers', 'body'],
                             'headers': {
                                 names: COMMON_HEADERS.map(h => h.name),
                                 values: Object.fromEntries(COMMON_HEADERS.map(h => [h.name, h.values]))
