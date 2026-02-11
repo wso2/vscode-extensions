@@ -23,7 +23,7 @@ import { ApiRequestItem } from '@wso2/api-tryit-core';
 import * as path from 'path';
 import { Buffer } from 'buffer';
 import { Messenger } from 'vscode-messenger';
-import { registerApiTryItRpcHandlers } from '../rpc-managers';
+import { registerApiTryItRpcHandlers, ApiTryItRpcManager } from '../rpc-managers';
 
 export class TryItPanel {
 	public static currentPanel: TryItPanel | undefined;
@@ -188,6 +188,41 @@ export class TryItPanel {
 							vscode.window.showErrorMessage(`Failed to process curl command: ${errorMsg}`);
 						}
 						break;
+					case 'sendHttpRequest':
+						// Handle HTTP request sent from webview
+						try {
+							const { requestId, data } = message;
+							const { method, url, params, headers, data: body } = data || {};
+							
+							// Delegate to RPC manager to handle the HTTP request
+							const rpcManager = new ApiTryItRpcManager();
+							rpcManager.sendHttpRequest({ method, url, params, headers, data: body }).then(
+								(result: any) => {
+									this._panel.webview.postMessage({
+										type: 'httpRequestResponse',
+										requestId,
+										data: result
+									});
+								},
+								(error: unknown) => {
+									const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+									this._panel.webview.postMessage({
+										type: 'httpRequestResponse',
+										requestId,
+										data: {
+											statusCode: 0,
+											headers: [],
+											body: JSON.stringify({ error: errorMsg }),
+											error: errorMsg
+										}
+									});
+								}
+							);
+						} catch (error: unknown) {
+							const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+							vscode.window.showErrorMessage(`Failed to send HTTP request: ${errorMsg}`);
+						}
+						break;
 					case 'webviewReady':
 						ApiTryItStateMachine.sendEvent(EVENT_TYPE.WEBVIEW_READY);
 						break;
@@ -201,13 +236,37 @@ export class TryItPanel {
 
 							// Get the current state to check for persisted file path or collection path
 							const stateContext = ApiTryItStateMachine.getContext();
-							let targetFilePath = filePath || stateContext.selectedFilePath;
+							// Prefer explicit filePath from the message, then the request's filePath (if present)
+							let targetFilePath = filePath || (request && (request.filePath as string | undefined));
 
-							// If no file path but we have a collection path (from "Add Request to Collection" flow)
+							// Fallback: check savedItems cache (preserved by state machine) for filePath if missing
+							try {
+								if (!targetFilePath && request && (request.id as string | undefined) && stateContext.savedItems instanceof Map) {
+									const cached = stateContext.savedItems.get(request.id as string);
+									if (cached && cached.filePath) {
+										targetFilePath = cached.filePath;
+									}
+								}
+							} catch {
+								// ignore
+							}
+
 							if (!targetFilePath && stateContext.currentCollectionPath) {
 								// Auto-generate filename from request name or use default
-								const fileName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.yaml';
-								targetFilePath = path.join(stateContext.currentCollectionPath, fileName);
+								const baseName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+								let candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}.yaml`);
+								let counter = 1;
+								while (true) {
+									try {
+										await vscode.workspace.fs.stat(vscode.Uri.file(candidatePath));
+										candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}-${counter}.yaml`);
+										counter++;
+									} catch {
+										// Not found, candidatePath is available
+										break;
+									}
+								}
+								targetFilePath = candidatePath;
 							}
 
 							// If still no file path, prompt user to select folder and file
@@ -231,9 +290,50 @@ export class TryItPanel {
 
 								const selectedFolder = folderUris[0];
 
-								// Now show save dialog in the selected folder
+								// Ensure a subfolder 'Test Collection' exists under the selected folder, and create collection.yaml there
+								const collectionFolderName = 'test-collection';
+								const collectionFolderPath = path.join(selectedFolder.fsPath, collectionFolderName);
+								const collectionFolderUri = vscode.Uri.file(collectionFolderPath);
+								try {
+									try {
+										await vscode.workspace.fs.stat(collectionFolderUri);
+										// Directory exists
+									} catch {
+										// Directory doesn't exist; create it
+										await vscode.workspace.fs.createDirectory(collectionFolderUri);
+										vscode.window.showInformationMessage(`Created folder: ${collectionFolderPath}`);
+									}
+
+									// Ensure collection.yaml exists inside the collection folder
+									const collectionFileUri = vscode.Uri.joinPath(collectionFolderUri, 'collection.yaml');
+									try {
+										await vscode.workspace.fs.stat(collectionFileUri);
+										// collection.yaml already exists
+									} catch {
+										const folderName = collectionFolderName;
+										const safeId = folderName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+										const yamlContent = `id: ${safeId}\nname: ${folderName}\n`;
+										await vscode.workspace.fs.writeFile(collectionFileUri, Buffer.from(yamlContent, 'utf8'));
+										vscode.window.showInformationMessage(`Created collection.yaml in ${collectionFolderPath}`);
+									}
+
+									// Set the state machine collection context so autosaves target this folder
+									try {
+										// ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionFolderPath);
+										ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionFolderPath);
+									} catch {
+										// ignore failures
+									}
+								} catch (err) {
+									const msg = err instanceof Error ? err.message : String(err);
+									vscode.window.showWarningMessage(`Failed to ensure collection folder or file: ${msg}`);
+								}
+
+								// Suggest a file name based on the request name
+								const suggestedFileName = ((request && request.name) ? request.name : 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.yaml';
+
 								const fileUri = await vscode.window.showSaveDialog({
-									defaultUri: vscode.Uri.joinPath(selectedFolder, 'api-request.yaml'),
+									defaultUri: vscode.Uri.joinPath(collectionFolderUri, suggestedFileName),
 									filters: {
 										'YAML files': ['yaml', 'yml']
 									},
@@ -252,7 +352,13 @@ export class TryItPanel {
 								targetFilePath = fileUri.fsPath;
 							}
 
-							// Ensure the directory exists before saving
+							// If the request already has an associated file, always overwrite that file without renaming
+							const existingFilePath = request && (request.filePath as string | undefined);
+							if (existingFilePath) {
+								targetFilePath = existingFilePath;
+							}
+
+			// Ensure the directory exists before saving
 							if (targetFilePath) {
 								const dirPath = path.dirname(targetFilePath);
 								try {

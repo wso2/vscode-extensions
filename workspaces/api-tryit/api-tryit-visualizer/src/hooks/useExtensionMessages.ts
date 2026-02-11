@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { ApiRequestItem } from '@wso2/api-tryit-core';
+import { ApiRequestItem, ApiRequest, HttpRequestOptions, HttpResponseResult } from '@wso2/api-tryit-core';
 import { getVSCodeAPI } from '../utils/vscode-api';
 
 // Get VS Code API instance (singleton)
@@ -59,13 +59,21 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
             
             if (type === 'apiRequestItemSelected' && handlersRef.current.onApiRequestSelected) {
                 const item = data as ApiRequestItem;
-                // Ensure arrays are initialized
+                // Normalize request safely (handle missing request or non-array fields)
+                const req: ApiRequest = item && item.request ? item.request : {
+                    id: item?.id || `new-${Date.now()}`,
+                    name: item?.name || 'New Request',
+                    method: 'GET',
+                    url: '',
+                    queryParameters: [],
+                    headers: []
+                } as ApiRequest;
                 const normalizedItem: ApiRequestItem = {
                     ...item,
                     request: {
-                        ...item.request,
-                        queryParameters: item.request.queryParameters || [],
-                        headers: item.request.headers || []
+                        ...req,
+                        queryParameters: Array.isArray(req.queryParameters) ? req.queryParameters : [],
+                        headers: Array.isArray(req.headers) ? req.headers : []
                     }
                 };
                 handlersRef.current.onApiRequestSelected(normalizedItem);
@@ -74,6 +82,28 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
             if (type === 'showCreateCollectionForm' && handlersRef.current.onShowCreateCollectionForm) {
                 console.log('[useExtensionMessages] Calling onShowCreateCollectionForm handler');
                 handlersRef.current.onShowCreateCollectionForm();
+            }
+
+            // Treat 'requestUpdated' like a selection so UI updates the current request form after a save
+            if (type === 'requestUpdated' && handlersRef.current.onApiRequestSelected) {
+                const item = data as ApiRequestItem;
+                const req: ApiRequest = item && item.request ? item.request : {
+                    id: item?.id || `new-${Date.now()}`,
+                    name: item?.name || 'New Request',
+                    method: 'GET',
+                    url: '',
+                    queryParameters: [],
+                    headers: []
+                } as ApiRequest;
+                const normalizedItem: ApiRequestItem = {
+                    ...item,
+                    request: {
+                        ...req,
+                        queryParameters: Array.isArray(req.queryParameters) ? req.queryParameters : [],
+                        headers: Array.isArray(req.headers) ? req.headers : []
+                    }
+                };
+                handlersRef.current.onApiRequestSelected(normalizedItem);
             }
 
             if (type === 'createCollectionResult' && handlersRef.current.onCreateCollectionResult) {
@@ -89,7 +119,7 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
         };
     }, []); // Empty dependency array - only run once
     
-    // Return function to send request updates back to extension
+    // Return functions to communicate with extension
     return {
         updateRequest: (item: ApiRequestItem) => {
             if (vscode) {
@@ -104,6 +134,40 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
                     console.error('Failed to serialize request item:', error);
                 }
             }
+        },
+        sendHttpRequest: async (options: HttpRequestOptions): Promise<HttpResponseResult> => {
+            return new Promise((resolve, reject) => {
+                if (!vscode) {
+                    reject(new Error('VS Code API not available'));
+                    return;
+                }
+
+                const requestId = `http-request-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                
+                // Set up a one-time listener for the response
+                const messageHandler = (event: MessageEvent) => {
+                    const { type, requestId: responseRequestId, data } = event.data;
+                    if (type === 'httpRequestResponse' && responseRequestId === requestId) {
+                        window.removeEventListener('message', messageHandler);
+                        resolve(data as HttpResponseResult);
+                    }
+                };
+
+                window.addEventListener('message', messageHandler);
+
+                // Send the HTTP request to the extension
+                vscode.postMessage({
+                    type: 'sendHttpRequest',
+                    requestId,
+                    data: options
+                });
+
+                // Timeout after 30 seconds
+                setTimeout(() => {
+                    window.removeEventListener('message', messageHandler);
+                    reject(new Error('HTTP request timeout'));
+                }, 30000);
+            });
         }
     };
 };

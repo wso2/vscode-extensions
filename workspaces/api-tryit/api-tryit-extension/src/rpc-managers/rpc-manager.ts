@@ -20,11 +20,14 @@ import {
     SaveRequestRequest,
     SaveRequestResponse,
     ApiRequest,
-    ApiResponse
+    ApiResponse,
+    HttpRequestOptions,
+    HttpResponseResult,
 } from "@wso2/api-tryit-core";
 import { writeFile, readFile } from 'fs/promises';
 import * as vscode from 'vscode';
 import * as yaml from 'js-yaml';
+import axios, { AxiosError } from 'axios';
 
 export class ApiTryItRpcManager {
     async saveRequest(params: SaveRequestRequest): Promise<SaveRequestResponse> {
@@ -114,6 +117,71 @@ export class ApiTryItRpcManager {
             return { 
                 success: false, 
                 message: err instanceof Error ? err.message : 'Unknown error occurred'
+            };
+        }
+    }
+
+    async sendHttpRequest(options: HttpRequestOptions): Promise<HttpResponseResult> {
+        try {
+            const response = await axios({
+                method: options.method,
+                url: options.url,
+                params: options.params,
+                headers: options.headers,
+                data: options.data,
+                validateStatus: () => true // Accept any status code
+            });
+
+            // Convert response headers to ResponseHeader format
+            const responseHeaders = Object.entries(response.headers).map(([key, value]) => ({
+                key,
+                value: String(value)
+            }));
+
+            // Format response body
+            let responseBody: string;
+            if (typeof response.data === 'object') {
+                responseBody = JSON.stringify(response.data, null, 2);
+            } else {
+                responseBody = String(response.data || '');
+            }
+
+            return {
+                statusCode: response.status,
+                headers: responseHeaders,
+                body: responseBody
+            };
+        } catch (error) {
+            const axiosError = error as AxiosError;
+            let errorBody = '';
+            let statusCode = 0;
+            let headers: Array<{ key: string; value: string }> = [];
+
+            if (axiosError.response) {
+                statusCode = axiosError.response.status;
+                headers = Object.entries(axiosError.response.headers).map(([key, value]) => ({
+                    key,
+                    value: String(value)
+                }));
+
+                if (typeof axiosError.response.data === 'object') {
+                    errorBody = JSON.stringify(axiosError.response.data, null, 2);
+                } else {
+                    errorBody = String(axiosError.response.data || '');
+                }
+            } else {
+                // Network error or request setup error
+                errorBody = JSON.stringify({
+                    error: axiosError.message || 'Request failed',
+                    code: axiosError.code
+                }, null, 2);
+            }
+
+            return {
+                statusCode,
+                headers,
+                body: errorBody,
+                error: axiosError.message
             };
         }
     }

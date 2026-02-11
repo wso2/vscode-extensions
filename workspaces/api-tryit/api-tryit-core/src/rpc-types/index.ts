@@ -17,7 +17,7 @@
  */
 
 import { NotificationType, RequestType } from 'vscode-messenger-common';
-import { SaveRequestRequest, SaveRequestResponse } from '../interfaces';
+import { SaveRequestRequest, SaveRequestResponse, HttpRequestOptions, HttpResponseResult } from '../interfaces';
 
 const _prefix = "api-tryit";
 
@@ -25,3 +25,4 @@ const _prefix = "api-tryit";
 export const sendMessage: RequestType<string, string> = { method: `${_prefix}/sendMessage` };
 export const showNotification: NotificationType<string> = { method: `${_prefix}/showNotification` };
 export const saveRequest: RequestType<SaveRequestRequest, SaveRequestResponse> = { method: `${_prefix}/saveRequest` };
+export const sendHttpRequest: RequestType<HttpRequestOptions, HttpResponseResult> = { method: `${_prefix}/sendHttpRequest` };

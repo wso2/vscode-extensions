@@ -53,6 +53,7 @@ const Form = styled.form`
 
 const Actions = styled.div`
     display: flex;
+    justify-content: flex-end;
     gap: 8px;
     margin-top: 8px;
 `;
@@ -188,8 +189,8 @@ export const CollectionForm: React.FC<{ onCancel: () => void }> = ({ onCancel })
                     </div>
 
                     <Actions>
-                        <Button onClick={handleSubmit}>Create</Button>
                         <Button appearance="secondary" onClick={onCancel}>Cancel</Button>
+                        <Button onClick={handleSubmit}>Create</Button>
                     </Actions>
                 </Form>
             </FormContainer>
