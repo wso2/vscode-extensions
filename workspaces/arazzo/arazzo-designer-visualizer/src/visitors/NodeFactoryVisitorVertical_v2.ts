@@ -121,7 +121,7 @@ export class NodeFactoryVisitorVertical_v2 {
                             conditionLabel = `Branch ${branchIndex + 1}`; // Fallback
                         }
                     }
-                    this.createEdge(node, head, 'success', conditionLabel);
+                    this.createEdge(node, head, 'success', conditionLabel, 'branch');
                 }
                 this.visit(head);
             }
@@ -149,7 +149,7 @@ export class NodeFactoryVisitorVertical_v2 {
         return false;
     }
 
-    private createEdge(source: FlowNode, target: FlowNode, edgeType: 'success' | 'failure', conditionLabel?: string): void {
+    private createEdge(source: FlowNode, target: FlowNode, edgeType: 'success' | 'failure', conditionLabel?: string, scenario?:string): void {
         // Determine handle positions based on relative positions
         const isTargetBelow = target.viewState.y > source.viewState.y + source.viewState.h;
         const isTargetRight = target.viewState.x > source.viewState.x + source.viewState.w;
@@ -247,6 +247,9 @@ export class NodeFactoryVisitorVertical_v2 {
             } catch (e) {
                 computedWaypoints = [];
             }
+        }else if(scenario === 'branch') {
+            // For branches, add a slight horizontal offset to the label position to avoid overlap with the node
+            computedWaypoints = WaypointCreator(sourcePt, targetPt, foundBlockingRect, 'branch');
         }
 
         const edge = {

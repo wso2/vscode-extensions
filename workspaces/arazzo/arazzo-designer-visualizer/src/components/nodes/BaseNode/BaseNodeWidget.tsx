@@ -55,6 +55,7 @@ export namespace NodeStyles {
         flex-direction: column;
         justify-content: space-between;
         align-items: center;
+        box-sizing: border-box;
         width: 100%;
         min-height: ${NODE_HEIGHT}px;
         padding: 0 ${PADDING / 2}px;

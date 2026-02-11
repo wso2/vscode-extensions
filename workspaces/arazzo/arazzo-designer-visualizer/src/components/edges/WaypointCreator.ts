@@ -3,7 +3,7 @@ import * as C from '../../constants/nodeConstants';
 export interface Point { x: number; y: number }
 
 interface Rect { x: number; y: number; w: number; h: number }
-type lineType = 'skip';
+type lineType = 'skip'|'branch';
 
 /**
  * WaypointCreator (Right-first routing)
@@ -20,7 +20,7 @@ type lineType = 'skip';
  */
 export default function WaypointCreator(source: Point, target: Point, block: Rect, lineType: lineType): Point[] {
     switch (lineType) {
-        case 'skip':
+        case 'skip': {
             // Column: move right by approximately 1.5 * block.w from block.x
             const columnX = block.x + block.w * C.WAYPOINT_SKIP_HORIZONTAL_OFFSET_MULTIPLIER;
 
@@ -38,7 +38,14 @@ export default function WaypointCreator(source: Point, target: Point, block: Rec
 
             // Return waypoints in order (react-flow will draw lines between these and then to target)
             return [wp1, wp2, wp3];
-        default:
-            return [];
+        }
+        case 'branch': {
+            const wp1: Point = { x: source.x, y: source.y + C.WAYPOINT_BRANCH_VERTICAL_OFFSET };
+
+            // 2) move right to the column while keeping same Y as wp1
+            const wp2: Point = { x: target.x, y: wp1.y };
+
+            return [wp1, wp2];
+        }
     }
 }
