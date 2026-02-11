@@ -33,7 +33,7 @@ import {
     Typography
 } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
-import { Controller } from 'react-hook-form';
+import { Controller, useWatch } from 'react-hook-form';
 import React from 'react';
 import {
     ExpressionFieldValue,
@@ -59,6 +59,7 @@ import { HelperPaneCompletionItem, HelperPaneData } from '@wso2/mi-core';
 import AIAutoFillBox from './AIAutoFillBox/AIAutoFillBox';
 import { compareVersions } from '../../utils/commons';
 import { RUNTIME_VERSION_440 } from '../../resources/constants';
+import { McpToolsSelection } from './MCPtoolsSelection/McpToolsSelection';
 
 // Constants
 const XML_VALUE = 'xml';
@@ -95,6 +96,8 @@ export interface FormGeneratorProps {
     control: any;
     errors: any;
     setValue: any;
+    setError?: any;
+    clearErrors?: any;
     reset: any;
     watch: any;
     getValues: any;
@@ -205,6 +208,8 @@ export function FormGenerator(props: FormGeneratorProps) {
         control,
         errors,
         setValue,
+        setError,
+        clearErrors,
         reset,
         getValues,
         watch,
@@ -213,7 +218,7 @@ export function FormGenerator(props: FormGeneratorProps) {
         disableFields,
         range
     } = props;
-    const [currentExpressionValue, setCurrentExpressionValue] = useState<ExpressionValueWithSetter | null>(null);
+    const [currentExpressionValue, setCurrentExpressionValue] =  useState<ExpressionValueWithSetter | null>(null);
     const [expressionEditorField, setExpressionEditorField] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [isLegacyExpressionEnabled, setIsLegacyExpressionEnabled] = useState<boolean>(false);
@@ -234,6 +239,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const [numberOfDifferent, setNumberOfDifferent] = useState<number>(0);
     const [idpSchemaNames, setidpSchemaNames] = useState< {fileName: string; documentUriWithFileName?: string}[]>([]);
     const [showFillWithAI, setShowFillWithAI] = useState<boolean>(false);
+    const selectedConnection = useWatch({ control, name: 'configKey' });
 
     useEffect(() => {
         if (generatedFormDetails) {
@@ -1271,6 +1277,26 @@ export function FormGenerator(props: FormGeneratorProps) {
                         />
                     </>
                 )
+            case 'mcpToolsSelection':
+                const selectedMcpTools = useWatch({ control, name: 'mcpToolsSelection' });
+                const selectedToolsSet = new Set<string>(
+                    Array.isArray(selectedMcpTools) ? selectedMcpTools : []
+                );
+
+                return (
+                    <McpToolsSelection
+                        selectedTools={selectedToolsSet}
+                        selectedConnection={selectedConnection}
+                        serviceUrl=""
+                        showValidationError={!!errorMsg}
+                        resolutionError=""
+                        control={control}
+                        setValue={setValue}
+                        getValues={getValues}
+                        setError={setError}
+                        clearErrors={clearErrors}
+                    />
+                );
             default:
                 return null;
         }
@@ -1285,6 +1311,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                     if (getValues(name) !== undefined) {
                         setValue(name, undefined)
                     }
+                    return;
                     return;
                 }
             }
