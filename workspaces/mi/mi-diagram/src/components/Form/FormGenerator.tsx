@@ -1312,7 +1312,6 @@ export function FormGenerator(props: FormGeneratorProps) {
                         setValue(name, undefined)
                     }
                     return;
-                    return;
                 }
             }
 
