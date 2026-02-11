@@ -28,7 +28,7 @@ import { createToolRegistry } from './tool-registry';
 import { getProjectSource, cleanupTempProject } from '../utils/project/temp-project';
 import { StreamContext } from './stream-handlers/stream-context';
 import { checkCompilationErrors } from './tools/diagnostics-utils';
-import { generateCodeMapMarkdown } from './codemap-markdown';
+import { generateCodeMapMarkdown } from '../../bal-md/codemap-markdown';
 import { updateAndSaveChat } from '../utils/events';
 import { chatStateStorage } from '../../../views/ai-panel/chatStateStorage';
 import { RPCLayer } from '../../../RPCLayer';
@@ -152,7 +152,7 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 const langClient = StateMachine.langClient();
                 const projectPath = this.config.executionContext.projectPath;
                 const codeMap = await langClient.getCodeMap({ projectPath });
-                
+
 
                 // Debug: Fetch and save codemap as JSON
                 const codeMapProjectPath = path.join(projectPath, 'codemap.json');
