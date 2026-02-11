@@ -17,7 +17,7 @@
  */
 
 import { EdgeProps, BaseEdge, getSmoothStepPath } from '@xyflow/react';
-import { useRef, useLayoutEffect, useState } from 'react';
+import { ThemeColors } from '@wso2/ui-toolkit';
 
 interface Waypoint {
     x: number;
@@ -39,6 +39,8 @@ const CORNER_RADIUS = 6;
  * 
  * If data.waypoints exists: Draws a path through each waypoint sequentially with rounded corners.
  * If data.waypoints is missing or empty: Falls back to smooth step path.
+ * 
+ * Labels are rendered using foreignObject with smart positioning.
  */
 export default function PlannedPathEdge({
     id,
@@ -52,10 +54,8 @@ export default function PlannedPathEdge({
     style,
     markerEnd,
 }: EdgeProps<PlannedPathData>) {
-    const pathRef = useRef<SVGPathElement>(null);
-    const [labelPosition, setLabelPosition] = useState<{ x: number; y: number } | null>(null);
-    const floatingLabelRef = useRef<SVGTextElement | null>(null);
     let edgePath: string;
+    let labelPosition: { x: number; y: number } | null = null;
 
     // Check if waypoints exist and are valid
     const waypoints = data?.waypoints;
@@ -117,6 +117,35 @@ export default function PlannedPathEdge({
         }
 
         edgePath = pathCommands;
+
+        // Smart label positioning for bent paths
+        if (data?.label) {
+            if (waypoints.length >= 2) {
+                // Scenario B: Position at 20% along segment after second bend (waypoints[1])
+                const secondBend = waypoints[1];
+                const nextPoint = waypoints[2] || { x: targetX, y: targetY };
+                
+                const dx = nextPoint.x - secondBend.x;
+                const dy = nextPoint.y - secondBend.y;
+                const t = 0.2; // 20% along this segment
+                
+                labelPosition = {
+                    x: secondBend.x + dx * t,
+                    y: secondBend.y + dy * t
+                };
+            } else {
+                // Fallback: 50% of last segment
+                const lastWp = waypoints[waypoints.length - 1];
+                const dx = targetX - lastWp.x;
+                const dy = targetY - lastWp.y;
+                
+                labelPosition = {
+                    x: lastWp.x + dx * 0.5,
+                    y: lastWp.y + dy * 0.5
+                };
+            }
+        }
+
         console.log(`[PlannedPathEdge] ${id} using waypoints with rounded corners:`, waypoints);
     } else {
         // Fallback to smooth step path
@@ -129,86 +158,84 @@ export default function PlannedPathEdge({
             targetPosition,
         });
         edgePath = path;
+
+        // Scenario A: Straight path - position at 80% from source to target
+        if (data?.label) {
+            const dx = targetX - sourceX;
+            const dy = targetY - sourceY;
+            const t = data.labelPos ?? 0.8; // Use labelPos or default to 80%
+            
+            labelPosition = {
+                x: sourceX + dx * t,
+                y: sourceY + dy * t
+            };
+        }
+
         console.log(`[PlannedPathEdge] ${id} using fallback smooth step path`);
     }
 
-    // Compute label position along the path
-    useLayoutEffect(() => {
-        if (data?.label && pathRef.current) {
-            try {
-                // Find the path element inside the BaseEdge
-                const pathEl = pathRef.current.querySelector('path');
-                if (pathEl) {
-                    const pathLength = pathEl.getTotalLength();
-                    const t = data.labelPos ?? 0.5; // default to middle
-                    const point = pathEl.getPointAtLength(pathLength * t);
-                    setLabelPosition(point);
-                }
-            } catch (e) {
-                console.warn(`[PlannedPathEdge] Could not compute label position for ${id}`);
-            }
-        }
-    }, [edgePath, data?.label, data?.labelPos, id]);
-
-    // Keep label rendered on top by creating a floating <text> element appended to the top-level SVG.
-    useLayoutEffect(() => {
-        const svg = pathRef.current?.ownerSVGElement;
-        if (!svg) return;
-
-        // If no label, remove any floating label
-        if (!data?.label || !labelPosition) {
-            if (floatingLabelRef.current && floatingLabelRef.current.parentNode) {
-                floatingLabelRef.current.parentNode.removeChild(floatingLabelRef.current);
-                floatingLabelRef.current = null;
-            }
-            return;
-        }
-
-        // Create floating text if missing
-        if (!floatingLabelRef.current) {
-            const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            t.setAttribute('fill', 'var(--vscode-editor-foreground, #333)');
-            t.setAttribute('font-size', '12px');
-            t.setAttribute('font-family', 'var(--vscode-font-family, sans-serif)');
-            t.setAttribute('text-anchor', 'middle');
-            t.setAttribute('pointer-events', 'none');
-            (t as any).style.userSelect = 'none';
-            svg.appendChild(t);
-            floatingLabelRef.current = t;
-        }
-
-        // Update label content and position
-        const t = floatingLabelRef.current!;
-        t.textContent = data.label as string;
-        const offsetX = data.labelOffset?.x ?? 0;
-        const offsetY = data.labelOffset?.y ?? -8;
-        t.setAttribute('x', String(labelPosition.x + offsetX));
-        t.setAttribute('y', String(labelPosition.y + offsetY));
-
-        return () => {
-            // cleanup will be handled by effect above when label removed, but ensure removal on unmount
-            // (do not remove here to avoid flicker when just updating)
-        };
-    }, [data?.label, data?.labelOffset, labelPosition]);
-
-    // Remove floating label on unmount
-    useLayoutEffect(() => {
-        return () => {
-            if (floatingLabelRef.current && floatingLabelRef.current.parentNode) {
-                floatingLabelRef.current.parentNode.removeChild(floatingLabelRef.current);
-                floatingLabelRef.current = null;
-            }
-        };
-    }, []);
+    // Calculate label dimensions for centering
+    const labelWidth = 100;
+    const labelHeight = 24;
 
     return (
-        <g ref={pathRef}>
+        <g>
             <BaseEdge
                 id={id}
                 path={edgePath}
                 style={style}
                 markerEnd={markerEnd}
             />
+            {data?.label && labelPosition && (
+                <foreignObject
+                    x={labelPosition.x - labelWidth / 2 + (data.labelOffset?.x ?? 0)}
+                    y={labelPosition.y - labelHeight / 2 + (data.labelOffset?.y ?? -10)}
+                    width={labelWidth}
+                    height={labelHeight}
+                    style={{ overflow: 'visible' }}
+                >
+                    <div
+                        style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            width: '100%',
+                            height: '100%',
+                        }}
+                    >
+                        <div
+                            style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                borderRadius: '12px',
+                                border: `1.5px solid ${ThemeColors.OUTLINE_VARIANT}`,
+                                backgroundColor: ThemeColors.SURFACE_BRIGHT,
+                                padding: '2px 10px',
+                                boxSizing: 'border-box',
+                                width: 'fit-content',
+                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                            }}
+                        >
+                            <span
+                                style={{
+                                    color: ThemeColors.ON_SURFACE,
+                                    fontSize: '12px',
+                                    fontFamily: 'var(--vscode-font-family, sans-serif)',
+                                    userSelect: 'none',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    maxWidth: '200px',
+                                    display: 'inline-block',
+                                }}
+                            >
+                                {data.label}
+                            </span>
+                        </div>
+                    </div>
+                </foreignObject>
+            )}
         </g>
     );
 }
