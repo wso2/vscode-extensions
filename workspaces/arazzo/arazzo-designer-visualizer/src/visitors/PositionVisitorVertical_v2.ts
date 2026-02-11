@@ -221,7 +221,7 @@ export class PositionVisitorVertical_v2 {
                     //const branchCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (i + 1);
                     const branchCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (isFailPathCondition? (i) : (i + 1)); // Position to the right of parent
                     head.viewState.x = branchCenterX - (head.viewState.w / 2);
-                    head.viewState.y = nextY;
+                    head.viewState.y = (!isFailPathCondition) ? nextY - 40 : nextY;
                     head.isPositioned = true;
 
                     // Track positioned node for collision detection

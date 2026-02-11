@@ -226,15 +226,34 @@ export class NodeFactoryVisitorVertical_v2 {
             return false;
         };
 
+        const findshifts = (sourcePt: {x:number,y:number}, targetPt: {x:number,y:number}): number => {
+            let shifts = 0;
+            while (true) {
+                for (const nodePos of this.allNodePositions) {
+                    if (nodePos.id === source.id || nodePos.id === target.id) continue;
+                    const rect = { x: nodePos.x, y: nodePos.y, w: nodePos.w, h: nodePos.h };
+                    if (segmentIntersectsRect(sourcePt, targetPt, rect)) {
+                        shifts++;
+                        sourcePt.x += C.NODE_WIDTH;
+                        targetPt.x += C.NODE_WIDTH;
+                        break;
+                    }
+                }
+                return shifts;
+            }
+            
+        }
+
         // Check all positioned step nodes for blocking rectangles (exclude source/target)
         let foundBlockingRect: {x:number,y:number,w:number,h:number} | null = null;
+        let shiftamount: number = 0;
         for (const nodePos of this.allNodePositions) {
             if (nodePos.id === source.id || nodePos.id === target.id) continue;
             const rect = { x: nodePos.x, y: nodePos.y, w: nodePos.w, h: nodePos.h };
             if (segmentIntersectsRect(sourcePt, targetPt, rect)) {
                 foundBlockingRect = rect;
                 console.log(`[NodeFactory V2] Edge ${source.id} → ${target.id} blocked by ${nodePos.id}`);
-                break;
+                shiftamount = findshifts({x: sourcePt.x + C.NODE_WIDTH, y: sourcePt.y}, {x: targetPt.x + C.NODE_WIDTH, y: targetPt.y});
             }
         }
 
@@ -244,13 +263,13 @@ export class NodeFactoryVisitorVertical_v2 {
                 targetHandleId = 'h-right-target';
                 targetPt = computeHandlePoint(target, targetHandleId);
                 labelPos = 0.35;
-                computedWaypoints = WaypointCreator(sourcePt, targetPt, foundBlockingRect, 'skip');
+                computedWaypoints = WaypointCreator(sourcePt, targetPt, foundBlockingRect, 'skip', shiftamount);
             } catch (e) {
                 computedWaypoints = [];
             }
         }else if(scenario === 'branch') {
             // For branches, add a slight horizontal offset to the label position to avoid overlap with the node
-            computedWaypoints = WaypointCreator(sourcePt, targetPt, foundBlockingRect, 'branch');
+            computedWaypoints = WaypointCreator(sourcePt, targetPt, foundBlockingRect, 'branch',);
         }
 
         const edge = {

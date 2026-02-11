@@ -18,11 +18,11 @@ type lineType = 'skip'|'branch';
  * This produces an ordered list of waypoints that, when drawn as straight
  * segments, routes the edge around the blocking rectangle on the right.
  */
-export default function WaypointCreator(source: Point, target: Point, block: Rect, lineType: lineType): Point[] {
+export default function WaypointCreator(source: Point, target: Point, block: Rect, lineType: lineType, shiftAmount?: number): Point[] {
     switch (lineType) {
         case 'skip': {
             // Column: move right by approximately 1.5 * block.w from block.x
-            const columnX = block.x + block.w * C.WAYPOINT_SKIP_HORIZONTAL_OFFSET_MULTIPLIER;
+            const columnX = block.x + block.w + C.WAYPOINT_SKIP_HORIZONTAL_OFFSET + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (shiftAmount || 0);
 
             // 1) from source go down a bit
             const wp1: Point = { x: source.x, y: source.y + C.WAYPOINT_SKIP_VERTICAL_OFFSET };

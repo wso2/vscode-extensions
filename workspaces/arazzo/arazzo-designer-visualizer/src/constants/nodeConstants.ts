@@ -46,10 +46,11 @@ export const FAIL_GAP_Y_Horizontal = 50;  // Vertical gap for failure paths
 
 // Vertical layout constants (main flow goes down, branches go right)
 export const NODE_GAP_X_Vertical = 60;  // Horizontal gap between steps
-export const NODE_GAP_Y_Vertical = 70;  // Vertical gap between branches/failure paths
+export const NODE_GAP_Y_Vertical = 50;  // Vertical gap between branches/failure paths
 //export const FAIL_GAP_Y_Vertical = 50;  // Vertical gap for failure paths
 export const FAIL_GAP_X_Vertical = 50;  // Horizontal gap for failure paths
-export const NODE_GAP_Y_AFTERCONDITION = 130; // Vertical gap between node and edge label
+export const NODE_GAP_Y_AFTERCONDITION = 150; // Vertical gap between node and edge label
+export const CONDITION_NODE_SECOND_BRANCH_OFFSET = 40; // Vertical offset for 2nd branch of condition nodes
 
 
 //portal node constants
@@ -59,7 +60,7 @@ export const PORTALNODE_GAP_Y = 40;
 //Waypoint realted constants
 export const WAYPOINT_SKIP_VERTICAL_OFFSET = 30; // Distance to offset waypoints from node edges
 export const WAYPOINT_BRANCH_VERTICAL_OFFSET = 40; // Vertical offset for branch waypoints to avoid label overlap
-export const WAYPOINT_SKIP_HORIZONTAL_OFFSET_MULTIPLIER = 1.5;
+export const WAYPOINT_SKIP_HORIZONTAL_OFFSET = NODE_GAP_X_Vertical/2;
 
 //canvas constants
 export const CANVAS_PADDING = 100;
