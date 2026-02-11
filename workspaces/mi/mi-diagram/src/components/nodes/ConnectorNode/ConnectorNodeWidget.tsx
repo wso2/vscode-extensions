@@ -32,6 +32,7 @@ import { Body, Content, Description, Header, Name, OptionsMenu } from "../BaseNo
 import { FirstCharToUpperCase } from "../../../utils/commons";
 import path from "path";
 import { MACHINE_VIEW, POPUP_EVENT_TYPE } from "@wso2/mi-core";
+import { getMediatorIconsFromFont } from "../../../resources/icons/mediatorIcons/icons";
 
 namespace S {
     export type NodeStyleProp = {
@@ -139,6 +140,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
     const isActiveBreakpoint = node.isActiveBreakpoint();
     const connectorNode = ((node.stNode as Tool).mediator ?? node.stNode) as Connector;
     const tooltip = hasDiagnotics ? node.getDiagnostics().map(diagnostic => diagnostic.message).join("\n") : undefined;
+    const isMCPTool = (node.stNode as Tool).isMcpTool;
 
     useEffect(() => {
         node.setSelected(sidePanelContext?.node === node);
@@ -154,7 +156,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
 
     useEffect(() => {
         const fetchData = async () => {
-            const connectorIcon = await rpcClient.getMiDiagramRpcClient().getConnectorIcon({ 
+            const connectorIcon = await rpcClient.getMiDiagramRpcClient().getConnectorIcon({
                 connectorName: node.stNode?.connectorName,
                 documentUri: node.documentUri
             });
@@ -165,7 +167,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                 documentUri: node.documentUri,
                 connectorName: connectorNode.tag.split(".")[0]
             });
-            
+
             const connectionData: any = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
                 documentUri: node.documentUri,
                 connectorName: node.stNode.tag.split(".")[0]
@@ -228,7 +230,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
 
         return nodeRange;
     }
-    
+
     const handleOnConnectionClick = async (e: any) => {
         e.stopPropagation();
 
@@ -283,7 +285,9 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                     )}
                     <S.TopPortWidget port={node.getPort("in")!} engine={engine} />
                     <div style={{ display: "flex", flexDirection: "row", width: NODE_DIMENSIONS.DEFAULT.WIDTH }}>
-                        {iconPath &&
+                        {isMCPTool ?
+                            <S.IconContainer>{getMediatorIconsFromFont('mcp')}</S.IconContainer>
+                        : iconPath &&
                             <S.IconContainer><img src={iconPath} alt="Icon" /></S.IconContainer>
                         }
                         <div>
@@ -294,10 +298,10 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                             )}
                             <Content>
                                 <Header showBorder={true}>
-                                    <Name>{FirstCharToUpperCase(connectorNode.method)}</Name>
+                                    <Name>{FirstCharToUpperCase((isMCPTool ? "MCP Tool" : connectorNode.method))}</Name>
                                 </Header>
                                 <Body>
-                                    <Description>{FirstCharToUpperCase(connectorNode.connectorName)}</Description>
+                                    <Description>{FirstCharToUpperCase(connectorNode.connectorName ?? (connectorNode as any).name)}</Description>
                                 </Body>
                             </Content>
                         </div>
