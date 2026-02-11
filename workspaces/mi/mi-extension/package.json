@@ -1089,7 +1089,7 @@
     "@wso2/mi-syntax-tree": "workspace:*",
     "@wso2/playwright-vscode-tester": "workspace:*",
     "adm-zip": "0.5.16",
-    "axios": "1.12.0",
+    "axios": "1.13.5",
     "copyfiles": "2.4.1",
     "cors-anywhere": "0.4.4",
     "dotenv": "16.5.0",
