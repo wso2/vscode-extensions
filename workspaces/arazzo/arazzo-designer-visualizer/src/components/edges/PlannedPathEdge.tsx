@@ -16,7 +16,8 @@
  * under the License.
  */
 
-import { EdgeProps, BaseEdge, getSmoothStepPath } from '@xyflow/react';
+import { EdgeProps, BaseEdge, getSmoothStepPath, useEdges, useNodes } from '@xyflow/react';
+import { BRIDGE_RADIUS, DEFAULT_EPS, getPointsForEdge as getEdgePoints, detectBridgesForSegment, buildSegmentPathWithBridges } from './edgeIntersectDetect';
 import { ThemeColors } from '@wso2/ui-toolkit';
 import { useState } from 'react';
 
@@ -71,14 +72,39 @@ export default function PlannedPathEdge({
 
         let pathCommands = `M ${points[0].x} ${points[0].y}`;
 
+        // intersection helpers moved to `edgeIntersectDetect.ts`; constants imported above (BRIDGE_RADIUS, DEFAULT_EPS)
+
+        // Gather other edges & nodes once (exclude current).
+        // NOTE: React Flow may not populate sourceX/targetX on edges returned by
+        // `useEdges()` in some render passes — fall back to node positions.
+        const allEdges = useEdges();
+        const otherEdges = (allEdges || []).filter(e => e.id !== id);
+        // Get nodes from React Flow so we can reconstruct edge endpoints when
+        // `sourceX/sourceY` or `targetX/targetY` are not available on the edge object.
+        const nodes = useNodes() as any[] || [];
+        const nodeById = new Map((nodes || []).map((n: any) => [n.id, n]));
+
+        // Forwarding wrapper that uses the centralized helper (keeps behaviour)
+        const getPointsForEdge = (e: any) => getEdgePoints(e, nodeById);
+
+        // Emit a straight segment but inject bridge arcs when crossing
+        // orthogonal segments from other edges (supports vertical *and* horizontal).
+        let pen = { x: points[0].x, y: points[0].y };
+        const emitLineWithBridges = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+            const intersections = detectBridgesForSegment(from, to, otherEdges as any[], nodeById, BRIDGE_RADIUS, DEFAULT_EPS);
+            const frag = buildSegmentPathWithBridges(from, to, intersections, BRIDGE_RADIUS);
+            pen = { x: to.x, y: to.y };
+            return frag;
+        };
+
         for (let i = 1; i < points.length; i++) {
             const prev = points[i - 1];
             const curr = points[i];
             const next = i < points.length - 1 ? points[i + 1] : null;
 
             if (!next) {
-                // Last segment - draw straight to target
-                pathCommands += ` L ${curr.x} ${curr.y}`;
+                // Last segment - draw straight to target (with bridges if needed)
+                pathCommands += emitLineWithBridges(pen, { x: curr.x, y: curr.y });
                 break;
             }
 
@@ -95,8 +121,8 @@ export default function PlannedPathEdge({
             const radius = Math.min(CORNER_RADIUS, dist1 / 2, dist2 / 2);
 
             if (radius < 1) {
-                // Too short - draw straight line
-                pathCommands += ` L ${curr.x} ${curr.y}`;
+                // Too short - draw straight line (with bridges)
+                pathCommands += emitLineWithBridges(pen, { x: curr.x, y: curr.y });
                 continue;
             }
 
@@ -110,12 +136,13 @@ export default function PlannedPathEdge({
             const afterX = curr.x + dx2 * t2;
             const afterY = curr.y + dy2 * t2;
 
-            // Draw line to the point before corner
-            pathCommands += ` L ${beforeX} ${beforeY}`;
+            // Draw line to the point before corner (with bridges on that straight)
+            pathCommands += emitLineWithBridges(pen, { x: beforeX, y: beforeY });
 
             // Draw quadratic bezier curve through the corner
             // Control point is the corner itself for a smooth 90-degree arc
             pathCommands += ` Q ${curr.x} ${curr.y} ${afterX} ${afterY}`;
+            pen = { x: afterX, y: afterY };
         }
 
         edgePath = pathCommands;
