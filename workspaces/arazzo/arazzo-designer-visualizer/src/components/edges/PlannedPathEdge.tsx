@@ -18,6 +18,7 @@
 
 import { EdgeProps, BaseEdge, getSmoothStepPath } from '@xyflow/react';
 import { ThemeColors } from '@wso2/ui-toolkit';
+import { useState } from 'react';
 
 interface Waypoint {
     x: number;
@@ -56,6 +57,7 @@ export default function PlannedPathEdge({
 }: EdgeProps<PlannedPathData>) {
     let edgePath: string;
     let labelPosition: { x: number; y: number } | null = null;
+    const [hovered, setHovered] = useState(false);
 
     // Check if waypoints exist and are valid
     const waypoints = data?.waypoints;
@@ -178,13 +180,46 @@ export default function PlannedPathEdge({
     const labelWidth = 100;
     const labelHeight = 24;
 
+    const finalStyle = {
+        ...(style || {}),
+        stroke: hovered ? ThemeColors.SECONDARY : (style as any)?.stroke,
+    };
+
+    // When hovered we render a local, unique marker (inlined <defs>) and point
+    // the edge at that marker so the arrowhead color follows the stroke.
+    const hoverMarkerId = `pl_${id}-hover-marker`;
+    const markerEndAttr = hovered && markerEnd ? `url(#${hoverMarkerId})` : markerEnd;
+
     return (
-        <g>
+        <g onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+            {hovered && markerEnd && (
+                <defs>
+                    <marker
+                        id={hoverMarkerId}
+                        markerWidth={12.5}
+                        markerHeight={12.5}
+                        viewBox="-10 -10 20 20"
+                        markerUnits="strokeWidth"
+                        orient="auto-start-reverse"
+                        refX={0}
+                        refY={0}
+                    >
+                        <polyline
+                            className="arrowclosed"
+                            points="-5,-4 0,0 -5,4 -5,-4"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            style={{ stroke: ThemeColors.SECONDARY, fill: ThemeColors.SECONDARY, strokeWidth: 1 }}
+                        />
+                    </marker>
+                </defs>
+            )}
+
             <BaseEdge
                 id={id}
                 path={edgePath}
-                style={style}
-                markerEnd={markerEnd}
+                style={finalStyle}
+                markerEnd={markerEndAttr}
             />
             {data?.label && labelPosition && (
                 <foreignObject
