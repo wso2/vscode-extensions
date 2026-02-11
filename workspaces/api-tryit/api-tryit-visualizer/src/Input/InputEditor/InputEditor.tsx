@@ -543,57 +543,6 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                         }
                     });
 
-                    // if (currentSectionType === 'assertions') {
-                    //     const statusValue = assertionStatuses?.[assertionIndex];
-                    //     const statusIcon = statusValue === true ? 'codicon-check' : 'codicon-close';
-                    //     const statusColor = statusValue === true
-                    //         ? 'var(--vscode-testing-iconPassed, #2ea043)'
-                    //         : statusValue === false
-                    //             ? 'var(--vscode-testing-iconFailed, #f85149)'
-                    //             : 'var(--vscode-disabledForeground)';
-
-                    //     const statusWidget: monaco.editor.IContentWidget = {
-                    //         getId: () => `status-icon-${lineNumber}`,
-                    //         getDomNode: () => {
-                    //             const domNode = document.createElement('div');
-                    //             domNode.style.cssText = `
-                    //                 position: absolute;
-                    //                 margin-top: 4px;
-                    //                 margin-left: 40px;
-                    //                 width: 14px;
-                    //                 height: 14px;
-                    //                 display: flex;
-                    //                 align-items: center;
-                    //                 justify-content: center;
-                    //                 font-size: 12px;
-                    //                 color: ${statusColor};
-                    //                 border-radius: 2px;
-                    //             `;
-                    //             domNode.className = `codicon ${statusIcon}`;
-                    //             domNode.title = statusValue === true ? 'Assertion passed'
-                    //                 : statusValue === false ? 'Assertion failed'
-                    //                 : 'Assertion not evaluated';
-                    //             return domNode;
-                    //         },
-                    //         getPosition: () => {
-                    //             return {
-                    //                 position: {
-                    //                     lineNumber: lineNumber,
-                    //                     column: lineLength + 1
-                    //                 },
-                    //                 preference: [monaco.editor.ContentWidgetPositionPreference.EXACT]
-                    //             };
-                    //         }
-                    //     };
-
-                    //     editorRef.current.addContentWidget(statusWidget);
-                    //     contentWidgetsRef.current.push({
-                    //         dispose: () => {
-                    //             editorRef.current?.removeContentWidget(statusWidget);
-                    //         }
-                    //     });
-                    // }
-
                     if (currentSectionType === 'assertions') {
                         assertionIndex += 1;
                     }

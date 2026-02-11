@@ -30,7 +30,7 @@ export const getAssertionKey = (assertion: string): string | undefined => {
         return undefined;
     }
 
-    const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
     if (!match) {
         return undefined;
     }
@@ -59,7 +59,7 @@ export const getAssertionValue = (assertion: string): string | undefined => {
         return undefined;
     }
 
-    const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
     if (!match) {
         return undefined;
     }
@@ -75,7 +75,7 @@ export const getOperator = (assertion: string): string | undefined => {
         return undefined;
     }
 
-    const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
     if (!match) {
         return undefined;
     }
@@ -102,7 +102,7 @@ export const getAssertionDetails = (assertion: string, apiResponse?: ApiResponse
         return undefined;
     }
 
-    const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
     if (!match) {
         return undefined;
     }
@@ -160,7 +160,7 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
         return undefined;
     }
 
-    const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
     if (!match) {
         return false;
     }

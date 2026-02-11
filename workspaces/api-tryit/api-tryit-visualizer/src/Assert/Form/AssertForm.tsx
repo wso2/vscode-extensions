@@ -161,14 +161,14 @@ export const AssertForm: React.FC<AssertFormProps> = ({
                                 <>
                                     <AssertionFailureDetails isForm={true}>
                                         <AssertionDetailLine>
-                                            res.{getAssertionKey(assertion)} is expected to be {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}. Actual res.{getAssertionKey(assertion)} {getAssertionDetails(assertion, response)?.actual ?? ''} is not {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}.
+                                            {getAssertionKey(assertion)} is expected to be {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}. Actual {getAssertionKey(assertion)} {getAssertionDetails(assertion, response)?.actual ?? ''} is not {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}.
                                         </AssertionDetailLine>
                                     </AssertionFailureDetails>
                                 </>
                             ) : (
                                 <AssertionFailureDetails isForm={true}>
                                     <AssertionDetailLine>
-                                        Assertion format is invalid. Please use the format: res.[target] [operator] [value]. E.g., res.status = 200, res.headers.Content-Type = application/json, res.body != ''
+                                        Assertion format is invalid. Please use the format: [target] [operator] [value]. E.g., status = 200, headers.Content-Type = application/json, body != ''
                                     </AssertionDetailLine>
                                 </AssertionFailureDetails>
                             )}
