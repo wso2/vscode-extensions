@@ -107,6 +107,7 @@ export const AssertForm: React.FC<AssertFormProps> = ({
                     <AssertionRow
                         assertion={assertion}
                         response={response}
+                        status={assertionResults[index] === true ? 'pass' : assertionResults[index] === false ? 'fail' : undefined}
                         onChange={(value) => updateAssertion(index, value)}
                         onDelete={() => deleteAssertion(index)}
                     />

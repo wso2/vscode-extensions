@@ -25,6 +25,7 @@ import {
     parseAssertion,
     buildAssertion,
     getTargetSuggestions,
+    getInitialTargetSuggestions,
     completeTarget,
     getOperatorSuggestions,
     getValueSuggestions
@@ -33,6 +34,7 @@ import {
 interface AssertionRowProps {
     assertion: string;
     response?: ApiResponse;
+    status?: 'pass' | 'fail';
     onChange: (assertion: string) => void;
     onDelete: () => void;
 }
@@ -83,6 +85,7 @@ const FieldLabelContainer = styled.div`
 export const AssertionRow: React.FC<AssertionRowProps> = ({
     assertion,
     response,
+    status,
     onChange,
     onDelete
 }) => {
@@ -109,7 +112,8 @@ export const AssertionRow: React.FC<AssertionRowProps> = ({
         }
     };
 
-    const targetSuggestions = getTargetSuggestions(targetInput);
+    // Use initial suggestions when query is empty, otherwise use filtered suggestions
+    const targetSuggestions = targetInput === '' ? getInitialTargetSuggestions() : getTargetSuggestions(targetInput);
     const operatorSuggestions = getOperatorSuggestions();
     const valueSuggestions = getValueSuggestions(targetInput, response);
 
@@ -122,6 +126,7 @@ export const AssertionRow: React.FC<AssertionRowProps> = ({
                         suggestions={targetSuggestions}
                         onChange={handleTargetChange}
                         placeholder="target. eg: status, headers.Content-Type, body.id"
+                        status={status}
                     />
                 </FieldWrapper>
 
@@ -131,6 +136,7 @@ export const AssertionRow: React.FC<AssertionRowProps> = ({
                         suggestions={operatorSuggestions}
                         onChange={setOperatorInput}
                         placeholder="operator. eg: ==, !=, >, <"
+                        status={status}
                     />
                 </OperatorFieldWrapper>
 
@@ -140,6 +146,7 @@ export const AssertionRow: React.FC<AssertionRowProps> = ({
                         suggestions={valueSuggestions}
                         onChange={setValueInput}
                         placeholder="value. eg: 200, application/json, some text"
+                        status={status}
                     />
                 </ValueFieldWrapper>
 

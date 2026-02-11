@@ -20,7 +20,15 @@ import { ApiResponse } from '@wso2/api-tryit-core';
 import { COMMON_HEADERS } from '../Input/InputEditor/SuggestionsConstants';
 
 /**
+ * Get initial suggestions for the target field (always show base targets)
+ */
+export const getInitialTargetSuggestions = (): string[] => {
+    return ['status', 'headers', 'body'];
+};
+
+/**
  * Get suggestions for the target field (status, headers, body, etc.)
+ * This filters and expands based on what the user is typing
  */
 export const getTargetSuggestions = (prefix: string): string[] => {
     const baseTargets = ['status', 'headers', 'body'];
@@ -116,6 +124,15 @@ export const parseAssertion = (assertion: string): { target: string; operator: s
         };
     }
 
+    // If there's no operator, treat the whole string as target
+    if (trimmed) {
+        return {
+            target: trimmed,
+            operator: '',
+            value: ''
+        };
+    }
+
     // Fallback if parsing fails
     return {
         target: '',
@@ -128,12 +145,14 @@ export const parseAssertion = (assertion: string): { target: string; operator: s
  * Build assertion string from target, operator, and value
  */
 export const buildAssertion = (target: string, operator: string, value: string): string => {
-    if (!target || !operator) {
+    if (!target) {
         return '';
     }
 
-    // Add quotes around value if it's not a number
-    const quotedValue = isNaN(Number(value)) && value ? `'${value}'` : value;
+    // If operator is missing, keep the target so partial input isn't lost
+    if (!operator) {
+        return target;
+    }
 
-    return `${target} ${operator} ${quotedValue}`;
+    return `${target} ${operator} ${value}`;
 };

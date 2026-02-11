@@ -26,6 +26,7 @@ interface SuggestionDropdownProps {
     onChange: (value: string) => void;
     placeholder?: string;
     disabled?: boolean;
+    status?: 'pass' | 'fail';
 }
 
 const Container = styled.div`
@@ -42,12 +43,20 @@ const InputContainer = styled.div`
     align-items: center;
 `;
 
-const StyledInput = styled.input`
+const StyledInput = styled.input<{ status?: 'pass' | 'fail' }>`
     width: 100%;
     height: 100%;
     padding: 0 24px 0 8px;
     border: 1px solid var(--vscode-dropdown-border);
-    background-color: var(--vscode-input-background);
+    background-color: ${({ status }) => {
+        if (status === 'fail') {
+            return 'rgba(255, 0, 0, 0.08)';
+        }
+        if (status === 'pass') {
+            return 'rgba(0, 128, 0, 0.10)';
+        }
+        return 'var(--vscode-input-background)';
+    }};
     color: var(--vscode-input-foreground);
     font-size: var(--vscode-font-size);
     border-radius: 2px;
@@ -101,9 +110,9 @@ const OptionsContainer = styled.div<{ isOpen: boolean }>`
     background-color: var(--vscode-dropdown-background);
     border: 1px solid var(--vscode-dropdown-border);
     border-radius: 2px;
-    max-height: 150px;
+    max-height: 160px;
     overflow-y: auto;
-    z-index: 1000;
+    z-index: 2000;
     display: ${props => props.isOpen ? 'block' : 'none'};
     padding: 4px 0;
     list-style: none;
@@ -152,25 +161,54 @@ export const SuggestionDropdown: React.FC<SuggestionDropdownProps> = ({
     suggestions,
     onChange,
     placeholder = 'Select...',
-    disabled = false
+    disabled = false,
+    status
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState(value);
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
-    const justSelectedRef = useRef(false);
-    const isSelectingRef = useRef(false);
+    const isExternalChangeRef = useRef(false);
+    const latestQueryRef = useRef(query);
+    const latestValueRef = useRef(value);
 
-    // Sync query with value only after a selection was made
+    // Sync query with value when parent value changes externally (not from our onChange)
     React.useEffect(() => {
-        if (justSelectedRef.current) {
-            setQuery('');
-            justSelectedRef.current = false;
+        if (isExternalChangeRef.current) {
+            isExternalChangeRef.current = false;
         } else {
             setQuery(value);
         }
     }, [value]);
+
+    React.useEffect(() => {
+        latestQueryRef.current = query;
+        latestValueRef.current = value;
+    }, [query, value]);
+
+    React.useEffect(() => {
+        setHoveredIndex(null);
+    }, [query]);
+
+    // Ensure the hovered/selected item is visible when navigating with keyboard
+    React.useEffect(() => {
+        if (hoveredIndex === null) {
+            return;
+        }
+        const el = containerRef.current?.querySelector(`[data-index="${hoveredIndex}"]`) as HTMLElement | null;
+        if (el) {
+            el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+    }, [hoveredIndex]);
+
+    React.useEffect(() => {
+        return () => {
+            if (latestQueryRef.current !== latestValueRef.current) {
+                onChange(latestQueryRef.current);
+            }
+        };
+    }, [onChange]);
 
     const filteredSuggestions = query === ''
         ? suggestions
@@ -181,6 +219,11 @@ export const SuggestionDropdown: React.FC<SuggestionDropdownProps> = ({
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newQuery = e.target.value;
         setQuery(newQuery);
+        // If user clears the input, commit the empty value so base suggestions return
+        if (newQuery === '' && value !== '') {
+            isExternalChangeRef.current = true;
+            onChange('');
+        }
         // Don't call onChange during typing - only on selection
         if (!isOpen) {
             setIsOpen(true);
@@ -188,29 +231,30 @@ export const SuggestionDropdown: React.FC<SuggestionDropdownProps> = ({
     };
 
     const handleInputBlur = () => {
-        // Don't commit if we're in the process of selecting an option
-        if (isSelectingRef.current) {
-            return;
-        }
         // When input loses focus, if there's a custom query value, commit it
-        if (query && query !== value) {
+        if (query !== value) {
+            isExternalChangeRef.current = true;
             onChange(query);
         }
         setIsOpen(false);
     };
 
     const handleOptionSelect = (option: string) => {
-        // Mark that we're selecting to prevent blur interference
-        isSelectingRef.current = true;
-        // Only call onChange when user commits a selection
+        // Commit the selection to parent
+        isExternalChangeRef.current = true;
         onChange(option);
-        justSelectedRef.current = true;
-        setIsOpen(false);
+        setQuery(option);
         setHoveredIndex(null);
-        // Reset the flag after a small delay to allow blur to be skipped
-        setTimeout(() => {
-            isSelectingRef.current = false;
-        }, 0);
+
+        const shouldKeepOpen = option === 'headers' || option === 'headers.';
+        if (shouldKeepOpen) {
+            setTimeout(() => {
+                inputRef.current?.focus();
+                setIsOpen(true);
+            }, 0);
+        } else {
+            setIsOpen(false);
+        }
     };
 
     const handleToggleDropdown = () => {
@@ -245,6 +289,8 @@ export const SuggestionDropdown: React.FC<SuggestionDropdownProps> = ({
             e.preventDefault();
             if (hoveredIndex !== null) {
                 handleOptionSelect(filteredSuggestions[hoveredIndex]);
+            } else if (filteredSuggestions.length > 0) {
+                handleOptionSelect(filteredSuggestions[0]);
             } else if (query) {
                 // If user types something and presses Enter without selecting from dropdown, commit the typed value
                 handleOptionSelect(query);
@@ -272,13 +318,14 @@ export const SuggestionDropdown: React.FC<SuggestionDropdownProps> = ({
                 <StyledInput
                     ref={inputRef}
                     type="text"
-                    value={query || value}
+                    value={query}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
                     onFocus={() => setIsOpen(true)}
                     onBlur={handleInputBlur}
                     placeholder={placeholder}
                     disabled={disabled}
+                    status={status}
                 />
                 <DropdownButton
                     onClick={handleToggleDropdown}
@@ -294,6 +341,7 @@ export const SuggestionDropdown: React.FC<SuggestionDropdownProps> = ({
                     filteredSuggestions.map((suggestion, index) => (
                         <OptionItem
                             key={index}
+                            data-index={index}
                             isSelected={value === suggestion}
                             isHovered={hoveredIndex === index}
                             onMouseDown={(e) => {
