@@ -19,6 +19,8 @@
 import {
     SaveRequestRequest,
     saveRequest,
+    HttpRequestOptions,
+    sendHttpRequest,
 } from "@wso2/api-tryit-core";
 import { Messenger } from "vscode-messenger";
 import { ApiTryItRpcManager } from "./rpc-manager";
@@ -26,4 +28,5 @@ import { ApiTryItRpcManager } from "./rpc-manager";
 export function registerApiTryItRpcHandlers(messenger: Messenger) {
     const rpcManager = new ApiTryItRpcManager();
     messenger.onRequest(saveRequest, (args: SaveRequestRequest) => rpcManager.saveRequest(args));
+    messenger.onRequest(sendHttpRequest, (args: HttpRequestOptions) => rpcManager.sendHttpRequest(args));
 }

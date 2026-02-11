@@ -31,7 +31,8 @@ interface OutputProps {
 const Container = styled.div<{ embedded?: boolean }>`
     padding: 16px 0 16px 4px;
     width: 100%;
-    ${props => props.embedded ? `max-height: none; overflow-y: visible;` : `max-height: calc(100vh - 215px); overflow-y: auto;`}
+    max-height: none;
+    overflow-y: visible;
 `;
 
 const Section = styled.div`

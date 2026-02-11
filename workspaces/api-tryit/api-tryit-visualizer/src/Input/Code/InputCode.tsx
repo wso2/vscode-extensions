@@ -347,7 +347,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 suggestions={{ headers: COMMON_HEADERS }}
             />
 
-            {bodyFormat !== 'no-body' && (
+            {bodyFormat !== 'no-body' && request.method !== 'GET' && (
                 <>
                     <BodyHeaderContainer>
                         <BodyTitleWrapper>

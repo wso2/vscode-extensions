@@ -23,14 +23,10 @@ import styled from '@emotion/styled';
 import { Input } from '../Input/Input';
 import { Assert } from '../Assert/Assert';
 import { ApiRequestItem, ApiRequest, ApiResponse, ResponseHeader } from '@wso2/api-tryit-core';
-import axios, { AxiosError } from 'axios';
 import { useExtensionMessages } from '../hooks/useExtensionMessages';
 import CollectionForm from '../CollectionForm/CollectionForm';
 import { getVSCodeAPI } from '../utils/vscode-api';
 import { getMethodBgColor } from '../utils/methods';
-
-// Get VS Code API instance (singleton)
-const vscode = getVSCodeAPI();
 
 const PanelsWrapper = styled.div`
     position: relative;
@@ -370,18 +366,14 @@ export const MainPanel: React.FC = () => {
     // Counter used to trigger scrolling the Output inside Input without switching tabs
     const [bringOutputCounter, setBringOutputCounter] = useState(0);
     const [methodDropdownOpen, setMethodDropdownOpen] = useState(false);
-
-
-
     // Handle messages from VS Code extension
     const [showCollectionForm, setShowCollectionForm] = React.useState(false);
 
-    const { updateRequest } = useExtensionMessages({
+    const { updateRequest, sendHttpRequest } = useExtensionMessages({
         onApiRequestSelected: (item) => {
             setRequestItem(item);
             setTempName(item.name);
             setIsEditingName(false);
-            setActiveTab('input');
             // Close collection form when a request is selected
             setShowCollectionForm(false);
         },
@@ -482,6 +474,7 @@ export const MainPanel: React.FC = () => {
     };
 
     const handleSaveRequest = async (evt: any) => {
+        const vscode = getVSCodeAPI();
         if (!vscode) {
             console.error('VS Code API not available');
             return;
@@ -546,37 +539,20 @@ export const MainPanel: React.FC = () => {
                 }
             }
             
-            // Make the request
-            const startTime = Date.now();
-            const response = await axios({
+            // Send request via extension
+            const result = await sendHttpRequest({
                 method: request.method,
                 url: request.url,
                 params,
                 headers,
-                data,
-                validateStatus: () => true // Accept any status code
+                data
             });
-            const duration = Date.now() - startTime;
             
-            // Convert response headers to ResponseHeader format
-            const responseHeaders: ResponseHeader[] = Object.entries(response.headers).map(([key, value]) => ({
-                key,
-                value: String(value)
-            }));
-            
-            // Format response body
-            let responseBody: string;
-            if (typeof response.data === 'object') {
-                responseBody = JSON.stringify(response.data, null, 2);
-            } else {
-                responseBody = String(response.data);
-            }
-            
-            // Update request item with response
+            // Convert response to ApiResponse format
             const apiResponse: ApiResponse = {
-                statusCode: response.status,
-                headers: responseHeaders,
-                body: responseBody
+                statusCode: result.statusCode,
+                headers: result.headers,
+                body: result.body
             };
             
             if (requestItem) {
@@ -589,39 +565,20 @@ export const MainPanel: React.FC = () => {
 
             // Trigger scrolling to output in the Input panel and switch to Input view
             setBringOutputCounter(c => c + 1);
-            setActiveTab('input');            
+            if (activeTab !== 'assert') {
+                setActiveTab('input');     
+            }       
         } catch (error) {
             console.error('Request failed:', error);
             
-            // Handle error response
-            const axiosError = error as AxiosError;
-            let errorBody = '';
-            let statusCode = 0;
-            let headers: ResponseHeader[] = [];
-            
-            if (axiosError.response) {
-                statusCode = axiosError.response.status;
-                headers = Object.entries(axiosError.response.headers).map(([key, value]) => ({
-                    key,
-                    value: String(value)
-                }));
-                
-                if (typeof axiosError.response.data === 'object') {
-                    errorBody = JSON.stringify(axiosError.response.data, null, 2);
-                } else {
-                    errorBody = String(axiosError.response.data);
-                }
-            } else {
-                // Network error or request setup error
-                errorBody = JSON.stringify({
-                    error: axiosError.message || 'Request failed',
-                    code: axiosError.code
-                }, null, 2);
-            }
+            const errorBody = JSON.stringify({
+                error: error instanceof Error ? error.message : 'Request failed',
+                code: 'ERR_REQUEST_FAILED'
+            }, null, 2);
             
             const errorResponse: ApiResponse = {
-                statusCode,
-                headers,
+                statusCode: 0,
+                headers: [],
                 body: errorBody
             };
             
@@ -632,10 +589,6 @@ export const MainPanel: React.FC = () => {
                     id: requestItem.id || ''
                 });
             }
-            
-            // Trigger scrolling of the output inside the Input tab and switch to Input view
-            setBringOutputCounter(c => c + 1);
-            setActiveTab('input');
         } finally {
             setIsLoading(false);
         }
@@ -659,7 +612,7 @@ export const MainPanel: React.FC = () => {
                         ) : (
                             <NameDisplay onClick={handleNameClick}>
                                 <Typography variant="h3" sx={{ margin: 0 }}>
-                                    {requestItem?.name || 'Untitled Request'}
+                                    {requestItem?.name}
                                 </Typography>
                             </NameDisplay>
                         )}
@@ -823,11 +776,12 @@ export const MainPanel: React.FC = () => {
                                     requestItem ? (
                                         <Assert
                                             request={requestItem.request}
+                                            response={requestItem.response}
                                             onRequestChange={handleRequestChange}
                                             mode={assertMode}
                                         />
                                     ) : (
-                                        <div style={{ padding: 16, opacity: 0.6 }}>No request selected</div>
+                                        <div style={{ padding: 16, opacity: 0.6 }}>No request selected. Select a request from the sidebar to add assertions.</div>
                                     )
                                 )}
                             </div>
@@ -835,7 +789,7 @@ export const MainPanel: React.FC = () => {
                     </PanelsWrapper>
                 ) : !showCollectionForm ? (
                     <Typography variant="subtitle2" sx={{ opacity: 0.6 }}>
-                        No request selected
+                        No request selected. Select a request from the sidebar or create a new collection to get started.
                     </Typography>
                 ) : null}
                 {showCollectionForm && (

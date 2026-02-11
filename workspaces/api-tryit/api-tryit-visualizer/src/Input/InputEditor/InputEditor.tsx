@@ -55,13 +55,21 @@ const LANGUAGE_ID = 'input-editor-lang';
 /**
  * Styled container for the editor with padding
  */
-const EditorContainer = styled.div<{ minHeight?: string }>`
-    padding: 0 12px;
-    margin: 0 5px;
+const EditorContainer = styled.div<{ minHeight?: string; compact?: boolean }>`
+    padding: ${props => props.compact ? '0' : '0 12px'};
+    margin: ${props => props.compact ? '0' : '0 5px'};
     border-radius: 4px;
     background-color: #262626ff;
     min-height: ${props => props.minHeight || '100px'};
     height: auto;
+
+    .monaco-editor .assertion-line-pass {
+        background-color: rgba(46, 160, 67, 0.12);
+    }
+
+    .monaco-editor .assertion-line-fail {
+        background-color: rgba(248, 81, 73, 0.12);
+    }
 
     /* Light theme */
     body.vscode-light & {
@@ -158,6 +166,10 @@ const inferSectionType = (
 interface InputEditorProps {
     value: string;
     minHeight?: string;
+    /**
+     * Compact single-line mode (TextField-sized). Disables auto-resize and line action widgets.
+     */
+    compact?: boolean;
     language?: string;
     theme?: string;
     onChange: (value: string | undefined) => void;
@@ -175,11 +187,16 @@ interface InputEditorProps {
      * Body format for conditional behavior (e.g., form-data, form-urlencoded)
      */
     bodyFormat?: string;
+    /**
+     * Assertion status list aligned to non-empty lines in assertions input
+     */
+    assertionStatuses?: Array<boolean | undefined>;
 }
 
 export const InputEditor: React.FC<InputEditorProps> = ({
     value,
     minHeight = '100px',
+    compact = false,
     language = 'json',
     theme: propTheme,
     onChange,
@@ -187,7 +204,8 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     options = {},
     codeLenses = [],
     suggestions,
-    bodyFormat
+    bodyFormat,
+    assertionStatuses
 }) => {
     const monacoRef = useRef<Monaco | null>(null);
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -205,13 +223,20 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     const contentChangeDisposableRef = useRef<monaco.IDisposable | null>(null);
     // Content widgets for delete icons
     const contentWidgetsRef = useRef<monaco.IDisposable[]>([]);
+    const assertionDecorationsRef = useRef<string[]>([]);
     const bodyFormatRef = useRef(bodyFormat);
     const lastPropValueRef = useRef(value);
     const previousBodyFormatRef = useRef(bodyFormat);
     const suggestionsKeyRef = useRef<string>(serializeSuggestions(suggestions));
 
-    // Dynamic height state
+    // Dynamic height state (fixed to minHeight in compact mode)
     const [dynamicHeight, setDynamicHeight] = useState(minHeight);
+
+    useEffect(() => {
+        if (compact) {
+            setDynamicHeight(minHeight);
+        }
+    }, [compact, minHeight]);
 
     // Use propTheme if provided, otherwise let Monaco inherit VS Code theme
     const theme = propTheme;
@@ -287,6 +312,9 @@ export const InputEditor: React.FC<InputEditorProps> = ({
      * Updates the editor height based on content
      */
     const updateHeight = useCallback(() => {
+        if (compact) {
+            return;
+        }
         if (!editorRef.current) return;
 
         const model = editorRef.current.getModel();
@@ -311,7 +339,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                 editorRef.current.trigger('', 'codelens', {});
             }
         }
-    }, [dynamicHeight]);
+    }, [compact, dynamicHeight]);
 
     /**
      * Sets up code lens provider using configurations from props
@@ -417,13 +445,15 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         contentWidgetsRef.current = [];
 
         // Infer section type from provided suggestions
-        let currentSectionType: 'query' | 'headers' | 'body' | null = null;
+        let currentSectionType: 'query' | 'headers' | 'body' | 'assertions' | null = null;
         if (suggestions?.queryKeys && suggestions.queryKeys.length > 0) {
             currentSectionType = 'query';
         } else if (suggestions?.headers && suggestions.headers.length > 0) {
             currentSectionType = 'headers';
         } else if (suggestions?.bodySnippets && suggestions.bodySnippets.length > 0) {
             currentSectionType = 'body';
+        } else if (suggestions?.assertions) {
+            currentSectionType = 'assertions';
         }
 
         // For body section, only add widgets if it's a form format and content has parameter-like lines
@@ -440,6 +470,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
 
         try {
             const lineCount = model.getLineCount();
+            let assertionIndex = 0;
 
             // Add delete icon at the end of each line with content
             for (let lineNumber = 1; lineNumber <= lineCount; lineNumber++) {
@@ -511,6 +542,61 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                             editorRef.current?.removeContentWidget(widget);
                         }
                     });
+
+                    // if (currentSectionType === 'assertions') {
+                    //     const statusValue = assertionStatuses?.[assertionIndex];
+                    //     const statusIcon = statusValue === true ? 'codicon-check' : 'codicon-close';
+                    //     const statusColor = statusValue === true
+                    //         ? 'var(--vscode-testing-iconPassed, #2ea043)'
+                    //         : statusValue === false
+                    //             ? 'var(--vscode-testing-iconFailed, #f85149)'
+                    //             : 'var(--vscode-disabledForeground)';
+
+                    //     const statusWidget: monaco.editor.IContentWidget = {
+                    //         getId: () => `status-icon-${lineNumber}`,
+                    //         getDomNode: () => {
+                    //             const domNode = document.createElement('div');
+                    //             domNode.style.cssText = `
+                    //                 position: absolute;
+                    //                 margin-top: 4px;
+                    //                 margin-left: 40px;
+                    //                 width: 14px;
+                    //                 height: 14px;
+                    //                 display: flex;
+                    //                 align-items: center;
+                    //                 justify-content: center;
+                    //                 font-size: 12px;
+                    //                 color: ${statusColor};
+                    //                 border-radius: 2px;
+                    //             `;
+                    //             domNode.className = `codicon ${statusIcon}`;
+                    //             domNode.title = statusValue === true ? 'Assertion passed'
+                    //                 : statusValue === false ? 'Assertion failed'
+                    //                 : 'Assertion not evaluated';
+                    //             return domNode;
+                    //         },
+                    //         getPosition: () => {
+                    //             return {
+                    //                 position: {
+                    //                     lineNumber: lineNumber,
+                    //                     column: lineLength + 1
+                    //                 },
+                    //                 preference: [monaco.editor.ContentWidgetPositionPreference.EXACT]
+                    //             };
+                    //         }
+                    //     };
+
+                    //     editorRef.current.addContentWidget(statusWidget);
+                    //     contentWidgetsRef.current.push({
+                    //         dispose: () => {
+                    //             editorRef.current?.removeContentWidget(statusWidget);
+                    //         }
+                    //     });
+                    // }
+
+                    if (currentSectionType === 'assertions') {
+                        assertionIndex += 1;
+                    }
 
                     // Add select-file widget for @filename lines
                     if (lineContent.includes('@file')) {
@@ -601,6 +687,43 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         } catch (error) {
             console.warn('[InputEditor] Error updating content widgets:', error);
         }
+    };
+
+    const updateAssertionDecorations = (model: monaco.editor.ITextModel | null) => {
+        if (!editorRef.current || !model) {
+            return;
+        }
+
+        const sectionType = inferSectionType(suggestions, bodyFormatRef.current);
+        if (sectionType !== 'assertions') {
+            assertionDecorationsRef.current = editorRef.current.deltaDecorations(assertionDecorationsRef.current, []);
+            return;
+        }
+
+        const decorations: monaco.editor.IModelDeltaDecoration[] = [];
+        const lineCount = model.getLineCount();
+        let assertionIndex = 0;
+
+        for (let lineNumber = 1; lineNumber <= lineCount; lineNumber++) {
+            const lineContent = model.getLineContent(lineNumber);
+            const trimmedContent = lineContent.trim();
+
+            if (trimmedContent && trimmedContent !== '') {
+                const statusValue = assertionStatuses?.[assertionIndex];
+                if (statusValue === true || statusValue === false) {
+                    decorations.push({
+                        range: new monaco.Range(lineNumber, 1, lineNumber, 1),
+                        options: {
+                            isWholeLine: true,
+                            className: statusValue ? 'assertion-line-pass' : 'assertion-line-fail'
+                        }
+                    });
+                }
+                assertionIndex += 1;
+            }
+        }
+
+        assertionDecorationsRef.current = editorRef.current.deltaDecorations(assertionDecorationsRef.current, decorations);
     };
 
     /**
@@ -1072,13 +1195,16 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         if (editorRef.current) {
             const model = editorRef.current.getModel();
             if (model) {
-                updateContentWidgets(model);
+                if (!compact) {
+                    updateContentWidgets(model);
+                }
+                updateAssertionDecorations(model);
             }
         }
-    }, [bodyFormat]);
+    }, [bodyFormat, assertionStatuses, compact]);
 
     return (
-        <EditorContainer>
+        <EditorContainer minHeight={minHeight} compact={compact}>
             <Editor
                 height={dynamicHeight}
                 language={languageIdRef.current}
@@ -1218,15 +1344,22 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                     const editorModel = editor.getModel();
                     if (editorModel) {
                         contentChangeDisposableRef.current = editorModel.onDidChangeContent(() => {
-                            updateHeight();
-                            // Update content widgets for delete icons
-                            updateContentWidgets(editorModel);
+                            if (!compact) {
+                                updateHeight();
+                                // Update content widgets for delete icons
+                                updateContentWidgets(editorModel);
+                            }
+                            updateAssertionDecorations(editorModel);
                             triggerInitialSuggestionsIfNeeded();
                         });
-                        // Initial height update
-                        updateHeight();
-                        // Initial content widgets update
-                        updateContentWidgets(editorModel);
+
+                        if (!compact) {
+                            // Initial height update
+                            updateHeight();
+                            // Initial content widgets update
+                            updateContentWidgets(editorModel);
+                        }
+                        updateAssertionDecorations(editorModel);
                     }
                     
                     onMount?.(editor, monaco);
