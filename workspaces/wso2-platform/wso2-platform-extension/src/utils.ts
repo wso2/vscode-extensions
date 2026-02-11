@@ -481,26 +481,26 @@ export const createConnectionConfig = async (params: CreateLocalConnectionsConfi
 	}
 	const componentYamlPath = join(params.componentDir, ".choreo", "component.yaml");
 
-	let project = dataCacheStore
-		.getState()
-		.getProjects(org.handle)
-		?.find((item) => item.id === params.marketplaceItem?.projectId);
-	if (!project) {
-		const projects = await window.withProgress(
-			{ title: `Fetching projects of organization ${org.name}...`, location: ProgressLocation.Notification },
-			() => ext.clients.rpcClient.getProjects(org.id.toString()),
-		);
-		project = projects?.find((item) => item.id === params.marketplaceItem?.projectId);
-		if (!project) {
-			return "";
-		}
-	}
-
 
 	let resourceRef =  ``;
 	if(params.marketplaceItem?.isThirdParty){
 		resourceRef = `thirdparty:${params.marketplaceItem?.name}/${params.marketplaceItem?.version}`;
 	}else{
+		let project = dataCacheStore
+			.getState()
+			.getProjects(org.handle)
+			?.find((item) => item.id === params.marketplaceItem?.projectId);
+		if (!project) {
+			const projects = await window.withProgress(
+				{ title: `Fetching projects of organization ${org.name}...`, location: ProgressLocation.Notification },
+				() => ext.clients.rpcClient.getProjects(org.id.toString()),
+			);
+			project = projects?.find((item) => item.id === params.marketplaceItem?.projectId);
+			if (!project) {
+				return "";
+			}
+		}
+
 		let component = dataCacheStore
 			.getState()
 			.getComponents(org.handle, project.handler)
@@ -524,8 +524,8 @@ export const createConnectionConfig = async (params: CreateLocalConnectionsConfi
 			if(!component){
 				return ""
 			}
-			resourceRef = `service:/${project.handler}/${component?.metadata?.handler}/v1/${params?.marketplaceItem?.component?.endpointId}/${params.visibility}`;
 		}
+		resourceRef = `service:/${project.handler}/${component?.metadata?.handler}/v1/${params?.marketplaceItem?.component?.endpointId}/${params.visibility}`;
 	}
 	if (existsSync(componentYamlPath)) {
 		const componentYamlFileContent: ComponentYamlContent = yaml.load(readFileSync(componentYamlPath, "utf8")) as any;
