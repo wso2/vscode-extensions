@@ -31,10 +31,13 @@ interface PlannedPathData {
     labelOffset?: { x: number; y: number };
 }
 
+// Corner radius for rounded orthogonal edges
+const CORNER_RADIUS = 6;
+
 /**
  * PlannedPathEdge: Custom edge component with manual waypoint control.
  * 
- * If data.waypoints exists: Draws a path through each waypoint sequentially.
+ * If data.waypoints exists: Draws a path through each waypoint sequentially with rounded corners.
  * If data.waypoints is missing or empty: Falls back to smooth step path.
  */
 export default function PlannedPathEdge({
@@ -57,20 +60,64 @@ export default function PlannedPathEdge({
     // Check if waypoints exist and are valid
     const waypoints = data?.waypoints;
     if (Array.isArray(waypoints) && waypoints.length > 0) {
-        // Build SVG path command manually through waypoints
-        // Start at source
-        let pathCommands = `M ${sourceX} ${sourceY}`;
-        
-        // Draw lines through each waypoint
-        waypoints.forEach((point) => {
-            pathCommands += ` L ${point.x} ${point.y}`;
-        });
-        
-        // End at target
-        pathCommands += ` L ${targetX + 20} ${targetY}`;
-        
+        // Build SVG path with rounded corners at waypoints
+        const points = [
+            { x: sourceX, y: sourceY },
+            ...waypoints,
+            { x: targetX, y: targetY }
+        ];
+
+        let pathCommands = `M ${points[0].x} ${points[0].y}`;
+
+        for (let i = 1; i < points.length; i++) {
+            const prev = points[i - 1];
+            const curr = points[i];
+            const next = i < points.length - 1 ? points[i + 1] : null;
+
+            if (!next) {
+                // Last segment - draw straight to target
+                pathCommands += ` L ${curr.x} ${curr.y}`;
+                break;
+            }
+
+            // Calculate segment lengths
+            const dx1 = curr.x - prev.x;
+            const dy1 = curr.y - prev.y;
+            const dist1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+
+            const dx2 = next.x - curr.x;
+            const dy2 = next.y - curr.y;
+            const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+            // Check if segments are long enough for rounding
+            const radius = Math.min(CORNER_RADIUS, dist1 / 2, dist2 / 2);
+
+            if (radius < 1) {
+                // Too short - draw straight line
+                pathCommands += ` L ${curr.x} ${curr.y}`;
+                continue;
+            }
+
+            // Calculate the point before the corner (radius distance from corner)
+            const t1 = radius / dist1;
+            const beforeX = curr.x - dx1 * t1;
+            const beforeY = curr.y - dy1 * t1;
+
+            // Calculate the point after the corner (radius distance from corner)
+            const t2 = radius / dist2;
+            const afterX = curr.x + dx2 * t2;
+            const afterY = curr.y + dy2 * t2;
+
+            // Draw line to the point before corner
+            pathCommands += ` L ${beforeX} ${beforeY}`;
+
+            // Draw quadratic bezier curve through the corner
+            // Control point is the corner itself for a smooth 90-degree arc
+            pathCommands += ` Q ${curr.x} ${curr.y} ${afterX} ${afterY}`;
+        }
+
         edgePath = pathCommands;
-        console.log(`[PlannedPathEdge] ${id} using waypoints:`, waypoints);
+        console.log(`[PlannedPathEdge] ${id} using waypoints with rounded corners:`, waypoints);
     } else {
         // Fallback to smooth step path
         const [path] = getSmoothStepPath({
