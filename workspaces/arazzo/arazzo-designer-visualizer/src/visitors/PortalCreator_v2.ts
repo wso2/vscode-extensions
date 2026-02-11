@@ -140,21 +140,31 @@ export class PortalCreator_v2 {
         const targetIsInFailurePath = this.failurePathNodes.has(target.id);
         
         // Check if this is a goto to an already-positioned node (not a direct child in tree)
+        // Portal should only be created if target is to the LEFT (backward horizontally)
         const isBackwardJump = target.viewState.y < source.viewState.y;
+        // Compare centers: the edge connects to node centers, so check center X positions
+        const sourceCenterX = source.viewState.x + source.viewState.w / 2;
+        const targetCenterX = target.viewState.x + target.viewState.w / 2;
+        const isLeftwardJump = targetCenterX < sourceCenterX; // Target center is to the left of source center
         const isForwardGoto = target.viewState.y > source.viewState.y + source.viewState.h + 100; // Significant gap
 
-        // Rule 1: Failure path → ANY existing step via goto = CREATE PORTAL
-        // This covers: failure → main path, failure → failure path goto, failure → alternative branch
-        if (sourceIsInFailurePath && (isBackwardJump || isForwardGoto)) {
-            console.log(`[PortalCreator V2] Creating portal: ${source.id} → ${target.id} (failure path goto)`);
-            this.createPortal(source, target, edgeType);
+        // Rule 1: Failure path → existing positioned step via leftward goto = CREATE PORTAL
+        // Only create a portal when the target is to the LEFT of source AND the target
+        // is already an existing positioned node (on main path or failure path).
+        // If the goto targets a *new* node (not on main/failure paths), create a direct edge instead.
+        if (sourceIsInFailurePath && isLeftwardJump && (targetIsOnMainPath || targetIsInFailurePath)) {
+            const reason = 'failure path goto (leftward to positioned node)';
+            console.log(`[PortalCreator V2] Creating portal: ${source.id} → ${target.id} (${reason})`);
+            this.createPortal(source, target, edgeType, reason);
             return;
         }
 
         // Rule 2: Main path/alternative branch backward jump to main path = CREATE PORTAL
-        if (!sourceIsInFailurePath && isBackwardJump && targetIsOnMainPath) {
-            console.log(`[PortalCreator V2] Creating portal: ${source.id} → ${target.id} (backward jump to main)`);
-            this.createPortal(source, target, edgeType);
+        // Only if target is to the left of source
+            if (!sourceIsInFailurePath && isBackwardJump && targetIsOnMainPath && isLeftwardJump) {
+                const reason = 'backward jump to main';
+                console.log(`[PortalCreator V2] Creating portal: ${source.id} → ${target.id} (${reason})`);
+                this.createPortal(source, target, edgeType, reason);
             return;
         }
 
@@ -166,7 +176,7 @@ export class PortalCreator_v2 {
     /**
      * Create a portal node and edges.
      */
-    private createPortal(source: FlowNode, target: FlowNode, edgeType: 'success' | 'failure'): void {
+    private createPortal(source: FlowNode, target: FlowNode, edgeType: 'success' | 'failure', reason?: string): void {
         const portalId = `portal_out_${source.id}_to_${target.id}_${this.portalCounter}`;
         this.portalCounter++;
 
@@ -193,6 +203,9 @@ export class PortalCreator_v2 {
             },
             connectable: false
         });
+
+        // Log portal created with reason
+        console.log(`[PortalCreator V2] Portal created: ${portalId} from ${source.id} → ${target.id}` + (reason ? ` (reason=${reason})` : ''));
 
         // Determine source handle based on edge type
         const sourceHandleId = edgeType === 'failure' ? 'h-right-source' : 'h-bottom';

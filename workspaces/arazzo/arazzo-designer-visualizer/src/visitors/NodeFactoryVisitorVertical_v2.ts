@@ -107,6 +107,7 @@ export class NodeFactoryVisitorVertical_v2 {
 
         // Branches (condition node)
         node.branches?.forEach((branch, branchIndex) => {
+            console.log(`[NodeFactory V2] Processing branch ${branchIndex + 1} of node ${node.id}`);
             if (branch.length > 0) {
                 const head = branch[0];
                 if (!this.shouldSkipEdge(node, head)) {
