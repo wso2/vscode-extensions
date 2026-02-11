@@ -209,7 +209,7 @@ export default function PlannedPathEdge({
                                 justifyContent: 'center',
                                 alignItems: 'center',
                                 borderRadius: '12px',
-                                border: `1.5px solid ${ThemeColors.OUTLINE_VARIANT}`,
+                                border: `1.5px solid ${ThemeColors.PRIMARY}`,
                                 backgroundColor: ThemeColors.SURFACE_BRIGHT,
                                 padding: '2px 10px',
                                 boxSizing: 'border-box',
@@ -219,7 +219,7 @@ export default function PlannedPathEdge({
                         >
                             <span
                                 style={{
-                                    color: ThemeColors.ON_SURFACE,
+                                    color: ThemeColors.PRIMARY,
                                     fontSize: '12px',
                                     fontFamily: 'var(--vscode-font-family, sans-serif)',
                                     userSelect: 'none',
