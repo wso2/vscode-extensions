@@ -13,30 +13,45 @@ EXTENSION_LS_DIR="../arazzo-designer-extension/ls"
 # Create ls directory if it doesn't exist
 mkdir -p "$EXTENSION_LS_DIR"
 
-# Build for current platform (default)
-echo "Building for current platform..."
-go build -o arazzo-language-server main.go
-echo "✓ Built arazzo-language-server"
+# Clean old binaries
+rm -f "$EXTENSION_LS_DIR"/arazzo-language-server-*
 
-# Copy to extension's ls folder
-cp arazzo-language-server "$EXTENSION_LS_DIR/"
-chmod +x "$EXTENSION_LS_DIR/arazzo-language-server"
-echo "✓ Copied to $EXTENSION_LS_DIR/"
+# Define all target platforms: GOOS/GOARCH/output-suffix
+TARGETS=(
+    "darwin/arm64/darwin-arm64"
+    "darwin/amd64/darwin-amd64"
+    "linux/amd64/linux-amd64"
+    "linux/arm64/linux-arm64"
+    "windows/amd64/win32-amd64"
+)
 
-# Cross-compile for Windows (amd64)
-echo ""
-echo "Cross-compiling for Windows (amd64)..."
-GOOS=windows GOARCH=amd64 go build -o arazzo-language-server.exe main.go
-if [ $? -eq 0 ]; then
-    cp arazzo-language-server.exe "$EXTENSION_LS_DIR/"
-    echo "✓ Built and copied arazzo-language-server.exe for Windows"
-else
-    echo "⚠ Failed to build for Windows"
-fi
+for target in "${TARGETS[@]}"; do
+    IFS='/' read -r goos goarch suffix <<< "$target"
+    
+    ext=""
+    if [ "$goos" = "windows" ]; then
+        ext=".exe"
+    fi
+    
+    output_name="arazzo-language-server-${suffix}${ext}"
+    
+    echo "Building for ${goos}/${goarch} -> ${output_name}..."
+    GOOS=$goos GOARCH=$goarch go build -o "$output_name" main.go
+    
+    if [ $? -eq 0 ]; then
+        cp "$output_name" "$EXTENSION_LS_DIR/"
+        chmod +x "$EXTENSION_LS_DIR/$output_name"
+        echo "✓ Built and copied ${output_name}"
+        # Clean up local build artifact
+        rm -f "$output_name"
+    else
+        echo "⚠ Failed to build for ${goos}/${goarch}"
+    fi
+done
 
 # Display file info
 echo ""
-echo "Language Server Binaries:"
+echo "Language Server Binaries in extension ls/ folder:"
 ls -lh "$EXTENSION_LS_DIR/"
 
 echo ""
@@ -44,5 +59,8 @@ echo "✓ Build complete! Language servers are ready at:"
 echo "  $EXTENSION_LS_DIR/"
 echo ""
 echo "Available binaries:"
-echo "  - arazzo-language-server (macOS/Linux)"
-echo "  - arazzo-language-server.exe (Windows)"
+echo "  - arazzo-language-server-darwin-arm64   (macOS Apple Silicon)"
+echo "  - arazzo-language-server-darwin-amd64   (macOS Intel)"
+echo "  - arazzo-language-server-linux-amd64    (Ubuntu/Linux x86_64)"
+echo "  - arazzo-language-server-linux-arm64    (Linux ARM64)"
+echo "  - arazzo-language-server-win32-amd64.exe (Windows x86_64)"
