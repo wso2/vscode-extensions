@@ -17,7 +17,7 @@
  */
 
 import React, { ReactNode } from "react";
-import { ENDPOINTS, MEDIATORS } from "../../constants";
+import { ENDPOINTS, MEDIATORS, TOOLS } from "../../constants";
 import { Icon } from "@wso2/ui-toolkit";
 
 export function getMostPopularIconColor() {
@@ -300,6 +300,10 @@ export function getMediatorIconsFromFont(mediator: string, isMostPopular?: boole
             break;
         case ENDPOINTS.NAMED.toLowerCase():
             icon = (<Icon name="NamedEndpoint" sx={{ height: 25, width: 25, fontSize: 25, color: color }} />);
+            break;
+
+        case TOOLS.MCP.toLowerCase():
+            icon = (<Icon name="mcp" isCodicon sx={{ height: 40, width: 40, fontSize: 40, color: color }} />);
             break;
         default:
             icon = (<Icon name="Default" sx={{ height: 25, width: 25, fontSize: 25, color: color }} />);
