@@ -17,7 +17,7 @@
  */
 
 import { AICommandExecutor, AICommandConfig, AIExecutionResult } from '../executors/base/AICommandExecutor';
-import { Command, GenerateAgentCodeRequest, ProjectSource, MACHINE_VIEW, refreshReviewMode, ExecutionContext } from '@wso2/ballerina-core';
+import { Command, GenerateAgentCodeRequest, ProjectSource, MACHINE_VIEW, refreshReviewMode, ExecutionContext, CodeMapResponse } from '@wso2/ballerina-core';
 import { ModelMessage, stepCountIs, streamText, TextStreamPart } from 'ai';
 import { getAnthropicClient, getProviderCacheControl, ANTHROPIC_SONNET_4 } from '../utils/ai-client';
 import { populateHistoryForAgent, getErrorMessage } from '../utils/ai-utils';
@@ -37,6 +37,9 @@ import * as path from 'path';
 import { approvalViewManager } from '../state/ApprovalViewManager';
 import { StateMachine } from '../../../stateMachine';
 import * as fs from 'fs';
+
+// Cache for incremental code map generation, keyed by project path
+const codeMapCache = new Map<string, CodeMapResponse>();
 
 /**
  * Determines which packages have been affected by analyzing modified files
@@ -151,14 +154,34 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             try {
                 const langClient = StateMachine.langClient();
                 const projectPath = this.config.executionContext.projectPath;
-                const codeMap = await langClient.getCodeMap({ projectPath });
 
+                let codeMap: CodeMapResponse;
+                const cached = codeMapCache.get(projectPath);
 
-                // Debug: Fetch and save codemap as JSON
-                const codeMapProjectPath = path.join(projectPath, 'codemap.json');
-                fs.writeFileSync(codeMapProjectPath, JSON.stringify(codeMap, null, 2), 'utf-8');
-                console.log(`[AgentExecutor] CodeMap saved to: ${codeMapProjectPath}`);
+                if (cached?.files) {
+                    // Incremental: only fetch changed files
+                    const delta = await langClient.getCodeMap({ projectPath, changesOnly: true });
 
+                    if (delta.files && Object.keys(delta.files).length > 0) {
+                        for (const [filePath, artifacts] of Object.entries(delta.files)) {
+                            cached.files[filePath] = artifacts;
+                        }
+                        console.log(`[AgentExecutor] CodeMap incremental update: ${Object.keys(delta.files).length} file(s)`);
+                    } else {
+                        console.log(`[AgentExecutor] CodeMap incremental update: no changes`);
+                    }
+                    codeMap = cached;
+                } else {
+                    // First call: full generation
+                    codeMap = await langClient.getCodeMap({ projectPath });
+                    codeMapCache.set(projectPath, codeMap);
+                    console.log(`[AgentExecutor] CodeMap full generation cached`);
+                }
+
+                // Debug: save codemap JSON response
+                const codeMapJsonPath = path.join(projectPath, 'codemap.json');
+                fs.writeFileSync(codeMapJsonPath, JSON.stringify(codeMap, null, 2), 'utf-8');
+                console.log(`[AgentExecutor] CodeMap JSON saved to: ${codeMapJsonPath}`);
 
                 const balMd = generateCodeMapMarkdown(codeMap);
                 const balMdPath = path.join(projectPath, 'bal.md');
