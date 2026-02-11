@@ -1,0 +1,139 @@
+/**
+ * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import { ApiResponse } from '@wso2/api-tryit-core';
+import { COMMON_HEADERS } from '../Input/InputEditor/SuggestionsConstants';
+
+/**
+ * Get suggestions for the target field (status, headers, body, etc.)
+ */
+export const getTargetSuggestions = (prefix: string): string[] => {
+    const baseTargets = ['status', 'headers', 'body'];
+
+    if (prefix === '') {
+        return baseTargets;
+    }
+
+    // If prefix is "headers." or starts with headers., return header names
+    if (prefix.startsWith('headers.')) {
+        const headerPrefix = prefix.substring('headers.'.length);
+        const headerNames = COMMON_HEADERS.map((h: any) => h.name);
+        return headerNames
+            .filter((name: string) => name.toLowerCase().includes(headerPrefix.toLowerCase()))
+            .map((name: string) => `headers.${name}`);
+    }
+
+    // If prefix is "body." or starts with body., could extend for JSON paths
+    if (prefix.startsWith('body.')) {
+        // For now, just return as-is. In future, could parse response body
+        return [prefix];
+    }
+
+    // Filter base targets
+    return baseTargets.filter(target => target.toLowerCase().includes(prefix.toLowerCase()));
+};
+
+/**
+ * Get suggestions for completing the target when a base target is selected
+ */
+export const completeTarget = (target: string): string => {
+    // If target is exactly "headers" or "body", append a dot for sub-property
+    if (target === 'headers') {
+        return 'headers.';
+    }
+    if (target === 'body') {
+        return 'body';
+    }
+    return target;
+};
+
+/**
+ * Get operator suggestions
+ */
+export const getOperatorSuggestions = (): string[] => {
+    return ['==', '!=', '>', '<', '>=', '<=', '='];
+};
+
+/**
+ * Get value suggestions based on the target field
+ */
+export const getValueSuggestions = (target: string, response?: ApiResponse): string[] => {
+    if (!response) {
+        return [];
+    }
+
+    // If target is a header (e.g., headers.Content-Type), suggest header values
+    if (target.startsWith('headers.')) {
+        const headerKey = target.substring('headers.'.length);
+        const headerConfig = COMMON_HEADERS.find((h: any) => h.name === headerKey);
+        if (headerConfig && headerConfig.values) {
+            return headerConfig.values;
+        }
+
+        // Also check actual response headers
+        const responseHeader = response.headers.find((h: any) => h.key === headerKey);
+        if (responseHeader) {
+            return [responseHeader.value];
+        }
+    }
+
+    // For status or body, no pre-defined suggestions
+    return [];
+};
+
+/**
+ * Parse assertion string into target, operator, and value
+ * Format: "target operator value"
+ * e.g., "status == 200" or "headers.Content-Type == application/json"
+ */
+export const parseAssertion = (assertion: string): { target: string; operator: string; value: string } => {
+    const trimmed = assertion.trim();
+
+    // Try to match: target operator value
+    // Operators: ==, !=, >, <, >=, <=, =
+    const match = trimmed.match(/^(.+?)\s+(==|!=|>=|<=|>|<|=)\s*(.*)$/);
+
+    if (match) {
+        return {
+            target: match[1].trim(),
+            operator: match[2].trim(),
+            value: match[3].trim().replace(/^['"]|['"]$/g, '') // Remove surrounding quotes
+        };
+    }
+
+    // Fallback if parsing fails
+    return {
+        target: '',
+        operator: '',
+        value: ''
+    };
+};
+
+/**
+ * Build assertion string from target, operator, and value
+ */
+export const buildAssertion = (target: string, operator: string, value: string): string => {
+    if (!target || !operator) {
+        return '';
+    }
+
+    // Add quotes around value if it's not a number
+    const quotedValue = isNaN(Number(value)) && value ? `'${value}'` : value;
+
+    return `${target} ${operator} ${quotedValue}`;
+};

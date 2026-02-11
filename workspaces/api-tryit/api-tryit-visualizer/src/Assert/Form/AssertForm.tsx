@@ -17,48 +17,15 @@
  */
 
 import React from 'react';
-import { Typography, LinkButton, Codicon, Button } from '@wso2/ui-toolkit';
+import { Typography, LinkButton, Codicon } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { ApiRequest, ApiResponse } from '@wso2/api-tryit-core';
-import { InputEditor } from '../../Input/InputEditor/InputEditor';
-import { COMMON_HEADERS } from '../../Input/InputEditor/SuggestionsConstants';
 import { evaluateAssertion, getAssertionDetails, getAssertionKey, getOperator } from '../assertionUtils';
+import { AssertionRow } from './AssertionRow';
 
 const AddButtonWrapper = styled.div`
     margin-top: 8px;
     margin-left: 4px;
-`;
-
-const AssertionItem = styled.div`
-    display: flex;
-    align-items: center;
-    margin-bottom: 4px;
-    margin-left: 4px;
-    gap: 8px;
-    width: 100%;
-`;
-
-const AssertionEditorWrapper = styled.div`
-    flex-grow: 1;
-    min-width: 0;
-`;
-
-const AssertionFailureDetails = styled.div<{ isForm: boolean }>`
-    margin-left: ${({ isForm }) => isForm ? '14px' : '0'};
-    margin-top: 4px;
-    margin-bottom: 4px;
-    font-size: 12px;
-    color: var(--vscode-errorForeground);
-    display: block;
-    max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-`;
-
-const AssertionDetailLine = styled.div`
-    white-space: nowrap;
-    display: inline-block;
-    min-width: max-content;
 `;
 
 const StickyHeader = styled.div`
@@ -68,6 +35,25 @@ const StickyHeader = styled.div`
     background: var(--vscode-editor-background);
     padding-top: 4px;
     padding-bottom: 8px;
+`;
+
+const AssertionFailureDetails = styled.div`
+    margin-bottom: 8px;
+    padding: 2px 10px;
+    font-size: 13px;
+    color: var(--vscode-errorForeground);
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-radius: 2px;
+`;
+
+const AssertionDetailLine = styled.div`
+    word-break: break-word;
+    white-space: pre-wrap;
+    display: block;
+    min-width: max-content;
 `;
 
 interface AssertFormProps {
@@ -118,57 +104,24 @@ export const AssertForm: React.FC<AssertFormProps> = ({
             </StickyHeader>
             {(request.assertions || []).map((assertion, index) => (
                 <React.Fragment key={index}>
-                    <AssertionItem>
-                        <AssertionEditorWrapper>
-                            <InputEditor
-                                value={assertion}
-                                minHeight="34px"
-                                compact
-                                onChange={(value) => updateAssertion(index, value ?? '')}
-                                options={{
-                                    lineNumbers: 'off',
-                                    wordWrap: 'off',
-                                    scrollBeyondLastLine: false,
-                                    scrollbar: {
-                                        vertical: 'hidden',
-                                        horizontal: 'hidden',
-                                        alwaysConsumeMouseWheel: false
-                                    },
-                                    padding: { top: 8, bottom: 8 },
-                                    minimap: { enabled: false }
-                                }}
-                                assertionStatuses={response ? [assertionResults[index]] : [undefined]}
-                                suggestions={{
-                                    assertions: {
-                                        initial: ['status', 'headers', 'body'],
-                                        properties: {
-                                            'headers': {
-                                                names: COMMON_HEADERS.map(h => h.name),
-                                                values: Object.fromEntries(COMMON_HEADERS.map(h => [h.name, h.values]))
-                                            }
-                                        }
-                                    }
-                                }}
-                            />
-                        </AssertionEditorWrapper>
-                        <Button appearance='icon' onClick={() => deleteAssertion(index)}>
-                            <Codicon sx={{ color: 'var(--vscode-editorGutter-deletedBackground)' }} name="trash" />
-                        </Button>
-                    </AssertionItem>
+                    <AssertionRow
+                        assertion={assertion}
+                        response={response}
+                        onChange={(value) => updateAssertion(index, value)}
+                        onDelete={() => deleteAssertion(index)}
+                    />
                     {response && assertionResults[index] === false && (
                         <>
                             {getAssertionDetails(assertion, response) ? (
-                                <>
-                                    <AssertionFailureDetails isForm={true}>
-                                        <AssertionDetailLine>
-                                            {getAssertionKey(assertion)} is expected to be {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}. Actual {getAssertionKey(assertion)} {getAssertionDetails(assertion, response)?.actual ?? ''} is not {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}.
-                                        </AssertionDetailLine>
-                                    </AssertionFailureDetails>
-                                </>
-                            ) : (
-                                <AssertionFailureDetails isForm={true}>
+                                <AssertionFailureDetails>
                                     <AssertionDetailLine>
-                                        Assertion format is invalid. Please use the format: [target] [operator] [value]. E.g., status = 200, headers.Content-Type = application/json, body != ''
+                                        {getAssertionKey(assertion)} is expected to be {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}. Actual {getAssertionKey(assertion)} {getAssertionDetails(assertion, response)?.actual ?? ''} is not {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}.
+                                    </AssertionDetailLine>
+                                </AssertionFailureDetails>
+                            ) : (
+                                <AssertionFailureDetails>
+                                    <AssertionDetailLine>
+                                        Assertion format is invalid. Please use the format: [target] [operator] [value]. E.g., status == 200, headers.Content-Type == application/json, body != ''
                                     </AssertionDetailLine>
                                 </AssertionFailureDetails>
                             )}
