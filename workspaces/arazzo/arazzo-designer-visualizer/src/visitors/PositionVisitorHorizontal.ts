@@ -5,7 +5,7 @@ export class PositionVisitorHorizontal {
     private visited = new Set<string>();        //to denote the nodes that are already fully visited(the node and all its children are taken care of)
     private positioned = new Set<string>();     //the node is positioned but not its children
 
-    public visit(node: FlowNode, x: number, y: number, isImmediateCondition: boolean = false): void {
+    public visit(node: FlowNode, x: number, y: number, isImmediateCondition: boolean = false, isFailure: boolean = false): void {
         // Skip already fully-visited nodes (gotos/loops)
         if (this.visited.has(node.id)) { return; }
 
@@ -80,7 +80,7 @@ export class PositionVisitorHorizontal {
                 failpathgap = C.NODE_GAP_Y_Horizontal;
             }
             const failY = nodeY + node.viewState.h + failpathgap;
-            this.visit(node.failureNode, failX, failY);
+            this.visit(node.failureNode, failX, failY, false, true);
         }
 
         // 3. Position Branches (Stacked Vertical for Diamonds). this is only for the condition nodes
@@ -91,6 +91,7 @@ export class PositionVisitorHorizontal {
             // already-positioned heads don't bias the alignment. If none found,
             // fall back to nodeY.
             let currentY: number;
+            
             const firstUnpositionedBranch = node.branches.find(b => {
                 const h = b[0];
                 return h && !this.visited.has(h.id) && !this.positioned.has(h.id);
@@ -107,15 +108,32 @@ export class PositionVisitorHorizontal {
             const branchPositions: { head: FlowNode, y: number }[] = [];
             node.branches.forEach((branch, index, allBranches) => {
                 const head = branch[0];
-                if (head && !this.visited.has(head.id) && !this.positioned.has(head.id)) {
 
+                if(!isFailure){     //if the condition node is not a failure path condition node then there must always be a step on that level. if its a failure path condition node then the paths are one below the other
+                    if (head && !this.visited.has(head.id) && !this.positioned.has(head.id)) {
+
+                        branchPositions.push({ head, y: currentY });
+
+                        // Look ahead to the next branch's head to decide the gap
+                        const nextBranch = allBranches[index + 1];
+                        const nextHead = nextBranch ? nextBranch[0] : null;
+
+                        if (nextHead && nextHead.type === 'END') {
+                            // Optimization: If the NEXT node is an END node, we assume we don't need 
+                            // the full subtree clearance from the current node.
+                            currentY += C.NODE_GAP_Y_Horizontal; 
+                        } else {
+                            // Default: Next is a Step (or doesn't exist), so reserve the full subtree height
+                            currentY += head.viewState.subtreeH + C.NODE_GAP_Y_Horizontal;
+                        }
+                    }
+                } else {
                     branchPositions.push({ head, y: currentY });
 
                     // Look ahead to the next branch's head to decide the gap
                     const nextBranch = allBranches[index + 1];
                     const nextHead = nextBranch ? nextBranch[0] : null;
-
-                    if (nextHead && nextHead.type === 'END') {
+                    if (nextHead && (nextHead.type === 'END' || nextHead.type === 'RETRY')) {
                         // Optimization: If the NEXT node is an END node, we assume we don't need 
                         // the full subtree clearance from the current node.
                         currentY += C.NODE_GAP_Y_Horizontal; 

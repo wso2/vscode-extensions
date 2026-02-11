@@ -17,17 +17,21 @@
  */
 
 //node related constants
-export const NODE_WIDTH = 180;
-export const NODE_HEIGHT = 60;
+export const NODE_WIDTH = 280;
+export const NODE_HEIGHT = 50;
+export const LABEL_CHARS_BEFORE_WRAP = 24;
 export const START_NODE_DIAMETER = 50;
 export const END_NODE_DIAMETER = 30;
-export const RETRY_NODE_DIAMETER = 35;
-export const DIAMOND_SIZE = 30; // Width/Height of condition node
+export const RETRY_NODE_DIAMETER = 25;
+export const DIAMOND_SIZE = 50; // Width/Height of condition node
 export const PX_PER_CHAR = 10;  // Approximate width per character for auto-sizing
+export const START_NODE_WIDTH = 80;
+export const START_NODE_HEIGHT = 40;
+export const CONDITION_NODE_BORDER_RADIUS = 8; // Border radius for condition nodes
 
 export const LABEL_HEIGHT = 20;
 export const LABEL_WIDTH = 180;
-export const NODE_BORDER_WIDTH = 1.8;
+export const NODE_BORDER_WIDTH = 3;
 export const NODE_PADDING = 8;
 export const DIAGRAM_CENTER_X = 0;
 export const END_NODE_INNER_DIAMETER = 15;
@@ -41,12 +45,27 @@ export const FAIL_GAP_Y_Horizontal = 50;  // Vertical gap for failure paths
 //export const FAIL_GAP_X_Horizontal = 50;  // Horizontal gap for failure paths
 
 // Vertical layout constants (main flow goes down, branches go right)
-export const NODE_GAP_X_Vertical = 80;  // Horizontal gap between steps
-export const NODE_GAP_Y_Vertical = 80;  // Vertical gap between branches/failure paths
+export const NODE_GAP_X_Vertical = 60;  // Horizontal gap between steps
+export const NODE_GAP_Y_Vertical = 70;  // Vertical gap between branches/failure paths
 //export const FAIL_GAP_Y_Vertical = 50;  // Vertical gap for failure paths
 export const FAIL_GAP_X_Vertical = 50;  // Horizontal gap for failure paths
+export const NODE_GAP_Y_AFTERCONDITION = 130; // Vertical gap between node and edge label
 
 
 //portal node constants
 export const PORTALNODE_GAP_X = 35;
 export const PORTALNODE_GAP_Y = 40;
+
+//Waypoint realted constants
+export const WAYPOINT_SKIP_VERTICAL_OFFSET = 30; // Distance to offset waypoints from node edges
+export const WAYPOINT_BRANCH_VERTICAL_OFFSET = 40; // Vertical offset for branch waypoints to avoid label overlap
+export const WAYPOINT_SKIP_HORIZONTAL_OFFSET_MULTIPLIER = 1.5;
+
+//canvas constants
+export const CANVAS_PADDING = 100;
+export const DOT_SIZE = 1.5;
+export const CANVAS_ZOOM = 1.25;
+export const DOT_GAP = 18;
+
+export const FONT_SIZE = 15;
+export const ICON_SIZE_STEP = 24;

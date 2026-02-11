@@ -23,6 +23,7 @@ import { ThemeColors } from '@wso2/ui-toolkit';
 import { DIAMOND_SIZE } from '../../../constants/nodeConstants';
 import { BranchIcon } from '../../../resources/icons/BranchIcon';
 import { ConditionNodeData } from './ConditionNodeModel';
+import * as C from '../../../constants/nodeConstants';
 
 const ConditionNodeContainer = styled.div`
     width: ${DIAMOND_SIZE}px;
@@ -35,6 +36,7 @@ const ConditionNodeContainer = styled.div`
     position: relative;
     background-color: ${ThemeColors.SURFACE_DIM};
     border: 2px solid ${ThemeColors.OUTLINE_VARIANT};
+    border-radius: ${C.CONDITION_NODE_BORDER_RADIUS}px; /* rounded ends for diamond */
     box-shadow: 0 2px 6px rgba(0,0,0,0.12);
     transition: all 0.2s ease;
     cursor: pointer;
@@ -98,7 +100,7 @@ export const ConditionNodeWidget: React.FC<NodeProps<ConditionNodeData>> = ({ da
             <StyledHandle
                 type="source"
                 position={Position.Right}
-                id="h-right"
+                id="h-right-source"
                 isConnectable={isConnectable}
                 style={{
                     right: 0,

@@ -1,0 +1,100 @@
+arazzo: 1.0.1
+info:
+  title: Dual-Path Registration
+  version: 1.0.0
+sourceDescriptions:
+  - name: user-service
+    url: https://api.users.com/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: divergent-end-test
+    summary: A flow that splits into two separate successful endings.
+    steps:
+      # ---------------------------------------------------
+      # SHARED START
+      # ---------------------------------------------------
+      - stepId: receive-signup-data
+        operationId: postSignup
+        description: "Ingest initial user data"
+
+      - stepId: validate-email-format
+        operationId: checkEmailRegex
+
+      - stepId: determine-account-type
+        operationId: checkAccountType
+        description: "The Main Split Point"
+        onSuccess:
+          - name: path-personal
+            type: goto
+            stepId: send-verification-email
+            criteria:
+              - condition: "$body.type == 'PERSONAL'"
+          
+          - name: path-business
+            type: goto
+            stepId: check-tax-id
+            criteria:
+              - condition: "$body.type == 'BUSINESS'"
+
+      # ---------------------------------------------------
+      # PATH A: Personal User (Top Branch)
+      # ---------------------------------------------------
+      - stepId: send-verification-email
+        operationId: sendEmail
+        onSuccess:
+          - name: wait-for-click
+            type: goto
+            stepId: activate-personal-account
+
+      - stepId: activate-personal-account
+        operationId: updateStatusPersonal
+        onSuccess:
+          - name: finish-personal
+            type: goto
+            stepId: personal-dashboard-welcome
+
+      # HAPPY END #1
+      - stepId: personal-dashboard-welcome
+        operationId: loadPersonalUI
+        onSuccess:
+          - name: done-personal
+            type: end
+
+      # ---------------------------------------------------
+      # PATH B: Business User (Bottom Branch)
+      # ---------------------------------------------------
+      - stepId: check-tax-id
+        operationId: verifyTaxAPI
+        # Small failure check inside the business branch
+        onFailure:
+          - name: invalid-tax-id
+            type: goto
+            stepId: business-rejection
+        onSuccess:
+          - name: tax-ok
+            type: goto
+            stepId: create-organization-profile
+
+      - stepId: create-organization-profile
+        operationId: createOrg
+        onSuccess:
+          - name: finish-business
+            type: goto
+            stepId: business-portal-welcome
+
+      # HAPPY END #2
+      - stepId: business-portal-welcome
+        operationId: loadBusinessUI
+        onSuccess:
+          - name: done-business
+            type: end
+
+      # ---------------------------------------------------
+      # FAILURE END (Common)
+      # ---------------------------------------------------
+      - stepId: business-rejection
+        operationId: sendRejectEmail
+        onSuccess:
+          - name: fail-end
+            type: end

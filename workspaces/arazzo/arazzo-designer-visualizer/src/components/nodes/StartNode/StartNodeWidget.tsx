@@ -21,19 +21,22 @@ import { Handle, Position, NodeProps } from '@xyflow/react';
 import styled from '@emotion/styled';
 import { ThemeColors } from '@wso2/ui-toolkit';
 import { START_NODE_DIAMETER } from '../../../constants/nodeConstants';
+import * as C from '../../../constants/nodeConstants';
 import { StartNodeData } from './StartNodeModel';
 
 const StartNodeContainer = styled.div`
-    width: ${START_NODE_DIAMETER}px;
-    height: ${START_NODE_DIAMETER}px;
-    border-radius: 50%;
-    background-color: ${ThemeColors.PRIMARY};
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    height: ${C.START_NODE_HEIGHT}px;
+    min-width: ${C.START_NODE_WIDTH}px;
+    padding: 0 12px;
+    border-radius: ${C.START_NODE_DIAMETER / 2}px; /* pill */
+    background-color: ${ThemeColors.SURFACE_DIM}; /* same as step nodes */
+    color: ${ThemeColors.ON_SURFACE};
     position: relative;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-    border: 2px solid ${ThemeColors.OUTLINE_VARIANT};
+    border: ${C.NODE_BORDER_WIDTH}px solid ${ThemeColors.OUTLINE_VARIANT};
     transition: all 0.15s ease;
 
     &:hover {
@@ -52,9 +55,9 @@ const StartNodeRoot = styled.div`
 `;
 
 const StartNodeLabel = styled.div`
-    color: ${ThemeColors.ON_PRIMARY};
-    font-weight: 700;
-    font-size: 11px;
+    color: ${ThemeColors.ON_SURFACE};
+    font-weight: 600;
+    font-size: 13px;
     font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
     user-select: none;
 `;
@@ -81,7 +84,7 @@ export const StartNodeWidget: React.FC<NodeProps<StartNodeData>> = ({ data, isCo
             <StyledHandle
                 type="source"
                 position={Position.Right}
-                id="h-right"
+                id="h-right-source"
                 isConnectable={isConnectable}
             />
 

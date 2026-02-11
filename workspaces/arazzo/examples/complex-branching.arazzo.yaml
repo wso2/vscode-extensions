@@ -1,0 +1,115 @@
+arazzo: 1.0.1
+info:
+  title: Enterprise Loan Approval
+  version: 2.0.0
+sourceDescriptions:
+  - name: loan-service
+    url: https://api.bank.com/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: complex-nested-test
+    summary: Tests nested branches and failure logic simultaneously.
+    steps:
+      # ---------------------------------------------------
+      # LEVEL 1: Main Flow
+      # ---------------------------------------------------
+      - stepId: receive-application
+        operationId: submitForm
+
+      - stepId: check-credit-score
+        operationId: getCreditBureauData
+        description: "The first major fork in the road"
+        # Failure Branching (Test Requirement 2)
+        onFailure:
+          # Case A: Service Down -> Retry
+          - name: retry-bureau
+            type: retry
+            stepId: check-credit-score
+            retryLimit: 3
+            criteria:
+              - condition: "$statusCode == 503"
+          # Case B: Invalid SSN -> Hard Stop
+          - name: invalid-data-stop
+            type: goto
+            stepId: send-rejection-email
+
+      # ---------------------------------------------------
+      # LEVEL 2: Nested Branching (Test Requirement 1)
+      # ---------------------------------------------------
+      - stepId: evaluate-risk-tier
+        operationId: runRiskModel
+        description: "Splits flow based on risk score"
+        onSuccess:
+          # Branch A: Low Risk -> Fast Track
+          - name: fast-track
+            type: goto
+            stepId: instant-approval
+            criteria:
+              - condition: "$body.score > 750"
+          
+          # Branch B: High Risk -> Manual Review (Nested Complex Flow)
+          - name: manual-track
+            type: goto
+            stepId: manual-underwriting
+            criteria:
+              - condition: "$body.score <= 750"
+
+      # ---------------------------------------------------
+      # LEVEL 3: Branch A (Leaf)
+      # ---------------------------------------------------
+      - stepId: instant-approval
+        operationId: autoApprove
+        onSuccess:
+          - name: finish-fast
+            type: goto
+            stepId: final-disbursement
+
+      # ---------------------------------------------------
+      # LEVEL 3: Branch B (Deep Nesting)
+      # ---------------------------------------------------
+      - stepId: manual-underwriting
+        operationId: officerReview
+        description: "A complex node inside a branch"
+        # Success -> Go to end
+        onSuccess:
+          - name: approved-manually
+            type: goto
+            stepId: final-disbursement
+        # Deep Failure Branching
+        onFailure:
+           #Sub-Branch 1: Needs more info -> Jump to Step 6
+          - name: request-docs
+            type: goto
+            stepId: request-more-documents
+            criteria:
+              - condition: "$statusCode == 400"
+        
+           #Sub-Branch 2: Officer Rejected -> Jump to Step 9
+          - name: officer-rejected
+            type: goto
+            stepId: send-rejection-email
+
+      # ---------------------------------------------------
+      # LEVEL 4: The Loop Inside the Branch
+      # ---------------------------------------------------
+      - stepId: request-more-documents
+        operationId: sendDocRequest
+        description: "Loops back to manual underwriting after user replies"
+        onSuccess:
+          - name: re-review
+            type: goto
+            stepId: manual-underwriting # <--- Loops back to Step 5
+
+      # ---------------------------------------------------
+      # END STATES
+      # ---------------------------------------------------
+      - stepId: final-disbursement
+        operationId: transferFunds
+
+      - stepId: send-rejection-email
+        operationId: sendRejectLetter
+
+      # Catch-all for technical errors from anywhere
+      - stepId: log-system-error
+        operationId: logToSplunk

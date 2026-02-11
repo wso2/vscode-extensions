@@ -18,6 +18,7 @@
 
 import { Node } from '@xyflow/react';
 import { StepNodeModel, StepNodeData } from './StepNodeModel';
+import * as C from '../../../constants/nodeConstants';
 
 /**
  * StepNodeFactory - Utility functions for creating and managing step nodes
@@ -42,6 +43,7 @@ export class StepNodeFactory {
                 hasError: data.hasError ?? false,
                 errorMessage: data.errorMessage,
                 iconClass: data.iconClass || 'fw fw-bi-arrow-outward',
+                iconSize: data.iconSize || C.ICON_SIZE_STEP,
             },
         };
     }

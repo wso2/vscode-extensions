@@ -1,0 +1,144 @@
+arazzo: 1.0.1
+info:
+  title: Fintech KYC Onboarding
+  version: 1.0.0
+sourceDescriptions:
+  - name: banking-api
+    url: https://api.bank.com/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: fintech-kyc-test
+    summary: Tests a happy path spine with a manual review side-branch that merges back.
+    steps:
+      # ---------------------------------------------------
+      # STEP 1: Entry
+      # ---------------------------------------------------
+      - stepId: submit-registration
+        operationId: postUser
+        description: "User submits form"
+
+      - stepId: validate-payload
+        operationId: validateJson
+        description: "Basic format check"
+
+      # ---------------------------------------------------
+      # STEP 3: Early Exit Branch
+      # ---------------------------------------------------
+      - stepId: check-user-exists
+        operationId: lookupUser
+        onSuccess:
+          # Branch A: User exists? Go to Login (Exit Flow)
+          - name: user-exists
+            type: goto
+            stepId: redirect-to-login
+            criteria:
+              - condition: "$statusCode == 200"
+          
+          # Branch B: New User? Continue Spine
+          - name: new-user
+            type: goto
+            stepId: create-db-record
+            criteria:
+              - condition: "$statusCode == 404"
+
+      # Exit Node for Branch A
+      - stepId: redirect-to-login
+        operationId: loginRedirect
+        onSuccess:
+          - name: end-login
+            type: end
+
+      # ---------------------------------------------------
+      # THE MAIN SPINE (Happy Path)
+      # ---------------------------------------------------
+      - stepId: create-db-record
+        operationId: createUserDB
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: verify-email-token
+
+      - stepId: verify-email-token
+        operationId: checkEmail
+        description: "Simulates waiting for user to click email link"
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: run-kyc-check
+
+      # ---------------------------------------------------
+      # STEP 7: The Major Split (Auto vs Manual)
+      # ---------------------------------------------------
+      - stepId: run-kyc-check
+        operationId: thirdPartyKYC
+        description: "Identity Verification Service"
+        onSuccess:
+          # Path 1: Clear? Go straight to Activation (Spine)
+          - name: kyc-pass
+            type: goto
+            stepId: activate-account
+            criteria:
+              - condition: "$body.riskScore < 10"
+
+          # Path 2: Flagged? Go to Manual Review (Branch)
+          - name: kyc-flagged
+            type: goto
+            stepId: manual-review-queue
+            criteria:
+              - condition: "$body.riskScore >= 10"
+
+      # ---------------------------------------------------
+      # THE MANUAL REVIEW BRANCH
+      # ---------------------------------------------------
+      - stepId: manual-review-queue
+        operationId: addToQueue
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: officer-decision
+
+      - stepId: officer-decision
+        operationId: humanReview
+        description: "Officer decides to Approve or Reject"
+        onSuccess:
+          # Sub-Branch A: Officer Approves -> Merge to Spine
+          - name: officer-approve
+            type: goto
+            stepId: activate-account  # <--- Merge Point
+            criteria:
+              - condition: "$body.decision == 'APPROVE'"
+
+          # Sub-Branch B: Officer Rejects -> Terminate
+          - name: officer-reject
+            type: goto
+            stepId: hard-reject
+            criteria:
+              - condition: "$body.decision == 'REJECT'"
+
+      # Failure End State
+      - stepId: hard-reject
+        operationId: sendRejectEmail
+        onSuccess:
+          - name: fail-end
+            type: end
+
+      # ---------------------------------------------------
+      # STEP 10: The Convergence Point (Activation)
+      # ---------------------------------------------------
+      - stepId: activate-account
+        operationId: enableUser
+        description: "Both Auto-KYC and Manual-Approval arrive here"
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: send-welcome-pack
+
+      # ---------------------------------------------------
+      # FINAL STEP
+      # ---------------------------------------------------
+      - stepId: send-welcome-pack
+        operationId: emailWelcome
+        onSuccess:
+          - name: success-end
+            type: end

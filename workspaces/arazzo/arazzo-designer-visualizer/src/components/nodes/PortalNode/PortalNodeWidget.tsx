@@ -23,10 +23,10 @@ import { ThemeColors } from '@wso2/ui-toolkit';
 import { PortalNodeData } from './PortalNodeModel';
 
 const PortalNodeContainer = styled.div`
-    background-color: ${ThemeColors.SECONDARY};
+    background-color: ${ThemeColors.SURFACE_DIM};
     padding: 6px 12px;
     border-radius: 999px;
-    color: ${ThemeColors.ON_SECONDARY};
+    color: ${ThemeColors.ON_SURFACE};
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -77,7 +77,7 @@ export const PortalNodeWidget: React.FC<NodeProps<PortalNodeData>> = ({ id, data
                     source: id,
                     target: targetId,
                     sourceHandle: 'h-top',
-                    targetHandle: 'h-top',
+                    targetHandle: 'goto-top-target',
                     type: 'smoothstep',
                     style: { stroke: ThemeColors.SECONDARY, strokeDasharray: '4 4' },
                     animated: false,

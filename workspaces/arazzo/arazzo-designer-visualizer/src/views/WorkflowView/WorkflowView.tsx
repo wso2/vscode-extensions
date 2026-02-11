@@ -34,8 +34,10 @@ import {
 import '@xyflow/react/dist/style.css';
 import { buildGraphFromWorkflow } from './graphBuilder';
 import { nodeTypes } from '../../components/nodes';
+import { PlannedPathEdge } from '../../components/edges';
 import { SidePanel, SidePanelTitleContainer, SidePanelBody, Button, Codicon, ThemeColors } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
+import * as C from '../../constants/nodeConstants';
 
 interface WorkflowViewProps {
     fileUri: string;
@@ -95,6 +97,7 @@ export function WorkflowView(props: WorkflowViewProps) {
     const { rpcClient } = useVisualizerContext();
     const [arazzoDefinition, setArazzoDefinition] = useState<ArazzoDefinition | undefined>(undefined);
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
+    const reactFlowInstanceRef = useRef<any>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [graphKey, setGraphKey] = useState(0);
@@ -102,6 +105,11 @@ export function WorkflowView(props: WorkflowViewProps) {
     const [workflow, setWorkflow] = useState<ArazzoWorkflow | undefined>(undefined);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
     const [isPanelOpen, setIsPanelOpen] = useState(false);
+
+    // Edge types configuration
+    const edgeTypes = {
+        plannedPath: PlannedPathEdge
+    };
 
     // rpcClient?.onStateChanged((newState: MachineStateValue) => {
     //     if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
@@ -153,6 +161,34 @@ export function WorkflowView(props: WorkflowViewProps) {
         }
     }, [arazzoDefinition, workflowId, isVertical]);
 
+    // Wheel handler: ctrl+wheel => zoom, wheel alone => pan (React Flow handles panOnScroll)
+    const onWrapperWheel = useCallback((e: React.WheelEvent) => {
+        const instance = reactFlowInstanceRef.current;
+        if (!instance) return;
+
+        if (e.ctrlKey) {
+            // Zoom instead of scrolling/panning
+            e.preventDefault();
+            try {
+                const vp = (typeof instance.getViewport === 'function') ? instance.getViewport() : { x: 0, y: 0, zoom: 1 };
+                // Adjust zoom by small factor (deltaY positive -> zoom out)
+                const delta = -e.deltaY; // invert so wheel up -> positive
+                const factor = 1 + (delta * 0.0015); // tweak sensitivity
+                let newZoom = (vp.zoom || 1) * factor;
+                // Clamp zoom
+                newZoom = Math.max(0.2, Math.min(3, newZoom));
+                if (typeof instance.setViewport === 'function') {
+                    instance.setViewport({ x: vp.x, y: vp.y, zoom: newZoom });
+                } else if (typeof instance.setZoom === 'function') {
+                    instance.setZoom(newZoom);
+                }
+            } catch (err) {
+                // ignore
+            }
+        }
+        // else: let React Flow handle panOnScroll
+    }, []);
+
     const onConnect = useCallback((params: Connection) => {
         setEdges((eds) => addEdge(params, eds));
     }, [setEdges]);
@@ -160,9 +196,19 @@ export function WorkflowView(props: WorkflowViewProps) {
     const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
         console.log('Node clicked:', node);
         event.stopPropagation();
+
+        // Only open properties panel for workflow STEP and CONDITION nodes
+        const allowedTypes = ['stepNode', 'conditionNode'];
+        if (!allowedTypes.includes(node.type)) {
+            // If panel is open for a non-allowed node, close it
+            setIsPanelOpen(false);
+            setSelectedNode(null);
+            return;
+        }
+
         // Set the node first
         setSelectedNode(node);
-        // Use double requestAnimationFrame to ensure panel renders in closed state first,
+        // Use requestAnimationFrame to ensure panel renders in closed state first,
         // then triggers the open animation
         requestAnimationFrame(() => {
             setIsPanelOpen(true);
@@ -310,9 +356,18 @@ export function WorkflowView(props: WorkflowViewProps) {
     return (
         <div
             ref={reactFlowWrapper}
-            style={{ width: '100%', height: '100vh', outline: 'none', position: 'relative' }}
+            style={{
+                width: '100%',
+                height: '100vh',
+                outline: 'none',
+                position: 'relative',
+                backgroundColor: ThemeColors.SURFACE_BRIGHT,
+                backgroundImage: `radial-gradient(${ThemeColors.SURFACE_CONTAINER} ${C.DOT_SIZE}px, transparent 0px)`,
+                backgroundSize: `${C.DOT_GAP}px ${C.DOT_GAP}px`,
+            }}
             tabIndex={0}
             onClick={onPaneClick}
+            onWheel={onWrapperWheel}
         >
             <button
                 onClick={toggleOrientation}
@@ -343,15 +398,32 @@ export function WorkflowView(props: WorkflowViewProps) {
                 onConnect={onConnect}
                 onNodeClick={onNodeClick}
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
                 fitView
+                panOnScroll
+                zoomOnScroll={false}
+                onInit={(reactFlowInstance) => {
+                    // Store instance for programmatic zoom and ctrl+wheel handling
+                    reactFlowInstanceRef.current = reactFlowInstance;
+
+                    // After React Flow initializes and fitView runs, set zoom to 150%.
+                    // Small timeout ensures fitView has applied its transform first.
+                    try {
+                        setTimeout(() => {
+                            if (reactFlowInstance && typeof (reactFlowInstance as any).setViewport === 'function') {
+                                const vp: any = reactFlowInstance.getViewport ? reactFlowInstance.getViewport() : { x: 0, y: 0, zoom: 1 };
+                                (reactFlowInstance as any).setViewport({ x: vp.x, y: vp.y, zoom: C.CANVAS_ZOOM });
+                            } else if (reactFlowInstance && typeof (reactFlowInstance as any).setZoom === 'function') {
+                                (reactFlowInstance as any).setZoom(C.CANVAS_ZOOM);
+                            }
+                        }, 10);
+                    } catch (e) {
+                        console.warn('[WorkflowView] Could not set initial zoom to 150%', e);
+                    }
+                }}
                 proOptions={proOptions}
             >
-                <Background
-                    variant={BackgroundVariant.Dots}
-                    gap={20}
-                    size={1}
-                    color="#b9b7b7"
-                />
+                {/* Background dots provided by container CSS to match bi-diagram */}
                 <Controls />
             </ReactFlow>
             <SidePanel
@@ -368,7 +440,8 @@ export function WorkflowView(props: WorkflowViewProps) {
             >
                 <SidePanelTitleContainer>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {selectedNode ? (selectedNode.data?.label || selectedNode.id) : 'Node Properties'}
+                        {/* {selectedNode ? (selectedNode.data?.label || selectedNode.id) : 'Node Properties'} */}
+                        Properties
                     </div>
                     <StyledButton data-testid="close-panel-btn" appearance="icon" onClick={handleClosePanel}>
                         <Codicon name="close" />
