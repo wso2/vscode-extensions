@@ -43,10 +43,8 @@ const ConditionNodeContainer = styled.div`
 
     &:hover {
         transform: rotate(45deg) translateY(-1px);
-        box-shadow: 
-            0 4px 12px rgba(0, 0, 0, 0.2),
-            0 2px 4px rgba(0, 0, 0, 0.15),
-            inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        border-color: ${ThemeColors.SECONDARY};
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
     }
 `;
 
@@ -65,8 +63,19 @@ const ConditionNodeContent = styled.div`
         height: 26px;
     }
 
-    svg path {
+     /* keep default node icon color white for normal svgs, but allow
+         '.branch-icon' to show the BI-blue */
+    svg:not(.branch-icon) path {
         fill: ${ThemeColors.ON_SURFACE};
+    }
+
+    svg.branch-icon {
+        color: var(--vscode-terminal-ansiBlue);
+    }
+
+    svg.branch-icon path {
+        /* higher-specificity rule so branch icon color is visible */
+        fill: currentColor;
     }
 
     user-select: none;

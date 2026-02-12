@@ -166,10 +166,13 @@ export class PositionVisitorVertical_v2 {
         const nodeX = node.viewState.x;
         const nodeY = node.viewState.y;
         let nextY: number;
+        let nextY_RETRY: number;
         if(node.type === 'CONDITION'){
             nextY = nodeY + node.viewState.h + C.NODE_GAP_Y_AFTERCONDITION;
+            nextY_RETRY = nodeY + node.viewState.h + C.RETRY_GAP_Y_ConditionBranch;
         } else {
             nextY = nodeY + node.viewState.h + C.NODE_GAP_Y_Vertical;
+            nextY_RETRY = nextY;    //this case is not used
         }
 
         // Process children
@@ -221,7 +224,8 @@ export class PositionVisitorVertical_v2 {
                     //const branchCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (i + 1);
                     const branchCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (isFailPathCondition? (i) : (i + 1)); // Position to the right of parent
                     head.viewState.x = branchCenterX - (head.viewState.w / 2);
-                    head.viewState.y = nextY;
+                    //head.viewState.y = (!isFailPathCondition) ? nextY - C.CONDITION_NODE_SECOND_BRANCH_OFFSET : nextY
+                    head.viewState.y = (head.type == 'RETRY') ? nextY_RETRY : nextY;
                     head.isPositioned = true;
 
                     // Track positioned node for collision detection

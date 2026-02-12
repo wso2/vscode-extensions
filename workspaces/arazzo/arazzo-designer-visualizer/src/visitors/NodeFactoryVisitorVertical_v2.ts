@@ -20,6 +20,7 @@ import { FlowNode } from '../utils/types';
 import { Node, Edge, MarkerType } from '@xyflow/react';
 import * as C from '../constants/nodeConstants';
 import WaypointCreator from '../components/edges/WaypointCreator';
+import { pointInRect, segIntersectsSeg, segmentIntersectsRect } from '../components/edges/edgeUtils';
 
 /**
  * NodeFactoryVisitorVertical V2: Generate React Flow nodes and edges for vertical layout.
@@ -153,17 +154,22 @@ export class NodeFactoryVisitorVertical_v2 {
     private createEdge(source: FlowNode, target: FlowNode, edgeType: 'success' | 'failure', conditionLabel?: string, scenario?:string): void {
         // Determine handle positions based on relative positions
         const isTargetBelow = target.viewState.y > source.viewState.y + source.viewState.h;
-        const isTargetRight = target.viewState.x > source.viewState.x + source.viewState.w;
+        const isTargetRight = target.viewState.x + target.viewState.w/2 > source.viewState.x + source.viewState.w/2;
         const isTargetAbove = target.viewState.y < source.viewState.y;
+        const isTargetLeft = target.viewState.x + target.viewState.w/2 < source.viewState.x + source.viewState.w/2;     //add margeins
 
         let sourceHandleId: string;
         let targetHandleId: string;
 
         // Vertical flow logic (target below)
-        if (isTargetBelow) {
+        if (isTargetBelow && !isTargetLeft) {
             sourceHandleId = 'h-bottom'; // Exit from bottom
             targetHandleId = 'h-top';    // Enter from top
         } 
+        else if (isTargetBelow && isTargetLeft) {
+            sourceHandleId = 'h-bottom';   // Exit from bottom
+            targetHandleId = 'h-right-target'; // Enter from right (loop)
+        }
         // Horizontal flow logic (target to the right - branches/failures)
         else if (isTargetRight) {
             sourceHandleId = 'h-right-source';  // Exit from right
@@ -179,6 +185,7 @@ export class NodeFactoryVisitorVertical_v2 {
             sourceHandleId = 'h-right-source';
             targetHandleId = 'h-left';
         }
+        console.log(`[NodeFactory V2 - Handles] Determined handles for edge ${source.id} → ${target.id}: sourceHandle=${sourceHandleId}, targetHandle=${targetHandleId}`);
 
         // Compute handle coordinates for both nodes
         const computeHandlePoint = (n: FlowNode, handleId: string) => {
@@ -200,41 +207,48 @@ export class NodeFactoryVisitorVertical_v2 {
         let targetPt = computeHandlePoint(target, targetHandleId);
         let labelPos = 0.8;
 
-        // Geometry helpers
-        const pointInRect = (p: {x:number,y:number}, r: {x:number,y:number,w:number,h:number}) =>
-            p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+        // Geometry helpers (moved to shared utility to avoid duplication)
+        // NOTE: exact logic preserved — see `src/components/edges/edgeUtils.ts` for implementation
+        // geometry helpers (imported at top-level from `edgeUtils`)
 
-        const segIntersectsSeg = (p1: {x:number,y:number}, p2: {x:number,y:number}, p3: {x:number,y:number}, p4: {x:number,y:number}) => {
-            const orient = (a: {x:number,y:number}, b: {x:number,y:number}, c: {x:number,y:number}) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-            const o1 = orient(p1,p2,p3);
-            const o2 = orient(p1,p2,p4);
-            const o3 = orient(p3,p4,p1);
-            const o4 = orient(p3,p4,p2);
-            return (o1 * o2 < 0) && (o3 * o4 < 0);
-        };
 
-        const segmentIntersectsRect = (a: {x:number,y:number}, b: {x:number,y:number}, rect: {x:number,y:number,w:number,h:number}) => {
-            if (pointInRect(a, rect) || pointInRect(b, rect)) return true;
-            const r1 = { x: rect.x, y: rect.y };
-            const r2 = { x: rect.x + rect.w, y: rect.y };
-            const r3 = { x: rect.x + rect.w, y: rect.y + rect.h };
-            const r4 = { x: rect.x, y: rect.y + rect.h };
-            if (segIntersectsSeg(a,b,r1,r2)) return true;
-            if (segIntersectsSeg(a,b,r2,r3)) return true;
-            if (segIntersectsSeg(a,b,r3,r4)) return true;
-            if (segIntersectsSeg(a,b,r4,r1)) return true;
-            return false;
-        };
+        // (local wrappers removed; functions above are used unchanged)
+
+
+        const findshifts = (sourcePt: {x:number,y:number}, targetPt: {x:number,y:number}): number => {
+            let shifts = 0;
+            while (true) {
+                let collisionFound = false;
+                for (const nodePos of this.allNodePositions) {
+                    if (nodePos.id === source.id || nodePos.id === target.id) continue;
+                    const rect = { x: nodePos.x, y: nodePos.y, w: nodePos.w, h: nodePos.h };
+                    if (segmentIntersectsRect(sourcePt, targetPt, rect)) {
+                        shifts++;
+                        sourcePt.x += C.NODE_WIDTH;
+                        targetPt.x += C.NODE_WIDTH;
+                        collisionFound = true;
+                        break;
+                    }
+                }
+                if(!collisionFound) return shifts;
+                if(shifts > 20) { // safety break to prevent infinite loops in extreme cases
+                    console.warn(`[NodeFactory V2] Excessive shifts detected for edge ${source.id} → ${target.id}. Possible layout issue.`);
+                    return shifts;
+                }
+            }
+            
+        }
 
         // Check all positioned step nodes for blocking rectangles (exclude source/target)
         let foundBlockingRect: {x:number,y:number,w:number,h:number} | null = null;
+        let shiftamount: number = 0;
         for (const nodePos of this.allNodePositions) {
             if (nodePos.id === source.id || nodePos.id === target.id) continue;
             const rect = { x: nodePos.x, y: nodePos.y, w: nodePos.w, h: nodePos.h };
             if (segmentIntersectsRect(sourcePt, targetPt, rect)) {
                 foundBlockingRect = rect;
                 console.log(`[NodeFactory V2] Edge ${source.id} → ${target.id} blocked by ${nodePos.id}`);
-                break;
+                shiftamount = findshifts({x: sourcePt.x + C.NODE_WIDTH/2 + C.WAYPOINT_SKIP_HORIZONTAL_OFFSET, y: sourcePt.y}, {x: targetPt.x + C.NODE_WIDTH/2 + C.WAYPOINT_SKIP_HORIZONTAL_OFFSET, y: targetPt.y});
             }
         }
 
@@ -244,13 +258,13 @@ export class NodeFactoryVisitorVertical_v2 {
                 targetHandleId = 'h-right-target';
                 targetPt = computeHandlePoint(target, targetHandleId);
                 labelPos = 0.35;
-                computedWaypoints = WaypointCreator(sourcePt, targetPt, foundBlockingRect, 'skip');
+                computedWaypoints = WaypointCreator(sourcePt, targetPt, foundBlockingRect, 'skip', shiftamount);
             } catch (e) {
                 computedWaypoints = [];
             }
         }else if(scenario === 'branch') {
             // For branches, add a slight horizontal offset to the label position to avoid overlap with the node
-            computedWaypoints = WaypointCreator(sourcePt, targetPt, foundBlockingRect, 'branch');
+            computedWaypoints = WaypointCreator(sourcePt, targetPt, foundBlockingRect, 'branch',);
         }
 
         const edge = {

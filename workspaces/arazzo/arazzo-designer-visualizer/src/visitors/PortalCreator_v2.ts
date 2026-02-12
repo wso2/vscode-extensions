@@ -160,11 +160,12 @@ export class PortalCreator_v2 {
         }
 
         // Rule 2: Main path/alternative branch backward jump to main path = CREATE PORTAL
-        // Only if target is to the left of source
-            if (!sourceIsInFailurePath && isBackwardJump && targetIsOnMainPath && isLeftwardJump) {
-                const reason = 'backward jump to main';
-                console.log(`[PortalCreator V2] Creating portal: ${source.id} → ${target.id} (${reason})`);
-                this.createPortal(source, target, edgeType, reason);
+        // In vertical layout, any backward jump (target.y < source.y) to an already-positioned
+        // node (main or failure path) should create a portal, regardless of X position.
+        if (!sourceIsInFailurePath && isBackwardJump && (targetIsOnMainPath || targetIsInFailurePath)) {
+            const reason = 'backward jump to positioned node';
+            console.log(`[PortalCreator V2] Creating portal: ${source.id} → ${target.id} (${reason})`);
+            this.createPortal(source, target, edgeType, reason);
             return;
         }
 

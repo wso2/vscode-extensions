@@ -45,11 +45,13 @@ export const FAIL_GAP_Y_Horizontal = 50;  // Vertical gap for failure paths
 //export const FAIL_GAP_X_Horizontal = 50;  // Horizontal gap for failure paths
 
 // Vertical layout constants (main flow goes down, branches go right)
-export const NODE_GAP_X_Vertical = 60;  // Horizontal gap between steps
-export const NODE_GAP_Y_Vertical = 70;  // Vertical gap between branches/failure paths
+export const NODE_GAP_X_Vertical = 80;  // Horizontal gap between steps
+export const NODE_GAP_Y_Vertical = 55;  // Vertical gap between branches/failure paths
 //export const FAIL_GAP_Y_Vertical = 50;  // Vertical gap for failure paths
 export const FAIL_GAP_X_Vertical = 50;  // Horizontal gap for failure paths
-export const NODE_GAP_Y_AFTERCONDITION = 130; // Vertical gap between node and edge label
+export const RETRY_GAP_Y_ConditionBranch = 70; // Horizontal gap between condition node and its branches
+export const NODE_GAP_Y_AFTERCONDITION = 150; // Vertical gap between node and edge label
+export const CONDITION_NODE_SECOND_BRANCH_OFFSET = 0; // Vertical offset for 2nd branch of condition nodes
 
 
 //portal node constants
@@ -57,9 +59,9 @@ export const PORTALNODE_GAP_X = 35;
 export const PORTALNODE_GAP_Y = 40;
 
 //Waypoint realted constants
-export const WAYPOINT_SKIP_VERTICAL_OFFSET = 30; // Distance to offset waypoints from node edges
+export const WAYPOINT_SKIP_VERTICAL_OFFSET = 40; // Distance to offset waypoints from node edges
 export const WAYPOINT_BRANCH_VERTICAL_OFFSET = 40; // Vertical offset for branch waypoints to avoid label overlap
-export const WAYPOINT_SKIP_HORIZONTAL_OFFSET_MULTIPLIER = 1.5;
+export const WAYPOINT_SKIP_HORIZONTAL_OFFSET = NODE_GAP_X_Vertical/2;
 
 //canvas constants
 export const CANVAS_PADDING = 100;
@@ -67,5 +69,10 @@ export const DOT_SIZE = 1.5;
 export const CANVAS_ZOOM = 1.25;
 export const DOT_GAP = 18;
 
+//label related constants
+export const LABEL_OFFSET = 50; // fixed distance in pixels from the bend
+export const CONDITION_CHARS_BEFORE_WRAP = 25; // Maximum characters before wrapping for condition labels
+
+//export const LABEL_OFFSET_RANDOMNESS_MULTIPLIER = 0.2; // randomness in label positioning
 export const FONT_SIZE = 15;
 export const ICON_SIZE_STEP = 24;
