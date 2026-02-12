@@ -42,6 +42,7 @@ export function getMediatorIconsFromFont(mediator: string, isMostPopular?: boole
         case MEDIATORS.THROTTLE.toLowerCase():
         case MEDIATORS.STORE.toLowerCase():
         case MEDIATORS.THROWERROR.toLowerCase():
+        case TOOLS.MCP.toLowerCase():
             color = "#3e97d3";
             break;
 
@@ -303,7 +304,7 @@ export function getMediatorIconsFromFont(mediator: string, isMostPopular?: boole
             break;
 
         case TOOLS.MCP.toLowerCase():
-            icon = (<Icon name="mcp" isCodicon sx={{ height: 40, width: 40, fontSize: 40, color: color }} />);
+            icon = (<Icon name="mcp" isCodicon sx={{ height: 25, width: 25, color: color }} iconSx={{ fontSize: 25 }} />);
             break;
         default:
             icon = (<Icon name="Default" sx={{ height: 25, width: 25, fontSize: 25, color: color }} />);
