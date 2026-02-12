@@ -232,7 +232,6 @@ export interface GetNodeLocksResponse {
     locks: Record<string, { userId: string; userName: string; timestamp: number }>;
 }
 
-// Cursor Awareness Interfaces
 export interface CursorPosition {
     x: number;
     y: number;

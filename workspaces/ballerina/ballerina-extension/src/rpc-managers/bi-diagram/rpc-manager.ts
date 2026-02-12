@@ -2152,13 +2152,16 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
 
     // Node lock management methods
     async acquireNodeLock(params: AcquireNodeLockRequest): Promise<AcquireNodeLockResponse> {
+        console.log('[RPC Manager] acquireNodeLock called with:', params);
         const lockManager = CollaborationLockManager.getInstance();
-        return await lockManager.acquireLock(
+        const result = await lockManager.acquireLock(
             params.filePath,
             params.nodeId,
             params.userId,
             params.userName
         );
+        console.log('[RPC Manager] acquireNodeLock result:', result);
+        return result;
     }
 
     async releaseNodeLock(params: ReleaseNodeLockRequest): Promise<ReleaseNodeLockResponse> {
@@ -2181,6 +2184,8 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     }
 
     // Cursor awareness methods
+
+    // RPC method to call lock manager to update cursor position from backend
     async updateDiagramCursor(params: UpdateDiagramCursorRequest): Promise<void> {
         const lockManager = CollaborationLockManager.getInstance();
         // Only update cursor if collaboration is active
@@ -2189,7 +2194,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         }
         lockManager.updateCursor(params.x, params.y, params.nodeId);
     }
-
     async getDiagramCursors(params: GetDiagramCursorsRequest): Promise<GetDiagramCursorsResponse> {
         const lockManager = CollaborationLockManager.getInstance();
         const users = lockManager.getConnectedUsers();

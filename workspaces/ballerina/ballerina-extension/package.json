@@ -32,7 +32,8 @@
     ],
     "extensionDependencies": [
         "anweber.httpbook",
-        "WSO2.wso2-platform"
+        "WSO2.wso2-platform",
+        "typefox.open-collaboration-tools"
     ],
     "contributes": {
         "languages": [

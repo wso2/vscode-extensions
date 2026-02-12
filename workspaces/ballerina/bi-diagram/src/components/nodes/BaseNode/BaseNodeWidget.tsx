@@ -182,7 +182,7 @@ export namespace NodeStyles {
 
     export const LockIcon = styled.div`
         color: ${ThemeColors.ON_SECONDARY};
-        font-size: 14px;
+        font-size: 10px;
     `;
 }
 
@@ -386,7 +386,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
         >
             {/* Lock indicator */}
             {isLocked && (
-                <Tooltip content={`Locked by ${model.node.locked.userName}`}>
+                <Tooltip content={`Locked by ${model.node.locked.userName}`} >
                     <NodeStyles.LockIndicator>
                         <NodeStyles.LockIcon>
                             🔒

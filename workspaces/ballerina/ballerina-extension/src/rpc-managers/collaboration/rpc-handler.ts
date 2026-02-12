@@ -64,9 +64,15 @@ export async function initializeOctIntegration(): Promise<void> {
             setupOctListeners();
             
             // Initialize lock manager with OCT API
-            const { CollaborationLockManager } = await import('../../features/collaboration/lock-manager.js');
+            const { CollaborationLockManager } = await import('../../features/collaboration/lock-manager');
             const lockManager = CollaborationLockManager.getInstance();
             await lockManager.initializeWithOctApi(octApi);
+            
+            // TEMPORARY: Enable basename-only mode for testing
+            // This ensures host and collaborator use the same lock keys
+            // TODO: Fix workspace detection to use proper relative paths
+            lockManager.setBasenameOnlyMode(true);
+            
             debug('[OCT Integration] Lock manager initialized with OCT API');
         } else {
             debug('[OCT Integration] ⚠️ OCT extension did not export an API');

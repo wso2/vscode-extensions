@@ -19,7 +19,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import styled from "@emotion/styled";
-import { debounce } from "lodash";
+import { debounce, throttle } from "lodash";
 import { removeMcpServerFromAgentNode, findAgentNodeFromAgentCallNode, findFlowNode } from "../AIChatAgent/utils";
 import { MemoizedDiagram } from "@wso2/bi-diagram";
 import {
@@ -992,19 +992,38 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         return absolutePath;
     };
 
-    const resetNodeSelectionStates = () => {
+    const resetNodeSelectionStates = async () => {
         // Release position lock when closing side panel
-        if (topNodeRef.current && targetRef.current) {
-            const parentId = 'id' in topNodeRef.current ? topNodeRef.current.id : 'branch';
-            const positionLockKey = `position_${parentId}_${targetRef.current.startLine.line}_${targetRef.current.startLine.offset}`;
-            releaseNodeLock(positionLockKey);
+        // Capture values before clearing refs to ensure lock release completes
+        const positionLockToRelease = topNodeRef.current && targetRef.current
+            ? (() => {
+                const parentId = 'id' in topNodeRef.current ? topNodeRef.current.id : 'branch';
+                return `position_${parentId}_${targetRef.current.startLine.line}_${targetRef.current.startLine.offset}`;
+            })()
+            : null;
+        
+        // Capture node lock to release
+        const nodeLockToRelease = selectedNodeRef.current?.id || null;
+        
+        // Release both locks in parallel and wait for completion
+        const lockReleasePromises = [];
+        
+        if (positionLockToRelease) {
+            console.log('[Lock Frontend] Releasing position lock:', positionLockToRelease);
+            lockReleasePromises.push(releaseNodeLock(positionLockToRelease));
         }
         
-        // Release node lock when closing side panel
-        if (selectedNodeRef.current?.id) {
-            releaseNodeLock(selectedNodeRef.current.id);
+        if (nodeLockToRelease) {
+            console.log('[Lock Frontend] Releasing node lock:', nodeLockToRelease);
+            lockReleasePromises.push(releaseNodeLock(nodeLockToRelease));
         }
         
+        // Wait for all lock releases to complete before clearing state
+        if (lockReleasePromises.length > 0) {
+            await Promise.all(lockReleasePromises);
+            console.log('[Lock Frontend] All locks released successfully');
+        }
+
         setShowSidePanel(false);
         setSidePanelView(SidePanelView.NODE_LIST);
         setSubPanel({ view: SubPanelView.UNDEFINED });
@@ -1044,7 +1063,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     };
 
     // Lock management functions
-    const acquireNodeLock = async (nodeId: string) => {
+    const acquireNodeLock = async (nodeId: string): Promise<{ success: boolean; error?: string }> => {
         console.log(`[Lock Frontend] acquireNodeLock called with:`, {
             nodeId,
             currentUserId,
@@ -1054,12 +1073,13 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         
         if (!currentUserId || !nodeId || !model?.fileName) {
             console.warn(`[Lock Frontend] Early return - missing required data`);
-            return;
+            return { success: false, error: 'Missing required data' };
         }
         
         try {
-            // Send original path - backend UriCache will handle path matching
-            console.log(`[Lock Frontend] Acquiring lock for node ${nodeId} at ${model.fileName}`);
+            // Backend handles all lock logic and broadcasts updates to all clients
+            // The onNodeLockUpdated subscription will update nodeLocks state automatically
+            console.log(`[Lock Frontend] Requesting lock from backend for node ${nodeId} at ${model.fileName}`);
             
             const response = await rpcClient.getBIDiagramRpcClient().acquireNodeLock({
                 nodeId,
@@ -1069,32 +1089,21 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 timestamp: Date.now(),
             });
             
-            console.log(`[Lock Frontend] Lock acquisition result:`, response);
+            console.log(`[Lock Frontend] Backend response:`, response);
             
             if (response.success) {
-                // Update local state on success
-                setNodeLocks(prev => {
-                    const updated = {
-                        ...prev,
-                        [nodeId]: {
-                            userId: currentUserId,
-                            userName: currentUserName,
-                            timestamp: Date.now(),
-                        }
-                    };
-                    console.log(`[Lock Frontend] Local locks updated:`, updated);
-                    return updated;
-                });
-                
-                // Send selection update to OCT when a node is locked (selected)
+                console.log(`[Lock Frontend] Lock acquired successfully - backend will broadcast update`);
                 if (isCollaborationActive) {
                     sendSelectionUpdate([nodeId]);
                 }
+                return { success: true };
             } else {
-                console.error('[Lock Frontend] Failed to acquire lock:', response.error);
+                console.error('[Lock Frontend] Lock acquisition failed:', response.error);
+                return { success: false, error: response.error };
             }
         } catch (error) {
             console.error('[Lock Frontend] Error acquiring node lock:', error);
+            return { success: false, error: String(error) };
         }
     };
 
@@ -1102,27 +1111,24 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         if (!currentUserId || !nodeId || !model?.fileName) return;
         
         try {
-            // Send original path - backend UriCache will handle path matching
+            // Backend handles lock release and broadcasts updates to all clients
+            // The onNodeLockUpdated subscription will update nodeLocks state automatically
+            console.log(`[Lock Frontend] Releasing lock for node ${nodeId}`);
+            
             await rpcClient.getBIDiagramRpcClient().releaseNodeLock({
                 nodeId,
                 userId: currentUserId,
                 filePath: model.fileName,
             });
             
-            // Update local state
-            setNodeLocks(prev => {
-                const updated = { ...prev };
-                delete updated[nodeId];
-                return updated;
-            });
+            console.log(`[Lock Frontend] Lock released - backend will broadcast update`);
         } catch (error) {
-            console.error('Error releasing node lock:', error);
+            console.error('[Lock Frontend] Error releasing node lock:', error);
         }
     };
 
-    // Throttled cursor position update (send to both backend and OCT)
-    const updateCursorPosition = useCallback(
-        debounce((x: number, y: number, nodeId?: string) => {
+    const updateCursorPosition = useMemo(() =>
+        throttle((x: number, y: number, nodeId?: string) => {
             if (!model?.fileName || !isCollaborationActive) return;
             
             // Send to backend for diagram-specific features
@@ -1132,13 +1138,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 y,
                 nodeId,
             });
-            
-            // Send to OCT for cross-extension collaboration
+        
             try {
                 const presenceData: CollaborationPresenceData = {
                     peerId: currentUserId,
                     peerName: currentUserName,
-                    color: '#007ACC', // You can generate unique colors per user
+                    color: '#007ACC', 
                     filePath: normalizeFilePath(model.fileName),
                     cursor: {
                         x,
@@ -1162,7 +1167,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             } catch (error) {
                 console.log('[OCT] Failed to send presence update:', error);
             }
-        }, 100), // Update every 100ms
+        }, 100), 
         [model?.fileName, isCollaborationActive, currentUserId, currentUserName, nodeLocks]
     );
     
@@ -1174,7 +1179,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             const selectionData: CollaborationTextSelection = {
                 filePath: normalizeFilePath(model.fileName),
                 selectedNodes: selectedNodeIds,
-                cursor: undefined, // Will be sent via updateCursorPosition
+                cursor: undefined, 
             };
             
             rpcClient.sendRequest(updateWebviewCollaborationSelection, selectionData);
@@ -1183,8 +1188,8 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
     }, [model?.fileName, isCollaborationActive]);
 
-    const closeSidePanelAndFetchUpdatedFlowModel = () => {
-        resetNodeSelectionStates();
+    const closeSidePanelAndFetchUpdatedFlowModel = async () => {
+        await resetNodeSelectionStates();
         // Complete draft and fetch new flow model
         if (hasDraft) {
             // completeDraft();
@@ -1194,8 +1199,8 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
     };
 
-    const handleOnCloseSidePanel = () => {
-        resetNodeSelectionStates();
+    const handleOnCloseSidePanel = async () => {
+        await resetNodeSelectionStates();
         // Cancel draft and return to previous flow model
         if (hasDraft) {
             const restoredModel = cancelDraft();
@@ -1207,7 +1212,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
     };
 
-    const fetchNodesAndAISuggestions = (
+    const fetchNodesAndAISuggestions = async (
         parent: FlowNode | Branch,
         target: LineRange,
         fetchAiSuggestions = true,
@@ -1232,27 +1237,43 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         setShowProgressIndicator(true);
         // Add draft node to model using hook
         console.log(`[Lock Frontend] updateFlowModel=${updateFlowModel}, will ${updateFlowModel ? 'ENTER' : 'SKIP'} lock acquisition block`);
+        
+        // ALWAYS check lock in collaboration mode, regardless of updateFlowModel flag
         if (updateFlowModel) {
-            const modelWithDraft = addDraftNode(parent, target);
-            
-            // Lock the POSITION where the node is being added
+            // Lock the POSITION where the node is being added first, before modifying state
             // This prevents other users from adding nodes at the same location
             const parentId = 'id' in parent ? parent.id : 'branch';
             const positionLockKey = `position_${parentId}_${target.startLine.line}_${target.startLine.offset}`;
             
-            // Acquire lock on the position
-            acquireNodeLock(positionLockKey);
+            console.log(`[Lock Frontend] Attempting to acquire lock for position key: ${positionLockKey}`);
             
-            // Also store the position lock info for UI reference
-            const modelWithLock = updateNodeLocks(modelWithDraft, {
-                ...nodeLocks,
-                [positionLockKey]: {
-                    userId: currentUserId,
-                    userName: currentUserName,
-                    timestamp: Date.now(),
-                }
-            });
-            setModel(modelWithLock);
+            // Try to acquire lock - backend handles all logic and broadcasts updates
+            const lockResult = await acquireNodeLock(positionLockKey);
+            
+            console.log(`[Lock Frontend] Lock acquisition result:`, lockResult);
+            
+            if (!lockResult.success) {
+                // Lock acquisition failed - clean up and don't show side panel
+                console.error('[Lock Frontend] Cannot add node - position is locked:', lockResult.error);
+                setShowProgressIndicator(false);
+                
+                // Clean up the refs that were set in handleOnAddNode
+                topNodeRef.current = undefined;
+                targetRef.current = undefined;
+                
+                // Show error notification to user
+                rpcClient.getCommonRpcClient().showErrorMessage({
+                    message: `Cannot add node here - ${lockResult.error || 'this position is locked by another user'}. Please wait until they finish editing.`
+                });
+                return; // Exit early - don't show side panel
+            }
+            
+            console.log('[Lock Frontend] Lock acquired successfully, proceeding to add draft node');
+            
+            // Now that lock is acquired, add draft node and update model
+            const modelWithDraft = addDraftNode(parent, target);
+            // Lock info will be added to model automatically via the nodeLocks state subscription
+            setModel(modelWithDraft);
         }
         rpcClient
             .getBIDiagramRpcClient()
@@ -1483,7 +1504,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             await handleChunkerAdded();
             return;
         }
-        closeSidePanelAndFetchUpdatedFlowModel();
+        await closeSidePanelAndFetchUpdatedFlowModel();
     };
 
     const handleOnSelectNode = (nodeId: string, metadata?: any, fileName?: string) => {
@@ -1847,7 +1868,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     }
                     if (options?.closeSidePanel) {
                         selectedNodeRef.current = undefined;
-                        closeSidePanelAndFetchUpdatedFlowModel();
+                        await closeSidePanelAndFetchUpdatedFlowModel();
                     }
                     if (options?.postUpdateCallBack) {
                         options.postUpdateCallBack();
@@ -1931,7 +1952,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         await updateArtifactLocation(deleteNodeResponse);
 
         selectedNodeRef.current = undefined;
-        closeSidePanelAndFetchUpdatedFlowModel();
+        await closeSidePanelAndFetchUpdatedFlowModel();
         setShowProgressIndicator(false);
         debouncedGetFlowModel();
     };
@@ -1977,7 +1998,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 if (response.artifacts.length > 0) {
                     selectedNodeRef.current = undefined;
                     await updateArtifactLocation(response);
-                    closeSidePanelAndFetchUpdatedFlowModel();
+                    await closeSidePanelAndFetchUpdatedFlowModel();
                 } else {
                     console.error(">>> Error updating source code", response);
                 }
@@ -2687,7 +2708,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         await rpcClient
             .getBIDiagramRpcClient()
             .getSourceCode({ filePath: projectPath, flowNode: selectedNode });
-        closeSidePanelAndFetchUpdatedFlowModel();
+        await closeSidePanelAndFetchUpdatedFlowModel();
     };
 
     const deleteMcpVariableAndClass = async (tool: ToolData) => {

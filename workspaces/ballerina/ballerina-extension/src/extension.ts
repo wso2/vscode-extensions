@@ -188,7 +188,6 @@ function onBeforeInit(langClient: ExtendedLangClient) {
 export async function activate(context: ExtensionContext) {
     extension.context = context;
     
-    // Initialize URI cache for non-file schemes
     uriCache = UriCache.getInstance();
     debug('Initialized URI cache for non-file schemes');
     
