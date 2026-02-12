@@ -70,6 +70,48 @@ const AdvancedConfigsContent = styled.div<{ isExpanded: boolean }>`
     margin-top: 8px;
 `;
 
+/**
+ * Converts a PascalCase or camelCase type name to a camelCase parameter name.
+ * For CSV format, pluralizes the name since it represents an array of rows.
+ */
+const typeNameToParamName = (typeName: string, pluralize: boolean = false): string => {
+    if (!typeName) return "content";
+
+    let baseName = typeName.trim();
+    if (!baseName) return "content";
+
+    // Remove module qualifier and array suffix
+    if (baseName.includes(":")) {
+        baseName = baseName.split(":").pop() || baseName;
+    }
+    if (baseName.endsWith("[]")) {
+        baseName = baseName.slice(0, -2);
+    }
+    // Remove non-identifier characters
+    baseName = baseName.replace(/[^A-Za-z0-9_]/g, "");
+    if (!baseName || /^\d/.test(baseName)) return "content";
+
+    // Convert to camelCase (lowercase first letter)
+    const camelCase = baseName.charAt(0).toLowerCase() + baseName.slice(1);
+
+    if (!pluralize) return camelCase;
+
+    // Simple pluralization rules
+    const lastChar = camelCase.slice(-1);
+    const lastTwoChars = camelCase.slice(-2);
+
+    if (lastTwoChars === 'ss' || lastTwoChars === 'sh' || lastTwoChars === 'ch' || lastChar === 'x' || lastChar === 'z') {
+        return camelCase + 'es';
+    }
+    if (lastChar === 'y' && !['a', 'e', 'i', 'o', 'u'].includes(camelCase.slice(-2, -1))) {
+        return camelCase.slice(0, -1) + 'ies';
+    }
+    if (lastChar === 's') {
+        return camelCase;
+    }
+    return camelCase + 's';
+};
+
 export const EditorContentColumn = styled.div`
     display: flex;
     flex-direction: column;
@@ -190,7 +232,7 @@ export function FTPForm(props: FTPFormProps) {
 
         if ( selectedFileFormat === 'RAW'){
             if (isStreamEnabled){
-                return `stream<byte[], error>`;
+                return `stream<byte[], error?>`;
             } else {
                 return `byte[]`;
             }
@@ -201,7 +243,9 @@ export function FTPForm(props: FTPFormProps) {
             baseType = baseType.slice(0, -2);
         }
         else if (baseType.startsWith("stream<")) {
-            if (baseType.endsWith(", error>")) {
+            if (baseType.endsWith(", error?>")) {
+                baseType = baseType.slice(7, -9);
+            } else if (baseType.endsWith(", error>")) {
                 baseType = baseType.slice(7, -8);
             } else if (baseType.endsWith(">")) {
                 baseType = baseType.slice(7, -1);
@@ -210,7 +254,7 @@ export function FTPForm(props: FTPFormProps) {
 
         // Apply the correct wrapper based on stream state
         if (isStreamEnabled) {
-            return `stream<${baseType}, error>`;
+            return `stream<${baseType}, error?>`;
         } else {
             return `${baseType}[]`;
         }
@@ -231,7 +275,9 @@ export function FTPForm(props: FTPFormProps) {
             baseType = baseType.slice(0, -2);
         }
         else if (baseType.startsWith("stream<")) {
-            if (baseType.endsWith(", error>")) {
+            if (baseType.endsWith(", error?>")) {
+                baseType = baseType.slice(7, -9);
+            } else if (baseType.endsWith(", error>")) {
                 baseType = baseType.slice(7, -8);
             } else if (baseType.endsWith(">")) {
                 baseType = baseType.slice(7, -1);
@@ -247,13 +293,17 @@ export function FTPForm(props: FTPFormProps) {
         if (payloadParam) {
             const typeValue = typeof type === 'string' ? type : type.name;
 
+            // Derive param name from type name (pluralize for CSV since it's an array of rows)
+            const shouldPluralize = selectedFileFormat === 'CSV';
+            const paramName = typeNameToParamName(typeValue, shouldPluralize);
+
             // Update all parameters in one pass
             const updatedParameters = functionModel.parameters.map(param => {
                 // Enable DATA_BINDING parameter with new type
                 if (param.kind === "DATA_BINDING") {
                     return {
                         ...param,
-                        name: { ...param.name, value: "content" },
+                        name: { ...param.name, value: paramName },
                         type: {
                             ...param.type,
                             value: selectType(typeValue, functionModel.properties.stream?.enabled)
@@ -311,9 +361,6 @@ export function FTPForm(props: FTPFormProps) {
         setFunctionModel(updatedFunctionModel);
     };
 
-    const handleEditContentSchema = () => {
-        setIsTypeEditorOpen(true);
-    };
 
     // Define parameter configuration from frontend
     const parameterConfig = {
@@ -602,7 +649,6 @@ export function FTPForm(props: FTPFormProps) {
                                                             handleParamChange(params);
                                                         }
                                                     }}
-                                                    onEditClick={handleEditContentSchema}
                                                     showPayload={true}
                                                     streamEnabled={hasStreamProperty ? functionModel.properties.stream.enabled : undefined}
                                                 />
@@ -770,6 +816,7 @@ export function FTPForm(props: FTPFormProps) {
                 defaultTab="create-from-scratch"
                 modalWidth={650}
                 modalHeight={600}
+                note={selectedFileFormat === 'CSV' ? "Define schema for one row -- file content will be array of row schema." : undefined}
             />
         </>
     );

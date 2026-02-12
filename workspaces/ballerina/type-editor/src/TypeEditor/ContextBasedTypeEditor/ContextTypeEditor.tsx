@@ -86,6 +86,7 @@ interface ContextTypeEditorProps {
     isGraphql?: boolean;
     payloadContext?: PayloadContext;
     defaultTab?: 'import' | 'create-from-scratch' | 'browse-exisiting-types';
+    note?: string;
     typeHelper: {
         loading?: boolean;
         loadingTypeBrowser?: boolean;
@@ -104,7 +105,7 @@ interface ContextTypeEditorProps {
 
 
 export function ContextTypeEditor(props: ContextTypeEditorProps) {
-    const { isGraphql, newType, isPopupTypeForm, simpleType, payloadContext, defaultTab } = props;
+    const { isGraphql, newType, isPopupTypeForm, simpleType, payloadContext, defaultTab, note } = props;
 
     const [initialTypeKind] = useState<TypeNodeKind>(() =>
         (props.type?.codedata?.node ?? "RECORD") as TypeNodeKind
@@ -249,6 +250,7 @@ export function ContextTypeEditor(props: ContextTypeEditorProps) {
                                 onTypeSave={onTypeSave}
                                 isSaving={isSaving}
                                 setIsSaving={setIsSaving}
+                                note={note}
                             />
                         </TabContainer>
                         <TabContainer id="browse-exisiting-types" data-testid="browse-exisiting-types-tab">
@@ -260,6 +262,7 @@ export function ContextTypeEditor(props: ContextTypeEditorProps) {
                                 onTypeItemClick={props.typeHelper.onTypeItemClick}
                                 onTypeSelect={props.onSaveType}
                                 simpleType={simpleType}
+                                note={note}
                             />
                         </TabContainer>
                     </TabPanel>
