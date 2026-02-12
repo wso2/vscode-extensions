@@ -46,23 +46,23 @@ export function generateCodeMapMarkdown(codeMapResponse: CodeMapResponse): strin
         "## CodeMap Structure",
         "",
         "This document provides a structured overview of the project codebase.",
-        "It is organized by file path and summarizes the following elements for each file:",
+        "It is organized by file path and summarizes the following elements for each file.",
+        "Each artifact is listed with its sub-properties on separate indented lines.",
         "",
         "- **Imports** – External modules and dependencies used in the file.",
-        "- **Variables** – Global and configurable variables with their types and line ranges.",
-        "- **Functions** – Functions with parameter details, return types, documentation, and line ranges.",
-        "- **Services / Resources** – HTTP services, resource functions, and entry points.",
-        "- **Types** – Record types, enums, and custom type definitions.",
-        "- **Classes** – Class definitions with their members.",
-        "- **Automations** – Entry-point functions such as `main`.",
+        "- **Configurables** – Configurable variables with type, description, and line range.",
+        "- **Variables** – Global variables with type, description, and line range.",
+        "- **Types** – Record types, enums, and custom type definitions with type descriptor, fields, description, and line range.",
+        "- **Functions** – Functions with parameters, return type, description, and line range.",
+        "- **Automations** – Entry-point functions such as `main` with parameters, return type, and line range.",
+        "- **Listeners** – Listener declarations with type, arguments, description, and line range.",
+        "- **Connections** – Client connections with type, description, and line range.",
+        "- **Services** – HTTP services and resource functions with base path, listener type, port, description, and line range.",
+        "- **Classes** – Class definitions with description, line range, and their member fields and functions.",
+        "- **Data Mappers** – Data transformation functions with parameters, return type, and line range.",
         "",
         "Each section is grouped under its corresponding file path to provide a high-level architectural view of the system.",
-        "",
-        "**Important Notes:**",
-        "",
-        "This CodeMap may fail or crash if there are syntax errors or compilation errors in the project.",
-        "If there are inconsistencies, missing artifacts, or incorrect details in the generated CodeMap,",
-        "use the read tool to inspect the actual implementation and verify the source code directly.",
+        ""
     ];
 
     for (const [filePath, fileData] of Object.entries(files)) {
@@ -192,22 +192,22 @@ function parametersInline(artifact: CodeMapArtifactRaw): string {
     }).join(", ");
 }
 
-function addPart(parts: string[], label: string, value: string): void {
+function pushSubItem(lines: string[], indent: string, label: string, value: string): void {
     if (value) {
-        parts.push(`**${label}**: ${value}`);
+        lines.push(`${indent}- **${label}**: ${value}`);
     }
 }
 
-function addBracketPart(parts: string[], label: string, value: string): void {
+function pushSubItemBracket(lines: string[], indent: string, label: string, value: string): void {
     if (value) {
-        parts.push(`**${label}**: [${value}]`);
+        lines.push(`${indent}- **${label}**: [${value}]`);
     }
 }
 
-function addLineRange(parts: string[], artifact: CodeMapArtifactRaw): void {
+function pushLineRange(lines: string[], indent: string, artifact: CodeMapArtifactRaw): void {
     const range = formatRange(artifact);
     if (range) {
-        parts.push(`**LineRange** ${range}`);
+        lines.push(`${indent}- **Line Range**: ${range}`);
     }
 }
 
@@ -222,7 +222,8 @@ function categorizeVariable(
     variables: CodeMapArtifactRaw[]
 ): void {
     const category = propStr(artifact, "category").toUpperCase();
-    if (category === "CONFIGURABLE") {
+    const mods: string[] = prop(artifact, "modifiers") ?? [];
+    if (category === "CONFIGURABLE" || mods.includes("configurable")) {
         configurables.push(artifact);
     } else if (category === "CONNECTION") {
         connections.push(artifact);
@@ -240,7 +241,7 @@ function renderImports(lines: string[], artifacts: CodeMapArtifactRaw[]): void {
         const org = propStr(a, "orgName");
         const mod = propStr(a, "moduleName");
         const alias = prop(a, "alias");
-        let entry = `- ${org}/${mod}`;
+        let entry = org ? `- ${org}/${mod}` : `- ${mod}`;
         if (alias) {
             entry += ` as ${alias}`;
         }
@@ -252,11 +253,11 @@ function renderConfigurables(lines: string[], artifacts: CodeMapArtifactRaw[]): 
     if (artifacts.length === 0) { return; }
     lines.push("", "### Configurables", "");
     for (const a of artifacts) {
-        const parts: string[] = [`configurable ${a.name}`];
-        addPart(parts, "Type", propStr(a, "type"));
-        addPart(parts, "Documentation", propStr(a, "documentation"));
-        addLineRange(parts, a);
-        lines.push("- " + parts.join(" | "));
+        lines.push("");
+        lines.push(`- configurable ${a.name}`);
+        pushSubItem(lines, "  ", "Type", propStr(a, "type"));
+        pushSubItem(lines, "  ", "Description", propStr(a, "documentation"));
+        pushLineRange(lines, "  ", a);
     }
 }
 
@@ -264,11 +265,11 @@ function renderVariables(lines: string[], artifacts: CodeMapArtifactRaw[]): void
     if (artifacts.length === 0) { return; }
     lines.push("", "### Variables", "");
     for (const a of artifacts) {
-        const parts: string[] = [`${modifiersPrefix(a)}${a.name}`];
-        addPart(parts, "Type", propStr(a, "type"));
-        addPart(parts, "Documentation", propStr(a, "documentation"));
-        addLineRange(parts, a);
-        lines.push("- " + parts.join(" | "));
+        lines.push("");
+        lines.push(`- ${modifiersPrefix(a)}${a.name}`);
+        pushSubItem(lines, "  ", "Type", propStr(a, "type"));
+        pushSubItem(lines, "  ", "Description", propStr(a, "documentation"));
+        pushLineRange(lines, "  ", a);
     }
 }
 
@@ -276,15 +277,15 @@ function renderTypes(lines: string[], artifacts: CodeMapArtifactRaw[]): void {
     if (artifacts.length === 0) { return; }
     lines.push("", "### Types", "");
     for (const a of artifacts) {
-        const parts: string[] = [`type ${a.name}`];
-        addPart(parts, "Type Descriptor", propStr(a, "typeDescriptor"));
+        lines.push("");
+        lines.push(`- type ${a.name}`);
+        pushSubItem(lines, "  ", "Type Descriptor", propStr(a, "typeDescriptor"));
         const fields = prop(a, "fields");
         if (fields && Array.isArray(fields) && fields.length > 0) {
-            addBracketPart(parts, "Fields", fields.join(", "));
+            pushSubItemBracket(lines, "  ", "Fields", fields.join(", "));
         }
-        addPart(parts, "Documentation", propStr(a, "documentation"));
-        addLineRange(parts, a);
-        lines.push("- " + parts.join(" | "));
+        pushSubItem(lines, "  ", "Description", propStr(a, "documentation"));
+        pushLineRange(lines, "  ", a);
     }
 }
 
@@ -308,15 +309,15 @@ function renderListeners(lines: string[], artifacts: CodeMapArtifactRaw[]): void
     if (artifacts.length === 0) { return; }
     lines.push("", "### Listeners", "");
     for (const a of artifacts) {
-        const parts: string[] = [`listener ${a.name}`];
-        addPart(parts, "Type", propStr(a, "type"));
+        lines.push("");
+        lines.push(`- listener ${a.name}`);
+        pushSubItem(lines, "  ", "Type", propStr(a, "type"));
         const args = prop(a, "arguments");
         if (args && Array.isArray(args) && args.length > 0) {
-            addBracketPart(parts, "Arguments", args.join(", "));
+            pushSubItemBracket(lines, "  ", "Arguments", args.join(", "));
         }
-        addPart(parts, "Documentation", propStr(a, "documentation"));
-        addLineRange(parts, a);
-        lines.push("- " + parts.join(" | "));
+        pushSubItem(lines, "  ", "Description", propStr(a, "documentation"));
+        pushLineRange(lines, "  ", a);
     }
 }
 
@@ -324,11 +325,11 @@ function renderConnections(lines: string[], artifacts: CodeMapArtifactRaw[]): vo
     if (artifacts.length === 0) { return; }
     lines.push("", "### Connections", "");
     for (const a of artifacts) {
-        const parts: string[] = [`${modifiersPrefix(a)}${a.name}`];
-        addPart(parts, "Type", propStr(a, "type"));
-        addPart(parts, "Documentation", propStr(a, "documentation"));
-        addLineRange(parts, a);
-        lines.push("- " + parts.join(" | "));
+        lines.push("");
+        lines.push(`- ${modifiersPrefix(a)}${a.name}`);
+        pushSubItem(lines, "  ", "Type", propStr(a, "type"));
+        pushSubItem(lines, "  ", "Description", propStr(a, "documentation"));
+        pushLineRange(lines, "  ", a);
     }
 }
 
@@ -336,13 +337,13 @@ function renderServices(lines: string[], artifacts: CodeMapArtifactRaw[]): void 
     if (artifacts.length === 0) { return; }
     lines.push("", "### Services (Entry Points)", "");
     for (const a of artifacts) {
-        const parts: string[] = [`${modifiersPrefix(a)}service ${a.name}`];
-        addPart(parts, "Base Path", propStr(a, "basePath"));
-        addPart(parts, "Listener Type", propStr(a, "listenerType"));
-        addPart(parts, "Port", propStr(a, "port"));
-        addPart(parts, "Documentation", propStr(a, "documentation"));
-        addLineRange(parts, a);
-        lines.push("- " + parts.join(" | "));
+        lines.push("");
+        lines.push(`- ${modifiersPrefix(a)}service ${a.name}`);
+        pushSubItem(lines, "  ", "Base Path", propStr(a, "basePath"));
+        pushSubItem(lines, "  ", "Listener Type", propStr(a, "listenerType"));
+        pushSubItem(lines, "  ", "Port", propStr(a, "port"));
+        pushSubItem(lines, "  ", "Description", propStr(a, "documentation"));
+        pushLineRange(lines, "  ", a);
 
         const children = getChildren(a);
         if (children.length > 0) {
@@ -361,7 +362,7 @@ function renderServiceChildren(lines: string[], children: CodeMapArtifactRaw[]):
             fields.push(child);
         } else if (child.type === "FUNCTION") {
             const category = propStr(child, "category").toUpperCase();
-            if (category === "RESOURCE") {
+            if (category === "RESOURCE" || prop(child, "accessor")) {
                 resourceFns.push(child);
             } else {
                 serviceFns.push(child);
@@ -370,10 +371,10 @@ function renderServiceChildren(lines: string[], children: CodeMapArtifactRaw[]):
     }
 
     for (const f of fields) {
-        const parts: string[] = [`${modifiersPrefix(f)}${f.name}`];
-        addPart(parts, "Type", propStr(f, "type"));
-        addLineRange(parts, f);
-        lines.push(`  - ${parts.join(" | ")}`);
+        lines.push("");
+        lines.push(`  - ${modifiersPrefix(f)}${f.name}`);
+        pushSubItem(lines, "    ", "Type", propStr(f, "type"));
+        pushLineRange(lines, "    ", f);
     }
 
     for (const fn of resourceFns) {
@@ -389,10 +390,10 @@ function renderClasses(lines: string[], artifacts: CodeMapArtifactRaw[]): void {
     if (artifacts.length === 0) { return; }
     lines.push("", "### Classes", "");
     for (const a of artifacts) {
-        const parts: string[] = [`${modifiersPrefix(a)}class ${a.name}`];
-        addPart(parts, "Documentation", propStr(a, "documentation"));
-        addLineRange(parts, a);
-        lines.push("- " + parts.join(" | "));
+        lines.push("");
+        lines.push(`- ${modifiersPrefix(a)}class ${a.name}`);
+        pushSubItem(lines, "  ", "Description", propStr(a, "documentation"));
+        pushLineRange(lines, "  ", a);
 
         const children = getChildren(a);
         if (children.length > 0) {
@@ -413,7 +414,7 @@ function renderClassChildren(lines: string[], children: CodeMapArtifactRaw[]): v
         } else if (child.type === "FUNCTION") {
             const cat = propStr(child, "category").toUpperCase();
             const childMods: string[] = prop(child, "modifiers") ?? [];
-            if (cat === "RESOURCE") {
+            if (cat === "RESOURCE" || prop(child, "accessor")) {
                 resourceFns.push(child);
             } else if (cat === "REMOTE" || childMods.includes("remote")) {
                 remoteFns.push(child);
@@ -424,10 +425,10 @@ function renderClassChildren(lines: string[], children: CodeMapArtifactRaw[]): v
     }
 
     for (const f of fields) {
-        const parts: string[] = [`${modifiersPrefix(f)}${f.name}`];
-        addPart(parts, "Type", propStr(f, "type"));
-        addLineRange(parts, f);
-        lines.push(`  - ${parts.join(" | ")}`);
+        lines.push("");
+        lines.push(`  - ${modifiersPrefix(f)}${f.name}`);
+        pushSubItem(lines, "    ", "Type", propStr(f, "type"));
+        pushLineRange(lines, "    ", f);
     }
 
     for (const fn of regularFns) {
@@ -452,7 +453,7 @@ function renderDataMappers(lines: string[], artifacts: CodeMapArtifactRaw[]): vo
 }
 
 /**
- * Renders a single function artifact as one compact line.
+ * Renders a single function artifact with each property on its own sub-bullet line.
  */
 function renderSingleFunction(
     lines: string[],
@@ -460,37 +461,37 @@ function renderSingleFunction(
     indent: string = "",
     isResource: boolean = false
 ): void {
-    const parts: string[] = [];
+    const subIndent = indent + "  ";
 
-    // Title: modifiers + [accessor] + function + name
+    lines.push("");
+
+    // Title line
     if (isResource) {
         const accessor = propStr(a, "accessor");
-        parts.push(`${accessor ? accessor + " " : ""}resource function ${a.name}`);
+        lines.push(`${indent}- ${accessor ? accessor + " " : ""}resource function ${a.name}`);
     } else {
-        parts.push(`${modifiersPrefix(a)}function ${a.name}`);
+        lines.push(`${indent}- ${modifiersPrefix(a)}function ${a.name}`);
     }
 
     // Parameters
     const params = parametersInline(a);
     if (params) {
-        parts.push(`**Parameters**: [${params}]`);
+        lines.push(`${subIndent}- **Parameters**: [${params}]`);
     } else {
-        parts.push("**Parameters**: none");
+        lines.push(`${subIndent}- **Parameters**: none`);
     }
 
     // Returns
     const returns = propStr(a, "returns") || "()";
     if (returns === "()") {
-        parts.push("**Returns**: ()");
+        lines.push(`${subIndent}- **Returns**: ()`);
     } else {
-        parts.push(`**Returns**: [${returns}]`);
+        lines.push(`${subIndent}- **Returns**: [${returns}]`);
     }
 
     // Documentation (optional)
-    addPart(parts, "Documentation", propStr(a, "documentation"));
+    pushSubItem(lines, subIndent, "Description", propStr(a, "documentation"));
 
-    // LineRange at the end
-    addLineRange(parts, a);
-
-    lines.push(`${indent}- ${parts.join(" | ")}`);
+    // Line Range
+    pushLineRange(lines, subIndent, a);
 }
