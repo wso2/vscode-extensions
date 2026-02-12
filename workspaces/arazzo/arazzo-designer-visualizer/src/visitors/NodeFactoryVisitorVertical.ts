@@ -86,10 +86,25 @@ export class NodeFactoryVisitorVertical {
             targetHandleId = 'h-left';
         }
 
+        let conditionLabel = '';
+        if (source.type === 'CONDITION') {
+            const index = source.branches?.findIndex(b => b[0]?.id === target.id);
+            if (index !== undefined && index !== -1) {
+                // Check for label in onSuccess or onFailure arrays
+                const successAction = source.data.onSuccess ? source.data.onSuccess[index] : undefined;
+                const failureAction = source.data.onFailure ? source.data.onFailure[index] : undefined;
+                const action = successAction || failureAction;
+                if (action && 'name' in action) {
+                    conditionLabel = action.name;
+                }
+            }
+        }
+
         const edge = {
             id: `e_${source.id}-${target.id}`,
             source: source.id,
             target: target.id,
+            label: conditionLabel,
             sourceHandle: sourceHandleId,
             targetHandle: targetHandleId,
             type: 'smoothstep',

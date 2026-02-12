@@ -150,6 +150,13 @@ export const PortalNodeWidget: React.FC<NodeProps<PortalNodeData>> = ({ id, data
                 isConnectable={isConnectable}
                 style={{ opacity: 0 }}
             />
+            <Handle 
+                type="target" 
+                position={Position.Top} 
+                id="h-top-target" 
+                isConnectable={isConnectable}
+                style={{ opacity: 0 }}
+            />
         </PortalNodeContainer>
     );
 };

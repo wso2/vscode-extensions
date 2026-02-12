@@ -465,7 +465,12 @@ export function WorkflowView(props: WorkflowViewProps) {
                 edgeTypes={edgeTypes}
                 nodesDraggable={C.isEditable}
                 nodesConnectable={C.isEditable}
-                elementsSelectable={C.isEditable}
+                elementsSelectable={true}
+                nodesFocusable={C.isEditable}
+                edgesFocusable={C.isEditable}
+                deleteKeyCode={C.isEditable ? 'Backspace' : null}
+                selectionKeyCode={C.isEditable ? 'Shift' : null}
+                multiSelectionKeyCode={C.isEditable ? 'Control' : null}
                 fitView
                 panOnScroll
                 zoomOnScroll={false}

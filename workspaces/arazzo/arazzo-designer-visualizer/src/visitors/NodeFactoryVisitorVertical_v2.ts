@@ -115,11 +115,14 @@ export class NodeFactoryVisitorVertical_v2 {
                 if (!this.shouldSkipEdge(node, head)) {
                     // For condition nodes, add branch label (condition name)
                     let conditionLabel: string | undefined = undefined;
-                    if (node.type === 'CONDITION' && node.data?.onSuccess) {
-                        // Extract the actual name from the onSuccess array
-                        const successAction = node.data.onSuccess[branchIndex];
-                        if (successAction && typeof successAction === 'object' && 'name' in successAction) {
-                            conditionLabel = successAction.name;
+                    if (node.type === 'CONDITION') {
+                        // Check both success and failure action arrays for branch name
+                        const successAction = node.data?.onSuccess?.[branchIndex];
+                        const failureAction = node.data?.onFailure?.[branchIndex];
+                        const action = successAction || failureAction;
+
+                        if (action && typeof action === 'object' && 'name' in action) {
+                            conditionLabel = action.name;
                         } else {
                             conditionLabel = `Branch ${branchIndex + 1}`; // Fallback
                         }

@@ -32,7 +32,7 @@ export class InitVisitor {
             if (step.onSuccess && step.onSuccess.length > 0) {
                 // Scenario A: Success actions defined
                 // We ALWAYS create a condition node if onSuccess exists
-                const conditionNode = this.createNode(`cond_success_${step.stepId}`, 'CONDITION', 'Success', { count: step.onSuccess.length });
+                const conditionNode = this.createNode(`cond_success_${step.stepId}`, 'CONDITION', 'Success', { count: step.onSuccess.length, onSuccess: step.onSuccess });
                 currentNode.children.push(conditionNode);
 
                 // 1. Separate the items based on their type
@@ -79,7 +79,7 @@ export class InitVisitor {
             // --- Failure Path (Bottom Handle) ---
             if (step.onFailure && step.onFailure.length > 0) {
                 // Explicit Failure Handling -> Create Condition Node
-                const failCond = this.createNode(`cond_fail_${step.stepId}`, 'CONDITION', 'On Failure', { count: step.onFailure.length });
+                const failCond = this.createNode(`cond_fail_${step.stepId}`, 'CONDITION', 'On Failure', { count: step.onFailure.length, onFailure: step.onFailure });
                 currentNode.failureNode = failCond;     //if onFailure exists, create a condition node and assign it to failureNode
 
                 // 1. Separate the items based on their type

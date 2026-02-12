@@ -49,7 +49,7 @@ export const NODE_GAP_X_Vertical = 80;  // Horizontal gap between steps
 export const NODE_GAP_Y_Vertical = 55;  // Vertical gap between branches/failure paths
 //export const FAIL_GAP_Y_Vertical = 50;  // Vertical gap for failure paths
 export const FAIL_GAP_X_Vertical = 50;  // Horizontal gap for failure paths
-export const RETRY_GAP_Y_ConditionBranch = 70; // Horizontal gap between condition node and its branches
+export const RETRY_GAP_Y_ConditionBranch = 150; // Horizontal gap between condition node and its branches
 export const NODE_GAP_Y_AFTERCONDITION = 150; // Vertical gap between node and edge label
 export const CONDITION_NODE_SECOND_BRANCH_OFFSET = 0; // Vertical offset for 2nd branch of condition nodes
 
