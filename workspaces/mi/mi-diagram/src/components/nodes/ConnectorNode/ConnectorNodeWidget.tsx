@@ -234,11 +234,16 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
     const handleOnConnectionClick = async (e: any) => {
         e.stopPropagation();
 
+        if (node.stNode.tag === 'tool') {
+            return;
+        }
+
         const nodeRange = await getConnectionNodeRange();
 
         const connectorData = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({
             documentUri: node.documentUri,
-            connectorName: node.stNode.tag.split(".")[0]
+            connectorName: node.stNode.tag === 'tool' ? isMCPTool ? 'ai' :
+                (node.stNode as any).mediator.connectorName : node.stNode.tag.split(".")[0]
         });
 
         const definition = await rpcClient?.getMiDiagramRpcClient().getDefinition({
@@ -287,7 +292,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                     <div style={{ display: "flex", flexDirection: "row", width: NODE_DIMENSIONS.DEFAULT.WIDTH }}>
                         {isMCPTool ?
                             <S.IconContainer>{getMediatorIconsFromFont('mcp')}</S.IconContainer>
-                        : iconPath &&
+                            : iconPath &&
                             <S.IconContainer><img src={iconPath} alt="Icon" /></S.IconContainer>
                         }
                         <div>
@@ -309,7 +314,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                     <S.BottomPortWidget port={node.getPort("out")!} engine={engine} />
                 </S.Node>
             </Tooltip>
-            {connectorNode.configKey &&
+            {(connectorNode.configKey || isMCPTool )  &&
                 <S.CircleContainer
                     onMouseEnter={() => setIsHoveredConnector(true)}
                     onMouseLeave={() => setIsHoveredConnector(false)}
@@ -329,6 +334,12 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                             {connectionIconPath && <g transform="translate(68,7)">
                                 <foreignObject width="25" height="25">
                                     <img src={connectionIconPath} alt="Icon" />
+                                </foreignObject>
+                            </g>}
+
+                            {connectorNode.mcpConnection && <g transform="translate(68,7)">
+                                <foreignObject width="25" height="25">
+                                    <S.IconContainer>{getMediatorIconsFromFont('mcp')}</S.IconContainer>
                                 </foreignObject>
                             </g>}
 
@@ -360,10 +371,10 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                     </Tooltip>
                 </S.CircleContainer>
             }
-            {connectorNode.configKey &&
+            {(connectorNode.configKey || isMCPTool) &&
                 <S.ConnectionContainer>
                     <S.ConnectionText>
-                        {connectorNode.configKey}
+                        {connectorNode.configKey || connectorNode.mcpConnection}
                     </S.ConnectionText>
                 </S.ConnectionContainer>}
             <Popover
