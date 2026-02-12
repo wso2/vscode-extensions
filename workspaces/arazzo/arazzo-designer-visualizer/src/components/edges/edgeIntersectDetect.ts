@@ -106,32 +106,27 @@ export function detectBridgesForSegment(
     const dy = to.y - from.y;
     const isVertical = Math.abs(dx) <= eps && Math.abs(dy) > eps;
     const isHorizontal = Math.abs(dy) <= eps && Math.abs(dx) > eps;
-    if (!isVertical && !isHorizontal) return [];
+    
+    // Only horizontal segments get bridges; vertical segments pass through
+    if (!isHorizontal) return [];
 
     const hits: number[] = [];
 
+    // Current segment is horizontal; detect vertical segments in other edges
     for (const oe of otherEdges) {
         const pts = getPointsForEdge(oe, nodeById);
         for (let j = 1; j < pts.length; j++) {
             const a = pts[j - 1];
             const b = pts[j];
-            if (isVertical) {
-                // look for horizontal other-segments
-                if (Math.abs(a.y - b.y) <= eps) {
-                    const hit = getOrthogonalIntersectionFromCoords(from.x, from.y, to.y, a.x, b.x, a.y, eps);
-                    if (hit) hits.push(hit.y);
-                }
-            } else {
-                // current is horizontal -> look for vertical other-segments
-                if (Math.abs(a.x - b.x) <= eps) {
-                    // other segment is vertical: check intersection
-                    const minAX = Math.min(from.x, to.x) - eps;
-                    const maxAX = Math.max(from.x, to.x) + eps;
-                    const minVY = Math.min(a.y, b.y) - eps;
-                    const maxVY = Math.max(a.y, b.y) + eps;
-                    if (a.x >= minAX && a.x <= maxAX && from.y >= minVY && from.y <= maxVY) {
-                        hits.push(a.x);
-                    }
+            // Check if other segment is vertical
+            if (Math.abs(a.x - b.x) <= eps) {
+                // other segment is vertical: check intersection
+                const minAX = Math.min(from.x, to.x) - eps;
+                const maxAX = Math.max(from.x, to.x) + eps;
+                const minVY = Math.min(a.y, b.y) - eps;
+                const maxVY = Math.max(a.y, b.y) + eps;
+                if (a.x >= minAX && a.x <= maxAX && from.y >= minVY && from.y <= maxVY) {
+                    hits.push(a.x);
                 }
             }
         }
@@ -139,8 +134,8 @@ export function detectBridgesForSegment(
 
     if (hits.length === 0) return [];
 
-    const minCoord = isVertical ? Math.min(from.y, to.y) + bridgeRadius + 0.5 : Math.min(from.x, to.x) + bridgeRadius + 0.5;
-    const maxCoord = isVertical ? Math.max(from.y, to.y) - bridgeRadius - 0.5 : Math.max(from.x, to.x) - bridgeRadius - 0.5;
+    const minCoord = Math.min(from.x, to.x) + bridgeRadius + 0.5;
+    const maxCoord = Math.max(from.x, to.x) - bridgeRadius - 0.5;
 
     const uniq = Array.from(new Set(hits.map(h => Math.round(h * 10) / 10)))
         .map(v => v)
@@ -148,13 +143,13 @@ export function detectBridgesForSegment(
 
     if (uniq.length === 0) return [];
 
-    const dir = (isVertical ? (to.y > from.y ? 1 : -1) : (to.x > from.x ? 1 : -1));
+    const dir = to.x > from.x ? 1 : -1;
 
     uniq.sort((a, b) => (dir === 1 ? a - b : b - a));
 
     return uniq.map(v => ({
-        point: isVertical ? { x: from.x, y: v } : { x: v, y: from.y },
-        orientation: isVertical ? 'vertical' : 'horizontal'
+        point: { x: v, y: from.y },
+        orientation: 'horizontal'
     }));
 }
 
@@ -172,33 +167,19 @@ export function buildSegmentPathWithBridges(
 ): string {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
-    const isVertical = Math.abs(dx) <= DEFAULT_EPS && Math.abs(dy) > DEFAULT_EPS;
     const isHorizontal = Math.abs(dy) <= DEFAULT_EPS && Math.abs(dx) > DEFAULT_EPS;
-    if (!isVertical && !isHorizontal) {
-        return ` L ${to.x} ${to.y}`;
-    }
+    
+    // Only horizontal segments get bridges (vertical segments return normal line)
+    if (!isHorizontal || intersections.length === 0) return ` L ${to.x} ${to.y}`;
 
-    if (intersections.length === 0) return ` L ${to.x} ${to.y}`;
-
+    const dir = to.x > from.x ? 1 : -1;
     let out = '';
-    if (isVertical) {
-        const dir = to.y > from.y ? 1 : -1;
-        for (const it of intersections) {
-            const interY = it.point.y;
-            const beforeY = interY - dir * bridgeRadius;
-            const afterY = interY + dir * bridgeRadius;
-            out += ` L ${from.x} ${beforeY}`;
-            out += ` A ${bridgeRadius} ${bridgeRadius} 0 0 1 ${from.x} ${afterY}`;
-        }
-    } else {
-        const dir = to.x > from.x ? 1 : -1;
-        for (const it of intersections) {
-            const interX = it.point.x;
-            const beforeX = interX - dir * bridgeRadius;
-            const afterX = interX + dir * bridgeRadius;
-            out += ` L ${beforeX} ${from.y}`;
-            out += ` A ${bridgeRadius} ${bridgeRadius} 0 0 1 ${afterX} ${from.y}`;
-        }
+    for (const it of intersections) {
+        const interX = it.point.x;
+        const beforeX = interX - dir * bridgeRadius;
+        const afterX = interX + dir * bridgeRadius;
+        out += ` L ${beforeX} ${from.y}`;
+        out += ` A ${bridgeRadius} ${bridgeRadius} 0 0 1 ${afterX} ${from.y}`;
     }
 
     out += ` L ${to.x} ${to.y}`;
