@@ -457,8 +457,8 @@ export function WorkflowView(props: WorkflowViewProps) {
                 key={graphKey}
                 nodes={nodes}
                 edges={edges}
-                onNodesChange={C.isEditable ? onNodesChange : undefined}
-                onEdgesChange={C.isEditable ? onEdgesChange : undefined}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
                 onConnect={C.isEditable ? onConnect : undefined}
                 onNodeClick={onNodeClick}
                 nodeTypes={nodeTypes}
