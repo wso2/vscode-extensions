@@ -262,14 +262,16 @@ export const InputEditor: React.FC<InputEditorProps> = ({
             monaco.languages.setMonarchTokensProvider(currentLanguageId, {
                 tokenizer: {
                     root: [
-                        // Key-value pairs with colon (hello: world) - for headers
-                        [/^[\s]*([a-zA-Z_][a-zA-Z0-9_-]*)\s*:/, 'variable.key'],
-                        // Key-value pairs with equals (key=value) - for query parameters
-                        [/^[\s]*([a-zA-Z_][a-zA-Z0-9_-]*)\s*=/, 'variable.key'],
+                        // Key at start-of-line (don't consume trailing ':' or '='); punctuation and operators are tokenized separately
+                        [/^[\s]*([a-zA-Z_][a-zA-Z0-9_-]*)\b/, 'variable.key'],
                         // JSON strings with quotes
                         [/"[^"\\]*(?:\\.[^"\\]*)*"/, 'string'],
                         // Numbers
                         [/\b\d+(?:\.\d+)?\b/, 'number'],
+                        // Operators (treat = and == and other comparators as `operator` token)
+                        [/==|!=|<=|>=|=|<|>/, 'operator'],
+                        // Word-style assertion operators (color these the same as symbol operators)
+                        [/\b(?:contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson)\b/, 'operator'],
                         // Boolean and null values
                         [/\b(?:true|false|null)\b/, 'keyword'],
                         // JSON/Object delimiters - curly braces, brackets, comma, colon
@@ -292,6 +294,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                 { token: 'string', foreground: isDark ? '98C379' : '50A14F' },
                 { token: 'number', foreground: isDark ? 'D19A66' : 'C18401' },
                 { token: 'keyword', foreground: isDark ? '569CD6' : '0000FF' },
+                { token: 'operator', foreground: isDark ? '56B6C2' : '0184BC' },
                 { token: 'delimiter', foreground: isDark ? '56B6C2' : '0184BC', fontStyle: 'bold' },
                 { token: 'comment', foreground: isDark ? '6A9955' : '008000', fontStyle: 'italic' },
             ],
