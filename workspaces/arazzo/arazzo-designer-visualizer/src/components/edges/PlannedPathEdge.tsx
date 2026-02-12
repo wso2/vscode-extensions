@@ -301,7 +301,11 @@ export default function PlannedPathEdge({
                                     display: 'inline-block',
                                 }}
                             >
-                                {data.label}
+                                {(() => {
+                                    const raw = String(data.label || '');
+                                    const max = C.CONDITION_CHARS_BEFORE_WRAP;
+                                    return raw.length > max ? `${raw.slice(0, max)}...` : raw;
+                                })()}
                             </span>
                         </div>
                     </div>

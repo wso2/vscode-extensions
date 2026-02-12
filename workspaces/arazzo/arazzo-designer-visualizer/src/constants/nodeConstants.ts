@@ -59,7 +59,7 @@ export const PORTALNODE_GAP_X = 35;
 export const PORTALNODE_GAP_Y = 40;
 
 //Waypoint realted constants
-export const WAYPOINT_SKIP_VERTICAL_OFFSET = 30; // Distance to offset waypoints from node edges
+export const WAYPOINT_SKIP_VERTICAL_OFFSET = 40; // Distance to offset waypoints from node edges
 export const WAYPOINT_BRANCH_VERTICAL_OFFSET = 40; // Vertical offset for branch waypoints to avoid label overlap
 export const WAYPOINT_SKIP_HORIZONTAL_OFFSET = NODE_GAP_X_Vertical/2;
 
@@ -70,7 +70,9 @@ export const CANVAS_ZOOM = 1.25;
 export const DOT_GAP = 18;
 
 //label related constants
-export const LABEL_OFFSET = 40; // fixed distance in pixels from the bend
+export const LABEL_OFFSET = 50; // fixed distance in pixels from the bend
+export const CONDITION_CHARS_BEFORE_WRAP = 25; // Maximum characters before wrapping for condition labels
+
 //export const LABEL_OFFSET_RANDOMNESS_MULTIPLIER = 0.2; // randomness in label positioning
 export const FONT_SIZE = 15;
 export const ICON_SIZE_STEP = 24;
