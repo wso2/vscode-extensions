@@ -49,8 +49,9 @@ export const NODE_GAP_X_Vertical = 80;  // Horizontal gap between steps
 export const NODE_GAP_Y_Vertical = 55;  // Vertical gap between branches/failure paths
 //export const FAIL_GAP_Y_Vertical = 50;  // Vertical gap for failure paths
 export const FAIL_GAP_X_Vertical = 50;  // Horizontal gap for failure paths
+export const RETRY_GAP_Y_ConditionBranch = 70; // Horizontal gap between condition node and its branches
 export const NODE_GAP_Y_AFTERCONDITION = 150; // Vertical gap between node and edge label
-export const CONDITION_NODE_SECOND_BRANCH_OFFSET = 40; // Vertical offset for 2nd branch of condition nodes
+export const CONDITION_NODE_SECOND_BRANCH_OFFSET = 0; // Vertical offset for 2nd branch of condition nodes
 
 
 //portal node constants
@@ -68,5 +69,8 @@ export const DOT_SIZE = 1.5;
 export const CANVAS_ZOOM = 1.25;
 export const DOT_GAP = 18;
 
+//label related constants
+export const LABEL_OFFSET = 40; // fixed distance in pixels from the bend
+//export const LABEL_OFFSET_RANDOMNESS_MULTIPLIER = 0.2; // randomness in label positioning
 export const FONT_SIZE = 15;
 export const ICON_SIZE_STEP = 24;

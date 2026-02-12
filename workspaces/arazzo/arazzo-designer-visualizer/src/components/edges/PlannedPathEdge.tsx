@@ -20,6 +20,7 @@ import { EdgeProps, BaseEdge, getSmoothStepPath, useEdges, useNodes } from '@xyf
 import { BRIDGE_RADIUS, DEFAULT_EPS, getPointsForEdge as getEdgePoints, detectBridgesForSegment, buildSegmentPathWithBridges } from './edgeIntersectDetect';
 import { ThemeColors } from '@wso2/ui-toolkit';
 import { useState } from 'react';
+import * as C from '../../constants/nodeConstants';
 
 interface Waypoint {
     x: number;
@@ -150,18 +151,26 @@ export default function PlannedPathEdge({
         // Smart label positioning for bent paths
         if (data?.label) {
             if (waypoints.length >= 2) {
-                // Scenario B: Position at 20% along segment after second bend (waypoints[1])
+                // Scenario B: position at a fixed distance along the segment after second bend
                 const secondBend = waypoints[1];
                 const nextPoint = waypoints[2] || { x: targetX, y: targetY };
-                
+
                 const dx = nextPoint.x - secondBend.x;
                 const dy = nextPoint.y - secondBend.y;
-                const t = 0.5; // 50% along this segment
-                
-                labelPosition = {
-                    x: secondBend.x + dx * t,
-                    y: secondBend.y + dy * t
-                };
+                const segLen = Math.sqrt(dx * dx + dy * dy);
+
+                // If segment is too short, fall back to midpoint behavior
+                if (segLen < 1) {
+                    labelPosition = { x: secondBend.x + dx * 0.5, y: secondBend.y + dy * 0.5 };
+                } else {
+                    const ux = dx / segLen;
+                    const uy = dy / segLen;
+                    const dist = Math.min(C.LABEL_OFFSET, segLen * 0.5); // don't overshoot
+                    labelPosition = {
+                        x: secondBend.x + ux * dist, //+ dx * C.LABEL_OFFSET_RANDOMNESS_MULTIPLIER, // the dx * 0.2 is to introduce some randomness based on the line length so that the labels do not overlap
+                        y: secondBend.y + uy * dist //+ dy * C.LABEL_OFFSET_RANDOMNESS_MULTIPLIER,
+                    };
+                }
             } else {
                 // Fallback: 50% of last segment
                 const lastWp = waypoints[waypoints.length - 1];
