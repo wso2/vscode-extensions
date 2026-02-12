@@ -154,17 +154,22 @@ export class NodeFactoryVisitorVertical_v2 {
     private createEdge(source: FlowNode, target: FlowNode, edgeType: 'success' | 'failure', conditionLabel?: string, scenario?:string): void {
         // Determine handle positions based on relative positions
         const isTargetBelow = target.viewState.y > source.viewState.y + source.viewState.h;
-        const isTargetRight = target.viewState.x > source.viewState.x + source.viewState.w;
+        const isTargetRight = target.viewState.x + target.viewState.w/2 > source.viewState.x + source.viewState.w/2;
         const isTargetAbove = target.viewState.y < source.viewState.y;
+        const isTargetLeft = target.viewState.x + target.viewState.w/2 < source.viewState.x + source.viewState.w/2;     //add margeins
 
         let sourceHandleId: string;
         let targetHandleId: string;
 
         // Vertical flow logic (target below)
-        if (isTargetBelow) {
+        if (isTargetBelow && !isTargetLeft) {
             sourceHandleId = 'h-bottom'; // Exit from bottom
             targetHandleId = 'h-top';    // Enter from top
         } 
+        else if (isTargetBelow && isTargetLeft) {
+            sourceHandleId = 'h-bottom';   // Exit from bottom
+            targetHandleId = 'h-right-target'; // Enter from right (loop)
+        }
         // Horizontal flow logic (target to the right - branches/failures)
         else if (isTargetRight) {
             sourceHandleId = 'h-right-source';  // Exit from right
@@ -180,6 +185,7 @@ export class NodeFactoryVisitorVertical_v2 {
             sourceHandleId = 'h-right-source';
             targetHandleId = 'h-left';
         }
+        console.log(`[NodeFactory V2 - Handles] Determined handles for edge ${source.id} → ${target.id}: sourceHandle=${sourceHandleId}, targetHandle=${targetHandleId}`);
 
         // Compute handle coordinates for both nodes
         const computeHandlePoint = (n: FlowNode, handleId: string) => {
