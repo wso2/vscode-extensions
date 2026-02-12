@@ -202,10 +202,17 @@ export const SuggestionDropdown: React.FC<SuggestionDropdownProps> = ({
     // Sync query with value when parent value changes externally (not from our onChange)
     React.useEffect(() => {
         if (isExternalChangeRef.current) {
+            // We triggered a parent update (likely via selection/commit). The parent may normalize
+            // the value (e.g., `headers` -> `headers.` or case normalization). If so, sync the
+            // input text to the final value so selection visibly “sticks”.
             isExternalChangeRef.current = false;
-        } else {
-            setQuery(value);
+            if (value !== latestQueryRef.current) {
+                setQuery(value);
+            }
+            return;
         }
+
+        setQuery(value);
     }, [value]);
 
     React.useEffect(() => {

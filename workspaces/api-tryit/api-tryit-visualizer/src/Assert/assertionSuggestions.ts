@@ -37,13 +37,22 @@ export const getTargetSuggestions = (prefix: string): string[] => {
         return baseTargets;
     }
 
+    const headerNames = COMMON_HEADERS.map((h: any) => h.name);
+
     // If prefix is "headers." or starts with headers., return header names
     if (prefix.startsWith('headers.')) {
         const headerPrefix = prefix.substring('headers.'.length);
-        const headerNames = COMMON_HEADERS.map((h: any) => h.name);
         return headerNames
             .filter((name: string) => name.toLowerCase().includes(headerPrefix.toLowerCase()))
             .map((name: string) => `headers.${name}`);
+    }
+
+    // If user types a header name directly (e.g. "Cache"), suggest `headers.<Name>` targets
+    const looseHeaderMatches = headerNames
+        .filter((name: string) => name.toLowerCase().includes(prefix.toLowerCase()))
+        .map((name: string) => `headers.${name}`);
+    if (looseHeaderMatches.length > 0) {
+        return looseHeaderMatches;
     }
 
     // If prefix is "body." or starts with body., could extend for JSON paths
@@ -89,22 +98,20 @@ export const getOperatorSuggestions = (): string[] => {
  * Get value suggestions based on the target field
  */
 export const getValueSuggestions = (target: string, response?: ApiResponse): string[] => {
-    if (!response) {
-        return [];
-    }
-
     // If target is a header (e.g., headers.Content-Type), suggest header values
     if (target.startsWith('headers.')) {
-        const headerKey = target.substring('headers.'.length);
-        const headerConfig = COMMON_HEADERS.find((h: any) => h.name === headerKey);
+        const headerKey = target.substring('headers.'.length).trim();
+        const headerConfig = COMMON_HEADERS.find((h: any) => h.name.toLowerCase() === headerKey.toLowerCase());
         if (headerConfig && headerConfig.values) {
             return headerConfig.values;
         }
 
         // Also check actual response headers
-        const responseHeader = response.headers.find((h: any) => h.key === headerKey);
-        if (responseHeader) {
-            return [responseHeader.value];
+        if (response?.headers) {
+            const responseHeader = response.headers.find((h: any) => h.key?.toLowerCase() === headerKey.toLowerCase());
+            if (responseHeader?.value) {
+                return [responseHeader.value];
+            }
         }
     }
 

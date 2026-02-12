@@ -21,6 +21,7 @@ import styled from '@emotion/styled';
 import { Button, Codicon } from '@wso2/ui-toolkit';
 import { ApiResponse } from '@wso2/api-tryit-core';
 import { SuggestionDropdown } from '../../Components/Dropdown/SuggestionDropdown';
+import { COMMON_HEADERS } from '../../Input/InputEditor/SuggestionsConstants';
 import {
     parseAssertion,
     buildAssertion,
@@ -104,12 +105,28 @@ export const AssertionRow: React.FC<AssertionRowProps> = ({
 
     const handleTargetChange = (newTarget: string) => {
         // If selecting "headers" or "body" from base list, auto-complete with dot
-        // Otherwise, just use the value as-is (could be partial like "headers.A")
         if (newTarget === 'headers' || newTarget === 'body') {
             setTargetInput(completeTarget(newTarget));
-        } else {
-            setTargetInput(newTarget);
+            return;
         }
+
+        // Normalize `headers.<key>` casing to match COMMON_HEADERS when possible
+        if (newTarget.startsWith('headers.')) {
+            const headerKey = newTarget.substring('headers.'.length).trim();
+            const headerMatch = COMMON_HEADERS.find(h => h.name.toLowerCase() === headerKey.toLowerCase());
+            setTargetInput(headerMatch ? `headers.${headerMatch.name}` : newTarget);
+            return;
+        }
+
+        // If user selected/typed a plain header name (e.g. "Cache-Control"), auto-prefix with `headers.`
+        const plainHeaderMatch = COMMON_HEADERS.find(h => h.name.toLowerCase() === newTarget.trim().toLowerCase());
+        if (plainHeaderMatch) {
+            setTargetInput(`headers.${plainHeaderMatch.name}`);
+            return;
+        }
+
+        // Otherwise accept the value as-is
+        setTargetInput(newTarget);
     };
 
     // Use initial suggestions when query is empty, otherwise use filtered suggestions
