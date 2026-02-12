@@ -43,10 +43,8 @@ const ConditionNodeContainer = styled.div`
 
     &:hover {
         transform: rotate(45deg) translateY(-1px);
-        box-shadow: 
-            0 4px 12px rgba(0, 0, 0, 0.2),
-            0 2px 4px rgba(0, 0, 0, 0.15),
-            inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        border-color: ${ThemeColors.SECONDARY};
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
     }
 `;
 
