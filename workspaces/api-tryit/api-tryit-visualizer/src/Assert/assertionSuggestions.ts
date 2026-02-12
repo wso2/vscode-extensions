@@ -74,8 +74,15 @@ export const completeTarget = (target: string): string => {
  * Get operator suggestions
  */
 export const getOperatorSuggestions = (): string[] => {
-    // prefer `==` for equality — do not suggest single `=` going forward
-    return ['==', '!=', '>', '<', '>=', '<='];
+    // include function-style operators and symbol comparisons; prefer `==` over `=` for equality
+    return [
+        '==', '!=', '>', '<', '>=', '<=',
+        'contains', 'notContains', 'startsWith', 'endsWith',
+        'matches', 'notMatches',
+        'isNull', 'isNotEmpty', 'isEmpty', 'isDefined', 'isUndefined',
+        'isTruthy', 'isFalsy',
+        'isNumber', 'isString', 'isBoolean', 'isArray', 'isJson'
+    ];
 };
 
 /**
@@ -115,7 +122,7 @@ export const parseAssertion = (assertion: string): { target: string; operator: s
 
     // Try to match: target operator value
     // Operators: ==, !=, >, <, >=, <=, =
-    const match = trimmed.match(/^(.+?)\s+(==|!=|>=|<=|>|<|=)\s*(.*)$/);
+    const match = trimmed.match(/^(.+?)\s+(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|==|!=|>=|<=|>|<|=)\s*(.*)$/i);
 
     if (match) {
         const rawOp = match[2].trim();
