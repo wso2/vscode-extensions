@@ -16,7 +16,7 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import axios, { AxiosError, AxiosResponse, AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
+import axios, { AxiosError, AxiosResponse } from 'axios';
 import { CopilotEventHandler } from '../../utils/events';
 
 export const HTTP_REQUEST_TOOL_NAME = "Send-HTTP-request";
@@ -32,25 +32,35 @@ type HTTPResponse = {
     data: unknown;
     status: number;
     statusText: string;
-    headers: RawAxiosResponseHeaders | AxiosResponseHeaders;
+    headers: Record<string, string>;
 };
 type HTTPErrorResponse = {
+    error: true;
     message: string;
     code?: string;
     response?: HTTPResponse
 };
 
 function createSuccessResponse(response: AxiosResponse): HTTPResponse {
+    const headers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(response.headers)) {
+        if (typeof value === 'string') {
+            headers[key] = value;
+        } else if (Array.isArray(value)) {
+            headers[key] = value.join(', ');
+        }
+    }
     return {
         data: response.data,
         status: response.status,
         statusText: response.statusText,
-        headers: response.headers
+        headers
     };
 }
 
 function createErrorResponse(error: AxiosError): HTTPErrorResponse {
     return {
+        error: true,
         message: error.message,
         code: error.code,
         response: error.response ? createSuccessResponse(error.response) : undefined
@@ -61,7 +71,7 @@ export function createHttpRequestTool(eventHandler: CopilotEventHandler) {
     return tool({
         description: `A tool to make requests to a given API endpoint. Provide the endpoint URL and request details to get a response. Use this tool for testing and debugging HTTP endpoints.`,
         inputSchema: HTTPInputSchema,
-        execute: (input) => executeHttpRequest(input, eventHandler)
+        execute: async (input): Promise<HTTPResponse | HTTPErrorResponse> => await executeHttpRequest(input, eventHandler)
     });
 }
 
@@ -161,20 +171,21 @@ function tokenizeCurl(curl: string): string[] {
 	return tokens;
 }
 
-export const executeHttpRequest =  async (input: HTTPInput, eventHandler: CopilotEventHandler): Promise<HTTPResponse | HTTPErrorResponse | Error> => {
-            try {
-                console.log(`Executing HTTP request: input:`, input);
-                eventHandler({type:"tool_call", toolName: HTTP_REQUEST_TOOL_NAME, toolInput: input});
-                const response = await axios.request(parseCurl(input.curlCommand));
-                console.log("HTTP request successful:", response);
-                const successResponse = createSuccessResponse(response);
-                return successResponse;
-            } catch (error) {
-                console.error("HTTP request failed:", error);
-                if (axios.isAxiosError(error)) {
-                    const errorResponse = createErrorResponse(error);
-                    return errorResponse;
-                }
-                return error as Error;
-            }
+export const executeHttpRequest = async (input: HTTPInput, eventHandler: CopilotEventHandler): Promise<HTTPResponse | HTTPErrorResponse> => {
+    try {
+        console.log(`Executing HTTP request: input:`, input);
+		eventHandler({type:"tool_call", toolName: HTTP_REQUEST_TOOL_NAME, toolInput: input});
+        const response = await axios.request(parseCurl(input.curlCommand));
+        console.log("HTTP request successful:", response);
+        return createSuccessResponse(response);
+    } catch (error) {
+        console.error("HTTP request failed:", error);
+        if (axios.isAxiosError(error)) {
+            return createErrorResponse(error);
+        }
+        return {
+            error: true,
+            message: error instanceof Error ? error.message : String(error),
         };
+    }
+};
