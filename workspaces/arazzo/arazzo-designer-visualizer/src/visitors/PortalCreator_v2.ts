@@ -22,6 +22,13 @@ import * as C from '../constants/nodeConstants';
 import { DepthSearch } from './DepthSearch';
 import { ThemeColors } from '@wso2/ui-toolkit';
 
+interface Rect {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+}
+
 /**
  * PortalCreator V2: Smart portal creation for vertical "Happy Path" layout.
  * 
@@ -37,6 +44,9 @@ export class PortalCreator_v2 {
     private portalCounter: number = 0;
     private mainPathNodes: Set<string>;
     private failurePathNodes: Set<string> = new Set();
+    private positionedNodeRects: Rect[] = [];
+    private readonly portalApproxWidth = 90;
+    private readonly portalApproxHeight = 28;
 
     constructor(private depthSearch: DepthSearch) {
         this.mainPathNodes = depthSearch.getHappyPathNodes();
@@ -54,6 +64,7 @@ export class PortalCreator_v2 {
         this.visited = new Set();
         this.portalCounter = 0;
         this.failurePathNodes.clear();
+        this.positionedNodeRects = this.collectAllNodeRects(root);
 
         // Pass 1: Mark all nodes reachable via failure paths
         this.markFailurePaths(root);
@@ -66,6 +77,90 @@ export class PortalCreator_v2 {
         this.traverse(root, false);
 
         return { nodes: this.reactNodes, edges: this.reactEdges };
+    }
+
+    private collectAllNodeRects(root: FlowNode): Rect[] {
+        const rects: Rect[] = [];
+        const visited = new Set<string>();
+
+        const walk = (node: FlowNode) => {
+            if (!node || visited.has(node.id)) return;
+            visited.add(node.id);
+
+            if (Number.isFinite(node.viewState.x) && Number.isFinite(node.viewState.y) && Number.isFinite(node.viewState.w) && Number.isFinite(node.viewState.h)) {
+                rects.push({
+                    x: node.viewState.x,
+                    y: node.viewState.y,
+                    w: node.viewState.w,
+                    h: node.viewState.h,
+                });
+            }
+
+            node.children.forEach(walk);
+            if (node.failureNode) walk(node.failureNode);
+            node.branches?.forEach(branch => {
+                if (branch.length > 0) walk(branch[0]);
+            });
+        };
+
+        walk(root);
+        return rects;
+    }
+
+    private rectsOverlap(a: Rect, b: Rect): boolean {
+        return !(
+            a.x + a.w <= b.x ||
+            b.x + b.w <= a.x ||
+            a.y + a.h <= b.y ||
+            b.y + b.h <= a.y
+        );
+    }
+
+    private isPortalSlotOccupied(portalX: number, portalY: number): boolean {
+        const portalRect: Rect = {
+            x: portalX,
+            y: portalY,
+            w: this.portalApproxWidth,
+            h: this.portalApproxHeight,
+        };
+
+        for (const rect of this.positionedNodeRects) {
+            if (this.rectsOverlap(portalRect, rect)) {
+                return true;
+            }
+        }
+
+        // Also avoid collisions with already placed portals.
+        for (const p of this.reactNodes) {
+            const px = (p.position as any)?.x;
+            const py = (p.position as any)?.y;
+            if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+
+            const existingPortalRect: Rect = {
+                x: px,
+                y: py,
+                w: this.portalApproxWidth,
+                h: this.portalApproxHeight,
+            };
+            if (this.rectsOverlap(portalRect, existingPortalRect)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private findNearestAvailablePortalPosition(baseX: number, baseY: number): { x: number; y: number } {
+        const stepX = C.NODE_WIDTH + C.NODE_GAP_X_Vertical;
+        let candidateX = baseX;
+        let attempts = 0;
+
+        while (this.isPortalSlotOccupied(candidateX, baseY) && attempts < 30) {
+            candidateX += stepX;
+            attempts++;
+        }
+
+        return { x: candidateX, y: baseY };
     }
 
     /**
@@ -182,9 +277,36 @@ export class PortalCreator_v2 {
         const portalId = `portal_out_${source.id}_to_${target.id}_${this.portalCounter}`;
         this.portalCounter++;
 
-        // Position portal near the source
-        const portalX = source.viewState.x + source.viewState.w + 20;
-        const portalY = source.viewState.y;
+        // Position portal.
+        // Requirement: when source is a CONDITION, align portal placement with condition branch slots:
+        //   branch#1 below condition, branch#2 to the right, branch#3 further right, etc.
+        // For non-condition sources (or when branch index can't be resolved), keep legacy positioning.
+        let portalX = source.viewState.x + source.viewState.w + 20;
+        let portalY = source.viewState.y;
+
+        if (source.type === 'CONDITION') {
+            const branchIndex = source.branches?.findIndex(branch => branch[0]?.id === target.id) ?? -1;
+
+            if (branchIndex !== -1) {
+                const sourceCenterX = source.viewState.x + (source.viewState.w / 2);
+                const isRetryTarget = target.type === 'RETRY';
+                const baseBranchY = isRetryTarget
+                    ? source.viewState.y + source.viewState.h + C.RETRY_GAP_Y_ConditionBranch
+                    : source.viewState.y + source.viewState.h + C.NODE_GAP_Y_AFTERCONDITION;
+
+                // branchIndex: 0 => below condition, 1 => first slot to the right, 2 => next slot, ...
+                const branchCenterX = sourceCenterX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * branchIndex;
+
+                // Portal node width is dynamic; use the dedicated horizontal offset constant for centering.
+                portalX = branchCenterX - C.PORTALNODE_GAP_X;
+                portalY = baseBranchY;
+            }
+        }
+
+        // Avoid overlap with existing positioned nodes/portals.
+        const resolvedPosition = this.findNearestAvailablePortalPosition(portalX, portalY);
+        portalX = resolvedPosition.x;
+        portalY = resolvedPosition.y;
 
         // Target center coordinates for navigation
         const targetCenterX = target.viewState.x + (target.viewState.w / 2);
@@ -212,8 +334,8 @@ export class PortalCreator_v2 {
         // Determine source handle based on edge type
         const sourceHandleId = edgeType === 'failure' ? 'h-right-source' : 'h-bottom';
         const edgeStyle = edgeType === 'failure' 
-            ? { stroke: 'red', strokeDasharray: '4 4' ,strokeWidth: 2} 
-            : { stroke: ThemeColors.PRIMARY, strokeDasharray: '4 4', strokeWidth: 2 };
+            ? { stroke: 'red', strokeDasharray: '4 4' } 
+            : { stroke: ThemeColors.PRIMARY, strokeDasharray: '4 4' };
 
         // Edge: source → portal
         this.reactEdges.push({
@@ -221,8 +343,11 @@ export class PortalCreator_v2 {
             source: source.id,
             target: portalId,
             sourceHandle: sourceHandleId,
-            targetHandle: 'h-bottom',
-            type: 'smoothstep',
+            targetHandle: 'h-top-target',
+            type: 'plannedPath',
+            data: {
+                lineType: 'branch'
+            },
             markerEnd: { type: MarkerType.ArrowClosed },
             style: edgeStyle
         });

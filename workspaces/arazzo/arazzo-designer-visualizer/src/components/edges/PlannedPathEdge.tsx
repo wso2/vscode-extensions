@@ -29,6 +29,7 @@ interface Waypoint {
 
 interface PlannedPathData {
     waypoints?: Waypoint[];
+    lineType?: 'skip' | 'branch';
     label?: string;
     labelPos?: number; // 0..1 position along the path
     labelOffset?: { x: number; y: number };
@@ -62,8 +63,17 @@ export default function PlannedPathEdge({
     const [hovered, setHovered] = useState(false);
     const [labelHovered, setLabelHovered] = useState(false);
 
-    // Check if waypoints exist and are valid
-    const waypoints = data?.waypoints;
+    // Check if waypoints exist and are valid. If not, allow lightweight branch routing via `lineType`.
+    const computedBranchWaypoints = data?.lineType === 'branch'
+        ? [
+            { x: sourceX, y: sourceY + C.WAYPOINT_BRANCH_VERTICAL_OFFSET },
+            { x: targetX, y: sourceY + C.WAYPOINT_BRANCH_VERTICAL_OFFSET }
+        ]
+        : undefined;
+
+    const waypoints = (Array.isArray(data?.waypoints) && data?.waypoints.length > 0)
+        ? data?.waypoints
+        : computedBranchWaypoints;
     if (Array.isArray(waypoints) && waypoints.length > 0) {
         // Build SVG path with rounded corners at waypoints
         const points = [
