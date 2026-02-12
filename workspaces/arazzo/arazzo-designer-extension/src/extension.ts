@@ -92,7 +92,7 @@ function getLanguageServerBinaryName(): string {
 	}
 
 	const ext = platform === 'win32' ? '.exe' : '';
-	return `arazzo-language-server-${osPart}-${archPart}${ext}`;
+	return `arazzo-language-server.exe`;
 }
 
 function initializeLanguageServer(context: vscode.ExtensionContext) {
