@@ -853,29 +853,78 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                     const lineContent = model.getLineContent(position.lineNumber);
                     const textUntilPosition = lineContent.substring(0, position.column - 1);
                     const dotIndex = textUntilPosition.lastIndexOf('.');
-                    const eqIndex = textUntilPosition.lastIndexOf('=');
-                    
-                    if (eqIndex !== -1 && eqIndex > dotIndex) {
-                        // After '=', suggest values for the header
-                        const beforeEq = textUntilPosition.substring(0, eqIndex).trim();
-                        const headerValues = suggestions.assertions?.properties['headers'];
-                        if (typeof headerValues === 'object' && 'values' in headerValues) {
-                            for (const [name, vals] of Object.entries(headerValues.values)) {
-                                if (beforeEq.endsWith(name)) {
-                                    vals.forEach((val: string) => {
+
+                    // Tokenize with awareness of trailing spaces
+                    const trimmedEnd = textUntilPosition.replace(/\s+$/g, '');
+                    const hasTrailingSpace = trimmedEnd.length !== textUntilPosition.length;
+                    const tokens = trimmedEnd.trim().length ? trimmedEnd.trim().split(/\s+/) : [];
+                    const targetToken = tokens[0] ?? '';
+                    const operatorTokenRaw = tokens[1] ?? '';
+
+                    // operators from assertionSuggestions (kept inline to avoid circular imports)
+                    const operators = [
+                        '==', '!=', '>', '<', '>=', '<=',
+                        'contains', 'notContains', 'startsWith', 'endsWith',
+                        'matches', 'notMatches',
+                        'isNull', 'isNotEmpty', 'isEmpty', 'isDefined', 'isUndefined',
+                        'isTruthy', 'isFalsy',
+                        'isNumber', 'isString', 'isBoolean', 'isArray', 'isJson'
+                    ];
+                    const unaryOps = new Set([
+                        'isnull', 'isnotempty', 'isempty', 'isdefined', 'isundefined',
+                        'istruthy', 'isfalsy',
+                        'isnumber', 'isstring', 'isboolean', 'isarray', 'isjson'
+                    ]);
+
+                    const normalizedOp = operatorTokenRaw === '=' ? '==' : operatorTokenRaw;
+                    const opLower = normalizedOp.toLowerCase();
+                    const isOperatorToken = Boolean(normalizedOp) && (
+                        operators.map(o => o.toLowerCase()).includes(opLower) ||
+                        ['==', '!=', '>', '<', '>=', '<='].includes(normalizedOp)
+                    );
+
+                    // 1) After selecting an operator (i.e., `target <op> `), suggest values (only for binary ops)
+                    if (tokens.length >= 2 && isOperatorToken && hasTrailingSpace && !unaryOps.has(opLower)) {
+                        if (/^headers\./i.test(targetToken)) {
+                            const headerKey = targetToken.substring('headers.'.length);
+                            const headerValues = suggestions.assertions?.properties['headers'];
+                            if (typeof headerValues === 'object' && headerValues && 'values' in headerValues) {
+                                const valuesMap = (headerValues as any).values as Record<string, string[]>;
+                                const matchedEntry = Object.entries(valuesMap).find(([name]) => name.toLowerCase() === headerKey.toLowerCase());
+                                if (matchedEntry) {
+                                    matchedEntry[1].forEach((val: string) => {
                                         suggestionsList.push({
                                             label: val,
                                             kind: monaco.languages.CompletionItemKind.Value,
-                                            insertText: ' ' + val,
-                                            range: range
+                                            insertText: val,
+                                            range
                                         });
                                     });
-                                    break;
                                 }
                             }
                         }
-                    } else if (dotIndex !== -1) {
-                        // After dot, suggest properties based on the last part before the dot
+                    }
+                    // 2) After completing a target (i.e., `status `, `body `, `headers.Accept `), suggest operators
+                    else if (tokens.length === 1 && hasTrailingSpace) {
+                        const isTargetToken = /^(status|body|headers\.[\w-]+|body\.[\w-]+)$/i.test(targetToken);
+                        if (isTargetToken) {
+                            operators.forEach(op => {
+                                const isUnary = unaryOps.has(op.toLowerCase());
+                                suggestionsList.push({
+                                    label: op,
+                                    kind: monaco.languages.CompletionItemKind.Keyword,
+                                    insertText: op + (isUnary ? '' : ' '),
+                                    range,
+                                    documentation: `Operator: ${op}`,
+                                    command: !isUnary
+                                        ? { id: 'editor.action.triggerSuggest', title: 'Trigger Suggest' }
+                                        : undefined
+                                });
+                            });
+                        }
+                    }
+                    // 3) After dot without trailing space, suggest properties (e.g., `headers.`)
+                    else if (dotIndex !== -1 && !hasTrailingSpace && tokens.length <= 1) {
                         const parts = textUntilPosition.split('.');
                         const lastPart = parts[parts.length - 2]?.trim();
                         if (lastPart) {
@@ -886,28 +935,44 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                                         label: prop,
                                         kind: monaco.languages.CompletionItemKind.Property,
                                         insertText: prop,
-                                        range: range
+                                        range
                                     });
                                 });
-                            } else if (typeof props === 'object' && 'names' in props) {
-                                props.names.forEach(prop => {
+                            } else if (typeof props === 'object' && props && 'names' in props) {
+                                const shouldAddTrailingSpace = lastPart.toLowerCase() === 'headers';
+                                (props as any).names.forEach((prop: string) => {
                                     suggestionsList.push({
                                         label: prop,
                                         kind: monaco.languages.CompletionItemKind.Property,
-                                        insertText: prop,
-                                        range: range
+                                        insertText: shouldAddTrailingSpace ? `${prop} ` : prop,
+                                        range,
+                                        command: shouldAddTrailingSpace
+                                            ? { id: 'editor.action.triggerSuggest', title: 'Trigger Suggest' }
+                                            : undefined
                                     });
                                 });
                             }
                         }
-                    } else {
-                        // Initial suggestions
+                    }
+                    // 4) Fallback: initial suggestions
+                    else {
                         suggestions.assertions?.initial.forEach(init => {
+                            const lowerInit = init.toLowerCase();
+                            const insertText = lowerInit === 'headers'
+                                ? 'headers.'
+                                : (lowerInit === 'status' || lowerInit === 'body')
+                                    ? `${init} `
+                                    : init;
+
                             suggestionsList.push({
                                 label: init,
                                 kind: monaco.languages.CompletionItemKind.Variable,
-                                insertText: init,
-                                range: range
+                                insertText,
+                                range,
+                                command: {
+                                    id: 'editor.action.triggerSuggest',
+                                    title: 'Trigger Suggest'
+                                }
                             });
                         });
                     }
