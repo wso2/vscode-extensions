@@ -63,8 +63,19 @@ const ConditionNodeContent = styled.div`
         height: 26px;
     }
 
-    svg path {
+     /* keep default node icon color white for normal svgs, but allow
+         '.branch-icon' to show the BI-blue */
+    svg:not(.branch-icon) path {
         fill: ${ThemeColors.ON_SURFACE};
+    }
+
+    svg.branch-icon {
+        color: var(--vscode-terminal-ansiBlue);
+    }
+
+    svg.branch-icon path {
+        /* higher-specificity rule so branch icon color is visible */
+        fill: currentColor;
     }
 
     user-select: none;
