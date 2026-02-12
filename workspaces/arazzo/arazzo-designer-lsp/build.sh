@@ -15,25 +15,19 @@ mkdir -p "$EXTENSION_LS_DIR"
 
 # Clean old binaries
 rm -f "$EXTENSION_LS_DIR"/arazzo-language-server-*
+rm -f "$EXTENSION_LS_DIR"/arazzo-language-server.exe
 
-# Define all target platforms: GOOS/GOARCH/output-suffix
+# Define all target platforms: GOOS/GOARCH/output-name
 TARGETS=(
-    "darwin/arm64/darwin-arm64"
-    "darwin/amd64/darwin-amd64"
-    "linux/amd64/linux-amd64"
-    "linux/arm64/linux-arm64"
-    "windows/amd64/win32-amd64"
+    "darwin/arm64/arazzo-language-server-darwin-arm64"
+    "darwin/amd64/arazzo-language-server-darwin-amd64"
+    "linux/amd64/arazzo-language-server-linux-amd64"
+    "linux/arm64/arazzo-language-server-linux-arm64"
+    "windows/amd64/arazzo-language-server.exe"
 )
 
 for target in "${TARGETS[@]}"; do
-    IFS='/' read -r goos goarch suffix <<< "$target"
-    
-    ext=""
-    if [ "$goos" = "windows" ]; then
-        ext=".exe"
-    fi
-    
-    output_name="arazzo-language-server-${suffix}${ext}"
+    IFS='/' read -r goos goarch output_name <<< "$target"
     
     echo "Building for ${goos}/${goarch} -> ${output_name}..."
     GOOS=$goos GOARCH=$goarch go build -o "$output_name" main.go
@@ -59,8 +53,8 @@ echo "✓ Build complete! Language servers are ready at:"
 echo "  $EXTENSION_LS_DIR/"
 echo ""
 echo "Available binaries:"
-echo "  - arazzo-language-server-darwin-arm64   (macOS Apple Silicon)"
-echo "  - arazzo-language-server-darwin-amd64   (macOS Intel)"
-echo "  - arazzo-language-server-linux-amd64    (Ubuntu/Linux x86_64)"
-echo "  - arazzo-language-server-linux-arm64    (Linux ARM64)"
-echo "  - arazzo-language-server-win32-amd64.exe (Windows x86_64)"
+echo "  - arazzo-language-server-darwin-arm64  (macOS Apple Silicon)"
+echo "  - arazzo-language-server-darwin-amd64  (macOS Intel)"
+echo "  - arazzo-language-server-linux-amd64   (Ubuntu/Linux x86_64)"
+echo "  - arazzo-language-server-linux-arm64   (Linux ARM64)"
+echo "  - arazzo-language-server.exe           (Windows)"
