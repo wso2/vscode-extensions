@@ -73,11 +73,15 @@ function getLanguageServerBinaryName(): string {
 	const platform = process.platform; // 'win32', 'darwin', 'linux'
 	const arch = process.arch; // 'x64', 'arm64', etc.
 
+	// Windows: use a single .exe binary regardless of architecture
+	if (platform === 'win32') {
+		return 'arazzo-language-server.exe';
+	}
+
 	// Map Node.js platform/arch to our binary naming convention
 	const platformMap: Record<string, string> = {
 		'darwin': 'darwin',
-		'linux': 'linux',
-		'win32': 'win32'
+		'linux': 'linux'
 	};
 	const archMap: Record<string, string> = {
 		'x64': 'amd64',
@@ -91,8 +95,7 @@ function getLanguageServerBinaryName(): string {
 		throw new Error(`Unsupported platform: ${platform}/${arch}`);
 	}
 
-	const ext = platform === 'win32' ? '.exe' : '';
-	return `arazzo-language-server.exe`;
+	return `arazzo-language-server-${osPart}-${archPart}`;
 }
 
 function initializeLanguageServer(context: vscode.ExtensionContext) {
