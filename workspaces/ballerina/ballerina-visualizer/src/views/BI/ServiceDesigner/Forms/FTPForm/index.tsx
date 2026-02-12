@@ -17,9 +17,9 @@
  */
 
 import { useEffect, useState } from 'react';
-import { ActionButtons, Divider, SidePanelBody, ProgressIndicator, Tooltip, CheckBoxGroup, CheckBox, Codicon, LinkButton, Dropdown, Typography } from '@wso2/ui-toolkit';
+import { ActionButtons, Divider, SidePanelBody, ProgressIndicator, Tooltip, CheckBoxGroup, CheckBox, Codicon, LinkButton, Dropdown, Typography, RadioButtonGroup, TextField } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
-import { FunctionModel, ParameterModel, GeneralPayloadContext, Type, ServiceModel, Protocol } from '@wso2/ballerina-core';
+import { FunctionModel, ParameterModel, GeneralPayloadContext, Type, ServiceModel, Protocol, PropertyModel } from '@wso2/ballerina-core';
 import { EntryPointTypeCreator } from '../../../../../components/EntryPointTypeCreator';
 import { Parameters } from './Parameters/Parameters';
 
@@ -38,6 +38,36 @@ const FileConfigContent = styled.div`
 
 const AddButtonWrapper = styled.div`
     margin: 8px 0;
+`;
+
+const PostProcessSection = styled.div`
+    margin-top: 8px;
+    margin-bottom: 8px;
+`;
+
+const NestedFields = styled.div`
+    margin-left: 24px;
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+`;
+
+const AdvancedConfigsHeader = styled.div`
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 8px 0;
+    user-select: none;
+    &:hover {
+        opacity: 0.8;
+    }
+`;
+
+const AdvancedConfigsContent = styled.div<{ isExpanded: boolean }>`
+    display: ${({ isExpanded }: { isExpanded: boolean }) => (isExpanded ? 'block' : 'none')};
+    padding-left: 8px;
+    margin-top: 8px;
 `;
 
 export const EditorContentColumn = styled.div`
@@ -322,6 +352,206 @@ export function FTPForm(props: FTPFormProps) {
     );
     // Check if properties exist for conditional rendering
     const hasStreamProperty = functionModel?.properties?.stream !== undefined;
+    const isOnCreateHandler = selectedHandler === 'onCreate' || functionModel?.metadata?.label === 'onCreate';
+
+    // State for Advanced Configs section
+    const [isAdvancedConfigsExpanded, setIsAdvancedConfigsExpanded] = useState<boolean>(false);
+
+    // Post-processing action handling - two actions (OnSuccess/OnError) for all handlers
+    const postProcessActionOnSuccess = functionModel?.properties?.postProcessActionOnSuccess as PropertyModel | undefined;
+    const postProcessActionOnError = functionModel?.properties?.postProcessActionOnError as PropertyModel | undefined;
+
+    // Check if we have the two-action format
+    const hasSuccessAction = postProcessActionOnSuccess !== undefined && postProcessActionOnSuccess.choices !== undefined;
+    const hasErrorAction = postProcessActionOnError !== undefined && postProcessActionOnError.choices !== undefined;
+
+    // Generic function to get selected index for any post-process action
+    const getSelectedActionIndex = (action: PropertyModel | undefined): number => {
+        if (!action?.choices) return 1; // Default to NONE (index 0 + 1)
+        const enabledIndex = action.choices.findIndex((choice: PropertyModel) => choice.enabled);
+        return enabledIndex !== -1 ? enabledIndex + 1 : 1;
+    };
+
+    const [selectedSuccessAction, setSelectedSuccessAction] = useState<number>(getSelectedActionIndex(postProcessActionOnSuccess));
+    const [selectedErrorAction, setSelectedErrorAction] = useState<number>(getSelectedActionIndex(postProcessActionOnError));
+
+    // Update selected actions when functionModel changes
+    useEffect(() => {
+        if (hasSuccessAction) {
+            setSelectedSuccessAction(getSelectedActionIndex(postProcessActionOnSuccess));
+        }
+        if (hasErrorAction) {
+            setSelectedErrorAction(getSelectedActionIndex(postProcessActionOnError));
+        }
+    }, [functionModel?.properties?.postProcessActionOnSuccess, functionModel?.properties?.postProcessActionOnError]);
+
+    // Generic handler for post-process action change
+    const handleActionChange = (propertyKey: string, action: PropertyModel | undefined, value: number, setSelected: (v: number) => void) => {
+        if (!functionModel || !action?.choices) return;
+
+        const realIndex = value - 1;
+        const updatedChoices = action.choices.map((choice: PropertyModel, index: number) => ({
+            ...choice,
+            enabled: index === realIndex
+        }));
+
+        setSelected(value);
+        setFunctionModel({
+            ...functionModel,
+            properties: {
+                ...functionModel.properties,
+                [propertyKey]: {
+                    ...action,
+                    choices: updatedChoices
+                }
+            }
+        });
+    };
+
+    // Generic handler for Move To change
+    const handleMoveToChangeGeneric = (propertyKey: string, action: PropertyModel | undefined, value: string) => {
+        if (!functionModel || !action?.choices) return;
+
+        const moveChoiceIndex = action.choices.findIndex((choice: PropertyModel) => choice.value === 'MOVE');
+        if (moveChoiceIndex === -1) return;
+
+        const updatedChoices = [...action.choices];
+        updatedChoices[moveChoiceIndex] = {
+            ...updatedChoices[moveChoiceIndex],
+            properties: {
+                ...updatedChoices[moveChoiceIndex].properties,
+                moveTo: {
+                    ...updatedChoices[moveChoiceIndex].properties?.moveTo,
+                    value: value.startsWith('"') ? value : `"${value}"`
+                }
+            }
+        };
+
+        setFunctionModel({
+            ...functionModel,
+            properties: {
+                ...functionModel.properties,
+                [propertyKey]: {
+                    ...action,
+                    choices: updatedChoices
+                }
+            }
+        });
+    };
+
+    // Generic handler for Preserve SubDirs change
+    const handlePreserveSubDirsChangeGeneric = (propertyKey: string, action: PropertyModel | undefined, checked: boolean) => {
+        if (!functionModel || !action?.choices) return;
+
+        const moveChoiceIndex = action.choices.findIndex((choice: PropertyModel) => choice.value === 'MOVE');
+        if (moveChoiceIndex === -1) return;
+
+        const updatedChoices = [...action.choices];
+        updatedChoices[moveChoiceIndex] = {
+            ...updatedChoices[moveChoiceIndex],
+            properties: {
+                ...updatedChoices[moveChoiceIndex].properties,
+                preserveSubDirs: {
+                    ...updatedChoices[moveChoiceIndex].properties?.preserveSubDirs,
+                    value: checked ? 'true' : 'false'
+                }
+            }
+        };
+
+        setFunctionModel({
+            ...functionModel,
+            properties: {
+                ...functionModel.properties,
+                [propertyKey]: {
+                    ...action,
+                    choices: updatedChoices
+                }
+            }
+        });
+    };
+
+    // Get the current MOVE choice properties for any action
+    const getMoveChoicePropertiesGeneric = (action: PropertyModel | undefined, defaultPath: string = '/processed') => {
+        if (!action?.choices) return { moveTo: defaultPath, preserveSubDirs: true };
+        const moveChoice = action.choices.find((choice: PropertyModel) => choice.value === 'MOVE');
+        if (!moveChoice?.properties) return { moveTo: defaultPath, preserveSubDirs: true };
+
+        const moveToValue = moveChoice.properties.moveTo?.value || `"${defaultPath}"`;
+        const preserveSubDirsValue = moveChoice.properties.preserveSubDirs?.value;
+
+        return {
+            moveTo: moveToValue.replace(/^"|"$/g, ''), // Remove quotes
+            preserveSubDirs: preserveSubDirsValue === undefined ? true : preserveSubDirsValue === 'true'
+        };
+    };
+
+    // Render a post-processing action section
+    const renderPostProcessActionSection = (
+        subtitle: string,
+        propertyKey: string,
+        action: PropertyModel | undefined,
+        selectedValue: number,
+        setSelected: (v: number) => void,
+        defaultMovePath: string
+    ) => {
+        if (!action?.choices) return null;
+
+        const moveProperties = getMoveChoicePropertiesGeneric(action, defaultMovePath);
+        const isMoveToEmpty = !moveProperties.moveTo?.trim();
+
+        return (
+            <PostProcessSection>
+                <Typography variant="body2" sx={{ marginBottom: 4 }}>
+                    {subtitle}
+                </Typography>
+                {action.metadata?.description && (
+                    <Typography
+                        variant="body3"
+                        sx={{ marginBottom: 8, color: 'var(--vscode-descriptionForeground)' }}
+                    >
+                        {action.metadata.description}
+                    </Typography>
+                )}
+                <RadioButtonGroup
+                    id={`post-process-action-${propertyKey}`}
+                    label=""
+                    value={selectedValue}
+                    options={action.choices?.map((choice: PropertyModel, index: number) => ({
+                        id: `${propertyKey}-${index}`,
+                        value: index + 1,
+                        content: choice.metadata?.label || choice.value
+                    })) || []}
+                    onChange={(e) => {
+                        handleActionChange(propertyKey, action, Number(e.target.value), setSelected);
+                    }}
+                />
+
+                {/* Show nested fields for MOVE action */}
+                {action.choices?.[selectedValue - 1]?.value === 'MOVE' && (
+                    <NestedFields>
+                        <TextField
+                            id={`move-to-path-${propertyKey}`}
+                            label="Move To"
+                            value={moveProperties.moveTo}
+                            onChange={(e) => handleMoveToChangeGeneric(propertyKey, action, e.target.value)}
+                            placeholder={defaultMovePath}
+                            description="Destination path to move the file"
+                            required={true}
+                            errorMsg={isMoveToEmpty ? "Move To is required" : undefined}
+                        />
+                        <CheckBoxGroup direction="vertical">
+                            <CheckBox
+                                label="Preserve Subdirectories"
+                                checked={moveProperties.preserveSubDirs}
+                                onChange={(checked) => handlePreserveSubDirsChangeGeneric(propertyKey, action, checked)}
+                                sx={{ description: "Whether to preserve the subdirectory structure when moving files" }}
+                            />
+                        </CheckBoxGroup>
+                    </NestedFields>
+                )}
+            </PostProcessSection>
+        );
+    };
 
     return (
         <>
@@ -330,7 +560,7 @@ export function FTPForm(props: FTPFormProps) {
                 <EditorContentColumn>
 
                     {/* File Configuration Section - Only show for onCreate handler */}
-                    {(selectedHandler === 'onCreate'|| functionModel?.metadata?.label === 'onCreate') && (
+                    {isOnCreateHandler && (
                         <FileConfigContainer>
                             <FileConfigSection>
                                 <FileConfigContent>
@@ -433,50 +663,81 @@ export function FTPForm(props: FTPFormProps) {
                             </FileConfigSection>
                         </FileConfigContainer>
                     )}
-                    {(fileInfoParameter || callerParameter) && (selectedHandler === 'onCreate' || functionModel?.metadata?.label === 'onCreate') ? <Divider /> : null}
-                                
-                    {/* File Metadata Section */}
-                    {fileInfoParameter && (
+                    {/* Post-Processing Actions Section - Show two actions for all handlers */}
+                    {(hasSuccessAction || hasErrorAction) && (
                         <>
-
-                            <CheckBoxGroup direction="vertical">
-                                <CheckBox
-                                    label={parameterConfig.fileInfo.label}
-                                    checked={fileInfoParameter.enabled}
-                                    onChange={(checked) => {
-                                        const updatedParameters = functionModel.parameters.map((p) => {
-                                            if (p === fileInfoParameter) {
-                                                return { ...p, enabled: checked };
-                                            }
-                                            return p;
-                                        });
-                                        handleParamChange(updatedParameters);
-                                    }}
-                                    sx={{ marginTop: 0, description: parameterConfig.fileInfo.description}}
-                                />
-                            </CheckBoxGroup>
+                            {isOnCreateHandler && <Divider />}
+                            <Typography variant="body2" sx={{ marginBottom: 8 }}>
+                                After File Processing
+                            </Typography>
+                            {hasSuccessAction && renderPostProcessActionSection(
+                                "Success",
+                                "postProcessActionOnSuccess",
+                                postProcessActionOnSuccess,
+                                selectedSuccessAction,
+                                setSelectedSuccessAction,
+                                "/processed"
+                            )}
+                            {hasErrorAction && renderPostProcessActionSection(
+                                "Error",
+                                "postProcessActionOnError",
+                                postProcessActionOnError,
+                                selectedErrorAction,
+                                setSelectedErrorAction,
+                                "/error"
+                            )}
                         </>
                     )}
 
-                    {/* FTP Connection Section */}
-                    {callerParameter && (
+                    {/* Advanced Configs Section - Contains File Metadata and FTP Connection */}
+                    {(fileInfoParameter || callerParameter) && (
                         <>
-                            <CheckBoxGroup direction="vertical">
-                                <CheckBox
-                                    label={parameterConfig.caller.label}
-                                    checked={callerParameter.enabled}
-                                    onChange={(checked) => {
-                                        const updatedParameters = functionModel.parameters.map((p) => {
-                                            if (p === callerParameter) {
-                                                return { ...p, enabled: checked };
-                                            }
-                                            return p;
-                                        });
-                                        handleParamChange(updatedParameters);
-                                    }}
-                                    sx={{ marginTop: 0, description: parameterConfig.caller.description }}
-                                />
-                            </CheckBoxGroup>
+                            <Divider />
+                            <AdvancedConfigsHeader onClick={() => setIsAdvancedConfigsExpanded(!isAdvancedConfigsExpanded)}>
+                                <Codicon name={isAdvancedConfigsExpanded ? "chevron-down" : "chevron-right"} sx={{ marginRight: 4 }} />
+                                <Typography variant="body2">Advanced Configs</Typography>
+                            </AdvancedConfigsHeader>
+                            <AdvancedConfigsContent isExpanded={isAdvancedConfigsExpanded}>
+                                {/* File Metadata Section */}
+                                {fileInfoParameter && (
+                                    <CheckBoxGroup direction="vertical">
+                                        <CheckBox
+                                            label={parameterConfig.fileInfo.label}
+                                            checked={fileInfoParameter.enabled}
+                                            onChange={(checked) => {
+                                                const updatedParameters = functionModel.parameters.map((p) => {
+                                                    if (p === fileInfoParameter) {
+                                                        return { ...p, enabled: checked };
+                                                    }
+                                                    return p;
+                                                });
+                                                handleParamChange(updatedParameters);
+                                            }}
+                                            sx={{ marginTop: 0, description: parameterConfig.fileInfo.description}}
+                                        />
+                                    </CheckBoxGroup>
+                                )}
+
+                                {/* FTP Connection Section */}
+                                {callerParameter && (
+                                    <CheckBoxGroup direction="vertical">
+                                        <CheckBox
+                                            label={parameterConfig.caller.label}
+                                            checked={callerParameter.enabled}
+                                            onChange={(checked) => {
+                                                const updatedParameters = functionModel.parameters.map((p) => {
+                                                    if (p === callerParameter) {
+                                                        return { ...p, enabled: checked };
+                                                    }
+                                                    return p;
+                                                });
+                                                handleParamChange(updatedParameters);
+                                            }}
+                                            sx={{ marginTop: 8, description: parameterConfig.caller.description }}
+                                        />
+                                    </CheckBoxGroup>
+                                )}
+                            </AdvancedConfigsContent>
                         </>
                     )}
                 </EditorContentColumn>
