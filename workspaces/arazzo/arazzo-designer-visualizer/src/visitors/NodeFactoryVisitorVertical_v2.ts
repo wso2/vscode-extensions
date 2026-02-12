@@ -218,6 +218,7 @@ export class NodeFactoryVisitorVertical_v2 {
         const findshifts = (sourcePt: {x:number,y:number}, targetPt: {x:number,y:number}): number => {
             let shifts = 0;
             while (true) {
+                let collisionFound = false;
                 for (const nodePos of this.allNodePositions) {
                     if (nodePos.id === source.id || nodePos.id === target.id) continue;
                     const rect = { x: nodePos.x, y: nodePos.y, w: nodePos.w, h: nodePos.h };
@@ -225,10 +226,15 @@ export class NodeFactoryVisitorVertical_v2 {
                         shifts++;
                         sourcePt.x += C.NODE_WIDTH;
                         targetPt.x += C.NODE_WIDTH;
+                        collisionFound = true;
                         break;
                     }
                 }
-                return shifts;
+                if(!collisionFound) return shifts
+                if(shifts > 20) { // safety break to prevent infinite loops in extreme cases
+                    console.warn(`[NodeFactory V2] Excessive shifts detected for edge ${source.id} → ${target.id}. Possible layout issue.`);
+                    return shifts;
+                }
             }
             
         }
