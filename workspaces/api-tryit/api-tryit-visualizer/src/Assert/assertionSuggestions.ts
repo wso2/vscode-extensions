@@ -74,7 +74,8 @@ export const completeTarget = (target: string): string => {
  * Get operator suggestions
  */
 export const getOperatorSuggestions = (): string[] => {
-    return ['==', '!=', '>', '<', '>=', '<=', '='];
+    // prefer `==` for equality — do not suggest single `=` going forward
+    return ['==', '!=', '>', '<', '>=', '<='];
 };
 
 /**
@@ -117,9 +118,11 @@ export const parseAssertion = (assertion: string): { target: string; operator: s
     const match = trimmed.match(/^(.+?)\s+(==|!=|>=|<=|>|<|=)\s*(.*)$/);
 
     if (match) {
+        const rawOp = match[2].trim();
+        const operator = rawOp === '=' ? '==' : rawOp;
         return {
             target: match[1].trim(),
-            operator: match[2].trim(),
+            operator,
             value: match[3].trim().replace(/^['"]|['"]$/g, '') // Remove surrounding quotes
         };
     }
@@ -154,5 +157,6 @@ export const buildAssertion = (target: string, operator: string, value: string):
         return target;
     }
 
-    return `${target} ${operator} ${value}`;
+    const normalizedOp = operator === '=' ? '==' : operator;
+    return `${target} ${normalizedOp} ${value}`;
 };

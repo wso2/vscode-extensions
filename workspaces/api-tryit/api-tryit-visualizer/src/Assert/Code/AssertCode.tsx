@@ -106,7 +106,7 @@ export const AssertCode: React.FC<AssertCodeProps> = ({
             onExecute: (editor: any, model: any) => {
                 const lineCount = model.getLineCount();
                 const lastLineLength = model.getLineLength(lineCount);
-                const textToInsert = model.getValue() ? '\nres.status = 200' : 'res.status = 200';
+                const textToInsert = model.getValue() ? '\nres.status == 200' : 'res.status == 200';
 
                 editor.executeEdits('add-assertion', [{
                     range: {
@@ -197,7 +197,7 @@ export const AssertCode: React.FC<AssertCodeProps> = ({
                                                 </AssertionDetailLine>
                                             ) : (
                                                 <AssertionDetailLine>
-                                                    Assertion format is invalid. Please use the format: [target] [operator] [value]. E.g., status = 200, headers.Content-Type = application/json, body != ''
+                                                    Assertion format is invalid. Please use the format: [target] [operator] [value]. E.g., status == 200, headers.Content-Type == application/json, body != ''
                                                 </AssertionDetailLine>
                                             )}
                                         </AssertionFailureDetails>

@@ -80,8 +80,8 @@ export const getOperator = (assertion: string): string | undefined => {
         return undefined;
     }
 
-    const [, , , operator] = match;
-    return operator;
+    const [, , , rawOp] = match;
+    return rawOp === '=' ? '==' : rawOp;
 };
 
 export const getNestedProperty = (obj: any, path: string): any => {
