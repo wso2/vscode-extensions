@@ -112,6 +112,12 @@ export function detectBridgesForSegment(
 
     const hits: number[] = [];
 
+    // Helper to check if a point is at a segment endpoint
+    const isEndpoint = (pt: Point, segStart: Point, segEnd: Point, tolerance = eps): boolean => {
+        return (Math.abs(pt.x - segStart.x) <= tolerance && Math.abs(pt.y - segStart.y) <= tolerance) ||
+               (Math.abs(pt.x - segEnd.x) <= tolerance && Math.abs(pt.y - segEnd.y) <= tolerance);
+    };
+
     // Current segment is horizontal; detect vertical segments in other edges
     for (const oe of otherEdges) {
         const pts = getPointsForEdge(oe, nodeById);
@@ -126,7 +132,17 @@ export function detectBridgesForSegment(
                 const minVY = Math.min(a.y, b.y) - eps;
                 const maxVY = Math.max(a.y, b.y) + eps;
                 if (a.x >= minAX && a.x <= maxAX && from.y >= minVY && from.y <= maxVY) {
-                    hits.push(a.x);
+                    // Found potential intersection point
+                    const intersectionPoint = { x: a.x, y: from.y };
+                    
+                    // Filter out split points: skip if intersection is at an endpoint of either segment
+                    const isCurrentEndpoint = isEndpoint(intersectionPoint, from, to);
+                    const isOtherEndpoint = isEndpoint(intersectionPoint, a, b);
+                    
+                    if (!isCurrentEndpoint && !isOtherEndpoint) {
+                        // True crossing - not a split point
+                        hits.push(a.x);
+                    }
                 }
             }
         }
