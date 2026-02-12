@@ -41,6 +41,7 @@ export namespace NodeStyles {
         hasError?: boolean;
         readOnly?: boolean;
         isSelected?: boolean;
+        alignLeft?: boolean;
         flash?: boolean;
     };
 
@@ -54,7 +55,7 @@ export namespace NodeStyles {
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        align-items: center;
+        align-items: ${(props: NodeStyleProp) => (props.alignLeft ? 'flex-start' : 'center')};
         box-sizing: border-box;
         width: 100%;
         min-height: ${NODE_HEIGHT}px;
@@ -150,6 +151,7 @@ export interface BaseNodeWidgetProps {
     selected?: boolean;
     isConnectable?: boolean;
     children?: React.ReactNode;
+    leftAligned?: boolean;
 }
 
 export const BaseNodeWidget: React.FC<BaseNodeWidgetProps> = ({
@@ -158,6 +160,7 @@ export const BaseNodeWidget: React.FC<BaseNodeWidgetProps> = ({
     selected,
     isConnectable,
     children,
+    leftAligned,
 }) => {
     const [hovered, setHovered] = React.useState(false);
 
@@ -168,6 +171,7 @@ export const BaseNodeWidget: React.FC<BaseNodeWidgetProps> = ({
             flash={data.flash}
             hasError={data.hasError}
             isSelected={selected}
+            alignLeft={Boolean(leftAligned)}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
         >
