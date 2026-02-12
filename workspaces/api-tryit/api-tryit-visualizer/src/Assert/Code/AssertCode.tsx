@@ -106,7 +106,7 @@ export const AssertCode: React.FC<AssertCodeProps> = ({
             onExecute: (editor: any, model: any) => {
                 const lineCount = model.getLineCount();
                 const lastLineLength = model.getLineLength(lineCount);
-                const textToInsert = model.getValue() ? '\nres.status == 200' : 'res.status == 200';
+                const textToInsert = model.getValue() ? '\nstatus == 200' : 'status == 200';
 
                 editor.executeEdits('add-assertion', [{
                     range: {
