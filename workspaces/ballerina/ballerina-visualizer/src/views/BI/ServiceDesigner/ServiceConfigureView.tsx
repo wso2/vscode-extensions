@@ -733,6 +733,8 @@ export function ServiceConfigureView(props: ServiceConfigureProps) {
                                                                                 filePath={listener.path}
                                                                                 position={listener.position}
                                                                                 onChange={handleListenerChange}
+                                                                                isAttachedListener={listeners.indexOf(listener) > 0}
+                                                                                listenerName={listener.name}
                                                                             />
                                                                         </div>
                                                                     </AccordionContainer>
@@ -776,10 +778,12 @@ interface ServiceConfigureListenerEditViewProps {
     filePath: string;
     position: NodePosition;
     onChange?: (data: ListenerModel, filePath: string, position: NodePosition) => void;
+    isAttachedListener?: boolean; // True if this is an attached listener (not the first/primary one)
+    listenerName?: string; // Name of the listener for display purposes
 }
 
 function ServiceConfigureListenerEditView(props: ServiceConfigureListenerEditViewProps) {
-    const { filePath, position, onChange } = props;
+    const { filePath, position, onChange, isAttachedListener = false, listenerName } = props;
     const { rpcClient } = useRpcContext();
     const [listenerModel, setListenerModel] = useState<ListenerModel>(undefined);
 
@@ -810,6 +814,12 @@ function ServiceConfigureListenerEditView(props: ServiceConfigureListenerEditVie
         onChange(data, filePath, position);
     }
 
+    // Check if this is a legacy listener (has folderPath in listener properties)
+    const isLegacyListener = listenerModel?.properties?.folderPath !== undefined;
+
+    // For attached listeners in new system (no folderPath in listener), show only monitoring path
+    const showMinimalConfig = isAttachedListener && !isLegacyListener;
+
     return (
         <ServiceConfigureListenerEditViewContainer>
             {!listenerModel &&
@@ -818,13 +828,41 @@ function ServiceConfigureListenerEditView(props: ServiceConfigureListenerEditVie
                     <Typography variant="h3" sx={{ marginTop: '16px' }}>Loading...</Typography>
                 </LoadingContainer>
             }
-            {listenerModel &&
+            {listenerModel && !showMinimalConfig &&
                 <ListenerConfigForm listenerModel={listenerModel} onSubmit={onSubmit} formSubmitText={saving ? savingText : "Save"} isSaving={saving} onChange={handleListenerChange} />
+            }
+            {listenerModel && showMinimalConfig &&
+                <AttachedListenerMinimalConfig
+                    listenerName={listenerName}
+                    onSave={onSubmit}
+                    isSaving={saving}
+                    savingText={savingText}
+                />
             }
         </ServiceConfigureListenerEditViewContainer>
     );
 };
 
+// Minimal config component for attached listeners in new system (no folderPath in listener)
+interface AttachedListenerMinimalConfigProps {
+    listenerName?: string;
+    onSave?: (value: ListenerModel) => void;
+    isSaving?: boolean;
+    savingText?: string;
+}
+
+function AttachedListenerMinimalConfig(props: AttachedListenerMinimalConfigProps) {
+    const { listenerName } = props;
+
+    return (
+        <div style={{ padding: '16px 0' }}>
+            <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)' }}>
+                This service is attached to the existing listener <strong>{listenerName}</strong>.
+                The monitoring path is configured at the service level.
+            </Typography>
+        </div>
+    );
+}
 
 
 namespace S {
