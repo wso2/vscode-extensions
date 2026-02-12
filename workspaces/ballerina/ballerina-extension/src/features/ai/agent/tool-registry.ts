@@ -35,18 +35,18 @@ import {
     FILE_SINGLE_EDIT_TOOL_NAME,
     FILE_WRITE_TOOL_NAME
 } from './tools/text-editor';
-import { getLibraryProviderTool } from './tools/library-provider';
-import { LIBRARY_PROVIDER_TOOL, GenerationType } from '../utils/libs/libraries';
+import { getLibraryGetTool, LIBRARY_GET_TOOL } from './tools/library-get';
+import { GenerationType } from '../utils/libs/libraries';
 import { getHealthcareLibraryProviderTool, HEALTHCARE_LIBRARY_PROVIDER_TOOL } from './tools/healthcare-library';
 import { createConnectorGeneratorTool, CONNECTOR_GENERATOR_TOOL } from './tools/connector-generator';
 import { createHttpRequestTool, HTTP_REQUEST_TOOL_NAME } from './tools/http-request';
+import { LIBRARY_SEARCH_TOOL, getLibrarySearchTool } from './tools/library-search';
 
 export interface ToolRegistryOptions {
     eventHandler: CopilotEventHandler;
     tempProjectPath: string;
     modifiedFiles: string[];
     projects: ProjectSource[];
-    libraryDescriptions: string;
     generationType: GenerationType;
     workspaceId: string;
     generationId: string;
@@ -54,7 +54,7 @@ export interface ToolRegistryOptions {
 }
 
 export function createToolRegistry(opts: ToolRegistryOptions) {
-    const { eventHandler, tempProjectPath, modifiedFiles, projects, libraryDescriptions, generationType, workspaceId, generationId, threadId } = opts;
+    const { eventHandler, tempProjectPath, modifiedFiles, projects, generationType, workspaceId, generationId, threadId } = opts;
     return {
         [TASK_WRITE_TOOL_NAME]: createTaskWriteTool(
             eventHandler,
@@ -64,13 +64,14 @@ export function createToolRegistry(opts: ToolRegistryOptions) {
             generationId,
             threadId || 'default'
         ),
-        [LIBRARY_PROVIDER_TOOL]: getLibraryProviderTool(
-            libraryDescriptions,
+        [LIBRARY_GET_TOOL]: getLibraryGetTool(
             generationType,
             eventHandler
         ),
+        [LIBRARY_SEARCH_TOOL]: getLibrarySearchTool(
+            eventHandler
+        ),
         [HEALTHCARE_LIBRARY_PROVIDER_TOOL]: getHealthcareLibraryProviderTool(
-            libraryDescriptions,
             eventHandler
         ),
         [CONNECTOR_GENERATOR_TOOL]: createConnectorGeneratorTool(
