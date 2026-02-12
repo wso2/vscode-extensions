@@ -2,9 +2,12 @@
   "name": "api-tryit",
   "displayName": "WSO2 API TryIt",
   "description": "An extension for testing and trying out APIs",
-  "icon": "resources/images/api-tryit-icon.png",
   "version": "1.0.0",
   "publisher": "wso2",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wso2/ballerina-plugin-vscode.git"
+  },
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -149,15 +152,19 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "pnpm run package",
+    "clean": "rimraf ./dist",
     "compile": "webpack",
     "watch": "webpack --watch",
-    "package": "webpack --mode production --devtool hidden-source-map",
+    "package": "node ../../common-libs/scripts/package-vsix.js",
     "lint": "eslint src --ext ts",
-    "build": "pnpm run lint && pnpm run compile",
+    "build": "pnpm clean && pnpm run copyFonts && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run copyVSIX",
+    "copyFonts": "copyfiles -f ./node_modules/@wso2/font-wso2-vscode/dist/* ./resources/font-wso2-vscode/dist/",
+    "copyVSIX": "copyfiles *.vsix ./vsix",
     "copyVSIXToRoot": "copyfiles -u 0 \"vsix/*.vsix\" ../../../"
   },
   "devDependencies": {
+    "@vscode/vsce": "^3.7.0",
+    "rimraf": "~5.0.5",
     "@types/js-yaml": "^4.0.9",
     "@types/vscode": "^1.100.0",
     "@types/node": "20.x",
