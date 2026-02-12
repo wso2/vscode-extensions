@@ -20,6 +20,7 @@ import { FlowNode } from '../utils/types';
 import { Node, Edge, MarkerType } from '@xyflow/react';
 import * as C from '../constants/nodeConstants';
 import { DepthSearch } from './DepthSearch';
+import { ThemeColors } from '@wso2/ui-toolkit';
 
 /**
  * PortalCreator V2: Smart portal creation for vertical "Happy Path" layout.
@@ -212,7 +213,7 @@ export class PortalCreator_v2 {
         const sourceHandleId = edgeType === 'failure' ? 'h-right-source' : 'h-bottom';
         const edgeStyle = edgeType === 'failure' 
             ? { stroke: 'red', strokeDasharray: '4 4' } 
-            : { stroke: '#00f3ff', strokeDasharray: '4 4' };
+            : { stroke: ThemeColors.PRIMARY, strokeDasharray: '4 4' };
 
         // Edge: source → portal
         this.reactEdges.push({

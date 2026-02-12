@@ -21,6 +21,7 @@ import { Node, Edge, MarkerType } from '@xyflow/react';
 import * as C from '../constants/nodeConstants';
 import WaypointCreator from '../components/edges/WaypointCreator';
 import { pointInRect, segIntersectsSeg, segmentIntersectsRect } from '../components/edges/edgeUtils';
+import { ThemeColors } from '@wso2/ui-toolkit';
 
 /**
  * NodeFactoryVisitorVertical V2: Generate React Flow nodes and edges for vertical layout.
@@ -284,11 +285,11 @@ export class NodeFactoryVisitorVertical_v2 {
             },
             markerEnd: { 
                 type: MarkerType.ArrowClosed,
-                color: edgeType === 'failure' ? 'red' : '#0099ff'
+                color: edgeType === 'failure' ? 'red' : ThemeColors.PRIMARY
             },
             style: edgeType === 'failure' 
                 ? { stroke: 'red', strokeWidth: 2 } 
-                : { stroke: '#0099ff', strokeWidth: 2 }
+                : { stroke: ThemeColors.PRIMARY, strokeWidth: 2 }
         };
 
         console.log(`[NodeFactory V2] Creating edge:`, {
