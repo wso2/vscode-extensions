@@ -46,7 +46,8 @@ const InputContainer = styled.div`
 const StyledInput = styled.input<{ status?: 'pass' | 'fail' }>`
     width: 100%;
     height: 100%;
-    padding: 0 24px 0 8px;
+    /* increased right padding to accommodate clear + dropdown buttons */
+    padding: 0 48px 0 8px;
     border: 1px solid var(--vscode-dropdown-border);
     background-color: ${({ status }) => {
         if (status === 'fail') {
@@ -80,6 +81,31 @@ const StyledInput = styled.input<{ status?: 'pass' | 'fail' }>`
 const DropdownButton = styled.button`
     position: absolute;
     right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--vscode-icon-foreground);
+    
+    &:hover {
+        color: var(--vscode-icon-foreground);
+    }
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+`;
+
+/* Clear button sits to the left of the chevron */
+const ClearButton = styled.button`
+    position: absolute;
+    right: 28px;
     top: 50%;
     transform: translateY(-50%);
     background: none;
@@ -327,6 +353,26 @@ export const SuggestionDropdown: React.FC<SuggestionDropdownProps> = ({
                     disabled={disabled}
                     status={status}
                 />
+
+                <ClearButton
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                        if (!disabled && query !== '') {
+                            setQuery('');
+                            isExternalChangeRef.current = true;
+                            onChange('');
+                            inputRef.current?.focus();
+                            setIsOpen(true);
+                        }
+                    }}
+                    disabled={disabled || query === ''}
+                    tabIndex={-1}
+                    title="Clear"
+                    aria-label="Clear"
+                >
+                    <Codicon name="close" />
+                </ClearButton>
+
                 <DropdownButton
                     onClick={handleToggleDropdown}
                     disabled={disabled}
