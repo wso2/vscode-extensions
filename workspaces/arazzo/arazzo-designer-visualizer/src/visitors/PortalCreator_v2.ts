@@ -212,8 +212,8 @@ export class PortalCreator_v2 {
         // Determine source handle based on edge type
         const sourceHandleId = edgeType === 'failure' ? 'h-right-source' : 'h-bottom';
         const edgeStyle = edgeType === 'failure' 
-            ? { stroke: 'red', strokeDasharray: '4 4' } 
-            : { stroke: ThemeColors.PRIMARY, strokeDasharray: '4 4' };
+            ? { stroke: 'red', strokeDasharray: '4 4' ,strokeWidth: 2} 
+            : { stroke: ThemeColors.PRIMARY, strokeDasharray: '4 4', strokeWidth: 2 };
 
         // Edge: source → portal
         this.reactEdges.push({
