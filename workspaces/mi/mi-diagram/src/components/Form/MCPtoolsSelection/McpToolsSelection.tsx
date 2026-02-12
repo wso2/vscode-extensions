@@ -64,6 +64,7 @@ interface McpToolsSelectionProps {
     showValidationError?: boolean;
     resolutionError?: string;
     onRetryFetch?: () => void;
+    onSelectionChange?: (value: string[]) => void;
     selectedConnection?: string;
     control: any;
     setValue: (name: string, value: any) => void;
@@ -421,6 +422,7 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
     showValidationError = false,
     resolutionError = "",
     onRetryFetch,
+    onSelectionChange,
     selectedConnection,
     control: _control,
     setValue,
@@ -472,6 +474,11 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
                     : [];
                 setMcpTools(tools);
                 setError("");
+                if (tools.length > 0 && selectedTools.size === 0) {
+                    setFormError?.('mcpTools', { type: 'manual', message: 'Select at least one tool.' });
+                } else if (selectedTools.size > 0) {
+                    clearErrors?.('mcpTools');
+                }
             }
             setLoading(false);
         };
@@ -487,16 +494,30 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
         } else {
             newSelection.delete(toolName);
         }
-        setValue('mcpToolsSelection', Array.from(newSelection));
+        const nextSelection = Array.from(newSelection);
+        onSelectionChange?.(nextSelection);
+        setValue('mcpToolsSelection', nextSelection);
+        if (newSelection.size > 0) {
+            clearErrors?.('mcpTools');
+        } else {
+            setFormError?.('mcpTools', { type: 'manual', message: 'Select at least one tool.' });
+        }
     };
 
     const handleSelectAll = () => {
         const currentSelection = getValues('mcpToolsSelection');
         const selectedCount = Array.isArray(currentSelection) ? currentSelection.length : 0;
+        let nextSelection: string[] = [];
         if (selectedCount === tools.length) {
-            setValue('mcpToolsSelection', []);
+            nextSelection = [];
         } else {
-            setValue('mcpToolsSelection', tools.map(tool => tool.name));
+            nextSelection = tools.map(tool => tool.name);
+            clearErrors?.('mcpTools');
+        }
+        onSelectionChange?.(nextSelection);
+        setValue('mcpToolsSelection', nextSelection);
+        if (nextSelection.length === 0) {
+            setFormError?.('mcpTools', { type: 'manual', message: 'Select at least one tool.' });
         }
     };
 

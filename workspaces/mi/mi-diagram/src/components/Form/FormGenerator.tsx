@@ -1291,6 +1291,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                         showValidationError={!!errorMsg}
                         resolutionError=""
                         control={control}
+                        onSelectionChange={(value) => field.onChange(value)}
                         setValue={setValue}
                         getValues={getValues}
                         setError={setError}
