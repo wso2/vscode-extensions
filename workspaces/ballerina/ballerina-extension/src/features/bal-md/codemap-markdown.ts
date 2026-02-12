@@ -48,20 +48,6 @@ export function generateCodeMapMarkdown(codeMapResponse: CodeMapResponse): strin
         "This document provides a structured overview of the project codebase.",
         "It is organized by file path and summarizes the following elements for each file.",
         "Each artifact is listed with its sub-properties on separate indented lines.",
-        "",
-        "- **Imports** – External modules and dependencies used in the file.",
-        "- **Configurables** – Configurable variables with type, description, and line range.",
-        "- **Variables** – Global variables with type, description, and line range.",
-        "- **Types** – Record types, enums, and custom type definitions with type descriptor, fields, description, and line range.",
-        "- **Functions** – Functions with parameters, return type, description, and line range.",
-        "- **Automations** – Entry-point functions such as `main` with parameters, return type, and line range.",
-        "- **Listeners** – Listener declarations with type, arguments, description, and line range.",
-        "- **Connections** – Client connections with type, description, and line range.",
-        "- **Services** – HTTP services and resource functions with base path, listener type, port, description, and line range.",
-        "- **Classes** – Class definitions with description, line range, and their member fields and functions.",
-        "- **Data Mappers** – Data transformation functions with parameters, return type, and line range.",
-        "",
-        "Each section is grouped under its corresponding file path to provide a high-level architectural view of the system.",
         ""
     ];
 
@@ -241,11 +227,13 @@ function renderImports(lines: string[], artifacts: CodeMapArtifactRaw[]): void {
         const org = propStr(a, "orgName");
         const mod = propStr(a, "moduleName");
         const alias = prop(a, "alias");
+        lines.push("");
         let entry = org ? `- ${org}/${mod}` : `- ${mod}`;
         if (alias) {
             entry += ` as ${alias}`;
         }
         lines.push(entry);
+        pushLineRange(lines, "  ", a);
     }
 }
 
