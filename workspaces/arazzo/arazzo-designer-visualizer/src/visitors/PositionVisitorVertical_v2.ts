@@ -172,7 +172,7 @@ export class PositionVisitorVertical_v2 {
             nextY_RETRY = nodeY + node.viewState.h + C.RETRY_GAP_Y_ConditionBranch;
         } else {
             nextY = nodeY + node.viewState.h + C.NODE_GAP_Y_Vertical;
-            //nextY_RETRY = nextY;
+            nextY_RETRY = nextY;    //this case is not used
         }
 
         // Process children

@@ -21,7 +21,7 @@ type lineType = 'skip'|'branch';
 export default function WaypointCreator(source: Point, target: Point, block: Rect, lineType: lineType, shiftAmount?: number): Point[] {
     switch (lineType) {
         case 'skip': {
-            // Column: move right by approximately 1.5 * block.w from block.x
+            // Column: move right 
             const columnX = block.x + block.w + C.WAYPOINT_SKIP_HORIZONTAL_OFFSET + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (shiftAmount || 0);
 
             // 1) from source go down a bit

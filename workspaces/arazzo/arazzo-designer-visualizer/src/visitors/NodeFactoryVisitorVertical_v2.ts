@@ -20,7 +20,7 @@ import { FlowNode } from '../utils/types';
 import { Node, Edge, MarkerType } from '@xyflow/react';
 import * as C from '../constants/nodeConstants';
 import WaypointCreator from '../components/edges/WaypointCreator';
-import { pointInRect, segIntersectsSeg, segmentIntersectsRect } from '../components/edges/edgeUtils';;
+import { pointInRect, segIntersectsSeg, segmentIntersectsRect } from '../components/edges/edgeUtils';
 
 /**
  * NodeFactoryVisitorVertical V2: Generate React Flow nodes and edges for vertical layout.
@@ -230,7 +230,7 @@ export class NodeFactoryVisitorVertical_v2 {
                         break;
                     }
                 }
-                if(!collisionFound) return shifts
+                if(!collisionFound) return shifts;
                 if(shifts > 20) { // safety break to prevent infinite loops in extreme cases
                     console.warn(`[NodeFactory V2] Excessive shifts detected for edge ${source.id} → ${target.id}. Possible layout issue.`);
                     return shifts;
