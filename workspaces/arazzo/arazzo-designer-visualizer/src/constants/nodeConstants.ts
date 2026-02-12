@@ -76,3 +76,6 @@ export const CONDITION_CHARS_BEFORE_WRAP = 25; // Maximum characters before wrap
 //export const LABEL_OFFSET_RANDOMNESS_MULTIPLIER = 0.2; // randomness in label positioning
 export const FONT_SIZE = 15;
 export const ICON_SIZE_STEP = 24;
+
+// Edit mode control
+export const isEditable = false; // Set to false to disable editing (dragging nodes, creating edges, etc.)

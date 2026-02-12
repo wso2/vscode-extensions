@@ -433,7 +433,7 @@ export function WorkflowView(props: WorkflowViewProps) {
             onClick={onPaneClick}
             onWheel={onWrapperWheel}
         >
-            <button
+            {/* <button
                 onClick={toggleOrientation}
                 style={{
                     position: 'absolute',
@@ -452,17 +452,20 @@ export function WorkflowView(props: WorkflowViewProps) {
                 title={isVertical ? 'Switch to Horizontal Layout' : 'Switch to Vertical Layout'}
             >
                 {isVertical ? '↔ Horizontal' : '↕ Vertical'}
-            </button>
+            </button> */}
             <ReactFlow
                 key={graphKey}
                 nodes={nodes}
                 edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
+                onNodesChange={C.isEditable ? onNodesChange : undefined}
+                onEdgesChange={C.isEditable ? onEdgesChange : undefined}
+                onConnect={C.isEditable ? onConnect : undefined}
                 onNodeClick={onNodeClick}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
+                nodesDraggable={C.isEditable}
+                nodesConnectable={C.isEditable}
+                elementsSelectable={C.isEditable}
                 fitView
                 panOnScroll
                 zoomOnScroll={false}
