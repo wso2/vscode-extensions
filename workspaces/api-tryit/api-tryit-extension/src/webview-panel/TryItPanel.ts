@@ -19,7 +19,7 @@
 import * as vscode from 'vscode';
 import { getComposerJSFiles } from '../util';
 import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
-import { ApiRequestItem } from '@wso2/api-tryit-core';
+import { ApiRequestItem, HttpResponseResult } from '@wso2/api-tryit-core';
 import * as path from 'path';
 import { Buffer } from 'buffer';
 import { Messenger } from 'vscode-messenger';
@@ -197,7 +197,7 @@ export class TryItPanel {
 							// Delegate to RPC manager to handle the HTTP request
 							const rpcManager = new ApiTryItRpcManager();
 							rpcManager.sendHttpRequest({ method, url, params, headers, data: body }).then(
-								(result) => {
+							(result: HttpResponseResult) => {
 									this._panel.webview.postMessage({
 										type: 'httpRequestResponse',
 										requestId,

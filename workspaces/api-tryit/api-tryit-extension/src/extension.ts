@@ -175,6 +175,15 @@ export async function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
+			// Reveal the API TryIt activity view to show the activity panel
+			try {
+				await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
+				await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
+			} catch {
+				// Log but don't fail the import if reveal commands fail
+				// (commands may not be registered in test environments)
+			}
+
 			// Open the TryIt panel
 			TryItPanel.show(context);
 			

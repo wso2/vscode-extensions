@@ -1381,11 +1381,16 @@ const AIChat: React.FC = () => {
         return actionButtons;
     }
 
-    const handleOpenAPITryIt = (curl: string) => {
+    const handleOpenAPITryIt = async (curl: string) => {
         console.log("[Try It] Opening CURL Command:", curl);
-        const commands = ["api-tryit.openFromCurl", curl];
-        rpcClient.getCommonRpcClient()
-        .executeCommand({commands})
+        try {
+            const commands = ["api-tryit.openFromCurl", curl];
+            await rpcClient.getCommonRpcClient()
+                .executeCommand({commands});
+        } catch (error) {
+            console.error("[Try It] Failed to open in API TryIt:", error);
+            // Command execution failed - could be due to extension not loaded
+        }
     }
 
     async function processLLMDiagnostics() {
