@@ -41,6 +41,7 @@ import { getHealthcareLibraryProviderTool, HEALTHCARE_LIBRARY_PROVIDER_TOOL } fr
 import { createConnectorGeneratorTool, CONNECTOR_GENERATOR_TOOL } from './tools/connector-generator';
 import { LIBRARY_SEARCH_TOOL, getLibrarySearchTool } from './tools/library-search';
 import { createConfigCollectorTool, CONFIG_COLLECTOR_TOOL } from './tools/config-collector';
+import { createGrepTool, createGrepExecute, GREP_TOOL_NAME } from './tools/grep';
 
 export interface ToolRegistryOptions {
     eventHandler: CopilotEventHandler;
@@ -99,6 +100,9 @@ export function createToolRegistry(opts: ToolRegistryOptions) {
         ),
         [FILE_READ_TOOL_NAME]: createReadTool(
             createReadExecute(eventHandler, tempProjectPath)
+        ),
+        [GREP_TOOL_NAME]: createGrepTool(
+            createGrepExecute(eventHandler, tempProjectPath)
         ),
         [DIAGNOSTICS_TOOL_NAME]: createDiagnosticsTool(tempProjectPath, eventHandler),
     };
