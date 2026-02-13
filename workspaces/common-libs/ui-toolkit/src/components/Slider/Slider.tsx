@@ -58,12 +58,22 @@ const SliderTrack = styled.div`
     align-items: center;
 `;
 
-const StyledSlider = styled.input`
+interface StyledSliderProps {
+    percentage: number;
+}
+
+const StyledSlider = styled.input<StyledSliderProps>`
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
     height: 4px;
-    background: var(--vscode-editorWidget-background);
+    background: linear-gradient(
+        to right,
+        var(--vscode-button-background) 0%,
+        var(--vscode-button-background) ${(props: { percentage: number; }) => props.percentage}%,
+        var(--vscode-editorWidget-background) ${(props: { percentage: number; }) => props.percentage}%,
+        var(--vscode-editorWidget-background) 100%
+    );
     border: 1px solid var(--vscode-editorWidget-border);
     outline: none;
     border-radius: 2px;
@@ -76,7 +86,7 @@ const StyledSlider = styled.input`
         height: 14px;
         background: var(--vscode-button-background);
         border: 1px solid var(--vscode-button-border);
-        border-radius: 2px;
+        border-radius: 4px;
         cursor: pointer;
 
         &:hover {
@@ -165,6 +175,8 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>((props, re
         return val.toString();
     };
 
+    const percentage = ((currentValue - Number(min)) / (Number(max) - Number(min))) * 100;
+
     return (
         <SliderContainer id={id} className={className} sx={sx}>
             {label && (
@@ -185,6 +197,7 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>((props, re
                     step={step}
                     value={currentValue}
                     onChange={handleChange}
+                    percentage={percentage}
                     {...rest}
                 />
             </SliderTrack>
