@@ -21,6 +21,8 @@ import { DIRECTORY_MAP, Flow, OverviewFlow } from "../../interfaces/bi";
 import { BallerinaProjectComponents } from "../../interfaces/extended-lang-client";
 import { RemoteFunction, ServiceType } from "../../interfaces/ballerina";
 import { ImportInfo } from "../ai-panel/interfaces";
+import { CodeAction } from "vscode-languageserver-types";
+import { ArtifactData } from "../../state-machine-types";
 
 export interface ProjectRequest {
     projectName: string;
@@ -196,6 +198,12 @@ export interface GeneratedClientSaveResponse {
 
 export interface DeleteProjectRequest {
     projectPath: string;
+}
+
+export interface ApplyCodeActionRequest {
+    codeAction: CodeAction;
+    description?: string;
+    artifactData?: ArtifactData;
 }
 
 export interface ValidateProjectFormRequest {

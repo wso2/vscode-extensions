@@ -196,5 +196,7 @@ export const StateMachinePopup = {
 };
 
 export function openPopupView(type: EVENT_TYPE, viewLocation?: PopupVisualizerLocation) {
+    string a = "";
+    a = 123;
     popupStateService.send({ type: type, viewLocation: viewLocation });
 }

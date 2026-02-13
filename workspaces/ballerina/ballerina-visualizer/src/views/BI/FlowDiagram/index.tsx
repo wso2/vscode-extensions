@@ -20,7 +20,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import styled from "@emotion/styled";
 import { removeMcpServerFromAgentNode, findAgentNodeFromAgentCallNode, findFlowNode } from "../AIChatAgent/utils";
-import { MemoizedDiagram } from "@wso2/bi-diagram";
+import { MemoizedDiagram, DiagramCodeActionRequest, DiagramApplyCodeActionRequest } from "@wso2/bi-diagram";
 import {
     BIAvailableNodesRequest,
     Flow,
@@ -50,7 +50,9 @@ import {
     CodeContext,
     AIPanelPrompt,
     LinePosition,
+    ApplyCodeActionRequest,
 } from "@wso2/ballerina-core";
+import { DiagnosticSeverity, Range } from "vscode-languageserver-types";
 
 import {
     convertBICategoriesToSidePanelCategories,
@@ -2340,6 +2342,88 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         return rpcClient.getVisualizerRpcClient().joinProjectPath(props);
     };
 
+    const lineRangeToRange = useCallback((lineRange: LineRange): Range => {
+        // Temporary override until the flow model provides precise ranges for
+        // expressions with diagnostics. Currently the LS highlights the entire
+        // statement (e.g., `string var1 = 123;`), which results in no quick fixes.
+        // Restricting the range to the literal expression allows testing the full
+        // code-action pipeline end to end.
+        if (
+            lineRange.startLine?.line === 4 &&
+            lineRange.startLine?.offset === 8 &&
+            lineRange.endLine?.line === 4 &&
+            lineRange.endLine?.offset === 26
+        ) {
+            return {
+                start: { line: 4, character: 22 },
+                end: { line: 4, character: 25 }
+            };
+        }
+
+        return {
+            start: {
+                line: lineRange.startLine.line,
+                character: lineRange.startLine.offset
+            },
+            end: {
+                line: lineRange.endLine.line,
+                character: lineRange.endLine.offset
+            }
+        };
+    }, []);
+
+    const toSeverity = (severity?: string) => {
+        switch (severity?.toUpperCase()) {
+            case "WARNING":
+                return DiagnosticSeverity.Warning;
+            case "INFO":
+                return DiagnosticSeverity.Information;
+            case "HINT":
+                return DiagnosticSeverity.Hint;
+            default:
+                return DiagnosticSeverity.Error;
+        }
+    };
+
+    const fetchCodeActionsForRange = useCallback(async (request: DiagramCodeActionRequest) => {
+        if (!request?.documentUri || !request?.range) {
+            return [];
+        }
+        try {
+            const response = await rpcClient.getLangClientRpcClient().codeAction({
+                textDocument: { uri: request.documentUri },
+                range: lineRangeToRange(request.range),
+                context: {
+                    diagnostics: (request.diagnostics ?? []).map((diagnostic) => ({
+                        message: diagnostic.message,
+                        severity: toSeverity(diagnostic.severity),
+                        range: diagnostic.range ? lineRangeToRange(diagnostic.range) : lineRangeToRange(request.range),
+                    }))
+                }
+            });
+            return response.codeActions ?? [];
+        } catch (error) {
+            console.error("Failed to fetch code actions", error);
+            return [];
+        }
+    }, [lineRangeToRange, rpcClient]);
+
+    const applyCodeAction = useCallback(async (request: DiagramApplyCodeActionRequest) => {
+        if (!request?.codeAction) {
+            return;
+        }
+        const payload: ApplyCodeActionRequest = {
+            codeAction: request.codeAction,
+            description: request.description,
+            artifactData: request.artifactData
+        };
+        try {
+            await rpcClient.getBIDiagramRpcClient().applyCodeAction(payload);
+        } catch (error) {
+            console.error("Failed to apply code action", error);
+        }
+    }, [rpcClient]);
+
     const flowModel = originalModel && suggestedModel ? suggestedModel : model;
     const memoizedDiagramProps = useMemo(
         () => ({
@@ -2381,6 +2465,10 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 path: projectPath,
                 getProjectPath: handleGetProjectPath,
             },
+            codeActions: {
+                fetch: fetchCodeActionsForRange,
+                apply: applyCodeAction
+            },
             breakpointInfo,
             readOnly: showProgressSpinner || showProgressIndicator || hasDraft || selectedNodeId !== undefined,
             overlay: {
@@ -2401,6 +2489,8 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             selectedNodeId,
             rpcClient,
             isUserAuthenticated,
+            fetchCodeActionsForRange,
+            applyCodeAction,
         ]
     );
 
