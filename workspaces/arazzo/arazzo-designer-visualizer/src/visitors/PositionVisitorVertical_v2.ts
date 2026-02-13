@@ -117,7 +117,7 @@ export class PositionVisitorVertical_v2 {
         if (node.children && node.children.length > 0) {
             const firstChild = node.children[0];
             if (this.mainPathNodes.has(firstChild.id)) {
-                this.positionMainSpine(firstChild, nextY);
+                this.positionMainSpine(firstChild, (firstChild.type === 'CONDITION')? nextY+(Math.sqrt(2)-1)*(C.DIAMOND_SIZE/2) :nextY);    //make this better
                 return;
             }
         }
@@ -142,7 +142,7 @@ export class PositionVisitorVertical_v2 {
             }
 
             if (bestHead) {
-                this.positionMainSpine(bestHead, nextY);
+                this.positionMainSpine(bestHead, nextY); 
                 return;
             }
         }

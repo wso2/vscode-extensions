@@ -29,7 +29,7 @@ export const StepNodeWidget: React.FC<NodeProps<StepNodeData>> = (props) => {
     const { id, data, selected, isConnectable } = props;
 
     return (
-        <BaseNodeWidget {...props}>
+        <BaseNodeWidget {...props} leftAligned>
             {/* Additional handles for step nodes - ensure both sides have correct source/target roles */}
             <NodeStyles.StyledHandle
                 type="target"

@@ -38,6 +38,7 @@ import { PlannedPathEdge } from '../../components/edges';
 import { SidePanel, SidePanelTitleContainer, SidePanelBody, Button, Codicon, ThemeColors } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
 import * as C from '../../constants/nodeConstants';
+import { NodePropertiesPanel } from './NodePropertiesPanel';
 
 interface WorkflowViewProps {
     fileUri: string;
@@ -271,125 +272,6 @@ export function WorkflowView(props: WorkflowViewProps) {
         setIsVertical(prev => !prev);
     }, []);
 
-    const renderNodeData = () => {
-        if (!selectedNode) return null;
-
-        const nodeData = selectedNode.data || {};
-
-        // Filter out diagram-specific properties and keep only YAML step data
-        // Diagram-specific: label (added for display), iconClass (added for display)
-        // YAML step data: stepId, description, operationId, operationPath, workflowId, 
-        //                 parameters, requestBody, successCriteria, onSuccess, onFailure, outputs
-        const {
-            label,
-            iconClass,
-            ...stepData
-        } = nodeData;
-
-        // If no step data exists, show a message
-        if (Object.keys(stepData).length === 0) {
-            return (
-                <NodeDataContainer>
-                    <DataSection>
-                        <DataValue>No step data available</DataValue>
-                    </DataSection>
-                </NodeDataContainer>
-            );
-        }
-
-        return (
-            <NodeDataContainer>
-                {stepData.stepId && (
-                    <DataSection>
-                        <DataLabel>Step ID</DataLabel>
-                        <DataValue>{stepData.stepId}</DataValue>
-                    </DataSection>
-                )}
-                {stepData.description && (
-                    <DataSection>
-                        <DataLabel>Description</DataLabel>
-                        <DataValue>{stepData.description}</DataValue>
-                    </DataSection>
-                )}
-                {stepData.operationId && (
-                    <DataSection>
-                        <DataLabel>Operation ID</DataLabel>
-                        <DataValue>{stepData.operationId}</DataValue>
-                    </DataSection>
-                )}
-                {stepData.operationPath && (
-                    <DataSection>
-                        <DataLabel>Operation Path</DataLabel>
-                        <DataValue>{stepData.operationPath}</DataValue>
-                    </DataSection>
-                )}
-                {stepData.workflowId && (
-                    <DataSection>
-                        <DataLabel>Workflow ID</DataLabel>
-                        <DataValue>{stepData.workflowId}</DataValue>
-                    </DataSection>
-                )}
-                {stepData.parameters && Array.isArray(stepData.parameters) && stepData.parameters.length > 0 && (
-                    <DataSection>
-                        <DataLabel>Parameters</DataLabel>
-                        <JsonValue>{JSON.stringify(stepData.parameters, null, 2)}</JsonValue>
-                    </DataSection>
-                )}
-                {stepData.requestBody && (
-                    <DataSection>
-                        <DataLabel>Request Body</DataLabel>
-                        <JsonValue>{JSON.stringify(stepData.requestBody, null, 2)}</JsonValue>
-                    </DataSection>
-                )}
-                {stepData.successCriteria && Array.isArray(stepData.successCriteria) && stepData.successCriteria.length > 0 && (
-                    <DataSection>
-                        <DataLabel>Success Criteria</DataLabel>
-                        <JsonValue>{JSON.stringify(stepData.successCriteria, null, 2)}</JsonValue>
-                    </DataSection>
-                )}
-                {stepData.onSuccess && Array.isArray(stepData.onSuccess) && stepData.onSuccess.length > 0 && (
-                    <DataSection>
-                        <DataLabel>On Success</DataLabel>
-                        <JsonValue>{JSON.stringify(stepData.onSuccess, null, 2)}</JsonValue>
-                    </DataSection>
-                )}
-                {stepData.onFailure && Array.isArray(stepData.onFailure) && stepData.onFailure.length > 0 && (
-                    <DataSection>
-                        <DataLabel>On Failure</DataLabel>
-                        <JsonValue>{JSON.stringify(stepData.onFailure, null, 2)}</JsonValue>
-                    </DataSection>
-                )}
-                {stepData.outputs && Object.keys(stepData.outputs).length > 0 && (
-                    <DataSection>
-                        <DataLabel>Outputs</DataLabel>
-                        <JsonValue>{JSON.stringify(stepData.outputs, null, 2)}</JsonValue>
-                    </DataSection>
-                )}
-                {/* Show any other properties that might exist */}
-                {Object.keys(stepData).some(key =>
-                    !['stepId', 'description', 'operationId', 'operationPath', 'workflowId',
-                        'parameters', 'requestBody', 'successCriteria', 'onSuccess', 'onFailure', 'outputs'].includes(key)
-                ) && (
-                        <DataSection>
-                            <DataLabel>Additional Properties</DataLabel>
-                            <JsonValue>
-                                {JSON.stringify(
-                                    Object.fromEntries(
-                                        Object.entries(stepData).filter(([key]) =>
-                                            !['stepId', 'description', 'operationId', 'operationPath', 'workflowId',
-                                                'parameters', 'requestBody', 'successCriteria', 'onSuccess', 'onFailure', 'outputs'].includes(key)
-                                        )
-                                    ),
-                                    null,
-                                    2
-                                )}
-                            </JsonValue>
-                        </DataSection>
-                    )}
-            </NodeDataContainer>
-        );
-    };
-
     if (isLoading) {
         return (
             <LoaderContainer>
@@ -433,7 +315,7 @@ export function WorkflowView(props: WorkflowViewProps) {
             onClick={onPaneClick}
             onWheel={onWrapperWheel}
         >
-            <button
+            {/* <button
                 onClick={toggleOrientation}
                 style={{
                     position: 'absolute',
@@ -452,17 +334,25 @@ export function WorkflowView(props: WorkflowViewProps) {
                 title={isVertical ? 'Switch to Horizontal Layout' : 'Switch to Vertical Layout'}
             >
                 {isVertical ? '↔ Horizontal' : '↕ Vertical'}
-            </button>
+            </button> */}
             <ReactFlow
                 key={graphKey}
                 nodes={nodes}
                 edges={edges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
+                onConnect={C.isEditable ? onConnect : undefined}
                 onNodeClick={onNodeClick}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
+                nodesDraggable={C.isEditable}
+                nodesConnectable={C.isEditable}
+                elementsSelectable={true}
+                nodesFocusable={C.isEditable}
+                edgesFocusable={C.isEditable}
+                deleteKeyCode={C.isEditable ? 'Backspace' : null}
+                selectionKeyCode={C.isEditable ? 'Shift' : null}
+                multiSelectionKeyCode={C.isEditable ? 'Control' : null}
                 fitView
                 panOnScroll
                 zoomOnScroll={false}
@@ -512,7 +402,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                     </StyledButton>
                 </SidePanelTitleContainer>
                 <SidePanelBody>
-                    {selectedNode ? renderNodeData() : <div>No node selected</div>}
+                    <NodePropertiesPanel node={selectedNode} />
                 </SidePanelBody>
             </SidePanel>
         </div>

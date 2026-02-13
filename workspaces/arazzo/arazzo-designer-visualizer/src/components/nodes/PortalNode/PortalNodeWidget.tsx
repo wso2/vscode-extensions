@@ -21,6 +21,7 @@ import { Handle, Position, NodeProps, useReactFlow } from '@xyflow/react';
 import styled from '@emotion/styled';
 import { ThemeColors } from '@wso2/ui-toolkit';
 import { PortalNodeData } from './PortalNodeModel';
+import * as C from '../../../constants/nodeConstants';
 
 const PortalNodeContainer = styled.div`
     background-color: ${ThemeColors.SURFACE_DIM};
@@ -79,7 +80,7 @@ export const PortalNodeWidget: React.FC<NodeProps<PortalNodeData>> = ({ id, data
                     sourceHandle: 'h-top',
                     targetHandle: 'goto-top-target',
                     type: 'smoothstep',
-                    style: { stroke: ThemeColors.SECONDARY, strokeDasharray: '4 4' },
+                    style: { stroke: ThemeColors.SECONDARY, strokeDasharray: '4 4' ,strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' },
                     animated: false,
                 };
                 return [...eds, newEdge];
@@ -147,6 +148,13 @@ export const PortalNodeWidget: React.FC<NodeProps<PortalNodeData>> = ({ id, data
                 type="source" 
                 position={Position.Top} 
                 id="h-top" 
+                isConnectable={isConnectable}
+                style={{ opacity: 0 }}
+            />
+            <Handle 
+                type="target" 
+                position={Position.Top} 
+                id="h-top-target" 
                 isConnectable={isConnectable}
                 style={{ opacity: 0 }}
             />

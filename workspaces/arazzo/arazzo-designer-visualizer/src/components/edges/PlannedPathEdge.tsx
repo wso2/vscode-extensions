@@ -29,6 +29,7 @@ interface Waypoint {
 
 interface PlannedPathData {
     waypoints?: Waypoint[];
+    lineType?: 'skip' | 'branch';
     label?: string;
     labelPos?: number; // 0..1 position along the path
     labelOffset?: { x: number; y: number };
@@ -60,9 +61,19 @@ export default function PlannedPathEdge({
     let edgePath: string;
     let labelPosition: { x: number; y: number } | null = null;
     const [hovered, setHovered] = useState(false);
+    const [labelHovered, setLabelHovered] = useState(false);
 
-    // Check if waypoints exist and are valid
-    const waypoints = data?.waypoints;
+    // Check if waypoints exist and are valid. If not, allow lightweight branch routing via `lineType`.
+    const computedBranchWaypoints = data?.lineType === 'branch'
+        ? [
+            { x: sourceX, y: sourceY + C.WAYPOINT_BRANCH_VERTICAL_OFFSET },
+            { x: targetX, y: sourceY + C.WAYPOINT_BRANCH_VERTICAL_OFFSET }
+        ]
+        : undefined;
+
+    const waypoints = (Array.isArray(data?.waypoints) && data?.waypoints.length > 0)
+        ? data?.waypoints
+        : computedBranchWaypoints;
     if (Array.isArray(waypoints) && waypoints.length > 0) {
         // Build SVG path with rounded corners at waypoints
         const points = [
@@ -212,10 +223,6 @@ export default function PlannedPathEdge({
         console.log(`[PlannedPathEdge] ${id} using fallback smooth step path`);
     }
 
-    // Calculate label dimensions for centering
-    const labelWidth = 100;
-    const labelHeight = 24;
-
     const finalStyle = {
         ...(style || {}),
         stroke: hovered ? ThemeColors.SECONDARY : (style as any)?.stroke,
@@ -227,7 +234,11 @@ export default function PlannedPathEdge({
     const markerEndAttr = hovered && markerEnd ? `url(#${hoverMarkerId})` : markerEnd;
 
     return (
-        <g onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+        <g 
+            onMouseEnter={() => setHovered(true)} 
+            onMouseLeave={() => setHovered(false)}
+            style={{ pointerEvents: 'all' }}
+        >
             {hovered && markerEnd && (
                 <defs>
                     <marker
@@ -259,11 +270,11 @@ export default function PlannedPathEdge({
             />
             {data?.label && labelPosition && (
                 <foreignObject
-                    x={labelPosition.x - labelWidth / 2 + (data.labelOffset?.x ?? 0)}
-                    y={labelPosition.y - labelHeight / 2 + (data.labelOffset?.y ?? -10)}
-                    width={labelWidth}
-                    height={labelHeight}
-                    style={{ overflow: 'visible' }}
+                    x={labelPosition.x - 400 + (data.labelOffset?.x ?? 0)}
+                    y={labelPosition.y - 20 + (data.labelOffset?.y ?? -10)}
+                    width={800}
+                    height={40}
+                    style={{ overflow: 'visible', pointerEvents: 'none' }}
                 >
                     <div
                         style={{
@@ -272,9 +283,13 @@ export default function PlannedPathEdge({
                             alignItems: 'center',
                             width: '100%',
                             height: '100%',
+                            pointerEvents: 'none'
                         }}
                     >
                         <div
+                            title={String(data.label || '')}
+                            onMouseEnter={() => setLabelHovered(true)}
+                            onMouseLeave={() => setLabelHovered(false)}
                             style={{
                                 display: 'flex',
                                 justifyContent: 'center',
@@ -286,6 +301,10 @@ export default function PlannedPathEdge({
                                 boxSizing: 'border-box',
                                 width: 'fit-content',
                                 boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                                transition: 'all 0.2s ease-in-out',
+                                zIndex: labelHovered ? 100 : 1,
+                                position: 'relative',
+                                pointerEvents: 'all'
                             }}
                         >
                             <span
@@ -297,13 +316,15 @@ export default function PlannedPathEdge({
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
-                                    maxWidth: '200px',
+                                    maxWidth: labelHovered ? '800px' : '200px',
                                     display: 'inline-block',
+                                    transition: 'max-width 0.2s ease-in-out'
                                 }}
                             >
                                 {(() => {
                                     const raw = String(data.label || '');
                                     const max = C.CONDITION_CHARS_BEFORE_WRAP;
+                                    if (labelHovered) return raw;
                                     return raw.length > max ? `${raw.slice(0, max)}...` : raw;
                                 })()}
                             </span>

@@ -21,6 +21,7 @@ import { Node, Edge, MarkerType } from '@xyflow/react';
 import * as C from '../constants/nodeConstants';
 import WaypointCreator from '../components/edges/WaypointCreator';
 import { pointInRect, segIntersectsSeg, segmentIntersectsRect } from '../components/edges/edgeUtils';
+import { ThemeColors } from '@wso2/ui-toolkit';
 
 /**
  * NodeFactoryVisitorVertical V2: Generate React Flow nodes and edges for vertical layout.
@@ -114,11 +115,14 @@ export class NodeFactoryVisitorVertical_v2 {
                 if (!this.shouldSkipEdge(node, head)) {
                     // For condition nodes, add branch label (condition name)
                     let conditionLabel: string | undefined = undefined;
-                    if (node.type === 'CONDITION' && node.data?.onSuccess) {
-                        // Extract the actual name from the onSuccess array
-                        const successAction = node.data.onSuccess[branchIndex];
-                        if (successAction && typeof successAction === 'object' && 'name' in successAction) {
-                            conditionLabel = successAction.name;
+                    if (node.type === 'CONDITION') {
+                        // Check both success and failure action arrays for branch name
+                        const successAction = node.data?.onSuccess?.[branchIndex];
+                        const failureAction = node.data?.onFailure?.[branchIndex];
+                        const action = successAction || failureAction;
+
+                        if (action && typeof action === 'object' && 'name' in action) {
+                            conditionLabel = action.name;
                         } else {
                             conditionLabel = `Branch ${branchIndex + 1}`; // Fallback
                         }
@@ -284,11 +288,11 @@ export class NodeFactoryVisitorVertical_v2 {
             },
             markerEnd: { 
                 type: MarkerType.ArrowClosed,
-                color: edgeType === 'failure' ? 'red' : '#0099ff'
+                color: edgeType === 'failure' ? 'red' : ThemeColors.PRIMARY
             },
             style: edgeType === 'failure' 
                 ? { stroke: 'red', strokeWidth: 2 } 
-                : { stroke: '#0099ff', strokeWidth: 2 }
+                : { stroke: ThemeColors.PRIMARY, strokeWidth: 2 }
         };
 
         console.log(`[NodeFactory V2] Creating edge:`, {

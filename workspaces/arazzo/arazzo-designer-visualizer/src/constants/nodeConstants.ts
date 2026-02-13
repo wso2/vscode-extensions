@@ -37,7 +37,7 @@ export const DIAGRAM_CENTER_X = 0;
 export const END_NODE_INNER_DIAMETER = 15;
 export const PADDING = 20;
 
-
+export const STROKE_WIDTH = 2;
 // Horizontal layout constants (main flow goes right, branches go down)
 export const NODE_GAP_X_Horizontal = 70;  // Horizontal gap between steps
 export const NODE_GAP_Y_Horizontal = 80;  // Vertical gap between branches/failure paths
@@ -49,7 +49,7 @@ export const NODE_GAP_X_Vertical = 80;  // Horizontal gap between steps
 export const NODE_GAP_Y_Vertical = 55;  // Vertical gap between branches/failure paths
 //export const FAIL_GAP_Y_Vertical = 50;  // Vertical gap for failure paths
 export const FAIL_GAP_X_Vertical = 50;  // Horizontal gap for failure paths
-export const RETRY_GAP_Y_ConditionBranch = 70; // Horizontal gap between condition node and its branches
+export const RETRY_GAP_Y_ConditionBranch = 150; // Horizontal gap between condition node and its branches
 export const NODE_GAP_Y_AFTERCONDITION = 150; // Vertical gap between node and edge label
 export const CONDITION_NODE_SECOND_BRANCH_OFFSET = 0; // Vertical offset for 2nd branch of condition nodes
 
@@ -76,3 +76,6 @@ export const CONDITION_CHARS_BEFORE_WRAP = 25; // Maximum characters before wrap
 //export const LABEL_OFFSET_RANDOMNESS_MULTIPLIER = 0.2; // randomness in label positioning
 export const FONT_SIZE = 15;
 export const ICON_SIZE_STEP = 24;
+
+// Edit mode control
+export const isEditable = false; // Set to false to disable editing (dragging nodes, creating edges, etc.)
