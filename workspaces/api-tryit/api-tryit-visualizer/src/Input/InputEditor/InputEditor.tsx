@@ -262,14 +262,16 @@ export const InputEditor: React.FC<InputEditorProps> = ({
             monaco.languages.setMonarchTokensProvider(currentLanguageId, {
                 tokenizer: {
                     root: [
-                        // Key-value pairs with colon (hello: world) - for headers
-                        [/^[\s]*([a-zA-Z_][a-zA-Z0-9_-]*)\s*:/, 'variable.key'],
-                        // Key-value pairs with equals (key=value) - for query parameters
-                        [/^[\s]*([a-zA-Z_][a-zA-Z0-9_-]*)\s*=/, 'variable.key'],
+                        // Key at start-of-line (don't consume trailing ':' or '='); punctuation and operators are tokenized separately
+                        [/^[\s]*([a-zA-Z_][a-zA-Z0-9_-]*)\b/, 'variable.key'],
                         // JSON strings with quotes
                         [/"[^"\\]*(?:\\.[^"\\]*)*"/, 'string'],
                         // Numbers
                         [/\b\d+(?:\.\d+)?\b/, 'number'],
+                        // Operators (treat = and == and other comparators as `operator` token)
+                        [/==|!=|<=|>=|=|<|>/, 'operator'],
+                        // Word-style assertion operators (color these the same as symbol operators)
+                        [/\b(?:contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson)\b/, 'operator'],
                         // Boolean and null values
                         [/\b(?:true|false|null)\b/, 'keyword'],
                         // JSON/Object delimiters - curly braces, brackets, comma, colon
@@ -292,6 +294,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                 { token: 'string', foreground: isDark ? '98C379' : '50A14F' },
                 { token: 'number', foreground: isDark ? 'D19A66' : 'C18401' },
                 { token: 'keyword', foreground: isDark ? '569CD6' : '0000FF' },
+                { token: 'operator', foreground: isDark ? '56B6C2' : '0184BC' },
                 { token: 'delimiter', foreground: isDark ? '56B6C2' : '0184BC', fontStyle: 'bold' },
                 { token: 'comment', foreground: isDark ? '6A9955' : '008000', fontStyle: 'italic' },
             ],
@@ -542,57 +545,6 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                             editorRef.current?.removeContentWidget(widget);
                         }
                     });
-
-                    // if (currentSectionType === 'assertions') {
-                    //     const statusValue = assertionStatuses?.[assertionIndex];
-                    //     const statusIcon = statusValue === true ? 'codicon-check' : 'codicon-close';
-                    //     const statusColor = statusValue === true
-                    //         ? 'var(--vscode-testing-iconPassed, #2ea043)'
-                    //         : statusValue === false
-                    //             ? 'var(--vscode-testing-iconFailed, #f85149)'
-                    //             : 'var(--vscode-disabledForeground)';
-
-                    //     const statusWidget: monaco.editor.IContentWidget = {
-                    //         getId: () => `status-icon-${lineNumber}`,
-                    //         getDomNode: () => {
-                    //             const domNode = document.createElement('div');
-                    //             domNode.style.cssText = `
-                    //                 position: absolute;
-                    //                 margin-top: 4px;
-                    //                 margin-left: 40px;
-                    //                 width: 14px;
-                    //                 height: 14px;
-                    //                 display: flex;
-                    //                 align-items: center;
-                    //                 justify-content: center;
-                    //                 font-size: 12px;
-                    //                 color: ${statusColor};
-                    //                 border-radius: 2px;
-                    //             `;
-                    //             domNode.className = `codicon ${statusIcon}`;
-                    //             domNode.title = statusValue === true ? 'Assertion passed'
-                    //                 : statusValue === false ? 'Assertion failed'
-                    //                 : 'Assertion not evaluated';
-                    //             return domNode;
-                    //         },
-                    //         getPosition: () => {
-                    //             return {
-                    //                 position: {
-                    //                     lineNumber: lineNumber,
-                    //                     column: lineLength + 1
-                    //                 },
-                    //                 preference: [monaco.editor.ContentWidgetPositionPreference.EXACT]
-                    //             };
-                    //         }
-                    //     };
-
-                    //     editorRef.current.addContentWidget(statusWidget);
-                    //     contentWidgetsRef.current.push({
-                    //         dispose: () => {
-                    //             editorRef.current?.removeContentWidget(statusWidget);
-                    //         }
-                    //     });
-                    // }
 
                     if (currentSectionType === 'assertions') {
                         assertionIndex += 1;
@@ -904,29 +856,78 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                     const lineContent = model.getLineContent(position.lineNumber);
                     const textUntilPosition = lineContent.substring(0, position.column - 1);
                     const dotIndex = textUntilPosition.lastIndexOf('.');
-                    const eqIndex = textUntilPosition.lastIndexOf('=');
-                    
-                    if (eqIndex !== -1 && eqIndex > dotIndex) {
-                        // After '=', suggest values for the header
-                        const beforeEq = textUntilPosition.substring(0, eqIndex).trim();
-                        const headerValues = suggestions.assertions?.properties['headers'];
-                        if (typeof headerValues === 'object' && 'values' in headerValues) {
-                            for (const [name, vals] of Object.entries(headerValues.values)) {
-                                if (beforeEq.endsWith(name)) {
-                                    vals.forEach((val: string) => {
+
+                    // Tokenize with awareness of trailing spaces
+                    const trimmedEnd = textUntilPosition.replace(/\s+$/g, '');
+                    const hasTrailingSpace = trimmedEnd.length !== textUntilPosition.length;
+                    const tokens = trimmedEnd.trim().length ? trimmedEnd.trim().split(/\s+/) : [];
+                    const targetToken = tokens[0] ?? '';
+                    const operatorTokenRaw = tokens[1] ?? '';
+
+                    // operators from assertionSuggestions (kept inline to avoid circular imports)
+                    const operators = [
+                        '==', '!=', '>', '<', '>=', '<=',
+                        'contains', 'notContains', 'startsWith', 'endsWith',
+                        'matches', 'notMatches',
+                        'isNull', 'isNotEmpty', 'isEmpty', 'isDefined', 'isUndefined',
+                        'isTruthy', 'isFalsy',
+                        'isNumber', 'isString', 'isBoolean', 'isArray', 'isJson'
+                    ];
+                    const unaryOps = new Set([
+                        'isnull', 'isnotempty', 'isempty', 'isdefined', 'isundefined',
+                        'istruthy', 'isfalsy',
+                        'isnumber', 'isstring', 'isboolean', 'isarray', 'isjson'
+                    ]);
+
+                    const normalizedOp = operatorTokenRaw === '=' ? '==' : operatorTokenRaw;
+                    const opLower = normalizedOp.toLowerCase();
+                    const isOperatorToken = Boolean(normalizedOp) && (
+                        operators.map(o => o.toLowerCase()).includes(opLower) ||
+                        ['==', '!=', '>', '<', '>=', '<='].includes(normalizedOp)
+                    );
+
+                    // 1) After selecting an operator (i.e., `target <op> `), suggest values (only for binary ops)
+                    if (tokens.length >= 2 && isOperatorToken && hasTrailingSpace && !unaryOps.has(opLower)) {
+                        if (/^headers\./i.test(targetToken)) {
+                            const headerKey = targetToken.substring('headers.'.length);
+                            const headerValues = suggestions.assertions?.properties['headers'];
+                            if (typeof headerValues === 'object' && headerValues && 'values' in headerValues) {
+                                const valuesMap = (headerValues as any).values as Record<string, string[]>;
+                                const matchedEntry = Object.entries(valuesMap).find(([name]) => name.toLowerCase() === headerKey.toLowerCase());
+                                if (matchedEntry) {
+                                    matchedEntry[1].forEach((val: string) => {
                                         suggestionsList.push({
                                             label: val,
                                             kind: monaco.languages.CompletionItemKind.Value,
-                                            insertText: ' ' + val,
-                                            range: range
+                                            insertText: val,
+                                            range
                                         });
                                     });
-                                    break;
                                 }
                             }
                         }
-                    } else if (dotIndex !== -1) {
-                        // After dot, suggest properties based on the last part before the dot
+                    }
+                    // 2) After completing a target (i.e., `status `, `body `, `headers.Accept `), suggest operators
+                    else if (tokens.length === 1 && hasTrailingSpace) {
+                        const isTargetToken = /^(status|body|headers\.[\w-]+|body\.[\w-]+)$/i.test(targetToken);
+                        if (isTargetToken) {
+                            operators.forEach(op => {
+                                const isUnary = unaryOps.has(op.toLowerCase());
+                                suggestionsList.push({
+                                    label: op,
+                                    kind: monaco.languages.CompletionItemKind.Keyword,
+                                    insertText: op + (isUnary ? '' : ' '),
+                                    range,
+                                    documentation: `Operator: ${op}`,
+                                    command: !isUnary
+                                        ? { id: 'editor.action.triggerSuggest', title: 'Trigger Suggest' }
+                                        : undefined
+                                });
+                            });
+                        }
+                    }
+                    // 3) After dot without trailing space, suggest properties (e.g., `headers.`)
+                    else if (dotIndex !== -1 && !hasTrailingSpace && tokens.length <= 1) {
                         const parts = textUntilPosition.split('.');
                         const lastPart = parts[parts.length - 2]?.trim();
                         if (lastPart) {
@@ -937,28 +938,44 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                                         label: prop,
                                         kind: monaco.languages.CompletionItemKind.Property,
                                         insertText: prop,
-                                        range: range
+                                        range
                                     });
                                 });
-                            } else if (typeof props === 'object' && 'names' in props) {
-                                props.names.forEach(prop => {
+                            } else if (typeof props === 'object' && props && 'names' in props) {
+                                const shouldAddTrailingSpace = lastPart.toLowerCase() === 'headers';
+                                (props as any).names.forEach((prop: string) => {
                                     suggestionsList.push({
                                         label: prop,
                                         kind: monaco.languages.CompletionItemKind.Property,
-                                        insertText: prop,
-                                        range: range
+                                        insertText: shouldAddTrailingSpace ? `${prop} ` : prop,
+                                        range,
+                                        command: shouldAddTrailingSpace
+                                            ? { id: 'editor.action.triggerSuggest', title: 'Trigger Suggest' }
+                                            : undefined
                                     });
                                 });
                             }
                         }
-                    } else {
-                        // Initial suggestions
+                    }
+                    // 4) Fallback: initial suggestions
+                    else {
                         suggestions.assertions?.initial.forEach(init => {
+                            const lowerInit = init.toLowerCase();
+                            const insertText = lowerInit === 'headers'
+                                ? 'headers.'
+                                : (lowerInit === 'status' || lowerInit === 'body')
+                                    ? `${init} `
+                                    : init;
+
                             suggestionsList.push({
                                 label: init,
                                 kind: monaco.languages.CompletionItemKind.Variable,
-                                insertText: init,
-                                range: range
+                                insertText,
+                                range,
+                                command: {
+                                    id: 'editor.action.triggerSuggest',
+                                    title: 'Trigger Suggest'
+                                }
                             });
                         });
                     }

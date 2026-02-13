@@ -365,6 +365,9 @@ importers:
       '@wso2/api-tryit-rpc-client':
         specifier: workspace:*
         version: link:../api-tryit-rpc-client
+      axios:
+        specifier: ~1.13.2
+        version: 1.13.2
       js-yaml:
         specifier: 4.1.1
         version: 4.1.1
@@ -392,7 +395,10 @@ importers:
         version: 8.33.0(@typescript-eslint/parser@8.33.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.8.3))(eslint@9.39.2(jiti@2.6.1))(typescript@5.8.3)
       '@typescript-eslint/parser':
         specifier: ^8.32.1
-        version: 8.33.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.8.3)
+        version: 8.33.1(eslint@9.27.0(jiti@2.6.1))(typescript@5.8.3)
+      '@vscode/vsce':
+        specifier: ^3.7.0
+        version: 3.7.1
       '@wso2/api-tryit-visualizer':
         specifier: workspace:*
         version: link:../api-tryit-visualizer
@@ -404,7 +410,10 @@ importers:
         version: 16.5.0
       eslint:
         specifier: ^9.27.0
-        version: 9.39.2(jiti@2.6.1)
+        version: 9.27.0(jiti@2.6.1)
+      rimraf:
+        specifier: ~5.0.5
+        version: 5.0.10
       ts-loader:
         specifier: ~9.5.1
         version: 9.5.4(typescript@5.8.3)(webpack@5.98.0)

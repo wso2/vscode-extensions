@@ -197,7 +197,7 @@ export class TryItPanel {
 							// Delegate to RPC manager to handle the HTTP request
 							const rpcManager = new ApiTryItRpcManager();
 							rpcManager.sendHttpRequest({ method, url, params, headers, data: body }).then(
-								(result: any) => {
+								(result) => {
 									this._panel.webview.postMessage({
 										type: 'httpRequestResponse',
 										requestId,

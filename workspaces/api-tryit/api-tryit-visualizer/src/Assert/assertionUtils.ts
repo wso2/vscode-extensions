@@ -30,7 +30,7 @@ export const getAssertionKey = (assertion: string): string | undefined => {
         return undefined;
     }
 
-    const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
     if (!match) {
         return undefined;
     }
@@ -59,12 +59,18 @@ export const getAssertionValue = (assertion: string): string | undefined => {
         return undefined;
     }
 
-    const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|={1,2}|!=|<=|>=|<|>)\s*(.*)$/i);
     if (!match) {
         return undefined;
     }
 
-    const [, , , , rawExpected] = match;
+    const [, , , operator, rawExpected] = match;
+    // Unary operators don't have a value part
+    const unaryOps = new Set(['isNull','isNotEmpty','isEmpty','isDefined','isUndefined','isTruthy','isFalsy','isNumber','isString','isBoolean','isArray','isJson']);
+    if (unaryOps.has(operator)) {
+        return undefined;
+    }
+
     const expected = rawExpected.trim().replace(/^['"]|['"]$/g, '');
     return expected;
 };
@@ -75,13 +81,13 @@ export const getOperator = (assertion: string): string | undefined => {
         return undefined;
     }
 
-    const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|={1,2}|!=|<=|>=|<|>)\s*(.*)$/i);
     if (!match) {
         return undefined;
     }
 
-    const [, , , operator] = match;
-    return operator;
+    const [, , , rawOp] = match;
+    return rawOp === '=' ? '==' : rawOp;
 };
 
 export const getNestedProperty = (obj: any, path: string): any => {
@@ -102,7 +108,7 @@ export const getAssertionDetails = (assertion: string, apiResponse?: ApiResponse
         return undefined;
     }
 
-    const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|={1,2}|!=|<=|>=|<|>)\s*(.*)$/i);
     if (!match) {
         return undefined;
     }
@@ -160,7 +166,7 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
         return undefined;
     }
 
-    const match = trimmed.match(/^res\.([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
+    const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|={1,2}|!=|<=|>=|<|>)\s*(.*)$/i);
     if (!match) {
         return false;
     }
@@ -188,8 +194,57 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
         }
     };
 
+    const evalOperator = (actual: string, expected: string, operator: string): boolean => {
+        const op = operator;
+        const lowerOp = op.toLowerCase();
+        const isTruthyString = (v: string) => {
+            if (!v) return false;
+            const lower = v.toLowerCase();
+            return !(lower === 'false' || lower === '0' || lower === 'null' || lower === 'undefined' || lower === '');
+        };
+
+        switch (lowerOp) {
+            case 'contains':
+                return actual.includes(expected);
+            case 'notcontains':
+                return !actual.includes(expected);
+            case 'startswith':
+                return actual.startsWith(expected);
+            case 'endswith':
+                return actual.endsWith(expected);
+            case 'matches':
+                try { return new RegExp(expected).test(actual); } catch { return false; }
+            case 'notmatches':
+                try { return !new RegExp(expected).test(actual); } catch { return false; }
+            case 'isnull':
+                return actual === '' || actual.toLowerCase() === 'null' || actual === undefined;
+            case 'isempty':
+                return actual === '';
+            case 'isnotempty':
+                return actual !== '';
+            case 'isdefined':
+                return actual !== '';
+            case 'isundefined':
+                return actual === '';
+            case 'istruthy':
+                return isTruthyString(actual);
+            case 'isfalsy':
+                return !isTruthyString(actual);
+            case 'isnumber':
+                return !isNaN(Number(actual));
+            case 'isboolean':
+                return ['true', 'false'].includes(actual.toLowerCase());
+            case 'isarray':
+                try { const p = JSON.parse(actual); return Array.isArray(p); } catch { return false; }
+            case 'isjson':
+                try { JSON.parse(actual); return true; } catch { return false; }
+            default:
+                return compareValues(actual, expected, operator);
+        }
+    };
+
     if (target.toLowerCase() === 'status') {
-        return compareValues(String(apiResponse.statusCode), expected, operator);
+        return evalOperator(String(apiResponse.statusCode), expected, operator);
     }
 
     if (target.toLowerCase() === 'body') {
@@ -201,7 +256,7 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
                 const bodyObj = JSON.parse(responseBody);
                 const value = getNestedProperty(bodyObj, property);
                 const actualStr = String(value ?? '');
-                return compareValues(actualStr, expected, operator);
+                return evalOperator(actualStr, expected, operator);
             } catch {
                 return false;
             }
@@ -217,7 +272,7 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
                     return false;
                 }
             }
-            return compareValues(responseBody, expected, operator);
+            return evalOperator(responseBody, expected, operator);
         }
     }
 
@@ -228,7 +283,7 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
         if (headerValue === undefined) {
             return false;
         }
-        return compareValues(headerValue.trim(), expected, operator);
+        return evalOperator(headerValue.trim(), expected, operator);
     }
 
     return false;
