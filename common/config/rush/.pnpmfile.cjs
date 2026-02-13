@@ -29,11 +29,7 @@ module.exports = {
         }
         if (pkg.dependencies['axios']) {
           pkg.dependencies['axios'] = '^1.13.5';
-        }
-        if (pkg.dependencies['brace-expansion']) {
-          pkg.dependencies['brace-expansion'] = '^2.0.2';
-        }
-        if (pkg.dependencies['http-proxy']) {
+        }        if (pkg.dependencies['http-proxy']) {
           pkg.dependencies['http-proxy'] = '^1.18.1';
         }
         if (pkg.dependencies['prismjs']) {
@@ -99,11 +95,7 @@ module.exports = {
         }
         if (pkg.devDependencies['axios']) {
           pkg.devDependencies['axios'] = '^1.13.5';
-        }
-        if (pkg.devDependencies['brace-expansion']) {
-          pkg.devDependencies['brace-expansion'] = '^2.0.2';
-        }
-        if (pkg.devDependencies['http-proxy']) {
+        }        if (pkg.devDependencies['http-proxy']) {
           pkg.devDependencies['http-proxy'] = '^1.18.1';
         }
         if (pkg.devDependencies['prismjs']) {
