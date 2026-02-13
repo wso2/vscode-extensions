@@ -171,7 +171,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
             const connectionData: any = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
                 documentUri: node.documentUri,
                 connectorName: (node.stNode.tag === 'tool') ? 
-                    (node.stNode as any).mediator.connectorName : node.stNode.tag.split(".")[0]
+                    (node.stNode as Tool).mediator.connectorName : node.stNode.tag.split(".")[0]
             });
 
             const connectionName = connectorNode.configKey;
