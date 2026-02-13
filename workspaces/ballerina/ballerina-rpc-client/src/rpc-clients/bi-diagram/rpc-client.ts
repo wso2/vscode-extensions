@@ -23,6 +23,7 @@ import {
     AddFunctionRequest,
     AddImportItemResponse,
     AddProjectToWorkspaceRequest,
+    ApplyCodeActionRequest,
     BIAiSuggestionsRequest,
     BIAiSuggestionsResponse,
     BIAvailableNodesRequest,
@@ -130,6 +131,7 @@ import {
     addClassField,
     addFunction,
     addProjectToWorkspace,
+    applyCodeAction,
     buildProject,
     createComponent,
     createGraphqlClassType,
@@ -485,6 +487,10 @@ export class BiDiagramRpcClient implements BIDiagramAPI {
 
     getEndOfFile(params: EndOfFileRequest): Promise<LinePosition> {
         return this._messenger.sendRequest(getEndOfFile, HOST_EXTENSION, params);
+    }
+
+    applyCodeAction(params: ApplyCodeActionRequest): Promise<UpdatedArtifactsResponse> {
+        return this._messenger.sendRequest(applyCodeAction, HOST_EXTENSION, params);
     }
 
     search(params: BISearchRequest): Promise<BISearchResponse> {

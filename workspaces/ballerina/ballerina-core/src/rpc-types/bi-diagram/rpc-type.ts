@@ -125,7 +125,8 @@ import {
     DeleteProjectRequest,
     OpenReadmeRequest,
     ValidateProjectFormRequest,
-    ValidateProjectFormResponse
+    ValidateProjectFormResponse,
+    ApplyCodeActionRequest
 } from "./interfaces";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -198,6 +199,7 @@ export const updateImports: RequestType<UpdateImportsRequest, UpdateImportsRespo
 export const addFunction: RequestType<AddFunctionRequest, AddImportItemResponse> = { method: `${_preFix}/addFunction` };
 export const getFunctionNode: RequestType<FunctionNodeRequest, FunctionNodeResponse> = { method: `${_preFix}/getFunctionNode` };
 export const getEndOfFile: RequestType<EndOfFileRequest, LinePosition> = { method: `${_preFix}/getEndOfFile` };
+export const applyCodeAction: RequestType<ApplyCodeActionRequest, UpdatedArtifactsResponse> = { method: `${_preFix}/applyCodeAction` };
 export const search: RequestType<BISearchRequest, BISearchResponse> = { method: `${_preFix}/search` };
 export const searchNodes: RequestType<BISearchNodesRequest, BISearchNodesResponse> = { method: `${_preFix}/searchNodes` };
 export const getRecordNames: RequestType<void, RecordsInWorkspaceMentions> = { method: `${_preFix}/getRecordNames` };

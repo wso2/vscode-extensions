@@ -23,6 +23,7 @@ import {
     AddFunctionRequest,
     AddImportItemResponse,
     AddProjectToWorkspaceRequest,
+    ApplyCodeActionRequest,
     ArtifactData,
     BIAiSuggestionsRequest,
     BIAiSuggestionsResponse,
@@ -150,6 +151,7 @@ import {
 import * as fs from "fs";
 import * as path from 'path';
 import * as vscode from "vscode";
+import { CodeAction, WorkspaceEdit, TextDocumentEdit, CreateFile, RenameFile, DeleteFile, Command } from "vscode-languageserver-types";
 
 import { ICreateComponentCmdParams, IWso2PlatformExtensionAPI, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import {
@@ -259,6 +261,140 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                         resolve({ artifacts: [], error: error });
                     });
                 });
+        });
+    }
+
+    async applyCodeAction(params: ApplyCodeActionRequest): Promise<UpdatedArtifactsResponse> {
+        console.log(">>> applying code action", params?.description ?? params?.codeAction?.title);
+        try {
+            const resolvedAction = await this.resolveCodeAction(params.codeAction);
+            const edits = await this.workspaceEditToTextEdits(resolvedAction.edit);
+
+            if (resolvedAction.command) {
+                await this.executeCodeActionCommand(resolvedAction.command);
+            }
+
+            if (Object.keys(edits).length === 0) {
+                return { artifacts: [] };
+            }
+
+            const artifacts = await updateSourceCode({
+                textEdits: edits,
+                artifactData: params.artifactData,
+                description: params.description ?? resolvedAction.title ?? "Apply Code Action"
+            });
+            return { artifacts };
+        } catch (error) {
+            console.error(">>> error applying code action", error);
+            const message = error instanceof Error ? error.message : String(error);
+            return { artifacts: [], error: message };
+        }
+    }
+
+    private async resolveCodeAction(codeAction: CodeAction): Promise<CodeAction> {
+        if (codeAction.edit || codeAction.command) {
+            return codeAction;
+        }
+        return StateMachine.langClient().resolveCodeAction(codeAction);
+    }
+
+    private async workspaceEditToTextEdits(workspaceEdit?: WorkspaceEdit): Promise<Record<string, TextEdit[]>> {
+        const edits: Record<string, TextEdit[]> = {};
+        if (!workspaceEdit) {
+            return edits;
+        }
+
+        if (workspaceEdit.changes) {
+            for (const [uri, changeEdits] of Object.entries(workspaceEdit.changes)) {
+                if (!edits[uri]) {
+                    edits[uri] = [];
+                }
+                edits[uri].push(...changeEdits);
+            }
+        }
+
+        if (workspaceEdit.documentChanges) {
+            for (const change of workspaceEdit.documentChanges) {
+                if (this.isResourceOperation(change)) {
+                    await this.applyResourceOperation(change);
+                    continue;
+                }
+                const uri = change.textDocument?.uri;
+                if (!uri) {
+                    continue;
+                }
+                if (!edits[uri]) {
+                    edits[uri] = [];
+                }
+                edits[uri].push(...change.edits);
+            }
+        }
+
+        return edits;
+    }
+
+    private isResourceOperation(change: TextDocumentEdit | CreateFile | RenameFile | DeleteFile): change is CreateFile | RenameFile | DeleteFile {
+        return (change as CreateFile).kind === "create"
+            || (change as RenameFile).kind === "rename"
+            || (change as DeleteFile).kind === "delete";
+    }
+
+    private async applyResourceOperation(operation: CreateFile | RenameFile | DeleteFile): Promise<void> {
+        try {
+            if (operation.kind === "create") {
+                const uri = vscode.Uri.parse(operation.uri);
+                await this.ensureDirectory(uri);
+                const exists = await this.fileExists(uri);
+                if (exists && !operation.options?.overwrite) {
+                    return;
+                }
+                if (!exists || operation.options?.overwrite || !operation.options?.ignoreIfExists) {
+                    await vscode.workspace.fs.writeFile(uri, new Uint8Array());
+                }
+                return;
+            }
+            if (operation.kind === "rename") {
+                const oldUri = vscode.Uri.parse(operation.oldUri);
+                const newUri = vscode.Uri.parse(operation.newUri);
+                await this.ensureDirectory(newUri);
+                await vscode.workspace.fs.rename(oldUri, newUri, { overwrite: operation.options?.overwrite });
+                return;
+            }
+            if (operation.kind === "delete") {
+                const uri = vscode.Uri.parse(operation.uri);
+                await vscode.workspace.fs.delete(uri, {
+                    recursive: operation.options?.recursive
+                });
+            }
+        } catch (err) {
+            if (operation.kind === "delete" && operation.options?.ignoreIfNotExists) {
+                return;
+            }
+            console.error(">>> failed to apply resource operation", err);
+        }
+    }
+
+    private async ensureDirectory(uri: vscode.Uri): Promise<void> {
+        const dirPath = path.dirname(uri.fsPath);
+        await vscode.workspace.fs.createDirectory(vscode.Uri.file(dirPath));
+    }
+
+    private async fileExists(uri: vscode.Uri): Promise<boolean> {
+        try {
+            await vscode.workspace.fs.stat(uri);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    private async executeCodeActionCommand(command: Command): Promise<void> {
+        if (!command?.command) {
+            return;
+        }
+        await StateMachine.langClient().executeCommand({
+            command: command.command,
+            arguments: command.arguments
         });
     }
 

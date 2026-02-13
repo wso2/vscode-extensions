@@ -648,6 +648,10 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return this.sendRequest(VSCODE_APIS.CODE_ACTION, params);
     }
 
+    async resolveCodeAction(codeAction: CodeAction): Promise<CodeAction> {
+        return this.sendRequest("codeAction/resolve", codeAction);
+    }
+
     async executeCommand(params: ExecuteCommandParams): Promise<any> {
         return this.sendRequest(VSCODE_APIS.EXECUTE_CMD, params);
     }
