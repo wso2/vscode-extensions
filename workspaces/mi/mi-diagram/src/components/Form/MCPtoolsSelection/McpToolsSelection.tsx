@@ -456,14 +456,15 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
 
             setLoading(true);
             setError("");
-            const mcpToolsResponse = await rpcClient.getMiDiagramRpcClient().getMcpTools({ connectionName: selectedConnection });
+            try {
+                const mcpToolsResponse = await rpcClient.getMiDiagramRpcClient().getMcpTools({ connectionName: selectedConnection });
 
-            if (mcpToolsResponse.error) {
-                setError(mcpToolsResponse.error);
-                setMcpTools([]);
-                setLoading(false);
-                return;
-            } else {
+                if (mcpToolsResponse.error) {
+                    setError(mcpToolsResponse.error);
+                    setMcpTools([]);
+                    return;
+                }
+
                 const tools = mcpToolsResponse?.tools
                     ? Array.isArray(mcpToolsResponse.tools)
                         ? mcpToolsResponse.tools
@@ -479,8 +480,12 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
                 } else if (selectedTools.size > 0) {
                     clearErrors?.('mcpTools');
                 }
+            } catch (err) {
+                setError(err instanceof Error ? err.message : String(err));
+                setMcpTools([]);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
 
         fetchMcpTools();
