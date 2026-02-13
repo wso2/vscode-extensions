@@ -476,11 +476,6 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
                     : [];
                 setMcpTools(tools);
                 setError("");
-                if (tools.length > 0 && selectedTools.size === 0) {
-                    setFormError?.('mcpTools', { type: 'manual', message: 'Select at least one tool.' });
-                } else if (selectedTools.size > 0) {
-                    clearErrors?.('mcpTools');
-                }
             } catch (err) {
                 setError(err instanceof Error ? err.message : String(err));
                 setMcpTools([]);
@@ -491,6 +486,14 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
 
         fetchMcpTools();
     }, [rpcClient, selectedConnection]);
+
+    useEffect(() => {
+        if (tools.length > 0 && selectedTools.size === 0) {
+            setFormError?.('mcpTools', { type: 'manual', message: 'Select at least one tool.' });
+        } else if (selectedTools.size > 0) {
+            clearErrors?.('mcpTools');
+        }
+    }, [tools.length, selectedTools]);
 
     const handleToolSelectionChange = (toolName: string, isSelected: boolean) => {
         const currentSelection = getValues('mcpToolsSelection');
