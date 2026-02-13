@@ -128,11 +128,14 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 		transport: TransportKind.stdio
 	};
 
-	// Client options
+	// Client options — only attach to documents identified as Arazzo files.
+	// The checkDocumentForOpenAPI() function dynamically sets the language to
+	// arazzo-yaml/arazzo-json when it detects the required `arazzo: X.X.X` field,
+	// so the LSP will NOT run on plain OpenAPI or other YAML/JSON files.
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: [
-			{ scheme: 'file', language: 'yaml' },
-			{ scheme: 'file', language: 'json' }
+			{ scheme: 'file', language: 'arazzo-yaml' },
+			{ scheme: 'file', language: 'arazzo-json' }
 		],
 		synchronize: {
 			fileEvents: [
@@ -270,7 +273,9 @@ function checkDocumentForOpenAPI(document?: vscode.TextDocument) {
 		return;
 	}
 
-	// Read the first few lines to check content for arazzo: X.X.X pattern
+	// Content-based detection per Arazzo Spec §4.6.1:
+	// The `arazzo` field is REQUIRED and MUST be used by tooling to interpret the Arazzo Description.
+	// Check the first few lines for the `arazzo: X.X.X` version pattern.
 	const firstFewLines = document.getText(new vscode.Range(0, 0, 10, 0));
 	const hasOpenAPI = /\bopenapi\s*:/i.test(firstFewLines);
 	const hasArazzo = /\barazzo\s*:\s*\d+\.\d+\.\d+/i.test(firstFewLines);
