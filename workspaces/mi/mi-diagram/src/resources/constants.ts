@@ -292,6 +292,10 @@ export const ENDPOINTS = {
     WSDL: "wsdl",
 }
 
+export const TOOLS = {
+    MCP: "mcp",
+}
+
 export const DATA_SERVICE_NODES = {
     INPUT: "Input Mapping",
     QUERY: "Query",
