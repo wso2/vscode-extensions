@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { EdgeProps, BaseEdge, getSmoothStepPath, useEdges, useNodes } from '@xyflow/react';
+import { EdgeProps, BaseEdge, EdgeLabelRenderer, getSmoothStepPath, useEdges, useNodes } from '@xyflow/react';
 import { BRIDGE_RADIUS, DEFAULT_EPS, getPointsForEdge as getEdgePoints, detectBridgesForSegment, buildSegmentPathWithBridges } from './edgeIntersectDetect';
 import { ThemeColors } from '@wso2/ui-toolkit';
 import { useState } from 'react';
@@ -44,7 +44,7 @@ const CORNER_RADIUS = 6;
  * If data.waypoints exists: Draws a path through each waypoint sequentially with rounded corners.
  * If data.waypoints is missing or empty: Falls back to smooth step path.
  * 
- * Labels are rendered using foreignObject with smart positioning.
+ * Labels are rendered using EdgeLabelRenderer with smart positioning.
  */
 export default function PlannedPathEdge({
     id,
@@ -299,21 +299,14 @@ export default function PlannedPathEdge({
                 markerEnd={markerEndAttr}
             />
             {data?.label && labelPosition && (
-                <foreignObject
-                    x={labelPosition.x - 400 + (data.labelOffset?.x ?? 0)}
-                    y={labelPosition.y - 20 + (data.labelOffset?.y ?? -10)}
-                    width={800}
-                    height={40}
-                    style={{ overflow: 'visible', pointerEvents: 'none' }}
-                >
+                <EdgeLabelRenderer>
                     <div
+                        className="nodrag nopan"
                         style={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            width: '100%',
-                            height: '100%',
-                            pointerEvents: 'none'
+                            position: 'absolute',
+                            transform: `translate(-50%, -50%) translate(${labelPosition.x + (data.labelOffset?.x ?? 0)}px, ${labelPosition.y + (data.labelOffset?.y ?? -10)}px)`,
+                            pointerEvents: 'all',
+                            zIndex: labelHovered ? 10000 : 1
                         }}
                     >
                         <div
@@ -332,9 +325,8 @@ export default function PlannedPathEdge({
                                 width: 'fit-content',
                                 boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
                                 transition: 'all 0.2s ease-in-out',
-                                zIndex: labelHovered ? 100 : 1,
-                                position: 'relative',
-                                pointerEvents: 'all'
+                                zIndex: labelHovered ? 10000 : 1,
+                                position: 'relative'
                             }}
                         >
                             <span
@@ -360,7 +352,7 @@ export default function PlannedPathEdge({
                             </span>
                         </div>
                     </div>
-                </foreignObject>
+                </EdgeLabelRenderer>
             )}
         </g>
     );
