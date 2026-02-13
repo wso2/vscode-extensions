@@ -42,6 +42,9 @@ export type NodeModel =
 // node model without button node model
 export type LinkableNodeModel = Exclude<NodeModel, ButtonNodeModel>;
 
+import { CodeAction } from "vscode-languageserver-types";
+import { ArtifactData, DiagnosticMessage, LineRange } from "@wso2/ballerina-core";
+
 export type {
     Flow,
     Client,
@@ -67,4 +70,25 @@ export type DraftNodeConfig = {
     override: boolean; // Override the draft node contents with showSpinner and description
     showSpinner: boolean;
     description: string;
+}
+
+export interface DiagramDiagnostic extends DiagnosticMessage {
+    range?: LineRange;
+}
+
+export interface DiagramCodeActionRequest {
+    documentUri: string;
+    range: LineRange;
+    diagnostics?: DiagramDiagnostic[];
+}
+
+export interface DiagramApplyCodeActionRequest {
+    codeAction: CodeAction;
+    description?: string;
+    artifactData?: ArtifactData;
+}
+
+export interface DiagramCodeActionHandlers {
+    fetch: (request: DiagramCodeActionRequest) => Promise<CodeAction[]>;
+    apply: (request: DiagramApplyCodeActionRequest) => Promise<void>;
 }

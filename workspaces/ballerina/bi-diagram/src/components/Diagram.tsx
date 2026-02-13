@@ -30,7 +30,7 @@ import {
     resetDiagramZoomAndPosition,
 } from "../utils/diagram";
 import { DiagramCanvas } from "./DiagramCanvas";
-import { Flow, NodeModel, FlowNode, Branch, LineRange, NodePosition, ToolData, DraftNodeConfig } from "../utils/types";
+import { Flow, NodeModel, FlowNode, Branch, LineRange, NodePosition, ToolData, DraftNodeConfig, DiagramCodeActionHandlers } from "../utils/types";
 import { NodeFactoryVisitor } from "../visitors/NodeFactoryVisitor";
 import { NodeLinkModel } from "./NodeLink";
 import { OverlayLayerModel } from "./OverlayLayer";
@@ -88,6 +88,7 @@ export interface DiagramProps {
         path: string;
         getProjectPath?: (props: JoinProjectPathRequest) => Promise<JoinProjectPathResponse>;
     };
+    codeActions?: DiagramCodeActionHandlers;
     breakpointInfo?: BreakpointInfo;
     readOnly?: boolean;
     overlay?: {
@@ -123,6 +124,7 @@ export function Diagram(props: DiagramProps) {
         overlay,
         isUserAuthenticated,
         expressionContext,
+        codeActions,
     } = props;
 
     const [showErrorFlow, setShowErrorFlow] = useState(false);
@@ -326,6 +328,7 @@ export function Diagram(props: DiagramProps) {
         aiNodes: aiNodes,
         suggestions: suggestions,
         project: project,
+        codeActions: codeActions,
         readOnly: onAddNode === undefined || onDeleteNode === undefined || onNodeSelect === undefined || readOnly,
         isUserAuthenticated: isUserAuthenticated,
         expressionContext: expressionContext || {

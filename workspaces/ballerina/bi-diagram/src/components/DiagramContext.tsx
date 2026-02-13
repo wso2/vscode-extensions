@@ -17,7 +17,7 @@
  */
 
 import React, { useState, RefObject } from "react";
-import { Flow, FlowNode, Branch, LineRange, NodePosition, ToolData } from "../utils/types";
+import { Flow, FlowNode, Branch, LineRange, NodePosition, ToolData, DiagramCodeActionHandlers } from "../utils/types";
 import { CompletionItem, FormExpressionEditorRef, HelperPaneHeight } from "@wso2/ui-toolkit";
 import { ExpressionProperty, JoinProjectPathRequest, JoinProjectPathResponse, RecordTypeField, TextEdit, VisualizerLocation } from "@wso2/ballerina-core";
 import { HelperpaneOnChangeOptions, InputMode } from "@wso2/ballerina-side-panel";
@@ -116,6 +116,7 @@ export interface DiagramContextState {
         path: string;
         getProjectPath?: (props: JoinProjectPathRequest) => Promise<JoinProjectPathResponse>;
     };
+    codeActions?: DiagramCodeActionHandlers;
     readOnly?: boolean;
     lockCanvas?: boolean;
     setLockCanvas?: (lock: boolean) => void;
@@ -172,6 +173,10 @@ export const DiagramContext = React.createContext<DiagramContextState>({
         org: "",
         path: "",
         getProjectPath: () => Promise.resolve({ filePath: "", projectPath: "" }),
+    },
+    codeActions: {
+        fetch: () => Promise.resolve([]),
+        apply: () => Promise.resolve(),
     },
     readOnly: false,
     lockCanvas: false,

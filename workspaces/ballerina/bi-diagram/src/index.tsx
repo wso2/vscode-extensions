@@ -25,7 +25,14 @@ export { ConnectorIcon } from "./components/ConnectorIcon";
 export { AIModelIcon } from "./components/AIModelIcon";
 
 // types
-export type { FlowNodeStyle, DraftNodeConfig } from "./utils/types";
+export type {
+    FlowNodeStyle,
+    DraftNodeConfig,
+    DiagramCodeActionRequest,
+    DiagramApplyCodeActionRequest,
+    DiagramCodeActionHandlers,
+    DiagramDiagnostic
+} from "./utils/types";
 export type { GetHelperPaneFunction } from "./components/DiagramContext";
 
 // traversing utils
