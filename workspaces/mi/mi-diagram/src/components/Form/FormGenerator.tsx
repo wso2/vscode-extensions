@@ -240,6 +240,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const [idpSchemaNames, setidpSchemaNames] = useState< {fileName: string; documentUriWithFileName?: string}[]>([]);
     const [showFillWithAI, setShowFillWithAI] = useState<boolean>(false);
     const selectedConnection = useWatch({ control, name: 'configKey' });
+    const selectedMcpTools = useWatch({ control, name: 'mcpToolsSelection' });
 
     useEffect(() => {
         if (generatedFormDetails) {
@@ -1278,7 +1279,6 @@ export function FormGenerator(props: FormGeneratorProps) {
                     </>
                 )
             case 'mcpToolsSelection':
-                const selectedMcpTools = useWatch({ control, name: 'mcpToolsSelection' });
                 const selectedToolsSet = new Set<string>(
                     Array.isArray(selectedMcpTools) ? selectedMcpTools : []
                 );
