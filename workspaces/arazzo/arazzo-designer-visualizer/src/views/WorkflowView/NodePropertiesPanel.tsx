@@ -19,6 +19,7 @@
 import { useState } from 'react';
 import styled from '@emotion/styled';
 import { Node } from '@xyflow/react';
+import { ArazzoWorkflow } from '@wso2/arazzo-designer-core';
 
 const Container = styled.div`
     display: flex;
@@ -152,9 +153,10 @@ const EmptyState = styled.div`
 
 interface NodePropertiesPanelProps {
     node: Node | null;
+    workflow?: ArazzoWorkflow | undefined;
 }
 
-export function NodePropertiesPanel({ node }: NodePropertiesPanelProps) {
+export function NodePropertiesPanel({ node, workflow }: NodePropertiesPanelProps) {
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['general']));
     const [expandedArrayItems, setExpandedArrayItems] = useState<Set<string>>(new Set());
 
@@ -162,10 +164,6 @@ export function NodePropertiesPanel({ node }: NodePropertiesPanelProps) {
 
     const nodeData = node.data || {};
     const { label, iconClass, ...stepData } = nodeData;
-
-    if (Object.keys(stepData).length === 0) {
-        return <EmptyState>No step data available</EmptyState>;
-    }
 
     const toggleSection = (sectionId: string) => {
         const newExpanded = new Set(expandedSections);
@@ -248,6 +246,49 @@ export function NodePropertiesPanel({ node }: NodePropertiesPanelProps) {
             </Section>
         );
     };
+
+    // If start node — render workflow details (uses the same styling as other sections)
+    if (node.type === 'startNode') {
+        const wf = workflow;
+        if (!wf) return <EmptyState>No workflow data available</EmptyState>;
+
+        return (
+            <Container>
+                <Section>
+                    <SectionHeader>Workflow</SectionHeader>
+                    <SectionContent>
+                        <div style={{ marginBottom: 12 }}>
+                            <FieldLabel>Workflow ID</FieldLabel>
+                            <FieldValue>{wf.workflowId}</FieldValue>
+                        </div>
+                        {wf.summary && (
+                            <div style={{ marginBottom: 12 }}>
+                                <FieldLabel>Summary</FieldLabel>
+                                <FieldValue>{wf.summary}</FieldValue>
+                            </div>
+                        )}
+                        {wf.description && (
+                            <div style={{ marginBottom: 12 }}>
+                                <FieldLabel>Description</FieldLabel>
+                                <FieldValue>{wf.description}</FieldValue>
+                            </div>
+                        )}
+                    </SectionContent>
+                </Section>
+                {wf.inputs && typeof wf.inputs === 'object' && (
+                    (() => {
+                        const schema = wf.inputs as any;
+                        if (schema.properties && typeof schema.properties === 'object') {
+                            const items = Object.entries(schema.properties).map(([name, prop]) => ({ name, ...(prop as any) }));
+                            return renderArraySection('Inputs', items, 'workflowInputs');
+                        }
+                        // Fallback: show raw schema
+                        return renderSimpleSection('Inputs', <JsonBlock>{JSON.stringify(schema, null, 2)}</JsonBlock>, 'workflowInputs');
+                    })()
+                )}
+            </Container>
+        );
+    }
 
     const sections: JSX.Element[] = [];
 
@@ -347,22 +388,7 @@ export function NodePropertiesPanel({ node }: NodePropertiesPanelProps) {
         );
     }
 
-    // Additional properties (anything not covered above)
-    const knownKeys = ['stepId', 'description', 'operationId', 'operationPath', 'workflowId',
-        'parameters', 'requestBody', 'successCriteria', 'onSuccess', 'onFailure', 'outputs', 'count', 'onSuccess'];
-    const additionalProps = Object.fromEntries(
-        Object.entries(stepData).filter(([key]) => !knownKeys.includes(key))
-    );
 
-    if (Object.keys(additionalProps).length > 0) {
-        sections.push(
-            renderSimpleSection(
-                'Additional Properties',
-                <JsonBlock>{JSON.stringify(additionalProps, null, 2)}</JsonBlock>,
-                'additional'
-            )
-        );
-    }
 
     return <Container>{sections}</Container>;
 }
