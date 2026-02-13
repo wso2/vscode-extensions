@@ -539,7 +539,7 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
                                 title="Expand view"
                                 aria-label="Expand tools selection"
                             >
-                                <Icon name="bi-expand-modal" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', width: 18, height: 18, fontSize: 18 }} />
+                                <Icon name="mi-expand-modal" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', width: 18, height: 18, fontSize: 18 }} />
                             </ExpandButton>
                             <Button
                                 onClick={handleSelectAll}
