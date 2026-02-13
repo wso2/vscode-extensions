@@ -23,6 +23,7 @@ import { Button, CheckBox, ThemeColors, SearchBox, Codicon, Divider, Typography,
 import type { OptionProps } from "@wso2/ui-toolkit";
 import { set } from "lodash";
 import { useVisualizerContext } from "@wso2/mi-rpc-client/lib/context/mi-webview-context";
+import { MCP_TOOLS_LIST_MAX_HEIGHT_OFFSET } from "../../../resources/constants";
 
 export interface McpTool {
     name: string;
@@ -300,7 +301,7 @@ const ToolsList: React.FC<ToolsListProps> = ({
     loading,
     onToolSelectionChange,
     searchQuery = '',
-    maxHeight = 'calc(100vh - 470px)'
+    maxHeight = `calc(100vh - ${MCP_TOOLS_LIST_MAX_HEIGHT_OFFSET}px)`
 }) => {
     const filteredTools = useMemo(() => {
         if (!searchQuery.trim()) {
