@@ -24,6 +24,7 @@ import * as path from 'path';
 import { Buffer } from 'buffer';
 import { Messenger } from 'vscode-messenger';
 import { registerApiTryItRpcHandlers, ApiTryItRpcManager } from '../rpc-managers';
+import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
 
 export class TryItPanel {
 	public static currentPanel: TryItPanel | undefined;
@@ -450,9 +451,9 @@ export class TryItPanel {
 		);
 	}
 
-	public static init() {
+	public static init(apiExplorerProvider: ApiExplorerProvider) {
 		// Register RPC handlers
-		registerApiTryItRpcHandlers(TryItPanel._messenger);
+		registerApiTryItRpcHandlers(TryItPanel._messenger, apiExplorerProvider);
 	}
 
 	public static show(extensionContext: vscode.ExtensionContext) {

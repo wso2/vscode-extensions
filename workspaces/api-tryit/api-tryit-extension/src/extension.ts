@@ -22,15 +22,15 @@ import { TryItPanel } from './webview-panel/TryItPanel';
 import { ActivityPanel } from './activity-panel/webview';
 import { ApiExplorerProvider } from './tree-view/ApiExplorerProvider';
 import { ApiTryItStateMachine, EVENT_TYPE } from './stateMachine';
-import { ApiRequestItem } from '@wso2/api-tryit-core';
+import { ApiRequestItem, ApiCollection } from '@wso2/api-tryit-core';
 import * as path from 'path';
 
 export async function activate(context: vscode.ExtensionContext) {
-	// Initialize RPC handlers
-	TryItPanel.init();
-
 	// Register the API Explorer tree view provider
 	const apiExplorerProvider = new ApiExplorerProvider();
+
+	// Initialize RPC handlers
+	TryItPanel.init(apiExplorerProvider);
 
 	// Register the explorer with the state machine so it can trigger direct reloads when needed
 	ApiTryItStateMachine.registerExplorer(apiExplorerProvider);
@@ -235,7 +235,81 @@ export async function activate(context: vscode.ExtensionContext) {
 		const destination = vscode.Uri.file(path.join(collectionsPath, fileUri.path.split('/').pop() || fileUri.path));
 		await vscode.workspace.fs.copy(fileUri, destination, { overwrite: true });
 		vscode.window.showInformationMessage('Collection imported');
-		apiExplorerProvider.refresh();
+		await apiExplorerProvider.reloadCollections();
+	});
+
+	// Register command to import collection payload (JSON structure)
+	const importCollectionPayloadCommand = vscode.commands.registerCommand('api-tryit.importCollectionPayload', async (payload?: string) => {
+		try {
+			// If no payload provided, get it from user input
+			if (!payload || typeof payload !== 'string') {
+				payload = await vscode.window.showInputBox({
+					prompt: 'Paste your collection JSON payload',
+					placeHolder: '{"name": "My Collection", "requests": [...]}',
+					title: 'Import Collection Payload'
+				});
+
+				if (!payload) {
+					return; // User cancelled
+				}
+			}
+
+			// Parse and validate the JSON payload
+			let collectionData;
+			try {
+				collectionData = JSON.parse(payload);
+			} catch (parseError) {
+				vscode.window.showErrorMessage('Invalid JSON payload. Please check the format and try again.');
+				return;
+			}
+
+			// Basic validation - check for required fields
+			if (!collectionData.name || typeof collectionData.name !== 'string') {
+				vscode.window.showErrorMessage('Collection payload must have a valid "name" field.');
+				return;
+			}
+
+			// Get collections path from config
+			const config = vscode.workspace.getConfiguration('api-tryit');
+			const collectionsPath = config.get<string>('collectionsPath');
+
+			// Generate unique ID for the collection
+			const collectionId = `imported-${Date.now()}`;
+
+			// Create ApiCollection from the data
+			const collection: ApiCollection = {
+				id: collectionId,
+				name: collectionData.name,
+				description: collectionData.description || '',
+				folders: collectionData.folders || [],
+				rootItems: collectionData.rootItems || []
+			};
+
+			if (collectionsPath) {
+				// If collections path is set, save to disk
+				// Generate filename from collection name (sanitize)
+				const sanitizedName = collectionData.name.replace(/[^a-zA-Z0-9\-_\s]/g, '').replace(/\s+/g, '_');
+				const fileName = `${sanitizedName}.json`;
+				const filePath = path.join(collectionsPath, fileName);
+
+				// Write the payload to file
+				const fileUri = vscode.Uri.file(filePath);
+				const content = JSON.stringify(collectionData, null, 2);
+				await vscode.workspace.fs.writeFile(fileUri, Buffer.from(content, 'utf8'));
+
+				// Reload collections to show the new one
+				await apiExplorerProvider.reloadCollections();
+
+				vscode.window.showInformationMessage(`Collection "${collectionData.name}" imported and saved to disk`);
+			} else {
+				// If no collections path is set, add in-memory only
+				apiExplorerProvider.addInMemoryCollection(collection);
+				vscode.window.showInformationMessage(`Collection "${collectionData.name}" imported in-memory (not saved to disk)`);
+			}
+		} catch (error: unknown) {
+			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+			vscode.window.showErrorMessage(`Failed to import collection payload: ${errorMsg}`);
+		}
 	});
 
 	// Register command to open a collection file
@@ -288,7 +362,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const target = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0 ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
 		await config.update('collectionsPath', selected.fsPath, target);
 		vscode.window.showInformationMessage(`API TryIt collections path set to: ${selected.fsPath}`);
-		apiExplorerProvider.refresh();
+		await apiExplorerProvider.reloadCollections();
 	});
 
 	context.subscriptions.push(setCollectionsPathCommand);
@@ -302,6 +376,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		openFromCurlCommand,
 		newCollectionCommand,
 		importCollectionCommand,
+		importCollectionPayloadCommand,
 		openCollectionCommand,
 		plusMenuCommand,
 		settingsCommand,

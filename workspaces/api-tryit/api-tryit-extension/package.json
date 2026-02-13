@@ -93,6 +93,11 @@
         "command": "api-tryit.setCollectionsPath",
         "title": "API TryIt: Set Collections Path",
         "icon": "$(folder)"
+      },
+      {
+        "command": "api-tryit.importCollectionPayload",
+        "title": "API TryIt: Import Collection Payload",
+        "icon": "$(add)"
       }
     ],
     "menus": {

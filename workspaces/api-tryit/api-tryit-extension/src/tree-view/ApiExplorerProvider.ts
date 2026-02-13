@@ -247,9 +247,17 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				return;
 			}
 
+			// Keep track of in-memory collections (collections without filePath set during import)
+			const inMemoryCollections = this.collections.filter(col => {
+				// A collection is considered in-memory if none of its items have filePath set
+				const hasFilePath = (col.rootItems || []).some(item => item.filePath) ||
+					col.folders.some(folder => folder.items.some(item => item.filePath));
+				return !hasFilePath;
+			});
+
 			// Discover collections by reading directories
 			const entries = await fs.readdir(storagePath, { withFileTypes: true });
-			this.collections = [];
+			const diskCollections: ApiCollection[] = [];
 
 			for (const entry of entries) {
 				// Skip hidden directories and files
@@ -258,13 +266,17 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						const collectionPath = path.join(storagePath, entry.name);
 						const collection = await this.loadCollection(collectionPath, entry.name);
 						if (collection) {
-							this.collections.push(collection);
+							diskCollections.push(collection);
 						}
 					} catch (error) {
 						vscode.window.showErrorMessage(`Error loading collection ${entry.name}, ${error as string}`);
 					}
 				}
 			}
+
+			// Combine in-memory collections with disk collections
+			// In-memory collections come first, then disk collections
+			this.collections = [...inMemoryCollections, ...diskCollections];
 
 			// Notify tree of changes
 			this.refresh();
@@ -278,6 +290,52 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	 */
 	public async reloadCollections(): Promise<void> {
 		await this.loadCollections();
+	}
+
+	/**
+	 * Add a collection in-memory without saving to disk.
+	 * Useful for temporary collections or programmatic imports.
+	 */
+	public addInMemoryCollection(collection: ApiCollection): void {
+		// Check if collection with same ID already exists
+		const existingIndex = this.collections.findIndex(c => c.id === collection.id);
+		if (existingIndex >= 0) {
+			// Replace existing collection
+			this.collections[existingIndex] = collection;
+		} else {
+			// Add new collection
+			this.collections.push(collection);
+		}
+		
+		// Notify tree of changes
+		this.refresh();
+	}
+
+	/**
+	 * Update the filePath of a request in the in-memory collections
+	 */
+	public updateRequestFilePath(requestId: string, filePath: string): void {
+		for (const collection of this.collections) {
+			// Check root-level requests
+			for (const requestItem of collection.rootItems || []) {
+				if (requestItem.id === requestId) {
+					requestItem.filePath = filePath;
+					this.refresh();
+					return;
+				}
+			}
+			
+			// Check folder requests
+			for (const folder of collection.folders) {
+				for (const requestItem of folder.items) {
+					if (requestItem.id === requestId) {
+						requestItem.filePath = filePath;
+						this.refresh();
+						return;
+					}
+				}
+			}
+		}
 	}
 
 	private async loadCollection(collectionPath: string, collectionId: string): Promise<ApiCollection | null> {
