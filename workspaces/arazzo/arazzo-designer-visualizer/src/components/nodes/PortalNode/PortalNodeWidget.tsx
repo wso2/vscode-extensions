@@ -80,7 +80,7 @@ export const PortalNodeWidget: React.FC<NodeProps<PortalNodeData>> = ({ id, data
                     sourceHandle: 'h-top',
                     targetHandle: 'goto-top-target',
                     type: 'smoothstep',
-                    style: { stroke: ThemeColors.SECONDARY, strokeWidth: C.STROKE_WIDTH },
+                    style: { stroke: ThemeColors.SECONDARY, strokeDasharray: '4 4' ,strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' },
                     animated: false,
                 };
                 return [...eds, newEdge];
