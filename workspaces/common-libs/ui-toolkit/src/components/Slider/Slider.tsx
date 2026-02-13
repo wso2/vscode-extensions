@@ -152,6 +152,9 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>((props, re
         ...rest
     } = props;
 
+    const generatedId = React.useId();
+    const resolvedId = id ?? generatedId;
+
     const [currentValue, setCurrentValue] = React.useState<number>(
         (value as number) ?? (defaultValue as number) ?? Number(min)
     );
@@ -175,13 +178,14 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>((props, re
         return val.toString();
     };
 
-    const percentage = ((currentValue - Number(min)) / (Number(max) - Number(min))) * 100;
+    const range = Number(max) - Number(min);
+    const percentage = range === 0 ? 0 : ((currentValue - Number(min)) / range) * 100;
 
     return (
-        <SliderContainer id={id} className={className} sx={sx}>
+        <SliderContainer id={resolvedId} className={className} sx={sx}>
             {label && (
                 <LabelContainer>
-                    <Label htmlFor={`${id}-slider`}>{label}</Label>
+                    <Label htmlFor={`${resolvedId}-slider`}>{label}</Label>
                     {showValue && (
                         <ValueDisplay>{formatValue(currentValue)}</ValueDisplay>
                     )}
@@ -190,7 +194,7 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>((props, re
             <SliderTrack>
                 <StyledSlider
                     ref={ref}
-                    id={`${id}-slider`}
+                    id={`${resolvedId}-slider`}
                     type="range"
                     min={min}
                     max={max}
