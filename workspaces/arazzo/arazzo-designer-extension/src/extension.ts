@@ -131,15 +131,12 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 	// Client options
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: [
-			{ scheme: 'file', language: 'arazzo-yaml' },
-			{ scheme: 'file', language: 'arazzo-json' },
-			{ scheme: 'file', pattern: '**/*.arazzo.{yaml,yml,json}' },
-			{ scheme: 'file', pattern: '**/*-arazzo.{yaml,yml,json}' }
+			{ scheme: 'file', language: 'yaml' },
+			{ scheme: 'file', language: 'json' }
 		],
 		synchronize: {
 			fileEvents: [
-				vscode.workspace.createFileSystemWatcher('**/*.arazzo.{yaml,yml,json}'),
-				vscode.workspace.createFileSystemWatcher('**/*-arazzo.{yaml,yml,json}')
+				vscode.workspace.createFileSystemWatcher('**/*.{yaml,yml,json}')
 			]
 		},
 		outputChannelName: 'Arazzo Language Server'
@@ -262,8 +259,10 @@ function checkDocumentForOpenAPI(document?: vscode.TextDocument) {
 	}
 
 	// Check if the file is a YAML/YML or JSON file
-	const isYaml = document.languageId === 'yaml' || document.fileName.endsWith('.yaml') || document.fileName.endsWith('.yml');
-	const isJson = document.languageId === 'json' || document.fileName.endsWith('.json');
+	const isYaml = document.languageId === 'yaml' || document.languageId === 'arazzo-yaml' ||
+		document.fileName.endsWith('.yaml') || document.fileName.endsWith('.yml');
+	const isJson = document.languageId === 'json' || document.languageId === 'arazzo-json' ||
+		document.fileName.endsWith('.json');
 
 	if (!isYaml && !isJson) {
 		vscode.commands.executeCommand('setContext', 'isFileOpenAPI', undefined);
@@ -271,25 +270,26 @@ function checkDocumentForOpenAPI(document?: vscode.TextDocument) {
 		return;
 	}
 
-	// Check for Arazzo file by extension first
-	const isArazzoFile = document.fileName.endsWith('.arazzo.yaml') ||
-		document.fileName.endsWith('.arazzo.yml') ||
-		document.fileName.endsWith('.arazzo.json') ||
-		document.fileName.endsWith('-arazzo.yaml') ||
-		document.fileName.endsWith('-arazzo.yml') ||
-		document.fileName.endsWith('-arazzo.json');
-
-	// Read the first few lines to check content
+	// Read the first few lines to check content for arazzo: X.X.X pattern
 	const firstFewLines = document.getText(new vscode.Range(0, 0, 10, 0));
 	const hasOpenAPI = /\bopenapi\s*:/i.test(firstFewLines);
-	const hasArazzo = /\barazzo\s*:/i.test(firstFewLines);
+	const hasArazzo = /\barazzo\s*:\s*\d+\.\d+\.\d+/i.test(firstFewLines);
 
-	// Set context variables
-	const isOpenAPI = hasOpenAPI && !isArazzoFile;
-	const isArazzo = hasArazzo || isArazzoFile;
+	// Set context variables — detect Arazzo purely by content, not file name
+	const isOpenAPI = hasOpenAPI && !hasArazzo;
+	const isArazzo = hasArazzo;
 
 	vscode.commands.executeCommand('setContext', 'isFileOpenAPI', isOpenAPI);
 	vscode.commands.executeCommand('setContext', 'isFileArazzo', isArazzo);
+
+	// Dynamically set the document language to arazzo-yaml/arazzo-json
+	// so the language server and syntax highlighting activate automatically
+	if (isArazzo) {
+		const targetLanguage = isJson ? 'arazzo-json' : 'arazzo-yaml';
+		if (document.languageId !== targetLanguage) {
+			vscode.languages.setTextDocumentLanguage(document, targetLanguage);
+		}
+	}
 }
 
 
