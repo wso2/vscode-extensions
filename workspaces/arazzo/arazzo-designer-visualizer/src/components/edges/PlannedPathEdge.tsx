@@ -228,10 +228,15 @@ export default function PlannedPathEdge({
         stroke: hovered ? ThemeColors.SECONDARY : (style as any)?.stroke,
     };
 
-    // When hovered we render a local, unique marker (inlined <defs>) and point
-    // the edge at that marker so the arrowhead color follows the stroke.
+    // Create a custom, per-edge marker so the arrowhead color matches the edge stroke
+    const edgeMarkerId = `pl_${id}-marker`;
     const hoverMarkerId = `pl_${id}-hover-marker`;
-    const markerEndAttr = hovered && markerEnd ? `url(#${hoverMarkerId})` : markerEnd;
+
+    // Determine which color to use for the static marker (fall back to primary if missing)
+    const staticStrokeColor = (finalStyle as any).stroke || ThemeColors.PRIMARY;
+
+    // Select markerEnd attr: if hover -> use hover marker; else if markerEnd provided -> use custom id URL; otherwise leave as-is
+    const markerEndAttr = markerEnd ? (hovered ? `url(#${hoverMarkerId})` : `url(#${edgeMarkerId})`) : undefined;
 
     return (
         <g 
@@ -239,6 +244,31 @@ export default function PlannedPathEdge({
             onMouseLeave={() => setHovered(false)}
             style={{ pointerEvents: 'all' }}
         >
+            {/* Static marker definition matching the edge stroke */}
+            {markerEnd && (
+                <defs>
+                    <marker
+                        id={edgeMarkerId}
+                        markerWidth={12.5}
+                        markerHeight={12.5}
+                        viewBox="-10 -10 20 20"
+                        markerUnits="strokeWidth"
+                        orient="auto-start-reverse"
+                        refX={0}
+                        refY={0}
+                    >
+                        <polyline
+                            className="arrowclosed"
+                            points="-5,-4 0,0 -5,4 -5,-4"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            style={{ stroke: staticStrokeColor, fill: staticStrokeColor, strokeWidth: 1 }}
+                        />
+                    </marker>
+                </defs>
+            )}
+
+            {/* Hover marker (keeps previous behavior - uses secondary color) */}
             {hovered && markerEnd && (
                 <defs>
                     <marker

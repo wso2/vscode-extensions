@@ -214,10 +214,10 @@ export class PortalCreator_v2 {
         }
 
         // Process branches
-        node.branches?.forEach(branch => {
+        node.branches?.forEach((branch, branchIndex) => {
             if (branch.length > 0) {
                 const head = branch[0];
-                this.createPortalIfNeeded(node, head, 'success', currentlyInFailurePath);
+                this.createPortalIfNeeded(node, head, 'success', currentlyInFailurePath, branchIndex);
                 this.traverse(head, currentlyInFailurePath);
             }
         });
@@ -230,7 +230,8 @@ export class PortalCreator_v2 {
         source: FlowNode, 
         target: FlowNode, 
         edgeType: 'success' | 'failure',
-        sourceIsInFailurePath: boolean
+        sourceIsInFailurePath: boolean,
+        branchIndex?: number
     ): void {
         const targetIsOnMainPath = this.mainPathNodes.has(target.id);
         const targetIsInFailurePath = this.failurePathNodes.has(target.id);
@@ -251,7 +252,7 @@ export class PortalCreator_v2 {
         if (sourceIsInFailurePath && isLeftwardJump && (targetIsOnMainPath || targetIsInFailurePath)) {
             const reason = 'failure path goto (leftward to positioned node)';
             console.log(`[PortalCreator V2] Creating portal: ${source.id} → ${target.id} (${reason})`);
-            this.createPortal(source, target, edgeType, reason);
+            this.createPortal(source, target, edgeType, reason, branchIndex);
             return;
         }
 
@@ -261,7 +262,7 @@ export class PortalCreator_v2 {
         if (!sourceIsInFailurePath && isBackwardJump && (targetIsOnMainPath || targetIsInFailurePath)) {
             const reason = 'backward jump to positioned node';
             console.log(`[PortalCreator V2] Creating portal: ${source.id} → ${target.id} (${reason})`);
-            this.createPortal(source, target, edgeType, reason);
+            this.createPortal(source, target, edgeType, reason, branchIndex);
             return;
         }
 
@@ -273,9 +274,23 @@ export class PortalCreator_v2 {
     /**
      * Create a portal node and edges.
      */
-    private createPortal(source: FlowNode, target: FlowNode, edgeType: 'success' | 'failure', reason?: string): void {
+    private createPortal(source: FlowNode, target: FlowNode, edgeType: 'success' | 'failure', reason?: string, branchIndex?: number): void {
         const portalId = `portal_out_${source.id}_to_${target.id}_${this.portalCounter}`;
         this.portalCounter++;
+
+        // Extract condition label from source node data
+        let conditionLabel: string | undefined = undefined;
+        if (source.type === 'CONDITION' && branchIndex !== undefined) {
+            const successAction = source.data?.onSuccess?.[branchIndex];
+            const failureAction = source.data?.onFailure?.[branchIndex];
+            const action = successAction || failureAction;
+
+            if (action && typeof action === 'object' && 'name' in action) {
+                conditionLabel = action.name;
+            } else {
+                conditionLabel = `Branch ${branchIndex + 1}`;
+            }
+        }
 
         // Position portal.
         // Requirement: when source is a CONDITION, align portal placement with condition branch slots:
@@ -285,9 +300,9 @@ export class PortalCreator_v2 {
         let portalY = source.viewState.y;
 
         if (source.type === 'CONDITION') {
-            const branchIndex = source.branches?.findIndex(branch => branch[0]?.id === target.id) ?? -1;
+            const useBranchIndex = branchIndex ?? source.branches?.findIndex(branch => branch[0]?.id === target.id) ?? -1;
 
-            if (branchIndex !== -1) {
+            if (useBranchIndex !== -1) {
                 const sourceCenterX = source.viewState.x + (source.viewState.w / 2);
                 const isRetryTarget = target.type === 'RETRY';
                 const baseBranchY = isRetryTarget
@@ -295,7 +310,7 @@ export class PortalCreator_v2 {
                     : source.viewState.y + source.viewState.h + C.NODE_GAP_Y_AFTERCONDITION;
 
                 // branchIndex: 0 => below condition, 1 => first slot to the right, 2 => next slot, ...
-                const branchCenterX = sourceCenterX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * branchIndex;
+                const branchCenterX = sourceCenterX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * useBranchIndex;
 
                 // Portal node width is dynamic; use the dedicated horizontal offset constant for centering.
                 portalX = branchCenterX - C.PORTALNODE_GAP_X;
@@ -346,7 +361,12 @@ export class PortalCreator_v2 {
             targetHandle: 'h-top-target',
             type: 'plannedPath',
             data: {
-                lineType: 'branch'
+                lineType: 'branch',
+                ...(conditionLabel ? { 
+                    label: conditionLabel, 
+                    labelPos: 0.5,
+                    labelOffset: { x: 0, y: -10 }
+                } : {})
             },
             markerEnd: { type: MarkerType.ArrowClosed },
             style: edgeStyle
