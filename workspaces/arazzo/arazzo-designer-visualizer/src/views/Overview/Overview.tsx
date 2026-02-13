@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { useVisualizerContext } from "@wso2/arazzo-designer-rpc-client";
 import { ArazzoDefinition, MachineStateValue, MACHINE_VIEW, EVENT_TYPE } from "@wso2/arazzo-designer-core";
 import { css } from "@emotion/css";
+import ReactMarkdown from "react-markdown";
 
 interface OverviewProps {
     fileUri: string;
@@ -31,11 +32,23 @@ const styles = {
         font-family: var(--vscode-font-family);
         color: var(--vscode-editor-foreground);
     `,
-    title: css`
-        font-size: 1.5em;
+    titleContainer: css`
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         margin-bottom: 0.5em;
         border-bottom: 1px solid var(--vscode-panel-border);
         padding-bottom: 10px;
+    `,
+    title: css`
+        font-size: 1.5em;
+        margin: 0;
+    `,
+    arazzoVersion: css`
+        font-size: 1.05em;
+        color: var(--vscode-descriptionForeground);
+        font-weight: 600;
+        margin-left: 12px;
     `,
     subtitle: css`
         font-size: 1.2em;
@@ -63,6 +76,37 @@ const styles = {
         font-size: 0.8em;
         background: var(--vscode-badge-background);
         color: var(--vscode-badge-foreground);
+    `,
+    markdownContent: css`
+        margin-top: 10px;
+        line-height: 1.6;
+        
+        p {
+            margin: 0.5em 0;
+        }
+        
+        code {
+            background: var(--vscode-textCodeBlock-background);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: var(--vscode-editor-font-family);
+        }
+        
+        pre {
+            background: var(--vscode-textCodeBlock-background);
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        
+        a {
+            color: var(--vscode-textLink-foreground);
+            text-decoration: none;
+            
+            &:hover {
+                text-decoration: underline;
+            }
+        }
     `,
     workflowList: css`
         display: grid;
@@ -135,7 +179,9 @@ export function Overview(props: OverviewProps) {
     if (!arazzoDefinition) {
         return (
             <div className={styles.container}>
-                <h1 className={styles.title}>Loading Arazzo Definition...</h1>
+                <div className={styles.titleContainer}>
+                    <h1 className={styles.title}>Loading...</h1>
+                </div>
             </div>
         );
     }
@@ -144,32 +190,29 @@ export function Overview(props: OverviewProps) {
 
     return (
         <div className={styles.container}>
-            <h1 className={styles.title}>Arazzo Definition</h1>
-
-            {/* Metadata Section */}
-            <div className={styles.card}>
-                <div className={styles.field}>
-                    <span className={styles.label}>Arazzo Spec:</span>
-                    <span className={styles.tag}>{arazzo}</span>
-                </div>
-                <div className={styles.field}>
-                    <span className={styles.label}>Title:</span> {info?.title}
-                </div>
-                <div className={styles.field}>
-                    <span className={styles.label}>Version:</span>
-                    <span className={styles.tag}>{info?.version}</span>
-                </div>
-                {info?.summary && (
-                    <div className={styles.field}>
-                        <span className={styles.label}>Summary:</span> {info.summary}
-                    </div>
-                )}
-                {info?.description && (
-                    <div className={styles.field}>
-                        <span className={styles.label}>Description:</span> {info.description}
-                    </div>
-                )}
+            {/* Title with Arazzo version on the right */}
+            <div className={styles.titleContainer}>
+                <h1 className={styles.title}>{info?.title || 'Untitled'}</h1>
+                <span className={styles.arazzoVersion}>Arazzo {arazzo}</span>
             </div>
+
+            {/* Document Version */}
+            <div className={styles.field}>
+                <span className={styles.label}>Document Version:</span>
+                <span className={styles.tag}>{info?.version}</span>
+            </div>
+
+            {/* Description Section (Markdown) */}
+            {info?.description && (
+                <>
+                    <h2 className={styles.subtitle}>Description</h2>
+                    <div className={styles.field}>
+                        <div className={styles.markdownContent}>
+                            <ReactMarkdown>{info.description}</ReactMarkdown>
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* Source Descriptions */}
             {sourceDescriptions && sourceDescriptions.length > 0 && (
