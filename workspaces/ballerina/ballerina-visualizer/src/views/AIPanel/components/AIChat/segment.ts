@@ -190,13 +190,15 @@ export function splitContent(content: string): Segment[] {
             });
         } else if (match[7]) {
             // <toolresult> block matched
-            const toolresultText = match[7];
+            const toolresultContent = match[7];
+            const [actionButtons, toolresultText] = parseActionButtons(toolresultContent);
 
             updateLastProgressSegmentLoading();
             segments.push({
                 type: SegmentType.ToolCall,
                 loading: false,
                 text: toolresultText,
+                actionButtons: actionButtons,
             });
         } else if (match[8]) {
             // <todo> block matched

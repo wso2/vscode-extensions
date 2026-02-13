@@ -433,7 +433,7 @@ const AIChat: React.FC = () => {
                 setMessages((prevMessages) => {
                     const newMessages = [...prevMessages];
                     if (newMessages.length > 0) {
-                        newMessages[newMessages.length - 1].content += `\n\n<toolcall>Sending HTTP request ... <action_button type="input-json-viewer">${response.toolInput ? JSON.stringify(response.toolInput) : ""}</action_button> <action_button type="open_api_tryit">${response.toolInput?.curlCommand ? response.toolInput.curlCommand : ""}</action_button></toolcall>`;
+                        newMessages[newMessages.length - 1].content += `\n\n<toolcall>Sending HTTP request ... <action_button type="tool-call-json-viewer">${response.toolInput ? JSON.stringify(response.toolInput) : ""}</action_button> <action_button type="open_api_tryit">${response.toolInput?.curlCommand ? response.toolInput.curlCommand : ""}</action_button></toolcall>`;
                     }
                     return newMessages;
                 });
@@ -590,6 +590,35 @@ const AIChat: React.FC = () => {
                             `<toolresult>${message}</toolresult>`
                         );
 
+                        newMessages[newMessages.length - 1].content = updatedContent;
+                    }
+                    return newMessages;
+                });
+            } else if (response.toolName === "Send-HTTP-request") {
+                const toolOutput = response.toolOutput;
+                const input = toolOutput?.input;
+                const output = toolOutput?.output;
+
+                setMessages((prevMessages) => {
+                    const newMessages = [...prevMessages];
+                    if (newMessages.length > 0) {
+                        const lastMessageContent = newMessages[newMessages.length - 1].content;
+
+                        // Build the pattern to find - the toolcall with action buttons
+                        const httpRequestPattern = /<toolcall>Sending HTTP request \.\.\. <action_button type="tool-call-json-viewer">[\s\S]*?<\/action_button> <action_button type="open_api_tryit">[\s\S]*?<\/action_button><\/toolcall>/;
+
+                        // Build result message with status
+                        const statusMessage = output?.error
+                            ? `HTTP request failed: ${output.message}`
+                            : `HTTP ${output?.status || ''} ${output?.statusText || ''}`;
+
+                        // Keep action buttons with the input for reference
+                        const toolCallJsonViewer = `<action_button type="tool-call-json-viewer">${JSON.stringify(toolOutput)}</action_button>`;
+                        const openApiTryit = `<action_button type="open_api_tryit">${input?.curlCommand || ""}</action_button>`;
+
+                        const replacement = `<toolresult>${statusMessage} ${toolCallJsonViewer} ${openApiTryit}</toolresult>`;
+
+                        const updatedContent = lastMessageContent.replace(httpRequestPattern, replacement);
                         newMessages[newMessages.length - 1].content = updatedContent;
                     }
                     return newMessages;
@@ -1356,14 +1385,14 @@ const AIChat: React.FC = () => {
         const actionButtons: ActionButtonConfig[] = [];
 
         for (const rawButton of rawButtons) {
-            if (rawButton.type === "input-json-viewer") {
+            if (rawButton.type === "tool-call-json-viewer") {
                 try {
                     const jsonData = JSON.parse(rawButton.content);
                     actionButtons.push({
                         type: "json-viewer",
                         data: jsonData,
-                        label: "Input",
-                        title: "View input data",
+                        label: "Tool Call Result",
+                        title: "View Result",
                     });
                 } catch (error) {
                     console.error("Failed to parse JSON for action button:", error);

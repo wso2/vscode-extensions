@@ -83,7 +83,7 @@ function parseCurl(curl: string): {
 	method: string;
 	url: string;
 	headers: Record<string, string>;
-	body: string;
+	data: unknown;
 } {
 	// Remove line breaks and continuations
 	const cleanCurl = curl.replace(/\\\s*\n/g, ' ').trim();
@@ -129,7 +129,30 @@ function parseCurl(curl: string): {
 		}
 	}
 	
-	return { method, url, headers, body };
+	// Parse body based on Content-Type
+	let data: unknown = body;
+	let contentType: string | undefined;
+
+	for (const key in headers) {
+	if (key.toLowerCase() === 'content-type') {
+		contentType = headers[key];
+		break;
+	}
+	}
+	
+	if (contentType && body) {
+		if (contentType.toLowerCase().includes('application/json')) {
+			try {
+				data = JSON.parse(body);
+			} catch (error) {
+				console.warn('Failed to parse JSON body:', error);
+				// Keep as string if parsing fails
+				data = body;
+			}
+		}
+	}
+	
+	return { method, url, headers, data };
 }
 
 /**
@@ -171,21 +194,45 @@ function tokenizeCurl(curl: string): string[] {
 	return tokens;
 }
 
-export const executeHttpRequest = async (input: HTTPInput, eventHandler: CopilotEventHandler): Promise<HTTPResponse | HTTPErrorResponse> => {
+export const executeHttpRequest = async (input: HTTPInput, eventHandler: CopilotEventHandler, context?: { toolCallId?: string }): Promise<HTTPResponse | HTTPErrorResponse> => {
+	const toolCallId = context?.toolCallId || `fallback-${Date.now()}`;
+    console.log(`Executing HTTP request: input:`, input);
     try {
-        console.log(`Executing HTTP request: input:`, input);
 		eventHandler({type:"tool_call", toolName: HTTP_REQUEST_TOOL_NAME, toolInput: input});
         const response = await axios.request(parseCurl(input.curlCommand));
         console.log("HTTP request successful:", response);
-        return createSuccessResponse(response);
+		const requestOutput = createSuccessResponse(response);
+		const toolOutput = {input, output: requestOutput};
+		eventHandler({
+        type: "tool_result",
+        toolName: HTTP_REQUEST_TOOL_NAME,
+        toolOutput: toolOutput,
+        toolCallId});
+        return requestOutput;
     } catch (error) {
         console.error("HTTP request failed:", error);
         if (axios.isAxiosError(error)) {
-            return createErrorResponse(error);
+            const errorOutput = createErrorResponse(error);
+            const toolOutput = {input, output: errorOutput};
+            eventHandler({
+                type: "tool_result",
+                toolName: HTTP_REQUEST_TOOL_NAME,
+                toolOutput: toolOutput,
+                toolCallId
+            });
+            return errorOutput;
         }
-        return {
+        const genericErrorOutput: HTTPErrorResponse = {
             error: true,
             message: error instanceof Error ? error.message : String(error),
         };
+        const toolOutput = {input, output: genericErrorOutput};
+        eventHandler({
+            type: "tool_result",
+            toolName: HTTP_REQUEST_TOOL_NAME,
+            toolOutput: toolOutput,
+            toolCallId
+        });
+        return genericErrorOutput;
     }
 };
