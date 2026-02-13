@@ -28,8 +28,10 @@ import { writeFile, readFile } from 'fs/promises';
 import * as vscode from 'vscode';
 import * as yaml from 'js-yaml';
 import axios, { AxiosError } from 'axios';
+import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
 
 export class ApiTryItRpcManager {
+    constructor(private apiExplorerProvider?: ApiExplorerProvider) {}
     async saveRequest(params: SaveRequestRequest): Promise<SaveRequestResponse> {
         const { filePath, request, response } = params;
         
@@ -107,6 +109,11 @@ export class ApiTryItRpcManager {
             
             // Write to file
             await writeFile(filePath, requestData, 'utf8');
+            
+            // Update the in-memory collection with the file path if it exists
+            if (this.apiExplorerProvider) {
+                this.apiExplorerProvider.updateRequestFilePath(request.id, filePath);
+            }
             
             return { 
                 success: true, 

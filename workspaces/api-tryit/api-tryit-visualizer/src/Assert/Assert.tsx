@@ -58,6 +58,8 @@ const SummarySection = styled.div`
     margin-left: 4px;
     margin-right: 4px;
     margin-top: 12px;
+    position: relative;
+    z-index: 0;
 
     /* Light theme */
     body.vscode-light & {
