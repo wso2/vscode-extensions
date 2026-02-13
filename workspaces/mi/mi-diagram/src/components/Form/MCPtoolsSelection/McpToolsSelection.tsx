@@ -300,7 +300,7 @@ const ToolsList: React.FC<ToolsListProps> = ({
     loading,
     onToolSelectionChange,
     searchQuery = '',
-    maxHeight = 'calc(100vh - 780px)'
+    maxHeight = 'calc(100vh - 470px)'
 }) => {
     const filteredTools = useMemo(() => {
         if (!searchQuery.trim()) {
