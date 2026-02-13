@@ -32,7 +32,10 @@ workflows:
           # Case B: Invalid SSN -> Hard Stop
           - name: invalid-data-stop
             type: goto
-            stepId: send-rejection-email
+            stepId: evaluate-risk-tier
+          - name: invalid-data-stop2
+            type: goto
+            stepId: log-system-error
 
       # ---------------------------------------------------
       # LEVEL 2: Nested Branching (Test Requirement 1)

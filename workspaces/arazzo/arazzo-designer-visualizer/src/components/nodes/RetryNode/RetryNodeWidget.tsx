@@ -17,10 +17,11 @@
  */
 
 import React from 'react';
-import { Handle, Position, NodeProps, useReactFlow } from '@xyflow/react';
+import { Handle, Position, NodeProps, useReactFlow, MarkerType } from '@xyflow/react';
 import styled from '@emotion/styled';
 import { ThemeColors } from '@wso2/ui-toolkit';
 import { RETRY_NODE_DIAMETER } from '../../../constants/nodeConstants';
+import * as C from '../../../constants/nodeConstants';
 import { RetryNodeData } from './RetryNodeModel';
 
 const RetryNodeContainer = styled.div`
@@ -85,7 +86,8 @@ export const RetryNodeWidget: React.FC<NodeProps<RetryNodeData>> = ({ id, data, 
                     sourceHandle: 'h-left-source',
                     targetHandle: 'goto-top-target',
                     type: 'smoothstep',
-                    style: { stroke: ThemeColors.SECONDARY, strokeDasharray: '4 4' },
+                    style: { stroke: ThemeColors.SECONDARY, strokeDasharray: '4 4' ,strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' },
+                    markerEnd: { type: MarkerType.ArrowClosed, color: ThemeColors.SECONDARY },
                     animated: false,
                 };
                 return [...eds, newEdge];
