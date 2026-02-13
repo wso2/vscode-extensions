@@ -79,3 +79,7 @@ export const ICON_SIZE_STEP = 24;
 
 // Edit mode control
 export const isEditable = false; // Set to false to disable editing (dragging nodes, creating edges, etc.)
+
+//edge related constants
+// Corner radius for rounded orthogonal edges
+export const CORNER_RADIUS = 6;

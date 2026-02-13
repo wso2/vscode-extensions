@@ -35,9 +35,6 @@ interface PlannedPathData {
     labelOffset?: { x: number; y: number };
 }
 
-// Corner radius for rounded orthogonal edges
-const CORNER_RADIUS = 6;
-
 /**
  * PlannedPathEdge: Custom edge component with manual waypoint control.
  * 
@@ -130,7 +127,7 @@ export default function PlannedPathEdge({
             const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
 
             // Check if segments are long enough for rounding
-            const radius = Math.min(CORNER_RADIUS, dist1 / 2, dist2 / 2);
+            const radius = Math.min(C.CORNER_RADIUS, dist1 / 2, dist2 / 2);
 
             if (radius < 1) {
                 // Too short - draw straight line (with bridges)
