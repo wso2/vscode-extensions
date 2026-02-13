@@ -243,8 +243,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
 
         const connectorData = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({
             documentUri: node.documentUri,
-            connectorName: node.stNode.tag === 'tool' ? isMCPTool ? 'ai' :
-                (node.stNode as any).mediator.connectorName : node.stNode.tag.split(".")[0]
+            connectorName: node.stNode.tag.split(".")[0]
         });
 
         const definition = await rpcClient?.getMiDiagramRpcClient().getDefinition({
