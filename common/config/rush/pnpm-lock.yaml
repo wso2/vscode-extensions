@@ -1221,6 +1221,9 @@ importers:
       remark-breaks:
         specifier: ~4.0.0
         version: 4.0.0
+      vscode-languageserver-types:
+        specifier: ^3.17.5
+        version: 3.17.5
       vscode-uri:
         specifier: ^3.1.0
         version: 3.1.0
@@ -1354,6 +1357,9 @@ importers:
       react-markdown:
         specifier: ~10.1.0
         version: 10.1.0(@types/react@18.2.0)(react@18.2.0)
+      vscode-languageserver-types:
+        specifier: ^3.17.5
+        version: 3.17.5
     devDependencies:
       '@babel/core':
         specifier: ~7.27.1
@@ -26411,7 +26417,10 @@ snapshots:
       jest-runner: 25.5.4
       jest-runtime: 25.5.4
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   '@jest/test-sequencer@29.7.0':
     dependencies:
