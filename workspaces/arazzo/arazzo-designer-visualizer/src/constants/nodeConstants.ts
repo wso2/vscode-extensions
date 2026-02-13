@@ -37,7 +37,7 @@ export const DIAGRAM_CENTER_X = 0;
 export const END_NODE_INNER_DIAMETER = 15;
 export const PADDING = 20;
 
-
+export const STROKE_WIDTH = 2;
 // Horizontal layout constants (main flow goes right, branches go down)
 export const NODE_GAP_X_Horizontal = 70;  // Horizontal gap between steps
 export const NODE_GAP_Y_Horizontal = 80;  // Vertical gap between branches/failure paths
