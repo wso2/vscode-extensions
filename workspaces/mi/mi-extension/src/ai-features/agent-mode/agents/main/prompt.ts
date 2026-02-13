@@ -25,6 +25,7 @@ import { getAvailableConnectorCatalog } from '../../tools/connector_tools';
 import { getAvailableSkills } from '../../tools/skill_tools';
 import { getPlanModeReminder as getPlanModeSessionReminder } from '../../tools/plan_mode_tools';
 import { getRuntimeVersionFromPom } from '../../tools/connector_store_cache';
+import { getServerPathFromConfig } from '../../../../util/onboardingUtils';
 import { AgentMode } from '@wso2/mi-core';
 import { getModeReminder } from './mode';
 
@@ -79,6 +80,8 @@ Platform: {{env_platform}}
 OS Version: {{env_os_version}}
 Today's date: {{env_today}}
 MI Runtime version: {{env_mi_runtime_version}}
+MI Runtime home path: {{env_mi_runtime_home_path}}
+MI Runtime carbon log path: {{env_mi_runtime_carbon_log_path}}
 </env>
 
 <system_reminder>
@@ -188,6 +191,33 @@ async function getCurrentlyOpenedFile(projectPath: string): Promise<string | nul
     return null;
 }
 
+function getRuntimePaths(projectPath: string): {
+    runtimeHomePath: string;
+    carbonLogPath: string;
+} {
+    const runtimeHome = getServerPathFromConfig(projectPath);
+    if (!runtimeHome || runtimeHome.trim().length === 0) {
+        return {
+            runtimeHomePath: 'not_configured',
+            carbonLogPath: 'not_configured',
+        };
+    }
+
+    const resolvedRuntimeHome = path.resolve(runtimeHome.trim());
+    const runtimeExists = fs.existsSync(resolvedRuntimeHome);
+    const resolvedCarbonLogPath = path.join(resolvedRuntimeHome, 'repository', 'logs', 'wso2carbon.log');
+    const carbonLogExists = fs.existsSync(resolvedCarbonLogPath);
+
+    return {
+        runtimeHomePath: runtimeExists
+            ? resolvedRuntimeHome
+            : `${resolvedRuntimeHome} (path_not_found)`,
+        carbonLogPath: carbonLogExists
+            ? resolvedCarbonLogPath
+            : `${resolvedCarbonLogPath} (missing)`,
+    };
+}
+
 // ============================================================================
 // User Prompt Generation
 // ============================================================================
@@ -233,6 +263,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     const isGitRepo = fs.existsSync(path.join(params.projectPath, '.git'));
     const today = new Date().toISOString().split('T')[0];
     const runtimeVersion = await getRuntimeVersionFromPom(params.projectPath);
+    const runtimePaths = getRuntimePaths(params.projectPath);
     const context: Record<string, any> = {
         question: params.query,
         fileList: fileList,
@@ -247,6 +278,8 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         env_os_version: `${os.type()} ${os.release()}`,
         env_today: today,
         env_mi_runtime_version: runtimeVersion || 'unknown',
+        env_mi_runtime_home_path: runtimePaths.runtimeHomePath,
+        env_mi_runtime_carbon_log_path: runtimePaths.carbonLogPath,
         system_remainder: `.
         <mode>
         ${mode.toUpperCase()}
