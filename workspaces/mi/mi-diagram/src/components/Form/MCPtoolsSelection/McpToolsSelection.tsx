@@ -569,7 +569,7 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
                                     disabled={loading}
                                     appearance="secondary"
                                 >
-                                    <Icon name="bi-retry" sx={{ marginRight: '6px', width: 16, height: 16, fontSize: 16 }} />
+                                    <Icon name="mi-retry" sx={{ marginRight: '6px', width: 16, height: 16, fontSize: 16 }} />
                                     Retry
                                 </Button>
                             </div>
