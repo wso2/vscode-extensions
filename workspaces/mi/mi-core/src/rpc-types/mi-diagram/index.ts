@@ -266,7 +266,8 @@ import {
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
     UpdateRegistryPropertyRequest,
-    Property
+    Property,
+    GenerateMappingsParamsRequest
 } from "./types";
 
 export interface MiDiagramAPI {
@@ -447,4 +448,5 @@ export interface MiDiagramAPI {
     isKubernetesConfigured: () => Promise<boolean>;
     updatePropertiesInArtifactXML: (params: UpdateRegistryPropertyRequest) => Promise<string>;
     getPropertiesFromArtifactXML: (params: string) => Promise<Property[] | undefined>;
+    getInputOutputMappings: (params: GenerateMappingsParamsRequest) => Promise<string[]>;
 }
