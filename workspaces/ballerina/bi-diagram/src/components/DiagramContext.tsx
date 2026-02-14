@@ -123,6 +123,9 @@ export interface DiagramContextState {
     currentUserId?: string;
     nodeLocks?: Record<string, any>;
     isPositionLocked?: (parent: FlowNode | Branch, target: LineRange) => boolean;
+    remoteCursors?: Map<string, any>;
+    onCursorMove?: (x: number, y: number, nodeId?: string) => void;
+    isCollaborationActive?: boolean;
     expressionContext: ExpressionContextProps;
 }
 

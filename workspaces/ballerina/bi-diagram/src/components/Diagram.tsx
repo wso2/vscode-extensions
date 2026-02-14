@@ -97,6 +97,12 @@ export interface DiagramProps {
     isUserAuthenticated?: boolean;
     currentUserId?: string;
     expressionContext?: ExpressionContextProps;
+    // Collaborative cursor tracking
+    remoteCursors?: Map<string, any>;
+    onCursorMove?: (x: number, y: number, nodeId?: string) => void;
+    nodeLocks?: Record<string, any>;
+    isCollaborationActive?: boolean;
+    isPositionLocked?: (parent: FlowNode | Branch, target: LineRange) => boolean;
 }
 
 export function Diagram(props: DiagramProps) {
@@ -124,6 +130,11 @@ export function Diagram(props: DiagramProps) {
         overlay,
         isUserAuthenticated,
         expressionContext,
+        remoteCursors,
+        onCursorMove,
+        nodeLocks,
+        isCollaborationActive,
+        isPositionLocked,
     } = props;
 
     const [showErrorFlow, setShowErrorFlow] = useState(false);
@@ -336,6 +347,11 @@ export function Diagram(props: DiagramProps) {
             retrieveCompletions: () => Promise.resolve(),
             getHelperPane: undefined,
         },
+        remoteCursors: remoteCursors,
+        onCursorMove: onCursorMove,
+        nodeLocks: nodeLocks,
+        isCollaborationActive: isCollaborationActive,
+        isPositionLocked: isPositionLocked,
     };
 
     const getActiveBreakpointNode = (nodes: NodeModel[]): NodeModel => {
