@@ -49,6 +49,7 @@ export * from './components/Grid/GridItem';
 export * from './components/SeachBox/SearchBox';
 export * from './components/Swich/Swich';
 export * from './components/LocationSelector/LocationSelector';
+export * from './components/DirectorySelector/DirectorySelector';
 export * from './components/ClickAwayListener/ClickAwayListener';
 export * from './components/Confirm/Confirm';
 export * from './components/CheckBoxGroup/CheckBoxGroup';
