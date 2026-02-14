@@ -1,19 +1,3 @@
-/**
- * Helper utilities for debugging and manually accessing OCT collaboration
- * 
- * This file provides debug utilities that can be used from the VS Code Developer Console
- * to manually access or inject the OCT collaboration instance.
- * 
- * USAGE FROM DEVELOPER CONSOLE:
- * 
- * 1. Open VS Code Developer Tools (Help > Toggle Developer Tools)
- * 2. In the console, check what's available:
- *    - Check globalThis: Object.keys(globalThis).filter(k => k.includes('oct') || k.includes('collab'))
- *    - Check extension: vscode.extensions.getExtension('typefox.open-collaboration-tools')
- * 
- * 3. If you find the collaboration instance, inject it:
- *    (globalThis as any).__octCollaborationInstance = yourInstance;
- */
 
 import * as vscode from 'vscode';
 import { CollaborationLockManager } from './lock-manager';

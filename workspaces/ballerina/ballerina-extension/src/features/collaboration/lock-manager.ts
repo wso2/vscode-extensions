@@ -113,10 +113,6 @@ function normalizeCollaborationPath(uri: vscode.Uri): string {
         console.log(`[Collaboration] Basename-only mode: ${path.basename(fullPath)}`);
         return path.basename(fullPath);
     }
-    
-    // Absolute fallback: use basename only
-    console.warn(`[Collaboration] Could not determine workspace-relative path, using basename: ${path.basename(fullPath)}`);
-    console.warn(`[Collaboration] Full path was: ${fullPath}`);
     return path.basename(fullPath);
 }
 
@@ -192,7 +188,6 @@ export class CollaborationLockManager {
         this.startCollaborationWatcher();
     }
 
-    // Singleton pattern to ensure only one instance of the lock manager exists
     public static getInstance(): CollaborationLockManager {
         if (!CollaborationLockManager.instance) {
             CollaborationLockManager.instance = new CollaborationLockManager();
@@ -314,7 +309,6 @@ export class CollaborationLockManager {
      * Watch for OCT collaboration lifecycle changes and attach/detach accordingly.
      */
     private startCollaborationWatcher(): void {
-        // Run immediately, then poll to catch instances that start after activation
         void this.refreshCollaborationInstance();
         this.collaborationWatchTimer = setInterval(() => {
             void this.refreshCollaborationInstance();
@@ -668,7 +662,6 @@ export class CollaborationLockManager {
             return;
         }
 
-        // Check if we're in a collaboration session by detecting oct:// URIs
         const hasCollaborationIndicators = this.hasCollaborationIndicators();
 
         const activeInstance = await this.getActiveCollaborationInstance();
@@ -845,9 +838,7 @@ export class CollaborationLockManager {
             }
             return true;
         }
-        
-        // Fall back to local state check
-        return this.isCollaborationMode && !!this.locksMap && !!this.octApi?.getAwareness?.();
+        return this.isCollaborationMode && !!this.locksMap;
     }
 
     /**
@@ -862,10 +853,7 @@ export class CollaborationLockManager {
         const finalUserId = userId || this.currentUserId;
         const finalUserName = userName || this.currentUserName;
         const normalizedPath = this.normalizeFilePath(filePath);
-
         console.log(`[Collaboration] Acquiring lock for ${nodeId} at ${filePath}`);
-        console.log(`[Collaboration] Normalized path: ${normalizedPath}`);
-        console.log(`[Collaboration] User: ${finalUserName}, Mode: ${this.isCollaborationActive() ? 'COLLABORATIVE' : 'LOCAL'}`);
 
         // If collaboration is active but not yet attached, wait for initialization
         if (this.isCollaborationActive() && !this.locksMap && this.octApi) {
@@ -873,8 +861,6 @@ export class CollaborationLockManager {
             console.log('[Collaboration] Current state - locksMap:', !!this.locksMap, 'collaborationInstance:', !!this.collaborationInstance);
             
             const instance = this.octApi.getCollaborationInstance();
-            console.log('[Collaboration] Got instance from API:', !!instance);
-            console.log('[Collaboration] Is same as current?', instance === this.collaborationInstance);
             
             // Force re-attachment if locksMap is null, even if instance is the same
             // This handles cases where initial attachment failed to set up shared primitives

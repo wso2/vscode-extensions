@@ -64,11 +64,10 @@ import {
     onOctUpdateTextSelection,
     onOctRerenderPresence,
     CollaborationTextSelection,
-    CollaborationPresenceData
+    CollaborationPresenceData,
+    isCollaborationActive
 } from "@wso2/ballerina-core";
-// import { NotificationType } from "vscode-messenger-common";
 
-// const showNotification = new NotificationType<{ message: string; type: 'info' | 'warning' | 'error' }>('showNotification');
 import { LangClientRpcClient } from "./rpc-clients/lang-client/rpc-client";
 import { LibraryBrowserRpcClient } from "./rpc-clients/library-browser/rpc-client";
 import { HOST_EXTENSION } from "vscode-messenger-common";
@@ -325,8 +324,4 @@ export class BallerinaRpcClient {
             // Cleanup handled by messenger
         };
     }
-
-    // showNotification({message,type}: {message: string, type: 'info' | 'warning' | 'error'}) {
-    //     this.messenger.sendNotification(showNotification, HOST_EXTENSION, {message, type});
-    // }
 }

@@ -39,6 +39,7 @@ import { DiagnosticsPopUp } from "../../DiagnosticsPopUp";
 import { getNodeTitle, nodeHasError } from "../../../utils/node";
 import { BreakpointMenu } from "../../BreakNodeMenu/BreakNodeMenu";
 import { NodeMetadata } from "@wso2/ballerina-core";
+import { size } from "lodash";
 
 export namespace NodeStyles {
     export const Node = styled.div<{ readOnly: boolean }>`
@@ -361,7 +362,7 @@ export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
             >
                 {/* Lock indicator */}
                 {isLocked && (
-                    <Tooltip content={`Locked by ${model.node.locked.userName}`}>
+                    <Tooltip content={`Locked by ${model.node.locked.userName}`} sx={{ size: "small" }}>
                         <NodeStyles.LockIndicator>
                             <NodeStyles.LockIcon>
                                 🔒

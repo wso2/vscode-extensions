@@ -210,7 +210,8 @@ import {
     updateServiceClass,
     updateType,
     updateTypes,
-    verifyTypeDelete
+    verifyTypeDelete,
+    isCollaborationActive
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -544,5 +545,9 @@ export class BiDiagramRpcClient implements BIDiagramAPI {
 
     getSystemUsername(): Promise<string> {
         return this._messenger.sendRequest(getSystemUsername, HOST_EXTENSION);
+    }
+
+    isCollaborationActive(): Promise<{ isActive: boolean }> {
+        return this._messenger.sendRequest(isCollaborationActive, HOST_EXTENSION);
     }
 }

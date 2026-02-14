@@ -2184,7 +2184,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     }
 
     // Cursor awareness methods
-
     // RPC method to call lock manager to update cursor position from backend
     async updateDiagramCursor(params: UpdateDiagramCursorRequest): Promise<void> {
         const lockManager = CollaborationLockManager.getInstance();

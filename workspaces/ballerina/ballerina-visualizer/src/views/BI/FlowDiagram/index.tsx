@@ -250,11 +250,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
         initializeUserInfo();
 
-        // Fetch initial locks when component mounts
         const fetchInitialLocks = async () => {
             if (model?.fileName) {
                 try {
-                    // Send original path - backend UriCache will handle path matching
                     const response = await rpcClient.getBIDiagramRpcClient().getNodeLocks({
                         filePath: model.fileName,
                     });
@@ -281,31 +279,27 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             console.log('[Collaboration] Lock subscription not available');
         }
 
-        // Check if collaboration is active (optional feature - don't block rendering if unavailable)
+        // Check if collaboration is active
         let collaborationCheckInterval: ReturnType<typeof setInterval> | undefined;
         let unsubscribeCursors: (() => void) | undefined;
 
         const checkCollaboration = async () => {
             try {
-                // Check if the method exists before calling
                 const biClient = rpcClient.getBIDiagramRpcClient() as any;
                 if (typeof biClient.isCollaborationActive === 'function') {
                     const response = await biClient.isCollaborationActive();
                     setIsCollaborationActive(response.isActive);
                     console.log(`[Collaboration] Session active: ${response.isActive}`);
                 } else {
-                    // Method doesn't exist, collaboration not available
                     setIsCollaborationActive(false);
                 }
             } catch (error) {
-                // Silently fail - collaboration is optional
                 setIsCollaborationActive(false);
             }
         };
 
         // Initialize collaboration features (non-blocking)
         checkCollaboration().catch(() => {
-            // Ignore errors during initialization
         });
 
         // Re-check periodically (every 5 seconds) to detect when collaboration starts/stops
@@ -1218,12 +1212,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         fetchAiSuggestions = true,
         updateFlowModel = true
     ) => {
-        console.log(`[Lock Frontend] fetchNodesAndAISuggestions called`, {
-            hasParent: !!parent,
-            hasTarget: !!target,
-            fetchAiSuggestions,
-            updateFlowModel
-        });
         
         if (!parent || !target) {
             console.error(">>> No parent or target found");
@@ -1256,8 +1244,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 // Lock acquisition failed - clean up and don't show side panel
                 console.error('[Lock Frontend] Cannot add node - position is locked:', lockResult.error);
                 setShowProgressIndicator(false);
-                
-                // Clean up the refs that were set in handleOnAddNode
+            
                 topNodeRef.current = undefined;
                 targetRef.current = undefined;
                 
@@ -1265,7 +1252,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 rpcClient.getCommonRpcClient().showErrorMessage({
                     message: `Cannot add node here - ${lockResult.error || 'this position is locked by another user'}. Please wait until they finish editing.`
                 });
-                return; // Exit early - don't show side panel
+                return; 
             }
             
             console.log('[Lock Frontend] Lock acquired successfully, proceeding to add draft node');
@@ -1279,7 +1266,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             .getBIDiagramRpcClient()
             .getAvailableNodes(getNodeRequest)
             .then((response) => {
-                console.log(">>> Available nodes", response);
                 if (!response.categories) {
                     console.error(">>> Error getting available nodes", response);
                     return;
@@ -1334,7 +1320,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         
         // clear previous selections if had
         if (topNodeRef.current || targetRef.current) {
-            console.log(`[Lock Frontend] Returning early - refs already set`);
             closeSidePanelAndFetchUpdatedFlowModel();
             return;
         }
@@ -1346,8 +1331,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     };
 
     const handleOnAddNodePrompt = (parent: FlowNode | Branch, target: LineRange, prompt: string) => {
-        // Create CodeContext from the target position
-        // TODO: Offset seem to be wrong. Investigate further
         const codeContext: CodeContext = {
             type: 'addition',
             position: {
@@ -1365,7 +1348,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             codeContext
         };
 
-        // Use the standard pattern - import from utils/commands
         rpcClient.getAiPanelRpcClient().openAIPanel(aiPrompt);
     };
 
