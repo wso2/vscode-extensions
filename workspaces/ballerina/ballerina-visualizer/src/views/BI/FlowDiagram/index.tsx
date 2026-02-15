@@ -1221,46 +1221,51 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             position: target.startLine,
             filePath: model?.fileName || parent?.codedata?.lineRange.fileName,
         };
-        // show side panel with available nodes
         setShowProgressIndicator(true);
-        // Add draft node to model using hook
-        console.log(`[Lock Frontend] updateFlowModel=${updateFlowModel}, will ${updateFlowModel ? 'ENTER' : 'SKIP'} lock acquisition block`);
         
-        // ALWAYS check lock in collaboration mode, regardless of updateFlowModel flag
         if (updateFlowModel) {
-            // Lock the POSITION where the node is being added first, before modifying state
-            // This prevents other users from adding nodes at the same location
             const parentId = 'id' in parent ? parent.id : 'branch';
             const positionLockKey = `position_${parentId}_${target.startLine.line}_${target.startLine.offset}`;
             
-            console.log(`[Lock Frontend] Attempting to acquire lock for position key: ${positionLockKey}`);
+            // Check if current user already owns this lock (clicking on existing draft)
+            const existingLock = nodeLocks[positionLockKey];
+            const alreadyLockedByCurrentUser = existingLock && existingLock.userId === currentUserId;
             
-            // Try to acquire lock - backend handles all logic and broadcasts updates
-            const lockResult = await acquireNodeLock(positionLockKey);
-            
-            console.log(`[Lock Frontend] Lock acquisition result:`, lockResult);
-            
-            if (!lockResult.success) {
-                // Lock acquisition failed - clean up and don't show side panel
-                console.error('[Lock Frontend] Cannot add node - position is locked:', lockResult.error);
-                setShowProgressIndicator(false);
-            
-                topNodeRef.current = undefined;
-                targetRef.current = undefined;
+            if (alreadyLockedByCurrentUser) {
+                // Lock already acquired - clicking on existing draft node
+                // Skip lock acquisition and draft creation, proceed directly to showing side panel
+                console.log('[Lock Frontend] Lock already held by current user, skipping acquisition');
+            } else {
+                // Need to acquire lock for new position
+                console.log(`[Lock Frontend] Attempting to acquire lock for position key: ${positionLockKey}`);
                 
-                // Show error notification to user
-                rpcClient.getCommonRpcClient().showErrorMessage({
-                    message: `Cannot add node here - ${lockResult.error || 'this position is locked by another user'}. Please wait until they finish editing.`
-                });
-                return; 
+                // Try to acquire lock - backend handles all logic and broadcasts updates
+                const lockResult = await acquireNodeLock(positionLockKey);
+                
+                console.log(`[Lock Frontend] Lock acquisition result:`, lockResult);
+                
+                if (!lockResult.success) {
+                    // Lock acquisition failed - clean up and don't show side panel
+                    console.error('[Lock Frontend] Cannot add node - position is locked:', lockResult.error);
+                    setShowProgressIndicator(false);
+                
+                    topNodeRef.current = undefined;
+                    targetRef.current = undefined;
+                    
+                    // Show error notification to user
+                    rpcClient.getCommonRpcClient().showErrorMessage({
+                        message: `Cannot add node here - ${lockResult.error || 'this position is locked by another user'}. Please wait until they finish editing.`
+                    });
+                    return; 
+                }
+                
+                console.log('[Lock Frontend] Lock acquired successfully, proceeding to add draft node');
+                
+                // Now that lock is acquired, add draft node and update model
+                const modelWithDraft = addDraftNode(parent, target);
+                // Lock info will be added to model automatically via the nodeLocks state subscription
+                setModel(modelWithDraft);
             }
-            
-            console.log('[Lock Frontend] Lock acquired successfully, proceeding to add draft node');
-            
-            // Now that lock is acquired, add draft node and update model
-            const modelWithDraft = addDraftNode(parent, target);
-            // Lock info will be added to model automatically via the nodeLocks state subscription
-            setModel(modelWithDraft);
         }
         rpcClient
             .getBIDiagramRpcClient()
