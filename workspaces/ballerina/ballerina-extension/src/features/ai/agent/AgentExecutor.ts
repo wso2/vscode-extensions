@@ -17,7 +17,7 @@
  */
 
 import { AICommandExecutor, AICommandConfig, AIExecutionResult } from '../executors/base/AICommandExecutor';
-import { Command, GenerateAgentCodeRequest, ProjectSource, MACHINE_VIEW, refreshReviewMode, ExecutionContext } from '@wso2/ballerina-core';
+import { Command, GenerateAgentCodeRequest, ProjectSource, MACHINE_VIEW, refreshReviewMode, ExecutionContext, CodeMapResponse } from '@wso2/ballerina-core';
 import { ModelMessage, stepCountIs, streamText, TextStreamPart } from 'ai';
 import { getAnthropicClient, getProviderCacheControl, ANTHROPIC_SONNET_4 } from '../utils/ai-client';
 import { populateHistoryForAgent, getErrorMessage } from '../utils/ai-utils';
@@ -28,12 +28,18 @@ import { createToolRegistry } from './tool-registry';
 import { getProjectSource, cleanupTempProject } from '../utils/project/temp-project';
 import { StreamContext } from './stream-handlers/stream-context';
 import { checkCompilationErrors } from './tools/diagnostics-utils';
+import { generateCodeMapMarkdown } from '../../bal-md/codemap-markdown';
 import { updateAndSaveChat } from '../utils/events';
 import { chatStateStorage } from '../../../views/ai-panel/chatStateStorage';
 import { RPCLayer } from '../../../RPCLayer';
 import { VisualizerWebview } from '../../../views/visualizer/webview';
 import * as path from 'path';
 import { approvalViewManager } from '../state/ApprovalViewManager';
+import { StateMachine } from '../../../stateMachine';
+import * as fs from 'fs';
+
+// Cache for incremental code map generation, keyed by project path
+const codeMapCache = new Map<string, CodeMapResponse>();
 
 /**
  * Determines which packages have been affected by analyzing modified files
@@ -143,6 +149,47 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 params.operationType,
                 this.config.executionContext
             );
+
+            // Generate bal.md from codemap
+            try {
+                const langClient = StateMachine.langClient();
+                const projectPath = this.config.executionContext.projectPath;
+
+                let codeMap: CodeMapResponse;
+                const cached = codeMapCache.get(projectPath);
+
+                if (cached?.files) {
+                    // Incremental: only fetch changed files
+                    const delta = await langClient.getCodeMap({ projectPath, changesOnly: true });
+
+                    if (delta.files && Object.keys(delta.files).length > 0) {
+                        for (const [filePath, artifacts] of Object.entries(delta.files)) {
+                            cached.files[filePath] = artifacts;
+                        }
+                        console.log(`[AgentExecutor] CodeMap incremental update: ${Object.keys(delta.files).length} file(s)`);
+                    } else {
+                        console.log(`[AgentExecutor] CodeMap incremental update: no changes`);
+                    }
+                    codeMap = cached;
+                } else {
+                    // First call: full generation
+                    codeMap = await langClient.getCodeMap({ projectPath });
+                    codeMapCache.set(projectPath, codeMap);
+                    console.log(`[AgentExecutor] CodeMap full generation cached`);
+                }
+
+                // Debug: save codemap JSON response
+                const codeMapJsonPath = path.join(projectPath, 'codemap.json');
+                fs.writeFileSync(codeMapJsonPath, JSON.stringify(codeMap, null, 2), 'utf-8');
+                console.log(`[AgentExecutor] CodeMap JSON saved to: ${codeMapJsonPath}`);
+
+                const balMd = generateCodeMapMarkdown(codeMap);
+                const balMdPath = path.join(projectPath, 'bal.md');
+                fs.writeFileSync(balMdPath, balMd, 'utf-8');
+                console.log(`[AgentExecutor] bal.md saved to: ${balMdPath}`);
+            } catch (error) {
+                console.warn('[AgentExecutor] Failed to generate bal.md:', error);
+            }
 
             // 2. Send didOpen only if creating NEW temp (not reusing for review continuation)
             if (!this.config.lifecycle?.existingTempPath) {
