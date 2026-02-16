@@ -21,8 +21,8 @@ import { StateMachineAI, openAIWebview } from "./aiMachine";
 import { AI_EVENT_TYPE, LoginMethod } from "@wso2/mi-core";
 import { logInfo, logDebug, logError } from "./copilot/logger";
 
-export const ANTHROPIC_HAIKU_4_5 = "claude-haiku-4-5-20251001";
-export const ANTHROPIC_SONNET_4_5 = "claude-sonnet-4-5-20250929";
+export const ANTHROPIC_HAIKU_4_5 = "claude-haiku-4-5";
+export const ANTHROPIC_SONNET_4_5 = "claude-sonnet-4-5";
 
 export type AnthropicModel =
     | typeof ANTHROPIC_HAIKU_4_5
@@ -37,9 +37,9 @@ let cachedAuthMethod: LoginMethod | null = null;
 const getAnthropicProxyUrl = (): string => {
     const proxyUrl = getCopilotLlmApiBaseUrl();
     if (!proxyUrl) {
-        throw new Error('Copilot LLM API URL is not set. Configure COPILOT_ROOT_URL or MI_COPILOT_ANTHROPIC_PROXY_URL.');
+        throw new Error('Copilot LLM API URL is not set. Configure COPILOT_ROOT_URL so getCopilotLlmApiBaseUrl() resolves correctly.');
     }
-    return `${proxyUrl}`;
+    return proxyUrl;
 };
 
 /**
@@ -159,6 +159,9 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
                     StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
                     throw new Error(`Authentication failed: ${refreshError instanceof Error ? refreshError.message : 'Unable to refresh token'}`);
                 }
+            } else if (loginMethod === LoginMethod.ANTHROPIC_KEY) {
+                StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
+                throw new Error('Authentication failed: Anthropic API key is invalid or expired');
             }
         }
 

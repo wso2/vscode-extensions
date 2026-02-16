@@ -39,6 +39,7 @@ import { logInfo, logWarn, logError } from './copilot/logger';
 export const TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = 'Access token is not available.';
 export const PLATFORM_EXTENSION_ID = 'wso2.wso2-platform';
 export const TOKEN_REFRESH_ONLY_SUPPORTED_FOR_MI_INTEL = 'Token refresh is only supported for MI Intelligence authentication';
+export const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5';
 
 // Credential storage key
 const AUTH_CREDENTIALS_SECRET_KEY = 'MIAuthCredentials';
@@ -331,10 +332,22 @@ export const cleanupLegacyTokens = async (): Promise<void> => {
 export const checkToken = async (): Promise<{ token: string; loginMethod: LoginMethod } | undefined> => {
     await cleanupLegacyTokens();
 
-    const [token, loginMethod] = await Promise.all([
-        getAccessToken(),
-        getLoginMethod()
-    ]);
+    let token: string | undefined;
+    let loginMethod: LoginMethod | undefined;
+
+    try {
+        [token, loginMethod] = await Promise.all([
+            getAccessToken(),
+            getLoginMethod()
+        ]);
+    } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        if (reason !== TOKEN_NOT_AVAILABLE_ERROR_MESSAGE) {
+            logWarn(`Failed to read local MI Copilot credentials. Falling back to Devant session bootstrap. ${reason}`);
+        }
+        token = undefined;
+        loginMethod = undefined;
+    }
 
     if (token && loginMethod) {
         return { token, loginMethod };
@@ -408,7 +421,7 @@ export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): 
         });
 
         await generateText({
-            model: directAnthropic('claude-3-5-haiku-20241022'),
+            model: directAnthropic(DEFAULT_ANTHROPIC_MODEL),
             maxOutputTokens: 1,
             messages: [{ role: 'user', content: 'Hi' }],
             maxRetries: 0, // Disable retries to prevent retry loops on quota errors (429)
@@ -429,6 +442,17 @@ export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): 
 
     } catch (error) {
         logError('API key validation failed', error);
+
+        const statusCode = typeof error === 'object'
+            && error !== null
+            && 'statusCode' in error
+            && typeof (error as { statusCode?: unknown }).statusCode === 'number'
+            ? (error as { statusCode: number }).statusCode
+            : undefined;
+
+        if (statusCode === 429) {
+            throw new Error('Too many requests. Please wait a moment and try again.');
+        }
 
         if (error instanceof Error) {
             if (error.message.includes('401') || error.message.includes('authentication')) {

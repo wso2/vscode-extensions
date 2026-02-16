@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com/) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com/) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -169,9 +169,9 @@ function capProjectStructureLength(projectStructure: string): string {
 // ============================================================================
 
 /**
- * Gets the currently opened file content from the state machine
+ * Gets the currently opened file path from the state machine
  * @param projectPath - Absolute path to the project root
- * @returns File content if available, null otherwise
+ * @returns Project-relative file path if available, null otherwise
  */
 async function getCurrentlyOpenedFile(projectPath: string): Promise<string | null> {
     try {
@@ -182,8 +182,7 @@ async function getCurrentlyOpenedFile(projectPath: string): Promise<string | nul
             // Make the path relative to project root
             const relativePath = path.relative(projectPath, currentFile);
 
-            // Return only the file path
-            return `The user opened the file ${relativePath} in the IDE. This may or may not be related to the current task.`;
+            return relativePath;
         }
     } catch (error) {
         // Silently fail if state machine is not available
@@ -269,6 +268,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         fileList: fileList,
         currentlyOpenedFile: currentlyOpenedFile, // Currently editing file (optional)
         userPreconfigured: params.payloads, // Pre-configured payloads (optional)
+        payloads: params.payloads, // Backward-compatible template key
         available_connectors: availableConnectors.join(', '), // Available connectors list
         available_inbound_endpoints: availableInboundEndpoints.join(', '), // Available inbound endpoints list
         available_skills: availableSkills.map((skill) => `${skill.name} - ${skill.description}`).join('\n'), // Specialized skills

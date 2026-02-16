@@ -24,7 +24,7 @@ import { PromptObject } from '@wso2/mi-core';
 import { initializeLangfuse, shutdownLangfuse } from './agent-mode/langfuse-setup';
 
 // Dev flag - set to true to enable Langfuse observability
-const ENABLE_LANGFUSE = true;
+const ENABLE_LANGFUSE = false;
 
 export function activateAiPanel(context: vscode.ExtensionContext) {
     // Initialize Langfuse OpenTelemetry tracing (dev mode only)
@@ -42,8 +42,7 @@ export function activateAiPanel(context: vscode.ExtensionContext) {
     // Register the AI panel command
     context.subscriptions.push(
         vscode.commands.registerCommand(COMMANDS.OPEN_AI_PANEL, (initialPrompt?: PromptObject) => {
-            extension.initialPrompt = initialPrompt;
-            openAIWebview();
+            openAIWebview(initialPrompt);
         })
     );
     context.subscriptions.push(

@@ -3049,10 +3049,11 @@ ${endpointAttributes}
             const projectUuid = uuidv4();
             const { directory, name, open, groupID, artifactID, version, miVersion } = params;
             const initialDependencies = compareVersions(miVersion, RUNTIME_VERSION_440) >= 0 ? generateInitialDependencies() : '';
+            const artifactIdNormalized = artifactID ?? name;
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
                 [tempName]: { // Project folder
-                    'pom.xml': rootPomXmlContent(name, groupID ?? "com.example", (artifactID ?? name).toLowerCase(), projectUuid, version ?? DEFAULT_PROJECT_VERSION, miVersion, initialDependencies),
+                    'pom.xml': rootPomXmlContent(name, groupID ?? "com.example", artifactIdNormalized, projectUuid, version ?? DEFAULT_PROJECT_VERSION, miVersion, initialDependencies),
                     '.env': '',
                     'src': {
                         'main': {
@@ -4193,7 +4194,7 @@ ${endpointAttributes}
 
     async getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {
         const llmBaseUrl = getCopilotLlmApiBaseUrl();
-        const openaiUrl = llmBaseUrl || process.env.MI_COPILOT_OPENAI_PROXY_URL as string;
+        const openaiUrl = process.env.MI_COPILOT_OPENAI_PROXY_URL as string;
         const anthropicUrl = llmBaseUrl || process.env.MI_COPILOT_ANTHROPIC_PROXY_URL as string;
         return { openaiUrl, anthropicUrl };
     }
