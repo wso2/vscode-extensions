@@ -1023,8 +1023,8 @@ importers:
         specifier: 4.17.23
         version: 4.17.23
       markdown-it:
-        specifier: 14.1.0
-        version: 14.1.0
+        specifier: 14.1.1
+        version: 14.1.1
       prosemirror-commands:
         specifier: 1.7.1
         version: 1.7.1
@@ -28946,7 +28946,7 @@ snapshots:
       get-value: 3.0.1
       graphql: 16.11.0
       graphql-language-service: 5.5.0(graphql@16.11.0)
-      markdown-it: 14.1.0
+      markdown-it: 14.1.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
       set-value: 4.1.0
@@ -40799,7 +40799,7 @@ snapshots:
       hosted-git-info: 4.1.0
       jsonc-parser: 3.3.1
       leven: 3.1.0
-      markdown-it: 14.1.0
+      markdown-it: 14.1.1
       mime: 1.6.0
       minimatch: 3.1.2
       parse-semver: 1.1.1
