@@ -33,8 +33,10 @@ export function activateAiPanel(context: vscode.ExtensionContext) {
 
         // Register shutdown handler
         context.subscriptions.push({
-            dispose: async () => {
-                await shutdownLangfuse();
+            dispose: () => {
+                void shutdownLangfuse().catch((error) => {
+                    console.error('Failed to shutdown Langfuse:', error);
+                });
             }
         });
     }

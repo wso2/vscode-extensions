@@ -64,7 +64,7 @@ export class AgentEventHandler {
 
     private sendEventToVisualizer(event: AgentEvent): void {
         try {
-            const messenger = (RPCLayer as any)._messengers.get(this.projectUri);
+            const messenger = RPCLayer.getMessenger(this.projectUri);
             if (messenger) {
                 messenger.sendNotification(
                     agentEvent,

@@ -16,19 +16,14 @@
  * under the License.
  */
 
-import { MessengerAPI, RequestType } from "vscode-messenger-common";
+import { MessengerAPI } from "vscode-messenger-common";
 import {
     MIAgentPanelRpcManager,
     ListSessionsRequest,
-    ListSessionsResponse,
     SwitchSessionRequest,
-    SwitchSessionResponse,
     CreateNewSessionRequest,
-    CreateNewSessionResponse,
     DeleteSessionRequest,
-    DeleteSessionResponse,
     SearchMentionablePathsRequest,
-    SearchMentionablePathsResponse,
 } from "./rpc-manager";
 import {
     sendAgentMessage,
@@ -45,34 +40,13 @@ import {
     UserQuestionResponse,
     PlanApprovalResponse,
     CompactConversationRequest,
+    listSessions,
+    switchSession,
+    createNewSession,
+    deleteSession,
+    compactConversation,
+    searchMentionablePaths,
 } from "@wso2/mi-core";
-
-// Session management RPC methods (will be imported from @wso2/mi-core after build)
-const _prefix = "mi-agent-service";
-
-const listSessions: RequestType<ListSessionsRequest, ListSessionsResponse> = {
-    method: `${_prefix}/listSessions`
-};
-
-const switchSession: RequestType<SwitchSessionRequest, SwitchSessionResponse> = {
-    method: `${_prefix}/switchSession`
-};
-
-const createNewSession: RequestType<CreateNewSessionRequest, CreateNewSessionResponse> = {
-    method: `${_prefix}/createNewSession`
-};
-
-const deleteSession: RequestType<DeleteSessionRequest, DeleteSessionResponse> = {
-    method: `${_prefix}/deleteSession`
-};
-
-const compactConversation: RequestType<CompactConversationRequest, any> = {
-    method: `${_prefix}/compactConversation`
-};
-
-const searchMentionablePaths: RequestType<SearchMentionablePathsRequest, SearchMentionablePathsResponse> = {
-    method: `${_prefix}/searchMentionablePaths`
-};
 
 // Singleton manager to maintain pending questions state across requests
 let rpcManagerInstance: MIAgentPanelRpcManager | null = null;

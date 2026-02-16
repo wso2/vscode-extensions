@@ -58,6 +58,8 @@ const MISSING_FILE_HASH = '__MISSING_FILE__';
 const UNDO_CHECKPOINT_FILE_NAME = 'undo-checkpoint.json';
 const UNDO_CHECKPOINT_STORE_VERSION = 2;
 const MAX_UNDO_CHECKPOINTS = 25;
+const MAX_EXACT_LINE_DIFF_LINES = 2000;
+const MAX_EXACT_LINE_DIFF_MATRIX_CELLS = 1_000_000;
 
 interface StoredUndoCheckpointStore {
     version: number;
@@ -94,25 +96,69 @@ function isCopilotInternalPath(relativePath: string): boolean {
     return normalized === '.mi-copilot' || normalized.startsWith('.mi-copilot/');
 }
 
+function calculateApproximateLineChanges(beforeLines: string[], afterLines: string[]): { addedLines: number; deletedLines: number } {
+    const beforeLength = beforeLines.length;
+    const afterLength = afterLines.length;
+    const minLength = Math.min(beforeLength, afterLength);
+
+    let prefixMatchCount = 0;
+    while (prefixMatchCount < minLength && beforeLines[prefixMatchCount] === afterLines[prefixMatchCount]) {
+        prefixMatchCount += 1;
+    }
+
+    let beforeSuffixIndex = beforeLength - 1;
+    let afterSuffixIndex = afterLength - 1;
+    while (
+        beforeSuffixIndex >= prefixMatchCount &&
+        afterSuffixIndex >= prefixMatchCount &&
+        beforeLines[beforeSuffixIndex] === afterLines[afterSuffixIndex]
+    ) {
+        beforeSuffixIndex -= 1;
+        afterSuffixIndex -= 1;
+    }
+
+    const deletedLines = Math.max(0, beforeSuffixIndex - prefixMatchCount + 1);
+    const addedLines = Math.max(0, afterSuffixIndex - prefixMatchCount + 1);
+
+    return {
+        addedLines,
+        deletedLines,
+    };
+}
+
 function calculateLineChanges(beforeContent: string, afterContent: string): { addedLines: number; deletedLines: number } {
     const beforeLines = beforeContent.split('\n');
     const afterLines = afterContent.split('\n');
 
     const rows = beforeLines.length;
     const cols = afterLines.length;
-    const dp: number[][] = Array.from({ length: rows + 1 }, () => Array(cols + 1).fill(0));
+
+    // Large files can make exact LCS expensive in the extension host; use a coarse estimate when over threshold.
+    if (
+        rows > MAX_EXACT_LINE_DIFF_LINES ||
+        cols > MAX_EXACT_LINE_DIFF_LINES ||
+        rows * cols > MAX_EXACT_LINE_DIFF_MATRIX_CELLS
+    ) {
+        return calculateApproximateLineChanges(beforeLines, afterLines);
+    }
+
+    const previous = new Uint32Array(cols + 1);
+    const current = new Uint32Array(cols + 1);
 
     for (let i = 1; i <= rows; i++) {
         for (let j = 1; j <= cols; j++) {
             if (beforeLines[i - 1] === afterLines[j - 1]) {
-                dp[i][j] = dp[i - 1][j - 1] + 1;
+                current[j] = previous[j - 1] + 1;
             } else {
-                dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                current[j] = Math.max(previous[j], current[j - 1]);
             }
         }
+
+        previous.set(current);
+        current.fill(0);
     }
 
-    const lcs = dp[rows][cols];
+    const lcs = previous[cols];
     return {
         deletedLines: rows - lcs,
         addedLines: cols - lcs,

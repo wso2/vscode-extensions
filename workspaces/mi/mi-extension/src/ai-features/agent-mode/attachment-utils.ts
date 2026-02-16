@@ -65,9 +65,9 @@ function isValidImageDataUri(dataUri: string): boolean {
         return false;
     }
 
-    const dataUriRegex = /^data:([^;]+);base64,([A-Za-z0-9+/]*={0,2})$/;
+    const dataUriRegex = /^data:([^;]+);base64,([A-Za-z0-9+/]+={0,2})$/;
     const match = dataUri.match(dataUriRegex);
-    if (!match || !match[1] || !match[2]) {
+    if (!match || !match[1] || !match[2] || match[2].length === 0) {
         return false;
     }
 

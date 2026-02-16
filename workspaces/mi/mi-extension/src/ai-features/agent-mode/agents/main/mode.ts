@@ -110,7 +110,7 @@ export const PLAN_MODE_SHARED_GUIDELINES = `
    ## Verification
    <How to test the changes end-to-end (run code, tests, etc.).>
    \`\`\`
-3. **Then present extreamly brief summary of the plan to the user in the chat** - System will attach full plan as a collapsable markdown block in the chat window for the user to review if needed.
+3. **Then present extremely brief summary of the plan to the user in the chat** - System will attach full plan as a collapsable markdown block in the chat window for the user to review if needed.
 4. **Request approval**: Call \`${EXIT_PLAN_MODE_TOOL_NAME}\` - this BLOCKS until user approves or rejects.
 5. **If rejected**: Stay in PLAN mode, revise the plan file, and request approval again.
 `;
