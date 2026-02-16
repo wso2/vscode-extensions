@@ -28,7 +28,6 @@
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension",
                 "--extensionDevelopmentPath=${workspaceFolder}/workspaces/bi/bi-extension",
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/wso2-platform/wso2-platform-extension"
             ],
             "env": {
                 "LS_EXTENSIONS_PATH": "",
