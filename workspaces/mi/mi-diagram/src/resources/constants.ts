@@ -57,6 +57,8 @@ export enum VSCodeColors {
     ON_SURFACE_VARIANT = "var(--vscode-icon-foreground)",
     SURFACE_CONTAINER = "var(--vscode-editor-inactiveSelectionBackground)",
 
+    CARD_BUTTON_BACKGROUND = "var(--vscode-editorWidget-background)",
+
     OUTLINE = "var(--vscode-sideBar-border)",
     OUTLINE_VARIANT = "var(--vscode-dropdown-border)",
 
@@ -102,6 +104,8 @@ export const Colors = {
         VSCodeColors.ON_SURFACE_VARIANT || DefaultColors.ON_SURFACE_VARIANT,
     SURFACE_CONTAINER:
         VSCodeColors.SURFACE_CONTAINER || DefaultColors.SURFACE_CONTAINER,
+
+    CARD_BUTTON_BACKGROUND: VSCodeColors.CARD_BUTTON_BACKGROUND,
 
     OUTLINE: VSCodeColors.OUTLINE || DefaultColors.OUTLINE,
     OUTLINE_VARIANT:

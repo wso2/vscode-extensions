@@ -438,7 +438,7 @@ export function Mediators(props: MediatorProps) {
                                         padding: '6px 10px',
                                         width: 'auto',
                                         height: '32px',
-                                        backgroundColor: 'var(--vscode-editorWidget-background)'
+                                        backgroundColor: Colors.CARD_BUTTON_BACKGROUND
                                     }}
                                     onClick={() => AddMcpServer()}>
                                     <Codicon name="mcp" />Add MCP Tools
