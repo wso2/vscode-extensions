@@ -113,7 +113,11 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				case 'addRequestToCollection':
 					// Handle adding a request to a collection
 					this._handleAddRequestToCollection(message.collectionId as string);
-					break;
+					break;			
+				case 'addRequestToFolder':
+					// Handle adding a request to a folder
+					this._handleAddRequestToFolder(message.folderId as string, message.folderPath as string);
+					break;				
 				case 'deleteCollection':
 					// Handle deleting a collection
 					this._handleDeleteCollection(message.collectionId as string);
@@ -330,6 +334,64 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			vscode.window.showInformationMessage(`Add request to "${collectionName}" collection`);
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to add request: ${error}`);
+		}
+	}
+
+	private async _handleAddRequestToFolder(folderId: string, folderPath: string) {
+		try {
+			if (!folderPath) {
+				vscode.window.showErrorMessage('Unable to determine folder path');
+				return;
+			}
+
+			// Verify the folder exists
+			const fs = await import('fs/promises');
+			const path = await import('path');
+			try {
+				const stats = await fs.stat(folderPath);
+				if (!stats.isDirectory()) {
+					vscode.window.showErrorMessage('Target is not a directory');
+					return;
+				}
+			} catch (error) {
+				vscode.window.showErrorMessage(`Folder does not exist: ${error}`);
+				return;
+			}
+
+			// Show TryIt panel
+			TryItPanel.show(this._extensionContext);
+
+			// Wait a moment to ensure the panel is ready
+			await new Promise(resolve => setTimeout(resolve, 300));
+
+			// Send event to state machine to create a new request in this folder
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, folderPath);
+
+			// Deselect any currently-selected request so the UI behaves like the "New Request" button
+			await vscode.commands.executeCommand('api-tryit.clearSelection');
+
+			// Also create and select an empty request immediately so the TryIt panel shows it without waiting for the state machine debounce
+			const emptyRequestItem: ApiRequestItem = {
+				id: `new-${Date.now()}`,
+				name: 'New Request',
+				request: {
+					id: `new-${Date.now()}`,
+					name: 'New Request',
+					method: 'GET',
+					url: '',
+					queryParameters: [],
+					headers: []
+				}
+			};
+
+			// Also set the selected item so other components see the change
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, emptyRequestItem, undefined);
+			// Post the request to the TryIt webview (queued if webview not ready)
+			TryItPanel.postMessage('apiRequestItemSelected', emptyRequestItem);
+
+			vscode.window.showInformationMessage(`Add request to "${folderId}" folder`);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to add request to folder: ${error}`);
 		}
 	}
 

@@ -224,7 +224,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 			return {
 				id: folderId,
 				name: folderName,
-				items
+				items,
+				filePath: folderPath
 			};
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to load folder ${folderId} in collection ${collectionId}, ${error as string}.`);
@@ -569,8 +570,7 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						...col.folders.map(folder => ({
 							id: `${col.id}-${folder.name}`,
 							name: folder.name,
-							type: 'folder',
-							children: folder.items.map(item => ({
+							type: 'folder',						filePath: folder.filePath,							children: folder.items.map(item => ({
 								id: `${col.id}-${folder.name}-${item.name}`,
 								name: item.name,
 								type: 'request',
@@ -609,6 +609,7 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 								id: `${col.id}-${folder.name}`,
 								name: folder.name,
 								type: 'folder',
+								filePath: folder.filePath,
 								children: folder.items
 									.filter(item => 
 										item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

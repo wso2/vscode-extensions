@@ -293,12 +293,34 @@ const ContextMenuItem = styled.button`
 		background-color: var(--vscode-menu-selectionBackground);
 	}
 `;
-const FolderTreeView: React.FC<TreeViewProps> = ({ item, selectedId, onSelect, renderTreeItem, isExpanded, onToggle }) => {
+const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: string; contextMenu?: { x: number; y: number; collectionId: string } | null; setContextMenu?: (menu: { x: number; y: number; collectionId: string } | null) => void }> = ({ item, selectedId, onSelect, renderTreeItem, isExpanded, onToggle, vscode, collectionId, contextMenu, setContextMenu }) => {
+
+	const handleAddRequest = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'addRequestToFolder',
+				folderId: item.id,
+				folderPath: item.filePath
+			});
+		}
+		if (setContextMenu) {
+			setContextMenu(null);
+		}
+	}, [vscode, item.id, item.filePath, setContextMenu]);
+
+	const handleContextMenu = useCallback((e: React.MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		if (setContextMenu) {
+			setContextMenu({ x: e.clientX, y: e.clientY, collectionId: item.id });
+		}
+	}, [item.id, setContextMenu]);
 
 	return (
 		<div>
 			<FolderHeader
 				onClick={() => onToggle(item.id)}
+				onContextMenu={handleContextMenu}
 				isSelected={selectedId === item.id}
 			>
 				<IconContainer>
@@ -306,7 +328,26 @@ const FolderTreeView: React.FC<TreeViewProps> = ({ item, selectedId, onSelect, r
 				</IconContainer>
 				<Codicon name="folder" sx={{ marginRight: 8 }} />
 				<span>{item.name}</span>
+				<AddButton
+					title={`Add request to ${item.name}`}
+					aria-label={`Add request to ${item.name}`}
+					onClick={(e: React.MouseEvent) => {
+						e.stopPropagation();
+						e.preventDefault();
+						handleAddRequest();
+					}}
+				>
+					<Codicon name="plus" />
+				</AddButton>
 			</FolderHeader>
+			{contextMenu && contextMenu.collectionId === item.id && (
+				<ContextMenu x={contextMenu.x} y={contextMenu.y} visible={true}>
+					<ContextMenuItem onClick={handleAddRequest}>
+						<Codicon name="file-add" sx={{ marginRight: 8 }} />
+						Add Request
+					</ContextMenuItem>
+				</ContextMenu>
+			)}
 			{isExpanded && item.children && (
 				<CollectionChildren>
 					{item.children.map((child: RequestItem, idx: number) => (
@@ -647,6 +688,9 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 					renderTreeItem={renderTreeItem}
 					isExpanded={expandedItems.has(item.id)}
 					onToggle={handleToggleExpansion}
+					vscode={vscode}
+					contextMenu={globalContextMenu}
+					setContextMenu={setGlobalContextMenu}
 				/>
 			);
 		}
