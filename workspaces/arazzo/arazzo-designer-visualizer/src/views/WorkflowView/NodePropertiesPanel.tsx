@@ -288,6 +288,17 @@ export function NodePropertiesPanel({ node, workflow }: NodePropertiesPanelProps
                         return renderSimpleSection('Inputs', <JsonBlock>{JSON.stringify(schema, null, 2)}</JsonBlock>, 'workflowInputs');
                     })()
                 )}
+                {wf.outputs && typeof wf.outputs === 'object' && (
+                    (() => {
+                        const schema = wf.outputs as any;
+                        if (schema.properties && typeof schema.properties === 'object') {
+                            const items = Object.entries(schema.properties).map(([name, prop]) => ({ name, ...(prop as any) }));
+                            return renderArraySection('Outputs', items, 'workflowOutputs');
+                        }
+                        // Fallback: show raw schema
+                        return renderSimpleSection('Outputs', <JsonBlock>{JSON.stringify(schema, null, 2)}</JsonBlock>, 'workflowOutputs');
+                    })()
+                )}
             </Container>
         );
     }
