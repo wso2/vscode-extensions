@@ -346,6 +346,18 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 		}
 	}, [vscode, item.id, setContextMenu]);
 
+	const handleDeleteCollection = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'deleteCollection',
+				collectionId: item.id
+			});
+		}
+		if (setContextMenu) {
+			setContextMenu(null);
+		}
+	}, [vscode, item.id, setContextMenu]);
+
 	return (
 		<div>
 			<CollectionHeader
@@ -375,6 +387,10 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 					<ContextMenuItem onClick={handleAddRequest}>
 						<Codicon name="file-add" sx={{ marginRight: 8 }} />
 						Add Request
+					</ContextMenuItem>
+					<ContextMenuItem onClick={handleDeleteCollection}>
+						<Codicon name="trash" sx={{ marginRight: 8 }} />
+						Delete Collection
 					</ContextMenuItem>
 				</ContextMenu>
 			)}
@@ -523,26 +539,51 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 		// For requests (leaf items), render as TreeViewItem
 		if (item.type === 'request') {
 			const isSelected = isItemSelected(item);
+			const handleContextMenu = (e: React.MouseEvent) => {
+				e.preventDefault();
+				e.stopPropagation();
+				setGlobalContextMenu({ x: e.clientX, y: e.clientY, collectionId: item.id });
+			};
+
+			const handleDeleteRequest = () => {
+				if (vscode) {
+					vscode.postMessage({
+						command: 'deleteRequest',
+						requestId: item.id
+					});
+				}
+				setGlobalContextMenu(null);
+			};
+
 			return (
-				<TreeViewItem
-					key={item.id}
-					id={item.id}
-					selectedId={selectedId}
-					onSelect={handleSelectItem}
-                    sx={{paddingLeft: 10}}
-				>
-					<RequestItemContainer style={{
-						color: isSelected ? '#007acc' : 'inherit'
-					}}>
-						<Codicon name="symbol-method" sx={{ display: 'inline' }} />
-						<span>{item.name}</span>
-						{item.method && (
-							<MethodBadge method={item.method}>
-								{item.method}
-							</MethodBadge>
-						)}
-					</RequestItemContainer>
-				</TreeViewItem>
+				<div key={item.id} onContextMenu={handleContextMenu}>
+					<TreeViewItem
+						id={item.id}
+						selectedId={selectedId}
+						onSelect={handleSelectItem}
+						sx={{paddingLeft: 10}}
+					>
+						<RequestItemContainer style={{
+							color: isSelected ? '#007acc' : 'inherit'
+						}}>
+							<Codicon name="symbol-method" sx={{ display: 'inline' }} />
+							<span>{item.name}</span>
+							{item.method && (
+								<MethodBadge method={item.method}>
+									{item.method}
+								</MethodBadge>
+							)}
+						</RequestItemContainer>
+					</TreeViewItem>
+					{globalContextMenu && globalContextMenu.collectionId === item.id && (
+						<ContextMenu x={globalContextMenu.x} y={globalContextMenu.y} visible={true}>
+							<ContextMenuItem onClick={handleDeleteRequest}>
+								<Codicon name="trash" sx={{ marginRight: 8 }} />
+								Delete Request
+							</ContextMenuItem>
+						</ContextMenu>
+					)}
+				</div>
 			);
 		}
 

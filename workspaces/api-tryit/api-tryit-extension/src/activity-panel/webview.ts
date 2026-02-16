@@ -114,6 +114,14 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 					// Handle adding a request to a collection
 					this._handleAddRequestToCollection(message.collectionId as string);
 					break;
+				case 'deleteCollection':
+					// Handle deleting a collection
+					this._handleDeleteCollection(message.collectionId as string);
+					break;
+				case 'deleteRequest':
+					// Handle deleting a request
+					this._handleDeleteRequest(message.requestId as string);
+					break;
 			}
 		});
 
@@ -359,6 +367,138 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			}
 		}
 		return undefined;
+	}
+
+	private async _handleDeleteCollection(collectionId: string) {
+		try {
+			if (!this._apiExplorerProvider) {
+				vscode.window.showErrorMessage('API Explorer provider not available');
+				return;
+			}
+
+			// Get all collections to find the one with matching ID
+			const allCollections = await this._apiExplorerProvider.getCollections();
+			const collection = this._findCollectionById(allCollections, collectionId);
+
+			if (!collection) {
+				vscode.window.showErrorMessage('Collection not found');
+				return;
+			}
+
+			const collectionName = typeof collection === 'object' && collection !== null && 'name' in collection 
+				? (collection as Record<string, unknown>).name 
+				: 'Unknown';
+
+			// Show confirmation dialog
+			const result = await vscode.window.showWarningMessage(
+				`Are you sure you want to delete the collection "${collectionName}"? This cannot be undone.`,
+				{ modal: true },
+				'Delete',
+				'Cancel'
+			);
+
+			if (result !== 'Delete') {
+				return;
+			}
+
+			// Get the collection path
+			const collectionPath = this._apiExplorerProvider.getCollectionPathById(collectionId);
+
+			if (!collectionPath) {
+				vscode.window.showErrorMessage('Unable to determine collection path');
+				return;
+			}
+
+			// Delete the collection folder
+			const fs = await import('fs/promises');
+			try {
+				await fs.rm(collectionPath, { recursive: true, force: true });
+				vscode.window.showInformationMessage(`Collection "${collectionName}" deleted successfully`);
+			} catch (error) {
+				vscode.window.showErrorMessage(`Failed to delete collection folder: ${error}`);
+				return;
+			}
+
+			// Clear selection if the deleted collection was selected
+			await vscode.commands.executeCommand('api-tryit.clearSelection');
+
+			// Reload collections from disk to ensure fresh data
+			if (this._apiExplorerProvider) {
+				await this._apiExplorerProvider.reloadCollections();
+			}
+
+			// Refresh the tree view immediately
+			this._sendCollections(true);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to delete collection: ${error}`);
+		}
+	}
+
+	private async _handleDeleteRequest(requestId: string) {
+		try {
+			if (!this._apiExplorerProvider) {
+				vscode.window.showErrorMessage('API Explorer provider not available');
+				return;
+			}
+
+			// Find the request in all collections
+			const allCollections = await this._apiExplorerProvider.getCollections();
+			const requestItem = this._findRequestItem(allCollections, requestId);
+
+			if (!requestItem) {
+				vscode.window.showErrorMessage('Request not found');
+				return;
+			}
+
+			const requestName = typeof requestItem === 'object' && requestItem !== null && 'name' in requestItem 
+				? (requestItem as Record<string, unknown>).name 
+				: 'Unknown';
+
+			// Show confirmation dialog
+			const result = await vscode.window.showWarningMessage(
+				`Are you sure you want to delete the request "${requestName}"? This cannot be undone.`,
+				{ modal: true },
+				'Delete',
+				'Cancel'
+			);
+
+			if (result !== 'Delete') {
+				return;
+			}
+
+			// Get the file path of the request
+			const requestFilePath = typeof requestItem === 'object' && requestItem !== null && 'filePath' in requestItem
+				? (requestItem as Record<string, unknown>).filePath as string
+				: undefined;
+
+			if (!requestFilePath) {
+				vscode.window.showErrorMessage('Unable to determine request file path');
+				return;
+			}
+
+			// Delete the request file
+			const fs = await import('fs/promises');
+			try {
+				await fs.unlink(requestFilePath);
+				vscode.window.showInformationMessage(`Request "${requestName}" deleted successfully`);
+			} catch (error) {
+				vscode.window.showErrorMessage(`Failed to delete request file: ${error}`);
+				return;
+			}
+
+			// Clear selection if the deleted request was selected
+			await vscode.commands.executeCommand('api-tryit.clearSelection');
+
+			// Reload collections from disk to ensure fresh data
+			if (this._apiExplorerProvider) {
+				await this._apiExplorerProvider.reloadCollections();
+			}
+
+			// Refresh the tree view immediately
+			this._sendCollections(true);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to delete request: ${error}`);
+		}
 	}
 
     private _getWebviewContent(webview: vscode.Webview) {
