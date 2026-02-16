@@ -2,7 +2,7 @@
     "name": "ballerina-integrator",
     "displayName": "WSO2 Integrator: BI",
     "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "publisher": "wso2",
     "icon": "resources/images/wso2-ballerina-integrator-logo.png",
     "repository": {
@@ -196,7 +196,7 @@
         "copy-webpack-plugin": "13.0.0",
         "source-map-support": "0.5.21",
         "ts-loader": "9.5.2",
-        "webpack": "5.99.9",
+        "webpack": "5.104.1",
         "webpack-cli": "6.0.1",
         "webpack-permissions-plugin": "1.0.9",
         "@playwright/test": "1.55.1",

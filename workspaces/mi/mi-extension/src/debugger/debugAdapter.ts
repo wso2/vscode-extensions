@@ -25,7 +25,7 @@ import { Debugger } from './debugger';
 import { getStateMachine, openView, refreshUI } from '../stateMachine';
 import { webviews } from '../visualizer/webview';
 import { ViewColumn } from 'vscode';
-import { COMMANDS } from '../constants';
+import { COMMANDS, MI_RUNTIME_SERVICES_PANEL_ID } from '../constants';
 import { LOCALHOST, ADMIN, REMOTE } from './constants';
 import { INCORRECT_SERVER_PATH_MSG } from './constants';
 import { extension } from '../MIExtensionContext';
@@ -316,7 +316,7 @@ export class MiDebugAdapter extends LoggingDebugSession {
                             this.debuggerHandler?.initializeDebugger().then(() => {
                                 openRuntimeServicesWebview(this.projectUri);
                                 extension.isServerStarted = true;
-                                RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: 'micro-integrator.runtime-services-panel' }, 'Running');
+                                RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: MI_RUNTIME_SERVICES_PANEL_ID }, 'Running');
                                 response.success = true;
                                 this.sendResponse(response);
                             }).catch(error => {
@@ -333,7 +333,7 @@ export class MiDebugAdapter extends LoggingDebugSession {
                                     checkServerReadiness(this.projectUri).then(() => {
                                         openRuntimeServicesWebview(this.projectUri);
                                         extension.isServerStarted = true;
-                                        RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: 'micro-integrator.runtime-services-panel' }, 'Running');
+                                        RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: MI_RUNTIME_SERVICES_PANEL_ID }, 'Running');
 
                                         response.success = true;
                                         this.sendResponse(response);
@@ -346,7 +346,7 @@ export class MiDebugAdapter extends LoggingDebugSession {
                                     this.debuggerHandler?.initializeDebugger().then(() => {
                                         openRuntimeServicesWebview(this.projectUri);
                                         extension.isServerStarted = true;
-                                        RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: 'micro-integrator.runtime-services-panel' }, 'Running');
+                                        RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: MI_RUNTIME_SERVICES_PANEL_ID }, 'Running');
                                         response.success = true;
                                         this.sendResponse(response);
                                     }).catch(error => {
@@ -399,7 +399,7 @@ export class MiDebugAdapter extends LoggingDebugSession {
 
         DebuggerConfig.resetCappandLibs();
         extension.isServerStarted = false;
-        RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: 'micro-integrator.runtime-services-panel' }, 'Stopped');
+        RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: MI_RUNTIME_SERVICES_PANEL_ID }, 'Stopped');
     }
 
     protected async attachRequest(response: DebugProtocol.AttachResponse, args: DebugProtocol.LaunchRequestArguments) {
