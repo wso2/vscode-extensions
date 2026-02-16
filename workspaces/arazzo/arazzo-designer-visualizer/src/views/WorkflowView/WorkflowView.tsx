@@ -419,7 +419,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                     </StyledButton>
                 </SidePanelTitleContainer>
                 <SidePanelBody onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                    <NodePropertiesPanel node={selectedNode} workflow={workflow} />
+                    <NodePropertiesPanel node={selectedNode} workflow={workflow} definition={arazzoDefinition} />
                 </SidePanelBody>
             </SidePanel>
         </div>
