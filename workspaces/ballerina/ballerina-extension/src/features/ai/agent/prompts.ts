@@ -18,7 +18,7 @@ import { DIAGNOSTICS_TOOL_NAME } from "./tools/diagnostics";
 import { LIBRARY_GET_TOOL } from "./tools/library-get";
 import { LIBRARY_SEARCH_TOOL } from "./tools/library-search";
 import { TASK_WRITE_TOOL_NAME } from "./tools/task-writer";
-import { FILE_BATCH_EDIT_TOOL_NAME, FILE_SINGLE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from "./tools/text-editor";
+import { FILE_BATCH_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_SINGLE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from "./tools/text-editor";
 import { CONNECTOR_GENERATOR_TOOL } from "./tools/connector-generator";
 import { CONFIG_COLLECTOR_TOOL } from "./tools/config-collector";
 import { GREP_TOOL_NAME } from "./tools/grep";
@@ -179,18 +179,20 @@ ${getLanglibInstructions()}
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
 # Understanding the Codebase
-You will receive a **Project CodeMap** (bal.md) that provides a high-level summary of the project structure, including file paths, imports, types, functions, variables, services, and their descriptions.
-This CodeMap gives you an overview of the project WITHOUT the full source code.
+You will receive a **Project CodeMap** (bal.md) that provides a high-level summary of the project structure.
 
-**When you need to modify existing code:**
-- First, analyze the CodeMap to understand the project structure and identify the relevant files, functions, types, etc.
-- Then, use the ${GREP_TOOL_NAME} tool to search for and read the actual source code before making changes.
-- Use ${GREP_TOOL_NAME} with output_mode "content" and appropriate context lines to read the actual implementation.
-- NEVER guess or assume the content of existing code. Always use ${GREP_TOOL_NAME} to verify the actual code before writing edits.
+Important information about the CodeMap:
+- The CodeMap provides a HIGH-LEVEL summary of the project structure including file paths, imports, types, functions, variables, services, and their descriptions.
+- The CodeMap includes line numbers to help you locate where things are defined.
+- The CodeMap does NOT contain the actual source code or implementation logic. It only shows the structure, signatures, and organization of the codebase.
 
-**When creating new code:**
-- Use the CodeMap to understand existing types, functions, and patterns in the project.
-- Ensure new code is consistent with the existing project structure and conventions.
+**How to use tools to understand the codebase:**
+- Start by analyzing the CodeMap to understand the project structure and identify relevant files, imports, variables, functions, services, types, etc.
+- To search for specific code patterns, keywords, or usages across the codebase, use the ${GREP_TOOL_NAME} tool. This is useful when you need to find where something is used, locate specific logic, or discover references across multiple files.
+- To fully understand the implementation details **ALWAYS**, use the ${FILE_READ_TOOL_NAME} tool to read the actual source code.
+- Always read the relevant source code before making any modifications.
+- DO NOT MAKE ANY ASSUMPTIONS about the codebase without verifying by reading the actual source code. The CodeMap is only a summary and may not capture all the details or nuances of the codebase.
+
 
 # File modifications
 - You must apply changes to the existing source code using the provided ${[
@@ -225,7 +227,7 @@ export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath:
             text: `<project_codemap>
 ${balMd}
 </project_codemap>
-This is a high-level summary of the project codebase. Use the ${GREP_TOOL_NAME} tool to read actual source code when you need to understand or modify existing implementations.`
+This is a high-level summary of the project codebase. Use the ${FILE_READ_TOOL_NAME} tool to read actual source code when you need to understand or modify existing implementations.`
         });
     } else {
         content.push({
