@@ -260,20 +260,28 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			// Wait a moment to ensure the panel is ready
 			await new Promise(resolve => setTimeout(resolve, 300));
 
-			// Construct the full collection directory path
-			const config = vscode.workspace.getConfiguration('api-tryit');
-			const configuredPath = config.get<string>('collectionsPath');
-			const storagePath = configuredPath || 
-				(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
-
-			if (!storagePath) {
-				vscode.window.showErrorMessage('No workspace path available');
-				return;
+			// Resolve the collection path using the provider
+			let collectionPath: string | undefined;
+			if (this._apiExplorerProvider) {
+				collectionPath = this._apiExplorerProvider.getCollectionPathById(collectionId);
 			}
 
-			// Sanitize the collection ID to ensure it's filesystem-safe
-			const sanitizedCollectionId = sanitizeForFileSystem(collectionId);
-			const collectionPath = path.join(storagePath, sanitizedCollectionId);
+			// Fallback: construct path from configuration if not found in provider
+			if (!collectionPath) {
+				const config = vscode.workspace.getConfiguration('api-tryit');
+				const configuredPath = config.get<string>('collectionsPath');
+				const storagePath = configuredPath || 
+					(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
+
+				if (!storagePath) {
+					vscode.window.showErrorMessage('No workspace path available');
+					return;
+				}
+
+				// Sanitize the collection ID to ensure it's filesystem-safe
+				const sanitizedCollectionId = sanitizeForFileSystem(collectionId);
+				collectionPath = path.join(storagePath, sanitizedCollectionId);
+			}
 
 			// Send event to state machine to create a new request in this collection
 			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionPath);
@@ -295,8 +303,6 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				}
 			};
 
-			// Ensure the state machine knows we're adding a request and has the collection path
-			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionPath);
 			// Also set the selected item so other components see the change
 			ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, emptyRequestItem, undefined);
 			// Post the request to the TryIt webview (queued if webview not ready)

@@ -29,6 +29,7 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	readonly onDidChangeTreeData: vscode.Event<ApiTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
 	private loadingPromise: Promise<void> | null = null;
 	private treeView?: vscode.TreeView<ApiTreeItem>;
+	private collectionPathMap: Map<string, string> = new Map();
 
 	constructor(private workspacePath?: string) {
 		this.loadingPromise = this.loadCollections();
@@ -233,13 +234,31 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 
 	private async loadCollections(): Promise<void> {
 		try {
+			const isDirectory = async (targetPath: string): Promise<boolean> => {
+				try {
+					const stats = await fs.stat(targetPath);
+					return stats.isDirectory();
+				} catch {
+					return false;
+				}
+			};
+
 			// Check for configured collections path first
 			const config = vscode.workspace.getConfiguration('api-tryit');
-			const configuredPath = config.get<string>('collectionsPath');
-			
-			// Use configured path, provided workspace path, or default to current workspace
-			const storagePath = configuredPath || this.workspacePath || 
-				(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
+			const configuredPath = config.get<string>('collectionsPath')?.trim();
+
+			let storagePath = '';
+			if (configuredPath) {
+				storagePath = configuredPath;
+			} else {
+				const workspaceRoot = this.workspacePath || (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
+				if (workspaceRoot) {
+					const workspaceApiTestPath = path.join(workspaceRoot, 'api-test');
+					storagePath = await isDirectory(workspaceApiTestPath)
+						? workspaceApiTestPath
+						: workspaceRoot;
+				}
+			}
 
 			if (!storagePath) {
 				// Show error notification if no workspace is available
@@ -255,6 +274,9 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				return !hasFilePath;
 			});
 
+			// Clear and rebuild the collectionPathMap for disk collections
+			const newPathMap = new Map<string, string>();
+
 			// Discover collections by reading directories
 			const entries = await fs.readdir(storagePath, { withFileTypes: true });
 			const diskCollections: ApiCollection[] = [];
@@ -267,12 +289,17 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						const collection = await this.loadCollection(collectionPath, entry.name);
 						if (collection) {
 							diskCollections.push(collection);
+							// Store the actual directory path for this collection ID
+							newPathMap.set(collection.id, collectionPath);
 						}
 					} catch (error) {
 						vscode.window.showErrorMessage(`Error loading collection ${entry.name}, ${error as string}`);
 					}
 				}
 			}
+
+			// Update the collectionPathMap with new disk collections
+			this.collectionPathMap = newPathMap;
 
 			// Combine in-memory collections with disk collections
 			// In-memory collections come first, then disk collections
@@ -290,6 +317,15 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	 */
 	public async reloadCollections(): Promise<void> {
 		await this.loadCollections();
+	}
+
+	/**
+	 * Get the actual filesystem path for a collection by its ID.
+	 * This resolves the ID to the real directory path, handling cases where
+	 * the collection ID differs from the directory name (e.g., imported collections).
+	 */
+	public getCollectionPathById(collectionId: string): string | undefined {
+		return this.collectionPathMap.get(collectionId);
 	}
 
 	/**

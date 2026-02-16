@@ -20,6 +20,7 @@ import { createMachine, assign, interpret } from 'xstate';
 import * as vscode from 'vscode';
 import { ApiRequestItem } from '@wso2/api-tryit-core';
 import { TryItPanel } from './webview-panel/TryItPanel';
+import * as path from 'path';
 
 // Event types for the state machine
 export const enum EVENT_TYPE {
@@ -101,7 +102,11 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                     target: 'itemSelected',
                     actions: assign({
                         selectedItem: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.data,
-                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data.filePath
+                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data.filePath,
+                        currentCollectionPath: (context: ApiTryItContext, event: ApiItemSelectedEvent) => {
+                            const selectedPath = event.filePath || event.data.filePath;
+                            return selectedPath ? path.dirname(selectedPath) : context.currentCollectionPath;
+                        }
                     })
                 },
                 ADD_REQUEST_TO_COLLECTION: {
@@ -134,7 +139,11 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                             const savedItem = context.savedItems.get(event.data.id);
                             return savedItem || event.data;
                         },
-                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data?.filePath
+                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data?.filePath,
+                        currentCollectionPath: (context: ApiTryItContext, event: ApiItemSelectedEvent) => {
+                            const selectedPath = event.filePath || event.data?.filePath;
+                            return selectedPath ? path.dirname(selectedPath) : context.currentCollectionPath;
+                        }
                     })
                 },
                 ADD_REQUEST_TO_COLLECTION: {
@@ -160,7 +169,11 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                             const savedItem = context.savedItems.get(event.data.id);
                             return savedItem || event.data;
                         },
-                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data?.filePath
+                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data?.filePath,
+                        currentCollectionPath: (context: ApiTryItContext, event: ApiItemSelectedEvent) => {
+                            const selectedPath = event.filePath || event.data?.filePath;
+                            return selectedPath ? path.dirname(selectedPath) : context.currentCollectionPath;
+                        }
                     })
                 },
                 REQUEST_UPDATED: {
