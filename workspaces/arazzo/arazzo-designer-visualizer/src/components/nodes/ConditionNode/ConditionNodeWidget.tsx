@@ -25,7 +25,7 @@ import { BranchIcon } from '../../../resources/icons/BranchIcon';
 import { ConditionNodeData } from './ConditionNodeModel';
 import * as C from '../../../constants/nodeConstants';
 
-const ConditionNodeContainer = styled.div`
+const ConditionNodeContainer = styled.div<{ selected?: boolean }>`
     width: ${DIAMOND_SIZE}px;
     height: ${DIAMOND_SIZE}px;
     box-sizing: border-box;
@@ -35,7 +35,7 @@ const ConditionNodeContainer = styled.div`
     justify-content: center;
     position: relative;
     background-color: ${ThemeColors.SURFACE_DIM};
-    border: 2px solid ${ThemeColors.OUTLINE_VARIANT};
+    border: ${C.NODE_BORDER_WIDTH}px solid ${(props: { selected?: boolean }) => (props.selected ? ThemeColors.SECONDARY : ThemeColors.OUTLINE_VARIANT)};
     border-radius: ${C.CONDITION_NODE_BORDER_RADIUS}px; /* rounded ends for diamond */
     box-shadow: 0 2px 6px rgba(0,0,0,0.12);
     transition: all 0.2s ease;
@@ -87,9 +87,9 @@ const StyledHandle = styled(Handle)`
     background: ${ThemeColors.OUTLINE_VARIANT};
 `;
 
-export const ConditionNodeWidget: React.FC<NodeProps<ConditionNodeData>> = ({ data, isConnectable }) => {
+export const ConditionNodeWidget: React.FC<NodeProps<ConditionNodeData>> = ({ data, isConnectable, selected }) => {
     return (
-        <ConditionNodeContainer>
+        <ConditionNodeContainer selected={selected}>
             <ConditionNodeContent>
                 <BranchIcon />
             </ConditionNodeContent>

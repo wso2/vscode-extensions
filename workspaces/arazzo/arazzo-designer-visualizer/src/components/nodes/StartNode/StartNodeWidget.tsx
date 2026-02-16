@@ -24,7 +24,7 @@ import { START_NODE_DIAMETER } from '../../../constants/nodeConstants';
 import * as C from '../../../constants/nodeConstants';
 import { StartNodeData } from './StartNodeModel';
 
-const StartNodeContainer = styled.div`
+const StartNodeContainer = styled.div<{ selected?: boolean }>`
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -36,7 +36,7 @@ const StartNodeContainer = styled.div`
     color: ${ThemeColors.ON_SURFACE};
     position: relative;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-    border: ${C.NODE_BORDER_WIDTH}px solid ${ThemeColors.OUTLINE_VARIANT};
+    border: ${C.NODE_BORDER_WIDTH}px solid ${(props: { selected?: boolean }) => (props.selected ? ThemeColors.SECONDARY : ThemeColors.OUTLINE_VARIANT)};
     transition: all 0.15s ease;
 
     &:hover {
@@ -79,7 +79,7 @@ const StyledHandle = styled(Handle)`
 /**
  * StartNodeWidget - React component for start nodes
  */
-export const StartNodeWidget: React.FC<NodeProps<StartNodeData>> = ({ data, isConnectable }) => {
+export const StartNodeWidget: React.FC<NodeProps<StartNodeData>> = ({ data, isConnectable, selected }) => {
     return (
         <StartNodeRoot>
             <StyledHandle
@@ -96,7 +96,7 @@ export const StartNodeWidget: React.FC<NodeProps<StartNodeData>> = ({ data, isCo
                 isConnectable={isConnectable}
             />
 
-            <StartNodeContainer>
+            <StartNodeContainer selected={selected}>
                 <StartNodeLabel>{data.label || 'Start'}</StartNodeLabel>
             </StartNodeContainer>
         </StartNodeRoot>
