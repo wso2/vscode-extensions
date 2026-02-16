@@ -165,6 +165,7 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             );
 
             // Generate bal.md from codemap
+            let balMdContent: string | undefined;
             try {
                 const langClient = StateMachine.langClient();
                 const projectPath = this.config.executionContext.projectPath;
@@ -197,9 +198,9 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 fs.writeFileSync(codeMapJsonPath, JSON.stringify(codeMap, null, 2), 'utf-8');
                 console.log(`[AgentExecutor] CodeMap JSON saved to: ${codeMapJsonPath}`);
 
-                const balMd = generateCodeMapMarkdown(codeMap);
+                balMdContent = generateCodeMapMarkdown(codeMap);
                 const balMdPath = path.join(projectPath, 'bal.md');
-                fs.writeFileSync(balMdPath, balMd, 'utf-8');
+                fs.writeFileSync(balMdPath, balMdContent, 'utf-8');
                 console.log(`[AgentExecutor] bal.md saved to: ${balMdPath}`);
             } catch (error) {
                 console.warn('[AgentExecutor] Failed to generate bal.md:', error);
@@ -227,7 +228,7 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             // 5. Build LLM messages with history
             const historyMessages = populateHistoryForAgent(chatHistory);
             const cacheOptions = await getProviderCacheControl();
-            const userMessageContent = getUserPrompt(params, tempProjectPath, projects);
+            const userMessageContent = getUserPrompt(params, tempProjectPath, projects, balMdContent);
 
             const allMessages: ModelMessage[] = [
                 {
@@ -414,7 +415,6 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                 break;
 
             default:
-                // Tool calls/results handled automatically by SDK
                 break;
         }
     }

@@ -21,6 +21,7 @@ import { TASK_WRITE_TOOL_NAME } from "./tools/task-writer";
 import { FILE_BATCH_EDIT_TOOL_NAME, FILE_SINGLE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from "./tools/text-editor";
 import { CONNECTOR_GENERATOR_TOOL } from "./tools/connector-generator";
 import { CONFIG_COLLECTOR_TOOL } from "./tools/config-collector";
+import { GREP_TOOL_NAME } from "./tools/grep";
 import { getLanglibInstructions } from "../utils/libs/langlibs";
 import { formatCodebaseStructure, formatCodeContext } from "./utils";
 import { GenerateAgentCodeRequest, OperationType, ProjectSource } from "@wso2/ballerina-core";
@@ -120,10 +121,10 @@ Create a very high-level and concise design plan for the given user requirement.
 Identify the libraries required to implement the user requirement. Use ${LIBRARY_SEARCH_TOOL} to discover relevant libraries, then use ${LIBRARY_GET_TOOL} to fetch their full details.
 
 ### Step 3: Write the code
-Write/modify the Ballerina code to implement the user requirement. Use the ${FILE_BATCH_EDIT_TOOL_NAME}, ${FILE_SINGLE_EDIT_TOOL_NAME}, ${FILE_WRITE_TOOL_NAME} tools to write/modify the code. 
+Write/modify the Ballerina code to implement the user requirement. Use the ${FILE_BATCH_EDIT_TOOL_NAME}, ${FILE_SINGLE_EDIT_TOOL_NAME}, ${FILE_WRITE_TOOL_NAME} tools to write/modify the code.
 
 ### Step 4: Validate the code
-Once the task is done, Always use ${DIAGNOSTICS_TOOL_NAME} tool to check for compilation errors and fix them. 
+Once the task is done, Always use ${DIAGNOSTICS_TOOL_NAME} tool to check for compilation errors and fix them.
 You can use this tool multiple times after making changes to ensure there are no compilation errors.
 If you think you can't fix the error after multiple attempts, make sure to keep bring the code into a good state and finish off the task.
 
@@ -177,6 +178,20 @@ ${getLanglibInstructions()}
 - Mention types EXPLICITLY in variable declarations and foreach statements.
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
+# Understanding the Codebase
+You will receive a **Project CodeMap** (bal.md) that provides a high-level summary of the project structure, including file paths, imports, types, functions, variables, services, and their descriptions.
+This CodeMap gives you an overview of the project WITHOUT the full source code.
+
+**When you need to modify existing code:**
+- First, analyze the CodeMap to understand the project structure and identify the relevant files, functions, types, etc.
+- Then, use the ${GREP_TOOL_NAME} tool to search for and read the actual source code before making changes.
+- Use ${GREP_TOOL_NAME} with output_mode "content" and appropriate context lines to read the actual implementation.
+- NEVER guess or assume the content of existing code. Always use ${GREP_TOOL_NAME} to verify the actual code before writing edits.
+
+**When creating new code:**
+- Use the CodeMap to understand existing types, functions, and patterns in the project.
+- Ensure new code is consistent with the existing project structure and conventions.
+
 # File modifications
 - You must apply changes to the existing source code using the provided ${[
         FILE_BATCH_EDIT_TOOL_NAME,
@@ -184,7 +199,7 @@ ${getLanglibInstructions()}
         FILE_WRITE_TOOL_NAME,
     ].join(
         ", "
-    )} tools. The complete existing source code will be provided in the <existing_code> section of the user prompt.
+    )} tools.
 - When making replacements inside an existing file, provide the **exact old string** and the **exact new string** with all newlines, spaces, and indentation, being mindful to replace nearby occurrences together to minimize the number of tool calls.
 - Do NOT create a new markdown file to document each change or summarize your work unless specifically requested by the user.
 - Do not manually add/modify toml files (Ballerina.toml/Dependencies.toml). For Config.toml configuration management, use ${CONFIG_COLLECTOR_TOOL}.
@@ -199,14 +214,25 @@ ${getNPSuffix(projects, op)}
  * @param params Generation request parameters containing usecase, plan mode, code context, and file attachments
  * @param tempProjectPath Path to temp project
  * @param projects Project source information
+ * @param balMd Optional bal.md code map content. When provided, this is sent instead of the full codebase source.
  */
-export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath: string, projects: ProjectSource[]) {
+export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath: string, projects: ProjectSource[], balMd?: string) {
     const content = [];
 
-    content.push({
-        type: 'text' as const,
-        text: formatCodebaseStructure(projects)
-    });
+    if (balMd) {
+        content.push({
+            type: 'text' as const,
+            text: `<project_codemap>
+${balMd}
+</project_codemap>
+This is a high-level summary of the project codebase. Use the ${GREP_TOOL_NAME} tool to read actual source code when you need to understand or modify existing implementations.`
+        });
+    } else {
+        content.push({
+            type: 'text' as const,
+            text: formatCodebaseStructure(projects)
+        });
+    }
 
     // Add code context if available
     if (params.codeContext) {
