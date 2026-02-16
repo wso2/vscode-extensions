@@ -181,6 +181,9 @@ export function WorkflowView(props: WorkflowViewProps) {
                 const workflow = arazzoDefinition.workflows?.find(wf => wf.workflowId === targetWorkflowId);
                 console.log('Found workflow:', workflow);
                 if (workflow) {
+                    // Keep workflow in state for Start node rendering
+                    setWorkflow(workflow);
+
                     // Clear existing graph
                     setNodes([]);
                     setEdges([]);
@@ -239,8 +242,8 @@ export function WorkflowView(props: WorkflowViewProps) {
         console.log('Node clicked:', node);
         event.stopPropagation();
 
-        // Only open properties panel for workflow STEP and CONDITION nodes
-        const allowedTypes = ['stepNode', 'conditionNode'];
+        // Only open properties panel for workflow STEP, CONDITION and START nodes
+        const allowedTypes = ['stepNode', 'conditionNode', 'startNode'];
         if (!allowedTypes.includes(node.type)) {
             // If panel is open for a non-allowed node, close it
             setIsPanelOpen(false);
@@ -263,7 +266,12 @@ export function WorkflowView(props: WorkflowViewProps) {
     }, []);
 
     const onPaneClick = useCallback(() => {
-        reactFlowWrapper.current?.focus();
+        // Close panel when canvas is clicked; otherwise focus canvas
+        if (isPanelOpen) {
+            handleClosePanel();
+        } else {
+            reactFlowWrapper.current?.focus();
+        }
     }, [isPanelOpen, handleClosePanel]);
 
     const proOptions = { hideAttribution: true };
@@ -401,8 +409,8 @@ export function WorkflowView(props: WorkflowViewProps) {
                         <Codicon name="close" />
                     </StyledButton>
                 </SidePanelTitleContainer>
-                <SidePanelBody>
-                    <NodePropertiesPanel node={selectedNode} />
+                <SidePanelBody onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                    <NodePropertiesPanel node={selectedNode} workflow={workflow} />
                 </SidePanelBody>
             </SidePanel>
         </div>
