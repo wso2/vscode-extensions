@@ -95,6 +95,13 @@ function getColorForUser(userId: string): string {
 export function RemoteCursors() {
     const { remoteCursors, currentUserId, isCollaborationActive } = useDiagramContext();
 
+    console.log('[RemoteCursors] Render check:', {
+        isCollaborationActive,
+        remoteCursorsSize: remoteCursors?.size ?? 0,
+        currentUserId,
+        hasRemoteCursors: !!remoteCursors,
+    });
+
     if (!isCollaborationActive || !remoteCursors || remoteCursors.size === 0) {
         return null;
     }
@@ -106,6 +113,8 @@ export function RemoteCursors() {
             cursors.push(presence);
         }
     });
+
+    console.log('[RemoteCursors] Filtered cursors to render:', cursors.length, cursors);
 
     if (cursors.length === 0) {
         return null;

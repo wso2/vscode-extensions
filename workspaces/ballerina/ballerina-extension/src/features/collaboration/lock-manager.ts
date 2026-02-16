@@ -20,6 +20,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import type { ProtocolBroadcastConnection } from 'open-collaboration-protocol';
 import { getUsername } from '../../utils/bi';
+import { StateMachine } from '../../../src/stateMachine';
 
 /**
  * Normalize file path for collaboration protocol
@@ -655,8 +656,6 @@ export class CollaborationLockManager {
             return;
         }
         
-        // Wait a bit if octApi is being initialized (avoid race condition)
-        // The RPC handler sets octApi shortly after getInstance() is called
         if (!this.octApi && Date.now() - this.constructorTimestamp < 2000) {
             console.log('[Collaboration] Waiting for OCT API initialization...');
             return;
@@ -667,7 +666,6 @@ export class CollaborationLockManager {
         const activeInstance = await this.getActiveCollaborationInstance();
 
         if (activeInstance && this.collaborationInstance !== activeInstance) {
-            console.log('[Collaboration] Attaching to collaboration instance');
             this.collaborationInitInFlight = this.attachToCollaborationInstance(activeInstance)
                 .catch(error => {
                     console.error('[Collaboration] Failed to attach to OCT session:', error);
@@ -927,8 +925,8 @@ export class CollaborationLockManager {
     ): Promise<{ success: boolean }> {
         const finalUserId = userId || this.currentUserId;
         const normalizedPath = this.normalizeFilePath(filePath);
-
-        console.log(`[Collaboration] Releasing lock for ${nodeId} at ${filePath}`);
+        const ctx = StateMachine.context();
+        console.log(`[Collaboration] Releasing lock for ${nodeId} at ${filePath}`, ctx);
         console.log(`[Collaboration] Normalized path: ${normalizedPath}`);
 
         // If collaboration is active but not yet attached, wait for initialization

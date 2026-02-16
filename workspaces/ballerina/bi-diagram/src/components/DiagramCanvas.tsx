@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React from "react";
+import React, { useCallback } from "react";
 import { css, Global } from "@emotion/react";
 import styled from "@emotion/styled";
 import "../resources/assets/font/fonts.css";
@@ -59,7 +59,18 @@ export namespace DiagramStyles {
 
 export function DiagramCanvas(props: DiagramCanvasProps) {
     const { color, background, children } = props;
-    const { lockCanvas } = useDiagramContext();
+    const { lockCanvas, onCursorMove, isCollaborationActive } = useDiagramContext();
+
+    const handleMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+        if (onCursorMove && isCollaborationActive) {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            console.log('[DiagramCanvas] Mouse move:', { x, y });
+            onCursorMove(x, y);
+        }
+    }, [onCursorMove, isCollaborationActive]);
 
     return (
         <>
@@ -70,6 +81,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 background={background || ThemeColors.SURFACE_BRIGHT}
                 color={color || ThemeColors.ON_SURFACE}
                 locked={lockCanvas}
+                onMouseMove={handleMouseMove}
             >
                 {children}
             </DiagramStyles.Container>

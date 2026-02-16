@@ -21,7 +21,7 @@ import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import styled from "@emotion/styled";
 import { debounce, throttle } from "lodash";
 import { removeMcpServerFromAgentNode, findAgentNodeFromAgentCallNode, findFlowNode } from "../AIChatAgent/utils";
-import { MemoizedDiagram } from "@wso2/bi-diagram";
+import { MemoizedDiagram, RemoteCursors } from "@wso2/bi-diagram";
 import {
     BIAvailableNodesRequest,
     Flow,
@@ -229,7 +229,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 setIsUserAuthenticated(isAuth);
                 
                 // Generate a unique session-based ID that distinguishes between VS Code instances
-                // This ensures that even on the same laptop, host and guest have different IDs
                 const sessionId = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
                 
                 // Get system username for display purposes
@@ -326,9 +325,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             // Silently fail - cursor updates are optional
             console.log('[Collaboration] Cursor subscription not available');
         }
-
-        // Subscribe to OCT collaboration notifications
-        // These notifications are broadcast when other users update their cursor/selection
         let unsubscribeOctSelection: (() => void) | undefined;
         let unsubscribeOctPresence: (() => void) | undefined;
 
@@ -348,18 +344,30 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             unsubscribeOctPresence = rpcClient.onOctRerenderPresence((data: CollaborationPresenceData) => {
                 console.log(`[OCT Webview] Received presence update:`, data);
                 
+                // Skip updating cursors for the current user
+                if (data.peerId === currentUserId) {
+                    console.log('[OCT Webview] Skipping own cursor update');
+                    return;
+                }
+                
                 // Update remote cursors
                 if (data.cursor) {
                     setRemoteCursors((prev) => {
                         const updated = new Map(prev);
                         updated.set(data.peerId, {
-                            x: data.cursor.x,
-                            y: data.cursor.y,
-                            nodeId: data.cursor.nodeId,
-                            userName: data.peerName,
-                            color: data.color,
-                            timestamp: data.cursor.timestamp,
+                            user: {
+                                id: data.peerId,
+                                name: data.peerName,
+                                color: data.color,
+                            },
+                            cursor: {
+                                x: data.cursor.x,
+                                y: data.cursor.y,
+                                nodeId: data.cursor.nodeId,
+                                timestamp: data.cursor.timestamp,
+                            },
                         });
+                        console.log(`[OCT Webview] Updated remote cursors, total: ${updated.size}`, Array.from(updated.entries()));
                         return updated;
                     });
                 }
@@ -1121,17 +1129,17 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
     };
 
+
     const updateCursorPosition = useMemo(() =>
         throttle((x: number, y: number, nodeId?: string) => {
-            if (!model?.fileName || !isCollaborationActive) return;
+            console.log('[FlowDiagram] updateCursorPosition called:', { x, y, nodeId, isCollaborationActive, fileName: model?.fileName });
             
-            // Send to backend for diagram-specific features
-            (rpcClient.getBIDiagramRpcClient() as any).updateDiagramCursor({
-                filePath: model.fileName,
-                x,
-                y,
-                nodeId,
-            });
+            if (!model?.fileName || !isCollaborationActive) {
+                console.log('[FlowDiagram] Skipping cursor update - not active or no fileName');
+                return;
+            }
+            
+            console.log('[FlowDiagram] Sending cursor position via OCT');
         
             try {
                 const presenceData: CollaborationPresenceData = {
@@ -1157,12 +1165,13 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                         })),
                 };
                 
+                console.log('[FlowDiagram] Sending presence data:', presenceData);
                 rpcClient.sendRequest(updateWebviewCollaborationPresence, presenceData);
             } catch (error) {
                 console.log('[OCT] Failed to send presence update:', error);
             }
         }, 100), 
-        [model?.fileName, isCollaborationActive, currentUserId, currentUserName, nodeLocks]
+        [model?.fileName, isCollaborationActive, currentUserId, currentUserName, nodeLocks, rpcClient]
     );
     
     // Send selection updates when nodes are selected
@@ -1233,16 +1242,14 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             
             if (alreadyLockedByCurrentUser) {
                 // Lock already acquired - clicking on existing draft node
-                // Skip lock acquisition and draft creation, proceed directly to showing side panel
+                // Still need to ensure draft state is set for description to show
                 console.log('[Lock Frontend] Lock already held by current user, skipping acquisition');
+                if (!hasDraft) {
+                    const modelWithDraft = addDraftNode(parent, target);
+                    setModel(modelWithDraft);
+                }
             } else {
-                // Need to acquire lock for new position
-                console.log(`[Lock Frontend] Attempting to acquire lock for position key: ${positionLockKey}`);
-                
-                // Try to acquire lock - backend handles all logic and broadcasts updates
                 const lockResult = await acquireNodeLock(positionLockKey);
-                
-                console.log(`[Lock Frontend] Lock acquisition result:`, lockResult);
                 
                 if (!lockResult.success) {
                     // Lock acquisition failed - clean up and don't show side panel
@@ -1263,7 +1270,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 
                 // Now that lock is acquired, add draft node and update model
                 const modelWithDraft = addDraftNode(parent, target);
-                // Lock info will be added to model automatically via the nodeLocks state subscription
                 setModel(modelWithDraft);
             }
         }
@@ -1317,11 +1323,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     };
 
     const handleOnAddNode = (parent: FlowNode | Branch, target: LineRange) => {
-        console.log(`[Lock Frontend] handleOnAddNode called`, {
-            hasTopNodeRef: !!topNodeRef.current,
-            hasTargetRef: !!targetRef.current,
-            willReturnEarly: !!(topNodeRef.current || targetRef.current)
-        });
         
         // clear previous selections if had
         if (topNodeRef.current || targetRef.current) {
@@ -1992,7 +1993,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             });
     };
 
-    const handleOnEditNode = (node: FlowNode) => {
+    const handleOnEditNode = async (node: FlowNode) => {
         // Check if node is locked by another user
         if (isNodeLockedByOther(node, currentUserId)) {
             // Show warning and block selection
@@ -2016,10 +2017,27 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             return;
         }
 
-        // Acquire lock for this node
-        acquireNodeLock(node.id);
-
+        // Acquire lock for this node before proceeding
         setShowProgressIndicator(true);
+        const lockResult = await acquireNodeLock(node.id);
+        
+        if (!lockResult.success) {
+            // Lock acquisition failed - clean up and show error
+            console.error('[Lock Frontend] Cannot edit node - node is locked:', lockResult.error);
+            setShowProgressIndicator(false);
+            setSelectedNodeId(undefined);
+            selectedNodeRef.current = undefined;
+            topNodeRef.current = undefined;
+            targetRef.current = undefined;
+            setTargetLineRange(undefined);
+            
+            rpcClient.getCommonRpcClient().showErrorMessage({
+                message: `Cannot edit this node - ${lockResult.error || 'it is locked by another user'}. Please wait until they finish editing.`
+            });
+            return;
+        }
+
+        console.log('[Lock Frontend] Node lock acquired, proceeding to load form');
         rpcClient
             .getBIDiagramRpcClient()
             .getNodeTemplate({
@@ -2891,6 +2909,8 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             showProgressSpinner,
             showProgressIndicator,
             hasDraft,
+            isDraftProcessing,
+            draftDescription,
             selectedNodeId,
             rpcClient,
             isUserAuthenticated,
@@ -2902,6 +2922,17 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         ]
     );
 
+    // Debug log for cursor rendering
+    useEffect(() => {
+        if (isCollaborationActive && remoteCursors.size > 0) {
+            console.log(`[FlowDiagram] Remote cursors available for rendering:`, {
+                count: remoteCursors.size,
+                currentUserId,
+                cursors: Array.from(remoteCursors.entries()),
+            });
+        }
+    }, [remoteCursors, currentUserId, isCollaborationActive]);
+
     return (
         <PanelOverlayProvider>
             <View>
@@ -2910,7 +2941,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 )}
                 <Container>
                     {!model && <DiagramSkeleton />}
-                    {model && <MemoizedDiagram {...memoizedDiagramProps} />}
+                    {model && (
+                        <>
+                            <MemoizedDiagram {...memoizedDiagramProps} />
+                            <RemoteCursors />
+                        </>
+                    )}
                 </Container>
             </View>
 

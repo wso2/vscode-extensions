@@ -28,12 +28,12 @@
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension",
                 "--extensionDevelopmentPath=${workspaceFolder}/workspaces/bi/bi-extension",
-                "--extensionDevelopmentPath=C:\\Users\\LENOVO\\Documents\\GitHub\\open-collaboration-tools\\packages\\open-collaboration-vscode"
+                "--extensionDevelopmentPath=/Users/vinuka/projects/open-collaboration-tools/packages/open-collaboration-vscode"
             ],
             "env": {
                 "LS_EXTENSIONS_PATH": "",
                 "LSDEBUG": "false",
-                "WEB_VIEW_WATCH_MODE": "false",
+                "WEB_VIEW_WATCH_MODE": "true",
                 "WEB_VIEW_DEV_HOST": "http://localhost:9000",
                 "BALLERINA_STAGE_CENTRAL": "false",
                 "TRACE_WEB_VIEW_DEV_HOST": "http://localhost:9001"
@@ -41,7 +41,7 @@
             "outFiles": [
                 "${workspaceFolder}/workspaces/ballerina/ballerina-extension/dist/**/*.js",
                 "${workspaceFolder}/workspaces/bi/bi-extension/out/**/*.js",
-                "C:\\Users\\LENOVO\\Documents\\GitHub\\open-collaboration-tools\\packages\\open-collaboration-vscode\\dist\\**\\.js"
+                "/Users/vinuka/projects/open-collaboration-tools/packages/open-collaboration-vscode/dist/**/*.js"
             ],
             "preLaunchTask": "watch-all",
             "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
