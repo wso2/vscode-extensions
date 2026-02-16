@@ -165,15 +165,7 @@ export function NodePropertiesPanel({ node, workflow }: NodePropertiesPanelProps
     const nodeData = node.data || {};
     const { label, iconClass, ...stepData } = nodeData;
     const { width, height, ...semanticStepData } = stepData;
-    // If there are no meaningful step properties to display (ignoring layout-only fields),
-    // show a friendly empty state instead of rendering a blank panel.
-    if (Object.keys(semanticStepData).length === 0) {
-        return (
-            <Container>
-                <EmptyState>No step data available.</EmptyState>
-            </Container>
-        );
-    }
+    
 
     const toggleSection = (sectionId: string) => {
         const newExpanded = new Set(expandedSections);
