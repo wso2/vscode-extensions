@@ -25,7 +25,7 @@ import { promisify } from 'util';
 import { getWebview } from './webview';
 
 const dataFolder = path.join(__dirname, '..', 'data');
-const extensionsFolder = path.join(__dirname, '..', '..', '..', '..', '..', 'vsix');
+export const extensionsFolder = path.join(__dirname, '..', '..', '..', '..', '..', 'vsix');
 const vscodeVersion = 'latest';
 export const resourcesFolder = path.join(__dirname, '..', '..', '..', 'test-resources');
 export const newProjectPath = path.join(dataFolder, 'new-project', 'testProject');
@@ -122,12 +122,14 @@ export async function setupBallerinaIntegrator() {
     }
 }
 
+export const DEFAULT_PROJECT_NAME = 'sample';
+
 export async function createProject(page: ExtendedPage, projectName?: string) {
     console.log('Creating new project');
-    
+
     // Execute bal pull command before project creation
     await executeBallPullCommand();
-    
+
     await setupBallerinaIntegrator();
     const webview = await getWebview('WSO2 Integrator: BI', page);
     if (!webview) {
@@ -139,10 +141,10 @@ export async function createProject(page: ExtendedPage, projectName?: string) {
         values: {
             'Integration Name*': {
                 type: 'input',
-                value: projectName ?? 'sample',
+                value: projectName ?? DEFAULT_PROJECT_NAME,
             },
             'Select Path': {
-                type: 'file',
+                type: 'directory',
                 value: newProjectPath
             }
         }
@@ -156,7 +158,7 @@ export async function createProject(page: ExtendedPage, projectName?: string) {
     await integrationName.waitFor({ timeout: 200000 });
 }
 
-export function initTest(newProject: boolean = false, skipProjectCreation: boolean = false, cleanupAfter?: boolean, projectName?: string) {
+export function initTest(newProject: boolean = true, skipProjectCreation: boolean = false, cleanupAfter?: boolean, projectName?: string) {
     test.beforeAll(async ({ }, testInfo) => {
         console.log(`\n▶️  STARTING TEST: ${testInfo.title} (Attempt ${testInfo.retry + 1})`);
         if (!existsSync(path.join(newProjectPath, projectName ?? 'sample')) || newProject) {

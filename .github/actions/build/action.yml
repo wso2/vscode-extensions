@@ -45,34 +45,32 @@ inputs:
     type: string
     required: false
   BALLERINA_AUTH_ORG:
-    default: true
     type: string
   BALLERINA_AUTH_CLIENT_ID:
-    default: true
     type: string
+  BALLERINA_DEV_COPLIOT_ROOT_URL:
+    type: string
+  BALLERINA_DEV_COPLIOT_AUTH_ORG:
+    type: string
+  BALLERINA_DEV_COPLIOT_AUTH_CLIENT_ID:
+    type: string
+  BALLERINA_DEV_COPLIOT_AUTH_REDIRECT_URL:
+    type: string        
   MI_AUTH_ORG:
-    default: true
     type: string
   MI_AUTH_CLIENT_ID:
-    default: true
     type: string
   PLATFORM_DEFAULT_GHAPP_CLIENT_ID:
-    default: true
     type: string
   PLATFORM_DEFAULT_DEVANT_ASGARDEO_CLIENT_ID:
-    default: true
     type: string
   PLATFORM_STAGE_GHAPP_CLIENT_ID:
-    default: true
     type: string
   PLATFORM_STAGE_DEVANT_ASGARDEO_CLIENT_ID:
-    default: true
     type: string
   PLATFORM_DEV_GHAPP_CLIENT_ID:
-    default: true
     type: string
   PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID:
-    default: true
     type: string
 
 runs:
@@ -167,6 +165,10 @@ runs:
         isPreRelease: ${{ inputs.isPreRelease == 'true' }}
         BALLERINA_AUTH_ORG: ${{ inputs.BALLERINA_AUTH_ORG }}
         BALLERINA_AUTH_CLIENT_ID: ${{ inputs.BALLERINA_AUTH_CLIENT_ID }}
+        BALLERINA_DEV_COPLIOT_ROOT_URL: ${{ inputs.BALLERINA_DEV_COPLIOT_ROOT_URL }}
+        BALLERINA_DEV_COPLIOT_AUTH_ORG: ${{ inputs.BALLERINA_DEV_COPLIOT_AUTH_ORG }}
+        BALLERINA_DEV_COPLIOT_AUTH_CLIENT_ID: ${{ inputs.BALLERINA_DEV_COPLIOT_AUTH_CLIENT_ID }}
+        BALLERINA_DEV_COPLIOT_AUTH_REDIRECT_URL: ${{ inputs.BALLERINA_DEV_COPLIOT_AUTH_REDIRECT_URL }}
         MI_AUTH_ORG: ${{ inputs.MI_AUTH_ORG }}
         MI_AUTH_CLIENT_ID: ${{ inputs.MI_AUTH_CLIENT_ID }}
         PLATFORM_DEFAULT_GHAPP_CLIENT_ID: ${{ inputs.PLATFORM_DEFAULT_GHAPP_CLIENT_ID }}
