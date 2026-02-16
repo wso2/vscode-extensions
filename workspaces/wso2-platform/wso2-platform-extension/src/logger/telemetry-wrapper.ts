@@ -33,17 +33,19 @@ export class TelemetryWrapper implements IChildLogger {
 	}
 	public fatal(msg: string, ...args: any[]): void {
 		this.logger.fatal(msg, args);
-		this.reporter.sendTelemetryErrorEvent("vscode-error-occurred", {
-			message: msg,
-		});
+		// TODO: Enable once when the language server telemetry complete
+		// this.reporter.sendTelemetryErrorEvent("vscode-error-occurred", {
+		// 	message: msg,
+		// });
 	}
 
 	public error(message: string, error?: Error): void {
 		this.logger.error(message, error);
-		this.reporter.sendDangerousTelemetryErrorEvent("vscode-error-occurred", {
-			message: message,
-			error: error ? error.toString() : "",
-		});
+		// TODO: Enable once when the language server telemetry complete
+		// this.reporter.sendDangerousTelemetryErrorEvent("vscode-error-occurred", {
+		// 	message: message,
+		// 	error: error ? error.toString() : "",
+		// });
 	}
 
 	public warn(message: string, error?: Error): void {

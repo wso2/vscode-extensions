@@ -28,7 +28,8 @@ module.exports = {
               "fs": false,
               "child_process": false,
             },
-        fallback: { 'process/browser': require.resolve('process/browser'), }
+        fallback: { 'process/browser': require.resolve('process/browser'), },
+        fullySpecified: false
     },
     module: {
         rules: [
@@ -36,6 +37,12 @@ module.exports = {
                 test: /\.(ts|tsx)$/,
                 loader: "ts-loader",
                 exclude: '/node_modules/',
+            },
+            {
+                test: /\.m?js$/,
+                resolve: {
+                    fullySpecified: false
+                }
             },
             {
                 enforce: "pre",
