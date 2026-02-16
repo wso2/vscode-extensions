@@ -46,6 +46,9 @@ module.exports = {
         if (pkg.dependencies['lodash']) {
           pkg.dependencies['lodash'] = '4.17.23';
         }
+        if (pkg.dependencies['qs']) {
+          pkg.dependencies['qs'] = '6.14.2';
+        }
       }
 
       if (pkg.devDependencies) {
@@ -78,6 +81,9 @@ module.exports = {
         }
         if (pkg.devDependencies['lodash']) {
           pkg.devDependencies['lodash'] = '4.17.23';
+        }
+        if (pkg.devDependencies['qs']) {
+          pkg.devDependencies['qs'] = '6.14.2';
         }
       }
 
