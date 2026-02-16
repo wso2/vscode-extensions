@@ -113,7 +113,13 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				case 'addRequestToCollection':
 					// Handle adding a request to a collection
 					this._handleAddRequestToCollection(message.collectionId as string);
-					break;			
+					break;
+
+				case 'addFolderToCollection':
+					// Handle creating a new folder inside a collection
+					this._handleAddFolderToCollection(message.collectionId as string);
+					break;
+
 				case 'addRequestToFolder':
 					// Handle adding a request to a folder
 					this._handleAddRequestToFolder(message.folderId as string, message.folderPath as string);
@@ -334,6 +340,85 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			vscode.window.showInformationMessage(`Add request to "${collectionName}" collection`);
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to add request: ${error}`);
+		}
+	}
+
+	private async _handleAddFolderToCollection(collectionId: string) {
+		try {
+			if (!this._apiExplorerProvider) {
+				vscode.window.showErrorMessage('API Explorer provider not available');
+				return;
+			}
+
+			// Find the collection
+			const allCollections = await this._apiExplorerProvider.getCollections();
+			const collection = this._findCollectionById(allCollections, collectionId);
+
+			if (!collection) {
+				vscode.window.showErrorMessage('Collection not found');
+				return;
+			}
+
+			// Resolve collection path
+			let collectionPath: string | undefined;
+			if (this._apiExplorerProvider) {
+				collectionPath = this._apiExplorerProvider.getCollectionPathById(collectionId);
+			}
+
+			// Fallback to configured storage path
+			if (!collectionPath) {
+				const config = vscode.workspace.getConfiguration('api-tryit');
+				const configuredPath = config.get<string>('collectionsPath');
+				const storagePath = configuredPath || (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
+
+				if (!storagePath) {
+					vscode.window.showErrorMessage('No workspace path available');
+					return;
+				}
+
+				const sanitizedCollectionId = sanitizeForFileSystem(collectionId);
+				collectionPath = path.join(storagePath, sanitizedCollectionId);
+			}
+
+			// Ask user for folder name
+			const folderName = await vscode.window.showInputBox({
+				prompt: 'Enter folder name',
+				value: 'New Folder',
+				validateInput: (v: string) => v && v.trim() ? undefined : 'Folder name cannot be empty'
+			});
+
+			if (!folderName) {
+				return;
+			}
+
+			const fs = await import('fs/promises');
+			const sanitized = sanitizeForFileSystem(folderName);
+			const newFolderPath = path.join(collectionPath, sanitized);
+
+			try {
+				// Fail if already exists
+				await fs.stat(newFolderPath);
+				vscode.window.showErrorMessage('Folder already exists');
+				return;
+			} catch (err) {
+				// expected - folder does not exist
+			}
+
+			try {
+				await fs.mkdir(newFolderPath);
+				vscode.window.showInformationMessage(`Folder "${folderName}" created`);
+			} catch (error) {
+				vscode.window.showErrorMessage(`Failed to create folder: ${error}`);
+				return;
+			}
+
+			// Reload collections and refresh UI
+			if (this._apiExplorerProvider) {
+				await this._apiExplorerProvider.reloadCollections();
+			}
+			this._sendCollections(true);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to create folder: ${error}`);
 		}
 	}
 

@@ -363,6 +363,8 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 
 const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: string; contextMenu?: { x: number; y: number; collectionId: string } | null; setContextMenu?: (menu: { x: number; y: number; collectionId: string } | null) => void }> = ({ item, selectedId, onSelect, renderTreeItem, isExpanded, onToggle, vscode, collectionId, contextMenu, setContextMenu }) => {
 
+	const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
+
 	const handleSelect = useCallback(() => {
 		onSelect(item.id);
 	}, [onSelect, item.id]);
@@ -382,10 +384,31 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 				collectionId: item.id
 			});
 		}
+		setAddMenu(null);
 		if (setContextMenu) {
 			setContextMenu(null);
 		}
 	}, [vscode, item.id, setContextMenu]);
+
+	const handleAddFolder = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'addFolderToCollection',
+				collectionId: item.id
+			});
+		}
+		setAddMenu(null);
+		if (setContextMenu) {
+			setContextMenu(null);
+		}
+	}, [vscode, item.id, setContextMenu]);
+
+	useEffect(() => {
+		if (!addMenu) return;
+		const handleOutside = () => setAddMenu(null);
+		document.addEventListener('click', handleOutside);
+		return () => document.removeEventListener('click', handleOutside);
+	}, [addMenu]);
 
 	const handleDeleteCollection = useCallback(() => {
 		if (vscode) {
@@ -425,17 +448,43 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 				<Codicon name="library" sx={{ marginRight: 8 }} />
 				<span>{item.name}</span>
 				<AddButton
-					title={`Add request to ${item.name}`}
-					aria-label={`Add request to ${item.name}`}
+					title={`Add to ${item.name}`}
+					aria-label={`Add to ${item.name}`}
 					onClick={(e: React.MouseEvent) => {
 						e.stopPropagation();
 						e.preventDefault();
-						handleAddRequest();
+						// flip the menu to the left if there's insufficient space on the right
+						const MENU_WIDTH = 200; // >= ContextMenu min-width
+						const MENU_HEIGHT = 140;
+						const PAD = 8;
+						const clickX = e.clientX;
+						const clickY = e.clientY;
+						let x = clickX;
+						let y = clickY;
+						if (window.innerWidth - clickX < MENU_WIDTH + PAD) {
+							x = Math.max(PAD, clickX - MENU_WIDTH);
+						}
+						if (window.innerHeight - clickY < MENU_HEIGHT + PAD) {
+							y = Math.max(PAD, clickY - MENU_HEIGHT);
+						}
+						setAddMenu({ x, y });
 					}}
 				>
 					<Codicon name="plus" />
 				</AddButton>
 			</CollectionHeader>
+			{addMenu && (
+				<ContextMenu x={addMenu.x} y={addMenu.y} visible={true}>
+					<ContextMenuItem onClick={() => { handleAddRequest(); }}>
+						<Codicon name="file-add" sx={{ marginRight: 8 }} />
+						Add Request
+					</ContextMenuItem>
+					<ContextMenuItem onClick={() => { handleAddFolder(); }}>
+						<Codicon name="folder" sx={{ marginRight: 8 }} />
+						Add Folder
+					</ContextMenuItem>
+				</ContextMenu>
+			)}
 			{contextMenu && contextMenu.collectionId === item.id && (
 				<ContextMenu x={contextMenu.x} y={contextMenu.y} visible={true}>
 					<ContextMenuItem onClick={handleAddRequest}>
