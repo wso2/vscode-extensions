@@ -99,7 +99,7 @@ function createDynamicZodSchema(
                         }));
                     } else {
                         // Array of generic objects
-                        fieldSchema = z.array(z.record(z.any()));
+                        fieldSchema = z.array(z.record(z.string(), z.any()));
                     }
                 } else if (typeof firstElement === 'string') {
                     fieldSchema = z.array(z.string());
@@ -124,7 +124,7 @@ function createDynamicZodSchema(
                 });
             } else {
                 // Generic object - try to infer structure
-                fieldSchema = z.record(z.any());
+                fieldSchema = z.record(z.string(), z.any());
             }
         } else {
             // Default to any for unknown types
