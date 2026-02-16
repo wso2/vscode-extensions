@@ -107,25 +107,6 @@
             "properties": {
               "type": "local"
             }
-          },
-          {
-            "type": "mi",
-            "name": "MI: Remote Server Run and Debug",
-            "request": "launch",
-            "internalConsoleOptions": "openOnSessionStart",
-            "vmArgs": [],
-            "properties": {
-              "type": "remote",
-              "commandPort": 9005,
-              "eventPort": 9006,
-              "serverHost": "localhost",
-              "serverPort": 8290,
-              "serverReadinessPort": 9201,
-              "managementPort": 9164,
-              "managementUsername": "admin",
-              "managementPassword": "admin",
-              "connectionTimeoutInSecs": 10
-            }
           }
         ]
       }
