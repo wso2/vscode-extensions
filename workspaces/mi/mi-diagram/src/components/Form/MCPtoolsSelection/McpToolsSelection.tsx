@@ -541,7 +541,7 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
                                 title="Expand view"
                                 aria-label="Expand tools selection"
                             >
-                                <Icon name="bi-expand-modal" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', width: 18, height: 18, fontSize: 18 }} />
+                                <Codicon name="screen-full" sx={{ marginRight: '4px', marginBottom: '2px' }} iconSx={{ width: 18, height: 18, fontSize: 18 }} />
                             </ExpandButton>
                             <Button
                                 onClick={handleSelectAll}
@@ -571,7 +571,7 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
                                     disabled={loading}
                                     appearance="secondary"
                                 >
-                                    <Icon name="bi-retry" sx={{ marginRight: '6px', width: 16, height: 16, fontSize: 16 }} />
+                                    <Codicon name="refresh" sx={{ marginRight: '6px' }} iconSx={{ width: 18, height: 18, fontSize: 18 }} />
                                     Retry
                                 </Button>
                             </div>
