@@ -18,37 +18,27 @@
 
 /**
  * Unified Authentication Module
- * 
+ *
  * This file contains ALL authentication logic for MI Copilot:
  * - Credential storage and retrieval
- * - OAuth/SSO flow (MI_INTEL login method)
+ * - Devant platform-extension authentication flow (MI_INTEL login method)
  * - API key validation (ANTHROPIC_KEY login method)
- * - Token refresh
+ * - Token refresh via STS re-exchange
  * - Login/Logout operations
  */
 
 import axios from 'axios';
-import { StateMachineAI } from './aiMachine';
-import { AI_EVENT_TYPE, AIUserToken, AuthCredentials, LoginMethod } from '@wso2/mi-core';
+import { AIUserToken, AuthCredentials, LoginMethod } from '@wso2/mi-core';
 import { extension } from '../MIExtensionContext';
 import * as vscode from 'vscode';
-import { jwtDecode, JwtPayload } from 'jwt-decode';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
+import { CommandIds as PlatformExtCommandIds, IWso2PlatformExtensionAPI } from '@wso2/wso2-platform-core';
 import { logInfo, logWarn, logError } from './copilot/logger';
 
-// ==================================
-// Configuration
-// ==================================
-const config = vscode.workspace.getConfiguration('MI');
-const AUTH_ORG = process.env.MI_AUTH_ORG || config.get('authOrg') as string;
-const AUTH_CLIENT_ID = process.env.MI_AUTH_CLIENT_ID || config.get('authClientID') as string;
-const MI_AUTH_REDIRECT_URL = process.env.MI_AUTH_REDIRECT_URL || config.get('authRedirectURL') as string;
-
-const CommonReqHeaders = {
-    'Content-Type': 'application/x-www-form-urlencoded; charset=utf8',
-    'Accept': 'application/json'
-};
+export const TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = 'Access token is not available.';
+export const PLATFORM_EXTENSION_ID = 'wso2.wso2-platform';
+export const TOKEN_REFRESH_ONLY_SUPPORTED_FOR_MI_INTEL = 'Token refresh is only supported for MI Intelligence authentication';
 
 // Credential storage key
 const AUTH_CREDENTIALS_SECRET_KEY = 'MIAuthCredentials';
@@ -57,12 +47,173 @@ const AUTH_CREDENTIALS_SECRET_KEY = 'MIAuthCredentials';
 const LEGACY_ACCESS_TOKEN_SECRET_KEY = 'MIAIUser';
 const LEGACY_REFRESH_TOKEN_SECRET_KEY = 'MIAIRefreshToken';
 
+const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
+
+interface MIIntelTokenSecrets {
+    accessToken: string;
+    expiresAt?: number;
+}
+
+const normalizeUrl = (url: string): string => url.replace(/\/+$/, '');
+
+/**
+ * Resolve the base Copilot root URL.
+ */
+export const getCopilotRootUrl = (): string | undefined => {
+    const rootUrl = process.env.COPILOT_ROOT_URL?.trim();
+    if (!rootUrl) {
+        return undefined;
+    }
+    return normalizeUrl(rootUrl);
+};
+
+/**
+ * Resolve LLM API base URL.
+ * Prefers COPILOT_ROOT_URL-derived endpoint and falls back to legacy proxy env vars.
+ */
+export const getCopilotLlmApiBaseUrl = (): string | undefined => {
+    const rootUrl = getCopilotRootUrl();
+    if (rootUrl) {
+        return `${rootUrl}/llm-api/v1.0/claude`;
+    }
+
+    return undefined;
+};
+
+/**
+ * Resolve token exchange URL.
+ * Prefers COPILOT_ROOT_URL-derived endpoint and falls back to explicit env vars.
+ */
+export const getCopilotTokenExchangeUrl = (): string | undefined => {
+    const rootUrl = getCopilotRootUrl();
+    if (rootUrl) {
+        return `${rootUrl}/auth-api/v1.0/auth/token-exchange`;
+    }
+
+    const explicitExchangeUrl = process.env.DEVANT_TOKEN_EXCHANGE_URL?.trim()
+        || process.env.MI_COPILOT_TOKEN_EXCHANGE_URL?.trim();
+    if (explicitExchangeUrl) {
+        return normalizeUrl(explicitExchangeUrl);
+    }
+
+    return undefined;
+};
+
+// ==================================
+// Platform Extension (Devant) Auth Utils
+// ==================================
+
+/**
+ * Check if the WSO2 Platform extension is installed.
+ */
+export const isPlatformExtensionAvailable = (): boolean => {
+    return !!vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
+};
+
+const getPlatformExtensionAPI = async (): Promise<IWso2PlatformExtensionAPI | undefined> => {
+    const platformExt = vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
+    if (!platformExt) {
+        return undefined;
+    }
+
+    try {
+        return await platformExt.activate() as IWso2PlatformExtensionAPI;
+    } catch (error) {
+        logError('Failed to activate platform extension', error);
+        return undefined;
+    }
+};
+
+/**
+ * Get STS token from the platform extension.
+ */
+export const getPlatformStsToken = async (): Promise<string | undefined> => {
+    const api = await getPlatformExtensionAPI();
+    if (!api) {
+        return undefined;
+    }
+
+    try {
+        return await api.getStsToken();
+    } catch (error) {
+        logError('Error getting STS token from platform extension', error);
+        return undefined;
+    }
+};
+
+/**
+ * Check if user is logged into Devant via platform extension.
+ */
+export const isDevantUserLoggedIn = async (): Promise<boolean> => {
+    const api = await getPlatformExtensionAPI();
+    if (!api) {
+        return false;
+    }
+
+    try {
+        return api.isLoggedIn();
+    } catch (error) {
+        logError('Error checking Devant login status', error);
+        return false;
+    }
+};
+
+/**
+ * Exchange STS token for MI Copilot token via token exchange endpoint.
+ */
+export const exchangeStsToCopilotToken = async (stsToken: string): Promise<MIIntelTokenSecrets> => {
+    const tokenExchangeUrl = getCopilotTokenExchangeUrl();
+    if (!tokenExchangeUrl) {
+        throw new Error('Token exchange URL is not set. Configure COPILOT_ROOT_URL or DEVANT_TOKEN_EXCHANGE_URL.');
+    }
+
+    try {
+        const response = await axios.post(
+            tokenExchangeUrl,
+            { subjectToken: stsToken },
+            {
+                headers: { 'Content-Type': 'application/json' },
+                validateStatus: () => true
+            }
+        );
+
+        if (response.status === 200 || response.status === 201) {
+            const { access_token, expires_in } = response.data ?? {};
+            if (!access_token) {
+                throw new Error('Token exchange response did not include access_token');
+            }
+
+            return {
+                accessToken: access_token,
+                expiresAt: typeof expires_in === 'number' ? Date.now() + (expires_in * 1000) : undefined,
+            };
+        }
+
+        throw new Error(response.data?.message || response.data?.reason || `Status ${response.status}`);
+    } catch (error) {
+        const reason = error instanceof Error ? error.message : 'Unknown error';
+        throw new Error(`MI Copilot authentication failed: ${reason}`);
+    }
+};
+
+/**
+ * Refresh the MI Copilot token using STS token from platform extension.
+ */
+export const refreshTokenViaStsExchange = async (): Promise<MIIntelTokenSecrets> => {
+    const stsToken = await getPlatformStsToken();
+    if (!stsToken) {
+        throw new Error('Failed to get STS token from platform extension');
+    }
+
+    return await exchangeStsToCopilotToken(stsToken);
+};
+
 // ==================================
 // Credential Storage (Core)
 // ==================================
 
 /**
- * Store authentication credentials in VSCode secrets
+ * Store authentication credentials in VSCode secrets.
  */
 export const storeAuthCredentials = async (credentials: AuthCredentials): Promise<void> => {
     const credentialsJson = JSON.stringify(credentials);
@@ -70,7 +221,7 @@ export const storeAuthCredentials = async (credentials: AuthCredentials): Promis
 };
 
 /**
- * Retrieve authentication credentials from VSCode secrets
+ * Retrieve authentication credentials from VSCode secrets.
  */
 export const getAuthCredentials = async (): Promise<AuthCredentials | undefined> => {
     const credentialsJson = await extension.context.secrets.get(AUTH_CREDENTIALS_SECRET_KEY);
@@ -87,14 +238,14 @@ export const getAuthCredentials = async (): Promise<AuthCredentials | undefined>
 };
 
 /**
- * Clear all authentication credentials
+ * Clear all authentication credentials.
  */
 export const clearAuthCredentials = async (): Promise<void> => {
     await extension.context.secrets.delete(AUTH_CREDENTIALS_SECRET_KEY);
 };
 
 /**
- * Get the current login method
+ * Get the current login method.
  */
 export const getLoginMethod = async (): Promise<LoginMethod | undefined> => {
     const credentials = await getAuthCredentials();
@@ -102,8 +253,8 @@ export const getLoginMethod = async (): Promise<LoginMethod | undefined> => {
 };
 
 /**
- * Get access token/API key based on login method
- * Automatically refreshes MI_INTEL tokens if expired
+ * Get access token/API key based on login method.
+ * Automatically refreshes MI_INTEL token if close to expiry.
  */
 export const getAccessToken = async (): Promise<string | undefined> => {
     const credentials = await getAuthCredentials();
@@ -113,24 +264,16 @@ export const getAccessToken = async (): Promise<string | undefined> => {
 
     switch (credentials.loginMethod) {
         case LoginMethod.MI_INTEL: {
-            const { accessToken } = credentials.secrets;
-            let finalToken = accessToken;
-
-            try {
-                const decoded = jwtDecode<JwtPayload>(accessToken);
-                const now = Math.floor(Date.now() / 1000);
-
-                if (decoded.exp && decoded.exp < now) {
-                    finalToken = await getRefreshedAccessToken();
-                }
-
-                return finalToken;
-            } catch (err) {
-                if (axios.isAxiosError(err) && err.response?.status === 400) {
-                    throw new Error("TOKEN_EXPIRED");
-                }
-                throw err;
+            const secrets = credentials.secrets as MIIntelTokenSecrets;
+            if (!secrets.accessToken) {
+                throw new Error(TOKEN_NOT_AVAILABLE_ERROR_MESSAGE);
             }
+
+            if (secrets.expiresAt && (secrets.expiresAt - TOKEN_EXPIRY_BUFFER_MS) < Date.now()) {
+                return await getRefreshedAccessToken();
+            }
+
+            return secrets.accessToken;
         }
         case LoginMethod.ANTHROPIC_KEY:
             return credentials.secrets.apiKey;
@@ -140,49 +283,27 @@ export const getAccessToken = async (): Promise<string | undefined> => {
 };
 
 /**
- * Refresh MI_INTEL access token using refresh token
+ * Refresh MI_INTEL access token using STS re-exchange.
  */
 export const getRefreshedAccessToken = async (): Promise<string> => {
     const credentials = await getAuthCredentials();
     if (!credentials || credentials.loginMethod !== LoginMethod.MI_INTEL) {
-        throw new Error('Token refresh is only supported for MI Intelligence authentication');
+        throw new Error(TOKEN_REFRESH_ONLY_SUPPORTED_FOR_MI_INTEL);
     }
 
-    const { refreshToken } = credentials.secrets;
-    if (!refreshToken) {
-        throw new Error('Refresh token is not available');
-    }
-
-    const params = new URLSearchParams({
-        client_id: AUTH_CLIENT_ID,
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token',
-        scope: 'openid email'
-    });
-
-    const response = await axios.post(
-        `https://api.asgardeo.io/t/${AUTH_ORG}/oauth2/token`,
-        params.toString(),
-        { headers: CommonReqHeaders }
-    );
-
-    const newAccessToken = response.data.access_token;
-    const newRefreshToken = response.data.refresh_token;
+    const newSecrets = await refreshTokenViaStsExchange();
 
     const updatedCredentials: AuthCredentials = {
-        ...credentials,
-        secrets: {
-            accessToken: newAccessToken,
-            refreshToken: newRefreshToken
-        }
+        loginMethod: LoginMethod.MI_INTEL,
+        secrets: newSecrets
     };
     await storeAuthCredentials(updatedCredentials);
 
-    return newAccessToken;
+    return newSecrets.accessToken;
 };
 
 /**
- * Cleanup legacy tokens from old authentication system
+ * Cleanup legacy tokens from old authentication system.
  */
 export const cleanupLegacyTokens = async (): Promise<void> => {
     try {
@@ -200,79 +321,12 @@ export const cleanupLegacyTokens = async (): Promise<void> => {
 };
 
 // ==================================
-// OAuth/SSO Functions (MI_INTEL)
-// ==================================
-
-/**
- * Generate OAuth authorization URL
- */
-export async function getAuthUrl(callbackUri: string): Promise<string> {
-    const statePayload = Buffer.from(JSON.stringify({ callbackUri }), 'utf8').toString('base64');
-    const state = encodeURIComponent(statePayload);
-    return `https://api.asgardeo.io/t/${AUTH_ORG}/oauth2/authorize?response_type=code&redirect_uri=${MI_AUTH_REDIRECT_URL}&client_id=${AUTH_CLIENT_ID}&scope=openid%20email&state=${state}`;
-}
-
-/**
- * Get logout URL for Asgardeo
- */
-export function getLogoutUrl(): string {
-    return `https://api.asgardeo.io/t/${AUTH_ORG}/oidc/logout`;
-}
-
-/**
- * Exchange OAuth authorization code for access and refresh tokens
- */
-export async function exchangeAuthCode(authCode: string): Promise<void> {
-    if (!authCode) {
-        throw new Error("Auth code is not provided.");
-    }
-
-    try {
-        logInfo("Exchanging auth code for tokens...");
-
-        const params = new URLSearchParams({
-            client_id: AUTH_CLIENT_ID,
-            code: authCode,
-            grant_type: 'authorization_code',
-            redirect_uri: MI_AUTH_REDIRECT_URL,
-            scope: 'openid email'
-        });
-
-        const response = await axios.post(
-            `https://api.asgardeo.io/t/${AUTH_ORG}/oauth2/token`,
-            params.toString(),
-            { headers: CommonReqHeaders }
-        );
-
-        const accessToken = response.data.access_token;
-        const refreshToken = response.data.refresh_token;
-
-        logInfo("Tokens obtained successfully");
-
-        // Store credentials
-        const credentials: AuthCredentials = {
-            loginMethod: LoginMethod.MI_INTEL,
-            secrets: {
-                accessToken: accessToken,
-                refreshToken: refreshToken
-            }
-        };
-        await storeAuthCredentials(credentials);
-
-        // Notify state machine
-        StateMachineAI.sendEvent(AI_EVENT_TYPE.SIGN_IN_SUCCESS);
-    } catch (error: any) {
-        const errMsg = "Error while signing in to MI AI! " + error?.message;
-        throw new Error(errMsg);
-    }
-}
-
-// ==================================
 // High-Level Auth Operations
 // ==================================
 
 /**
- * Check if valid authentication credentials exist
+ * Check if valid authentication credentials exist.
+ * If not found but user is already logged in to Devant, bootstrap credentials via STS exchange.
  */
 export const checkToken = async (): Promise<{ token: string; loginMethod: LoginMethod } | undefined> => {
     await cleanupLegacyTokens();
@@ -282,26 +336,57 @@ export const checkToken = async (): Promise<{ token: string; loginMethod: LoginM
         getLoginMethod()
     ]);
 
-    if (!token || !loginMethod) {
+    if (token && loginMethod) {
+        return { token, loginMethod };
+    }
+
+    if (!isPlatformExtensionAvailable()) {
         return undefined;
     }
 
-    return { token, loginMethod };
+    const isLoggedIn = await isDevantUserLoggedIn();
+    if (!isLoggedIn) {
+        return undefined;
+    }
+
+    const stsToken = await getPlatformStsToken();
+    if (!stsToken) {
+        return undefined;
+    }
+
+    const secrets = await exchangeStsToCopilotToken(stsToken);
+    await storeAuthCredentials({
+        loginMethod: LoginMethod.MI_INTEL,
+        secrets
+    });
+
+    return {
+        token: secrets.accessToken,
+        loginMethod: LoginMethod.MI_INTEL
+    };
 };
 
 /**
- * Initiate OAuth/SSO login flow (MI_INTEL)
+ * Initiate Devant login via platform extension command.
  */
-export async function initiateInbuiltAuth(): Promise<boolean> {
-    const callbackUri = await vscode.env.asExternalUri(
-        vscode.Uri.parse(`${vscode.env.uriScheme}://wso2.micro-integrator/signin`)
-    );
-    const oauthURL = await getAuthUrl(callbackUri.toString());
-    return vscode.env.openExternal(vscode.Uri.parse(oauthURL));
+export async function initiateDevantAuth(): Promise<boolean> {
+    if (!isPlatformExtensionAvailable()) {
+        throw new Error('The WSO2 Platform extension is not installed. Please install it to use MI Copilot login.');
+    }
+
+    await vscode.commands.executeCommand(PlatformExtCommandIds.SignIn);
+    return true;
 }
 
 /**
- * Validate Anthropic API key
+ * Backward compatible login entry point.
+ */
+export async function initiateInbuiltAuth(): Promise<boolean> {
+    return initiateDevantAuth();
+}
+
+/**
+ * Validate Anthropic API key.
  */
 export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): Promise<AIUserToken> => {
     if (loginMethod !== LoginMethod.ANTHROPIC_KEY) {
@@ -356,39 +441,16 @@ export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): 
                 throw new Error('Connection failed. Please check your internet connection.');
             }
         }
-        
+
         throw new Error('API key validation failed. Please ensure your key is valid and has access to Claude models.');
     }
 };
 
 /**
- * Logout and clear authentication credentials
+ * Logout and clear authentication credentials.
+ * Devant session is managed by platform extension separately.
  */
-export const logout = async (isUserLogout: boolean = true): Promise<void> => {
-    // For user-initiated logout, invalidate the session on the server (MI_INTEL only)
-    if (isUserLogout) {
-        try {
-            const tokenData = await checkToken();
-            if (tokenData?.token && tokenData.loginMethod === LoginMethod.MI_INTEL) {
-                // Send logout request to Asgardeo to invalidate the session
-                const logoutURL = getLogoutUrl();
-                await fetch(logoutURL, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${tokenData.token}`
-                    }
-                }).catch(err => {
-                    // Ignore errors - we'll clear local credentials anyway
-                    logInfo('Logout request to server failed (non-critical): ' + String(err));
-                });
-            }
-        } catch (error) {
-            // Ignore errors during token check
-            logInfo('Error during logout token check (non-critical): ' + String(error));
-        }
-    }
-
-    // Always clear stored credentials locally
+export const logout = async (_isUserLogout: boolean = true): Promise<void> => {
     await clearAuthCredentials();
 };
 
@@ -397,7 +459,7 @@ export const logout = async (isUserLogout: boolean = true): Promise<void> => {
 // ==================================
 
 /**
- * @deprecated Use getRefreshedAccessToken() instead
+ * @deprecated Use getRefreshedAccessToken() instead.
  */
 export async function refreshAuthCode(): Promise<string> {
     logWarn('refreshAuthCode() is deprecated. Use getRefreshedAccessToken() instead.');
@@ -405,6 +467,6 @@ export async function refreshAuthCode(): Promise<string> {
         return await getRefreshedAccessToken();
     } catch (error) {
         logError('Token refresh failed', error);
-        return "";
+        return '';
     }
 }

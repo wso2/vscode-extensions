@@ -18,10 +18,9 @@
 
 import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
 import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
-import { refreshAuthCode } from "../../ai-features/auth";
+import { getAccessToken, getAuthCredentials, getLoginMethod, getRefreshedAccessToken } from "../../ai-features/auth";
 import { openSignInView } from "../../util/ai-datamapper-utils";
-import { extension } from "../../MIExtensionContext";
-import { EVENT_TYPE, MACHINE_VIEW, AI_EVENT_TYPE, Role } from "@wso2/mi-core";
+import { EVENT_TYPE, MACHINE_VIEW, AI_EVENT_TYPE, Role, LoginMethod } from "@wso2/mi-core";
 import * as vscode from "vscode";
 import { MIAIPanelRpcManager } from "./rpc-manager";
 import { generateSynapse } from "../../ai-features/copilot/generation/generations";
@@ -67,28 +66,37 @@ export interface CorrectedCodeItem {
 }
 
 /**
- * Gets the user access token from extension secrets
+ * Gets the MI_INTEL access token from unified auth storage.
  */
 export async function getUserAccessToken(): Promise<string> {
-    const token = await extension.context.secrets.get('MIAIUser');
-    if (!token) {
+    const [token, loginMethod] = await Promise.all([
+        getAccessToken(),
+        getLoginMethod(),
+    ]);
+
+    if (!token || loginMethod !== LoginMethod.MI_INTEL) {
         throw new Error('User access token not available');
     }
+
     return token;
 }
 
 /**
- * Checks if the Anthropic API key is available in extension secrets
+ * Checks if the current auth mode is Anthropic API key.
  */
 export async function hasAnthropicApiKey(): Promise<string | undefined> {
-    return await extension.context.secrets.get('AnthropicApiKey');
+    const credentials = await getAuthCredentials();
+    if (credentials?.loginMethod === LoginMethod.ANTHROPIC_KEY) {
+        return credentials.secrets.apiKey;
+    }
+    return undefined;
 }
 
 /**
  * Refreshes the user access token
  */
 export async function refreshUserAccessToken(): Promise<string> {
-    const newToken = await refreshAuthCode();
+    const newToken = await getRefreshedAccessToken();
     if (!newToken) {
         throw new Error('Failed to refresh access token');
     }

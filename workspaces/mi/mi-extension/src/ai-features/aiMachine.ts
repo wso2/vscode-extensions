@@ -22,8 +22,23 @@ import * as vscode from 'vscode';
 import { AIMachineStateValue, AIMachineContext, AI_EVENT_TYPE, AIMachineSendableEvent, LoginMethod } from '@wso2/mi-core';
 import { AiPanelWebview } from './webview';
 import { extension } from '../MIExtensionContext';
-import { getAccessToken, getLoginMethod, checkToken, initiateInbuiltAuth, logout, validateApiKey } from './auth';
+import {
+    getAccessToken,
+    getLoginMethod,
+    checkToken,
+    initiateInbuiltAuth,
+    logout,
+    validateApiKey,
+    isPlatformExtensionAvailable,
+    isDevantUserLoggedIn,
+    getPlatformStsToken,
+    exchangeStsToCopilotToken,
+    storeAuthCredentials,
+    PLATFORM_EXTENSION_ID
+} from './auth';
 import { PromptObject } from '@wso2/mi-core';
+import { IWso2PlatformExtensionAPI } from '@wso2/wso2-platform-core';
+import { logError } from './copilot/logger';
 
 export const openAIWebview = (initialPrompt?: PromptObject) => {
     extension.initialPrompt = initialPrompt;
@@ -389,6 +404,24 @@ const checkWorkspaceAndToken = async (): Promise<{ workspaceSupported: boolean; 
 };
 
 const openLogin = async () => {
+    // If platform extension already has an authenticated session, complete auth immediately.
+    const isLoggedIn = await isDevantUserLoggedIn();
+    if (isLoggedIn) {
+        const stsToken = await getPlatformStsToken();
+        if (!stsToken) {
+            throw new Error('Failed to get STS token from platform extension');
+        }
+
+        const secrets = await exchangeStsToCopilotToken(stsToken);
+        await storeAuthCredentials({
+            loginMethod: LoginMethod.MI_INTEL,
+            secrets
+        });
+        aiStateService.send({ type: AI_EVENT_TYPE.COMPLETE_AUTH });
+        return true;
+    }
+
+    // Otherwise trigger platform login; completion is handled by the platform login listener.
     const status = await initiateInbuiltAuth();
     if (!status) {
         aiStateService.send({ type: AI_EVENT_TYPE.CANCEL_LOGIN });
@@ -437,8 +470,63 @@ const isExtendedEvent = <K extends AI_EVENT_TYPE>(
     return typeof arg !== "string";
 };
 
+let platformLoginListenerSetup = false;
+
+const setupPlatformExtensionListener = async () => {
+    if (platformLoginListenerSetup || !isPlatformExtensionAvailable()) {
+        return;
+    }
+    platformLoginListenerSetup = true;
+
+    const platformExt = vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
+    if (!platformExt) {
+        return;
+    }
+
+    try {
+        const api = await platformExt.activate() as IWso2PlatformExtensionAPI;
+        if (!api.subscribeIsLoggedIn) {
+            return;
+        }
+
+        api.subscribeIsLoggedIn(async (isLoggedIn: boolean) => {
+            const currentState = aiStateService.getSnapshot().value;
+            const inSsoFlow =
+                typeof currentState === 'object' &&
+                'Authenticating' in currentState &&
+                (currentState as { Authenticating: string }).Authenticating === 'ssoFlow';
+
+            if (!isLoggedIn || !inSsoFlow) {
+                return;
+            }
+
+            try {
+                const stsToken = await getPlatformStsToken();
+                if (!stsToken) {
+                    throw new Error('Failed to get STS token after platform login');
+                }
+
+                const secrets = await exchangeStsToCopilotToken(stsToken);
+                await storeAuthCredentials({
+                    loginMethod: LoginMethod.MI_INTEL,
+                    secrets
+                });
+                aiStateService.send({ type: AI_EVENT_TYPE.COMPLETE_AUTH });
+            } catch (error) {
+                logError('Failed to exchange token after platform login', error);
+                aiStateService.send({ type: AI_EVENT_TYPE.CANCEL_LOGIN });
+            }
+        });
+    } catch (error) {
+        logError('Failed to activate platform extension for login listener', error);
+    }
+};
+
 export const StateMachineAI = {
-    initialize: () => aiStateService.start(),
+    initialize: () => {
+        void setupPlatformExtensionListener();
+        return aiStateService.start();
+    },
     service: () => { return aiStateService; },
     context: () => { return aiStateService.getSnapshot().context; },
     state: () => { return aiStateService.getSnapshot().value as AIMachineStateValue; },

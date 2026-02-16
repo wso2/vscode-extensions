@@ -353,12 +353,30 @@ export async function generateSuggestions(
 }
 
 export function updateTokenInfo(machineView: any) {
-    // For custom API key users or when token info is not available, return unlimited
-    if (!machineView.usage || !machineView.usage.time_to_reset) {
+    // For custom API key users or when token info is not available, return unlimited.
+    if (!machineView.usage) {
         return { 
             timeToReset: 0, 
             remainingTokenPercentage: -1, // -1 indicates unlimited
             remaingTokenLessThanOne: false 
+        };
+    }
+
+    const remainingUsagePercentage = machineView.usage.remainingUsagePercentage;
+    if (typeof remainingUsagePercentage === "number") {
+        const normalized = Math.max(0, Math.min(100, Math.round(remainingUsagePercentage)));
+        return {
+            timeToReset: 0,
+            remainingTokenPercentage: normalized,
+            remaingTokenLessThanOne: normalized > 0 && normalized < 1
+        };
+    }
+
+    if (machineView.usage.time_to_reset === undefined || machineView.usage.max_usage === undefined || machineView.usage.remaining_tokens === undefined) {
+        return {
+            timeToReset: 0,
+            remainingTokenPercentage: -1,
+            remaingTokenLessThanOne: false
         };
     }
 

@@ -16,7 +16,7 @@
 
 import { createAnthropic } from "@ai-sdk/anthropic";
 import * as vscode from "vscode";
-import { getAccessToken, getLoginMethod, getRefreshedAccessToken } from "./auth";
+import { getAccessToken, getCopilotLlmApiBaseUrl, getLoginMethod, getRefreshedAccessToken } from "./auth";
 import { StateMachineAI, openAIWebview } from "./aiMachine";
 import { AI_EVENT_TYPE, LoginMethod } from "@wso2/mi-core";
 import { logInfo, logDebug, logError } from "./copilot/logger";
@@ -35,11 +35,11 @@ let cachedAuthMethod: LoginMethod | null = null;
  * Get the backend URL for MI Copilot
  */
 const getAnthropicProxyUrl = (): string => {
-    const proxyUrl = process.env.MI_COPILOT_ANTHROPIC_PROXY_URL;
+    const proxyUrl = getCopilotLlmApiBaseUrl();
     if (!proxyUrl) {
-        throw new Error('MI_COPILOT_ANTHROPIC_PROXY_URL environment variable is not set');
+        throw new Error('Copilot LLM API URL is not set. Configure COPILOT_ROOT_URL or MI_COPILOT_ANTHROPIC_PROXY_URL.');
     }
-    return `${proxyUrl}/proxy/anthropic/v1`;
+    return `${proxyUrl}`;
 };
 
 /**
@@ -51,14 +51,26 @@ const getAnthropicProxyUrl = (): string => {
 export async function fetchWithAuth(input: string | URL | Request, options: RequestInit = {}): Promise<Response> {
     try {
         const accessToken = await getAccessToken();
+        const loginMethod = await getLoginMethod();
+
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'MI-VSCode-Plugin',
+            'Connection': 'keep-alive',
+            'x-product': 'mi',
+            'x-usage-context': 'copilot',
+            'x-metadata': JSON.stringify({ isCloudEditor: !!process.env.CLOUD_ENV }),
+        };
+
+        if (accessToken && loginMethod === LoginMethod.MI_INTEL) {
+            headers['Authorization'] = `Bearer ${accessToken}`;
+        }
 
         // Ensure headers object exists
         // Note: anthropic-beta header for prompt caching is added by the AI SDK
         options.headers = {
             ...options.headers,
-            'Authorization': `Bearer ${accessToken}`,
-            'User-Agent': 'MI-VSCode-Plugin',
-            'Connection': 'keep-alive',
+            ...headers,
         };
         
         // Debug: Log request details for cache debugging
@@ -66,6 +78,7 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
         if (url.includes('/messages')) {
             const headers = options.headers as Record<string, string>;
             const betaHeader = headers['anthropic-beta'] || headers['Anthropic-Beta'] || 'none';
+            logDebug(`[Cache] Request URL: ${url}`);
             logDebug(`[Cache] Request headers - anthropic-beta: ${betaHeader}`);
             
             try {
@@ -87,6 +100,9 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
         }
 
         let response = await fetch(input, options);
+        if (url.includes('/messages') && !response.ok) {
+            logError(`[Cache] Request failed for URL ${url} with status ${response.status} ${response.statusText}`);
+        }
 
         // Handle rate limit/quota errors (429)
         if (response.status === 429) {
@@ -125,24 +141,31 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
 
         // Handle token expiration
         if (response.status === 401) {
-            logInfo("Token expired. Refreshing token...");
-            const newToken = await getRefreshedAccessToken();
-            if (newToken) {
-                options.headers = {
-                    ...options.headers,
-                    'Authorization': `Bearer ${newToken}`,
-                };
-                response = await fetch(input, options);
-            } else {
-                StateMachineAI.sendEvent(AI_EVENT_TYPE.LOGOUT);
-                throw new Error("Authentication failed: Unable to refresh token");
+            if (loginMethod === LoginMethod.MI_INTEL) {
+                logInfo("Token expired. Refreshing token via STS exchange...");
+                try {
+                    const newToken = await getRefreshedAccessToken();
+                    options.headers = {
+                        ...options.headers,
+                        'Authorization': `Bearer ${newToken}`,
+                    };
+                    response = await fetch(input, options);
+
+                    if (response.status === 401) {
+                        StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
+                        throw new Error("Authentication failed after token refresh");
+                    }
+                } catch (refreshError) {
+                    StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
+                    throw new Error(`Authentication failed: ${refreshError instanceof Error ? refreshError.message : 'Unable to refresh token'}`);
+                }
             }
         }
 
         return response;
     } catch (error: any) {
         if (error?.message === "TOKEN_EXPIRED") {
-            StateMachineAI.sendEvent(AI_EVENT_TYPE.LOGOUT);
+            StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
             throw new Error("Authentication failed: Token expired");
         } else {
             throw error;

@@ -47,7 +47,7 @@ import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
 import { generateSuggestions as generateSuggestionsFromLLM } from "../../ai-features/copilot/suggestions/suggestions";
 import { fillIdpSchema } from '../../ai-features/copilot/idp/fill_schema';
 import { codeDiagnostics } from "../../ai-features/copilot/diagnostics/diagnostics";
-import { getLoginMethod } from '../../ai-features/auth';
+import { getCopilotLlmApiBaseUrl, getLoginMethod } from '../../ai-features/auth';
 import { LoginMethod } from '@wso2/mi-core';
 import { logInfo, logWarn, logError, logDebug } from '../../ai-features/copilot/logger';
 import { MILanguageClient } from '../../lang-client/activator';
@@ -503,16 +503,20 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             const { StateMachineAI } = await import('../../ai-features/aiMachine');
             const { AI_EVENT_TYPE } = await import('@wso2/mi-core');
 
-            const backendUrl = process.env.MI_COPILOT_ANTHROPIC_PROXY_URL;
+            const backendUrl = getCopilotLlmApiBaseUrl();
             if (!backendUrl) {
-                logWarn('MI_COPILOT_ANTHROPIC_PROXY_URL is not configured; skipping usage fetch.');
+                logWarn('Copilot LLM API URL is not configured; skipping usage fetch.');
                 return undefined;
             }
 
             const USER_CHECK_BACKEND_URL = '/usage';
             const response = await fetchWithAuth(`${backendUrl}${USER_CHECK_BACKEND_URL}`);
             if (response.ok) {
-                const usage = await response.json();
+                const usageResponse = await response.json();
+                const remainingUsagePercentage = usageResponse?.remainingUsagePercentage;
+                const usage = typeof remainingUsagePercentage === 'number'
+                    ? { remainingUsagePercentage }
+                    : usageResponse;
 
                 // Get current state before updating
                 const currentState = StateMachineAI.state();
@@ -523,13 +527,21 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 }
 
                 // Check if quota is exceeded and transition to UsageExceeded state
-                if (usage.remaining_tokens <= 0 && currentState === 'Authenticated') {
+                const isUsageExceeded = typeof usage.remainingUsagePercentage === 'number'
+                    ? usage.remainingUsagePercentage <= 0
+                    : usage.remaining_tokens <= 0;
+
+                if (isUsageExceeded && currentState === 'Authenticated') {
                     logInfo('Quota exceeded. Transitioning to UsageExceeded state.');
                     StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_EXCEEDED);
                 }
 
                 // Check if we're in UsageExceeded state and if usage has reset
-                if (currentState === 'UsageExceeded' && usage.remaining_tokens > 0) {
+                const isUsageReset = typeof usage.remainingUsagePercentage === 'number'
+                    ? usage.remainingUsagePercentage > 0
+                    : usage.remaining_tokens > 0;
+
+                if (currentState === 'UsageExceeded' && isUsageReset) {
                     logInfo('Usage has reset. Transitioning back to Authenticated state.');
                     StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_RESET);
                 }
