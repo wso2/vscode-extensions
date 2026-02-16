@@ -288,7 +288,8 @@ import {
     GetMockServicesResponse,
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
-    UpdateRegistryPropertyRequest
+    UpdateRegistryPropertyRequest,
+    GenerateMappingsParamsRequest
 } from "@wso2/mi-core";
 import axios from 'axios';
 import { error } from "console";
@@ -5438,7 +5439,7 @@ ${keyValuesXML}`;
         let response;
         if (params.isRuntimeService) {
             const versionedUrl = await exposeVersionedServices(this.projectUri);
-            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort(), projectPath: versionedUrl ? this.projectUri : "", ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
+            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, host: DebuggerConfig.getHost(), port: DebuggerConfig.getServerPort(), projectPath: versionedUrl ? this.projectUri : "", ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         } else {
             response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         }
@@ -6162,6 +6163,14 @@ ${keyValuesXML}`;
                 setTimeout(() => reject(new Error('Wait timeout for document update')), 5000)
             )
         ]);
+    }
+  
+    async getInputOutputMappings(params: GenerateMappingsParamsRequest): Promise<string[]> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.getInputOutputMappings(params);
+            resolve(res);
+        });
     }
 }
 
