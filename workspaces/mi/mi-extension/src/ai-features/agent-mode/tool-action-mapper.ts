@@ -40,7 +40,7 @@ export interface ToolActions {
  */
 export function getToolAction(toolName: string, toolResult?: any, toolInput?: any): ToolActions | undefined {
     switch (toolName) {
-        case FILE_WRITE_TOOL_NAME:
+        case FILE_WRITE_TOOL_NAME: {
             // Completed action depends on result (created vs updated)
             let completedAction = 'created';
             let failedAction = 'failed to create';
@@ -54,6 +54,7 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                 }
             }
             return { loading: 'creating', completed: completedAction, failed: failedAction };
+        }
 
         case FILE_EDIT_TOOL_NAME:
             return { loading: 'updating', completed: 'updated', failed: 'failed to update' };
@@ -73,7 +74,7 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
         case SKILL_TOOL_NAME:
             return { loading: 'loading skill context', completed: 'loaded skill context', failed: 'failed to load skill context' };
 
-        case MANAGE_CONNECTOR_TOOL_NAME:
+        case MANAGE_CONNECTOR_TOOL_NAME: {
             // Extract operation, connector names, and inbound endpoint names from tool input
             const operation = toolInput?.operation || 'managing';
             const isAdding = operation === 'add';
@@ -94,6 +95,7 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
             return isAdding
                 ? { loading: 'adding dependency', completed: 'added dependency', failed: 'failed to add dependency' }
                 : { loading: 'removing dependency', completed: 'removed dependency', failed: 'failed to remove dependency' };
+        }
 
         case VALIDATE_CODE_TOOL_NAME:
             return { loading: 'validating', completed: 'validated', failed: 'validation failed' };
@@ -122,7 +124,7 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
             return { loading: 'managing server', completed: 'managed server', failed: 'server management failed' };
 
         // Plan Mode Tools
-        case SUBAGENT_TOOL_NAME:
+        case SUBAGENT_TOOL_NAME: {
             // Extract subagent type and background mode for dynamic messages
             const subagentType = toolInput?.subagent_type || 'subagent';
             const isBackgroundTask = toolInput?.run_in_background;
@@ -131,6 +133,7 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                 completed: isBackgroundTask ? `launched ${subagentType} agent` : `${subagentType} agent completed`,
                 failed: `${subagentType} agent failed`
             };
+        }
 
         case ASK_USER_TOOL_NAME:
             return { loading: 'asking user', completed: 'received response', failed: 'question timed out' };
@@ -141,7 +144,7 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
         case EXIT_PLAN_MODE_TOOL_NAME:
             return { loading: 'exiting plan mode', completed: 'exited plan mode', failed: 'failed to exit plan mode' };
 
-        case TODO_WRITE_TOOL_NAME:
+        case TODO_WRITE_TOOL_NAME: {
             // Extract task count for dynamic messages
             const taskCount = toolInput?.todos?.length || 0;
             return {
@@ -149,9 +152,10 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                 completed: `updated ${taskCount} task(s)`,
                 failed: 'failed to update tasks'
             };
+        }
 
         // Shell Tools
-        case BASH_TOOL_NAME:
+        case BASH_TOOL_NAME: {
             // Use description if provided, otherwise show command preview
             const bashDesc = toolInput?.description;
             const cmdPreview = toolInput?.command?.substring(0, 50) + (toolInput?.command?.length > 50 ? '...' : '');
@@ -161,16 +165,18 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                 completed: `ran: ${displayText}`,
                 failed: `failed: ${displayText}`
             };
+        }
 
-        case KILL_TASK_TOOL_NAME:
+        case KILL_TASK_TOOL_NAME: {
             const taskToKillId = toolInput?.task_id?.substring(0, 8) || 'task';
             return {
                 loading: `killing task ${taskToKillId}`,
                 completed: `killed task ${taskToKillId}`,
                 failed: `failed to kill task ${taskToKillId}`
             };
+        }
 
-        case TASK_OUTPUT_TOOL_NAME:
+        case TASK_OUTPUT_TOOL_NAME: {
             const taskId = toolInput?.task_id?.substring(0, 8) || 'task';
             const isBlocking = toolInput?.block !== false;
             return {
@@ -178,6 +184,7 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                 completed: `got output from task ${taskId}`,
                 failed: `failed to get task ${taskId} output`
             };
+        }
 
         case WEB_SEARCH_TOOL_NAME:
             return {

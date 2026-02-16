@@ -52,6 +52,36 @@ function isCopilotInternalPath(relativePath: string): boolean {
     return normalized === '.mi-copilot' || normalized.startsWith('.mi-copilot/');
 }
 
+function resolveProjectBoundPath(projectPath: string, requestedPath: string): string | undefined {
+    const projectRoot = path.resolve(projectPath);
+    const canonicalProjectRoot = (() => {
+        try {
+            return fs.realpathSync.native(projectRoot);
+        } catch {
+            return projectRoot;
+        }
+    })();
+
+    const resolvedCandidate = path.isAbsolute(requestedPath)
+        ? path.resolve(requestedPath)
+        : path.resolve(projectRoot, requestedPath);
+
+    const canonicalCandidate = (() => {
+        try {
+            return fs.realpathSync.native(resolvedCandidate);
+        } catch {
+            return resolvedCandidate;
+        }
+    })();
+
+    const relative = path.relative(canonicalProjectRoot, canonicalCandidate);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+        return undefined;
+    }
+
+    return resolvedCandidate;
+}
+
 async function getUnsupportedRuntimeToolResult(projectPath: string, toolName: string): Promise<ToolResult | undefined> {
     const runtimeVersion = await getRuntimeVersionFromPom(projectPath);
     if (!runtimeVersion) {
@@ -298,10 +328,14 @@ export function createGenerateDataMappingExecute(
                 return unsupportedRuntimeResult;
             }
 
-            // Resolve full path
-            const fullPath = path.isAbsolute(dm_config_path)
-                ? dm_config_path
-                : path.join(projectPath, dm_config_path);
+            const fullPath = resolveProjectBoundPath(projectPath, dm_config_path);
+            if (!fullPath) {
+                return {
+                    success: false,
+                    message: `Path not found: ${dm_config_path}`,
+                    error: 'Error: Path not found',
+                };
+            }
 
             // Find the .ts file
             let tsFilePath = fullPath;
@@ -317,14 +351,37 @@ export function createGenerateDataMappingExecute(
             const stats = fs.statSync(fullPath);
             if (stats.isDirectory()) {
                 const dmName = path.basename(fullPath);
-                tsFilePath = path.join(fullPath, `${dmName}.ts`);
+                const resolvedTsPath = resolveProjectBoundPath(projectPath, path.join(fullPath, `${dmName}.ts`));
+                if (!resolvedTsPath) {
+                    return {
+                        success: false,
+                        message: `Path not found: ${dm_config_path}`,
+                        error: 'Error: Path not found',
+                    };
+                }
+                tsFilePath = resolvedTsPath;
             } else if (!fullPath.endsWith('.ts')) {
                 // Try adding .ts extension
-                tsFilePath = fullPath.replace(/\.[^/.]+$/, '.ts');
-                if (!fs.existsSync(tsFilePath)) {
-                    tsFilePath = fullPath + '.ts';
+                const replacedExtensionPath = resolveProjectBoundPath(projectPath, fullPath.replace(/\.[^/.]+$/, '.ts'));
+                if (replacedExtensionPath && fs.existsSync(replacedExtensionPath)) {
+                    tsFilePath = replacedExtensionPath;
+                } else {
+                    const appendedTsPath = resolveProjectBoundPath(projectPath, `${fullPath}.ts`);
+                    if (appendedTsPath) {
+                        tsFilePath = appendedTsPath;
+                    }
                 }
             }
+
+            const validatedTsFilePath = resolveProjectBoundPath(projectPath, tsFilePath);
+            if (!validatedTsFilePath) {
+                return {
+                    success: false,
+                    message: `Path not found: ${dm_config_path}`,
+                    error: 'Error: Path not found',
+                };
+            }
+            tsFilePath = validatedTsFilePath;
 
             if (!fs.existsSync(tsFilePath)) {
                 return {

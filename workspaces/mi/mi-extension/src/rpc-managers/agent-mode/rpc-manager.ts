@@ -46,7 +46,12 @@ import {
     GroupedSessions,
     TOOL_USE_INTERRUPTION_CONTEXT,
 } from '../../ai-features/agent-mode/chat-history-manager';
-import { PendingQuestion, PendingPlanApproval, initializePlanModeSession } from '../../ai-features/agent-mode/tools/plan_mode_tools';
+import {
+    PendingQuestion,
+    PendingPlanApproval,
+    cleanupPendingQuestionsForSession,
+    initializePlanModeSession
+} from '../../ai-features/agent-mode/tools/plan_mode_tools';
 import { cleanupPersistedToolResultsForProject } from '../../ai-features/agent-mode/tools/tool-result-persistence';
 import { validateAttachments } from '../../ai-features/agent-mode/attachment-utils';
 import { VALID_FILE_EXTENSIONS, VALID_SPECIAL_FILE_NAMES } from '../../ai-features/agent-mode/tools/types';
@@ -297,6 +302,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     private async closeChatHistory(): Promise<void> {
         if (this.chatHistoryManager) {
+            const sessionIdToClose = this.currentSessionId;
+            if (sessionIdToClose) {
+                cleanupPendingQuestionsForSession(this.pendingQuestions, sessionIdToClose);
+            }
             await this.chatHistoryManager.close();
             logInfo(`[AgentPanel] Closed chat session: ${this.currentSessionId}`);
             this.chatHistoryManager = null;

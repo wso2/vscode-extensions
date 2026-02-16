@@ -234,6 +234,21 @@ const FooterTooltip: React.FC<{
 };
 
 const MENTION_SEARCH_LIMIT = 40;
+const MENTION_SEARCH_DEBOUNCE_MS = 120;
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+    const [debouncedValue, setDebouncedValue] = useState(value);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            setDebouncedValue(value);
+        }, delayMs);
+
+        return () => window.clearTimeout(timer);
+    }, [value, delayMs]);
+
+    return debouncedValue;
+}
 
 function getMentionContext(input: string, cursor: number): MentionContext | null {
     const textBeforeCursor = input.slice(0, cursor);
@@ -311,7 +326,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setAgentMode,
     } = useMICopilotContext();
 
-    const [fileUploadStatus, setFileUploadStatus] = useState({ type: "", text: "" });
+    const [, setFileUploadStatus] = useState({ type: "", text: "" });
     const isResponseReceived = useRef(false);
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
     const abortedRef = useRef(false);
@@ -344,7 +359,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const [mentionSuggestions, setMentionSuggestions] = useState<MentionablePathItem[]>([]);
     const [activeMentionIndex, setActiveMentionIndex] = useState(0);
     const [isMentionLoading, setIsMentionLoading] = useState(false);
+    const [pendingMentionCursorPosition, setPendingMentionCursorPosition] = useState<number | null>(null);
     const mentionSearchRequestIdRef = useRef(0);
+    const debouncedMentionContext = useDebouncedValue(mentionContext, MENTION_SEARCH_DEBOUNCE_MS);
 
     // Context usage tracking (for compact button display)
     const CONTEXT_TOKEN_THRESHOLD = 200000;
@@ -994,13 +1011,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
         setCurrentUserprompt(updatedPrompt);
         closeMentionSuggestions();
-
-        setTimeout(() => {
-            if (textAreaRef.current) {
-                textAreaRef.current.focus();
-                textAreaRef.current.setSelectionRange(cursorPosition, cursorPosition);
-            }
-        }, 0);
+        setPendingMentionCursorPosition(cursorPosition);
     };
 
     // Handle text input keydown events
@@ -1218,15 +1229,15 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
     }, [currentUserPrompt]);
 
-    // Clear file upload status after 5 seconds
     useEffect(() => {
-        if (fileUploadStatus.text) {
-            const timer = setTimeout(() => {
-                setFileUploadStatus({ type: "", text: "" });
-            }, 5000);
-            return () => clearTimeout(timer);
+        if (pendingMentionCursorPosition === null || !textAreaRef.current) {
+            return;
         }
-    }, [fileUploadStatus]);
+
+        textAreaRef.current.focus();
+        textAreaRef.current.setSelectionRange(pendingMentionCursorPosition, pendingMentionCursorPosition);
+        setPendingMentionCursorPosition(null);
+    }, [pendingMentionCursorPosition, currentUserPrompt]);
 
     // Persist thinking preference across panel reloads
     useEffect(() => {
@@ -1339,13 +1350,23 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             return;
         }
 
+        if (
+            !debouncedMentionContext
+            || debouncedMentionContext.start !== mentionContext.start
+            || debouncedMentionContext.end !== mentionContext.end
+            || debouncedMentionContext.query !== mentionContext.query
+        ) {
+            setIsMentionLoading(true);
+            return;
+        }
+
         const requestId = ++mentionSearchRequestIdRef.current;
         setIsMentionLoading(true);
 
-        const timer = setTimeout(async () => {
+        const searchMentionablePaths = async () => {
             try {
                 const response = await rpcClient.getMiAgentPanelRpcClient().searchMentionablePaths({
-                    query: mentionContext.query,
+                    query: debouncedMentionContext.query,
                     limit: MENTION_SEARCH_LIMIT,
                 });
 
@@ -1368,10 +1389,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     setIsMentionLoading(false);
                 }
             }
-        }, 120);
+        };
 
-        return () => clearTimeout(timer);
-    }, [mentionContext, rpcClient, backendRequestTriggered, isUsageExceeded]);
+        void searchMentionablePaths();
+    }, [mentionContext, debouncedMentionContext, rpcClient, backendRequestTriggered, isUsageExceeded]);
 
     useEffect(() => {
         setActiveMentionIndex(0);

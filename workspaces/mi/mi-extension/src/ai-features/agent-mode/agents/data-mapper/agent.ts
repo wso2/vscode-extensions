@@ -24,13 +24,14 @@
  */
 
 import { generateText } from 'ai';
-import * as fs from 'fs';
+import * as fsPromises from 'node:fs/promises';
+import * as path from 'node:path';
 import { Project, QuoteKind } from 'ts-morph';
 import * as vscode from 'vscode';
 import * as Handlebars from 'handlebars';
 import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from '../../../connection';
-import { DATA_MAPPER_SYSTEM_TEMPLATE } from '../../../copilot/data-mapper/system';
-import { DATA_MAPPER_PROMPT } from '../../../copilot/data-mapper/prompt';
+import { DATA_MAPPER_SYSTEM_TEMPLATE } from './system';
+import { DATA_MAPPER_PROMPT } from './prompt';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 
 // ============================================================================
@@ -38,7 +39,7 @@ import { logInfo, logError, logDebug } from '../../../copilot/logger';
 // ============================================================================
 
 export interface DataMapperAgentRequest {
-    /** Absolute path to the TypeScript mapping file */
+    /** Path to the TypeScript mapping file (relative to projectPath or absolute inside projectPath) */
     tsFilePath: string;
     /** Project root path */
     projectPath: string;
@@ -81,6 +82,18 @@ function removeMapFunctionEntry(content: string): string {
     return mapFunction.getBodyText()?.trim() || 'return {}';
 }
 
+function resolveTsFilePathWithinProject(projectPath: string, tsFilePath: string): string {
+    const resolvedProjectPath = path.resolve(projectPath);
+    const resolvedTsFilePath = path.resolve(resolvedProjectPath, tsFilePath);
+    const relativePath = path.relative(resolvedProjectPath, resolvedTsFilePath);
+
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+        throw new Error(`tsFilePath must be within projectPath: ${tsFilePath}`);
+    }
+
+    return resolvedTsFilePath;
+}
+
 // ============================================================================
 // Data Mapper Sub-Agent
 // ============================================================================
@@ -101,13 +114,20 @@ export async function executeDataMapperAgent(
     request: DataMapperAgentRequest
 ): Promise<DataMapperAgentResult> {
     try {
-        logInfo(`[DataMapperAgent] Processing: ${request.tsFilePath}`);
+        const resolvedTsFilePath = resolveTsFilePathWithinProject(request.projectPath, request.tsFilePath);
+        logInfo(`[DataMapperAgent] Processing: ${resolvedTsFilePath}`);
 
         // 1. Read TypeScript file
-        if (!fs.existsSync(request.tsFilePath)) {
-            throw new Error(`TypeScript file not found: ${request.tsFilePath}`);
+        let tsContent: string;
+        try {
+            tsContent = await fsPromises.readFile(resolvedTsFilePath, 'utf8');
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError?.code === 'ENOENT') {
+                throw new Error(`TypeScript file not found: ${resolvedTsFilePath}`);
+            }
+            throw error;
         }
-        const tsContent = fs.readFileSync(request.tsFilePath, 'utf8');
         logDebug(`[DataMapperAgent] Read file with ${tsContent.length} characters`);
 
         // 2. Build prompt with optional instructions
@@ -149,7 +169,7 @@ export async function executeDataMapperAgent(
 
         // 5. Update the file using ts-morph
         const project = new Project();
-        const sourceFile = project.addSourceFileAtPath(request.tsFilePath);
+        const sourceFile = project.addSourceFileAtPath(resolvedTsFilePath);
         const mapFunction = sourceFile.getFunction('mapFunction');
 
         if (!mapFunction) {
@@ -160,7 +180,7 @@ export async function executeDataMapperAgent(
         await sourceFile.save();
 
         // 6. Sync with VSCode/LSP
-        const uri = vscode.Uri.file(request.tsFilePath);
+        const uri = vscode.Uri.file(resolvedTsFilePath);
         try {
             const doc = await vscode.workspace.openTextDocument(uri);
             await doc.save();
@@ -170,7 +190,7 @@ export async function executeDataMapperAgent(
             logDebug(`[DataMapperAgent] VSCode sync skipped: ${syncError}`);
         }
 
-        logInfo(`[DataMapperAgent] Successfully generated mappings for ${request.tsFilePath}`);
+        logInfo(`[DataMapperAgent] Successfully generated mappings for ${resolvedTsFilePath}`);
 
         return { success: true };
 

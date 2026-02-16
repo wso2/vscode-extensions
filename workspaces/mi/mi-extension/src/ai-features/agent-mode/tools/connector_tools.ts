@@ -165,12 +165,16 @@ export function createConnectorExecute(projectPath: string): ConnectorExecuteFn 
         if (connectorsFound > 0) {
             message += `Found ${connectorsFound} connector(s):\n`;
             Object.entries(connectorDefinitions).forEach(([name, def]: [string, any]) => {
+                const versionTag = def?.version?.tagName || 'unknown';
+                const operations = Array.isArray(def?.version?.operations) ? def.version.operations : [];
                 message += `\n### ${name}\n`;
                 message += `- Description: ${def.description}\n`;
                 message += `- Maven: ${def.mavenGroupId}:${def.mavenArtifactId}\n`;
-                message += `- Version: ${def.version.tagName}\n`;
-                if (def.version.operations && def.version.operations.length > 0) {
-                    message += `- Operations: ${def.version.operations.map((op: any) => op.name).join(', ')}\n`;
+                message += `- Version: ${versionTag}\n`;
+                if (operations.length > 0) {
+                    message += `- Operations: ${operations.map((op: any) => op.name).join(', ')}\n`;
+                } else {
+                    message += `- Operations: unavailable\n`;
                 }
                 message += `\nFull Definition:\n\`\`\`json\n${JSON.stringify(def, null, 2)}\n\`\`\`\n`;
             });
@@ -179,10 +183,11 @@ export function createConnectorExecute(projectPath: string): ConnectorExecuteFn 
         if (inboundsFound > 0) {
             message += `\nFound ${inboundsFound} inbound endpoint(s):\n`;
             Object.entries(inboundDefinitions).forEach(([name, def]: [string, any]) => {
+                const versionTag = def?.version?.tagName || 'unknown';
                 message += `\n### ${name}\n`;
                 message += `- Description: ${def.description}\n`;
                 message += `- Maven: ${def.mavenGroupId}:${def.mavenArtifactId}\n`;
-                message += `- Version: ${def.version.tagName}\n`;
+                message += `- Version: ${versionTag}\n`;
                 message += `\nFull Definition:\n\`\`\`json\n${JSON.stringify(def, null, 2)}\n\`\`\`\n`;
             });
         }

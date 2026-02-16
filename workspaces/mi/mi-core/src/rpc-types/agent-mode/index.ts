@@ -36,6 +36,8 @@ export type {
     // Plan mode types
     TodoStatus,
     TodoItem,
+    PlanApprovalKind,
+    PlanApprovalRequestedEvent,
     PlanApprovalResponse,
     // Session management types
     SessionMetadata,

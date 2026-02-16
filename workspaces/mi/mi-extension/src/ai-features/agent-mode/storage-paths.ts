@@ -56,7 +56,21 @@ export function getCopilotProjectStorageDir(projectPath: string): string {
     return path.join(getCopilotProjectsRootDir(), getCopilotProjectStorageKey(projectPath));
 }
 
-export function getCopilotSessionDir(projectPath: string, sessionId: string): string {
-    return path.join(getCopilotProjectStorageDir(projectPath), sessionId);
+function sanitizeSessionId(sessionId: string): string {
+    const basenameCandidate = sessionId.split(/[\\/]/).pop()?.trim() ?? '';
+    const sanitized = basenameCandidate
+        .replace(/[^a-zA-Z0-9._-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+
+    if (!sanitized || sanitized === '.' || sanitized === '..') {
+        return 'default';
+    }
+
+    return sanitized.slice(0, 128);
 }
 
+export function getCopilotSessionDir(projectPath: string, sessionId: string): string {
+    const safeSessionId = sanitizeSessionId(sessionId);
+    return path.join(getCopilotProjectStorageDir(projectPath), safeSessionId);
+}

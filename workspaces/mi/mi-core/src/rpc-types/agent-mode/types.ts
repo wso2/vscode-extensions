@@ -162,6 +162,16 @@ export interface Question {
 }
 
 /**
+ * Plan approval kinds supported by interactive approval events.
+ */
+export type PlanApprovalKind =
+    | 'enter_plan_mode'
+    | 'exit_plan_mode'
+    | 'exit_plan_mode_without_plan'
+    | 'web_search'
+    | 'web_fetch';
+
+/**
  * Agent event for streaming
  */
 export interface AgentEvent {
@@ -192,6 +202,16 @@ export interface AgentEvent {
     approvalId?: string;
     /** Path to the plan file for plan_approval_requested event */
     planFilePath?: string;
+    /** Plan approval kind for plan_approval_requested event */
+    approvalKind?: PlanApprovalKind;
+    /** UI title for plan_approval_requested event */
+    approvalTitle?: string;
+    /** Approve button label for plan_approval_requested event */
+    approveLabel?: string;
+    /** Reject button label for plan_approval_requested event */
+    rejectLabel?: string;
+    /** Whether the UI should collect rejection feedback */
+    allowFeedback?: boolean;
     /** Summary text for compact event */
     summary?: string;
 
@@ -212,6 +232,21 @@ export interface AgentEvent {
     bashExitCode?: number;
     /** Whether command is still running in background */
     bashRunning?: boolean;
+}
+
+/**
+ * Structured payload for plan approval requests sent to the UI.
+ */
+export interface PlanApprovalRequestedEvent extends AgentEvent {
+    type: 'plan_approval_requested';
+    approvalId: string;
+    content: string;
+    approvalKind: PlanApprovalKind;
+    approvalTitle: string;
+    approveLabel: string;
+    rejectLabel: string;
+    allowFeedback: boolean;
+    planFilePath?: string;
 }
 
 /**

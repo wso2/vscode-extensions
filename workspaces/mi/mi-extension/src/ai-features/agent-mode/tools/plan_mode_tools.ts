@@ -37,7 +37,7 @@ import {
 } from './types';
 import { PLAN_MODE_SHARED_GUIDELINES } from '../agents/main/mode';
 import { logInfo, logDebug, logError } from '../../copilot/logger';
-import { AgentEvent } from '@wso2/mi-core';
+import { AgentEvent, PlanApprovalKind, PlanApprovalRequestedEvent } from '@wso2/mi-core';
 import { getCopilotSessionDir } from '../storage-paths';
 
 // ============================================================================
@@ -53,6 +53,8 @@ interface PlanModeSessionState {
 // Tracks the last "accepted baseline" timestamp for each session's plan file.
 // exit_plan_mode requires a newer mtime to ensure the plan was updated.
 const planModeSessionStates = new Map<string, PlanModeSessionState>();
+const ASK_USER_TIMEOUT_MS = 5 * 60 * 1000;
+const USER_CANCELLED_RESPONSE = '__USER_CANCELLED__';
 
 /**
  * Generate a memorable slug for the plan file
@@ -212,7 +214,11 @@ export function isPlanModeSessionActive(sessionId: string): boolean {
 
 export interface PendingQuestion {
     questionId: string;
+    sessionId: string;
     question: string;
+    createdAt: number;
+    expiresAt: number;
+    timeoutHandle?: ReturnType<typeof setTimeout>;
     resolve: (answer: string) => void;
     reject: (error: Error) => void;
 }
@@ -225,13 +231,6 @@ export interface PendingPlanApproval {
 }
 
 export type AgentEventHandler = (event: AgentEvent) => void;
-
-export type PlanApprovalKind =
-    | 'enter_plan_mode'
-    | 'exit_plan_mode'
-    | 'exit_plan_mode_without_plan'
-    | 'web_search'
-    | 'web_fetch';
 
 async function requestPlanApproval(
     eventHandler: AgentEventHandler,
@@ -248,7 +247,7 @@ async function requestPlanApproval(
 ): Promise<{ approved: boolean; feedback?: string }> {
     const approvalId = uuidv4();
 
-    eventHandler({
+    const approvalEvent: PlanApprovalRequestedEvent = {
         type: 'plan_approval_requested',
         approvalId,
         planFilePath: request.planFilePath,
@@ -258,7 +257,8 @@ async function requestPlanApproval(
         approveLabel: request.approveLabel,
         rejectLabel: request.rejectLabel,
         allowFeedback: request.allowFeedback,
-    } as any);
+    };
+    eventHandler(approvalEvent);
 
     return new Promise((resolve, reject) => {
         pendingApprovals.set(approvalId, {
@@ -276,6 +276,29 @@ async function requestPlanApproval(
     });
 }
 
+export function cleanupPendingQuestionsForSession(
+    pendingQuestions: Map<string, PendingQuestion>,
+    sessionId: string
+): void {
+    if (!sessionId) {
+        return;
+    }
+
+    const pendingEntries = Array.from(pendingQuestions.entries())
+        .filter(([, pending]) => pending.sessionId === sessionId);
+
+    for (const [questionId, pending] of pendingEntries) {
+
+        if (pending.timeoutHandle) {
+            clearTimeout(pending.timeoutHandle);
+            pending.timeoutHandle = undefined;
+        }
+
+        pendingQuestions.delete(questionId);
+        pending.resolve(USER_CANCELLED_RESPONSE);
+    }
+}
+
 // ============================================================================
 // Ask User Tool
 // ============================================================================
@@ -284,10 +307,12 @@ async function requestPlanApproval(
  * Creates the execute function for ask_user tool
  * @param eventHandler - Function to send events to the UI
  * @param pendingQuestions - Map to track pending questions awaiting user response
+ * @param sessionId - Active session ID used for timeout cleanup scoping
  */
 export function createAskUserExecute(
     eventHandler: AgentEventHandler,
-    pendingQuestions: Map<string, PendingQuestion>
+    pendingQuestions: Map<string, PendingQuestion>,
+    sessionId: string
 ): AskUserExecuteFn {
     return async (args): Promise<ToolResult> => {
         const { questions } = args;
@@ -308,7 +333,6 @@ export function createAskUserExecute(
             const q = questions[i];
             if (!q.question || !q.options || q.options.length < 2) {
                 logError(`[AskUserTool] Invalid question at index ${i}: missing required fields or insufficient options`);
-                logError(`[AskUserTool] Question data: ${JSON.stringify(q)}`);
                 return {
                     success: false,
                     message: `Question ${i + 1} is invalid. Each question must have: question text and at least 2 options with labels and descriptions.`,
@@ -318,37 +342,40 @@ export function createAskUserExecute(
         }
 
         logInfo(`[AskUserTool] Asking user ${questions.length} question(s)`);
-        // Log full question structure for debugging
-        questions.forEach((q, idx) => {
-            logDebug(`[AskUserTool] Question ${idx + 1}:`);
-            logDebug(`  - Question: ${q.question}`);
-            logDebug(`  - MultiSelect: ${q.multiSelect}`);
-            logDebug(`  - Options (${q.options.length}):`);
-            q.options.forEach((opt, optIdx) => {
-                logDebug(`    ${optIdx + 1}. "${opt.label}" - ${opt.description}`);
-            });
-        });
+        const questionMetadata = questions.map((q, idx) =>
+            `q${idx + 1}(options=${q.options.length}, multiSelect=${q.multiSelect ? 'yes' : 'no'})`
+        );
+        logDebug(`[AskUserTool] Question metadata: ${questionMetadata.join(', ')}`);
 
         // Send ask_user event to UI with structured questions
-        const event = {
+        const event: AgentEvent = {
             type: 'ask_user',
             questionId,
             questions,
         };
-        logDebug(`[AskUserTool] Sending event to UI: ${JSON.stringify(event, null, 2)}`);
-        eventHandler(event as any);
+        eventHandler(event);
 
-        // Wait for user response (Promise resolves when respondToQuestion is called)
-        // No timeout - we wait indefinitely for user response
+        // Wait for user response (Promise resolves when respondToQuestion is called).
+        // Auto-timeout to avoid stale entries when sessions are abandoned.
         return new Promise((resolve, reject) => {
+            const createdAt = Date.now();
+            const expiresAt = createdAt + ASK_USER_TIMEOUT_MS;
+
             pendingQuestions.set(questionId, {
                 questionId,
-                question: questions.map(q => q.question).join('; '),
+                sessionId,
+                question: `${questions.length} question(s)`,
+                createdAt,
+                expiresAt,
                 resolve: (answersJson: string) => {
+                    const pending = pendingQuestions.get(questionId);
+                    if (pending?.timeoutHandle) {
+                        clearTimeout(pending.timeoutHandle);
+                    }
                     pendingQuestions.delete(questionId);
 
                     // Check if user cancelled (special string indicating cancellation)
-                    if (answersJson === '__USER_CANCELLED__') {
+                    if (answersJson === USER_CANCELLED_RESPONSE) {
                         logInfo(`[AskUserTool] User refused to answer questions`);
                         resolve({
                             success: false,
@@ -367,14 +394,14 @@ export function createAskUserExecute(
                             .map(([question, answer]) => `"${question}"="${answer}"`)
                             .join(', ');
 
-                        logInfo(`[AskUserTool] Received user responses: ${formattedAnswers}`);
+                        logInfo(`[AskUserTool] Received user responses for ${Object.keys(answers).length} question(s)`);
                         resolve({
                             success: true,
                             message: `User has answered your questions: ${formattedAnswers}. You can now continue with the user's answers in mind.`
                         });
                     } catch (error) {
                         // Fallback for simple string response
-                        logInfo(`[AskUserTool] Received user response: ${answersJson.substring(0, 100)}...`);
+                        logInfo('[AskUserTool] Received user response payload');
                         resolve({
                             success: true,
                             message: `User responded: ${answersJson}`
@@ -382,10 +409,28 @@ export function createAskUserExecute(
                     }
                 },
                 reject: (error: Error) => {
+                    const pending = pendingQuestions.get(questionId);
+                    if (pending?.timeoutHandle) {
+                        clearTimeout(pending.timeoutHandle);
+                    }
                     pendingQuestions.delete(questionId);
                     reject(error);
                 }
             });
+
+            const timeoutHandle = setTimeout(() => {
+                const pending = pendingQuestions.get(questionId);
+                if (!pending) {
+                    return;
+                }
+                logInfo(`[AskUserTool] Question timed out after ${ASK_USER_TIMEOUT_MS / 1000} seconds: ${questionId}`);
+                pending.resolve(USER_CANCELLED_RESPONSE);
+            }, ASK_USER_TIMEOUT_MS);
+
+            const pending = pendingQuestions.get(questionId);
+            if (pending) {
+                pending.timeoutHandle = timeoutHandle;
+            }
         });
     };
 }

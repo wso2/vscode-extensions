@@ -58,7 +58,7 @@ export const SYNAPSE_GUIDE = `
    - Do not use <> tags as placeholders.
    - To include an API key in uri-template, define:
     \`\`\`xml
-    <variable name="username" value=your_api_key_here type="STRING"/>
+    <variable name="username" value="your_api_key_here" type="STRING"/>
     \`\`\`
    - The respond mediator should be empty; it does not support child elements.
 
@@ -159,8 +159,8 @@ export const SYNAPSE_GUIDE = `
     </log>
     \`\`\`
 
-## Do not use call or send mediators. Instead, use the new HTTP connector:
-    - 	First, define a local entry using http.init:
+## Prefer using the new HTTP connector over call or send mediators unless absolutely necessary or legacy compatibility requires it or if you encounter issues with the new HTTP connector.
+    - First, define a local entry using http.init:
        \`\`\`xml
        <localEntry key="HTTP_1" xmlns="http://ws.apache.org/ns/synapse">
           <http.init>

@@ -37,7 +37,7 @@ Complete the \`mapFunction\` to map all fields from InputRoot to OutputRoot. Fol
 2. Use dmUtils functions for string concatenation, arithmetic, and type conversions
 3. Include all OutputRoot fields (use defaults for unmappable fields)
 4. Preserve any existing mappings
-5. Return ONLY the mapFunction code, nothing else
+5. Return ONLY the complete \`mapFunction\` code, wrapped in a single fenced TypeScript code block (\`\`\`typescript ... \`\`\` or \`\`\`ts ... \`\`\`)
 
 {{#if instructions}}
 **Additional Instructions:**
@@ -49,5 +49,5 @@ Complete the \`mapFunction\` to map all fields from InputRoot to OutputRoot. Fol
 {{ts_file}}
 \`\`\`
 
-Now generate the complete \`mapFunction\`:
+Now generate the complete \`mapFunction\`. Output only one fenced TypeScript code block containing the function and nothing else:
 `;

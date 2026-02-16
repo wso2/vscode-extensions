@@ -474,7 +474,7 @@ export function createAgentTools(params: CreateToolsParams) {
             getWrappedExecute(SUBAGENT_TOOL_NAME, createSubagentExecute(projectPath, sessionId, getAnthropicClient))
         ),
         [ASK_USER_TOOL_NAME]: createAskUserTool(
-            getWrappedExecute(ASK_USER_TOOL_NAME, createAskUserExecute(eventHandler, pendingQuestions))
+            getWrappedExecute(ASK_USER_TOOL_NAME, createAskUserExecute(eventHandler, pendingQuestions, sessionId))
         ),
         [ENTER_PLAN_MODE_TOOL_NAME]: createEnterPlanModeTool(
             getWrappedExecute(ENTER_PLAN_MODE_TOOL_NAME, createEnterPlanModeExecute(projectPath, sessionId, eventHandler, pendingApprovals))

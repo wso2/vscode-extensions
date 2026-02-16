@@ -52,6 +52,8 @@ import { getCopilotProjectsRootDir } from '../storage-paths';
 const READ_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'] as const;
 const READ_PDF_EXTENSION = '.pdf';
 const PDF_MAX_PAGES_PER_REQUEST = 5;
+const MAX_GREP_PATTERN_LENGTH = 512;
+const MAX_GREP_GLOB_LENGTH = 256;
 
 const IMAGE_MEDIA_TYPE_BY_EXTENSION: Record<string, string> = {
     '.png': 'image/png',
@@ -169,6 +171,80 @@ function resolveFullPath(projectPath: string, filePath: string): string {
 
 function isCopilotGlobalPath(fullPath: string): boolean {
     return isPathWithin(getCopilotProjectsRootDir(), fullPath);
+}
+
+function escapeRegexCharacters(value: string): string {
+    return value.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');
+}
+
+function compileGrepPattern(pattern: string, caseInsensitive: boolean): { regex?: RegExp; error?: string } {
+    if (!pattern || pattern.length > MAX_GREP_PATTERN_LENGTH) {
+        return {
+            error: `Pattern length must be between 1 and ${MAX_GREP_PATTERN_LENGTH} characters.`,
+        };
+    }
+
+    try {
+        return {
+            regex: new RegExp(pattern, caseInsensitive ? 'gi' : 'g'),
+        };
+    } catch (error) {
+        return {
+            error: `Invalid regex pattern: ${error instanceof Error ? error.message : String(error)}`,
+        };
+    }
+}
+
+function compileGlobPattern(globPattern?: string): { regex?: RegExp; error?: string } {
+    if (!globPattern) {
+        return {};
+    }
+
+    if (globPattern.length > MAX_GREP_GLOB_LENGTH) {
+        return {
+            error: `Glob length must be at most ${MAX_GREP_GLOB_LENGTH} characters.`,
+        };
+    }
+
+    if (/[\r\n\0]/.test(globPattern)) {
+        return {
+            error: 'Glob contains invalid control characters.',
+        };
+    }
+
+    try {
+        let hasInvalidBraceGroup = false;
+        const escapedGlob = escapeRegexCharacters(globPattern).replace(/\\\{([^{}]+)\\\}/g, (_match, group) => {
+            const options = group
+                .split(',')
+                .map((option: string) => option.trim())
+                .filter((option: string) => option.length > 0);
+
+            if (options.length === 0 || options.length > 20) {
+                hasInvalidBraceGroup = true;
+                return '';
+            }
+
+            return `(${options.map((option: string) => escapeRegexCharacters(option)).join('|')})`;
+        });
+
+        if (hasInvalidBraceGroup) {
+            return {
+                error: 'Glob contains an invalid brace group.',
+            };
+        }
+
+        const regexBody = escapedGlob
+            .replace(/\\\*/g, '.*')
+            .replace(/\\\?/g, '.');
+        return {
+            regex: new RegExp(`^${regexBody}$`),
+        };
+    } catch (error) {
+        return {
+            error: `Invalid glob pattern: ${error instanceof Error ? error.message : String(error)}`,
+        };
+    }
 }
 
 /**
@@ -977,10 +1053,29 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
 
         logDebug(`[GrepTool] Searching for pattern '${pattern}' in ${searchPath}`);
 
+        const compiledPattern = compileGrepPattern(pattern, caseInsensitive);
+        if (!compiledPattern.regex) {
+            return {
+                success: false,
+                message: compiledPattern.error || 'Invalid regex pattern.',
+                error: 'Error: Invalid regex pattern',
+            };
+        }
+
+        const compiledGlob = compileGlobPattern(glob);
+        if (glob && !compiledGlob.regex) {
+            return {
+                success: false,
+                message: compiledGlob.error || 'Invalid glob pattern.',
+                error: 'Error: Invalid glob pattern',
+            };
+        }
+
         try {
             const results: Array<{file: string; line: number; content: string}> = [];
             const filesWithMatches: Set<string> = new Set();
-            const regex = new RegExp(pattern, caseInsensitive ? 'gi' : 'g');
+            const regex = compiledPattern.regex;
+            const globRegex = compiledGlob.regex;
 
             // Resolve the search path (always relative to projectPath for security)
             const fullSearchPath = path.join(projectPath, searchPath);
@@ -1015,13 +1110,8 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
                         searchInDirectory(fullPath);
                     } else if (entry.isFile()) {
                         // Check glob pattern if specified
-                        if (glob) {
-                            const globRegex = new RegExp(
-                                glob.replace(/\*/g, '.*').replace(/\?/g, '.')
-                            );
-                            if (!globRegex.test(entry.name)) {
-                                continue;
-                            }
+                        if (globRegex && !globRegex.test(entry.name)) {
+                            continue;
                         }
 
                         if (!isTextAllowedFilePath(entry.name)) {
@@ -1308,9 +1398,9 @@ export function createEditTool(execute: EditExecuteFn) {
  */
 
 const grepInputSchema = z.object({
-    pattern: z.string().describe(`The regular expression pattern to search for in file contents`),
+    pattern: z.string().min(1).max(MAX_GREP_PATTERN_LENGTH).describe(`The regular expression pattern to search for in file contents (max ${MAX_GREP_PATTERN_LENGTH} characters)`),
     path: z.string().optional().describe(`File or directory to search in (rg PATH). Defaults to current working directory.`),
-    glob: z.string().optional().describe(`Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob`),
+    glob: z.string().max(MAX_GREP_GLOB_LENGTH).optional().describe(`Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob (max ${MAX_GREP_GLOB_LENGTH} characters)`),
     type: z.string().optional().describe(`File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types.`),
     output_mode: z.enum(['content', 'files_with_matches']).optional().describe(`Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows only file paths (supports head_limit). Defaults to "files_with_matches".`),
     '-i': z.boolean().optional().describe(`Case insensitive search`),

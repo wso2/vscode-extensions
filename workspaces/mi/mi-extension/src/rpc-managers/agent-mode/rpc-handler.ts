@@ -48,15 +48,18 @@ import {
     searchMentionablePaths,
 } from "@wso2/mi-core";
 
-// Singleton manager to maintain pending questions state across requests
-let rpcManagerInstance: MIAgentPanelRpcManager | null = null;
+const rpcManagerMap: Map<string, MIAgentPanelRpcManager> = new Map();
+
+export function disposeMIAgentPanelRpcManager(projectUri: string): void {
+    rpcManagerMap.delete(projectUri);
+}
 
 export function registerMIAgentPanelRpcHandlers(messenger: MessengerAPI, projectUri: string) {
-    // Create or reuse manager instance
-    if (!rpcManagerInstance || rpcManagerInstance.getProjectUri() !== projectUri) {
-        rpcManagerInstance = new MIAgentPanelRpcManager(projectUri);
+    let rpcManager = rpcManagerMap.get(projectUri);
+    if (!rpcManager) {
+        rpcManager = new MIAgentPanelRpcManager(projectUri);
+        rpcManagerMap.set(projectUri, rpcManager);
     }
-    const rpcManager = rpcManagerInstance;
 
     // ==================================
     // Agent Functions

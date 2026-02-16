@@ -24,7 +24,13 @@ import * as path from 'path';
 import * as childProcess from 'child_process';
 import * as net from 'net';
 import axios from 'axios';
-import { ToolResult } from './types';
+import {
+    ToolResult,
+    BUILD_PROJECT_TOOL_NAME,
+    SERVER_MANAGEMENT_TOOL_NAME,
+    type BuildProjectExecuteFn,
+    type ServerManagementExecuteFn,
+} from './types';
 import { logDebug, logError, logInfo } from '../../copilot/logger';
 import { getBuildCommand, getRunCommand, getStopCommand, loadEnvVariables } from '../../../debugger/tasks';
 import { setJavaHomeInEnvironmentAndPath } from '../../../debugger/debugHelper';
@@ -34,24 +40,14 @@ import { serverLog, showServerOutputChannel, getOutputChannel } from '../../../u
 import { MILanguageClient } from '../../../lang-client/activator';
 import treeKill = require('tree-kill');
 
-// ============================================================================
-// Tool Name Constants
-// ============================================================================
-
-export const BUILD_PROJECT_TOOL_NAME = 'build_project';
-export const SERVER_MANAGEMENT_TOOL_NAME = 'server_management';
-
-// ============================================================================
-// Type Definitions
-// ============================================================================
-
-export type BuildProjectExecuteFn = (args: {
-    copy_to_runtime?: boolean;
-}) => Promise<ToolResult>;
-
-export type ServerManagementExecuteFn = (args: {
-    action: 'run' | 'stop' | 'status';
-}) => Promise<ToolResult>;
+export {
+    BUILD_PROJECT_TOOL_NAME,
+    SERVER_MANAGEMENT_TOOL_NAME,
+};
+export type {
+    BuildProjectExecuteFn,
+    ServerManagementExecuteFn,
+};
 
 // ============================================================================
 // Module State
