@@ -20,7 +20,7 @@ import { useState } from 'react';
 import styled from '@emotion/styled';
 import { Node } from '@xyflow/react';
 import { ArazzoWorkflow, ArazzoDefinition } from '@wso2/arazzo-designer-core';
-import { resolveReference, isReference } from '../../utils/referenceUtils';
+import { resolveReference, isReference, isReferenceLike, getReferencePath } from '../../utils/referenceUtils';
 
 const Container = styled.div`
     display: flex;
@@ -175,8 +175,6 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
 
     const nodeData = node.data || {};
     const { label, iconClass, ...stepData } = nodeData;
-    const { width, height, ...semanticStepData } = stepData;
-    
 
     const toggleSection = (sectionId: string) => {
         const newExpanded = new Set(expandedSections);
@@ -198,14 +196,60 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
         setExpandedArrayItems(newExpanded);
     };
 
+    const getNonNullOverrides = (value: any): Record<string, any> => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+            return {};
+        }
+
+        const { $ref, reference, ...rest } = value as any;
+        const overrides: Record<string, any> = {};
+        Object.entries(rest).forEach(([key, v]) => {
+            if (
+                v !== undefined &&
+                v !== null &&
+                !(typeof v === 'string' && v.trim() === '')
+            ) {
+                overrides[key] = v;
+            }
+        });
+        return overrides;
+    };
+
+    const resolveReferenceLikeValue = (value: any): { value: any; originalRef?: string } => {
+        const refPath = getReferencePath(value);
+        if (!refPath) {
+            return { value };
+        }
+
+        const resolved = resolveReference(refPath, definition);
+        if (resolved && typeof resolved === 'object' && !Array.isArray(resolved)) {
+            const merged = {
+                ...resolved,
+                ...getNonNullOverrides(value),
+            };
+            return { value: merged, originalRef: refPath };
+        }
+
+        return { value, originalRef: refPath };
+    };
+
     const renderArraySection = (title: string, items: any[], sectionId: string) => {
         const expanded = expandedSections.has(sectionId);
         
         // Resolve references in items
         const resolvedItems = items.map(item => {
-            if (isReference(item)) {
-                const resolved = resolveReference(item.$ref, definition);
-                return { ...resolved, _originalRef: item.$ref };
+            if (isReferenceLike(item)) {
+                const resolvedInfo = resolveReferenceLikeValue(item);
+                if (resolvedInfo.value && typeof resolvedInfo.value === 'object' && !Array.isArray(resolvedInfo.value)) {
+                    return {
+                        ...resolvedInfo.value,
+                        ...(resolvedInfo.originalRef ? { _originalRef: resolvedInfo.originalRef } : {}),
+                    };
+                }
+                return {
+                    value: resolvedInfo.value,
+                    ...(resolvedInfo.originalRef ? { _originalRef: resolvedInfo.originalRef } : {}),
+                };
             }
             return item;
         });
@@ -749,13 +793,11 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
         let out = stepData.outputs as any;
         let originalRef: string | undefined;
         
-        // Check if outputs is a reference and resolve it
-        if (isReference(out)) {
-            originalRef = out.$ref;
-            const resolved = resolveReference(out.$ref, definition);
-            if (resolved) {
-                out = resolved;
-            }
+        // Check if outputs is a reference-like object and resolve it
+        if (isReferenceLike(out)) {
+            const resolvedInfo = resolveReferenceLikeValue(out);
+            out = resolvedInfo.value;
+            originalRef = resolvedInfo.originalRef;
         }
         
         // If outputs look like a JSON Schema with `properties`, render as items
@@ -765,12 +807,47 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
                 items.forEach((item: any) => { item._originalRef = originalRef; });
             }
             sections.push(renderArraySection('Outputs', items, 'outputs'));
-        } else if (Object.keys(out).length > 0 && Object.values(out).every(v => (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean' || v === null))) {
+        } else if (
+            Object.keys(out).length > 0 &&
+            Object.values(out).every(v =>
+                typeof v === 'string' ||
+                typeof v === 'number' ||
+                typeof v === 'boolean' ||
+                v === null ||
+                isReferenceLike(v)
+            )
+        ) {
             // Plain map of name -> expression/value
-            const items = Object.entries(out).map(([name, val]) => ({ name, value: val }));
-            if (originalRef) {
-                items.forEach((item: any) => { item._originalRef = originalRef; });
-            }
+            const items = Object.entries(out).map(([name, val]) => {
+                if (isReferenceLike(val)) {
+                    const resolvedInfo = resolveReferenceLikeValue(val);
+                    if (resolvedInfo.value && typeof resolvedInfo.value === 'object' && !Array.isArray(resolvedInfo.value)) {
+                        return {
+                            ...resolvedInfo.value,
+                            name,
+                            ...(resolvedInfo.originalRef
+                                ? { _originalRef: resolvedInfo.originalRef }
+                                : originalRef
+                                    ? { _originalRef: originalRef }
+                                    : {}),
+                        };
+                    }
+                    return {
+                        name,
+                        value: resolvedInfo.value,
+                        ...(resolvedInfo.originalRef
+                            ? { _originalRef: resolvedInfo.originalRef }
+                            : originalRef
+                                ? { _originalRef: originalRef }
+                                : {}),
+                    };
+                }
+                return {
+                    name,
+                    value: val,
+                    ...(originalRef ? { _originalRef: originalRef } : {}),
+                };
+            });
             sections.push(renderArraySection('Outputs', items, 'outputs'));
         } else {
             // Fallback: raw JSON
@@ -786,8 +863,6 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
             );
         }
     }
-
-
 
     return <Container>{sections}</Container>;
 }

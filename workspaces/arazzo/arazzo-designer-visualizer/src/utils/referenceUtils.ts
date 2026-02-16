@@ -18,11 +18,22 @@
 
 import { ArazzoDefinition } from '@wso2/arazzo-designer-core';
 
+const SUPPORTED_COMPONENT_BUCKETS = new Set([
+    'inputs',
+    'parameters',
+    'successActions',
+    'failureActions',
+]);
+
 /**
  * Resolves a JSON pointer reference string to the actual component data
- * from the Arazzo definition, recursively resolving any nested $ref objects.
+ * from the Arazzo definition, recursively resolving nested references.
  * 
- * @param ref - JSON pointer string (e.g., "#/components/inputs/myInput")
+ * Supports:
+ * - JSON pointer refs: "#/components/inputs/myInput"
+ * - reusable-object refs: "$components.parameters.RequestId"
+ *
+ * @param ref - reference string
  * @param definition - The Arazzo definition containing reusable components
  * @param visited - Set of already visited refs to prevent circular references
  * @returns The resolved component data, or null if not found
@@ -46,22 +57,27 @@ export function resolveReference(
     }
     visited.add(ref);
 
-    // Parse JSON pointer: remove leading '#/' and split by '/'
-    const path = ref.startsWith('#/') ? ref.slice(2) : ref;
-    const parts = path.split('/');
-
-    // Traverse the definition object following the path
-    let current: any = definition;
+    let current: any = null;
     
     try {
-        for (const part of parts) {
-            if (current === null || current === undefined) {
-                return null;
+        if (ref.startsWith('$components.')) {
+            current = resolveReusableReference(ref, definition);
+        } else {
+            // Parse JSON pointer: remove leading '#/' and split by '/'
+            const path = ref.startsWith('#/') ? ref.slice(2) : ref;
+            const parts = path.split('/');
+
+            // Traverse the definition object following the path
+            current = definition;
+            for (const part of parts) {
+                if (current === null || current === undefined) {
+                    return null;
+                }
+                
+                // Decode URI components (e.g., ~0 -> ~, ~1 -> /)
+                const decodedPart = part.replace(/~1/g, '/').replace(/~0/g, '~');
+                current = current[decodedPart];
             }
-            
-            // Decode URI components (e.g., ~0 -> ~, ~1 -> /)
-            const decodedPart = part.replace(/~1/g, '/').replace(/~0/g, '~');
-            current = current[decodedPart];
         }
         
         // Recursively resolve any nested $ref objects in the resolved component
@@ -72,8 +88,37 @@ export function resolveReference(
     }
 }
 
+function resolveReusableReference(
+    ref: string,
+    definition: ArazzoDefinition | undefined
+): any {
+    if (!definition || !ref.startsWith('$components.')) {
+        return null;
+    }
+
+    const rawPath = ref.slice('$components.'.length);
+    const separatorIndex = rawPath.indexOf('.');
+    if (separatorIndex === -1) {
+        return null;
+    }
+
+    const bucket = rawPath.slice(0, separatorIndex);
+    const componentKey = rawPath.slice(separatorIndex + 1);
+
+    if (!SUPPORTED_COMPONENT_BUCKETS.has(bucket) || !componentKey) {
+        return null;
+    }
+
+    const bucketObj = (definition as any)?.components?.[bucket];
+    if (!bucketObj || typeof bucketObj !== 'object') {
+        return null;
+    }
+
+    return bucketObj[componentKey] ?? null;
+}
+
 /**
- * Recursively resolves any nested $ref objects within a component
+ * Recursively resolves nested reference objects within a component.
  * 
  * @param obj - The object to process
  * @param definition - The Arazzo definition
@@ -89,9 +134,12 @@ function resolveNestedReferences(
         return obj;
     }
 
-    // If this object is itself a reference, resolve it
-    if (isReference(obj)) {
-        return resolveReference(obj.$ref, definition, visited);
+    // If this object is itself a reference-like object, resolve it
+    if (isReferenceLike(obj)) {
+        const refPath = getReferencePath(obj);
+        if (refPath) {
+            return resolveReference(refPath, definition, visited);
+        }
     }
 
     // If it's an array, resolve each element
@@ -126,15 +174,34 @@ export function isReference(value: any): boolean {
 }
 
 /**
- * Resolves a reference if it is one, otherwise returns the original value
- * 
- * @param value - The value that might be a reference
- * @param definition - The Arazzo definition
- * @returns The resolved value or the original value
+ * Checks if a value is a reusable reference object (has a `reference` property).
  */
-export function resolveIfReference(value: any, definition: ArazzoDefinition | undefined): any {
-    if (isReference(value)) {
-        return resolveReference(value.$ref, definition);
-    }
-    return value;
+export function isReusableReference(value: any): boolean {
+    return value !== null &&
+           typeof value === 'object' &&
+           'reference' in value &&
+           typeof value.reference === 'string';
 }
+
+/**
+ * Checks if a value is either a JSON-pointer reference object (`$ref`) or
+ * an Arazzo reusable-object reference (`reference`).
+ */
+export function isReferenceLike(value: any): boolean {
+    return isReference(value) || isReusableReference(value);
+}
+
+/**
+ * Extracts the original reference path from a reference-like object.
+ */
+export function getReferencePath(value: any): string | null {
+    if (isReference(value)) {
+        return value.$ref;
+    }
+    if (isReusableReference(value)) {
+        return value.reference;
+    }
+    return null;
+}
+
+

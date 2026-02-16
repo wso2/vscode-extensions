@@ -57,11 +57,12 @@ type Step struct {
 	LineNumber      int                    `yaml:"-" json:"-"` // Line number where step starts
 }
 
-// Parameter represents a parameter for a step
+// Parameter represents a parameter for a step (or a Reusable Object referencing one)
 type Parameter struct {
-	Name  string      `yaml:"name" json:"name"`
-	In    string      `yaml:"in,omitempty" json:"in,omitempty"` // query, header, path, cookie, body
-	Value interface{} `yaml:"value" json:"value"`                // Can be a literal value or runtime expression
+	Reference string      `yaml:"reference,omitempty" json:"reference,omitempty"` // Arazzo reusable-object reference, e.g. $components.parameters.RequestId
+	Name      string      `yaml:"name,omitempty" json:"name,omitempty"`
+	In        string      `yaml:"in,omitempty" json:"in,omitempty"` // query, header, path, cookie, body
+	Value     interface{} `yaml:"value,omitempty" json:"value,omitempty"` // Can be a literal value or runtime expression
 }
 
 // RequestBody defines the request body for a step
@@ -78,20 +79,22 @@ type Criterion struct {
 	Value      interface{} `yaml:"value,omitempty" json:"value,omitempty"`
 }
 
-// SuccessAction defines actions to take on step success
+// SuccessAction defines actions to take on step success (or a Reusable Object referencing one)
 type SuccessAction struct {
-	Name       string                 `yaml:"name" json:"name"`
-	Type       string                 `yaml:"type" json:"type"` // goto, end
+	Reference  string                 `yaml:"reference,omitempty" json:"reference,omitempty"` // Arazzo reusable-object reference, e.g. $components.successActions.AuditSuccess
+	Name       string                 `yaml:"name,omitempty" json:"name,omitempty"`
+	Type       string                 `yaml:"type,omitempty" json:"type,omitempty"` // goto, end
 	StepID     string                 `yaml:"stepId,omitempty" json:"stepId,omitempty"`
 	WorkflowID string                 `yaml:"workflowId,omitempty" json:"workflowId,omitempty"`
 	Criteria   []Criterion            `yaml:"criteria,omitempty" json:"criteria,omitempty"`
 	Ext        map[string]interface{} `yaml:",inline" json:"-"`
 }
 
-// FailureAction defines actions to take on step failure
+// FailureAction defines actions to take on step failure (or a Reusable Object referencing one)
 type FailureAction struct {
-	Name       string                 `yaml:"name" json:"name"`
-	Type       string                 `yaml:"type" json:"type"` // retry, goto, end
+	Reference  string                 `yaml:"reference,omitempty" json:"reference,omitempty"` // Arazzo reusable-object reference, e.g. $components.failureActions.RetryOn503
+	Name       string                 `yaml:"name,omitempty" json:"name,omitempty"`
+	Type       string                 `yaml:"type,omitempty" json:"type,omitempty"` // retry, goto, end
 	StepID     string                 `yaml:"stepId,omitempty" json:"stepId,omitempty"`
 	WorkflowID string                 `yaml:"workflowId,omitempty" json:"workflowId,omitempty"`
 	RetryAfter float64                `yaml:"retryAfter,omitempty" json:"retryAfter,omitempty"` // seconds
