@@ -24,12 +24,12 @@ import { ext } from "./extensionVariables";
 export function activateChoreoMcp(context: vscode.ExtensionContext) {
 	const didChangeEmitter = new vscode.EventEmitter<void>();
 	context.subscriptions.push(
-		vscode.lm.registerMcpServerDefinitionProvider("choreo", {
+		(vscode.lm as any).registerMcpServerDefinitionProvider("choreo", {
 			onDidChangeMcpServerDefinitions: didChangeEmitter.event,
 			provideMcpServerDefinitions: async () => {
-				const servers: vscode.McpServerDefinition[] = [];
+				const servers: any[] = [];
 				servers.push(
-					new vscode.McpStdioServerDefinition(
+					new (vscode as any).McpStdioServerDefinition(
 						"Choreo MCP Server",
 						getChoreoExecPath(),
 						["start-mcp-server"],
@@ -39,7 +39,7 @@ export function activateChoreoMcp(context: vscode.ExtensionContext) {
 				);
 				return servers;
 			},
-			resolveMcpServerDefinition: async (def, _token) => {
+			resolveMcpServerDefinition: async (def: any, _token: any) => {
 				return def;
 				// Uncomment below, if we want to ask user to login when MCP server is started
 				/*

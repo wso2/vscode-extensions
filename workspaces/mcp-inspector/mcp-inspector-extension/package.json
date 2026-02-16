@@ -68,26 +68,26 @@
     "clean": "rimraf dist out *.vsix"
   },
   "devDependencies": {
-    "@vscode/vsce": "^3.7.0",
-    "@types/vscode": "^1.84.0",
-    "@types/mocha": "^10.0.3",
+    "@vscode/vsce": "3.7.0",
+    "@types/vscode": "1.104.0",
+    "@types/mocha": "10.0.3",
     "@types/node": "22.15.18",
     "@typescript-eslint/eslint-plugin": "8.32.1",
     "@typescript-eslint/parser": "8.32.1",
-    "@vscode/test-electron": "^2.5.2",
+    "@vscode/test-electron": "2.5.2",
     "eslint": "9.27.0",
-    "mocha": "^11.2.2",
+    "mocha": "11.2.2",
     "typescript": "5.8.3",
-    "copyfiles": "^2.4.1",
-    "copy-webpack-plugin": "^13.0.0",
-    "ts-loader": "^9.5.2",
-    "webpack": "^5.99.8",
-    "webpack-cli": "^5.1.4",
+    "copyfiles": "2.4.1",
+    "copy-webpack-plugin": "13.0.0",
+    "ts-loader": "9.5.2",
+    "webpack": "5.104.1",
+    "webpack-cli": "5.1.4",
     "open": "10.2.0",
     "serve-handler": "6.1.6"
   },
   "dependencies": {
-    "@modelcontextprotocol/inspector": "^0.17.2"
+    "@modelcontextprotocol/inspector": "0.17.2"
   },
   "packageManager": "pnpm@9.0.0"
 }
