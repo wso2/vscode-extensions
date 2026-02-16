@@ -17,7 +17,7 @@
  */
 
 import type { DeploymentStatus } from "../enums";
-import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq, GetMarketplaceItemReq, GetConnectionItemReq, GetProjectEnvsReq, CreateThirdPartyConnectionReq, RegisterMarketplaceConnectionReq } from "./cli-rpc.types";
+import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq, GetMarketplaceItemReq, GetConnectionItemReq, GetProjectEnvsReq, CreateThirdPartyConnectionReq, RegisterMarketplaceConnectionReq, GetComponentsReq } from "./cli-rpc.types";
 import { CreateLocalConnectionsConfigReq, DeleteLocalConnectionsConfigReq } from "./messenger-rpc.types";
 import type { AuthState, ContextItemEnriched, ContextStoreState, WebviewState } from "./store.types";
 
@@ -48,6 +48,7 @@ export interface IWso2PlatformExtensionAPI {
 	getProjectEnvs: (params: GetProjectEnvsReq)=> Promise<Environment[]>
 	startProxyServer: (params: StartProxyServerReq) => Promise<StartProxyServerResp>;
 	stopProxyServer: (params: StopProxyServerReq) => Promise<void>;
+	getComponentList: (params: GetComponentsReq) => Promise<ComponentKind[]>;
 
 	// Auth Subscription
 	subscribeAuthState(callback: (state: AuthState)=>void): () => void;
