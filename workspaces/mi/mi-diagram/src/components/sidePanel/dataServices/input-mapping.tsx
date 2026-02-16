@@ -435,12 +435,13 @@ const InputMappingsForm = (props: AddMediatorProps) => {
                             Cancel
                         </Button> :
                         <>
-                            <Button
+                            {/* LS support for the feature will be added in the major release */}
+                            {/* <Button
                                 appearance="secondary"
                                 onClick={handleSubmit(generateMappings)}
                             >
                                 Generate Mappings
-                            </Button>
+                            </Button> */}
                             <Button
                                 appearance="primary"
                                 onClick={handleSubmit(onClick)}
