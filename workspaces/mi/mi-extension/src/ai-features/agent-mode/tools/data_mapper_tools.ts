@@ -42,13 +42,34 @@ import { IOType } from '@wso2/mi-core';
 import { executeDataMapperAgent } from '../agents/data-mapper/agent';
 import { MILanguageClient } from '../../../lang-client/activator';
 import { compareVersions } from '../../../util/onboardingUtils';
-import { logInfo, logError, logDebug } from '../../copilot/logger';
+import { logInfo, logError, logDebug, logWarn } from '../../copilot/logger';
 import { MiDataMapperRpcManager } from '../../../rpc-managers/mi-data-mapper/rpc-manager';
 import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
+import { getRuntimeVersionFromPom } from './connector_store_cache';
 
 function isCopilotInternalPath(relativePath: string): boolean {
     const normalized = relativePath.replace(/\\/g, '/').replace(/^\.\//, '');
     return normalized === '.mi-copilot' || normalized.startsWith('.mi-copilot/');
+}
+
+async function getUnsupportedRuntimeToolResult(projectPath: string, toolName: string): Promise<ToolResult | undefined> {
+    const runtimeVersion = await getRuntimeVersionFromPom(projectPath);
+    if (!runtimeVersion) {
+        return undefined;
+    }
+
+    if (compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
+        return undefined;
+    }
+
+    const message = `${toolName} is not supported for MI runtime ${runtimeVersion}. ` +
+        `Data mapper tools require MI runtime ${RUNTIME_VERSION_440} or newer.`;
+    logWarn(`[DataMapperTools] ${message}`);
+    return {
+        success: false,
+        message,
+        error: 'Error: Unsupported MI runtime',
+    };
 }
 
 // ============================================================================
@@ -106,6 +127,11 @@ export function createCreateDataMapperExecute(
         logInfo(`[CreateDataMapper] Creating data mapper: ${name}`);
 
         try {
+            const unsupportedRuntimeResult = await getUnsupportedRuntimeToolResult(projectPath, 'create_data_mapper');
+            if (unsupportedRuntimeResult) {
+                return unsupportedRuntimeResult;
+            }
+
             // 1. Validate name
             if (!name || !/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)) {
                 return {
@@ -245,6 +271,7 @@ export function createCreateDataMapperTool(execute: CreateDataMapperExecuteFn) {
     return (tool as any)({
         description: `Creates a new data mapper with input/output schemas and TypeScript mapping file.
         Optionally generates AI-powered field mappings if auto_map=true.
+        Supported only for MI runtime 4.4.0 or newer.
         Use in Synapse XML: <datamapper config="resources:/datamapper/{name}/{name}.dmc" inputType="JSON" outputType="JSON"/>`,
         inputSchema: createDataMapperInputSchema,
         execute,
@@ -266,6 +293,11 @@ export function createGenerateDataMappingExecute(
         logInfo(`[GenerateDataMapping] Generating mapping for: ${dm_config_path}`);
 
         try {
+            const unsupportedRuntimeResult = await getUnsupportedRuntimeToolResult(projectPath, 'generate_data_mapping');
+            if (unsupportedRuntimeResult) {
+                return unsupportedRuntimeResult;
+            }
+
             // Resolve full path
             const fullPath = path.isAbsolute(dm_config_path)
                 ? dm_config_path
@@ -360,6 +392,7 @@ export function createGenerateDataMappingTool(execute: GenerateDataMappingExecut
     return (tool as any)({
         description: `Generate AI-powered field mappings for an existing data mapper.
         Reads the TypeScript file's input/output interfaces and generates appropriate mapFunction logic.
+        Supported only for MI runtime 4.4.0 or newer.
         Use when a data mapper has empty/incomplete mappings or needs regeneration with new instructions.`,
         inputSchema: generateDataMappingInputSchema,
         execute,

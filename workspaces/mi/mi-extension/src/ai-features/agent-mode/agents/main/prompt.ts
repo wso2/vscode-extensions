@@ -113,6 +113,8 @@ export interface UserPromptParams {
     sessionId?: string;
     /** Pre-configured payloads, query params, or path params (optional) */
     payloads?: string;
+    /** MI runtime version from pom.xml (optional; avoids re-reading pom when already known) */
+    runtimeVersion?: string | null;
 }
 
 // ============================================================================
@@ -261,7 +263,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     // Prepare template context
     const isGitRepo = fs.existsSync(path.join(params.projectPath, '.git'));
     const today = new Date().toISOString().split('T')[0];
-    const runtimeVersion = await getRuntimeVersionFromPom(params.projectPath);
+    const runtimeVersion = params.runtimeVersion ?? await getRuntimeVersionFromPom(params.projectPath);
     const runtimePaths = getRuntimePaths(params.projectPath);
     const context: Record<string, any> = {
         question: params.query,

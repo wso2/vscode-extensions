@@ -123,6 +123,15 @@ function isCacheFresh(cache: StoreCacheFile, runtimeVersion: string | null): boo
     return cache.runtimeVersion === runtimeVersion;
 }
 
+function isCacheForRuntime(cache: StoreCacheFile, runtimeVersion: string | null): boolean {
+    // When runtime cannot be resolved, allow using available cache.
+    if (runtimeVersion === null) {
+        return true;
+    }
+
+    return cache.runtimeVersion === runtimeVersion;
+}
+
 async function writeCacheFile(
     cachePath: string,
     runtimeVersion: string | null,
@@ -169,11 +178,14 @@ async function loadStoreItems(params: LoadStoreItemsParams): Promise<any[]> {
     }
 
     if (!urlTemplate) {
-        if (cached?.items.length) {
+        if (cached?.items.length && isCacheForRuntime(cached, runtimeVersion)) {
             logInfo(`[ConnectorStoreCache] ${label} store URL not configured. Using cached ${label}.`);
             return cached.items;
         }
 
+        if (cached?.items.length) {
+            logInfo(`[ConnectorStoreCache] ${label} cached data runtime mismatch. Skipping cached ${label}.`);
+        }
         logInfo(`[ConnectorStoreCache] ${label} store URL not configured. Using static fallback ${label}.`);
         return fallbackItems;
     }
@@ -186,11 +198,14 @@ async function loadStoreItems(params: LoadStoreItemsParams): Promise<any[]> {
     } catch (error) {
         logError(`[ConnectorStoreCache] Failed to refresh ${label} from store`, error);
 
-        if (cached?.items.length) {
+        if (cached?.items.length && isCacheForRuntime(cached, runtimeVersion)) {
             logInfo(`[ConnectorStoreCache] Using stale cached ${label} due to refresh failure.`);
             return cached.items;
         }
 
+        if (cached?.items.length) {
+            logInfo(`[ConnectorStoreCache] Stale ${label} cache runtime mismatch. Using fallback ${label}.`);
+        }
         logInfo(`[ConnectorStoreCache] Using static fallback ${label} due to refresh failure.`);
         return fallbackItems;
     }

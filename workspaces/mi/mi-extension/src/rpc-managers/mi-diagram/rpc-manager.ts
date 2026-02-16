@@ -4194,9 +4194,8 @@ ${endpointAttributes}
 
     async getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {
         const llmBaseUrl = getCopilotLlmApiBaseUrl();
-        const openaiUrl = process.env.MI_COPILOT_OPENAI_PROXY_URL as string;
         const anthropicUrl = llmBaseUrl || process.env.MI_COPILOT_ANTHROPIC_PROXY_URL as string;
-        return { openaiUrl, anthropicUrl };
+        return { anthropicUrl };
     }
 
     async getAvailableRegistryResources(params: ListRegistryArtifactsRequest): Promise<RegistryArtifactNamesResponse> {

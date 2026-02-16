@@ -440,7 +440,7 @@ export function createAgentTools(params: CreateToolsParams) {
             getWrappedExecute(CONNECTOR_TOOL_NAME, createConnectorExecute(projectPath))
         ),
         [SKILL_TOOL_NAME]: createSkillTool(
-            getWrappedExecute(SKILL_TOOL_NAME, createSkillExecute())
+            getWrappedExecute(SKILL_TOOL_NAME, createSkillExecute(projectPath))
         ),
 
         // Project Tools (1 tool)

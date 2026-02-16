@@ -19,20 +19,25 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { AI_CONNECTOR_DOCUMENTATION } from '../context/connectors_guide';
-import { logDebug } from '../../copilot/logger';
+import { logDebug, logWarn } from '../../copilot/logger';
 import { SkillExecuteFn, ToolResult } from './types';
+import { getRuntimeVersionFromPom } from './connector_store_cache';
+import { compareVersions } from '../../../util/onboardingUtils';
+import { RUNTIME_VERSION_440 } from '../../../constants';
 
 interface SkillDefinition {
     name: string;
     description: string;
     content: string;
+    minRuntimeVersion?: string;
 }
 
 const SKILLS: SkillDefinition[] = [
     {
         name: 'ai_connector_app_development',
-        description: 'Developing AI-powered apps with AI connector (chat, RAG, knowledge base, and agent tools).',
+        description: 'Developing AI-powered apps with AI connector (chat, RAG, knowledge base, and agent tools). Supported only for MI runtime 4.4.0 and above.',
         content: AI_CONNECTOR_DOCUMENTATION,
+        minRuntimeVersion: RUNTIME_VERSION_440,
     },
 ];
 
@@ -52,7 +57,7 @@ function findSkill(skillName: string): SkillDefinition | undefined {
     return SKILLS.find((skill) => normalizeSkillName(skill.name) === target);
 }
 
-export function createSkillExecute(): SkillExecuteFn {
+export function createSkillExecute(projectPath: string): SkillExecuteFn {
     return async (args: { skill_name: string }): Promise<ToolResult> => {
         const { skill_name } = args;
         const skill = findSkill(skill_name);
@@ -62,6 +67,24 @@ export function createSkillExecute(): SkillExecuteFn {
                 success: false,
                 message: `Unknown skill '${skill_name}'. Available skills: ${available}`,
                 error: 'Error: Unknown skill',
+            };
+        }
+
+        const runtimeVersion = await getRuntimeVersionFromPom(projectPath);
+        if (
+            skill.minRuntimeVersion &&
+            runtimeVersion &&
+            compareVersions(runtimeVersion, skill.minRuntimeVersion) < 0
+        ) {
+            logWarn(
+                `[SkillTool] Skill '${skill.name}' is not supported for runtime ${runtimeVersion}. ` +
+                `Minimum required runtime is ${skill.minRuntimeVersion}.`
+            );
+            return {
+                success: false,
+                message: `Skill '${skill.name}' is not supported for MI runtime ${runtimeVersion}. ` +
+                    `Use MI runtime ${skill.minRuntimeVersion} or newer.`,
+                error: 'Error: Unsupported MI runtime',
             };
         }
 
@@ -88,7 +111,8 @@ const skillInputSchema = z.object({
 export function createSkillTool(execute: SkillExecuteFn) {
     return (tool as any)({
         description: `Loads specialized domain guidance on demand to avoid unnecessary context usage.
-            Use only when the task requires a specific skill context from <available_skills>.`,
+            Use only when the task requires a specific skill context from <available_skills>.
+            Note: AI connector skill context requires MI runtime 4.4.0 or newer.`,
         inputSchema: skillInputSchema,
         execute,
     });

@@ -34,6 +34,7 @@ import {
     PendingQuestion,
     PendingPlanApproval,
 } from '../../tools/plan_mode_tools';
+import { getRuntimeVersionFromPom } from '../../tools/connector_store_cache';
 import {
     createAgentTools,
     FILE_WRITE_TOOL_NAME,
@@ -159,11 +160,14 @@ export async function executeAgent(
             logInfo(`[Agent] Loaded ${chatHistory.length} messages from history`);
         }
 
+        const runtimeVersion = await getRuntimeVersionFromPom(request.projectPath);
+        logInfo(`[Agent] Runtime version detected: ${runtimeVersion ?? 'unknown'}`);
+
         // System message (cache control will be added dynamically by prepareStep)
         // Adding a cache block here because tools + system would be same for all users who use our proxy
         const systemMessage: SystemModelMessage = {
             role: 'system',
-            content: getSystemPrompt(),
+            content: getSystemPrompt(runtimeVersion),
             providerOptions: {
                 anthropic: {
                     cacheControl: { type: 'ephemeral' }
@@ -177,6 +181,7 @@ export async function executeAgent(
             mode: request.mode || 'edit',
             projectPath: request.projectPath,
             sessionId,
+            runtimeVersion,
             // Note: existingFiles and currentlyOpenedFile are fetched internally by getUserPrompt
         };
         const userMessageContent = await getUserPrompt(userPromptParams);

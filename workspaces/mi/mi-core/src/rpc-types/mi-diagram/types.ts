@@ -1480,7 +1480,6 @@ export interface ConfigureKubernetesResponse {
 }
 
 export interface GetProxyRootUrlResponse {
-    openaiUrl: string;
     anthropicUrl: string;
 }
 

@@ -36,6 +36,9 @@ import {
     WEB_FETCH_TOOL_NAME,
 } from '../../tools/types';
 import { SYNAPSE_GUIDE } from '../../context/synapse_guide';
+import { SYNAPSE_GUIDE as SYNAPSE_GUIDE_OLD } from '../../context/synapse_guide_old';
+import { compareVersions } from '../../../../util/onboardingUtils';
+import { RUNTIME_VERSION_440 } from '../../../../constants';
 
 // ============================================================================
 // System Prompt
@@ -224,10 +227,12 @@ Note: For simple projects, removing artifact.xml and letting Maven auto-discover
 ${SYNAPSE_GUIDE}
 </SYNAPSE_DEVELOPMENT_GUIDELINES>
 `;
+const SYSTEM_PROMPT_OLD = SYSTEM_PROMPT.replace(SYNAPSE_GUIDE, SYNAPSE_GUIDE_OLD);
 
 /**
  * Generates the system prompt for the MI design agent
  */
-export function getSystemPrompt(): string {
-    return SYSTEM_PROMPT;
+export function getSystemPrompt(runtimeVersion?: string | null): string {
+    const useOldGuide = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0 : false;
+    return useOldGuide ? SYSTEM_PROMPT_OLD : SYSTEM_PROMPT;
 }
