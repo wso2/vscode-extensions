@@ -121,7 +121,15 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				case 'deleteRequest':
 					// Handle deleting a request
 					this._handleDeleteRequest(message.requestId as string);
+					break;			
+				case 'renameCollection':
+					// Handle renaming a collection
+					this._handleRenameCollection(message.collectionId as string, message.currentName as string);
 					break;
+				case 'renameRequest':
+					// Handle renaming a request
+					this._handleRenameRequest(message.requestId as string, message.currentName as string);
+					break;			
 			}
 		});
 
@@ -498,6 +506,165 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			this._sendCollections(true);
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to delete request: ${error}`);
+		}
+	}
+
+	private async _handleRenameCollection(collectionId: string, currentName: string) {
+		try {
+			if (!this._apiExplorerProvider) {
+				vscode.window.showErrorMessage('API Explorer provider not available');
+				return;
+			}
+
+			// Get all collections to find the one with matching ID
+			const allCollections = await this._apiExplorerProvider.getCollections();
+			const collection = this._findCollectionById(allCollections, collectionId);
+
+			if (!collection) {
+				vscode.window.showErrorMessage('Collection not found');
+				return;
+			}
+
+			// Show input dialog for new name
+			const newName = await vscode.window.showInputBox({
+				prompt: 'Enter new collection name',
+				value: currentName,
+				validateInput: (value: string) => {
+					if (!value.trim()) {
+						return 'Collection name cannot be empty';
+					}
+					return undefined;
+				}
+			});
+
+			if (!newName || newName === currentName) {
+				return;
+			}
+
+			// Get the collection path
+			const collectionPath = this._apiExplorerProvider.getCollectionPathById(collectionId);
+
+			if (!collectionPath) {
+				vscode.window.showErrorMessage('Unable to determine collection path');
+				return;
+			}
+
+			// Get parent directory and rename the collection folder
+			const fs = await import('fs/promises');
+			const path = await import('path');
+			const yaml = await import('js-yaml');
+			const parentDir = path.dirname(collectionPath);
+			const newPath = path.join(parentDir, newName);
+
+			try {
+				await fs.rename(collectionPath, newPath);
+				vscode.window.showInformationMessage(`Collection renamed to "${newName}" successfully`);
+			} catch (error) {
+				vscode.window.showErrorMessage(`Failed to rename collection folder: ${error}`);
+				return;
+			}
+
+			// Update the collection.yaml file with the new name
+			const collectionYamlPath = path.join(newPath, 'collection.yaml');
+			try {
+				const fileContent = await fs.readFile(collectionYamlPath, 'utf-8');
+				const collectionMetadata = yaml.load(fileContent) as Record<string, unknown>;
+				collectionMetadata.name = newName;
+				await fs.writeFile(collectionYamlPath, yaml.dump(collectionMetadata), 'utf-8');
+			} catch (error) {
+				vscode.window.showErrorMessage(`Failed to update collection metadata: ${error}`);
+				return;
+			}
+
+			// Reload collections from disk to ensure fresh data
+			if (this._apiExplorerProvider) {
+				await this._apiExplorerProvider.reloadCollections();
+			}
+
+			// Refresh the tree view immediately
+			this._sendCollections(true);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to rename collection: ${error}`);
+		}
+	}
+
+	private async _handleRenameRequest(requestId: string, currentName: string) {
+		try {
+			if (!this._apiExplorerProvider) {
+				vscode.window.showErrorMessage('API Explorer provider not available');
+				return;
+			}
+
+			// Find the request in all collections
+			const allCollections = await this._apiExplorerProvider.getCollections();
+			const requestItem = this._findRequestItem(allCollections, requestId);
+
+			if (!requestItem) {
+				vscode.window.showErrorMessage('Request not found');
+				return;
+			}
+
+			// Show input dialog for new name
+			const newName = await vscode.window.showInputBox({
+				prompt: 'Enter new request name',
+				value: currentName,
+				validateInput: (value: string) => {
+					if (!value.trim()) {
+						return 'Request name cannot be empty';
+					}
+					return undefined;
+				}
+			});
+
+			if (!newName || newName === currentName) {
+				return;
+			}
+
+			// Get the file path of the request
+			const requestFilePath = typeof requestItem === 'object' && requestItem !== null && 'filePath' in requestItem
+				? (requestItem as Record<string, unknown>).filePath as string
+				: undefined;
+
+			if (!requestFilePath) {
+				vscode.window.showErrorMessage('Unable to determine request file path');
+				return;
+			}
+
+			// Read the current request data
+			const fs = await import('fs/promises');
+			const path = await import('path');
+			const yaml = await import('js-yaml');
+
+			let requestData: Record<string, unknown>;
+			try {
+				const fileContent = await fs.readFile(requestFilePath, 'utf-8');
+				requestData = yaml.load(fileContent) as Record<string, unknown>;
+			} catch (error) {
+				vscode.window.showErrorMessage(`Failed to read request file: ${error}`);
+				return;
+			}
+
+			// Update the name in the request data
+			requestData.name = newName;
+
+			// Write the updated request data back to the file
+			try {
+				await fs.writeFile(requestFilePath, yaml.dump(requestData), 'utf-8');
+				vscode.window.showInformationMessage(`Request renamed to "${newName}" successfully`);
+			} catch (error) {
+				vscode.window.showErrorMessage(`Failed to update request file: ${error}`);
+				return;
+			}
+
+			// Reload collections from disk to ensure fresh data
+			if (this._apiExplorerProvider) {
+				await this._apiExplorerProvider.reloadCollections();
+			}
+
+			// Refresh the tree view immediately
+			this._sendCollections(true);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to rename request: ${error}`);
 		}
 	}
 

@@ -358,6 +358,19 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 		}
 	}, [vscode, item.id, setContextMenu]);
 
+	const handleRenameCollection = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'renameCollection',
+				collectionId: item.id,
+				currentName: item.name
+			});
+		}
+		if (setContextMenu) {
+			setContextMenu(null);
+		}
+	}, [vscode, item.id, item.name, setContextMenu]);
+
 	return (
 		<div>
 			<CollectionHeader
@@ -387,6 +400,10 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 					<ContextMenuItem onClick={handleAddRequest}>
 						<Codicon name="file-add" sx={{ marginRight: 8 }} />
 						Add Request
+					</ContextMenuItem>
+					<ContextMenuItem onClick={handleRenameCollection}>
+						<Codicon name="edit" sx={{ marginRight: 8 }} />
+						Rename Collection
 					</ContextMenuItem>
 					<ContextMenuItem onClick={handleDeleteCollection}>
 						<Codicon name="trash" sx={{ marginRight: 8 }} />
@@ -555,6 +572,17 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 				setGlobalContextMenu(null);
 			};
 
+			const handleRenameRequest = () => {
+				if (vscode) {
+					vscode.postMessage({
+						command: 'renameRequest',
+						requestId: item.id,
+						currentName: item.name
+					});
+				}
+				setGlobalContextMenu(null);
+			};
+
 			return (
 				<div key={item.id} onContextMenu={handleContextMenu}>
 					<TreeViewItem
@@ -576,8 +604,10 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 						</RequestItemContainer>
 					</TreeViewItem>
 					{globalContextMenu && globalContextMenu.collectionId === item.id && (
-						<ContextMenu x={globalContextMenu.x} y={globalContextMenu.y} visible={true}>
-							<ContextMenuItem onClick={handleDeleteRequest}>
+						<ContextMenu x={globalContextMenu.x} y={globalContextMenu.y} visible={true}>						<ContextMenuItem onClick={handleRenameRequest}>
+							<Codicon name="edit" sx={{ marginRight: 8 }} />
+							Rename Request
+						</ContextMenuItem>							<ContextMenuItem onClick={handleDeleteRequest}>
 								<Codicon name="trash" sx={{ marginRight: 8 }} />
 								Delete Request
 							</ContextMenuItem>
