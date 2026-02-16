@@ -291,10 +291,18 @@ export function NodePropertiesPanel({ node, workflow }: NodePropertiesPanelProps
                 {wf.outputs && typeof wf.outputs === 'object' && (
                     (() => {
                         const schema = wf.outputs as any;
+                        // If it's a JSON-Schema-like object with properties, render same as inputs
                         if (schema.properties && typeof schema.properties === 'object') {
                             const items = Object.entries(schema.properties).map(([name, prop]) => ({ name, ...(prop as any) }));
                             return renderArraySection('Outputs', items, 'workflowOutputs');
                         }
+
+                        // If outputs is a plain map of name -> expression/value, render each entry as an item
+                        if (Object.keys(schema).length > 0 && Object.values(schema).every(v => (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean' || v === null))) {
+                            const items = Object.entries(schema).map(([name, val]) => ({ name, value: val }));
+                            return renderArraySection('Outputs', items, 'workflowOutputs');
+                        }
+
                         // Fallback: show raw schema
                         return renderSimpleSection('Outputs', <JsonBlock>{JSON.stringify(schema, null, 2)}</JsonBlock>, 'workflowOutputs');
                     })()
@@ -392,13 +400,25 @@ export function NodePropertiesPanel({ node, workflow }: NodePropertiesPanelProps
 
     // Outputs
     if (stepData.outputs && Object.keys(stepData.outputs).length > 0) {
-        sections.push(
-            renderSimpleSection(
-                'Outputs',
-                <JsonBlock>{JSON.stringify(stepData.outputs, null, 2)}</JsonBlock>,
-                'outputs'
-            )
-        );
+        // If outputs look like a JSON Schema with `properties`, render as items
+        const out = stepData.outputs as any;
+        if (out.properties && typeof out.properties === 'object') {
+            const items = Object.entries(out.properties).map(([name, prop]) => ({ name, ...(prop as any) }));
+            sections.push(renderArraySection('Outputs', items, 'outputs'));
+        } else if (Object.keys(out).length > 0 && Object.values(out).every(v => (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean' || v === null))) {
+            // Plain map of name -> expression/value
+            const items = Object.entries(out).map(([name, val]) => ({ name, value: val }));
+            sections.push(renderArraySection('Outputs', items, 'outputs'));
+        } else {
+            // Fallback: raw JSON
+            sections.push(
+                renderSimpleSection(
+                    'Outputs',
+                    <JsonBlock>{JSON.stringify(stepData.outputs, null, 2)}</JsonBlock>,
+                    'outputs'
+                )
+            );
+        }
     }
 
 
