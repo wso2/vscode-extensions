@@ -269,6 +269,22 @@ const ContextMenu = styled.div<{ x: number; y: number; visible: boolean }>`
 	min-width: 180px;
 `;
 
+// Compute a safe on-screen position for context menus. If the click is near the
+// right/bottom edges, flip the menu to the left/up so it remains visible.
+function computeMenuPosition(clickX: number, clickY: number, menuWidth = 220, menuHeight = 160, pad = 8) {
+	let x = clickX;
+	let y = clickY;
+	if (typeof window !== 'undefined') {
+		if (window.innerWidth - clickX < menuWidth + pad) {
+			x = Math.max(pad, clickX - menuWidth);
+		}
+		if (window.innerHeight - clickY < menuHeight + pad) {
+			y = Math.max(pad, clickY - menuHeight);
+		}
+	}
+	return { x, y };
+}
+
 const ContextMenuItem = styled.button`
 	display: flex;
 	flex-direction: row;
@@ -312,7 +328,8 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 		e.preventDefault();
 		e.stopPropagation();
 		if (setContextMenu) {
-			setContextMenu({ x: e.clientX, y: e.clientY, collectionId: item.id });
+			const pos = computeMenuPosition(e.clientX, e.clientY, 200, 120);
+			setContextMenu({ x: pos.x, y: pos.y, collectionId: item.id });
 		}
 	}, [item.id, setContextMenu]);
 
@@ -373,7 +390,8 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 		e.preventDefault();
 		e.stopPropagation();
 		if (setContextMenu) {
-			setContextMenu({ x: e.clientX, y: e.clientY, collectionId: item.id });
+			const pos = computeMenuPosition(e.clientX, e.clientY, 220, 140);
+			setContextMenu({ x: pos.x, y: pos.y, collectionId: item.id });
 		}
 	}, [item.id, setContextMenu]);
 
@@ -649,10 +667,11 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 			const handleContextMenu = (e: React.MouseEvent) => {
 				e.preventDefault();
 				e.stopPropagation();
-				setGlobalContextMenu({ x: e.clientX, y: e.clientY, collectionId: item.id });
-			};
+			const pos = computeMenuPosition(e.clientX, e.clientY, 180, 120);
+			setGlobalContextMenu({ x: pos.x, y: pos.y, collectionId: item.id });
+		};
 
-			const handleDeleteRequest = () => {
+		const handleDeleteRequest = () => {
 				if (vscode) {
 					vscode.postMessage({
 						command: 'deleteRequest',
@@ -661,7 +680,6 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 				}
 				setGlobalContextMenu(null);
 			};
-
 			const handleRenameRequest = () => {
 				if (vscode) {
 					vscode.postMessage({
