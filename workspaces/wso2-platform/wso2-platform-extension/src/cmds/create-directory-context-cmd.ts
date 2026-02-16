@@ -160,7 +160,7 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 
 					const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, gitRoot!));
 
-					if (isWithinWorkspace) {
+					if (isWithinWorkspace || params?.fsPath) {
 						contextStore.getState().refreshState();
 						await waitForContextStoreToLoad();
 
