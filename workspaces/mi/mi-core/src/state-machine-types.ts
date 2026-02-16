@@ -291,9 +291,7 @@ export interface AIVisualizerLocation {
 
 export interface AIUserTokens {
     remainingUsagePercentage?: number;
-    max_usage?: number;
-    remaining_tokens?: number;
-    time_to_reset?: number;
+    resetsIn?: number;
 }
 
 export interface ParentPopupData {

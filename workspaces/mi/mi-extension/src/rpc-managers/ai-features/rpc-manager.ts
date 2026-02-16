@@ -513,10 +513,17 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             const response = await fetchWithAuth(`${backendUrl}${USER_CHECK_BACKEND_URL}`);
             if (response.ok) {
                 const usageResponse = await response.json();
-                const remainingUsagePercentage = usageResponse?.remainingUsagePercentage;
-                const usage = typeof remainingUsagePercentage === 'number'
-                    ? { remainingUsagePercentage }
-                    : usageResponse;
+                const remainingUsagePercentage = typeof usageResponse?.remainingUsagePercentage === 'number'
+                    ? usageResponse.remainingUsagePercentage
+                    : undefined;
+                const resetsIn = typeof usageResponse?.resetsIn === 'number'
+                    ? usageResponse.resetsIn
+                    : undefined;
+                if (remainingUsagePercentage === undefined) {
+                    logWarn('Usage response missing remainingUsagePercentage; skipping usage update.');
+                    return undefined;
+                }
+                const usage = { remainingUsagePercentage, resetsIn };
 
                 // Get current state before updating
                 const currentState = StateMachineAI.state();
@@ -527,9 +534,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 }
 
                 // Check if quota is exceeded and transition to UsageExceeded state
-                const isUsageExceeded = typeof usage.remainingUsagePercentage === 'number'
-                    ? usage.remainingUsagePercentage <= 0
-                    : usage.remaining_tokens <= 0;
+                const isUsageExceeded = usage.remainingUsagePercentage <= 0;
 
                 if (isUsageExceeded && currentState === 'Authenticated') {
                     logInfo('Quota exceeded. Transitioning to UsageExceeded state.');
@@ -537,9 +542,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 }
 
                 // Check if we're in UsageExceeded state and if usage has reset
-                const isUsageReset = typeof usage.remainingUsagePercentage === 'number'
-                    ? usage.remainingUsagePercentage > 0
-                    : usage.remaining_tokens > 0;
+                const isUsageReset = usage.remainingUsagePercentage > 0;
 
                 if (currentState === 'UsageExceeded' && isUsageReset) {
                     logInfo('Usage has reset. Transitioning back to Authenticated state.');

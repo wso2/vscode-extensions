@@ -38,9 +38,7 @@ export const abortCodeGeneration: RequestType<void, AbortCodeGenerationResponse>
 export const hasAnthropicApiKey: RequestType<void, boolean | undefined> = { method: `${_prefix}/hasAnthropicApiKey` };
 export const fetchUsage: RequestType<void, {
     remainingUsagePercentage?: number;
-    max_usage?: number;
-    remaining_tokens?: number;
-    time_to_reset?: number;
+    resetsIn?: number;
 } | undefined> = { method: `${_prefix}/fetchUsage` };
 
 // Unit test generation methods

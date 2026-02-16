@@ -363,42 +363,22 @@ export function updateTokenInfo(machineView: any) {
     }
 
     const remainingUsagePercentage = machineView.usage.remainingUsagePercentage;
+    const resetsIn = machineView.usage.resetsIn;
+    const resetsInDays = typeof resetsIn === "number" ? resetsIn / (60 * 60 * 24) : 0;
     if (typeof remainingUsagePercentage === "number") {
         const normalized = Math.max(0, Math.min(100, Math.round(remainingUsagePercentage)));
         return {
-            timeToReset: 0,
+            timeToReset: resetsInDays,
             remainingTokenPercentage: normalized,
             remaingTokenLessThanOne: normalized > 0 && normalized < 1
         };
     }
 
-    if (machineView.usage.time_to_reset === undefined || machineView.usage.max_usage === undefined || machineView.usage.remaining_tokens === undefined) {
-        return {
-            timeToReset: 0,
-            remainingTokenPercentage: -1,
-            remaingTokenLessThanOne: false
-        };
-    }
-
-    let timeToReset = machineView.usage.time_to_reset;
-    timeToReset = timeToReset / (60 * 60 * 24);
-    const maxTokens = machineView.usage.max_usage;
-    let remainingTokenPercentage: number;
-    let remaingTokenLessThanOne: boolean = false;
-
-    if (maxTokens == -1) {
-        remainingTokenPercentage = -1;
-    } else {
-        const remainingTokens = machineView.usage.remaining_tokens;
-        remainingTokenPercentage = (remainingTokens / maxTokens) * 100;
-
-        remainingTokenPercentage = Math.round(remainingTokenPercentage);
-        if (remainingTokenPercentage < 0) {
-            remainingTokenPercentage = 0;
-        }
-    }
-
-    return { timeToReset, remainingTokenPercentage, remaingTokenLessThanOne };
+    return {
+        timeToReset: resetsInDays,
+        remainingTokenPercentage: -1,
+        remaingTokenLessThanOne: false
+    };
 }
 
 export async function getView(rpcClient: RpcClientType): Promise<string> {
