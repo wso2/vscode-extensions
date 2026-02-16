@@ -92,6 +92,15 @@ const StyledButton = styled(Button)`
     border-radius: 5px;
 `;
 
+const ThemedControls = styled(Controls)`
+    --xy-controls-button-background-color: var(--vscode-editorWidget-background);
+    --xy-controls-button-background-color-hover: var(--vscode-list-hoverBackground);
+    --xy-controls-button-color: var(--vscode-editorWidget-foreground);
+    --xy-controls-button-color-hover: var(--vscode-editorWidget-foreground);
+    --xy-controls-button-border-color: var(--vscode-editorWidget-border);
+    --xy-controls-box-shadow: 0 0 2px 1px var(--vscode-widget-shadow);
+`;
+
 const LoaderContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -386,7 +395,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                 proOptions={proOptions}
             >
                 {/* Background dots provided by container CSS to match bi-diagram */}
-                <Controls />
+                <ThemedControls showInteractive={false} />
             </ReactFlow>
             <SidePanel
                 isOpen={isPanelOpen}
