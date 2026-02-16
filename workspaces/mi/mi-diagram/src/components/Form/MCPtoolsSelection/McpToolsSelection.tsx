@@ -64,7 +64,6 @@ interface McpToolsSelectionProps {
     serviceUrl?: string;
     showValidationError?: boolean;
     resolutionError?: string;
-    onRetryFetch?: () => void;
     onSelectionChange?: (value: string[]) => void;
     selectedConnection?: string;
     control: any;
@@ -422,7 +421,6 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
     serviceUrl,
     showValidationError = false,
     resolutionError = "",
-    onRetryFetch,
     onSelectionChange,
     selectedConnection,
     control: _control,
@@ -445,45 +443,45 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
             clearErrors?.('mcpTools');
         }
     }, [error]);
+    
+    const fetchMcpTools = async () => {
+        if (!selectedConnection) {
+            setMcpTools([]);
+            setError("");
+            return;
+        }
 
-    useEffect(() => {
-        // Retrieve mcp tools when selected connection changes
-        const fetchMcpTools = async () => {
-            if (!selectedConnection) {
+        setLoading(true);
+        setError("");
+        try {
+            const mcpToolsResponse = await rpcClient.getMiDiagramRpcClient().getMcpTools({ connectionName: selectedConnection });
+
+            if (mcpToolsResponse.error) {
+                setError(mcpToolsResponse.error);
                 setMcpTools([]);
-                setError("");
                 return;
             }
 
-            setLoading(true);
+            const tools = mcpToolsResponse?.tools
+                ? Array.isArray(mcpToolsResponse.tools)
+                    ? mcpToolsResponse.tools
+                    : Object.entries(mcpToolsResponse.tools).map(([name, description]) => ({
+                        name,
+                        description: String(description)
+                    }))
+                : [];
+            setMcpTools(tools);
             setError("");
-            try {
-                const mcpToolsResponse = await rpcClient.getMiDiagramRpcClient().getMcpTools({ connectionName: selectedConnection });
+        } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+            setMcpTools([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-                if (mcpToolsResponse.error) {
-                    setError(mcpToolsResponse.error);
-                    setMcpTools([]);
-                    return;
-                }
-
-                const tools = mcpToolsResponse?.tools
-                    ? Array.isArray(mcpToolsResponse.tools)
-                        ? mcpToolsResponse.tools
-                        : Object.entries(mcpToolsResponse.tools).map(([name, description]) => ({
-                            name,
-                            description: String(description)
-                        }))
-                    : [];
-                setMcpTools(tools);
-                setError("");
-            } catch (err) {
-                setError(err instanceof Error ? err.message : String(err));
-                setMcpTools([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
+    useEffect(() => {
+         // Retrieve mcp tools when selected connection changes
         fetchMcpTools();
     }, [rpcClient, selectedConnection]);
 
@@ -543,7 +541,7 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
                                 title="Expand view"
                                 aria-label="Expand tools selection"
                             >
-                                <Icon name="mi-expand-modal" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', width: 18, height: 18, fontSize: 18 }} />
+                                <Icon name="bi-expand-modal" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', width: 18, height: 18, fontSize: 18 }} />
                             </ExpandButton>
                             <Button
                                 onClick={handleSelectAll}
@@ -566,14 +564,14 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
                             Unable to load tools from MCP server.
                         </InfoMessage>
                         <ErrorMessage maxHeight="100px">{formattedError}</ErrorMessage>
-                        {onRetryFetch && (
+                        {fetchMcpTools && (
                             <div style={{ padding: '0 12px 12px 12px', display: 'flex', alignItems: 'center' }}>
                                 <Button
-                                    onClick={onRetryFetch}
+                                    onClick={fetchMcpTools}
                                     disabled={loading}
                                     appearance="secondary"
                                 >
-                                    <Icon name="mi-retry" sx={{ marginRight: '6px', width: 16, height: 16, fontSize: 16 }} />
+                                    <Icon name="bi-retry" sx={{ marginRight: '6px', width: 16, height: 16, fontSize: 16 }} />
                                     Retry
                                 </Button>
                             </div>
