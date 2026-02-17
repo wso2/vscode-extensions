@@ -703,14 +703,15 @@ const OutputMappingsForm = (props: AddMediatorProps) => {
                         </Button>
                         :
                         <>
-                            {!sidePanelContext?.formValues?.outputJson &&
+                            {/* LS support for the feature will be added in the major release */}
+                            {/* {!sidePanelContext?.formValues?.outputJson &&
                                 <Button
                                     appearance="secondary"
                                     onClick={handleSubmit(generateMappings)}
                                 >
                                     Generate Mappings
                                 </Button>
-                            }
+                            } */}
                             <Button
                                 appearance="primary"
                                 onClick={handleSubmit(onClick)}
