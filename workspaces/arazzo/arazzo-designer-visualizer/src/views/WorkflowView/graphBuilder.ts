@@ -1,15 +1,15 @@
 import { ArazzoWorkflow } from '@wso2/arazzo-designer-core';
-import { InitVisitor } from '../../visitors/InitVisitor';
-import { SizingVisitorHorizontal } from '../../visitors/SizingVisitorHorizontal';
-import { SizingVisitorVertical } from '../../visitors/SizingvisitorVertical';
-import { PositionVisitorHorizontal } from '../../visitors/PositionVisitorHorizontal';
-import { PositionVisitorVertical } from '../../visitors/PositionVisitorVertical';
-import { NodeFactoryVisitorHorizontal } from '../../visitors/NodeFactoryVisitorHorizontal';
-import { NodeFactoryVisitorVertical } from '../../visitors/NodeFactoryVisitorVertical';
-import PortalCreator from '../../visitors/PortalCreator';
+// import { InitVisitor } from '../../visitors/InitVisitor';
+// import { SizingVisitorHorizontal } from '../../visitors/SizingVisitorHorizontal';
+// import { SizingVisitorVertical } from '../../visitors/SizingvisitorVertical';
+// import { PositionVisitorHorizontal } from '../../visitors/PositionVisitorHorizontal';
+// import { PositionVisitorVertical } from '../../visitors/PositionVisitorVertical';
+// import { NodeFactoryVisitorHorizontal } from '../../visitors/NodeFactoryVisitorHorizontal';
+// import { NodeFactoryVisitorVertical } from '../../visitors/NodeFactoryVisitorVertical';
+// import PortalCreator from '../../visitors/PortalCreator';
 
 import { InitVisitor_v2 } from '../../visitors/InitVisitor_v2';
-import { SizingVisitorVertical_v2 } from '../../visitors/SizingVisitorVertical_v2';
+// import { SizingVisitorVertical_v2 } from '../../visitors/SizingVisitorVertical_v2';
 import { PositionVisitorVertical_v2 } from '../../visitors/PositionVisitorVertical_v2';
 import { NodeFactoryVisitorVertical_v2 } from '../../visitors/NodeFactoryVisitorVertical_v2';
 import { DepthSearch } from '../../visitors/DepthSearch';
