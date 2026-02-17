@@ -208,7 +208,6 @@ interface TreeViewProps {
 const CollectionHeader = styled.div<{ isSelected: boolean }>`
 	display: flex;
 	align-items: center;
-	padding: 3px 0;
 	cursor: pointer;
 	background-color: ${props => props.isSelected ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent'};
 	color: ${props => props.isSelected ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)'};

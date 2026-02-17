@@ -369,28 +369,172 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.setStatusBarMessage('✓ Sent showCreateCollectionForm message to webviews', 3000);
 	});
 
-	// Register command to import a collection file into collections path
+	// Register command to import a collection file *or* collection folder (expects collection.yaml)
 	const importCollectionCommand = vscode.commands.registerCommand('api-tryit.importCollection', async () => {
-		const fileUris = await vscode.window.showOpenDialog({
+		const uris = await vscode.window.showOpenDialog({
 			canSelectFiles: true,
-			canSelectFolders: false,
+			canSelectFolders: true,
 			canSelectMany: false,
-			openLabel: 'Select collection file to import'
+			openLabel: 'Select collection file or folder to import'
 		});
-		if (!fileUris || fileUris.length === 0) {
-			return;
+		if (!uris || uris.length === 0) return;
+		const selected = uris[0];
+
+		try {
+			// If the user selected a folder -> validate collection.yaml/.yml and copy the whole folder
+			const stats = await fs.stat(selected.fsPath);
+			if (stats.isDirectory()) {
+				const workspaceRoot = await getWorkspaceRoot();
+				if (!workspaceRoot) return;
+
+				// Require collection.yaml or collection.yml inside the selected folder
+				const yamlCandidates = ['collection.yaml', 'collection.yml'];
+				let metadataPath: string | null = null;
+				for (const fname of yamlCandidates) {
+					const p = path.join(selected.fsPath, fname);
+					try {
+						await fs.access(p);
+						metadataPath = p;
+						break;
+					} catch {
+						// continue
+					}
+				}
+				if (!metadataPath) {
+					vscode.window.showErrorMessage('Selected folder does not contain a valid collection.yaml');
+					return;
+				}
+
+				// Read and parse YAML minimally (must parse and have a name)
+				let metadataRaw: string;
+				try {
+					metadataRaw = await fs.readFile(metadataPath, 'utf-8');
+				} catch (err) {
+					vscode.window.showErrorMessage('Failed to read collection.yaml');
+					return;
+				}
+
+				let metadataObj: any;
+				try {
+					const parsed = yaml.load(metadataRaw);
+					metadataObj = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+				} catch (err) {
+					vscode.window.showErrorMessage('collection.yaml is not valid YAML');
+					return;
+				}
+
+				if (!metadataObj || typeof metadataObj.name !== 'string' || metadataObj.name.trim().length === 0) {
+					vscode.window.showErrorMessage('collection.yaml must contain a valid "name" property');
+					return;
+				}
+
+				// Destination: workspaceRoot/api-test (create if missing)
+				const apiTestPath = getApiTestPath(workspaceRoot);
+				await fs.mkdir(apiTestPath, { recursive: true });
+
+				// Destination folder name (preserve source folder basename)
+				let destFolderName = path.basename(selected.fsPath);
+				let destPath = path.join(apiTestPath, destFolderName);
+
+				// Handle existing destination folder
+				let destExists = false;
+				try {
+					await fs.access(destPath);
+					destExists = true;
+				} catch {
+					destExists = false;
+				}
+
+				if (destExists) {
+					const pick = await vscode.window.showQuickPick(['Overwrite', 'Rename', 'Cancel'], { placeHolder: `Folder "${destFolderName}" already exists in workspace` });
+					if (!pick || pick === 'Cancel') return;
+					if (pick === 'Overwrite') {
+						await fs.rm(destPath, { recursive: true, force: true });
+					} else if (pick === 'Rename') {
+						// find a non-colliding name
+						let suffix = 1;
+						let candidate = `${destFolderName}-imported`;
+						let candidatePath = path.join(apiTestPath, candidate);
+						while (true) {
+							try {
+								await fs.access(candidatePath);
+								suffix++;
+								candidate = `${destFolderName}-imported-${suffix}`;
+								candidatePath = path.join(apiTestPath, candidate);
+							} catch {
+								destFolderName = candidate;
+								destPath = candidatePath;
+								break;
+							}
+						}
+					}
+				}
+
+				// Recursive copy helper
+				async function copyDir(src: string, dst: string) {
+					await fs.mkdir(dst, { recursive: true });
+					const entries = await fs.readdir(src, { withFileTypes: true });
+					for (const entry of entries) {
+						const srcPath = path.join(src, entry.name);
+						const dstPath = path.join(dst, entry.name);
+						if (entry.isDirectory()) {
+							await copyDir(srcPath, dstPath);
+						} else if (entry.isFile()) {
+							await fs.copyFile(srcPath, dstPath);
+						}
+					}
+				}
+
+				await copyDir(selected.fsPath, destPath);
+
+				// Refresh explorer and open first request if available
+				await apiExplorerProvider.reloadCollections();
+
+				// Find first request file under destPath and open it
+				async function findFirstRequestFile(dir: string): Promise<string | undefined> {
+					const entries = await fs.readdir(dir, { withFileTypes: true });
+					for (const entry of entries) {
+						const p = path.join(dir, entry.name);
+						if (entry.isFile()) {
+							const lower = entry.name.toLowerCase();
+							if (lower === 'collection.yaml' || lower === 'collection.yml' || lower === 'collection.json') continue;
+							if (lower.endsWith('.yaml') || lower.endsWith('.yml') || lower.endsWith('.json')) return p;
+						} else if (entry.isDirectory()) {
+							const nested = await findFirstRequestFile(p);
+							if (nested) return nested;
+						}
+					}
+					return undefined;
+				}
+
+				const firstRequest = await findFirstRequestFile(destPath);
+				if (firstRequest) {
+					await vscode.commands.executeCommand('api-tryit.selectItemByPath', firstRequest);
+					const match = apiExplorerProvider.findRequestByFilePath(firstRequest);
+					if (match) {
+						await vscode.commands.executeCommand('api-tryit.openRequest', match.requestItem);
+					}
+				}
+
+				vscode.window.showInformationMessage(`Collection "${metadataObj.name}" imported to workspace`);
+				return;
+			}
+
+			// If selected is a file, keep legacy behavior (copy into configured collectionsPath)
+			const config = vscode.workspace.getConfiguration('api-tryit');
+			const collectionsPath = config.get<string>('collectionsPath');
+			if (!collectionsPath) {
+				vscode.window.showWarningMessage('Collections path is not set. Please set it first.');
+				return;
+			}
+			const destination = vscode.Uri.file(path.join(collectionsPath, selected.path.split('/').pop() || selected.path));
+			await vscode.workspace.fs.copy(selected, destination, { overwrite: true });
+			vscode.window.showInformationMessage('Collection imported');
+			await apiExplorerProvider.reloadCollections();
+		} catch (error: unknown) {
+			const msg = error instanceof Error ? error.message : String(error);
+			vscode.window.showErrorMessage(`Failed to import collection: ${msg}`);
 		}
-		const fileUri = fileUris[0];
-		const config = vscode.workspace.getConfiguration('api-tryit');
-		const collectionsPath = config.get<string>('collectionsPath');
-		if (!collectionsPath) {
-			vscode.window.showWarningMessage('Collections path is not set. Please set it first.');
-			return;
-		}
-		const destination = vscode.Uri.file(path.join(collectionsPath, fileUri.path.split('/').pop() || fileUri.path));
-		await vscode.workspace.fs.copy(fileUri, destination, { overwrite: true });
-		vscode.window.showInformationMessage('Collection imported');
-		await apiExplorerProvider.reloadCollections();
 	});
 
 	// Register command to import collection payload (JSON structure)

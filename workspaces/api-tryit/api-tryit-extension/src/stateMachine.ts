@@ -251,17 +251,13 @@ export const ApiTryItStateMachine = {
     
     sendEvent: async (eventType: EVENT_TYPE, data?: ApiTryItContext['selectedItem'], filePath?: string) => {
         if (eventType === EVENT_TYPE.API_ITEM_SELECTED && data) {
+            // Update state machine context first
             stateMachineService.send({ type: 'API_ITEM_SELECTED', data, filePath });
-            
-            // Post message to webview if registered
-            // Get the actual selected item from context (which may be the saved version)
-            if (webviewPanel) {
-                const context = stateMachineService.getSnapshot().context;
-                webviewPanel.webview.postMessage({
-                    type: 'apiRequestItemSelected',
-                    data: context.selectedItem
-                });
-            }
+
+            // Use TryItPanel.postMessage so the message is queued when the webview isn't ready.
+            // This avoids races where the panel exists but its webview hasn't signalled 'webviewReady' yet.
+            const context = stateMachineService.getSnapshot().context;
+            TryItPanel.postMessage('apiRequestItemSelected', context.selectedItem);
         } else if (eventType === EVENT_TYPE.REQUEST_UPDATED && data) {
             stateMachineService.send({ type: 'REQUEST_UPDATED', data });
             // Refresh explorer so saved files are re-scanned from disk
