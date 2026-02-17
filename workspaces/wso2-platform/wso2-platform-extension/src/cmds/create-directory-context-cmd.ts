@@ -62,8 +62,8 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 
 					if (gitRoot) {
 						directoryUrl = Uri.parse(convertFsPathToUriPath(gitRoot));
-					} else if(params?.fsPath){
-						directoryUrl = Uri.parse(convertFsPathToUriPath(params.fsPath))
+					} else if (params?.fsPath) {
+						directoryUrl = Uri.parse(convertFsPathToUriPath(params.fsPath));
 					} else {
 						const componentDir = await window.showOpenDialog({
 							canSelectFolders: true,
