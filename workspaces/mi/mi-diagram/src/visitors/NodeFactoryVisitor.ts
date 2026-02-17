@@ -730,6 +730,14 @@ export class NodeFactoryVisitor implements Visitor {
                     this.parents.push(node);
                     for (let i = 0; i < toolsList.length; i++) {
                         const toolNode = toolsList[i];
+                        const isMCPTool = toolNode.isMcpTool;
+                        if (isMCPTool) {
+                            this.createNodeAndLinks({ node: toolNode, name: toolNode.tag, type: NodeTypes.CONNECTOR_NODE, dontLink: true });
+                            continue;
+                        }
+                        if(toolNode.mediator == undefined) {
+                            continue;
+                        }
                         const isConnector = toolNode.mediator?.connectorName !== undefined;
                         if (isConnector) {
                             this.createNodeAndLinks({ node: toolNode, name: toolNode.mediator.connectorName, type: NodeTypes.CONNECTOR_NODE, dontLink: true });
