@@ -105,12 +105,13 @@ async function createCollectionFolderStructure(
 	apiTestPath: string,
 	collectionName: string,
 	collectionData: Record<string, unknown>
-): Promise<string> {
+): Promise<{ collectionPath: string; firstRequestPath?: string }> {
 	await fs.mkdir(apiTestPath, { recursive: true });
 
 	const collectionDirName = sanitizePathSegment(collectionName, `collection-${Date.now()}`);
 	const collectionPath = path.join(apiTestPath, collectionDirName);
 	await fs.mkdir(collectionPath, { recursive: true });
+	let firstRequestPath: string | undefined;
 
 	const collectionId = typeof collectionData.id === 'string'
 		? collectionData.id
@@ -138,8 +139,12 @@ async function createCollectionFolderStructure(
 			typeof persistedRequest.name === 'string' ? persistedRequest.name : `request-${index + 1}`,
 			`request-${index + 1}`
 		)}.yaml`;
+		const requestPath = path.join(collectionPath, fileName);
 
-		await fs.writeFile(path.join(collectionPath, fileName), yaml.dump(persistedRequest), 'utf-8');
+		await fs.writeFile(requestPath, yaml.dump(persistedRequest), 'utf-8');
+		if (!firstRequestPath) {
+			firstRequestPath = requestPath;
+		}
 	}
 
 	const folders = Array.isArray(collectionData.folders) ? collectionData.folders : [];
@@ -163,12 +168,16 @@ async function createCollectionFolderStructure(
 				typeof persistedRequest.name === 'string' ? persistedRequest.name : `request-${requestIndex + 1}`,
 				`request-${requestIndex + 1}`
 			)}.yaml`;
+			const requestPath = path.join(folderPath, fileName);
 
-			await fs.writeFile(path.join(folderPath, fileName), yaml.dump(persistedRequest), 'utf-8');
+			await fs.writeFile(requestPath, yaml.dump(persistedRequest), 'utf-8');
+			if (!firstRequestPath) {
+				firstRequestPath = requestPath;
+			}
 		}
 	}
 
-	return collectionPath;
+	return { collectionPath, firstRequestPath };
 }
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -421,7 +430,11 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 
 			const apiTestPath = getApiTestPath(workspaceRoot);
-			await createCollectionFolderStructure(apiTestPath, collectionData.name, collectionData as Record<string, unknown>);
+			const { firstRequestPath } = await createCollectionFolderStructure(
+				apiTestPath,
+				collectionData.name,
+				collectionData as Record<string, unknown>
+			);
 
 			await apiExplorerProvider.reloadCollections();
 
@@ -433,6 +446,16 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 
 			TryItPanel.show(context);
+
+			// If the imported collection has at least one request, auto-select and open the first one
+			if (firstRequestPath) {
+				await vscode.commands.executeCommand('api-tryit.selectItemByPath', firstRequestPath);
+
+				const firstRequestMatch = apiExplorerProvider.findRequestByFilePath(firstRequestPath);
+				if (firstRequestMatch) {
+					await vscode.commands.executeCommand('api-tryit.openRequest', firstRequestMatch.requestItem);
+				}
+			}
 
 			vscode.window.showInformationMessage(`Collection "${collectionData.name}" imported successfully to ${apiTestPath}`);
 		} catch (error: unknown) {
