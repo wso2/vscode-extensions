@@ -80,7 +80,9 @@ import {
     UpdateAiDependenciesRequest,
     MavenDeployPluginDetails,
     DependencyStatusResponse,
-    GenerateMappingsParamsRequest
+    GenerateMappingsParamsRequest,
+    McpToolsRequest,
+    McpToolsResponse
 } from "@wso2/mi-core";
 import { readFileSync } from "fs";
 import { CancellationToken, FormattingOptions, Position, Uri, workspace } from "vscode";
@@ -476,5 +478,9 @@ export class ExtendedLanguageClient extends LanguageClient {
 
     async getInputOutputMappings(req: GenerateMappingsParamsRequest): Promise<string[]> {
         return this.sendRequest('synapse/getInputOutputMappings', req);
+    }  
+    
+    async getMcpTools(req: McpToolsRequest): Promise<McpToolsResponse> {
+        return this.sendRequest("synapse/getMCPTools", { connectionName: req.connectionName });
     }
 }

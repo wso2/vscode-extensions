@@ -226,6 +226,8 @@ import {
     GetMediatorsResponse,
     GetMediatorRequest,
     GetMediatorResponse,
+    McpToolsRequest,
+    McpToolsResponse,
     UpdateMediatorRequest,
     ExpressionCompletionsRequest,
     ExpressionCompletionsResponse,
@@ -426,6 +428,7 @@ export interface MiDiagramAPI {
     getMediators: (param: GetMediatorsRequest) => Promise<GetMediatorsResponse>;
     getMediator: (param: GetMediatorRequest) => Promise<GetMediatorResponse>;
     updateMediator: (param: UpdateMediatorRequest) => void;
+    getMcpTools: (param: McpToolsRequest) => Promise<McpToolsResponse>;
     getLocalInboundConnectors: () => Promise<LocalInboundConnectorsResponse>;
     getConnectionSchema: (param: GetConnectionSchemaRequest) => Promise<GetConnectionSchemaResponse>;
     getExpressionCompletions: (params: ExpressionCompletionsRequest) => Promise<ExpressionCompletionsResponse>;

@@ -57,6 +57,8 @@ export enum VSCodeColors {
     ON_SURFACE_VARIANT = "var(--vscode-icon-foreground)",
     SURFACE_CONTAINER = "var(--vscode-editor-inactiveSelectionBackground)",
 
+    CARD_BUTTON_BACKGROUND = "var(--vscode-editorWidget-background)",
+
     OUTLINE = "var(--vscode-sideBar-border)",
     OUTLINE_VARIANT = "var(--vscode-dropdown-border)",
 
@@ -103,6 +105,8 @@ export const Colors = {
     SURFACE_CONTAINER:
         VSCodeColors.SURFACE_CONTAINER || DefaultColors.SURFACE_CONTAINER,
 
+    CARD_BUTTON_BACKGROUND: VSCodeColors.CARD_BUTTON_BACKGROUND,
+
     OUTLINE: VSCodeColors.OUTLINE || DefaultColors.OUTLINE,
     OUTLINE_VARIANT:
         DefaultColors.OUTLINE_VARIANT,
@@ -129,6 +133,7 @@ export const Colors = {
 
 export const SIDE_PANEL_WIDTH = 450;
 export const CANVAS_PADDING = 20;
+export const MCP_TOOLS_LIST_MAX_HEIGHT_OFFSET = 470;
 
 export const NODE_DIMENSIONS = {
     DEFAULT: {
@@ -290,6 +295,10 @@ export const ENDPOINTS = {
     RECIPIENTLIST: "Recipientlist",
     TEMPLATE: "Template",
     WSDL: "wsdl",
+}
+
+export const TOOLS = {
+    MCP: "mcp",
 }
 
 export const DATA_SERVICE_NODES = {
