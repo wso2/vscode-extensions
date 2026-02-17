@@ -27,7 +27,7 @@
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension",
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/bi/bi-extension"
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/bi/bi-extension",
             ],
             "env": {
                 "LS_EXTENSIONS_PATH": "",
