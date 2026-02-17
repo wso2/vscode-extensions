@@ -467,20 +467,17 @@ export function createGrepExecute(
 
 export function createGrepTool(execute: (input: GrepInput) => Promise<GrepResult>) {
     return tool({
-        description: `A powerful search tool for finding patterns in Ballerina project files.
+        description: `
+A powerful search tool built on ripgrep, optimized for Ballerina source code
 
 Usage:
-- Use this tool to search for code patterns, function names, variable references, imports, and other text across the project.
-- Supports full regex syntax (e.g., "function\\s+\\w+", "import\\s+ballerina")
-- Filter files with the glob parameter (e.g., "*.bal", "*.{bal,toml}")
-- Output modes: "content" shows matching lines with context, "files_with_matches" shows only file paths (default), "count" shows match counts per file
-- For cross-line patterns, use multiline: true
-
-When to use:
-- To find where a function, type, or variable is defined or used
-- To search for import statements or module references
-- To locate specific code patterns before making edits
-- To understand code structure and dependencies within the project`,
+ - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
+ - Supports full regex syntax (e.g., \`error.*message\`, \`function\\s+\\w+\`)
+ - Filter files with glob parameter (e.g., \`*.bal\`, \`**/*.bal\`) or type parameter (e.g., \`bal\`)
+ - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
+ - Pattern syntax: Uses ripgrep (not grep) — literal braces need escaping (use \`record\\{\\}\` to find \`record{}\`, \`map\\<string\\>\` to find \`map<string>\`)
+ - Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`service\\s+\\w+\\s+on[\\s\\S]*?{\`, use \`multiline: true\`
+`,
         inputSchema: z.object({
             pattern: z.string().describe(
                 "The regular expression pattern to search for in file contents"
