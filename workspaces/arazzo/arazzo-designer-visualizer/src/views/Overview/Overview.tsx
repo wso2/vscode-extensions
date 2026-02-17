@@ -115,6 +115,11 @@ const styles = {
         display: grid;
         gap: 15px;
     `,
+    reusableSectionContainer: css`
+        margin-top: 22px;
+        padding-top: 18px;
+        border-top: 1px solid var(--vscode-panel-border);
+    `,
     workflowItem: css`
         border: 1px solid var(--vscode-panel-border);
         padding: 15px;
@@ -142,17 +147,23 @@ const styles = {
         }
     `,
     treeSection: css`
-        background-color: var(--vscode-editor-inactiveSelectionBackground);
+        background: linear-gradient(
+            180deg,
+            var(--vscode-editor-background) 0%,
+            var(--vscode-editor-inactiveSelectionBackground) 100%
+        );
         border: 1px solid var(--vscode-panel-border);
+        border-left: 3px solid var(--vscode-focusBorder);
         border-radius: 5px;
         overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     `,
     treeHeader: css`
         display: flex;
         align-items: center;
         justify-content: space-between;
         padding: 10px 12px;
-        background: var(--vscode-sideBar-background);
+        background: var(--vscode-list-hoverBackground);
         border-bottom: 1px solid var(--vscode-panel-border);
         cursor: pointer;
         user-select: none;
@@ -196,7 +207,7 @@ const styles = {
     treeItemBody: css`
         padding: 10px;
         border-top: 1px solid var(--vscode-panel-border);
-        background: var(--vscode-editor-inactiveSelectionBackground);
+        background: var(--vscode-editor-background);
     `,
     treeChevron: css`
         display: inline-block;
@@ -211,7 +222,6 @@ const styles = {
         overflow-x: auto;
         font-size: 11px;
         line-height: 1.5;
-        color: var(--vscode-editor-foreground);
         font-family: var(--vscode-editor-font-family);
     `,
 };
@@ -368,63 +378,65 @@ export function Overview(props: OverviewProps) {
             )}
 
             {/* Reusable Components Section */}
-            <h2 className={styles.subtitle}>Reusable Components</h2>
-            {componentEntries.length > 0 ? (
-                <div className={styles.workflowList}>
-                    {componentEntries.map(([sectionName, sectionValue]) => {
-                        const sectionItems = Object.entries(sectionValue as Record<string, unknown>);
-                        const sectionId = `components-${sectionName}`;
-                        const isSectionExpanded = expandedComponentSections.has(sectionId);
+            <div className={styles.reusableSectionContainer}>
+                <h2 className={styles.subtitle}>Reusable Components</h2>
+                {componentEntries.length > 0 ? (
+                    <div className={styles.workflowList}>
+                        {componentEntries.map(([sectionName, sectionValue]) => {
+                            const sectionItems = Object.entries(sectionValue as Record<string, unknown>);
+                            const sectionId = `components-${sectionName}`;
+                            const isSectionExpanded = expandedComponentSections.has(sectionId);
 
-                        return (
-                            <div key={sectionId} className={styles.treeSection}>
-                                <div
-                                    className={styles.treeHeader}
-                                    onClick={() => toggleComponentSection(sectionId)}
-                                >
-                                    <div className={styles.treeTitle}>
-                                        <span className={styles.treeChevron}>{isSectionExpanded ? '-' : '+'}</span>
-                                        <span>{sectionName}</span>
+                            return (
+                                <div key={sectionId} className={styles.treeSection}>
+                                    <div
+                                        className={styles.treeHeader}
+                                        onClick={() => toggleComponentSection(sectionId)}
+                                    >
+                                        <div className={styles.treeTitle}>
+                                            <span className={styles.treeChevron}>{isSectionExpanded ? '-' : '+'}</span>
+                                            <span>{sectionName}</span>
+                                        </div>
+                                        <span className={styles.tag}>{sectionItems.length}</span>
                                     </div>
-                                    <span className={styles.tag}>{sectionItems.length}</span>
-                                </div>
 
-                                {isSectionExpanded && (
-                                    <div className={styles.treeList}>
-                                        {sectionItems.map(([itemName, itemValue]) => {
-                                            const itemId = `${sectionId}-${itemName}`;
-                                            const isItemExpanded = expandedComponentItems.has(itemId);
+                                    {isSectionExpanded && (
+                                        <div className={styles.treeList}>
+                                            {sectionItems.map(([itemName, itemValue]) => {
+                                                const itemId = `${sectionId}-${itemName}`;
+                                                const isItemExpanded = expandedComponentItems.has(itemId);
 
-                                            return (
-                                                <div key={itemId} className={styles.treeItem}>
-                                                    <div
-                                                        className={styles.treeItemHeader}
-                                                        onClick={() => toggleComponentItem(itemId)}
-                                                    >
-                                                        <div className={styles.treeTitle}>
-                                                            <span className={styles.treeChevron}>{isItemExpanded ? '-' : '+'}</span>
-                                                            <span>{itemName}</span>
+                                                return (
+                                                    <div key={itemId} className={styles.treeItem}>
+                                                        <div
+                                                            className={styles.treeItemHeader}
+                                                            onClick={() => toggleComponentItem(itemId)}
+                                                        >
+                                                            <div className={styles.treeTitle}>
+                                                                <span className={styles.treeChevron}>{isItemExpanded ? '-' : '+'}</span>
+                                                                <span>{itemName}</span>
+                                                            </div>
                                                         </div>
+                                                        {isItemExpanded && (
+                                                            <div className={styles.treeItemBody}>
+                                                                <pre className={styles.jsonBlock}>
+                                                                    {JSON.stringify(itemValue, null, 2)}
+                                                                </pre>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    {isItemExpanded && (
-                                                        <div className={styles.treeItemBody}>
-                                                            <pre className={styles.jsonBlock}>
-                                                                {JSON.stringify(itemValue, null, 2)}
-                                                            </pre>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            ) : (
-                <p>No reusable components defined.</p>
-            )}
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <p>No reusable components defined.</p>
+                )}
+            </div>
         </div>
     );
 }
