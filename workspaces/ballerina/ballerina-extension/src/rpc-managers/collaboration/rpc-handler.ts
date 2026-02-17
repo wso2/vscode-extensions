@@ -31,11 +31,21 @@ import * as vscode from "vscode";
 interface OpenCollaborationAPI {
     getCollaborationInstance(): any;
     isActive(): boolean;
+    getClientId(): number | undefined;
     updateWebviewState(key: string, state: any): void;
     onWebviewStateChanged(key: string, callback: (peerId: number, state: any) => void): vscode.Disposable;
 }
 
 let octApi: OpenCollaborationAPI | undefined;
+let ownClientId: number | undefined;
+
+/**
+ * Get the OCT client ID for this instance
+ * Returns the client ID as a string (prefixed with "oct_") or undefined if not connected
+ */
+export function getOctClientId(): string | undefined {
+    return ownClientId !== undefined ? `oct_${ownClientId}` : undefined;
+}
 
 /**
  * Initialize connection to OCT extension
@@ -57,10 +67,15 @@ export async function initializeOctIntegration(): Promise<void> {
         } else {
             octApi = octExtension.exports;
         }
-        
+    
         if (octApi) {
             debug('[OCT Integration] Successfully connected to OCT API');
-            debug(`[OCT Integration] API methods: isActive=${typeof octApi.isActive}, getCollaborationInstance=${typeof octApi.getCollaborationInstance}, updateWebviewState=${typeof octApi.updateWebviewState}`);
+            debug(`[OCT Integration] API methods: isActive=${typeof octApi.isActive}, getCollaborationInstance=${typeof octApi.getCollaborationInstance}, updateWebviewState=${typeof octApi.updateWebviewState}, getClientId=${typeof octApi.getClientId}`);
+            
+            // Get and store our own client ID for filtering
+            ownClientId = octApi.getClientId?.();
+            debug(`[OCT Integration] Own client ID: ${ownClientId}`);
+            
             setupOctListeners();
             
             // Initialize lock manager with OCT API
@@ -94,12 +109,15 @@ export async function initializeOctIntegration(): Promise<void> {
  * This receives updates when other collaborators change their state
  */
 function setupOctListeners(): void {
-    if (!octApi) { return; }
-    
     // Listen for selection updates from other peers
     octApi.onWebviewStateChanged('ballerina.diagram.selection', (peerId: number, selection: CollaborationTextSelection) => {
+        if (ownClientId !== undefined && peerId === ownClientId) {
+            debug(`[OCT Integration] Ignoring own selection update from client ${peerId}`);
+            return;
+        }
+        
         debug(`[OCT Integration] Received selection from peer ${peerId}: ${JSON.stringify(selection)}`);
-        // Store in local state
+        // Store in local state (selection doesn't need peerId mapping)
         updateCollaborationState(selection, undefined);
         // Broadcast to our webviews
         broadcastSelectionToWebviews();
@@ -107,9 +125,22 @@ function setupOctListeners(): void {
     
     // Listen for presence updates from other peers
     octApi.onWebviewStateChanged('ballerina.diagram.presence', (peerId: number, presence: CollaborationPresenceData) => {
+        // Filter out our own updates
+        if (ownClientId !== undefined && peerId === ownClientId) {
+            debug(`[OCT Integration] Ignoring own presence update from client ${peerId}`);
+            return;
+        }
+        
         debug(`[OCT Integration] Received presence from peer ${peerId}: ${JSON.stringify(presence)}`);
+        
+        // Update the presence data with the correct OCT peerId so webviews can identify peers correctly
+        const updatedPresence: CollaborationPresenceData = {
+            ...presence,
+            peerId: `oct_${peerId}`, // Use OCT client ID as the peer identifier
+        };
+
         // Store in local state
-        updateCollaborationState(undefined, presence);
+        updateCollaborationState(undefined, updatedPresence);
         // Broadcast to our webviews
         broadcastPresenceToWebviews();
     });
@@ -122,10 +153,8 @@ export function registerCollaborationRpcHandlers(messenger: Messenger) {
     messenger.onRequest(updateWebviewCollaborationSelection, async (selection: CollaborationTextSelection) => {
         debug(`[Collaboration RPC] Received selection update from webview: ${JSON.stringify(selection)}`);
         
-        // Update the stored state so it can be broadcast when OCT triggers commands
-        updateCollaborationState(selection, undefined);
-        
-        // Trigger OCT to broadcast this selection to all peers
+        // Don't store local webview's selection - only store remote selections from OCT
+        // Just broadcast to OCT for other peers to receive
         if (octApi?.isActive()) {
             try {
                 octApi.updateWebviewState('ballerina.diagram.selection', selection);
@@ -142,10 +171,8 @@ export function registerCollaborationRpcHandlers(messenger: Messenger) {
     messenger.onRequest(updateWebviewCollaborationPresence, async (presence: CollaborationPresenceData) => {
         debug(`[Collaboration RPC] Received presence update from webview: ${JSON.stringify(presence)}`);
         
-        // Update the stored state so it can be broadcast when OCT triggers commands
-        updateCollaborationState(undefined, presence);
-        
-        // Trigger OCT to broadcast this presence to all peers
+        // Don't store local webview's presence - only store remote presence from OCT
+        // Just broadcast to OCT for other peers to receive
         if (octApi?.isActive()) {
             try {
                 octApi.updateWebviewState('ballerina.diagram.presence', presence);
@@ -153,8 +180,7 @@ export function registerCollaborationRpcHandlers(messenger: Messenger) {
             } catch (error) {
                 debug(`[OCT Integration] Error broadcasting presence: ${error}`);
             }
-        }
-        
+        }      
         return;
     });
 }

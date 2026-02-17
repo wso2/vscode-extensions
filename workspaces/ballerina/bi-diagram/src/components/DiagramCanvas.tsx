@@ -34,6 +34,7 @@ export namespace DiagramStyles {
         height: 100%;
         background-size: 50px 50px;
         display: flex;
+        position: relative;
         pointer-events: ${(props) => (props.locked ? "none" : "auto")};
 
         > * {
@@ -57,20 +58,51 @@ export namespace DiagramStyles {
     `;
 }
 
+/**
+ * Convert viewport coordinates to diagram coordinates
+ * Accounts for pan (offset) and zoom transformations
+ */
+function screenToDiagramPosition(engine: any, screenX: number, screenY: number): { x: number; y: number } {
+    if (!engine) return { x: screenX, y: screenY };
+    
+    const model = engine.getModel();
+    const zoomLevel = model.getZoomLevel() / 100.0;
+    const offsetX = model.getOffsetX();
+    const offsetY = model.getOffsetY();
+    
+    // Reverse the transformation: subtract offset, then divide by zoom
+    const diagramX = (screenX - offsetX) / zoomLevel;
+    const diagramY = (screenY - offsetY) / zoomLevel;
+    
+    return { x: diagramX, y: diagramY };
+}
+
 export function DiagramCanvas(props: DiagramCanvasProps) {
     const { color, background, children } = props;
-    const { lockCanvas, onCursorMove, isCollaborationActive } = useDiagramContext();
+    const { lockCanvas, onCursorMove, isCollaborationActive, diagramEngine } = useDiagramContext();
 
     const handleMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
         if (onCursorMove && isCollaborationActive) {
             const rect = event.currentTarget.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
+            const viewportX = event.clientX - rect.left;
+            const viewportY = event.clientY - rect.top;
             
-            console.log('[DiagramCanvas] Mouse move:', { x, y });
-            onCursorMove(x, y);
+            // Convert viewport coordinates to diagram coordinates
+            const diagramPos = screenToDiagramPosition(diagramEngine, viewportX, viewportY);
+            
+            console.log('[DiagramCanvas] Mouse move:', {
+                viewport: { x: viewportX, y: viewportY },
+                diagram: diagramPos,
+                zoom: diagramEngine?.getModel()?.getZoomLevel(),
+                offset: { 
+                    x: diagramEngine?.getModel()?.getOffsetX(), 
+                    y: diagramEngine?.getModel()?.getOffsetY() 
+                }
+            });
+            
+            onCursorMove(diagramPos.x, diagramPos.y);
         }
-    }, [onCursorMove, isCollaborationActive]);
+    }, [onCursorMove, isCollaborationActive, diagramEngine]);
 
     return (
         <>

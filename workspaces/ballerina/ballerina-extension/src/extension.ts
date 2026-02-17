@@ -70,8 +70,8 @@ const collaborationState: {
 } = {};
 
 /**
- * Update collaboration state from webview
- * Called by RPC handlers when webview sends cursor/selection updates
+ * Update collaboration state from REMOTE peers
+ * Called by OCT integration when remote peer sends cursor/selection updates
  */
 export function updateCollaborationState(
     selection?: CollaborationTextSelection, 

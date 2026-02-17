@@ -17,6 +17,7 @@
  */
 
 import React, { useState, RefObject } from "react";
+import { DiagramEngine } from "@projectstorm/react-diagrams";
 import { Flow, FlowNode, Branch, LineRange, NodePosition, ToolData } from "../utils/types";
 import { CompletionItem, FormExpressionEditorRef, HelperPaneHeight } from "@wso2/ui-toolkit";
 import { ExpressionProperty, JoinProjectPathRequest, JoinProjectPathResponse, RecordTypeField, TextEdit, VisualizerLocation } from "@wso2/ballerina-core";
@@ -67,6 +68,7 @@ export type ExpressionContextProps = CompletionConditionalProps & {
 
 export interface DiagramContextState {
     flow: Flow;
+    diagramEngine?: DiagramEngine;
     componentPanel: {
         visible: boolean;
         show(): void;
@@ -131,6 +133,7 @@ export interface DiagramContextState {
 
 export const DiagramContext = React.createContext<DiagramContextState>({
     flow: { fileName: "", nodes: [], connections: [] },
+    diagramEngine: undefined,
     componentPanel: {
         visible: false,
         show: () => { },

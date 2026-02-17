@@ -21,7 +21,7 @@ import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import styled from "@emotion/styled";
 import { debounce, throttle } from "lodash";
 import { removeMcpServerFromAgentNode, findAgentNodeFromAgentCallNode, findFlowNode } from "../AIChatAgent/utils";
-import { MemoizedDiagram, RemoteCursors } from "@wso2/bi-diagram";
+import { MemoizedDiagram } from "@wso2/bi-diagram";
 import {
     BIAvailableNodesRequest,
     Flow,
@@ -140,7 +140,11 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const [selectedNodeId, setSelectedNodeId] = useState<string>();
     const [projectOrg, setProjectOrg] = useState<string>("");
     const [isUserAuthenticated, setIsUserAuthenticated] = useState<boolean>(false);
-    const [currentUserId, setCurrentUserId] = useState<string>("");
+    // Initialize with a fallback ID to ensure currentUserId is never empty
+    // This will be updated with OCT client ID when collaboration is detected
+    const [currentUserId, setCurrentUserId] = useState<string>(() => 
+        `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    );
     const [currentUserName, setCurrentUserName] = useState<string>("Unknown User");
     const [nodeLocks, setNodeLocks] = useState<Record<string, any>>({});
     const [isCollaborationActive, setIsCollaborationActive] = useState<boolean>(false);
@@ -228,21 +232,15 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 const isAuth = await rpcClient.getAiPanelRpcClient().isUserAuthenticated();
                 setIsUserAuthenticated(isAuth);
                 
-                // Generate a unique session-based ID that distinguishes between VS Code instances
-                const sessionId = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-                
                 // Get system username for display purposes
                 const systemUser = await rpcClient.getBIDiagramRpcClient().getSystemUsername();
                 const userName = systemUser || "Unknown User";
                 
-                setCurrentUserId(sessionId);
                 setCurrentUserName(userName);
+                // Note: currentUserId will be set by checkCollaboration based on OCT client ID
             } catch (error) {
                 console.error('Error initializing user info:', error);
                 setIsUserAuthenticated(false);
-                // Fallback to timestamp-based ID if initialization fails
-                const fallbackId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-                setCurrentUserId(fallbackId);
                 setCurrentUserName("Unknown User");
             }
         };
@@ -288,6 +286,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 if (typeof biClient.isCollaborationActive === 'function') {
                     const response = await biClient.isCollaborationActive();
                     setIsCollaborationActive(response.isActive);
+                    // Use OCT client ID if collaboration is active
+                    if (response.isActive && response.clientId) {
+                        setCurrentUserId(response.clientId);
+                        console.log(`[Collaboration] Using OCT client ID: ${response.clientId}`);
+                    }
+                    // If collaboration is not active, we already have a fallback ID from initial state
                     console.log(`[Collaboration] Session active: ${response.isActive}`);
                 } else {
                     setIsCollaborationActive(false);
@@ -343,6 +347,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             // Listen for presence updates from OCT (cursor position, locks, etc.)
             unsubscribeOctPresence = rpcClient.onOctRerenderPresence((data: CollaborationPresenceData) => {
                 console.log(`[OCT Webview] Received presence update:`, data);
+                console.log(`[OCT Webview] Current user ID: ${currentUserId}, Incoming peer ID: ${data.peerId}`);
                 
                 // Skip updating cursors for the current user
                 if (data.peerId === currentUserId) {
@@ -352,6 +357,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 
                 // Update remote cursors
                 if (data.cursor) {
+                    console.log(`[OCT Webview] Updating cursor for peer ${data.peerId} at position (${data.cursor.x}, ${data.cursor.y})`);
                     setRemoteCursors((prev) => {
                         const updated = new Map(prev);
                         updated.set(data.peerId, {
@@ -1139,9 +1145,13 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 return;
             }
             
-            console.log('[FlowDiagram] Sending cursor position via OCT');
+            console.log('[FlowDiagram] Sending cursor position via OCT', { currentUserId, currentUserName });
         
             try {
+                // NOTE: Cursor coordinates (x, y) should ideally be in diagram-space coordinates
+                // (relative to the diagram canvas), not viewport coordinates, to ensure they
+                // render correctly across different zoom/pan states between collaborators.
+                // If positioning appears incorrect, verify the coordinate system being used.
                 const presenceData: CollaborationPresenceData = {
                     peerId: currentUserId,
                     peerName: currentUserName,
@@ -1165,7 +1175,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                         })),
                 };
                 
-                console.log('[FlowDiagram] Sending presence data:', presenceData);
+                console.log('[FlowDiagram] Sending presence data with peerId:', presenceData.peerId, 'peerName:', presenceData.peerName);
                 rpcClient.sendRequest(updateWebviewCollaborationPresence, presenceData);
             } catch (error) {
                 console.log('[OCT] Failed to send presence update:', error);
@@ -2942,10 +2952,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 <Container>
                     {!model && <DiagramSkeleton />}
                     {model && (
-                        <>
-                            <MemoizedDiagram {...memoizedDiagramProps} />
-                            <RemoteCursors />
-                        </>
+                        <MemoizedDiagram {...memoizedDiagramProps} />
                     )}
                 </Container>
             </View>

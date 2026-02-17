@@ -45,6 +45,7 @@ import { CurrentBreakpointsResponse as BreakpointInfo, JoinProjectPathRequest, J
 import { BreakpointVisitor } from "../visitors/BreakpointVisitor";
 import { BaseNodeModel } from "./nodes/BaseNode";
 import { PopupOverlay } from "./PopupOverlay";
+import { RemoteCursors } from "./RemoteCursors";
 
 export interface DiagramProps {
     model: Flow;
@@ -313,6 +314,7 @@ export function Diagram(props: DiagramProps) {
 
     const context: DiagramContextState = {
         flow: model,
+        diagramEngine,
         componentPanel: {
             visible: showComponentPanel,
             show: handleShowComponentPanel,
@@ -378,6 +380,7 @@ export function Diagram(props: DiagramProps) {
                             diagramEngine={diagramEngine}
                             focusedNode={getActiveBreakpointNode(diagramModel.getNodes() as NodeModel[])}
                         />
+                        <RemoteCursors />
                     </DiagramCanvas>
                 </DiagramContextProvider>
             )}

@@ -2201,9 +2201,12 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
 
     async isCollaborationActive(): Promise<IsCollaborationActiveResponse> {
         const lockManager = CollaborationLockManager.getInstance();
-        return { isActive: lockManager.isCollaborationActive() };
+        const { getOctClientId } = await import('../collaboration/rpc-handler');
+        return { 
+            isActive: lockManager.isCollaborationActive(),
+            clientId: getOctClientId()
+        };
     }
-
 }
 
 export function getRepoRoot(projectRoot: string): string | undefined {

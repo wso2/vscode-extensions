@@ -270,4 +270,5 @@ export interface DiagramCursorUpdate {
 
 export interface IsCollaborationActiveResponse {
     isActive: boolean;
+    clientId?: string; // OCT client ID for this instance (e.g., "oct_123")
 }

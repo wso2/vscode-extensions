@@ -20,6 +20,25 @@ import React from "react";
 import styled from "@emotion/styled";
 import { useDiagramContext } from "./DiagramContext";
 
+/**
+ * Convert diagram coordinates back to screen/viewport coordinates for rendering
+ * Applies zoom and pan transformations
+ */
+function diagramToScreenPosition(engine: any, diagramX: number, diagramY: number): { x: number; y: number } {
+    if (!engine) return { x: diagramX, y: diagramY };
+    
+    const model = engine.getModel();
+    const zoomLevel = model.getZoomLevel() / 100.0;
+    const offsetX = model.getOffsetX();
+    const offsetY = model.getOffsetY();
+    
+    // Apply the transformation: multiply by zoom, then add offset
+    const screenX = diagramX * zoomLevel + offsetX;
+    const screenY = diagramY * zoomLevel + offsetY;
+    
+    return { x: screenX, y: screenY };
+}
+
 interface RemoteCursor {
     user: {
         id: string;
@@ -93,23 +112,38 @@ function getColorForUser(userId: string): string {
 }
 
 export function RemoteCursors() {
-    const { remoteCursors, currentUserId, isCollaborationActive } = useDiagramContext();
+    const { remoteCursors, currentUserId, isCollaborationActive, diagramEngine } = useDiagramContext();
 
     console.log('[RemoteCursors] Render check:', {
         isCollaborationActive,
         remoteCursorsSize: remoteCursors?.size ?? 0,
         currentUserId,
         hasRemoteCursors: !!remoteCursors,
+        remoteCursorsType: typeof remoteCursors,
+        remoteCursorsKeys: remoteCursors ? Array.from(remoteCursors.keys()) : [],
+        hasDiagramEngine: !!diagramEngine,
     });
 
-    if (!isCollaborationActive || !remoteCursors || remoteCursors.size === 0) {
+    if (!isCollaborationActive) {
+        console.log('[RemoteCursors] Collaboration not active');
+        return null;
+    }
+    
+    if (!remoteCursors || remoteCursors.size === 0) {
+        console.log('[RemoteCursors] No remote cursors to display');
+        return null;
+    }
+    
+    if (!diagramEngine) {
+        console.warn('[RemoteCursors] DiagramEngine not available - cannot transform coordinates');
         return null;
     }
 
     const cursors: RemoteCursor[] = [];
-    remoteCursors.forEach((presence: RemoteCursor) => {
+    remoteCursors.forEach((presence: RemoteCursor, key: string) => {
+        console.log('[RemoteCursors] Processing cursor entry:', { key, presence });
         // Filter out own cursor and cursors without position data
-        if (presence.user?.id !== currentUserId && presence.cursor) {
+        if (presence.user?.id && presence.user.id !== currentUserId && presence.cursor) {
             cursors.push(presence);
         }
     });
@@ -117,6 +151,7 @@ export function RemoteCursors() {
     console.log('[RemoteCursors] Filtered cursors to render:', cursors.length, cursors);
 
     if (cursors.length === 0) {
+        console.log('[RemoteCursors] No cursors after filtering (all were own cursor or invalid)');
         return null;
     }
 
@@ -126,11 +161,25 @@ export function RemoteCursors() {
                 const { user, cursor } = presence;
                 if (!cursor) return null;
 
+                // Convert diagram coordinates to screen coordinates for rendering
+                const screenPos = diagramToScreenPosition(diagramEngine, cursor.x, cursor.y);
+                
+                console.log('[RemoteCursors] Rendering cursor for', user.name, {
+                    userId: user.id,
+                    diagramPos: { x: cursor.x, y: cursor.y },
+                    screenPos,
+                    zoom: diagramEngine?.getModel()?.getZoomLevel(),
+                    offset: {
+                        x: diagramEngine?.getModel()?.getOffsetX(),
+                        y: diagramEngine?.getModel()?.getOffsetY()
+                    }
+                });
+
                 const color = user.color || getColorForUser(user.id);
                 const userName = user.name || user.id;
 
                 return (
-                    <Cursor key={user.id} x={cursor.x} y={cursor.y} color={color}>
+                    <Cursor key={user.id} x={screenPos.x} y={screenPos.y} color={color}>
                         <CursorSVG color={color} viewBox="0 0 24 24">
                             <path d="M4.5 2 L4.5 18 L9 13.5 L12.5 20 L15 19 L11.5 12 L18 12 Z" />
                         </CursorSVG>
