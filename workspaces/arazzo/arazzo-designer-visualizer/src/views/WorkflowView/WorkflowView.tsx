@@ -199,7 +199,7 @@ export function WorkflowView(props: WorkflowViewProps) {
 
                     // Build new graph
                     console.log('Building graph...');
-                    buildGraphFromWorkflow(workflow, isVertical).then(({ nodes: builtNodes, edges: builtEdges }) => {
+                    buildGraphFromWorkflow(workflow, isVertical, arazzoDefinition).then(({ nodes: builtNodes, edges: builtEdges }) => {
                         console.log('Graph built successfully:', { nodes: builtNodes, edges: builtEdges });
                         setNodes(builtNodes);
                         setEdges(builtEdges);

@@ -22,6 +22,8 @@ import * as C from '../constants/nodeConstants';
 import WaypointCreator from '../components/edges/WaypointCreator';
 import { pointInRect, segIntersectsSeg, segmentIntersectsRect } from '../components/edges/edgeUtils';
 import { ThemeColors } from '@wso2/ui-toolkit';
+import { ArazzoDefinition } from '@wso2/arazzo-designer-core';
+import { resolveReference } from '../utils/referenceUtils';
 
 /**
  * NodeFactoryVisitorVertical V2: Generate React Flow nodes and edges for vertical layout.
@@ -37,6 +39,11 @@ export class NodeFactoryVisitorVertical_v2 {
     private visited: Set<string> = new Set();
     private portalEdgePairs: Set<string> = new Set();
     private allNodePositions: Array<{ id: string; x: number; y: number; w: number; h: number }> = [];
+    private definition?: ArazzoDefinition;
+
+    constructor(definition?: ArazzoDefinition) {
+        this.definition = definition;
+    }
 
     /**
      * Set the node positions array from PositionVisitor (for collision detection).
@@ -123,6 +130,9 @@ export class NodeFactoryVisitorVertical_v2 {
 
                         if (action && typeof action === 'object' && 'name' in action) {
                             conditionLabel = action.name;
+                        } else if (action && typeof action === 'object' && 'reference' in action && typeof action.reference === 'string') {
+                            const resolved = resolveReference(action.reference, this.definition);
+                            conditionLabel = resolved?.name || `Branch ${branchIndex + 1}`;
                         } else {
                             conditionLabel = `Branch ${branchIndex + 1}`; // Fallback
                         }

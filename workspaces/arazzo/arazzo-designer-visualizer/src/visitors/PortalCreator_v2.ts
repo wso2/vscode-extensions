@@ -21,6 +21,8 @@ import { Node, Edge, MarkerType } from '@xyflow/react';
 import * as C from '../constants/nodeConstants';
 import { DepthSearch } from './DepthSearch';
 import { ThemeColors } from '@wso2/ui-toolkit';
+import { ArazzoDefinition } from '@wso2/arazzo-designer-core';
+import { resolveReference } from '../utils/referenceUtils';
 
 interface Rect {
     x: number;
@@ -47,9 +49,11 @@ export class PortalCreator_v2 {
     private positionedNodeRects: Rect[] = [];
     private readonly portalApproxWidth = 90;
     private readonly portalApproxHeight = 28;
+    private definition?: ArazzoDefinition;
 
-    constructor(private depthSearch: DepthSearch) {
+    constructor(private depthSearch: DepthSearch, definition?: ArazzoDefinition) {
         this.mainPathNodes = depthSearch.getHappyPathNodes();
+        this.definition = definition;
     }
 
     /**
@@ -287,6 +291,9 @@ export class PortalCreator_v2 {
 
             if (action && typeof action === 'object' && 'name' in action) {
                 conditionLabel = action.name;
+            } else if (action && typeof action === 'object' && 'reference' in action && typeof action.reference === 'string') {
+                const resolved = resolveReference(action.reference, this.definition);
+                conditionLabel = resolved?.name || `Branch ${branchIndex + 1}`;
             } else {
                 conditionLabel = `Branch ${branchIndex + 1}`;
             }
