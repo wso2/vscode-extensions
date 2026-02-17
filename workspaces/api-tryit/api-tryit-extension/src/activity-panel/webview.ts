@@ -574,8 +574,14 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				return;
 			}
 
-			// Clear selection if the deleted collection was selected
+			// Clear selection if the deleted collection was selected (clear selection + inform state machine with path)
 			await vscode.commands.executeCommand('api-tryit.clearSelection');
+			try {
+				// Pass the deleted collection path so the state machine can prune savedItems / selectedItem
+				ApiTryItStateMachine.sendEvent(EVENT_TYPE.CLEAR_COLLECTION_CONTEXT, undefined, collectionPath);
+			} catch {
+				// non-fatal
+			}
 
 			// Reload collections from disk to ensure fresh data
 			if (this._apiExplorerProvider) {
