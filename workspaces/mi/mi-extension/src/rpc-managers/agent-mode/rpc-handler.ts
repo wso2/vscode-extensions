@@ -49,6 +49,12 @@ import {
 const rpcManagerMap: Map<string, MIAgentPanelRpcManager> = new Map();
 
 export function disposeMIAgentPanelRpcManager(projectUri: string): void {
+    const rpcManager = rpcManagerMap.get(projectUri);
+    if (rpcManager) {
+        void rpcManager.abortAgentGeneration().catch((error) => {
+            console.error(`[MIAgentPanelRpcHandler] Failed to abort manager for ${projectUri}:`, error);
+        });
+    }
     rpcManagerMap.delete(projectUri);
 }
 

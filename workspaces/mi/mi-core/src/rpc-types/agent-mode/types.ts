@@ -172,7 +172,18 @@ export type PlanApprovalKind =
     | 'web_fetch';
 
 /**
- * Agent event for streaming
+ * Agent event for streaming.
+ * Field-to-event mapping:
+ * - `thinking_start|thinking_delta|thinking_end`: `thinkingId`, `content`
+ * - `tool_call`: `toolName`, `toolInput`, `loadingAction`
+ * - `tool_result`: `toolName`, `toolOutput`, `completedAction` (+ optional shell fields)
+ * - `ask_user`: `questionId`, `questions`
+ * - `todo_updated`: `todos`
+ * - `plan_approval_requested`: `approvalId`, `approvalKind`, `approvalTitle`, `approveLabel`, `rejectLabel`, `allowFeedback`, `planFilePath`, `content`
+ * - `compact`: `summary`, `content`
+ * - `usage`: `totalInputTokens`
+ * - `error`: `error`
+ * - `stop`: `modelMessages`
  */
 export interface AgentEvent {
     type: AgentEventType;

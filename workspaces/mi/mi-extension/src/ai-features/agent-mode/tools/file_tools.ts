@@ -54,6 +54,37 @@ const READ_PDF_EXTENSION = '.pdf';
 const PDF_MAX_PAGES_PER_REQUEST = 5;
 const MAX_GREP_PATTERN_LENGTH = 512;
 const MAX_GREP_GLOB_LENGTH = 256;
+const MAX_GREP_SEARCH_DEPTH = 12;
+
+const GREP_TYPE_EXTENSION_MAP: Record<string, string[]> = {
+    js: ['.js', '.mjs', '.cjs'],
+    ts: ['.ts', '.tsx', '.mts', '.cts'],
+    jsx: ['.jsx', '.tsx'],
+    json: ['.json'],
+    xml: ['.xml', '.xsd', '.xsl', '.xslt'],
+    csv: ['.csv'],
+    yaml: ['.yaml', '.yml'],
+    yml: ['.yaml', '.yml'],
+    java: ['.java'],
+    go: ['.go'],
+    py: ['.py'],
+    sh: ['.sh', '.bash'],
+    md: ['.md', '.mdx'],
+    sql: ['.sql'],
+    css: ['.css', '.scss', '.sass', '.less'],
+    html: ['.html', '.htm'],
+    proto: ['.proto'],
+    properties: ['.properties'],
+    toml: ['.toml'],
+    ini: ['.ini'],
+    gradle: ['.gradle'],
+    swift: ['.swift'],
+    kotlin: ['.kt', '.kts'],
+    rust: ['.rs'],
+    ruby: ['.rb'],
+    php: ['.php'],
+    dockerfile: ['.dockerfile'],
+};
 
 const IMAGE_MEDIA_TYPE_BY_EXTENSION: Record<string, string> = {
     '.png': 'image/png',
@@ -195,7 +226,7 @@ function compileGrepPattern(pattern: string, caseInsensitive: boolean): { regex?
     }
 }
 
-function compileGlobPattern(globPattern?: string): { regex?: RegExp; error?: string } {
+function compileGlobPattern(globPattern?: string, caseInsensitive?: boolean): { regex?: RegExp; error?: string } {
     if (!globPattern) {
         return {};
     }
@@ -238,13 +269,51 @@ function compileGlobPattern(globPattern?: string): { regex?: RegExp; error?: str
             .replace(/\\\*/g, '.*')
             .replace(/\\\?/g, '.');
         return {
-            regex: new RegExp(`^${regexBody}$`),
+            regex: new RegExp(`^${regexBody}$`, caseInsensitive ? 'i' : undefined),
         };
     } catch (error) {
         return {
             error: `Invalid glob pattern: ${error instanceof Error ? error.message : String(error)}`,
         };
     }
+}
+
+function parseGrepFileType(fileType?: string): { value?: string; error?: string } {
+    if (!fileType) {
+        return {};
+    }
+
+    const normalizedType = fileType.trim().toLowerCase();
+    if (!normalizedType) {
+        return {};
+    }
+
+    if (normalizedType.length > 32 || !/^[a-z0-9_+-]+$/.test(normalizedType)) {
+        return {
+            error: 'Invalid file type filter. Use an alphanumeric rg type (e.g., "ts", "js", "java").',
+        };
+    }
+
+    return { value: normalizedType };
+}
+
+function matchesRequestedFileType(fileName: string, requestedType?: string): boolean {
+    if (!requestedType) {
+        return true;
+    }
+
+    const lowerName = fileName.toLowerCase();
+    const extension = path.extname(lowerName);
+    if (!extension) {
+        return lowerName === requestedType;
+    }
+
+    const mappedExtensions = GREP_TYPE_EXTENSION_MAP[requestedType];
+    if (mappedExtensions) {
+        return mappedExtensions.includes(extension);
+    }
+
+    return extension === `.${requestedType}`;
 }
 
 /**
@@ -267,10 +336,10 @@ function validateFilePathSecurity(projectPath: string, filePath: string): Valida
     }
 
     // Security: prevent home shorthand and traversal in relative paths
-    if (normalizedPath.includes('~') || (!path.isAbsolute(normalizedPath) && normalizedPath.includes('..'))) {
+    if (/^~(?:[\\/]|$)/.test(normalizedPath) || (!path.isAbsolute(normalizedPath) && normalizedPath.includes('..'))) {
         return {
             valid: false,
-            error: 'File path contains invalid characters (.., ~).'
+            error: 'File path contains invalid traversal segments (.., leading ~).'
         };
     }
 
@@ -679,12 +748,21 @@ export function createWriteExecute(
         }
 
         const fullPath = resolveFullPath(projectPath, file_path);
-        await undoCheckpointManager?.captureBeforeChange(file_path);
 
         // Check if file exists with non-empty content
         const fileExists = fs.existsSync(fullPath);
         if (fileExists) {
-            const existingContent = fs.readFileSync(fullPath, 'utf-8');
+            let existingContent = '';
+            try {
+                existingContent = fs.readFileSync(fullPath, 'utf-8');
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                return {
+                    success: false,
+                    message: `Failed to read existing file '${file_path}': ${errorMessage}`,
+                    error: `Error: ${ErrorMessages.FILE_WRITE_FAILED}`,
+                };
+            }
             if (existingContent.trim().length > 0) {
                 console.error(`[FileWriteTool] File already exists with content: ${file_path}`);
                 return {
@@ -694,6 +772,8 @@ export function createWriteExecute(
                 };
             }
         }
+
+        await undoCheckpointManager?.captureBeforeChange(file_path);
 
         // Create parent directories if they don't exist
         const dirPath = path.dirname(fullPath);
@@ -939,7 +1019,6 @@ export function createEditExecute(
         }
 
         const fullPath = resolveFullPath(projectPath, file_path);
-        await undoCheckpointManager?.captureBeforeChange(file_path);
 
         // Check if file exists
         if (!fs.existsSync(fullPath)) {
@@ -950,6 +1029,8 @@ export function createEditExecute(
                 error: `Error: ${ErrorMessages.FILE_NOT_FOUND}`
             };
         }
+
+        await undoCheckpointManager?.captureBeforeChange(file_path);
 
         // Read file content
         const content = fs.readFileSync(fullPath, 'utf-8');
@@ -1045,11 +1126,20 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
         pattern: string;
         path?: string;
         glob?: string;
+        type?: string;
         output_mode?: 'content' | 'files_with_matches';
         '-i'?: boolean;
         head_limit?: number;
     }): Promise<ToolResult> => {
-        const { pattern, path: searchPath = '.', glob, output_mode = 'content', '-i': caseInsensitive = false, head_limit = 100 } = args;
+        const {
+            pattern,
+            path: searchPath = '.',
+            glob,
+            type: fileType,
+            output_mode = 'content',
+            '-i': caseInsensitive = false,
+            head_limit = 100
+        } = args;
 
         logDebug(`[GrepTool] Searching for pattern '${pattern}' in ${searchPath}`);
 
@@ -1062,12 +1152,21 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
             };
         }
 
-        const compiledGlob = compileGlobPattern(glob);
+        const compiledGlob = compileGlobPattern(glob, caseInsensitive);
         if (glob && !compiledGlob.regex) {
             return {
                 success: false,
                 message: compiledGlob.error || 'Invalid glob pattern.',
                 error: 'Error: Invalid glob pattern',
+            };
+        }
+
+        const parsedFileType = parseGrepFileType(fileType);
+        if (fileType && !parsedFileType.value) {
+            return {
+                success: false,
+                message: parsedFileType.error || 'Invalid file type filter.',
+                error: 'Error: Invalid file type filter',
             };
         }
 
@@ -1097,7 +1196,11 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
             }
 
             // Recursive function to search through directories
-            const searchInDirectory = (dirPath: string) => {
+            const searchInDirectory = (dirPath: string, currentDepth: number) => {
+                if (currentDepth > MAX_GREP_SEARCH_DEPTH) {
+                    return;
+                }
+
                 if (output_mode === 'content' && results.length >= head_limit) return;
                 if (output_mode === 'files_with_matches' && filesWithMatches.size >= head_limit) return;
 
@@ -1109,13 +1212,17 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
 
                     const fullPath = path.join(dirPath, entry.name);
 
+                    if (entry.isSymbolicLink()) {
+                        continue;
+                    }
+
                     if (entry.isDirectory()) {
                         // Skip common directories
                         if (entry.name === 'node_modules' || entry.name === '.git' ||
                             entry.name === 'target' || entry.name === 'build') {
                             continue;
                         }
-                        searchInDirectory(fullPath);
+                        searchInDirectory(fullPath, currentDepth + 1);
                     } else if (entry.isFile()) {
                         // Check glob pattern if specified
                         if (globRegex && !globRegex.test(entry.name)) {
@@ -1123,6 +1230,10 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
                         }
 
                         if (!isTextAllowedFilePath(entry.name)) {
+                            continue;
+                        }
+
+                        if (!matchesRequestedFileType(entry.name, parsedFileType.value)) {
                             continue;
                         }
 
@@ -1161,9 +1272,16 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
             // Start search
             const stats = fs.statSync(fullSearchPath);
             if (stats.isDirectory()) {
-                searchInDirectory(fullSearchPath);
+                searchInDirectory(fullSearchPath, 0);
             } else if (stats.isFile()) {
                 if (!isTextAllowedFilePath(path.basename(fullSearchPath))) {
+                    return {
+                        success: true,
+                        message: `No matches found for pattern '${pattern}' in ${searchPath}.`
+                    };
+                }
+
+                if (!matchesRequestedFileType(path.basename(fullSearchPath), parsedFileType.value)) {
                     return {
                         success: true,
                         message: `No matches found for pattern '${pattern}' in ${searchPath}.`
@@ -1289,7 +1407,10 @@ export function createGlobExecute(projectPath: string): GlobExecuteFn {
             const globPattern = path.join(fullSearchPath, pattern);
 
             // Use glob.sync() to find matching files (like Ballerina extension)
-            const matches: string[] = glob.sync(globPattern, { nodir: true });
+            const rawMatches: string[] = glob.sync(globPattern, { nodir: true });
+            const matches: string[] = rawMatches
+                .map((match) => path.resolve(match))
+                .filter((resolvedMatch) => isPathWithin(fullSearchPath, resolvedMatch));
 
             // Get file stats and sort by modification time (most recent first)
             const filesWithStats = matches.map(file => ({
@@ -1386,7 +1507,7 @@ export function createReadTool(execute: ReadExecuteFn, projectPath: string) {
 }
 
 /**
- * Creates the file_edit to
+ * Creates the file_edit tool
  */
 
 const editInputSchema = z.object({

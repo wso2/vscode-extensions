@@ -35,6 +35,7 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { COMMANDS } from './constants';
 import { enableLS } from './util/workspace';
+import { disposeMIAgentPanelRpcManager } from './rpc-managers/agent-mode/rpc-handler';
 const os = require('os');
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -68,21 +69,22 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 	workspace.onDidChangeWorkspaceFolders(async (event) => {
 		if (event.added.length > 0) {
-			const newProject = event.added[0];
-			getStateMachine(newProject.uri.fsPath);
+			for (const addedProject of event.added) {
+				getStateMachine(addedProject.uri.fsPath);
+			}
 		}
 		if (event.removed.length > 0) {
-			const removedProject = event.removed[0];
-			const webview = webviews.get(removedProject.uri.fsPath);
-
-			if (webview) {
-				webview.dispose();
+			for (const removedProject of event.removed) {
+				disposeMIAgentPanelRpcManager(removedProject.uri.fsPath);
+				const webview = webviews.get(removedProject.uri.fsPath);
+				if (webview) {
+					webview.dispose();
+				}
 			}
 		}
 		// refresh project explorer
 		vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND);
-	}
-	);
+	});
 	StateMachineAI.initialize();
 
 	activateUriHandlers();

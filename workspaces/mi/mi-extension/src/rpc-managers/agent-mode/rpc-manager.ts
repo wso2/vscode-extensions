@@ -76,6 +76,8 @@ const USER_CANCELLED_RESPONSE = '__USER_CANCELLED__';
 const MENTION_CACHE_TTL_MS = 15000;
 const MAX_MENTION_SEARCH_LIMIT = 100;
 const DEFAULT_MENTION_SEARCH_LIMIT = 30;
+const MENTION_MAX_CACHE_DEPTH = 8;
+const MENTION_MAX_CACHE_ITEMS = 5000;
 const MENTION_ROOT_DIRS = ['deployment', 'src'];
 const MENTION_POM_FILE = 'pom.xml';
 const MENTION_SKIP_DIRS = new Set([
@@ -94,6 +96,7 @@ const MENTION_SKIP_DIRS = new Set([
 export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private eventHandler: AgentEventHandler;
     private currentAbortController: AbortController | null = null;
+    private activeAbortControllers: Set<AbortController> = new Set();
     private chatHistoryManager: ChatHistoryManager | null = null;
     private currentSessionId: string | null = null;
     private currentMode: AgentMode = DEFAULT_AGENT_MODE;
@@ -119,10 +122,18 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     private rejectPendingInteractions(reason: Error): void {
         for (const pending of this.pendingQuestions.values()) {
-            pending.reject(reason);
+            try {
+                pending.reject(reason);
+            } catch (error) {
+                logDebug(`[AgentPanel] Failed to reject pending question: ${error instanceof Error ? error.message : String(error)}`);
+            }
         }
         for (const pending of this.pendingApprovals.values()) {
-            pending.reject(reason);
+            try {
+                pending.reject(reason);
+            } catch (error) {
+                logDebug(`[AgentPanel] Failed to reject pending plan approval: ${error instanceof Error ? error.message : String(error)}`);
+            }
         }
         this.pendingQuestions.clear();
         this.pendingApprovals.clear();
@@ -300,6 +311,45 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         });
     }
 
+    private isSafeArtifactPathSegment(segment: string): boolean {
+        const value = segment.trim();
+        if (!value) {
+            return false;
+        }
+
+        if (value.includes('..') || value.includes('/') || value.includes('\\') || path.isAbsolute(value)) {
+            return false;
+        }
+
+        return /^[A-Za-z0-9._-]+$/.test(value);
+    }
+
+    private async loadAndNormalizeSessionEvents(historyManager: ChatHistoryManager): Promise<{
+        events: ChatHistoryEvent[];
+        lastTotalInputTokens?: number;
+        mode: AgentMode;
+    }> {
+        const messages = await historyManager.getMessages({
+            includeCompactSummaryEntry: true,
+            includeUndoCheckpointEntry: true,
+        });
+        const events = ChatHistoryManager.convertToEventFormat(messages);
+        const undoCheckpointManager = await this.getUndoCheckpointManager();
+        const latestCheckpoint = await undoCheckpointManager.getLatestCheckpoint();
+        const normalizedEvents = this.applyLatestUndoAvailabilityToEvents(
+            events,
+            latestCheckpoint?.summary?.checkpointId
+        );
+        const lastTotalInputTokens = await historyManager.getLastUsage();
+        const mode = await historyManager.getLatestMode(DEFAULT_AGENT_MODE);
+
+        return {
+            events: normalizedEvents,
+            lastTotalInputTokens,
+            mode,
+        };
+    }
+
     private resolveLegacyCodeSegmentPath(segmentText: string): string | null {
         const cleaned = segmentText
             .replace(/```xml/g, '')
@@ -310,7 +360,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         if (!nameMatch?.[2]) {
             return null;
         }
-        const artifactName = nameMatch[2];
+        const artifactName = nameMatch[2].trim();
+        if (!this.isSafeArtifactPathSegment(artifactName)) {
+            return null;
+        }
 
         const tagMatch = cleaned.match(/<(\w+)/);
         if (!tagMatch?.[1]) {
@@ -366,7 +419,11 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         if (fileType === 'apis') {
             const versionMatch = cleaned.match(/<api [^>]*version="([^"]+)"/);
             if (versionMatch?.[1]) {
-                return path.join('src', 'main', 'wso2mi', 'artifacts', fileType, `${artifactName}_v${versionMatch[1]}.xml`);
+                const version = versionMatch[1].trim();
+                if (!this.isSafeArtifactPathSegment(version)) {
+                    return null;
+                }
+                return path.join('src', 'main', 'wso2mi', 'artifacts', fileType, `${artifactName}_v${version}.xml`);
             }
             return path.join('src', 'main', 'wso2mi', 'artifacts', fileType, `${artifactName}.xml`);
         }
@@ -493,6 +550,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             const runAgentOnce = async () => {
                 const abortController = createAgentAbortController();
+                this.activeAbortControllers.add(abortController);
                 this.currentAbortController = abortController;
 
                 try {
@@ -531,7 +589,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                         }
                     );
                 } finally {
-                    this.currentAbortController = null;
+                    this.activeAbortControllers.delete(abortController);
+                    if (this.currentAbortController === abortController) {
+                        this.currentAbortController = null;
+                    }
                 }
             };
 
@@ -586,6 +647,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         } catch (error) {
             logError('[AgentPanel] Error executing agent', error);
             this.currentAbortController = null;
+            this.activeAbortControllers.clear();
             if (this.undoCheckpointManager) {
                 try {
                     await this.undoCheckpointManager.discardPendingRun();
@@ -611,7 +673,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 };
             }
 
-            const requestedCheckpointId = (request as UndoLastCheckpointRequest & { checkpointId?: string }).checkpointId;
+            const requestedCheckpointId = request.checkpointId;
             if (requestedCheckpointId && requestedCheckpointId !== checkpoint.summary.checkpointId) {
                 return {
                     success: false,
@@ -724,9 +786,12 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         // Ensure tool-wait states are also interrupted (ask_user / plan approval waits).
         this.rejectPendingInteractions(new Error(`AbortError: ${TOOL_USE_INTERRUPTION_CONTEXT}`));
 
-        if (this.currentAbortController) {
-            logInfo('[AgentPanel] Aborting agent generation...');
-            this.currentAbortController.abort();
+        if (this.activeAbortControllers.size > 0) {
+            logInfo(`[AgentPanel] Aborting ${this.activeAbortControllers.size} active agent run(s)...`);
+            for (const controller of this.activeAbortControllers) {
+                controller.abort();
+            }
+            this.activeAbortControllers.clear();
             this.currentAbortController = null;
         } else {
             logDebug('[AgentPanel] No active agent generation to abort');
@@ -799,33 +864,15 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             }
 
             logInfo(`[AgentPanel] Loading chat history from session: ${this.currentSessionId}`);
-
-            // Get messages from JSONL for UI replay (includes compact_summary checkpoint entry).
-            const messages = await historyManager.getMessages({
-                includeCompactSummaryEntry: true,
-                includeUndoCheckpointEntry: true,
-            });
-
-            // Convert to UI events on-the-fly
-            const events = ChatHistoryManager.convertToEventFormat(messages);
-            const undoCheckpointManager = await this.getUndoCheckpointManager();
-            const latestCheckpoint = await undoCheckpointManager.getLatestCheckpoint();
-            const normalizedEvents = this.applyLatestUndoAvailabilityToEvents(
-                events,
-                latestCheckpoint?.summary?.checkpointId
-            );
-
-            // Get last known token usage for context indicator
-            const lastTotalInputTokens = await historyManager.getLastUsage();
-            this.currentMode = await historyManager.getLatestMode(DEFAULT_AGENT_MODE);
-
-            logInfo(`[AgentPanel] Loaded ${messages.length} messages, generated ${normalizedEvents.length} events`);
+            const { events, lastTotalInputTokens, mode } = await this.loadAndNormalizeSessionEvents(historyManager);
+            this.currentMode = mode;
+            logInfo(`[AgentPanel] Loaded ${events.length} events`);
 
             return {
                 success: true,
                 sessionId: this.currentSessionId,
-                events: normalizedEvents,
-                mode: this.currentMode,
+                events,
+                mode,
                 lastTotalInputTokens,
             };
         } catch (error) {
@@ -895,24 +942,12 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             if (this.currentSessionId === sessionId) {
                 logDebug('[AgentPanel] Already on requested session');
                 const historyManager = await this.getChatHistoryManager();
-                const messages = await historyManager.getMessages({
-                    includeCompactSummaryEntry: true,
-                    includeUndoCheckpointEntry: true,
-                });
-                const events = ChatHistoryManager.convertToEventFormat(messages);
-                const undoCheckpointManager = await this.getUndoCheckpointManager();
-                const latestCheckpoint = await undoCheckpointManager.getLatestCheckpoint();
-                const normalizedEvents = this.applyLatestUndoAvailabilityToEvents(
-                    events,
-                    latestCheckpoint?.summary?.checkpointId
-                );
-                const lastTotalInputTokens = await historyManager.getLastUsage();
-                const mode = await historyManager.getLatestMode(DEFAULT_AGENT_MODE);
+                const { events, lastTotalInputTokens, mode } = await this.loadAndNormalizeSessionEvents(historyManager);
                 this.currentMode = mode;
                 return {
                     success: true,
                     sessionId,
-                    events: normalizedEvents,
+                    events,
                     mode,
                     lastTotalInputTokens,
                 };
@@ -925,31 +960,15 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.chatHistoryManager = new ChatHistoryManager(this.projectUri, sessionId);
             await this.chatHistoryManager.initialize();
             this.currentSessionId = sessionId;
-            this.currentMode = await this.chatHistoryManager.getLatestMode(DEFAULT_AGENT_MODE);
-
-            // Load history from the new session
-            const messages = await this.chatHistoryManager.getMessages({
-                includeCompactSummaryEntry: true,
-                includeUndoCheckpointEntry: true,
-            });
-            const events = ChatHistoryManager.convertToEventFormat(messages);
-            const undoCheckpointManager = await this.getUndoCheckpointManager();
-            const latestCheckpoint = await undoCheckpointManager.getLatestCheckpoint();
-            const normalizedEvents = this.applyLatestUndoAvailabilityToEvents(
-                events,
-                latestCheckpoint?.summary?.checkpointId
-            );
-
-            // Get last known token usage for context indicator
-            const lastTotalInputTokens = await this.chatHistoryManager.getLastUsage();
-
-            logInfo(`[AgentPanel] Switched to session: ${sessionId}, loaded ${normalizedEvents.length} events`);
+            const { events, lastTotalInputTokens, mode } = await this.loadAndNormalizeSessionEvents(this.chatHistoryManager);
+            this.currentMode = mode;
+            logInfo(`[AgentPanel] Switched to session: ${sessionId}, loaded ${events.length} events`);
 
             return {
                 success: true,
                 sessionId,
-                events: normalizedEvents,
-                mode: this.currentMode,
+                events,
+                mode,
                 lastTotalInputTokens,
             };
         } catch (error) {
@@ -1181,11 +1200,24 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         const rootPathSet = new Set<string>();
         const rootPath = this.projectUri;
 
-        const addMentionable = (item: MentionablePathItem): void => {
+        const addMentionable = (item: MentionablePathItem): boolean => {
+            if (mentionables.has(item.path)) {
+                return true;
+            }
+
+            if (mentionables.size >= MENTION_MAX_CACHE_ITEMS) {
+                return false;
+            }
+
             mentionables.set(item.path, item);
+            return true;
         };
 
-        const walk = async (absoluteDir: string, relativeDir: string): Promise<void> => {
+        const walk = async (absoluteDir: string, relativeDir: string, currentDepth: number): Promise<void> => {
+            if (currentDepth >= MENTION_MAX_CACHE_DEPTH || mentionables.size >= MENTION_MAX_CACHE_ITEMS) {
+                return;
+            }
+
             let entries: Dirent[] = [];
             try {
                 entries = await fs.readdir(absoluteDir, { withFileTypes: true });
@@ -1196,6 +1228,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             entries.sort((a, b) => a.name.localeCompare(b.name));
 
             for (const entry of entries) {
+                if (mentionables.size >= MENTION_MAX_CACHE_ITEMS) {
+                    break;
+                }
+
                 if (entry.isSymbolicLink()) {
                     continue;
                 }
@@ -1207,29 +1243,41 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                     if (MENTION_SKIP_DIRS.has(entry.name)) {
                         continue;
                     }
-                    addMentionable({
+                    const added = addMentionable({
                         path: `${this.normalizeRelativePath(relativePath)}/`,
                         type: 'folder',
                     });
-                    await walk(absolutePath, relativePath);
+                    if (!added) {
+                        break;
+                    }
+                    await walk(absolutePath, relativePath, currentDepth + 1);
                     continue;
                 }
 
                 if (entry.isFile() && this.isMentionableFile(entry.name)) {
-                    addMentionable({
+                    const added = addMentionable({
                         path: this.normalizeRelativePath(relativePath),
                         type: 'file',
                     });
+                    if (!added) {
+                        break;
+                    }
                 }
             }
         };
 
         const rootTopLevelFiles = [MENTION_POM_FILE, ...VALID_SPECIAL_FILE_NAMES];
         for (const topLevelFile of rootTopLevelFiles) {
+            if (mentionables.size >= MENTION_MAX_CACHE_ITEMS) {
+                break;
+            }
             const fullPath = path.join(rootPath, topLevelFile);
             if (await this.pathExists(fullPath)) {
-                addMentionable({ path: topLevelFile, type: 'file' });
-                rootPathSet.add(topLevelFile);
+                if (addMentionable({ path: topLevelFile, type: 'file' })) {
+                    rootPathSet.add(topLevelFile);
+                } else {
+                    break;
+                }
             }
         }
 
@@ -1240,6 +1288,9 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         }
 
         for (const configuredRoot of configuredRoots) {
+            if (mentionables.size >= MENTION_MAX_CACHE_ITEMS) {
+                break;
+            }
             const normalizedRoot = this.normalizeRelativePath(configuredRoot).replace(/\/+$/, '');
             if (!normalizedRoot) {
                 continue;
@@ -1250,12 +1301,15 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 continue;
             }
 
-            addMentionable({
+            const added = addMentionable({
                 path: `${normalizedRoot}/`,
                 type: 'folder',
             });
+            if (!added) {
+                break;
+            }
             rootPathSet.add(`${normalizedRoot}/`);
-            await walk(absoluteRoot, normalizedRoot);
+            await walk(absoluteRoot, normalizedRoot, 0);
         }
 
         this.mentionablePathCache = Array.from(mentionables.values());

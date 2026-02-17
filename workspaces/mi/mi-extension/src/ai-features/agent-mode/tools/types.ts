@@ -215,6 +215,7 @@ export type GrepExecuteFn = (args: {
     pattern: string;
     path?: string;
     glob?: string;
+    type?: string;
     output_mode?: 'content' | 'files_with_matches';
     '-i'?: boolean;
     head_limit?: number;
@@ -233,12 +234,14 @@ export type SkillExecuteFn = (args: {
 // Data Mapper Execute Function Types
 // ============================================================================
 
+export type DataMapperSchemaType = 'JSON' | 'XML' | 'XSD' | 'CSV';
+
 export type CreateDataMapperExecuteFn = (args: {
     name: string;
     input_schema: string;
-    input_type: 'JSON' | 'XML' | 'CSV';
+    input_type: DataMapperSchemaType;
     output_schema: string;
-    output_type: 'JSON' | 'XML' | 'CSV';
+    output_type: DataMapperSchemaType;
     auto_map?: boolean;
     mapping_instructions?: string;
 }) => Promise<ToolResult>;

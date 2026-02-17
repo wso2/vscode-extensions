@@ -35,7 +35,7 @@ import {
     CreateDataMapperExecuteFn,
     GenerateDataMappingExecuteFn,
 } from './types';
-import { RUNTIME_VERSION_440 } from '../../../constants';
+import { DM_OPERATORS_FILE_NAME, RUNTIME_VERSION_440 } from '../../../constants';
 import { generateSchemaFromContent } from '../../../util/schemaBuilder';
 import { updateTsFileIoTypes } from '../../../util/tsBuilder';
 import { IOType } from '@wso2/mi-core';
@@ -111,6 +111,10 @@ async function getUnsupportedRuntimeToolResult(projectPath: string, toolName: st
  * File paths:
  * - Start with ./ or / or src/
  * - End with .json, .xml, .xsd, .csv
+ *
+ * Note: this is an intentionally simple heuristic for LLM tool args. It can
+ * false-positive when inline content itself happens to end with one of these
+ * extensions (for example, a string ending in ".json").
  */
 function isFilePath(input: string): boolean {
     const trimmed = input.trim();
@@ -175,7 +179,20 @@ export function createCreateDataMapperExecute(
             const dmFolder = await getDataMapperFolder(projectPath, name);
             const tsFilePath = path.join(dmFolder, `${name}.ts`);
             const relativeTsPath = path.relative(projectPath, tsFilePath);
-            await undoCheckpointManager?.captureBeforeChange(relativeTsPath);
+            const checkpointCandidates = [
+                tsFilePath,
+                path.join(dmFolder, `${DM_OPERATORS_FILE_NAME}.ts`),
+                path.join(dmFolder, `${name}.dmc`),
+                path.join(dmFolder, `${name}_inputSchema.json`),
+                path.join(dmFolder, `${name}_outputSchema.json`),
+            ];
+            for (const candidatePath of checkpointCandidates) {
+                const relativePath = path.relative(projectPath, candidatePath);
+                if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+                    continue;
+                }
+                await undoCheckpointManager?.captureBeforeChange(relativePath);
+            }
 
             // 3. Check if data mapper already exists
             if (fs.existsSync(tsFilePath)) {
@@ -312,7 +329,7 @@ const createDataMapperInputSchema = z.object({
 });
 
 export function createCreateDataMapperTool(execute: CreateDataMapperExecuteFn) {
-    return (tool as any)({
+    return tool({
         description: `Creates a new data mapper with input/output schemas and TypeScript mapping file.
         Optionally generates AI-powered field mappings if auto_map=true.
         Supported only for MI runtime 4.4.0 or newer.
@@ -379,11 +396,6 @@ export function createGenerateDataMappingExecute(
                 const replacedExtensionPath = resolveProjectBoundPath(projectPath, fullPath.replace(/\.[^/.]+$/, '.ts'));
                 if (replacedExtensionPath && fs.existsSync(replacedExtensionPath)) {
                     tsFilePath = replacedExtensionPath;
-                } else {
-                    const appendedTsPath = resolveProjectBoundPath(projectPath, `${fullPath}.ts`);
-                    if (appendedTsPath) {
-                        tsFilePath = appendedTsPath;
-                    }
                 }
             }
 
@@ -460,7 +472,7 @@ const generateDataMappingInputSchema = z.object({
 });
 
 export function createGenerateDataMappingTool(execute: GenerateDataMappingExecuteFn) {
-    return (tool as any)({
+    return tool({
         description: `Generate AI-powered field mappings for an existing data mapper.
         Reads the TypeScript file's input/output interfaces and generates appropriate mapFunction logic.
         Supported only for MI runtime 4.4.0 or newer.

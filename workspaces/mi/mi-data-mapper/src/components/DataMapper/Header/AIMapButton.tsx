@@ -50,7 +50,7 @@ const StyledButton = styled(Button) <{ isLoading: boolean }>`
 
 const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading, disabled = false }) => {
   var [remainingTokenLessThanOne, setRemainingTokenLessThanOne] = useState(false);
-  var [remainingTokenPercentage, setRemainingTokenPercentage] = useState<string | number>("");
+  var [remainingTokenPercentage, setRemainingTokenPercentage] = useState<number | "Unlimited" | null>(null);
   var [usageResetText, setUsageResetText] = useState<string>("");
 
   const { rpcClient } = useVisualizerContext();
@@ -63,6 +63,7 @@ const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading, disabled 
           const remainingUsagePercentage = userTokens.remainingUsagePercentage;
           if (remainingUsagePercentage === -1) {
             setRemainingTokenPercentage("Unlimited");
+            setRemainingTokenLessThanOne(false);
             setUsageResetText("");
           } else {
             const percentage = typeof remainingUsagePercentage === "number"
@@ -73,7 +74,7 @@ const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading, disabled 
             } else {
               setRemainingTokenLessThanOne(false);
             }
-            setRemainingTokenPercentage(Number.isNaN(percentage) ? "Not Available" : Math.round(percentage));
+            setRemainingTokenPercentage(Number.isNaN(percentage) ? null : Math.round(percentage));
 
             const resetsIn = userTokens.resetsIn;
             if (typeof resetsIn === "number" && resetsIn > 0) {
@@ -85,19 +86,28 @@ const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading, disabled 
           }
         } else {
           // Handle the case when machineView or userTokens is undefined
-          setRemainingTokenPercentage("Not Available");
+          setRemainingTokenPercentage(null);
+          setRemainingTokenLessThanOne(false);
           setUsageResetText("");
         }
       })
       .catch((error) => {
         // Handle errors from the API call
         console.error("Error fetching AI Visualizer State:", error);
-        setRemainingTokenPercentage("Not Available");
+        setRemainingTokenPercentage(null);
+        setRemainingTokenLessThanOne(false);
         setUsageResetText("");
       });
   }, []);
 
-  var tokenUsageText = remainingTokenPercentage === 'Unlimited' ? remainingTokenPercentage : (remainingTokenLessThanOne ? '<1%' : `${remainingTokenPercentage}%`);
+  var tokenUsageText =
+    remainingTokenPercentage === "Unlimited"
+      ? "Unlimited"
+      : (remainingTokenLessThanOne && typeof remainingTokenPercentage === "number" && remainingTokenPercentage > 0)
+        ? "<1%"
+        : (typeof remainingTokenPercentage === "number" && Number.isFinite(remainingTokenPercentage))
+          ? `${remainingTokenPercentage}%`
+          : "Not Available";
 
   return (
     <ButtonContainer>
