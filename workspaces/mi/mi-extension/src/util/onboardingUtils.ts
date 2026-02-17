@@ -131,7 +131,7 @@ export async function getProjectSetupDetails(projectUri: string): Promise<SetupD
     }
     if (isSupportedMIVersion(miVersion)) {
         const highestSupportedJavaVersion = javaVersionCompatibilityMap[miVersion].supportedRange.max;
-        const recommendedVersions = { miVersion, javaVersion: highestSupportedJavaVersion};
+        const recommendedVersions = { miVersion, javaVersion: highestSupportedJavaVersion };
         const setupDetails = await getJavaAndMIPathsFromWorkspace(projectUri, miVersion);
         return { ...setupDetails, miVersionStatus: 'valid', showDownloadButtons: isDownloadableMIVersion(miVersion), recommendedVersions, miVersionFromPom: miVersion };
     }
@@ -435,7 +435,7 @@ export async function downloadJavaFromMI(projectUri: string, miVersion: string):
         };
     }
 
-    const javaVersions = javaVersionCompatibilityMap[miVersion].supportedRange;
+    const javaVersions = javaVersionCompatibilityMap[miVersion];
     const javaPath = path.join(CACHED_FOLDER, 'java');
     const osType = os.type();
 
@@ -465,7 +465,7 @@ export async function downloadJavaFromMI(projectUri: string, miVersion: string):
         if (!javaVersions) {
             throw new Error('Unsupported MI version.');
         }
-        const javaVersion = javaVersions.max; // Get the highest supported Java version for the MI version
+        const javaVersion = javaVersions.supportedRange.max; // Get the highest supported Java version for the MI version
 
         if (!fs.existsSync(javaPath)) {
             fs.mkdirSync(javaPath, { recursive: true });
@@ -506,7 +506,7 @@ export async function downloadJavaFromMI(projectUri: string, miVersion: string):
         throw new Error(
             `Failed to download Java. ${error instanceof Error ? error.message : error
             }.
-            If issue persists, please download and install Java ${javaVersions ? javaVersions.max : 'the required version'} manually.`
+            If issue persists, please download and install Java ${javaVersions ? javaVersions.supportedRange.max : 'the required version'} manually.`
         );
     }
 }
