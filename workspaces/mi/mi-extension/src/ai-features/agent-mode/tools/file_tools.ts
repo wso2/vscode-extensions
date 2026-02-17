@@ -1077,8 +1077,16 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
             const regex = compiledPattern.regex;
             const globRegex = compiledGlob.regex;
 
-            // Resolve the search path (always relative to projectPath for security)
-            const fullSearchPath = path.join(projectPath, searchPath);
+            const pathValidation = validateFilePathSecurity(projectPath, searchPath);
+            if (!pathValidation.valid) {
+                return {
+                    success: false,
+                    message: pathValidation.error!,
+                    error: `Error: ${ErrorMessages.INVALID_FILE_PATH}`
+                };
+            }
+
+            const fullSearchPath = resolveFullPath(projectPath, searchPath);
 
             if (!fs.existsSync(fullSearchPath)) {
                 return {
@@ -1258,8 +1266,16 @@ export function createGlobExecute(projectPath: string): GlobExecuteFn {
         console.log(`[GlobTool] Searching for pattern '${pattern}' in ${searchPath}`);
 
         try {
-            // Resolve the search path (always relative to projectPath for security)
-            const fullSearchPath = path.join(projectPath, searchPath);
+            const pathValidation = validateFilePathSecurity(projectPath, searchPath);
+            if (!pathValidation.valid) {
+                return {
+                    success: false,
+                    message: pathValidation.error!,
+                    error: `Error: ${ErrorMessages.INVALID_FILE_PATH}`
+                };
+            }
+
+            const fullSearchPath = resolveFullPath(projectPath, searchPath);
 
             if (!fs.existsSync(fullSearchPath)) {
                 return {
@@ -1402,7 +1418,7 @@ const grepInputSchema = z.object({
     path: z.string().optional().describe(`File or directory to search in (rg PATH). Defaults to current working directory.`),
     glob: z.string().max(MAX_GREP_GLOB_LENGTH).optional().describe(`Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob (max ${MAX_GREP_GLOB_LENGTH} characters)`),
     type: z.string().optional().describe(`File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types.`),
-    output_mode: z.enum(['content', 'files_with_matches']).optional().describe(`Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows only file paths (supports head_limit). Defaults to "files_with_matches".`),
+    output_mode: z.enum(['content', 'files_with_matches']).optional().describe(`Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows only file paths (supports head_limit). Defaults to "content".`),
     '-i': z.boolean().optional().describe(`Case insensitive search`),
     head_limit: z.number().optional().describe(`Limit the number of results (default: 100)`)
 });

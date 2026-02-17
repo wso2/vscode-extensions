@@ -201,7 +201,14 @@ export function createCreateDataMapperExecute(
             // 5. Process and update input schema
             let inputContent: string;
             if (isFilePath(input_schema)) {
-                const fullPath = path.join(projectPath, input_schema);
+                const fullPath = resolveProjectBoundPath(projectPath, input_schema);
+                if (!fullPath) {
+                    return {
+                        success: false,
+                        message: `Input schema path must be inside project: ${input_schema}`,
+                        error: 'Error: Invalid path',
+                    };
+                }
                 if (!fs.existsSync(fullPath)) {
                     return {
                         success: false,
@@ -224,7 +231,14 @@ export function createCreateDataMapperExecute(
             // 6. Process and update output schema
             let outputContent: string;
             if (isFilePath(output_schema)) {
-                const fullPath = path.join(projectPath, output_schema);
+                const fullPath = resolveProjectBoundPath(projectPath, output_schema);
+                if (!fullPath) {
+                    return {
+                        success: false,
+                        message: `Output schema path must be inside project: ${output_schema}`,
+                        error: 'Error: Invalid path',
+                    };
+                }
                 if (!fs.existsSync(fullPath)) {
                     return {
                         success: false,

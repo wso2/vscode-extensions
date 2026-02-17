@@ -17,14 +17,7 @@
  */
 
 import { MessengerAPI } from "vscode-messenger-common";
-import {
-    MIAgentPanelRpcManager,
-    ListSessionsRequest,
-    SwitchSessionRequest,
-    CreateNewSessionRequest,
-    DeleteSessionRequest,
-    SearchMentionablePathsRequest,
-} from "./rpc-manager";
+import { MIAgentPanelRpcManager } from "./rpc-manager";
 import {
     sendAgentMessage,
     abortAgentGeneration,
@@ -46,6 +39,11 @@ import {
     deleteSession,
     compactConversation,
     searchMentionablePaths,
+    ListSessionsRequest,
+    SwitchSessionRequest,
+    CreateNewSessionRequest,
+    DeleteSessionRequest,
+    SearchMentionablePathsRequest,
 } from "@wso2/mi-core";
 
 const rpcManagerMap: Map<string, MIAgentPanelRpcManager> = new Map();

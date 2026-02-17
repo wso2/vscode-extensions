@@ -480,8 +480,8 @@ export interface MentionablePathItem {
 }
 
 export interface SearchMentionablePathsRequest {
-    /** User-typed text after "@" */
-    query: string;
+    /** User-typed text after "@". Empty or omitted query should return root-level items. */
+    query?: string;
     /** Max number of items to return */
     limit?: number;
 }

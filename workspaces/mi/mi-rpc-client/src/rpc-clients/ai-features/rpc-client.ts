@@ -84,9 +84,7 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
     // ==================================
     fetchUsage(): Promise<{
         remainingUsagePercentage?: number;
-        max_usage?: number;
-        remaining_tokens?: number;
-        time_to_reset?: number;
+        resetsIn?: number;
     } | undefined> {
         return this._messenger.sendRequest(fetchUsage, HOST_EXTENSION);
     }

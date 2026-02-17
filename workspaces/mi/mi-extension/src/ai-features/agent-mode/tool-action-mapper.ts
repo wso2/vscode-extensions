@@ -158,7 +158,10 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
         case BASH_TOOL_NAME: {
             // Use description if provided, otherwise show command preview
             const bashDesc = toolInput?.description;
-            const cmdPreview = toolInput?.command?.substring(0, 50) + (toolInput?.command?.length > 50 ? '...' : '');
+            const command = toolInput?.command;
+            const cmdPreview = command
+                ? command.substring(0, 50) + (command.length > 50 ? '...' : '')
+                : undefined;
             const displayText = bashDesc || cmdPreview || 'command';
             return {
                 loading: `running: ${displayText}`,

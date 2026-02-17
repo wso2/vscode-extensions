@@ -32,6 +32,18 @@ import {
     UndoLastCheckpointResponse,
     ApplyCodeSegmentWithCheckpointRequest,
     ApplyCodeSegmentWithCheckpointResponse,
+    ListSessionsRequest,
+    ListSessionsResponse,
+    SwitchSessionRequest,
+    SwitchSessionResponse,
+    CreateNewSessionRequest,
+    CreateNewSessionResponse,
+    DeleteSessionRequest,
+    DeleteSessionResponse,
+    MentionablePathType,
+    MentionablePathItem,
+    SearchMentionablePathsRequest,
+    SearchMentionablePathsResponse,
 } from '@wso2/mi-core';
 import type { Dirent } from 'fs';
 import * as fs from 'fs/promises';
@@ -43,7 +55,6 @@ import { executeCompactAgent } from '../../ai-features/agent-mode/agents/compact
 import { logInfo, logError, logDebug } from '../../ai-features/copilot/logger';
 import {
     ChatHistoryManager,
-    GroupedSessions,
     TOOL_USE_INTERRUPTION_CONTEXT,
 } from '../../ai-features/agent-mode/chat-history-manager';
 import {
@@ -80,69 +91,6 @@ const MENTION_SKIP_DIRS = new Set([
     'target',
 ]);
 
-// Session management types (will be imported from @wso2/mi-core after build)
-export interface ListSessionsRequest {
-    // Empty - uses project from context
-}
-
-export interface ListSessionsResponse {
-    success: boolean;
-    sessions: GroupedSessions;
-    currentSessionId?: string;
-    error?: string;
-}
-
-export interface SwitchSessionRequest {
-    sessionId: string;
-}
-
-export interface SwitchSessionResponse {
-    success: boolean;
-    sessionId: string;
-    events: ChatHistoryEvent[];
-    error?: string;
-    mode?: AgentMode;
-    lastTotalInputTokens?: number;
-}
-
-export interface CreateNewSessionRequest {
-    // Empty - creates fresh session
-}
-
-export interface CreateNewSessionResponse {
-    success: boolean;
-    sessionId: string;
-    mode?: AgentMode;
-    error?: string;
-}
-
-export interface DeleteSessionRequest {
-    sessionId: string;
-}
-
-export interface DeleteSessionResponse {
-    success: boolean;
-    error?: string;
-}
-
-export type MentionablePathType = 'file' | 'folder';
-
-export interface MentionablePathItem {
-    path: string;
-    type: MentionablePathType;
-}
-
-export interface SearchMentionablePathsRequest {
-    query?: string;
-    limit?: number;
-}
-
-export interface SearchMentionablePathsResponse {
-    success: boolean;
-    items: MentionablePathItem[];
-    error?: string;
-}
-
 export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private eventHandler: AgentEventHandler;
     private currentAbortController: AbortController | null = null;
@@ -176,6 +124,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         for (const pending of this.pendingApprovals.values()) {
             pending.reject(reason);
         }
+        this.pendingQuestions.clear();
+        this.pendingApprovals.clear();
     }
 
     /**
@@ -489,7 +439,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     async sendAgentMessage(request: SendAgentMessageRequest): Promise<SendAgentMessageResponse> {
         try {
-            logInfo(`[AgentPanel] Received message: ${request.message.substring(0, 100)}...`);
+            const messageLength = typeof request.message === 'string' ? request.message.length : 0;
+            logInfo(
+                `[AgentPanel] Received message request (chatId=${request.chatId}, mode=${request.mode || this.currentMode || DEFAULT_AGENT_MODE}, messageLength=${messageLength})`
+            );
 
             // Fail fast if attachments are invalid (same behavior as legacy copilot flow)
             const validationWarnings = validateAttachments(request.files, request.images);
