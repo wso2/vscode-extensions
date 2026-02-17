@@ -133,6 +133,7 @@ interface ReviewView {
     };
     projectPath: string;
     label?: string;
+    changeType: number;
 }
 
 enum NodeKindEnum {
@@ -181,7 +182,7 @@ function convertToReviewView(diff: SemanticDiff, projectPath: string, packageNam
     const fileName = diff.uri.split("/").pop() || diff.uri;
     const changeTypeStr = getChangeTypeString(diff.changeType);
     const nodeKindStr = getNodeKindString(diff.nodeKind);
-    
+
     // Include package name in label if provided (for multi-package scenarios)
     const changeLabel = packageName
         ? `${changeTypeStr}: ${nodeKindStr} in ${packageName}/${fileName}`
@@ -198,6 +199,7 @@ function convertToReviewView(diff: SemanticDiff, projectPath: string, packageNam
         },
         projectPath,
         label: changeLabel,
+        changeType: diff.changeType,
     };
 }
 
@@ -209,7 +211,7 @@ async function fetchSemanticDiff(rpcClient: any, projectPath: string): Promise<S
 // Utility function to fetch semantic diffs for multiple packages
 async function fetchSemanticDiffForMultiplePackages(
     rpcClient: any,
-    packagePaths: string[]
+    packagePaths: string[],
 ): Promise<SemanticDiffResponse> {
     console.log(`[ReviewMode] Fetching semantic diffs for ${packagePaths.length} packages:`, packagePaths);
 
@@ -241,12 +243,12 @@ async function fetchSemanticDiffForMultiplePackages(
 function getPackageName(path: string): string {
     const parts = path.split("/");
     const lastPart = parts[parts.length - 1];
-    
+
     // If the last part is a .bal file, the package name is the directory before it
-    if (lastPart && lastPart.endsWith('.bal')) {
+    if (lastPart && lastPart.endsWith(".bal")) {
         return parts[parts.length - 2] || path;
     }
-    
+
     // Otherwise, the last part is the package name
     return lastPart || path;
 }
@@ -267,6 +269,7 @@ export function ReviewMode(): JSX.Element {
     const [isLoading, setIsLoading] = useState(true);
     const [currentItemMetadata, setCurrentItemMetadata] = useState<ItemMetadata | null>(null);
     const [isWorkspace, setIsWorkspace] = useState(false);
+    const [showOldVersion, setShowOldVersion] = useState(false);
 
     // Derive current view from views array and currentIndex - no separate state needed
     const currentView =
@@ -276,7 +279,7 @@ export function ReviewMode(): JSX.Element {
     const loadSemanticDiff = useCallback(async () => {
         try {
             setIsLoading(true);
-            
+
             // First fetch the active temp directory path
             const tempDirPath = await rpcClient.getAiPanelRpcClient().getActiveTempDir();
             if (!tempDirPath) {
@@ -308,7 +311,10 @@ export function ReviewMode(): JSX.Element {
             // Use affected packages if available, otherwise fallback to temp directory
             const packagesToReview = isWorkspaceProject ? fetchedPackages : [tempDirPath];
 
-            console.log(`[ReviewMode] Reviewing ${packagesToReview.length} package(s) in ${isWorkspaceProject ? 'workspace' : 'single'} project:`, packagesToReview);
+            console.log(
+                `[ReviewMode] Reviewing ${packagesToReview.length} package(s) in ${isWorkspaceProject ? "workspace" : "single"} project:`,
+                packagesToReview,
+            );
 
             // Fetch semantic diffs for all affected packages
             // For workspace projects, always fetch for each package even if only one is affected
@@ -317,7 +323,7 @@ export function ReviewMode(): JSX.Element {
                 ? await fetchSemanticDiffForMultiplePackages(rpcClient, packagesToReview)
                 : await fetchSemanticDiff(rpcClient, tempDirPath);
 
-            console.log("[ReviewMode] Combined semanticDiff Response:", semanticDiffResponse);
+            console.log("[ReviewMode] Combined semanticDiff Response:", JSON.stringify(semanticDiffResponse, null, 2));
             setSemanticDiffData(semanticDiffResponse);
 
             const allViews: ReviewView[] = [];
@@ -326,13 +332,10 @@ export function ReviewMode(): JSX.Element {
             if (semanticDiffResponse.loadDesignDiagrams && semanticDiffResponse.semanticDiffs.length > 0) {
                 // For workspace projects, create a component diagram for each affected package
                 // For single package projects, create one component diagram
-                
                 packagesToReview.forEach((packagePath) => {
                     const packageName = getPackageName(packagePath);
-                    const label = isWorkspaceProject 
-                        ? `Design Diagram - ${packageName}`
-                        : "Design Diagram";
-                    
+                    const label = isWorkspaceProject ? `Design Diagram - ${packageName}` : "Design Diagram";
+
                     allViews.push({
                         type: DiagramType.COMPONENT,
                         filePath: packagePath,
@@ -344,6 +347,7 @@ export function ReviewMode(): JSX.Element {
                         },
                         projectPath: packagePath,
                         label: label,
+                        changeType: ChangeTypeEnum.MODIFICATION,
                     });
                 });
             }
@@ -362,9 +366,9 @@ export function ReviewMode(): JSX.Element {
                     // Find the package that contains this file
                     for (const pkgPath of packagesToReview) {
                         // Normalize paths and check if diff.uri starts with package path
-                        const normalizedUri = diff.uri.replace(/\\/g, '/');
-                        const normalizedPkgPath = pkgPath.replace(/\\/g, '/');
-                        if (normalizedUri.startsWith(normalizedPkgPath + '/') || normalizedUri === normalizedPkgPath) {
+                        const normalizedUri = diff.uri.replace(/\\/g, "/");
+                        const normalizedPkgPath = pkgPath.replace(/\\/g, "/");
+                        if (normalizedUri.startsWith(normalizedPkgPath + "/") || normalizedUri === normalizedPkgPath) {
                             belongsToPackage = pkgPath;
                             packageName = getPackageName(pkgPath);
                             break;
@@ -426,6 +430,7 @@ export function ReviewMode(): JSX.Element {
             const newIndex = currentIndex - 1;
             setCurrentIndex(newIndex);
             setCurrentItemMetadata(null); // Clear metadata when navigating
+            setShowOldVersion(false); // Reset toggle when navigating
         } else {
             console.log("[Review Mode] Already at first view");
         }
@@ -436,6 +441,7 @@ export function ReviewMode(): JSX.Element {
             const newIndex = currentIndex + 1;
             setCurrentIndex(newIndex);
             setCurrentItemMetadata(null); // Clear metadata when navigating
+            setShowOldVersion(false); // Reset toggle when navigating
         } else {
             console.log("[Review Mode] Already at last view");
         }
@@ -485,6 +491,8 @@ export function ReviewMode(): JSX.Element {
         // Create a unique key for each diagram to force re-mount when switching views
         const diagramKey = `${currentView.type}-${currentIndex}-${currentView.filePath}`;
 
+        const effectiveShowOld = currentView.changeType === ChangeTypeEnum.DELETION ? true : showOldVersion;
+
         switch (currentView.type) {
             case "component":
                 // Metadata is now set by useEffect hook
@@ -494,6 +502,7 @@ export function ReviewMode(): JSX.Element {
                         projectPath={currentView.projectPath || projectPath}
                         filePath={currentView.filePath}
                         position={currentView.position}
+                        useFileSchema={effectiveShowOld}
                     />
                 );
             case "flow":
@@ -504,6 +513,7 @@ export function ReviewMode(): JSX.Element {
                         filePath={currentView.filePath}
                         position={currentView.position}
                         onModelLoaded={handleModelLoaded}
+                        useFileSchema={effectiveShowOld}
                     />
                 );
             case "type":
@@ -513,6 +523,7 @@ export function ReviewMode(): JSX.Element {
                         projectPath={currentView.projectPath || projectPath}
                         filePath={currentView.filePath}
                         onModelLoaded={handleModelLoaded}
+                        useFileSchema={effectiveShowOld}
                     />
                 );
             default:
@@ -541,7 +552,14 @@ export function ReviewMode(): JSX.Element {
             <ReviewContainer>
                 <TitleBar
                     title="No Changes"
-                    actions={<ReviewModeBadge>Review Mode</ReviewModeBadge>}
+                    actions={
+                        <>
+                            <ReviewModeBadge>Review Mode</ReviewModeBadge>
+                            <CloseButton onClick={handleClose} title="Close Review Mode">
+                                <Icon name="bi-close" />
+                            </CloseButton>
+                        </>
+                    }
                     hideBack={true}
                     hideUndoRedo={true}
                 />
@@ -554,6 +572,7 @@ export function ReviewMode(): JSX.Element {
 
     const canGoPrevious = currentIndex > 0;
     const canGoNext = currentIndex < views.length - 1;
+    const canToggleVersion = currentView?.changeType === ChangeTypeEnum.MODIFICATION;
     const isAutomation = currentItemMetadata?.type === "Function" && currentItemMetadata?.name === "main";
     const isResource = currentItemMetadata?.type === "Resource";
     const isType = currentItemMetadata?.type === "Type";
@@ -598,7 +617,7 @@ export function ReviewMode(): JSX.Element {
         <>
             {isWorkspace && currentPackageName && (
                 <CurrentPackageBadge title={`Currently viewing: ${currentPackageName} Integration`}>
-                    <Codicon name="project"/>
+                    <Codicon name="project" />
                     {currentPackageName}
                 </CurrentPackageBadge>
             )}
@@ -630,6 +649,9 @@ export function ReviewMode(): JSX.Element {
                 onReject={handleReject}
                 canGoPrevious={canGoPrevious}
                 canGoNext={canGoNext}
+                showOldVersion={currentView?.changeType === ChangeTypeEnum.DELETION ? true : showOldVersion}
+                onToggleVersion={() => setShowOldVersion((prev) => !prev)}
+                canToggleVersion={canToggleVersion}
             />
         </ReviewContainer>
     );
