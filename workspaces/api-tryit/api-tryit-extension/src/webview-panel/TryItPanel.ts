@@ -252,6 +252,11 @@ export class TryItPanel {
 								// ignore
 							}
 
+							// Fallback to state machine selected file path for existing requests
+							if (!targetFilePath && stateContext.selectedFilePath) {
+								targetFilePath = stateContext.selectedFilePath;
+							}
+
 							if (!targetFilePath && stateContext.currentCollectionPath) {
 								// Auto-generate filename from request name or use default
 								const baseName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-');

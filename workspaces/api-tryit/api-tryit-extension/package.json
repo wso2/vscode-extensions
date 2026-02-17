@@ -142,6 +142,10 @@
         {
           "command": "api-tryit.settings",
           "when": "false"
+        },
+        {
+          "command": "api-tryit.importCollectionPayload",
+          "when": "workspaceFolderCount > 0"
         }
       ]
     },

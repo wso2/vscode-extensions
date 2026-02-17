@@ -22,8 +22,154 @@ import { TryItPanel } from './webview-panel/TryItPanel';
 import { ActivityPanel } from './activity-panel/webview';
 import { ApiExplorerProvider } from './tree-view/ApiExplorerProvider';
 import { ApiTryItStateMachine, EVENT_TYPE } from './stateMachine';
-import { ApiRequestItem, ApiCollection } from '@wso2/api-tryit-core';
+import { ApiRequestItem } from '@wso2/api-tryit-core';
 import * as path from 'path';
+import * as fs from 'fs/promises';
+import * as yaml from 'js-yaml';
+
+async function getWorkspaceRoot(): Promise<string | undefined> {
+	const workspaceFolders = vscode.workspace.workspaceFolders;
+
+	if (!workspaceFolders || workspaceFolders.length === 0) {
+		vscode.window.showWarningMessage('Please open a workspace folder to import collection payloads.');
+		return undefined;
+	}
+
+	if (workspaceFolders.length === 1) {
+		return workspaceFolders[0].uri.fsPath;
+	}
+
+	const selected = await vscode.window.showWorkspaceFolderPick({
+		placeHolder: 'Select the workspace folder to import this collection into'
+	});
+
+	return selected?.uri.fsPath;
+}
+
+function getApiTestPath(workspaceRoot: string): string {
+	return path.join(workspaceRoot, 'api-test');
+}
+
+function sanitizePathSegment(value: string, fallback: string): string {
+	const sanitized = value
+		.toLowerCase()
+		.trim()
+		.replace(/[^a-z0-9_\-\s]/g, '')
+		.replace(/\s+/g, '-');
+
+	return sanitized || fallback;
+}
+
+function normalizeRequestItem(rawItem: unknown, fallbackName: string): Record<string, unknown> {
+	const nowId = `${Date.now()}`;
+	const itemObj = rawItem && typeof rawItem === 'object' ? (rawItem as Record<string, unknown>) : {};
+	const rawRequest = itemObj.request && typeof itemObj.request === 'object'
+		? (itemObj.request as Record<string, unknown>)
+		: itemObj;
+
+	const name = typeof itemObj.name === 'string'
+		? itemObj.name
+		: (typeof rawRequest.name === 'string' ? rawRequest.name : fallbackName);
+
+	const id = typeof itemObj.id === 'string'
+		? itemObj.id
+		: (typeof rawRequest.id === 'string' ? rawRequest.id : `${name}-${nowId}`);
+
+	const method = typeof rawRequest.method === 'string' ? rawRequest.method : 'GET';
+	const url = typeof rawRequest.url === 'string' ? rawRequest.url : '';
+
+	const request: Record<string, unknown> = {
+		...rawRequest,
+		id,
+		name,
+		method,
+		url,
+		queryParameters: Array.isArray(rawRequest.queryParameters) ? rawRequest.queryParameters : [],
+		headers: Array.isArray(rawRequest.headers) ? rawRequest.headers : []
+	};
+
+	const persisted: Record<string, unknown> = {
+		id,
+		name,
+		request
+	};
+
+	if ('response' in itemObj) {
+		persisted.response = itemObj.response;
+	}
+
+	return persisted;
+}
+
+async function createCollectionFolderStructure(
+	apiTestPath: string,
+	collectionName: string,
+	collectionData: Record<string, unknown>
+): Promise<string> {
+	await fs.mkdir(apiTestPath, { recursive: true });
+
+	const collectionDirName = sanitizePathSegment(collectionName, `collection-${Date.now()}`);
+	const collectionPath = path.join(apiTestPath, collectionDirName);
+	await fs.mkdir(collectionPath, { recursive: true });
+
+	const collectionId = typeof collectionData.id === 'string'
+		? collectionData.id
+		: `${collectionDirName}-${Date.now()}`;
+
+	const collectionMetadata = {
+		id: collectionId,
+		name: collectionName,
+		description: typeof collectionData.description === 'string' ? collectionData.description : ''
+	};
+
+	await fs.writeFile(
+		path.join(collectionPath, 'collection.yaml'),
+		yaml.dump(collectionMetadata),
+		'utf-8'
+	);
+
+	const rootItems = Array.isArray(collectionData.rootItems)
+		? collectionData.rootItems
+		: (Array.isArray(collectionData.requests) ? collectionData.requests : []);
+
+	for (let index = 0; index < rootItems.length; index++) {
+		const persistedRequest = normalizeRequestItem(rootItems[index], `Request ${index + 1}`);
+		const fileName = `${String(index + 1).padStart(2, '0')}-${sanitizePathSegment(
+			typeof persistedRequest.name === 'string' ? persistedRequest.name : `request-${index + 1}`,
+			`request-${index + 1}`
+		)}.yaml`;
+
+		await fs.writeFile(path.join(collectionPath, fileName), yaml.dump(persistedRequest), 'utf-8');
+	}
+
+	const folders = Array.isArray(collectionData.folders) ? collectionData.folders : [];
+	for (let folderIndex = 0; folderIndex < folders.length; folderIndex++) {
+		const folderObj = folders[folderIndex] && typeof folders[folderIndex] === 'object'
+			? (folders[folderIndex] as Record<string, unknown>)
+			: {};
+
+		const folderName = typeof folderObj.name === 'string' ? folderObj.name : `Folder ${folderIndex + 1}`;
+		const folderDirName = sanitizePathSegment(folderName, `folder-${folderIndex + 1}`);
+		const folderPath = path.join(collectionPath, folderDirName);
+		await fs.mkdir(folderPath, { recursive: true });
+
+		const folderItems = Array.isArray(folderObj.items)
+			? folderObj.items
+			: (Array.isArray(folderObj.requests) ? folderObj.requests : []);
+
+		for (let requestIndex = 0; requestIndex < folderItems.length; requestIndex++) {
+			const persistedRequest = normalizeRequestItem(folderItems[requestIndex], `Request ${requestIndex + 1}`);
+			const fileName = `${String(requestIndex + 1).padStart(2, '0')}-${sanitizePathSegment(
+				typeof persistedRequest.name === 'string' ? persistedRequest.name : `request-${requestIndex + 1}`,
+				`request-${requestIndex + 1}`
+			)}.yaml`;
+
+			await fs.writeFile(path.join(folderPath, fileName), yaml.dump(persistedRequest), 'utf-8');
+		}
+	}
+
+	return collectionPath;
+}
 
 export async function activate(context: vscode.ExtensionContext) {
 	// Register the API Explorer tree view provider
@@ -241,11 +387,16 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Register command to import collection payload (JSON structure)
 	const importCollectionPayloadCommand = vscode.commands.registerCommand('api-tryit.importCollectionPayload', async (payload?: string) => {
 		try {
+			const workspaceRoot = await getWorkspaceRoot();
+			if (!workspaceRoot) {
+				return;
+			}
+
 			// If no payload provided, get it from user input
 			if (!payload || typeof payload !== 'string') {
 				payload = await vscode.window.showInputBox({
 					prompt: 'Paste your collection JSON payload',
-					placeHolder: '{"name": "My Collection", "requests": [...]}',
+					placeHolder: '{"name": "My Collection", "folders": [...], "rootItems": [...]}',
 					title: 'Import Collection Payload'
 				});
 
@@ -269,43 +420,21 @@ export async function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			// Get collections path from config
-			const config = vscode.workspace.getConfiguration('api-tryit');
-			const collectionsPath = config.get<string>('collectionsPath');
+			const apiTestPath = getApiTestPath(workspaceRoot);
+			await createCollectionFolderStructure(apiTestPath, collectionData.name, collectionData as Record<string, unknown>);
 
-			// Generate unique ID for the collection
-			const collectionId = `imported-${Date.now()}`;
+			await apiExplorerProvider.reloadCollections();
 
-			// Create ApiCollection from the data
-			const collection: ApiCollection = {
-				id: collectionId,
-				name: collectionData.name,
-				description: collectionData.description || '',
-				folders: collectionData.folders || [],
-				rootItems: collectionData.rootItems || []
-			};
-
-			if (collectionsPath) {
-				// If collections path is set, save to disk
-				// Generate filename from collection name (sanitize)
-				const sanitizedName = collectionData.name.replace(/[^a-zA-Z0-9\-_\s]/g, '').replace(/\s+/g, '_');
-				const fileName = `${sanitizedName}.json`;
-				const filePath = path.join(collectionsPath, fileName);
-
-				// Write the payload to file
-				const fileUri = vscode.Uri.file(filePath);
-				const content = JSON.stringify(collectionData, null, 2);
-				await vscode.workspace.fs.writeFile(fileUri, Buffer.from(content, 'utf8'));
-
-				// Reload collections to show the new one
-				await apiExplorerProvider.reloadCollections();
-
-				vscode.window.showInformationMessage(`Collection "${collectionData.name}" imported and saved to disk`);
-			} else {
-				// If no collections path is set, add in-memory only
-				apiExplorerProvider.addInMemoryCollection(collection);
-				vscode.window.showInformationMessage(`Collection "${collectionData.name}" imported in-memory (not saved to disk)`);
+			try {
+				await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
+				await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
+			} catch {
+				// Ignore reveal errors in test environments
 			}
+
+			TryItPanel.show(context);
+
+			vscode.window.showInformationMessage(`Collection "${collectionData.name}" imported successfully to ${apiTestPath}`);
 		} catch (error: unknown) {
 			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
 			vscode.window.showErrorMessage(`Failed to import collection payload: ${errorMsg}`);

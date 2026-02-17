@@ -126,6 +126,7 @@ export interface ApiFolder {
     id: string;
     name: string;
     items: ApiRequestItem[];
+    filePath?: string;
 }
 
 // Collection - contains folders with request items
