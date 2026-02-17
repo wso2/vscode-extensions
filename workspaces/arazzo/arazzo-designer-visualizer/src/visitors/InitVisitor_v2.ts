@@ -51,8 +51,7 @@ export class InitVisitor_v2 {
 
         // Pass 2: Link Nodes with optimized logic
         workflow.steps.forEach((step: StepObject, index: number) => {
-            const currentNode = this.stepNodeMap.get(step.stepId)!;
-
+            const currentNode = this.stepNodeMap.get(step.stepId)!;     //the flowNode corresponding to the current step. 
             // --- SUCCESS PATH HANDLING ---
             if (step.onSuccess && step.onSuccess.length > 0) {
                 const successTargets = this.resolveTargets(step.onSuccess, step.stepId, 'success');
