@@ -72,12 +72,12 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
             ...options.headers,
             ...headers,
         };
-        
-        // Debug: Log request details for cache debugging
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+        // Debug: Log request details for cache debugging
         if (url.includes('/messages')) {
-            const headers = options.headers as Record<string, string>;
-            const betaHeader = headers['anthropic-beta'] || headers['Anthropic-Beta'] || 'none';
+            const requestHeaders = options.headers as Record<string, string>;
+            const betaHeader = requestHeaders['anthropic-beta'] || requestHeaders['Anthropic-Beta'] || 'none';
             logDebug(`[Cache] Request URL: ${url}`);
             logDebug(`[Cache] Request headers - anthropic-beta: ${betaHeader}`);
             

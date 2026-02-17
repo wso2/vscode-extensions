@@ -280,27 +280,23 @@ export async function executeAgent(
         // Configure Anthropic provider options.
         // When thinking is enabled, keep reasoning in model messages for JSONL replay.
         const anthropicOptions: AnthropicProviderOptions = request.thinking
-            ? {
-                thinking: { type: 'enabled', budgetTokens: 1024 },
-                sendReasoning: true,
-            }
-            : {
-                sendReasoning: true,
-            };
-
-        if (request.thinking) {
-            logInfo('[Agent] Thinking mode enabled for this request');
-        }
+        ? { thinking: { type: 'enabled', budgetTokens: 7000 } }
+        : {};
+    
+    const requestHeaders = request.thinking
+        ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' }
+        : undefined;
 
         // Setup Langfuse tracing if enabled
         const streamConfig: any = {
             model,
-            maxOutputTokens: 10000,
+            maxOutputTokens: 15000,
             temperature: request.thinking ? undefined : 0,
             messages: allMessages,
             stopWhen: stepCountIs(50),
             tools,
             abortSignal: request.abortSignal,
+            headers: requestHeaders,
             providerOptions: {
                 anthropic: anthropicOptions,
             },

@@ -30,8 +30,28 @@ import Attachments from "./Attachments";
 // Tool name constant
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
 const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
-const THINKING_PREFERENCE_KEY = 'mi-agent-thinking-enabled';
+const THINKING_PREFERENCE_KEY_PREFIX = 'mi-agent-thinking-enabled';
 const WEB_ACCESS_PREFERENCE_KEY = 'mi-agent-web-access-enabled';
+
+function getThinkingPreferenceStorageKey(mode: AgentMode): string {
+    return `${THINKING_PREFERENCE_KEY_PREFIX}-${mode}`;
+}
+
+function getDefaultThinkingEnabled(mode: AgentMode): boolean {
+    return mode === 'plan' || mode === 'edit';
+}
+
+function getThinkingPreferenceForMode(mode: AgentMode): boolean {
+    try {
+        const storedPreference = localStorage.getItem(getThinkingPreferenceStorageKey(mode));
+        if (storedPreference === null) {
+            return getDefaultThinkingEnabled(mode);
+        }
+        return storedPreference === 'true';
+    } catch {
+        return getDefaultThinkingEnabled(mode);
+    }
+}
 
 function removeCompactingPlaceholder(content: string): string {
     return content
@@ -337,13 +357,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     // Mode switcher state
     const [showModeMenu, setShowModeMenu] = useState(false);
     const modeMenuRef = useRef<HTMLDivElement>(null);
-    const [isThinkingEnabled, setIsThinkingEnabled] = useState<boolean>(() => {
-        try {
-            return localStorage.getItem(THINKING_PREFERENCE_KEY) === 'true';
-        } catch {
-            return false;
-        }
-    });
+    const [isThinkingEnabled, setIsThinkingEnabled] = useState<boolean>(() => getThinkingPreferenceForMode(agentMode));
     const [isWebAccessEnabled, setIsWebAccessEnabled] = useState<boolean>(() => {
         try {
             return localStorage.getItem(WEB_ACCESS_PREFERENCE_KEY) === 'true';
@@ -365,6 +379,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     // Context usage tracking (for compact button display)
     const CONTEXT_TOKEN_THRESHOLD = 200000;
+    const MANUAL_COMPACT_VISIBLE_USAGE_PERCENT = 50;
     // Keep this aligned with backend auto-compact threshold in rpc-manager.ts.
     // We trigger auto-compact before reaching the full context limit to avoid losing context.
     const PRE_SEND_AUTO_COMPACT_THRESHOLD = 180000;
@@ -1239,14 +1254,18 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setPendingMentionCursorPosition(null);
     }, [pendingMentionCursorPosition, currentUserPrompt]);
 
-    // Persist thinking preference across panel reloads
+    useEffect(() => {
+        setIsThinkingEnabled(getThinkingPreferenceForMode(agentMode));
+    }, [agentMode]);
+
+    // Persist thinking preference across panel reloads (per mode)
     useEffect(() => {
         try {
-            localStorage.setItem(THINKING_PREFERENCE_KEY, String(isThinkingEnabled));
+            localStorage.setItem(getThinkingPreferenceStorageKey(agentMode), String(isThinkingEnabled));
         } catch {
             // Ignore localStorage errors in restricted environments
         }
-    }, [isThinkingEnabled]);
+    }, [agentMode, isThinkingEnabled]);
 
     useEffect(() => {
         try {
@@ -2415,7 +2434,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 <Codicon name="globe" />
                             </button>
                         </FooterTooltip>
-                        {contextUsagePercent >= 1 && (
+                        {contextUsagePercent >= MANUAL_COMPACT_VISIBLE_USAGE_PERCENT && (
                             <FooterTooltip
                                 variant="card"
                                 align="start"
