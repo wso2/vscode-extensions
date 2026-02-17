@@ -43,14 +43,14 @@ export class ApiTryItRpcManager {
         }
 
         try {
-            let existingData: { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse } | null = null;
+            let existingData: { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse; assertions?: unknown[] } | null = null;
 
             // Try to read existing file
             try {
                 const existingContent = await readFile(filePath, 'utf8');
                 const parsed = yaml.load(existingContent);
                 if (parsed && typeof parsed === 'object') {
-                    existingData = parsed as { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse };
+                    existingData = parsed as { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse; assertions?: unknown[] };
                 }
             } catch {
                 // File doesn't exist or content can't be parsed, we'll create it from scratch
@@ -89,11 +89,8 @@ export class ApiTryItRpcManager {
                     }));
             }
 
-            if (request.assertions && request.assertions.length > 0) {
-                sanitizedRequest.assertions = request.assertions;
-            }
-
-            const updatedData = {
+            // Persist assertions at top-level (do NOT embed into `request` any more). Prefer incoming assertions; otherwise preserve existing file's top-level assertions.
+            const updatedData: Record<string, unknown> = {
                 id: request.id,
                 name: request.name,
                 request: sanitizedRequest,
@@ -103,7 +100,13 @@ export class ApiTryItRpcManager {
                     body: response.body
                 } : existingData?.response
             };
-            
+
+            if (request.assertions && request.assertions.length > 0) {
+                updatedData.assertions = request.assertions;
+            } else if (existingData?.assertions && Array.isArray(existingData.assertions)) {
+                updatedData.assertions = existingData.assertions;
+            }
+
             // Convert to YAML
             const requestData = yaml.dump(updatedData);
             

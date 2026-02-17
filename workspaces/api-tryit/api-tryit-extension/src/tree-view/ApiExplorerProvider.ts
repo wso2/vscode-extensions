@@ -139,9 +139,15 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						})
 						: undefined;
 
-					const assertions = Array.isArray(requestObj.assertions)
-						? (requestObj.assertions as unknown[]).filter((assertion): assertion is string => typeof assertion === 'string')
+					const topLevelAssertions = Array.isArray(persisted.assertions)
+						? (persisted.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
 						: undefined;
+
+						const requestAssertions = Array.isArray(requestObj.assertions)
+							? (requestObj.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
+							: undefined;
+
+						const assertions = topLevelAssertions ?? requestAssertions;
 
 					const requestWithId: ApiRequest = {
 						id: typeof requestObj.id === 'string' ? requestObj.id : id,
@@ -177,7 +183,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						name,
 						request: requestWithId,
 						response: typeof persisted.response === 'object' ? (persisted.response as unknown as ApiResponse) : undefined,
-						filePath
+						filePath,
+						assertions
 					};
 
 					return item;
