@@ -17,31 +17,48 @@
  */
 
 import { type ChildProcessWithoutNullStreams, spawn } from "child_process";
+import * as fs from "fs";
 import { type MessageConnection, StreamMessageReader, StreamMessageWriter, createMessageConnection } from "vscode-jsonrpc/node";
 import { ext } from "../extensionVariables";
 import { getLogger } from "../logger/logger";
 import { parseJwt } from "../utils";
 import { getChoreoExecPath } from "./cli-install";
+import { workspace } from "vscode";
 
 export class StdioConnection {
 	private _connection: MessageConnection;
 	private _serverProcess: ChildProcessWithoutNullStreams;
 	constructor() {
 		const executablePath = getChoreoExecPath();
+
+		// Check if the executable exists before attempting to spawn
+		if (!fs.existsSync(executablePath)) {
+			const error = new Error(`Choreo CLI executable not found at: ${executablePath}`);
+			getLogger().error(error.message);
+			throw error;
+		}
+
 		console.log("Starting RPC server, path:", executablePath);
 		getLogger().debug(`Starting RPC server${executablePath}`);
 		let region = process.env.CLOUD_REGION;
 		if (!region && process.env.CLOUD_STS_TOKEN && parseJwt(process.env.CLOUD_STS_TOKEN)?.iss?.includes(".eu.")) {
 			region = "EU";
 		}
+		const skipKeyringConfig = workspace.getConfiguration().get<boolean>("WSO2.WSO2-Platform.Advanced.SkipKeyring");
 		this._serverProcess = spawn(executablePath, ["start-rpc-server"], {
 			env: {
 				...process.env,
-				SKIP_KEYRING: ext.isDevantCloudEditor ? "true" : "",
+				SKIP_KEYRING: (skipKeyringConfig || ext.isDevantCloudEditor) ? "true" : (process.env.SKIP_KEYRING || ""),
 				CHOREO_ENV: ext.choreoEnv,
 				CHOREO_REGION: region,
 			},
 		});
+
+		// Handle spawn errors
+		this._serverProcess.on("error", (err) => {
+			getLogger().error(`Failed to start RPC server: ${err.message}`);
+		});
+
 		this._connection = createMessageConnection(
 			new StreamMessageReader(this._serverProcess.stdout),
 			new StreamMessageWriter(this._serverProcess.stdin),

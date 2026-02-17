@@ -16,7 +16,8 @@
  * under the License.
  */
 
-import { HOST_EXTENSION, type RequestType } from "vscode-messenger-common";
+import type { RequestType } from "vscode-messenger-common";
+import { HOST_EXTENSION } from "vscode-messenger-common";
 import type { Messenger } from "vscode-messenger-webview";
 import type {
 	BuildKind,
