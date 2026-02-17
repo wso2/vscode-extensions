@@ -62,6 +62,8 @@ export interface FlowNode {     //this is the actual node that we see on the can
     failureNode?: FlowNode; // Specific child for "OnFailure" (Bottom side)
     isPositioned?: boolean; // To track if the node has been positioned during layout
     isMainSpine?: boolean; // To identify if the node is on the main spine (for two-phase layout)
+    columnNo?: number; // To track which column the node belongs to (for layout purposes)
+    levelNo?: number; // To track the level of the node in the column (for layout purposes)
 }
 
 export interface BaseVisitor {
