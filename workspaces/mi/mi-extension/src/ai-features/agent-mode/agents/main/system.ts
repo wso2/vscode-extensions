@@ -215,7 +215,12 @@ Check:
 - Rebuild with copy_to_runtime=true
 - Restart server and test
 
-Note: For simple projects, removing artifact.xml and letting Maven auto-discover artifacts often resolves deployment issues.
+### Server Restart Required After Each Build
+- NEVER rely on hot deployment in WSO2 MI. After every build_project with copy_to_runtime=true, always do a full stop + start cycle:
+  1. server_management stop
+  2. server_management run
+- Hot deployment can leave the runtime in a broken or partially-loaded state, causing mediators to silently return wrong/empty values even though the artifact appears deployed. A clean restart guarantees the new artifact is fully initialized before testing.
+- Note: For simple projects, removing artifact.xml and letting Maven auto-discover artifacts often resolves deployment issues.
 
 # User Communication
 - Keep explanations concise and technical

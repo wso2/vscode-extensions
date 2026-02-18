@@ -234,6 +234,13 @@ export const SYNAPSE_GUIDE = `
     - For SOAP services, always prefer the \\\`call\\\` mediator with a named endpoint over the HTTP connector. The HTTP connector is designed for REST; it can cause stream-building failures with SOAP responses.
     - Before using any external service URL, verify whether it uses HTTP or HTTPS (e.g., test with curl -L). Never assume HTTP — many services redirect to HTTPS. Use an HTTPS endpoint URI when the service requires it.
 
+### SOAP Response Handling After \\\`call\\\` Mediator (MI 4.x)
+    - After a \\\`call\\\` mediator to a SOAP endpoint with \\\`format="soap11"\\\`, WSO2 MI 4.x automatically converts the SOAP XML response body to JSON in the message context.
+    - ALWAYS access the SOAP response using the JSON payload path: \\\`\\\${payload.ResponseElementName.ChildElement}\\\`
+    - DO NOT use XPath as the first access after a SOAP call: \\\`\\\${xpath("string($body//*[local-name()='Element'])")}\\\`  ← may return empty
+    - Reason: The SOAP response is in deferred/pass-through (unbuilt) mode until something forces message building. Accessing \\\`\\\${payload}\\\` forces the build; raw XPath may silently evaluate against an unbuilt message and return empty.
+    - If XPath is unavoidable, force message building first by setting an intermediate variable: \\\`<variable name="p" expression="\\\${payload}" type="JSON"/>\\\` then use XPath in a subsequent expression.
+
 ## For the new filter mediator, do not use source. Use only xpath:
 \`\`\`xml
 <filter xpath="[SynapseExpression]">
