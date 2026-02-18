@@ -468,19 +468,18 @@ export const deleteLocalConnectionConfig = (params: DeleteLocalConnectionsConfig
 }
 
 export const createConnectionConfig = async (params: CreateLocalConnectionsConfigReq):Promise<string>=>{
+	const org = ext.authProvider?.getUserInfo()?.organizations?.find((item) => item.uuid === params.marketplaceItem?.organizationId);
+	if (!org) {
+		return "";
+	}
+
 	if (existsSync(join(params.componentDir, ".choreo", "endpoints.yaml"))) {
 		rmSync(join(params.componentDir, ".choreo", "endpoints.yaml"));
 	}
 	if (existsSync(join(params.componentDir, ".choreo", "component-config.yaml"))) {
 		rmSync(join(params.componentDir, ".choreo", "component-config.yaml"));
 	}
-
-	const org = ext.authProvider?.getUserInfo()?.organizations?.find((item) => item.uuid === params.marketplaceItem?.organizationId);
-	if (!org) {
-		return "";
-	}
 	const componentYamlPath = join(params.componentDir, ".choreo", "component.yaml");
-
 
 	let resourceRef =  ``;
 	if(params.marketplaceItem?.isThirdParty){
