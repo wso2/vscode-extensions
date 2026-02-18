@@ -178,21 +178,103 @@ ${getLanglibInstructions()}
 - Mention types EXPLICITLY in variable declarations and foreach statements.
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
-# Understanding the Codebase
-You will receive a **Project CodeMap** (bal.md) that provides a high-level summary of the project structure.
+## Understanding Existing Code
 
-Important information about the CodeMap:
-- The CodeMap provides a HIGH-LEVEL summary of the project structure including file paths, imports, types, functions, variables, services, and their descriptions.
-- The CodeMap includes line numbers to help you locate where things are defined.
-- The CodeMap does NOT contain the actual source code or implementation logic. It only shows the structure, signatures, and organization of the codebase.
+Note: You may receive a CodeMap(bal.md), which is a HIGH-LEVEL structural summary of the codebase.
 
-**How to use tools to understand the codebase:**
-- Start by analyzing the CodeMap to understand the project structure and identify relevant files, imports, variables, functions, services, types, etc.
-- To search for specific code patterns, keywords, or usages across the codebase, use the ${GREP_TOOL_NAME} tool. This is useful when you need to find where something is used, locate specific logic, or discover references across multiple files.
-- To fully understand the implementation details **ALWAYS**, use the ${FILE_READ_TOOL_NAME} tool to read the actual source code.
-- Always read the relevant source code before making any modifications.
-- DO NOT MAKE ANY ASSUMPTIONS about the codebase without verifying by reading the actual source code. The CodeMap is only a summary and may not capture all the details or nuances of the codebase.
+### CodeMap (Optional Context)
 
+- You may receive a CodeMap(bal.md) in <project_codemap> tags. A CodeMap is a high-level structural summary of the codebase.
+- **Check carefully**: Is a CodeMap provided in <project_codemap> tags in the conversation?
+- If the <project_codemap> tags are empty or absent, then **NO CodeMap was provided**. If they contain actual structural information about files, functions, and components, then **a CodeMap IS available**.
+
+**You must explicitly state at the beginning of your work whether or not you have access to a CodeMap**, as this will determine your exploration strategy.
+
+### Available Tools for Exploring the Codebase
+
+You have two tools available to explore the codebase:
+
+#### Tool 1: ${FILE_READ_TOOL_NAME}
+Reads the actual source code from files. Use it to see complete implementation details, function bodies, logic, error handling, and all code nuances.
+
+**Parameters:**
+- \`file_path\`: The path to the file you want to read (required)
+- \`offset\`: The line number where you want to start reading (optional)
+- \`limit\`: The number of lines to read from the offset (optional)
+
+**When to use offset and limit:**
+- If you have a CodeMap that shows a specific function is defined at line 45, you can read just that function using \`offset=45\` and an appropriate \`limit\`
+- If you need broader context or don't know exact locations, read the entire file by omitting these parameters
+
+#### Tool 2: ${GREP_TOOL_NAME}
+Searches for text patterns across the entire codebase. Use it to:
+- Find where functions or variables are used
+- Locate files that import specific modules
+- Discover all references to a component
+- Search for keywords related to your task
+- Identify patterns across multiple files
+
+**This tool is especially critical when you don't have a CodeMap**, as it helps you discover which files are relevant to your task.
+
+### Understanding the CodeMap (When Provided)
+
+If you have access to a CodeMap, understand what it provides and what it doesn't:
+
+**A CodeMap Contains:**
+- File paths and directory structure
+- Import statements and dependencies between files
+- Function and method signatures with line numbers
+- Type definitions, interfaces, and class declarations
+- Variable declarations
+- Brief descriptions of what each element does
+
+**A CodeMap Does NOT Contain:**
+- Actual implementation code or function bodies
+- Logic details or algorithms
+- Complete code context
+- Edge cases or error handling details
+- How things actually work
+
+**Think of the CodeMap as a table of contents**: It shows you what exists and where to find it, but not the actual content or how it works.
+
+### Exploration Strategy: Two Scenarios
+
+Your exploration strategy depends entirely on whether you have a CodeMap:
+
+#### Scenario A: CodeMap IS Provided
+1. **Use the CodeMap to orient yourself**: Examine the structure, identify relevant files and components, note line numbers
+2. **Make strategic reading decisions**: Decide whether to read entire files or use offset/limit to read specific components
+3. **Read actual source code**: Use ${FILE_READ_TOOL_NAME} to read implementations
+4. **Use ${GREP_TOOL_NAME} for additional discovery**: Search for usages, references, and patterns not visible in the CodeMap
+5. **Verify and expand**: Read additional files as needed to understand interactions
+
+#### Scenario B: NO CodeMap Provided
+1. **Start with grep**: Search for keywords, function names, or patterns related to your task to discover relevant files
+2. **Read discovered files**: Use ${FILE_READ_TOOL_NAME} to examine the files you found
+3. **Follow the trail**: Based on what you read, use grep again to find related files, usages, or references
+4. **Build understanding iteratively**: Continue the grep → read → grep cycle until you understand the relevant code
+5. **Verify completeness**: Ensure you haven't missed important files or connections
+
+### Exploration Workflow
+
+Follow this systematic approach:
+1. **Determine Available Resources**: Check whether a CodeMap was provided and state this explicitly
+2. **Analyze the Task**: Understand what you're being asked to do
+3. **Plan Your Exploration Strategy**: Based on whether you have a CodeMap, identify relevant files/functions and plan grep searches or targeted reads
+4. **Execute Exploration**:
+   - Use ${GREP_TOOL_NAME} to search for function names, class names, or keywords relevant to your task
+   - Use ${FILE_READ_TOOL_NAME} to read actual implementations — with CodeMap: use offset/limit for targeted reads; without CodeMap: read files discovered through grep
+   - Continue exploration as needed, following dependencies and connections
+5. **Synthesize Understanding**: List each relevant component and its specific role, understand how they interact, identify patterns
+6. **Provide Your Answer**: Only after thoroughly understanding the actual code
+
+**Critical Rules**:
+1. **ALWAYS explicitly state whether you have access to a CodeMap** at the start of your work
+2. **NEVER assume implementation details without reading the actual source code** — signatures and descriptions are not enough
+3. **If you have a CodeMap**, use it to guide exploration but remember it only shows structure, not implementation
+4. **If you do NOT have a CodeMap**, rely on grep to discover relevant files and read source code to build understanding
+5. **Always read actual source code** before making code modifications, explaining how something works, or drawing conclusions about behavior
+6. **When in doubt, explore more** — it's better to read extra files than to make incorrect assumptions
 
 # File modifications
 - You must apply changes to the existing source code using the provided ${[
