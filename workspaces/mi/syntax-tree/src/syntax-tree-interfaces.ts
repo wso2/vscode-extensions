@@ -1891,6 +1891,8 @@ export interface Tool extends STNode {
     template: string;
     mediator: Connector;
     isMcpTool?: boolean;
+    mcpConnection?: string;
+    mcpToolNames?: string[];
 }
 
 export interface ConnectorParameter extends STNode {

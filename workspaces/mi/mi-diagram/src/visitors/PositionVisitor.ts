@@ -81,7 +81,8 @@ import {
     DbMediator,
     Rewrite,
     Query,
-    ThrowError
+    ThrowError,
+    Tool
 } from "@wso2/mi-syntax-tree/lib/src";
 import { ADD_NEW_SEQUENCE_TAG, NODE_DIMENSIONS, NODE_GAP, NodeTypes } from "../resources/constants";
 import { getTextSizes } from "../utils/node";
@@ -529,8 +530,22 @@ export class PositionVisitor implements Visitor {
 
                 let y = toolsStartY;
                 if (toolsList?.length > 0) {
-                    for (let i = 0; i < toolsList.length; i++) {
-                        const toolNode = toolsList[i];
+                    const toolsWithUniqueConnections = toolsList.filter((tool: Tool, index: number) => {
+                        const isMcpTool = tool.isMcpTool;
+                        if (!isMcpTool) {
+                            return true; // Include all non-MCP tools
+                        }
+                        // For MCP tools, only include the first one with each unique connection name
+                        const connectionName = tool.mcpConnection;
+                        if (!connectionName) {
+                            return false;
+                        }
+                        const firstIndex = toolsList.findIndex((t: Tool) => t.mcpConnection === connectionName);
+                        return index === firstIndex;
+                    });
+
+                    for (let i = 0; i < toolsWithUniqueConnections.length; i++) {
+                        const toolNode = toolsWithUniqueConnections[i];
 
                         toolNode.viewState.x = this.position.x - (toolNode.viewState.w / 2);
                         toolNode.viewState.y = y;

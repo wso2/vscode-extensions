@@ -332,10 +332,14 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                             )}
                             <Content>
                                 <Header showBorder={true}>
-                                    <Name>{FirstCharToUpperCase((isMCPTool ? "MCP Tool" : connectorNode.method))}</Name>
+                                    <Name>{FirstCharToUpperCase((isMCPTool ? "MCP Tools" : connectorNode.method))}</Name>
                                 </Header>
                                 <Body>
-                                    <Description>{FirstCharToUpperCase(connectorNode.connectorName ?? (connectorNode as any).name)}</Description>
+                                    <Description>
+                                        {isMCPTool 
+                                            ? (node.stNode as Tool).mcpToolNames?.join(', ') || ''
+                                            : FirstCharToUpperCase(connectorNode.connectorName ?? (connectorNode as any).name)}
+                                    </Description>
                                 </Body>
                             </Content>
                         </div>
