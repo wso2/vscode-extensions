@@ -60,19 +60,22 @@ export class VisualizerWebview {
         vscode.workspace.onDidChangeTextDocument(async function (document) {
             if (VisualizerWebview.currentPanel?.getWebview()?.active) {
                 await document.document.save();
-                refreshDiagram();
+                //refreshDiagram();
             }
         }, extension.context);
 
         vscode.workspace.onDidSaveTextDocument(async function (document) {
-            const projectUri = StateMachine.context().projectUri!;
-            refreshDiagram();
+            const documentUri = StateMachine.context().documentUri;
+            if (documentUri && document.uri.toString() === documentUri) {
+                refreshDiagram();
+                console.log('Document saved, refreshing diagram');
+            }
         }, extension.context);
 
         this._panel.onDidChangeViewState((e) => {
             // Enable the Run and Build Project, Open AI Panel commands when the webview is active
             if (this._panel?.active) {
-                refreshDiagram();
+                //refreshDiagram();
                 const documentUri = StateMachine.context().documentUri;
                 if (documentUri) {
                     const isArazzo = documentUri.includes('.arazzo.') || documentUri.includes('-arazzo.');

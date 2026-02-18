@@ -233,11 +233,11 @@ export function Overview(props: OverviewProps) {
     const [expandedComponentSections, setExpandedComponentSections] = useState<Set<string>>(new Set());
     const [expandedComponentItems, setExpandedComponentItems] = useState<Set<string>>(new Set());
 
-    // rpcClient?.onStateChanged((newState: MachineStateValue) => {
-    //     if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
-    //         fetchData();
-    //     }
-    // });
+    rpcClient?.onStateChanged((newState: MachineStateValue) => {
+        if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
+            fetchData();
+        }
+    });
 
     const fetchData = async () => {
         const resp = await rpcClient.getVisualizerRpcClient().getArazzoModel({

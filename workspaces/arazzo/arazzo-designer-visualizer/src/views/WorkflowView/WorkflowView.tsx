@@ -153,11 +153,11 @@ export function WorkflowView(props: WorkflowViewProps) {
         plannedPath: PlannedPathEdge
     };
 
-    // rpcClient?.onStateChanged((newState: MachineStateValue) => {
-    //     if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
-    //         fetchData();
-    //     }
-    // });
+    rpcClient?.onStateChanged((newState: MachineStateValue) => {
+        if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
+            fetchData();
+        }
+    });
 
     const fetchData = async () => {
         try {
