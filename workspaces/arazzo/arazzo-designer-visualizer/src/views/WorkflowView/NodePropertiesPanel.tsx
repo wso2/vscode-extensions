@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { Node } from '@xyflow/react';
 import { ArazzoWorkflow, ArazzoDefinition } from '@wso2/arazzo-designer-core';
@@ -195,6 +195,41 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
         }
         setExpandedArrayItems(newExpanded);
     };
+
+    // When the selected node changes (panel opens or different node selected),
+    // auto-expand top-level sections relevant to that node while keeping
+    // nested array items collapsed.
+    useEffect(() => {
+        if (!node) return;
+
+        const ids = new Set<string>();
+        // Always show general
+        ids.add('general');
+
+        if (node.type === 'startNode') {
+            if (workflow && (workflow.inputs && Object.keys(workflow.inputs as any).length > 0)) {
+                ids.add('workflowInputs');
+            }
+            if (workflow && (workflow.outputs && Object.keys(workflow.outputs as any).length > 0)) {
+                ids.add('workflowOutputs');
+            }
+        } else {
+            const sd: any = node.data || {};
+            if (sd.parameters && Array.isArray(sd.parameters) && sd.parameters.length > 0) ids.add('parameters');
+            if (sd.successCriteria && Array.isArray(sd.successCriteria) && sd.successCriteria.length > 0) ids.add('successCriteria');
+            if (sd.onSuccess && Array.isArray(sd.onSuccess) && sd.onSuccess.length > 0) ids.add('onSuccess');
+            if (sd.onFailure && Array.isArray(sd.onFailure) && sd.onFailure.length > 0) ids.add('onFailure');
+            // If step has inputs/outputs (could be reference-like), expand those sections
+            if (sd.inputs) ids.add('workflowInputs');
+            if (sd.outputs && Object.keys(sd.outputs || {}).length > 0) {
+                // For step-level outputs section we use 'outputs' id
+                ids.add('outputs');
+            }
+        }
+
+        setExpandedSections(ids);
+        setExpandedArrayItems(new Set());
+    }, [node?.id, node?.type, workflow]);
 
     const getNonNullOverrides = (value: any): Record<string, any> => {
         if (!value || typeof value !== 'object' || Array.isArray(value)) {
