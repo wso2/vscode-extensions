@@ -792,23 +792,32 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			const fs = await import('fs/promises');
 			const path = await import('path');
 			const yaml = await import('js-yaml');
+			const { HurlFormatAdapter } = await import('../util/hurl-format-adapter');
 
-			let requestData: Record<string, unknown>;
 			try {
 				const fileContent = await fs.readFile(requestFilePath, 'utf-8');
-				requestData = yaml.load(fileContent) as Record<string, unknown>;
-			} catch (error) {
-				vscode.window.showErrorMessage(`Failed to read request file: ${error}`);
-				return;
-			}
 
-			// Update the name in the request data
-			requestData.name = newName;
-
-			// Write the updated request data back to the file
-			try {
-				await fs.writeFile(requestFilePath, yaml.dump(requestData), 'utf-8');
-				vscode.window.showInformationMessage(`Request renamed to "${newName}" successfully`);
+				// Check if this is a Hurl file or YAML file
+				if (HurlFormatAdapter.isHurlFile(requestFilePath)) {
+					// Parse and update Hurl format
+					const parsed = HurlFormatAdapter.parseHurlContent(fileContent, requestFilePath);
+					if (parsed) {
+						const { request, response, assertions } = parsed;
+						request.name = newName;
+						const updatedContent = HurlFormatAdapter.serializeRequest(request, response, assertions);
+						await fs.writeFile(requestFilePath, updatedContent, 'utf-8');
+						vscode.window.showInformationMessage(`Request renamed to "${newName}" successfully`);
+					} else {
+						vscode.window.showErrorMessage('Failed to parse Hurl file');
+						return;
+					}
+				} else {
+					// Parse and update YAML format
+					const requestData = yaml.load(fileContent) as Record<string, unknown>;
+					requestData.name = newName;
+					await fs.writeFile(requestFilePath, yaml.dump(requestData), 'utf-8');
+					vscode.window.showInformationMessage(`Request renamed to "${newName}" successfully`);
+				}
 			} catch (error) {
 				vscode.window.showErrorMessage(`Failed to update request file: ${error}`);
 				return;

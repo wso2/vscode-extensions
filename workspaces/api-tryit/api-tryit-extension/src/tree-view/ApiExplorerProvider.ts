@@ -21,6 +21,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
 import { ApiCollection, ApiFolder, ApiRequestItem, ApiRequest, ApiResponse, FormDataParameter, FormUrlEncodedParameter } from '@wso2/api-tryit-core';
+import { HurlFormatAdapter } from '../util/hurl-format-adapter';
 
 export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem> {
 	private collections: ApiCollection[] = [];
@@ -63,136 +64,160 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	private async loadRequestFile(filePath: string): Promise<ApiRequestItem | null> {
 		try {
 			const requestContent = await fs.readFile(filePath, 'utf-8');
-			const loaded = yaml.load(requestContent) as unknown;
 
-			if (loaded && typeof loaded === 'object') {
-				const persisted = loaded as Record<string, unknown>;
-				const id = typeof persisted.id === 'string' ? persisted.id : undefined;
-				const name = typeof persisted.name === 'string' ? persisted.name : undefined;
-				const requestObj = persisted.request && typeof persisted.request === 'object'
-					? (persisted.request as Record<string, unknown>)
-					: undefined;
-
-				if (id && name && requestObj) {
-					const qp = Array.isArray(requestObj.queryParameters)
-						? (requestObj.queryParameters as unknown[]).map(q => {
-							const qq = q as Record<string, unknown>;
-							return {
-								id: typeof qq.id === 'string' ? qq.id : `${Date.now()}`,
-								key: typeof qq.key === 'string' ? qq.key : '',
-								value: typeof qq.value === 'string' ? qq.value : ''
-							};
-						})
-						: [];
-
-					const headers = Array.isArray(requestObj.headers)
-						? (requestObj.headers as unknown[]).map(h => {
-							const hh = h as Record<string, unknown>;
-							return {
-								id: typeof hh.id === 'string' ? hh.id : `${Date.now()}`,
-								key: typeof hh.key === 'string' ? hh.key : '',
-								value: typeof hh.value === 'string' ? hh.value : ''
-							};
-						})
-						: [];
-
-					const formDataParams: FormDataParameter[] | undefined = Array.isArray(requestObj.bodyFormData)
-						? (requestObj.bodyFormData as unknown[]).map((param, index) => {
-							const fd = param as Record<string, unknown>;
-							const normalized: FormDataParameter = {
-								id: typeof fd.id === 'string' ? fd.id : `${Date.now()}-form-data-${index}`,
-								key: typeof fd.key === 'string' ? fd.key : '',
-								contentType: typeof fd.contentType === 'string' ? fd.contentType : ''
-							};
-
-							if (typeof fd.filePath === 'string' && fd.filePath.length > 0) {
-								normalized.filePath = fd.filePath;
-							}
-
-							if (typeof fd.value === 'string') {
-								normalized.value = fd.value;
-							}
-
-							return normalized;
-						})
-						: undefined;
-
-					const formUrlEncodedParams: FormUrlEncodedParameter[] | undefined = Array.isArray(requestObj.bodyFormUrlEncoded)
-						? (requestObj.bodyFormUrlEncoded as unknown[]).map((param, index) => {
-							const fe = param as Record<string, unknown>;
-							return {
-								id: typeof fe.id === 'string' ? fe.id : `${Date.now()}-form-urlencoded-${index}`,
-								key: typeof fe.key === 'string' ? fe.key : '',
-								value: typeof fe.value === 'string' ? fe.value : ''
-							};
-						})
-						: undefined;
-
-					const binaryFiles = Array.isArray(requestObj.bodyBinaryFiles)
-						? (requestObj.bodyBinaryFiles as unknown[]).map((file, index) => {
-							const bf = file as Record<string, unknown>;
-							return {
-								id: typeof bf.id === 'string' ? bf.id : `${Date.now()}-binary-${index}`,
-								filePath: typeof bf.filePath === 'string' ? bf.filePath : '',
-								contentType: typeof bf.contentType === 'string' ? bf.contentType : 'application/octet-stream',
-								enabled: typeof bf.enabled === 'boolean' ? bf.enabled : true
-							};
-						})
-						: undefined;
-
-					const topLevelAssertions = Array.isArray(persisted.assertions)
-						? (persisted.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
-						: undefined;
-
-						const requestAssertions = Array.isArray(requestObj.assertions)
-							? (requestObj.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
-							: undefined;
-
-						const assertions = topLevelAssertions ?? requestAssertions;
-
-					const requestWithId: ApiRequest = {
-						id: typeof requestObj.id === 'string' ? requestObj.id : id,
-						name: typeof requestObj.name === 'string' ? requestObj.name : name,
-						method: (typeof requestObj.method === 'string' ? requestObj.method : 'GET') as ApiRequest['method'],
-						url: typeof requestObj.url === 'string' ? requestObj.url : '',
-						queryParameters: qp,
-						headers: headers
-					};
-
-					if (typeof requestObj.body === 'string') {
-						requestWithId.body = requestObj.body;
-					}
-
-					if (formDataParams) {
-						requestWithId.bodyFormData = formDataParams;
-					}
-
-					if (formUrlEncodedParams) {
-						requestWithId.bodyFormUrlEncoded = formUrlEncodedParams;
-					}
-
-					if (binaryFiles) {
-						requestWithId.bodyBinaryFiles = binaryFiles;
-					}
-
-					if (assertions && assertions.length > 0) {
-						requestWithId.assertions = assertions;
-					}
-
+			// Check if this is a Hurl file or YAML file
+			if (HurlFormatAdapter.isHurlFile(filePath)) {
+				// Parse Hurl format
+				const parsed = HurlFormatAdapter.parseHurlContent(requestContent, filePath);
+				if (parsed) {
+					const { request, response, assertions } = parsed;
 					const item: ApiRequestItem = {
-						id,
-						name,
-						request: requestWithId,
-						response: typeof persisted.response === 'object' ? (persisted.response as unknown as ApiResponse) : undefined,
+						id: request.id,
+						name: request.name,
+						request,
+						response,
 						filePath,
 						assertions
 					};
-
+					console.log(`✓ Loaded Hurl request: ${filePath} (id: ${request.id}, name: ${request.name})`);
 					return item;
+				} else {
+					console.warn(`✗ Failed to parse Hurl content from ${filePath}`);
+				}
+			} else {
+				// Parse YAML format (backward compatibility)
+				const loaded = yaml.load(requestContent) as unknown;
+
+				if (loaded && typeof loaded === 'object') {
+					const persisted = loaded as Record<string, unknown>;
+					const id = typeof persisted.id === 'string' ? persisted.id : undefined;
+					const name = typeof persisted.name === 'string' ? persisted.name : undefined;
+					const requestObj = persisted.request && typeof persisted.request === 'object'
+						? (persisted.request as Record<string, unknown>)
+						: undefined;
+
+					if (id && name && requestObj) {
+						const qp = Array.isArray(requestObj.queryParameters)
+							? (requestObj.queryParameters as unknown[]).map(q => {
+								const qq = q as Record<string, unknown>;
+								return {
+									id: typeof qq.id === 'string' ? qq.id : `${Date.now()}`,
+									key: typeof qq.key === 'string' ? qq.key : '',
+									value: typeof qq.value === 'string' ? qq.value : ''
+								};
+							})
+							: [];
+
+						const headers = Array.isArray(requestObj.headers)
+							? (requestObj.headers as unknown[]).map(h => {
+								const hh = h as Record<string, unknown>;
+								return {
+									id: typeof hh.id === 'string' ? hh.id : `${Date.now()}`,
+									key: typeof hh.key === 'string' ? hh.key : '',
+									value: typeof hh.value === 'string' ? hh.value : ''
+								};
+							})
+							: [];
+
+						const formDataParams: FormDataParameter[] | undefined = Array.isArray(requestObj.bodyFormData)
+							? (requestObj.bodyFormData as unknown[]).map((param, index) => {
+								const fd = param as Record<string, unknown>;
+								const normalized: FormDataParameter = {
+									id: typeof fd.id === 'string' ? fd.id : `${Date.now()}-form-data-${index}`,
+									key: typeof fd.key === 'string' ? fd.key : '',
+									contentType: typeof fd.contentType === 'string' ? fd.contentType : ''
+								};
+
+								if (typeof fd.filePath === 'string' && fd.filePath.length > 0) {
+									normalized.filePath = fd.filePath;
+								}
+
+								if (typeof fd.value === 'string') {
+									normalized.value = fd.value;
+								}
+
+								return normalized;
+							})
+							: undefined;
+
+						const formUrlEncodedParams: FormUrlEncodedParameter[] | undefined = Array.isArray(requestObj.bodyFormUrlEncoded)
+							? (requestObj.bodyFormUrlEncoded as unknown[]).map((param, index) => {
+								const fe = param as Record<string, unknown>;
+								return {
+									id: typeof fe.id === 'string' ? fe.id : `${Date.now()}-form-urlencoded-${index}`,
+									key: typeof fe.key === 'string' ? fe.key : '',
+									value: typeof fe.value === 'string' ? fe.value : ''
+								};
+							})
+							: undefined;
+
+						const binaryFiles = Array.isArray(requestObj.bodyBinaryFiles)
+							? (requestObj.bodyBinaryFiles as unknown[]).map((file, index) => {
+								const bf = file as Record<string, unknown>;
+								return {
+									id: typeof bf.id === 'string' ? bf.id : `${Date.now()}-binary-${index}`,
+									filePath: typeof bf.filePath === 'string' ? bf.filePath : '',
+									contentType: typeof bf.contentType === 'string' ? bf.contentType : 'application/octet-stream',
+									enabled: typeof bf.enabled === 'boolean' ? bf.enabled : true
+								};
+							})
+							: undefined;
+
+						const topLevelAssertions = Array.isArray(persisted.assertions)
+							? (persisted.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
+							: undefined;
+
+							const requestAssertions = Array.isArray(requestObj.assertions)
+								? (requestObj.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
+								: undefined;
+
+							const assertions = topLevelAssertions ?? requestAssertions;
+
+						const requestWithId: ApiRequest = {
+							id: typeof requestObj.id === 'string' ? requestObj.id : id,
+							name: typeof requestObj.name === 'string' ? requestObj.name : name,
+							method: (typeof requestObj.method === 'string' ? requestObj.method : 'GET') as ApiRequest['method'],
+							url: typeof requestObj.url === 'string' ? requestObj.url : '',
+							queryParameters: qp,
+							headers: headers
+						};
+
+						if (typeof requestObj.body === 'string') {
+							requestWithId.body = requestObj.body;
+						}
+
+						if (formDataParams) {
+							requestWithId.bodyFormData = formDataParams;
+						}
+
+						if (formUrlEncodedParams) {
+							requestWithId.bodyFormUrlEncoded = formUrlEncodedParams;
+						}
+
+						if (binaryFiles) {
+							requestWithId.bodyBinaryFiles = binaryFiles;
+						}
+
+						if (assertions && assertions.length > 0) {
+							requestWithId.assertions = assertions;
+						}
+
+						const item: ApiRequestItem = {
+							id,
+							name,
+							request: requestWithId,
+							response: typeof persisted.response === 'object' ? (persisted.response as unknown as ApiResponse) : undefined,
+							filePath,
+							assertions
+						};
+
+						console.log(`✓ Loaded YAML request: ${filePath} (id: ${id}, name: ${name})`);
+						return item;
+					}
 				}
 			}
-		} catch {
-			// Skip files that can't be parsed or don't have required structure
+		} catch (error) {
+			console.error(`✗ Error loading request file ${filePath}:`, error);
 		}
 		return null;
 	}
@@ -204,13 +229,19 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		const items: ApiRequestItem[] = [];
 		try {
 			const entries = await fs.readdir(dirPath, { withFileTypes: true });
+			console.log(`📁 Scanning directory ${dirPath} for request files...`);
+			
 			for (const entry of entries) {
 				if (
 					entry.isFile() &&
 					(
-						entry.name.endsWith('.yaml') || entry.name.endsWith('.yml') || entry.name.endsWith('.json')
+						entry.name.endsWith('.yaml') || 
+						entry.name.endsWith('.yml') || 
+						entry.name.endsWith('.json') ||
+						entry.name.endsWith('.hurl')
 					)
 				) {
+					console.log(`   Found: ${entry.name}`);
 					const requestPath = path.join(dirPath, entry.name);
 					const requestItem = await this.loadRequestFile(requestPath);
 					if (requestItem) {
@@ -218,8 +249,9 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 					}
 				}
 			}
-		} catch {
-			// Silently skip directories that can't be read
+			console.log(`📊 Loaded ${items.length} request(s) from ${dirPath}`);
+		} catch (error) {
+			console.error(`✗ Failed to read directory ${dirPath}:`, error);
 		}
 		return items;
 	}
@@ -477,13 +509,16 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				} else if (
 					entry.isFile() &&
 					(
-						entry.name.endsWith('.yaml') || entry.name.endsWith('.yml') || entry.name.endsWith('.json')
+						entry.name.endsWith('.yaml') || 
+						entry.name.endsWith('.yml') || 
+						entry.name.endsWith('.json') ||
+						entry.name.endsWith('.hurl')
 					) &&
 					entry.name.toLowerCase() !== 'collection.yaml' &&
 					entry.name.toLowerCase() !== 'collection.yml' &&
 					entry.name.toLowerCase() !== 'collection.json'
 				) {
-					// Load root-level request file (support .yaml, .yml, and legacy .json)
+					// Load root-level request file (support .yaml, .yml, .hurl and legacy .json)
 					const requestPath = path.join(collectionPath, entry.name);
 					const requestItem = await this.loadRequestFile(requestPath);
 					if (requestItem) {

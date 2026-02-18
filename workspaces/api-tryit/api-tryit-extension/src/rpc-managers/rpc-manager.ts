@@ -29,6 +29,7 @@ import * as vscode from 'vscode';
 import * as yaml from 'js-yaml';
 import axios, { AxiosError } from 'axios';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
+import { HurlFormatAdapter } from '../util/hurl-format-adapter';
 
 export class ApiTryItRpcManager {
     constructor(private apiExplorerProvider?: ApiExplorerProvider) {}
@@ -43,75 +44,87 @@ export class ApiTryItRpcManager {
         }
 
         try {
-            let existingData: { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse; assertions?: unknown[] } | null = null;
+            // Check if the file is a Hurl file or YAML file
+            const isHurlFile = HurlFormatAdapter.isHurlFile(filePath);
+            const isYamlFile = HurlFormatAdapter.isYamlFile(filePath);
 
-            // Try to read existing file
-            try {
-                const existingContent = await readFile(filePath, 'utf8');
-                const parsed = yaml.load(existingContent);
-                if (parsed && typeof parsed === 'object') {
-                    existingData = parsed as { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse; assertions?: unknown[] };
+            let contentToWrite: string;
+
+            if (isHurlFile) {
+                // Serialize to Hurl format
+                contentToWrite = HurlFormatAdapter.serializeRequest(request, response, request.assertions);
+            } else {
+                // Keep YAML format for backward compatibility
+                let existingData: { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse; assertions?: unknown[] } | null = null;
+
+                // Try to read existing file
+                try {
+                    const existingContent = await readFile(filePath, 'utf8');
+                    const parsed = yaml.load(existingContent);
+                    if (parsed && typeof parsed === 'object') {
+                        existingData = parsed as { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse; assertions?: unknown[] };
+                    }
+                } catch {
+                    // File doesn't exist or content can't be parsed, we'll create it from scratch
                 }
-            } catch {
-                // File doesn't exist or content can't be parsed, we'll create it from scratch
+
+                const sanitizedRequest: ApiRequest = {
+                    id: request.id,
+                    name: request.name,
+                    method: request.method,
+                    url: request.url,
+                    queryParameters: request.queryParameters || [],
+                    headers: request.headers || []
+                };
+
+                if (request.body !== undefined) {
+                    sanitizedRequest.body = request.body;
+                }
+
+                if (request.bodyFormData && request.bodyFormData.length > 0) {
+                    sanitizedRequest.bodyFormData = request.bodyFormData;
+                }
+
+                if (request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) {
+                    sanitizedRequest.bodyFormUrlEncoded = request.bodyFormUrlEncoded;
+                }
+
+                if (request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0) {
+                    sanitizedRequest.bodyBinaryFiles = request.bodyBinaryFiles
+                        .filter(file => file.filePath?.trim())
+                        .map(file => ({
+                            ...file,
+                            enabled: file.enabled ?? true,
+                            contentType: file.contentType?.includes('/') 
+                                ? file.contentType 
+                                : 'application/octet-stream'
+                        }));
+                }
+
+                // Persist assertions at top-level (do NOT embed into `request` any more). Prefer incoming assertions; otherwise preserve existing file's top-level assertions.
+                const updatedData: Record<string, unknown> = {
+                    id: request.id,
+                    name: request.name,
+                    request: sanitizedRequest,
+                    response: response ? {
+                        statusCode: response.statusCode,
+                        headers: response.headers,
+                        body: response.body
+                    } : existingData?.response
+                };
+
+                if (request.assertions && request.assertions.length > 0) {
+                    updatedData.assertions = request.assertions;
+                } else if (existingData?.assertions && Array.isArray(existingData.assertions)) {
+                    updatedData.assertions = existingData.assertions;
+                }
+
+                // Convert to YAML
+                contentToWrite = yaml.dump(updatedData);
             }
-
-            const sanitizedRequest: ApiRequest = {
-                id: request.id,
-                name: request.name,
-                method: request.method,
-                url: request.url,
-                queryParameters: request.queryParameters || [],
-                headers: request.headers || []
-            };
-
-            if (request.body !== undefined) {
-                sanitizedRequest.body = request.body;
-            }
-
-            if (request.bodyFormData && request.bodyFormData.length > 0) {
-                sanitizedRequest.bodyFormData = request.bodyFormData;
-            }
-
-            if (request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) {
-                sanitizedRequest.bodyFormUrlEncoded = request.bodyFormUrlEncoded;
-            }
-
-            if (request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0) {
-                sanitizedRequest.bodyBinaryFiles = request.bodyBinaryFiles
-                    .filter(file => file.filePath?.trim())
-                    .map(file => ({
-                        ...file,
-                        enabled: file.enabled ?? true,
-                        contentType: file.contentType?.includes('/') 
-                            ? file.contentType 
-                            : 'application/octet-stream'
-                    }));
-            }
-
-            // Persist assertions at top-level (do NOT embed into `request` any more). Prefer incoming assertions; otherwise preserve existing file's top-level assertions.
-            const updatedData: Record<string, unknown> = {
-                id: request.id,
-                name: request.name,
-                request: sanitizedRequest,
-                response: response ? {
-                    statusCode: response.statusCode,
-                    headers: response.headers,
-                    body: response.body
-                } : existingData?.response
-            };
-
-            if (request.assertions && request.assertions.length > 0) {
-                updatedData.assertions = request.assertions;
-            } else if (existingData?.assertions && Array.isArray(existingData.assertions)) {
-                updatedData.assertions = existingData.assertions;
-            }
-
-            // Convert to YAML
-            const requestData = yaml.dump(updatedData);
             
             // Write to file
-            await writeFile(filePath, requestData, 'utf8');
+            await writeFile(filePath, contentToWrite, 'utf8');
             
             // Update the in-memory collection with the file path if it exists
             if (this.apiExplorerProvider) {

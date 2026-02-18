@@ -279,12 +279,12 @@ export class TryItPanel {
 									await vscode.workspace.fs.stat(vscode.Uri.file(stateContext.currentCollectionPath));
 									// Collection path exists, auto-generate filename
 									const baseName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-');
-									let candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}.yaml`);
+									let candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}.hurl`);
 									let counter = 1;
 									while (true) {
 										try {
 											await vscode.workspace.fs.stat(vscode.Uri.file(candidatePath));
-											candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}-${counter}.yaml`);
+											candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}-${counter}.hurl`);
 											counter++;
 										} catch {
 											// Not found, candidatePath is available
@@ -359,11 +359,12 @@ export class TryItPanel {
 								}
 
 								// Suggest a file name based on the request name
-								const suggestedFileName = ((request && request.name) ? request.name : 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.yaml';
+								const suggestedFileName = ((request && request.name) ? request.name : 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.hurl';
 
 								const fileUri = await vscode.window.showSaveDialog({
 									defaultUri: vscode.Uri.joinPath(collectionFolderUri, suggestedFileName),
 									filters: {
+										'Hurl files': ['hurl'],
 										'YAML files': ['yaml', 'yml']
 									},
 									saveLabel: 'Save API Request'
