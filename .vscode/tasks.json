@@ -13,7 +13,7 @@
         },
         {
             "label": "watch-all",
-            "dependsOn": ["watch-ballerina", "watch-bi"]
+            "dependsOn": ["watch-ballerina", "watch-bi", "watch-wso2-platform"]
         },
         {
             "label": "watch-ballerina",
