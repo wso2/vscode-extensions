@@ -19,7 +19,7 @@
 import { FlowNode } from '../utils/types';
 import { Node, Edge, MarkerType } from '@xyflow/react';
 import * as C from '../constants/nodeConstants';
-import { DepthSearch } from './DepthSearch';
+import { DepthSearch } from './DepthSearch_v2';
 import { ThemeColors } from '@wso2/ui-toolkit';
 import { ArazzoDefinition } from '@wso2/arazzo-designer-core';
 import { resolveReference } from '../utils/referenceUtils';

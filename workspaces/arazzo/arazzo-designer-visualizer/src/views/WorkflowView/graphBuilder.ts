@@ -12,7 +12,7 @@ import { InitVisitor_v2 } from '../../visitors/InitVisitor_v2';
 // import { SizingVisitorVertical_v2 } from '../../visitors/SizingVisitorVertical_v2';
 import { PositionVisitorVertical_v2 } from '../../visitors/PositionVisitorVertical_v2';
 import { NodeFactoryVisitorVertical_v2 } from '../../visitors/NodeFactoryVisitorVertical_v2';
-import { DepthSearch } from '../../visitors/DepthSearch';
+import { DepthSearch } from '../../visitors/DepthSearch_v2';
 import { PortalCreator_v2 } from '../../visitors/PortalCreator_v2';
 import { SimpleNodeSizing } from '../../visitors/SimpleNodeSizing';
 
