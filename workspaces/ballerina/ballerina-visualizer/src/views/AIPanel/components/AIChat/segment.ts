@@ -1,3 +1,4 @@
+
 export enum SegmentType {
     Code = "Code",
     Text = "Text",
@@ -12,7 +13,6 @@ export enum SegmentType {
     SpecFetcher = "SpecFetcher",
     ConfigurationCollector = "ConfigurationCollector",
     ReviewActions = "ReviewActions",
-    PromptSuggestion = "PromptSuggestion",
 }
 
 interface Segment {
@@ -32,49 +32,6 @@ function getCommand(command: string) {
     } else {
         return command.replaceAll(/"/g, "");
     }
-}
-
-export interface ActionButton {
-    type: string;
-    content: string;
-}
-
-/**
- * Parses <action_button> tags from the input string and extracts raw button data.
- * @param input The string to parse for action button tags
- * @returns A tuple containing an array of raw button data (type and content pairs) and the remaining text with tags removed
- */
-function parseActionButtons(input: string): [ActionButton[], string] {
-    const rawButtons: ActionButton[] = [];
-    let remainingText = "";  // Start empty
-    
-    const actionButtonRegex = /<action_button\s+type="([^"]+)">([\s\S]*?)<\/action_button>/g;
-    const matches = Array.from(input.matchAll(actionButtonRegex));
-
-    let lastIndex = 0;
-    for (const match of matches) {
-        // Append text between last index and current match
-        if (match.index! > lastIndex) {
-            remainingText += input.slice(lastIndex, match.index);
-        }
-        
-        const buttonType = match[1];
-        const buttonContent = match[2].trim();
-    
-        rawButtons.push({
-            type: buttonType,
-            content: buttonContent,
-        });
-        
-        lastIndex = match.index! + match[0].length;
-    }
-    
-    // Append remaining text after last match
-    if (lastIndex < input.length) {
-        remainingText += input.slice(lastIndex);
-    }
-    
-    return [rawButtons, remainingText];
 }
 
 function splitHalfGeneratedCode(content: string): Segment[] {
@@ -149,7 +106,7 @@ export function splitContent(content: string): Segment[] {
         if (match.index > lastIndex) {
             updateLastProgressSegmentLoading();
 
-            const textSegment = content.slice(lastIndex, match.index).replace(/<prompt_suggestion>[\s\S]*$/g, '');// Remove any trailing text after an unmatched <prompt_suggestion> to prevent it from being treated as normal text
+            const textSegment = content.slice(lastIndex, match.index);
             segments.push(...splitHalfGeneratedCode(textSegment));
         }
 
@@ -180,26 +137,23 @@ export function splitContent(content: string): Segment[] {
             });
         } else if (match[6]) {
             // <toolcall> block matched
-            const toolcallContent = match[6];
-            const [actionButtons, toolcallText] = parseActionButtons(toolcallContent);
+            const toolcallText = match[6];
+
             updateLastProgressSegmentLoading();
             segments.push({
                 type: SegmentType.ToolCall,
                 loading: true,
                 text: toolcallText,
-                actionButtons: actionButtons,
             });
         } else if (match[7]) {
             // <toolresult> block matched
-            const toolresultContent = match[7];
-            const [actionButtons, toolresultText] = parseActionButtons(toolresultContent);
+            const toolresultText = match[7];
 
             updateLastProgressSegmentLoading();
             segments.push({
                 type: SegmentType.ToolCall,
                 loading: false,
                 text: toolresultText,
-                actionButtons: actionButtons,
             });
         } else if (match[8]) {
             // <todo> block matched
@@ -321,7 +275,7 @@ export function splitContent(content: string): Segment[] {
     if (lastIndex < content.length) {
         updateLastProgressSegmentLoading();
 
-        const remainingText = content.slice(lastIndex).replace(/<prompt_suggestion>[\s\S]*$/g, '');// Remove any trailing text after an unmatched <prompt_suggestion> to prevent it from being treated as normal text
+        const remainingText = content.slice(lastIndex);
         segments.push(...splitHalfGeneratedCode(remainingText));
     }
 

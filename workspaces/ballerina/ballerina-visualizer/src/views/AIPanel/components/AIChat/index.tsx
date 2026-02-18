@@ -42,7 +42,7 @@ import { Button, Codicon } from "@wso2/ui-toolkit";
 
 import { AIChatInputRef } from "../AIChatInput";
 import ProgressTextSegment from "../ProgressTextSegment";
-import ToolCallSegment, { ActionButtonConfig } from "../ToolCallSegment";
+import ToolCallSegment from "../ToolCallSegment";
 import TodoSection from "../TodoSection";
 import { ConnectorGeneratorSegment } from "../ConnectorGeneratorSegment";
 import { ConfigurationCollectorSegment, ConfigurationCollectionData } from "../ConfigurationCollectorSegment";
@@ -78,12 +78,8 @@ import { getOnboardingOpens, incrementOnboardingOpens, convertToUIMessages, isCo
 
 import FeedbackBar from "./../FeedbackBar";
 import { useFeedback } from "./utils/useFeedback";
-import { SegmentType, splitContent, ActionButton } from "./segment";
+import { SegmentType, splitContent } from "./segment";
 import ReviewActions from "../ReviewActions";
-import PromptSuggestions from "../PromptSuggestions";
-
-// var projectUuid = "";
-// var chatLocation = "";
 
 const NO_DRIFT_FOUND = "No drift identified between the code and the documentation.";
 const DRIFT_CHECK_ERROR = "Failed to check drift between the code and the documentation. Please try again.";
@@ -190,16 +186,6 @@ const AIChat: React.FC = () => {
                 .getDefaultPrompt()
                 .then((defaultPrompt: AIPanelPrompt) => {
                     if (defaultPrompt) {
-                        // Handle text-type prompts
-                        if (defaultPrompt.type === 'text') {
-                            setIsPlanModeEnabled(defaultPrompt.planMode);
-                            if (defaultPrompt.autoSendConfig?.autosend) {
-                                const message_type = defaultPrompt.autoSendConfig.hidden_init ? "question" : "user_message";
-                                // Auto Send the prompt
-                                handleSend({ input: [{ content: defaultPrompt.text ? defaultPrompt.text : "" }], attachments: [] }, message_type);
-                                return; // Skip setting the prompt in the input box since it's auto-sent
-                            }
-                        }
                         aiChatInputRef.current?.setInputContent(defaultPrompt);
 
                         // Extract CodeContext from both command-template metadata and text-type direct param
@@ -213,6 +199,10 @@ const AIChat: React.FC = () => {
                             setCodeContext(codeCtx);
                         }
 
+                        // Handle plan mode for text-type prompts
+                        if (defaultPrompt.type === 'text') {
+                            setIsPlanModeEnabled(defaultPrompt.planMode);
+                        }
                     }
                 });
         };
@@ -430,14 +420,6 @@ const AIChat: React.FC = () => {
                     }
                     return newMessages;
                 });
-            } else if (response.toolName === "Send-HTTP-request") {
-                setMessages((prevMessages) => {
-                    const newMessages = [...prevMessages];
-                    if (newMessages.length > 0) {
-                        newMessages[newMessages.length - 1].content += `\n\n<toolcall>Sending HTTP request ... <action_button type="tool-call-json-viewer">${response.toolInput ? JSON.stringify(response.toolInput) : ""}</action_button> <action_button type="open_api_tryit">${response.toolInput?.curlCommand ? response.toolInput.curlCommand : ""}</action_button></toolcall>`;
-                    }
-                    return newMessages;
-                });
             }
         } else if (type === "tool_result") {
             if (response.toolName === "LibrarySearchTool") {
@@ -591,35 +573,6 @@ const AIChat: React.FC = () => {
                             `<toolresult>${message}</toolresult>`
                         );
 
-                        newMessages[newMessages.length - 1].content = updatedContent;
-                    }
-                    return newMessages;
-                });
-            } else if (response.toolName === "Send-HTTP-request") {
-                const toolOutput = response.toolOutput;
-                const input = toolOutput?.input;
-                const output = toolOutput?.output;
-
-                setMessages((prevMessages) => {
-                    const newMessages = [...prevMessages];
-                    if (newMessages.length > 0) {
-                        const lastMessageContent = newMessages[newMessages.length - 1].content;
-
-                        // Build the pattern to find - the toolcall with action buttons
-                        const httpRequestPattern = /<toolcall>Sending HTTP request \.\.\. <action_button type="tool-call-json-viewer">[\s\S]*?<\/action_button> <action_button type="open_api_tryit">[\s\S]*?<\/action_button><\/toolcall>/;
-
-                        // Build result message with status
-                        const statusMessage = output?.error
-                            ? `HTTP request failed: ${output.message}`
-                            : `HTTP ${output?.status || ''} ${output?.statusText || ''}`;
-
-                        // Keep action buttons with the input for reference
-                        const toolCallJsonViewer = `<action_button type="tool-call-json-viewer">${JSON.stringify(toolOutput)}</action_button>`;
-                        const openApiTryit = `<action_button type="open_api_tryit">${input?.curlCommand || ""}</action_button>`;
-
-                        const replacement = `<toolresult>${statusMessage} ${toolCallJsonViewer} ${openApiTryit}</toolresult>`;
-
-                        const updatedContent = lastMessageContent.replace(httpRequestPattern, replacement);
                         newMessages[newMessages.length - 1].content = updatedContent;
                     }
                     return newMessages;
@@ -946,7 +899,7 @@ const AIChat: React.FC = () => {
         }
     }
 
-    async function handleSend(content: { input: Input[]; attachments: Attachment[]; metadata?: Record<string, any> }, type: string = "user_message") {
+    async function handleSend(content: { input: Input[]; attachments: Attachment[]; metadata?: Record<string, any> }) {
         setCurrentGeneratingPromptIndex(otherMessages.length);
         setIsPromptExecutedInCurrentWindow(true);
         setFeedbackGiven(null);
@@ -968,7 +921,7 @@ const AIChat: React.FC = () => {
         const uerMessage = getUserMessage([stringifiedContent, content.attachments]);
         setMessages((prevMessages) => [
             ...prevMessages,
-            { role: "User", content: uerMessage, type: type },
+            { role: "User", content: uerMessage, type: "user_message" },
             { role: "Copilot", content: "", type: "assistant_message" }, // Add a new message for the assistant
         ]);
 
@@ -1417,52 +1370,6 @@ const AIChat: React.FC = () => {
         setApprovalRequest(null);
     };
 
-    /**
-     * Converts raw action button data into ActionButtonConfig objects for ToolCallSegment.
-     * @param rawButtons Array of raw button data with type and content
-     * @returns Array of ActionButtonConfig objects ready for rendering
-     */
-    function convertActionButtonsToConfigs(rawButtons: ActionButton[]): ActionButtonConfig[] {
-        const actionButtons: ActionButtonConfig[] = [];
-
-        for (const rawButton of rawButtons) {
-            if (rawButton.type === "tool-call-json-viewer") {
-                try {
-                    const jsonData = JSON.parse(rawButton.content);
-                    actionButtons.push({
-                        type: "json-viewer",
-                        data: jsonData,
-                        label: "Tool Call Result",
-                        title: "View Result",
-                    });
-                } catch (error) {
-                    console.error("Failed to parse JSON for action button:", error);
-                }
-            } else if (rawButton.type === "open_api_tryit") {    
-            actionButtons.push({
-                type: "custom",
-                icon: "codicon-open-preview",
-                title: "Edit in API TryIt",
-                onClick: () => { handleOpenAPITryIt(rawButton.content) },
-            });
-
-            }
-        }
-        return actionButtons;
-    }
-
-    const handleOpenAPITryIt = async (curl: string) => {
-        console.log("[Try It] Opening CURL Command:", curl);
-        try {
-            const commands = ["api-tryit.openFromCurl", curl];
-            await rpcClient.getCommonRpcClient()
-                .executeCommand({commands});
-        } catch (error) {
-            console.error("[Try It] Failed to open in API TryIt:", error);
-            // Command execution failed - could be due to extension not loaded
-        }
-    }
-
     async function processLLMDiagnostics() {
         let response: LLMDiagnostics = await rpcClient.getAiPanelRpcClient().getDriftDiagnosticContents();
 
@@ -1671,16 +1578,12 @@ const AIChat: React.FC = () => {
                                                 />
                                             );
                                         } else if (segment.type === SegmentType.ToolCall) {
-                                            const actionButtonConfigs = segment.actionButtons 
-                                                ? convertActionButtonsToConfigs(segment.actionButtons)
-                                                : [];
                                             return (
                                                 <ToolCallSegment
                                                     key={`tool-call-${i}`}
                                                     text={segment.text}
                                                     loading={segment.loading}
                                                     failed={segment.failed}
-                                                    actionButtons={actionButtonConfigs}
                                                 />
                                             );
                                         } else if (segment.type === SegmentType.Todo) {
@@ -1746,14 +1649,6 @@ const AIChat: React.FC = () => {
                                             );
                                         } else if (segment.type === SegmentType.References) {
                                             return <ReferenceDropdown key={`references-${i}`} links={JSON.parse(segment.text)} />;
-                                        } else if (segment.type === SegmentType.PromptSuggestion) {
-                                            return (
-                                                <PromptSuggestions
-                                                    key={`prompt-suggestion-${i}`}
-                                                    text={segment.text}
-                                                    aiChatInputRef={aiChatInputRef}
-                                                />
-                                            );
                                         } else if (segment.type === SegmentType.Button) {
                                              if (
                                                 "buttonType" in segment &&
