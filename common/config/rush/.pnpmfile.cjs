@@ -61,9 +61,6 @@ module.exports = {
         if (pkg.dependencies['lodash']) {
           pkg.dependencies['lodash'] = '4.17.23';
         }
-        if (pkg.dependencies['ajv']) {
-          pkg.dependencies['ajv'] = '8.18.0';
-        }
       }
 
       if (pkg.devDependencies) {
@@ -111,9 +108,6 @@ module.exports = {
         }
         if (pkg.devDependencies['lodash']) {
           pkg.devDependencies['lodash'] = '4.17.23';
-        }
-        if (pkg.devDependencies['ajv']) {
-          pkg.devDependencies['ajv'] = '8.18.0';
         }
       }
 
