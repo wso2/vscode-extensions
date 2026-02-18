@@ -38,7 +38,7 @@ function getThinkingPreferenceStorageKey(mode: AgentMode): string {
 }
 
 function getDefaultThinkingEnabled(mode: AgentMode): boolean {
-    return mode === 'plan' || mode === 'edit';
+    return true;
 }
 
 function getThinkingPreferenceForMode(mode: AgentMode): boolean {
@@ -312,6 +312,7 @@ function calculateTodoStatus(todos: TodoItem[]): 'active' | 'completed' | 'pendi
  * Footer component containing chat input and controls
  */
 const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) => {
+    const SHOW_THINKING_TOGGLE = false;
     const {
         rpcClient,
         messages,
@@ -1179,7 +1180,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 mode: agentMode,
                 files,
                 images,
-                thinking: isThinkingEnabled,
+                thinking: true,
                 webAccessPreapproved: isWebAccessEnabled,
                 chatHistory: chatHistory
             });
@@ -2356,57 +2357,59 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 </div>
                             )}
                         </div>
-                        <FooterTooltip content="Enable Claude thinking mode">
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "6px",
-                                    marginLeft: "4px"
-                                }}
-                            >
-                                <span
+                        {SHOW_THINKING_TOGGLE && (
+                            <FooterTooltip content="Enable Claude thinking mode">
+                                <div
                                     style={{
-                                        fontSize: "10px",
-                                        color: "var(--vscode-descriptionForeground)",
-                                        userSelect: "none"
-                                    }}
-                                >
-                                    Thinking
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsThinkingEnabled((prev) => !prev)}
-                                    disabled={isUsageExceeded || backendRequestTriggered}
-                                    aria-pressed={isThinkingEnabled}
-                                    style={{
-                                        position: "relative",
-                                        width: "34px",
-                                        height: "18px",
-                                        borderRadius: "999px",
-                                        border: "none",
-                                        padding: 0,
-                                        cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
-                                        backgroundColor: isThinkingEnabled
-                                            ? "var(--vscode-button-background)"
-                                            : "var(--vscode-input-border)",
-                                        opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "6px",
+                                        marginLeft: "4px"
                                     }}
                                 >
                                     <span
                                         style={{
-                                            position: "absolute",
-                                            top: "2px",
-                                            left: isThinkingEnabled ? "18px" : "2px",
-                                            width: "14px",
-                                            height: "14px",
-                                            borderRadius: "50%",
-                                            backgroundColor: "var(--vscode-button-foreground)"
+                                            fontSize: "10px",
+                                            color: "var(--vscode-descriptionForeground)",
+                                            userSelect: "none"
                                         }}
-                                    />
-                                </button>
-                            </div>
-                        </FooterTooltip>
+                                    >
+                                        Thinking
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsThinkingEnabled((prev) => !prev)}
+                                        disabled={isUsageExceeded || backendRequestTriggered}
+                                        aria-pressed={isThinkingEnabled}
+                                        style={{
+                                            position: "relative",
+                                            width: "34px",
+                                            height: "18px",
+                                            borderRadius: "999px",
+                                            border: "none",
+                                            padding: 0,
+                                            cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
+                                            backgroundColor: isThinkingEnabled
+                                                ? "var(--vscode-button-background)"
+                                                : "var(--vscode-input-border)",
+                                            opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                position: "absolute",
+                                                top: "2px",
+                                                left: isThinkingEnabled ? "18px" : "2px",
+                                                width: "14px",
+                                                height: "14px",
+                                                borderRadius: "50%",
+                                                backgroundColor: "var(--vscode-button-foreground)"
+                                            }}
+                                        />
+                                    </button>
+                                </div>
+                            </FooterTooltip>
+                        )}
                         <FooterTooltip content="Enable web search and fetch without approval prompts">
                             <button
                                 type="button"
