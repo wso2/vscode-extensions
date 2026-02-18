@@ -15,6 +15,9 @@
   },
   "author": "",
   "license": "ISC",
+  "overrides": {
+    "@isaacs/brace-expansion": "^5.0.1"
+  },
   "devDependencies": {
     "@types/node": "22.15.24"
   },
