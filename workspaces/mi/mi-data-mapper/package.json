@@ -37,7 +37,7 @@
     "zustand": "5.0.5",
     "blueimp-md5": "2.19.0",
     "mousetrap": "1.6.5",
-    "ajv": "8.17.1",
+    "ajv": "8.18.0",
     "ajv-formats": "3.0.1"
   },
   "devDependencies": {
