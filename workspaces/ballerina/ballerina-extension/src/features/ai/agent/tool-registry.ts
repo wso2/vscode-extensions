@@ -41,6 +41,7 @@ import { getHealthcareLibraryProviderTool, HEALTHCARE_LIBRARY_PROVIDER_TOOL } fr
 import { createConnectorGeneratorTool, CONNECTOR_GENERATOR_TOOL } from './tools/connector-generator';
 import { createHttpRequestTool, HTTP_REQUEST_TOOL_NAME } from './tools/http-request';
 import { LIBRARY_SEARCH_TOOL, getLibrarySearchTool } from './tools/library-search';
+import { createConfigCollectorTool, CONFIG_COLLECTOR_TOOL } from './tools/config-collector';
 
 export interface ToolRegistryOptions {
     eventHandler: CopilotEventHandler;
@@ -78,6 +79,14 @@ export function createToolRegistry(opts: ToolRegistryOptions) {
             eventHandler,
             tempProjectPath,
             projects[0].projectName,
+            modifiedFiles
+        ),
+        [CONFIG_COLLECTOR_TOOL]: createConfigCollectorTool(
+            eventHandler,
+            {
+                tempPath: tempProjectPath,
+                workspacePath: workspaceId
+            },
             modifiedFiles
         ),
         [FILE_WRITE_TOOL_NAME]: createWriteTool(

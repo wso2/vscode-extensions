@@ -167,7 +167,7 @@ export class BaseNodeModel extends NodeModel {
                 ...sidePanelContext,
                 isOpen: true,
                 operationName,
-                tag: stNode.tag,
+                tag: (stNode as any).isMcpTool ? 'ai.mcpTools' : stNode.tag,
                 nodeRange: nodeRange,
                 isEditing: true,
                 parentNode: node.mediatorName,
