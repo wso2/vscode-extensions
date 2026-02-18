@@ -45,6 +45,7 @@ jobs:
       wso2-platform: false
       choreo: false
       apk: false
+      runTests: true
       version: ${{ inputs.version }}
 
   Release:
