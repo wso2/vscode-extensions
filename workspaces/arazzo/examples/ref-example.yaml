@@ -134,8 +134,8 @@ workflows:
           - reference: $components.successActions.EndWorkflowOk
 
         onFailure:
-          - reference: $components.failureActions.RetryOn503
-          - reference: $components.failureActions.EndOnFatal
+          #- reference: $components.failureActions.RetryOn503
+          #- reference: $components.failureActions.EndOnFatal
 
         outputs:
           profile_status: $response.body#/status
