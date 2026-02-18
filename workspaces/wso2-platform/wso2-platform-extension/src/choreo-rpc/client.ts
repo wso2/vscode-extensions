@@ -170,6 +170,17 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		return !!this.client && this.client.isInitialized();
 	}
 
+	async waitUntilActive(timeoutMs = 10000, intervalMs = 500): Promise<void> {
+		const start = Date.now();
+		while (!this.isActive() && Date.now() - start < timeoutMs) {
+			await new Promise((resolve) => setTimeout(resolve, intervalMs));
+		}
+		
+		if (!this.isActive()) {
+			throw new Error(`RPC client did not become active within ${timeoutMs}ms`);
+		}
+	}
+
 	async init() {
 		try {
 			this.client = await RPCClient.getInstance();
