@@ -65,12 +65,12 @@ export class HurlFormatAdapter {
 		}
 
 		// Add blank line before body
-		if (
-			request.body ||
+		const hasBody = request.body ||
 			(request.bodyFormData && request.bodyFormData.length > 0) ||
 			(request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) ||
-			(request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0)
-		) {
+			(request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0);
+
+		if (hasBody) {
 			hurl += '\n';
 
 			// Handle raw body
@@ -113,7 +113,56 @@ export class HurlFormatAdapter {
 			}
 		}
 
-		// Add response (if available)
+		// Categorize assertions:
+		// - HTTP assertions: operatorless response line (e.g., "HTTP 200")
+		// - Operatorless status assertions: also become HTTP response lines (e.g., "status 200" -> "HTTP 200")
+		// - Other assertions: emit in [Asserts] section (including operator-based status like "status == 502")
+		const httpAssertions = (assertions || [])
+			.map(a => a.trim())
+			.filter(a => /^HTTP\s+/i.test(a));
+		
+		const operatorlessStatusAssertions = (assertions || [])
+			.map(a => a.trim())
+			.filter(a => /^status\s+/i.test(a) && !/^status\s+(==|!=|>|<|>=|<=)/.test(a))
+			.map(a => {
+				// Convert operatorless status to HTTP format
+				const match = a.match(/^status\s+(.+)$/i);
+				return match ? `HTTP ${match[1].trim()}` : a;
+			});
+		
+		const otherAssertions = (assertions || [])
+			.map(a => a.trim())
+			.filter(a => {
+				// Exclude HTTP assertions
+				if (/^HTTP\s+/i.test(a)) return false;
+				// Exclude operatorless status assertions
+				if (/^status\s+/i.test(a) && !/^status\s+(==|!=|>|<|>=|<=)/.test(a)) return false;
+				// Include everything else
+				return a.length > 0;
+			});
+
+		// Add HTTP and operatorless status assertions as response lines
+		const allResponseLines = [...httpAssertions, ...operatorlessStatusAssertions];
+		if (allResponseLines.length > 0) {
+			// Only add blank line if there was no body
+			if (!hasBody) {
+				hurl += '\n';
+			}
+			for (const assertion of allResponseLines) {
+				hurl += `${assertion}\n`;
+			}
+		}
+
+		// Add other assertions (including operator-based status) as native Hurl [Asserts] section
+		if (otherAssertions.length > 0) {
+			hurl += '\n[Asserts]\n';
+			for (const assertion of otherAssertions) {
+				const hurlAssertion = HurlFormatAdapter.convertAssertionToHurlFormat(assertion);
+				hurl += `${hurlAssertion}\n`;
+			}
+		}
+
+		// Add response (if available) - as reference only, after assertions
 		if (response) {
 			hurl += '\n# Response:\n';
 			hurl += `# Status: ${response.statusCode}\n`;
@@ -122,14 +171,6 @@ export class HurlFormatAdapter {
 				for (const header of response.headers) {
 					hurl += `#   ${header.key}: ${header.value}\n`;
 				}
-			}
-		}
-
-		// Add assertions
-		if (assertions && assertions.length > 0) {
-			hurl += '\n# Assertions:\n';
-			for (const assertion of assertions) {
-				hurl += `# - ${assertion}\n`;
 			}
 		}
 
@@ -233,8 +274,8 @@ export class HurlFormatAdapter {
 					break;
 				}
 
-				// Skip comments and empty lines
-				if (trimmed.startsWith('#') || !trimmed) {
+				// Skip comments
+				if (trimmed.startsWith('#')) {
 					continue;
 				}
 
@@ -246,15 +287,62 @@ export class HurlFormatAdapter {
 						key: headerMatch[1].trim(),
 						value: headerMatch[2].trim()
 					});
+				} else {
+					// If line doesn't match header pattern and isn't a comment, stop parsing headers
+					// This handles cases like response assertions (HTTP 78) that appear before the body
+					break;
 				}
 			}
 
-			// Parse body
-			for (; currentLineIdx < lines.length; currentLineIdx++) {
-				const line = lines[currentLineIdx];
-				const trimmed = line.trim();
+		// Parse body and sections
+		let inAssertsSection = false;
+		for (; currentLineIdx < lines.length; currentLineIdx++) {
+			const line = lines[currentLineIdx];
+			const trimmed = line.trim();
 
-				// Stop at response/assertions comments
+			// Check for [Asserts] section start
+			if (trimmed === '[Asserts]') {
+				inAssertsSection = true;
+				continue;
+			}
+
+			// Check for response/assertions comments (legacy format)
+			if (trimmed.startsWith('# Response:') || trimmed.startsWith('# Assertions:')) {
+				inAssertsSection = false;
+				break;
+			}
+
+			// If in Asserts section, parse assertions
+			if (inAssertsSection) {
+				if (trimmed && !trimmed.startsWith('#')) {
+					// Convert Hurl format to internal format
+					const internalAssertion = HurlFormatAdapter.convertAssertionFromHurlFormat(trimmed);
+					assertions.push(internalAssertion);
+				}
+				continue;
+			}
+
+			// Status assertions may appear outside [Asserts]
+			if (/^status\s+/i.test(trimmed)) {
+				const internalAssertion = HurlFormatAdapter.convertAssertionFromHurlFormat(trimmed);
+				assertions.push(internalAssertion);
+				continue;
+			}
+
+			// HTTP status line (preferred Hurl response assertion style)
+			if (/^HTTP\s+/i.test(trimmed)) {
+				const internalAssertion = HurlFormatAdapter.convertAssertionFromHurlFormat(trimmed);
+				assertions.push(internalAssertion);
+				continue;
+			}
+
+			// Stop at other sections
+			if (trimmed.startsWith('[')) {
+				break;
+			}
+
+			// Parse body (only before Asserts section)
+			if (!inAssertsSection) {
 				if (trimmed.startsWith('# Response:') || trimmed.startsWith('# Assertions:')) {
 					break;
 				}
@@ -263,23 +351,24 @@ export class HurlFormatAdapter {
 					body += line + '\n';
 				}
 			}
+		}
 
-			// Set body if present
-			if (body.trim()) {
-				request.body = body.trim();
-			}
+		// Set body if present
+		if (body.trim()) {
+			request.body = body.trim();
+		}
 
-			// Generate IDs if not present
-			if (!metadata.id) {
-				// Use filename as ID base
-				const fileBaseName = filePath.split('/').pop()?.replace(/\.[^.]+$/, '') || 'api-request';
-				metadata.id = fileBaseName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-				console.log(`[HurlFormatAdapter] Generated id from filename: ${metadata.id}`);
-			}
-			if (!metadata.name) {
-				// Extract name from filename first, then URL path
-				const fileBaseName = filePath.split('/').pop()?.replace(/\.[^.]+$/, '') || '';
-				const urlPath = request.url ? new URL(request.url, 'http://localhost').pathname : '';
+		// Generate IDs if not present
+		if (!metadata.id) {
+			// Use filename as ID base
+			const fileBaseName = filePath.split('/').pop()?.replace(/\.[^.]+$/, '') || 'api-request';
+			metadata.id = fileBaseName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+			console.log(`[HurlFormatAdapter] Generated id from filename: ${metadata.id}`);
+		}
+		if (!metadata.name) {
+			// Extract name from filename first, then URL path
+			const fileBaseName = filePath.split('/').pop()?.replace(/\.[^.]+$/, '') || '';
+			const urlPath = request.url ? new URL(request.url, 'http://localhost').pathname : '';
 				const nameFromUrl = urlPath.split('/').filter(p => p).pop() || '';
 				metadata.name = fileBaseName || nameFromUrl || 'api-request';
 				console.log(`[HurlFormatAdapter] Generated name: ${metadata.name}`);
@@ -322,5 +411,117 @@ export class HurlFormatAdapter {
 	 */
 	static isYamlFile(filePath: string): boolean {
 		return filePath.endsWith('.yaml') || filePath.endsWith('.yml');
+	}
+
+	/**
+	 * Convert internal assertion format to Hurl format
+	 * Internal: "headers.Content-Type == application/json"
+	 * Hurl: "header Content-Type == application/json"
+	 * 
+	 * Note: Status assertions with operators stay as-is in [Asserts] section
+	 * Only operatorless status assertions are converted to HTTP response lines
+	 */
+	static convertAssertionToHurlFormat(assertion: string): string {
+		const trimmed = assertion.trim();
+
+		// Keep status assertions with operators as-is (they go in [Asserts] section)
+		// Only operatorless status assertions get converted to HTTP
+		if (/^status\s+/i.test(trimmed)) {
+			const statusMatch = trimmed.match(/^status\s+(.+)$/i);
+			if (statusMatch) {
+				const rest = statusMatch[1].trim();
+				// If it has an operator, keep as status assertion in [Asserts]
+				if (/^(==|!=|>|<|>=|<=)/.test(rest)) {
+					return trimmed; // Keep as-is
+				}
+			}
+			// Operatorless status would be converted to HTTP, but those go in response line
+			// so this shouldn't be called for them. Return as-is for safety.
+			return trimmed;
+		}
+
+		// Convert headers.Key <op> value -> header "Key" <op> "value"
+		const headerMatch = trimmed.match(/^headers\.([^\s]+)\s+(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|==|!=|>=|<=|>|<|=)\s*(.*)$/i);
+		if (headerMatch) {
+			const [, rawKey, rawOperator, rawValue] = headerMatch;
+			const operator = rawOperator === '=' ? '==' : rawOperator;
+			const key = rawKey.replace(/^"|"$/g, '');
+			const cleanedValue = rawValue.trim().replace(/^"|"$/g, '');
+
+			// Unary operators have no value segment
+			const unaryOps = new Set([
+				'isNull', 'isNotEmpty', 'isEmpty', 'isDefined', 'isUndefined',
+				'isTruthy', 'isFalsy', 'isNumber', 'isString', 'isBoolean', 'isArray', 'isJson'
+			]);
+			if (unaryOps.has(operator)) {
+				return `header "${key}" ${operator}`;
+			}
+
+			return `header "${key}" ${operator} "${cleanedValue}"`;
+		}
+
+		return trimmed;
+	}
+
+	/**
+	 * Convert Hurl assertion format to internal format
+	 * Hurl: "header Content-Type == application/json"
+	 * Internal: "headers.Content-Type == application/json"
+	 */
+	static convertAssertionFromHurlFormat(assertion: string): string {
+		const trimmed = assertion.trim();
+
+		// Keep status assertions as-is (operatorless or with operator)
+		if (/^status\s+/i.test(trimmed)) {
+			return trimmed;
+		}
+
+		// Keep HTTP assertions as-is (operatorless response line)
+		// HTTP is distinct from status - HTTP is a response line, status goes in [Asserts]
+		const httpStatusMatch = trimmed.match(/^HTTP\s+(.+)$/i);
+		if (httpStatusMatch) {
+			return trimmed; // Keep as HTTP format
+		}
+
+		// Convert header "Key" <op> "value" -> headers.Key <op> value
+		const quotedHeaderMatch = trimmed.match(/^header\s+"([^"]+)"\s+(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|==|!=|>=|<=|>|<|=)\s*(.*)$/i);
+		if (quotedHeaderMatch) {
+			const [, key, operator, rawValue] = quotedHeaderMatch;
+			const value = rawValue.trim().replace(/^"|"$/g, '');
+
+			const unaryOps = new Set([
+				'isNull', 'isNotEmpty', 'isEmpty', 'isDefined', 'isUndefined',
+				'isTruthy', 'isFalsy', 'isNumber', 'isString', 'isBoolean', 'isArray', 'isJson'
+			]);
+			if (unaryOps.has(operator)) {
+				return `headers.${key} ${operator}`;
+			}
+
+			return `headers.${key} ${operator} ${value}`;
+		}
+
+		// Fallback: unquoted header key
+		const unquotedHeaderMatch = trimmed.match(/^header\s+([^\s]+)\s+(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|==|!=|>=|<=|>|<|=)\s*(.*)$/i);
+		if (unquotedHeaderMatch) {
+			const [, key, operator, rawValue] = unquotedHeaderMatch;
+			const value = rawValue.trim().replace(/^"|"$/g, '');
+			return value ? `headers.${key} ${operator} ${value}` : `headers.${key} ${operator}`;
+		}
+
+		return trimmed;
+	}
+
+	/**
+	 * Convert internal status assertion to Hurl HTTP status line.
+	 * Internal: "status 200" / "status 2xx"
+	 * Hurl: "HTTP 200" / "HTTP 2xx"
+	 */
+	static convertStatusAssertionToHttpLine(assertion: string): string {
+		const trimmed = assertion.trim();
+		const statusMatch = trimmed.match(/^status\s+(.+)$/i);
+		if (statusMatch) {
+			return `HTTP ${statusMatch[1].trim()}`;
+		}
+		return trimmed;
 	}
 }

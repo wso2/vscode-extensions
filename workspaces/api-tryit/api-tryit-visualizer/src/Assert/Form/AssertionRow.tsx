@@ -131,8 +131,12 @@ export const AssertionRow: React.FC<AssertionRowProps> = ({
 
     // Use initial suggestions when query is empty, otherwise use filtered suggestions
     const targetSuggestions = targetInput === '' ? getInitialTargetSuggestions() : getTargetSuggestions(targetInput);
-    const operatorSuggestions = getOperatorSuggestions();
+    const operatorSuggestions = getOperatorSuggestions(targetInput);
     const valueSuggestions = getValueSuggestions(targetInput, response);
+    
+    // Hide operator field only for HTTP (which is strictly operatorless)
+    // Status can be operatorless or with operator, so always show operator field
+    const isHttpTarget = targetInput.toUpperCase() === 'HTTP';
 
     return (
         <>
@@ -142,27 +146,29 @@ export const AssertionRow: React.FC<AssertionRowProps> = ({
                         value={targetInput}
                         suggestions={targetSuggestions}
                         onChange={handleTargetChange}
-                        placeholder="target. eg: status, headers.Content-Type, body.id"
+                        placeholder="target. eg: HTTP, status, headers.Content-Type, body.id"
                         status={status}
                     />
                 </FieldWrapper>
 
-                <OperatorFieldWrapper>
-                    <SuggestionDropdown
-                        value={operatorInput}
-                        suggestions={operatorSuggestions}
-                        onChange={setOperatorInput}
-                        placeholder="operator. eg: ==, !=, >, <"
-                        status={status}
-                    />
-                </OperatorFieldWrapper>
+                {!isHttpTarget && (
+                    <OperatorFieldWrapper>
+                        <SuggestionDropdown
+                            value={operatorInput}
+                            suggestions={operatorSuggestions}
+                            onChange={setOperatorInput}
+                            placeholder="operator. eg: ==, !=, >, <"
+                            status={status}
+                        />
+                    </OperatorFieldWrapper>
+                )}
 
                 <ValueFieldWrapper>
                     <SuggestionDropdown
                         value={valueInput}
                         suggestions={valueSuggestions}
+                        placeholder={isHttpTarget ? "value. eg: 200, 300, 400" : "value"}
                         onChange={setValueInput}
-                        placeholder="value. eg: 200, application/json, some text"
                         status={status}
                     />
                 </ValueFieldWrapper>

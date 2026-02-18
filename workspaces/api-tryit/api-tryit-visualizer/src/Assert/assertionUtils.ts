@@ -166,6 +166,25 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
         return undefined;
     }
 
+    // Special handling for operatorless status assertions (Hurl format)
+    // e.g., "status 200", "status 2xx"
+    const statusMatch = trimmed.match(/^status\s+(.+)$/i);
+    if (statusMatch) {
+        const expectedPattern = statusMatch[1].trim();
+        const actualStatus = String(apiResponse.statusCode);
+        
+        // Handle status class patterns (2xx, 3xx, etc.)
+        if (expectedPattern.match(/^\d[xx]$/)) {
+            const firstDigit = expectedPattern[0];
+            return actualStatus[0] === firstDigit;
+        }
+        
+        // Handle multiple status codes (e.g., "200 201")
+        const statusCodes = expectedPattern.split(/\s+/);
+        return statusCodes.includes(actualStatus);
+    }
+
+    // Original parsing for operator-based assertions
     const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|={1,2}|!=|<=|>=|<|>)\s*(.*)$/i);
     if (!match) {
         return false;
