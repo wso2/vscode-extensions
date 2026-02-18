@@ -152,7 +152,7 @@ export class BaseNodeModel extends NodeModel {
                 } else {
                     formData = {
                         form: formJSON,
-                        title: `${FirstCharToUpperCase(operationName)} Operation`,
+                        title: node.stNode.tag === "tool" ? "Tool Operation" : `${FirstCharToUpperCase(operationName)} Operation`,
                         uiSchemaPath: connectorData.uiSchemaPath,
                         parameters: connectorNode.parameters ?? [],
                         connectorName: connectorData.name,
