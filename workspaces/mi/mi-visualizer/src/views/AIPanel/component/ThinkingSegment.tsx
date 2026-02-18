@@ -16,13 +16,13 @@
  * under the License.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import styled from "@emotion/styled";
 import { keyframes } from "@emotion/css";
 
-const blink = keyframes`
-    0%, 49% { opacity: 1; }
-    50%, 100% { opacity: 0; }
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 `;
 
 const ThinkingContainer = styled.div`
@@ -53,25 +53,14 @@ const ThinkingBody = styled.div`
     line-height: 1.45;
 `;
 
-const LiveThinking = styled.div`
-    margin: 6px 0;
-    color: var(--vscode-descriptionForeground);
-    font-size: 12px;
-    line-height: 1.45;
-    white-space: pre-wrap;
-    word-break: break-word;
-`;
-
-const LiveLabel = styled.span`
-    color: var(--vscode-foreground);
-    font-weight: 500;
-`;
-
-const Cursor = styled.span`
+const Spinner = styled.span`
+    width: 10px;
+    height: 10px;
+    border: 1.4px solid var(--vscode-descriptionForeground);
+    border-top-color: var(--vscode-focusBorder);
+    border-radius: 50%;
     display: inline-block;
-    margin-left: 2px;
-    color: var(--vscode-focusBorder);
-    animation: ${blink} 1s step-end infinite;
+    animation: ${spin} 0.8s linear infinite;
 `;
 
 interface ThinkingSegmentProps {
@@ -80,29 +69,21 @@ interface ThinkingSegmentProps {
 }
 
 const ThinkingSegment: React.FC<ThinkingSegmentProps> = ({ text, loading = false }) => {
-    const [expanded, setExpanded] = useState(loading);
-
-    useEffect(() => {
-        setExpanded(loading);
-    }, [loading]);
-
-    if (loading) {
-        return (
-            <LiveThinking>
-                <LiveLabel>Thinking</LiveLabel>
-                {text ? ` ${text.trimEnd()}` : ""}
-                <Cursor>|</Cursor>
-            </LiveThinking>
-        );
-    }
+    const [expanded, setExpanded] = useState(false);
+    const hasText = text.trim().length > 0;
 
     return (
         <ThinkingContainer>
             <ThinkingHeader onClick={() => setExpanded(!expanded)}>
                 <span className={`codicon codicon-chevron-${expanded ? "down" : "right"}`} />
-                Thinking
+                {loading && <Spinner />}
+                {loading ? "Thinking..." : "Thinking"}
             </ThinkingHeader>
-            {expanded && <ThinkingBody>{text.trim()}</ThinkingBody>}
+            {expanded && (
+                <ThinkingBody>
+                    {hasText ? text.trim() : (loading ? "Thinking..." : "No reasoning details.")}
+                </ThinkingBody>
+            )}
         </ThinkingContainer>
     );
 };
