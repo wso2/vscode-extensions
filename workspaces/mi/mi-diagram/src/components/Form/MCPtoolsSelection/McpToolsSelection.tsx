@@ -23,6 +23,7 @@ import { Button, CheckBox, ThemeColors, SearchBox, Codicon, Divider, Typography,
 import type { OptionProps } from "@wso2/ui-toolkit";
 import { set } from "lodash";
 import { useVisualizerContext } from "@wso2/mi-rpc-client/lib/context/mi-webview-context";
+import { Range } from "@wso2/mi-syntax-tree/lib/src";
 import { MCP_TOOLS_LIST_MAX_HEIGHT_OFFSET } from "../../../resources/constants";
 
 export interface McpTool {
@@ -65,6 +66,8 @@ interface McpToolsSelectionProps {
     showValidationError?: boolean;
     resolutionError?: string;
     onSelectionChange?: (value: string[]) => void;
+    documentUri: string;
+    range: Range;
     selectedConnection?: string;
     control: any;
     setValue: (name: string, value: any) => void;
@@ -427,7 +430,9 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
     setValue,
     getValues,
     setError: setFormError,
-    clearErrors
+    clearErrors,
+    documentUri,
+    range
 }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [error, setError] = useState<string>("");
@@ -443,7 +448,7 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
             clearErrors?.('mcpTools');
         }
     }, [error]);
-    
+
     const fetchMcpTools = async () => {
         if (!selectedConnection) {
             setMcpTools([]);
@@ -454,7 +459,11 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
         setLoading(true);
         setError("");
         try {
-            const mcpToolsResponse = await rpcClient.getMiDiagramRpcClient().getMcpTools({ connectionName: selectedConnection });
+            const mcpToolsResponse = await rpcClient.getMiDiagramRpcClient().getMcpTools({
+                documentUri: documentUri,
+                connectionName: selectedConnection,
+                range: range
+            });
 
             if (mcpToolsResponse.error) {
                 setError(mcpToolsResponse.error);
@@ -481,7 +490,7 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
     };
 
     useEffect(() => {
-         // Retrieve mcp tools when selected connection changes
+        // Retrieve mcp tools when selected connection changes
         fetchMcpTools();
     }, [rpcClient, selectedConnection]);
 

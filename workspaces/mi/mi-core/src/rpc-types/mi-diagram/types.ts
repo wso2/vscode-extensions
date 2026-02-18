@@ -2105,6 +2105,8 @@ export interface UpdateMediatorRequest {
 }
 
 export interface McpToolsRequest {
+    documentUri: string;
+    range: Range;
     connectionName: string;
 }
 
