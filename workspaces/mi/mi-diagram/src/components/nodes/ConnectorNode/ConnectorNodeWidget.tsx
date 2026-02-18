@@ -170,7 +170,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
 
             const connectionData: any = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
                 documentUri: node.documentUri,
-                connectorName: (node.stNode.tag === 'tool') ? 
+                connectorName: (node.stNode.tag === 'tool') ?
                     (node.stNode as Tool).mediator.connectorName : node.stNode.tag.split(".")[0]
             });
 
@@ -236,6 +236,35 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
         e.stopPropagation();
 
         if (node.stNode.tag === 'tool') {
+            const connectionData: any = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
+                documentUri: node.documentUri,
+                connectorName: isMCPTool ? 'ai' : (node.stNode as Tool).mediator.connectorName
+            });
+
+            const connectionName = isMCPTool ? (node.stNode as Tool).mcpConnection : (node.stNode as Tool).mediator.configKey;
+            const connection = connectionData.connections.find((item: any) => item.name === connectionName);
+
+            if (!connection) {
+                return;
+            }
+
+            const connector = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({
+                documentUri: node.documentUri,
+                connectorName: isMCPTool ? 'ai' : (node.stNode as Tool).mediator.connectorName
+            });
+
+            rpcClient.getMiVisualizerRpcClient().openView({
+                type: POPUP_EVENT_TYPE.OPEN_VIEW,
+                location: {
+                    documentUri: connection.path,
+                    view: MACHINE_VIEW.ConnectionForm,
+                    customProps: {
+                        connectionName: connection.name,
+                        connector
+                    }
+                },
+                isPopup: true
+            });
             return;
         }
 
