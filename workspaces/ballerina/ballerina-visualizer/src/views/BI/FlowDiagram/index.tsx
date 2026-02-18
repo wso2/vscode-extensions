@@ -285,18 +285,26 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 const biClient = rpcClient.getBIDiagramRpcClient() as any;
                 if (typeof biClient.isCollaborationActive === 'function') {
                     const response = await biClient.isCollaborationActive();
+                    console.log(`[Collaboration] ===== CHECK COLLABORATION RESPONSE =====`);
+                    console.log(`[Collaboration] Response:`, JSON.stringify(response, null, 2));
+                    console.log(`[Collaboration] Current user ID before update: ${currentUserId}`);
+                    
                     setIsCollaborationActive(response.isActive);
                     // Use OCT client ID if collaboration is active
                     if (response.isActive && response.clientId) {
+                        console.log(`[Collaboration] ✅ Updating currentUserId from ${currentUserId} to ${response.clientId}`);
                         setCurrentUserId(response.clientId);
-                        console.log(`[Collaboration] Using OCT client ID: ${response.clientId}`);
+                    } else {
+                        console.log(`[Collaboration] ⚠️ Not updating currentUserId - isActive: ${response.isActive}, clientId: ${response.clientId}`);
                     }
                     // If collaboration is not active, we already have a fallback ID from initial state
-                    console.log(`[Collaboration] Session active: ${response.isActive}`);
+                    console.log(`[Collaboration] Session active: ${response.isActive}, Final currentUserId: ${currentUserId}`);
                 } else {
+                    console.log(`[Collaboration] ⚠️ isCollaborationActive method not available`);
                     setIsCollaborationActive(false);
                 }
             } catch (error) {
+                console.error(`[Collaboration] ❌ Error checking collaboration:`, error);
                 setIsCollaborationActive(false);
             }
         };
@@ -346,18 +354,23 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
             // Listen for presence updates from OCT (cursor position, locks, etc.)
             unsubscribeOctPresence = rpcClient.onOctRerenderPresence((data: CollaborationPresenceData) => {
-                console.log(`[OCT Webview] Received presence update:`, data);
+                console.log(`[OCT Webview] ===== PRESENCE UPDATE RECEIVED =====`);
+                console.log(`[OCT Webview] Received presence update:`, JSON.stringify(data, null, 2));
                 console.log(`[OCT Webview] Current user ID: ${currentUserId}, Incoming peer ID: ${data.peerId}`);
+                console.log(`[OCT Webview] Has cursor data: ${!!data.cursor}`);
+                if (data.cursor) {
+                    console.log(`[OCT Webview] Cursor details:`, JSON.stringify(data.cursor, null, 2));
+                }
                 
                 // Skip updating cursors for the current user
                 if (data.peerId === currentUserId) {
-                    console.log('[OCT Webview] Skipping own cursor update');
+                    console.log('[OCT Webview] Skipping own cursor update (peer ID matches current user)');
                     return;
                 }
                 
                 // Update remote cursors
                 if (data.cursor) {
-                    console.log(`[OCT Webview] Updating cursor for peer ${data.peerId} at position (${data.cursor.x}, ${data.cursor.y})`);
+                    console.log(`[OCT Webview] ✅ Updating cursor for peer ${data.peerId} at position (${data.cursor.x}, ${data.cursor.y})`);
                     setRemoteCursors((prev) => {
                         const updated = new Map(prev);
                         updated.set(data.peerId, {
@@ -373,9 +386,11 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                                 timestamp: data.cursor.timestamp,
                             },
                         });
-                        console.log(`[OCT Webview] Updated remote cursors, total: ${updated.size}`, Array.from(updated.entries()));
+                        console.log(`[OCT Webview] ✅ Updated remote cursors map, total peers: ${updated.size}`, Array.from(updated.keys()));
                         return updated;
                     });
+                } else {
+                    console.log(`[OCT Webview] ⚠️ No cursor data in presence update`);
                 }
                 
                 // Update node locks from remote user
@@ -392,6 +407,29 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                         return updated;
                     });
                 }
+
+                // if (data.locks !== undefined) {
+                //     setNodeLocks((prev) => {
+                //         const updated = { ...prev };
+                       
+                       
+                //         Object.keys(updated).forEach((nodeId) => {
+                //             if (updated[nodeId].userId === data.peerId) {
+                //                 delete updated[nodeId];
+                //             }
+                //         });
+                       
+                //         data.locks.forEach((lock) => {
+                //             updated[lock.nodeId] = {
+                //                 userId: lock.userId,
+                //                 userName: lock.userName,
+                //                 timestamp: lock.timestamp,
+                //             };
+                //         });
+                       
+                //         return updated;
+                //     });
+                // }
             });
         } catch (error) {
             console.log('[OCT] Collaboration notifications not available:', error);
@@ -430,7 +468,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 clearInterval(collaborationCheckInterval);
             }
         };
-    }, [rpcClient]);
+    }, [rpcClient,currentUserId]);
 
     // Update model with lock information when locks change
     useEffect(() => {
@@ -1138,14 +1176,23 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
     const updateCursorPosition = useMemo(() =>
         throttle((x: number, y: number, nodeId?: string) => {
+            console.log('[FlowDiagram] ==== CURSOR UPDATE TRIGGERED ====');
             console.log('[FlowDiagram] updateCursorPosition called:', { x, y, nodeId, isCollaborationActive, fileName: model?.fileName });
             
             if (!model?.fileName || !isCollaborationActive) {
-                console.log('[FlowDiagram] Skipping cursor update - not active or no fileName');
+                console.log('[FlowDiagram] ⚠️ Skipping cursor update - collaboration not active or no fileName', {
+                    hasFileName: !!model?.fileName,
+                    isCollaborationActive
+                });
                 return;
             }
             
-            console.log('[FlowDiagram] Sending cursor position via OCT', { currentUserId, currentUserName });
+            console.log('[FlowDiagram] ✅ Sending cursor position via OCT', { 
+                currentUserId, 
+                currentUserName,
+                cursorPosition: { x, y },
+                fileName: model?.fileName
+            });
         
             try {
                 // NOTE: Cursor coordinates (x, y) should ideally be in diagram-space coordinates
@@ -1175,10 +1222,11 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                         })),
                 };
                 
-                console.log('[FlowDiagram] Sending presence data with peerId:', presenceData.peerId, 'peerName:', presenceData.peerName);
+                console.log('[FlowDiagram] 📤 Sending presence data:', JSON.stringify(presenceData, null, 2));
                 rpcClient.sendRequest(updateWebviewCollaborationPresence, presenceData);
+                console.log('[FlowDiagram] ✅ Presence data sent successfully');
             } catch (error) {
-                console.log('[OCT] Failed to send presence update:', error);
+                console.error('[OCT] ❌ Failed to send presence update:', error);
             }
         }, 100), 
         [model?.fileName, isCollaborationActive, currentUserId, currentUserName, nodeLocks, rpcClient]
