@@ -259,6 +259,30 @@ You can do the following operations with Synapse Expressions
 4. **Handle Empty Results**
    - Synapse Expressions fail gracefully—handle potential empty values.
 
+#### XPath in Synapse Expressions — Rules
+
+1. **No \\\`\\\\'\\\` escaping**: \\\`\\\\'\\\` is invalid XML. Single quotes inside a
+   double-quoted XML attribute don't need escaping.
+
+2. **Quote nesting in xpath()**: The xpath() function parameter uses either
+   single OR double quotes as outer delimiter. String literals inside the
+   XPath must use the opposite quote type. Since the XML attribute is
+   double-quoted, use &quot; to embed double-quote delimiters:  
+     CORRECT: \\\`expression="\\\${xpath(&quot;string(\\$body//*[local-name()='El'])&quot;)}"\\\`  
+     WRONG:   \\\`expression="\\\${xpath('//*[local-name()=\\\\'El\\\\']/text()')}"\\\`
+
+3. **No nested function calls with xpath()**: trim(xpath(...)) silently
+   returns empty. Always extract to a variable first, then apply functions:  
+     \\\`<variable name="raw" expression="\\\${xpath(...)}" type="STRING"/>\\\`  
+     ... then use \\\`\\\${trim(vars.raw)}\\\` in payloadFactory.
+
+4. **SOAP response XPath**: Always use \\$body context and string() to
+   reliably extract text from SOAP responses:  
+     \\\`\\\${xpath(&quot;string(\\$body//*[local-name()='ElementName'])&quot;)}\\\`
+
+5. **Null variable checks in filter**: \\\`\\\${vars.x == null or vars.x == ''}\\\`
+   can throw WARN when the variable is truly null. Prefer \\\`\\\${not(exists(vars.x))}\\\`.
+
 #### Where can you use Synapse Expressions?
 - You can use synapse expressions literally anywhere in the synapse configuration to provide dynamic inputs.
 - Example with redis connector

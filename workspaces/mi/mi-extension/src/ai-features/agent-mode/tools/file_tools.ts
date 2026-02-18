@@ -1471,7 +1471,7 @@ export function createWriteTool(execute: WriteExecuteFn) {
     return (tool as any)({
         description: `Creates a new file. Will NOT overwrite existing files with content - use ${FILE_EDIT_TOOL_NAME} for that.
             Parent directories are created automatically. Allowed file types: ${getAllowedFileTypesDescription()}.
-            XML files are automatically validated after writing (results included in response).
+            XML files are automatically validated after writing (results included in response). But LemMinx reports "Premature end of file" on connector local entry XMLs (e.g., http.init). This is a known false positive — ignore it and verify by building the project instead if needed.
             Do NOT create documentation files unless explicitly requested.`,
         inputSchema: writeInputSchema,
         execute
@@ -1524,7 +1524,7 @@ export function createEditTool(execute: EditExecuteFn) {
             old_string must match EXACTLY (whitespace, indentation, line breaks).
             Fails if old_string is not unique - provide more context or set replace_all=true.
             Cannot create new files - use ${FILE_WRITE_TOOL_NAME} for that.
-            XML files are automatically validated after editing (results included in response).`,
+            XML files are automatically validated after editing (results included in response). But LemMinx reports "Premature end of file" on connector local entry XMLs (e.g., http.init). This is a known false positive — ignore it and verify by building the project instead if needed.`,
         inputSchema: editInputSchema,
         execute
     });

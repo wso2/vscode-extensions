@@ -230,6 +230,10 @@ export const SYNAPSE_GUIDE = `
     \`\`\`
     - Supported methods: GET, POST, PUT, DELETE, HEAD, PATCH, OPTIONS
 
+## SOAP / XML Integration Rules
+    - For SOAP services, always prefer the \\\`call\\\` mediator with a named endpoint over the HTTP connector. The HTTP connector is designed for REST; it can cause stream-building failures with SOAP responses.
+    - Before using any external service URL, verify whether it uses HTTP or HTTPS (e.g., test with curl -L). Never assume HTTP — many services redirect to HTTPS. Use an HTTPS endpoint URI when the service requires it.
+
 ## For the new filter mediator, do not use source. Use only xpath:
 \`\`\`xml
 <filter xpath="[SynapseExpression]">
