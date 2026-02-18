@@ -19,23 +19,8 @@
 import { FlowNode } from '../utils/types';
 import * as C from '../constants/nodeConstants';
 import { DepthSearch } from './DepthSearch_v2';
+import { first } from 'lodash';
 
-/**
- * PositionVisitorVertical V2: Simplified Two-Phase Positioning
- * 
- * New Strategy (Main Spine First, Branches Right):
- * 
- * Phase 1: Position the Main Happy Path
- *   - Traverse ONLY the main path nodes (from DepthSearch)
- *   - Position them vertically at x = spineX (default 0)
- *   - Mark each as isPositioned = true
- * 
- * Phase 2: Position the Branches
- *   - Run a full graph traversal (DFS/BFS)
- *   - Rule: If a node is already isPositioned, skip moving it (use its coords as reference)
- *   - Alternative branches are positioned to the RIGHT of the main path
- *   - Branch spacing: x = spineX + (nodeWidth + gap) * branchIndex
- */
 export class PositionVisitorVertical_v2 {
     private mainPathNodes: Set<string>;
     private mainPathOrder: FlowNode[];
@@ -45,7 +30,7 @@ export class PositionVisitorVertical_v2 {
     private mainSpineVisited = new Set<string>(); // Track visited nodes during main spine positioning
     private nodePositions: Array<{ id: string; x: number; y: number; w: number; h: number }> = [];
 
-    constructor(private depthSearch: DepthSearch, spineX: number = 0) {
+    constructor(depthSearch: DepthSearch, spineX: number = 0) {
         this.mainPathNodes = depthSearch.getHappyPathNodes();
         this.mainPathOrder = depthSearch.getLongestPath();
         this.mainPathOrder.forEach((n, i) => this.mainPathIndex.set(n.id, i));
@@ -86,6 +71,8 @@ export class PositionVisitorVertical_v2 {
         node.viewState.x = this.spineX - (node.viewState.w / 2);
         node.viewState.y = currentY;
         node.isPositioned = true;
+        node.isMainSpine = true; // Mark as main spine node for rendering logic 
+        node.columnNo = 0; // Main spine is column 0
 
         // Track positioned node for collision detection
         if (node.type === 'STEP') {
@@ -117,7 +104,10 @@ export class PositionVisitorVertical_v2 {
         if (node.children && node.children.length > 0) {
             const firstChild = node.children[0];
             if (this.mainPathNodes.has(firstChild.id)) {
-                this.positionMainSpine(firstChild, (firstChild.type === 'CONDITION')? nextY+(Math.sqrt(2)-1)*(C.DIAMOND_SIZE/2) :nextY);    //make this better
+                if(firstChild.type === 'CONDITION'){        //to account for the condition node rotation
+                    nextY = nextY+(Math.sqrt(2)-1)*(C.DIAMOND_SIZE/2)
+                }
+                this.positionMainSpine(firstChild, nextY);
                 return;
             }
         }
@@ -152,12 +142,12 @@ export class PositionVisitorVertical_v2 {
      * Phase 2: Position all nodes, respecting already-positioned nodes.
      * Alternative branches are positioned to the RIGHT of the main spine (center-aligned).
      */
-    private positionBranches(node: FlowNode, isImmediateCondition_and_Firsttime: boolean = false, isFailPathCondition: boolean = false): void {
+    private positionBranches(node: FlowNode, isImmediateCondition_and_Firsttime: boolean = false, isFailPathCondition: boolean = false, isInFailPath: boolean = false): void {
         if (this.visited.has(node.id)) {
             return;
         }
         console.log(`came to ${node.id}`);
-        if (!isImmediateCondition_and_Firsttime) {
+        if (!isImmediateCondition_and_Firsttime) {      //if its an immediate condition node and we are visiting it for the first time, we skip marking it as visited as we want to come back to it again
             this.visited.add(node.id);
             console.log(`VISITED:${node.id}`);
         }
@@ -169,7 +159,7 @@ export class PositionVisitorVertical_v2 {
         let nextY_RETRY: number;
         if(node.type === 'CONDITION'){
             nextY = nodeY + node.viewState.h + C.NODE_GAP_Y_AFTERCONDITION;
-            nextY_RETRY = nodeY + node.viewState.h + C.RETRY_GAP_Y_ConditionBranch;
+            nextY_RETRY = nodeY + node.viewState.h + C.NODE_GAP_Y_AFTERCONDITION;
         } else {
             nextY = nodeY + node.viewState.h + C.NODE_GAP_Y_Vertical;
             nextY_RETRY = nextY;    //this case is not used
@@ -178,13 +168,13 @@ export class PositionVisitorVertical_v2 {
         // Process children
         if (node.children && node.children.length > 0) {
             node.children.forEach((child, index) => {
-                if (!child.isPositioned) {
-                    // Alternative child - position to the right (center-aligned)
-                    //const branchCenterX = this.spineX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (index + 1);
-                    //child.viewState.x = branchCenterX - (child.viewState.w / 2);
+                if (!child.isPositioned) {      //this means its not on the main spine. 
                     child.viewState.x = nodeX + (node.viewState.w/2) - (child.viewState.w/2); // Position to the right of parent
                     child.viewState.y = nextY;
                     child.isPositioned = true;
+                    //child.columnNo = node.columnNo; // Set column number based on parent
+                    //child.levelNo = node.levelNo;
+                    //child.isMainSpine = false; // Mark as non-spine node for rendering logic
 
                     // Track positioned node for collision detection
                     if (child.type === 'STEP') {
