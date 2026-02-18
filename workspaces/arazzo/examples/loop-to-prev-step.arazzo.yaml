@@ -36,3 +36,5 @@ workflows:
 
       - stepId: payment-process
         operationId: processPayment
+      - stepId: payment-process2
+        operationId: processPayment2
