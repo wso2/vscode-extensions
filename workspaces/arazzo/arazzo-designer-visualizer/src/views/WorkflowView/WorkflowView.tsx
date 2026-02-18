@@ -411,8 +411,7 @@ export function WorkflowView(props: WorkflowViewProps) {
             >
                 <SidePanelTitleContainer>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {/* {selectedNode ? (selectedNode.data?.label || selectedNode.id) : 'Node Properties'} */}
-                        Properties
+                        {selectedNode ? (selectedNode.data?.stepId ?? selectedNode.data?.step?.stepId ?? 'Properties') : 'Properties'}
                     </div>
                     <StyledButton data-testid="close-panel-btn" appearance="icon" onClick={handleClosePanel}>
                         <Codicon name="close" />
