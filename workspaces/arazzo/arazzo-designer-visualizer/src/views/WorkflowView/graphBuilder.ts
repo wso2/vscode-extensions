@@ -68,7 +68,7 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
     // ============================================================
 
     // 1. Init: Build optimized tree
-    const initV2 = new InitVisitor_v2();
+    const initV2 = new InitVisitor_v2(definition);
     const rootV2 = initV2.buildTree(workflow);
 
     // 2. Calculate Depth: Find the longest success path (main spine)

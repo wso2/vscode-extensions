@@ -16,8 +16,9 @@
  * under the License.
  */
 
-import { ArazzoWorkflow, StepObject, SuccessActionObject, FailureActionObject, ReusableObject } from '@wso2/arazzo-designer-core';
+import { ArazzoDefinition, ArazzoWorkflow, StepObject, SuccessActionObject, FailureActionObject, ReusableObject } from '@wso2/arazzo-designer-core';
 import { FlowNode, ViewState } from '../utils/types';
+import { resolveReference } from '../utils/referenceUtils';
 
 /**
  * InitVisitor V2: Optimized workflow tree builder for vertical layout.
@@ -29,6 +30,11 @@ import { FlowNode, ViewState } from '../utils/types';
  */
 export class InitVisitor_v2 {
     private stepNodeMap: Map<string, FlowNode> = new Map();
+    private definition?: ArazzoDefinition;
+
+    constructor(definition?: ArazzoDefinition) {
+        this.definition = definition;
+    }
 
     public buildTree(workflow: ArazzoWorkflow): FlowNode {
         // Pass 1: Initialize all STEP nodes
@@ -124,32 +130,36 @@ export class InitVisitor_v2 {
     ): FlowNode[] {
         const targets: FlowNode[] = [];
 
-        // Separate and order: goto/retry first, then end
-        const gotoActions = actions.filter((a: any) => a.type === 'goto');
-        const retryActions = actions.filter((a: any) => a.type === 'retry');
-        const endActions = actions.filter((a: any) => a.type === 'end');
-        const refActions = actions.filter((a: any) => a.reference);
+        // First, resolve any references to get the actual action objects
+        const resolvedActions = actions.map((action: any) => {
+            if (action.reference) {
+                const resolved = resolveReference(action.reference, this.definition);
+                return resolved || action; // Fallback to original if resolution fails
+            }
+            return action;
+        });
 
-        const orderedActions = [...gotoActions, ...retryActions, ...endActions, ...refActions]; //order the successAction objects based on their type. goto and retry actions are prioritized over end actions)
+        // Separate and order: goto/retry first, then end
+        const gotoActions = resolvedActions.filter((a: any) => a.type === 'goto');
+        const retryActions = resolvedActions.filter((a: any) => a.type === 'retry');
+        const endActions = resolvedActions.filter((a: any) => a.type === 'end');
+
+        const orderedActions = [...gotoActions, ...retryActions, ...endActions];
 
         orderedActions.forEach((action: any, index: number) => {
-            // Handle reference (placeholder for future implementation)
-            if (action.reference) {
-                targets.push(this.createNode(
-                    `${pathType}_ref_${currentStepId}_${index}`, 
-                    'END', 
-                    'Ref?'
-                ));
-                return;
-            }
 
-            // Handle 'end' action
-            if (action.type === 'end') {        // this is the type defined in the arazzo extension for the end action.
-                targets.push(this.createNode(
-                    `end_${pathType}_${currentStepId}_${index}`, 
-                    'END', 
-                    pathType === 'failure' ? 'Fail End' : 'End'
-                ));
+            // Handle 'goto' action
+            if (action.type === 'goto') {
+                const targetId = action.stepId || action.name;
+                if (targetId && this.stepNodeMap.has(targetId)) {
+                    targets.push(this.stepNodeMap.get(targetId)!);      //no need to create flowNodes for steps as  all the steps are made into flownodes at the top of the file when creating the step NodemMap
+                } else {
+                    targets.push(this.createNode(
+                        `missing_${targetId}`, 
+                        'END', 
+                        `Missing: ${targetId}`
+                    ));
+                }
                 return;
             }
 
@@ -165,18 +175,13 @@ export class InitVisitor_v2 {
                 return;
             }
 
-            // Handle 'goto' action
-            if (action.type === 'goto') {
-                const targetId = action.stepId || action.name;
-                if (targetId && this.stepNodeMap.has(targetId)) {
-                    targets.push(this.stepNodeMap.get(targetId)!);      //no need to create flowNodes for steps as  all the steps are made into flownodes at the top of the file when creating the step NodemMap
-                } else {
-                    targets.push(this.createNode(
-                        `missing_${targetId}`, 
-                        'END', 
-                        `Missing: ${targetId}`
-                    ));
-                }
+            // Handle 'end' action
+            if (action.type === 'end') {        // this is the type defined in the arazzo extension for the end action.
+                targets.push(this.createNode(
+                    `end_${pathType}_${currentStepId}_${index}`, 
+                    'END', 
+                    pathType === 'failure' ? 'Fail End' : 'End'
+                ));
                 return;
             }
         });
