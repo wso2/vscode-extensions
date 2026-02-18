@@ -143,11 +143,7 @@ export class HurlFormatAdapter {
 
 		// Add HTTP and operatorless status assertions as response lines
 		const allResponseLines = [...httpAssertions, ...operatorlessStatusAssertions];
-		if (allResponseLines.length > 0) {
-			// Only add blank line if there was no body
-			if (!hasBody) {
-				hurl += '\n';
-			}
+		if (allResponseLines.length > 0) {			// HTTP assertions appear directly after headers (or request line if no headers)
 			for (const assertion of allResponseLines) {
 				hurl += `${assertion}\n`;
 			}
