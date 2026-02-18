@@ -41,7 +41,7 @@ module.exports = {
           pkg.dependencies['eslint'] = '^9.27.0';
         }
         if (pkg.dependencies['fast-xml-parser']) {
-          pkg.dependencies['fast-xml-parser'] = '5.3.4';
+          pkg.dependencies['fast-xml-parser'] = '5.3.6';
         }
         if (pkg.dependencies['lodash']) {
           pkg.dependencies['lodash'] = '4.17.23';
@@ -55,14 +55,14 @@ module.exports = {
         if (pkg.dependencies['eslint']) {
           pkg.dependencies['eslint'] = '^9.27.0';
         }
-        if (pkg.dependencies['fast-xml-parser']) {
-          pkg.dependencies['fast-xml-parser'] = '5.3.4';
-        }
         if (pkg.dependencies['hono']) {
           pkg.dependencies['hono'] = '^4.11.7';
         }
         if (pkg.dependencies['lodash']) {
           pkg.dependencies['lodash'] = '4.17.23';
+        }
+        if (pkg.dependencies['ajv']) {
+          pkg.dependencies['ajv'] = '8.18.0';
         }
       }
 
