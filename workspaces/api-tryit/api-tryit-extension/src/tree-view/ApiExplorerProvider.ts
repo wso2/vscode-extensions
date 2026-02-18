@@ -30,6 +30,7 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	private loadingPromise: Promise<void> | null = null;
 	private treeView?: vscode.TreeView<ApiTreeItem>;
 	private collectionPathMap: Map<string, string> = new Map();
+	private inMemoryCollectionIds: Set<string> = new Set();
 
 	constructor(private workspacePath?: string) {
 		this.loadingPromise = this.loadCollections();
@@ -139,9 +140,15 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						})
 						: undefined;
 
-					const assertions = Array.isArray(requestObj.assertions)
-						? (requestObj.assertions as unknown[]).filter((assertion): assertion is string => typeof assertion === 'string')
+					const topLevelAssertions = Array.isArray(persisted.assertions)
+						? (persisted.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
 						: undefined;
+
+						const requestAssertions = Array.isArray(requestObj.assertions)
+							? (requestObj.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
+							: undefined;
+
+						const assertions = topLevelAssertions ?? requestAssertions;
 
 					const requestWithId: ApiRequest = {
 						id: typeof requestObj.id === 'string' ? requestObj.id : id,
@@ -177,7 +184,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						name,
 						request: requestWithId,
 						response: typeof persisted.response === 'object' ? (persisted.response as unknown as ApiResponse) : undefined,
-						filePath
+						filePath,
+						assertions
 					};
 
 					return item;
@@ -267,13 +275,10 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				return;
 			}
 
-			// Keep track of in-memory collections (collections without filePath set during import)
-			const inMemoryCollections = this.collections.filter(col => {
-				// A collection is considered in-memory if none of its items have filePath set
-				const hasFilePath = (col.rootItems || []).some(item => item.filePath) ||
-					col.folders.some(folder => folder.items.some(item => item.filePath));
-				return !hasFilePath;
-			});
+			// Keep track of in-memory collections (explicitly tracked by ID)
+			const inMemoryCollections = this.collections.filter(col => 
+				this.inMemoryCollectionIds.has(col.id)
+			);
 
 			// Clear and rebuild the collectionPathMap for disk collections
 			const newPathMap = new Map<string, string>();
@@ -302,9 +307,21 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 			// Update the collectionPathMap with new disk collections
 			this.collectionPathMap = newPathMap;
 
+			// Remove IDs from inMemoryCollectionIds that now exist on disk (promotion)
+			for (const diskCollection of diskCollections) {
+				if (this.inMemoryCollectionIds.has(diskCollection.id)) {
+					this.inMemoryCollectionIds.delete(diskCollection.id);
+				}
+			}
+
+			// Filter in-memory collections to exclude those that now exist on disk
+			const actualInMemoryCollections = inMemoryCollections.filter(col => 
+				!diskCollections.some(disk => disk.id === col.id)
+			);
+
 			// Combine in-memory collections with disk collections
 			// In-memory collections come first, then disk collections
-			this.collections = [...inMemoryCollections, ...diskCollections];
+			this.collections = [...actualInMemoryCollections, ...diskCollections];
 
 			// Notify tree of changes
 			this.refresh();
@@ -334,6 +351,9 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	 * Useful for temporary collections or programmatic imports.
 	 */
 	public addInMemoryCollection(collection: ApiCollection): void {
+		// Track this collection as in-memory
+		this.inMemoryCollectionIds.add(collection.id);
+		
 		// Check if collection with same ID already exists
 		const existingIndex = this.collections.findIndex(c => c.id === collection.id);
 		if (existingIndex >= 0) {
@@ -343,6 +363,24 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 			// Add new collection
 			this.collections.push(collection);
 		}
+		
+		// Notify tree of changes
+		this.refresh();
+	}
+
+	/**
+	 * Remove a collection by ID from both in-memory and disk tracking.
+	 * This ensures the collection doesn't persist after deletion.
+	 */
+	public removeCollectionById(collectionId: string): void {
+		// Remove from collections array
+		this.collections = this.collections.filter(c => c.id !== collectionId);
+		
+		// Remove from path map
+		this.collectionPathMap.delete(collectionId);
+		
+		// Remove from in-memory tracking
+		this.inMemoryCollectionIds.delete(collectionId);
 		
 		// Notify tree of changes
 		this.refresh();

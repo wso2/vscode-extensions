@@ -68,12 +68,16 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
                     queryParameters: [],
                     headers: []
                 } as ApiRequest;
+                const mergedAssertions = Array.isArray(req.assertions)
+                    ? req.assertions
+                    : (Array.isArray(item?.assertions) ? (item!.assertions as string[]) : undefined);
                 const normalizedItem: ApiRequestItem = {
                     ...item,
                     request: {
                         ...req,
                         queryParameters: Array.isArray(req.queryParameters) ? req.queryParameters : [],
-                        headers: Array.isArray(req.headers) ? req.headers : []
+                        headers: Array.isArray(req.headers) ? req.headers : [],
+                        ...(mergedAssertions ? { assertions: mergedAssertions } : {})
                     }
                 };
                 handlersRef.current.onApiRequestSelected(normalizedItem);
@@ -95,12 +99,16 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
                     queryParameters: [],
                     headers: []
                 } as ApiRequest;
+                const mergedAssertions = Array.isArray(req.assertions)
+                    ? req.assertions
+                    : (Array.isArray(item?.assertions) ? (item!.assertions as string[]) : undefined);
                 const normalizedItem: ApiRequestItem = {
                     ...item,
                     request: {
                         ...req,
                         queryParameters: Array.isArray(req.queryParameters) ? req.queryParameters : [],
-                        headers: Array.isArray(req.headers) ? req.headers : []
+                        headers: Array.isArray(req.headers) ? req.headers : [],
+                        ...(mergedAssertions ? { assertions: mergedAssertions } : {})
                     }
                 };
                 handlersRef.current.onApiRequestSelected(normalizedItem);
