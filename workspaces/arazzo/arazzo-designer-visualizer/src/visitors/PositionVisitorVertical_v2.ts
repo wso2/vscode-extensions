@@ -18,7 +18,7 @@
 
 import { FlowNode } from '../utils/types';
 import * as C from '../constants/nodeConstants';
-import { DepthSearch } from './DepthSearch';
+import { DepthSearch } from './DepthSearch_v2';
 
 /**
  * PositionVisitorVertical V2: Simplified Two-Phase Positioning
