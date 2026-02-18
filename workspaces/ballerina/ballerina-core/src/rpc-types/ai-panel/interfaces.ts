@@ -28,15 +28,8 @@ import { ComponentInfo, DataMapperMetadata, Diagnostics, DMModel, ImportStatemen
 // ==================================
 export type AIPanelPrompt =
     | { type: 'command-template'; command: Command; templateId: TemplateId; text?: string; params?: Record<string, string>; metadata?: Record<string, any> }
-    | { type: 'text'; text: string; planMode: boolean; codeContext?: CodeContext,
-        autoSendConfig?: AIPanelPromptAutoSendConfig
-     }
+    | { type: 'text'; text: string; planMode: boolean; codeContext?: CodeContext}
     | undefined;
-
-export type AIPanelPromptAutoSendConfig = {
-    autosend: boolean;
-    hidden_init: boolean
-}
 
 export interface AIMachineSnapshot {
     state: AIMachineStateValue;

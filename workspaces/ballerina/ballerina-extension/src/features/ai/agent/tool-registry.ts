@@ -39,7 +39,6 @@ import { getLibraryGetTool, LIBRARY_GET_TOOL } from './tools/library-get';
 import { GenerationType } from '../utils/libs/libraries';
 import { getHealthcareLibraryProviderTool, HEALTHCARE_LIBRARY_PROVIDER_TOOL } from './tools/healthcare-library';
 import { createConnectorGeneratorTool, CONNECTOR_GENERATOR_TOOL } from './tools/connector-generator';
-import { createHttpRequestTool, HTTP_REQUEST_TOOL_NAME } from './tools/http-request';
 import { LIBRARY_SEARCH_TOOL, getLibrarySearchTool } from './tools/library-search';
 import { createConfigCollectorTool, CONFIG_COLLECTOR_TOOL } from './tools/config-collector';
 
@@ -102,6 +101,5 @@ export function createToolRegistry(opts: ToolRegistryOptions) {
             createReadExecute(eventHandler, tempProjectPath)
         ),
         [DIAGNOSTICS_TOOL_NAME]: createDiagnosticsTool(tempProjectPath, eventHandler),
-        [HTTP_REQUEST_TOOL_NAME]: createHttpRequestTool(eventHandler)
     };
 }

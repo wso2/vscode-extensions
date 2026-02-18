@@ -26,75 +26,7 @@ import { formatCodebaseStructure, formatCodeContext } from "./utils";
 import { GenerateAgentCodeRequest, OperationType, ProjectSource } from "@wso2/ballerina-core";
 import { getRequirementAnalysisCodeGenPrefix, getRequirementAnalysisTestGenPrefix } from "./np/prompts";
 import { extractResourceDocumentContent, flattenProjectToFiles } from "../utils/ai-utils";
-import { HTTP_REQUEST_TOOL_NAME } from "./tools/http-request";
 
-/**
- * The instructions for the API testing
- */
-export function getAPITestingInstructions(): string {
-    return `
-# API testing guidelines:
-API testing is carried out with the idea of scenario-based testing. Each scenario represents a specific request to a particular API endpoint with defined parameters, headers, and body. 
-## Use cases:
-### Testing an API endpoint you implemented: 
-After implementing an API endpoint, create test scenarios to validate its functionality, performance, and error handling. then use the ${HTTP_REQUEST_TOOL_NAME} tool to execute the test scenarios.
-### Testing an existing API endpoint:
-If the user explicitly asks for testing an existing API endpoint, follow the following steps:
-1. Identify the API endpoint(s) to be tested based on the user query.
-2. Ask the user to provide a specific test scenario. 
-- If this is the initial message, provide a set of 1-2 example test scenarios as prompt suggestions under some of the identified endpoints and ask the user to choose from them or provide their own scenario.
-- each scenario must be surrounded by <prompt_suggestion> tags and should be catagirized by the endpoint if multiple endpoints are involved.
-Eg:
-### POST /users
-<prompt_suggestion>Valid request to create a user</prompt_suggestion>
-<prompt_suggestion>Invalid user creation request with missing parameters</prompt_suggestion>
-
-### GET /users/{id}
-<prompt_suggestion>Valid request to get user details</prompt_suggestion>
-
-- You should only run these scenarios once the user have provided the scenario by chosing from your suggestions or by providing their own scenario. Do not run any scenario without the user explicitly providing/choosing the scenario.
-- Once the scenarios is clear, create and send HTTP requests to the relevant API endpoints using ${HTTP_REQUEST_TOOL_NAME} tool.
-
-In both cases, after executing the test scenarios, if you identify request related errors, debug the requests and re-send them. If you identify server related errors, try to fix the implementation and then re-run the tests. Avoid going for more than 2 iterations of fixing and re-running. If you can't fix the issue within 2 iterations, provide a concise summary of the issue, what you tried so far, and what else you can try.
-
-# ${HTTP_REQUEST_TOOL_NAME} Tool Usage Guidelines:
-When using the ${HTTP_REQUEST_TOOL_NAME} tool, follow the below guidelines:
-- Before making the request, provide the scenario number and the topic Eg. 
-## Scenario 1: Valid request to create a user
-- immediately call the ${HTTP_REQUEST_TOOL_NAME} tool with the necessary parameters.
-- Once the tool returns a response, show both the request and response details as below. Be mindful to only show relevant details to the user and avoid showing unnecessary information that might be confusing. For example, if the response has a lot of headers, only show the relevant headers instead of all of them.
-Request and response details format with Eg.:
-**Request**
-\`\`\`http
-POST /users
-Content-Type: application/json
-
-{
-  "name": "John",
-  "email": "john.doe@example.com"
-}
-\`\`\`
-
-**Response**
-\`\`\`http
-201 Created
-Content-Type: application/json
-
-{
-  "id": "123",
-  "name": "John",
-  "email": "john.doe@example.com"
-}
-\`\`\`
-**Evaluation**
-- The request was processed successfully.
-- The response status code is \`201 Created\`.
-- The response body contains a generated \`id\`.
-- The returned \`name\` and \`email\` match the request payload.
-
-**Result:** ✅ **PASS**
-`;
-}
 /**
  * Generates the system prompt for the design agent
  */
@@ -257,10 +189,6 @@ ${getLanglibInstructions()}
 - Do NOT create a new markdown file to document each change or summarize your work unless specifically requested by the user.
 - Do not manually add/modify toml files (Ballerina.toml/Dependencies.toml). For Config.toml configuration management, use ${CONFIG_COLLECTOR_TOOL}.
 - Prefer modifying existing bal files over creating new files unless explicitly asked to create a new file in the query.
-
-# API Testing Guidelines
-- You have the capability of testing HTTP APIs. Use this capability to test the API endpoints you implement or if the user explicitly asks for testing their API endpoints. Follow the guidelines below when testing APIs.
-${getAPITestingInstructions()}
 
 ${getNPSuffix(projects, op)}
 `;
