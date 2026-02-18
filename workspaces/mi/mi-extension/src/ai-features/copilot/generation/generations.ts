@@ -20,7 +20,7 @@ import { streamText } from "ai";
 import { AnthropicProviderOptions } from "@ai-sdk/anthropic";
 import * as Handlebars from "handlebars";
 import { FileObject, ImageObject } from "@wso2/mi-core";
-import { getAnthropicClient, ANTHROPIC_SONNET_4_5, getProviderCacheControl } from "../../connection";
+import { getAnthropicClient, ANTHROPIC_SONNET_4_6, getProviderCacheControl } from "../../connection";
 import { SYSTEM_TEMPLATE } from "./system_v2";
 import { PROMPT_TEMPLATE } from "./prompt_v2";
 import { SYSTEM_TEMPLATE as SYSTEM_TEMPLATE_V1 } from "./system_v1";
@@ -178,7 +178,7 @@ export async function generateSynapse(
         });
     }
 
-    const model = await getAnthropicClient(ANTHROPIC_SONNET_4_5);
+    const model = await getAnthropicClient(ANTHROPIC_SONNET_4_6);
 
     // Configure provider options for thinking mode if enabled
     const anthropicOptions: AnthropicProviderOptions = params.thinking_enabled

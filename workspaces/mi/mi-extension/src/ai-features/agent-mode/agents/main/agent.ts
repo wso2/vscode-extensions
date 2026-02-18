@@ -24,7 +24,7 @@ const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local d
 
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
-import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from '../../../connection';
+import { getAnthropicClient, ANTHROPIC_SONNET_4_6 } from '../../../connection';
 import { getSystemPrompt } from '../main/system';
 import { getUserPrompt, UserPromptParams } from './prompt';
 import { addCacheControlToMessages } from '../../../cache-utils';
@@ -252,7 +252,7 @@ export async function executeAgent(
         let currentStepNumber = 0;
 
         // Get the model for prepareStep
-        let model = await getAnthropicClient(ANTHROPIC_SONNET_4_5);
+        let model = await getAnthropicClient(ANTHROPIC_SONNET_4_6);
 
         // Wrap model with DevTools middleware if enabled (local development only!)
         // IMPORTANT: DevTools must be imported AFTER process.chdir() because it captures
@@ -280,7 +280,9 @@ export async function executeAgent(
         // Configure Anthropic provider options.
         // When thinking is enabled, keep reasoning in model messages for JSONL replay.
         const anthropicOptions: AnthropicProviderOptions = request.thinking
-        ? { thinking: { type: 'enabled', budgetTokens: 7000 } }
+        // NOTE: Current pinned @ai-sdk/anthropic types support enabled/disabled thinking.
+        // Adaptive thinking can be enabled once the SDK is upgraded in this repo.
+        ? { thinking: { type: 'adaptive' } } 
         : {};
     
     const requestHeaders = request.thinking

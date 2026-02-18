@@ -19,7 +19,7 @@
 import { generateText, stepCountIs } from 'ai';
 import { EXPLORE_SUBAGENT_SYSTEM } from './system';
 import { logInfo, logDebug, logError } from '../../../../copilot/logger';
-import { ANTHROPIC_HAIKU_4_5, ANTHROPIC_SONNET_4_5, AnthropicModel } from '../../../../connection';
+import { ANTHROPIC_HAIKU_4_5, ANTHROPIC_SONNET_4_6, AnthropicModel } from '../../../../connection';
 import { SubagentResult } from '../../../tools/types';
 
 // Import tools for subagent (read-only tools only)
@@ -65,7 +65,7 @@ export async function executeExploreSubagent(
 
     try {
         // Select model - prefer haiku for speed
-        const modelId = model === 'sonnet' ? ANTHROPIC_SONNET_4_5 : ANTHROPIC_HAIKU_4_5;
+        const modelId = model === 'sonnet' ? ANTHROPIC_SONNET_4_6 : ANTHROPIC_HAIKU_4_5;
         const anthropicModel = await getAnthropicClient(modelId);
 
         // Create read-only tools for the subagent

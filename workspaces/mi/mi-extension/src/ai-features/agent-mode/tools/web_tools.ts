@@ -21,7 +21,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { AgentEvent } from '@wso2/mi-core';
 import { logError, logInfo } from '../../copilot/logger';
-import { ANTHROPIC_SONNET_4_5, AnthropicModel, getAnthropicProvider } from '../../connection';
+import { ANTHROPIC_SONNET_4_6, AnthropicModel, getAnthropicProvider } from '../../connection';
 import { PendingPlanApproval } from './plan_mode_tools';
 import {
     ToolResult,
@@ -162,7 +162,7 @@ export function createWebSearchExecute(
             });
 
             const result = await generateText({
-                model: await getAnthropicClient(ANTHROPIC_SONNET_4_5),
+                model: await getAnthropicClient(ANTHROPIC_SONNET_4_6),
                 prompt: [
                     `Search query: ${args.query}`,
                     'Use the web_search tool and return concise findings with relevant source links.'
@@ -262,7 +262,7 @@ export function createWebFetchExecute(
             });
 
             const result = await generateText({
-                model: await getAnthropicClient(ANTHROPIC_SONNET_4_5),
+                model: await getAnthropicClient(ANTHROPIC_SONNET_4_6),
                 prompt: [
                     `URL: ${args.url}`,
                     `Task: ${args.prompt}`,

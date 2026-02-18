@@ -18,7 +18,7 @@
 
 import { generateText } from "ai";
 import * as Handlebars from "handlebars";
-import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from "../../connection";
+import { getAnthropicClient, ANTHROPIC_SONNET_4_6 } from "../../connection";
 import { DMC_TO_TS_SYSTEM_TEMPLATE } from "./system";
 import { DMC_TO_TS_PROMPT } from "./prompt";
 import { logInfo } from "../logger";
@@ -83,7 +83,7 @@ export async function dmcToTs(params: DmcToTsParams): Promise<DmcToTsResponse> {
         ts_file: params.tsFile
     });
 
-    const model = await getAnthropicClient(ANTHROPIC_SONNET_4_5);
+    const model = await getAnthropicClient(ANTHROPIC_SONNET_4_6);
 
     const { text } = await generateText({
         model: model,

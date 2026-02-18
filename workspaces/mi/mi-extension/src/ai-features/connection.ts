@@ -22,11 +22,13 @@ import { AI_EVENT_TYPE, LoginMethod } from "@wso2/mi-core";
 import { logInfo, logDebug, logError } from "./copilot/logger";
 
 export const ANTHROPIC_HAIKU_4_5 = "claude-haiku-4-5";
-export const ANTHROPIC_SONNET_4_5 = "claude-sonnet-4-5";
+export const ANTHROPIC_SONNET_4_6 = "claude-sonnet-4-6";
+// Backward-compatible alias for existing imports.
+export const ANTHROPIC_SONNET_4_5 = ANTHROPIC_SONNET_4_6;
 
 export type AnthropicModel =
     | typeof ANTHROPIC_HAIKU_4_5
-    | typeof ANTHROPIC_SONNET_4_5;
+    | typeof ANTHROPIC_SONNET_4_6;
 
 let cachedAnthropic: ReturnType<typeof createAnthropic> | null = null;
 let cachedAuthMethod: LoginMethod | null = null;
