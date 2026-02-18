@@ -259,7 +259,8 @@ function downloadFile(url, outputPath, maxRedirects = 5) {
             const req = https.request(requestUrl, {
                 headers: {
                     'User-Agent': 'Choreo-CLI-Downloader',
-                    'Accept': 'application/octet-stream'
+                    'Accept': 'application/octet-stream',
+                    ...getAuthHeaders()
                 }
             }, (res) => {
                 if (isRedirect(res.statusCode) && res.headers.location) {
