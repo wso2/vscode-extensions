@@ -354,10 +354,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
             // Listen for presence updates from OCT (cursor position, locks, etc.)
             unsubscribeOctPresence = rpcClient.onOctRerenderPresence((data: CollaborationPresenceData) => {
-                console.log(`[OCT Webview] ===== PRESENCE UPDATE RECEIVED =====`);
-                console.log(`[OCT Webview] Received presence update:`, JSON.stringify(data, null, 2));
-                console.log(`[OCT Webview] Current user ID: ${currentUserId}, Incoming peer ID: ${data.peerId}`);
-                console.log(`[OCT Webview] Has cursor data: ${!!data.cursor}`);
+                
                 if (data.cursor) {
                     console.log(`[OCT Webview] Cursor details:`, JSON.stringify(data.cursor, null, 2));
                 }
@@ -1176,29 +1173,16 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
     const updateCursorPosition = useMemo(() =>
         throttle((x: number, y: number, nodeId?: string) => {
-            console.log('[FlowDiagram] ==== CURSOR UPDATE TRIGGERED ====');
-            console.log('[FlowDiagram] updateCursorPosition called:', { x, y, nodeId, isCollaborationActive, fileName: model?.fileName });
             
             if (!model?.fileName || !isCollaborationActive) {
-                console.log('[FlowDiagram] ⚠️ Skipping cursor update - collaboration not active or no fileName', {
+                console.log('[FlowDiagram] Skipping cursor update - collaboration not active or no fileName', {
                     hasFileName: !!model?.fileName,
                     isCollaborationActive
                 });
                 return;
             }
-            
-            console.log('[FlowDiagram] ✅ Sending cursor position via OCT', { 
-                currentUserId, 
-                currentUserName,
-                cursorPosition: { x, y },
-                fileName: model?.fileName
-            });
         
             try {
-                // NOTE: Cursor coordinates (x, y) should ideally be in diagram-space coordinates
-                // (relative to the diagram canvas), not viewport coordinates, to ensure they
-                // render correctly across different zoom/pan states between collaborators.
-                // If positioning appears incorrect, verify the coordinate system being used.
                 const presenceData: CollaborationPresenceData = {
                     peerId: currentUserId,
                     peerName: currentUserName,
@@ -1221,12 +1205,10 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                             timestamp: lock.timestamp,
                         })),
                 };
-                
-                console.log('[FlowDiagram] 📤 Sending presence data:', JSON.stringify(presenceData, null, 2));
+                // Send the presence update  to the backend, which will broadcast it to other collaborators via OCT
                 rpcClient.sendRequest(updateWebviewCollaborationPresence, presenceData);
-                console.log('[FlowDiagram] ✅ Presence data sent successfully');
             } catch (error) {
-                console.error('[OCT] ❌ Failed to send presence update:', error);
+                console.error('[OCT] Failed to send presence update:', error);
             }
         }, 100), 
         [model?.fileName, isCollaborationActive, currentUserId, currentUserName, nodeLocks, rpcClient]

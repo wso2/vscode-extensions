@@ -93,7 +93,6 @@ const CursorLabel = styled.div<{ color: string }>`
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 `;
 
-// Default colors for users (Material Design palette)
 const USER_COLORS = [
     "#FF6B6B", // Red
     "#4ECDC4", // Teal
@@ -113,16 +112,6 @@ function getColorForUser(userId: string): string {
 
 export function RemoteCursors() {
     const { remoteCursors, currentUserId, isCollaborationActive, diagramEngine } = useDiagramContext();
-
-    console.log('[RemoteCursors] Render check:', {
-        isCollaborationActive,
-        remoteCursorsSize: remoteCursors?.size ?? 0,
-        currentUserId,
-        hasRemoteCursors: !!remoteCursors,
-        remoteCursorsType: typeof remoteCursors,
-        remoteCursorsKeys: remoteCursors ? Array.from(remoteCursors.keys()) : [],
-        hasDiagramEngine: !!diagramEngine,
-    });
 
     if (!isCollaborationActive) {
         console.log('[RemoteCursors] Collaboration not active');
