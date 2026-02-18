@@ -21,11 +21,12 @@ import { z } from 'zod';
 import { ToolResult } from './types';
 import { MiVisualizerRpcManager } from '../../../rpc-managers/mi-visualizer/rpc-manager';
 import { MILanguageClient } from '../../../lang-client/activator';
-import { getMIVersionFromPom } from '../../../util/onboardingUtils';
-import { APIS } from '../../../constants';
 import { DependencyDetails } from '@wso2/mi-core';
 import { logDebug, logError } from '../../copilot/logger';
 import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
+import { CONNECTOR_DB } from '../context/connector_db';
+import { INBOUND_DB } from '../context/inbound_db';
+import { getConnectorStoreCatalog, getRuntimeVersionFromPom } from './connector_store_cache';
 
 // ============================================================================
 // Execute Function Types
@@ -70,7 +71,7 @@ export function createManageConnectorExecute(
             await undoCheckpointManager?.captureBeforeChange('pom.xml');
 
             // Get MI runtime version from pom.xml
-            const runtimeVersion = await getMIVersionFromPom(projectPath);
+            const runtimeVersion = await getRuntimeVersionFromPom(projectPath);
             logDebug(`[${toolName}] Runtime version: ${runtimeVersion}`);
 
             // For add operation, get existing dependencies to check for duplicates
@@ -83,97 +84,40 @@ export function createManageConnectorExecute(
             }
 
             const results: Array<{ name: string; type: 'connector' | 'inbound'; success: boolean; alreadyAdded?: boolean; error?: string }> = [];
+            const { connectors, inbounds } = await getConnectorStoreCatalog(projectPath, CONNECTOR_DB, INBOUND_DB);
+            logDebug(`[${toolName}] Loaded connector catalog with ${connectors.length} connectors and ${inbounds.length} inbound endpoints`);
 
             // Process connectors if any
             if (connector_names.length > 0) {
-                // Fetch connector store data
-                const connectorStoreResponse = await fetch(
-                    APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? '')
-                );
-
-                if (!connectorStoreResponse.ok) {
-                    const errorMsg = `Failed to fetch connector store: ${connectorStoreResponse.status} ${connectorStoreResponse.statusText}`;
-                    logError(`[${toolName}] ${errorMsg}`);
-                    // Add failure for all connectors
-                    connector_names.forEach(name => {
-                        results.push({ name, type: 'connector', success: false, error: errorMsg });
-                    });
-                } else {
-                    const connectorStoreData = await connectorStoreResponse.json();
-
-                    if (!Array.isArray(connectorStoreData)) {
-                        logError(`[${toolName}] Connector store API did not return an array`, connectorStoreData);
-                        connector_names.forEach(name => {
-                            results.push({ name, type: 'connector', success: false, error: 'Invalid response from connector store API' });
-                        });
-                    } else {
-                        logDebug(`[${toolName}] Fetched ${connectorStoreData.length} connectors from store`);
-
-                        // Process each connector
-                        for (const connectorName of connector_names) {
-                            const result = await processItem(
-                                connectorName,
-                                'connector',
-                                connectorStoreData,
-                                existingDependencies,
-                                miVisualizerRpcManager,
-                                isAdd,
-                                operation,
-                                toolName
-                            );
-                            results.push(result);
-                        }
-                    }
+                for (const connectorName of connector_names) {
+                    const result = await processItem(
+                        connectorName,
+                        'connector',
+                        connectors,
+                        existingDependencies,
+                        miVisualizerRpcManager,
+                        isAdd,
+                        operation,
+                        toolName
+                    );
+                    results.push(result);
                 }
             }
 
             // Process inbound endpoints if any
             if (inbound_endpoint_names.length > 0) {
-                // Fetch inbound endpoint store data
-                const inboundStoreUrl = process.env.MI_CONNECTOR_STORE_BACKEND_INBOUND_ENDPOINTS;
-                if (!inboundStoreUrl) {
-                    logError(`[${toolName}] MI_CONNECTOR_STORE_BACKEND_INBOUND_ENDPOINTS environment variable not set`);
-                    inbound_endpoint_names.forEach(name => {
-                        results.push({ name, type: 'inbound', success: false, error: 'Inbound endpoint store URL not configured' });
-                    });
-                } else {
-                    const inboundStoreResponse = await fetch(
-                        inboundStoreUrl.replace('${version}', runtimeVersion ?? '')
+                for (const inboundName of inbound_endpoint_names) {
+                    const result = await processItem(
+                        inboundName,
+                        'inbound',
+                        inbounds,
+                        existingDependencies,
+                        miVisualizerRpcManager,
+                        isAdd,
+                        operation,
+                        toolName
                     );
-
-                    if (!inboundStoreResponse.ok) {
-                        const errorMsg = `Failed to fetch inbound endpoint store: ${inboundStoreResponse.status} ${inboundStoreResponse.statusText}`;
-                        logError(`[${toolName}] ${errorMsg}`);
-                        inbound_endpoint_names.forEach(name => {
-                            results.push({ name, type: 'inbound', success: false, error: errorMsg });
-                        });
-                    } else {
-                        const inboundStoreData = await inboundStoreResponse.json();
-
-                        if (!Array.isArray(inboundStoreData)) {
-                            logError(`[${toolName}] Inbound endpoint store API did not return an array`, inboundStoreData);
-                            inbound_endpoint_names.forEach(name => {
-                                results.push({ name, type: 'inbound', success: false, error: 'Invalid response from inbound endpoint store API' });
-                            });
-                        } else {
-                            logDebug(`[${toolName}] Fetched ${inboundStoreData.length} inbound endpoints from store`);
-
-                            // Process each inbound endpoint
-                            for (const inboundName of inbound_endpoint_names) {
-                                const result = await processItem(
-                                    inboundName,
-                                    'inbound',
-                                    inboundStoreData,
-                                    existingDependencies,
-                                    miVisualizerRpcManager,
-                                    isAdd,
-                                    operation,
-                                    toolName
-                                );
-                                results.push(result);
-                            }
-                        }
-                    }
+                    results.push(result);
                 }
             }
 
@@ -269,9 +213,19 @@ async function processItem(
     toolName: string
 ): Promise<{ name: string; type: 'connector' | 'inbound'; success: boolean; alreadyAdded?: boolean; error?: string }> {
     try {
-        // Match by connectorName field (case-insensitive)
+        const normalizedInput = normalizeConnectorIdentifier(itemName);
+
+        // Match by connectorName and artifact identifiers (case-insensitive)
         const item = storeData.find(
-            (c: any) => c.connectorName?.toLowerCase() === itemName.toLowerCase()
+            (c: any) => {
+                const connectorName = normalizeConnectorIdentifier(c?.connectorName);
+                const artifactId = normalizeConnectorIdentifier(c?.mavenArtifactId);
+                const artifactShortName = normalizeConnectorIdentifier(stripConnectorPrefix(c?.mavenArtifactId));
+
+                return normalizedInput === connectorName ||
+                    normalizedInput === artifactId ||
+                    normalizedInput === artifactShortName;
+            }
         );
 
         if (!item) {
@@ -336,6 +290,22 @@ async function processItem(
             error: error instanceof Error ? error.message : String(error)
         };
     }
+}
+
+function stripConnectorPrefix(value: unknown): string {
+    if (typeof value !== 'string') {
+        return '';
+    }
+
+    return value.replace(/^mi-(connector|module)-/i, '');
+}
+
+function normalizeConnectorIdentifier(value: unknown): string {
+    if (typeof value !== 'string') {
+        return '';
+    }
+
+    return value.trim().toLowerCase();
 }
 
 

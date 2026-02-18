@@ -166,7 +166,9 @@ export function createConnectorExecute(projectPath: string): ConnectorExecuteFn 
             message += `Found ${connectorsFound} connector(s):\n`;
             Object.entries(connectorDefinitions).forEach(([name, def]: [string, any]) => {
                 const versionTag = def?.version?.tagName || 'unknown';
-                const operations = Array.isArray(def?.version?.operations) ? def.version.operations : [];
+                const operations = Array.isArray(def?.version?.operations)
+                    ? def.version.operations
+                    : (Array.isArray(def?.operations) ? def.operations : []);
                 message += `\n### ${name}\n`;
                 message += `- Description: ${def.description}\n`;
                 message += `- Maven: ${def.mavenGroupId}:${def.mavenArtifactId}\n`;

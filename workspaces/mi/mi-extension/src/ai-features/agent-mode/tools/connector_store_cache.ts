@@ -24,6 +24,7 @@ import { logDebug, logError, logInfo } from '../../copilot/logger';
 import { getCopilotProjectStorageDir } from '../storage-paths';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const STORE_FETCH_TIMEOUT_MS = 5000;
 const CONNECTOR_CACHE_FILE_NAME = 'connector-store-connectors.json';
 const INBOUND_CACHE_FILE_NAME = 'connector-store-inbounds.json';
 
@@ -151,9 +152,42 @@ function resolveStoreUrl(urlTemplate: string, runtimeVersion: string | null): st
     return urlTemplate.replace('${version}', runtimeVersion ?? '');
 }
 
-async function fetchStoreItems(urlTemplate: string, runtimeVersion: string | null): Promise<any[]> {
-    const storeUrl = resolveStoreUrl(urlTemplate, runtimeVersion);
-    const response = await fetch(storeUrl);
+function enhanceStoreUrl(rawUrl: string, label: LoadStoreItemsParams['label']): string {
+    try {
+        const url = new URL(rawUrl);
+
+        // Connector store returns operation/parameter fields only when params=True.
+        url.searchParams.set('params', 'True');
+
+        // Backend expects this casing for inbound type values.
+        if (label === 'inbound endpoints') {
+            const typeValue = url.searchParams.get('type');
+            if (typeValue && typeValue.toLowerCase() === 'inbound') {
+                url.searchParams.set('type', 'Inbound');
+            }
+        }
+
+        return url.toString();
+    } catch {
+        return rawUrl;
+    }
+}
+
+async function fetchStoreItems(
+    urlTemplate: string,
+    runtimeVersion: string | null,
+    label: LoadStoreItemsParams['label']
+): Promise<any[]> {
+    const resolvedUrl = resolveStoreUrl(urlTemplate, runtimeVersion);
+    const storeUrl = enhanceStoreUrl(resolvedUrl, label);
+    const controller = new AbortController();
+    const timeoutHandle = setTimeout(() => controller.abort(), STORE_FETCH_TIMEOUT_MS);
+    let response: Response;
+    try {
+        response = await fetch(storeUrl, { signal: controller.signal });
+    } finally {
+        clearTimeout(timeoutHandle);
+    }
 
     if (!response.ok) {
         throw new Error(`HTTP ${response.status} ${response.statusText}`);
@@ -190,13 +224,29 @@ async function loadStoreItems(params: LoadStoreItemsParams): Promise<any[]> {
         return fallbackItems;
     }
 
+    if (runtimeVersion === null) {
+        if (cached?.items.length) {
+            logInfo(`[ConnectorStoreCache] Runtime version unavailable. Using cached ${label}.`);
+            return cached.items;
+        }
+        logInfo(`[ConnectorStoreCache] Runtime version unavailable. Using static fallback ${label}.`);
+        return fallbackItems;
+    }
+
     try {
-        const storeItems = await fetchStoreItems(urlTemplate, runtimeVersion);
+        const storeItems = await fetchStoreItems(urlTemplate, runtimeVersion, label);
         await writeCacheFile(cachePath, runtimeVersion, storeItems);
         logDebug(`[ConnectorStoreCache] Refreshed ${label} cache with ${storeItems.length} item(s)`);
         return storeItems;
     } catch (error) {
-        logError(`[ConnectorStoreCache] Failed to refresh ${label} from store`, error);
+        if (error instanceof Error && error.name === 'AbortError') {
+            logError(
+                `[ConnectorStoreCache] Timed out fetching ${label} from store after ${STORE_FETCH_TIMEOUT_MS}ms`,
+                error
+            );
+        } else {
+            logError(`[ConnectorStoreCache] Failed to refresh ${label} from store`, error);
+        }
 
         if (cached?.items.length && isCacheForRuntime(cached, runtimeVersion)) {
             logInfo(`[ConnectorStoreCache] Using stale cached ${label} due to refresh failure.`);
