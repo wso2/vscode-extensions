@@ -355,6 +355,74 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	// Register command to open from Hurl (paste Hurl content or request)
+	const openFromHurlCommand = vscode.commands.registerCommand('api-tryit.openFromHurl', async (hurlString?: string) => {
+		try {
+			// Prompt user if no value provided
+			if (!hurlString || typeof hurlString !== 'string') {
+				hurlString = await vscode.window.showInputBox({
+					prompt: 'Paste your Hurl request or file contents',
+					placeHolder: 'GET https://api.example.com/path\nHTTP 200\n[Asserts]\nstatus == 200',
+					title: 'Import from Hurl'
+				});
+
+				if (!hurlString) {
+					return; // User cancelled
+				}
+			}
+
+			// Use the hurl converter utility
+			const { hurlToApiRequestItem } = await import('./util');
+
+			let normalized = hurlString.trim();
+
+			// If user pasted escaped newlines (e.g. "\n"), convert them to real newlines
+			if (normalized.includes('\\n')) {
+				normalized = normalized.replace(/\\n/g, '\n');
+			}
+
+			// If user provided a path to a .hurl file, read its contents
+			try {
+				if (normalized.endsWith('.hurl') && await fs.access(normalized).then(() => true).catch(() => false)) {
+					normalized = await fs.readFile(normalized, 'utf-8');
+				}
+			} catch {
+				// ignore - we'll try to parse the original string below
+			}
+
+			let requestItem;
+			try {
+				requestItem = hurlToApiRequestItem(normalized);
+			} catch (err: unknown) {
+				// Provide a more actionable error message for common mistakes
+				const msg = err instanceof Error ? err.message : 'Invalid Hurl content';
+				vscode.window.showErrorMessage(`${msg}. Tip: paste full Hurl content (multiline) or select a .hurl file.`);
+				return;
+			}
+
+			if (!requestItem || !requestItem.request.url) {
+				vscode.window.showErrorMessage('Could not parse Hurl content. Please check the format and try again.');
+				return;
+			}
+
+			// Reveal panel and load the request
+			try {
+				await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
+				await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
+			} catch {
+				// ignore
+			}
+
+			TryItPanel.show(context);
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, requestItem, undefined);
+			TryItPanel.postMessage('apiRequestItemSelected', requestItem);
+			vscode.window.showInformationMessage(`Loaded: ${requestItem.request.method} ${requestItem.request.url}`);
+		} catch (err: unknown) {
+			const msg = err instanceof Error ? err.message : 'Unknown error';
+			vscode.window.showErrorMessage(`Failed to import Hurl: ${msg}`);
+		}
+	});
+
 	// Register command for new collection — use state machine to navigate to collection form
 	const newCollectionCommand = vscode.commands.registerCommand('api-tryit.newCollection', () => {
 		// Ensure TryIt panel is visible
@@ -670,6 +738,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		selectItemByPathCommand,
 		newRequestCommand,
 		openFromCurlCommand,
+		openFromHurlCommand,
 		newCollectionCommand,
 		importCollectionCommand,
 		importCollectionPayloadCommand,

@@ -189,7 +189,21 @@ export class TryItPanel {
 							vscode.window.showErrorMessage(`Failed to process curl command: ${errorMsg}`);
 						}
 						break;
-					case 'sendHttpRequest':
+					case 'openFromHurl':
+						// Handle Hurl content -> ApiRequestItem conversion
+						try {
+							const { hurl } = message.data || {};
+							if (!hurl) {
+								vscode.window.showErrorMessage('No Hurl content provided');
+								break;
+							}
+							vscode.commands.executeCommand('api-tryit.openFromHurl', hurl);
+						} catch (error: unknown) {
+							const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+							vscode.window.showErrorMessage(`Failed to process Hurl content: ${errorMsg}`);
+						}
+						break;
+				case 'sendHttpRequest':
 						// Handle HTTP request sent from webview
 						try {
 							const { requestId, data } = message;
