@@ -22,8 +22,8 @@
   },
   "dependencies": {
     "@emotion/css": "11.10.5",
-    "@emotion/react": "11.9.3",
-    "@emotion/styled": "11.10.5",
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.0",
     "@headlessui/react": "1.7.18",
     "@monaco-editor/react": "4.7.0",
     "@projectstorm/geometry": "6.7.4",
