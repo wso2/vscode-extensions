@@ -51,7 +51,7 @@ const KeyCell = styled(TableCell)`
     opacity: 1;
     white-space: nowrap;
     width: 200px;
-    max-width: 200px;
+    max-width: 250px;
     border-right: 2px solid var(--vscode-panel-border);
     // background-color: var(--vscode-tab-inactiveBackground, rgba(255, 255, 255, 0.02));
     // color: var(--vscode-textLink-foreground, #569cd6);

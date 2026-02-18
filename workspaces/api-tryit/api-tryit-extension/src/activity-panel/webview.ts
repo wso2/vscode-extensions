@@ -312,8 +312,8 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			// Send event to state machine to create a new request in this collection
 			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionPath);
 
-			// Deselect any currently-selected request so the UI behaves like the "New Request" button
-			await vscode.commands.executeCommand('api-tryit.clearSelection');
+			// Note: NOT calling clearSelection here to preserve the collection context for save
+			// The empty request will be created and selected below
 
 			// Also create and select an empty request immediately so the TryIt panel shows it without waiting for the state machine debounce
 			const emptyRequestItem: ApiRequestItem = {
@@ -452,8 +452,8 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			// Send event to state machine to create a new request in this folder
 			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, folderPath);
 
-			// Deselect any currently-selected request so the UI behaves like the "New Request" button
-			await vscode.commands.executeCommand('api-tryit.clearSelection');
+			// Note: NOT calling clearSelection here to preserve the collection context for save
+			// The empty request will be created and selected below
 
 			// Also create and select an empty request immediately so the TryIt panel shows it without waiting for the state machine debounce
 			const emptyRequestItem: ApiRequestItem = {
@@ -581,6 +581,11 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				ApiTryItStateMachine.sendEvent(EVENT_TYPE.CLEAR_COLLECTION_CONTEXT, undefined, collectionPath);
 			} catch {
 				// non-fatal
+			}
+
+			// Remove collection from provider immediately (before reload) to prevent stale in-memory persistence
+			if (this._apiExplorerProvider) {
+				this._apiExplorerProvider.removeCollectionById(collectionId);
 			}
 
 			// Reload collections from disk to ensure fresh data
