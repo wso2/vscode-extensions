@@ -41,7 +41,7 @@
                 "${workspaceFolder}/workspaces/ballerina/ballerina-extension/dist/**/*.js",
                 "${workspaceFolder}/workspaces/bi/bi-extension/out/**/*.js"
             ],
-            "preLaunchTask": "watch-all",
+            "preLaunchTask": "watch-ballerina-bi",
             "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
         },
          {
@@ -69,7 +69,7 @@
                 "${workspaceFolder}/workspaces/bi/bi-extension/out/**/*.js",
                 "${workspaceFolder}/workspaces/wso2-platform/wso2-platform-extension/dist/**/*.js",
             ],
-            "preLaunchTask": "watch-all",
+            "preLaunchTask": "watch-ballerina-bi-platform",
             "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
         },
         {
