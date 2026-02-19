@@ -100,6 +100,23 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             const lines = txt.split('\n').map(l => l.trim()).filter(Boolean);
             const params: any[] = [];
             for (const line of lines) {
+                // Ignore section markers if user pastes raw Hurl sections
+                if (/^\[(?:FormData|Multipart|FormUrlEncoded)\]/i.test(line)) {
+                    continue;
+                }
+
+                // key: file,filepath; contentType (Hurl multipart file syntax)
+                const hurlFile = line.match(/^([^:]+):\s*file,([^;]+);(?:\s*(.+))?$/i);
+                if (hurlFile) {
+                    params.push({
+                        id: `f-${Date.now().toString(36)}`,
+                        key: hurlFile[1].trim(),
+                        filePath: hurlFile[2].trim(),
+                        contentType: hurlFile[3]?.trim() || 'application/octet-stream'
+                    });
+                    continue;
+                }
+
                 // key: @file: contentType
                 const fileAt = line.match(/^([^:]+):\s*@file:\s*(.+)$/i);
                 if (fileAt) {
@@ -137,6 +154,10 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             const lines = txt.split('\n').map(l => l.trim()).filter(Boolean);
             const params: any[] = [];
             for (const line of lines) {
+                // Ignore section marker if user pastes raw Hurl sections
+                if (/^\[(?:FormUrlEncoded|FormData|Multipart)\]/i.test(line)) {
+                    continue;
+                }
                 // key: value  OR key=value
                 const m = line.match(/^([^:=]+)[:=]\s*(.*)$/);
                 if (m) {
@@ -164,6 +185,23 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
     const handleFormatChange = (format: BodyFormat) => {
         onFormatChange(format);
         setBodyFormatOpen(false);
+    };
+
+    const getBodyEditorValue = () => {
+        const body = request.body || '';
+        if (bodyFormat === 'form-data') {
+            return body
+                .split('\n')
+                .filter(line => !/^\s*\[(?:FormData|Multipart)\]\s*$/i.test(line))
+                .join('\n');
+        }
+        if (bodyFormat === 'form-urlencoded') {
+            return body
+                .split('\n')
+                .filter(line => !/^\s*\[FormUrlEncoded\]\s*$/i.test(line))
+                .join('\n');
+        }
+        return body;
     };
 
     // Code lenses (ported from `Input.tsx`)
@@ -443,7 +481,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                         key={`body-editor-${bodyFormat}`}
                         minHeight='calc((100vh - 420px) / 3)'
                         onChange={handleBodyChange}
-                        value={request.body || ''}
+                        value={getBodyEditorValue()}
                         codeLenses={bodyCodeLenses}
                         suggestions={{ bodySnippets: COMMON_BODY_SNIPPETS }}
                         bodyFormat={bodyFormat}

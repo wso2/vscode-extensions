@@ -407,6 +407,8 @@ export class HurlFormatAdapter {
 				let currentSection: string | null = null;
 				const formData: FormDataParameter[] = [];
 				const urlEncoded: any[] = [];
+				const formDataBodyLines: string[] = [];
+				const urlEncodedBodyLines: string[] = [];
 				for (const rawLine of lines) {
 					const line = rawLine.trim();
 					if (!line) continue;
@@ -417,6 +419,7 @@ export class HurlFormatAdapter {
 					if (!currentSection) continue;
 
 					if (currentSection === 'form-data') {
+						formDataBodyLines.push(line);
 						// Parse form-data lines in Hurl [Multipart] format:
 						// key: value                                (simple value)
 						// key: file,filepath;                      (file reference)
@@ -435,6 +438,7 @@ export class HurlFormatAdapter {
 							pushFormParam(formData, kv[1].trim(), kv[2].trim());
 						}
 					} else if (currentSection === 'form-urlencoded') {
+						urlEncodedBodyLines.push(line);
 						const m = line.match(/^([^=]+)=(.*)$/);
 						if (m) {
 							urlEncoded.push({ id: `fue-${Math.random().toString(36).substring(2,9)}`, key: decodeURIComponent(m[1]), value: decodeURIComponent(m[2] || '') });
@@ -444,16 +448,19 @@ export class HurlFormatAdapter {
 
 				if (formData.length) {
 					request.bodyFormData = formData as unknown as FormDataParameter[];
-					// Keep original section text as body fallback for downstream hydration
-					request.body = bodyText;
 				}
 				if (urlEncoded.length) {
 					request.bodyFormUrlEncoded = urlEncoded as any;
-					// Keep original section text as body fallback for downstream hydration
-					request.body = bodyText;
 				}
-				// Only keep original body text if no sections were parsed
-				if (!formData.length && !urlEncoded.length) {
+				// Populate UI body without section markers like [Multipart]/[FormData]/[FormUrlEncoded].
+				// Keep raw body only when no structured sections were parsed.
+				if (formData.length && !urlEncoded.length) {
+					request.body = formDataBodyLines.join('\n');
+				} else if (urlEncoded.length && !formData.length) {
+					request.body = urlEncodedBodyLines.join('\n');
+				} else if (formData.length && urlEncoded.length) {
+					request.body = [...formDataBodyLines, ...urlEncodedBodyLines].join('\n');
+				} else {
 					request.body = bodyText;
 				}
 			} else if (/^--[\S]+/m.test(bodyText)) {
