@@ -93,7 +93,72 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
     };
 
     const handleBodyChange = (value: string | undefined) => {
-        onRequestChange?.({ ...request, body: value || '' });
+        const text = value || '';
+
+        // Helper to parse simple editor-format form-data lines into structured params
+        const parseFormDataFromText = (txt: string) => {
+            const lines = txt.split('\n').map(l => l.trim()).filter(Boolean);
+            const params: any[] = [];
+            for (const line of lines) {
+                // key: @file: contentType
+                const fileAt = line.match(/^([^:]+):\s*@file:\s*(.+)$/i);
+                if (fileAt) {
+                    params.push({ id: `f-${Date.now().toString(36)}`, key: fileAt[1].trim(), filePath: undefined, contentType: fileAt[2].trim() });
+                    continue;
+                }
+
+                // key: filename: contentType  (file with content type)
+                // Detect files by checking if value contains a dot (file extension)
+                const kvct = line.match(/^([^:]+):\s*([^:]+):\s*(.+)$/);
+                if (kvct) {
+                    const filename = kvct[2].trim();
+                    const contentType = kvct[3].trim();
+                    // If it looks like a filename (contains dot), treat as file
+                    if (filename.includes('.')) {
+                        params.push({ id: `f-${Date.now().toString(36)}`, key: kvct[1].trim(), filePath: filename, contentType });
+                    } else {
+                        // Otherwise treat as value with content type
+                        params.push({ id: `f-${Date.now().toString(36)}`, key: kvct[1].trim(), value: filename, contentType });
+                    }
+                    continue;
+                }
+
+                // key: value
+                const kv = line.match(/^([^:]+):\s*(.+)$/);
+                if (kv) {
+                    params.push({ id: `f-${Date.now().toString(36)}`, key: kv[1].trim(), value: kv[2].trim() });
+                    continue;
+                }
+            }
+            return params;
+        };
+
+        const parseFormUrlEncodedFromText = (txt: string) => {
+            const lines = txt.split('\n').map(l => l.trim()).filter(Boolean);
+            const params: any[] = [];
+            for (const line of lines) {
+                // key: value  OR key=value
+                const m = line.match(/^([^:=]+)[:=]\s*(.*)$/);
+                if (m) {
+                    params.push({ id: `fue-${Date.now().toString(36)}`, key: m[1].trim(), value: m[2].trim() });
+                }
+            }
+            return params;
+        };
+
+        if (bodyFormat === 'form-data') {
+            const parsed = parseFormDataFromText(text);
+            onRequestChange?.({ ...request, body: text, bodyFormData: parsed });
+            return;
+        }
+
+        if (bodyFormat === 'form-urlencoded') {
+            const parsed = parseFormUrlEncodedFromText(text);
+            onRequestChange?.({ ...request, body: text, bodyFormUrlEncoded: parsed });
+            return;
+        }
+
+        onRequestChange?.({ ...request, body: text });
     };
 
     const handleFormatChange = (format: BodyFormat) => {
@@ -214,7 +279,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                         }, 0);
                     } else if (bodyFormat === 'form-data') {
                         const currentValue = model.getValue();
-                        const newValue = currentValue ? currentValue + '\nkey: value: application/octet-stream' : 'key: value: application/octet-stream';
+                        const newValue = currentValue ? currentValue + '\nkey: value' : 'key: value';
 
                         editor.executeEdits('add-parameter', [{
                             range: model.getFullModelRange(),

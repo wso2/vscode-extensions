@@ -160,11 +160,7 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                 API_ITEM_SELECTED: {
                     target: 'itemSelected',
                     actions: assign({
-                        selectedItem: (context: ApiTryItContext, event: ApiItemSelectedEvent) => {
-                            // Check if we have a saved version of this item
-                            const savedItem = context.savedItems.get(event.data.id);
-                            return savedItem || event.data;
-                        },
+                        selectedItem: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.data,
                         selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data?.filePath,
                         currentCollectionPath: (context: ApiTryItContext, event: ApiItemSelectedEvent) => {
                             const selectedPath = event.filePath || event.data?.filePath;
@@ -190,11 +186,7 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                 API_ITEM_SELECTED: {
                     target: 'itemSelected',
                     actions: assign({
-                        selectedItem: (context: ApiTryItContext, event: ApiItemSelectedEvent) => {
-                            // Check if we have a saved version of this item
-                            const savedItem = context.savedItems.get(event.data.id);
-                            return savedItem || event.data;
-                        },
+                        selectedItem: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.data,
                         selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data?.filePath,
                         currentCollectionPath: (context: ApiTryItContext, event: ApiItemSelectedEvent) => {
                             const selectedPath = event.filePath || event.data?.filePath;

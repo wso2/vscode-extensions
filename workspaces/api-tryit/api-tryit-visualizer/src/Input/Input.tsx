@@ -56,6 +56,79 @@ export const Input: React.FC<InputProps> = ({
     const outputRef = React.useRef<HTMLDivElement>(null);
     const containerRef = React.useRef<HTMLDivElement>(null);
 
+    // Fallback: if a selected request has [Multipart] body text but missing structured params,
+    // parse and hydrate `bodyFormData` so Form view can populate rows.
+    React.useEffect(() => {
+        if (!onRequestChange) return;
+        if (request.bodyFormData && request.bodyFormData.length > 0) return;
+        if (!request.body || !/^\[(?:FormData|Multipart)\]/im.test(request.body)) return;
+
+        const lines = request.body.split('\n');
+        let inFormSection = false;
+        const parsed: any[] = [];
+
+        for (const raw of lines) {
+            const line = raw.trim();
+            if (!line || line.startsWith('#')) continue;
+
+            if (/^\[(?:FormData|Multipart)\]/i.test(line)) {
+                inFormSection = true;
+                continue;
+            }
+            if (/^\[/.test(line) && inFormSection) {
+                break;
+            }
+            if (!inFormSection) continue;
+
+            const fileMatch = line.match(/^([^:]+):\s*file,([^;]+);(?:\s*(.+))?$/i);
+            if (fileMatch) {
+                parsed.push({
+                    id: `form-${Math.random().toString(36).substring(2, 9)}`,
+                    key: fileMatch[1].trim(),
+                    filePath: fileMatch[2].trim(),
+                    contentType: fileMatch[3]?.trim() || 'application/octet-stream'
+                });
+                continue;
+            }
+
+            const kv = line.match(/^([^:]+):\s*(.+)$/);
+            if (kv) {
+                parsed.push({
+                    id: `form-${Math.random().toString(36).substring(2, 9)}`,
+                    key: kv[1].trim(),
+                    value: kv[2].trim(),
+                    contentType: ''
+                });
+            }
+        }
+
+        if (parsed.length > 0) {
+            onRequestChange({
+                ...request,
+                bodyFormData: parsed
+            });
+        }
+    }, [request, onRequestChange]);
+
+    // Auto-detect body format from request
+    React.useEffect(() => {
+        if (request.bodyFormData && request.bodyFormData.length > 0) {
+            setBodyFormat('form-data');
+        } else if (request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) {
+            setBodyFormat('form-urlencoded');
+        } else if (request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0) {
+            setBodyFormat('binary');
+        } else if (!request.body) {
+            setBodyFormat('no-body');
+        } else if (request.body.trim().startsWith('{') || request.body.trim().startsWith('[')) {
+            setBodyFormat('json');
+        } else if (request.body.trim().startsWith('<')) {
+            setBodyFormat('xml');
+        } else {
+            setBodyFormat('text');
+        }
+    }, [request.bodyFormData, request.bodyFormUrlEncoded, request.bodyBinaryFiles, request.body]);
+
     // Only scroll when parent explicitly requests it (bringOutputCounter increments).
     // Use a pending mechanism so if the trigger happens before the response arrives we still scroll when it does.
     const lastBringCounterRef = React.useRef<number>(bringOutputCounter ?? 0);

@@ -55,39 +55,81 @@ export class HurlFormatAdapter {
 		// Add request line with URL
 		hurl += `${request.method} ${fullUrl}\n`;
 
-		// Add headers
+		// Detect form-data early (before headers)
+		let formDataParams = request.bodyFormData && request.bodyFormData.length > 0 ? request.bodyFormData : undefined;
+		if (!formDataParams && request.body && typeof request.body === 'string') {
+			const raw = request.body.trim();
+			const looksLikeFormData = /(^@file:)|(^[^\s:{\[]+\s*:\s*[^\n]+)/m.test(raw) && !/^\s*\{/.test(raw) && !/^\s*\[/.test(raw) && !/^\s*</.test(raw);
+			if (looksLikeFormData) {
+				const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+				const parsed: any[] = [];
+				for (const line of lines) {
+					// key: @file: contentType
+					const fileAt = line.match(/^([^:]+):\s*@file:\s*(.+)$/i);
+					if (fileAt) {
+						parsed.push({ id: `f-${Math.random().toString(36).substring(2,9)}`, key: fileAt[1].trim(), filePath: undefined, contentType: fileAt[2].trim() });
+						continue;
+					}
+
+					// key: value: contentType
+					const kvct = line.match(/^([^:]+):\s*([^:]+):\s*(.+)$/);
+					if (kvct) {
+						parsed.push({ id: `f-${Math.random().toString(36).substring(2,9)}`, key: kvct[1].trim(), value: kvct[2].trim(), contentType: kvct[3].trim() });
+						continue;
+					}
+
+					// key: value
+					const kv = line.match(/^([^:]+):\s*(.+)$/);
+					if (kv) {
+						parsed.push({ id: `f-${Math.random().toString(36).substring(2,9)}`, key: kv[1].trim(), value: kv[2].trim() });
+						continue;
+					}
+				}
+				if (parsed.length) formDataParams = parsed as unknown as FormDataParameter[];
+			}
+		}
+
+		// Add headers (skip Content-Type if we have multipart form data)
 		if (request.headers && request.headers.length > 0) {
 			for (const header of request.headers) {
+				// Skip Content-Type header if we have form-data (Hurl handles it automatically)
+				if (formDataParams && /^content-type$/i.test(header.key)) {
+					continue;
+				}
 				if (header.key && header.value) {
 					hurl += `${header.key}: ${header.value}\n`;
 				}
 			}
 		}
 
-		// Add blank line before body
 		const hasBody = request.body ||
-			(request.bodyFormData && request.bodyFormData.length > 0) ||
+			(formDataParams && formDataParams.length > 0) ||
 			(request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) ||
 			(request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0);
 
 		if (hasBody) {
 			hurl += '\n';
 
-			// Handle raw body
-			if (request.body) {
+			// If bodyText was editor-style form-data we do NOT append raw request.body here
+			// the multipart body will be emitted below from `formDataParams`.
+			if (request.body && !(formDataParams && formDataParams.length > 0)) {
 				hurl += request.body;
 				if (!request.body.endsWith('\n')) {
 					hurl += '\n';
 				}
 			}
 
-			// Handle form data
-			if (request.bodyFormData && request.bodyFormData.length > 0) {
-				for (const param of request.bodyFormData) {
+			// Serialize multipart/form-data in Hurl [Multipart] section format
+			if (formDataParams && formDataParams.length > 0) {
+				hurl += '[Multipart]\n';
+				for (const param of formDataParams) {
 					if (param.filePath) {
-						hurl += `[FormData]\n${param.key}: file,${param.filePath}\n`;
-					} else if (param.value) {
-						hurl += `[FormData]\n${param.key}: ${param.value}\n`;
+						// File reference: key: file,filepath; contentType
+						const contentType = param.contentType ? `; ${param.contentType}` : ';';
+						hurl += `${param.key}: file,${param.filePath}${contentType}\n`;
+					} else {
+						// Simple key: value
+						hurl += `${param.key}: ${param.value || ''}\n`;
 					}
 				}
 			}
@@ -120,7 +162,7 @@ export class HurlFormatAdapter {
 		const httpAssertions = (assertions || [])
 			.map(a => a.trim())
 			.filter(a => /^HTTP\s+/i.test(a));
-		
+
 		const operatorlessStatusAssertions = (assertions || [])
 			.map(a => a.trim())
 			.filter(a => /^status\s+/i.test(a) && !/^status\s+(==|!=|>|<|>=|<=)/.test(a))
@@ -332,7 +374,13 @@ export class HurlFormatAdapter {
 				continue;
 			}
 
-			// Stop at other sections
+			// Body sections like [Multipart], [FormData], [FormUrlEncoded] are part of body content
+			if (/^\[(?:FormData|Multipart|FormUrlEncoded)\]/i.test(trimmed)) {
+				body += line + '\n';
+				continue;
+			}
+
+			// Stop at other unknown sections
 			if (trimmed.startsWith('[')) {
 				break;
 			}
@@ -349,9 +397,156 @@ export class HurlFormatAdapter {
 			}
 		}
 
-		// Set body if present
-		if (body.trim()) {
-			request.body = body.trim();
+		// Parse body and special sections (FormData, FormUrlEncoded, multipart, legacy shorthands)
+		const bodyText = body.trim();
+		if (bodyText) {
+			// Helper: push a form-data param
+			const pushFormParam = (arr: any[], key: string, value?: string, filePath?: string, contentType?: string) => {
+				arr.push({ id: `form-${Math.random().toString(36).substring(2, 9)}`, key: (key || '').toString(), value: value || undefined, filePath: filePath || undefined, contentType: contentType || undefined });
+			};
+
+			// 1) If body contains explicit [FormData] or [FormUrlEncoded] sections — parse them first
+			if (/^\[(?:FormData|Multipart|FormUrlEncoded)\]/im.test(bodyText)) {
+				const lines = bodyText.split('\n');
+				let currentSection: string | null = null;
+				const formData: FormDataParameter[] = [];
+				const urlEncoded: any[] = [];
+				for (const rawLine of lines) {
+					const line = rawLine.trim();
+					if (!line) continue;
+					if (line.startsWith('#')) continue;
+					// Accept both [FormData] and shorthand [Multipart] as equivalent sections
+					if (/^\[(?:FormData|Multipart)\]/i.test(line)) { currentSection = 'form-data'; continue; }
+					if (/^\[FormUrlEncoded\]/i.test(line)) { currentSection = 'form-urlencoded'; continue; }
+					if (!currentSection) continue;
+
+					if (currentSection === 'form-data') {
+						// Parse form-data lines in Hurl [Multipart] format:
+						// key: value                                (simple value)
+						// key: file,filepath;                      (file reference)
+						// key: file,filepath; contentType          (file with content type)
+						const fileMatch = line.match(/^([^:]+):\s*file,([^;]+);(?:\s*(.+))?$/i);
+						const kv = line.match(/^([^:]+):\s*(.+)$/i);
+						
+						if (fileMatch) {
+							// key: file,filepath; [contentType]
+							const key = fileMatch[1].trim();
+							const filePath = fileMatch[2].trim();
+							const contentType = fileMatch[3]?.trim();
+							pushFormParam(formData, key, undefined, filePath, contentType);
+						} else if (kv) {
+							// key: value
+							pushFormParam(formData, kv[1].trim(), kv[2].trim());
+						}
+					} else if (currentSection === 'form-urlencoded') {
+						const m = line.match(/^([^=]+)=(.*)$/);
+						if (m) {
+							urlEncoded.push({ id: `fue-${Math.random().toString(36).substring(2,9)}`, key: decodeURIComponent(m[1]), value: decodeURIComponent(m[2] || '') });
+						}
+					}
+				}
+
+				if (formData.length) {
+					request.bodyFormData = formData as unknown as FormDataParameter[];
+					// Keep original section text as body fallback for downstream hydration
+					request.body = bodyText;
+				}
+				if (urlEncoded.length) {
+					request.bodyFormUrlEncoded = urlEncoded as any;
+					// Keep original section text as body fallback for downstream hydration
+					request.body = bodyText;
+				}
+				// Only keep original body text if no sections were parsed
+				if (!formData.length && !urlEncoded.length) {
+					request.body = bodyText;
+				}
+			} else if (/^--[\S]+/m.test(bodyText)) {
+				// 2) RFC multipart body parsing (detect boundary via header or first --boundary line)
+				let boundary: string | null = null;
+				// Try to read from Content-Type header
+				const ctHeader = (request.headers || []).find(h => /^content-type$/i.test(h.key));
+				if (ctHeader) {
+					const bmatch = ctHeader.value.match(/boundary=(?:"?)([^";]+)/i);
+					if (bmatch) boundary = bmatch[1];
+				}
+				// Fallback: take first line that starts with --
+				if (!boundary) {
+					const firstBoundaryLine = bodyText.split('\n').find(l => l.trim().startsWith('--'));
+					if (firstBoundaryLine) boundary = firstBoundaryLine.trim().replace(/^--/, '').replace(/--$/, '');
+				}
+
+				if (boundary) {
+					const parts = bodyText.split(new RegExp(`--${boundary}(?:--)?\\r?\\n`));
+					const parsedParts: FormDataParameter[] = [];
+					for (const rawPart of parts) {
+						if (!rawPart || /^\s*$/.test(rawPart)) continue;
+						// Each part contains headers then a blank line then content
+						const [rawHeaders, ...rest] = rawPart.split(/\r?\n\r?\n/);
+						if (!rawHeaders) continue;
+						const headerLines = rawHeaders.split(/\r?\n/).map(h => h.trim()).filter(Boolean);
+						let name: string | undefined;
+						let filename: string | undefined;
+						let pContentType: string | undefined;
+						for (const hl of headerLines) {
+							const hm = hl.match(/^Content-Disposition:\s*form-data;\s*(.*)$/i);
+							if (hm) {
+								const attrs = hm[1];
+								const nMatch = attrs.match(/name=\"([^\"]+)\"/);
+								const fMatch = attrs.match(/filename=\"([^\"]+)\"/);
+								if (nMatch) name = nMatch[1];
+								if (fMatch) filename = fMatch[1];
+							}
+							const ctm = hl.match(/^Content-Type:\s*(.+)$/i);
+							if (ctm) pContentType = ctm[1].trim();
+						}
+						const content = rest.join('\n\n').trim();
+						// If content references a file with leading '<', treat it as filePath
+						const fileRefMatch = content.match(/^<\s*(.+)$/m);
+						if (fileRefMatch || filename) {
+							const filePath = fileRefMatch ? fileRefMatch[1].trim() : undefined;
+							parsedParts.push({ id: `form-${Math.random().toString(36).substring(2,9)}`, key: name || filename || 'file', filePath: filePath || undefined, contentType: pContentType || undefined } as unknown as FormDataParameter);
+						} else {
+							parsedParts.push({ id: `form-${Math.random().toString(36).substring(2,9)}`, key: name || 'field', value: content, contentType: pContentType || undefined } as unknown as FormDataParameter);
+						}
+					}
+					if (parsedParts.length) request.bodyFormData = parsedParts as unknown as FormDataParameter[];
+					request.body = bodyText;
+				}
+			} else {
+				// 3) Legacy/editor shorthand parsing inside body text
+				const lines = bodyText.split('\n').map(l => l.trim()).filter(Boolean);
+				const formData: FormDataParameter[] = [];
+				const binaryFiles: any[] = [];
+				for (const line of lines) {
+					// inline form-data shorthand: key: value: contentType  OR key: @file: contentType
+					const kvct = line.match(/^([^:]+):\s*([^:]+):\s*(.+)$/);
+					const fileAt = line.match(/^([^:]+):\s*@file:\s*(.+)$/i);
+					const atFileOnly = line.match(/^@file:\s*(.+)$/i);
+					if (kvct) {
+						// key: value: contentType
+						formData.push({ id: `form-${Math.random().toString(36).substring(2,9)}`, key: kvct[1].trim(), value: kvct[2].trim(), contentType: kvct[3].trim() } as unknown as FormDataParameter);
+						continue;
+					}
+					if (fileAt) {
+						formData.push({ id: `form-${Math.random().toString(36).substring(2,9)}`, key: fileAt[1].trim(), contentType: fileAt[2].trim() } as unknown as FormDataParameter);
+						continue;
+					}
+					if (atFileOnly) {
+						binaryFiles.push({ id: `bf-${Math.random().toString(36).substring(2,9)}`, filePath: undefined, contentType: atFileOnly[1].trim() });
+						continue;
+					}
+					// Commented Binary Files metadata ("# filePath: /path, contentType: type")
+					const commentFile = line.match(/^#\s*filePath:\s*([^,]+),\s*contentType:\s*(.+)$/i);
+					if (commentFile) {
+						binaryFiles.push({ id: `bf-${Math.random().toString(36).substring(2,9)}`, filePath: commentFile[1].trim(), contentType: commentFile[2].trim() });
+						continue;
+					}
+				}
+				if (formData.length) request.bodyFormData = formData as unknown as FormDataParameter[];
+				if (binaryFiles.length) request.bodyBinaryFiles = binaryFiles as any;
+				// always keep raw body as fallback
+				request.body = bodyText;
+			}
 		}
 
 		// Generate IDs if not present
@@ -379,6 +574,9 @@ export class HurlFormatAdapter {
 				queryParameters: request.queryParameters || [],
 				headers: request.headers || [],
 				...(request.body && { body: request.body }),
+				...(request.bodyFormData && request.bodyFormData.length > 0 && { bodyFormData: request.bodyFormData }),
+				...(request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0 && { bodyFormUrlEncoded: request.bodyFormUrlEncoded }),
+				...(request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0 && { bodyBinaryFiles: request.bodyBinaryFiles }),
 				...(assertions.length > 0 && { assertions })
 			};
 

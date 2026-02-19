@@ -47,6 +47,72 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
     }, [handlers]);
     
     useEffect(() => {
+        const hydrateStructuredBody = (req: ApiRequest): ApiRequest => {
+            if (!req?.body || typeof req.body !== 'string') {
+                return req;
+            }
+
+            // If already populated, do nothing
+            if (Array.isArray(req.bodyFormData) && req.bodyFormData.length > 0) {
+                return req;
+            }
+
+            const bodyText = req.body;
+
+            // Hydrate [Multipart]/[FormData]
+            if (/^\[(?:FormData|Multipart)\]/im.test(bodyText)) {
+                const lines = bodyText.split('\n');
+                let inMultipart = false;
+                const formData: any[] = [];
+
+                for (const raw of lines) {
+                    const line = raw.trim();
+                    if (!line || line.startsWith('#')) continue;
+
+                    if (/^\[(?:FormData|Multipart)\]/i.test(line)) {
+                        inMultipart = true;
+                        continue;
+                    }
+
+                    if (/^\[/.test(line) && inMultipart) {
+                        break;
+                    }
+
+                    if (!inMultipart) continue;
+
+                    const fileMatch = line.match(/^([^:]+):\s*file,([^;]+);(?:\s*(.+))?$/i);
+                    if (fileMatch) {
+                        formData.push({
+                            id: `form-${Math.random().toString(36).substring(2, 9)}`,
+                            key: fileMatch[1].trim(),
+                            filePath: fileMatch[2].trim(),
+                            contentType: fileMatch[3]?.trim() || 'application/octet-stream'
+                        });
+                        continue;
+                    }
+
+                    const kv = line.match(/^([^:]+):\s*(.+)$/);
+                    if (kv) {
+                        formData.push({
+                            id: `form-${Math.random().toString(36).substring(2, 9)}`,
+                            key: kv[1].trim(),
+                            value: kv[2].trim(),
+                            contentType: ''
+                        });
+                    }
+                }
+
+                if (formData.length > 0) {
+                    return {
+                        ...req,
+                        bodyFormData: formData
+                    };
+                }
+            }
+
+            return req;
+        };
+
         // Notify extension that webview is ready
         if (vscode) {
             vscode.postMessage({ type: 'webviewReady' });
@@ -74,7 +140,7 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
                 const normalizedItem: ApiRequestItem = {
                     ...item,
                     request: {
-                        ...req,
+                        ...hydrateStructuredBody(req),
                         queryParameters: Array.isArray(req.queryParameters) ? req.queryParameters : [],
                         headers: Array.isArray(req.headers) ? req.headers : [],
                         ...(mergedAssertions ? { assertions: mergedAssertions } : {})
@@ -105,7 +171,7 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
                 const normalizedItem: ApiRequestItem = {
                     ...item,
                     request: {
-                        ...req,
+                        ...hydrateStructuredBody(req),
                         queryParameters: Array.isArray(req.queryParameters) ? req.queryParameters : [],
                         headers: Array.isArray(req.headers) ? req.headers : [],
                         ...(mergedAssertions ? { assertions: mergedAssertions } : {})
