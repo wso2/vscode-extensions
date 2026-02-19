@@ -166,6 +166,12 @@ export const RetryNodeWidget: React.FC<NodeProps<RetryNodeData>> = ({ id, data, 
                 isConnectable={isConnectable}
             />
             <StyledHandle
+                type="target"
+                position={Position.Left}
+                id="h-left"
+                isConnectable={isConnectable}
+            />
+            <StyledHandle
                 type="source"
                 position={Position.Left}
                 id="h-left-source"
