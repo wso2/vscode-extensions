@@ -2115,7 +2115,13 @@ export interface McpToolsResponse {
         name: string;
         description?: string;
     }>;
+    selectedTools?: string[];
     error?: string;
+}
+
+export interface McpToolsWithDescription {
+    name: string;
+    description: string;
 }
 
 export interface UpdateMediatorResponse {

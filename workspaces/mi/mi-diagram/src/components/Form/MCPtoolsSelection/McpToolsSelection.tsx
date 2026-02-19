@@ -480,6 +480,16 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
                     }))
                 : [];
             setMcpTools(tools);
+            
+            // Set selected tools from response if available
+            if (mcpToolsResponse?.selectedTools && Array.isArray(mcpToolsResponse.selectedTools)) {
+                setValue('mcpToolsSelection', mcpToolsResponse.selectedTools);
+                onSelectionChange?.(mcpToolsResponse.selectedTools);
+                if (mcpToolsResponse.selectedTools.length > 0) {
+                    clearErrors?.('mcpTools');
+                }
+            }
+            
             setError("");
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err));
