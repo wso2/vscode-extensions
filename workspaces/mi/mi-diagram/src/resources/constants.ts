@@ -133,7 +133,7 @@ export const Colors = {
 
 export const SIDE_PANEL_WIDTH = 450;
 export const CANVAS_PADDING = 20;
-export const MCP_TOOLS_LIST_MAX_HEIGHT_OFFSET = 470;
+export const MCP_TOOLS_LIST_MAX_HEIGHT_OFFSET = 480;
 
 export const NODE_DIMENSIONS = {
     DEFAULT: {
