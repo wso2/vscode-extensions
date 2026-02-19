@@ -171,34 +171,10 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['general']));
     const [expandedArrayItems, setExpandedArrayItems] = useState<Set<string>>(new Set());
 
-    if (!node) return null;
-
-    const nodeData = node.data || {};
-    const { label, iconClass, ...stepData } = nodeData;
-
-    const toggleSection = (sectionId: string) => {
-        const newExpanded = new Set(expandedSections);
-        if (newExpanded.has(sectionId)) {
-            newExpanded.delete(sectionId);
-        } else {
-            newExpanded.add(sectionId);
-        }
-        setExpandedSections(newExpanded);
-    };
-
-    const toggleArrayItem = (itemId: string) => {
-        const newExpanded = new Set(expandedArrayItems);
-        if (newExpanded.has(itemId)) {
-            newExpanded.delete(itemId);
-        } else {
-            newExpanded.add(itemId);
-        }
-        setExpandedArrayItems(newExpanded);
-    };
-
     // When the selected node changes (panel opens or different node selected),
     // auto-expand top-level sections relevant to that node while keeping
     // nested array items collapsed.
+    // NOTE: This useEffect MUST be before the early return to satisfy React's rules of hooks.
     useEffect(() => {
         if (!node) return;
 
@@ -230,6 +206,32 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
         setExpandedSections(ids);
         setExpandedArrayItems(new Set());
     }, [node?.id, node?.type, workflow]);
+
+    // Early return AFTER all hooks have been declared
+    if (!node) return null;
+
+    const nodeData = node.data || {};
+    const { label, iconClass, ...stepData } = nodeData;
+
+    const toggleSection = (sectionId: string) => {
+        const newExpanded = new Set(expandedSections);
+        if (newExpanded.has(sectionId)) {
+            newExpanded.delete(sectionId);
+        } else {
+            newExpanded.add(sectionId);
+        }
+        setExpandedSections(newExpanded);
+    };
+
+    const toggleArrayItem = (itemId: string) => {
+        const newExpanded = new Set(expandedArrayItems);
+        if (newExpanded.has(itemId)) {
+            newExpanded.delete(itemId);
+        } else {
+            newExpanded.add(itemId);
+        }
+        setExpandedArrayItems(newExpanded);
+    };
 
     const getNonNullOverrides = (value: any): Record<string, any> => {
         if (!value || typeof value !== 'object' || Array.isArray(value)) {
