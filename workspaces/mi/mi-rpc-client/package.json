@@ -20,9 +20,9 @@
     "eslint": "9.27.0"
   },
   "dependencies": {
-    "@types/vscode-webview": "^1.57.5",
-    "vscode-messenger-common": "^0.5.1",
-    "vscode-messenger-webview": "^0.5.1",
+    "@types/vscode-webview": "1.57.5",
+    "vscode-messenger-common": "0.5.1",
+    "vscode-messenger-webview": "0.5.1",
     "@wso2/mi-syntax-tree": "workspace:*",
     "@wso2/mi-core": "workspace:*",
     "react": "19.1.0",

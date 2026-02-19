@@ -39,9 +39,11 @@ import {
     Member,
     TypeNodeKind,
     NodeKind,
-    DataMapperDisplayMode,
+    EditorConfig,
     InputType,
-    getPrimaryInputType
+    getPrimaryInputType,
+    functionKinds,
+    NodeProperties
 } from "@wso2/ballerina-core";
 import {
     FieldDerivation,
@@ -54,6 +56,7 @@ import {
     FormImports,
     HelperpaneOnChangeOptions,
     InputMode,
+    ExpressionEditorDevantProps,
 } from "@wso2/ballerina-side-panel";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import {
@@ -79,6 +82,7 @@ import {
     removeDuplicateDiagnostics,
     updateLineRange,
     convertRecordTypeToCompletionItem,
+    convertItemsToCompletionItems,
 } from "../../../../utils/bi";
 import IfForm from "../IfForm";
 import { cloneDeep, debounce } from "lodash";
@@ -103,7 +107,7 @@ import DynamicModal from "../../../../components/Modal";
 import React from "react";
 import { SidePanelView } from "../../FlowDiagram/PanelManager";
 import { ConnectionKind } from "../../../../components/ConnectionSelector";
-import { getImportedTypes } from "../../TypeEditor/utils";
+import { getFilteredTypesByKind } from "../../TypeEditor/utils";
 import { useModalStack } from "../../../../Context";
 
 interface TypeEditorState {
@@ -123,7 +127,7 @@ interface FormProps {
     editForm?: boolean;
     isGraphql?: boolean;
     submitText?: string;
-    onSubmit: (node?: FlowNode, dataMapperMode?: DataMapperDisplayMode, formImports?: FormImports, rawFormValues?: FormValues) => void;
+    onSubmit: (node?: FlowNode, editorConfig?: EditorConfig, formImports?: FormImports, rawFormValues?: FormValues) => void;
     showProgressIndicator?: boolean;
     subPanelView?: SubPanelView;
     openSubPanel?: (subPanel: SubPanel) => void;
@@ -135,7 +139,7 @@ interface FormProps {
         description?: string; // Optional description explaining what the action button does
         callback: () => void;
     };
-    handleOnFormSubmit?: (updatedNode?: FlowNode, dataMapperMode?: DataMapperDisplayMode, options?: FormSubmitOptions) => void;
+    handleOnFormSubmit?: (updatedNode?: FlowNode, editorConfig?: EditorConfig, options?: FormSubmitOptions) => void;
     isInModal?: boolean;
     scopeFieldAddon?: React.ReactNode;
     onChange?: (fieldKey: string, value: any, allValues: FormValues) => void;
@@ -148,6 +152,8 @@ interface FormProps {
     fieldOverrides?: Record<string, Partial<FormField>>;
     footerActionButton?: boolean; // Render save button as footer action button
     derivedFields?: FieldDerivation[]; // Configuration for auto-deriving field values from other fields
+    devantExpressionEditor?: ExpressionEditorDevantProps;
+    customValidator?: (fieldKey: string, value: any, allValues: FormValues) => string | undefined; // Custom validation function for form fields
 }
 
 // Styled component for the action button description
@@ -223,6 +229,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         injectedComponents,
         fieldPriority,
         footerActionButton,
+        customValidator,
     } = props;
 
     const { rpcClient } = useRpcContext();
@@ -260,14 +267,17 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
 
     const skipFormValidation = useMemo(() => {
         const isAgentNode = node && (
-            node.codedata.node === "AGENT_CALL" &&
+            (node.codedata.node === "AGENT_CALL" || node.codedata.node === "AGENT_RUN") &&
             node.codedata.org === "ballerina" &&
             node.codedata.module === "ai" &&
             node.codedata.packageName === "ai" &&
             node.codedata.object === "Agent" &&
             node.codedata.symbol === "run"
         );
-        return isAgentNode;
+        const isDataMapperCreationNode = node && node.codedata.node === "DATA_MAPPER_CREATION";
+        const isFunctionCreationNode = node && node.codedata.node === "FUNCTION_CREATION";
+
+        return isAgentNode || isDataMapperCreationNode || isFunctionCreationNode;
     }, [node]);
 
     const importsCodedataRef = useRef<any>(null); // To store codeData for getVisualizableFields
@@ -318,6 +328,10 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         if (stack.length === 0) return;
         setStack((prev) => {
             const newStack = [...prev];
+            //preserve fieldIndex if exists
+            if (newStack[newStack.length - 1].fieldIndex) {
+                item.fieldIndex = newStack[newStack.length - 1].fieldIndex;
+            }
             newStack[newStack.length - 1] = item;
             return newStack;
         });
@@ -444,7 +458,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         const recordTypeFields = Object.entries(formProperties)
             .filter(([_, property]) => {
                 const primaryInputType = getPrimaryInputType(property?.types);
-            
+
                 return primaryInputType?.typeMembers &&
                     primaryInputType?.typeMembers.some(member => member.kind === "RECORD_TYPE");
             })
@@ -481,6 +495,15 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             } else {
                 updatedField.diagnostics = [];
             }
+            if (customValidator) {
+                const customValidationMessage = customValidator(field.key, data[field.key], data);
+                if (customValidationMessage) {
+                    updatedField.diagnostics = [...updatedField.diagnostics, {
+                        message: customValidationMessage,
+                        severity: "ERROR"
+                    }]
+                }
+            }
             return updatedField;
         });
         setBaseFields(updatedFields);
@@ -490,8 +513,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         console.log(">>> FormGenerator handleOnSubmit", data);
         if (node && targetLineRange) {
             const updatedNode = mergeFormDataWithFlowNode(data, targetLineRange, dirtyFields);
-            const dataMapperMode = data["openInDataMapper"] ? DataMapperDisplayMode.VIEW : DataMapperDisplayMode.NONE;
-            onSubmit(updatedNode, dataMapperMode, formImports);
+            const editorConfig = data["editorConfig"];
+            onSubmit(updatedNode, editorConfig, formImports);
         }
     };
 
@@ -526,7 +549,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         await rpcClient.getVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: context });
     };
 
-    const handleOpenTypeEditor = (isOpen: boolean, f: FormValues, editingField?: FormField) => {
+    const handleOpenTypeEditor = (isOpen: boolean, f: FormValues, editingField?: FormField, newType?: string | NodeProperties) => {
         // Get f.value and assign that value to field value
         const updatedFields = fields.map((field) => {
             const updatedField = { ...field };
@@ -536,7 +559,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             return updatedField;
         });
         setBaseFields(updatedFields);
-        setTypeEditorState({ isOpen, fieldKey: editingField?.key, newTypeValue: f[editingField?.key] });
+        const newTypeValue = typeof newType === 'string' ? newType : f[editingField?.key];
+        setTypeEditorState({ isOpen, fieldKey: editingField?.key, newTypeValue });
     };
 
     const handleTypeEditorStateChange = (state: boolean) => {
@@ -674,14 +698,38 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             ) => {
                 let visibleTypes: CompletionItem[] = types;
                 if (!types.length) {
-                    const types = await rpcClient.getBIDiagramRpcClient().getVisibleTypes({
+                    const searchResponse = await rpcClient.getBIDiagramRpcClient().search({
+                        filePath: fileName,
+                        position: targetLineRange,
+                        queryMap: {
+                            q: '',
+                            offset: 0,
+                            limit: 1000
+                        },
+                        searchKind: 'TYPE'
+                    });
+
+                    const allItems = searchResponse.categories.flatMap(category => 
+                        category.items.flatMap(item => {
+                            if ('codedata' in item) {
+                                return [item];
+                            } else if ('items' in item) {
+                                return item.items;
+                            }
+                            return [];
+                        })
+                    );
+
+                    const basicTypes = await rpcClient.getBIDiagramRpcClient().getVisibleTypes({
                         filePath: fileName,
                         position: updateLineRange(targetLineRange, expressionOffsetRef.current).startLine,
                         ...(valueTypeConstraint && { typeConstraint: valueTypeConstraint })
                     });
 
                     const isFetchingTypesForDM = valueTypeConstraint === "json";
-                    visibleTypes = convertToVisibleTypes(types, isFetchingTypesForDM);
+                    const visibleSearchTypes = convertItemsToCompletionItems(allItems);
+                    const visibleBasicTypes = convertToVisibleTypes(basicTypes, isFetchingTypesForDM);
+                    visibleTypes = [...visibleSearchTypes, ...visibleBasicTypes];
                     setTypes(visibleTypes);
                 }
 
@@ -942,6 +990,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             forcedValueTypeConstraint: valueTypeConstraints,
             handleValueTypeConstChange: handleValueTypeConstChange,
             inputMode: inputMode,
+            devantExpressionEditor: props.devantExpressionEditor,
         });
     };
 
@@ -1079,8 +1128,28 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
     const onSaveType = (type: Type | string) => {
         handleValueTypeConstChange(typeof type === 'string' ? type : (type as Type).name);
         if (stack.length > 0) {
+            if (stack.length > 1) {
+                const newStack = [...stack]
+                const currentTop = newStack[newStack.length - 1];
+                const newTop = newStack[newStack.length - 2];
+                const fieldIndex = newTop.fieldIndex;
+                if (fieldIndex === undefined) {
+                    return;
+                }
+                if (newTop.type.codedata.node === "CLASS") {
+                    const fn = newTop.type.functions?.[fieldIndex];
+                    if (!fn) { return; }
+                    fn.returnType = currentTop!.type.name;
+                } else {
+                    const member = newTop.type.members?.[fieldIndex];
+                    if (!member) { return; }
+                    member.type = currentTop!.type.name;
+                }
+                newStack[newStack.length - 2] = newTop;
+                newStack.pop();
+                setStack(newStack);
+            }
             setRefetchForCurrentModal(true);
-            popTypeStack();
         }
         handleSelectedTypeChange(typeof type === 'string' ? type : (type as Type).name);
         setTypeEditorState({ ...typeEditorState, isOpen: stack.length !== 1 });
@@ -1210,13 +1279,16 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                 searchKind: 'TYPE'
             })
             .then((response) => {
-                return getImportedTypes(response.categories);
+                return getFilteredTypesByKind(response.categories, functionKinds.IMPORTED);
             })
             .finally(() => {
 
             });
 
         let type: TypeHelperItem | undefined;
+        if (!newTypes.length || !newTypes[0].subCategory) {
+            return undefined;
+        }
         for (const category of newTypes[0].subCategory) {
             const matchedType = findMatchedType(category.items, typeName);
             if (matchedType) {
@@ -1288,7 +1360,12 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         })
     }
 
-    const getNewTypeCreateForm = (typeName?: string) => {
+    const getNewTypeCreateForm = (fieldIndex?: number, typeName?: string) => {
+        const currentTopItem = peekTypeStack();
+        if (currentTopItem) {
+            currentTopItem.fieldIndex = fieldIndex;
+            replaceTop(currentTopItem);
+        }
         pushTypeStack(getDefaultValue(typeName));
     }
 
@@ -1331,18 +1408,58 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
     // handle fork node form
     if (node?.codedata.node === "FORK") {
         return (
-            <ForkForm
-                fileName={fileName}
-                node={node}
-                targetLineRange={targetLineRange}
-                expressionEditor={expressionEditor}
-                showProgressIndicator={showProgressIndicator}
-                onSubmit={onSubmit}
-                openSubPanel={openSubPanel}
-                updatedExpressionField={updatedExpressionField}
-                resetUpdatedExpressionField={resetUpdatedExpressionField}
-                subPanelView={subPanelView}
-            />
+            <EditorContext.Provider value={{ stack, push: pushTypeStack, pop: popTypeStack, peek: peekTypeStack, replaceTop: replaceTop }}>
+                <ForkForm
+                    fileName={fileName}
+                    node={node}
+                    targetLineRange={targetLineRange}
+                    openRecordEditor={handleOpenTypeEditor}
+                    expressionEditor={expressionEditor}
+                    showProgressIndicator={showProgressIndicator}
+                    onSubmit={onSubmit}
+                    openSubPanel={openSubPanel}
+                    updatedExpressionField={updatedExpressionField}
+                    resetUpdatedExpressionField={resetUpdatedExpressionField}
+                    subPanelView={subPanelView}
+                />
+                {
+                    stack.map((item, i) => <DynamicModal
+                        key={i}
+                        width={420}
+                        height={600}
+                        anchorRef={undefined}
+                        title="Create New Type"
+                        openState={typeEditorState.isOpen}
+                        setOpenState={handleTypeEditorStateChange}>
+                        {stack.slice(0, i + 1).length > 1 && (
+                            <BreadcrumbContainer>
+                                {stack.slice(0, i + 1).map((stackItem, index) => (
+                                    <React.Fragment key={index}>
+                                        {index > 0 && <BreadcrumbSeparator>/</BreadcrumbSeparator>}
+                                        <BreadcrumbItem>
+                                            {stackItem?.type?.name || "New Type"}
+                                        </BreadcrumbItem>
+                                    </React.Fragment>
+                                ))}
+                            </BreadcrumbContainer>
+                        )}
+                        <div style={{ height: '560px', overflow: 'auto' }}>
+                            <FormTypeEditor
+                                type={peekTypeStack()?.type}
+                                newType={peekTypeStack() ? peekTypeStack().isDirty : false}
+                                newTypeValue={typeEditorState.newTypeValue}
+                                isGraphql={isGraphql}
+                                onTypeChange={onTypeChange}
+                                onSaveType={onSaveType}
+                                onTypeCreate={() => { }}
+                                isPopupTypeForm={true}
+                                getNewTypeCreateForm={getNewTypeCreateForm}
+                                refetchTypes={refetchStates[i]}
+                            />
+                        </div>
+                    </DynamicModal>)
+                }
+            </EditorContext.Provider>
         );
     }
 
@@ -1482,6 +1599,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                                     closeRecordConfigPage();
                                 }
                             }}
+                            closeOnBackdropClick={true}
+                            closeButtonIcon="minimize"
                         >
                             <ConfigureRecordPage
                                 fileName={fileName}
@@ -1608,6 +1727,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                                 closeRecordConfigPage();
                             }
                         }}
+                        closeOnBackdropClick={true}
+                        closeButtonIcon="minimize"
                     >
                         <ConfigureRecordPage
                             fileName={fileName}

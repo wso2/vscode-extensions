@@ -72,8 +72,6 @@ import {
     GetRecordModelFromSourceRequest,
     UpdateTypesRequest,
     UpdateTypesResponse,
-    DeploymentRequest,
-    DeploymentResponse,
     OpenAPIClientGenerationRequest,
     OpenAPIGeneratedModulesRequest,
     OpenAPIGeneratedModulesResponse,
@@ -117,11 +115,12 @@ import {
     EndOfFileRequest,
     RecordsInWorkspaceMentions,
     BuildMode,
-    DevantMetadata,
     GeneratedClientSaveResponse,
     AddProjectToWorkspaceRequest,
     DeleteProjectRequest,
-    OpenReadmeRequest
+    OpenReadmeRequest,
+    ValidateProjectFormRequest,
+    ValidateProjectFormResponse
 } from "./interfaces";
 
 export interface BIDiagramAPI {
@@ -130,6 +129,7 @@ export interface BIDiagramAPI {
     deleteFlowNode: (params: BISourceCodeRequest) => Promise<UpdatedArtifactsResponse>;
     deleteByComponentInfo: (params: BIDeleteByComponentInfoRequest) => Promise<BIDeleteByComponentInfoResponse>;
     getAvailableNodes: (params: BIAvailableNodesRequest) => Promise<BIAvailableNodesResponse>;
+    getAvailableAgents: (params: BIAvailableNodesRequest) => Promise<BIAvailableNodesResponse>;
     getAvailableModelProviders: (params: BIAvailableNodesRequest) => Promise<BIAvailableNodesResponse>;
     getAvailableVectorStores: (params: BIAvailableNodesRequest) => Promise<BIAvailableNodesResponse>;
     getAvailableEmbeddingProviders: (params: BIAvailableNodesRequest) => Promise<BIAvailableNodesResponse>;
@@ -140,6 +140,7 @@ export interface BIDiagramAPI {
     getNodeTemplate: (params: BINodeTemplateRequest) => Promise<BINodeTemplateResponse>;
     getAiSuggestions: (params: BIAiSuggestionsRequest) => Promise<BIAiSuggestionsResponse>;
     createProject: (params: ProjectRequest) => void;
+    validateProjectPath: (params: ValidateProjectFormRequest) => Promise<ValidateProjectFormResponse>;
     deleteProject: (params: DeleteProjectRequest) => void;
     addProjectToWorkspace: (params: AddProjectToWorkspaceRequest) => void;
     getWorkspaces: () => Promise<WorkspacesResponse>;
@@ -158,7 +159,6 @@ export interface BIDiagramAPI {
     getReadmeContent: (params: ReadmeContentRequest) => Promise<ReadmeContentResponse>;
     openReadme: (params: OpenReadmeRequest) => void;
     renameIdentifier: (params: RenameIdentifierRequest) => Promise<void>;
-    deployProject: (params: DeploymentRequest) => Promise<DeploymentResponse>;
     openAIChat: (params: AIChatRequest) => void;
     getSignatureHelp: (params: SignatureHelpRequest) => Promise<SignatureHelpResponse>;
     buildProject: (mode: BuildMode) => void;
@@ -196,8 +196,7 @@ export interface BIDiagramAPI {
     searchNodes: (params: BISearchNodesRequest) => Promise<BISearchNodesResponse>;
     getRecordNames: () => Promise<RecordsInWorkspaceMentions>;
     getFunctionNames: () => Promise<RecordsInWorkspaceMentions>;
-    getDevantMetadata: () => Promise<DevantMetadata | undefined>;
-    generateOpenApiClient: (params: OpenAPIClientGenerationRequest) => Promise<GeneratedClientSaveResponse>;
+    generateOpenApiClient: (params: OpenAPIClientGenerationRequest) => Promise<GeneratedClientSaveResponse>;//
     getOpenApiGeneratedModules: (params: OpenAPIGeneratedModulesRequest) => Promise<OpenAPIGeneratedModulesResponse>;
     deleteOpenApiGeneratedModules: (params: OpenAPIClientDeleteRequest) => Promise<OpenAPIClientDeleteResponse>;
     OpenConfigTomlRequest: (params: OpenConfigTomlRequest) => Promise<void>;

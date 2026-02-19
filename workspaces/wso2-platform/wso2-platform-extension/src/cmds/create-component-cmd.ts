@@ -22,7 +22,6 @@ import * as path from "path";
 import {
 	ChoreoComponentType,
 	CommandIds,
-	type ComponentKind,
 	DevantScopes,
 	type ExtensionName,
 	type ICreateComponentCmdParams,

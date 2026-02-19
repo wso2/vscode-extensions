@@ -17,6 +17,8 @@
  */
 
 import type { DeploymentStatus } from "../enums";
+import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq, GetMarketplaceItemReq, GetConnectionItemReq, GetProjectEnvsReq, CreateThirdPartyConnectionReq, RegisterMarketplaceConnectionReq, GetComponentsReq } from "./cli-rpc.types";
+import { CreateLocalConnectionsConfigReq, DeleteLocalConnectionsConfigReq } from "./messenger-rpc.types";
 import type { AuthState, ContextItemEnriched, ContextStoreState, WebviewState } from "./store.types";
 
 export type ExtensionName = "WSO2" | "Choreo" | "Devant";
@@ -30,8 +32,23 @@ export interface IWso2PlatformExtensionAPI {
 	getContextStateStore(): ContextStoreState;
 	openClonedDir(params: openClonedDirReq): Promise<void>;
 	getStsToken(): Promise<string>;
+	getMarketplaceItems(params: GetMarketplaceListReq): Promise<MarketplaceListResp>;
+	getMarketplaceItem(params: GetMarketplaceItemReq): Promise<MarketplaceItem>;
 	getSelectedContext(): ContextItemEnriched | null;
+	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>;
+	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>;
+	createThirdPartyConnection(params: CreateThirdPartyConnectionReq): Promise<ConnectionDetailed>;
+	createConnectionConfig: (params: CreateLocalConnectionsConfigReq) => Promise<string>;
+	registerMarketplaceConnection(params: RegisterMarketplaceConnectionReq): Promise<MarketplaceItem>;
+	getConnections: (params: GetConnectionsReq) => Promise<ConnectionListItem[]>;
+	getConnection: (params: GetConnectionItemReq) => Promise<ConnectionDetailed>;
+	deleteConnection: (params: DeleteConnectionReq) => Promise<void>;
+	deleteLocalConnectionsConfig: (params: DeleteLocalConnectionsConfigReq) => void;
 	getDevantConsoleUrl: () => Promise<string>;
+	getProjectEnvs: (params: GetProjectEnvsReq)=> Promise<Environment[]>
+	startProxyServer: (params: StartProxyServerReq) => Promise<StartProxyServerResp>;
+	stopProxyServer: (params: StopProxyServerReq) => Promise<void>;
+	getComponentList: (params: GetComponentsReq) => Promise<ComponentKind[]>;
 
 	// Auth Subscription
 	subscribeAuthState(callback: (state: AuthState)=>void): () => void;
@@ -40,6 +57,24 @@ export interface IWso2PlatformExtensionAPI {
 	// Context Subscription
 	subscribeDirComponents(fsPath: string, callback: (comps: ComponentKind[])=>void): () => void;
 	subscribeContextState(callback: (state: ContextItemEnriched | undefined)=>void): () => void;
+}
+
+export interface StartProxyServerReq {
+	orgId: string;
+	project: string;
+	component?: string;
+	env?: string;
+	skipConnection?: string[];
+}
+
+
+export interface StartProxyServerResp {
+	proxyServerPort: number;
+	envVars: { [key: string]: string };
+}
+
+export interface StopProxyServerReq {
+	proxyPort: number;
 }
 
 export interface openClonedDirReq {
@@ -279,6 +314,7 @@ export interface Environment {
 	apimSandboxEnvId?: string;
 	apimEnvId?: string;
 	isMigrating: boolean;
+	templateId: string;
 }
 
 export interface ComponentEP {
@@ -407,6 +443,8 @@ export interface MarketplaceItem {
 	tags?: string[];
 	categories?: string[];
 	visibility: ("PUBLIC" | "ORGANIZATION" | "PROJECT")[];
+	isThirdParty?: boolean;
+	endpointRefs?: Record<string, string>;
 }
 
 export interface ConnectionStatus {
@@ -436,22 +474,25 @@ export interface ConnectionListItem extends ConnectionBase {
 	resourceType: string;
 }
 
-export interface ConnectionDetailed {
-	configurations: {
-		[id: string]: {
-			environmentUuid: string;
-			entries: {
-				[entryName: string]: {
-					key: string;
-					keyUuid: string;
-					value: string;
-					isSensitive: boolean;
-					isFile: boolean;
-				};
+export interface ConnectionConfigurations {
+	[id: string]: {
+		environmentUuid: string;
+		entries: {
+			[entryName: string]: {
+				key: string;
+				keyUuid: string;
+				value: string;
+				isSensitive: boolean;
+				isFile: boolean;
+				envVariableName: string;
 			};
 		};
 	};
-	envMapping: object;
+}
+
+export interface ConnectionDetailed extends ConnectionListItem {
+	configurations: ConnectionConfigurations;
+	envMapping: Record<string, string>;
 	visibilities: {
 		organizationUuid: string;
 		projectUuid: string;

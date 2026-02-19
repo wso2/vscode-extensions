@@ -59,9 +59,6 @@ import {
     DeleteProjectRequest,
     DeleteTypeRequest,
     DeleteTypeResponse,
-    DeploymentRequest,
-    DeploymentResponse,
-    DevantMetadata,
     EndOfFileRequest,
     ExpressionCompletionsRequest,
     ExpressionCompletionsResponse,
@@ -119,6 +116,8 @@ import {
     UpdateTypesRequest,
     UpdateTypesResponse,
     UpdatedArtifactsResponse,
+    ValidateProjectFormRequest,
+    ValidateProjectFormResponse,
     VerifyTypeDeleteRequest,
     VerifyTypeDeleteResponse,
     VisibleTypesRequest,
@@ -138,11 +137,11 @@ import {
     deleteOpenApiGeneratedModules,
     deleteProject,
     deleteType,
-    deployProject,
     formDidClose,
     formDidOpen,
     generateOpenApiClient,
     getAiSuggestions,
+    getAvailableAgents,
     getAvailableChunkers,
     getAvailableDataLoaders,
     getAvailableEmbeddingProviders,
@@ -155,7 +154,6 @@ import {
     getConfigVariablesV2,
     getDataMapperCompletions,
     getDesignModel,
-    getDevantMetadata,
     getEnclosedFunction,
     getEndOfFile,
     getExpressionCompletions,
@@ -200,6 +198,7 @@ import {
     updateServiceClass,
     updateType,
     updateTypes,
+    validateProjectPath,
     verifyTypeDelete
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
@@ -230,6 +229,10 @@ export class BiDiagramRpcClient implements BIDiagramAPI {
 
     getAvailableNodes(params: BIAvailableNodesRequest): Promise<BIAvailableNodesResponse> {
         return this._messenger.sendRequest(getAvailableNodes, HOST_EXTENSION, params);
+    }
+
+    getAvailableAgents(params: BIAvailableNodesRequest): Promise<BIAvailableNodesResponse> {
+        return this._messenger.sendRequest(getAvailableAgents, HOST_EXTENSION, params);
     }
 
     getAvailableModelProviders(params: BIAvailableNodesRequest): Promise<BIAvailableNodesResponse> {
@@ -270,6 +273,10 @@ export class BiDiagramRpcClient implements BIDiagramAPI {
 
     createProject(params: ProjectRequest): void {
         return this._messenger.sendNotification(createProject, HOST_EXTENSION, params);
+    }
+
+    validateProjectPath(params: ValidateProjectFormRequest): Promise<ValidateProjectFormResponse> {
+        return this._messenger.sendRequest(validateProjectPath, HOST_EXTENSION, params);
     }
 
     deleteProject(params: DeleteProjectRequest): void {
@@ -346,10 +353,6 @@ export class BiDiagramRpcClient implements BIDiagramAPI {
 
     renameIdentifier(params: RenameIdentifierRequest): Promise<void> {
         return this._messenger.sendRequest(renameIdentifier, HOST_EXTENSION, params);
-    }
-
-    deployProject(params: DeploymentRequest): Promise<DeploymentResponse> {
-        return this._messenger.sendRequest(deployProject, HOST_EXTENSION, params);
     }
 
     openAIChat(params: AIChatRequest): void {
@@ -494,10 +497,6 @@ export class BiDiagramRpcClient implements BIDiagramAPI {
 
     getFunctionNames(): Promise<RecordsInWorkspaceMentions> {
         return this._messenger.sendRequest(getFunctionNames, HOST_EXTENSION);
-    }
-
-    getDevantMetadata(): Promise<DevantMetadata | undefined> {
-        return this._messenger.sendRequest(getDevantMetadata, HOST_EXTENSION);
     }
 
     generateOpenApiClient(params: OpenAPIClientGenerationRequest): Promise<GeneratedClientSaveResponse> {

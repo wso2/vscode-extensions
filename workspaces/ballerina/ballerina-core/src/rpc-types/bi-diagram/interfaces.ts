@@ -186,16 +186,27 @@ export enum BuildMode {
     DOCKER = "docker"
 }
 
-export interface DevantMetadata {
-    isLoggedIn?: boolean;
-    hasComponent?: boolean;
-    hasLocalChanges?: boolean;
-}
-
 export interface GeneratedClientSaveResponse {
     errorMessage?: string;
 }
 
 export interface DeleteProjectRequest {
     projectPath: string;
+}
+
+export interface ValidateProjectFormRequest {
+    projectPath: string;
+    projectName: string;
+    createDirectory: boolean;
+}
+
+export interface ValidateProjectFormResponse {
+    isValid: boolean;
+    errorMessage?: string;
+    errorField?: ValidateProjectFormErrorField;
+}
+
+export enum ValidateProjectFormErrorField {
+    PATH = 'path',
+    NAME = 'name'
 }
