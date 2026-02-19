@@ -164,29 +164,35 @@ const stateMachine = createMachine<MachineContext>({
         openWebPanel: (context, event) => {
             // Get context values from the project storage so that we can restore the earlier state when user reopens vscode
             return new Promise((resolve, reject) => {
+                // Determine a shared column: use the current column of any existing visualizer panel, 
+                // or default to Beside Column 1.
+                const sharedColumn = VisualizerWebview.currentPanel?.getWebview()?.viewColumn ?? 
+                                     VisualizerWebview.workflowPanel?.getWebview()?.viewColumn ?? 
+                                     ViewColumn.Beside;
+
                 // For Workflow view, use singleton pattern - reuse existing workflow panel
                 if (context.view === MACHINE_VIEW.Workflow) {
                     if (!VisualizerWebview.workflowPanel) {
-                        // Create new workflow panel as a tab (not beside)
-                        VisualizerWebview.workflowPanel = new VisualizerWebview(false, true); // false = new tab, true = isWorkflowPanel
+                        // Open in the shared column
+                        VisualizerWebview.workflowPanel = new VisualizerWebview(sharedColumn, true);
                         RPCLayer._messenger.onNotification(webviewReady, () => {
                             resolve(true);
                         });
                     } else {
-                        // Reuse existing workflow panel
-                        VisualizerWebview.workflowPanel.getWebview()?.reveal(ViewColumn.Active);
+                        // Reveal in the shared column
+                        VisualizerWebview.workflowPanel.getWebview()?.reveal(sharedColumn);
                         resolve(true);
                     }
                 } else if (context.view === MACHINE_VIEW.Overview) {
                     if (!VisualizerWebview.currentPanel) {
-                        // For Overview, create panel if it doesn't exist
-                        VisualizerWebview.currentPanel = new VisualizerWebview(extension.webviewReveal, false);
+                        // For Overview, create panel in the shared column
+                        VisualizerWebview.currentPanel = new VisualizerWebview(sharedColumn, false);
                         RPCLayer._messenger.onNotification(webviewReady, () => {
                             resolve(true);
                         });
                     } else {
-                        // For Overview, reuse existing panel
-                        VisualizerWebview.currentPanel!.getWebview()?.reveal(ViewColumn.Active);
+                        // For Overview, reuse existing panel in the shared column
+                        VisualizerWebview.currentPanel!.getWebview()?.reveal(sharedColumn);
                         vscode.commands.executeCommand('setContext', 'isViewOpenAPI', true);
                         resolve(true);
                     }
@@ -320,7 +326,7 @@ function updateProjectExplorer(location: VisualizerLocation | undefined) {
     const webview = VisualizerWebview.currentPanel?.getWebview();
     if (webview) {
         if (location && location.view) {
-            webview.title = location.view;
+            webview.title = MACHINE_VIEW.Overview//location.view;
         }
     }
 }

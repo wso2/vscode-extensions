@@ -37,9 +37,9 @@ export class VisualizerWebview {
     private _disposables: vscode.Disposable[] = [];
     private _isWorkflowPanel: boolean = false;
 
-    constructor(beside: boolean = false, isWorkflowPanel: boolean = false) {
+    constructor(viewColumn: ViewColumn = ViewColumn.Active, isWorkflowPanel: boolean = false) {
         this._isWorkflowPanel = isWorkflowPanel;
-        this._panel = VisualizerWebview.createWebview(beside);
+        this._panel = VisualizerWebview.createWebview(viewColumn);
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
         this._panel.webview.html = this.getWebviewContent(this._panel.webview);
         RPCLayer.create(this._panel);
@@ -57,12 +57,12 @@ export class VisualizerWebview {
             }
         }, 500);
 
-        vscode.workspace.onDidChangeTextDocument(async function (document) {
-            if (VisualizerWebview.currentPanel?.getWebview()?.active) {
-                await document.document.save();
-                //refreshDiagram();
-            }
-        }, extension.context);
+        // vscode.workspace.onDidChangeTextDocument(async function (document) {
+        //     if (VisualizerWebview.currentPanel?.getWebview()?.active) {
+        //         await document.document.save();
+        //         //refreshDiagram();
+        //     }
+        // }, extension.context);
 
         vscode.workspace.onDidSaveTextDocument(async function (document) {
             const documentUri = StateMachine.context().documentUri;
@@ -103,11 +103,11 @@ export class VisualizerWebview {
         // });
     }
 
-    private static createWebview(beside: boolean): vscode.WebviewPanel {
+    private static createWebview(viewColumn: ViewColumn): vscode.WebviewPanel {
         const panel = vscode.window.createWebviewPanel(
             VisualizerWebview.viewType,
             "Arazzo Designer",
-            beside ? ViewColumn.Beside : ViewColumn.Active,
+            viewColumn,
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
