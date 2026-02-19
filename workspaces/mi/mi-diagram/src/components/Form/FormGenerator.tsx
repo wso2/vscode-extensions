@@ -895,7 +895,12 @@ export function FormGenerator(props: FormGeneratorProps) {
                 let onCreateButtonClick;
                 if (!Array.isArray(keyType)) {
                     onCreateButtonClick = (fetchItems: any, handleValueChange: any) => {
-                        openPopup(rpcClient, element.keyType, fetchItems, handleValueChange, undefined, { type: keyType }, sidePanelContext);
+                       
+                        const view = element.keyType === 'registry' ? 'addResource' : element.keyType;
+                        const customProps = element.keyType === 'registry'
+                            ? { type: [keyType] }
+                            : { type: keyType };
+                        openPopup(rpcClient, view, fetchItems, handleValueChange, undefined, customProps, sidePanelContext);
                     }
                 }
 
