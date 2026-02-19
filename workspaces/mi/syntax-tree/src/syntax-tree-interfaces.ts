@@ -1865,6 +1865,8 @@ export interface Connector extends STNode {
     parameters: ConnectorParameter[];
     configKey?: string;
     tools?: Tools;
+    mcpConnection?: string;
+    mediator?: any;
 }
 
 export interface AIConnector extends Connector {
@@ -1888,6 +1890,7 @@ export interface Tool extends STNode {
     description: string;
     template: string;
     mediator: Connector;
+    isMcpTool?: boolean;
 }
 
 export interface ConnectorParameter extends STNode {

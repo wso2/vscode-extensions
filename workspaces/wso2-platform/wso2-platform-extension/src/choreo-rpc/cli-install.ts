@@ -52,10 +52,12 @@ export const getChoreoEnv = (): string => {
 };
 
 const getChoreoBinPath = () => {
-	return path.join(ext.context.globalStorageUri.fsPath, "choreo-cli-rpc", getCliVersion(), "bin");
+	const OS = os.platform();
+	const ARCH = getArchitecture();
+	return path.join(ext.context.extensionPath, "resources", "choreo-cli", getCliVersion(), OS, ARCH, "bin");
 };
 
-export const downloadCLI = async () => {
+export const installCLI = async () => {
 	const OS = os.platform();
 	const ARCH = getArchitecture();
 	const CHOREO_BIN_DIR = getChoreoBinPath();
@@ -167,6 +169,10 @@ export const downloadCLI = async () => {
 };
 
 function getArchitecture() {
+	const arch = workspace.getConfiguration().get<string>("WSO2.WSO2-Platform.Advanced.RpcArchitecture");
+	if (arch) {
+		return arch;
+	}
 	const ARCH = os.arch();
 	switch (ARCH) {
 		case "x64":

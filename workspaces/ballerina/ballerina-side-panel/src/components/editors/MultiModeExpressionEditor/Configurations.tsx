@@ -23,6 +23,7 @@ import { ThemeColors } from "@wso2/ui-toolkit/lib/styles/Theme";
 import { tags } from "@lezer/highlight";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { sql } from "@codemirror/lang-sql";
+import { EditorState } from "@codemirror/state";
 
 
 const customSqlHighlightStyle = HighlightStyle.define([
@@ -63,6 +64,7 @@ const customSqlHighlightStyle = HighlightStyle.define([
 export class StringTemplateEditorConfig extends ChipExpressionEditorDefaultConfiguration {
     getHelperValue(value: string, token?: ParsedToken): string {
         if (token?.type === TokenType.FUNCTION) return value;
+        if (value === "\"TEXT_HERE\"") return "TEXT_HERE";
         return `\$\{${value}\}`;
     }
     getSerializationPrefix() {
@@ -92,6 +94,12 @@ export class StringTemplateEditorConfig extends ChipExpressionEditorDefaultConfi
             return value;
         }
         return `${prefix}${value}${suffix}`;
+    }
+
+    getIsValueCompatible(expValue: string) {
+        const suffix = this.getSerializationSuffix();
+        const prefix = this.getSerializationPrefix();
+        return (expValue.trim().startsWith(prefix) && expValue.trim().endsWith(suffix))
     }
 }
 
@@ -142,7 +150,7 @@ export class SQLExpressionEditorConfig extends ChipExpressionEditorDefaultConfig
         return () => null;
     }
     getSerializationPrefix(): string {
-        return "sql `";
+        return "`";
     }
     getSerializationSuffix(): string {
         return "`";
@@ -179,4 +187,42 @@ export class ChipExpressionEditorConfig extends ChipExpressionEditorDefaultConfi
         if (token?.type === TokenType.FUNCTION) return value;
         return `\$\{${value}\}`;
     }
+}
+
+export class NumberExpressionEditorConfig extends ChipExpressionEditorDefaultConfiguration {
+    DECIMAL_INPUT_REGEX = /^\d*\.?\d*$/;
+
+    showHelperPane() {
+        return false;
+    }
+    getAdornment() {
+        return () => null;
+    }
+    getPlugins() {
+        const numericOnly = EditorState.changeFilter.of(tr => {
+            if (!tr.docChanged) {
+                return true;
+            }
+
+            const nextValue = tr.newDoc.toString();
+            return this.DECIMAL_INPUT_REGEX.test(nextValue);
+        });
+
+        return [numericOnly];
+
+    }
+
+    getIsToggleHelperAvailable(): boolean {
+        return false;
+    }
+
+    getIsValueCompatible(value: string): boolean {
+        return this.DECIMAL_INPUT_REGEX.test(value);
+    }
+}
+
+export class RecordConfigExpressionEditorConfig extends ChipExpressionEditorDefaultConfiguration {
+   getIsToggleHelperAvailable(): boolean {
+        return false;
+   }
 }

@@ -31,6 +31,7 @@ export interface ProjectRequest {
     workspaceName?: string;
     orgName?: string;
     version?: string;
+    isLibrary?: boolean;
 }
 
 export interface AddProjectToWorkspaceRequest {
@@ -41,6 +42,7 @@ export interface AddProjectToWorkspaceRequest {
     workspaceName?: string;
     orgName?: string;
     version?: string;
+    isLibrary?: boolean;
 }
 
 export interface WorkspacesResponse {
@@ -196,4 +198,21 @@ export interface GeneratedClientSaveResponse {
 
 export interface DeleteProjectRequest {
     projectPath: string;
+}
+
+export interface ValidateProjectFormRequest {
+    projectPath: string;
+    projectName: string;
+    createDirectory: boolean;
+}
+
+export interface ValidateProjectFormResponse {
+    isValid: boolean;
+    errorMessage?: string;
+    errorField?: ValidateProjectFormErrorField;
+}
+
+export enum ValidateProjectFormErrorField {
+    PATH = 'path',
+    NAME = 'name'
 }

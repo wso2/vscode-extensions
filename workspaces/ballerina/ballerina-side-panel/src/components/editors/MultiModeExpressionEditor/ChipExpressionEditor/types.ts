@@ -24,9 +24,13 @@ export enum InputMode {
   NUMBER = "Number",
   BOOLEAN = "Boolean",
   SQL = "SQL",
-  DROPDOWN = "Dropdown",
+  SELECT = "Select",
   ARRAY = "Array",
-  PROMPT = "Prompt"
+  TEXT_ARRAY = "Text Array",
+  PROMPT = "Prompt",
+  MAP = "Map",
+  MAP_EXP = "Mapping",
+  SIMPLE_TEXT = "Info"
 };
 
 export const INPUT_MODE_MAP = {

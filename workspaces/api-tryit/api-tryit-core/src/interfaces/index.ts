@@ -118,6 +118,7 @@ export interface ApiRequestItem {
     name: string;
     request: ApiRequest;
     response?: ApiResponse; // Optional since response may not exist until request is executed
+    assertions?: string[]; // Top-level assertions (persisted alongside request/response)
     filePath?: string; // Optional file path where this request is stored
 }
 
@@ -126,6 +127,7 @@ export interface ApiFolder {
     id: string;
     name: string;
     items: ApiRequestItem[];
+    filePath?: string;
 }
 
 // Collection - contains folders with request items

@@ -29,6 +29,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	readonly onDidChangeTreeData: vscode.Event<ApiTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
 	private loadingPromise: Promise<void> | null = null;
 	private treeView?: vscode.TreeView<ApiTreeItem>;
+	private collectionPathMap: Map<string, string> = new Map();
+	private inMemoryCollectionIds: Set<string> = new Set();
 
 	constructor(private workspacePath?: string) {
 		this.loadingPromise = this.loadCollections();
@@ -138,9 +140,15 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						})
 						: undefined;
 
-					const assertions = Array.isArray(requestObj.assertions)
-						? (requestObj.assertions as unknown[]).filter((assertion): assertion is string => typeof assertion === 'string')
+					const topLevelAssertions = Array.isArray(persisted.assertions)
+						? (persisted.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
 						: undefined;
+
+						const requestAssertions = Array.isArray(requestObj.assertions)
+							? (requestObj.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
+							: undefined;
+
+						const assertions = topLevelAssertions ?? requestAssertions;
 
 					const requestWithId: ApiRequest = {
 						id: typeof requestObj.id === 'string' ? requestObj.id : id,
@@ -176,7 +184,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						name,
 						request: requestWithId,
 						response: typeof persisted.response === 'object' ? (persisted.response as unknown as ApiResponse) : undefined,
-						filePath
+						filePath,
+						assertions
 					};
 
 					return item;
@@ -223,7 +232,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 			return {
 				id: folderId,
 				name: folderName,
-				items
+				items,
+				filePath: folderPath
 			};
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to load folder ${folderId} in collection ${collectionId}, ${error as string}.`);
@@ -233,13 +243,31 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 
 	private async loadCollections(): Promise<void> {
 		try {
+			const isDirectory = async (targetPath: string): Promise<boolean> => {
+				try {
+					const stats = await fs.stat(targetPath);
+					return stats.isDirectory();
+				} catch {
+					return false;
+				}
+			};
+
 			// Check for configured collections path first
 			const config = vscode.workspace.getConfiguration('api-tryit');
-			const configuredPath = config.get<string>('collectionsPath');
-			
-			// Use configured path, provided workspace path, or default to current workspace
-			const storagePath = configuredPath || this.workspacePath || 
-				(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
+			const configuredPath = config.get<string>('collectionsPath')?.trim();
+
+			let storagePath = '';
+			if (configuredPath) {
+				storagePath = configuredPath;
+			} else {
+				const workspaceRoot = this.workspacePath || (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
+				if (workspaceRoot) {
+					const workspaceApiTestPath = path.join(workspaceRoot, 'api-test');
+					storagePath = await isDirectory(workspaceApiTestPath)
+						? workspaceApiTestPath
+						: workspaceRoot;
+				}
+			}
 
 			if (!storagePath) {
 				// Show error notification if no workspace is available
@@ -247,9 +275,17 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				return;
 			}
 
+			// Keep track of in-memory collections (explicitly tracked by ID)
+			const inMemoryCollections = this.collections.filter(col => 
+				this.inMemoryCollectionIds.has(col.id)
+			);
+
+			// Clear and rebuild the collectionPathMap for disk collections
+			const newPathMap = new Map<string, string>();
+
 			// Discover collections by reading directories
 			const entries = await fs.readdir(storagePath, { withFileTypes: true });
-			this.collections = [];
+			const diskCollections: ApiCollection[] = [];
 
 			for (const entry of entries) {
 				// Skip hidden directories and files
@@ -258,13 +294,34 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						const collectionPath = path.join(storagePath, entry.name);
 						const collection = await this.loadCollection(collectionPath, entry.name);
 						if (collection) {
-							this.collections.push(collection);
+							diskCollections.push(collection);
+							// Store the actual directory path for this collection ID
+							newPathMap.set(collection.id, collectionPath);
 						}
 					} catch (error) {
 						vscode.window.showErrorMessage(`Error loading collection ${entry.name}, ${error as string}`);
 					}
 				}
 			}
+
+			// Update the collectionPathMap with new disk collections
+			this.collectionPathMap = newPathMap;
+
+			// Remove IDs from inMemoryCollectionIds that now exist on disk (promotion)
+			for (const diskCollection of diskCollections) {
+				if (this.inMemoryCollectionIds.has(diskCollection.id)) {
+					this.inMemoryCollectionIds.delete(diskCollection.id);
+				}
+			}
+
+			// Filter in-memory collections to exclude those that now exist on disk
+			const actualInMemoryCollections = inMemoryCollections.filter(col => 
+				!diskCollections.some(disk => disk.id === col.id)
+			);
+
+			// Combine in-memory collections with disk collections
+			// In-memory collections come first, then disk collections
+			this.collections = [...actualInMemoryCollections, ...diskCollections];
 
 			// Notify tree of changes
 			this.refresh();
@@ -278,6 +335,82 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	 */
 	public async reloadCollections(): Promise<void> {
 		await this.loadCollections();
+	}
+
+	/**
+	 * Get the actual filesystem path for a collection by its ID.
+	 * This resolves the ID to the real directory path, handling cases where
+	 * the collection ID differs from the directory name (e.g., imported collections).
+	 */
+	public getCollectionPathById(collectionId: string): string | undefined {
+		return this.collectionPathMap.get(collectionId);
+	}
+
+	/**
+	 * Add a collection in-memory without saving to disk.
+	 * Useful for temporary collections or programmatic imports.
+	 */
+	public addInMemoryCollection(collection: ApiCollection): void {
+		// Track this collection as in-memory
+		this.inMemoryCollectionIds.add(collection.id);
+		
+		// Check if collection with same ID already exists
+		const existingIndex = this.collections.findIndex(c => c.id === collection.id);
+		if (existingIndex >= 0) {
+			// Replace existing collection
+			this.collections[existingIndex] = collection;
+		} else {
+			// Add new collection
+			this.collections.push(collection);
+		}
+		
+		// Notify tree of changes
+		this.refresh();
+	}
+
+	/**
+	 * Remove a collection by ID from both in-memory and disk tracking.
+	 * This ensures the collection doesn't persist after deletion.
+	 */
+	public removeCollectionById(collectionId: string): void {
+		// Remove from collections array
+		this.collections = this.collections.filter(c => c.id !== collectionId);
+		
+		// Remove from path map
+		this.collectionPathMap.delete(collectionId);
+		
+		// Remove from in-memory tracking
+		this.inMemoryCollectionIds.delete(collectionId);
+		
+		// Notify tree of changes
+		this.refresh();
+	}
+
+	/**
+	 * Update the filePath of a request in the in-memory collections
+	 */
+	public updateRequestFilePath(requestId: string, filePath: string): void {
+		for (const collection of this.collections) {
+			// Check root-level requests
+			for (const requestItem of collection.rootItems || []) {
+				if (requestItem.id === requestId) {
+					requestItem.filePath = filePath;
+					this.refresh();
+					return;
+				}
+			}
+			
+			// Check folder requests
+			for (const folder of collection.folders) {
+				for (const requestItem of folder.items) {
+					if (requestItem.id === requestId) {
+						requestItem.filePath = filePath;
+						this.refresh();
+						return;
+					}
+				}
+			}
+		}
 	}
 
 	private async loadCollection(collectionPath: string, collectionId: string): Promise<ApiCollection | null> {
@@ -475,8 +608,7 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						...col.folders.map(folder => ({
 							id: `${col.id}-${folder.name}`,
 							name: folder.name,
-							type: 'folder',
-							children: folder.items.map(item => ({
+							type: 'folder',						filePath: folder.filePath,							children: folder.items.map(item => ({
 								id: `${col.id}-${folder.name}-${item.name}`,
 								name: item.name,
 								type: 'request',
@@ -515,6 +647,7 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 								id: `${col.id}-${folder.name}`,
 								name: folder.name,
 								type: 'folder',
+								filePath: folder.filePath,
 								children: folder.items
 									.filter(item => 
 										item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

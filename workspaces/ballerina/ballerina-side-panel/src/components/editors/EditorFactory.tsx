@@ -18,7 +18,7 @@
 
 import React from "react";
 
-import { getPrimaryInputType, NodeKind, NodeProperties, RecordTypeField, SubPanel, SubPanelView } from "@wso2/ballerina-core";
+import { getPrimaryInputType, isDropDownType, isTemplateType, NodeKind, NodeProperties, RecordTypeField, SubPanel, SubPanelView } from "@wso2/ballerina-core";
 
 import { FormField } from "../Form/types";
 import { MultiSelectEditor } from "./MultiSelectEditor";
@@ -29,8 +29,6 @@ import { ParamManagerEditor } from "../ParamManager/ParamManager";
 import { DropdownEditor } from "./DropdownEditor";
 import { FileSelect } from "./FileSelect";
 import { CheckBoxEditor } from "./CheckBoxEditor";
-import { ArrayEditor } from "./ArrayEditor";
-import { MapEditor } from "./MapEditor";
 import { ChoiceForm } from "./ChoiceForm";
 import { FormMapEditor } from "./FormMapEditor";
 import { TextAreaEditor } from "./TextAreaEditor";
@@ -43,10 +41,13 @@ import { PathEditor } from "./PathEditor";
 import { HeaderSetEditor } from "./HeaderSetEditor";
 import { CompletionItem } from "@wso2/ui-toolkit";
 import { CustomDropdownEditor } from "./CustomDropdownEditor";
+import { SliderEditor } from "./SliderEditor";
 import { ActionExpressionEditor } from "./ActionExpressionEditor";
 import { CheckBoxConditionalEditor } from "./CheckBoxConditionalEditor";
 import { ActionTypeEditor } from "./ActionTypeEditor";
 import { AutoCompleteEditor } from "./AutoCompleteEditor";
+import { InputMode } from "./MultiModeExpressionEditor/ChipExpressionEditor/types";
+import { ArgManagerEditor } from "../ParamManager/ArgManager";
 
 interface FormFieldEditorProps {
     field: FormField;
@@ -94,13 +95,20 @@ export const EditorFactory = (props: FormFieldEditorProps) => {
             type.fieldType === "ACTION_OR_EXPRESSION" ||
             type.fieldType === "TEXT" ||
             type.fieldType === "EXPRESSION_SET" ||
-            type.fieldType === "SINGLE_SELECT" ||
-            type.fieldType === "RECORD_MAP_EXPRESSION"
+            type.fieldType === "TEXT_SET" ||
+            type.fieldType === "MAPPING_EXPRESSION_SET" ||
+            type.fieldType === "MAPPING_EXPRESSION" ||
+            (type.fieldType === "SINGLE_SELECT" && isDropDownType(type)) ||
+            type.fieldType === "RECORD_MAP_EXPRESSION" ||
+            (field.type === "FLAG" && field.types?.length > 1) ||
+            type.fieldType === "CLAUSE_EXPRESSION"
         );
     });
-    
+
     if (!field.enabled || field.hidden) {
         return <></>;
+    } else if (field.type === "SLIDER") {
+        return <SliderEditor field={field} />;
     } else if (field.type === "MULTIPLE_SELECT") {
         return <MultiSelectEditor field={field} label={"Attach Another"} openSubPanel={openSubPanel} />;
     } else if (field.type === "HEADER_SET") {
@@ -109,21 +117,9 @@ export const EditorFactory = (props: FormFieldEditorProps) => {
         return <ChoiceForm field={field} recordTypeFields={recordTypeFields} />;
     } else if (field.type === "DROPDOWN_CHOICE") {
         return <DropdownChoiceForm field={field} />;
-    } else if (field.type === "TEXTAREA" || field.type === "STRING") {
-        return <TextAreaEditor field={field} />;
-    } else if (field.type === "MAPPING_EXPRESSION_SET") {
-        return (
-            <MapEditor
-                field={field}
-                label={"Add Another Key-Value Pair"}
-                openSubPanel={openSubPanel}
-                subPanelView={subPanelView}
-                handleOnFieldFocus={handleOnFieldFocus}
-                autoFocus={autoFocus}
-                recordTypeField={recordTypeFields?.find(recordField => recordField.key === field.key)}
-            />
-        );
-    } else if (field.type === "FLAG") {
+    } else if (field.type === "TEXTAREA" || field.type === "STRING" || field.type === "DOC_TEXT") {
+        return <TextAreaEditor field={field} inputMode={InputMode.SIMPLE_TEXT} />;
+    } else if (field.type === "FLAG" && !showWithExpressionEditor) {
         return <CheckBoxEditor field={field} />;
     } else if (field.type === "EXPRESSION" && field.key === "resourcePath") {
         // HACK: this should fixed with the LS API. this is used to avoid the expression editor for resource path field.
@@ -137,6 +133,8 @@ export const EditorFactory = (props: FormFieldEditorProps) => {
         return <CustomDropdownEditor field={field} openSubPanel={openSubPanel} />;
     } else if (field.type === "FILE_SELECT" && field.editable) {
         return <FileSelect field={field} />;
+    } else if (field.type === "SINGLE_SELECT" && !showWithExpressionEditor && field.editable) {
+        return <DropdownEditor field={field} openSubPanel={openSubPanel} />;
     } else if (!field.items && (field.type === "ACTION_TYPE") && field.editable) {
         return (
             <ActionTypeEditor
@@ -203,7 +201,12 @@ export const EditorFactory = (props: FormFieldEditorProps) => {
     } else if (field.type === "VIEW") {
         // Skip this property
         return <></>;
-    } else if (field.type === "PARAM_MANAGER") {
+    } else if(field.type === "REPEATABLE_PROPERTY" && (selectedNode === "DATA_MAPPER_CREATION" || selectedNode === "FUNCTION_CREATION")) {
+        return <ArgManagerEditor setSubComponentEnabled={setSubComponentEnabled} field={field} openRecordEditor={openRecordEditor} handleOnFieldFocus={handleOnFieldFocus} selectedNode={selectedNode} />;
+    }else if (
+        (field.type === "PARAM_MANAGER") ||
+        (field.type === "REPEATABLE_PROPERTY" && isTemplateType(getPrimaryInputType(field.types)))
+    ) {
         return <ParamManagerEditor setSubComponentEnabled={setSubComponentEnabled} field={field} openRecordEditor={openRecordEditor} handleOnFieldFocus={handleOnFieldFocus} selectedNode={selectedNode} />;
     } else if (field.type === "REPEATABLE_PROPERTY") {
         return <FormMapEditor field={field} label={"Add Another Key-Value Pair"} />;
@@ -229,9 +232,15 @@ export const EditorFactory = (props: FormFieldEditorProps) => {
         );
     } else if (field.type === "DM_JOIN_CLAUSE_RHS_EXPRESSION") {
         // Expression field for Data Mapper join on condition RHS
+        const clauseExpressionField: FormField = {
+            ...field,
+            type: "CLAUSE_EXPRESSION",
+            types: [{ fieldType: "CLAUSE_EXPRESSION", selected: false }]
+        }; // Transforming to CLAUSE_EXPRESSION type to support diagnostics
+
         return (
             <DataMapperJoinClauseRhsEditor
-                field={field}
+                field={clauseExpressionField}
                 openSubPanel={openSubPanel}
                 subPanelView={subPanelView}
                 handleOnFieldFocus={handleOnFieldFocus}
