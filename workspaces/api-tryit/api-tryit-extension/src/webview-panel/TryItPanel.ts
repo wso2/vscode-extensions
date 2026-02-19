@@ -203,6 +203,20 @@ export class TryItPanel {
 							vscode.window.showErrorMessage(`Failed to process Hurl content: ${errorMsg}`);
 						}
 						break;
+					case 'openFromHurlCollection':
+						// Handle Hurl collection payload -> create .hurl collection in workspace
+						try {
+							const payload = message.data?.hurlCollection ?? message.data?.collection ?? message.data?.payload;
+							if (!payload) {
+								vscode.window.showErrorMessage('No Hurl collection payload provided');
+								break;
+							}
+							vscode.commands.executeCommand('api-tryit.openFromHurlCollection', typeof payload === 'string' ? payload : JSON.stringify(payload));
+						} catch (error: unknown) {
+							const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+							vscode.window.showErrorMessage(`Failed to import Hurl collection: ${errorMsg}`);
+						}
+						break;
 				case 'sendHttpRequest':
 						// Handle HTTP request sent from webview
 						try {

@@ -61,6 +61,11 @@
         "icon": "$(globe)"
       },
       {
+        "command": "api-tryit.openFromHurlCollection",
+        "title": "API TryIt: Import Hurl Collection",
+        "icon": "$(layers)"
+      },
+      {
         "command": "api-tryit.refreshExplorer",
         "title": "Refresh",
         "icon": "$(refresh)"
@@ -150,6 +155,10 @@
         },
         {
           "command": "api-tryit.importCollectionPayload",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "api-tryit.openFromHurlCollection",
           "when": "workspaceFolderCount > 0"
         }
       ]

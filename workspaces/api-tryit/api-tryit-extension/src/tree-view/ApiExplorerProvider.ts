@@ -315,23 +315,61 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 			// Clear and rebuild the collectionPathMap for disk collections
 			const newPathMap = new Map<string, string>();
 
-			// Discover collections by reading directories
-			const entries = await fs.readdir(storagePath, { withFileTypes: true });
-			const diskCollections: ApiCollection[] = [];
+			// Discover collections by reading directories under the primary storage path
+            const entries = await fs.readdir(storagePath, { withFileTypes: true });
+            const diskCollections: ApiCollection[] = [];
 
-			for (const entry of entries) {
-				// Skip hidden directories and files
-				if (entry.isDirectory() && !entry.name.startsWith('.')) {
-					try {
-						const collectionPath = path.join(storagePath, entry.name);
-						const collection = await this.loadCollection(collectionPath, entry.name);
-						if (collection) {
-							diskCollections.push(collection);
-							// Store the actual directory path for this collection ID
-							newPathMap.set(collection.id, collectionPath);
+            for (const entry of entries) {
+                // Skip hidden directories and files
+                if (entry.isDirectory() && !entry.name.startsWith('.')) {
+                    try {
+                        const collectionPath = path.join(storagePath, entry.name);
+                        const collection = await this.loadCollection(collectionPath, entry.name);
+                        if (collection) {
+                            diskCollections.push(collection);
+                            // Store the actual directory path for this collection ID
+                            newPathMap.set(collection.id, collectionPath);
+                        }
+                    } catch (error) {
+                        vscode.window.showErrorMessage(`Error loading collection ${entry.name}, ${error as string}`);
+                    }
+                }
+            }
+
+			// Additionally: when no explicit `collectionsPath` is configured and the extension
+			// is using the workspace's `api-test` directory, also scan the workspace root for
+			// top-level collection folders (this makes collections like `sample/` visible).
+			// We avoid scanning the entire workspace recursively to keep performance predictable.
+			if (!configuredPath) {
+				const workspaceRoot = this.workspacePath || (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
+				if (workspaceRoot) {
+					const workspaceApiTestPath = path.join(workspaceRoot, 'api-test');
+					// Only perform the extra scan when we're currently using api-test as storage
+					if (storagePath === workspaceApiTestPath) {
+						try {
+							const rootEntries = await fs.readdir(workspaceRoot, { withFileTypes: true });
+							for (const rootEntry of rootEntries) {
+								if (rootEntry.isDirectory() && !rootEntry.name.startsWith('.') && rootEntry.name !== 'api-test') {
+									const candidatePath = path.join(workspaceRoot, rootEntry.name);
+									// Quick check: must contain collection.yaml/yml/json to be considered
+									try {
+										await fs.access(path.join(candidatePath, 'collection.yaml'))
+											.catch(() => fs.access(path.join(candidatePath, 'collection.yml')))
+											.catch(() => fs.access(path.join(candidatePath, 'collection.json')));
+
+										const collection = await this.loadCollection(candidatePath, rootEntry.name);
+										if (collection && !diskCollections.some(dc => dc.id === collection.id)) {
+											diskCollections.push(collection);
+											newPathMap.set(collection.id, candidatePath);
+										}
+									} catch {
+										// not a collection folder — ignore
+									}
+								}
+							}
+						} catch (err) {
+							// ignore errors from scanning workspace root
 						}
-					} catch (error) {
-						vscode.window.showErrorMessage(`Error loading collection ${entry.name}, ${error as string}`);
 					}
 				}
 			}

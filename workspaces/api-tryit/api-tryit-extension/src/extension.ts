@@ -23,6 +23,7 @@ import { ActivityPanel } from './activity-panel/webview';
 import { ApiExplorerProvider } from './tree-view/ApiExplorerProvider';
 import { ApiTryItStateMachine, EVENT_TYPE } from './stateMachine';
 import { ApiRequestItem } from '@wso2/api-tryit-core';
+import type { HurlCollectionPayload } from './util/hurl-collection-converter';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
@@ -180,6 +181,121 @@ async function createCollectionFolderStructure(
 	return { collectionPath, firstRequestPath };
 }
 
+async function createHurlCollectionFolderStructure(
+	apiTestPath: string,
+	collectionName: string,
+	collectionData: Record<string, unknown> | HurlCollectionPayload
+): Promise<{ collectionPath: string; firstRequestPath?: string }> {
+	await fs.mkdir(apiTestPath, { recursive: true });
+
+	const collectionDirName = sanitizePathSegment(collectionName, `collection-${Date.now()}`);
+	const collectionPath = path.join(apiTestPath, collectionDirName);
+	await fs.mkdir(collectionPath, { recursive: true });
+	let firstRequestPath: string | undefined;
+
+	const collectionId = typeof collectionData.id === 'string'
+		? collectionData.id
+		: `${collectionDirName}-${Date.now()}`;
+
+	const collectionMetadata = {
+		id: collectionId,
+		name: collectionName,
+		description: typeof collectionData.description === 'string' ? collectionData.description : ''
+	};
+
+	await fs.writeFile(
+		path.join(collectionPath, 'collection.yaml'),
+		yaml.dump(collectionMetadata),
+		'utf-8'
+	);
+
+	const rootItems = Array.isArray(collectionData.requests)
+		? collectionData.requests
+		: (Array.isArray(collectionData.rootItems) ? collectionData.rootItems : []);
+
+	for (let index = 0; index < rootItems.length; index++) {
+		const raw = rootItems[index] as Record<string, unknown>;
+		const name = typeof raw.name === 'string' ? raw.name : `Request ${index + 1}`;
+		let content = typeof raw.content === 'string' ? raw.content : (typeof raw.hurl === 'string' ? raw.hurl : '');
+
+		// Convert escaped newlines ("\\n") to real newlines so saved .hurl files are syntactically correct
+		if (content.includes('\\n')) {
+			content = content.replace(/\\n/g, '\n');
+		}
+
+		// Normalize CRLF to LF
+		content = content.replace(/\r\n/g, '\n');
+
+		// Ensure a blank line before [Asserts] if the user omitted it
+		content = content.replace(/\n\[Asserts\]/g, '\n\n[Asserts]');
+
+		// Add metadata comments if not already present (API Explorer uses @name/@id)
+		const hasId = /^#\s*@id/m.test(content);
+		const hasName = /^#\s*@name/m.test(content);
+		const reqId = typeof raw.id === 'string' ? raw.id : `new-${Date.now()}-${index}`;
+		let meta = '';
+		if (!hasId) meta += `# @id ${reqId}\n`;
+		if (!hasName) meta += `# @name ${name}\n`;
+		if (meta) content = meta + '\n' + content.trim() + '\n';
+
+		const fileName = `${String(index + 1).padStart(2, '0')}-${sanitizePathSegment(name, `request-${index + 1}`)}.hurl`;
+		const requestPath = path.join(collectionPath, fileName);
+
+		await fs.writeFile(requestPath, content.endsWith('\n') ? content : content + '\n', 'utf-8');
+		if (!firstRequestPath) {
+			firstRequestPath = requestPath;
+		}
+	}
+
+	const folders = Array.isArray(collectionData.folders) ? collectionData.folders : [];
+	for (let folderIndex = 0; folderIndex < folders.length; folderIndex++) {
+		const folderObj = folders[folderIndex] && typeof folders[folderIndex] === 'object'
+			? (folders[folderIndex] as Record<string, unknown>)
+			: {};
+
+		const folderName = typeof folderObj.name === 'string' ? folderObj.name : `Folder ${folderIndex + 1}`;
+		const folderDirName = sanitizePathSegment(folderName, `folder-${folderIndex + 1}`);
+		const folderPath = path.join(collectionPath, folderDirName);
+		await fs.mkdir(folderPath, { recursive: true });
+
+		const folderItems = Array.isArray(folderObj.items)
+			? folderObj.items
+			: (Array.isArray(folderObj.requests) ? folderObj.requests : []);
+
+		for (let requestIndex = 0; requestIndex < folderItems.length; requestIndex++) {
+			const raw = folderItems[requestIndex] as Record<string, unknown>;
+			const name = typeof raw.name === 'string' ? raw.name : `Request ${requestIndex + 1}`;
+			let content = typeof raw.content === 'string' ? raw.content : (typeof raw.hurl === 'string' ? raw.hurl : '');
+
+			// Convert escaped newlines to real newlines
+			if (content.includes('\\n')) {
+				content = content.replace(/\\n/g, '\n');
+			}
+			content = content.replace(/\r\n/g, '\n');
+			content = content.replace(/\n\[Asserts\]/g, '\n\n[Asserts]');
+
+			// Add metadata comments when missing
+			const hasId = /^#\s*@id/m.test(content);
+			const hasName = /^#\s*@name/m.test(content);
+			const reqId = typeof raw.id === 'string' ? raw.id : `new-${Date.now()}-${requestIndex}`;
+			let meta = '';
+			if (!hasId) meta += `# @id ${reqId}\n`;
+			if (!hasName) meta += `# @name ${name}\n`;
+			if (meta) content = meta + '\n' + content.trim() + '\n';
+
+			const fileName = `${String(requestIndex + 1).padStart(2, '0')}-${sanitizePathSegment(name, `request-${requestIndex + 1}`)}.hurl`;
+			const requestPath = path.join(folderPath, fileName);
+
+			await fs.writeFile(requestPath, content.endsWith('\n') ? content : content + '\n', 'utf-8');
+			if (!firstRequestPath) {
+				firstRequestPath = requestPath;
+			}
+		}
+	}
+
+	return { collectionPath, firstRequestPath };
+}
+
 export async function activate(context: vscode.ExtensionContext) {
 	// Register the API Explorer tree view provider
 	const apiExplorerProvider = new ApiExplorerProvider();
@@ -219,10 +335,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		// Open the TryIt panel
 		TryItPanel.show(context);
-		
+
 		// Send the selected item through the state machine with file path
 		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, requestItem, requestItem.filePath);
-		
+
 		// vscode.window.showInformationMessage(`Opening: ${requestItem.request.method} ${requestItem.name}`);
 	});
 
@@ -266,7 +382,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const clearSelectionCommand = vscode.commands.registerCommand('api-tryit.clearSelection', async () => {
 		// Clear selection in the activity panel webview
 		ActivityPanel.postMessage('clearSelection');
-		
+
 		// Clear the collection context from state machine
 		ApiTryItStateMachine.sendEvent(EVENT_TYPE.CLEAR_COLLECTION_CONTEXT);
 	});
@@ -292,14 +408,14 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		// Open the TryIt panel
 		TryItPanel.show(context);
-		
+
 		// Send empty request through state machine to ensure context is properly set
 		// This will set selectedItem but NOT currentCollectionPath
 		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, emptyRequestItem, undefined);
-		
+
 		// Also send to webview via postMessage for queueing
 		TryItPanel.postMessage('apiRequestItemSelected', emptyRequestItem);
-		
+
 		vscode.window.showInformationMessage('New request created');
 	});
 
@@ -321,10 +437,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			// Import the utility function
 			const { curlToApiRequestItem } = await import('./util');
-			
+
 			// Convert curl to ApiRequestItem
 			const requestItem = curlToApiRequestItem(curlString);
-			
+
 			if (!requestItem || !requestItem.request.url) {
 				vscode.window.showErrorMessage('Could not parse curl command. Please check the format and try again.');
 				return;
@@ -341,13 +457,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			// Open the TryIt panel
 			TryItPanel.show(context);
-			
+
 			// Send the request item through state machine
 			ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, requestItem, undefined);
-			
+
 			// Also send to webview for queueing
 			TryItPanel.postMessage('apiRequestItemSelected', requestItem);
-			
+
 			vscode.window.showInformationMessage(`Loaded: ${requestItem.request.method} ${requestItem.request.url}`);
 		} catch (error: unknown) {
 			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -420,6 +536,71 @@ export async function activate(context: vscode.ExtensionContext) {
 		} catch (err: unknown) {
 			const msg = err instanceof Error ? err.message : 'Unknown error';
 			vscode.window.showErrorMessage(`Failed to import Hurl: ${msg}`);
+		}
+	});
+
+	// Register command to import Hurl collection payload (JSON with multiple .hurl entries)
+	const openFromHurlCollectionCommand = vscode.commands.registerCommand('api-tryit.openFromHurlCollection', async (payload?: string) => {
+		try {
+			const workspaceRoot = await getWorkspaceRoot();
+			if (!workspaceRoot) return;
+
+			if (!payload || typeof payload !== 'string') {
+				payload = await vscode.window.showInputBox({
+					prompt: 'Paste your Hurl collection JSON payload',
+					placeHolder: '{"name":"My Hurl Collection","requests":[{"name":"List","content":"GET https://...\\nHTTP 200"}], "folders": []}',
+					title: 'Import Hurl Collection Payload'
+				});
+
+				if (!payload) return; // user cancelled
+			}
+
+			let parsed: unknown;
+			try {
+				parsed = JSON.parse(payload as string);
+			} catch (err) {
+				vscode.window.showErrorMessage('Invalid JSON payload. Please provide a valid JSON object');
+				return;
+			}
+
+			// Normalize/validate using utility
+			const { normalizeHurlCollectionPayload } = await import('./util');
+			let normalized;
+			try {
+				normalized = normalizeHurlCollectionPayload(parsed);
+			} catch (err: unknown) {
+				const msg = err instanceof Error ? err.message : 'Invalid payload';
+				vscode.window.showErrorMessage(`Failed to parse Hurl collection payload: ${msg}`);
+				return;
+			}
+
+			const apiTestPath = getApiTestPath(workspaceRoot);
+			const { collectionPath, firstRequestPath } = await createHurlCollectionFolderStructure(apiTestPath, normalized.name, normalized);
+
+			await apiExplorerProvider.reloadCollections();
+
+			// Reveal UI and open first request if exists
+			try {
+				await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
+				await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
+			} catch {
+				// ignore
+			}
+
+			TryItPanel.show(context);
+
+			if (firstRequestPath) {
+				await vscode.commands.executeCommand('api-tryit.selectItemByPath', firstRequestPath);
+				const match = apiExplorerProvider.findRequestByFilePath(firstRequestPath);
+				if (match) {
+					await vscode.commands.executeCommand('api-tryit.openRequest', match.requestItem);
+				}
+			}
+
+			vscode.window.showInformationMessage(`Hurl collection "${normalized.name}" imported to ${collectionPath}`);
+		} catch (error: unknown) {
+			const msg = error instanceof Error ? error.message : 'Unknown error';
+			vscode.window.showErrorMessage(`Failed to import Hurl collection: ${msg}`);
 		}
 	});
 
@@ -732,13 +913,14 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(setCollectionsPathCommand);
 
 	context.subscriptions.push(
-		refreshCommand, 
-		openTryItCommand, 
-		openRequestCommand, 
+		refreshCommand,
+		openTryItCommand,
+		openRequestCommand,
 		selectItemByPathCommand,
 		newRequestCommand,
 		openFromCurlCommand,
 		openFromHurlCommand,
+		openFromHurlCollectionCommand,
 		newCollectionCommand,
 		importCollectionCommand,
 		importCollectionPayloadCommand,

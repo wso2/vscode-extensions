@@ -52,3 +52,4 @@ export function getComposerJSFiles(
 }
 export { curlToApiRequestItem } from './curl-converter';
 export { hurlToApiRequestItem } from './hurl-converter';
+export { normalizeHurlCollectionPayload } from './hurl-collection-converter';
