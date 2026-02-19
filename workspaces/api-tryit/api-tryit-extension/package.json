@@ -182,7 +182,7 @@
     "eslint": "9.27.0",
     "typescript": "5.8.3",
     "ts-loader": "9.5.1",
-    "webpack": "5.98.0",
+    "webpack": "5.104.1",
     "webpack-cli": "6.0.1",
     "copyfiles": "2.4.1",
     "dotenv": "16.4.7",
