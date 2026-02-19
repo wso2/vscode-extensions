@@ -302,8 +302,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 			}
 
 			if (!storagePath) {
-				// Show error notification if no workspace is available
-				vscode.window.showErrorMessage('No workspace path available. Please open a workspace or specify a path.');
+				// No workspace/configured path available yet; keep the explorer empty silently.
+				// This can happen during startup or when a folder is about to be opened.
 				return;
 			}
 

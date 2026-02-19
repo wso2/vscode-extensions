@@ -211,7 +211,9 @@ export class TryItPanel {
 								vscode.window.showErrorMessage('No Hurl collection payload provided');
 								break;
 							}
-							vscode.commands.executeCommand('api-tryit.openFromHurlCollection', typeof payload === 'string' ? payload : JSON.stringify(payload));
+							// Pass optional folder name argument through to the command if provided in the message
+						const folderName = message.data?.folderName ?? message.data?.folder ?? undefined;
+						vscode.commands.executeCommand('api-tryit.openFromHurlCollection', typeof payload === 'string' ? payload : JSON.stringify(payload), folderName);
 						} catch (error: unknown) {
 							const errorMsg = error instanceof Error ? error.message : 'Unknown error';
 							vscode.window.showErrorMessage(`Failed to import Hurl collection: ${errorMsg}`);

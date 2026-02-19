@@ -28,6 +28,15 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
 
+const PENDING_HURL_IMPORT_KEY = 'api-tryit.pendingHurlImportContext';
+
+type PendingHurlImportContext = {
+	targetToOpen: string;
+	collectionPath: string;
+	firstRequestPath?: string;
+	timestamp: number;
+};
+
 async function getWorkspaceRoot(): Promise<string | undefined> {
 	const workspaceFolders = vscode.workspace.workspaceFolders;
 
@@ -357,6 +366,39 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Register the activity panel with the API explorer provider
 	activateActivityPanel(context, apiExplorerProvider);
 
+	// If we just opened a folder/window from an import flow, restore focus and selection.
+	const pendingImport = context.globalState.get<PendingHurlImportContext>(PENDING_HURL_IMPORT_KEY);
+	if (pendingImport) {
+		const workspaceRoots = (vscode.workspace.workspaceFolders || []).map(f => f.uri.fsPath);
+		const matchesCurrentWorkspace = workspaceRoots.some(root =>
+			pendingImport.targetToOpen === root || pendingImport.collectionPath.startsWith(root)
+		);
+
+		if (matchesCurrentWorkspace) {
+			await context.globalState.update(PENDING_HURL_IMPORT_KEY, undefined);
+
+			setTimeout(async () => {
+				try {
+					await apiExplorerProvider.reloadCollections();
+					await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
+					await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
+
+					TryItPanel.show(context);
+
+					if (pendingImport.firstRequestPath) {
+						await vscode.commands.executeCommand('api-tryit.selectItemByPath', pendingImport.firstRequestPath);
+						const match = apiExplorerProvider.findRequestByFilePath(pendingImport.firstRequestPath);
+						if (match) {
+							await vscode.commands.executeCommand('api-tryit.openRequest', match.requestItem);
+						}
+					}
+				} catch {
+					// ignore startup race issues
+				}
+			}, 800);
+		}
+	}
+
 	// Register command to refresh tree view
 	const refreshCommand = vscode.commands.registerCommand('api-tryit.refreshExplorer', async () => {
 		try {
@@ -588,27 +630,44 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 
 	// Register command to import Hurl collection payload (JSON with multiple .hurl entries)
-	const openFromHurlCollectionCommand = vscode.commands.registerCommand('api-tryit.openFromHurlCollection', async (payload?: string) => {
+	const openFromHurlCollectionCommand = vscode.commands.registerCommand('api-tryit.openFromHurlCollection', async (payload?: string | Record<string, unknown>, folderNameArg?: string) => {
 		try {
+			// Try to obtain workspace root if available, but we will prompt for a directory when none is open
 			const workspaceRoot = await getWorkspaceRoot();
-			if (!workspaceRoot) return;
 
-			if (!payload || typeof payload !== 'string') {
-				payload = await vscode.window.showInputBox({
+			// If payload not provided, prompt the user to paste JSON
+			if (!payload) {
+				const input = await vscode.window.showInputBox({
 					prompt: 'Paste your Hurl collection JSON payload',
 					placeHolder: '{"name":"My Hurl Collection","requests":[{"name":"List","content":"GET https://...\\nHTTP 200"}], "folders": []}',
 					title: 'Import Hurl Collection Payload'
 				});
 
-				if (!payload) return; // user cancelled
+				if (!input) return; // user cancelled
+				payload = input;
 			}
 
+			// Accept either JSON string or an object payload
 			let parsed: unknown;
-			try {
-				parsed = JSON.parse(payload as string);
-			} catch (err) {
-				vscode.window.showErrorMessage('Invalid JSON payload. Please provide a valid JSON object');
-				return;
+			if (typeof payload === 'string') {
+				try {
+					parsed = JSON.parse(payload as string);
+				} catch (err) {
+					vscode.window.showErrorMessage('Invalid JSON payload. Please provide a valid JSON object');
+					return;
+				}
+			} else {
+				parsed = payload;
+			}
+
+			// Determine optional target folder name (explicit arg overrides payload field)
+			let providedFolderName: string | undefined = undefined;
+			if (folderNameArg && typeof folderNameArg === 'string' && folderNameArg.trim()) {
+				providedFolderName = folderNameArg.trim();
+			} else if (parsed && typeof parsed === 'object') {
+				const p = parsed as Record<string, unknown>;
+				if (typeof p.folderName === 'string' && p.folderName.trim()) providedFolderName = p.folderName.trim();
+				else if (typeof p.folder === 'string' && p.folder.trim()) providedFolderName = p.folder.trim();
 			}
 
 			// Normalize/validate using utility
@@ -622,26 +681,110 @@ export async function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			const apiTestPath = getApiTestPath(workspaceRoot);
-			const { collectionPath, firstRequestPath } = await createHurlCollectionFolderStructure(apiTestPath, normalized.name, normalized);
-
-			await apiExplorerProvider.reloadCollections();
-
-			// Reveal UI and open first request if exists
-			try {
-				await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
-				await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
-			} catch {
-				// ignore
+			// Determine base path where collection will be created
+			let basePath: string | undefined;
+			// Remember the folder the user explicitly selected (used when no workspace is open)
+			let selectedParentDir: string | undefined;
+			if (workspaceRoot) {
+				if (providedFolderName) {
+					basePath = path.join(workspaceRoot, providedFolderName);
+				} else {
+					// Per new behavior: when no folder specified, create collection under workspace root
+					basePath = workspaceRoot;
+				}
+			} else {
+				// No workspace open — ask user to select a directory to create the collection in
+				const folderUris = await vscode.window.showOpenDialog({
+					canSelectFolders: true,
+					canSelectFiles: false,
+					canSelectMany: false,
+					openLabel: 'Select folder to create collection in'
+				});
+				if (!folderUris || folderUris.length === 0) return; // user cancelled
+				const parent = folderUris[0].fsPath;
+				selectedParentDir = parent;
+				basePath = providedFolderName ? path.join(parent, providedFolderName) : parent;
 			}
 
-			TryItPanel.show(context);
+			if (!basePath) {
+				vscode.window.showErrorMessage('Could not determine target directory for collection');
+				return;
+			}
 
-			if (firstRequestPath) {
-				await vscode.commands.executeCommand('api-tryit.selectItemByPath', firstRequestPath);
-				const match = apiExplorerProvider.findRequestByFilePath(firstRequestPath);
-				if (match) {
-					await vscode.commands.executeCommand('api-tryit.openRequest', match.requestItem);
+			// Ensure basePath exists
+			await fs.mkdir(basePath, { recursive: true });
+
+			const { collectionPath, firstRequestPath } = await createHurlCollectionFolderStructure(basePath, normalized.name, normalized);
+
+			// If collection created outside workspace, offer to open/add it. When no workspace is open,
+			// prompt to open the new collection in a new window. Do NOT call reloadCollections when
+			// there is no active workspace folder (it will surface an error).
+			let isInWorkspace = vscode.workspace.workspaceFolders?.some(folder => collectionPath.startsWith(folder.uri.fsPath)) || false;
+
+			if (!isInWorkspace) {
+				if (workspaceRoot) {
+					const pick = await vscode.window.showInformationMessage(
+						`Collection "${normalized.name}" created at ${collectionPath}. Add to workspace or open it?`,
+						'Open in New Window',
+						'Add to Workspace',
+						'Cancel'
+					);
+
+					if (pick === 'Open in New Window') {
+						await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(collectionPath), true);
+						return; // new window will load the collection
+					} else if (pick === 'Add to Workspace') {
+						vscode.workspace.updateWorkspaceFolders(vscode.workspace.workspaceFolders?.length || 0, 0, { uri: vscode.Uri.file(collectionPath), name: normalized.name });
+						isInWorkspace = true; // now considered in workspace
+					} else {
+						vscode.window.showInformationMessage(`Hurl collection created at ${collectionPath}`);
+						return;
+					}
+				} else {
+				// No workspace open — ask to open the directory the user selected (not the newly-created collection folder)
+				const pick = await vscode.window.showInformationMessage(
+					`Collection created at ${collectionPath}. Open the selected folder now?`,
+					'Open Folder',
+					'Open in New Window',
+					'Cancel'
+				);
+				if (pick === 'Open Folder' || pick === 'Open in New Window') {
+					// Open the directory the user originally selected (fall back to collectionPath if missing)
+					const targetToOpen = selectedParentDir ? selectedParentDir : collectionPath;
+					await context.globalState.update(PENDING_HURL_IMPORT_KEY, {
+						targetToOpen,
+						collectionPath,
+						firstRequestPath,
+						timestamp: Date.now()
+					} as PendingHurlImportContext);
+					await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(targetToOpen), pick === 'Open in New Window');
+					return;
+				}
+				vscode.window.showInformationMessage(`Hurl collection created at ${collectionPath}`);
+				return;
+			}
+		}
+
+		// At this point the collection is in-workspace (or was just added) — reload the explorer
+			if (isInWorkspace) {
+				await apiExplorerProvider.reloadCollections();
+
+				// Reveal UI and open first request if exists
+				try {
+					await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
+					await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
+				} catch {
+					// ignore
+				}
+
+				TryItPanel.show(context);
+
+				if (firstRequestPath) {
+					await vscode.commands.executeCommand('api-tryit.selectItemByPath', firstRequestPath);
+					const match = apiExplorerProvider.findRequestByFilePath(firstRequestPath);
+					if (match) {
+						await vscode.commands.executeCommand('api-tryit.openRequest', match.requestItem);
+					}
 				}
 			}
 

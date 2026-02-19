@@ -158,8 +158,7 @@
           "when": "workspaceFolderCount > 0"
         },
         {
-          "command": "api-tryit.openFromHurlCollection",
-          "when": "workspaceFolderCount > 0"
+          "command": "api-tryit.openFromHurlCollection"
         }
       ]
     },
