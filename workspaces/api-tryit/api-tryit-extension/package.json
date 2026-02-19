@@ -158,26 +158,27 @@
     "copyVSIXToRoot": "copyfiles -u 0 \"vsix/*.vsix\" ../../../"
   },
   "devDependencies": {
-    "@types/js-yaml": "^4.0.9",
-    "@types/vscode": "^1.100.0",
+    "@types/js-yaml": "4.0.9",
+    "@types/vscode": "1.100.0",
     "@types/node": "20.x",
-    "@typescript-eslint/eslint-plugin": "^8.32.1",
-    "@typescript-eslint/parser": "^8.32.1",
-    "eslint": "^9.27.0",
+    "@typescript-eslint/eslint-plugin": "8.32.1",
+    "@typescript-eslint/parser": "8.32.1",
+    "eslint": "9.27.0",
     "typescript": "5.8.3",
-    "ts-loader": "~9.5.1",
-    "webpack": "~5.98.0",
-    "webpack-cli": "~6.0.1",
-    "copyfiles": "~2.4.1",
-    "dotenv": "^16.4.7",
+    "ts-loader": "9.5.1",
+    "webpack": "5.104.1",
+    "webpack-cli": "6.0.1",
+    "copyfiles": "2.4.1",
+    "dotenv": "16.4.7",
     "@wso2/api-tryit-visualizer": "workspace:*"
   },
   "dependencies": {
     "@wso2/api-tryit-core": "workspace:*",
     "@wso2/api-tryit-rpc-client": "workspace:*",
-    "js-yaml": "^4.1.0",
-    "vscode-messenger": "^0.5.1",
-    "vscode-messenger-common": "^0.5.1",
-    "xstate": "^4.38.3"
+    "js-yaml": "4.1.0",
+    "vscode-messenger": "0.5.1",
+    "vscode-messenger-common": "0.5.1",
+    "xstate": "4.38.3",
+    "axios": "1.13.2"
   }
 }
