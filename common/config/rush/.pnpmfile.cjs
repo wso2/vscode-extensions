@@ -41,7 +41,7 @@ module.exports = {
           pkg.dependencies['eslint'] = '^9.27.0';
         }
         if (pkg.dependencies['fast-xml-parser']) {
-          pkg.dependencies['fast-xml-parser'] = '5.3.4';
+          pkg.dependencies['fast-xml-parser'] = '5.3.6';
         }
         if (pkg.dependencies['lodash']) {
           pkg.dependencies['lodash'] = '4.17.23';
@@ -54,9 +54,6 @@ module.exports = {
         }
         if (pkg.dependencies['eslint']) {
           pkg.dependencies['eslint'] = '^9.27.0';
-        }
-        if (pkg.dependencies['fast-xml-parser']) {
-          pkg.dependencies['fast-xml-parser'] = '5.3.4';
         }
         if (pkg.dependencies['hono']) {
           pkg.dependencies['hono'] = '^4.11.7';
@@ -92,7 +89,7 @@ module.exports = {
           pkg.devDependencies['eslint'] = '^9.27.0';
         }
         if (pkg.devDependencies['fast-xml-parser']) {
-          pkg.devDependencies['fast-xml-parser'] = '5.3.4';
+          pkg.devDependencies['fast-xml-parser'] = '5.3.6';
         }
         if (pkg.devDependencies['lodash']) {
           pkg.devDependencies['lodash'] = '4.17.23';
@@ -105,9 +102,6 @@ module.exports = {
         }
         if (pkg.devDependencies['eslint']) {
           pkg.devDependencies['eslint'] = '^9.27.0';
-        }
-        if (pkg.devDependencies['fast-xml-parser']) {
-          pkg.devDependencies['fast-xml-parser'] = '5.3.4';
         }
         if (pkg.devDependencies['hono']) {
           pkg.devDependencies['hono'] = '^4.11.7';

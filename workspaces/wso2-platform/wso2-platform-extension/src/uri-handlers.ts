@@ -80,9 +80,9 @@ export function activateURIHandlers() {
 												contextStore.getState().resetState();
 											}
 										}
-								const region = await ext.clients.rpcClient.getCurrentRegion();
-								await ext.authProvider?.getState().loginSuccess(userInfo, region);
-								window.showInformationMessage(`Successfully signed into ${extName}`);
+										const region = await ext.clients.rpcClient.getCurrentRegion();
+										await ext.authProvider?.getState().loginSuccess(userInfo, region);
+										window.showInformationMessage(`Successfully signed into ${extName}`);
 									}
 								} catch (error: any) {
 									if (!(error instanceof ResponseError) || ![ErrorCode.NoOrgsAvailable, ErrorCode.NoAccountAvailable].includes(error.code)) {
