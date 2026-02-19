@@ -36,6 +36,7 @@ export const generateSuggestions: RequestType<GenerateSuggestionsRequest, Genera
 export const generateCode: RequestType<GenerateCodeRequest, GenerateCodeResponse> = { method: `${_prefix}/generateCode` };
 export const abortCodeGeneration: RequestType<void, AbortCodeGenerationResponse> = { method: `${_prefix}/abortCodeGeneration` };
 export const hasAnthropicApiKey: RequestType<void, boolean | undefined> = { method: `${_prefix}/hasAnthropicApiKey` };
+export const isMiCopilotLoggedIn: RequestType<void, boolean> = { method: `${_prefix}/isMiCopilotLoggedIn` };
 export const fetchUsage: RequestType<void, { max_usage: number; remaining_tokens: number; time_to_reset: number } | undefined> = { method: `${_prefix}/fetchUsage` };
 
 // Unit test generation methods

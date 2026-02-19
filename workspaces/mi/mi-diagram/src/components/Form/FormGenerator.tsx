@@ -224,6 +224,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const [isLegacyExpressionEnabled, setIsLegacyExpressionEnabled] = useState<boolean>(false);
     const handleOnCancelExprEditorRef = useRef(() => { });
     const [connectionNames, setConnections] = useState<{ [key: string]: string[] }>({});
+    const [connectionTypeMap, setConnectionTypeMap] = useState<{ [fieldName: string]: { [connName: string]: string } }>({});
     const [generatedFormDetails, setGeneratedFormDetails] = useState<Record<string,any>>(null);
     const [visibleDetails, setVisibleDetails] = useState<{ [key: string]: boolean }>({});
     const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -345,7 +346,7 @@ export function FormGenerator(props: FormGeneratorProps) {
         setIsLoading(false);
     }, [sidePanelContext.pageStack, formData]);
 
-    async function getConnectionNames(allowedTypes?: string[]) {
+    async function getConnectionNames(allowedTypes?: string[], fieldName?: string) {
         const connectorData = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
             documentUri: documentUri,
             connectorName: formData?.connectorName ?? connectorName.replace(/\s/g, '')
@@ -355,6 +356,16 @@ export function FormGenerator(props: FormGeneratorProps) {
             connection => allowedTypes?.some(
                 type => type.toLowerCase() === connection.connectionType.toLowerCase()
             ));
+
+        // Build name-to-type mapping for connection type condition evaluation
+        if (fieldName) {
+            const typeMapping: { [connName: string]: string } = {};
+            filteredConnections.forEach(conn => {
+                typeMapping[conn.name] = conn.connectionType;
+            });
+            setConnectionTypeMap(prev => ({ ...prev, [fieldName]: typeMapping }));
+        }
+
         const connectionNames = filteredConnections.map(connection => connection.name);
         return connectionNames;
     }
@@ -370,7 +381,7 @@ export function FormGenerator(props: FormGeneratorProps) {
 
                 if (element.value.inputType === 'connection' && documentUri && connectorName) {
                     const allowedTypes: string[] = element.value.allowedConnectionTypes;
-                    const connectionNames = await getConnectionNames(allowedTypes);
+                    const connectionNames = await getConnectionNames(allowedTypes, name);
 
                     setConnections((prevConnections) => ({
                         ...prevConnections,
@@ -1101,7 +1112,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                     }
 
                     const fetchItems = async () => {
-                        const connectionNames = await getConnectionNames(allowedConnectionTypes);
+                        const connectionNames = await getConnectionNames(allowedConnectionTypes, name);
 
                         setConnections((prevConnections) => ({
                             ...prevConnections,
@@ -1316,6 +1327,13 @@ export function FormGenerator(props: FormGeneratorProps) {
                 }
             }
 
+            if (element?.value?.connectionTypeEnableCondition !== undefined) {
+                const shouldRender = getConnectionTypeConditions(element.value.connectionTypeEnableCondition);
+                if (!shouldRender) {
+                    return;
+                }
+            }
+
             if (element.type === 'attributeGroup' && !element.value.hidden) {
                 // Check if any attribute in this group has comboValues containing 'xml'
                 const hasXmlComboValue = element.value.elements?.some((attr: any) => 
@@ -1501,6 +1519,65 @@ export function FormGenerator(props: FormGeneratorProps) {
             }
         }
         return conditions; // Default case if conditions are not met
+    }
+
+    /**
+     * Evaluates conditions based on the connection type of a selected connection,
+     * rather than the raw form field value. This allows UI schema authors to show/hide
+     * fields depending on the type of connection the user has selected.
+     *
+     * Example schema usage:
+     *   "connectionTypeEnableCondition": ["NOT", { "llmConfigKey": "WSO2_AI" }]
+     *
+     * This reads as: show this field when the connection type of llmConfigKey is NOT WSO2_AI.
+     */
+    function getConnectionTypeConditions(conditions: any): boolean {
+        const evaluateCondition = (condition: any) => {
+            const [fieldName] = Object.keys(condition);
+            const expectedType = condition[fieldName];
+
+            // Get the current connection name selected in the referenced field
+            const selectedConnectionName = watch(getNameForController(fieldName));
+
+            if (!selectedConnectionName) {
+                // No connection selected yet — cannot confirm type match
+                return false;
+            }
+
+            // Look up the connection type from the mapping
+            const fieldTypeMapping = connectionTypeMap[getNameForController(fieldName)];
+            if (!fieldTypeMapping) {
+                // Type map not yet loaded — cannot confirm type match
+                return false;
+            }
+
+            const actualType = fieldTypeMapping[selectedConnectionName];
+            if (!actualType) {
+                // Connection name not found in the map — cannot confirm type match
+                return false;
+            }
+
+            return actualType.toUpperCase() === String(expectedType).toUpperCase();
+        };
+
+        if (Array.isArray(conditions)) {
+            const firstElement = conditions[0];
+            const restConditions = conditions.slice(1);
+
+            if (firstElement === "AND") {
+                return restConditions.every((condition: any) =>
+                    Array.isArray(condition) ? getConnectionTypeConditions(condition) : evaluateCondition(condition));
+            } else if (firstElement === "OR") {
+                return restConditions.some((condition: any) =>
+                    Array.isArray(condition) ? getConnectionTypeConditions(condition) : evaluateCondition(condition));
+            } else if (firstElement === "NOT") {
+                const condition = conditions[1];
+                return Array.isArray(condition) ? !getConnectionTypeConditions(condition) : !evaluateCondition(condition);
+            } else {
+                return evaluateCondition(conditions[0]);
+            }
+        }
+        return conditions;
     }
 
     return (

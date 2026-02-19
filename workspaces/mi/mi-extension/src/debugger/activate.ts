@@ -31,6 +31,7 @@ import { buildBallerinaModule, setPathsInWorkSpace, verifyJavaHomePath, verifyMI
 import { MACHINE_VIEW } from '@wso2/mi-core';
 import { askForProject } from '../util/workspace';
 import { webviews } from '../visualizer/webview';
+import { getWSO2AIEnvVariables } from '../ai-panel/configUtils';
 
 
 class MiConfigurationProvider implements vscode.DebugConfigurationProvider {
@@ -258,6 +259,16 @@ export function activateDebugger(context: vscode.ExtensionContext) {
                 config.name = 'MI: Run';
                 config.noDebug = true;
                 config.internalConsoleOptions = 'neverOpen';
+            }
+
+            // Inject WSO2_AI env vars first (so .env can override them)
+            try {
+                const wso2AiEnvVars = await getWSO2AIEnvVariables();
+                if (Object.keys(wso2AiEnvVars).length > 0) {
+                    config.env = { ...wso2AiEnvVars, ...config.env };
+                }
+            } catch (error) {
+                // Silently ignore - user may not be logged in
             }
 
             if (fs.existsSync(envPath)) {
