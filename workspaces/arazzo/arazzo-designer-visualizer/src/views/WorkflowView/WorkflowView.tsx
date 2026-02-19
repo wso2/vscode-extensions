@@ -153,11 +153,11 @@ export function WorkflowView(props: WorkflowViewProps) {
         plannedPath: PlannedPathEdge
     };
 
-    // rpcClient?.onStateChanged((newState: MachineStateValue) => {
-    //     if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
-    //         fetchData();
-    //     }
-    // });
+    rpcClient?.onStateChanged((newState: MachineStateValue) => {
+        if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
+            fetchData();
+        }
+    });
 
     const fetchData = async () => {
         try {
@@ -199,7 +199,7 @@ export function WorkflowView(props: WorkflowViewProps) {
 
                     // Build new graph
                     console.log('Building graph...');
-                    buildGraphFromWorkflow(workflow, isVertical).then(({ nodes: builtNodes, edges: builtEdges }) => {
+                    buildGraphFromWorkflow(workflow, isVertical, arazzoDefinition).then(({ nodes: builtNodes, edges: builtEdges }) => {
                         console.log('Graph built successfully:', { nodes: builtNodes, edges: builtEdges });
                         setNodes(builtNodes);
                         setEdges(builtEdges);
@@ -411,15 +411,14 @@ export function WorkflowView(props: WorkflowViewProps) {
             >
                 <SidePanelTitleContainer>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {/* {selectedNode ? (selectedNode.data?.label || selectedNode.id) : 'Node Properties'} */}
-                        Properties
+                        {selectedNode ? (selectedNode.data?.stepId ?? selectedNode.data?.step?.stepId ?? 'Properties') : 'Properties'}
                     </div>
                     <StyledButton data-testid="close-panel-btn" appearance="icon" onClick={handleClosePanel}>
                         <Codicon name="close" />
                     </StyledButton>
                 </SidePanelTitleContainer>
                 <SidePanelBody onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                    <NodePropertiesPanel node={selectedNode} workflow={workflow} />
+                    <NodePropertiesPanel node={selectedNode} workflow={workflow} definition={arazzoDefinition} />
                 </SidePanelBody>
             </SidePanel>
         </div>

@@ -65,7 +65,7 @@
         "title": "Open Arazzo Designer",
         "category": "ArazzoDesigner",
         "when": "isFileOpenAPI || isFileArazzo",
-        "icon": "$(preview)"
+        "icon": "$(open-preview)"
       },
       {
         "command": "ArazzoDesigner.createOpenAPIFile",

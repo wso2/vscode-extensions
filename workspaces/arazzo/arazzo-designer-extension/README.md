@@ -1,169 +1,84 @@
-# Arazzo Specification Support for VS Code
+# Arazzo Designer for VS Code
 
-Syntax highlighting, intelligent completions, real-time validation, and **workflow visualization** for [Arazzo Specification](https://www.openapis.org/arazzo-specification) files in Visual Studio Code.
+The Arazzo Designer VS Code extension offers the ability to **visualize and navigate [Arazzo Specification](https://www.openapis.org/arazzo-specification) workflows** through an interactive graphical designer with live updates powered by GitHub Copilot.
+
+Beyond the visual features, the extension enhances the Arazzo authoring experience with syntax highlighting, intelligent code completions, and real-time validation provided by a built-in language server.
+
+## Quick Start
+
+1. Install the extension from the VS Code Marketplace.
+2. Open any Arazzo file (`.arazzo.yaml`, `.arazzo.yml`).
+3. Click the **Arazzo Overview** icon in the editor toolbar, or use the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run **"ArazzoDesigner: Open Arazzo Designer"**.
+
+The designer opens beside your code and stays in sync as you edit.
 
 ## Features
 
-### 🚀 Language Server Protocol (LSP) Integration
+### 📊 Workflow Visualizer
 
-The extension includes a powerful **Go-based Language Server** that provides enterprise-grade procode features:
+Open an Arazzo file and click the **Arazzo Designer** toolbar icon (or use `Ctrl+Shift+P` → *"ArazzoDesigner: Open Arazzo Designer"*) to launch the **Overview**. The Overview gives you a bird's-eye view of every workflow defined in your specification including their names, summaries, and how many steps they contain. Click any workflow card to drill into the full **Workflow View**, which renders every step as a node, every decision branch as a labelled edge, and every success/failure path in a clean interactive diagram. Click any node to open the **Properties Panel** on the right and inspect that step's inputs, parameters, success criteria, and outputs without leaving the diagram.
 
-#### **Code Lens Actions**
-Interactive action buttons appear directly in your Arazzo files:
-- **▶ Visualize** - Instantly visualize the workflow with Mermaid diagrams
+![Normal flow — open file → Overview → Workflow View](assets/normal_flow_comp.gif)
 
-These actions appear above each workflow definition and can be clicked to trigger the respective functionality.
+---
 
-#### **Enhanced LSP Features**
-- **Incremental Validation**: Validates your document as you type
-- **Trigger Characters**: Code completion activates on `:`, `-`, `$`, `.`, `/`, `#`
-- **Document Synchronization**: Full document sync keeps the server in perfect sync
-- **Output Channel**: View detailed LSP logs in VS Code Output panel ("Arazzo Language Server")
+### ⚡ Code Lens — Jump Straight to a Workflow
 
-**Technical Details**:
-- Built with Go for high performance
-- Uses JSON-RPC 2.0 for communication
-- Supports both YAML and JSON formats
-- Automatic format detection
+You don't always need to go through the Overview. When you open an Arazzo file, the extension adds clickable **Code Lens** action buttons directly above each workflow definition in the editor. Click **"Visualize"** on any workflow to jump straight into its Workflow View in one click, great when you know exactly which workflow you want to inspect.
 
-### ✨ Syntax Highlighting
-- **Keyword Recognition** for Arazzo-specific fields:
-  - `arazzo`, `workflows`, `workflowId`, `stepId`
-  - `operationId`, `operationPath`
-  - `sourceDescriptions`, `inputs`, `outputs`
-  - `successCriteria`, `onSuccess`, `onFailure`
-  - Runtime expressions (`$statusCode`, `$request`, `$response`, `$inputs`, `$steps`)
-- **File Association** for `.arazzo.yaml`, `.arazzo.yml`, and `.arazzo.json` files
+![Code Lens actions in the editor](assets/codelens.gif)
 
-### 🎯 Intelligent Code Completions
-Context-aware autocomplete suggestions for:
-- **Root-level keys**: `arazzo`, `info`, `sourceDescriptions`, `workflows`, `components`
-- **Info object**: `title`, `version`, `description`, `summary`
-- **Source descriptions**: `name`, `url`, `type`
-- **Workflows**: `workflowId`, `summary`, `description`, `inputs`, `steps`, `outputs`
-- **Steps**: `stepId`, `operationId`, `operationPath`, `dependsOn`, `parameters`, `requestBody`, `successCriteria`, `onSuccess`, `onFailure`, `outputs`
-- **Parameters**: `name`, `in`, `value`
-- **Actions**: `name`, `type`, `stepId`, `retryAfter`, `retryLimit`
-- **Runtime expressions**: All valid `$` expressions with proper context
+---
 
-### ✅ Real-time Validation
-Comprehensive document validation with error reporting:
-- **Required field validation**: Checks for `arazzo`, `info`, `sourceDescriptions`, `workflows`
-- **Structure validation**: Validates workflow and step structures
-- **Reference validation**: Verifies `dependsOn` and action `stepId` references
-- **Type validation**: Ensures correct data types and formats
-- **Runtime expression validation**: Checks syntax of `$` expressions
-- **YAML parsing**: Catches YAML syntax errors
+### 🤖 Getting Started with GitHub Copilot
 
-All validation errors appear in the Problems panel with helpful messages and line numbers.
+The Arazzo Designer works hand-in-hand with **GitHub Copilot**, making it easy to create and evolve Arazzo workflows using plain English — no need to memorise the spec syntax.
 
-### 📊 Workflow Visualization
-**NEW!** Visualize your Arazzo workflows with interactive diagrams:
-- **Mermaid Diagrams**: Beautiful flowcharts showing step dependencies
-- **Step Details**: View operation IDs, descriptions, and dependencies
-- **Multiple Workflows**: Visualize all workflows in a document
-- **Dependency Tracking**: See how steps connect and depend on each other
+**Starting from scratch?** Open GitHub Copilot Chat and describe the workflow you want. For example:
 
-**How to use:**
-1. Open an Arazzo workflow file (`.arazzo.yaml`)
-2. Click the **Visualize Workflow** button in the editor toolbar (graph icon)
-3. Or use Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) → "Arazzo: Visualize Workflow"
+> *"create a sample arazzo file named petstore.arazzo.yaml with 5 steps using the petstore openAPI specification given below
+https://petstore3.swagger.io/api/v3/openapi.json"*
 
-The visualizer shows:
-- Workflow title and ID
-- Flowchart diagram with step connections
-- Detailed step information including operations and dependencies
+Copilot will generate the Arazzo file for you. Open it and the designer will visualize it instantly.
+
+**Editing an existing file?** Ask Copilot to change it in plain language:
+
+> *"Add a retry step if the profile fetch fails."*
+> *"Add success criteria to check that the status code is 200."*
+
+Every time you save, the diagram **automatically re-renders** to reflect the latest state of your file — no manual refresh, no switching context.
+
+![Getting started with Copilot](assets/quick_start_comp.gif)
+
+---
+
+### ✨ Smart Editor Support
+
+The extension includes a built-in language server that quietly improves the editing experience in the background:
+
+- **Syntax highlighting** so Arazzo keywords and runtime expressions (`$statusCode`, `$response.body`, etc.) stand out clearly
+- **Intelligent completions** that suggest valid fields and values as you type
+- **Real-time validation** that flags missing required fields, invalid references, and structural errors in the Problems panel before you even save
+- **File association** so `.arazzo.yaml`, `.arazzo.yml` files are automatically recognised
+
+---
 
 ## About Arazzo
 
-The Arazzo Specification is a community-driven open specification within the OpenAPI Initiative that defines a standard mechanism to express sequences of API calls and articulate dependencies between them to achieve particular outcomes.
+The [Arazzo Specification](https://spec.openapis.org/arazzo/v1.0.1.html) is an OpenAPI Initiative standard for describing sequences of API calls and the dependencies between them. It is designed for:
 
-Key use cases:
-- Interactive workflow documentation
-- Automated documentation generation
-- Code and SDK generation driven by functional use cases
-- Automation of test cases
-- Automated regulatory compliance checks
-
-## Supported Syntax Elements
-
-### Document Structure
-- `arazzo`: Version declaration (e.g., "1.0.1")
-- `info`: Metadata (title, version, description)
-- `sourceDescriptions`: OpenAPI specification references
-- `workflows`: Collection of workflow definitions
-- `components`: Reusable components
-
-### Workflow Elements
-- `workflowId`: Unique workflow identifier
-- `steps`: Array of step objects
-- `stepId`: Unique step identifier
-- `operationId` / `operationPath`: Operation references
-- `parameters`: Input parameters
-- `requestBody`: Request body configuration
-- `successCriteria`: Success conditions
-- `outputs`: Data extraction
-- `dependsOn`: Step dependencies
-
-### Runtime Expressions
-- `$url`, `$method`, `$statusCode`
-- `$request.header`, `$request.query`, `$request.body`, `$request.path`
-- `$response.header`, `$response.body`
-- `$inputs`, `$steps`, `$workflows`, `$sourceDescriptions`, `$components`
-
-## Example Arazzo File
-
-```yaml
-arazzo: 1.0.1
-info:
-  title: Pet Store Workflow
-  version: 1.0.0
-  description: A workflow for managing pets
-
-sourceDescriptions:
-  - name: petStore
-    url: https://api.petstore.com/openapi.yaml
-    type: openapi
-
-workflows:
-  - workflowId: createAndRetrievePet
-    summary: Create a new pet and retrieve its details
-    inputs:
-      type: object
-      properties:
-        petName:
-          type: string
-    steps:
-      - stepId: createPet
-        operationId: createPet
-        parameters:
-          - name: name
-            in: body
-            value: $inputs.petName
-        successCriteria:
-          - condition: $statusCode == 201
-        outputs:
-          petId: $response.body.id
-
-      - stepId: getPet
-        operationId: getPetById
-        dependsOn: createPet
-        parameters:
-          - name: petId
-            in: path
-            value: $steps.createPet.outputs.petId
-        successCriteria:
-          - condition: $statusCode == 200
-```
+- Multi-step API workflow documentation
+- Automated test case generation
+- SDK and code generation driven by real-world use cases
+- Regulatory compliance automation
 
 ## Resources
 
-- [Arazzo Specification](https://www.openapis.org/arazzo-specification)
-- [Arazzo GitHub Repository](https://github.com/OAI/Arazzo-Specification)
 - [Arazzo Specification v1.0.1](https://spec.openapis.org/arazzo/v1.0.1.html)
+- [Arazzo GitHub Repository](https://github.com/OAI/Arazzo-Specification)
 - [OpenAPI Initiative](https://www.openapis.org/)
 
 ## License
 
-MIT
+Apache 2.0
 

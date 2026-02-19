@@ -46,11 +46,11 @@ export const FAIL_GAP_Y_Horizontal = 50;  // Vertical gap for failure paths
 
 // Vertical layout constants (main flow goes down, branches go right)
 export const NODE_GAP_X_Vertical = 80;  // Horizontal gap between steps
-export const NODE_GAP_Y_Vertical = 55;  // Vertical gap between branches/failure paths
+export const NODE_GAP_Y_Vertical = 65;  // Vertical gap between branches/failure paths
 //export const FAIL_GAP_Y_Vertical = 50;  // Vertical gap for failure paths
 export const FAIL_GAP_X_Vertical = 50;  // Horizontal gap for failure paths
-export const RETRY_GAP_Y_ConditionBranch = 150; // Horizontal gap between condition node and its branches
-export const NODE_GAP_Y_AFTERCONDITION = 150; // Vertical gap between node and edge label
+export const RETRY_GAP_Y_ConditionBranch = 120; // Horizontal gap between condition node and its branches
+export const NODE_GAP_Y_AFTERCONDITION = 120; // Vertical gap between node and edge label
 export const CONDITION_NODE_SECOND_BRANCH_OFFSET = 0; // Vertical offset for 2nd branch of condition nodes
 
 
@@ -70,7 +70,7 @@ export const CANVAS_ZOOM = 1.25;
 export const DOT_GAP = 18;
 
 //label related constants
-export const LABEL_OFFSET = 50; // fixed distance in pixels from the bend
+export const LABEL_OFFSET = 30; // fixed distance in pixels from the bend
 export const CONDITION_CHARS_BEFORE_WRAP = 25; // Maximum characters before wrapping for condition labels
 
 //export const LABEL_OFFSET_RANDOMNESS_MULTIPLIER = 0.2; // randomness in label positioning

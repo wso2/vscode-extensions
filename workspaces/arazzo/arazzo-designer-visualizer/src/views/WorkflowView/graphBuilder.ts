@@ -1,18 +1,18 @@
-import { ArazzoWorkflow } from '@wso2/arazzo-designer-core';
-import { InitVisitor } from '../../visitors/InitVisitor';
-import { SizingVisitorHorizontal } from '../../visitors/SizingVisitorHorizontal';
-import { SizingVisitorVertical } from '../../visitors/SizingvisitorVertical';
-import { PositionVisitorHorizontal } from '../../visitors/PositionVisitorHorizontal';
-import { PositionVisitorVertical } from '../../visitors/PositionVisitorVertical';
-import { NodeFactoryVisitorHorizontal } from '../../visitors/NodeFactoryVisitorHorizontal';
-import { NodeFactoryVisitorVertical } from '../../visitors/NodeFactoryVisitorVertical';
-import PortalCreator from '../../visitors/PortalCreator';
+import { ArazzoDefinition, ArazzoWorkflow } from '@wso2/arazzo-designer-core';
+// import { InitVisitor } from '../../visitors/InitVisitor';
+// import { SizingVisitorHorizontal } from '../../visitors/SizingVisitorHorizontal';
+// import { SizingVisitorVertical } from '../../visitors/SizingvisitorVertical';
+// import { PositionVisitorHorizontal } from '../../visitors/PositionVisitorHorizontal';
+// import { PositionVisitorVertical } from '../../visitors/PositionVisitorVertical';
+// import { NodeFactoryVisitorHorizontal } from '../../visitors/NodeFactoryVisitorHorizontal';
+// import { NodeFactoryVisitorVertical } from '../../visitors/NodeFactoryVisitorVertical';
+// import PortalCreator from '../../visitors/PortalCreator';
 
 import { InitVisitor_v2 } from '../../visitors/InitVisitor_v2';
-import { SizingVisitorVertical_v2 } from '../../visitors/SizingVisitorVertical_v2';
+// import { SizingVisitorVertical_v2 } from '../../visitors/SizingVisitorVertical_v2';
 import { PositionVisitorVertical_v2 } from '../../visitors/PositionVisitorVertical_v2';
 import { NodeFactoryVisitorVertical_v2 } from '../../visitors/NodeFactoryVisitorVertical_v2';
-import { DepthSearch } from '../../visitors/DepthSearch';
+import { DepthSearch } from '../../visitors/DepthSearch_v2';
 import { PortalCreator_v2 } from '../../visitors/PortalCreator_v2';
 import { SimpleNodeSizing } from '../../visitors/SimpleNodeSizing';
 
@@ -20,7 +20,7 @@ import { SimpleNodeSizing } from '../../visitors/SimpleNodeSizing';
  * Builds the graph visualization from the workflow using the Visitor pattern.
  * Layout strategy: Left-to-Right Flow with Vertical Stacking for Branches (or Top-to-Bottom when vertical).
  */
-export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertical: boolean = false) => {
+export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertical: boolean = false, definition?: ArazzoDefinition) => {
     // // 1. Init: Build Logical Tree from Arazzo Steps
     // const init = new InitVisitor();
     // const root = init.buildTree(workflow);
@@ -68,7 +68,7 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
     // ============================================================
 
     // 1. Init: Build optimized tree
-    const initV2 = new InitVisitor_v2();
+    const initV2 = new InitVisitor_v2(definition);
     const rootV2 = initV2.buildTree(workflow);
 
     // 2. Calculate Depth: Find the longest success path (main spine)
@@ -88,12 +88,12 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
     positioningV2.positionGraph(rootV2, spineX, startY);
 
     // 5. Portal Creation: Create portals for backward jumps
-    const portalCreator = new PortalCreator_v2(depthSearch);
+    const portalCreator = new PortalCreator_v2(depthSearch, definition);
     const portals = portalCreator.createPortals(rootV2);
     const portalEdgePairs = portalCreator.getPortalEdgePairs();
 
     // 6. Factory: Generate React Flow elements
-    const factoryV2 = new NodeFactoryVisitorVertical_v2();
+    const factoryV2 = new NodeFactoryVisitorVertical_v2(definition);
     factoryV2.setNodePositions(positioningV2.getNodePositions());
     factoryV2.setPortalEdgePairs(portalEdgePairs);
     factoryV2.visit(rootV2);

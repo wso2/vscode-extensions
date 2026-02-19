@@ -16,10 +16,11 @@
  * under the License.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { Node } from '@xyflow/react';
-import { ArazzoWorkflow } from '@wso2/arazzo-designer-core';
+import { ArazzoWorkflow, ArazzoDefinition } from '@wso2/arazzo-designer-core';
+import { resolveReference, isReference, isReferenceLike, getReferencePath } from '../../utils/referenceUtils';
 
 const Container = styled.div`
     display: flex;
@@ -151,21 +152,66 @@ const EmptyState = styled.div`
     font-size: 13px;
 `;
 
+const RefPath = styled.div`
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground);
+    opacity: 0.7;
+    font-family: var(--vscode-editor-font-family);
+    font-style: italic;
+`;
+
 interface NodePropertiesPanelProps {
     node: Node | null;
     workflow?: ArazzoWorkflow | undefined;
+    definition?: ArazzoDefinition | undefined;
 }
 
-export function NodePropertiesPanel({ node, workflow }: NodePropertiesPanelProps) {
+export function NodePropertiesPanel({ node, workflow, definition }: NodePropertiesPanelProps) {
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['general']));
     const [expandedArrayItems, setExpandedArrayItems] = useState<Set<string>>(new Set());
 
+    // When the selected node changes (panel opens or different node selected),
+    // auto-expand top-level sections relevant to that node while keeping
+    // nested array items collapsed.
+    // NOTE: This useEffect MUST be before the early return to satisfy React's rules of hooks.
+    useEffect(() => {
+        if (!node) return;
+
+        const ids = new Set<string>();
+        // Always show general
+        ids.add('general');
+
+        if (node.type === 'startNode') {
+            if (workflow && (workflow.inputs && Object.keys(workflow.inputs as any).length > 0)) {
+                ids.add('workflowInputs');
+            }
+            if (workflow && (workflow.outputs && Object.keys(workflow.outputs as any).length > 0)) {
+                ids.add('workflowOutputs');
+            }
+        } else {
+            const sd: any = node.data || {};
+            if (sd.parameters && Array.isArray(sd.parameters) && sd.parameters.length > 0) ids.add('parameters');
+            if (sd.successCriteria && Array.isArray(sd.successCriteria) && sd.successCriteria.length > 0) ids.add('successCriteria');
+            if (sd.onSuccess && Array.isArray(sd.onSuccess) && sd.onSuccess.length > 0) ids.add('onSuccess');
+            if (sd.onFailure && Array.isArray(sd.onFailure) && sd.onFailure.length > 0) ids.add('onFailure');
+            // If step has inputs/outputs (could be reference-like), expand those sections
+            if (sd.inputs) ids.add('workflowInputs');
+            if (sd.outputs && Object.keys(sd.outputs || {}).length > 0) {
+                // For step-level outputs section we use 'outputs' id
+                ids.add('outputs');
+            }
+        }
+
+        setExpandedSections(ids);
+        setExpandedArrayItems(new Set());
+    }, [node?.id, node?.type, workflow]);
+
+    // Early return AFTER all hooks have been declared
     if (!node) return null;
 
     const nodeData = node.data || {};
     const { label, iconClass, ...stepData } = nodeData;
-    const { width, height, ...semanticStepData } = stepData;
-    
 
     const toggleSection = (sectionId: string) => {
         const newExpanded = new Set(expandedSections);
@@ -187,23 +233,79 @@ export function NodePropertiesPanel({ node, workflow }: NodePropertiesPanelProps
         setExpandedArrayItems(newExpanded);
     };
 
+    const getNonNullOverrides = (value: any): Record<string, any> => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+            return {};
+        }
+
+        const { $ref, reference, ...rest } = value as any;
+        const overrides: Record<string, any> = {};
+        Object.entries(rest).forEach(([key, v]) => {
+            if (
+                v !== undefined &&
+                v !== null &&
+                !(typeof v === 'string' && v.trim() === '')
+            ) {
+                overrides[key] = v;
+            }
+        });
+        return overrides;
+    };
+
+    const resolveReferenceLikeValue = (value: any): { value: any; originalRef?: string } => {
+        const refPath = getReferencePath(value);
+        if (!refPath) {
+            return { value };
+        }
+
+        const resolved = resolveReference(refPath, definition);
+        if (resolved && typeof resolved === 'object' && !Array.isArray(resolved)) {
+            const merged = {
+                ...resolved,
+                ...getNonNullOverrides(value),
+            };
+            return { value: merged, originalRef: refPath };
+        }
+
+        return { value, originalRef: refPath };
+    };
+
     const renderArraySection = (title: string, items: any[], sectionId: string) => {
         const expanded = expandedSections.has(sectionId);
+        
+        // Resolve references in items
+        const resolvedItems = items.map(item => {
+            if (isReferenceLike(item)) {
+                const resolvedInfo = resolveReferenceLikeValue(item);
+                if (resolvedInfo.value && typeof resolvedInfo.value === 'object' && !Array.isArray(resolvedInfo.value)) {
+                    return {
+                        ...resolvedInfo.value,
+                        ...(resolvedInfo.originalRef ? { _originalRef: resolvedInfo.originalRef } : {}),
+                    };
+                }
+                return {
+                    value: resolvedInfo.value,
+                    ...(resolvedInfo.originalRef ? { _originalRef: resolvedInfo.originalRef } : {}),
+                };
+            }
+            return item;
+        });
         
         return (
             <Section key={sectionId}>
                 <SectionHeader clickable onClick={() => toggleSection(sectionId)}>
                     <span>
                         <CollapseIcon expanded={expanded}>▸</CollapseIcon>
-                        {title} ({items.length})
+                        {title} ({resolvedItems.length})
                     </span>
                 </SectionHeader>
                 {expanded && (
                     <SectionContent>
-                        {items.map((item, index) => {
+                        {resolvedItems.map((item, index) => {
                             const itemId = `${sectionId}-${index}`;
                             const itemExpanded = expandedArrayItems.has(itemId);
                             const itemName = item.name || item.stepId || item.workflowId || `Item ${index + 1}`;
+                            const originalRef = item._originalRef;
                             
                             return (
                                 <ArrayItemContainer key={itemId}>
@@ -219,7 +321,10 @@ export function NodePropertiesPanel({ node, workflow }: NodePropertiesPanelProps
                                     </ArrayItemHeader>
                                     {itemExpanded && (
                                         <ArrayItemContent>
-                                            {Object.entries(item).map(([key, value]) => (
+                                            {originalRef && (
+                                                <RefPath>Reference: {originalRef}</RefPath>
+                                            )}
+                                            {Object.entries(item).filter(([key]) => key !== '_originalRef').map(([key, value]) => (
                                                 <PropertyRow key={key}>
                                                     <PropertyKey>{key}:</PropertyKey>
                                                     <PropertyValue>
@@ -279,13 +384,354 @@ export function NodePropertiesPanel({ node, workflow }: NodePropertiesPanelProps
                 </Section>
                 {wf.inputs && typeof wf.inputs === 'object' && (
                     (() => {
-                        const schema = wf.inputs as any;
+                        let schema = wf.inputs as any;
+                        let originalRef: string | undefined;
+                        
+                        // Check if inputs is a reference and resolve it
+                        if (isReference(schema)) {
+                            originalRef = schema.$ref;
+                            const resolved = resolveReference(schema.$ref, definition);
+                            if (resolved) {
+                                schema = resolved;
+                            }
+                        }
+                        
+                        // Handle JSON Schema composition keywords (allOf, anyOf, oneOf)
+                        if (schema.allOf && Array.isArray(schema.allOf)) {
+                            return (
+                                <Section key="workflowInputs">
+                                    <SectionHeader clickable onClick={() => toggleSection('workflowInputs')}>
+                                        <span>
+                                            <CollapseIcon expanded={expandedSections.has('workflowInputs')}>▸</CollapseIcon>
+                                            Inputs (allOf - {schema.allOf.length} schemas)
+                                        </span>
+                                    </SectionHeader>
+                                    {expandedSections.has('workflowInputs') && (
+                                        <SectionContent>
+                                            {originalRef && (
+                                                <RefPath>Reference: {originalRef}</RefPath>
+                                            )}
+                                            {schema.allOf.map((subSchema: any, idx: number) => {
+                                                // Resolve each schema in allOf
+                                                let resolved = subSchema;
+                                                let subRef: string | undefined;
+                                                if (isReference(subSchema)) {
+                                                    subRef = subSchema.$ref;
+                                                    const r = resolveReference(subSchema.$ref, definition);
+                                                    if (r) resolved = r;
+                                                }
+                                                
+                                                // Render properties if available
+                                                if (resolved.properties && typeof resolved.properties === 'object') {
+                                                    const items = Object.entries(resolved.properties).map(([name, prop]) => ({ name, ...(prop as any) }));
+                                                    return (
+                                                        <div key={idx} style={{ marginBottom: '12px' }}>
+                                                            <FieldLabel>Schema {idx + 1}{subRef ? ` (${subRef.split('/').pop()})` : ''}</FieldLabel>
+                                                            {subRef && <RefPath style={{ marginTop: 0, marginBottom: '8px' }}>Reference: {subRef}</RefPath>}
+                                                            {items.map((item, itemIdx) => {
+                                                                const itemId = `workflowInputs-allOf-${idx}-${itemIdx}`;
+                                                                const itemExpanded = expandedArrayItems.has(itemId);
+                                                                const itemName = item.name || `Item ${itemIdx + 1}`;
+                                                                
+                                                                return (
+                                                                    <ArrayItemContainer key={itemId}>
+                                                                        <ArrayItemHeader 
+                                                                            expanded={itemExpanded}
+                                                                            onClick={() => toggleArrayItem(itemId)}
+                                                                        >
+                                                                            <span>
+                                                                                <CollapseIcon expanded={itemExpanded}>▸</CollapseIcon>
+                                                                                {itemName}
+                                                                            </span>
+                                                                            {item.type && <span style={{ fontSize: '11px', opacity: 0.7 }}>({item.type})</span>}
+                                                                        </ArrayItemHeader>
+                                                                        {itemExpanded && (
+                                                                            <ArrayItemContent>
+                                                                                {Object.entries(item).filter(([key]) => key !== 'name').map(([key, value]) => (
+                                                                                    <PropertyRow key={key}>
+                                                                                        <PropertyKey>{key}:</PropertyKey>
+                                                                                        <PropertyValue>
+                                                                                            {typeof value === 'object' && value !== null
+                                                                                                ? <JsonBlock>{JSON.stringify(value, null, 2)}</JsonBlock>
+                                                                                                : String(value)}
+                                                                                        </PropertyValue>
+                                                                                    </PropertyRow>
+                                                                                ))}
+                                                                            </ArrayItemContent>
+                                                                        )}
+                                                                    </ArrayItemContainer>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    );
+                                                } else {
+                                                    // Fallback for non-property schemas in allOf
+                                                    return (
+                                                        <div key={idx} style={{ marginBottom: '12px' }}>
+                                                            <FieldLabel>Schema {idx + 1}</FieldLabel>
+                                                            {subRef && <RefPath style={{ marginTop: 0, marginBottom: '8px' }}>Reference: {subRef}</RefPath>}
+                                                            <JsonBlock>{JSON.stringify(resolved, null, 2)}</JsonBlock>
+                                                        </div>
+                                                    );
+                                                }
+                                            })}
+                                        </SectionContent>
+                                    )}
+                                </Section>
+                            );
+                        }
+                        
+                        if (schema.anyOf && Array.isArray(schema.anyOf)) {
+                            const items = schema.anyOf.map((s: any, idx: number) => {
+                                let resolved = s;
+                                if (isReference(s)) {
+                                    const r = resolveReference(s.$ref, definition);
+                                    if (r) resolved = r;
+                                }
+                                return { name: `Schema ${idx + 1}`, ...resolved };
+                            });
+                            return (
+                                <Section key="workflowInputs">
+                                    <SectionHeader clickable onClick={() => toggleSection('workflowInputs')}>
+                                        <span>
+                                            <CollapseIcon expanded={expandedSections.has('workflowInputs')}>▸</CollapseIcon>
+                                            Inputs (anyOf - {items.length} schemas)
+                                        </span>
+                                    </SectionHeader>
+                                    {expandedSections.has('workflowInputs') && (
+                                        <SectionContent>
+                                            {originalRef && <RefPath>Reference: {originalRef}</RefPath>}
+                                            <JsonBlock>{JSON.stringify(items, null, 2)}</JsonBlock>
+                                        </SectionContent>
+                                    )}
+                                </Section>
+                            );
+                        }
+                        
+                        if (schema.oneOf && Array.isArray(schema.oneOf)) {
+                            const items = schema.oneOf.map((s: any, idx: number) => {
+                                let resolved = s;
+                                if (isReference(s)) {
+                                    const r = resolveReference(s.$ref, definition);
+                                    if (r) resolved = r;
+                                }
+                                return { name: `Schema ${idx + 1}`, ...resolved };
+                            });
+                            return (
+                                <Section key="workflowInputs">
+                                    <SectionHeader clickable onClick={() => toggleSection('workflowInputs')}>
+                                        <span>
+                                            <CollapseIcon expanded={expandedSections.has('workflowInputs')}>▸</CollapseIcon>
+                                            Inputs (oneOf - {items.length} schemas)
+                                        </span>
+                                    </SectionHeader>
+                                    {expandedSections.has('workflowInputs') && (
+                                        <SectionContent>
+                                            {originalRef && <RefPath>Reference: {originalRef}</RefPath>}
+                                            <JsonBlock>{JSON.stringify(items, null, 2)}</JsonBlock>
+                                        </SectionContent>
+                                    )}
+                                </Section>
+                            );
+                        }
+                        
                         if (schema.properties && typeof schema.properties === 'object') {
                             const items = Object.entries(schema.properties).map(([name, prop]) => ({ name, ...(prop as any) }));
-                            return renderArraySection('Inputs', items, 'workflowInputs');
+                            return (
+                                <Section key="workflowInputs">
+                                    <SectionHeader clickable onClick={() => toggleSection('workflowInputs')}>
+                                        <span>
+                                            <CollapseIcon expanded={expandedSections.has('workflowInputs')}>▸</CollapseIcon>
+                                            Inputs ({items.length})
+                                        </span>
+                                    </SectionHeader>
+                                    {expandedSections.has('workflowInputs') && (
+                                        <SectionContent>
+                                            {originalRef && (
+                                                <RefPath>Reference: {originalRef}</RefPath>
+                                            )}
+                                            {items.map((item, index) => {
+                                                const itemId = `workflowInputs-${index}`;
+                                                const itemExpanded = expandedArrayItems.has(itemId);
+                                                const itemName = item.name || `Item ${index + 1}`;
+                                                
+                                                return (
+                                                    <ArrayItemContainer key={itemId}>
+                                                        <ArrayItemHeader 
+                                                            expanded={itemExpanded}
+                                                            onClick={() => toggleArrayItem(itemId)}
+                                                        >
+                                                            <span>
+                                                                <CollapseIcon expanded={itemExpanded}>▸</CollapseIcon>
+                                                                {itemName}
+                                                            </span>
+                                                            {item.type && <span style={{ fontSize: '11px', opacity: 0.7 }}>({item.type})</span>}
+                                                        </ArrayItemHeader>
+                                                        {itemExpanded && (
+                                                            <ArrayItemContent>
+                                                                {Object.entries(item).filter(([key]) => key !== 'name').map(([key, value]) => (
+                                                                    <PropertyRow key={key}>
+                                                                        <PropertyKey>{key}:</PropertyKey>
+                                                                        <PropertyValue>
+                                                                            {typeof value === 'object' && value !== null
+                                                                                ? <JsonBlock>{JSON.stringify(value, null, 2)}</JsonBlock>
+                                                                                : String(value)}
+                                                                        </PropertyValue>
+                                                                    </PropertyRow>
+                                                                ))}
+                                                            </ArrayItemContent>
+                                                        )}
+                                                    </ArrayItemContainer>
+                                                );
+                                            })}
+                                        </SectionContent>
+                                    )}
+                                </Section>
+                            );
                         }
                         // Fallback: show raw schema
-                        return renderSimpleSection('Inputs', <JsonBlock>{JSON.stringify(schema, null, 2)}</JsonBlock>, 'workflowInputs');
+                        return renderSimpleSection('Inputs', 
+                            <>
+                                {originalRef && <RefPath>Reference: {originalRef}</RefPath>}
+                                <JsonBlock>{JSON.stringify(schema, null, 2)}</JsonBlock>
+                            </>, 
+                            'workflowInputs'
+                        );
+                    })()
+                )}
+                {wf.outputs && typeof wf.outputs === 'object' && (
+                    (() => {
+                        let schema = wf.outputs as any;
+                        let originalRef: string | undefined;
+                        
+                        // Check if outputs is a reference and resolve it
+                        if (isReference(schema)) {
+                            originalRef = schema.$ref;
+                            const resolved = resolveReference(schema.$ref, definition);
+                            if (resolved) {
+                                schema = resolved;
+                            }
+                        }
+                        
+                        // If it's a JSON-Schema-like object with properties, render same as inputs
+                        if (schema.properties && typeof schema.properties === 'object') {
+                            const items = Object.entries(schema.properties).map(([name, prop]) => ({ name, ...(prop as any) }));
+                            return (
+                                <Section key="workflowOutputs">
+                                    <SectionHeader clickable onClick={() => toggleSection('workflowOutputs')}>
+                                        <span>
+                                            <CollapseIcon expanded={expandedSections.has('workflowOutputs')}>▸</CollapseIcon>
+                                            Outputs ({items.length})
+                                        </span>
+                                    </SectionHeader>
+                                    {expandedSections.has('workflowOutputs') && (
+                                        <SectionContent>
+                                            {originalRef && (
+                                                <RefPath>Reference: {originalRef}</RefPath>
+                                            )}
+                                            {items.map((item, index) => {
+                                                const itemId = `workflowOutputs-${index}`;
+                                                const itemExpanded = expandedArrayItems.has(itemId);
+                                                const itemName = item.name || `Item ${index + 1}`;
+                                                
+                                                return (
+                                                    <ArrayItemContainer key={itemId}>
+                                                        <ArrayItemHeader 
+                                                            expanded={itemExpanded}
+                                                            onClick={() => toggleArrayItem(itemId)}
+                                                        >
+                                                            <span>
+                                                                <CollapseIcon expanded={itemExpanded}>▸</CollapseIcon>
+                                                                {itemName}
+                                                            </span>
+                                                            {item.type && <span style={{ fontSize: '11px', opacity: 0.7 }}>({item.type})</span>}
+                                                        </ArrayItemHeader>
+                                                        {itemExpanded && (
+                                                            <ArrayItemContent>
+                                                                {Object.entries(item).filter(([key]) => key !== 'name').map(([key, value]) => (
+                                                                    <PropertyRow key={key}>
+                                                                        <PropertyKey>{key}:</PropertyKey>
+                                                                        <PropertyValue>
+                                                                            {typeof value === 'object' && value !== null
+                                                                                ? <JsonBlock>{JSON.stringify(value, null, 2)}</JsonBlock>
+                                                                                : String(value)}
+                                                                        </PropertyValue>
+                                                                    </PropertyRow>
+                                                                ))}
+                                                            </ArrayItemContent>
+                                                        )}
+                                                    </ArrayItemContainer>
+                                                );
+                                            })}
+                                        </SectionContent>
+                                    )}
+                                </Section>
+                            );
+                        }
+
+                        // If outputs is a plain map of name -> expression/value, render each entry as an item
+                        if (Object.keys(schema).length > 0 && Object.values(schema).every(v => (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean' || v === null))) {
+                            const items = Object.entries(schema).map(([name, val]) => ({ name, value: val }));
+                            return (
+                                <Section key="workflowOutputs">
+                                    <SectionHeader clickable onClick={() => toggleSection('workflowOutputs')}>
+                                        <span>
+                                            <CollapseIcon expanded={expandedSections.has('workflowOutputs')}>▸</CollapseIcon>
+                                            Outputs ({items.length})
+                                        </span>
+                                    </SectionHeader>
+                                    {expandedSections.has('workflowOutputs') && (
+                                        <SectionContent>
+                                            {originalRef && (
+                                                <RefPath>Reference: {originalRef}</RefPath>
+                                            )}
+                                            {items.map((item, index) => {
+                                                const itemId = `workflowOutputs-${index}`;
+                                                const itemExpanded = expandedArrayItems.has(itemId);
+                                                const itemName = item.name;
+                                                
+                                                return (
+                                                    <ArrayItemContainer key={itemId}>
+                                                        <ArrayItemHeader 
+                                                            expanded={itemExpanded}
+                                                            onClick={() => toggleArrayItem(itemId)}
+                                                        >
+                                                            <span>
+                                                                <CollapseIcon expanded={itemExpanded}>▸</CollapseIcon>
+                                                                {itemName}
+                                                            </span>
+                                                        </ArrayItemHeader>
+                                                        {itemExpanded && (
+                                                            <ArrayItemContent>
+                                                                {Object.entries(item).map(([key, value]) => (
+                                                                    <PropertyRow key={key}>
+                                                                        <PropertyKey>{key}:</PropertyKey>
+                                                                        <PropertyValue>
+                                                                            {typeof value === 'object' && value !== null
+                                                                                ? <JsonBlock>{JSON.stringify(value, null, 2)}</JsonBlock>
+                                                                                : String(value)}
+                                                                        </PropertyValue>
+                                                                    </PropertyRow>
+                                                                ))}
+                                                            </ArrayItemContent>
+                                                        )}
+                                                    </ArrayItemContainer>
+                                                );
+                                            })}
+                                        </SectionContent>
+                                    )}
+                                </Section>
+                            );
+                        }
+
+                        // Fallback: show raw schema
+                        return renderSimpleSection('Outputs', 
+                            <>
+                                {originalRef && <RefPath>Reference: {originalRef}</RefPath>}
+                                <JsonBlock>{JSON.stringify(schema, null, 2)}</JsonBlock>
+                            </>, 
+                            'workflowOutputs'
+                        );
                     })()
                 )}
             </Container>
@@ -381,16 +827,79 @@ export function NodePropertiesPanel({ node, workflow }: NodePropertiesPanelProps
 
     // Outputs
     if (stepData.outputs && Object.keys(stepData.outputs).length > 0) {
-        sections.push(
-            renderSimpleSection(
-                'Outputs',
-                <JsonBlock>{JSON.stringify(stepData.outputs, null, 2)}</JsonBlock>,
-                'outputs'
+        let out = stepData.outputs as any;
+        let originalRef: string | undefined;
+        
+        // Check if outputs is a reference-like object and resolve it
+        if (isReferenceLike(out)) {
+            const resolvedInfo = resolveReferenceLikeValue(out);
+            out = resolvedInfo.value;
+            originalRef = resolvedInfo.originalRef;
+        }
+        
+        // If outputs look like a JSON Schema with `properties`, render as items
+        if (out.properties && typeof out.properties === 'object') {
+            const items = Object.entries(out.properties).map(([name, prop]) => ({ name, ...(prop as any) }));
+            if (originalRef) {
+                items.forEach((item: any) => { item._originalRef = originalRef; });
+            }
+            sections.push(renderArraySection('Outputs', items, 'outputs'));
+        } else if (
+            Object.keys(out).length > 0 &&
+            Object.values(out).every(v =>
+                typeof v === 'string' ||
+                typeof v === 'number' ||
+                typeof v === 'boolean' ||
+                v === null ||
+                isReferenceLike(v)
             )
-        );
+        ) {
+            // Plain map of name -> expression/value
+            const items = Object.entries(out).map(([name, val]) => {
+                if (isReferenceLike(val)) {
+                    const resolvedInfo = resolveReferenceLikeValue(val);
+                    if (resolvedInfo.value && typeof resolvedInfo.value === 'object' && !Array.isArray(resolvedInfo.value)) {
+                        return {
+                            ...resolvedInfo.value,
+                            name,
+                            ...(resolvedInfo.originalRef
+                                ? { _originalRef: resolvedInfo.originalRef }
+                                : originalRef
+                                    ? { _originalRef: originalRef }
+                                    : {}),
+                        };
+                    }
+                    return {
+                        name,
+                        value: resolvedInfo.value,
+                        ...(resolvedInfo.originalRef
+                            ? { _originalRef: resolvedInfo.originalRef }
+                            : originalRef
+                                ? { _originalRef: originalRef }
+                                : {}),
+                    };
+                }
+                return {
+                    name,
+                    value: val,
+                    ...(originalRef ? { _originalRef: originalRef } : {}),
+                };
+            });
+            sections.push(renderArraySection('Outputs', items, 'outputs'));
+        } else {
+            // Fallback: raw JSON
+            sections.push(
+                renderSimpleSection(
+                    'Outputs',
+                    <>
+                        {originalRef && <RefPath>Reference: {originalRef}</RefPath>}
+                        <JsonBlock>{JSON.stringify(out, null, 2)}</JsonBlock>
+                    </>,
+                    'outputs'
+                )
+            );
+        }
     }
-
-
 
     return <Container>{sections}</Container>;
 }

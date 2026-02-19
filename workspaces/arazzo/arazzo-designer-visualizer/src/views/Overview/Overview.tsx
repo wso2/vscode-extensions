@@ -29,6 +29,9 @@ interface OverviewProps {
 const styles = {
     container: css`
         padding: 20px;
+        box-sizing: border-box;
+        height: 100vh;
+        overflow-y: auto;
         font-family: var(--vscode-font-family);
         color: var(--vscode-editor-foreground);
     `,
@@ -112,6 +115,11 @@ const styles = {
         display: grid;
         gap: 15px;
     `,
+    reusableSectionContainer: css`
+        margin-top: 22px;
+        padding-top: 18px;
+        border-top: 1px solid var(--vscode-panel-border);
+    `,
     workflowItem: css`
         border: 1px solid var(--vscode-panel-border);
         padding: 15px;
@@ -138,18 +146,98 @@ const styles = {
             text-decoration: underline;
         }
     `,
+    treeSection: css`
+        background: linear-gradient(
+            180deg,
+            var(--vscode-editor-background) 0%,
+            var(--vscode-editor-inactiveSelectionBackground) 100%
+        );
+        border: 1px solid var(--vscode-panel-border);
+        border-left: 3px solid var(--vscode-focusBorder);
+        border-radius: 5px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    `,
+    treeHeader: css`
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        background: var(--vscode-list-hoverBackground);
+        border-bottom: 1px solid var(--vscode-panel-border);
+        cursor: pointer;
+        user-select: none;
+
+        &:hover {
+            background: var(--vscode-list-hoverBackground);
+        }
+    `,
+    treeTitle: css`
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 600;
+    `,
+    treeList: css`
+        padding: 10px 12px;
+        display: grid;
+        gap: 8px;
+    `,
+    treeItem: css`
+        border: 1px solid var(--vscode-panel-border);
+        border-radius: 4px;
+        overflow: hidden;
+    `,
+    treeItemHeader: css`
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 10px;
+        background: var(--vscode-editor-background);
+        cursor: pointer;
+        user-select: none;
+        font-size: 12px;
+        font-weight: 500;
+
+        &:hover {
+            background: var(--vscode-list-hoverBackground);
+        }
+    `,
+    treeItemBody: css`
+        padding: 10px;
+        border-top: 1px solid var(--vscode-panel-border);
+        background: var(--vscode-editor-background);
+    `,
+    treeChevron: css`
+        display: inline-block;
+        width: 14px;
+        text-align: center;
+    `,
+    jsonBlock: css`
+        margin: 0;
+        padding: 8px 10px;
+        background: var(--vscode-textCodeBlock-background);
+        border-radius: 4px;
+        overflow-x: auto;
+        font-size: 11px;
+        line-height: 1.5;
+        font-family: var(--vscode-editor-font-family);
+    `,
 };
 
 export function Overview(props: OverviewProps) {
     const { fileUri } = props;
     const { rpcClient } = useVisualizerContext();
     const [arazzoDefinition, setArazzoDefinition] = useState<ArazzoDefinition | undefined>(undefined);
+    const [expandedComponentSections, setExpandedComponentSections] = useState<Set<string>>(new Set());
+    const [expandedComponentItems, setExpandedComponentItems] = useState<Set<string>>(new Set());
 
-    // rpcClient?.onStateChanged((newState: MachineStateValue) => {
-    //     if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
-    //         fetchData();
-    //     }
-    // });
+    rpcClient?.onStateChanged((newState: MachineStateValue) => {
+        if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
+            fetchData();
+        }
+    });
 
     const fetchData = async () => {
         const resp = await rpcClient.getVisualizerRpcClient().getArazzoModel({
@@ -176,6 +264,30 @@ export function Overview(props: OverviewProps) {
         });
     };
 
+    const toggleComponentSection = (sectionId: string) => {
+        setExpandedComponentSections(prev => {
+            const next = new Set(prev);
+            if (next.has(sectionId)) {
+                next.delete(sectionId);
+            } else {
+                next.add(sectionId);
+            }
+            return next;
+        });
+    };
+
+    const toggleComponentItem = (itemId: string) => {
+        setExpandedComponentItems(prev => {
+            const next = new Set(prev);
+            if (next.has(itemId)) {
+                next.delete(itemId);
+            } else {
+                next.add(itemId);
+            }
+            return next;
+        });
+    };
+
     if (!arazzoDefinition) {
         return (
             <div className={styles.container}>
@@ -186,7 +298,10 @@ export function Overview(props: OverviewProps) {
         );
     }
 
-    const { arazzo, info, sourceDescriptions, workflows } = arazzoDefinition;
+    const { arazzo, info, sourceDescriptions, workflows, components } = arazzoDefinition;
+    const componentEntries = components
+        ? Object.entries(components).filter(([, value]) => value && typeof value === 'object')
+        : [];
 
     return (
         <div className={styles.container}>
@@ -261,6 +376,67 @@ export function Overview(props: OverviewProps) {
             ) : (
                 <p>No workflows defined.</p>
             )}
+
+            {/* Reusable Components Section */}
+            <div className={styles.reusableSectionContainer}>
+                <h2 className={styles.subtitle}>Reusable Components</h2>
+                {componentEntries.length > 0 ? (
+                    <div className={styles.workflowList}>
+                        {componentEntries.map(([sectionName, sectionValue]) => {
+                            const sectionItems = Object.entries(sectionValue as Record<string, unknown>);
+                            const sectionId = `components-${sectionName}`;
+                            const isSectionExpanded = expandedComponentSections.has(sectionId);
+
+                            return (
+                                <div key={sectionId} className={styles.treeSection}>
+                                    <div
+                                        className={styles.treeHeader}
+                                        onClick={() => toggleComponentSection(sectionId)}
+                                    >
+                                        <div className={styles.treeTitle}>
+                                            <span className={styles.treeChevron}>{isSectionExpanded ? '-' : '+'}</span>
+                                            <span>{sectionName}</span>
+                                        </div>
+                                        <span className={styles.tag}>{sectionItems.length}</span>
+                                    </div>
+
+                                    {isSectionExpanded && (
+                                        <div className={styles.treeList}>
+                                            {sectionItems.map(([itemName, itemValue]) => {
+                                                const itemId = `${sectionId}-${itemName}`;
+                                                const isItemExpanded = expandedComponentItems.has(itemId);
+
+                                                return (
+                                                    <div key={itemId} className={styles.treeItem}>
+                                                        <div
+                                                            className={styles.treeItemHeader}
+                                                            onClick={() => toggleComponentItem(itemId)}
+                                                        >
+                                                            <div className={styles.treeTitle}>
+                                                                <span className={styles.treeChevron}>{isItemExpanded ? '-' : '+'}</span>
+                                                                <span>{itemName}</span>
+                                                            </div>
+                                                        </div>
+                                                        {isItemExpanded && (
+                                                            <div className={styles.treeItemBody}>
+                                                                <pre className={styles.jsonBlock}>
+                                                                    {JSON.stringify(itemValue, null, 2)}
+                                                                </pre>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <p>No reusable components defined.</p>
+                )}
+            </div>
         </div>
     );
 }
