@@ -101,7 +101,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             const params: any[] = [];
             for (const line of lines) {
                 // Ignore section markers if user pastes raw Hurl sections
-                if (/^\[(?:FormData|Multipart|FormUrlEncoded)\]/i.test(line)) {
+                if (/^\[(?:FormData|Multipart|MultipartFormData|FormUrlEncoded|Form|FormParams)\]/i.test(line)) {
                     continue;
                 }
 
@@ -155,7 +155,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             const params: any[] = [];
             for (const line of lines) {
                 // Ignore section marker if user pastes raw Hurl sections
-                if (/^\[(?:FormUrlEncoded|FormData|Multipart)\]/i.test(line)) {
+                if (/^\[(?:FormUrlEncoded|Form|FormParams|FormData|Multipart|MultipartFormData)\]/i.test(line)) {
                     continue;
                 }
                 // key: value  OR key=value
@@ -192,13 +192,13 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
         if (bodyFormat === 'form-data') {
             return body
                 .split('\n')
-                .filter(line => !/^\s*\[(?:FormData|Multipart)\]\s*$/i.test(line))
+                .filter(line => !/^\s*\[(?:FormData|Multipart|MultipartFormData)\]\s*$/i.test(line))
                 .join('\n');
         }
         if (bodyFormat === 'form-urlencoded') {
             return body
                 .split('\n')
-                .filter(line => !/^\s*\[FormUrlEncoded\]\s*$/i.test(line))
+                .filter(line => !/^\s*\[(?:FormUrlEncoded|Form|FormParams)\]\s*$/i.test(line))
                 .join('\n');
         }
         return body;

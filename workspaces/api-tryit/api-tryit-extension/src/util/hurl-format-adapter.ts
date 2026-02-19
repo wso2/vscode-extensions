@@ -132,10 +132,11 @@ export class HurlFormatAdapter {
 
 			// Handle form URL encoded
 			if (request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) {
-				hurl += '[FormUrlEncoded]\n';
+				// Use native Hurl form parameters section.
+				hurl += '[Form]\n';
 				for (const param of request.bodyFormUrlEncoded) {
-					if (param.key && param.value) {
-						hurl += `${param.key}=${encodeURIComponent(param.value)}\n`;
+					if (param.key) {
+						hurl += `${param.key}: ${param.value ?? ''}\n`;
 					}
 				}
 			}
@@ -370,8 +371,8 @@ export class HurlFormatAdapter {
 				continue;
 			}
 
-			// Body sections like [Multipart], [FormData], [FormUrlEncoded] are part of body content
-			if (/^\[(?:FormData|Multipart|FormUrlEncoded)\]/i.test(trimmed)) {
+			// Body sections like [Multipart], [FormData], [Form], [FormParams] are part of body content
+			if (/^\[(?:FormData|Multipart|MultipartFormData|FormUrlEncoded|Form|FormParams)\]/i.test(trimmed)) {
 				body += line + '\n';
 				continue;
 			}
@@ -393,7 +394,7 @@ export class HurlFormatAdapter {
 			}
 		}
 
-		// Parse body and special sections (FormData, FormUrlEncoded, multipart, legacy shorthands)
+		// Parse body and special sections (FormData, Form/FormParams, multipart, legacy shorthands)
 		const bodyText = body.trim();
 		if (bodyText) {
 			// Helper: push a form-data param
@@ -401,8 +402,8 @@ export class HurlFormatAdapter {
 				arr.push({ id: `form-${Math.random().toString(36).substring(2, 9)}`, key: (key || '').toString(), value: value || undefined, filePath: filePath || undefined, contentType: contentType || undefined });
 			};
 
-			// 1) If body contains explicit [FormData] or [FormUrlEncoded] sections — parse them first
-			if (/^\[(?:FormData|Multipart|FormUrlEncoded)\]/im.test(bodyText)) {
+			// 1) If body contains explicit [FormData] or [Form]/[FormParams] sections — parse them first
+			if (/^\[(?:FormData|Multipart|MultipartFormData|FormUrlEncoded|Form|FormParams)\]/im.test(bodyText)) {
 				const lines = bodyText.split('\n');
 				let currentSection: string | null = null;
 				const formData: FormDataParameter[] = [];
@@ -414,8 +415,8 @@ export class HurlFormatAdapter {
 					if (!line) continue;
 					if (line.startsWith('#')) continue;
 					// Accept both [FormData] and shorthand [Multipart] as equivalent sections
-					if (/^\[(?:FormData|Multipart)\]/i.test(line)) { currentSection = 'form-data'; continue; }
-					if (/^\[FormUrlEncoded\]/i.test(line)) { currentSection = 'form-urlencoded'; continue; }
+					if (/^\[(?:FormData|Multipart|MultipartFormData)\]/i.test(line)) { currentSection = 'form-data'; continue; }
+					if (/^\[(?:FormUrlEncoded|Form|FormParams)\]/i.test(line)) { currentSection = 'form-urlencoded'; continue; }
 					if (!currentSection) continue;
 
 					if (currentSection === 'form-data') {
@@ -439,9 +440,25 @@ export class HurlFormatAdapter {
 						}
 					} else if (currentSection === 'form-urlencoded') {
 						urlEncodedBodyLines.push(line);
-						const m = line.match(/^([^=]+)=(.*)$/);
-						if (m) {
-							urlEncoded.push({ id: `fue-${Math.random().toString(36).substring(2,9)}`, key: decodeURIComponent(m[1]), value: decodeURIComponent(m[2] || '') });
+						// Native Hurl [Form] format: key: value (preferred)
+						const colon = line.match(/^([^:]+):\s*(.*)$/);
+						if (colon) {
+							urlEncoded.push({
+								id: `fue-${Math.random().toString(36).substring(2,9)}`,
+								key: colon[1].trim(),
+								value: colon[2] ?? ''
+							});
+							continue;
+						}
+
+						// Backward compatibility for legacy saved format: key=value
+						const eq = line.match(/^([^=]+)=(.*)$/);
+						if (eq) {
+							urlEncoded.push({
+								id: `fue-${Math.random().toString(36).substring(2,9)}`,
+								key: decodeURIComponent(eq[1]),
+								value: decodeURIComponent(eq[2] || '')
+							});
 						}
 					}
 				}
@@ -452,7 +469,7 @@ export class HurlFormatAdapter {
 				if (urlEncoded.length) {
 					request.bodyFormUrlEncoded = urlEncoded as any;
 				}
-				// Populate UI body without section markers like [Multipart]/[FormData]/[FormUrlEncoded].
+				// Populate UI body without section markers like [Multipart]/[FormData]/[Form]/[FormParams].
 				// Keep raw body only when no structured sections were parsed.
 				if (formData.length && !urlEncoded.length) {
 					request.body = formDataBodyLines.join('\n');
