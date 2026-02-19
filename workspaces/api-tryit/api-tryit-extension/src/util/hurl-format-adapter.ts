@@ -89,13 +89,9 @@ export class HurlFormatAdapter {
 			}
 		}
 
-		// Add headers (skip Content-Type if we have multipart form data)
+		// Add headers exactly as provided by the user.
 		if (request.headers && request.headers.length > 0) {
 			for (const header of request.headers) {
-				// Skip Content-Type header if we have form-data (Hurl handles it automatically)
-				if (formDataParams && /^content-type$/i.test(header.key)) {
-					continue;
-				}
 				if (header.key && header.value) {
 					hurl += `${header.key}: ${header.value}\n`;
 				}
