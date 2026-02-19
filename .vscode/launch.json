@@ -21,32 +21,6 @@
             "preLaunchTask": "npm: watch-api-designer"
         },
         {
-            "name": "Ballerina, BI & API TryIt Extensions",
-            "type": "extensionHost",
-            "request": "launch",
-            "runtimeExecutable": "${execPath}",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension",
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/bi/bi-extension",
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/api-tryit/api-tryit-extension"
-            ],
-            "env": {
-                "LS_EXTENSIONS_PATH": "",
-                "LSDEBUG": "false",
-                "WEB_VIEW_WATCH_MODE": "true",
-                "WEB_VIEW_DEV_HOST": "http://localhost:9000",
-                "TRY_VIEW_DEV_HOST": "http://localhost:9092",
-                "BALLERINA_STAGE_CENTRAL": "false"
-            },
-            "outFiles": [
-                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/dist/**/*.js",
-                "${workspaceFolder}/workspaces/bi/bi-extension/out/**/*.js",
-                "${workspaceFolder}/workspaces/api-tryit/api-tryit-extension/dist/**/*.js"
-            ],
-            "preLaunchTask": "watch-all",
-            "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
-        },
-        {
             "name": "Ballerina & BI Extensions",
             "type": "extensionHost",
             "request": "launch",

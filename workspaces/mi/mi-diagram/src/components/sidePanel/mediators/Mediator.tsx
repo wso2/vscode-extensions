@@ -39,7 +39,7 @@ interface MediatorPageProps {
 export function MediatorPage(props: MediatorPageProps) {
     const { mediatorData, connectorData, mediatorType, documentUri, nodeRange, isUpdate, showForm, artifactModel } = props;
     const [activeTab, setActiveTab] = React.useState("form");
-    const { control, handleSubmit, setValue, getValues, watch, reset, formState: { dirtyFields, errors } } = useForm<any>({
+    const { control, handleSubmit, setValue, getValues, watch, reset, setError, clearErrors, formState: { dirtyFields, errors } } = useForm<any>({
         defaultValues: {
         }
     });
@@ -91,6 +91,8 @@ export function MediatorPage(props: MediatorPageProps) {
                         control={control}
                         errors={errors}
                         setValue={setValue}
+                        setError={setError}
+                        clearErrors={clearErrors}
                         reset={reset}
                         watch={watch}
                         getValues={getValues}

@@ -24,7 +24,7 @@ import * as vscode from 'vscode';
 import { BallerinaExtension } from "src/core";
 import Handlebars from "handlebars";
 import { clientManager, findRunningBallerinaProcesses, handleError, HTTPYAC_CONFIG_TEMPLATE, TRYIT_TEMPLATE, waitForBallerinaService } from "./utils";
-import { AIPanelPrompt, BIDesignModelResponse, EVENT_TYPE, MACHINE_VIEW, OASpec, OpenAPISpec, ProjectInfo, SHARED_COMMANDS } from "@wso2/ballerina-core";
+import { BIDesignModelResponse, EVENT_TYPE, MACHINE_VIEW, OpenAPISpec, ProjectInfo } from "@wso2/ballerina-core";
 import { getProjectWorkingDirectory } from "../../utils/file-utils";
 import { startDebugging } from "../editor-support/activator";
 import { v4 as uuidv4 } from "uuid";
@@ -89,7 +89,7 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
 
         // Check if service is already running BEFORE we potentially start it
         // This will be used to determine if we should reuse the session ID for AI Agent service
-        const wasServiceAlreadyRunning = await isServiceAlreadyRunning(projectPath);
+        let wasServiceAlreadyRunning = await isServiceAlreadyRunning(projectPath);
 
         if (withNotice) {
             const selection = await vscode.window.showInformationMessage(
@@ -101,6 +101,8 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
             if (selection !== "Test") {
                 return;
             }
+
+            wasServiceAlreadyRunning = false;
         } else {
             const processesRunning = await checkBallerinaProcessRunning(projectPath);
             if (!processesRunning) {
@@ -164,19 +166,8 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
             const selectedPort: number = await getServicePort(projectPath, selectedService, openapiSpec);
             selectedService.port = selectedPort;
 
-            // const tryitFileUri = await generateTryItFileContent(targetDir, openapiSpec, selectedService, resourceMetadata);
-            // await openInSplitView(tryitFileUri, 'http');
-            const prompt: AIPanelPrompt = {
-                type: 'text',
-                text: `
-                OpenAPI specification for the service '${selectedService.name || selectedService.basePath}':
-                ${JSON.stringify(openapiSpec)}
-                Here is the current API Specifiction.
-                How to start API testing ?`,
-                planMode: true,
-                autoSendConfig: { autosend: true, hidden_init: true }
-            };
-            commands.executeCommand(SHARED_COMMANDS.OPEN_AI_PANEL, prompt);
+            const tryitFileUri = await generateTryItFileContent(targetDir, openapiSpec, selectedService, resourceMetadata);
+            await openInSplitView(tryitFileUri, 'http');
         } else if (selectedService.type === ServiceType.GRAPHQL) {
             const selectedPort: number = await getServicePort(projectPath, selectedService);
             const port = selectedPort;
@@ -1203,7 +1194,6 @@ async function getProjectPathAndServices(
             projectPath = getProjectWorkingDirectory(root);
             const services = await getServiceInfo(projectPath, serviceMetadata, filePath);
             if (!services || services.length === 0) {
-                vscode.window.showInformationMessage('No services found in the integration');
                 return;
             }
             serviceInfos[projectPath] = services;

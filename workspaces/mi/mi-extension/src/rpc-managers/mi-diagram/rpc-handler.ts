@@ -70,6 +70,7 @@ import {
     GetLocalEntryRequest,
     GetMediatorRequest,
     GetMediatorsRequest,
+    McpToolsRequest,
     GetMessageStoreRequest,
     GetProjectRootRequest,
     GetRecipientEPRequest,
@@ -203,6 +204,7 @@ import {
     getInboundEndpoint,
     getLoadBalanceEndpoint,
     getLocalEntry,
+    getMcpTools,
     getMediator,
     getMediators,
     getMessageProcessor,
@@ -335,6 +337,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getESBConfigs, () => rpcManger.getESBConfigs());
     messenger.onRequest(getConnectors, () => rpcManger.getConnectors());
     messenger.onRequest(getConnector, (args: ConnectorRequest) => rpcManger.getConnector(args));
+        messenger.onRequest(getMcpTools, (args: McpToolsRequest) => rpcManger.getMcpTools(args));
     messenger.onRequest(getAPIDirectory, () => rpcManger.getAPIDirectory());
     messenger.onRequest(createAPI, (args: CreateAPIRequest) => rpcManger.createAPI(args));
     messenger.onRequest(editAPI, (args: EditAPIRequest) => rpcManger.editAPI(args));

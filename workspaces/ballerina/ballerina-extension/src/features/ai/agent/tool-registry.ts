@@ -39,8 +39,8 @@ import { getLibraryGetTool, LIBRARY_GET_TOOL } from './tools/library-get';
 import { GenerationType } from '../utils/libs/libraries';
 import { getHealthcareLibraryProviderTool, HEALTHCARE_LIBRARY_PROVIDER_TOOL } from './tools/healthcare-library';
 import { createConnectorGeneratorTool, CONNECTOR_GENERATOR_TOOL } from './tools/connector-generator';
-import { createHttpRequestTool, HTTP_REQUEST_TOOL_NAME } from './tools/http-request';
 import { LIBRARY_SEARCH_TOOL, getLibrarySearchTool } from './tools/library-search';
+import { createConfigCollectorTool, CONFIG_COLLECTOR_TOOL } from './tools/config-collector';
 
 export interface ToolRegistryOptions {
     eventHandler: CopilotEventHandler;
@@ -80,6 +80,14 @@ export function createToolRegistry(opts: ToolRegistryOptions) {
             projects[0].projectName,
             modifiedFiles
         ),
+        [CONFIG_COLLECTOR_TOOL]: createConfigCollectorTool(
+            eventHandler,
+            {
+                tempPath: tempProjectPath,
+                workspacePath: workspaceId
+            },
+            modifiedFiles
+        ),
         [FILE_WRITE_TOOL_NAME]: createWriteTool(
             createWriteExecute(eventHandler, tempProjectPath, modifiedFiles)
         ),
@@ -93,6 +101,5 @@ export function createToolRegistry(opts: ToolRegistryOptions) {
             createReadExecute(eventHandler, tempProjectPath)
         ),
         [DIAGNOSTICS_TOOL_NAME]: createDiagnosticsTool(tempProjectPath, eventHandler),
-        [HTTP_REQUEST_TOOL_NAME]: createHttpRequestTool(eventHandler)
     };
 }
