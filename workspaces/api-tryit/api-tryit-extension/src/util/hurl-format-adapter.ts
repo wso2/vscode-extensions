@@ -55,9 +55,47 @@ export class HurlFormatAdapter {
 		// Add request line with URL
 		hurl += `${request.method} ${fullUrl}\n`;
 
-		// Detect form-data early (before headers)
-		let formDataParams = request.bodyFormData && request.bodyFormData.length > 0 ? request.bodyFormData : undefined;
-		if (!formDataParams && request.body && typeof request.body === 'string') {
+		// Categorize assertions:
+		// - HTTP assertions: operatorless response line (e.g., "HTTP 200")
+		// - Operatorless status assertions: also become HTTP response lines (e.g., "status 200" -> "HTTP 200")
+		// - Other assertions: emit in [Asserts] section (including operator-based status like "status == 502")
+		const httpAssertions = (assertions || [])
+			.map(a => a.trim())
+			.filter(a => /^HTTP\s+/i.test(a));
+
+		const operatorlessStatusAssertions = (assertions || [])
+			.map(a => a.trim())
+			.filter(a => /^status\s+/i.test(a) && !/^status\s+(==|!=|>|<|>=|<=)/.test(a))
+			.map(a => {
+				const match = a.match(/^status\s+(.+)$/i);
+				return match ? `HTTP ${match[1].trim()}` : a;
+			});
+
+		const otherAssertions = (assertions || [])
+			.map(a => a.trim())
+			.filter(a => {
+				if (/^HTTP\s+/i.test(a)) return false;
+				if (/^status\s+/i.test(a) && !/^status\s+(==|!=|>|<|>=|<=)/.test(a)) return false;
+				return a.length > 0;
+			});
+
+		const allResponseLines = [...httpAssertions, ...operatorlessStatusAssertions];
+
+		const hasFormUrlEncodedBody = !!(request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0);
+
+		// Detect form-data early (before headers).
+		// If form-urlencoded data exists, prefer it and skip multipart to avoid mixed body sections.
+		let formDataParams =
+			!hasFormUrlEncodedBody && request.bodyFormData && request.bodyFormData.length > 0
+				? request.bodyFormData
+				: undefined;
+		if (
+			!formDataParams &&
+			!hasFormUrlEncodedBody &&
+			!(request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0) &&
+			request.body &&
+			typeof request.body === 'string'
+		) {
 			const raw = request.body.trim();
 			const looksLikeFormData = /(^@file:)|(^[^\s:{\[]+\s*:\s*[^\n]+)/m.test(raw) && !/^\s*\{/.test(raw) && !/^\s*\[/.test(raw) && !/^\s*</.test(raw);
 			if (looksLikeFormData) {
@@ -98,17 +136,26 @@ export class HurlFormatAdapter {
 			}
 		}
 
-		const hasBody = request.body ||
+		// HTTP assertions should appear before body sections.
+		if (allResponseLines.length > 0) {
+			for (const assertion of allResponseLines) {
+				hurl += `${assertion}\n`;
+			}
+		}
+
+		const hasStructuredBody =
 			(formDataParams && formDataParams.length > 0) ||
 			(request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) ||
 			(request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0);
 
+		const hasBody = request.body ||
+			hasStructuredBody;
+
 		if (hasBody) {
 			hurl += '\n';
 
-			// If bodyText was editor-style form-data we do NOT append raw request.body here
-			// the multipart body will be emitted below from `formDataParams`.
-			if (request.body && !(formDataParams && formDataParams.length > 0)) {
+			// If structured body sections are present, don't duplicate raw body text.
+			if (request.body && !hasStructuredBody) {
 				hurl += request.body;
 				if (!request.body.endsWith('\n')) {
 					hurl += '\n';
@@ -149,42 +196,6 @@ export class HurlFormatAdapter {
 						hurl += `# filePath: ${file.filePath}, contentType: ${file.contentType}\n`;
 					}
 				}
-			}
-		}
-
-		// Categorize assertions:
-		// - HTTP assertions: operatorless response line (e.g., "HTTP 200")
-		// - Operatorless status assertions: also become HTTP response lines (e.g., "status 200" -> "HTTP 200")
-		// - Other assertions: emit in [Asserts] section (including operator-based status like "status == 502")
-		const httpAssertions = (assertions || [])
-			.map(a => a.trim())
-			.filter(a => /^HTTP\s+/i.test(a));
-
-		const operatorlessStatusAssertions = (assertions || [])
-			.map(a => a.trim())
-			.filter(a => /^status\s+/i.test(a) && !/^status\s+(==|!=|>|<|>=|<=)/.test(a))
-			.map(a => {
-				// Convert operatorless status to HTTP format
-				const match = a.match(/^status\s+(.+)$/i);
-				return match ? `HTTP ${match[1].trim()}` : a;
-			});
-		
-		const otherAssertions = (assertions || [])
-			.map(a => a.trim())
-			.filter(a => {
-				// Exclude HTTP assertions
-				if (/^HTTP\s+/i.test(a)) return false;
-				// Exclude operatorless status assertions
-				if (/^status\s+/i.test(a) && !/^status\s+(==|!=|>|<|>=|<=)/.test(a)) return false;
-				// Include everything else
-				return a.length > 0;
-			});
-
-		// Add HTTP and operatorless status assertions as response lines
-		const allResponseLines = [...httpAssertions, ...operatorlessStatusAssertions];
-		if (allResponseLines.length > 0) {			// HTTP assertions appear directly after headers (or request line if no headers)
-			for (const assertion of allResponseLines) {
-				hurl += `${assertion}\n`;
 			}
 		}
 

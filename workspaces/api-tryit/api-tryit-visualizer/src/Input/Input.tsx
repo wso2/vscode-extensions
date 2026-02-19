@@ -55,6 +55,7 @@ export const Input: React.FC<InputProps> = ({
     const formatMenuRef = React.useRef<HTMLDivElement>(null);
     const outputRef = React.useRef<HTMLDivElement>(null);
     const containerRef = React.useRef<HTMLDivElement>(null);
+    const lastRequestIdRef = React.useRef<string | undefined>(undefined);
 
     // Fallback: if a selected request has [Multipart] body text but missing structured params,
     // parse and hydrate `bodyFormData` so Form view can populate rows.
@@ -112,6 +113,11 @@ export const Input: React.FC<InputProps> = ({
 
     // Auto-detect body format from request
     React.useEffect(() => {
+        const isNewRequest = lastRequestIdRef.current !== request.id;
+        if (isNewRequest) {
+            lastRequestIdRef.current = request.id;
+        }
+
         if (request.bodyFormData && request.bodyFormData.length > 0) {
             setBodyFormat('form-data');
         } else if (request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) {
@@ -119,7 +125,9 @@ export const Input: React.FC<InputProps> = ({
         } else if (request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0) {
             setBodyFormat('binary');
         } else if (!request.body) {
-            setBodyFormat('no-body');
+            // Keep user's manual raw-format selection while editing the same request.
+            // Reset to no-body only when a different request is selected.
+            setBodyFormat(prev => (isNewRequest || prev === 'no-body') ? 'no-body' : prev);
         } else if (request.body.trim().startsWith('{') || request.body.trim().startsWith('[')) {
             setBodyFormat('json');
         } else if (request.body.trim().startsWith('<')) {
@@ -127,7 +135,7 @@ export const Input: React.FC<InputProps> = ({
         } else {
             setBodyFormat('text');
         }
-    }, [request.bodyFormData, request.bodyFormUrlEncoded, request.bodyBinaryFiles, request.body]);
+    }, [request.id, request.bodyFormData, request.bodyFormUrlEncoded, request.bodyBinaryFiles, request.body]);
 
     // Only scroll when parent explicitly requests it (bringOutputCounter increments).
     // Use a pending mechanism so if the trigger happens before the response arrives we still scroll when it does.
@@ -197,8 +205,17 @@ export const Input: React.FC<InputProps> = ({
 
     const handleFormatChange = (format: BodyFormat) => {
         setBodyFormat(format);
-        // Clear body immediately when format changes
-        handleBodyChange('');
+        const isRawFormat = (value: BodyFormat) => ['json', 'xml', 'text', 'html', 'javascript'].includes(value);
+        const keepRawBody = isRawFormat(format) && isRawFormat(bodyFormat);
+
+        const updatedRequest = {
+            ...request,
+            body: keepRawBody ? (request.body || '') : (isRawFormat(format) ? '' : ''),
+            bodyFormData: format === 'form-data' ? (request.bodyFormData || []) : [],
+            bodyFormUrlEncoded: format === 'form-urlencoded' ? (request.bodyFormUrlEncoded || []) : [],
+            bodyBinaryFiles: format === 'binary' ? (request.bodyBinaryFiles || []) : []
+        };
+        onRequestChange?.(updatedRequest);
     };
 
     // Get VS Code API
