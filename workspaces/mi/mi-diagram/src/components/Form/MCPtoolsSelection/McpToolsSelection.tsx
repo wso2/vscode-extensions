@@ -65,7 +65,7 @@ interface McpToolsSelectionProps {
     serviceUrl?: string;
     showValidationError?: boolean;
     resolutionError?: string;
-    onSelectionChange?: (value: string[]) => void;
+    onSelectionChange?: (value: McpTool[]) => void;
     documentUri: string;
     range: Range;
     selectedConnection?: string;
@@ -440,6 +440,15 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
     const [loading, setLoading] = useState(false);
     const formattedError = useMemo(() => formatErrorMessage(error), [error]);
     const { rpcClient } = useVisualizerContext();
+    
+    // Convert McpTool[] from form to Set<string> for display
+    const selectedToolNames = useMemo(() => {
+        const currentSelection = getValues('mcpToolsSelection');
+        if (Array.isArray(currentSelection)) {
+            return new Set(currentSelection.map((tool: McpTool) => tool.name));
+        }
+        return new Set<string>();
+    }, [getValues('mcpToolsSelection')]);
 
     useEffect(() => {
         if (error) {
@@ -483,9 +492,14 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
             
             // Set selected tools from response if available
             if (mcpToolsResponse?.selectedTools && Array.isArray(mcpToolsResponse.selectedTools)) {
-                setValue('mcpToolsSelection', mcpToolsResponse.selectedTools);
-                onSelectionChange?.(mcpToolsResponse.selectedTools);
-                if (mcpToolsResponse.selectedTools.length > 0) {
+                // Convert string[] to McpTool[] by finding matching tools
+                const selectedToolObjects = mcpToolsResponse.selectedTools
+                    .map(toolName => tools.find(t => t.name === toolName))
+                    .filter((tool): tool is McpTool => tool !== undefined);
+                
+                setValue('mcpToolsSelection', selectedToolObjects);
+                onSelectionChange?.(selectedToolObjects);
+                if (selectedToolObjects.length > 0) {
                     clearErrors?.('mcpTools');
                 }
             }
@@ -505,25 +519,34 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
     }, [rpcClient, selectedConnection]);
 
     useEffect(() => {
-        if (tools.length > 0 && selectedTools.size === 0) {
+        if (tools.length > 0 && selectedToolNames.size === 0) {
             setFormError?.('mcpTools', { type: 'manual', message: 'Select at least one tool.' });
-        } else if (selectedTools.size > 0) {
+        } else if (selectedToolNames.size > 0) {
             clearErrors?.('mcpTools');
         }
-    }, [tools.length, selectedTools]);
+    }, [tools.length, selectedToolNames]);
 
     const handleToolSelectionChange = (toolName: string, isSelected: boolean) => {
         const currentSelection = getValues('mcpToolsSelection');
-        const newSelection = new Set(Array.isArray(currentSelection) ? currentSelection : []);
+        const currentTools = Array.isArray(currentSelection) ? currentSelection : [];
+        
+        let nextSelection: McpTool[];
         if (isSelected) {
-            newSelection.add(toolName);
+            // Add the tool object to selection
+            const toolToAdd = tools.find(t => t.name === toolName);
+            if (toolToAdd && !currentTools.some(t => t.name === toolName)) {
+                nextSelection = [...currentTools, toolToAdd];
+            } else {
+                nextSelection = currentTools;
+            }
         } else {
-            newSelection.delete(toolName);
+            // Remove the tool object from selection
+            nextSelection = currentTools.filter(t => t.name !== toolName);
         }
-        const nextSelection = Array.from(newSelection);
+        
         onSelectionChange?.(nextSelection);
         setValue('mcpToolsSelection', nextSelection);
-        if (newSelection.size > 0) {
+        if (nextSelection.length > 0) {
             clearErrors?.('mcpTools');
         } else {
             setFormError?.('mcpTools', { type: 'manual', message: 'Select at least one tool.' });
@@ -533,11 +556,11 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
     const handleSelectAll = () => {
         const currentSelection = getValues('mcpToolsSelection');
         const selectedCount = Array.isArray(currentSelection) ? currentSelection.length : 0;
-        let nextSelection: string[] = [];
+        let nextSelection: McpTool[] = [];
         if (selectedCount === tools.length) {
             nextSelection = [];
         } else {
-            nextSelection = tools.map(tool => tool.name);
+            nextSelection = [...tools];
             clearErrors?.('mcpTools');
         }
         onSelectionChange?.(nextSelection);
@@ -566,7 +589,7 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
                                 onClick={handleSelectAll}
                                 disabled={loading}
                             >
-                                {selectedTools.size === tools.length ? "Deselect All" : "Select All"}
+                                {selectedToolNames.size === tools.length ? "Deselect All" : "Select All"}
                             </Button>
                         </div>
                     )}
@@ -604,18 +627,18 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
                 )}
                 {!loading && tools.length > 0 && (
                     <>
-                        {showValidationError && selectedTools.size === 0 ? (
+                        {showValidationError && selectedToolNames.size === 0 ? (
                             <WarningMessage style={{ marginBottom: "6px" }}>
                                 Select at least one tool to continue
                             </WarningMessage>
                         ) : (
                             <InfoMessage style={{ marginBottom: "6px" }}>
-                                {selectedTools.size} of {tools.length} selected
+                                {selectedToolNames.size} of {tools.length} selected
                             </InfoMessage>
                         )}
                         <ToolsList
                             tools={tools}
-                            selectedTools={selectedTools}
+                            selectedTools={selectedToolNames}
                             loading={loading}
                             onToolSelectionChange={handleToolSelectionChange}
                         />
@@ -637,7 +660,7 @@ export const McpToolsSelection: React.FC<McpToolsSelectionProps> = ({
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 tools={tools}
-                selectedTools={selectedTools}
+                selectedTools={selectedToolNames}
                 loading={loading}
                 onToolSelectionChange={handleToolSelectionChange}
                 onSelectAll={handleSelectAll}
