@@ -136,11 +136,23 @@ async function createCollectionFolderStructure(
 
 	for (let index = 0; index < rootItems.length; index++) {
 		const persistedRequest = normalizeRequestItem(rootItems[index], `Request ${index + 1}`);
-		const fileName = `${String(index + 1).padStart(2, '0')}-${sanitizePathSegment(
+		const baseName = sanitizePathSegment(
 			typeof persistedRequest.name === 'string' ? persistedRequest.name : `request-${index + 1}`,
 			`request-${index + 1}`
-		)}.yaml`;
-		const requestPath = path.join(collectionPath, fileName);
+		);
+		let fileName = `${baseName}.yaml`;
+		let requestPath = path.join(collectionPath, fileName);
+		let suffix = 1;
+		while (true) {
+			try {
+				await fs.access(requestPath);
+				fileName = `${baseName}-${suffix}.yaml`;
+				requestPath = path.join(collectionPath, fileName);
+				suffix++;
+			} catch {
+				break; // filePath available
+			}
+		}
 
 		await fs.writeFile(requestPath, yaml.dump(persistedRequest), 'utf-8');
 		if (!firstRequestPath) {
@@ -165,11 +177,23 @@ async function createCollectionFolderStructure(
 
 		for (let requestIndex = 0; requestIndex < folderItems.length; requestIndex++) {
 			const persistedRequest = normalizeRequestItem(folderItems[requestIndex], `Request ${requestIndex + 1}`);
-			const fileName = `${String(requestIndex + 1).padStart(2, '0')}-${sanitizePathSegment(
+			const baseName = sanitizePathSegment(
 				typeof persistedRequest.name === 'string' ? persistedRequest.name : `request-${requestIndex + 1}`,
 				`request-${requestIndex + 1}`
-			)}.yaml`;
-			const requestPath = path.join(folderPath, fileName);
+			);
+			let fileName = `${baseName}.yaml`;
+			let requestPath = path.join(folderPath, fileName);
+			let suffix = 1;
+			while (true) {
+				try {
+					await fs.access(requestPath);
+					fileName = `${baseName}-${suffix}.yaml`;
+					requestPath = path.join(folderPath, fileName);
+					suffix++;
+				} catch {
+					break;
+				}
+			}
 
 			await fs.writeFile(requestPath, yaml.dump(persistedRequest), 'utf-8');
 			if (!firstRequestPath) {
@@ -238,8 +262,20 @@ async function createHurlCollectionFolderStructure(
 		if (!hasName) meta += `# @name ${name}\n`;
 		if (meta) content = meta + '\n' + content.trim() + '\n';
 
-		const fileName = `${String(index + 1).padStart(2, '0')}-${sanitizePathSegment(name, `request-${index + 1}`)}.hurl`;
-		const requestPath = path.join(collectionPath, fileName);
+		const baseName = sanitizePathSegment(name, `request-${index + 1}`);
+		let fileName = `${baseName}.hurl`;
+		let requestPath = path.join(collectionPath, fileName);
+		let suffix = 1;
+		while (true) {
+			try {
+				await fs.access(requestPath);
+				fileName = `${baseName}-${suffix}.hurl`;
+				requestPath = path.join(collectionPath, fileName);
+				suffix++;
+			} catch {
+				break;
+			}
+		}
 
 		await fs.writeFile(requestPath, content.endsWith('\n') ? content : content + '\n', 'utf-8');
 		if (!firstRequestPath) {
@@ -283,8 +319,20 @@ async function createHurlCollectionFolderStructure(
 			if (!hasName) meta += `# @name ${name}\n`;
 			if (meta) content = meta + '\n' + content.trim() + '\n';
 
-			const fileName = `${String(requestIndex + 1).padStart(2, '0')}-${sanitizePathSegment(name, `request-${requestIndex + 1}`)}.hurl`;
-			const requestPath = path.join(folderPath, fileName);
+			const baseName = sanitizePathSegment(name, `request-${requestIndex + 1}`);
+			let fileName = `${baseName}.hurl`;
+			let requestPath = path.join(folderPath, fileName);
+			let suffix = 1;
+			while (true) {
+				try {
+					await fs.access(requestPath);
+					fileName = `${baseName}-${suffix}.hurl`;
+					requestPath = path.join(folderPath, fileName);
+					suffix++;
+				} catch {
+					break;
+				}
+			}
 
 			await fs.writeFile(requestPath, content.endsWith('\n') ? content : content + '\n', 'utf-8');
 			if (!firstRequestPath) {
