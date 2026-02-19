@@ -106,7 +106,7 @@ export const AssertCode: React.FC<AssertCodeProps> = ({
             onExecute: (editor: any, model: any) => {
                 const lineCount = model.getLineCount();
                 const lastLineLength = model.getLineLength(lineCount);
-                const textToInsert = model.getValue() ? '\nres.status = 200' : 'res.status = 200';
+                const textToInsert = model.getValue() ? '\nstatus == 200' : 'status == 200';
 
                 editor.executeEdits('add-assertion', [{
                     range: {
@@ -160,9 +160,8 @@ export const AssertCode: React.FC<AssertCodeProps> = ({
                 assertionStatuses={assertionResults}
                 suggestions={{
                     assertions: {
-                        initial: ['res'],
+                        initial: ['status', 'headers', 'body'],
                         properties: {
-                            'res': ['status', 'headers', 'body'],
                             'headers': {
                                 names: COMMON_HEADERS.map(h => h.name),
                                 values: Object.fromEntries(COMMON_HEADERS.map(h => [h.name, h.values]))
@@ -194,11 +193,11 @@ export const AssertCode: React.FC<AssertCodeProps> = ({
                                         <AssertionFailureDetails isForm={false}>
                                             {getAssertionDetails(assertion, response) ? (
                                                 <AssertionDetailLine>
-                                                    res.{getAssertionKey(assertion)} is expected to be {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}. Actual res.{getAssertionKey(assertion)} {getAssertionDetails(assertion, response)?.actual ?? ''} is not {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}.
+                                                    {getAssertionKey(assertion)} is expected to be {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}. Actual {getAssertionKey(assertion)} {getAssertionDetails(assertion, response)?.actual ?? ''} is not {getOperator(assertion)} {getAssertionDetails(assertion, response)?.expected ?? ''}.
                                                 </AssertionDetailLine>
                                             ) : (
                                                 <AssertionDetailLine>
-                                                    Assertion format is invalid. Please use the format: res.[target] [operator] [value]. E.g., res.status = 200, res.headers.Content-Type = application/json, res.body != ''
+                                                    Assertion format is invalid. Please use the format: [target] [operator] [value]. E.g., status == 200, headers.Content-Type == application/json, body != ''
                                                 </AssertionDetailLine>
                                             )}
                                         </AssertionFailureDetails>

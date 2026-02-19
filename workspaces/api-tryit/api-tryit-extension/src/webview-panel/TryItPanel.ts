@@ -19,11 +19,12 @@
 import * as vscode from 'vscode';
 import { getComposerJSFiles } from '../util';
 import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
-import { ApiRequestItem } from '@wso2/api-tryit-core';
+import { ApiRequestItem, HttpResponseResult } from '@wso2/api-tryit-core';
 import * as path from 'path';
 import { Buffer } from 'buffer';
 import { Messenger } from 'vscode-messenger';
 import { registerApiTryItRpcHandlers, ApiTryItRpcManager } from '../rpc-managers';
+import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
 
 export class TryItPanel {
 	public static currentPanel: TryItPanel | undefined;
@@ -197,7 +198,7 @@ export class TryItPanel {
 							// Delegate to RPC manager to handle the HTTP request
 							const rpcManager = new ApiTryItRpcManager();
 							rpcManager.sendHttpRequest({ method, url, params, headers, data: body }).then(
-								(result) => {
+							(result: HttpResponseResult) => {
 									this._panel.webview.postMessage({
 										type: 'httpRequestResponse',
 										requestId,
@@ -236,6 +237,8 @@ export class TryItPanel {
 
 							// Get the current state to check for persisted file path or collection path
 							const stateContext = ApiTryItStateMachine.getContext();
+							// Track whether the user explicitly picked a file during this save
+							let userSelectedFile = false;
 							// Prefer explicit filePath from the message, then the request's filePath (if present)
 							let targetFilePath = filePath || (request && (request.filePath as string | undefined));
 
@@ -244,29 +247,55 @@ export class TryItPanel {
 								if (!targetFilePath && request && (request.id as string | undefined) && stateContext.savedItems instanceof Map) {
 									const cached = stateContext.savedItems.get(request.id as string);
 									if (cached && cached.filePath) {
-										targetFilePath = cached.filePath;
+										try {
+											// Verify the cached path still exists on disk before re-using it
+											await vscode.workspace.fs.stat(vscode.Uri.file(cached.filePath));
+											targetFilePath = cached.filePath;
+										} catch {
+											// Cached path no longer exists — ignore
+											console.log(`Cached savedItem path no longer exists: ${cached.filePath}`);
+										}
 									}
 								}
 							} catch {
 								// ignore
 							}
 
-							if (!targetFilePath && stateContext.currentCollectionPath) {
-								// Auto-generate filename from request name or use default
-								const baseName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-');
-								let candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}.yaml`);
-								let counter = 1;
-								while (true) {
-									try {
-										await vscode.workspace.fs.stat(vscode.Uri.file(candidatePath));
-										candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}-${counter}.yaml`);
-										counter++;
-									} catch {
-										// Not found, candidatePath is available
-										break;
-									}
+							// Fallback to state machine selected file path for existing requests
+							// But first verify the path still exists (not deleted)
+							if (!targetFilePath && stateContext.selectedFilePath) {
+								try {
+									await vscode.workspace.fs.stat(vscode.Uri.file(stateContext.selectedFilePath));
+									targetFilePath = stateContext.selectedFilePath;
+								} catch {
+									// File path no longer exists, clear it so we don't use it
+									console.log(`Selected file path no longer exists: ${stateContext.selectedFilePath}`);
 								}
-								targetFilePath = candidatePath;
+							}
+
+							if (!targetFilePath && stateContext.currentCollectionPath) {
+								// Verify the collection path still exists before using it
+								try {
+									await vscode.workspace.fs.stat(vscode.Uri.file(stateContext.currentCollectionPath));
+									// Collection path exists, auto-generate filename
+									const baseName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+									let candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}.yaml`);
+									let counter = 1;
+									while (true) {
+										try {
+											await vscode.workspace.fs.stat(vscode.Uri.file(candidatePath));
+											candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}-${counter}.yaml`);
+											counter++;
+										} catch {
+											// Not found, candidatePath is available
+											break;
+										}
+									}
+									targetFilePath = candidatePath;
+								} catch {
+									// Collection path no longer exists, skip auto-generate and fall through to prompt
+									console.log(`Collection path no longer exists: ${stateContext.currentCollectionPath}`);
+								}
 							}
 
 							// If still no file path, prompt user to select folder and file
@@ -349,13 +378,19 @@ export class TryItPanel {
 									break;
 								}
 
+								userSelectedFile = true;
 								targetFilePath = fileUri.fsPath;
 							}
 
-							// If the request already has an associated file, always overwrite that file without renaming
+							// If the request already has an associated file, prefer to reuse it only when the user did not explicitly choose a file
 							const existingFilePath = request && (request.filePath as string | undefined);
-							if (existingFilePath) {
-								targetFilePath = existingFilePath;
+							if (existingFilePath && !userSelectedFile) {
+								try {
+									await vscode.workspace.fs.stat(vscode.Uri.file(existingFilePath));
+									targetFilePath = existingFilePath;
+								} catch {
+									// existing file path no longer exists — ignore
+								}
 							}
 
 			// Ensure the directory exists before saving
@@ -450,9 +485,9 @@ export class TryItPanel {
 		);
 	}
 
-	public static init() {
+	public static init(apiExplorerProvider: ApiExplorerProvider) {
 		// Register RPC handlers
-		registerApiTryItRpcHandlers(TryItPanel._messenger);
+		registerApiTryItRpcHandlers(TryItPanel._messenger, apiExplorerProvider);
 	}
 
 	public static show(extensionContext: vscode.ExtensionContext) {
@@ -466,7 +501,7 @@ export class TryItPanel {
 		}
 
 		const isDevMode = process.env.WEB_VIEW_WATCH_MODE === 'true';
-		const devHost = process.env.WEB_VIEW_DEV_HOST || 'http://localhost:8080';
+		const devHost = process.env.TRY_VIEW_DEV_HOST || 'http://localhost:9092';
 
 		const panel = vscode.window.createWebviewPanel(
 			'apiTryIt',

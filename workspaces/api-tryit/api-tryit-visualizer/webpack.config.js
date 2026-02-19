@@ -60,7 +60,7 @@ module.exports = {
         }),
     ],
     devServer: {
-        port: 8080,
+        port: 9092,
         hot: true,
         liveReload: true,
         allowedHosts: 'all',
