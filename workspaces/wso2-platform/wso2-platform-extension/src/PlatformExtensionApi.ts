@@ -16,13 +16,13 @@
  * under the License.
  */
 
-import type { AuthState, ComponentKind, ContextItemEnriched, ContextStoreComponentState, IWso2PlatformExtensionAPI, openClonedDirReq } from "@wso2/wso2-platform-core";
+import type { ComponentKind, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq, DeleteConnectionReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, GetConnectionItemReq, StartProxyServerReq, StopProxyServerReq, AuthState, ContextStoreComponentState, ContextItemEnriched, GetProjectEnvsReq, CreateThirdPartyConnectionReq, RegisterMarketplaceConnectionReq, GetComponentsReq } from "@wso2/wso2-platform-core";
 import { ext } from "./extensionVariables";
 import { hasDirtyRepo } from "./git/util";
 import { contextStore } from "./stores/context-store";
 import { webviewStateStore } from "./stores/webview-state-store";
 import { openClonedDir } from "./uri-handlers";
-import { isSamePath } from "./utils";
+import { createConnectionConfig, deleteLocalConnectionConfig, isSamePath } from "./utils";
 
 export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	private getComponentsOfDir = (fsPath: string, components?: ContextStoreComponentState[]) => {
@@ -39,8 +39,23 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public getContextStateStore = () => contextStore.getState().state;
 	public openClonedDir = (params: openClonedDirReq) => openClonedDir(params);
 	public getStsToken = () => ext.clients.rpcClient.getStsToken();
+	public getMarketplaceItems = (params: GetMarketplaceListReq) => ext.clients.rpcClient.getMarketplaceItems(params);
+	public getMarketplaceItem = (params: GetMarketplaceItemReq) => ext.clients.rpcClient.getMarketplaceItem(params);
 	public getSelectedContext = () => contextStore.getState().state?.selected || null;
+	public getMarketplaceIdl = (params: GetMarketplaceIdlReq) => ext.clients.rpcClient.getMarketplaceIdl(params);
+	public createComponentConnection = (params: CreateComponentConnectionReq) => ext.clients.rpcClient.createComponentConnection(params);
+	public createThirdPartyConnection = (params: CreateThirdPartyConnectionReq) => ext.clients.rpcClient.createThirdPartyConnection(params);
+	public createConnectionConfig = (params: CreateLocalConnectionsConfigReq) => createConnectionConfig(params);
+	public registerMarketplaceConnection = (params: RegisterMarketplaceConnectionReq) => ext.clients.rpcClient.registerMarketplaceConnection(params);
+	public getConnections = (params: GetConnectionsReq) => ext.clients.rpcClient.getConnections(params);
+	public getConnection = (params: GetConnectionItemReq) => ext.clients.rpcClient.getConnectionItem(params);
+	public deleteConnection = (params: DeleteConnectionReq) => ext.clients.rpcClient.deleteConnection(params);
+	public deleteLocalConnectionsConfig = (params: DeleteLocalConnectionsConfigReq) => deleteLocalConnectionConfig(params);
 	public getDevantConsoleUrl = async() => (await ext.clients.rpcClient.getConfigFromCli()).devantConsoleUrl;
+	public getProjectEnvs = async(params: GetProjectEnvsReq) => ext.clients.rpcClient.getEnvs(params);
+	public startProxyServer = async(params: StartProxyServerReq) => ext.clients.rpcClient.startProxyServer(params);
+	public stopProxyServer = async(params: StopProxyServerReq) => ext.clients.rpcClient.stopProxyServer(params);
+	public getComponentList = async(params: GetComponentsReq) => ext.clients.rpcClient.getComponentList(params);
 
 	// Auth state subscriptions
 	public subscribeAuthState = (callback: (state: AuthState)=>void) => ext.authProvider?.subscribe((state)=>callback(state.state)) ?? (() => {});
