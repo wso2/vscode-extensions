@@ -19,7 +19,7 @@
 import React, { useMemo, useState } from "react";
 import styled from "@emotion/styled";
 import { Button, Codicon, Dropdown, Stepper, TextField, ThemeColors, Typography, Icon } from "@wso2/ui-toolkit";
-import { AvailableNode, Category, DataMapperDisplayMode, DIRECTORY_MAP, FlowNode, LinePosition, ParentPopupData } from "@wso2/ballerina-core";
+import { AvailableNode, Category, EditorConfig, DIRECTORY_MAP, FlowNode, LinePosition, ParentPopupData } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { ExpressionFormField } from "@wso2/ballerina-side-panel";
 import ConnectionConfigView from "../ConnectionConfigView";
@@ -313,24 +313,37 @@ export function APIConnectionPopup(props: APIConnectionPopupProps) {
         if (generateResponse?.success) {
             try {
                 // Small delay to ensure the connector is available
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 1000));
 
                 const defaultPosition = target || { line: 0, offset: 0 };
-                const searchResponse = await rpcClient.getBIDiagramRpcClient().search({
-                    position: {
-                        startLine: defaultPosition,
-                        endLine: defaultPosition,
-                    },
-                    filePath: fileName,
-                    queryMap: {
-                        limit: 60,
-                        filterByCurrentOrg: false,
-                    },
-                    searchKind: "CONNECTOR",
-                });
+                
+                // Helper function to search for connectors
+                const searchForConnector = async () => {
+                    const searchResponse = await rpcClient.getBIDiagramRpcClient().search({
+                        position: {
+                            startLine: defaultPosition,
+                            endLine: defaultPosition,
+                        },
+                        filePath: fileName,
+                        queryMap: {
+                            limit: 60,
+                            filterByCurrentOrg: false,
+                        },
+                        searchKind: "CONNECTOR",
+                    });
+                    return findConnectorByModule(searchResponse.categories, connectorName);
+                };
 
                 // Find the connector we just created
-                const createdConnector = findConnectorByModule(searchResponse.categories, connectorName);
+                let createdConnector = await searchForConnector();
+                
+                // If connector not found, retry after 2 second
+                if (!createdConnector) {
+                    console.warn(">>> Connector not found on first attempt, retrying after 1 second...");
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    createdConnector = await searchForConnector();
+                }
+                
                 if (createdConnector && createdConnector.codedata) {
                     // Get the flowNode template
                     const nodeTemplateResponse = await rpcClient.getBIDiagramRpcClient().getNodeTemplate({
@@ -391,7 +404,7 @@ export function APIConnectionPopup(props: APIConnectionPopupProps) {
         );
     };
 
-    const handleOnFormSubmit = async (node: FlowNode, _dataMapperMode?: DataMapperDisplayMode, options?: FormSubmitOptions) => {
+    const handleOnFormSubmit = async (node: FlowNode, _editorConfig?: EditorConfig, options?: FormSubmitOptions) => {
         console.log(">>> on form submit", node);
         if (selectedFlowNode) {
             setIsSavingConnection(true);

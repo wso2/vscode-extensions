@@ -25,8 +25,7 @@ import {
     DMModelDiagnosticsResult,
 } from "./types";
 import { GeneratedMappingSchema, RepairedMappingsSchema } from "./schema";
-import { AIPanelAbortController, repairSourceFilesWithAI } from "../../../rpc-managers/ai-panel/utils";
-import { DataMapperModelResponse, DMModel, Mapping, repairCodeRequest, SourceFile, ImportInfo, ProcessMappingParametersRequest, Command, MetadataWithAttachments, InlineMappingsSourceResult, ProcessContextTypeCreationRequest, ProjectImports, ImportStatements, TemplateId, GetModuleDirParams, TextEdit, DataMapperSourceResponse, DataMapperSourceRequest, AllDataMapperSourceRequest, DataMapperModelRequest, DeleteMappingRequest, CodeData } from "@wso2/ballerina-core";
+import { DataMapperModelResponse, DMModel, Mapping, repairCodeRequest, SourceFile, ImportInfo, ProcessMappingParametersRequest, Command, MetadataWithAttachments, InlineMappingsSourceResult, ProcessContextTypeCreationRequest, ProjectImports, ImportStatements, TemplateId, GetModuleDirParams, TextEdit, DataMapperSourceRequest, AllDataMapperSourceRequest, DataMapperModelRequest, DeleteMappingRequest, CodeData } from "@wso2/ballerina-core";
 import { getDataMappingPrompt } from "./prompts/mapping-prompt";
 import { getBallerinaCodeRepairPrompt } from "./prompts/repair-prompt";
 import { CopilotEventHandler, createWebviewEventHandler, updateAndSaveChat } from "../utils/events";
@@ -54,6 +53,7 @@ import { getTempProject, cleanupTempProject } from "../utils/project/temp-projec
 import { integrateCodeToWorkspace } from "../agent/utils";
 import { createExecutionContextFromStateMachine } from "../agent";
 import { ExpressionFunctionBody } from "@wso2/syntax-tree";
+import { repairSourceFilesWithAI } from "../../../../src/rpc-managers/ai-panel/utils";
 
 // =============================================================================
 // ENHANCED MAIN ORCHESTRATOR FUNCTION
@@ -142,7 +142,7 @@ async function generateAIMappings(
             temperature: 0,
             messages: chatMessages,
             schema: GeneratedMappingSchema,
-            abortSignal: AIPanelAbortController.getInstance().signal,
+            abortSignal: new AbortController().signal,
         });
 
         const aiGeneratedMappings = object.generatedMappings as Mapping[];
@@ -183,7 +183,7 @@ async function repairBallerinaCode(
             temperature: 0,
             messages: chatMessages,
             schema: RepairedMappingsSchema,
-            abortSignal: AIPanelAbortController.getInstance().signal,
+            abortSignal: new AbortController().signal,
         });
 
         return object.repairedMappings as RepairedMapping[];
@@ -280,6 +280,15 @@ async function repairMappingsWithLLM(
     imports: ImportInfo[]
 ): Promise<void> {
     const { dataMapperMetadata, dmModel } = dmModelResult;
+
+    const hasDiagnostics = dmModel.mappings?.some(
+        (mapping: Mapping) => mapping.diagnostics && mapping.diagnostics.length > 0
+    );
+
+    if (!hasDiagnostics) {
+        console.log('No diagnostics found in mappings, skipping LLM repair');
+        return;
+    }
 
     // Call LLM repair with targeted diagnostics and DM model context
     try {
@@ -443,7 +452,8 @@ export async function generateAutoMappings(dataMapperModelResponse?: DataMapperM
 export async function generateMappingCodeCore(
     mappingRequest: ProcessMappingParametersRequest,
     eventHandler: CopilotEventHandler,
-    messageId?: string
+    messageId?: string,
+    tempProjectPath?: string
 ): Promise<{ modifiedFiles: string[], sourceFiles: SourceFile[] }> {
     if (!mappingRequest.parameters) {
         throw new Error("Parameters are required in the mapping request");
@@ -453,8 +463,12 @@ export async function generateMappingCodeCore(
         throw new Error("Function name is required in the mapping parameters");
     }
 
+    // Validate temp project path from base class
+    if (!tempProjectPath) {
+        throw new Error('Temp project path is required');
+    }
+
     const ctx = createExecutionContextFromStateMachine();
-    const { path: tempProjectPath } = await getTempProject(ctx);
     let projectName = path.basename(ctx.projectPath);
     try {
         // Initialize generation process
@@ -655,20 +669,25 @@ export async function generateMappingCodeCore(
             eventHandler({ type: "error", content: getErrorMessage(error) });
         }
         throw error;
-    } finally {
-        // Always cleanup temp project
-        cleanupTempProject(tempProjectPath);
     }
 }
 
 // Main public function that uses the default event handler for mapping generation
 export async function generateMappingCode(mappingRequest: ProcessMappingParametersRequest, messageId?: string): Promise<void> {
     const eventHandler = createWebviewEventHandler(Command.DataMap);
+
+    // Create temp project for backward compatibility
+    const ctx = createExecutionContextFromStateMachine();
+    const { path: tempProjectPath } = await getTempProject(ctx);
+
     try {
-        await generateMappingCodeCore(mappingRequest, eventHandler, messageId);
+        await generateMappingCodeCore(mappingRequest, eventHandler, messageId, tempProjectPath);
     } catch (error) {
         console.error("Error during mapping code generation:", error);
         throw error;
+    } finally {
+        // Cleanup for backward compatibility
+        await cleanupTempProject(tempProjectPath);
     }
 }
 
@@ -717,120 +736,102 @@ function getModuleDirectory(params: GetModuleDirParams): string {
     }
 }
 
+// Updates code data after text edits by fetching fresh function definition
+async function updateCodeDataAfterEdit(
+    langClient: any,
+    filePath: string,
+    varName: string,
+    targetField: string
+): Promise<CodeData | null> {
+    try {
+        const funcDefinitionNode = await getFunctionDefinitionFromSyntaxTree(
+            langClient,
+            filePath,
+            varName
+        );
+
+        return {
+            lineRange: {
+                fileName: filePath,
+                startLine: {
+                    line: funcDefinitionNode.position.startLine,
+                    offset: funcDefinitionNode.position.startColumn,
+                },
+                endLine: {
+                    line: funcDefinitionNode.position.endLine,
+                    offset: funcDefinitionNode.position.endColumn,
+                },
+            },
+        };
+    } catch (error) {
+        console.warn(`Could not update code data for ${targetField}, continuing with existing data:`, error);
+        return null;
+    }
+}
+
+// Processes a single mapping and returns updated code data
+async function processSingleMapping(
+    request: DataMapperSourceRequest,
+    langClient: any,
+    index: number,
+    total: number
+): Promise<CodeData | null> {
+    const response = await langClient.getDataMapperSource(request);
+    console.log(`>>> Completed mapping ${index + 1}/${total}`);
+
+    if (response.textEdits && Object.keys(response.textEdits).length > 0) {
+        await updateSourceCode({ textEdits: response.textEdits, skipPayloadCheck: true });
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        return await updateCodeDataAfterEdit(
+            langClient,
+            request.filePath,
+            request.varName,
+            request.targetField
+        );
+    }
+
+    return null;
+}
+
+// Main function to process all data mapper source requests sequentially
 export async function getAllDataMapperSource(
     mappingSourceRequest: AllDataMapperSourceRequest
 ): Promise<void> {
     setHasStopped(false);
-    const individualSourceRequests = await buildSourceRequests(mappingSourceRequest);
-    const sourceResponses = await processSourceRequests(individualSourceRequests);
+    let currentCodeData = mappingSourceRequest.codedata;
+    const langClient = StateMachine.langClient();
+    const totalMappings = mappingSourceRequest.mappings.length;
 
-    const consolidatedTextEdits = consolidateTextEdits(sourceResponses, individualSourceRequests.length);
+    for (let i = 0; i < totalMappings; i++) {
+        if (getHasStopped()) {
+            throw new Error("Operation was stopped");
+        }
 
-    if (Object.keys(consolidatedTextEdits).length > 0) {
-        await updateSourceCode({ textEdits: consolidatedTextEdits, skipPayloadCheck: true });
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        const singleSourceRequest: DataMapperSourceRequest = {
+            filePath: mappingSourceRequest.filePath,
+            codedata: currentCodeData,
+            varName: mappingSourceRequest.varName,
+            targetField: mappingSourceRequest.targetField,
+            mapping: mappingSourceRequest.mappings[i]
+        };
+
+        try {
+            const updatedCodeData = await processSingleMapping(
+                singleSourceRequest,
+                langClient,
+                i,
+                totalMappings
+            );
+
+            // Update code data if we got fresh data
+            if (updatedCodeData) {
+                currentCodeData = updatedCodeData;
+            }
+        } catch (error) {
+            console.error(`>>> Failed mapping ${i + 1}:`, error);
+        }
     }
-}
-
-// Builds individual source requests from the provided parameters by creating a request for each mapping
-export function buildSourceRequests(allMappingsRequest: AllDataMapperSourceRequest): DataMapperSourceRequest[] {
-    return allMappingsRequest.mappings.map(singleMapping => ({
-        filePath: allMappingsRequest.filePath,
-        codedata: allMappingsRequest.codedata,
-        varName: allMappingsRequest.varName,
-        targetField: allMappingsRequest.targetField,
-        mapping: singleMapping
-    }));
-}
-
-// Processes source requests with cancellation support and error handling for each request
-export async function processSourceRequests(sourceRequests: DataMapperSourceRequest[]): Promise<PromiseSettledResult<DataMapperSourceResponse>[]> {
-    return Promise.allSettled(
-        sourceRequests.map(async (singleRequest) => {
-            if (getHasStopped()) {
-                throw new Error("Operation was stopped");
-            }
-            try {
-                return await StateMachine.langClient().getDataMapperSource(singleRequest);
-            } catch (error) {
-                console.error("Error in getDataMapperSource:", error);
-                throw error;
-            }
-        })
-    );
-}
-
-// Consolidates text edits from multiple source responses into a single optimized collection
-export function consolidateTextEdits(
-    sourceResponses: PromiseSettledResult<DataMapperSourceResponse>[],
-    totalMappingCount: number
-): { [key: string]: TextEdit[] } {
-    const allTextEditsByFile: { [key: string]: TextEdit[] } = {};
-
-    sourceResponses.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-            console.log(`>>> Completed mapping ${index + 1}/${totalMappingCount}`);
-            mergeTextEdits(allTextEditsByFile, result.value.textEdits);
-        } else {
-            console.error(`>>> Failed mapping ${index + 1}:`, result.reason);
-        }
-    });
-
-    return optimizeTextEdits(allTextEditsByFile);
-}
-
-// Merges new text edits into the existing collection, grouping by file path
-export function mergeTextEdits(
-    existingTextEdits: { [key: string]: TextEdit[] },
-    newTextEditsToMerge?: { [key: string]: TextEdit[] }
-): void {
-    if (!newTextEditsToMerge) { return; }
-
-    Object.entries(newTextEditsToMerge).forEach(([filePath, editsForFile]) => {
-        if (!existingTextEdits[filePath]) {
-            existingTextEdits[filePath] = [];
-        }
-        existingTextEdits[filePath].push(...editsForFile);
-    });
-}
-
-// Optimizes text edits by sorting and combining them into single edits per file
-export function optimizeTextEdits(allTextEditsByFile: { [key: string]: TextEdit[] }): { [key: string]: TextEdit[] } {
-    const optimizedEditsByFile: { [key: string]: TextEdit[] } = {};
-
-    Object.entries(allTextEditsByFile).forEach(([filePath, editsForFile]) => {
-        if (editsForFile.length === 0) { return; }
-
-        const sortedEditsForFile = sortTextEdits(editsForFile);
-        const combinedEditForFile = combineTextEdits(sortedEditsForFile);
-
-        optimizedEditsByFile[filePath] = [combinedEditForFile];
-    });
-
-    return optimizedEditsByFile;
-}
-
-// Sorts text edits by line number and character position to ensure proper ordering
-export function sortTextEdits(textEdits: TextEdit[]): TextEdit[] {
-    return textEdits.sort((editA, editB) => {
-        if (editA.range.start.line !== editB.range.start.line) {
-            return editA.range.start.line - editB.range.start.line;
-        }
-        return editA.range.start.character - editB.range.start.character;
-    });
-}
-
-// Combines multiple text edits into a single edit with comma-separated content
-export function combineTextEdits(sortedTextEdits: TextEdit[]): TextEdit {
-    const formattedTextArray = sortedTextEdits.map((singleEdit, editIndex) => {
-        const editContent = singleEdit.newText.trim();
-        return editIndex < sortedTextEdits.length - 1 ? `${editContent},` : editContent;
-    });
-
-    return {
-        range: sortedTextEdits[0].range,
-        newText: formattedTextArray.join('\n').trimStart()
-    };
 }
 
 // =============================================================================
@@ -841,7 +842,8 @@ export function combineTextEdits(sortedTextEdits: TextEdit[]): TextEdit {
 export async function generateInlineMappingCodeCore(
     inlineMappingRequest: MetadataWithAttachments,
     eventHandler: CopilotEventHandler,
-    messageId?: string
+    messageId?: string,
+    tempProjectPath?: string
 ): Promise<{ modifiedFiles: string[], sourceFiles: SourceFile[] }> {
     if (!inlineMappingRequest.metadata) {
         throw new Error("Metadata is required in the inline mapping request");
@@ -851,9 +853,12 @@ export async function generateInlineMappingCodeCore(
         throw new Error("Code data is required in the metadata");
     }
 
-    // Create temp project using shared utilities
+    // Validate temp project path from base class
+    if (!tempProjectPath) {
+        throw new Error('Temp project path is required');
+    }
+
     const ctx = createExecutionContextFromStateMachine();
-    const { path: tempProjectPath } = await getTempProject(ctx);
     let projectName = path.basename(ctx.projectPath);
     try {
         // Initialize generation process
@@ -988,20 +993,25 @@ export async function generateInlineMappingCodeCore(
             eventHandler({ type: "error", content: getErrorMessage(error) });
         }
         throw error;
-    } finally {
-        // Always cleanup temp project
-        cleanupTempProject(tempProjectPath);
     }
 }
 
 // Main public function that uses the default event handler for inline mapping generation
 export async function generateInlineMappingCode(inlineMappingRequest: MetadataWithAttachments, messageId?: string): Promise<void> {
     const eventHandler = createWebviewEventHandler(Command.DataMap);
+
+    // Create temp project for backward compatibility
+    const ctx = createExecutionContextFromStateMachine();
+    const { path: tempProjectPath } = await getTempProject(ctx);
+
     try {
-        await generateInlineMappingCodeCore(inlineMappingRequest, eventHandler, messageId);
+        await generateInlineMappingCodeCore(inlineMappingRequest, eventHandler, messageId, tempProjectPath);
     } catch (error) {
         console.error("Error during inline mapping code generation:", error);
         throw error;
+    } finally {
+        // Cleanup for backward compatibility
+        await cleanupTempProject(tempProjectPath);
     }
 }
 
@@ -1013,15 +1023,19 @@ export async function generateInlineMappingCode(inlineMappingRequest: MetadataWi
 export async function generateContextTypesCore(
     typeCreationRequest: ProcessContextTypeCreationRequest,
     eventHandler: CopilotEventHandler,
-    messageId?: string
+    messageId?: string,
+    tempProjectPath?: string
 ): Promise<{ modifiedFiles: string[], sourceFiles: SourceFile[] }> {
     if (typeCreationRequest.attachments.length === 0) {
         throw new Error("Attachments are required for type creation");
     }
 
-    // Create temp project using shared utilities
+    // Validate temp project path from base class
+    if (!tempProjectPath) {
+        throw new Error('Temp project path is required');
+    }
+
     const ctx = createExecutionContextFromStateMachine();
-    const { path: tempProjectPath } = await getTempProject(ctx);
     let projectName = path.basename(ctx.projectPath);
 
     try {
@@ -1091,20 +1105,25 @@ export async function generateContextTypesCore(
             eventHandler({ type: "error", content: getErrorMessage(error) });
         }
         throw error;
-    } finally {
-        // Always cleanup temp project
-        cleanupTempProject(tempProjectPath);
     }
 }
 
 // Main public function that uses the default event handler for context type creation
 export async function generateContextTypes(typeCreationRequest: ProcessContextTypeCreationRequest, messageId?: string): Promise<void> {
     const eventHandler = createWebviewEventHandler(Command.TypeCreator);
+
+    // Create temp project for backward compatibility
+    const ctx = createExecutionContextFromStateMachine();
+    const { path: tempProjectPath } = await getTempProject(ctx);
+
     try {
-        await generateContextTypesCore(typeCreationRequest, eventHandler, messageId);
+        await generateContextTypesCore(typeCreationRequest, eventHandler, messageId, tempProjectPath);
     } catch (error) {
         console.error("Error during context type creation:", error);
         throw error;
+    } finally {
+        // Cleanup for backward compatibility
+        await cleanupTempProject(tempProjectPath);
     }
 }
 

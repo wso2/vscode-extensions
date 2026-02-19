@@ -99,8 +99,8 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
         }, async () => {
             try {
                 this._data = [];
-                
-                const data = await getProjectStructureData();                
+
+                const data = await getProjectStructureData();
                 this._data = data;
                 // Fire the event after data is fully populated
                 this._onDidChangeTreeData.fire();
@@ -110,7 +110,7 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
                 this._onDidChangeTreeData.fire();
             } finally {
                 this._isRefreshing = false;
-                
+
                 // If another refresh was requested while we were refreshing, do it now
                 if (this._pendingRefresh) {
                     console.log('[ProjectExplorer] Executing pending refresh');
@@ -144,10 +144,10 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
 
         // Reveal the item if found
         if (itemToReveal && this._treeView.visible) {
-            this._treeView.reveal(itemToReveal, { 
-                select: true, 
-                focus: false, 
-                expand: true 
+            this._treeView.reveal(itemToReveal, {
+                select: true,
+                focus: false,
+                expand: true
             });
         }
     }
@@ -177,18 +177,18 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
         if (!parent.children) {
             return undefined;
         }
-        
+
         for (const child of parent.children) {
             if (this.matchesPathAndPosition(child, targetPath, targetPosition)) {
                 return child;
             }
-            
+
             const found = this.searchChildrenByPathAndPosition(child, targetPath, targetPosition);
             if (found) {
                 return found;
             }
         }
-        
+
         return undefined;
     }
 
@@ -220,9 +220,9 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
      */
     private positionsMatch(pos1: NodePosition, pos2: NodePosition): boolean {
         return pos1.startLine === pos2.startLine &&
-               pos1.startColumn === pos2.startColumn &&
-               pos1.endLine === pos2.endLine &&
-               pos1.endColumn === pos2.endColumn;
+            pos1.startColumn === pos2.startColumn &&
+            pos1.endLine === pos2.endLine &&
+            pos1.endColumn === pos2.endColumn;
     }
 
     constructor() {
@@ -317,9 +317,9 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
                         uniqueProjects.set(project.projectPath, project);
                     }
                 }
-                
+
                 const filteredProjects = Array.from(uniqueProjects.values());
-                
+
                 const isSingleProject = filteredProjects.length === 1;
                 for (const project of filteredProjects) {
                     const projectTree = generateTreeData(project, isSingleProject);
@@ -338,13 +338,15 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
 function generateTreeData(project: ProjectStructure, isSingleProject: boolean): ProjectExplorerEntry | undefined {
     const packageName = project.projectTitle || project.projectName;
     const packagePath = project.projectPath;
+    const isLibrary = project.isLibrary ?? false;
+    const icon = isLibrary ? 'library' : 'project';
 
     // Start collapsed - VSCode will maintain expansion state automatically
     const projectRootEntry = new ProjectExplorerEntry(
-        `${packageName}`,
+        `${packageName}${isLibrary ? ' (Library)' : ''}`,
         isSingleProject ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed,
         packagePath,
-        'project',
+        icon,
         true
     );
     projectRootEntry.resourceUri = Uri.parse(`bi-category:${packagePath}`);
@@ -358,42 +360,49 @@ function generateTreeData(project: ProjectStructure, isSingleProject: boolean): 
 function getEntriesBI(project: ProjectStructure): ProjectExplorerEntry[] {
     const entries: ProjectExplorerEntry[] = [];
     const projectPath = project.projectPath;
+    const isLibrary = project.isLibrary ?? false;
 
     // ---------- Entry Points ----------
-    const entryPoints = new ProjectExplorerEntry(
-        "Entry Points",
-        vscode.TreeItemCollapsibleState.Expanded,
-        null,
-        'start',
-        false
-    );
-    entryPoints.resourceUri = Uri.parse(`bi-category:${projectPath}`);
-    entryPoints.contextValue = "entryPoint";
-    entryPoints.children = [];
-    if (project.directoryMap[DIRECTORY_MAP.AUTOMATION].length > 0) {
-        entryPoints.children.push(...getComponents(project.directoryMap[DIRECTORY_MAP.AUTOMATION], DIRECTORY_MAP.AUTOMATION, projectPath));
+    // Only show Entry Points for non-library projects
+    if (!isLibrary) {
+        const entryPoints = new ProjectExplorerEntry(
+            "Entry Points",
+            vscode.TreeItemCollapsibleState.Expanded,
+            null,
+            'start',
+            false
+        );
+        entryPoints.resourceUri = Uri.parse(`bi-category:${projectPath}`);
+        entryPoints.contextValue = "entryPoint";
+        entryPoints.children = [];
+        if (project.directoryMap[DIRECTORY_MAP.AUTOMATION].length > 0) {
+            entryPoints.children.push(...getComponents(project.directoryMap[DIRECTORY_MAP.AUTOMATION], DIRECTORY_MAP.AUTOMATION, projectPath));
+        }
+        entryPoints.children.push(...getComponents(project.directoryMap[DIRECTORY_MAP.SERVICE], DIRECTORY_MAP.SERVICE, projectPath));
+        if (entryPoints.children.length > 0) {
+            entryPoints.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+        }
+        entries.push(entryPoints);
     }
-    entryPoints.children.push(...getComponents(project.directoryMap[DIRECTORY_MAP.SERVICE], DIRECTORY_MAP.SERVICE, projectPath));
-    if (entryPoints.children.length > 0) {
-        entryPoints.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-    }
-    entries.push(entryPoints);
 
     // ---------- Listeners ----------
-    const listeners = new ProjectExplorerEntry(
-        "Listeners",
-        vscode.TreeItemCollapsibleState.Expanded,
-        null,
-        'radio',
-        false
-    );
-    listeners.resourceUri = Uri.parse(`bi-category:${projectPath}`);
-    listeners.contextValue = "listeners";
-    listeners.children = getComponents(project.directoryMap[DIRECTORY_MAP.LISTENER], DIRECTORY_MAP.LISTENER, projectPath);
-    if (listeners.children.length > 0) {
-        listeners.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+    // Only show Listeners for non-library projects
+    if (!isLibrary) {
+        const listeners = new ProjectExplorerEntry(
+            "Listeners",
+            vscode.TreeItemCollapsibleState.Expanded,
+            null,
+            'radio',
+            false
+        );
+        listeners.resourceUri = Uri.parse(`bi-category:${projectPath}`);
+        listeners.contextValue = "listeners";
+        listeners.children = getComponents(project.directoryMap[DIRECTORY_MAP.LISTENER], DIRECTORY_MAP.LISTENER, projectPath);
+        if (listeners.children.length > 0) {
+            listeners.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+        }
+        entries.push(listeners);
     }
-    entries.push(listeners);
 
     // ---------- Connections ----------
     const connections = new ProjectExplorerEntry(
@@ -539,8 +548,10 @@ function getComponents(items: ProjectStructureArtifactResponse[], itemType: DIRE
         fileEntry.tooltip = comp.context;
         // Get the children for services only
         if (itemType === DIRECTORY_MAP.SERVICE) {
-            const resourceFunctions = getComponents(comp.resources, DIRECTORY_MAP.RESOURCE, projectPath);
-            const remoteFunctions = getComponents(comp.resources, DIRECTORY_MAP.REMOTE, projectPath);
+            const resourceFunctions = getComponents(comp.resources, DIRECTORY_MAP.RESOURCE, projectPath)
+                .sort((a, b) => (a.position && b.position) ? a.position.startLine - b.position.startLine : 0);
+            const remoteFunctions = getComponents(comp.resources, DIRECTORY_MAP.REMOTE, projectPath)
+                .sort((a, b) => (a.position && b.position) ? a.position.startLine - b.position.startLine : 0);
             fileEntry.children = [...resourceFunctions, ...remoteFunctions];
             if (fileEntry.children.length > 0) {
                 fileEntry.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;

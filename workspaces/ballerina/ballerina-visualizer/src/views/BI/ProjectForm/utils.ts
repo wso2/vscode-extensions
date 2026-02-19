@@ -16,9 +16,7 @@
  * under the License.
  */
 
-// Import from the component file since types.ts was removed
-import { AddProjectFormData } from "./AddProjectFormFields";
-import { ProjectFormData } from "./ProjectFormFields";
+import { AddProjectFormData, ProjectFormData } from "./types";
 
 export const isValidPackageName = (name: string): boolean => {
     return /^[a-z0-9_.]+$/.test(name);
@@ -37,6 +35,10 @@ export const validatePackageName = (name: string, integrationName: string): stri
         return "Package name can only contain lowercase letters, numbers, underscores, and dots";
     }
 
+    if (name.startsWith("_")) {
+        return "Package name cannot start with an underscore";
+    }
+
     if (/__/.test(name)) {
         return "Package name cannot have consecutive underscores";
     }
@@ -53,31 +55,27 @@ export const validatePackageName = (name: string, integrationName: string): stri
         return "Package name cannot end with a dot";
     }
 
-    return null; // No error
-};
+    if (name.length > 256) {
+        return "Package name cannot exceed 256 characters";
+    }
 
-export const isFormValid = (formData: ProjectFormData): boolean => {
-    return (
-        formData.integrationName.length >= 2 &&
-        formData.packageName.length >= 2 &&
-        formData.path.length >= 2 &&
-        validatePackageName(formData.packageName, formData.integrationName) === null
-    );
+    return null; // No error
 };
 
 export const isFormValidAddProject = (formData: AddProjectFormData, isInWorkspace: boolean): boolean => {
     return (
         formData.integrationName.length >= 2 &&
         formData.packageName.length >= 2 &&
-        (isInWorkspace || (!isInWorkspace && formData.workspaceName?.length >= 1)) &&
+        (isInWorkspace || (formData.workspaceName?.length ?? 0) >= 1) &&
         validatePackageName(formData.packageName, formData.integrationName) === null
     );
 };
 
 export const sanitizePackageName = (name: string): string => {
-    // Allow dots but sanitize other characters, then convert consecutive dots to single dot
+    // Allow dots/underscores but sanitize other characters, then convert consecutive dots/underscores to single ones
     return name
         .replace(/[^a-z0-9._]/gi, "_")
         .toLowerCase()
-        .replace(/\.{2,}/g, "."); // Convert multiple consecutive dots to single dot
+        .replace(/\.{2,}/g, ".") // Convert multiple consecutive dots to single dot
+        .replace(/_{2,}/g, "_"); // Convert multiple consecutive underscores to single underscore
 };

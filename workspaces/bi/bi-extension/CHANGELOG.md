@@ -4,6 +4,58 @@ All notable changes to the **WSO2 Integrator: BI** extension will be documented 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.7.0](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.6.1...ballerina-integrator-1.7.0) - 2026-02-14
+
+### Added
+
+- **Event Integration** — Introduced CDC for PostgreSQL support.
+- **FTP Integration** — Added support for deprecated FTP functions.
+- **Expression Editor** — Added SQL support for expression editing.
+
+### Changed
+
+- **Project Creation** — Refactored form layout and validation.
+- **Service Management** — Improved Try-it flow and multiple Ballerina version detection; sorted HTTP resources in service designer and artifact views.
+- **Form Validation** — Ensured form validation runs before language server diagnostics.
+
+### Fixed
+
+- **Installation** — Added warning for conflicting Ballerina installations.
+- **UI Components** — Fixed resource configuration response reset, record config helper overflow, and Boolean/enum editor selection.
+- **Type Editor** — Fixed recursive type creation issue.
+- **Expression Editor** — Fixed completions for method access.
+- **Security** — Updated dependencies to address vulnerabilities (CVE-2026-25128, CVE-2025-50537, CVE-2025-13465, CVE-2026-25547).
+
+## [1.6.1](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.6.0...ballerina-integrator-1.6.1) - 2026-01-22
+
+### Fixed
+
+- **Extension Activity Tree View** — Fixed the tree view refresh issue.
+
+## [1.6.0](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.5.4...ballerina-integrator-1.6.0) - 2026-01-20
+
+### Added
+
+- **AI Agent Mode** — Introduced a comprehensive Agent Mode with design capabilities, automatic code integration, task approval workflows, and diagnostic tools. Added support for dynamic OpenAPI connector generation and chat checkpoints.
+- **Connectors** — Revamped the Connectors view with support for Persist and WSDL connections. Improved connector generation workflows.
+- **Expression Editor** — Expanded expression support with new editors for String Templates, SQL expressions, booleans, numbers, enums, and maps.
+- **Data Mapper** — Enhanced mapping capabilities with a "Group by" option, visual icons for mapping options, and support for all primitive type conversions.
+- **CDC for Microsoft SQL Server** - Introduced Change Data Capture for Microsoft SQL Server under the event integration section.
+
+### Changed
+
+- **AI & Copilot** — Migrated to Devant authentication and improved chat state management. Enhanced Design Mode with better user communication, history persistence, and review modes.
+- **Workspace Support** — Updated core commands (including `Type Diagram`, `Add Construct`, `Debug Integration`, and `Run`) to fully support multi-project and workspace environments.
+- **Data Mapper** — Improved error handling, type compatibility, and the switching experience for reusable mappers.
+- **Editor & UI** — Refactored form properties for better performance and consistency. Improved the Samples view and Project Explorer rendering.
+
+### Fixed
+
+- **General** — Resolved issues with `Ballerina: Pack` on Windows, proxy renaming, and Cloud Editor organization selection.
+- **Data Mapper** — Fixed bugs related to undo functionality, sub-mapping rendering, output port states, and variable visibility in let-clauses.
+- **Expression Editor** — Corrected issues with interpolation wrapping, record editor visibility, and input validation.
+- **Security** — Updated dependencies to address known vulnerabilities.
+
 ## [1.5.4](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.5.3...ballerina-integrator-1.5.4) - 2025-12-05
 
 ### Fixed

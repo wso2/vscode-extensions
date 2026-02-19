@@ -100,7 +100,9 @@ export class WSO2AuthenticationProvider implements AuthenticationProvider, Dispo
 	/**
 	 * Get the existing sessions
 	 */
-	public async getSessions(scopes: readonly string[] | undefined, options: AuthenticationProviderSessionOptions): Promise<AuthenticationSession[]> {
+	public async getSessions(scopes?: readonly string[]): Promise<AuthenticationSession[]>;
+	public async getSessions(scopes: readonly string[] | undefined, options: AuthenticationProviderSessionOptions): Promise<AuthenticationSession[]>;
+	public async getSessions(scopes?: readonly string[], options?: AuthenticationProviderSessionOptions): Promise<AuthenticationSession[]> {
 		const allSessions = await this.readSessions();
 
 		if (scopes && scopes.length > 0) {

@@ -112,7 +112,7 @@ export function FunctionForm(props: FunctionFormProps) {
         fields.forEach((field) => {
             const primaryInputType = getPrimaryInputType(field.types)
             if (field.key === "functionNameDescription" || field.key === "typeDescription") {
-                field.type = "TEXTAREA";
+                field.type = "DOC_TEXT";
             }
             if (field.key === "parameters" && primaryInputType && isTemplateType(primaryInputType)) {
                 if ((primaryInputType.template as any).value.parameterDescription) {
@@ -225,6 +225,7 @@ export function FunctionForm(props: FunctionFormProps) {
             // Handle advance properties
             const enrichFlowNodeForAdvanceProperties = (data: FormValues) => {
                 for (const value of Object.values(data)) {
+                    if (!value) continue;
                     const nestedData = value.advanceProperties;
                     if (nestedData) {
                         for (const [advanceKey, advanceValue] of Object.entries(nestedData)) {
@@ -243,14 +244,14 @@ export function FunctionForm(props: FunctionFormProps) {
             const properties = functionNodeCopy.properties as NodeProperties;
             for (const [key, property] of Object.entries(properties)) {
                 if (dataKey === key) {
-                    if (getPrimaryInputType(property.types)?.fieldType === "REPEATABLE_PROPERTY") {
-                        const primaryType = getPrimaryInputType(property.types);
-                        const baseConstraint = primaryType?.ballerinaType;
+                    const primaryType = getPrimaryInputType(property.types);
+                    if (primaryType?.fieldType === "REPEATABLE_PROPERTY" && isTemplateType(primaryType)) {
+                        const template = primaryType?.template;
                         property.value = {};
                         // Go through the parameters array
                         for (const [repeatKey, repeatValue] of Object.entries(dataValue)) {
                             // Create a deep copy for each iteration
-                            const valueConstraint = JSON.parse(JSON.stringify(baseConstraint));
+                            const valueConstraint = JSON.parse(JSON.stringify(template));
                             // Fill the values of the parameter constraint
                             for (const [paramKey, param] of Object.entries((valueConstraint as any).value as NodeProperties)) {
                                 param.value = (repeatValue as any).formValues[paramKey] || "";

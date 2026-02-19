@@ -16,6 +16,7 @@
 
 import { ExecutionContext, ProjectSource } from "@wso2/ballerina-core";
 import { CopilotEventHandler } from "../../utils/events";
+import { StreamTextResult } from 'ai';
 
 /**
  * Context object containing all shared state for stream event handlers.
@@ -29,15 +30,21 @@ export interface StreamContext {
     modifiedFiles: string[];
 
     // Configuration (immutable during stream)
-    tempProjectPath: string;
     projects: ProjectSource[];
     shouldCleanup: boolean;
     messageId: string;
     userMessageContent: any;
 
     // Response promise (for message history and abort/finish handling)
-    response: Promise<any>;
+    response: StreamTextResult<any, any>['response'];
+
+    // Token usage promise (for telemetry)
+    usage: StreamTextResult<any, any>['usage'];
 
     // Execution context (for workspace integration)
     ctx: ExecutionContext;
+
+    // Telemetry tracking
+    generationStartTime: number;
+    projectId: string;
 }

@@ -14,12 +14,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { SourceFile, FileChanges, CodeContext, ProjectSource, ExecutionContext } from "@wso2/ballerina-core";
+import { SourceFile, FileChanges, CodeContext, ProjectSource, ExecutionContext, PROJECT_KIND } from "@wso2/ballerina-core";
 import { addToIntegration } from "../../../rpc-managers/ai-panel/utils";
 import * as fs from "fs";
 import * as path from "path";
-import * as vscode from "vscode";
 import type { TextEdit } from "vscode-languageserver-protocol";
+import { StateMachine } from "../../../stateMachine";
 
 /**
  * File extensions to include in codebase structure
@@ -216,34 +216,22 @@ export function formatCodebaseStructure(projects: ProjectSource[]): string {
     text += "You do not need to acknowledge or list these files in your response. ";
     text += "This information is provided for your awareness only.\n\n";
 
-    if (projects.length === 1) {
-        // Single project case: show project name and files with content
-        const project = projects[0];
-        const files = collectFilesFromProject(project);
+    const context = StateMachine.context();
+    const isWorkspace = context.projectInfo?.projectKind === PROJECT_KIND.WORKSPACE_PROJECT;
+    for (const project of projects) {
+        const files = collectFilesFromProject(project, isWorkspace);
+        const activeStatus = project.isActive ? ' active="true"' : "";
 
-        text += `<project name="${project.projectName}">\n`;
+        text += `<project name="${project.projectName}"${activeStatus}>\n`;
         text += "<files>\n";
         text += files.map(formatFileWithContent).join("\n");
         text += "\n</files>\n";
         text += "</project>\n";
-    } else {
-        // Multi-workspace project case: show all projects with active status
-        // Include packagePath prefix in file paths for clarity
-        for (const project of projects) {
-            const files = collectFilesFromProject(project, true);
-            const activeStatus = project.isActive ? ' active="true"' : "";
-
-            text += `<project name="${project.projectName}"${activeStatus}>\n`;
-            text += "<files>\n";
-            text += files.map(formatFileWithContent).join("\n");
-            text += "\n</files>\n";
-            text += "</project>\n";
-        }
     }
 
     text += "</codebase_structure>";
 
-    if (projects.length > 0) {
+    if (isWorkspace) {
         text += `Note: This is a Ballerina workspace with multiple packages. File paths are prefixed with their package paths (e.g., "mainpackage/main.bal").
 Files from external packages (not the active package) are marked with the externalPackageName attribute (e.g., <file filename="otherpackage/main.bal" externalPackageName="otherpackage">).
 You can import these packages by just using the package name (e.g., import otherpackage;).
@@ -254,35 +242,76 @@ When creating or modifying files, you should always prefer making edits for the 
 }
 
 /**
- * Applies LSP text edits to create or modify a file
+ * Converts a Position (line, character) to absolute character offset in content
+ * @param content File content as string
+ * @param line Zero-based line number
+ * @param character Zero-based character offset within the line
+ * @returns Absolute character offset in the content string
+ */
+function positionToOffset(content: string, line: number, character: number): number {
+    const lines = content.split('\n');
+    let offset = 0;
+
+    // Add lengths of all previous lines (including their \n)
+    for (let i = 0; i < line && i < lines.length; i++) {
+        offset += lines[i].length + 1; // +1 for the newline character
+    }
+
+    // Add character offset within the target line
+    if (line < lines.length) {
+        offset += Math.min(character, lines[line].length);
+    }
+
+    return offset;
+}
+
+/**
+ * Applies LSP text edits to create or modify a file using Node.js fs operations
+ * Uses character offset-based approach for robust handling of all edge cases
  * @param filePath Absolute path to the file
- * @param textEdits Array of LSP TextEdit objects
+ * @param textEdits Array of LSP TextEdit objects (positions are 0-based)
  */
 export async function applyTextEdits(filePath: string, textEdits: TextEdit[]): Promise<void> {
-    const workspaceEdit = new vscode.WorkspaceEdit();
-    const fileUri = vscode.Uri.file(filePath);
     const dirPath = path.dirname(filePath);
-    const dirUri = vscode.Uri.file(dirPath);
 
     try {
-        await vscode.workspace.fs.createDirectory(dirUri);
-        workspaceEdit.createFile(fileUri, { ignoreIfExists: true });
-    } catch (error) {
-        console.error(`[applyTextEdits] Error creating file or directory:`, error);
-    }
+        // Create directory if it doesn't exist
+        if (!fs.existsSync(dirPath)) {
+            fs.mkdirSync(dirPath, { recursive: true });
+        }
 
-    for (const edit of textEdits) {
-        const range = new vscode.Range(
-            edit.range.start.line,
-            edit.range.start.character,
-            edit.range.end.line,
-            edit.range.end.character
-        );
-        workspaceEdit.replace(fileUri, range, edit.newText);
-    }
+        // Read existing content or start with empty string
+        let content = '';
+        if (fs.existsSync(filePath)) {
+            content = fs.readFileSync(filePath, 'utf-8');
+        }
 
-    try {
-        await vscode.workspace.applyEdit(workspaceEdit);
+        // If file is new and empty, ensure at least empty content
+        // This handles edits at position (0,0) for new files
+        if (content === '' && textEdits.length > 0) {
+            const firstEdit = textEdits[0];
+            // If editing beyond (0,0) in an empty file, pad with newlines
+            if (firstEdit.range.start.line > 0) {
+                content = '\n'.repeat(firstEdit.range.start.line);
+            }
+        }
+
+        // Convert edits to offset-based edits and sort in reverse order
+        // Sorting in reverse ensures earlier edits don't affect offsets of later edits
+        const offsetEdits = textEdits.map(edit => ({
+            start: positionToOffset(content, edit.range.start.line, edit.range.start.character),
+            end: positionToOffset(content, edit.range.end.line, edit.range.end.character),
+            newText: edit.newText
+        })).sort((a, b) => b.start - a.start); // Reverse order by start position
+
+        // Apply edits from end to start (preserves offsets)
+        let result = content;
+        for (const edit of offsetEdits) {
+            result = result.substring(0, edit.start) + edit.newText + result.substring(edit.end);
+        }
+
+        // Write the modified content back to the file
+        fs.writeFileSync(filePath, result, 'utf-8');
     } catch (error) {
         console.error(`[applyTextEdits] Error applying edits to ${filePath}:`, error);
         throw error;

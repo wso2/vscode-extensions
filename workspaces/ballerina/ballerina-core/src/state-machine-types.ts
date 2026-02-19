@@ -22,7 +22,7 @@ import { Command } from "./interfaces/ai-panel";
 import { LinePosition } from "./interfaces/common";
 import { ProjectInfo, ProjectMigrationResult, Type } from "./interfaces/extended-lang-client";
 import { CodeData, DIRECTORY_MAP, ProjectStructureArtifactResponse, ProjectStructureResponse } from "./interfaces/bi";
-import { DiagnosticEntry, TestGeneratorIntermediaryState, DocumentationGeneratorIntermediaryState, SourceFile, CodeContext, FileAttatchment } from "./rpc-types/ai-panel/interfaces";
+import { DiagnosticEntry, DocumentationGeneratorIntermediaryState, SourceFile, CodeContext, FileAttatchment } from "./rpc-types/ai-panel/interfaces";
 
 export type MachineStateValue =
     | 'initialize'
@@ -90,6 +90,7 @@ export enum MACHINE_VIEW {
     BIFunctionForm = "Add Function SKIP",
     BINPFunctionForm = "Add Natural Function SKIP",
     BITestFunctionForm = "Add Test Function SKIP",
+    BIAIEvaluationForm = "AI Evaluation SKIP",
     BIServiceWizard = "Service Wizard SKIP",
     BIServiceConfigView = "Service Config View",
     BIListenerConfigView = "Listener Config View",
@@ -101,7 +102,9 @@ export enum MACHINE_VIEW {
     ResolveMissingDependencies = "Resolve Missing Dependencies",
     ServiceFunctionForm = "Service Function Form",
     BISamplesView = "BI Samples View",
-    ReviewMode = "Review Mode SKIP"
+    ReviewMode = "Review Mode SKIP",
+    EvalsetViewer = "Evalset Viewer SKIP",
+    ConfigurationCollector = "Configuration Collector"
 }
 
 export interface MachineEvent {
@@ -141,6 +144,7 @@ export interface VisualizerLocation {
     isGraphql?: boolean;
     rootDiagramId?: string;
     metadata?: VisualizerMetadata;
+    agentMetadata?: AgentMetadata;
     scope?: SCOPE;
     projectStructure?: ProjectStructureResponse;
     org?: string;
@@ -150,6 +154,7 @@ export interface VisualizerLocation {
     dataMapperMetadata?: DataMapperMetadata;
     artifactInfo?: ArtifactInfo;
     reviewData?: ReviewModeData;
+    evalsetData?: EvalsetData;
 }
 
 export interface ArtifactInfo {
@@ -164,12 +169,36 @@ export interface ArtifactData {
     identifier?: string;
 }
 
+export interface ConfigurationCollectorMetadata {
+    requestId: string;
+    variables: Array<{
+        name: string;
+        description: string;
+        type?: "string" | "int";
+    }>;
+    existingValues?: Record<string, string>;
+    message: string;
+    isTestConfig?: boolean;
+}
+
+export interface AgentMetadata {
+    configurationCollector?: ConfigurationCollectorMetadata;
+}
+
+export interface ApprovalOverlayState {
+    show: boolean;
+    message?: string;
+}
+
 export interface VisualizerMetadata {
     haveLS?: boolean;
     isBISupported?: boolean;
     recordFilePath?: string;
     enableSequenceDiagram?: boolean; // Enable sequence diagram view
     target?: LinePosition;
+    featureSupport?: {
+        aiEvaluation?: boolean;
+    };
 }
 
 export interface DataMapperMetadata {
@@ -190,6 +219,88 @@ export interface ReviewModeData {
     currentIndex: number;
     onAccept?: string;
     onReject?: string;
+}
+
+// --- Evalset Trace Types ---
+export type EvalRole = 'system' | 'user' | 'assistant' | 'function';
+
+export interface EvalChatUserMessage {
+    role: 'user';
+    content: string | any;
+    name?: string;
+}
+
+export interface EvalChatSystemMessage {
+    role: 'system';
+    content: string | any;
+    name?: string;
+}
+
+export interface EvalChatAssistantMessage {
+    role: 'assistant';
+    content?: string | null;
+    name?: string;
+    toolCalls?: EvalFunctionCall[];
+}
+
+export interface EvalChatFunctionMessage {
+    role: 'function';
+    content?: string | null;
+    name: string;
+    id?: string;
+}
+
+export type EvalChatMessage = EvalChatUserMessage | EvalChatSystemMessage | EvalChatAssistantMessage | EvalChatFunctionMessage;
+
+export interface EvalFunctionCall {
+    name: string;
+    arguments?: { [key: string]: any };
+    id?: string;
+}
+
+export interface EvalToolSchema {
+    name: string;
+    description: string;
+    parametersSchema?: { [key: string]: any };
+}
+
+export interface EvalIteration {
+    history: EvalChatMessage[];
+    output: EvalChatAssistantMessage | EvalChatFunctionMessage | any;
+    startTime: string;
+    endTime: string;
+}
+
+export interface EvalsetTrace {
+    id: string;
+    userMessage: EvalChatUserMessage;
+    iterations: EvalIteration[];
+    output: EvalChatAssistantMessage | any;
+    tools: EvalToolSchema[];
+    toolCalls?: EvalFunctionCall[];
+    startTime: string;
+    endTime: string;
+}
+
+export interface EvalThread {
+    id: string;
+    name: string;
+    traces: EvalsetTrace[];
+    created_on: string;
+}
+
+export interface EvalSet {
+    id: string;
+    name?: string;
+    description?: string;
+    threads: EvalThread[];
+    created_on: string;
+}
+
+export interface EvalsetData {
+    filePath: string;
+    content: EvalSet;
+    threadId?: string;
 }
 
 export interface PopupVisualizerLocation extends VisualizerLocation {
@@ -229,7 +340,9 @@ export type ChatNotify =
     | TaskApprovalRequest
     | GeneratedSourcesEvent
     | ConnectorGenerationNotification
-    | CodeReviewActions;
+    | ConfigurationCollectionEvent
+    | CodeReviewActions
+    | PlanUpdated;
 
 export interface ChatStart {
     type: "start";
@@ -237,7 +350,7 @@ export interface ChatStart {
 
 export interface IntermidaryState {
     type: "intermediary_state";
-    state: TestGeneratorIntermediaryState | DocumentationGeneratorIntermediaryState;
+    state: DocumentationGeneratorIntermediaryState;
 }
 
 //TODO: Maybe rename content_block to content_append?
@@ -282,12 +395,14 @@ export interface ToolCall {
     type: "tool_call";
     toolName: string;
     toolInput?: any;
+    toolCallId?: string;
 }
 
 export interface ToolResult {
     type: "tool_result";
     toolName: string;
     toolOutput?: any;
+    toolCallId?: string;
 }
 
 export interface EvalsToolResult {
@@ -309,6 +424,7 @@ export interface UsageMetricsEvent {
 
 export interface TaskApprovalRequest {
     type: "task_approval_request";
+    requestId: string;
     approvalType: "plan" | "completion";
     tasks: Task[];
     taskDescription?: string;
@@ -345,13 +461,37 @@ export interface ConnectorGenerationNotification {
     message: string;
 }
 
+export interface ConfigurationCollectionEvent {
+    type: "configuration_collection_event";
+    requestId: string;
+    stage: "creating_file" | "collecting" | "done" | "skipped" | "error";
+    variables?: Array<{
+        name: string;
+        description: string;
+        type?: "string" | "int";
+    }>;
+    existingValues?: Record<string, string>;
+    message: string;
+    isTestConfig?: boolean;
+    error?: {
+        message: string;
+        code: string;
+    };
+}
+
 export interface CodeReviewActions {
     type: "review_actions";
+}
+
+export interface PlanUpdated {
+    type: "plan_updated";
+    plan: Plan;
 }
 
 export const stateChanged: NotificationType<MachineStateValue> = { method: 'stateChanged' };
 export const onDownloadProgress: NotificationType<DownloadProgress> = { method: 'onDownloadProgress' };
 export const onChatNotify: NotificationType<ChatNotify> = { method: 'onChatNotify' };
+export const onHideReviewActions: NotificationType<void> = { method: 'onHideReviewActions' };
 export const onMigrationToolLogs: NotificationType<string> = { method: 'onMigrationToolLogs' };
 export const onMigrationToolStateChanged: NotificationType<string> = { method: 'onMigrationToolStateChanged' };
 export const onMigratedProject: NotificationType<ProjectMigrationResult> = { method: 'onMigratedProject' };
@@ -371,6 +511,7 @@ export const popupStateChanged: NotificationType<PopupMachineStateValue> = { met
 export const getPopupVisualizerState: RequestType<void, PopupVisualizerLocation> = { method: 'getPopupVisualizerState' };
 
 export const breakpointChanged: NotificationType<boolean> = { method: 'breakpointChanged' };
+export const approvalOverlayState: NotificationType<ApprovalOverlayState> = { method: 'approvalOverlayState' };
 
 // ------------------> AI Related state types <-----------------------
 export type AIMachineStateValue =
@@ -421,51 +562,6 @@ export type AIMachineSendableEvent =
         : { type: K; payload: AIMachineEventMap[K] }
     }[keyof AIMachineEventMap];
 
-export type AIChatMachineStateValue =
-    | 'Idle'
-    | 'Initiating'
-    | 'GeneratingPlan'
-    | 'ResumingGeneration'
-    | 'PlanReview'
-    | 'ApprovedPlan'
-    | 'ExecutingTask'
-    | 'ExecutingDatamapper'
-    | 'TaskReview'
-    | 'ApprovedTask'
-    | 'RejectedTask'
-    | 'WaitingForConnectorSpec'
-    | 'Completed'
-    | 'PartiallyCompleted'
-    | 'Error';
-
-export enum AIChatMachineEventType {
-    SUBMIT_AGENT_PROMPT = 'SUBMIT_AGENT_PROMPT',
-    SUBMIT_DATAMAPPER_REQUEST = 'SUBMIT_DATAMAPPER_REQUEST',
-    UPDATE_CHAT_MESSAGE = 'UPDATE_CHAT_MESSAGE',
-    RESET = 'RESET',
-    PLANNING_STARTED = 'PLANNING_STARTED',
-    DATAMAPPER_GENERATION_STARTED = 'DATAMAPPER_GENERATION_STARTED',
-    PLAN_GENERATED = 'PLAN_GENERATED',
-    APPROVE_PLAN = 'APPROVE_PLAN',
-    REJECT_PLAN = 'REJECT_PLAN',
-    START_TASK_EXECUTION = 'START_TASK_EXECUTION',
-    TASK_COMPLETED = 'TASK_COMPLETED',
-    FINISH_EXECUTION = 'FINISH_EXECUTION',
-    APPROVE_TASK = 'APPROVE_TASK',
-    ENABLE_AUTO_APPROVE = 'ENABLE_AUTO_APPROVE',
-    DISABLE_AUTO_APPROVE = 'DISABLE_AUTO_APPROVE',
-    REJECT_TASK = 'REJECT_TASK',
-    RESTORE_STATE = 'RESTORE_STATE',
-    RESTORE_CHECKPOINT = 'RESTORE_CHECKPOINT',
-    ERROR = 'ERROR',
-    RETRY = 'RETRY',
-    CONNECTOR_GENERATION_REQUESTED = 'CONNECTOR_GENERATION_REQUESTED',
-    PROVIDE_CONNECTOR_SPEC = 'PROVIDE_CONNECTOR_SPEC',
-    SKIP_CONNECTOR_GENERATION = 'SKIP_CONNECTOR_GENERATION',
-    SHOW_REVIEW_ACTIONS = 'SHOW_REVIEW_ACTIONS',
-    HIDE_REVIEW_ACTIONS = 'HIDE_REVIEW_ACTIONS',
-}
-
 export interface ChatMessage {
     id: string;
     content: string;
@@ -482,6 +578,104 @@ export interface Checkpoint {
     workspaceSnapshot: { [filePath: string]: string };
     fileList: string[];
     snapshotSize: number;
+}
+
+// ==================================
+// Thread-Based Chat State Types
+// ==================================
+
+/**
+ * Review state for a generation
+ */
+export interface GenerationReviewState {
+    /** Status of the generation review */
+    status: 'pending' | 'under_review' | 'accepted' | 'error';
+    /** Temp project path while under review (shared across generations in same thread) */
+    tempProjectPath?: string;
+    /** Files modified in this specific generation */
+    modifiedFiles: string[];
+    /** Packages that have changes (absolute package paths) */
+    affectedPackagePaths?: string[];
+    /** Error message if status is 'error' */
+    errorMessage?: string;
+}
+
+/**
+ * Metadata for a generation
+ */
+export interface GenerationMetadata {
+    /** Whether this was a plan mode generation */
+    isPlanMode: boolean;
+    /** Operation type for the generation */
+    operationType?: OperationType;
+    /** Generation type (agent or datamapper) */
+    generationType?: 'agent' | 'datamapper';
+    /** Command type if triggered by command */
+    commandType?: string;
+}
+
+/**
+ * Generation represents a single user prompt + complete AI response cycle
+ * Contains all data needed to render UI and pass to LLM
+ */
+export interface Generation {
+    /** Unique generation ID */
+    id: string;
+    /** User prompt content */
+    userPrompt: string;
+    /** Model messages from AI SDK (for LLM context) */
+    modelMessages: any[];
+    /** UI response formatted for display */
+    uiResponse: string;
+    /** Timestamp when generation started */
+    timestamp: number;
+
+    /** Review state (embedded, not separate context) */
+    reviewState: GenerationReviewState;
+
+    /** Checkpoint linked to this generation (optional) */
+    checkpoint?: Checkpoint;
+    /** Plan associated with this generation (optional) */
+    plan?: Plan;
+    /** Current task index for plan execution */
+    currentTaskIndex: number;
+    /** File attachments for this generation */
+    fileAttachments?: FileAttatchment[];
+    /** Code context for this generation */
+    codeContext?: CodeContext;
+    /** Generation metadata */
+    metadata: GenerationMetadata;
+}
+
+/**
+ * Thread represents a conversation with multiple generations
+ */
+export interface ChatThread {
+    /** Unique thread ID */
+    id: string;
+    /** Display name for thread */
+    name: string;
+    /** Array of generations in chronological order */
+    generations: Generation[];
+    /** Session ID for backend correlation */
+    sessionId?: string;
+    /** Thread creation timestamp */
+    createdAt: number;
+    /** Last update timestamp */
+    updatedAt: number;
+}
+
+/**
+ * Workspace-level storage container
+ * One per workspace, contains multiple threads
+ */
+export interface WorkspaceChatState {
+    /** Workspace/project identifier (hash of workspace path) */
+    workspaceId: string;
+    /** Map of thread ID to thread */
+    threads: Map<string, ChatThread>;
+    /** Currently active thread ID */
+    activeThreadId: string;
 }
 
 /**
@@ -506,7 +700,7 @@ export enum TaskTypes {
 export interface Task {
     description: string;
     status: TaskStatus;
-    type : TaskTypes;
+    type: TaskTypes;
 }
 
 export interface Plan {
@@ -529,65 +723,6 @@ export interface UserApproval {
 
 export type OperationType = "CODE_FOR_USER_REQUIREMENT" | "TESTS_FOR_USER_REQUIREMENT";
 
-export interface AIChatMachineContext {
-    chatHistory: ChatMessage[];
-    currentPlan?: Plan;
-    currentTaskIndex: number;
-    currentQuestion?: Question;
-    errorMessage?: string;
-    sessionId?: string;
-    projectId?: string;
-    currentApproval?: UserApproval;
-    autoApproveEnabled?: boolean;
-    isPlanMode?: boolean;
-    codeContext?: CodeContext;
-    fileAttachments: FileAttatchment[];
-    currentSpec?: {
-        requestId: string;
-        spec?: any;
-        provided?: boolean;
-        skipped?: boolean;
-        comment?: string;
-    };
-    previousState?: AIChatMachineStateValue;
-    checkpoints?: Checkpoint[];
-    // Generation type field
-    generationType?: 'agent' | 'datamapper';
-    // Command execution fields
-    commandType?: string;
-    modifiedFiles?: string[];
-    commandParams?: any;
-    // Review actions state
-    showReviewActions?: boolean;
-    operationType?: OperationType;
-}
-
-export type AIChatMachineSendableEvent =
-    | { type: AIChatMachineEventType.SUBMIT_AGENT_PROMPT; payload: { prompt: string; isPlanMode: boolean; codeContext?: CodeContext, operationType?: OperationType, fileAttachments?: FileAttatchment[] } }
-    | { type: AIChatMachineEventType.SUBMIT_DATAMAPPER_REQUEST; payload: { datamapperType: 'function' | 'inline' | 'contextTypes'; params: any; userMessage?: string } }
-    | { type: AIChatMachineEventType.UPDATE_CHAT_MESSAGE; payload: { id: string; modelMessages?: any[]; uiResponse?: string } }
-    | { type: AIChatMachineEventType.PLANNING_STARTED }
-    | { type: AIChatMachineEventType.DATAMAPPER_GENERATION_STARTED }
-    | { type: AIChatMachineEventType.PLAN_GENERATED; payload: { plan: Plan } }
-    | { type: AIChatMachineEventType.APPROVE_PLAN; payload?: { comment?: string } }
-    | { type: AIChatMachineEventType.REJECT_PLAN; payload: { comment?: string } }
-    | { type: AIChatMachineEventType.START_TASK_EXECUTION }
-    | { type: AIChatMachineEventType.TASK_COMPLETED }
-    | { type: AIChatMachineEventType.FINISH_EXECUTION }
-    | { type: AIChatMachineEventType.APPROVE_TASK; payload?: { comment?: string; lastApprovedTaskIndex?: number } }
-    | { type: AIChatMachineEventType.ENABLE_AUTO_APPROVE }
-    | { type: AIChatMachineEventType.DISABLE_AUTO_APPROVE }
-    | { type: AIChatMachineEventType.REJECT_TASK; payload: { comment?: string } }
-    | { type: AIChatMachineEventType.RESET }
-    | { type: AIChatMachineEventType.RESTORE_STATE; payload: { state: AIChatMachineContext } }
-    | { type: AIChatMachineEventType.RESTORE_CHECKPOINT; payload: { checkpointId: string } }
-    | { type: AIChatMachineEventType.ERROR; payload: { message: string } }
-    | { type: AIChatMachineEventType.RETRY }
-    | { type: AIChatMachineEventType.CONNECTOR_GENERATION_REQUESTED; payload: { requestId: string; serviceName?: string; serviceDescription?: string; fromState?: AIChatMachineStateValue } }
-    | { type: AIChatMachineEventType.PROVIDE_CONNECTOR_SPEC; payload: { requestId: string; spec: any; inputMethod: 'file' | 'paste' | 'url'; sourceIdentifier?: string } }
-    | { type: AIChatMachineEventType.SKIP_CONNECTOR_GENERATION; payload: { requestId: string; comment?: string } }
-    | { type: AIChatMachineEventType.SHOW_REVIEW_ACTIONS }
-    | { type: AIChatMachineEventType.HIDE_REVIEW_ACTIONS };
 
 export enum LoginMethod {
     BI_INTEL = 'biIntel',
@@ -658,21 +793,12 @@ export enum ColorThemeKind {
     HighContrastLight = 4
 }
 
-export interface UIChatHistoryMessage {
-    role: "user" | "assistant";
-    content: string;
-    checkpointId?: string;
-    messageId?: string;
-}
+// Type alias for backward compatibility - use UIChatMessage from rpc-types/ai-panel instead
+export type { UIChatMessage as UIChatHistoryMessage } from "./rpc-types/ai-panel/interfaces";
 
 export const aiStateChanged: NotificationType<AIMachineStateValue> = { method: 'aiStateChanged' };
 export const sendAIStateEvent: RequestType<AIMachineEventType | AIMachineSendableEvent, void> = { method: 'sendAIStateEvent' };
 export const currentThemeChanged: NotificationType<ColorThemeKind> = { method: 'currentThemeChanged' };
-
-export const aiChatStateChanged: NotificationType<AIChatMachineStateValue> = { method: 'aiChatStateChanged' };
-export const sendAIChatStateEvent: RequestType<AIChatMachineEventType | AIChatMachineSendableEvent, void> = { method: 'sendAIChatStateEvent' };
-export const getAIChatContext: RequestType<void, AIChatMachineContext> = { method: 'getAIChatContext' };
-export const getAIChatUIHistory: RequestType<void, UIChatHistoryMessage[]> = { method: 'getAIChatUIHistory' };
 
 export interface CheckpointCapturedPayload {
     messageId: string;
