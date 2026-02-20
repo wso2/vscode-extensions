@@ -1069,7 +1069,7 @@
     "yaml": "2.8.0"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "3.0.17",
+    "@ai-sdk/anthropic": "3.0.46",
     "@anthropic-ai/tokenizer": "0.0.4",
     "@apidevtools/json-schema-ref-parser": "12.0.2",
     "@babel/core": "7.27.1",
@@ -1077,7 +1077,7 @@
     "@iarna/toml": "2.2.5",
     "@langfuse/otel": "4.5.1",
     "@opentelemetry/sdk-node": "0.210.0",
-    "ai": "6.0.42",
+    "ai": "6.0.94",
     "@types/fs-extra": "11.0.4",
     "@types/handlebars": "4.1.0",
     "@types/json-schema": "7.0.15",
