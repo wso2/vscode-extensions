@@ -57,6 +57,10 @@ export function MediatorForm(props: MediatorFormProps) {
         for (const key in values) {
             // Handle paramerter manager
             if (Array.isArray(values[key])) {
+                if (key === 'mcpToolsSelection') {
+                    continue;
+                }
+
                 values[key] = values[key].map((item: any) => {
                     const extractValues: any = (obj: any) => {
                         return Object.values(obj).map((value: any) =>
@@ -138,7 +142,7 @@ export function MediatorForm(props: MediatorFormProps) {
                 <Button
                     appearance="primary"
                     onClick={handleSubmit(handleOnSubmit)}
-                    disabled={isUpdate && Object.keys(dirtyFields).length === 0}
+                    disabled={Boolean(errors?.mcpTools) || (isUpdate && Object.keys(dirtyFields).length === 0)}
                 >
                     {isUpdate ? "Update" : "Add"}
                 </Button>

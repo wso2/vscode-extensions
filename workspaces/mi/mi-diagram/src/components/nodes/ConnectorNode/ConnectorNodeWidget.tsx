@@ -32,6 +32,7 @@ import { Body, Content, Description, Header, Name, OptionsMenu } from "../BaseNo
 import { FirstCharToUpperCase } from "../../../utils/commons";
 import path from "path";
 import { MACHINE_VIEW, POPUP_EVENT_TYPE } from "@wso2/mi-core";
+import { getMediatorIconsFromFont } from "../../../resources/icons/mediatorIcons/icons";
 
 namespace S {
     export type NodeStyleProp = {
@@ -85,7 +86,7 @@ namespace S {
     `;
 
     export const IconContainer = styled.div`
-        padding: 0 4px;
+        padding: 0 6px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -139,6 +140,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
     const isActiveBreakpoint = node.isActiveBreakpoint();
     const connectorNode = ((node.stNode as Tool).mediator ?? node.stNode) as Connector;
     const tooltip = hasDiagnotics ? node.getDiagnostics().map(diagnostic => diagnostic.message).join("\n") : undefined;
+    const isMCPTool = (node.stNode as Tool).isMcpTool;
 
     useEffect(() => {
         node.setSelected(sidePanelContext?.node === node);
@@ -154,8 +156,8 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
 
     useEffect(() => {
         const fetchData = async () => {
-            const connectorIcon = await rpcClient.getMiDiagramRpcClient().getConnectorIcon({ 
-                connectorName: node.stNode?.connectorName,
+            const connectorIcon = await rpcClient.getMiDiagramRpcClient().getConnectorIcon({
+                connectorName: node.stNode?.connectorName ?? (node.stNode as any).mediator.connectorName,
                 documentUri: node.documentUri
             });
 
@@ -165,10 +167,11 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                 documentUri: node.documentUri,
                 connectorName: connectorNode.tag.split(".")[0]
             });
-            
+
             const connectionData: any = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
                 documentUri: node.documentUri,
-                connectorName: node.stNode.tag.split(".")[0]
+                connectorName: (node.stNode.tag === 'tool') ? 
+                    (node.stNode as Tool).mediator.connectorName : node.stNode.tag.split(".")[0]
             });
 
             const connectionName = connectorNode.configKey;
@@ -228,9 +231,13 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
 
         return nodeRange;
     }
-    
+
     const handleOnConnectionClick = async (e: any) => {
         e.stopPropagation();
+
+        if (node.stNode.tag === 'tool') {
+            return;
+        }
 
         const nodeRange = await getConnectionNodeRange();
 
@@ -283,7 +290,9 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                     )}
                     <S.TopPortWidget port={node.getPort("in")!} engine={engine} />
                     <div style={{ display: "flex", flexDirection: "row", width: NODE_DIMENSIONS.DEFAULT.WIDTH }}>
-                        {iconPath &&
+                        {isMCPTool ?
+                            <S.IconContainer>{getMediatorIconsFromFont('mcp')}</S.IconContainer>
+                            : iconPath &&
                             <S.IconContainer><img src={iconPath} alt="Icon" /></S.IconContainer>
                         }
                         <div>
@@ -294,10 +303,10 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                             )}
                             <Content>
                                 <Header showBorder={true}>
-                                    <Name>{FirstCharToUpperCase(connectorNode.method)}</Name>
+                                    <Name>{FirstCharToUpperCase((isMCPTool ? "MCP Tool" : connectorNode.method))}</Name>
                                 </Header>
                                 <Body>
-                                    <Description>{FirstCharToUpperCase(connectorNode.connectorName)}</Description>
+                                    <Description>{FirstCharToUpperCase(connectorNode.connectorName ?? (connectorNode as any).name)}</Description>
                                 </Body>
                             </Content>
                         </div>
@@ -305,7 +314,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                     <S.BottomPortWidget port={node.getPort("out")!} engine={engine} />
                 </S.Node>
             </Tooltip>
-            {connectorNode.configKey &&
+            {(connectorNode.configKey || isMCPTool )  &&
                 <S.CircleContainer
                     onMouseEnter={() => setIsHoveredConnector(true)}
                     onMouseLeave={() => setIsHoveredConnector(false)}
@@ -325,6 +334,12 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                             {connectionIconPath && <g transform="translate(68,7)">
                                 <foreignObject width="25" height="25">
                                     <img src={connectionIconPath} alt="Icon" />
+                                </foreignObject>
+                            </g>}
+
+                            {connectorNode.mcpConnection && <g transform="translate(68,7)">
+                                <foreignObject width="25" height="25">
+                                    <S.IconContainer>{getMediatorIconsFromFont('mcp')}</S.IconContainer>
                                 </foreignObject>
                             </g>}
 
@@ -356,10 +371,10 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                     </Tooltip>
                 </S.CircleContainer>
             }
-            {connectorNode.configKey &&
+            {(connectorNode.configKey || isMCPTool) &&
                 <S.ConnectionContainer>
                     <S.ConnectionText>
-                        {connectorNode.configKey}
+                        {connectorNode.configKey || connectorNode.mcpConnection}
                     </S.ConnectionText>
                 </S.ConnectionContainer>}
             <Popover

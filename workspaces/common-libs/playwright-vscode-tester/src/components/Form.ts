@@ -23,7 +23,7 @@ export interface FormFillProps {
     values: {
         [key: string]: {
             value: string,
-            type: 'input' | 'dropdown' | 'checkbox' | 'combo' | 'expression' | 'file' | 'inlineExpression' | 'radio' | 'textarea' | 'cmEditor',
+            type: 'input' | 'dropdown' | 'checkbox' | 'combo' | 'expression' | 'file' | 'directory' | 'inlineExpression' | 'radio' | 'textarea' | 'cmEditor',
             additionalProps?: {
                 [key: string]: any
             }
@@ -224,6 +224,18 @@ export class Form {
                         await textInput?.fill(data.value);
                         const okBtn = await fileInput?.waitForSelector('a.monaco-button:has-text("OK")');
                         await okBtn?.click();
+                        break;
+                    }
+                    case 'directory': {
+                        // Find the input field by label and fill it
+                        const labelElement = this.container.locator(`label:has-text("${key}")`);
+                        await labelElement.waitFor();
+                        // Find the parent container and then the input field
+                        const parentContainer = labelElement.locator('../..');
+                        const input = parentContainer.locator('input[type="text"]');
+                        await input.waitFor();
+                        // Fill the input field (now that it's editable)
+                        await input.fill(data.value);
                         break;
                     }
                     case 'radio': {
