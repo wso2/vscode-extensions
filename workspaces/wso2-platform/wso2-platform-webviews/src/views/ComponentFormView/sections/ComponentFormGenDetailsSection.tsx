@@ -144,6 +144,8 @@ const useComponentGitValidation = ({
 				secretRef: string;
 			}[] = [];
 
+			const targetIndices: number[] = [];
+
 			for (const target of targets) {
 				const componentPath = target.directoryFsPath;
 
@@ -170,6 +172,7 @@ const useComponentGitValidation = ({
 					}
 				}
 
+				targetIndices.push(targets.indexOf(target));
 				metadataRequests.push({
 					branch,
 					gitOrgName,
@@ -195,7 +198,7 @@ const useComponentGitValidation = ({
 				results.forEach((metadata, idx) => {
 					if (!metadata?.metadata || metadata.metadata.isSubPathEmpty) {
 						invalidCount += 1;
-						const targetPath = targets[idx]?.directoryFsPath;
+						const targetPath = targets[targetIndices[idx]]?.directoryFsPath;
 						if (targetPath) {
 							invalidTargets.push(targetPath);
 						}
