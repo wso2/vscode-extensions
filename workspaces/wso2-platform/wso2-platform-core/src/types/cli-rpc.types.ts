@@ -107,17 +107,17 @@ export interface CreateComponentReq {
 	gitCredRef: string;
 	branch: string;
 	langVersion: string;
-	dockerFile: string;
+	dockerFile?: string;
 	port: number;
 	spaBuildCommand: string;
 	spaNodeVersion: string;
 	spaOutputDir: string;
-	proxyApiVersion: string;
-	proxyEndpointUrl: string;
-	proxyApiContext: string;
+	proxyApiVersion?: string;
+	proxyEndpointUrl?: string;
+	proxyApiContext?: string;
 	originCloud?: string;
 	// todo: remove
-	proxyAccessibility: string;
+	proxyAccessibility?: string;
 }
 export interface CreateConfigYamlReq {
 	componentDir: string;
