@@ -167,15 +167,95 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             return params;
         };
 
+        const parseBinaryFromText = (txt: string) => {
+            const lines = txt.split('\n').map(l => l.trim()).filter(Boolean);
+            const files: any[] = [];
+            for (const line of lines) {
+                // Ignore section markers if user pastes raw Hurl sections
+                if (/^\[(?:Binary|FormData|Multipart|MultipartFormData|FormUrlEncoded|Form|FormParams)\]/i.test(line)) {
+                    continue;
+                }
+
+                // Editor shorthand for binary file: @file: contentType
+                const atFile = line.match(/^@file:\s*(.+)$/i);
+                if (atFile) {
+                    files.push({
+                        id: `bf-${Date.now().toString(36)}`,
+                        filePath: '',
+                        contentType: atFile[1].trim()
+                    });
+                    continue;
+                }
+
+                // Native Hurl file-body syntax: file,<path>;
+                const hurlFileBody = line.match(/^file,([^;]+);(?:\s*(.+))?$/i);
+                if (hurlFileBody) {
+                    files.push({
+                        id: `bf-${Date.now().toString(36)}`,
+                        filePath: hurlFileBody[1].trim(),
+                        contentType: hurlFileBody[2]?.trim() || 'application/octet-stream'
+                    });
+                    continue;
+                }
+
+                // After selecting a file in code mode, line becomes:
+                // /absolute/path/file.ext: application/octet-stream
+                const selectedFileLine = line.match(/^(.*):\s*([A-Za-z0-9.+-]+\/[A-Za-z0-9.+-]+(?:\s*;.*)?)$/);
+                if (selectedFileLine) {
+                    files.push({
+                        id: `bf-${Date.now().toString(36)}`,
+                        filePath: selectedFileLine[1].trim(),
+                        contentType: selectedFileLine[2].trim() || 'application/octet-stream'
+                    });
+                    continue;
+                }
+
+                // Backward compatibility for commented binary metadata
+                const commentFile = line.match(/^#\s*filePath:\s*([^,]+),\s*contentType:\s*(.+)$/i);
+                if (commentFile) {
+                    files.push({
+                        id: `bf-${Date.now().toString(36)}`,
+                        filePath: commentFile[1].trim(),
+                        contentType: commentFile[2].trim()
+                    });
+                }
+            }
+            return files;
+        };
+
         if (bodyFormat === 'form-data') {
             const parsed = parseFormDataFromText(text);
-            onRequestChange?.({ ...request, body: text, bodyFormData: parsed });
+            onRequestChange?.({
+                ...request,
+                body: text,
+                bodyFormData: parsed,
+                bodyFormUrlEncoded: [],
+                bodyBinaryFiles: []
+            });
             return;
         }
 
         if (bodyFormat === 'form-urlencoded') {
             const parsed = parseFormUrlEncodedFromText(text);
-            onRequestChange?.({ ...request, body: text, bodyFormUrlEncoded: parsed });
+            onRequestChange?.({
+                ...request,
+                body: text,
+                bodyFormUrlEncoded: parsed,
+                bodyFormData: [],
+                bodyBinaryFiles: []
+            });
+            return;
+        }
+
+        if (bodyFormat === 'binary') {
+            const parsed = parseBinaryFromText(text);
+            onRequestChange?.({
+                ...request,
+                body: text,
+                bodyBinaryFiles: parsed,
+                bodyFormData: [],
+                bodyFormUrlEncoded: []
+            });
             return;
         }
 

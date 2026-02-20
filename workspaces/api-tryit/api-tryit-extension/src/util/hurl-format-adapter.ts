@@ -143,13 +143,15 @@ export class HurlFormatAdapter {
 			}
 		}
 
+		const hasBinaryFileBody = !!(request.bodyBinaryFiles && request.bodyBinaryFiles.some(file => !!file.filePath));
+
 		const hasStructuredBody =
 			(formDataParams && formDataParams.length > 0) ||
 			(request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) ||
-			(request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0);
+			hasBinaryFileBody;
 
-		const hasBody = request.body ||
-			hasStructuredBody;
+		const methodSupportsBody = !['GET', 'HEAD', 'OPTIONS'].includes((request.method || '').toUpperCase());
+		const hasBody = methodSupportsBody && (request.body || hasStructuredBody);
 
 		if (hasBody) {
 			hurl += '\n';
@@ -188,13 +190,11 @@ export class HurlFormatAdapter {
 				}
 			}
 
-			// Handle binary files
-			if (request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0) {
-				hurl += '\n# Binary Files:\n';
-				for (const file of request.bodyBinaryFiles) {
-					if (file.filePath) {
-						hurl += `# filePath: ${file.filePath}, contentType: ${file.contentType}\n`;
-					}
+			// Handle binary file body in native Hurl syntax: file,<path>;
+			if (hasBinaryFileBody && request.bodyBinaryFiles) {
+				const firstFile = request.bodyBinaryFiles.find(file => !!file.filePath);
+				if (firstFile?.filePath) {
+					hurl += `file,${firstFile.filePath};\n`;
 				}
 			}
 		}
@@ -553,6 +553,7 @@ export class HurlFormatAdapter {
 					const kvct = line.match(/^([^:]+):\s*([^:]+):\s*(.+)$/);
 					const fileAt = line.match(/^([^:]+):\s*@file:\s*(.+)$/i);
 					const atFileOnly = line.match(/^@file:\s*(.+)$/i);
+					const binaryFileBody = line.match(/^file,([^;]+);(?:\s*(.+))?$/i);
 					if (kvct) {
 						// key: value: contentType
 						formData.push({ id: `form-${Math.random().toString(36).substring(2,9)}`, key: kvct[1].trim(), value: kvct[2].trim(), contentType: kvct[3].trim() } as unknown as FormDataParameter);
@@ -564,6 +565,14 @@ export class HurlFormatAdapter {
 					}
 					if (atFileOnly) {
 						binaryFiles.push({ id: `bf-${Math.random().toString(36).substring(2,9)}`, filePath: undefined, contentType: atFileOnly[1].trim() });
+						continue;
+					}
+					if (binaryFileBody) {
+						binaryFiles.push({
+							id: `bf-${Math.random().toString(36).substring(2,9)}`,
+							filePath: binaryFileBody[1].trim(),
+							contentType: binaryFileBody[2]?.trim() || 'application/octet-stream'
+						});
 						continue;
 					}
 					// Commented Binary Files metadata ("# filePath: /path, contentType: type")
