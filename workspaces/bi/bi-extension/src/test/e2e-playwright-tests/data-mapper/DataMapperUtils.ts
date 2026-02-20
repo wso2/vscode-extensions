@@ -78,7 +78,7 @@ export class DataMapper {
     }
 
     public async refresh() {
-        await this.webView.getByTitle('Refresh').click();
+        await this.webView.locator('vscode-button[title="Refresh all mappings"]').click();
         await this.waitForProgressEnd();
     }
 
@@ -186,9 +186,10 @@ export namespace FileUtils {
         let file1Content = fs.readFileSync(file1, 'utf8').replaceAll('\r\n', '\n');
         let file2Content = fs.readFileSync(file2, 'utf8').replaceAll('\r\n', '\n');
 
+        // TODO: Remove skip formatting check after formatting is enabled in Data Mapper
         if (!checkFormatting) {
-            file1Content = file1Content.replace(/\n/g, '').replace(/\s+/g, ' ');
-            file2Content = file2Content.replace(/\n/g, '').replace(/\s+/g, ' ');
+            file1Content = file1Content.replace(/\n/g, '').replace(/\s+/g, '');
+            file2Content = file2Content.replace(/\n/g, '').replace(/\s+/g, '');
         }
 
         return file1Content === file2Content;
@@ -296,7 +297,7 @@ export namespace TestScenarios {
 
         console.log(' - Clear All Mappings');
 
-        await dmWebView.getByTitle('Clear all mappings').click();
+        await dmWebView.locator('vscode-button[title="Clear all mappings"]').click();
         await dm.waitForProgressEnd();
         const links = dmWebView.locator('[data-testid^="link-from-"]');
         await expect(links).toHaveCount(0);
