@@ -178,7 +178,8 @@ export enum LoginMethod {
 
 interface MIIntelSecrets {
     accessToken: string;
-    refreshToken: string;
+    refreshToken?: string;
+    expiresAt?: number;
 }
 
 interface AnthropicKeySecrets {
@@ -289,9 +290,8 @@ export interface AIVisualizerLocation {
 }
 
 export interface AIUserTokens {
-    max_usage: number;
-    remaining_tokens: number;
-    time_to_reset: number;
+    remainingUsagePercentage?: number;
+    resetsIn?: number;
 }
 
 export interface ParentPopupData {

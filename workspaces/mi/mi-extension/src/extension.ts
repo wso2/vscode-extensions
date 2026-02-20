@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 import { extension } from './MIExtensionContext';
 import { activate as activateHistory } from './history';
 import { activateVisualizer } from './visualizer/activate';
-import { activateAiPanel } from './ai-panel/activate';
+import { activateAiPanel } from './ai-features/activate';
 
 import { activateDebugger } from './debugger/activate';
 import { activateMigrationSupport } from './migration';
@@ -28,13 +28,14 @@ import { activateRuntimeService } from './runtime-services-panel/activate';
 import { MILanguageClient } from './lang-client/activator';
 import { activateUriHandlers } from './uri-handler';
 import { extensions, workspace } from 'vscode';
-import { StateMachineAI } from './ai-panel/aiMachine';
+import { StateMachineAI } from './ai-features/aiMachine';
 import { isOldProjectOrWorkspace, getStateMachine } from './stateMachine';
 import { webviews } from './visualizer/webview';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { COMMANDS } from './constants';
 import { enableLS } from './util/workspace';
+import { disposeMIAgentPanelRpcManager } from './rpc-managers/agent-mode/rpc-handler';
 const os = require('os');
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -68,21 +69,22 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 	workspace.onDidChangeWorkspaceFolders(async (event) => {
 		if (event.added.length > 0) {
-			const newProject = event.added[0];
-			getStateMachine(newProject.uri.fsPath);
+			for (const addedProject of event.added) {
+				getStateMachine(addedProject.uri.fsPath);
+			}
 		}
 		if (event.removed.length > 0) {
-			const removedProject = event.removed[0];
-			const webview = webviews.get(removedProject.uri.fsPath);
-
-			if (webview) {
-				webview.dispose();
+			for (const removedProject of event.removed) {
+				disposeMIAgentPanelRpcManager(removedProject.uri.fsPath);
+				const webview = webviews.get(removedProject.uri.fsPath);
+				if (webview) {
+					webview.dispose();
+				}
 			}
 		}
 		// refresh project explorer
 		vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND);
-	}
-	);
+	});
 	StateMachineAI.initialize();
 
 	activateUriHandlers();

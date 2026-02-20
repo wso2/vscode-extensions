@@ -16,9 +16,9 @@
  * under the License.
  */
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { FileObject, ImageObject } from "@wso2/mi-core";
+import { FileObject, ImageObject, TodoItem, Question } from "@wso2/mi-core";
 import { LoaderWrapper, ProgressRing } from "../styles";
 import {
     ChatMessage,
@@ -26,19 +26,40 @@ import {
     MessageType,
     Role,
 } from "@wso2/mi-core";
+import { GroupedSessions } from "./SessionSwitcher";
+
+// Pending user question type (using structured Question format from mi-core)
+export interface PendingUserQuestion {
+    questionId: string;
+    questions: Question[];
+}
+
+// Pending plan approval type (for UI)
+export interface PendingPlanApproval {
+    approvalId: string;
+    approvalKind?: 'enter_plan_mode' | 'exit_plan_mode' | 'exit_plan_mode_without_plan' | 'web_search' | 'web_fetch';
+    approvalTitle?: string;
+    approveLabel?: string;
+    rejectLabel?: string;
+    allowFeedback?: boolean;
+    planFilePath?: string;
+    content?: string;  // Summary or plan content to display
+}
 import {
     RpcClientType,
-    FileHistoryEntry,
 } from "../types";
 import {
     getProjectRuntimeVersion,
     getProjectUUID,
     compareVersions,
-    generateSuggestions,
     updateTokenInfo,
-    convertChat
+    convertChat,
+    generateId
 } from "../utils";
+import { convertEventsToMessages } from "../utils/eventToMessageConverter";
 import { useFeedback } from "./useFeedback";
+
+export type AgentMode = 'ask' | 'edit' | 'plan';
 
 // MI Copilot context type
 interface MICopilotContextType {
@@ -48,9 +69,7 @@ interface MICopilotContextType {
 
     // State for showing communication in UI
     messages: ChatMessage[];
-    questions: string[];
     setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
-    setQuestions: React.Dispatch<React.SetStateAction<string[]>>;
 
     // State for communication with backend
     copilotChat: CopilotChatEntry[];
@@ -62,10 +81,6 @@ interface MICopilotContextType {
     images: ImageObject[];
     setImages: React.Dispatch<React.SetStateAction<ImageObject[]>>;
 
-    // State to handle file history
-    FileHistory: FileHistoryEntry[];
-    setFileHistory: React.Dispatch<React.SetStateAction<FileHistoryEntry[]>>
-
     // State to handle current user input
     currentUserPrompt: string;
     setCurrentUserprompt: React.Dispatch<React.SetStateAction<string>>;
@@ -73,8 +88,6 @@ interface MICopilotContextType {
     // State to handle chat events
     isInitialPromptLoaded: boolean;
     setIsInitialPromptLoaded: React.Dispatch<React.SetStateAction<boolean>>;
-    chatClearEventTriggered: boolean;
-    setChatClearEventTriggered: React.Dispatch<React.SetStateAction<boolean>>;
     backendRequestTriggered: boolean;
     setBackendRequestTriggered: React.Dispatch<React.SetStateAction<boolean>>;
     controller: AbortController;
@@ -92,6 +105,32 @@ interface MICopilotContextType {
     feedbackGiven: 'positive' | 'negative' | null;
     setFeedbackGiven: React.Dispatch<React.SetStateAction<'positive' | 'negative' | null>>;
     handleFeedback: (index: number, isPositive: boolean, detailedFeedback?: string) => Promise<boolean>;
+
+    // Plan mode state
+    pendingQuestion: PendingUserQuestion | null;
+    setPendingQuestion: React.Dispatch<React.SetStateAction<PendingUserQuestion | null>>;
+    pendingPlanApproval: PendingPlanApproval | null;
+    setPendingPlanApproval: React.Dispatch<React.SetStateAction<PendingPlanApproval | null>>;
+    todos: TodoItem[];
+    setTodos: React.Dispatch<React.SetStateAction<TodoItem[]>>;
+    isPlanMode: boolean;
+    setIsPlanMode: React.Dispatch<React.SetStateAction<boolean>>;
+
+    // Context usage tracking (for compact button)
+    lastTotalInputTokens: number;
+    setLastTotalInputTokens: React.Dispatch<React.SetStateAction<number>>;
+
+    // Session management state
+    currentSessionId: string | null;
+    currentSessionTitle: string;
+    sessions: GroupedSessions | null;
+    isSessionsLoading: boolean;
+    refreshSessions: (overrideSessionId?: string) => Promise<void>;
+    switchToSession: (sessionId: string) => Promise<void>;
+    createNewSession: () => Promise<void>;
+    deleteSession: (sessionId: string) => Promise<void>;
+    agentMode: AgentMode;
+    setAgentMode: React.Dispatch<React.SetStateAction<AgentMode>>;
 }
 
 // Define the context for MI Copilot
@@ -102,13 +141,6 @@ interface MICopilotProviderProps {
   children: React.ReactNode;
 }
 
-// Define Local Storage Keys
-const localStorageKeys = {
-    chatFile: "",
-    questionFile: "",
-    fileHistory: "",
-};
-
 export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const { rpcClient } = useVisualizerContext();
 
@@ -118,14 +150,12 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
     // UI related Data
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [questions, setQuestions] = useState<string[]>([]);
     // Backend related Data
     const [copilotChat, setCopilotChat] = useState<CopilotChatEntry[]>([]);
     const [files, setFiles] = useState<FileObject[]>([]);
     const [images, setImages] = useState<ImageObject[]>([]);
     const [currentUserPrompt, setCurrentUserprompt] = useState("");
     // Event related Data
-    const [chatClearEventTriggered, setChatClearEventTriggered] = useState(false);
     const [backendRequestTriggered, setBackendRequestTriggered] = useState(false);
     const [isInitialPromptLoaded, setIsInitialPromptLoaded] = useState(false);
     const [controller, setController] = useState(new AbortController());
@@ -138,8 +168,21 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const [remaingTokenLessThanOne, setRemaingTokenLessThanOne] = useState<boolean>(false);
     const [timeToReset, setTimeToReset] = useState<number>(0);
 
-    // State to handle file history
-    const [FileHistory, setFileHistory] = useState<FileHistoryEntry[]>([]);
+    // Plan mode state
+    const [pendingQuestion, setPendingQuestion] = useState<PendingUserQuestion | null>(null);
+    const [pendingPlanApproval, setPendingPlanApproval] = useState<PendingPlanApproval | null>(null);
+    const [todos, setTodos] = useState<TodoItem[]>([]);
+    const [isPlanMode, setIsPlanMode] = useState<boolean>(false);
+    const [agentMode, setAgentMode] = useState<AgentMode>('edit');
+
+    // Session management state
+    // Context usage tracking
+    const [lastTotalInputTokens, setLastTotalInputTokens] = useState(0);
+
+    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+    const [currentSessionTitle, setCurrentSessionTitle] = useState<string>('New Chat');
+    const [sessions, setSessions] = useState<GroupedSessions | null>(null);
+    const [isSessionsLoading, setIsSessionsLoading] = useState<boolean>(false);
 
     // Feedback functionality
     const { feedbackGiven, setFeedbackGiven, handleFeedback } = useFeedback({
@@ -147,6 +190,116 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         copilotChat,
         rpcClient,
     });
+
+    // Session management functions
+    const refreshSessions = useCallback(async (overrideSessionId?: string) => {
+        if (!rpcClient) return;
+        setIsSessionsLoading(true);
+        try {
+            const response = await rpcClient.getMiAgentPanelRpcClient().listSessions({});
+            if (response.success) {
+                setSessions(response.sessions);
+                // Update current session title if we have sessions
+                const activeSessionId = overrideSessionId || currentSessionId;
+                if (activeSessionId && response.sessions) {
+                    const allSessions = [
+                        ...response.sessions.today,
+                        ...response.sessions.yesterday,
+                        ...response.sessions.pastWeek,
+                        ...response.sessions.older
+                    ];
+                    const activeSession = allSessions.find(s => s.sessionId === activeSessionId);
+                    if (activeSession) {
+                        setCurrentSessionTitle(activeSession.title);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[AI Panel] Failed to refresh sessions', error);
+        } finally {
+            setIsSessionsLoading(false);
+        }
+    }, [rpcClient, currentSessionId]);
+
+    const switchToSession = useCallback(async (sessionId: string) => {
+        if (!rpcClient) return;
+        setIsSessionsLoading(true);
+        try {
+            const response = await rpcClient.getMiAgentPanelRpcClient().switchSession({ sessionId });
+            if (response.success) {
+                const responseMode = (response as { mode?: AgentMode }).mode;
+                setCurrentSessionId(response.sessionId);
+                // Convert events to UI messages
+                const uiMessages = convertEventsToMessages(response.events);
+                setMessages(uiMessages);
+                setCopilotChat([]);
+                // Update context usage from switched session
+                setLastTotalInputTokens(response.lastTotalInputTokens ?? 0);
+                setAgentMode(responseMode ?? 'edit');
+                // Clear plan mode state when switching sessions
+                setPendingQuestion(null);
+                setPendingPlanApproval(null);
+                setTodos([]);
+                setIsPlanMode(false);
+                // Refresh sessions with the new session ID to avoid stale closure
+                await refreshSessions(response.sessionId);
+            }
+        } catch (error) {
+            console.error('[AI Panel] Failed to switch session', error);
+        } finally {
+            setIsSessionsLoading(false);
+        }
+    }, [rpcClient, refreshSessions]);
+
+    const createNewSession = useCallback(async () => {
+        if (!rpcClient) return;
+        setIsSessionsLoading(true);
+        try {
+            const response = await rpcClient.getMiAgentPanelRpcClient().createNewSession({});
+            if (response.success) {
+                const responseMode = (response as { mode?: AgentMode }).mode;
+                setCurrentSessionId(response.sessionId);
+                setCurrentSessionTitle('New Chat');
+                setMessages([]);
+                setCopilotChat([]);
+                setFiles([]);
+                setImages([]);
+                setCurrentUserprompt('');
+                // Reset context usage for new session
+                setLastTotalInputTokens(0);
+                setAgentMode(responseMode ?? 'edit');
+                // Clear plan mode state
+                setPendingQuestion(null);
+                setPendingPlanApproval(null);
+                setTodos([]);
+                setIsPlanMode(false);
+                // Refresh sessions list with the new session ID
+                await refreshSessions(response.sessionId);
+            }
+        } catch (error) {
+            console.error('[AI Panel] Failed to create new session', error);
+        } finally {
+            setIsSessionsLoading(false);
+        }
+    }, [rpcClient, refreshSessions]);
+
+    const deleteSession = useCallback(async (sessionId: string) => {
+        if (!rpcClient) return;
+        // Don't allow deleting current session
+        if (sessionId === currentSessionId) {
+            console.warn('[AI Panel] Cannot delete current session');
+            return;
+        }
+        try {
+            const response = await rpcClient.getMiAgentPanelRpcClient().deleteSession({ sessionId });
+            if (response.success) {
+                // Refresh sessions list
+                await refreshSessions();
+            }
+        } catch (error) {
+            console.error('[AI Panel] Failed to delete session', error);
+        }
+    }, [rpcClient, currentSessionId, refreshSessions]);
 
     useEffect(() => {
         const initializeContext = async () => {
@@ -157,11 +310,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
                 const uuid = await getProjectUUID(rpcClient);
                 setProjectUUID(uuid);
-
-                // Update localStorageKeys with the UUID
-                localStorageKeys.chatFile = `chatArray-AIGenerationChat-${uuid}`;
-                localStorageKeys.questionFile = `Question-AIGenerationChat-${uuid}`;
-                localStorageKeys.fileHistory = `fileHistory-AIGenerationChat-${uuid}`;
 
                 const machineView = await rpcClient.getAIVisualizerState();
 
@@ -197,49 +345,57 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                     setCurrentUserprompt(initialPrompt);
                     setIsInitialPromptLoaded(true);
                 } else {
-                    // Load the stored data from local storage in session reload
-                    const storedChatArray = localStorage.getItem(localStorageKeys.chatFile);
-                    const storedQuestion = localStorage.getItem(localStorageKeys.questionFile);
-                    const storedFileHistory = localStorage.getItem(localStorageKeys.fileHistory);
+                    // Load chat history from backend via RPC
+                    try {
+                        const response = await rpcClient.getMiAgentPanelRpcClient().loadChatHistory({});
 
-                    const getQuestions = async () => {
-                        if (storedQuestion) {
-                            setQuestions((prevMessages) => [...prevMessages, storedQuestion]);
-                        } else {
-                            generateSuggestions(copilotChat, rpcClient, controller).then((response) => {
-                                response.length > 0
-                                    ? setQuestions((prevMessages) => [...prevMessages, ...response])
-                                    : "";
-                                setBackendRequestTriggered(false);
-                            });
+                        if (response.success) {
+                            const responseMode = (response as { mode?: AgentMode }).mode;
+                            // Store session ID
+                            if (response.sessionId) {
+                                setCurrentSessionId(response.sessionId);
+                            }
+                            setAgentMode(responseMode ?? 'edit');
+
+                            if (response.events.length > 0) {
+                                console.log(`[AI Panel] Loaded ${response.events.length} events from backend`);
+
+                                // Convert events to UI messages using shared utility
+                                const uiMessages = convertEventsToMessages(response.events);
+
+                                setMessages(uiMessages);
+                            } else {
+                                console.log('[AI Panel] No previous chat history found');
+                            }
+
+                            // Initialize context usage from last known tokens
+                            if (response.lastTotalInputTokens) {
+                                setLastTotalInputTokens(response.lastTotalInputTokens);
+                            }
+
+                            // Load sessions list to get current session title
+                            const sessionsResponse = await rpcClient.getMiAgentPanelRpcClient().listSessions({});
+                            if (sessionsResponse.success) {
+                                setSessions(sessionsResponse.sessions);
+                                // Find current session title
+                                if (response.sessionId && sessionsResponse.sessions) {
+                                    const allSessions = [
+                                        ...sessionsResponse.sessions.today,
+                                        ...sessionsResponse.sessions.yesterday,
+                                        ...sessionsResponse.sessions.pastWeek,
+                                        ...sessionsResponse.sessions.older
+                                    ];
+                                    const currentSession = allSessions.find(s => s.sessionId === response.sessionId);
+                                    if (currentSession) {
+                                        setCurrentSessionTitle(currentSession.title);
+                                    }
+                                }
+                            }
                         }
+                    } catch (error) {
+                        console.error('[AI Panel] Failed to load chat history from backend', error);
                     }
 
-                    if (storedChatArray) {
-                        // 1. Load questions
-                        getQuestions();
-
-                        // 3. Load Chats
-                        const chatArray = JSON.parse(storedChatArray);
-
-                        // Add the messages from the chat array to the view
-                        setMessages((prevMessages) => [
-                            ...prevMessages,
-                            ...chatArray.map((entry: CopilotChatEntry) => {
-                                return convertChat(entry);
-                            }),
-                        ]);
-                        setCopilotChat((prevMessages) => [...prevMessages, ...chatArray]);
-                    } else {
-                        if (copilotChat.length === 0) {
-                            getQuestions();
-                        }
-                    }
-
-                    if (storedFileHistory) {
-                        const fileHistoryFromStorage = JSON.parse(storedFileHistory);
-                        setFileHistory(fileHistoryFromStorage);
-                    }
                 }
                 setIsLoading(false);
             }
@@ -251,54 +407,12 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         setRemaingTokenLessThanOne(remainingTokenPercentage < 1 && remainingTokenPercentage > 0);
     }, [remainingTokenPercentage]);
 
-    // handle chat clear event
-    useEffect(() => {
-        if (chatClearEventTriggered) {
-            setMessages([]);
-            setCopilotChat([]);
-            setQuestions([]);
-            setFiles([]);
-            setImages([]);
-            setCurrentUserprompt("");
-            // Clear the local storage
-            localStorage.removeItem(localStorageKeys.chatFile);
-            localStorage.removeItem(localStorageKeys.questionFile);
-            localStorage.removeItem(localStorageKeys.fileHistory);
-            generateSuggestions(copilotChat, rpcClient, controller).then((response) => {
-                response.length > 0 ? setQuestions((prevMessages) => [...prevMessages, ...response]) : null;
-                setChatClearEventTriggered(false);
-            });
-        }
-    }, [chatClearEventTriggered]);
-
-    // Update local storage whenever backend call finishes
-    // Add debounce to prevent saving during abort cleanup
-    useEffect(() => {
-        if (!isLoading && !backendRequestTriggered) {
-            // Debounce localStorage writes to allow abort cleanup to complete
-            const timeoutId = setTimeout(() => {
-                localStorage.setItem(localStorageKeys.chatFile, JSON.stringify(copilotChat));
-                localStorage.setItem(localStorageKeys.questionFile, questions[questions.length - 1] || "");
-            }, 300); // 300ms delay ensures abort cleanup completes (200ms abort flag reset + buffer)
-
-            return () => clearTimeout(timeoutId);
-        }
-    }, [isLoading, backendRequestTriggered, copilotChat, questions]);
-
-    useEffect(() => {
-        if (!isLoading) {
-            localStorage.setItem(localStorageKeys.fileHistory, JSON.stringify(FileHistory));
-        }
-    }, [isLoading, FileHistory]);
-
     const currentContext: MICopilotContextType = {
         rpcClient,
         projectRuntimeVersion,
         projectUUID,
         messages,
-        questions,
         setMessages,
-        setQuestions,
         copilotChat,
         setCopilotChat,
         files,
@@ -307,10 +421,8 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         setImages,
         currentUserPrompt,
         setCurrentUserprompt,
-        chatClearEventTriggered,
         isInitialPromptLoaded,
         setIsInitialPromptLoaded,
-        setChatClearEventTriggered,
         backendRequestTriggered,
         setBackendRequestTriggered,
         controller,
@@ -321,11 +433,32 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
             isLessThanOne: remaingTokenLessThanOne,
             timeToReset: timeToReset,
         },
-        FileHistory,
-        setFileHistory,
         feedbackGiven,
         setFeedbackGiven,
         handleFeedback,
+        // Plan mode state
+        pendingQuestion,
+        setPendingQuestion,
+        pendingPlanApproval,
+        setPendingPlanApproval,
+        todos,
+        setTodos,
+        isPlanMode,
+        setIsPlanMode,
+        // Context usage tracking
+        lastTotalInputTokens,
+        setLastTotalInputTokens,
+        // Session management
+        currentSessionId,
+        currentSessionTitle,
+        sessions,
+        isSessionsLoading,
+        refreshSessions,
+        switchToSession,
+        createNewSession,
+        deleteSession,
+        agentMode,
+        setAgentMode,
     };
 
     return (

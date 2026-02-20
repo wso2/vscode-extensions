@@ -76,5 +76,5 @@ export const VALID_FILE_TYPES = {
         // PDF (binary but supported)
         "application/pdf"
     ],
-    images: ["image/jpeg", "image/png", "image/gif", "image/svg+xml"],
+    images: ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"],
 };

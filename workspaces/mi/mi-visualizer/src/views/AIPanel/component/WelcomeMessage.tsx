@@ -48,6 +48,7 @@ const ToggleIcon: React.FC = () => {
 };
 
 export const WelcomeMessage: React.FC = () => {
+    const SHOW_THINKING_HINT = false;
     return (
         <Welcome>
             <div style={WelcomeStyles.container}>
@@ -68,10 +69,12 @@ export const WelcomeMessage: React.FC = () => {
                     <Icon isCodicon={true} name="new-file" iconSx={{ cursor: "default" }} />
                     <span>to attach context</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...WelcomeStyles.attachContext }}>
-                    <ToggleIcon />
-                    <span>to toggle thinking mode</span>
-                </div>
+                {SHOW_THINKING_HINT && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...WelcomeStyles.attachContext }}>
+                        <ToggleIcon />
+                        <span>to toggle thinking mode</span>
+                    </div>
+                )}
             </div>
         </Welcome>
     );};

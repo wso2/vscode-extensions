@@ -87,7 +87,7 @@ import {
 import { readFileSync } from "fs";
 import { CancellationToken, FormattingOptions, Position, Uri, workspace } from "vscode";
 import { CompletionParams, LanguageClient, LanguageClientOptions, ServerOptions, TextEdit } from "vscode-languageclient/node";
-import { TextDocumentIdentifier } from "vscode-languageserver-protocol";
+import { TextDocumentIdentifier, CodeAction, CodeActionParams } from "vscode-languageserver-protocol";
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { RPCLayer } from "../RPCLayer";
@@ -482,5 +482,9 @@ export class ExtendedLanguageClient extends LanguageClient {
     
     async getMcpTools(req: McpToolsRequest): Promise<McpToolsResponse> {
         return this.sendRequest("synapse/getMCPTools", { connectionName: req.connectionName });
+    }
+
+    async getCodeActions(params: CodeActionParams): Promise<CodeAction[]> {
+        return this.sendRequest("textDocument/codeAction", params);
     }
 }
