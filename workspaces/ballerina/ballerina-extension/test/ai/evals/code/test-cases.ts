@@ -276,22 +276,22 @@ export const langlibTestCases = [
    projectPath: "bi_init"
  },
  {
-   // findAll(), substring(), push(), findGroups(), string.length(), push(), startswith(), fromJsonString(), cloneWithType(), arr.length() 
+   // findAll(), substring(), push(), findGroups(), string.length(), push(), startswith(), fromJsonString(), cloneWithType(), arr.length()
    prompt: "Build an integration that scans HTML email content for all URLs, finds the first clickable link, counts total links and XML attachments, parses XML metadata, checks if URLs start with https, deserializes embedded JSON data with type safety, and measures the size of extracted collections.",
    projectPath: "bi_init"
  },
  {
-   // toUpperAscii(), cloneReadOnly(), string.length() 
+   // toUpperAscii(), cloneReadOnly(), string.length()
    prompt: "Create a service that reads product names from inventory, alphabetically compares and arranges them using unicode ordering, removes the oldest and newest entries, converts remaining names to uppercase, creates immutable copies, measures text lengths, and exports as an array structure.",
    projectPath: "bi_init"
  },
  {
-   // trim(), replaceAll(), decimal:fromString(), float:fromString(), array:length(), .toString(), message(), push() 
+   // trim(), replaceAll(), decimal:fromString(), float:fromString(), array:length(), .toString(), message(), push()
    prompt: "Develop an API that reads scientific measurements from spreadsheets, converts text values to floating point numbers, applies exponential calculations for growth projections, parses currency amounts, validates data types match requirements, aggregates results, and returns JSON output after trimming whitespace.",
    projectPath: "bi_init"
  },
  {
-   // length(), push(), split(), trim(), toLowerAscii(), includes(), keys(), removeAll(), unshift(), cloneReadOnly(), join() 
+   // length(), push(), split(), trim(), toLowerAscii(), includes(), keys(), removeAll(), unshift(), cloneReadOnly(), join()
    prompt: "Write an integration that processes comma-separated log entries, splits them into fields, checks for error keywords, removes sensitive configuration keys conditionally, clears entire cache when needed, prepends priority entries to the front, creates read-only snapshots, combines messages, and finds specific entry positions.",
    projectPath: "bi_init"
  },
@@ -301,7 +301,7 @@ export const langlibTestCases = [
    projectPath: "bi_init"
  },
  {
-   // length(), toCodePointInt(), regexp:fromString(), isFullMatch(), matches(), matchAt(), substring(), push(), toLowerAscii(), trim(), getCodePoint(), fromCodePointInt() 
+   // length(), toCodePointInt(), regexp:fromString(), isFullMatch(), matches(), matchAt(), substring(), push(), toLowerAscii(), trim(), getCodePoint(), fromCodePointInt()
    prompt: "Build a validation service that examines text input character by character, extracts unicode code points at specific positions, converts characters to numeric codes, validates entire strings match patterns, checks pattern matches at exact locations, filters valid entries, interprets yes/no flags, and generates text reports.",
    projectPath: "bi_init"
  },
@@ -326,7 +326,7 @@ export const langlibTestCases = [
    projectPath: "bi_init"
  },
  {
-   // message(), findGroups(), findAllGroups(), toLowerAscii(), includes(), isFullMatch(), matchAt(), find(), substring(), find(), replace(), trim(), replaceAll(), push(), clone(), codePointCompare() 
+   // message(), findGroups(), findAllGroups(), toLowerAscii(), includes(), isFullMatch(), matchAt(), find(), substring(), find(), replace(), trim(), replaceAll(), push(), clone(), codePointCompare()
    prompt: "Develop a log analysis tool that extracts first matching pattern groups from log lines, captures all pattern groups across entries, checks if lines contain error keywords, identifies lines starting with timestamps, filters relevant entries, sorts messages using unicode comparison, and processes all metadata key-value pairs.",
    projectPath: "bi_init"
  },
@@ -339,12 +339,12 @@ export const langlibTestCases = [
 
  // Langlib test cases for existing code
  {
-   // toLowerAscii(), split(), push(), length(), substring() 
+   // toLowerAscii(), split(), push(), length(), substring()
    prompt: "Develop a resource function for processing customers that receives customer data via POST /customers/process endpoint. Parse the incoming JSON payload into typed customer records, export the processed customer data as formatted JSON output, and validate email domains are in lowercase format before storing the customer information.",
    projectPath: "langlib_with_existing_code"
  },
  {
-   // message(), cloneWithType(), toJson(), toString(), join() 
+   // message(), cloneWithType(), toJson(), toString(), join()
    prompt: "Develop a resource function for the POST /customers endpoint that receives customer data. Parse the incoming JSON payload, convert it to a customer record type, serialize the customer data back to JSON format, and ensure all values are converted to string representations for logging.",
    projectPath: "langlib_with_existing_code"
  },
@@ -369,6 +369,6 @@ export let testCases = [];
 testCases.push(...initialTestCases);
 testCases.push(...httpTestCases);
 testCases.push(...textEditSpecializedTestCases);
-testCases.push(...testCasesForExistingProject); 
+testCases.push(...testCasesForExistingProject);
 testCases.push(...testCasesForExistingSemanticErrors);
 testCases.push(...langlibTestCases);
