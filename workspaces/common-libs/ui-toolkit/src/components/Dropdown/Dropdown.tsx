@@ -106,7 +106,7 @@ export const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>((prop
             {isLoading ? (
                 <SmallProgressRing />
             ) : (
-                <DropDownContainer sx={dropdownContainerSx}>
+                <DropDownContainer sx={dropdownContainerSx} className="dropdown-container">
                     {label && (
                         <LabelContainer>
                             <Label>
