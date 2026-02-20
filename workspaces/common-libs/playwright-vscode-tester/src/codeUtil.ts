@@ -93,7 +93,6 @@ export class CodeUtil {
      */
     async downloadVSCode(version = 'latest'): Promise<void> {
         await this.checkCodeVersion(version);
-        this.ensureExecutablePaths();
 
         const literalVersion = version === 'latest' ? this.availableVersions[0] : version;
         if (this.releaseType == ReleaseQuality.Stable && literalVersion !== this.availableVersions[0]) {
@@ -322,7 +321,6 @@ export class CodeUtil {
      * Check what VS Code version is present in the testing folder
      */
     private getExistingCodeVersion(): Promise<string> {
-        this.ensureExecutablePaths();
         const command = [this.cliEnv, `"${this.executablePath}"`, `"${this.cliPath}"`, '--ms-enable-electron-run-as-node', '-v'].join(' ');
         return new Promise<string>((resolve, reject) => {
             child_process.exec(command, (err, stdout) => {
