@@ -104,7 +104,6 @@
             }
         },
         {
-            "label": "watch-wso2-platform",
             "type": "npm",
             "script": "watch-wso2-platform",
             "path": "workspaces/wso2-platform/wso2-platform-extension",
