@@ -179,111 +179,31 @@ ${getLanglibInstructions()}
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
 ## Understanding Existing Code
+- A Code Map (bal.md) may be included in the user message inside a <project_codemap> tag, before the user's query.
+- This Code Map is auto-generated from the project and sent alongside the user prompt when available.
 
-Note: You may receive a CodeMap(bal.md), which is a HIGH-LEVEL structural summary of the codebase.
+**If a Code Map is provided (<project_codemap> is present in the user message)**
+- ALWAYS read the Code Map first to understand the high-level structure of the codebase.
+- The Code Map is your **navigator** — it lists files, components, and their line ranges but does NOT include full implementation details.
+- ALWAYS Use ${FILE_READ_TOOL_NAME} to read the actual source code, DO NOT make any assumptions.
+- If you need to explore usages, dependencies, or logic patterns across the codebase, use ${GREP_TOOL_NAME} to search, then read the relevant files or components using ${FILE_READ_TOOL_NAME}.
 
-### CodeMap (Optional Context)
+**If a Code Map is not provided (no <project_codemap> in the user message)**
+- You have no prior knowledge of the codebase, so you must actively explore it.
+- Use ${GREP_TOOL_NAME} to search for relevant keywords, function names, or type names across the codebase.
+- Iteratively refine your searches — use findings from one grep to inform the next.
+- Use ${FILE_READ_TOOL_NAME} to read the relevant files or components and understand their implementation details.
+- Build up your understanding of the codebase incrementally before making any changes.
 
-- You may receive a CodeMap(bal.md) in <project_codemap> tags. A CodeMap is a high-level structural summary of the codebase.
-- **Check carefully**: Is a CodeMap provided in <project_codemap> tags in the conversation?
-- If the <project_codemap> tags are empty or absent, then **NO CodeMap was provided**. If they contain actual structural information about files, functions, and components, then **a CodeMap IS available**.
-
-**You must explicitly state at the beginning of your work whether or not you have access to a CodeMap**, as this will determine your exploration strategy.
-
-### Available Tools for Exploring the Codebase
-
-You have two tools available to explore the codebase:
-
-#### Tool 1: ${FILE_READ_TOOL_NAME}
-Reads the actual source code from files. Use it to see complete implementation details, function bodies, logic, error handling, and all code nuances.
-
-**Parameters:**
-- \`file_path\`: The path to the file you want to read (required)
-- \`offset\`: The line number where you want to start reading (optional)
-- \`limit\`: The number of lines to read from the offset (optional)
-
-**When to use offset and limit:**
-- If you have a CodeMap that shows a specific function is defined at line 45, you can read just that function using \`offset=45\` and an appropriate \`limit\`
-- If you need broader context or don't know exact locations, read the entire file by omitting these parameters
-
-#### Tool 2: ${GREP_TOOL_NAME}
-Searches for text patterns across the entire codebase. Use it to:
-- Find where functions or variables are used
-- Locate files that import specific modules
-- Discover all references to a component
-- Search for keywords related to your task
-- Identify patterns across multiple files
-
-**This tool is especially critical when you don't have a CodeMap**, as it helps you discover which files are relevant to your task.
-
-### Understanding the CodeMap (When Provided)
-
-If you have access to a CodeMap, understand what it provides and what it doesn't:
-
-**A CodeMap Contains:**
-- File paths and directory structure
-- Import statements and dependencies between files
-- Function and method signatures with line numbers
-- Type definitions, interfaces, and class declarations
-- Variable declarations
-- Brief descriptions of what each element does
-
-**A CodeMap Does NOT Contain:**
-- Actual implementation code or function bodies
-- Logic details or algorithms
-- Complete code context
-- Edge cases or error handling details
-- How things actually work
-
-**Think of the CodeMap as a table of contents**: It shows you what exists and where to find it, but not the actual content or how it works.
-
-### Exploration Strategy: Two Scenarios
-
-Your exploration strategy depends entirely on whether you have a CodeMap:
-
-#### Scenario A: CodeMap IS Provided
-1. **Use the CodeMap to orient yourself**: Examine the structure, identify relevant files and components, note line numbers
-2. **Make strategic reading decisions**: Decide whether to read entire files or use offset/limit to read specific components
-3. **Read actual source code**: Use ${FILE_READ_TOOL_NAME} to read implementations
-4. **Use ${GREP_TOOL_NAME} for additional discovery**: Search for usages, references, and patterns not visible in the CodeMap
-5. **Verify and expand**: Read additional files as needed to understand interactions
-
-#### Scenario B: NO CodeMap Provided
-1. **Start with grep**: Search for keywords, function names, or patterns related to your task to discover relevant files
-2. **Read discovered files**: Use ${FILE_READ_TOOL_NAME} to examine the files you found
-3. **Follow the trail**: Based on what you read, use grep again to find related files, usages, or references
-4. **Build understanding iteratively**: Continue the grep → read → grep cycle until you understand the relevant code
-5. **Verify completeness**: Ensure you haven't missed important files or connections
-
-### Exploration Workflow
-
-Follow this systematic approach:
-1. **Determine Available Resources**: Check whether a CodeMap was provided and state this explicitly
-2. **Analyze the Task**: Understand what you're being asked to do
-3. **Plan Your Exploration Strategy**: Based on whether you have a CodeMap, identify relevant files/functions and plan grep searches or targeted reads
-4. **Execute Exploration**:
-   - Use ${GREP_TOOL_NAME} to search for function names, class names, or keywords relevant to your task
-   - Use ${FILE_READ_TOOL_NAME} to read actual implementations — with CodeMap: use offset/limit for targeted reads; without CodeMap: read files discovered through grep
-   - Continue exploration as needed, following dependencies and connections
-5. **Synthesize Understanding**: List each relevant component and its specific role, understand how they interact, identify patterns
-6. **Provide Your Answer**: Only after thoroughly understanding the actual code
-
-**Critical Rules**:
-1. **ALWAYS explicitly state whether you have access to a CodeMap** at the start of your work
-2. **NEVER assume implementation details without reading the actual source code** — signatures and descriptions are not enough
-3. **If you have a CodeMap**, use it to guide exploration but remember it only shows structure, not implementation
-4. **If you do NOT have a CodeMap**, rely on grep to discover relevant files and read source code to build understanding
-5. **Always read actual source code** before making code modifications, explaining how something works, or drawing conclusions about behavior
-6. **When in doubt, explore more** — it's better to read extra files than to make incorrect assumptions
 
 # File modifications
 - You must apply changes to the existing source code using the provided ${[
-        FILE_BATCH_EDIT_TOOL_NAME,
-        FILE_SINGLE_EDIT_TOOL_NAME,
-        FILE_WRITE_TOOL_NAME,
-    ].join(
-        ", "
-    )} tools.
+            FILE_BATCH_EDIT_TOOL_NAME,
+            FILE_SINGLE_EDIT_TOOL_NAME,
+            FILE_WRITE_TOOL_NAME,
+        ].join(
+            ", "
+        )} tools.
 - When making replacements inside an existing file, provide the **exact old string** and the **exact new string** with all newlines, spaces, and indentation, being mindful to replace nearby occurrences together to minimize the number of tool calls.
 - Do NOT create a new markdown file to document each change or summarize your work unless specifically requested by the user.
 - Do not manually add/modify toml files (Ballerina.toml/Dependencies.toml). For Config.toml configuration management, use ${CONFIG_COLLECTOR_TOOL}.
@@ -303,20 +223,29 @@ ${getNPSuffix(projects, op)}
 export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath: string, projects: ProjectSource[], balMd?: string) {
     const content = [];
 
+    // Add CodeMap (bal.md) if available,
     if (balMd) {
         content.push({
             type: 'text' as const,
             text: `<project_codemap>
+This is the Code Map (bal.md) of the existing Ballerina project. It contains high-level overview of the codebase.
+
+## How the Code Map (bal.md) is organized
+- Organized by file path (e.g. service.bal, modules/database/types.bal)
+- For each file, lists the key artifacts: Imports, Configurables, Variables, Functions, Types, Classes, Services (entry points), and Enums
+- Each artifact includes sub-properties such as: type descriptor, fields, parameters, return types, description, and a Line Range
+- Line Range format: (startLine:startCol-endLine:endCol) — use startLine as the offset and (endLine - startLine) as the limit when reading a specific component via the read tool
 ${balMd}
-</project_codemap>
-This is a high-level summary of the project codebase. Use the ${FILE_READ_TOOL_NAME} tool to read actual source code when you need to understand or modify existing implementations.`
-        });
-    } else {
-        content.push({
-            type: 'text' as const,
-            text: formatCodebaseStructure(projects)
+</project_codemap>`
         });
     }
+
+    // else {
+    //     content.push({
+    //         type: 'text' as const,
+    //         text: formatCodebaseStructure(projects)
+    //     });
+    // }
 
     // Add code context if available
     if (params.codeContext) {
@@ -356,7 +285,7 @@ ${params.usecase}
 }
 
 
-function getGenerationType(isPlanMode:boolean):string {
+function getGenerationType(isPlanMode: boolean): string {
     if (isPlanMode) {
         return `<system-reminder> Plan Mode is enabled. Make sure to use task management using ${TASK_WRITE_TOOL_NAME} </system-reminder>`;
     }
@@ -364,7 +293,7 @@ function getGenerationType(isPlanMode:boolean):string {
 }
 
 function getNPSuffix(projects: ProjectSource[], op?: OperationType): string {
-    let basePrompt:string = "Note: You are in a special Natural Programming mode. Follow the NP guidelines strictly in addition to what you've given. \n";
+    let basePrompt: string = "Note: You are in a special Natural Programming mode. Follow the NP guidelines strictly in addition to what you've given. \n";
     if (!op) {
         return "";
     } else if (op === "CODE_FOR_USER_REQUIREMENT") {

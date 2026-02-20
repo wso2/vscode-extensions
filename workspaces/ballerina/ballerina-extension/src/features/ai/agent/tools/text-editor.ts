@@ -889,13 +889,17 @@ export function createBatchEditTool(execute: MultiEditExecute) {
 export function createReadTool(execute: ReadExecute) {
   return tool({
     description: `Reads a file from the local filesystem.
-    ALWAYS prefer reading files mentioned in the ser’s message in the chat history first. Only use this tool if you need to read a file that is not present in the chat history.
+    ALWAYS prefer reading files mentioned in the user’s message in the chat history first. Only use this tool if you need to read a file that is not present in the chat history.
     Usage:
     - The file_path parameter must be an filename only, do not include any directories unless the user specifically requests it.
     - You can optionally specify a line offset and limit (especially handy for long files).
     - Any lines longer than 2000 characters will be truncated
     - The file content will be returned as string
-    - If the file is very large, consider using the offset and limit parameters to read it in chunks.`,
+    - By default, it reads up to lines starting from the beginning of the file
+    - You can optionally specify a line offset and limit (especially handy for long files)
+    - For read a specific **component** of a file, If you know the line range ALWAYS prefer read that specific line range rather than the entire file.
+    - If the file is very large, consider using the offset and limit parameters to read it in chunks.
+    - If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents.`,
     inputSchema: z.object({
       file_path: z.string().describe(getFilePathDescription("read")),
       offset: z.number().optional().describe("The line number to start reading from. Only provide if the file is too large to read at once"),
