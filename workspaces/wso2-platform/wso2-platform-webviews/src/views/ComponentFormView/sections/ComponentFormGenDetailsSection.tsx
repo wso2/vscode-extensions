@@ -19,7 +19,7 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { GitProvider, type MultiComponentSectionProps, parseGitURL, toSentenceCase } from "@wso2/wso2-platform-core";
-import React, { type FC, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import React, { type FC, type ReactNode, useCallback, useEffect, useMemo } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
 import type { z } from "zod/v3";
 import { Banner } from "../../../components/Banner";
@@ -66,9 +66,6 @@ const useComponentGitValidation = ({
 	credential,
 	form,
 }: UseComponentGitValidationParams) => {
-	const [componentGitErrorCount, setComponentGitErrorCount] = useState<number | null>(null);
-	const [componentGitInvalidTargets, setComponentGitInvalidTargets] = useState<string[]>([]);
-
 	const branch = form.watch("branch");
 	const repoUrlValue = form.watch("repoUrl");
 
@@ -97,15 +94,11 @@ const useComponentGitValidation = ({
 	);
 
 	const shouldRunValidation =
-		extensionName === "Devant" && !!branch && !!repoUrlValue && !!organization?.id && targets.length > 0;
-
-	// Clear error count when validation is not applicable (e.g., no targets selected)
-	useEffect(() => {
-		if (!shouldRunValidation) {
-			setComponentGitErrorCount(null);
-			setComponentGitInvalidTargets([]);
-		}
-	}, [shouldRunValidation, targetsSignature]);
+		(extensionName === "Devant" || isMultiComponentMode) &&
+		!!branch &&
+		!!repoUrlValue &&
+		!!organization?.id &&
+		targets.length > 0;
 
 	const validationQuery = useQuery({
 		queryKey: [
@@ -120,9 +113,9 @@ const useComponentGitValidation = ({
 				targetsSignature,
 			},
 		],
-		enabled: false, // we control when to run to avoid unnecessary calls
+		enabled: shouldRunValidation,
 		staleTime: 60 * 1000, // cache for 60s
-		refetchOnWindowFocus: false,
+		refetchOnWindowFocus: true,
 		queryFn: async () => {
 			if (!shouldRunValidation || !gitData?.gitRoot) {
 				return { invalidCount: 0, invalidTargets: [] as string[] };
@@ -221,29 +214,29 @@ const useComponentGitValidation = ({
 	const validateComponentsPushed = useCallback(
 		async (options?: { force?: boolean }): Promise<boolean> => {
 			if (!shouldRunValidation) {
-				setComponentGitErrorCount(null);
-				setComponentGitInvalidTargets([]);
 				return true;
 			}
 
 			// If we have fresh cached data and not forcing, reuse it
 			if (!options?.force && validationQuery.data && !validationQuery.isStale) {
 				const invalidCount = validationQuery.data.invalidCount ?? 0;
-				const invalidTargets = validationQuery.data.invalidTargets ?? [];
-				setComponentGitErrorCount(invalidCount || null);
-				setComponentGitInvalidTargets(invalidTargets);
 				return invalidCount === 0;
 			}
 
 			const result = await validationQuery.refetch();
 			const invalidCount = result.data?.invalidCount ?? 0;
-			const invalidTargets = result.data?.invalidTargets ?? [];
-			setComponentGitErrorCount(invalidCount || null);
-			setComponentGitInvalidTargets(invalidTargets);
 			return invalidCount === 0;
 		},
-		[shouldRunValidation, validationQuery, setComponentGitErrorCount],
+		[shouldRunValidation, validationQuery],
 	);
+
+	// Derive from query so UI updates when validation runs (incl. refetchOnWindowFocus)
+	const componentGitErrorCount =
+		shouldRunValidation && validationQuery.data
+			? (validationQuery.data.invalidCount || null)
+			: null;
+	const componentGitInvalidTargets =
+		shouldRunValidation && validationQuery.data ? (validationQuery.data.invalidTargets ?? []) : [];
 
 	return {
 		componentGitErrorCount,
@@ -399,35 +392,6 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 		credential,
 		form,
 	});
-
-	// Auto-validate when selection / core git settings change (with caching in the hook)
-	useEffect(() => {
-		if (extensionName !== "Devant") {
-			return;
-		}
-
-		const branch = form.getValues("branch");
-		if (!repoUrl || !branch || !organization?.id) {
-			return;
-		}
-
-		if (isMultiComponentMode) {
-			const anySelected = selectedComponents?.some((c) => c.selected);
-			if (!anySelected) {
-				return;
-			}
-		}
-
-		const timeoutId = setTimeout(() => {
-			void validateComponentsPushed();
-		}, 400);
-
-		return () => {
-			clearTimeout(timeoutId);
-		};
-		// We intentionally depend on the raw objects; the hook will still use its cache to avoid repeated network calls.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isMultiComponentMode, extensionName, repoUrl, organization?.id, selectedComponents]);
 
 	const onSubmitForm: SubmitHandler<ComponentFormGenDetailsType> = async () => {
 		if (isMultiComponentMode || extensionName === "Devant") {
