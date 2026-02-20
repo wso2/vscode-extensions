@@ -327,10 +327,24 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 		e.preventDefault();
 		e.stopPropagation();
 		if (setContextMenu) {
-			const pos = computeMenuPosition(e.clientX, e.clientY, 200, 120);
+			const pos = computeMenuPosition(e.clientX, e.clientY, 220, 140);
 			setContextMenu({ x: pos.x, y: pos.y, collectionId: item.id });
 		}
 	}, [item.id, setContextMenu]);
+
+	const handleRenameFolder = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'renameFolder',
+				folderId: item.id,
+				folderPath: item.filePath,
+				currentName: item.name
+			});
+		}
+		if (setContextMenu) {
+			setContextMenu(null);
+		}
+	}, [vscode, item.id, item.filePath, item.name, setContextMenu]);
 
 	return (
 		<div>
@@ -361,6 +375,10 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 					<ContextMenuItem onClick={handleAddRequest}>
 						<Codicon name="file-add" sx={{ marginRight: 8 }} />
 						Add Request
+					</ContextMenuItem>
+					<ContextMenuItem onClick={handleRenameFolder}>
+						<Codicon name="edit" sx={{ marginRight: 8 }} />
+						Rename Folder
 					</ContextMenuItem>
 				</ContextMenu>
 			)}
@@ -807,4 +825,3 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 		</Container>
 	);
 };
-

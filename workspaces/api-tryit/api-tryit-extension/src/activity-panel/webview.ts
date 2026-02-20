@@ -139,7 +139,11 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				case 'renameRequest':
 					// Handle renaming a request
 					this._handleRenameRequest(message.requestId as string, message.currentName as string);
-					break;			
+					break;
+				case 'renameFolder':
+					// Handle renaming a folder
+					this._handleRenameFolder(message.folderId as string, message.folderPath as string, message.currentName as string);
+					break;
 			}
 		});
 
@@ -743,6 +747,70 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			this._sendCollections(true);
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to rename collection: ${error}`);
+		}
+	}
+
+	private async _handleRenameFolder(folderId: string, folderPath: string, currentName: string) {
+		try {
+			if (!folderPath) {
+				vscode.window.showErrorMessage('Unable to determine folder path');
+				return;
+			}
+
+			const newName = await vscode.window.showInputBox({
+				prompt: 'Enter new folder name',
+				value: currentName,
+				validateInput: (value: string) => {
+					if (!value.trim()) {
+						return 'Folder name cannot be empty';
+					}
+					return undefined;
+				}
+			});
+
+			if (!newName || newName === currentName) {
+				return;
+			}
+
+			const fs = await import('fs/promises');
+			const path = await import('path');
+
+			const sanitized = sanitizeForFileSystem(newName);
+			if (!sanitized) {
+				vscode.window.showErrorMessage('Invalid folder name');
+				return;
+			}
+
+			const parentDir = path.dirname(folderPath);
+			const currentFolderName = path.basename(folderPath);
+			const newPath = path.join(parentDir, sanitized);
+
+			if (currentFolderName === sanitized) {
+				return;
+			}
+
+			try {
+				await fs.stat(newPath);
+				vscode.window.showErrorMessage(`Folder "${newName}" already exists`);
+				return;
+			} catch {
+				// Expected: destination does not exist
+			}
+
+			try {
+				await fs.rename(folderPath, newPath);
+				vscode.window.showInformationMessage(`Folder renamed to "${newName}" successfully`);
+			} catch (error) {
+				vscode.window.showErrorMessage(`Failed to rename folder: ${error}`);
+				return;
+			}
+
+			if (this._apiExplorerProvider) {
+				await this._apiExplorerProvider.reloadCollections();
+			}
+			this._sendCollections(true);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to rename folder: ${error}`);
 		}
 	}
 
