@@ -32,6 +32,7 @@ export type AnthropicModel =
 
 let cachedAnthropic: ReturnType<typeof createAnthropic> | null = null;
 let cachedAuthMethod: LoginMethod | null = null;
+let reLoginPromptInFlight = false;
 
 /**
  * Get the backend URL for MI Copilot
@@ -39,9 +40,28 @@ let cachedAuthMethod: LoginMethod | null = null;
 const getAnthropicProxyUrl = (): string => {
     const proxyUrl = getCopilotLlmApiBaseUrl();
     if (!proxyUrl) {
-        throw new Error('Copilot LLM API URL is not set. Configure COPILOT_ROOT_URL so getCopilotLlmApiBaseUrl() resolves correctly.');
+        throw new Error('Copilot LLM API URL is not set. Configure COPILOT_ROOT_URL (or COPILOT_DEV_ROOT_URL when CLOUD_ENV=dev) so getCopilotLlmApiBaseUrl() resolves correctly.');
     }
     return proxyUrl;
+};
+
+const promptReLogin = () => {
+    if (reLoginPromptInFlight) {
+        return;
+    }
+
+    reLoginPromptInFlight = true;
+    void vscode.window.showWarningMessage(
+        'Your MI Copilot session is no longer valid for the current environment. Please sign in again.',
+        'Sign In'
+    ).then((selection) => {
+        if (selection === 'Sign In') {
+            openAIWebview();
+            StateMachineAI.sendEvent(AI_EVENT_TYPE.LOGIN);
+        }
+    }, () => undefined).then(() => {
+        reLoginPromptInFlight = false;
+    });
 };
 
 /**
@@ -141,10 +161,11 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
             throw error;
         }
 
-        // Handle token expiration
-        if (response.status === 401) {
+        // Handle authentication failures.
+        // 403 can happen when env switches (token issued for a different backend environment).
+        if (response.status === 401 || response.status === 403) {
             if (loginMethod === LoginMethod.MI_INTEL) {
-                logInfo("Token expired. Refreshing token via STS exchange...");
+                logInfo(`Auth failure (${response.status}). Refreshing token via STS exchange...`);
                 try {
                     const newToken = await getRefreshedAccessToken();
                     options.headers = {
@@ -153,12 +174,14 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
                     };
                     response = await fetch(input, options);
 
-                    if (response.status === 401) {
+                    if (response.status === 401 || response.status === 403) {
                         StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
-                        throw new Error("Authentication failed after token refresh");
+                        promptReLogin();
+                        throw new Error(`Authentication failed after token refresh (${response.status})`);
                     }
                 } catch (refreshError) {
                     StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
+                    promptReLogin();
                     throw new Error(`Authentication failed: ${refreshError instanceof Error ? refreshError.message : 'Unable to refresh token'}`);
                 }
             } else if (loginMethod === LoginMethod.ANTHROPIC_KEY) {

@@ -61,7 +61,12 @@ const normalizeUrl = (url: string): string => url.replace(/\/+$/, '');
  * Resolve the base Copilot root URL.
  */
 export const getCopilotRootUrl = (): string | undefined => {
-    const rootUrl = process.env.COPILOT_ROOT_URL?.trim();
+    const isDevantDev = process.env.CLOUD_ENV === 'dev';
+    const rootUrl = (
+        isDevantDev
+            ? process.env.COPILOT_DEV_ROOT_URL?.trim() || process.env.COPILOT_ROOT_URL?.trim()
+            : process.env.COPILOT_ROOT_URL?.trim()
+    );
     if (!rootUrl) {
         return undefined;
     }
@@ -165,7 +170,7 @@ export const isDevantUserLoggedIn = async (): Promise<boolean> => {
 export const exchangeStsToCopilotToken = async (stsToken: string): Promise<MIIntelTokenSecrets> => {
     const tokenExchangeUrl = getCopilotTokenExchangeUrl();
     if (!tokenExchangeUrl) {
-        throw new Error('Token exchange URL is not set. Configure COPILOT_ROOT_URL or DEVANT_TOKEN_EXCHANGE_URL.');
+        throw new Error('Token exchange URL is not set. Configure COPILOT_ROOT_URL (or COPILOT_DEV_ROOT_URL when CLOUD_ENV=dev) or DEVANT_TOKEN_EXCHANGE_URL.');
     }
 
     try {

@@ -23,9 +23,7 @@ import { AIMachineStateValue, AIMachineContext, AI_EVENT_TYPE, AIMachineSendable
 import { AiPanelWebview } from './webview';
 import { extension } from '../MIExtensionContext';
 import {
-    getAccessToken,
-    getLoginMethod,
-    checkToken,
+    getAuthCredentials,
     initiateInbuiltAuth,
     logout,
     validateApiKey,
@@ -398,12 +396,27 @@ const checkWorkspaceAndToken = async (): Promise<{ workspaceSupported: boolean; 
         return { workspaceSupported: false };
     }
 
-    // Then check token
-    const tokenData = await checkToken();
+    // Startup must stay local-only: do not trigger platform/proxy calls before AI panel is used.
+    const credentials = await getAuthCredentials();
+    let tokenData: { token: string; loginMethod: LoginMethod } | undefined;
+    if (credentials?.loginMethod === LoginMethod.MI_INTEL) {
+        const accessToken = (credentials.secrets as { accessToken?: string })?.accessToken;
+        if (accessToken) {
+            tokenData = { token: accessToken, loginMethod: LoginMethod.MI_INTEL };
+        }
+    } else if (credentials?.loginMethod === LoginMethod.ANTHROPIC_KEY) {
+        const apiKey = (credentials.secrets as { apiKey?: string })?.apiKey;
+        if (apiKey) {
+            tokenData = { token: apiKey, loginMethod: LoginMethod.ANTHROPIC_KEY };
+        }
+    }
+
     return { workspaceSupported: true, tokenData };
 };
 
 const openLogin = async () => {
+    await setupPlatformExtensionListener();
+
     // If platform extension already has an authenticated session, complete auth immediately.
     const isLoggedIn = await isDevantUserLoggedIn();
     if (isLoggedIn) {
@@ -438,13 +451,28 @@ const validateApiKeyService = async (_context: AIMachineContext, event: any) => 
 };
 
 const getTokenAndLoginMethod = async () => {
-    const result = await getAccessToken();
-    const loginMethod = await getLoginMethod();
-    if (!result || !loginMethod) {
+    const credentials = await getAuthCredentials();
+    if (!credentials) {
         throw new Error('No authentication credentials found');
     }
 
-    return { token: result, loginMethod: loginMethod };
+    if (credentials.loginMethod === LoginMethod.MI_INTEL) {
+        const accessToken = (credentials.secrets as { accessToken?: string })?.accessToken;
+        if (!accessToken) {
+            throw new Error('No authentication credentials found');
+        }
+        return { token: accessToken, loginMethod: LoginMethod.MI_INTEL };
+    }
+
+    if (credentials.loginMethod === LoginMethod.ANTHROPIC_KEY) {
+        const apiKey = (credentials.secrets as { apiKey?: string })?.apiKey;
+        if (!apiKey) {
+            throw new Error('No authentication credentials found');
+        }
+        return { token: apiKey, loginMethod: LoginMethod.ANTHROPIC_KEY };
+    }
+
+    throw new Error('No authentication credentials found');
 };
 
 const aiStateService = interpret(aiMachine.withConfig({
@@ -524,7 +552,6 @@ const setupPlatformExtensionListener = async () => {
 
 export const StateMachineAI = {
     initialize: () => {
-        void setupPlatformExtensionListener();
         return aiStateService.start();
     },
     service: () => { return aiStateService; },
