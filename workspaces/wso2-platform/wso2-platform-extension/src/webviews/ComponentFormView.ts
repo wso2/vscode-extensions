@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import type { NewComponentWebviewProps, Organization, Project } from "@wso2/wso2-platform-core";
+import type { ComponentConfig, ComponentFormWebviewProps } from "@wso2/wso2-platform-core";
 import * as vscode from "vscode";
 import { ext } from "../extensionVariables";
 import { dataCacheStore } from "../stores/data-cache-store";
@@ -24,7 +24,10 @@ import { webviewStateStore } from "../stores/webview-state-store";
 import { WebViewPanelRpc } from "./WebviewRPC";
 import { getUri } from "./utils";
 
-export type IComponentCreateFormParams = Omit<NewComponentWebviewProps, "type" | "existingComponents">;
+export type IComponentCreateFormParams = Omit<ComponentFormWebviewProps, "type" | "existingComponents">;
+
+/** Single component creation params - kept for backward compatibility */
+export type ISingleComponentCreateFormParams = Omit<IComponentCreateFormParams, "components"> & ComponentConfig;
 
 export class ComponentFormView {
 	public static currentPanel: ComponentFormView | undefined;
@@ -32,11 +35,47 @@ export class ComponentFormView {
 	private _disposables: vscode.Disposable[] = [];
 	private _rpcHandler: WebViewPanelRpc;
 
-	constructor(extensionUri: vscode.Uri, params: IComponentCreateFormParams) {
+	constructor(
+		extensionUri: vscode.Uri,
+		params: IComponentCreateFormParams | ISingleComponentCreateFormParams,
+		rootDirectory: string
+	) {
 		this._panel = ComponentFormView.createWebview();
 		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
-		this._panel.webview.html = this._getWebviewContent(this._panel.webview, extensionUri, params);
+		// Convert legacy single component params to new format if needed
+		const normalizedParams = this.normalizeParams(params);
+		this._panel.webview.html = this._getWebviewContent(this._panel.webview, extensionUri, normalizedParams, rootDirectory);
 		this._rpcHandler = new WebViewPanelRpc(this._panel);
+	}
+
+	/**
+	 * Normalizes params to ensure they use the new components array format.
+	 * Supports backward compatibility with single component params.
+	 */
+	private normalizeParams(params: IComponentCreateFormParams | ISingleComponentCreateFormParams): IComponentCreateFormParams {
+		// Check if params already has components array (new format)
+		if ("components" in params && Array.isArray(params.components)) {
+			return params as IComponentCreateFormParams;
+		}
+
+		// Convert legacy single component format to new format
+		const legacyParams = params as ISingleComponentCreateFormParams;
+		return {
+			organization: legacyParams.organization,
+			project: legacyParams.project,
+			extensionName: legacyParams.extensionName,
+			components: [
+				{
+					directoryUriPath: legacyParams.directoryUriPath,
+					directoryFsPath: legacyParams.directoryFsPath,
+					directoryName: legacyParams.directoryName,
+					initialValues: legacyParams.initialValues,
+					isNewCodeServerComp: legacyParams.isNewCodeServerComp,
+					supportedIntegrationTypes: legacyParams.supportedIntegrationTypes,
+				},
+			],
+			rootDirectory: legacyParams.rootDirectory,
+		};
 	}
 
 	private static createWebview(): vscode.WebviewPanel {
@@ -63,11 +102,26 @@ export class ComponentFormView {
 		return this._panel;
 	}
 
-	private _getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, params: IComponentCreateFormParams) {
+	private _getWebviewContent(
+		webview: vscode.Webview,
+		extensionUri: vscode.Uri,
+		params: IComponentCreateFormParams,
+		rootDirectory: string
+	) {
 		// The JS file from the React build output
 		const scriptUri = getUri(webview, extensionUri, ["resources", "jslibs", "main.js"]);
 
 		const codiconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "resources", "codicons", "codicon.css"));
+
+		const webviewProps: ComponentFormWebviewProps = {
+			type: "NewComponentForm",
+			existingComponents: dataCacheStore.getState().getComponents(params.organization.handle, params.project.handler),
+			organization: params.organization,
+			project: params.project,
+			extensionName: params.extensionName,
+			components: params.components,
+			rootDirectory: rootDirectory,
+		};
 
 		return /*html*/ `
           <!DOCTYPE html>
@@ -88,11 +142,7 @@ export class ComponentFormView {
               function render() {
                 choreoWebviews.renderChoreoWebViews(
                   document.getElementById("root"),
-                  	${JSON.stringify({
-											type: "NewComponentForm",
-											existingComponents: dataCacheStore.getState().getComponents(params.organization.handle, params.project.handler),
-											...params,
-										} as NewComponentWebviewProps)}
+                  	${JSON.stringify(webviewProps)}
                 );
               }
               render();

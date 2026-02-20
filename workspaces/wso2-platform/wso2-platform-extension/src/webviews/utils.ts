@@ -26,5 +26,7 @@ export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) 
 }
 
 function shouldUseWebViewDevMode(pathList: string[]): boolean {
-	return pathList[pathList.length - 1] === "main.js" && process.env.PLATFORM_WEB_VIEW_DEV_MODE === "true" && process.env.PLATFORM_WEB_VIEW_DEV_HOST !== undefined;
+	return pathList[pathList.length - 1] === "main.js" &&
+		process.env.PLATFORM_WEB_VIEW_DEV_MODE === "true" &&
+		process.env.PLATFORM_WEB_VIEW_DEV_HOST !== undefined;
 }
