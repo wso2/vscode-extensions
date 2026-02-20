@@ -54,6 +54,8 @@ export type {
 // ============================================================================
 
 let serverProcess: childProcess.ChildProcess | null = null;
+const SERVER_START_TOOL_TIMEOUT_MS = 10000; // hard timeout for the entire run action
+const SERVER_START_STEP_TIMEOUT_MS = 5000;
 
 // ============================================================================
 // Server Output Buffer (captures server logs during runtime)
@@ -76,6 +78,39 @@ function clearServerOutputBuffer() {
 
 function getServerOutputBuffer(): string {
     return serverOutputBuffer;
+}
+
+function createServerStartTimeoutError(message: string): Error {
+    const error = new Error(message);
+    (error as Error & { code?: string }).code = 'SERVER_START_TOOL_TIMEOUT';
+    return error;
+}
+
+function isServerStartTimeoutError(error: unknown): boolean {
+    return error instanceof Error && (error as Error & { code?: string }).code === 'SERVER_START_TOOL_TIMEOUT';
+}
+
+async function withServerStartTimeout<T>(operation: Promise<T>, timeoutMs: number, context: string): Promise<T> {
+    if (timeoutMs <= 0) {
+        throw createServerStartTimeoutError(context);
+    }
+
+    return new Promise<T>((resolve, reject) => {
+        const timeoutHandle = setTimeout(() => {
+            reject(createServerStartTimeoutError(context));
+        }, timeoutMs);
+
+        operation.then(
+            (value) => {
+                clearTimeout(timeoutHandle);
+                resolve(value);
+            },
+            (error) => {
+                clearTimeout(timeoutHandle);
+                reject(error);
+            }
+        );
+    });
 }
 
 /**
@@ -345,226 +380,282 @@ export function createServerManagementExecute(projectPath: string, sessionDir: s
                 }
 
                 case 'run': {
-                    // Check if already running
-                    const currentStatus = await checkServerStatus(projectPath);
-                    if (currentStatus.running) {
-                        return {
-                            success: true,
-                            message: `Server is already running. ${currentStatus.message}`
-                        };
-                    }
+                    const runActionStartTime = Date.now();
+                    const runActionDeadline = runActionStartTime + SERVER_START_TOOL_TIMEOUT_MS;
+                    const runActionTimeoutSeconds = Math.floor(SERVER_START_TOOL_TIMEOUT_MS / 1000);
+                    const getRemainingRunActionTime = () => runActionDeadline - Date.now();
+                    const getRunActionTimeoutMessage = (context: string) =>
+                        `Server start tool timed out after ${runActionTimeoutSeconds} seconds while ${context}.`;
 
-                    // Show output channel
-                    showServerOutputChannel();
-                    serverLog('\n========================================\n');
-                    serverLog('  Preparing to Start MI Server...\n');
-                    serverLog('========================================\n\n');
-
-                    // Shutdown tryout server if running (same as IDE's run button)
                     try {
-                        serverLog('> Shutting down tryout server if running...\n');
-                        const langClient = await MILanguageClient.getInstance(projectPath);
-                        const isTerminated = await langClient.shutdownTryoutServer();
-                        if (!isTerminated) {
-                            logInfo('[ServerManagementTool] Tryout server was not running or already terminated');
-                            serverLog('  Tryout server was not running\n');
-                        } else {
-                            logInfo('[ServerManagementTool] Tryout server shutdown successfully');
-                            serverLog('  Tryout server shutdown successfully\n');
-                        }
-                    } catch (error) {
-                        // Non-fatal: tryout server might not be running
-                        logDebug(`[ServerManagementTool] Could not shutdown tryout server: ${error}`);
-                    }
-
-                    // Sync deployment.toml from project to server (use project configurations)
-                    const projectDeploymentToml = path.join(projectPath, 'deployment', 'deployment.toml');
-                    const serverDeploymentToml = path.join(serverPath, 'conf', 'deployment.toml');
-                    if (fs.existsSync(projectDeploymentToml) && fs.existsSync(serverDeploymentToml)) {
-                        try {
-                            serverLog('\n> Syncing deployment.toml from project to server...\n');
-                            // Backup server config before overwriting
-                            const backupPath = path.join(serverPath, 'conf', 'deployment-backup.toml');
-                            fs.copyFileSync(serverDeploymentToml, backupPath);
-                            // Copy project config to server
-                            fs.copyFileSync(projectDeploymentToml, serverDeploymentToml);
-                            logInfo('[ServerManagementTool] Synced deployment.toml from project to server');
-                            serverLog('  Backed up server config to deployment-backup.toml\n');
-                            serverLog('  Copied project deployment.toml to server\n');
-                            // Update port offset config
-                            DebuggerConfig.setConfigPortOffset(projectPath);
-                        } catch (error) {
-                            logDebug(`[ServerManagementTool] Could not sync deployment.toml: ${error}`);
-                        }
-                    }
-
-                    // Copy deployment/libs/*.jar to server/lib (same as IDE's executeBuildTask)
-                    const projectLibsDir = path.join(projectPath, 'deployment', 'libs');
-                    const serverLibDir = path.join(serverPath, 'lib');
-                    if (fs.existsSync(projectLibsDir) && fs.existsSync(serverLibDir)) {
-                        try {
-                            const files = fs.readdirSync(projectLibsDir);
-                            const jarFiles = files.filter(f => f.endsWith('.jar'));
-                            if (jarFiles.length > 0) {
-                                serverLog('\n> Copying library JARs to server...\n');
-                            }
-                            for (const jarFile of jarFiles) {
-                                const src = path.join(projectLibsDir, jarFile);
-                                const dest = path.join(serverLibDir, jarFile);
-                                fs.copyFileSync(src, dest);
-                                DebuggerConfig.setCopiedLibs(dest);
-                                logDebug(`[ServerManagementTool] Copied lib: ${jarFile}`);
-                                serverLog(`  Copied: ${jarFile}\n`);
-                            }
-                            if (jarFiles.length > 0) {
-                                logInfo(`[ServerManagementTool] Copied ${jarFiles.length} library JAR(s) to server`);
-                            }
-                        } catch (error) {
-                            logDebug(`[ServerManagementTool] Could not copy libs: ${error}`);
-                        }
-                    }
-
-                    // Load .env if exists
-                    const envFilePath = path.resolve(projectPath, '.env');
-                    if (fs.existsSync(envFilePath)) {
-                        loadEnvVariables(envFilePath);
-                    }
-
-                    // Get run command (non-debug mode)
-                    const runCommand = await getRunCommand(serverPath, false);
-                    if (!runCommand) {
-                        return {
-                            success: false,
-                            message: 'Failed to get run command',
-                            error: 'Could not determine the MI runtime startup command'
-                        };
-                    }
-
-                    // Set up environment
-                    const definedEnvVariables = DebuggerConfig.getEnvVariables();
-                    const vmArgs = DebuggerConfig.getVmArgs();
-                    const envVariables = {
-                        ...process.env,
-                        ...setJavaHomeInEnvironmentAndPath(projectPath),
-                        ...definedEnvVariables
-                    };
-
-                    // Log server start command
-                    serverLog('\n========================================\n');
-                    serverLog('  Starting MI Server...\n');
-                    serverLog('========================================\n\n');
-                    serverLog(`> ${runCommand}\n\n`);
-
-                    // Start server
-                    logDebug(`[ServerManagementTool] Spawning server with command: ${runCommand}`);
-                    logDebug(`[ServerManagementTool] VM Args: ${JSON.stringify(vmArgs)}`);
-
-                    serverProcess = childProcess.spawn(runCommand, vmArgs, {
-                        shell: true,
-                        env: envVariables,
-                        detached: false
-                    });
-
-                    if (!serverProcess) {
-                        return {
-                            success: false,
-                            message: 'Failed to start server',
-                            error: 'Server process could not be spawned'
-                        };
-                    }
-
-                    // Clear output buffer and start capturing
-                    clearServerOutputBuffer();
-                    logDebug(`[ServerManagementTool] Server process spawned with PID: ${serverProcess.pid}`);
-
-                    // Track process state
-                    let processExited = false;
-                    let processExitCode: number | null = null;
-
-                    serverProcess.stdout?.on('data', (data) => {
-                        const text = data.toString();
-                        serverLog(text);
-                        appendToServerOutputBuffer(text);
-                    });
-
-                    serverProcess.stderr?.on('data', (data) => {
-                        const text = data.toString();
-                        serverLog(text);
-                        appendToServerOutputBuffer(text);
-                    });
-
-                    serverProcess.on('error', (error) => {
-                        logError(`[ServerManagementTool] Server process error: ${error.message}`);
-                        serverLog(`\nERROR: ${error.message}\n`);
-                        appendToServerOutputBuffer(`\nERROR: ${error.message}\n`);
-                        processExited = true;
-                    });
-
-                    serverProcess.on('exit', (code, signal) => {
-                        logInfo(`[ServerManagementTool] Server process exited with code ${code}, signal ${signal}`);
-                        processExitCode = code;
-                        processExited = true;
-                        if (code !== 0 && code !== null) {
-                            serverLog(`\nServer process exited with code ${code}\n`);
-                        }
-                        serverProcess = null;
-                    });
-
-                    // Wait for server to become ready, fail, or timeout
-                    const readinessConfig = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectPath));
-                    const configuredTimeout = readinessConfig.get("serverTimeoutInSecs");
-                    const maxTimeout = (Number.isFinite(Number(configuredTimeout)) && Number(configuredTimeout) > 0)
-                        ? Number(configuredTimeout) * 1000 : 120000;
-                    const pollInterval = 3000;
-                    const startTime = Date.now();
-
-                    // Initial wait for process to begin starting
-                    await new Promise(resolve => setTimeout(resolve, 3000));
-
-                    while (Date.now() - startTime < maxTimeout) {
-                        // Check if process died
-                        if (processExited) {
-                            const runOutputFile = writeOutputToFile(sessionDir, 'run.txt', getServerOutputBuffer());
-                            logError(`[ServerManagementTool] Server process exited during startup with code ${processExitCode}`);
-                            serverLog('\n========================================\n');
-                            serverLog('  SERVER FAILED TO START\n');
-                            serverLog('========================================\n');
-                            return {
-                                success: false,
-                                message: `Server process exited with code ${processExitCode} during startup.\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the startup errors.`,
-                                error: `Server process exited with code ${processExitCode}`
-                            };
-                        }
-
-                        // Check health endpoint
-                        const healthStatus = await checkServerStatus(projectPath);
-                        if (healthStatus.ready) {
-                            const port = DebuggerConfig.getServerPort();
-                            const runOutputFile = writeOutputToFile(sessionDir, 'run.txt', getServerOutputBuffer());
-                            logInfo(`[ServerManagementTool] Server is running and ready on port ${port}`);
-                            serverLog('\n========================================\n');
-                            serverLog('  SERVER IS READY\n');
-                            serverLog('========================================\n');
+                        // Check if already running
+                        const currentStatus = await withServerStartTimeout(
+                            checkServerStatus(projectPath),
+                            Math.min(SERVER_START_STEP_TIMEOUT_MS, Math.max(1, getRemainingRunActionTime())),
+                            getRunActionTimeoutMessage('checking current server status')
+                        );
+                        if (currentStatus.running) {
                             return {
                                 success: true,
-                                message: `Server is running and ready on port ${port}.\nServer startup output saved to: ${runOutputFile}`
+                                message: `Server is already running. ${currentStatus.message}`
                             };
                         }
 
-                        await new Promise(resolve => setTimeout(resolve, pollInterval));
-                    }
+                        // Show output channel
+                        showServerOutputChannel();
+                        serverLog('\n========================================\n');
+                        serverLog('  Preparing to Start MI Server...\n');
+                        serverLog('========================================\n\n');
 
-                    // Timeout reached - server may still be starting
-                    const runOutputFile = writeOutputToFile(sessionDir, 'run.txt', getServerOutputBuffer());
-                    logError(`[ServerManagementTool] Server startup timed out after ${maxTimeout / 1000}s`);
-                    serverLog('\n========================================\n');
-                    serverLog('  SERVER STARTUP TIMED OUT\n');
-                    serverLog('========================================\n');
-                    return {
-                        success: false,
-                        message: `Server startup timed out after ${maxTimeout / 1000} seconds. The server may still be starting or may have encountered deployment issues.\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the issue.`,
-                        error: `Server startup timed out after ${maxTimeout / 1000}s`
-                    };
+                        // Shutdown tryout server if running (same as IDE's run button)
+                        try {
+                            serverLog('> Shutting down tryout server if running...\n');
+                            const langClient = await withServerStartTimeout(
+                                MILanguageClient.getInstance(projectPath),
+                                Math.min(SERVER_START_STEP_TIMEOUT_MS, Math.max(1, getRemainingRunActionTime())),
+                                getRunActionTimeoutMessage('initializing language client')
+                            );
+                            const isTerminated = await withServerStartTimeout(
+                                langClient.shutdownTryoutServer(),
+                                Math.min(SERVER_START_STEP_TIMEOUT_MS, Math.max(1, getRemainingRunActionTime())),
+                                getRunActionTimeoutMessage('shutting down tryout server')
+                            );
+                            if (!isTerminated) {
+                                logInfo('[ServerManagementTool] Tryout server was not running or already terminated');
+                                serverLog('  Tryout server was not running\n');
+                            } else {
+                                logInfo('[ServerManagementTool] Tryout server shutdown successfully');
+                                serverLog('  Tryout server shutdown successfully\n');
+                            }
+                        } catch (error) {
+                            if (isServerStartTimeoutError(error)) {
+                                throw error;
+                            }
+                            // Non-fatal: tryout server might not be running
+                            logDebug(`[ServerManagementTool] Could not shutdown tryout server: ${error}`);
+                        }
+
+                        // Sync deployment.toml from project to server (use project configurations)
+                        const projectDeploymentToml = path.join(projectPath, 'deployment', 'deployment.toml');
+                        const serverDeploymentToml = path.join(serverPath, 'conf', 'deployment.toml');
+                        if (fs.existsSync(projectDeploymentToml) && fs.existsSync(serverDeploymentToml)) {
+                            try {
+                                serverLog('\n> Syncing deployment.toml from project to server...\n');
+                                // Backup server config before overwriting
+                                const backupPath = path.join(serverPath, 'conf', 'deployment-backup.toml');
+                                fs.copyFileSync(serverDeploymentToml, backupPath);
+                                // Copy project config to server
+                                fs.copyFileSync(projectDeploymentToml, serverDeploymentToml);
+                                logInfo('[ServerManagementTool] Synced deployment.toml from project to server');
+                                serverLog('  Backed up server config to deployment-backup.toml\n');
+                                serverLog('  Copied project deployment.toml to server\n');
+                                // Update port offset config
+                                DebuggerConfig.setConfigPortOffset(projectPath);
+                            } catch (error) {
+                                logDebug(`[ServerManagementTool] Could not sync deployment.toml: ${error}`);
+                            }
+                        }
+
+                        // Copy deployment/libs/*.jar to server/lib (same as IDE's executeBuildTask)
+                        const projectLibsDir = path.join(projectPath, 'deployment', 'libs');
+                        const serverLibDir = path.join(serverPath, 'lib');
+                        if (fs.existsSync(projectLibsDir) && fs.existsSync(serverLibDir)) {
+                            try {
+                                const files = fs.readdirSync(projectLibsDir);
+                                const jarFiles = files.filter(f => f.endsWith('.jar'));
+                                if (jarFiles.length > 0) {
+                                    serverLog('\n> Copying library JARs to server...\n');
+                                }
+                                for (const jarFile of jarFiles) {
+                                    const src = path.join(projectLibsDir, jarFile);
+                                    const dest = path.join(serverLibDir, jarFile);
+                                    fs.copyFileSync(src, dest);
+                                    DebuggerConfig.setCopiedLibs(dest);
+                                    logDebug(`[ServerManagementTool] Copied lib: ${jarFile}`);
+                                    serverLog(`  Copied: ${jarFile}\n`);
+                                }
+                                if (jarFiles.length > 0) {
+                                    logInfo(`[ServerManagementTool] Copied ${jarFiles.length} library JAR(s) to server`);
+                                }
+                            } catch (error) {
+                                logDebug(`[ServerManagementTool] Could not copy libs: ${error}`);
+                            }
+                        }
+
+                        // Load .env if exists
+                        const envFilePath = path.resolve(projectPath, '.env');
+                        if (fs.existsSync(envFilePath)) {
+                            loadEnvVariables(envFilePath);
+                        }
+
+                        // Get run command (non-debug mode)
+                        const runCommand = await withServerStartTimeout(
+                            getRunCommand(serverPath, false),
+                            Math.min(SERVER_START_STEP_TIMEOUT_MS, Math.max(1, getRemainingRunActionTime())),
+                            getRunActionTimeoutMessage('resolving runtime startup command')
+                        );
+                        if (!runCommand) {
+                            return {
+                                success: false,
+                                message: 'Failed to get run command',
+                                error: 'Could not determine the MI runtime startup command'
+                            };
+                        }
+
+                        // Set up environment
+                        const definedEnvVariables = DebuggerConfig.getEnvVariables();
+                        const vmArgs = DebuggerConfig.getVmArgs();
+                        const envVariables = {
+                            ...process.env,
+                            ...setJavaHomeInEnvironmentAndPath(projectPath),
+                            ...definedEnvVariables
+                        };
+
+                        // Log server start command
+                        serverLog('\n========================================\n');
+                        serverLog('  Starting MI Server...\n');
+                        serverLog('========================================\n\n');
+                        serverLog(`> ${runCommand}\n\n`);
+
+                        // Start server
+                        logDebug(`[ServerManagementTool] Spawning server with command: ${runCommand}`);
+                        logDebug(`[ServerManagementTool] VM Args: ${JSON.stringify(vmArgs)}`);
+
+                        serverProcess = childProcess.spawn(runCommand, vmArgs, {
+                            shell: true,
+                            env: envVariables,
+                            detached: false
+                        });
+
+                        if (!serverProcess) {
+                            return {
+                                success: false,
+                                message: 'Failed to start server',
+                                error: 'Server process could not be spawned'
+                            };
+                        }
+
+                        // Clear output buffer and start capturing
+                        clearServerOutputBuffer();
+                        logDebug(`[ServerManagementTool] Server process spawned with PID: ${serverProcess.pid}`);
+
+                        // Track process state
+                        let processExited = false;
+                        let processExitCode: number | null = null;
+
+                        serverProcess.stdout?.on('data', (data) => {
+                            const text = data.toString();
+                            serverLog(text);
+                            appendToServerOutputBuffer(text);
+                        });
+
+                        serverProcess.stderr?.on('data', (data) => {
+                            const text = data.toString();
+                            serverLog(text);
+                            appendToServerOutputBuffer(text);
+                        });
+
+                        serverProcess.on('error', (error) => {
+                            logError(`[ServerManagementTool] Server process error: ${error.message}`);
+                            serverLog(`\nERROR: ${error.message}\n`);
+                            appendToServerOutputBuffer(`\nERROR: ${error.message}\n`);
+                            processExited = true;
+                        });
+
+                        serverProcess.on('exit', (code, signal) => {
+                            logInfo(`[ServerManagementTool] Server process exited with code ${code}, signal ${signal}`);
+                            processExitCode = code;
+                            processExited = true;
+                            if (code !== 0 && code !== null) {
+                                serverLog(`\nServer process exited with code ${code}\n`);
+                            }
+                            serverProcess = null;
+                        });
+
+                        // Wait for server to become ready, fail, or timeout
+                        const readinessConfig = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectPath));
+                        const configuredTimeout = readinessConfig.get("serverTimeoutInSecs");
+                        const maxTimeout = (Number.isFinite(Number(configuredTimeout)) && Number(configuredTimeout) > 0)
+                            ? Number(configuredTimeout) * 1000 : 120000;
+                        const pollInterval = 3000;
+                        const startTime = Date.now();
+
+                        // Initial wait for process to begin starting
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+
+                        while (Date.now() - startTime < maxTimeout) {
+                            if (getRemainingRunActionTime() <= 0) {
+                                throw createServerStartTimeoutError(
+                                    getRunActionTimeoutMessage('waiting for the server to become ready')
+                                );
+                            }
+
+                            // Check if process died
+                            if (processExited) {
+                                const runOutputFile = writeOutputToFile(sessionDir, 'run.txt', getServerOutputBuffer());
+                                logError(`[ServerManagementTool] Server process exited during startup with code ${processExitCode}`);
+                                serverLog('\n========================================\n');
+                                serverLog('  SERVER FAILED TO START\n');
+                                serverLog('========================================\n');
+                                return {
+                                    success: false,
+                                    message: `Server process exited with code ${processExitCode} during startup.\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the startup errors.`,
+                                    error: `Server process exited with code ${processExitCode}`
+                                };
+                            }
+
+                            // Check health endpoint
+                            const healthStatus = await withServerStartTimeout(
+                                checkServerStatus(projectPath),
+                                Math.min(SERVER_START_STEP_TIMEOUT_MS, Math.max(1, getRemainingRunActionTime())),
+                                getRunActionTimeoutMessage('checking server readiness')
+                            );
+                            if (healthStatus.ready) {
+                                const port = DebuggerConfig.getServerPort();
+                                const runOutputFile = writeOutputToFile(sessionDir, 'run.txt', getServerOutputBuffer());
+                                logInfo(`[ServerManagementTool] Server is running and ready on port ${port}`);
+                                serverLog('\n========================================\n');
+                                serverLog('  SERVER IS READY\n');
+                                serverLog('========================================\n');
+                                return {
+                                    success: true,
+                                    message: `Server is running and ready on port ${port}.\nServer startup output saved to: ${runOutputFile}`
+                                };
+                            }
+
+                            await new Promise(resolve => setTimeout(resolve, pollInterval));
+                        }
+
+                        // Timeout reached - server may still be starting
+                        const runOutputFile = writeOutputToFile(sessionDir, 'run.txt', getServerOutputBuffer());
+                        logError(`[ServerManagementTool] Server startup timed out after ${maxTimeout / 1000}s`);
+                        serverLog('\n========================================\n');
+                        serverLog('  SERVER STARTUP TIMED OUT\n');
+                        serverLog('========================================\n');
+                        return {
+                            success: false,
+                            message: `Server startup timed out after ${maxTimeout / 1000} seconds. The server may still be starting or may have encountered deployment issues.\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the issue.`,
+                            error: `Server startup timed out after ${maxTimeout / 1000}s`
+                        };
+                    } catch (error) {
+                        if (!isServerStartTimeoutError(error)) {
+                            throw error;
+                        }
+
+                        const timeoutMessage = error instanceof Error
+                            ? error.message
+                            : `Server start tool timed out after ${runActionTimeoutSeconds} seconds.`;
+                        const runOutputFile = writeOutputToFile(sessionDir, 'run.txt', getServerOutputBuffer());
+                        logError(`[ServerManagementTool] ${timeoutMessage}`);
+                        serverLog('\n========================================\n');
+                        serverLog('  SERVER START TOOL TIMED OUT\n');
+                        serverLog('========================================\n');
+                        return {
+                            success: false,
+                            message: `${timeoutMessage}\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the issue.`,
+                            error: timeoutMessage
+                        };
+                    }
                 }
 
                 case 'stop': {
