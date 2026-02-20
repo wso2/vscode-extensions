@@ -104,10 +104,10 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 			
 			return {
 				index,
-				selected: true, // Select all by default
+				selected: true, // Select all by default (library components must always be selected)
 				componentType,
 				name: comp.initialValues?.name || comp.directoryName,
-				directoryName: comp.directoryName,
+				directoryName: comp.directoryName
 			};
 		}),
 	);

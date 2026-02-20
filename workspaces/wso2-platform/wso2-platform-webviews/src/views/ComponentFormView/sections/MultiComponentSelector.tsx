@@ -133,6 +133,12 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 
 	/** Handle checkbox change for a component */
 	const handleComponentToggle = (index: number, checked: boolean) => {
+		// Prevent deselecting library components
+		const component = selectedComponents.find((c) => c.index === index);
+		if (component?.componentType === "library" && !checked) {
+			return; // Library components cannot be deselected
+		}
+		
 		// Close editing if deselecting the component being edited
 		if (!checked && editingIndex === index) {
 			setEditingIndex(null);
@@ -184,6 +190,7 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 			<div className="rounded-lg border border-vsc-input-border bg-vsc-editor-background shadow-sm">
 				{allComponents.map((component, index) => {
 					const selectionItem = selectedComponents.find((c) => c.index === index);
+					const isLibrary = selectionItem?.componentType === "library";
 					const isSelected = selectionItem?.selected ?? false;
 					const currentType = selectionItem?.componentType || 
 						(extensionName === "Devant" ? DevantScopes.INTEGRATION_AS_API : ChoreoComponentType.Service);
@@ -214,14 +221,14 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 							title={isNotPushedToGit ? "This component has not been pushed to Git." : undefined}
 						>
 							<div className="flex items-start gap-4 p-4">
-								{/* Checkbox */}
-								<VSCodeCheckbox
-									className="mt-0.5 shrink-0"
-									checked={isSelected}
-									onChange={(e: any) => handleComponentToggle(index, e.target.checked)}
-								/>
-
-								{/* Component Info */}
+						{/* Checkbox */}
+						<div className="mt-0.5 shrink-0" title={isLibrary ? "Library components are required and cannot be deselected" : undefined}>
+							<VSCodeCheckbox
+								checked={isSelected}
+								disabled={isLibrary || undefined}
+								onChange={(e: any) => handleComponentToggle(index, e.target.checked)}
+							/>
+						</div>								{/* Component Info */}
 								<div className="flex min-w-0 flex-1 flex-col gap-0.5">
 									{/* Editable Name - Only editable when selected */}
 									<div className="flex items-center">
