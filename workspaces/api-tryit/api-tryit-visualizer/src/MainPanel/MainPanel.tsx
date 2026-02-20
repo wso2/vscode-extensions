@@ -28,6 +28,69 @@ import CollectionForm from '../CollectionForm/CollectionForm';
 import { getVSCodeAPI } from '../utils/vscode-api';
 import { getMethodBgColor } from '../utils/methods';
 
+const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+const stripTransientFields = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+        return value.map(stripTransientFields);
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.keys(value as Record<string, unknown>).reduce((acc, key) => {
+            if (key === 'id') {
+                return acc;
+            }
+            acc[key] = stripTransientFields((value as Record<string, unknown>)[key]);
+            return acc;
+        }, {} as Record<string, unknown>);
+    }
+
+    return value;
+};
+
+const getStableValue = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+        return value.map(getStableValue);
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.keys(value as Record<string, unknown>)
+            .sort()
+            .reduce((acc, key) => {
+                acc[key] = getStableValue((value as Record<string, unknown>)[key]);
+                return acc;
+            }, {} as Record<string, unknown>);
+    }
+
+    return value;
+};
+
+const getItemIdentity = (item?: ApiRequestItem): string => {
+    if (!item) {
+        return '';
+    }
+    return `${item.id || ''}::${item.filePath || ''}`;
+};
+
+const createSaveSnapshot = (item?: ApiRequestItem): string => {
+    if (!item?.request) {
+        return '';
+    }
+
+    const method = (item.request.method || '').toUpperCase();
+    const requestForSnapshot = stripTransientFields(item.request) as Record<string, unknown>;
+    if (METHODS_WITHOUT_BODY.has(method)) {
+        delete requestForSnapshot.body;
+        delete requestForSnapshot.bodyFormData;
+        delete requestForSnapshot.bodyFormUrlEncoded;
+        delete requestForSnapshot.bodyBinaryFiles;
+    }
+
+    return JSON.stringify(getStableValue({
+        request: requestForSnapshot
+    }));
+};
+
 const PanelsWrapper = styled.div`
     position: relative;
 `;
@@ -354,6 +417,7 @@ type InputMode = 'code' | 'form';
 
 export const MainPanel: React.FC = () => {
     const [requestItem, setRequestItem] = useState<ApiRequestItem | undefined>();
+    const [savedSnapshot, setSavedSnapshot] = useState('');
     const [activeTab, setActiveTab] = useState<'input' | 'assert'>('input');
     const [isLoading, setIsLoading] = useState(false);
     const [inputMode, setInputMode] = useState<InputMode>('code');
@@ -366,6 +430,16 @@ export const MainPanel: React.FC = () => {
     const [methodDropdownOpen, setMethodDropdownOpen] = useState(false);
     // Handle messages from VS Code extension
     const [showCollectionForm, setShowCollectionForm] = React.useState(false);
+    const selectedIdentityRef = useRef('');
+    const savedSnapshotRef = useRef('');
+    const currentSnapshotRef = useRef('');
+    const pendingSaveSnapshotRef = useRef<string | null>(null);
+    const expectSavedSelectionRefreshRef = useRef(false);
+    const currentSnapshot = React.useMemo(() => createSaveSnapshot(requestItem), [requestItem]);
+
+    useEffect(() => {
+        currentSnapshotRef.current = currentSnapshot;
+    }, [currentSnapshot]);
 
     const { updateRequest, sendHttpRequest } = useExtensionMessages({
         onApiRequestSelected: (item) => {
@@ -374,6 +448,17 @@ export const MainPanel: React.FC = () => {
             setIsEditingName(false);
             // Close collection form when a request is selected
             setShowCollectionForm(false);
+
+            const incomingIdentity = getItemIdentity(item);
+            const selectedItemChanged = incomingIdentity !== selectedIdentityRef.current;
+            selectedIdentityRef.current = incomingIdentity;
+            if (selectedItemChanged || !savedSnapshotRef.current || expectSavedSelectionRefreshRef.current) {
+                const snapshot = createSaveSnapshot(item);
+                savedSnapshotRef.current = snapshot;
+                setSavedSnapshot(snapshot);
+                pendingSaveSnapshotRef.current = null;
+                expectSavedSelectionRefreshRef.current = false;
+            }
         },
         onShowCreateCollectionForm: () => {
             console.log('[MainPanel] onShowCreateCollectionForm called - setting showCollectionForm to true');
@@ -397,6 +482,22 @@ export const MainPanel: React.FC = () => {
     };
 
     useEffect(() => {
+        const saveResponseHandler = (event: MessageEvent<{ type?: string; data?: { success?: boolean } }>) => {
+            if (event.data?.type !== 'saveRequestResponse') {
+                return;
+            }
+
+            const success = event.data?.data?.success;
+            if (success) {
+                const snapshot = pendingSaveSnapshotRef.current ?? currentSnapshotRef.current;
+                savedSnapshotRef.current = snapshot;
+                setSavedSnapshot(snapshot);
+                expectSavedSelectionRefreshRef.current = true;
+            }
+
+            pendingSaveSnapshotRef.current = null;
+        };
+
         const handleClickOutside = (event: MouseEvent) => {
             if (methodSelectRef.current && !methodSelectRef.current.contains(event.target as Node)) {
                 setMethodDropdownOpen(false);
@@ -409,10 +510,12 @@ export const MainPanel: React.FC = () => {
             }
         };
 
+        window.addEventListener('message', saveResponseHandler);
         document.addEventListener('mousedown', handleClickOutside);
         window.addEventListener('keydown', handleEscape);
 
         return () => {
+            window.removeEventListener('message', saveResponseHandler);
             document.removeEventListener('mousedown', handleClickOutside);
             window.removeEventListener('keydown', handleEscape);
         };
@@ -483,6 +586,7 @@ export const MainPanel: React.FC = () => {
         }
 
         try {
+            pendingSaveSnapshotRef.current = currentSnapshot;
             // Send save request message to extension (filePath is optional, will use persisted path)
             vscode.postMessage({
                 type: 'saveRequest',
@@ -494,9 +598,12 @@ export const MainPanel: React.FC = () => {
             });
             
         } catch (error) {
+            pendingSaveSnapshotRef.current = null;
             console.error('Error saving request:', error);
         }
     };
+
+    const isDirty = Boolean(requestItem) && currentSnapshot !== savedSnapshot;
 
     const handleSendRequest = async () => {
         setIsLoading(true);
@@ -671,8 +778,9 @@ export const MainPanel: React.FC = () => {
                                 type="button"
                                 aria-label="Save request"
                                 onClick={handleSaveRequest}
+                                disabled={!isDirty}
                             >
-                                <Codicon sx={{ height: 20 }} iconSx={{ fontSize: 20 }} tooltip='Save request' name="save" />
+                                <Codicon sx={{ height: 20 }} iconSx={{ fontSize: 20, fontWeight: isDirty ? 'bolder' : 'lighter', color: isDirty ? 'var(--vscode-button-foreground)' : 'var(--vscode-disabledForeground)' }} tooltip='Save request' name="save" />
                             </SaveInlineButton>
                         </UrlInputWrapper>
 

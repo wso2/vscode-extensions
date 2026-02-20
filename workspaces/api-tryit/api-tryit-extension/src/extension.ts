@@ -357,6 +357,66 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Register the API Explorer tree view provider
 	const apiExplorerProvider = new ApiExplorerProvider();
 
+	// Debounced workspace file-change sync for the visualizer.
+	let workspaceRefreshTimer: NodeJS.Timeout | undefined;
+	let isWorkspaceRefreshInProgress = false;
+	let hasPendingWorkspaceRefresh = false;
+
+	const syncVisualizerWithWorkspace = async () => {
+		if (isWorkspaceRefreshInProgress) {
+			hasPendingWorkspaceRefresh = true;
+			return;
+		}
+		isWorkspaceRefreshInProgress = true;
+		hasPendingWorkspaceRefresh = false;
+
+		try {
+			await apiExplorerProvider.reloadCollections();
+
+			const stateContext = ApiTryItStateMachine.getContext();
+			const selectedFilePath = stateContext.selectedFilePath || stateContext.selectedItem?.filePath;
+			if (selectedFilePath) {
+				const match = apiExplorerProvider.findRequestByFilePath(selectedFilePath);
+				if (match?.requestItem) {
+					await ApiTryItStateMachine.sendEvent(
+						EVENT_TYPE.API_ITEM_SELECTED,
+						match.requestItem,
+						match.requestItem.filePath
+					);
+				}
+			}
+		} catch {
+			// Keep watcher resilient; avoid noisy errors for transient filesystem changes.
+		} finally {
+			isWorkspaceRefreshInProgress = false;
+			if (hasPendingWorkspaceRefresh) {
+				void syncVisualizerWithWorkspace();
+			}
+		}
+	};
+
+	const scheduleWorkspaceSync = () => {
+		if (workspaceRefreshTimer) {
+			clearTimeout(workspaceRefreshTimer);
+		}
+		workspaceRefreshTimer = setTimeout(() => {
+			void syncVisualizerWithWorkspace();
+		}, 250);
+	};
+
+	const relevantWorkspaceFileWatcher = vscode.workspace.createFileSystemWatcher('**/*.{hurl,yaml,yml}');
+	relevantWorkspaceFileWatcher.onDidChange(() => scheduleWorkspaceSync());
+	relevantWorkspaceFileWatcher.onDidCreate(() => scheduleWorkspaceSync());
+	relevantWorkspaceFileWatcher.onDidDelete(() => scheduleWorkspaceSync());
+	context.subscriptions.push(
+		relevantWorkspaceFileWatcher,
+		new vscode.Disposable(() => {
+			if (workspaceRefreshTimer) {
+				clearTimeout(workspaceRefreshTimer);
+			}
+		})
+	);
+
 	// Initialize RPC handlers
 	TryItPanel.init(apiExplorerProvider);
 
