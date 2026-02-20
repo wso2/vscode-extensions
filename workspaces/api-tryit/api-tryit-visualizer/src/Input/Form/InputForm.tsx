@@ -136,6 +136,7 @@ type BodyFormat = 'json' | 'xml' | 'text' | 'html' | 'javascript' | 'form-data' 
 export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, bodyFormat, updateFormDataParamContentType, handleFileSelect, onFormatChange }) => {
     const [formatOpen, setFormatOpen] = React.useState(false);
     const formatRef = React.useRef<HTMLDivElement>(null);
+    const methodSupportsBody = !['GET', 'HEAD', 'OPTIONS'].includes((request.method || '').toUpperCase());
 
     React.useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -300,102 +301,106 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
             </Section>
 
             {/* Body Section: form-data, form-urlencoded, binary, and raw handled by parent */}
-            <BodyHeaderContainer>
-                <BodyTitleWrapper>
-                    <Typography variant="subtitle2" sx={{ margin: 0 }}>Body</Typography>
-                </BodyTitleWrapper>
-                <FormatSelectorWrapper ref={formatRef}>
-                    <FormatButton onClick={() => setFormatOpen(!formatOpen)}>
-                        {(bodyFormat || '').toString().toUpperCase()}
-                        <ArrowIcon isOpen={formatOpen}>▼</ArrowIcon>
-                    </FormatButton>
-                    <FormatDropdown isOpen={formatOpen}>
-                        {formatOptions.map((group) => (
-                            <div key={group.group}>
-                                <FormatGroupTitle>{group.group}</FormatGroupTitle>
-                                <FormatOptions>
-                                    {group.options.map((option:any) => (
-                                        <FormatOption key={option.value} isSelected={bodyFormat === option.value} onClick={() => onSelectFormat(option.value)}>
-                                            {option.label}
-                                        </FormatOption>
-                                    ))}
-                                </FormatOptions>
-                            </div>
-                        ))}
-                    </FormatDropdown>
-                </FormatSelectorWrapper>
-            </BodyHeaderContainer>
-
-            {bodyFormat === 'form-data' && (
+            {methodSupportsBody && (
                 <>
-                    <MultipartForm
-                        headerKeyItems={COMMON_HEADERS.map(h => h.name)}
-                        items={request.bodyFormData}
-                        onAddParam={addFormDataParam}
-                        onAddFile={() => onRequestChange?.({ ...request, bodyFormData: [...(request.bodyFormData || []), ({ id: Date.now().toString(), key: '', filePath: '', contentType: 'application/octet-stream' } as any)] })}
-                        onUpdate={updateFormDataParam}
-                        onDelete={deleteFormDataParam}
-                        onSelectFile={handleFileSelect}
-                        onClearFile={(id) => {
-                            const param = (request.bodyFormData || []).find(p => p.id === id);
-                            if (param) updateFormDataParam(id, param.key, '', 'application/octet-stream', undefined);
-                        }}
-                        onContentTypeChange={updateFormDataParamContentType}
-                    />
-                </>
-            )}
+                    <BodyHeaderContainer>
+                        <BodyTitleWrapper>
+                            <Typography variant="subtitle2" sx={{ margin: 0 }}>Body</Typography>
+                        </BodyTitleWrapper>
+                        <FormatSelectorWrapper ref={formatRef}>
+                            <FormatButton onClick={() => setFormatOpen(!formatOpen)}>
+                                {(bodyFormat || '').toString().toUpperCase()}
+                                <ArrowIcon isOpen={formatOpen}>▼</ArrowIcon>
+                            </FormatButton>
+                            <FormatDropdown isOpen={formatOpen}>
+                                {formatOptions.map((group) => (
+                                    <div key={group.group}>
+                                        <FormatGroupTitle>{group.group}</FormatGroupTitle>
+                                        <FormatOptions>
+                                            {group.options.map((option:any) => (
+                                                <FormatOption key={option.value} isSelected={bodyFormat === option.value} onClick={() => onSelectFormat(option.value)}>
+                                                    {option.label}
+                                                </FormatOption>
+                                            ))}
+                                        </FormatOptions>
+                                    </div>
+                                ))}
+                            </FormatDropdown>
+                        </FormatSelectorWrapper>
+                    </BodyHeaderContainer>
 
-            {bodyFormat === 'form-urlencoded' && (
-                <>
-                    {(request.bodyFormUrlEncoded || []).map((param, id) => (
-                        <ParamItem
-                            id={`${id}`}
-                            key={param.id}
-                            keyValue={param.key}
-                            value={param.value}
-                            onKeyChange={(key) => updateFormUrlEncodedParam(param.id, key, param.value)}
-                            onValueChange={(value) => updateFormUrlEncodedParam(param.id, param.key, value)}
-                            onDelete={() => deleteFormUrlEncodedParam(param.id)}
+                    {bodyFormat === 'form-data' && (
+                        <>
+                            <MultipartForm
+                                headerKeyItems={COMMON_HEADERS.map(h => h.name)}
+                                items={request.bodyFormData}
+                                onAddParam={addFormDataParam}
+                                onAddFile={() => onRequestChange?.({ ...request, bodyFormData: [...(request.bodyFormData || []), ({ id: Date.now().toString(), key: '', filePath: '', contentType: 'application/octet-stream' } as any)] })}
+                                onUpdate={updateFormDataParam}
+                                onDelete={deleteFormDataParam}
+                                onSelectFile={handleFileSelect}
+                                onClearFile={(id) => {
+                                    const param = (request.bodyFormData || []).find(p => p.id === id);
+                                    if (param) updateFormDataParam(id, param.key, '', 'application/octet-stream', undefined);
+                                }}
+                                onContentTypeChange={updateFormDataParamContentType}
+                            />
+                        </>
+                    )}
+
+                    {bodyFormat === 'form-urlencoded' && (
+                        <>
+                            {(request.bodyFormUrlEncoded || []).map((param, id) => (
+                                <ParamItem
+                                    id={`${id}`}
+                                    key={param.id}
+                                    keyValue={param.key}
+                                    value={param.value}
+                                    onKeyChange={(key) => updateFormUrlEncodedParam(param.id, key, param.value)}
+                                    onValueChange={(value) => updateFormUrlEncodedParam(param.id, param.key, value)}
+                                    onDelete={() => deleteFormUrlEncodedParam(param.id)}
+                                />
+                            ))}
+                            <AddButtonWrapper>
+                                <LinkButton onClick={addFormUrlEncodedParam}><Codicon name="add" />Add Param</LinkButton>
+                            </AddButtonWrapper>
+                        </>
+                    )}
+
+                    {bodyFormat === 'binary' && (
+                        <>
+                            <BinaryForm
+                                items={request.bodyFormData}
+                                contentTypeItems={COMMON_HEADERS.map(h => h.name)}
+                                onAddFile={() => onRequestChange?.({ ...request, bodyFormData: [...(request.bodyFormData || []), ({ id: Date.now().toString(), key: '', filePath: '', contentType: 'application/octet-stream' } as any)] })}
+                                onUpdate={updateFormDataParam}
+                                onDelete={deleteFormDataParam}
+                                onSelectFile={handleFileSelect}
+                                onClearFile={(id) => {
+                                    const param = (request.bodyFormData || []).find(p => p.id === id);
+                                    if (param) updateFormDataParam(id, param.key, '', 'application/octet-stream', undefined);
+                                }}
+                                onContentTypeChange={updateFormDataParamContentType}
+                            />
+                        </>
+                    )}
+
+                    {['json','xml','text','html','javascript'].includes(bodyFormat) && (    
+                        <CodeTextArea
+                            id="body-textarea"
+                            resize="vertical"
+                            growRange={{ start: 5, offset: 10 }}
+                            sx={{ padding: '0 4px' }}
+                            value={request.body || ''}
+                            onChange={(e: any) => onRequestChange?.({ ...request, body: e.target.value })}
+                            placeholder="Enter request body..."
                         />
-                    ))}
-                    <AddButtonWrapper>
-                        <LinkButton onClick={addFormUrlEncodedParam}><Codicon name="add" />Add Param</LinkButton>
-                    </AddButtonWrapper>
+                    )}
+
+                    {bodyFormat === 'no-body' && (
+                        <NoBodyMessage>No body will be sent with this request</NoBodyMessage>
+                    )}
                 </>
-            )}
-
-            {bodyFormat === 'binary' && (
-                <>
-                    <BinaryForm
-                        items={request.bodyFormData}
-                        contentTypeItems={COMMON_HEADERS.map(h => h.name)}
-                        onAddFile={() => onRequestChange?.({ ...request, bodyFormData: [...(request.bodyFormData || []), ({ id: Date.now().toString(), key: '', filePath: '', contentType: 'application/octet-stream' } as any)] })}
-                        onUpdate={updateFormDataParam}
-                        onDelete={deleteFormDataParam}
-                        onSelectFile={handleFileSelect}
-                        onClearFile={(id) => {
-                            const param = (request.bodyFormData || []).find(p => p.id === id);
-                            if (param) updateFormDataParam(id, param.key, '', 'application/octet-stream', undefined);
-                        }}
-                        onContentTypeChange={updateFormDataParamContentType}
-                    />
-                </>
-            )}
-
-            {['json','xml','text','html','javascript'].includes(bodyFormat) && (    
-                <CodeTextArea
-                    id="body-textarea"
-                    resize="vertical"
-                    growRange={{ start: 5, offset: 10 }}
-                    sx={{ padding: '0 4px' }}
-                    value={request.body || ''}
-                    onChange={(e: any) => onRequestChange?.({ ...request, body: e.target.value })}
-                    placeholder="Enter request body..."
-                />
-            )}
-
-            {bodyFormat === 'no-body' && (
-                <NoBodyMessage>No body will be sent with this request</NoBodyMessage>
             )}
         </>
     );

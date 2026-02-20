@@ -49,6 +49,7 @@ const NoBodyMessage = styled.div`
 export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFormatChange: (format: BodyFormat) => void }> = ({ request, onRequestChange, bodyFormat, onFormatChange }) => {
     const [bodyFormatOpen, setBodyFormatOpen] = React.useState(false);
     const formatMenuRef = React.useRef<HTMLDivElement>(null);
+    const methodSupportsBody = !['GET', 'HEAD', 'OPTIONS'].includes((request.method || '').toUpperCase());
 
     React.useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -530,7 +531,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 suggestions={{ headers: COMMON_HEADERS }}
             />
 
-            {bodyFormat !== 'no-body' && request.method !== 'GET' && (
+            {methodSupportsBody && bodyFormat !== 'no-body' && (
                 <>
                     <BodyHeaderContainer>
                         <BodyTitleWrapper>
@@ -569,7 +570,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 </>
             )}
 
-            {bodyFormat === 'no-body' && (
+            {methodSupportsBody && bodyFormat === 'no-body' && (
                 <BodyHeaderContainer>
                     <BodyTitleWrapper>
                         <Typography variant="h3">Body</Typography>
@@ -597,7 +598,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 </BodyHeaderContainer>
             )}
 
-            {bodyFormat === 'no-body' && (
+            {methodSupportsBody && bodyFormat === 'no-body' && (
                 <NoBodyMessage>No body will be sent with this request</NoBodyMessage>
             )}
         </>

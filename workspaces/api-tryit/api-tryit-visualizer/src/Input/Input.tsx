@@ -40,7 +40,8 @@ interface InputProps {
 const Container = styled.div`
     width: 100%;
     height: calc(100vh - 215px);
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
 `;
 
 export const Input: React.FC<InputProps> = ({ 

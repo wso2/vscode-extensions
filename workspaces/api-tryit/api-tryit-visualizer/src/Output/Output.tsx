@@ -31,6 +31,8 @@ interface OutputProps {
 const Container = styled.div<{ embedded?: boolean }>`
     padding: 16px 0 16px 4px;
     width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
     max-height: none;
     overflow-y: visible;
 `;
@@ -64,6 +66,8 @@ const StatusCode = styled.div<{ statusCode: number }>`
 
 const HeadersTable = styled.table`
     width: 100%;
+    box-sizing: border-box;
+    table-layout: fixed;
     border-collapse: collapse;
     border: 1px solid var(--vscode-panel-border);
     border-radius: 4px;
@@ -105,6 +109,9 @@ const ResponseBodyContainer = styled.div`
     border: 1px solid var(--vscode-panel-border);
     border-radius: 4px;
     padding: 12px;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
     font-family: var(--vscode-editor-font-family);
     font-size: 13px;
     overflow-x: auto;
