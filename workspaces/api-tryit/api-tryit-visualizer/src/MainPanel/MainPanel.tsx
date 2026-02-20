@@ -351,14 +351,12 @@ const NameTextField = styled(TextField)`
 const methodOptions: ApiRequest['method'][] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
 
 type InputMode = 'code' | 'form';
-type AssertMode = 'code' | 'form';
 
 export const MainPanel: React.FC = () => {
     const [requestItem, setRequestItem] = useState<ApiRequestItem | undefined>();
     const [activeTab, setActiveTab] = useState<'input' | 'assert'>('input');
     const [isLoading, setIsLoading] = useState(false);
     const [inputMode, setInputMode] = useState<InputMode>('code');
-    const [assertMode, setAssertMode] = useState<AssertMode>('form');
     const [showHelp, setShowHelp] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(requestItem?.name);
@@ -729,16 +727,16 @@ export const MainPanel: React.FC = () => {
                             )}
                             {activeTab === 'assert' && (
                                 <SlidingToggle 
-                                    isCodeMode={assertMode === 'code'}
-                                    onClick={() => setAssertMode(assertMode === 'code' ? 'form' : 'code')}
-                                    title={assertMode === 'code' ? 'Switch to Form mode' : 'Switch to Code mode'}
+                                    isCodeMode={inputMode === 'code'}
+                                    onClick={() => setInputMode(inputMode === 'code' ? 'form' : 'code')}
+                                    title={inputMode === 'code' ? 'Switch to Form mode' : 'Switch to Code mode'}
                                 >
-                                    <ToggleBackground isCodeMode={assertMode === 'code'} />
-                                    <ToggleOption isActive={assertMode === 'code'}>
+                                    <ToggleBackground isCodeMode={inputMode === 'code'} />
+                                    <ToggleOption isActive={inputMode === 'code'}>
                                         <Codicon name="code" />
                                         Code
                                     </ToggleOption>
-                                    <ToggleOption isActive={assertMode === 'form'}>
+                                    <ToggleOption isActive={inputMode === 'form'}>
                                         <Codicon name="list-unordered" />
                                         Form
                                     </ToggleOption>
@@ -778,7 +776,7 @@ export const MainPanel: React.FC = () => {
                                             request={requestItem.request}
                                             response={requestItem.response}
                                             onRequestChange={handleRequestChange}
-                                            mode={assertMode}
+                                            mode={inputMode}
                                         />
                                     ) : (
                                         <div style={{ padding: 16, opacity: 0.6 }}>No request selected. Select a request from the sidebar to add assertions.</div>
