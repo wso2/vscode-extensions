@@ -281,6 +281,10 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 				// Build array of component creation requests
 				const componentRequests = selectedToCreate
 					.map((selectedComp) => {
+						if (selectedComp.componentType === "library") {
+							// Library components are not created on Devant.
+							return null;
+						}
 						const componentConfig = components[selectedComp.index];
 						const componentFormData = componentDataMap.get(selectedComp.index);
 
