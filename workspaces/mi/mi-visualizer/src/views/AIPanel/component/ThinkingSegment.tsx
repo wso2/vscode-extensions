@@ -25,6 +25,17 @@ const spin = keyframes`
     to { transform: rotate(360deg); }
 `;
 
+const dotWave = keyframes`
+    0%, 60%, 100% {
+        opacity: 0.25;
+        transform: translateY(0);
+    }
+    30% {
+        opacity: 1;
+        transform: translateY(-1px);
+    }
+`;
+
 const ThinkingContainer = styled.div`
     margin: 6px 0;
 `;
@@ -63,6 +74,30 @@ const Spinner = styled.span`
     animation: ${spin} 0.8s linear infinite;
 `;
 
+const LoadingDots = styled.span`
+    display: inline-flex;
+    gap: 1px;
+    margin-left: 2px;
+    color: var(--vscode-descriptionForeground);
+
+    span {
+        display: inline-block;
+        animation: ${dotWave} 1.1s ease-in-out infinite;
+    }
+
+    span:nth-of-type(1) {
+        animation-delay: 0s;
+    }
+
+    span:nth-of-type(2) {
+        animation-delay: 0.15s;
+    }
+
+    span:nth-of-type(3) {
+        animation-delay: 0.3s;
+    }
+`;
+
 interface ThinkingSegmentProps {
     text: string;
     loading?: boolean;
@@ -77,11 +112,29 @@ const ThinkingSegment: React.FC<ThinkingSegmentProps> = ({ text, loading = false
             <ThinkingHeader onClick={() => setExpanded(!expanded)}>
                 <span className={`codicon codicon-chevron-${expanded ? "down" : "right"}`} />
                 {loading && <Spinner />}
-                {loading ? "Thinking..." : "Thinking"}
+                {loading ? (
+                    <>
+                        <span>Thinking</span>
+                        <LoadingDots aria-hidden="true">
+                            <span>.</span>
+                            <span>.</span>
+                            <span>.</span>
+                        </LoadingDots>
+                    </>
+                ) : "Thinking"}
             </ThinkingHeader>
             {expanded && (
                 <ThinkingBody>
-                    {hasText ? text.trim() : (loading ? "Thinking..." : "No reasoning details.")}
+                    {hasText ? text.trim() : (loading ? (
+                        <>
+                            <span>Thinking</span>
+                            <LoadingDots aria-hidden="true">
+                                <span>.</span>
+                                <span>.</span>
+                                <span>.</span>
+                            </LoadingDots>
+                        </>
+                    ) : "No reasoning details.")}
                 </ThinkingBody>
             )}
         </ThinkingContainer>

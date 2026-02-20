@@ -361,6 +361,8 @@ export async function executeAgent(
 
         // Track tool inputs for use in tool results (by toolCallId)
         const toolInputMap = new Map<string, any>();
+        // Track tool calls that already emitted a pre-input loading state.
+        const preloadedToolCallIds = new Set<string>();
         // Track reasoning text by block ID and emit complete thinking blocks on end.
         const reasoningById = new Map<string, string>();
 
@@ -419,12 +421,49 @@ export async function executeAgent(
                     break;
                 }
 
+                case 'tool-input-start': {
+                    const toolCallId = (part as any).id ?? (part as any).toolCallId;
+                    if (toolCallId && preloadedToolCallIds.has(toolCallId)) {
+                        break;
+                    }
+
+                    if (toolCallId) {
+                        preloadedToolCallIds.add(toolCallId);
+                    }
+
+                    const toolName = (part as any).toolName;
+                    if (!toolName || toolName === TODO_WRITE_TOOL_NAME) {
+                        break;
+                    }
+
+                    const toolActions = getToolAction(toolName, undefined, undefined);
+                    const loadingAction = toolActions?.loading || toolName;
+
+                    // Emit an early loading event so UI shows progress while tool input streams.
+                    eventHandler({
+                        type: 'tool_call',
+                        toolName,
+                        toolInput: {},
+                        loadingAction,
+                    });
+                    break;
+                }
+
+                case 'tool-input-delta':
+                case 'tool-input-end': {
+                    // Tool input deltas are currently used for early loading visibility.
+                    // Final tool details are emitted on `tool-call`.
+                    break;
+                }
+
                 case 'tool-call': {
                     const toolInput = part.input as any;
                     logDebug(`[Agent] Tool call: ${part.toolName}`);
 
                     // Mark that we're executing a tool (for interruption tracking)
                     isExecutingTool = true;
+
+                    preloadedToolCallIds.delete(part.toolCallId);
 
                     // Store tool input for later use in tool result
                     toolInputMap.set(part.toolCallId, toolInput);

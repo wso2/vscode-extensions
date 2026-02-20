@@ -110,6 +110,52 @@ function finalizeThinkingBlock(content: string, thinkingId: string): string {
     return content.replace(loadingTag, doneTag);
 }
 
+function upsertLoadingToolCallTag(content: string, filePath: string, toolMessage: string): string {
+    const loadingTag = `<toolcall data-loading="true" data-file="${filePath}">${toolMessage}</toolcall>`;
+    const toolPattern = /<toolcall data-loading="true" data-file="([^"]*)">([^<]*?)<\/toolcall>/g;
+    const matches = [...content.matchAll(toolPattern)];
+
+    if (matches.length === 0) {
+        return content + `\n\n${loadingTag}`;
+    }
+
+    const fullMatch = matches[matches.length - 1][0];
+    const lastIndex = content.lastIndexOf(fullMatch);
+    const beforeMatch = content.substring(0, lastIndex);
+    const afterMatch = content.substring(lastIndex + fullMatch.length);
+    return beforeMatch + loadingTag + afterMatch;
+}
+
+function upsertLoadingBashOutputTag(
+    content: string,
+    bashData: { command: string; description: string; output: string; exitCode: number; loading: boolean }
+): string {
+    const loadingTag = `<bashoutput data-loading="true">${JSON.stringify(bashData)}</bashoutput>`;
+    const bashPattern = /<bashoutput data-loading="true">[\s\S]*?<\/bashoutput>/g;
+    const matches = [...content.matchAll(bashPattern)];
+
+    if (matches.length === 0) {
+        return content + `\n\n${loadingTag}`;
+    }
+
+    const fullMatch = matches[matches.length - 1][0];
+    const lastIndex = content.lastIndexOf(fullMatch);
+    const beforeMatch = content.substring(0, lastIndex);
+    const afterMatch = content.substring(lastIndex + fullMatch.length);
+    return beforeMatch + loadingTag + afterMatch;
+}
+
+const WORKING_ON_IT_TOOL_MESSAGE = 'copilot is working on it...';
+const WORKING_ON_IT_DELAY_MS = 2000;
+const RUNNING_PLACEHOLDER_DOT_FRAMES = ['.  ', '.. ', '...', ' ..', '  .', ' ..'];
+
+function removeWorkingOnItToolCallTag(content: string): string {
+    const workingTag = `<toolcall data-loading="true" data-file="">${WORKING_ON_IT_TOOL_MESSAGE}</toolcall>`;
+    return content
+        .replace(`\n\n${workingTag}`, '')
+        .replace(workingTag, '');
+}
+
 function extractPlanTitle(planContent: string): string | undefined {
     const lines = planContent.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     for (const line of lines) {
@@ -369,7 +415,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     // Manual compact state
     const [isCompacting, setIsCompacting] = useState(false);
-    const [runningPlaceholderDotCount, setRunningPlaceholderDotCount] = useState(3);
+    const [runningPlaceholderFrameIndex, setRunningPlaceholderFrameIndex] = useState(0);
     const [mentionContext, setMentionContext] = useState<MentionContext | null>(null);
     const [mentionSuggestions, setMentionSuggestions] = useState<MentionablePathItem[]>([]);
     const [activeMentionIndex, setActiveMentionIndex] = useState(0);
@@ -391,7 +437,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const remainingContextPercent = Math.max(0, 100 - contextUsagePercent);
 
     const placeholderString = USER_INPUT_PLACEHOLDER_MESSAGE;
-    const runningPlaceholder = `Copilot is running${'.'.repeat(runningPlaceholderDotCount)}`;
+    const runningPlaceholder = `Please wait${RUNNING_PLACEHOLDER_DOT_FRAMES[runningPlaceholderFrameIndex]}`;
     const inputPlaceholder = isUsageExceeded
         ? "Usage quota exceeded..."
         : backendRequestTriggered
@@ -421,6 +467,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const currentChatIdRef = useRef<number | null>(null);
     const backendRequestTriggeredRef = useRef(false);
     const sendInProgressRef = useRef(false);
+    const workingOnItTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const firstProgressEventReceivedRef = useRef(false);
 
     // Keep refs in sync with state (for use in stale closure of event handler)
     assistantResponseRef.current = assistantResponse;
@@ -442,6 +490,27 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         return newMessages;
     };
 
+    const clearWorkingOnItTimer = useCallback(() => {
+        if (workingOnItTimerRef.current) {
+            clearTimeout(workingOnItTimerRef.current);
+            workingOnItTimerRef.current = null;
+        }
+    }, []);
+
+    const clearWorkingOnItPlaceholder = useCallback(() => {
+        setMessages((prev) => updateLastMessage(prev, (c) => removeWorkingOnItToolCallTag(c)));
+    }, [setMessages]);
+
+    const markAgentProgressStarted = useCallback(() => {
+        if (firstProgressEventReceivedRef.current) {
+            return;
+        }
+
+        firstProgressEventReceivedRef.current = true;
+        clearWorkingOnItTimer();
+        clearWorkingOnItPlaceholder();
+    }, [clearWorkingOnItPlaceholder, clearWorkingOnItTimer]);
+
     // Handle agent streaming events from extension
     // Uses refs for values that change between renders (assistantResponseRef, currentChatIdRef)
     // to avoid stale closure issues since this callback is registered once via onAgentEvent.
@@ -461,6 +530,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             case "content_block":
                 // Handle streaming content blocks
                 if (event.content) {
+                    markAgentProgressStarted();
                     const content = event.content;
 
                     // Update assistant response state
@@ -473,6 +543,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
             case "thinking_start":
                 if (event.thinkingId) {
+                    markAgentProgressStarted();
                     setAssistantResponse((prev) => appendThinkingPlaceholder(prev, event.thinkingId!));
                     setMessages((prev) => updateLastMessage(prev, (c) =>
                         appendThinkingPlaceholder(c, event.thinkingId!)
@@ -502,6 +573,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 // Show tool status and insert toolcall tag into message content
                 // Action text is provided by backend from shared utility
                 if (event.toolName) {
+                    markAgentProgressStarted();
                     // Do not show intermediate loading UI for exit_plan_mode.
                     // Plan approval dialog is the UI for this stage.
                     if (event.toolName === EXIT_PLAN_MODE_TOOL_NAME) {
@@ -523,7 +595,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
                         setToolStatus(toolInfo?.description || "Running command...");
                         setMessages((prev) => updateLastMessage(prev, (c) =>
-                            c + `\n\n<bashoutput data-loading="true">${JSON.stringify(bashData)}</bashoutput>`
+                            upsertLoadingBashOutputTag(c, bashData)
                         ));
                         break;
                     }
@@ -540,7 +612,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
                     // Insert toolcall tag with loading state
                     setMessages((prev) => updateLastMessage(prev, (c) =>
-                        c + `\n\n<toolcall data-loading="true" data-file="${filePath}">${toolMessage}</toolcall>`
+                        upsertLoadingToolCallTag(c, filePath, toolMessage)
                     ));
                 }
                 break;
@@ -548,6 +620,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             case "tool_result":
                 // Clear tool status and mark toolcall as complete in message
                 // Completed action is provided by backend from shared utility
+                markAgentProgressStarted();
                 setToolStatus("");
 
                 // For exit_plan_mode, show completion only after successful exit.
@@ -630,6 +703,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 break;
 
             case "error":
+                clearWorkingOnItTimer();
+                clearWorkingOnItPlaceholder();
                 setMessages((prevMessages) => [...prevMessages, {
                     id: generateId(),
                     role: Role.MICopilot,
@@ -642,6 +717,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
             case "abort":
                 // Abort acknowledged - finalize with partial content and "[Interrupted]" marker
+                clearWorkingOnItTimer();
+                clearWorkingOnItPlaceholder();
                 setBackendRequestTriggered(false);
                 setPendingQuestion(null);
                 setPendingPlanApproval(null);
@@ -670,6 +747,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
             case "stop":
                 // Agent response completed - use ref to read latest assistantResponse (avoids stale closure)
+                clearWorkingOnItTimer();
+                clearWorkingOnItPlaceholder();
                 if (assistantResponseRef.current) {
                     handleAgentComplete(assistantResponseRef.current, event.modelMessages || []);
                 } else {
@@ -1167,6 +1246,22 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 break;
         }
 
+        firstProgressEventReceivedRef.current = false;
+        clearWorkingOnItTimer();
+        workingOnItTimerRef.current = setTimeout(() => {
+            if (
+                firstProgressEventReceivedRef.current
+                || abortedRef.current
+                || !backendRequestTriggeredRef.current
+            ) {
+                return;
+            }
+
+            setMessages((prev) => updateLastMessage(prev, (c) =>
+                upsertLoadingToolCallTag(c, "", WORKING_ON_IT_TOOL_MESSAGE)
+            ));
+        }, WORKING_ON_IT_DELAY_MS);
+
         try {
             // Convert chat history to model messages format (with tool calls preserved)
             const chatHistory = convertChatHistoryToModelMessages(currentCopilotChat);
@@ -1217,12 +1312,15 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             }
             setMessages((prevMessages) => {
                 const newMessages = [...prevMessages];
-                newMessages[newMessages.length - 1].content += errorMessage;
+                const lastIdx = newMessages.length - 1;
+                const cleanedContent = removeWorkingOnItToolCallTag(newMessages[lastIdx].content);
+                newMessages[lastIdx].content = cleanedContent + errorMessage;
                 newMessages[newMessages.length - 1].type = MessageType.Error;
                 return newMessages;
             });
             console.error("Error sending agent message:", error);
         } finally {
+            clearWorkingOnItTimer();
             setCurrentUserprompt("");
             setBackendRequestTriggered(false);
             sendInProgressRef.current = false;
@@ -1282,6 +1380,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             rpcClient.onAgentEvent(handleAgentEvent);
         }
     }, [rpcClient, handleAgentEvent]);
+
+    useEffect(() => {
+        return () => {
+            clearWorkingOnItTimer();
+        };
+    }, [clearWorkingOnItTimer]);
 
     // Local state for answers to questions
     // For single-select: questionIndex -> selected label
@@ -1352,13 +1456,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     useEffect(() => {
         if (!backendRequestTriggered) {
-            setRunningPlaceholderDotCount(3);
+            setRunningPlaceholderFrameIndex(0);
             return;
         }
 
         const interval = setInterval(() => {
-            setRunningPlaceholderDotCount((prev) => prev >= 3 ? 1 : prev + 1);
-        }, 450);
+            setRunningPlaceholderFrameIndex((prev) => (prev + 1) % RUNNING_PLACEHOLDER_DOT_FRAMES.length);
+        }, 240);
 
         return () => clearInterval(interval);
     }, [backendRequestTriggered]);

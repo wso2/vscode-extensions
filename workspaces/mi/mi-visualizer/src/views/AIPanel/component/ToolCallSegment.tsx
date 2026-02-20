@@ -26,6 +26,17 @@ const spin = keyframes`
     to { transform: rotate(360deg); }
 `;
 
+const dotWave = keyframes`
+    0%, 60%, 100% {
+        opacity: 0.25;
+        transform: translateY(0);
+    }
+    30% {
+        opacity: 1;
+        transform: translateY(-1px);
+    }
+`;
+
 const ToolRow = styled.div`
     display: flex;
     align-items: center;
@@ -59,6 +70,30 @@ const StatusIcon = styled.span<{ status: 'success' | 'error' | 'loading' }>`
 
 const ToolText = styled.span`
     margin-right: 4px;
+`;
+
+const LoadingDots = styled.span`
+    display: inline-flex;
+    gap: 1px;
+    margin-left: 2px;
+    color: var(--vscode-descriptionForeground);
+
+    span {
+        display: inline-block;
+        animation: ${dotWave} 1.1s ease-in-out infinite;
+    }
+
+    span:nth-of-type(1) {
+        animation-delay: 0s;
+    }
+
+    span:nth-of-type(2) {
+        animation-delay: 0.15s;
+    }
+
+    span:nth-of-type(3) {
+        animation-delay: 0.3s;
+    }
 `;
 
 const ToolTarget = styled.span`
@@ -101,6 +136,10 @@ function basename(path: string): string {
     return parts[parts.length - 1] || path;
 }
 
+function removeTrailingEllipsis(text: string): string {
+    return text.replace(/\.\.\.$/, "").trimEnd();
+}
+
 const ToolCallSegment: React.FC<ToolCallSegmentProps> = ({ text, loading, failed, filePath }) => {
     const { rpcClient } = useMICopilotContext();
 
@@ -119,6 +158,7 @@ const ToolCallSegment: React.FC<ToolCallSegmentProps> = ({ text, loading, failed
 
     const status = loading ? 'loading' : (failed ? 'error' : 'success');
     const iconClass = loading ? 'codicon-loading spin' : (failed ? 'codicon-error' : 'codicon-check');
+    const actionText = loading ? removeTrailingEllipsis(action) : action;
 
     const handleTargetClick = () => {
         if (!target || !rpcClient) {
@@ -132,11 +172,18 @@ const ToolCallSegment: React.FC<ToolCallSegmentProps> = ({ text, loading, failed
     return (
         <ToolRow>
             <StatusIcon status={status} className={`codicon ${iconClass}`} />
-            <ToolText>{action}</ToolText>
+            {actionText && <ToolText>{actionText}</ToolText>}
             {target && (
                 <ToolTarget title={target} onClick={handleTargetClick}>
                     {basename(target)}
                 </ToolTarget>
+            )}
+            {loading && (
+                <LoadingDots aria-hidden="true">
+                    <span>.</span>
+                    <span>.</span>
+                    <span>.</span>
+                </LoadingDots>
             )}
         </ToolRow>
     );
