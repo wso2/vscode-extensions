@@ -7,7 +7,7 @@
   "publisher": "wso2",
   "repository": {
     "type": "git",
-    "url": "https://github.com/HimethW/vscode-extensions.git",
+    "url": "https://github.com/wso2/vscode-extensions.git",
     "directory": "workspaces/arazzo/arazzo-designer-extension"
   },
   "engines": {
