@@ -73,7 +73,7 @@ export async function generateSuggestions(
         {
             role: "system" as const,
             content: systemPrompt,
-            providerOptions: cacheOptions, // Cache system prompt only
+            providerOptions: cacheOptions as any, // Cache system prompt only
         },
         {
             role: "user" as const,

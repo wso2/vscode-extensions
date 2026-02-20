@@ -57,10 +57,10 @@ export const AIPanel = () => {
                 const authenticatingState = (state as any).Authenticating;
                 
                 // Determine if we're validating
-                const isValidating = authenticatingState === 'validatingApiKey';
+                const isValidating = authenticatingState === 'validatingApiKey' || authenticatingState === 'validatingAwsCredentials';
                 
                 // Show the appropriate form based on the substate
-                if (authenticatingState === 'apiKeyFlow' || authenticatingState === 'validatingApiKey') {
+                if (['apiKeyFlow', 'validatingApiKey', 'awsBedrockFlow', 'validatingAwsCredentials'].includes(authenticatingState)) {
                     setViewComponent(
                         <WaitingForLoginSection 
                             loginMethod={loginMethod} 
