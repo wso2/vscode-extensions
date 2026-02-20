@@ -18,9 +18,10 @@ import { DIAGNOSTICS_TOOL_NAME } from "./tools/diagnostics";
 import { LIBRARY_GET_TOOL } from "./tools/library-get";
 import { LIBRARY_SEARCH_TOOL } from "./tools/library-search";
 import { TASK_WRITE_TOOL_NAME } from "./tools/task-writer";
-import { FILE_BATCH_EDIT_TOOL_NAME, FILE_SINGLE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from "./tools/text-editor";
+import { FILE_BATCH_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_SINGLE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from "./tools/text-editor";
 import { CONNECTOR_GENERATOR_TOOL } from "./tools/connector-generator";
 import { CONFIG_COLLECTOR_TOOL } from "./tools/config-collector";
+import { GREP_TOOL_NAME } from "./tools/grep";
 import { getLanglibInstructions } from "../utils/libs/langlibs";
 import { formatCodebaseStructure, formatCodeContext } from "./utils";
 import { GenerateAgentCodeRequest, OperationType, ProjectSource } from "@wso2/ballerina-core";
@@ -120,10 +121,10 @@ Create a very high-level and concise design plan for the given user requirement.
 Identify the libraries required to implement the user requirement. Use ${LIBRARY_SEARCH_TOOL} to discover relevant libraries, then use ${LIBRARY_GET_TOOL} to fetch their full details.
 
 ### Step 3: Write the code
-Write/modify the Ballerina code to implement the user requirement. Use the ${FILE_BATCH_EDIT_TOOL_NAME}, ${FILE_SINGLE_EDIT_TOOL_NAME}, ${FILE_WRITE_TOOL_NAME} tools to write/modify the code. 
+Write/modify the Ballerina code to implement the user requirement. Use the ${FILE_BATCH_EDIT_TOOL_NAME}, ${FILE_SINGLE_EDIT_TOOL_NAME}, ${FILE_WRITE_TOOL_NAME} tools to write/modify the code.
 
 ### Step 4: Validate the code
-Once the task is done, Always use ${DIAGNOSTICS_TOOL_NAME} tool to check for compilation errors and fix them. 
+Once the task is done, Always use ${DIAGNOSTICS_TOOL_NAME} tool to check for compilation errors and fix them.
 You can use this tool multiple times after making changes to ensure there are no compilation errors.
 If you think you can't fix the error after multiple attempts, make sure to keep bring the code into a good state and finish off the task.
 
@@ -177,14 +178,32 @@ ${getLanglibInstructions()}
 - Mention types EXPLICITLY in variable declarations and foreach statements.
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
+## Understanding Existing Code
+- A Code Map (bal.md) may be included in the user message inside a <project_codemap> tag, before the user's query.
+- This Code Map is auto-generated from the project and sent alongside the user prompt when available.
+
+**If a Code Map is provided (<project_codemap> is present in the user message)**
+- ALWAYS read the Code Map first to understand the high-level structure of the codebase.
+- The Code Map is your **navigator** — it lists files, components, and their line ranges but does NOT include full implementation details.
+- ALWAYS Use ${FILE_READ_TOOL_NAME} to read the actual source code, DO NOT make any assumptions.
+- If you need to explore usages, dependencies, or logic patterns across the codebase, use ${GREP_TOOL_NAME} to search, then read the relevant files or components using ${FILE_READ_TOOL_NAME}.
+
+**If a Code Map is not provided (no <project_codemap> in the user message)**
+- You have no prior knowledge of the codebase, so you must actively explore it.
+- Use ${GREP_TOOL_NAME} to search for relevant keywords, function names, or type names across the codebase.
+- Iteratively refine your searches — use findings from one grep to inform the next.
+- Use ${FILE_READ_TOOL_NAME} to read the relevant files or components and understand their implementation details.
+- Build up your understanding of the codebase incrementally before making any changes.
+
+
 # File modifications
 - You must apply changes to the existing source code using the provided ${[
-        FILE_BATCH_EDIT_TOOL_NAME,
-        FILE_SINGLE_EDIT_TOOL_NAME,
-        FILE_WRITE_TOOL_NAME,
-    ].join(
-        ", "
-    )} tools. The complete existing source code will be provided in the <existing_code> section of the user prompt.
+            FILE_BATCH_EDIT_TOOL_NAME,
+            FILE_SINGLE_EDIT_TOOL_NAME,
+            FILE_WRITE_TOOL_NAME,
+        ].join(
+            ", "
+        )} tools.
 - When making replacements inside an existing file, provide the **exact old string** and the **exact new string** with all newlines, spaces, and indentation, being mindful to replace nearby occurrences together to minimize the number of tool calls.
 - Do NOT create a new markdown file to document each change or summarize your work unless specifically requested by the user.
 - Do not manually add/modify toml files (Ballerina.toml/Dependencies.toml). For Config.toml configuration management, use ${CONFIG_COLLECTOR_TOOL}.
@@ -199,14 +218,34 @@ ${getNPSuffix(projects, op)}
  * @param params Generation request parameters containing usecase, plan mode, code context, and file attachments
  * @param tempProjectPath Path to temp project
  * @param projects Project source information
+ * @param balMd Optional bal.md code map content. When provided, this is sent instead of the full codebase source.
  */
-export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath: string, projects: ProjectSource[]) {
+export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath: string, projects: ProjectSource[], balMd?: string) {
     const content = [];
 
-    content.push({
-        type: 'text' as const,
-        text: formatCodebaseStructure(projects)
-    });
+    // Add CodeMap (bal.md) if available,
+    if (balMd) {
+        content.push({
+            type: 'text' as const,
+            text: `<project_codemap>
+This is the Code Map (bal.md) of the existing Ballerina project. It contains high-level overview of the codebase.
+
+## How the Code Map (bal.md) is organized
+- Organized by file path (e.g. service.bal, modules/database/types.bal)
+- For each file, lists the key artifacts: Imports, Configurables, Variables, Functions, Types, Classes, Services (entry points), and Enums
+- Each artifact includes sub-properties such as: type descriptor, fields, parameters, return types, description, and a Line Range
+- Line Range format: (startLine:startCol-endLine:endCol) — use startLine as the offset and (endLine - startLine) as the limit when reading a specific component via the read tool
+${balMd}
+</project_codemap>`
+        });
+    }
+
+    // else {
+    //     content.push({
+    //         type: 'text' as const,
+    //         text: formatCodebaseStructure(projects)
+    //     });
+    // }
 
     // Add code context if available
     if (params.codeContext) {
@@ -246,7 +285,7 @@ ${params.usecase}
 }
 
 
-function getGenerationType(isPlanMode:boolean):string {
+function getGenerationType(isPlanMode: boolean): string {
     if (isPlanMode) {
         return `<system-reminder> Plan Mode is enabled. Make sure to use task management using ${TASK_WRITE_TOOL_NAME} </system-reminder>`;
     }
@@ -254,7 +293,7 @@ function getGenerationType(isPlanMode:boolean):string {
 }
 
 function getNPSuffix(projects: ProjectSource[], op?: OperationType): string {
-    let basePrompt:string = "Note: You are in a special Natural Programming mode. Follow the NP guidelines strictly in addition to what you've given. \n";
+    let basePrompt: string = "Note: You are in a special Natural Programming mode. Follow the NP guidelines strictly in addition to what you've given. \n";
     if (!op) {
         return "";
     } else if (op === "CODE_FOR_USER_REQUIREMENT") {
