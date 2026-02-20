@@ -55,6 +55,7 @@ const PDF_MAX_PAGES_PER_REQUEST = 5;
 const MAX_GREP_PATTERN_LENGTH = 512;
 const MAX_GREP_GLOB_LENGTH = 256;
 const MAX_GREP_SEARCH_DEPTH = 12;
+const POST_WRITE_VALIDATION_DELAY_MS = 500;
 
 const GREP_TYPE_EXTENSION_MAP: Record<string, string[]> = {
     js: ['.js', '.mjs', '.cjs'],
@@ -206,6 +207,10 @@ function isCopilotGlobalPath(fullPath: string): boolean {
 
 function escapeRegexCharacters(value: string): string {
     return value.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');
+}
+
+function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function compileGrepPattern(pattern: string, caseInsensitive: boolean): { regex?: RegExp; error?: string } {
@@ -821,6 +826,8 @@ export function createWriteExecute(
         const lineCount = content.split('\n').length;
         const action = fileExists ? 'updated' : 'created';
 
+        // Give language services a brief moment to settle before automatic validation.
+        await delay(POST_WRITE_VALIDATION_DELAY_MS);
         // Automatically validate the file and get structured diagnostics
         const validation = await validateXmlFile(fullPath, projectPath, false);
 
@@ -1099,6 +1106,8 @@ export function createEditExecute(
 
         const replacedCount = replace_all ? occurrenceCount : 1;
 
+        // Give language services a brief moment to settle before automatic validation.
+        await delay(POST_WRITE_VALIDATION_DELAY_MS);
         // Automatically validate the file and get structured diagnostics
         const validation = await validateXmlFile(fullPath, projectPath, false);
 
@@ -1471,7 +1480,8 @@ export function createWriteTool(execute: WriteExecuteFn) {
     return (tool as any)({
         description: `Creates a new file. Will NOT overwrite existing files with content - use ${FILE_EDIT_TOOL_NAME} for that.
             Parent directories are created automatically. Allowed file types: ${getAllowedFileTypesDescription()}.
-            XML files are automatically validated after writing (results included in response). But LemMinx reports "Premature end of file" on connector local entry XMLs (e.g., http.init). This is a known false positive — ignore it and verify by building the project instead if needed.
+            XML files are automatically validated after writing (results included in response).
+            LemMinx may reports "Premature end of file". This is a known false positive when LemMinx is not synchronized with the file system. Ignore it and verify by building the project instead if needed.
             Do NOT create documentation files unless explicitly requested.`,
         inputSchema: writeInputSchema,
         execute
@@ -1524,7 +1534,8 @@ export function createEditTool(execute: EditExecuteFn) {
             old_string must match EXACTLY (whitespace, indentation, line breaks).
             Fails if old_string is not unique - provide more context or set replace_all=true.
             Cannot create new files - use ${FILE_WRITE_TOOL_NAME} for that.
-            XML files are automatically validated after editing (results included in response). But LemMinx reports "Premature end of file" on connector local entry XMLs (e.g., http.init). This is a known false positive — ignore it and verify by building the project instead if needed.`,
+            XML files are automatically validated after editing (results included in response).
+            LemMinx may reports "Premature end of file". This is a known false positive when LemMinx is not synchronized with the file system. Ignore it and verify by building the project instead if needed.`,
         inputSchema: editInputSchema,
         execute
     });
