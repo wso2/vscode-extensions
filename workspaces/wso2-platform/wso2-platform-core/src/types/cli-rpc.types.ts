@@ -107,17 +107,17 @@ export interface CreateComponentReq {
 	gitCredRef: string;
 	branch: string;
 	langVersion: string;
-	dockerFile: string;
+	dockerFile?: string;
 	port: number;
 	spaBuildCommand: string;
 	spaNodeVersion: string;
 	spaOutputDir: string;
-	proxyApiVersion: string;
-	proxyEndpointUrl: string;
-	proxyApiContext: string;
+	proxyApiVersion?: string;
+	proxyEndpointUrl?: string;
+	proxyApiContext?: string;
 	originCloud?: string;
 	// todo: remove
-	proxyAccessibility: string;
+	proxyAccessibility?: string;
 }
 export interface CreateConfigYamlReq {
 	componentDir: string;
@@ -573,6 +573,7 @@ export interface IChoreoRPCClient {
 	getSubscriptions(params: GetSubscriptionsReq): Promise<SubscriptionsResp>;
 	getGitTokenForRepository(params: GetGitTokenForRepositoryReq): Promise<GetGitTokenForRepositoryResp>;
 	getGitRepoMetadata(params: GetGitMetadataReq): Promise<GetGitMetadataResp>;
+	getGitRepoMetadataBatch(params: GetGitMetadataReq[]): Promise<GetGitMetadataResp[]>;
 }
 
 export class ChoreoRpcWebview implements IChoreoRPCClient {
@@ -704,6 +705,9 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	getGitRepoMetadata(params: GetGitMetadataReq): Promise<GetGitMetadataResp> {
 		return this._messenger.sendRequest(ChoreoRpcGetGitRepoMetadata, HOST_EXTENSION, params);
 	}
+	getGitRepoMetadataBatch(params: GetGitMetadataReq[]): Promise<GetGitMetadataResp[]> {
+		return this._messenger.sendRequest(ChoreoRpcGetGitRepoMetadataBatch, HOST_EXTENSION, params);
+	}
 }
 
 export const ChoreoRpcGetProjectsRequest: RequestType<string, Project[]> = { method: "rpc/project/getProjects" };
@@ -779,4 +783,7 @@ export const ChoreoRpcGetGitTokenForRepository: RequestType<GetGitTokenForReposi
 };
 export const ChoreoRpcGetGitRepoMetadata: RequestType<GetGitMetadataReq, GetGitMetadataResp> = {
 	method: "rpc/repo/getRepoMetadata",
+};
+export const ChoreoRpcGetGitRepoMetadataBatch: RequestType<GetGitMetadataReq[], GetGitMetadataResp[]> = {
+	method: "rpc/repo/getRepoMetadataBatch",
 };

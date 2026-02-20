@@ -36,6 +36,8 @@ export interface ICreateComponentCmdParams extends ICmdParamsBase {
 	name?: string;
 	/** Full path of the component directory */
 	componentDir?: string;
+	/** Available integration types for this component (for multi-type selection in UI) */
+	supportedIntegrationTypes?: DevantScopes[];
 }
 
 export interface IDeleteComponentCmdParams extends ICmdParamsBase {

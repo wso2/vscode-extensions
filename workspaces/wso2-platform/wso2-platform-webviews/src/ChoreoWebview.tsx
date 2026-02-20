@@ -19,7 +19,7 @@
 import type {
 	ComponentsDetailsWebviewProps,
 	ComponentsListActivityViewProps,
-	NewComponentWebviewProps,
+	ComponentFormWebviewProps,
 	WebviewProps,
 } from "@wso2/wso2-platform-core";
 import React from "react";
@@ -42,7 +42,7 @@ function ChoreoWebview(props: WebviewProps) {
 							{(() => {
 								switch (props.type) {
 									case "NewComponentForm":
-										return <ComponentFormView {...(props as NewComponentWebviewProps)} />;
+										return <ComponentFormView {...(props as ComponentFormWebviewProps)} />;
 									case "ComponentDetailsView":
 										return <ComponentDetailsView {...(props as ComponentsDetailsWebviewProps)} />;
 									case "ComponentsListActivityView":
