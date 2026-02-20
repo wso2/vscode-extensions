@@ -104,10 +104,10 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 			
 			return {
 				index,
-				selected: true, // Select all by default
+				selected: true, // Select all by default (library components must always be selected)
 				componentType,
 				name: comp.initialValues?.name || comp.directoryName,
-				directoryName: comp.directoryName,
+				directoryName: comp.directoryName
 			};
 		}),
 	);
@@ -281,6 +281,10 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 				// Build array of component creation requests
 				const componentRequests = selectedToCreate
 					.map((selectedComp) => {
+						if (selectedComp.componentType === "library") {
+							// Library components are not created on Devant.
+							return null;
+						}
 						const componentConfig = components[selectedComp.index];
 						const componentFormData = componentDataMap.get(selectedComp.index);
 
