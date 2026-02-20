@@ -5,6 +5,11 @@
   "version": "0.1.0",
   "icon": "assets/arazzo-language.png",
   "publisher": "wso2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wso2/vscode-extensions.git",
+    "directory": "workspaces/arazzo/arazzo-designer-extension"
+  },
   "engines": {
     "vscode": "^1.100.0"
   },
