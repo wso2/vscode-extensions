@@ -217,11 +217,17 @@ async function createCollectionFolderStructure(
 async function createHurlCollectionFolderStructure(
 	apiTestPath: string,
 	collectionName: string,
-	collectionData: Record<string, unknown> | HurlCollectionPayload
+	collectionData: Record<string, unknown> | HurlCollectionPayload,
+	collectionFolderNameOverride?: string
 ): Promise<{ collectionPath: string; firstRequestPath?: string }> {
 	await fs.mkdir(apiTestPath, { recursive: true });
 
-	const collectionDirName = sanitizePathSegment(collectionName, `collection-${Date.now()}`);
+	const collectionDirName = sanitizePathSegment(
+		collectionFolderNameOverride && collectionFolderNameOverride.trim().length > 0
+			? collectionFolderNameOverride
+			: collectionName,
+		`collection-${Date.now()}`
+	);
 	const collectionPath = path.join(apiTestPath, collectionDirName);
 	await fs.mkdir(collectionPath, { recursive: true });
 	let firstRequestPath: string | undefined;
@@ -741,17 +747,13 @@ export async function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			// Determine base path where collection will be created
-			let basePath: string | undefined;
+			// Determine parent path where collection folder will be created
+			let parentPath: string | undefined;
 			// Remember the folder the user explicitly selected (used when no workspace is open)
 			let selectedParentDir: string | undefined;
 			if (workspaceRoot) {
-				if (providedFolderName) {
-					basePath = path.join(workspaceRoot, providedFolderName);
-				} else {
-					// Per new behavior: when no folder specified, create collection under workspace root
-					basePath = workspaceRoot;
-				}
+				// Create under workspace root; providedFolderName is used as the actual collection folder name.
+				parentPath = workspaceRoot;
 			} else {
 				// No workspace open — ask user to select a directory to create the collection in
 				const folderUris = await vscode.window.showOpenDialog({
@@ -763,18 +765,23 @@ export async function activate(context: vscode.ExtensionContext) {
 				if (!folderUris || folderUris.length === 0) return; // user cancelled
 				const parent = folderUris[0].fsPath;
 				selectedParentDir = parent;
-				basePath = providedFolderName ? path.join(parent, providedFolderName) : parent;
+				parentPath = parent;
 			}
 
-			if (!basePath) {
+			if (!parentPath) {
 				vscode.window.showErrorMessage('Could not determine target directory for collection');
 				return;
 			}
 
-			// Ensure basePath exists
-			await fs.mkdir(basePath, { recursive: true });
+			// Ensure parent path exists
+			await fs.mkdir(parentPath, { recursive: true });
 
-			const { collectionPath, firstRequestPath } = await createHurlCollectionFolderStructure(basePath, normalized.name, normalized);
+			const { collectionPath, firstRequestPath } = await createHurlCollectionFolderStructure(
+				parentPath,
+				normalized.name,
+				normalized,
+				providedFolderName
+			);
 
 			// If collection created outside workspace, offer to open/add it. When no workspace is open,
 			// prompt to open the new collection in a new window. Do NOT call reloadCollections when

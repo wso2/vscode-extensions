@@ -328,71 +328,23 @@ export class TryItPanel {
 								}
 							}
 
-							// If still no file path, prompt user to select folder and file
+							// If still no file path, prompt user to select a file directly.
+							// Do not auto-create folders/collections during save.
 							if (!targetFilePath) {
-								const folderUris = await vscode.window.showOpenDialog({
-									canSelectFolders: true,
-									canSelectFiles: false,
-									canSelectMany: false,
-									defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
-									openLabel: 'Select Folder for API Requests'
-								});
-
-								if (!folderUris || folderUris.length === 0) {
-									// User cancelled folder selection
-									this._panel.webview.postMessage({
-										type: 'saveRequestResponse',
-										data: { success: false, message: 'Folder selection cancelled by user' }
-									});
-									break;
-								}
-
-								const selectedFolder = folderUris[0];
-
-								// Ensure a subfolder 'Test Collection' exists under the selected folder, and create collection.yaml there
-								const collectionFolderName = 'test-collection';
-								const collectionFolderPath = path.join(selectedFolder.fsPath, collectionFolderName);
-								const collectionFolderUri = vscode.Uri.file(collectionFolderPath);
-								try {
-									try {
-										await vscode.workspace.fs.stat(collectionFolderUri);
-										// Directory exists
-									} catch {
-										// Directory doesn't exist; create it
-										await vscode.workspace.fs.createDirectory(collectionFolderUri);
-										vscode.window.showInformationMessage(`Created folder: ${collectionFolderPath}`);
-									}
-
-									// Ensure collection.yaml exists inside the collection folder
-									const collectionFileUri = vscode.Uri.joinPath(collectionFolderUri, 'collection.yaml');
-									try {
-										await vscode.workspace.fs.stat(collectionFileUri);
-										// collection.yaml already exists
-									} catch {
-										const folderName = collectionFolderName;
-										const safeId = folderName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-										const yamlContent = `id: ${safeId}\nname: ${folderName}\n`;
-										await vscode.workspace.fs.writeFile(collectionFileUri, Buffer.from(yamlContent, 'utf8'));
-										vscode.window.showInformationMessage(`Created collection.yaml in ${collectionFolderPath}`);
-									}
-
-									// Set the state machine collection context so autosaves target this folder
-									try {
-										// ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionFolderPath);
-										ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionFolderPath);
-									} catch {
-										// ignore failures
-									}
-								} catch (err) {
-									const msg = err instanceof Error ? err.message : String(err);
-									vscode.window.showWarningMessage(`Failed to ensure collection folder or file: ${msg}`);
-								}
-
 								// Suggest a file name based on the request name
 								const suggestedFileName = ((request && request.name) ? request.name : 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.hurl';
+								let defaultFolderUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+								if (stateContext.currentCollectionPath) {
+									try {
+										await vscode.workspace.fs.stat(vscode.Uri.file(stateContext.currentCollectionPath));
+										defaultFolderUri = vscode.Uri.file(stateContext.currentCollectionPath);
+									} catch {
+										// ignore invalid/removed collection path and fall back to workspace root
+									}
+								}
 
 								const fileUri = await vscode.window.showSaveDialog({
-									defaultUri: vscode.Uri.joinPath(collectionFolderUri, suggestedFileName),
+									defaultUri: defaultFolderUri ? vscode.Uri.joinPath(defaultFolderUri, suggestedFileName) : undefined,
 									filters: {
 										'Hurl files': ['hurl'],
 										'YAML files': ['yaml', 'yml']
