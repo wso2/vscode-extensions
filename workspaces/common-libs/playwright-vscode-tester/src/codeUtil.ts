@@ -93,6 +93,7 @@ export class CodeUtil {
      */
     async downloadVSCode(version = 'latest'): Promise<void> {
         await this.checkCodeVersion(version);
+        this.ensureExecutablePaths();
 
         const literalVersion = version === 'latest' ? this.availableVersions[0] : version;
         if (this.releaseType == ReleaseQuality.Stable && literalVersion !== this.availableVersions[0]) {
@@ -159,6 +160,7 @@ export class CodeUtil {
     }
 
     private installExt(pathOrID: string): void {
+        this.ensureExecutablePaths();
         let command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node --force --install-extension "${pathOrID}" --user-data-dir="${path.join(this.downloadFolder, 'settings', this.profileName, 'Code')}"`;
         if (this.extensionsFolder) {
             command += ` --extensions-dir=${this.extensionsFolder}`;
@@ -173,6 +175,7 @@ export class CodeUtil {
      * @param paths vararg paths to files or folders to open
      */
     open(...paths: string[]): void {
+        this.ensureExecutablePaths();
         const segments = paths.map(f => `"${f}"`).join(' ');
         const command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node -r ${segments} --user-data-dir="${path.join(this.downloadFolder, 'settings', this.profileName, 'Code')}"`;
         child_process.execSync(command);
@@ -216,6 +219,7 @@ export class CodeUtil {
         const extension = `${pjson.publisher}.${pjson.name}`;
 
         if (cleanup) {
+            this.ensureExecutablePaths();
             let command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node --uninstall-extension "${extension}" --user-data-dir="${path.join(this.downloadFolder, 'settings', this.profileName, 'Code')}"`;
             if (this.extensionsFolder) {
                 command += ` --extensions-dir=${this.extensionsFolder}`;
@@ -318,6 +322,7 @@ export class CodeUtil {
      * Check what VS Code version is present in the testing folder
      */
     private getExistingCodeVersion(): Promise<string> {
+        this.ensureExecutablePaths();
         const command = [this.cliEnv, `"${this.executablePath}"`, `"${this.cliPath}"`, '--ms-enable-electron-run-as-node', '-v'].join(' ');
         return new Promise<string>((resolve, reject) => {
             child_process.exec(command, (err, stdout) => {
@@ -355,7 +360,7 @@ export class CodeUtil {
         const defaultCliPath = path.join(this.codeFolder, 'resources', 'app', 'out', 'cli.js');
         this.cliPath = defaultCliPath;
 
-        if (process.platform === 'win32' && !fs.existsSync(this.cliPath)) {
+        if (process.platform === 'win32' && fs.existsSync(this.codeFolder) && !fs.existsSync(this.cliPath)) {
             const entries = fs.readdirSync(this.codeFolder, { withFileTypes: true });
             for (const entry of entries) {
                 if (!entry.isDirectory()) {
@@ -424,6 +429,7 @@ export class CodeUtil {
     }
 
     async getBrowser(runOptions: RunOptions = DEFAULT_RUN_OPTIONS): Promise<Browser> {
+        this.ensureExecutablePaths();
         if (!runOptions.offline) {
             await this.checkCodeVersion(runOptions.vscodeVersion ?? DEFAULT_RUN_OPTIONS.vscodeVersion);
         } else {
@@ -441,6 +447,12 @@ export class CodeUtil {
             channel: this.releaseType,
             isHeaded: process.env.CI === 'true' ? false : true,
             isHeadless: process.env.CI === 'true' ? true : false,
+        }
+    }
+
+    private ensureExecutablePaths(): void {
+        if (!this.executablePath || !this.cliPath) {
+            this.findExecutables();
         }
     }
 }
