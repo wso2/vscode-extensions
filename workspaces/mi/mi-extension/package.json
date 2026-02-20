@@ -1049,12 +1049,12 @@
     "yaml": "2.8.0"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "2.0.35",
+    "@ai-sdk/anthropic": "3.0.46",
     "@apidevtools/json-schema-ref-parser": "12.0.2",
     "@babel/core": "7.27.1",
     "@babel/plugin-transform-typescript": "7.27.1",
     "@iarna/toml": "2.2.5",
-    "ai": "5.0.76",
+    "ai": "6.0.94",
     "@types/fs-extra": "11.0.4",
     "@types/handlebars": "4.1.0",
     "@types/json-schema": "7.0.15",
