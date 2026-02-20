@@ -156,12 +156,26 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
 
     useEffect(() => {
         const fetchData = async () => {
+            if (isMCPTool) {
+                const connectorIcon = await rpcClient.getMiDiagramRpcClient().getConnectorIcon({
+                    connectorName: 'ai',
+                    documentUri: node.documentUri
+                });
+
+                setIconPath(connectorIcon.iconPath);
+                return;
+            }
+
             const connectorIcon = await rpcClient.getMiDiagramRpcClient().getConnectorIcon({
-                connectorName: node.stNode?.connectorName ?? (node.stNode as any).mediator.connectorName,
+                connectorName: node.stNode?.connectorName ?? (isMCPTool ? 'ai' : (node.stNode as any).mediator.connectorName),
                 documentUri: node.documentUri
             });
 
             setIconPath(connectorIcon.iconPath);
+
+            if (isMCPTool) {
+                return;
+            }
 
             const connectorData = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({
                 documentUri: node.documentUri,
@@ -319,9 +333,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                     )}
                     <S.TopPortWidget port={node.getPort("in")!} engine={engine} />
                     <div style={{ display: "flex", flexDirection: "row", width: NODE_DIMENSIONS.DEFAULT.WIDTH }}>
-                        {isMCPTool ?
-                            <S.IconContainer>{getMediatorIconsFromFont('mcp')}</S.IconContainer>
-                            : iconPath &&
+                        {iconPath &&
                             <S.IconContainer><img src={iconPath} alt="Icon" /></S.IconContainer>
                         }
                         <div>
