@@ -182,9 +182,14 @@ export namespace FileUtils {
         );
     }
 
-    export function compareFilesSync(file1: string, file2: string) {
-        const file1Content = fs.readFileSync(file1, 'utf8').replaceAll('\r\n', '\n');
-        const file2Content = fs.readFileSync(file2, 'utf8').replaceAll('\r\n', '\n');
+    export function compareFilesSync(file1: string, file2: string, checkFormatting?: boolean) {
+        let file1Content = fs.readFileSync(file1, 'utf8').replaceAll('\r\n', '\n');
+        let file2Content = fs.readFileSync(file2, 'utf8').replaceAll('\r\n', '\n');
+
+        if (!checkFormatting) {
+            file1Content = file1Content.replace(/\n/g, '').replace(/\s+/g, ' ');
+            file2Content = file2Content.replace(/\n/g, '').replace(/\s+/g, ' ');
+        }
 
         return file1Content === file2Content;
     }

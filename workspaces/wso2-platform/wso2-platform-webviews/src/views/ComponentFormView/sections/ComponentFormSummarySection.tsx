@@ -166,12 +166,26 @@ export const ComponentFormSummarySection: FC<Props> = ({
 		}
 
 		if (type === ChoreoComponentType.Service && endpointDetails?.endpoints?.length) {
-			items.push(
-				<ComponentSummaryItem
-					title="Endpoints"
-					text={`${endpointDetails?.endpoints?.length} endpoint${endpointDetails?.endpoints?.length > 1 ? "s" : ""}`}
-				/>,
-			);
+			if ([ChoreoBuildPackNames.MicroIntegrator, ChoreoBuildPackNames.Ballerina].includes(buildDetails?.buildPackLang as ChoreoBuildPackNames)) {
+				// if ballerina or MI
+				if (!buildDetails?.useDefaultEndpoints) {
+					// if not using default endpoints
+					items.push(
+						<ComponentSummaryItem
+							title="Endpoints"
+							text={`${endpointDetails?.endpoints?.length} endpoint${endpointDetails?.endpoints?.length > 1 ? "s" : ""}`}
+						/>,
+					);
+				}
+			} else {
+				// if not using ballerina or MI
+				items.push(
+					<ComponentSummaryItem
+						title="Endpoints"
+						text={`${endpointDetails?.endpoints?.length} endpoint${endpointDetails?.endpoints?.length > 1 ? "s" : ""}`}
+					/>,
+				);
+			}
 		}
 	}
 

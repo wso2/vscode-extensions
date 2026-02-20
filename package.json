@@ -29,6 +29,8 @@
     "build:wso2-platform": "rush build --to wso2-platform",
     "build:mi": "rush build --to micro-integrator",
     "build:api-designer": "rush build --to api-designer",
+    "test:diagrams": "node common/scripts/run-diagram-tests.js",
+    "test:updateDiagramsSnapshots": "cd workspaces/ballerina/bi-diagram && npm run test:updateSnapshots && cd ../sequence-diagram && npm run test:updateSnapshots && cd ../component-diagram && npm run test:updateSnapshots && cd ../type-diagram && npm run test:updateSnapshots",
     "setup-e2e-test-debug": "workspaces/ballerina/ballerina-extension/node_modules/vscode-extension-tester/out/cli.js get-vscode && workspaces/ballerina/ballerina-extension/node_modules/vscode-extension-tester/out/cli.js get-chromedriver",
     "ui-toolkit-stories": "npm run --prefix ./workspaces/common-libs/ui-toolkit serve-storybook",
     "prepare": "husky"

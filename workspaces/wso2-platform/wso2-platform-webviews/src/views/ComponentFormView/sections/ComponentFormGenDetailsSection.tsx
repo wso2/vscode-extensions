@@ -482,11 +482,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 	if (!invalidRepoMsg && repoUrl && !isRepoAuthorizedResp?.isAccessible && provider) {
 		if (provider === GitProvider.GITHUB) {
 			if (isRepoAuthorizedResp?.retrievedRepos) {
-				invalidRepoMsg = (
-					<span>
-						{extensionName} lacks access to the selected repository.
-					</span>
-				);
+				invalidRepoMsg = <span>{extensionName} lacks access to the selected repository.</span>;
 				invalidRepoAction = "Grant Access";
 				onInvalidRepoActionClick = () => ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString());
 			} else {
@@ -498,9 +494,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 		} else {
 			onInvalidRepoActionClick = () => ChoreoWebViewAPI.getInstance().openExternalChoreo(`organizations/${organization.handle}/settings/credentials`);
 			if (isRepoAuthorizedResp?.retrievedRepos) {
-				invalidRepoMsg = (
-					<span>Selected Credential does not have sufficient permissions to access the repository.</span>
-				);
+				invalidRepoMsg = <span>Selected Credential does not have sufficient permissions to access the repository.</span>;
 				invalidRepoAction = "Manage Credentials";
 			} else {
 				invalidRepoMsg = `Failed to retrieve ${toSentenceCase(provider)} repositories using the selected credential.`;
