@@ -18,7 +18,7 @@ The designer opens beside your code and stays in sync as you edit.
 
 Open an Arazzo file and click the **Arazzo Designer** toolbar icon (or use `Ctrl+Shift+P` → *"ArazzoDesigner: Open Arazzo Designer"*) to launch the **Overview**. The Overview gives you a bird's-eye view of every workflow defined in your specification including their names, summaries, and how many steps they contain. Click any workflow card to drill into the full **Workflow View**, which renders every step as a node, every decision branch as a labelled edge, and every success/failure path in a clean interactive diagram. Click any node to open the **Properties Panel** on the right and inspect that step's inputs, parameters, success criteria, and outputs without leaving the diagram.
 
-![Normal flow — open file → Overview → Workflow View](assets/normal_flow_comp.gif)
+![Normal flow — open file → Overview → Workflow View](https://raw.githubusercontent.com/HimethW/vscode-extensions/arazzo-extension/workspaces/arazzo/arazzo-designer-extension/assets/normal_flow_comp.gif)
 
 ---
 
@@ -26,7 +26,7 @@ Open an Arazzo file and click the **Arazzo Designer** toolbar icon (or use `Ctrl
 
 You don't always need to go through the Overview. When you open an Arazzo file, the extension adds clickable **Code Lens** action buttons directly above each workflow definition in the editor. Click **"Visualize"** on any workflow to jump straight into its Workflow View in one click, great when you know exactly which workflow you want to inspect.
 
-![Code Lens actions in the editor](assets/codelens.gif)
+![Code Lens actions in the editor](https://raw.githubusercontent.com/HimethW/vscode-extensions/arazzo-extension/workspaces/arazzo/arazzo-designer-extension/assets/codelens.gif)
 
 ---
 
@@ -48,7 +48,7 @@ Copilot will generate the Arazzo file for you. Open it and the designer will vis
 
 Every time you save, the diagram **automatically re-renders** to reflect the latest state of your file — no manual refresh, no switching context.
 
-![Getting started with Copilot](assets/quick_start_comp.gif)
+![Getting started with Copilot](https://raw.githubusercontent.com/HimethW/vscode-extensions/arazzo-extension/workspaces/arazzo/arazzo-designer-extension/assets/quick_start_comp.gif)
 
 ---
 
