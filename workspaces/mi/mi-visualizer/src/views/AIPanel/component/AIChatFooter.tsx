@@ -2514,7 +2514,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 </div>
                             </FooterTooltip>
                         )}
-                        <FooterTooltip content="Enable web search and fetch without approval prompts">
+                        <FooterTooltip
+                            align="start"
+                            content="Enable web search and fetch without approval prompts"
+                        >
                             <button
                                 type="button"
                                 onClick={() => setIsWebAccessEnabled((prev) => !prev)}
