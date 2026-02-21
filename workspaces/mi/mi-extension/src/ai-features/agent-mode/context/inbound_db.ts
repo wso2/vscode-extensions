@@ -26,8 +26,8 @@ export const INBOUND_DB = [
         "mavenArtifactId": "mi-inbound-amazonsqs",
         "id": "",
         "version": {
-            "tagName": "2.0.1",
-            "releaseId": "233149909",
+            "tagName": "2.0.2",
+            "releaseId": "255699560",
             "isLatest": true,
             "isDeprecated": false,
             "operations": [
@@ -145,7 +145,7 @@ export const INBOUND_DB = [
                             "name": "suspend",
                             "type": "checkbox",
                             "required": false,
-                            "description": "Suspend Inbound",
+                            "description": "Enable this option to suspend the inbound endpoint immediately after deployment.",
                             "defaultValue": "False"
                         },
                         {
@@ -160,9 +160,7 @@ export const INBOUND_DB = [
             ],
             "connections": []
         },
-        "otherVersions": {
-            "1.1.5": "204041910"
-        },
+        "otherVersions": {},
         "connectorRank": 11,
         "iconUrl": ""
     },
@@ -175,8 +173,8 @@ export const INBOUND_DB = [
         "mavenArtifactId": "mi-inbound-cdc",
         "id": "",
         "version": {
-            "tagName": "2.0.2",
-            "releaseId": "233149423",
+            "tagName": "2.0.4",
+            "releaseId": "255692382",
             "isLatest": true,
             "isDeprecated": false,
             "operations": [
@@ -406,7 +404,7 @@ export const INBOUND_DB = [
                             "name": "suspend",
                             "type": "checkbox",
                             "required": false,
-                            "description": "Suspend Inbound",
+                            "description": "Enable this option to suspend the inbound endpoint immediately after deployment.",
                             "defaultValue": "False"
                         },
                         {
@@ -428,10 +426,385 @@ export const INBOUND_DB = [
             ],
             "connections": []
         },
-        "otherVersions": {
-            "1.2.2": "204041909"
-        },
+        "otherVersions": {},
         "connectorRank": 14,
+        "iconUrl": ""
+    },
+    {
+        "connectorName": "File Event Listener",
+        "repoName": "mi-inbound-file",
+        "description": "File Event Listener",
+        "connectorType": "Inbound",
+        "mavenGroupId": "org.wso2.integration.inbound",
+        "mavenArtifactId": "mi-inbound-file",
+        "id": "",
+        "version": {
+            "tagName": "0.9.3",
+            "releaseId": "256332293",
+            "isLatest": true,
+            "isDeprecated": false,
+            "operations": [
+                {
+                    "name": "init",
+                    "description": "Initialize File Inbound Endpoint",
+                    "isHidden": false,
+                    "parameters": [
+                        {
+                            "name": "class",
+                            "type": "string",
+                            "required": true,
+                            "description": "",
+                            "defaultValue": "org.wso2.carbon.inbound.vfs.VFSConsumer"
+                        },
+                        {
+                            "name": "coordination",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "True"
+                        },
+                        {
+                            "name": "cronExpression",
+                            "type": "string",
+                            "required": true,
+                            "description": "The cron for the connection.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "fileThrottlingType",
+                            "type": "combo",
+                            "required": true,
+                            "description": "Choose how file processing is controlled.",
+                            "defaultValue": "Count"
+                        },
+                        {
+                            "name": "generateSequences",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "True"
+                        },
+                        {
+                            "name": "interval",
+                            "type": "string",
+                            "required": true,
+                            "description": "The interval for the connection.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "name",
+                            "type": "string",
+                            "required": true,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "onError",
+                            "type": "keyOrExpression",
+                            "required": true,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "scheduleType",
+                            "type": "combo",
+                            "required": true,
+                            "description": "The polling type for the connection.",
+                            "defaultValue": "Polling"
+                        },
+                        {
+                            "name": "sequence",
+                            "type": "keyOrExpression",
+                            "required": true,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "sequential",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "True"
+                        },
+                        {
+                            "name": "suspend",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "False"
+                        },
+                        {
+                            "name": "transport.vfs.ActionAfterFailure",
+                            "type": "combo",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "MOVE"
+                        },
+                        {
+                            "name": "transport.vfs.ActionAfterProcess",
+                            "type": "combo",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "MOVE"
+                        },
+                        {
+                            "name": "transport.vfs.AutoLockRelease",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "False"
+                        },
+                        {
+                            "name": "transport.vfs.AutoLockReleaseInterval",
+                            "type": "string",
+                            "required": true,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.Build",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "False"
+                        },
+                        {
+                            "name": "transport.vfs.CheckSizeIgnoreEmpty",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "When true, empty files are ignored during file size checks.",
+                            "defaultValue": "False"
+                        },
+                        {
+                            "name": "transport.vfs.CheckSizeInterval",
+                            "type": "string",
+                            "required": false,
+                            "description": "Duration in milliseconds between file size checks.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.ContentType",
+                            "type": "string",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.FailedRecordNextRetryDuration",
+                            "type": "string",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "3000"
+                        },
+                        {
+                            "name": "transport.vfs.FailedRecordsFileDestination",
+                            "type": "string",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.FailedRecordsFileName",
+                            "type": "string",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "vfs-move-failed-records.properties"
+                        },
+                        {
+                            "name": "transport.vfs.FileNamePattern",
+                            "type": "string",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.FileProcessCount",
+                            "type": "string",
+                            "required": true,
+                            "description": "Maximum number of files to process in a single polling cycle.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.FileProcessInterval",
+                            "type": "string",
+                            "required": true,
+                            "description": "Delay (in milliseconds) between processing consecutive files.",
+                            "defaultValue": "0"
+                        },
+                        {
+                            "name": "transport.vfs.FileSizeLimit",
+                            "type": "string",
+                            "required": false,
+                            "description": "Process files whose size is ≤ this value (in bytes). Use -1 for unlimited.",
+                            "defaultValue": "-1"
+                        },
+                        {
+                            "name": "transport.vfs.FileSortAscending",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "True"
+                        },
+                        {
+                            "name": "transport.vfs.FileSortAttribute",
+                            "type": "combo",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.FileURI",
+                            "type": "string",
+                            "required": true,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.Locking",
+                            "type": "combo",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "enable"
+                        },
+                        {
+                            "name": "transport.vfs.LockReleaseSameNode",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "False"
+                        },
+                        {
+                            "name": "transport.vfs.MaximumAge",
+                            "type": "string",
+                            "required": false,
+                            "description": "Maximum age in seconds since the last modification; older files will be skipped.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.MaxRetryCount",
+                            "type": "string",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.MinimumAge",
+                            "type": "string",
+                            "required": false,
+                            "description": "Minimum age in seconds since the last modification before processing a file.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.MoveAfterFailedMove",
+                            "type": "string",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.MoveAfterFailure",
+                            "type": "string",
+                            "required": true,
+                            "description": "URI for the target location for failed files.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.MoveAfterProcess",
+                            "type": "string",
+                            "required": true,
+                            "description": "URI for the target location.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.MoveFailedRecordTimestampFormat",
+                            "type": "string",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "dd-MM-yyyy HH:mm:ss"
+                        },
+                        {
+                            "name": "transport.vfs.MoveTimestampFormat",
+                            "type": "string",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.ReconnectTimeout",
+                            "type": "string",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.SFTPIdentities",
+                            "type": "string",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.SFTPIdentityPassPhrase",
+                            "type": "string",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.SFTPUserDirIsRoot",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "False"
+                        },
+                        {
+                            "name": "transport.vfs.Streaming",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "False"
+                        },
+                        {
+                            "name": "transport.vfs.SubFolderTimestampFormat",
+                            "type": "string",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "transport.vfs.UpdateLastModified",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "True"
+                        }
+                    ]
+                }
+            ],
+            "connections": []
+        },
+        "otherVersions": {},
+        "connectorRank": 15,
+        "iconUrl": ""
+    },
+    {
+        "connectorName": "Google PubSub (Inbound)",
+        "repoName": "mi-inbound-googlepubsub",
+        "description": "Inbuilt Google Pub/Sub Event Listener",
+        "connectorType": "Inbound",
+        "mavenGroupId": "org.wso2.integration.inbound",
+        "mavenArtifactId": "mi-inbound-googlepubsub",
+        "id": "",
+        "version": {
+            "tagName": "1.0.0",
+            "releaseId": "239938464",
+            "isLatest": true,
+            "isDeprecated": false,
+            "operations": [],
+            "connections": []
+        },
+        "otherVersions": {},
+        "connectorRank": 15,
         "iconUrl": ""
     },
     {
@@ -570,10 +943,7 @@ export const INBOUND_DB = [
             ],
             "connections": []
         },
-        "otherVersions": {
-            "1.1.2": "168855518",
-            "1.1.1": "147636915"
-        },
+        "otherVersions": {},
         "connectorRank": 12,
         "iconUrl": ""
     },
@@ -586,8 +956,8 @@ export const INBOUND_DB = [
         "mavenArtifactId": "mi-inbound-kafka",
         "id": "",
         "version": {
-            "tagName": "2.0.4",
-            "releaseId": "232863938",
+            "tagName": "2.0.6",
+            "releaseId": "256275858",
             "isLatest": true,
             "isDeprecated": false,
             "operations": [
@@ -1160,7 +1530,7 @@ export const INBOUND_DB = [
                             "name": "suspend",
                             "type": "boolean",
                             "required": false,
-                            "description": "Suspend Inbound",
+                            "description": "Enable this option to suspend the inbound endpoint immediately after deployment.",
                             "defaultValue": "False"
                         },
                         {
@@ -1203,10 +1573,7 @@ export const INBOUND_DB = [
             ],
             "connections": []
         },
-        "otherVersions": {
-            "1.2.6": "204041583",
-            "1.2.4": "189378349"
-        },
+        "otherVersions": {},
         "connectorRank": 15,
         "iconUrl": ""
     },
@@ -1722,6 +2089,26 @@ export const INBOUND_DB = [
         "iconUrl": ""
     },
     {
+        "connectorName": "RabbitMQ (Inbound)",
+        "repoName": "",
+        "description": "RabbitMQ Message Listener",
+        "connectorType": "Inbound",
+        "mavenGroupId": "",
+        "mavenArtifactId": "",
+        "version": {
+            "tagName": "",
+            "releaseId": "",
+            "isLatest": true,
+            "isDeprecated": false,
+            "operations": [],
+            "connections": []
+        },
+        "otherVersions": {},
+        "connectorRank": 0,
+        "iconUrl": "",
+        "id": ""
+    },
+    {
         "connectorName": "Salesforce (Inbound)",
         "repoName": "esb-inbound-salesforce",
         "description": "The Salesforce streaming Inbound Endpoint allows you to perform various operations such as push topics and platform events on Salesforce streaming data via WSO2 EI.",
@@ -1730,27 +2117,176 @@ export const INBOUND_DB = [
         "mavenArtifactId": "mi-inbound-salesforce",
         "id": "",
         "version": {
-            "tagName": "3.0.0",
-            "releaseId": "221723352",
+            "tagName": "3.0.4",
+            "releaseId": "255692225",
             "isLatest": true,
             "isDeprecated": false,
-            "operations": [],
+            "operations": [
+                {
+                    "name": "init",
+                    "description": "Initialize Kafka Inbound Endpoint",
+                    "isHidden": false,
+                    "parameters": [
+                        {
+                            "name": "class",
+                            "type": "string",
+                            "required": true,
+                            "description": "",
+                            "defaultValue": "org.wso2.carbon.inbound.salesforce.poll.SalesforceStreamData"
+                        },
+                        {
+                            "name": "connection.salesforce.connectionTimeout",
+                            "type": "string",
+                            "required": false,
+                            "description": "Connection timeout in milliseconds.",
+                            "defaultValue": "10000"
+                        },
+                        {
+                            "name": "connection.salesforce.EventIDStoredFilePath",
+                            "type": "string",
+                            "required": false,
+                            "description": "Specify the file path of a text file to start replaying from the event ID stored in it.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "connection.salesforce.initialEventId",
+                            "type": "string",
+                            "required": false,
+                            "description": "Initial event ID to start reading messages.",
+                            "defaultValue": "-1"
+                        },
+                        {
+                            "name": "connection.salesforce.loginEndpoint",
+                            "type": "string",
+                            "required": true,
+                            "description": "Salesforce login URL endpoint.",
+                            "defaultValue": "https://login.salesforce.com"
+                        },
+                        {
+                            "name": "connection.salesforce.packageVersion",
+                            "type": "string",
+                            "required": true,
+                            "description": "Version of the Salesforce package.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "connection.salesforce.password",
+                            "type": "string",
+                            "required": true,
+                            "description": "Salesforce login password.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "connection.salesforce.replay",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "Enabling this will read the event ID stored in the Registry or from the text file provided via Event ID File Path parameter.",
+                            "defaultValue": "False"
+                        },
+                        {
+                            "name": "connection.salesforce.replayWithMultipleInbounds",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "When enabled, supports replaying messages with multiple inbound endpoints.",
+                            "defaultValue": "False"
+                        },
+                        {
+                            "name": "connection.salesforce.salesforceObject",
+                            "type": "string",
+                            "required": true,
+                            "description": "Name of the Salesforce object to interact with.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "connection.salesforce.soapApiVersion",
+                            "type": "string",
+                            "required": false,
+                            "description": "Version of the Salesforce SOAP API to use.",
+                            "defaultValue": "22.0"
+                        },
+                        {
+                            "name": "connection.salesforce.userName",
+                            "type": "string",
+                            "required": true,
+                            "description": "Salesforce login user name.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "connection.salesforce.waitTime",
+                            "type": "string",
+                            "required": false,
+                            "description": "Wait time in milliseconds before making a new request in case of server delays.",
+                            "defaultValue": "86400000"
+                        },
+                        {
+                            "name": "coordination",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "This will ensure that the inbound endpoint is only executed by one node in the clustered environment.",
+                            "defaultValue": "True"
+                        },
+                        {
+                            "name": "generateSequences",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "",
+                            "defaultValue": "True"
+                        },
+                        {
+                            "name": "interval",
+                            "type": "string",
+                            "required": true,
+                            "description": "The polling interval for the Salesforce inbound endpoint.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "name",
+                            "type": "string",
+                            "required": true,
+                            "description": "Unique identifier for the Salesforce event integration.",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "onError",
+                            "type": "keyOrExpression",
+                            "required": true,
+                            "description": "Error sequence to invoke on fault",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "sequence",
+                            "type": "keyOrExpression",
+                            "required": true,
+                            "description": "Sequence to inject the Salesforce message",
+                            "defaultValue": ""
+                        },
+                        {
+                            "name": "sequential",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "The behaviour when executing the given sequence.",
+                            "defaultValue": "True"
+                        },
+                        {
+                            "name": "suspend",
+                            "type": "checkbox",
+                            "required": false,
+                            "description": "Enable this option to suspend the inbound endpoint immediately after deployment.",
+                            "defaultValue": "False"
+                        }
+                    ]
+                }
+            ],
             "connections": []
         },
-        "otherVersions": {
-            "2.1.13": "220036413",
-            "2.1.11": "218982716",
-            "2.1.0": "204308186",
-            "2.0.20": "204045099",
-            "2.0.17": "199568764"
-        },
+        "otherVersions": {},
         "connectorRank": 16,
         "iconUrl": ""
     },
     {
-        "connectorName": "Salesforce PubSub",
+        "connectorName": "Salesforce PubSub (Inbound)",
         "repoName": "mi-inbound-salesforcepubsub",
-        "description": "Inbuilt Salesforce Pub/Sub Event Listener",
+        "description": "Salesforce Pub/Sub Event Listener",
         "connectorType": "Inbound",
         "mavenGroupId": "org.wso2.integration.inbound",
         "mavenArtifactId": "mi-inbound-salesforcepubsub",
@@ -1776,8 +2312,8 @@ export const INBOUND_DB = [
         "mavenArtifactId": "mi-inbound-smpp",
         "id": "",
         "version": {
-            "tagName": "2.0.1",
-            "releaseId": "233149626",
+            "tagName": "2.0.2",
+            "releaseId": "255699403",
             "isLatest": true,
             "isDeprecated": false,
             "operations": [
@@ -1930,7 +2466,7 @@ export const INBOUND_DB = [
                             "name": "suspend",
                             "type": "checkbox",
                             "required": false,
-                            "description": "Suspend Inbound",
+                            "description": "Enable this option to suspend the inbound endpoint immediately after deployment.",
                             "defaultValue": "False"
                         },
                         {
@@ -1959,9 +2495,7 @@ export const INBOUND_DB = [
             ],
             "connections": []
         },
-        "otherVersions": {
-            "1.0.3": "204042048"
-        },
+        "otherVersions": {},
         "connectorRank": 13,
         "iconUrl": ""
     }
