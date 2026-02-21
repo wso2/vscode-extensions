@@ -93,6 +93,10 @@ const MENTION_SKIP_DIRS = new Set([
     'target',
 ]);
 
+// Per extension-host lifetime, create one fresh startup session per project.
+// This gives a new session after VSCode restart, but not when reopening only the AI panel.
+const startupSessionInitializedProjects: Set<string> = new Set();
+
 export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private eventHandler: AgentEventHandler;
     private currentAbortController: AbortController | null = null;
@@ -851,6 +855,16 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     async loadChatHistory(_request: LoadChatHistoryRequest): Promise<LoadChatHistoryResponse> {
         try {
+            if (!startupSessionInitializedProjects.has(this.projectUri)) {
+                logInfo('[AgentPanel] Creating startup fresh session for project');
+                const freshSessionResult = await this.createNewSession({});
+                if (freshSessionResult.success) {
+                    startupSessionInitializedProjects.add(this.projectUri);
+                } else {
+                    logError('[AgentPanel] Failed to create startup fresh session', freshSessionResult.error);
+                }
+            }
+
             // Initialize chat history manager (finds latest session or creates new)
             const historyManager = await this.getChatHistoryManager();
 
