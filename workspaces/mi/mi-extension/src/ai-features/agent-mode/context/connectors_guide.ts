@@ -19,66 +19,77 @@
 import { CONNECTOR_TOOL_NAME } from "../tools/types";
 
 export const CONNECTOR_DOCUMENTATION = `
-When using connectors, follow these rules:
-1. Only use operations defined in the connector JSON signatures.
-2. For connectors with \`connectionLocalEntryNeeded\`: true
-    - First fetch connection details using the tool ${CONNECTOR_TOOL_NAME}
-    - Then define a local entry for the connection type you want to use.
-    - Always include the name parameter in the init operation.
-    - Pass the key of the local entry via configKey in the connector operations for using the connection.
-    - If a connector connection has been initialized via a local entry, do not initialize it again elsewhere.
-    Example: Defining and using a connector with connectionBasedSupport
-    \`\`\`xml
-    <localEntry key="EMAIL_CONNECTION_1" xmlns="http://ws.apache.org/ns/synapse">
-        <email.init>
-            <connectionType>IMAP</connectionType>
-            <host>gmail.com</host>
-            <enableOAuth2>false</enableOAuth2>
-            <port>8899</port>
-            <name>EMAIL_CONNECTION_1</name>
-            <username>joe</username>
-        </email.init>
-    </localEntry>
-    \`\`\`
-    \`\`\`xml
-    <email.delete configKey="EMAIL_CONNECTION_1"/>
-    \`\`\`
-3. For connectors with \`connectionLocalEntryNeeded\`: false
-    - Fetch the \`init\` operation details using the tool ${CONNECTOR_TOOL_NAME}
-    - Then you must initialize the connection via the init operation everytime you use a connector operation in the synaose seqence itself.
+When using connectors, follow these rules.
 
-4. For connectors with \`noInitializationNeeded\`: true
-  - You do not need to initialize the connection via the init operation or a local entry.
-  - You can directly use the connector operation.
-    Example:
-    \`\`\`xml
-    <CSV.csvToJson>
-        <headerPresent>Absent</headerPresent>
-        <valueSeparator></valueSeparator>
-        <columnsToSkip></columnsToSkip>
-        <dataRowsToSkip></dataRowsToSkip>
-        <csvEmptyValues>Null</csvEmptyValues>
-        <jsonKeys></jsonKeys>
-        <dataTypes></dataTypes>
-        <rootJsonKey></rootJsonKey>
-    </CSV.csvToJson>
-    \`\`\`
+### 1) Resolve initialization mode first
+Use connector summary fields (\`connectionLocalEntryNeeded\`, \`noInitializationNeeded\`) and then apply the matching flow below.
 
-5. Never use <class name="..."/> in connector definitions—use the proper connector syntax instead.
-6. Implement a complete and functional solution without placeholder comments or partial implementations.
-7. Ensure all required parameters for each operation are explicitly included.
-8. Do not use the utility connector unless absolutely necessary.
+#### A. \`connectionLocalEntryNeeded: true\`
+- First fetch connection details using ${CONNECTOR_TOOL_NAME}.
+- Define a local entry for the connection type you want to use.
+- Always include the \`name\` parameter in the \`init\` operation.
+- Pass the local entry key through \`configKey\` in connector operations.
+- If a connector connection is initialized via local entry, do not initialize it again elsewhere.
 
-##### Revamped Connector operation response handling:
-With the latest updates to **certain connectors**, operations now support two additional parameters:
-1. \`responseVariable\` – Use this to store the connector operation response into a named variable.
-    - This variable can be referenced later using Synapse expressions. ( \${vars.variable_name_you_defined} )
-    - For operations where the response is required later, prefer responseVariable.
-2. \`overwriteBody\` – Use this to directly replace the message body/payload with the connector's response.
-    - This is useful when you want to pass the response from one connector operation as the request payload for the next. ( \${payload} )
-    - For flows where the response must be forwarded, use overwriteBody.
+Example: Define connection via local entry and use it with \`configKey\`
+\`\`\`xml
+<localEntry key="EMAIL_CONNECTION_1" xmlns="http://ws.apache.org/ns/synapse">
+    <email.init>
+        <connectionType>IMAP</connectionType>
+        <host>gmail.com</host>
+        <enableOAuth2>false</enableOAuth2>
+        <port>8899</port>
+        <name>EMAIL_CONNECTION_1</name>
+        <username>joe</username>
+    </email.init>
+</localEntry>
+\`\`\`
+\`\`\`xml
+<email.delete configKey="EMAIL_CONNECTION_1"/>
+\`\`\`
 
-**This connector update is an ongoing effort. So if you get validation errors with some connectors just don't use \`responseVariable\` or \`overwriteBody\` parameters for those connectors. Instead use the old way of handling the response.**
+#### B. \`connectionLocalEntryNeeded: false\`
+- Fetch \`init\` operation details using ${CONNECTOR_TOOL_NAME}.
+- Initialize the connection with \`init\` each time you use a connector operation in the Synapse sequence itself.
+
+#### C. \`noInitializationNeeded: true\`
+- Do not initialize via \`init\` or local entry.
+- Use connector operations directly.
+
+Example:
+\`\`\`xml
+<CSV.csvToJson>
+    <headerPresent>Absent</headerPresent>
+    <valueSeparator></valueSeparator>
+    <columnsToSkip></columnsToSkip>
+    <dataRowsToSkip></dataRowsToSkip>
+    <csvEmptyValues>Null</csvEmptyValues>
+    <jsonKeys></jsonKeys>
+    <dataTypes></dataTypes>
+    <rootJsonKey></rootJsonKey>
+</CSV.csvToJson>
+\`\`\`
+
+### 2) General connector rules
+1. Only use operations defined in connector JSON signatures.
+2. Never use \`<class name="..."/>\` in connector definitions. Use proper connector syntax.
+3. Implement complete, functional solutions without placeholders or partial code.
+4. Explicitly include all required parameters for each operation.
+5. Do not use the utility connector unless absolutely necessary.
+
+### 3) Revamped response handling (supported only by certain connectors)
+Some connectors support two additional operation parameters:
+1. \`responseVariable\`
+    - Stores connector response in a named variable.
+    - Reference later using Synapse expressions (for example, \`\${vars.my_variable}\`).
+    - Prefer this when the response is needed later in the flow.
+2. \`overwriteBody\`
+    - Replaces the message payload/body directly with connector response.
+    - Useful when next operation should consume previous response as \`\${payload}\`.
+    - Prefer this when response must be forwarded through the flow.
+
+Important:
+This update is ongoing. If validation errors appear for a connector, do not use \`responseVariable\` or \`overwriteBody\` for that connector. Use the older response-handling approach instead.
 `;
 
 export const AI_CONNECTOR_DOCUMENTATION = `
