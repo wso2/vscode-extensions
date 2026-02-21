@@ -141,6 +141,21 @@ function getParameterAvailability(definition: any): {
     };
 }
 
+function getInitializationGuidance(
+    connectionLocalEntryNeeded: boolean,
+    noInitializationNeeded: boolean
+): string {
+    if (noInitializationNeeded) {
+        return 'noInitializationNeeded=true. Use connector operations directly; do not configure localEntry or init.';
+    }
+
+    if (connectionLocalEntryNeeded) {
+        return 'connectionLocalEntryNeeded=true. Configure a localEntry using init and use configKey in operations; do not re-init in-sequence.';
+    }
+
+    return 'connectionLocalEntryNeeded=false. Fetch init details and call init in-sequence before connector operations (no localEntry configKey flow).';
+}
+
 function buildSelectedOperationDetail(
     name: string,
     definition: any,
@@ -395,6 +410,14 @@ export function createConnectorExecute(projectPath: string): ConnectorExecuteFn 
             const hasInitOperation = operations.some((operation: any) => normalizeIdentifier(operation?.name) === 'init');
             const noInitializationNeeded = connectionList.length === 0;
             const connectionLocalEntryNeeded = noInitializationNeeded ? false : !hasInitOperation;
+            const initializationGuidance = getInitializationGuidance(
+                connectionLocalEntryNeeded,
+                noInitializationNeeded
+            );
+
+            message += `<system-reminder>\n`;
+            message += `Initialization guidance for '${requestedName}': ${initializationGuidance}\n`;
+            message += `</system-reminder>\n`;
 
             message += `\n### ${requestedName}\n`;
             message += `- Maven: ${maven}\n`;
