@@ -245,8 +245,8 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     const currentlyOpenedFile = await getCurrentlyOpenedFile(params.projectPath);
 
     // Get available connectors and inbound endpoints
-    const { connectors: availableConnectors, inboundEndpoints: availableInboundEndpoints } =
-        await getAvailableConnectorCatalog(params.projectPath);
+    const connectorCatalog = await getAvailableConnectorCatalog(params.projectPath);
+    const { connectors: availableConnectors, inboundEndpoints: availableInboundEndpoints } = connectorCatalog;
     const availableSkills = getAvailableSkills();
 
     const mode = params.mode || 'edit';
@@ -256,9 +256,12 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     const planFileReminder = mode === 'plan'
         ? await getPlanModeSessionReminder(params.projectPath, params.sessionId || 'default')
         : '';
-    const modeReminder = planFileReminder
-        ? `${modePolicyReminder}\n\n${planFileReminder}`
-        : modePolicyReminder;
+    const connectorStoreReminder = connectorCatalog.warnings.length > 0
+        ? `Connector store status: ${connectorCatalog.storeStatus}. ${connectorCatalog.warnings.join(' ')}`
+        : '';
+    const modeReminderSections = [modePolicyReminder, planFileReminder, connectorStoreReminder]
+        .filter((section) => section.trim().length > 0);
+    const modeReminder = modeReminderSections.join('\n\n');
 
     // Prepare template context
     const isGitRepo = fs.existsSync(path.join(params.projectPath, '.git'));
