@@ -37,6 +37,7 @@ import {
 } from '../../tools/types';
 import { SYNAPSE_GUIDE } from '../../context/synapse_guide';
 import { SYNAPSE_GUIDE as SYNAPSE_GUIDE_OLD } from '../../context/synapse_guide_old';
+import { CONNECTOR_DOCUMENTATION } from '../../context/connectors_guide';
 import { compareVersions } from '../../../../util/onboardingUtils';
 import { RUNTIME_VERSION_440 } from '../../../../constants';
 
@@ -96,7 +97,7 @@ Prioritize technical accuracy over validation. Be direct, objective, and disagre
 - Use specialized tools instead of shell commands when possible, as this provides a better user experience. For file operations, use dedicated tools: Read for reading files instead of shell file-print commands, Edit for editing instead of shell text-rewrite commands, and Write for creating files instead of shell redirection. Reserve shell tools exclusively for actual system commands and terminal operations that require shell execution. ALWAYS use platform-specific shell syntax based on the <env> block in the current user prompt (Windows: PowerShell syntax, macOS/Linux: bash syntax). NEVER use shell echo or command-line tools to communicate thoughts, explanations, or instructions to the user. Output all communication directly in your response text instead.
 - Use MI runtime paths from the <env> block (MI Runtime home path, MI Runtime carbon log path) for runtime/debug log checks instead of hardcoded paths.
 - VERY IMPORTANT: When exploring the codebase to gather context or answer broad questions (not a needle query for a specific file), use the ${SUBAGENT_TOOL_NAME} tool with subagent_type=Explore instead of running search commands directly.
-- Connector guidance: keep ${CONNECTOR_TOOL_NAME} include_documentation=true for common connector usage context. Request include_full_descriptions=true only when parameter details are needed, and always provide exact operation names via connector_operation_names/inbound_operation_names for targeted operation details. Use ${SKILL_TOOL_NAME} only for specialized, rarely needed guidance.
+- Connector guidance: ${CONNECTOR_TOOL_NAME} fetches exactly one connector or one inbound endpoint per call using the name field. For multiple items, call it in parallel. First read the summary and check the "Parameter Details" availability line, operations, connections, and initialization flags. Request include_full_descriptions=true only when parameter details are needed and available, and provide exact operation_names and/or connection_names for targeted details. Use ${SKILL_TOOL_NAME} only for specialized, rarely needed guidance.
 - Use ${WEB_SEARCH_TOOL_NAME} for external research and recent information.
 - Use ${WEB_FETCH_TOOL_NAME} for retrieving and analyzing content from specific URLs.
 - Prefer MI docs as a primary source by constraining ${WEB_SEARCH_TOOL_NAME} with allowed_domains=["mi.docs.wso2.com"], but do not limit research to MI docs only. Use other relevant sources such as GitHub issues, Stack Overflow, and technical blogs when they add value.
@@ -231,6 +232,10 @@ Check:
 <SYNAPSE_DEVELOPMENT_GUIDELINES>
 ${SYNAPSE_GUIDE}
 </SYNAPSE_DEVELOPMENT_GUIDELINES>
+
+<CONNECTOR_DEVELOPMENT_GUIDELINES>
+${CONNECTOR_DOCUMENTATION}
+</CONNECTOR_DEVELOPMENT_GUIDELINES>
 `;
 const SYSTEM_PROMPT_OLD = SYSTEM_PROMPT.replace(SYNAPSE_GUIDE, SYNAPSE_GUIDE_OLD);
 

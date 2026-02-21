@@ -20,7 +20,6 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { CONNECTOR_DB } from '../context/connector_db';
 import { INBOUND_DB } from '../context/inbound_db';
-import { CONNECTOR_DOCUMENTATION } from '../context/connectors_guide';
 import { ToolResult } from './types';
 import { logInfo, logDebug } from '../../copilot/logger';
 import {
@@ -35,7 +34,8 @@ import {
 // Utility Functions
 // ============================================================================
 
-type OperationSelectionMap = Record<string, string[]>;
+type ConnectorTargetType = 'connector' | 'inbound endpoint';
+type ParameterAvailabilityStatus = 'available' | 'partial' | 'unavailable' | 'unknown';
 
 function normalizeIdentifier(value: unknown): string {
     if (typeof value !== 'string') {
@@ -43,14 +43,6 @@ function normalizeIdentifier(value: unknown): string {
     }
 
     return value.trim().toLowerCase();
-}
-
-function stripConnectorPrefix(value: unknown): string {
-    if (typeof value !== 'string') {
-        return '';
-    }
-
-    return value.replace(/^mi-(connector|module|inbound)-/i, '');
 }
 
 function getOperationList(definition: any): any[] {
@@ -65,90 +57,101 @@ function getOperationList(definition: any): any[] {
     return [];
 }
 
+function getConnectionList(definition: any): any[] {
+    if (Array.isArray(definition?.version?.connections)) {
+        return definition.version.connections;
+    }
+
+    if (Array.isArray(definition?.connections)) {
+        return definition.connections;
+    }
+
+    return [];
+}
+
 function getMavenCoordinate(definition: any): string {
     const groupId = typeof definition?.mavenGroupId === 'string' ? definition.mavenGroupId : 'unknown-group';
     const artifactId = typeof definition?.mavenArtifactId === 'string' ? definition.mavenArtifactId : 'unknown-artifact';
     return `${groupId}:${artifactId}`;
 }
 
-function buildOperationMap(source?: OperationSelectionMap): Map<string, string[]> {
-    const operationMap = new Map<string, string[]>();
-    if (!source) {
-        return operationMap;
+function normalizeSelectionNames(names: unknown): string[] {
+    if (!Array.isArray(names)) {
+        return [];
     }
 
-    for (const [key, operations] of Object.entries(source)) {
-        const normalizedKey = normalizeIdentifier(key);
-        if (!normalizedKey || !Array.isArray(operations)) {
-            continue;
-        }
-
-        const normalizedOps = Array.from(
-            new Set(
-                operations
-                    .map((op) => normalizeIdentifier(op))
-                    .filter((op) => op.length > 0)
-            )
-        );
-
-        if (normalizedOps.length > 0) {
-            operationMap.set(normalizedKey, normalizedOps);
-        }
-    }
-
-    return operationMap;
+    return Array.from(
+        new Set(
+            names
+                .map((name) => normalizeIdentifier(name))
+                .filter((name) => name.length > 0)
+        )
+    );
 }
 
-function getOperationRequestKeys(name: string, definition: any): string[] {
-    const keys = new Set<string>();
+function getParameterAvailability(definition: any): {
+    status: ParameterAvailabilityStatus;
+    withParameters: number;
+    total: number;
+    summary: string;
+} {
+    const operations = getOperationList(definition);
+    const total = operations.length;
 
-    const normalizedName = normalizeIdentifier(name);
-    if (normalizedName.length > 0) {
-        keys.add(normalizedName);
+    if (total === 0) {
+        return {
+            status: 'unknown',
+            withParameters: 0,
+            total: 0,
+            summary: 'unknown (operations list unavailable)',
+        };
     }
 
-    const connectorName = normalizeIdentifier(definition?.connectorName);
-    if (connectorName.length > 0) {
-        keys.add(connectorName);
+    let withParameters = 0;
+    for (const operation of operations) {
+        const parameters = Array.isArray(operation?.parameters) ? operation.parameters : [];
+        if (parameters.length > 0) {
+            withParameters += 1;
+        }
     }
 
-    const artifactId = normalizeIdentifier(definition?.mavenArtifactId);
-    if (artifactId.length > 0) {
-        keys.add(artifactId);
+    if (withParameters === 0) {
+        return {
+            status: 'unavailable',
+            withParameters,
+            total,
+            summary: `unavailable (${withParameters}/${total} operations have parameter data)`,
+        };
     }
 
-    const shortArtifact = normalizeIdentifier(stripConnectorPrefix(definition?.mavenArtifactId));
-    if (shortArtifact.length > 0) {
-        keys.add(shortArtifact);
+    if (withParameters === total) {
+        return {
+            status: 'available',
+            withParameters,
+            total,
+            summary: `available (${withParameters}/${total} operations have parameter data)`,
+        };
     }
 
-    return Array.from(keys);
-}
-
-function resolveRequestedOperationNames(
-    operationMap: Map<string, string[]>,
-    name: string,
-    definition: any
-): string[] {
-    const requested = new Set<string>();
-    const keys = getOperationRequestKeys(name, definition);
-
-    for (const key of keys) {
-        const operations = operationMap.get(key) || [];
-        operations.forEach((operation) => requested.add(operation));
-    }
-
-    return Array.from(requested);
+    return {
+        status: 'partial',
+        withParameters,
+        total,
+        summary: `partial (${withParameters}/${total} operations have parameter data)`,
+    };
 }
 
 function buildSelectedOperationDetail(
     name: string,
     definition: any,
     requestedOperationNames: string[],
+    requestedConnectionNames: string[],
     warnings: Set<string>
 ): Record<string, any> | null {
     const operations = getOperationList(definition);
+    const connections = getConnectionList(definition);
     const selectedOperations: any[] = [];
+    const selectedConnections: any[] = [];
 
     for (const requestedOperation of requestedOperationNames) {
         const operation = operations.find(
@@ -174,15 +177,49 @@ function buildSelectedOperationDetail(
         });
     }
 
-    if (selectedOperations.length === 0) {
+    for (const requestedConnection of requestedConnectionNames) {
+        const connection = connections.find(
+            (candidate) => normalizeIdentifier(candidate?.name) === requestedConnection
+        );
+
+        if (!connection) {
+            warnings.add(`Requested connection '${requestedConnection}' was not found for '${name}'.`);
+            continue;
+        }
+
+        const parameters = Array.isArray(connection?.parameters) ? connection.parameters : [];
+        if (parameters.length === 0) {
+            warnings.add(
+                `Connection parameter details are not available for '${name}.${connection?.name || requestedConnection}' in connector store/local fallback data.`
+            );
+        }
+
+        selectedConnections.push({
+            name: connection?.name || requestedConnection,
+            description: typeof connection?.description === 'string' ? connection.description : '',
+            parameters,
+        });
+    }
+
+    const connectionNames = connections
+        .map((connection) => (typeof connection?.name === 'string' ? connection.name : ''))
+        .filter((connectionName) => connectionName.length > 0);
+    const hasInitOperation = operations.some((operation) => normalizeIdentifier(operation?.name) === 'init');
+    const noInitializationNeeded = connectionNames.length === 0;
+    const connectionLocalEntryNeeded = noInitializationNeeded ? false : !hasInitOperation;
+
+    if (selectedOperations.length === 0 && selectedConnections.length === 0) {
         return null;
     }
 
     return {
-        connectorName: definition?.connectorName || name,
+        name: definition?.connectorName || name,
         maven: getMavenCoordinate(definition),
         version: definition?.version?.tagName || 'unknown',
         operations: selectedOperations,
+        connections: selectedConnections,
+        connectionLocalEntryNeeded,
+        noInitializationNeeded,
     };
 }
 
@@ -242,12 +279,10 @@ export async function getAvailableInboundEndpoints(projectPath: string): Promise
 // ============================================================================
 
 export type ConnectorExecuteFn = (args: {
-    connector_names?: string[];
-    inbound_endpoint_names?: string[];
-    include_documentation?: boolean;
+    name?: string;
     include_full_descriptions?: boolean;
-    connector_operation_names?: OperationSelectionMap;
-    inbound_operation_names?: OperationSelectionMap;
+    operation_names?: string[];
+    connection_names?: string[];
 }) => Promise<ToolResult>;
 
 // ============================================================================
@@ -259,158 +294,152 @@ export type ConnectorExecuteFn = (args: {
  */
 export function createConnectorExecute(projectPath: string): ConnectorExecuteFn {
     return async (args: {
-        connector_names?: string[];
-        inbound_endpoint_names?: string[];
-        include_documentation?: boolean;
+        name?: string;
         include_full_descriptions?: boolean;
-        connector_operation_names?: OperationSelectionMap;
-        inbound_operation_names?: OperationSelectionMap;
+        operation_names?: string[];
+        connection_names?: string[];
     }): Promise<ToolResult> => {
         const {
-            connector_names = [],
-            inbound_endpoint_names = [],
-            include_documentation = true,
+            name,
             include_full_descriptions = false,
-            connector_operation_names,
-            inbound_operation_names,
+            operation_names = [],
+            connection_names = [],
         } = args;
 
-        logInfo(`[ConnectorTool] Fetching ${connector_names.length} connectors and ${inbound_endpoint_names.length} inbound endpoints`);
-
-        // Validate that at least one array has items
-        if (connector_names.length === 0 && inbound_endpoint_names.length === 0) {
+        const requestedName = typeof name === 'string' ? name.trim() : '';
+        if (requestedName.length === 0) {
             return {
                 success: false,
-                message: 'At least one connector name or inbound endpoint name must be provided.',
-                error: 'Error: No connector or inbound endpoint names provided'
+                message: 'Provide name for a connector or inbound endpoint.',
+                error: 'Error: Missing name for get_connector_definitions'
             };
         }
 
-        const emptyLookup: ConnectorDefinitionLookupResult = {
-            definitionsByName: {},
-            missingNames: [],
-            fallbackUsedNames: [],
-            storeFailureNames: [],
-            warnings: [],
-            runtimeVersionUsed: 'unknown',
-        };
+        const firstLookupType: ConnectorTargetType = /\(inbound\)/i.test(requestedName)
+            ? 'inbound endpoint'
+            : 'connector';
+        const secondLookupType: ConnectorTargetType = firstLookupType === 'connector'
+            ? 'inbound endpoint'
+            : 'connector';
 
-        const [connectorLookup, inboundLookup] = await Promise.all([
-            connector_names.length > 0
-                ? getConnectorDefinitionLookup(projectPath, connector_names, CONNECTOR_DB)
-                : Promise.resolve(emptyLookup),
-            inbound_endpoint_names.length > 0
-                ? getInboundDefinitionLookup(projectPath, inbound_endpoint_names, INBOUND_DB)
-                : Promise.resolve(emptyLookup),
+        logInfo(`[ConnectorTool] Fetching definition for name: ${requestedName}`);
+
+        const firstLookup: ConnectorDefinitionLookupResult = firstLookupType === 'connector'
+            ? await getConnectorDefinitionLookup(projectPath, [requestedName], CONNECTOR_DB)
+            : await getInboundDefinitionLookup(projectPath, [requestedName], INBOUND_DB);
+        const firstDefinition = firstLookup.definitionsByName[requestedName];
+
+        let secondLookup: ConnectorDefinitionLookupResult | null = null;
+        let targetType: ConnectorTargetType | null = null;
+        let definition: any | null = firstDefinition || null;
+
+        if (definition) {
+            targetType = firstLookupType;
+        } else {
+            secondLookup = secondLookupType === 'connector'
+                ? await getConnectorDefinitionLookup(projectPath, [requestedName], CONNECTOR_DB)
+                : await getInboundDefinitionLookup(projectPath, [requestedName], INBOUND_DB);
+            const secondDefinition = secondLookup.definitionsByName[requestedName];
+            if (secondDefinition) {
+                definition = secondDefinition;
+                targetType = secondLookupType;
+            }
+        }
+
+        const resolvedType = targetType || 'connector or inbound endpoint';
+        const warningSet = new Set<string>([
+            ...firstLookup.warnings,
+            ...(secondLookup?.warnings || []),
         ]);
+        const requestedOperations = normalizeSelectionNames(operation_names);
+        const requestedConnections = normalizeSelectionNames(connection_names);
 
-        const connectorDefinitions = connectorLookup.definitionsByName;
-        const inboundDefinitions = inboundLookup.definitionsByName;
-
-        const connectorsFound = Object.keys(connectorDefinitions).length;
-        const inboundsFound = Object.keys(inboundDefinitions).length;
-        const connectorsNotFound = connectorLookup.missingNames;
-        const inboundsNotFound = inboundLookup.missingNames;
-
-        const fallbackUsedNames = [
-            ...connectorLookup.fallbackUsedNames.map((name) => `${name} (connector)`),
-            ...inboundLookup.fallbackUsedNames.map((name) => `${name} (inbound endpoint)`),
-        ];
-
-        const storeFailureNames = [
-            ...connectorLookup.storeFailureNames.map((name) => `${name} (connector)`),
-            ...inboundLookup.storeFailureNames.map((name) => `${name} (inbound endpoint)`),
-        ];
-
-        const warningSet = new Set<string>([...connectorLookup.warnings, ...inboundLookup.warnings]);
-        const connectorOperationMap = buildOperationMap(connector_operation_names);
-        const inboundOperationMap = buildOperationMap(inbound_operation_names);
-
-        if (include_full_descriptions && connectorOperationMap.size === 0 && inboundOperationMap.size === 0) {
+        if (include_full_descriptions && requestedOperations.length === 0 && requestedConnections.length === 0) {
             warningSet.add(
-                'include_full_descriptions=true but no operation names were provided. ' +
-                'Set connector_operation_names and/or inbound_operation_names to retrieve operation parameter details.'
+                'include_full_descriptions=true but both operation_names and connection_names are empty. ' +
+                'Provide exact names to retrieve detailed parameter descriptions.'
             );
         }
 
         let message = '';
+        const storeUnavailable = firstLookup.storeFailureNames.includes(requestedName)
+            || !!secondLookup?.storeFailureNames.includes(requestedName);
+        const fallbackUsed = firstLookup.fallbackUsedNames.includes(requestedName)
+            || !!secondLookup?.fallbackUsedNames.includes(requestedName);
+        const missingTarget = !definition;
 
-        if (storeFailureNames.length > 0) {
+        if (storeUnavailable) {
             message += `<system-reminder>\n`;
-            message += `Connector store was unavailable for: ${storeFailureNames.join(', ')}.\n`;
+            message += `Connector store was unavailable for '${requestedName}' (${resolvedType}).\n`;
             message += `Used stale cache/local fallback where available.\n`;
             message += `</system-reminder>\n\n`;
-            message += `Connector store unavailable for: ${storeFailureNames.join(', ')}.\n`;
+            message += `Connector store unavailable for '${requestedName}' (${resolvedType}).\n`;
         }
 
-        if (fallbackUsedNames.length > 0) {
-            message += `Used local fallback definitions for: ${fallbackUsedNames.join(', ')}.\n`;
+        if (fallbackUsed) {
+            message += `Used local fallback definition for '${requestedName}' (${resolvedType}).\n`;
         }
 
-        if (connectorsFound > 0) {
-            message += `Found ${connectorsFound} connector(s):\n`;
-            Object.entries(connectorDefinitions).forEach(([name, def]: [string, any]) => {
-                const versionTag = def?.version?.tagName || 'unknown';
-                const maven = getMavenCoordinate(def);
-                const operations = getOperationList(def);
+        if (!missingTarget && definition) {
+            const versionTag = definition?.version?.tagName || 'unknown';
+            const maven = getMavenCoordinate(definition);
+            const operations = getOperationList(definition);
+            const connections = getConnectionList(definition);
+            const parameterAvailability = getParameterAvailability(definition);
+            const operationList = operations
+                .map((op: any) => (typeof op?.name === 'string' ? op.name : ''))
+                .filter((name: string) => name.length > 0);
+            const connectionList = connections
+                .map((connection: any) => (typeof connection?.name === 'string' ? connection.name : ''))
+                .filter((name: string) => name.length > 0);
+            const hasInitOperation = operations.some((operation: any) => normalizeIdentifier(operation?.name) === 'init');
+            const noInitializationNeeded = connectionList.length === 0;
+            const connectionLocalEntryNeeded = noInitializationNeeded ? false : !hasInitOperation;
 
-                message += `\n### ${name}\n`;
-                message += `- Maven: ${maven}\n`;
-                message += `- Version: ${versionTag}\n`;
-                if (operations.length > 0) {
-                    message += `- Operations: ${operations.map((op: any) => op.name).join(', ')}\n`;
-                } else {
-                    message += `- Operations: unavailable\n`;
+            message += `\n### ${requestedName}\n`;
+            message += `- Maven: ${maven}\n`;
+            message += `- Version: ${versionTag}\n`;
+            message += `- Parameter Details: ${parameterAvailability.summary}\n`;
+            message += `- connectionLocalEntryNeeded: ${connectionLocalEntryNeeded}\n`;
+            message += `- noInitializationNeeded: ${noInitializationNeeded}\n`;
+            if (operationList.length > 0) {
+                message += `- Operations: ${operationList.join(', ')}\n`;
+            } else {
+                message += `- Operations: unavailable\n`;
+            }
+            if (connectionList.length > 0) {
+                message += `- Connections: ${connectionList.join(', ')}\n`;
+            } else {
+                message += `- Connections: unavailable\n`;
+            }
+
+            if (parameterAvailability.status === 'unavailable') {
+                warningSet.add(
+                    `Parameter details are currently unavailable for '${requestedName}' in store/fallback data. ` +
+                    `Avoid include_full_descriptions calls for this item; they will not provide parameter data.`
+                );
+            } else if (parameterAvailability.status === 'partial') {
+                warningSet.add(
+                    `Parameter details are only partially available for '${requestedName}' ` +
+                    `(${parameterAvailability.withParameters}/${parameterAvailability.total} operations). ` +
+                    `Use include_full_descriptions only for selected operations.`
+                );
+            }
+
+            if (include_full_descriptions && (requestedOperations.length > 0 || requestedConnections.length > 0)) {
+                const detailPayload = buildSelectedOperationDetail(
+                    requestedName,
+                    definition,
+                    requestedOperations,
+                    requestedConnections,
+                    warningSet
+                );
+                if (detailPayload) {
+                    message += `\nSelected Operation Details:\n\`\`\`json\n${JSON.stringify(detailPayload, null, 2)}\n\`\`\`\n`;
                 }
-
-                if (include_full_descriptions) {
-                    const requestedOperationNames = resolveRequestedOperationNames(connectorOperationMap, name, def);
-                    if (requestedOperationNames.length === 0) {
-                        warningSet.add(
-                            `No connector operation names provided for '${name}'. ` +
-                            `Skipping full operation details for this connector.`
-                        );
-                    } else {
-                        const detailPayload = buildSelectedOperationDetail(name, def, requestedOperationNames, warningSet);
-                        if (detailPayload) {
-                            message += `\nSelected Operation Details:\n\`\`\`json\n${JSON.stringify(detailPayload, null, 2)}\n\`\`\`\n`;
-                        }
-                    }
-                }
-            });
-        }
-
-        if (inboundsFound > 0) {
-            message += `\nFound ${inboundsFound} inbound endpoint(s):\n`;
-            Object.entries(inboundDefinitions).forEach(([name, def]: [string, any]) => {
-                const versionTag = def?.version?.tagName || 'unknown';
-                const maven = getMavenCoordinate(def);
-                const operations = getOperationList(def);
-
-                message += `\n### ${name}\n`;
-                message += `- Maven: ${maven}\n`;
-                message += `- Version: ${versionTag}\n`;
-                if (operations.length > 0) {
-                    message += `- Operations: ${operations.map((op: any) => op.name).join(', ')}\n`;
-                } else {
-                    message += `- Operations: unavailable\n`;
-                }
-
-                if (include_full_descriptions) {
-                    const requestedOperationNames = resolveRequestedOperationNames(inboundOperationMap, name, def);
-                    if (requestedOperationNames.length === 0) {
-                        warningSet.add(
-                            `No inbound operation names provided for '${name}'. ` +
-                            `Skipping full operation details for this inbound endpoint.`
-                        );
-                    } else {
-                        const detailPayload = buildSelectedOperationDetail(name, def, requestedOperationNames, warningSet);
-                        if (detailPayload) {
-                            message += `\nSelected Operation Details:\n\`\`\`json\n${JSON.stringify(detailPayload, null, 2)}\n\`\`\`\n`;
-                        }
-                    }
-                }
-            });
+            }
+        } else {
+            message += `\nMissing ${resolvedType}: ${requestedName}\n`;
         }
 
         const warnings = Array.from(warningSet);
@@ -418,25 +447,13 @@ export function createConnectorExecute(projectPath: string): ConnectorExecuteFn 
             message = `Warnings: ${warnings.join(' | ')}\n\n${message}`;
         }
 
-        if (connectorsNotFound.length > 0) {
-            message += `\nMissing connectors: ${connectorsNotFound.join(', ')}`;
-        }
-
-        if (inboundsNotFound.length > 0) {
-            message += `\nMissing inbound endpoints: ${inboundsNotFound.join(', ')}`;
-        }
-
-        if (include_documentation) {
-            message += `\n\n---\n\n${CONNECTOR_DOCUMENTATION}`;
-        }
-
-        const success = connectorsFound > 0 || inboundsFound > 0;
+        const success = !missingTarget && !!definition;
 
         logDebug(
-            `[ConnectorTool] Retrieved ${connectorsFound} connectors and ${inboundsFound} inbound endpoints` +
-            ` | fallbackUsed=${fallbackUsedNames.length}, storeFailures=${storeFailureNames.length}` +
-            ` | includeFull=${include_full_descriptions}` +
-            `${include_documentation ? ' (with connector docs)' : ' (without docs)'}`
+            `[ConnectorTool] Retrieved ${resolvedType}: ${requestedName}` +
+            ` | found=${success}` +
+            ` | fallbackUsed=${fallbackUsed}, storeFailures=${storeUnavailable}` +
+            ` | includeFull=${include_full_descriptions}`
         );
 
         return {
@@ -451,26 +468,19 @@ export function createConnectorExecute(projectPath: string): ConnectorExecuteFn 
 // ============================================================================
 
 const connectorInputSchema = z.object({
-    connector_names: z.array(z.string())
-        .optional()
-        .describe('Array of connector names to fetch definitions for (e.g., ["AI", "Salesforce", "Gmail"])'),
-    inbound_endpoint_names: z.array(z.string())
-        .optional()
-        .describe('Array of inbound endpoint names to fetch definitions for (e.g., ["Kafka (Inbound)", "HTTP (Inbound)"])'),
+    name: z.string()
+        .min(1)
+        .describe('Name of a single connector or inbound endpoint to fetch (e.g., "Gmail" or "Kafka (Inbound)"). Use the exact name from available catalogs; inbound endpoints usually include "(Inbound)".'),
     include_full_descriptions: z.boolean()
         .optional()
         .default(false)
-        .describe('Whether to include operation-level parameter details. Defaults to false. When true, operation names should be provided.'),
-    connector_operation_names: z.record(z.string(), z.array(z.string()))
+        .describe('When true, returns detailed parameter descriptions for selected operation_names and/or connection_names. Use this only after checking summary availability lines to avoid unnecessary detail calls.'),
+    operation_names: z.array(z.string())
         .optional()
-        .describe('Connector operation names keyed by connector name. Used only when include_full_descriptions=true. Example: {"Gmail":["sendMail","readMail"]}'),
-    inbound_operation_names: z.record(z.string(), z.array(z.string()))
+        .describe('Operation names for targeted detailed output when include_full_descriptions=true. Example: ["sendMail","readMail"].'),
+    connection_names: z.array(z.string())
         .optional()
-        .describe('Inbound operation names keyed by inbound endpoint name. Used only when include_full_descriptions=true. Example: {"Amazon Simple Queue Service (Inbound)":["init"]}'),
-    include_documentation: z.boolean()
-        .optional()
-        .default(true)
-        .describe('Whether to append connector usage documentation to the response. Defaults to true. Set false to save context when docs are already available.'),
+        .describe('Connection names for targeted detailed output when include_full_descriptions=true. Example: ["IMAP","SMTP"].'),
 });
 
 /**
@@ -479,13 +489,13 @@ const connectorInputSchema = z.object({
 export function createConnectorTool(execute: ConnectorExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Retrieves definitions for MI connectors and/or inbound endpoints by name.
-            Default output is compact summary only: Maven coordinate, version, and operation names.
-            Set include_full_descriptions=true and provide connector_operation_names/inbound_operation_names
-            to fetch parameter details only for selected operations.
+        description: `Retrieves definition for exactly one MI connector or inbound endpoint by name.
+            Default output is compact summary: Maven coordinate, version, operations, connections, and initialization flags.
+            Summary includes a "Parameter Details" availability line so you can decide whether full details are worthwhile.
+            Set include_full_descriptions=true only when parameter details are needed and summary indicates availability.
+            Provide operation_names and/or connection_names when include_full_descriptions=true; full details are returned only for those selections.
             Available names are listed in <AVAILABLE_CONNECTORS> and <AVAILABLE_INBOUND_ENDPOINTS> sections of the user prompt.
-            At least one of connector_names or inbound_endpoint_names must be provided.
-            include_documentation defaults to true; set it to false when connector documentation is already in context to save tokens.
+            Call this tool multiple times in parallel when multiple connectors/inbound endpoints are needed.
             For specialized guidance (for example, AI connector app development), use load_skill_context on demand.`,
         inputSchema: connectorInputSchema,
         execute
