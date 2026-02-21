@@ -1439,6 +1439,7 @@ export interface MultipleResourceType {
 export interface GetAvailableResourcesRequest {
     documentIdentifier: string | undefined;
     resourceType: ResourceType | MultipleResourceType[];
+    isDebugFlow?: boolean;
 }
 
 export interface GetAvailableResourcesResponse {
