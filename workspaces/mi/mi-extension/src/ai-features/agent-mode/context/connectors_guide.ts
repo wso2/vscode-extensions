@@ -1,47 +1,68 @@
+/**
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import { CONNECTOR_TOOL_NAME } from "../tools/types";
+
 export const CONNECTOR_DOCUMENTATION = `
-<CONNECTORS_DOCUMENTATION>
 When using connectors, follow these rules:
 1. Only use operations defined in the connector JSON signatures.
 2. For connectors with \`connectionLocalEntryNeeded\`: true
-   - You must define a local entry for each connection type.
-   - Always include the name parameter in the init operation.
-   - Pass the key of the local entry via configKey in the connector operation for using the connection.
-   - If a connector connection has been initialized via a local entry, do not initialize it again elsewhere.
-Example: Defining and using a connector with connectionBasedSupport
-\`\`\`xml
-<localEntry key="EMAIL_CONNECTION_1" xmlns="http://ws.apache.org/ns/synapse">
-    <email.init>
-        <connectionType>IMAP</connectionType>
-        <host>gmail.com</host>
-        <enableOAuth2>false</enableOAuth2>
-        <port>8899</port>
-        <name>EMAIL_CONNECTION_1</name>
-        <username>joe</username>
-    </email.init>
-</localEntry>
-\`\`\`
-\`\`\`xml
-<email.delete configKey="EMAIL_CONNECTION_1"/>
-\`\`\`
+    - First fetch connection details using the tool ${CONNECTOR_TOOL_NAME}
+    - Then define a local entry for the connection type you want to use.
+    - Always include the name parameter in the init operation.
+    - Pass the key of the local entry via configKey in the connector operations for using the connection.
+    - If a connector connection has been initialized via a local entry, do not initialize it again elsewhere.
+    Example: Defining and using a connector with connectionBasedSupport
+    \`\`\`xml
+    <localEntry key="EMAIL_CONNECTION_1" xmlns="http://ws.apache.org/ns/synapse">
+        <email.init>
+            <connectionType>IMAP</connectionType>
+            <host>gmail.com</host>
+            <enableOAuth2>false</enableOAuth2>
+            <port>8899</port>
+            <name>EMAIL_CONNECTION_1</name>
+            <username>joe</username>
+        </email.init>
+    </localEntry>
+    \`\`\`
+    \`\`\`xml
+    <email.delete configKey="EMAIL_CONNECTION_1"/>
+    \`\`\`
 3. For connectors with \`connectionLocalEntryNeeded\`: false
-   - You must initialize the connection via the init operation everytime you use a connector operation in the synaose seqence itself.
+    - Fetch the \`init\` operation details using the tool ${CONNECTOR_TOOL_NAME}
+    - Then you must initialize the connection via the init operation everytime you use a connector operation in the synaose seqence itself.
 
 4. For connectors with \`noInitializationNeeded\`: true
   - You do not need to initialize the connection via the init operation or a local entry.
   - You can directly use the connector operation.
-Example:
-\`\`\`xml
-  <CSV.csvToJson>
-      <headerPresent>Absent</headerPresent>
-      <valueSeparator></valueSeparator>
-      <columnsToSkip></columnsToSkip>
-      <dataRowsToSkip></dataRowsToSkip>
-      <csvEmptyValues>Null</csvEmptyValues>
-      <jsonKeys></jsonKeys>
-      <dataTypes></dataTypes>
-      <rootJsonKey></rootJsonKey>
-  </CSV.csvToJson>
-\`\`\`
+    Example:
+    \`\`\`xml
+    <CSV.csvToJson>
+        <headerPresent>Absent</headerPresent>
+        <valueSeparator></valueSeparator>
+        <columnsToSkip></columnsToSkip>
+        <dataRowsToSkip></dataRowsToSkip>
+        <csvEmptyValues>Null</csvEmptyValues>
+        <jsonKeys></jsonKeys>
+        <dataTypes></dataTypes>
+        <rootJsonKey></rootJsonKey>
+    </CSV.csvToJson>
+    \`\`\`
 
 5. Never use <class name="..."/> in connector definitions—use the proper connector syntax instead.
 6. Implement a complete and functional solution without placeholder comments or partial implementations.
@@ -58,7 +79,6 @@ With the latest updates to **certain connectors**, operations now support two ad
     - For flows where the response must be forwarded, use overwriteBody.
 
 **This connector update is an ongoing effort. So if you get validation errors with some connectors just don't use \`responseVariable\` or \`overwriteBody\` parameters for those connectors. Instead use the old way of handling the response.**
-</CONNECTORS_DOCUMENTATION>
 `;
 
 export const AI_CONNECTOR_DOCUMENTATION = `
