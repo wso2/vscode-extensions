@@ -3926,7 +3926,25 @@ ${endpointAttributes}
     }
 
     async getAvailableResources(params: GetAvailableResourcesRequest): Promise<GetAvailableResourcesResponse> {
-        return (await MILanguageClient.getInstance(this.projectUri)).getAvailableResources(params);
+
+        if (params.isDebugFlow) {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const responses = await Promise.all(
+                DebuggerConfig.getProjectList().map(async projectPath =>
+                    langClient.getAvailableResources({ 
+                        documentIdentifier: projectPath, 
+                        resourceType: params.resourceType, 
+                        isDebugFlow: params.isDebugFlow 
+                    })
+                )
+            );
+            return {
+                resources: responses.flatMap(r => r?.resources ?? []),
+                registryResources: responses.flatMap(r => r?.registryResources ?? [])
+            };
+        } else {
+            return (await MILanguageClient.getInstance(this.projectUri)).getAvailableResources(params);
+        }
     }
 
     async browseFile(params: BrowseFileRequest): Promise<BrowseFileResponse> {

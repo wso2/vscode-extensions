@@ -259,7 +259,10 @@ export class ExtendedLanguageClient extends LanguageClient {
         if (req.documentIdentifier) {
             uri = Uri.file(req.documentIdentifier).toString();
         }
-        return this.sendRequest("synapse/availableResources", { documentIdentifier: { uri: uri }, "resourceType": req.resourceType });
+        return this.sendRequest("synapse/availableResources", { 
+            documentIdentifier: { uri: uri }, resourceType: req.resourceType, 
+            ...(req.isDebugFlow && { customProjectUri: req.documentIdentifier }) 
+        });
     }
 
     async getDiagnostics(req: GetDiagnosticsReqeust): Promise<GetDiagnosticsResponse> {
