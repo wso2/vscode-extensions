@@ -269,7 +269,7 @@ const bashInputSchema = z.object({
         `Optional timeout in milliseconds (default: ${DEFAULT_TIMEOUT}ms, max: ${MAX_TIMEOUT}ms)`
     ),
     run_in_background: z.boolean().optional().default(false).describe(
-        'Set to true to run the command in the background. Returns a task_id that can be used with kill_task tool.'
+        `Set to true to run the command in the background. Returns a task_id that can be checked with ${TASK_OUTPUT_TOOL_NAME} and terminated with ${KILL_TASK_TOOL_NAME}.`
     ),
 });
 
@@ -280,7 +280,7 @@ export function createBashTool(execute: BashExecuteFn) {
     return (tool as any)({
         description: `Execute shell commands in the MI project directory (JAVA_HOME pre-configured).
             Always provide platform-specific commands according to <env> (Windows: PowerShell syntax, macOS/Linux: bash syntax).
-            Use run_in_background=true for long-running commands; use ${KILL_TASK_TOOL_NAME} to terminate.
+            Use run_in_background=true for long-running commands; this returns a task_id usable with ${TASK_OUTPUT_TOOL_NAME} and ${KILL_TASK_TOOL_NAME}.
             Do NOT use shell for file reading (use file_read), content search (use grep), or file search (use glob).
             No interactive commands (vim, nano, etc.).`,
         inputSchema: bashInputSchema,

@@ -311,7 +311,7 @@ const webSearchSchema = z.object({
 
 export function createWebSearchTool(execute: WebSearchExecuteFn) {
     return (tool as any)({
-        description: 'Search the web for up-to-date information. Use when local project files are insufficient. To constrain to official MI docs, set allowed_domains to ["mi.docs.wso2.com"] (https://mi.docs.wso2.com/en/{version}/ or /en/latest/). Requires user consent before execution.',
+        description: 'Search the web for up-to-date information when local project context is insufficient. Supports domain allow/block filters. For MI docs, use allowed_domains=["mi.docs.wso2.com"]. Requires user consent before execution; if denied, continue without web access.',
         inputSchema: webSearchSchema,
         execute,
     });
@@ -326,7 +326,7 @@ const webFetchSchema = z.object({
 
 export function createWebFetchTool(execute: WebFetchExecuteFn) {
     return (tool as any)({
-        description: 'Fetch and analyze content from a specific URL. Note: web_fetch does not support JavaScript-rendered websites. MI docs (mi.docs.wso2.com) is JS-rendered, so prefer web_search constrained to allowed_domains=["mi.docs.wso2.com"] for MI docs research. Requires user consent before execution.',
+        description: 'Fetch and analyze content from a specific URL. Supports domain allow/block filters. web_fetch does not support JavaScript-rendered pages (including MI docs), so use web_search with allowed_domains=["mi.docs.wso2.com"] for MI docs. Requires user consent before execution; if denied, continue without web access.',
         inputSchema: webFetchSchema,
         execute,
     });

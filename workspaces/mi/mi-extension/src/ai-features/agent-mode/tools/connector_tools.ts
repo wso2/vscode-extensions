@@ -513,13 +513,9 @@ export function createConnectorTool(execute: ConnectorExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
         description: `Retrieves definition for exactly one MI connector or inbound endpoint by name.
-            Default output is compact summary: Maven coordinate, version, operations, connections, and initialization flags.
-            Summary includes a "Parameter Details" availability line so you can decide whether full details are worthwhile.
-            Set include_full_descriptions=true only when parameter details are needed and summary indicates availability.
-            Provide operation_names and/or connection_names when include_full_descriptions=true; full details are returned only for those selections.
-            Available names are listed in <AVAILABLE_CONNECTORS> and <AVAILABLE_INBOUND_ENDPOINTS> sections of the user prompt.
-            Call this tool multiple times in parallel when multiple connectors/inbound endpoints are needed.
-            For specialized guidance (for example, AI connector app development), use load_skill_context on demand.`,
+            Default output is a compact summary with Maven coordinate, version, operations, connections, and initialization flags.
+            Set include_full_descriptions=true to include detailed parameter metadata for selected operation_names and/or connection_names.
+            Call this tool in parallel for multiple connector or inbound names.`,
         inputSchema: connectorInputSchema,
         execute
     });

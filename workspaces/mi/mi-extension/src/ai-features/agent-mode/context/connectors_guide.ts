@@ -21,7 +21,10 @@ import { CONNECTOR_TOOL_NAME } from "../tools/types";
 export const CONNECTOR_DOCUMENTATION = `
 When using connectors, follow these rules.
 
-### 1) Resolve initialization mode first
+### 1) Resolve initialization mode first (authoritative)
+This is the single source of truth for connector/inbound initialization behavior.
+If any generic Synapse examples appear to conflict, follow this section.
+
 Use connector summary fields (\`connectionLocalEntryNeeded\`, \`noInitializationNeeded\`) and then apply the matching flow below.
 
 #### A. \`connectionLocalEntryNeeded: true\`
@@ -30,6 +33,7 @@ Use connector summary fields (\`connectionLocalEntryNeeded\`, \`noInitialization
 - Always include the \`name\` parameter in the \`init\` operation.
 - Pass the local entry key through \`configKey\` in connector operations.
 - If a connector connection is initialized via local entry, do not initialize it again elsewhere.
+- This rule applies to all connectors, including HTTP.
 
 Example: Define connection via local entry and use it with \`configKey\`
 \`\`\`xml

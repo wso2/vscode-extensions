@@ -80,7 +80,9 @@ export const SYNAPSE_GUIDE = `
 </api>
 \`\`\`
 
-## WSO2 has introduced Synapse Expressions, which should be used instead of JsonPath or XPath. Refer to the following documentation.
+## WSO2 has introduced Synapse Expressions, which should be used instead of JsonPath or XPath.
+    - \`SYNAPSE_EXPRESSIONS_DOCS\` is the authoritative source for syntax and rules.
+    - \`SYNAPSE_EXPRESSION_EXAMPLES\` provides short usage patterns only.
 
 <SYNAPSE_EXPRESSIONS_DOCS>
     ${SYNAPSE_EXPRESSION_GUIDE}
@@ -123,23 +125,15 @@ export const SYNAPSE_GUIDE = `
     </log>
     \`\`\`
 
-## Do not use \`level\` in log mediator. It is deprecated. Use \`category\` instead.
-
-    - Incorrect syntax:
-    \`\`\`xml
-    <log level="custom">
-       <message>Message</message>
-    </log>
-    \`\`\`
-
-    - Correct syntax:
+## Log mediator rules (single source of truth)
+    - \`level\` is deprecated. Use \`category\`.
+    - \`<property>\` children inside \`<log>\` are deprecated. Use \`<message>\` with Synapse expressions.
+    - Canonical syntax:
     \`\`\`xml
     <log [category="INFO|TRACE|DEBUG|WARN|ERROR|FATAL"] [separator="string"]>
        <message></message>
     </log>
     \`\`\`
-
-    - Do not use properties inside log mediators. It is deprecated.  Use Synapse Expressions directly:
     - Deprecated syntax:
     \`\`\`xml
     <log level="custom">
@@ -147,42 +141,17 @@ export const SYNAPSE_GUIDE = `
         <property name="RequestID" expression="get-property('RequestID')"/>
     </log>
     \`\`\`
-
     - Correct syntax:
     \`\`\`xml
     <log category="INFO">
-       <message>\${payload.name}</message>
-    </log>
-
-    <log category="INFO">
-       <message>Hello \${payload.name}, Welcome to the system</message>
+       <message>Hello \${payload.name}, RequestID=\${vars.requestId}</message>
     </log>
     \`\`\`
 
-## Prefer using the new HTTP connector over call or send mediators unless absolutely necessary or legacy compatibility requires it or if you encounter issues with the new HTTP connector.
-    - First, define a local entry using http.init:
-       \`\`\`xml
-       <localEntry key="HTTP_1" xmlns="http://ws.apache.org/ns/synapse">
-          <http.init>
-             <connectionType>http</connectionType> <!-- http or https -->
-             <baseUrl>http://localhost:9090</baseUrl>
-             <authType>Basic Auth</authType>
-             <basicCredentialsUsername>user</basicCredentialsUsername>
-             <basicCredentialsPassword>1234</basicCredentialsPassword>
-             <timeoutDuration>10</timeoutDuration>
-             <timeoutAction>Never</timeoutAction>
-             <retryErrorCodes>500</retryErrorCodes>
-             <retryCount>1</retryCount>
-             <retryDelay>5</retryDelay>
-             <suspendErrorCodes>406</suspendErrorCodes>
-             <suspendInitialDuration>-1</suspendInitialDuration>
-             <suspendProgressionFactor>1</suspendProgressionFactor>
-             <suspendMaximumDuration>5000</suspendMaximumDuration>
-             <name>balSampleConn</name>
-          </http.init>
-       </localEntry>
-       \`\`\`
-    - Always create a separate file for each local entry
+## Prefer using the new HTTP connector over call or send mediators unless absolutely necessary, legacy compatibility requires it, or you encounter issues with the new HTTP connector.
+    - Resolve initialization mode from connector summary fields (\`connectionLocalEntryNeeded\`, \`noInitializationNeeded\`) and follow \`CONNECTOR_DEVELOPMENT_GUIDELINES\`.
+    - Do not assume all HTTP usage requires local entry + \`configKey\`; that is required only when \`connectionLocalEntryNeeded=true\`.
+    - If local entry is required, keep each local entry in a separate file.
 
     - Example GET:
        \`\`\`xml

@@ -17,6 +17,9 @@
  */
 
 export const SYNAPSE_EXPRESSION_EXAMPLES = `
+These are concise usage samples that complement SYNAPSE_EXPRESSIONS_DOCS.
+Use SYNAPSE_EXPRESSIONS_DOCS as the source of truth for syntax and constraints.
+
 - Example filter mediator configuration:
 \`\`\`xml
 <filter xpath="\${payload.store.book[?(@.price < 10)]}">
@@ -65,35 +68,5 @@ export const SYNAPSE_EXPRESSION_EXAMPLES = `
         </faultSequence>
     </resource>
 </api>
-\`\`\`
-
-- You can use Synapse expressions to provide dynamic values to any connector operation or mediator.
-- Example of using Synapse expressions in the new HTTP connector to provide query parameters dynamically.
-\`\`\`xml
-   <http.get configKey="SimpleStockQuoteService">
-      <relativePath>/getQuote?userId=\${vars.userId}</relativePath>
-      <headers>[]</headers>
-      <requestBodyType>XML</requestBodyType>
-      <requestBodyXml>{\${xpath('$body/node()')}}</requestBodyXml>
-      <forceScAccepted>false</forceScAccepted>
-      <disableChunking>false</disableChunking>
-      <forceHttp10>false</forceHttp10>
-      <noKeepAlive>false</noKeepAlive>
-      <forcePostPutNobody>false</forcePostPutNobody>
-      <forceHttpContentLength>false</forceHttpContentLength>
-   </http.get>
-\`\`\`
-
-- Do not use the old payloadFactory mediator. Use the new payloadFactory mediator which supports Synapse expressions.
-- Example of using synapse expressions inside the new PayloadFactory.
-\`\`\`xml
-<payloadFactory media-type="json">
-    <format>
-        {
-            "coordinates": null,
-            "id_str": "\${payload.entities.hashtags[0].text}"
-        }
-    </format>
-</payloadFactory>
 \`\`\`
 `;

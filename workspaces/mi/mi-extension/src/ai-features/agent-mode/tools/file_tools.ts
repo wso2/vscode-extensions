@@ -1505,9 +1505,7 @@ export function createReadTool(execute: ReadExecuteFn, projectPath: string) {
         description: `Reads a file from the project.
             Text files return line-numbered content (supports offset/limit).
             Image files (.png, .jpg, .jpeg, .gif, .webp) are provided for multimodal analysis.
-            PDFs can be read with pages ("N" or "N-M"). For PDFs over ${PDF_MAX_PAGES_PER_REQUEST} pages, pages is required. Maximum ${PDF_MAX_PAGES_PER_REQUEST} pages per request.
-            ALWAYS read a file before editing it.
-            You can speculatively read multiple files in parallel.`,
+            PDFs can be read with pages ("N" or "N-M"). For PDFs over ${PDF_MAX_PAGES_PER_REQUEST} pages, pages is required. Maximum ${PDF_MAX_PAGES_PER_REQUEST} pages per request.`,
         inputSchema: readInputSchema,
         execute,
         toModelOutput: async ({ input, output }: { input: { file_path?: string; pages?: string }; output: unknown }) => {
@@ -1530,7 +1528,7 @@ const editInputSchema = z.object({
 export function createEditTool(execute: EditExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Find-and-replace on an existing file. ALWAYS read the file first.
+        description: `Find-and-replace on an existing file.
             old_string must match EXACTLY (whitespace, indentation, line breaks).
             Fails if old_string is not unique - provide more context or set replace_all=true.
             Cannot create new files - use ${FILE_WRITE_TOOL_NAME} for that.
