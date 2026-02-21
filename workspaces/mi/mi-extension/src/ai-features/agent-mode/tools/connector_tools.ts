@@ -23,43 +23,17 @@ import { INBOUND_DB } from '../context/inbound_db';
 import { CONNECTOR_DOCUMENTATION } from '../context/connectors_guide';
 import { ToolResult } from './types';
 import { logInfo, logDebug } from '../../copilot/logger';
-import { getConnectorStoreCatalog } from './connector_store_cache';
+import {
+    getConnectorStoreCatalog,
+    getConnectorDefinitions as getConnectorDefinitionLookup,
+    getInboundDefinitions as getInboundDefinitionLookup,
+    ConnectorDefinitionLookupResult,
+    ConnectorStoreSource,
+} from './connector_store_cache';
 
 // ============================================================================
 // Utility Functions
 // ============================================================================
-
-/**
- * Get full connector definitions by names
- */
-function getConnectorDefinitions(connectorNames: string[], connectors: any[]): Record<string, any> {
-    const definitions: Record<string, any> = {};
-
-    for (const name of connectorNames) {
-        const connector = connectors.find(c => c.connectorName === name);
-        if (connector) {
-            definitions[name] = connector;
-        }
-    }
-
-    return definitions;
-}
-
-/**
- * Get full inbound endpoint definitions by names
- */
-function getInboundEndpointDefinitions(inboundNames: string[], inbounds: any[]): Record<string, any> {
-    const definitions: Record<string, any> = {};
-
-    for (const name of inboundNames) {
-        const inbound = inbounds.find(i => i.connectorName === name);
-        if (inbound) {
-            definitions[name] = inbound;
-        }
-    }
-
-    return definitions;
-}
 
 function toNames(items: any[]): string[] {
     const names = new Set<string>();
@@ -75,13 +49,24 @@ function toNames(items: any[]): string[] {
 export interface AvailableConnectorCatalog {
     connectors: string[];
     inboundEndpoints: string[];
+    storeStatus: 'healthy' | 'degraded';
+    warnings: string[];
+    runtimeVersionUsed: string;
+    source: {
+        connectors: ConnectorStoreSource;
+        inbounds: ConnectorStoreSource;
+    };
 }
 
 export async function getAvailableConnectorCatalog(projectPath: string): Promise<AvailableConnectorCatalog> {
-    const { connectors, inbounds } = await getConnectorStoreCatalog(projectPath, CONNECTOR_DB, INBOUND_DB);
+    const catalog = await getConnectorStoreCatalog(projectPath, CONNECTOR_DB, INBOUND_DB);
     return {
-        connectors: toNames(connectors),
-        inboundEndpoints: toNames(inbounds),
+        connectors: toNames(catalog.connectors),
+        inboundEndpoints: toNames(catalog.inbounds),
+        storeStatus: catalog.storeStatus,
+        warnings: catalog.warnings,
+        runtimeVersionUsed: catalog.runtimeVersionUsed,
+        source: catalog.source,
     };
 }
 
@@ -141,26 +126,60 @@ export function createConnectorExecute(projectPath: string): ConnectorExecuteFn 
             };
         }
 
-        const { connectors, inbounds } = await getConnectorStoreCatalog(projectPath, CONNECTOR_DB, INBOUND_DB);
+        const emptyLookup: ConnectorDefinitionLookupResult = {
+            definitionsByName: {},
+            missingNames: [],
+            fallbackUsedNames: [],
+            storeFailureNames: [],
+            warnings: [],
+            runtimeVersionUsed: 'unknown',
+        };
 
-        // Get connector definitions
-        const connectorDefinitions = connector_names.length > 0
-            ? getConnectorDefinitions(connector_names, connectors)
-            : {};
+        const [connectorLookup, inboundLookup] = await Promise.all([
+            connector_names.length > 0
+                ? getConnectorDefinitionLookup(projectPath, connector_names, CONNECTOR_DB)
+                : Promise.resolve(emptyLookup),
+            inbound_endpoint_names.length > 0
+                ? getInboundDefinitionLookup(projectPath, inbound_endpoint_names, INBOUND_DB)
+                : Promise.resolve(emptyLookup),
+        ]);
 
-        // Get inbound endpoint definitions
-        const inboundDefinitions = inbound_endpoint_names.length > 0
-            ? getInboundEndpointDefinitions(inbound_endpoint_names, inbounds)
-            : {};
+        const connectorDefinitions = connectorLookup.definitionsByName;
+        const inboundDefinitions = inboundLookup.definitionsByName;
 
         // Count found vs requested
         const connectorsFound = Object.keys(connectorDefinitions).length;
         const inboundsFound = Object.keys(inboundDefinitions).length;
-        const connectorsNotFound = connector_names.filter(name => !connectorDefinitions[name]);
-        const inboundsNotFound = inbound_endpoint_names.filter(name => !inboundDefinitions[name]);
+        const connectorsNotFound = connectorLookup.missingNames;
+        const inboundsNotFound = inboundLookup.missingNames;
+        const fallbackUsedNames = [
+            ...connectorLookup.fallbackUsedNames.map((name) => `${name} (connector)`),
+            ...inboundLookup.fallbackUsedNames.map((name) => `${name} (inbound endpoint)`),
+        ];
+        const storeFailureNames = [
+            ...connectorLookup.storeFailureNames.map((name) => `${name} (connector)`),
+            ...inboundLookup.storeFailureNames.map((name) => `${name} (inbound endpoint)`),
+        ];
+        const warnings = Array.from(new Set([...connectorLookup.warnings, ...inboundLookup.warnings]));
 
         // Build response message
         let message = '';
+
+        if (storeFailureNames.length > 0) {
+            message += `<system-reminder>\n`;
+            message += `Connector store was unavailable for: ${storeFailureNames.join(', ')}.\n`;
+            message += `Used stale cache/local fallback where available.\n`;
+            message += `</system-reminder>\n\n`;
+            message += `Connector store unavailable for: ${storeFailureNames.join(', ')}.\n`;
+        }
+
+        if (fallbackUsedNames.length > 0) {
+            message += `Used local fallback definitions for: ${fallbackUsedNames.join(', ')}.\n`;
+        }
+
+        if (warnings.length > 0) {
+            message += `Warnings: ${warnings.join(' | ')}\n\n`;
+        }
 
         if (connectorsFound > 0) {
             message += `Found ${connectorsFound} connector(s):\n`;
@@ -186,20 +205,28 @@ export function createConnectorExecute(projectPath: string): ConnectorExecuteFn 
             message += `\nFound ${inboundsFound} inbound endpoint(s):\n`;
             Object.entries(inboundDefinitions).forEach(([name, def]: [string, any]) => {
                 const versionTag = def?.version?.tagName || 'unknown';
+                const operations = Array.isArray(def?.version?.operations)
+                    ? def.version.operations
+                    : (Array.isArray(def?.operations) ? def.operations : []);
                 message += `\n### ${name}\n`;
                 message += `- Description: ${def.description}\n`;
                 message += `- Maven: ${def.mavenGroupId}:${def.mavenArtifactId}\n`;
                 message += `- Version: ${versionTag}\n`;
+                if (operations.length > 0) {
+                    message += `- Operations: ${operations.map((op: any) => op.name).join(', ')}\n`;
+                } else {
+                    message += `- Operations: unavailable\n`;
+                }
                 message += `\nFull Definition:\n\`\`\`json\n${JSON.stringify(def, null, 2)}\n\`\`\`\n`;
             });
         }
 
         if (connectorsNotFound.length > 0) {
-            message += `\n Connectors not found: ${connectorsNotFound.join(', ')}`;
+            message += `\nMissing connectors: ${connectorsNotFound.join(', ')}`;
         }
 
         if (inboundsNotFound.length > 0) {
-            message += `\n Inbound endpoints not found: ${inboundsNotFound.join(', ')}`;
+            message += `\nMissing inbound endpoints: ${inboundsNotFound.join(', ')}`;
         }
 
         // Append general connector documentation by default, unless explicitly disabled.
@@ -211,6 +238,7 @@ export function createConnectorExecute(projectPath: string): ConnectorExecuteFn 
 
         logDebug(
             `[ConnectorTool] Retrieved ${connectorsFound} connectors and ${inboundsFound} inbound endpoints` +
+            ` | fallbackUsed=${fallbackUsedNames.length}, storeFailures=${storeFailureNames.length}` +
             `${include_documentation ? ' (with connector docs)' : ' (without docs)'}`
         );
 
@@ -233,9 +261,8 @@ const connectorInputSchema = z.object({
         .optional()
         .describe('Array of inbound endpoint names to fetch definitions for (e.g., ["Kafka (Inbound)", "HTTP (Inbound)"])'),
     include_documentation: z.boolean()
-        .optional()
         .default(true)
-        .describe('Whether to append connector usage documentation to the response. Defaults to true. Set false to save context when docs are already available.'),
+        .describe('Whether to append connector usage documentation to the response. Defaults to true. Set false to save context when </CONNECTORS_DOCUMENTATION> are already in context.'),
 });
 
 /**
