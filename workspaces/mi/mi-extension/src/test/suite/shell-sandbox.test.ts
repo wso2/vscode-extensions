@@ -61,14 +61,14 @@ suite('Shell Sandbox Tests', () => {
         assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('outside allowed roots')));
     });
 
-    test('outside-project mutation to allowed /tmp root is not blocked', () => {
+    test('outside-project mutation to allowed /tmp root is not blocked and does not require approval', () => {
         const tmpTarget = process.platform === 'win32'
             ? path.join(os.tmpdir(), 'mi-shell-sandbox.txt')
             : '/tmp/mi-shell-sandbox.txt';
         const escapedTarget = tmpTarget.includes(' ') ? `"${tmpTarget}"` : tmpTarget;
         const analysis = analyzeShellCommand(`echo hello > ${escapedTarget}`, process.platform, PROJECT_PATH, false);
         assert.strictEqual(analysis.blocked, false);
-        assert.strictEqual(analysis.requiresApproval, true);
+        assert.strictEqual(analysis.requiresApproval, false);
     });
 
     test('destructive commands always require approval', () => {

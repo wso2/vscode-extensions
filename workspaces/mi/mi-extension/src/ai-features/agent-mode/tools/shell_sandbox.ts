@@ -23,7 +23,7 @@ import * as path from 'path';
 /**
  * Shell sandbox policy summary:
  * - Allows read-only commands, network calls, and background execution by default.
- * - Requires approval for potentially mutating commands that are allowed to run.
+ * - Requires approval for potentially mutating commands that are allowed to run, except /tmp-only writes.
  * - Hard-blocks interactive/elevated commands (e.g., sudo, shells, editors).
  * - Hard-blocks file mutations outside the project, except explicitly allowed roots (currently /tmp).
  * - Resolves paths via realpath (or nearest existing parent) to prevent symlink/path-escape bypasses.
@@ -705,9 +705,13 @@ function extractMutationWritePathTokens(command: string, tokens: string[], rawSe
         const positionalArgs = tokens.slice(1)
             .filter((token) => !token.startsWith('-'))
             .map((token) => stripWrappingQuotes(token))
-            .filter((token) => isLikelyFilePathValue(token));
+            .filter((token) => looksLikePathToken(token));
         writePaths.push(...positionalArgs);
-        writePaths.push(...extractOptionValues(tokens, ['--path', '--output', '--out', '--file', '--target', '--destination']));
+        writePaths.push(
+            ...extractOptionValues(tokens, ['--path', '--output', '--out', '--file', '--target', '--destination'])
+                .map((token) => stripWrappingQuotes(token))
+                .filter((token) => looksLikePathToken(token))
+        );
     }
 
     return dedupe(
@@ -735,6 +739,18 @@ function findDisallowedMutationPaths(
         }
     }
     return dedupe(disallowedPaths);
+}
+
+function resolveMutationPaths(projectPath: string, writePathTokens: string[]): string[] {
+    const resolvedPaths: string[] = [];
+    for (const writePathToken of writePathTokens) {
+        try {
+            resolvedPaths.push(resolvePathCandidate(projectPath, writePathToken));
+        } catch {
+            // Ignore; unresolved paths are treated as disallowed by caller logic.
+        }
+    }
+    return dedupe(resolvedPaths);
 }
 
 function hasOutputRedirection(segment: string): boolean {
@@ -845,7 +861,12 @@ function buildSuggestedPrefixRule(tokens: string[]): string[] {
     return prefix;
 }
 
-function analyzeSegment(rawSegment: string, projectPath: string, allowedMutationRoots: string[]): ShellSegmentAnalysis {
+function analyzeSegment(
+    rawSegment: string,
+    projectPath: string,
+    allowedMutationRoots: string[],
+    externalAllowedMutationRoots: string[]
+): ShellSegmentAnalysis {
     const tokenized = tokenizeSegment(rawSegment);
     if (tokenized.parseFailed) {
         return {
@@ -892,6 +913,14 @@ function analyzeSegment(rawSegment: string, projectPath: string, allowedMutation
     const disallowedMutationPaths = isMutation
         ? findDisallowedMutationPaths(projectPath, allowedMutationRoots, writePathTokens)
         : [];
+    const resolvedMutationPaths = isMutation ? resolveMutationPaths(projectPath, writePathTokens) : [];
+    const writesOnlyToExternalAllowedRoots = resolvedMutationPaths.length > 0
+        && resolvedMutationPaths.every((resolvedPath) =>
+            !isPathWithin(projectPath, resolvedPath)
+            && (
+            externalAllowedMutationRoots.some((allowedRoot) => isPathWithin(allowedRoot, resolvedPath))
+            )
+        );
 
     if (disallowedMutationPaths.length > 0) {
         blocked = true;
@@ -900,7 +929,7 @@ function analyzeSegment(rawSegment: string, projectPath: string, allowedMutation
             `Mutating paths outside allowed roots is blocked. Disallowed path(s): ${disallowedMutationPaths.join(', ')}. ` +
             `Allowed roots: project root${outsideRoots ? `, ${outsideRoots}` : ''}.`
         );
-    } else if (isMutation) {
+    } else if (isMutation && !writesOnlyToExternalAllowedRoots) {
         reasons.push('Commands that may modify files or system state require approval.');
     }
     if (!SAFE_READ_COMMANDS.has(command) && !isNetwork && !isMutation) {
@@ -987,13 +1016,16 @@ export function analyzeShellCommand(
         : (splitSegments.segments.length > 0 ? splitSegments.segments : [trimmedCommand]);
 
     const resolvedProjectPath = resolvePathWithRealpath(projectPath);
+    const resolvedExternalMutationRoots = ALLOWED_EXTERNAL_MUTATION_ROOTS.map((mutationRoot) =>
+        resolvePathWithRealpath(mutationRoot)
+    );
     const allowedMutationRoots = dedupe([
         resolvedProjectPath,
-        ...ALLOWED_EXTERNAL_MUTATION_ROOTS.map((mutationRoot) => resolvePathWithRealpath(mutationRoot)),
+        ...resolvedExternalMutationRoots,
     ]);
 
     const analyzedSegments = segmentsToAnalyze.map((segment) =>
-        analyzeSegment(segment, resolvedProjectPath, allowedMutationRoots)
+        analyzeSegment(segment, resolvedProjectPath, allowedMutationRoots, resolvedExternalMutationRoots)
     );
 
     const blocked = analyzedSegments.some((segment) => segment.blocked);
