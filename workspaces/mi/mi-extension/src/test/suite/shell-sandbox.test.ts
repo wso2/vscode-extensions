@@ -51,6 +51,21 @@ suite('Shell Sandbox Tests', () => {
         assert.strictEqual(analysis.requiresApproval, false);
     });
 
+    test('sensitive home shell rc read is hard-blocked', () => {
+        const command = process.platform === 'win32'
+            ? 'type $HOME\\.bashrc'
+            : 'cat ~/.zshrc';
+        const analysis = analyzeShellCommand(command, process.platform, PROJECT_PATH, false);
+        assert.strictEqual(analysis.blocked, true);
+        assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('sensitive paths')));
+    });
+
+    test('project .env read is hard-blocked', () => {
+        const analysis = analyzeShellCommand('cat .env', process.platform, PROJECT_PATH, false);
+        assert.strictEqual(analysis.blocked, true);
+        assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('sensitive paths')));
+    });
+
     test('outside-project mutation path is hard-blocked', () => {
         const disallowedTarget = process.platform === 'win32'
             ? 'C:\\Windows\\System32\\mi-shell-sandbox.txt'
@@ -109,6 +124,12 @@ suite('Shell Sandbox Tests', () => {
         const analysis = analyzeShellCommand(`cat /etc/hosts | tee ${disallowedTarget}`, process.platform, PROJECT_PATH, false);
         assert.strictEqual(analysis.blocked, true);
         assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('outside allowed roots')));
+    });
+
+    test('sensitive .env write is hard-blocked', () => {
+        const analysis = analyzeShellCommand('echo KEY=VALUE > .env', process.platform, PROJECT_PATH, false);
+        assert.strictEqual(analysis.blocked, true);
+        assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('sensitive paths')));
     });
 
     test('symlink escapes are blocked for mutation paths', function () {

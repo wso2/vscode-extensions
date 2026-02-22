@@ -19,12 +19,14 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { analyzePowerShellCommand } from './shell_sandbox_powershell';
 
 /**
  * Shell sandbox policy summary:
  * - Allows read-only commands, network calls, and background execution by default.
  * - Requires approval for potentially mutating commands that are allowed to run, except /tmp-only writes.
  * - Hard-blocks interactive/elevated commands (e.g., sudo, shells, editors).
+ * - Hard-blocks access to sensitive secret paths (for example ~/.ssh, ~/.aws, shell rc files, and .env files).
  * - Hard-blocks file mutations outside the project, except explicitly allowed roots (currently /tmp).
  * - Resolves paths via realpath (or nearest existing parent) to prevent symlink/path-escape bypasses.
  */
@@ -47,6 +49,8 @@ export interface ShellCommandAnalysis {
     isComplexSyntax: boolean;
     runInBackground: boolean;
     segments: ShellSegmentAnalysis[];
+    analysisEngine?: string;
+    classificationMetadata?: Record<string, unknown>;
 }
 
 export function buildShellCommandDeniedResult(): {
@@ -219,6 +223,36 @@ const BLOCKED_INTERACTIVE_OR_ELEVATED_COMMANDS = new Set([
 const ALLOWED_EXTERNAL_MUTATION_ROOTS = process.platform === 'win32'
     ? [path.resolve(os.tmpdir())]
     : ['/tmp'];
+
+const SENSITIVE_PATH_SEGMENTS = new Set([
+    '.aws',
+    '.azure',
+    '.gnupg',
+    '.kube',
+    '.npm',
+    '.pypirc',
+    '.ssh',
+]);
+
+const SENSITIVE_FILE_BASENAMES = new Set([
+    '.bash_profile',
+    '.bashrc',
+    '.env',
+    '.git-credentials',
+    '.netrc',
+    '.npmrc',
+    '.profile',
+    '.zprofile',
+    '.zsh_history',
+    '.zshrc',
+    'authorized_keys',
+    'credentials',
+    'id_dsa',
+    'id_ecdsa',
+    'id_ed25519',
+    'id_rsa',
+    'known_hosts',
+]);
 
 function dedupe(values: string[]): string[] {
     return Array.from(new Set(values));
@@ -547,6 +581,46 @@ function isLikelyFilePathValue(token: string): boolean {
     return true;
 }
 
+function isSensitiveTokenName(token: string): boolean {
+    const normalizedToken = stripWrappingQuotes(token.trim());
+    if (!normalizedToken) {
+        return false;
+    }
+
+    const normalizedLower = normalizeToken(normalizedToken);
+    const normalizedWithForwardSlashes = normalizedLower.replace(/\\/g, '/');
+    const basename = normalizeToken(path.basename(normalizedToken));
+    if (!basename) {
+        return false;
+    }
+
+    if (basename === '.env' || basename.startsWith('.env.')) {
+        return true;
+    }
+
+    if (SENSITIVE_FILE_BASENAMES.has(basename)) {
+        return true;
+    }
+
+    if (/^id_(rsa|dsa|ecdsa|ed25519)(\.pub)?$/i.test(basename)) {
+        return true;
+    }
+
+    if (normalizedWithForwardSlashes.includes('/.aws/') || normalizedWithForwardSlashes.endsWith('/.aws')) {
+        return true;
+    }
+
+    if (normalizedWithForwardSlashes.includes('/.ssh/') || normalizedWithForwardSlashes.endsWith('/.ssh')) {
+        return true;
+    }
+
+    if (/(^|\/)\.(bashrc|bash_profile|zshrc|zprofile|profile|env(\..+)?)$/i.test(normalizedWithForwardSlashes)) {
+        return true;
+    }
+
+    return false;
+}
+
 function isNullDevicePath(token: string): boolean {
     const normalizedToken = normalizeToken(stripWrappingQuotes(token));
     return normalizedToken === '/dev/null' || normalizedToken === 'nul';
@@ -663,6 +737,26 @@ function extractOptionValues(tokens: string[], optionNames: string[]): string[] 
     return values;
 }
 
+function extractPathOptions(tokens: string[]): string[] {
+    return extractOptionValues(tokens, [
+        '-C',
+        '-f',
+        '-t',
+        '--config',
+        '--cwd',
+        '--destination',
+        '--file',
+        '--git-dir',
+        '--out',
+        '--output',
+        '--path',
+        '--prefix',
+        '--target',
+        '--target-directory',
+        '--work-tree',
+    ]);
+}
+
 function extractTeeWritePaths(tokens: string[]): string[] {
     if (normalizeToken(tokens[0] || '') !== 'tee') {
         return [];
@@ -721,6 +815,32 @@ function extractMutationWritePathTokens(command: string, tokens: string[], rawSe
     );
 }
 
+function extractSegmentPathTokens(command: string, tokens: string[], rawSegment: string, isMutation: boolean): string[] {
+    const pathTokens: string[] = [];
+    if (isMutation) {
+        pathTokens.push(...extractMutationWritePathTokens(command, tokens, rawSegment));
+    }
+
+    const optionPathValues = extractPathOptions(tokens);
+    pathTokens.push(...optionPathValues);
+
+    const positionalArgs = tokens.slice(1).filter((token) => !token.startsWith('-'));
+    let positionalPathCandidates = positionalArgs;
+
+    if (['grep', 'rg', 'select-string'].includes(command)) {
+        positionalPathCandidates = positionalArgs.slice(1);
+    }
+
+    for (const token of positionalPathCandidates) {
+        const strippedToken = stripWrappingQuotes(token);
+        if (looksLikePathToken(strippedToken) || isSensitiveTokenName(strippedToken)) {
+            pathTokens.push(strippedToken);
+        }
+    }
+
+    return dedupe(pathTokens);
+}
+
 function findDisallowedMutationPaths(
     projectPath: string,
     allowedMutationRoots: string[],
@@ -751,6 +871,39 @@ function resolveMutationPaths(projectPath: string, writePathTokens: string[]): s
         }
     }
     return dedupe(resolvedPaths);
+}
+
+function findSensitivePaths(projectPath: string, pathTokens: string[]): string[] {
+    const sensitivePaths: string[] = [];
+    for (const pathToken of pathTokens) {
+        const tokenIsSensitive = isSensitiveTokenName(pathToken);
+        if (!tokenIsSensitive && !looksLikePathToken(pathToken)) {
+            continue;
+        }
+
+        try {
+            const resolvedPath = resolvePathCandidate(projectPath, pathToken);
+            const normalizedPath = normalizePathForComparison(resolvedPath);
+            const segments = normalizedPath.split('/').filter((segment) => segment.length > 0);
+            const basename = segments.length > 0 ? segments[segments.length - 1] : '';
+
+            if (
+                basename === '.env' ||
+                basename.startsWith('.env.') ||
+                SENSITIVE_FILE_BASENAMES.has(basename) ||
+                segments.some((segment) => SENSITIVE_PATH_SEGMENTS.has(segment)) ||
+                tokenIsSensitive
+            ) {
+                sensitivePaths.push(normalizedPath);
+            }
+        } catch {
+            if (tokenIsSensitive) {
+                sensitivePaths.push(pathToken);
+            }
+        }
+    }
+
+    return dedupe(sensitivePaths);
 }
 
 function hasOutputRedirection(segment: string): boolean {
@@ -909,6 +1062,8 @@ function analyzeSegment(
         || isSedOrPerlInPlaceMutation(tokens)
         || hasOutputRedirection(rawSegment);
     const isDestructive = isDestructiveCommand(command, tokens);
+    const segmentPathTokens = extractSegmentPathTokens(command, tokens, rawSegment, isMutation);
+    const sensitivePaths = findSensitivePaths(projectPath, segmentPathTokens);
     const writePathTokens = isMutation ? extractMutationWritePathTokens(command, tokens, rawSegment) : [];
     const disallowedMutationPaths = isMutation
         ? findDisallowedMutationPaths(projectPath, allowedMutationRoots, writePathTokens)
@@ -922,7 +1077,12 @@ function analyzeSegment(
             )
         );
 
-    if (disallowedMutationPaths.length > 0) {
+    if (sensitivePaths.length > 0) {
+        blocked = true;
+        reasons.push(
+            `Access to sensitive paths is blocked by shell sandbox policy. Sensitive path(s): ${sensitivePaths.join(', ')}.`
+        );
+    } else if (disallowedMutationPaths.length > 0) {
         blocked = true;
         const outsideRoots = ALLOWED_EXTERNAL_MUTATION_ROOTS.join(', ');
         reasons.push(
@@ -989,9 +1149,8 @@ export function isAnalysisCoveredByRules(analysis: ShellCommandAnalysis, rules: 
     );
 }
 
-export function analyzeShellCommand(
+function analyzeGenericShellCommand(
     command: string,
-    _platform: NodeJS.Platform,
     projectPath: string,
     runInBackground: boolean
 ): ShellCommandAnalysis {
@@ -1058,5 +1217,18 @@ export function analyzeShellCommand(
         isComplexSyntax,
         runInBackground,
         segments: analyzedSegments,
+        analysisEngine: 'generic',
     };
+}
+
+export function analyzeShellCommand(
+    command: string,
+    platform: NodeJS.Platform,
+    projectPath: string,
+    runInBackground: boolean
+): ShellCommandAnalysis {
+    if (platform === 'win32') {
+        return analyzePowerShellCommand(command, projectPath, runInBackground);
+    }
+    return analyzeGenericShellCommand(command, projectPath, runInBackground);
 }
