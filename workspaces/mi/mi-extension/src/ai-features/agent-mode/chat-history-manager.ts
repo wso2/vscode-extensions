@@ -50,7 +50,7 @@ export interface SessionMetadata {
     sessionVersion?: number;
 }
 
-export const TOOL_USE_INTERRUPTION_CONTEXT = `The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.`;
+export const TOOL_USE_INTERRUPTION_CONTEXT = `The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the patch hunks were NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.`;
 
 /**
  * Session summary for UI list display
