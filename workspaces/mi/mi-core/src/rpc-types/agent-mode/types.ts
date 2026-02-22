@@ -170,7 +170,8 @@ export type PlanApprovalKind =
     | 'exit_plan_mode_without_plan'
     | 'web_search'
     | 'web_fetch'
-    | 'shell_command';
+    | 'shell_command'
+    | 'continue_after_limit';
 
 /**
  * Agent event for streaming.

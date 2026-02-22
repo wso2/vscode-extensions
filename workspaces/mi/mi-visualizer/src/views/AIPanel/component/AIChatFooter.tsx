@@ -876,7 +876,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 | 'exit_plan_mode_without_plan'
                                 | 'web_search'
                                 | 'web_fetch'
-                                | 'shell_command';
+                                | 'shell_command'
+                                | 'continue_after_limit';
                             const planContent = typeof planEvent.content === "string" ? planEvent.content.trim() : "";
                             if (approvalKind === 'exit_plan_mode' && planContent) {
                                 setMessages((prev) => {
@@ -903,6 +904,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                             ? 'Agent wants permission to fetch a web page.'
                                             : approvalKind === 'shell_command'
                                                 ? 'Agent wants permission to run a shell command.'
+                                                : approvalKind === 'continue_after_limit'
+                                                    ? 'Agent paused because it reached a run limit. Continue in a new run?'
                                             : getPlanApprovalPrompt(planContent, planEvent.planFilePath);
 
                             const dialogContent = approvalKind === 'exit_plan_mode'
@@ -1600,6 +1603,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 ? 'Web Access Approval'
                 : pendingPlanApproval?.approvalKind === 'shell_command'
                     ? 'Shell Access Approval'
+                : pendingPlanApproval?.approvalKind === 'continue_after_limit'
+                    ? 'Continue Agent Run?'
                 : 'Approval Required');
     const planApproveLabel = pendingPlanApproval?.approveLabel || 'Approve';
     const planRejectLabel = pendingPlanApproval?.rejectLabel || 'Reject';
@@ -1972,8 +1977,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             marginBottom: "8px",
                             color: "var(--vscode-foreground)",
                             lineHeight: "1.4",
-                            whiteSpace: pendingPlanApproval.approvalKind === 'shell_command' ? "pre-wrap" : "normal",
-                            overflowWrap: pendingPlanApproval.approvalKind === 'shell_command' ? "anywhere" : "normal"
+                            whiteSpace: pendingPlanApproval.approvalKind === 'shell_command' || pendingPlanApproval.approvalKind === 'continue_after_limit' ? "pre-wrap" : "normal",
+                            overflowWrap: pendingPlanApproval.approvalKind === 'shell_command' || pendingPlanApproval.approvalKind === 'continue_after_limit' ? "anywhere" : "normal"
                         }}>
                             {pendingPlanApproval.content || "The plan is ready for your review."}
                         </div>

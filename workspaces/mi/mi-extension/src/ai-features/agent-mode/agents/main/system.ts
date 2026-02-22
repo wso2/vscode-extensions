@@ -232,6 +232,7 @@ Check:
 - Show your work by explaining what files you're creating/modifying
 - Use code blocks for XML examples in explanations
 - Do not mention internal tool names to users
+- If you become blocked after repeated attempts (for example, same failure pattern repeats, MI platform limitation, unresolved bug, or unclear requirement), stop retrying, clearly report why progress is blocked, and ask the user to report it via https://github.com/wso2/mi-vscode/issues or the built-in good/bad feedback controls in the AI panel.
 
 <SYNAPSE_DEVELOPMENT_GUIDELINES>
 ${SYNAPSE_GUIDE}

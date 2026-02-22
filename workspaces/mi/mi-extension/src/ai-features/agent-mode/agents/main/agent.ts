@@ -122,6 +122,56 @@ export interface AgentResult {
     error?: string;
     /** Full AI SDK messages from this turn (includes tool calls/results) */
     modelMessages?: any[];
+    /** True when the run ended due to model limits (step/token) and should be continued in a new run */
+    continuationSuggested?: boolean;
+    /** Normalized stop reason when continuation is suggested */
+    continuationReason?: 'max_output_tokens' | 'max_tool_calls';
+}
+
+type ContinuationReason = 'max_output_tokens' | 'max_tool_calls';
+
+function normalizeFinishReason(finishPart: unknown): string | undefined {
+    const part = finishPart as Record<string, unknown> | undefined;
+    const candidates = [
+        part?.finishReason,
+        part?.finish_reason,
+        part?.stopReason,
+        part?.stop_reason,
+        part?.reason,
+    ];
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.trim().length > 0) {
+            return candidate.trim().toLowerCase();
+        }
+    }
+    return undefined;
+}
+
+function getContinuationReasonFromFinish(finishReason?: string): ContinuationReason | undefined {
+    if (!finishReason) {
+        return undefined;
+    }
+
+    const reason = finishReason.toLowerCase();
+    if (
+        reason.includes('tool') ||
+        reason.includes('step') ||
+        reason.includes('max_steps') ||
+        reason.includes('stepcount')
+    ) {
+        return 'max_tool_calls';
+    }
+
+    if (
+        reason.includes('length') ||
+        reason.includes('token') ||
+        reason.includes('max_tokens') ||
+        reason.includes('output')
+    ) {
+        return 'max_output_tokens';
+    }
+
+    return undefined;
 }
 
 // ============================================================================
@@ -630,6 +680,8 @@ export async function executeAgent(
 
                 case 'finish': {
                     logInfo(`[Agent] Execution finished. Modified files: ${modifiedFiles.length}`);
+                    const finishReason = normalizeFinishReason(part);
+                    const continuationReason = getContinuationReasonFromFinish(finishReason);
 
                     // Capture final messages and log cache usage
                     try {
@@ -645,6 +697,8 @@ export async function executeAgent(
                         success: true,
                         modifiedFiles,
                         modelMessages: finalModelMessages,
+                        continuationSuggested: continuationReason !== undefined,
+                        continuationReason,
                     };
                 }
             }
@@ -666,6 +720,7 @@ export async function executeAgent(
             success: true,
             modifiedFiles,
             modelMessages: finalModelMessages,
+            continuationSuggested: false,
         };
 
     } catch (error: any) {
