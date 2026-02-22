@@ -209,16 +209,36 @@ export const SYNAPSE_GUIDE = `
     \`\`\`
     - Supported methods: GET, POST, PUT, DELETE, HEAD, PATCH, OPTIONS
 
-## SOAP / XML Integration Rules
-    - For SOAP services, always prefer the \\\`call\\\` mediator with a named endpoint over the HTTP connector. The HTTP connector is designed for REST; it can cause stream-building failures with SOAP responses.
-    - Never assume HTTP for external service URLs. Prefer HTTPS endpoint URIs unless the service is explicitly HTTP-only.
+## SOAP / XML Integration Recommendations
+    - For SOAP, prefer the \\\`call\\\` mediator with a named endpoint. Avoid the HTTP connector for SOAP because it is REST-focused and can cause stream-building issues with SOAP responses.
+    - Never assume HTTP for external services. Prefer HTTPS unless the service is explicitly HTTP-only.
 
-### SOAP Response Handling After \\\`call\\\` Mediator (MI 4.x)
-    - After a \\\`call\\\` mediator to a SOAP endpoint with \\\`format="soap11"\\\`, WSO2 MI 4.x automatically converts the SOAP XML response body to JSON in the message context.
-    - ALWAYS access the SOAP response using the JSON payload path: \\\`\\\${payload.ResponseElementName.ChildElement}\\\`
-    - DO NOT use XPath as the first access after a SOAP call: \\\`\\\${xpath("string($body//*[local-name()='Element'])")}\\\`  ← may return empty
-    - Reason: The SOAP response is in deferred/pass-through (unbuilt) mode until something forces message building. Accessing \\\`\\\${payload}\\\` forces the build; raw XPath may silently evaluate against an unbuilt message and return empty.
-    - If XPath is unavoidable, force message building first by setting an intermediate variable: \\\`<variable name="p" expression="\\\${payload}" type="JSON"/>\\\` then use XPath in a subsequent expression.
+### SOAP response access after \\\`call\\\` (MI 4.x)
+    - After \\\`call\\\` to a SOAP endpoint with \\\`format="soap11"\\\`, MI 4.x exposes the SOAP response as JSON in message context.
+    - First access MUST use JSON payload paths (for example \\\`\\\${payload.ResponseElementName.ChildElement}\\\`).
+    - Do not use XPath as the first read after SOAP \\\`call\\\` (it can return empty on unbuilt pass-through messages).
+    - If XPath is required, force message build first:
+      \\\`<variable name="soapPayload" expression="\\\${payload}" type="JSON"/>\\\`
+      Then evaluate XPath in a later expression.
+
+### \\\`payloadFactory\\\` caveat for SOAP/XML
+    - In \\\`payloadFactory\\\`, \\\`<arg expression="...">\\\` is XPath-only, not Synapse-expression syntax. Never use \\\`\\\${...}\\\` inside \\\`<arg expression>\\\`.
+    - Prefer embedding Synapse expressions directly inside \\\`<format>\\\`:
+      \`\`\`xml
+      <payloadFactory media-type="xml">
+          <format>
+              <ns:Op xmlns:ns="http://example.com/">
+                  <ns:field>\${vars.myVar}</ns:field>
+              </ns:Op>
+          </format>
+      </payloadFactory>
+      \`\`\`
+    - If \\\`<arg expression>\\\` must be used, use valid XPath forms (for example \\\`get-property('varName')\\\`, \\\`$url:paramName\\\`, \\\`$ctx:varName\\\`), never \\\`\\\${...}\\\`.
+
+### SOAP namespace accuracy
+    - Never infer SOAP operation namespace from service URL.
+    - Always use WSDL \\\`targetNamespace\\\` when building SOAP bodies (especially in \\\`payloadFactory\\\`).
+    - Wrong namespace can cause silent SOAP Fault behavior (empty results without explicit MI exception).
 
 ## For the new filter mediator, do not use source. Use only xpath:
 \`\`\`xml
