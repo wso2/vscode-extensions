@@ -54,7 +54,7 @@ export const SYNAPSE_GUIDE = `
    - Use WSO2 Connectors whenever possible instead of directly calling APIs.
    - Do not use new class mediators unless it is absolutely necessary.
    - Define driver, username, dburl, and passwords inside the dbreport or dblookup mediator <connection> tag instead of generating deployment toml file changes.
-   - Do not use <> tags as placeholders.
+   - Do not use fake XML placeholders (for example, <TODO>, <placeholder>, or <...>) in generated artifacts.
    - To include an API key in uri-template, define:
     \`\`\`xml
     <variable name="username" value="your_api_key_here" type="STRING"/>
@@ -101,8 +101,11 @@ export const SYNAPSE_GUIDE = `
 ## Use the new variable mediator instead of the deprecated property mediator:
     - Syntax
     \`\`\`xml
-    <variable name="string" [type="STRING"|"BOOLEAN"|"INTEGER"|"DOUBLE"|"LONG"|"XML"|"JSON"] (value="string" | expression="expression") />
+    <variable name="userName" type="STRING" value="JohnDoe"/>
+    <variable name="userId" type="INTEGER" expression="\${payload.user.id}"/>
     \`\`\`
+    - Supported types: \`STRING\`, \`BOOLEAN\`, \`INTEGER\`, \`DOUBLE\`, \`LONG\`, \`XML\`, \`JSON\`.
+    - Use either \`value\` or \`expression\` in a single variable definition (not both).
 
     - Examples
     \`\`\`xml
@@ -346,7 +349,7 @@ export const SYNAPSE_GUIDE = `
     <!-- Error message as string -->
     <throwError type="string" errorMessage="string"></throwError>
     <!-- Dynamic error message -->
-    <throwError type="string" errorMessage="{\${expression}}"></throwError>
+    <throwError type="string" errorMessage="\${expression}"></throwError>
     \`\`\`
     - Example:
     \`\`\`xml
@@ -360,7 +363,7 @@ export const SYNAPSE_GUIDE = `
                     </then>
                     <else>
                         <variable name="ERROR_MSG" value="Required field does not exist"/>
-                        <throwError type="PAYLOAD_ERROR" errorMessage="{\${vars.ERROR_MSG}}"/>
+                        <throwError type="PAYLOAD_ERROR" errorMessage="\${vars.ERROR_MSG}"/>
                     </else>
                 </filter>
             </inSequence>
@@ -375,6 +378,8 @@ export const SYNAPSE_GUIDE = `
     \`\`\`
 
 ## Data Mappers
+**Important runtime requirement:** Data mapper artifacts and the \`<datamapper>\` mediator require MI runtime \`4.4.0\` or newer. If runtime is below \`4.4.0\`, do not use data mapper generation.
+
 Data mappers transform data between input and output schemas using TypeScript. They are used with the \`<datamapper>\` mediator in Synapse integrations.
 Always use ${CREATE_DATA_MAPPER_TOOL_NAME} tool to create a data mapper. Do not create data mappers manually.
 

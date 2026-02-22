@@ -68,6 +68,7 @@ import { validateAttachments } from '../../ai-features/agent-mode/attachment-uti
 import { VALID_FILE_EXTENSIONS, VALID_SPECIAL_FILE_NAMES } from '../../ai-features/agent-mode/tools/types';
 import { AgentUndoCheckpointManager, StoredUndoCheckpoint } from '../../ai-features/agent-mode/undo/checkpoint-manager';
 import { MiDiagramRpcManager } from '../mi-diagram/rpc-manager';
+import { getCopilotSessionDir } from '../../ai-features/agent-mode/storage-paths';
 
 const AUTO_COMPACT_TOKEN_THRESHOLD = 180000;
 const AUTO_COMPACT_TOOL_NAME = 'compact_conversation';
@@ -78,6 +79,7 @@ const MAX_MENTION_SEARCH_LIMIT = 100;
 const DEFAULT_MENTION_SEARCH_LIMIT = 30;
 const MENTION_MAX_CACHE_DEPTH = 8;
 const MENTION_MAX_CACHE_ITEMS = 5000;
+const SHELL_APPROVAL_RULES_FILE_NAME = 'shell-approval-rules.json';
 const MENTION_ROOT_DIRS = ['deployment', 'src'];
 const MENTION_POM_FILE = 'pom.xml';
 const MENTION_SKIP_DIRS = new Set([
@@ -115,6 +117,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private mentionablePathCacheBuiltAt = 0;
     private undoCheckpointManager: AgentUndoCheckpointManager | null = null;
     private undoCheckpointManagerSessionId: string | null = null;
+    private shellApprovalRules: string[][] = [];
 
     constructor(private projectUri: string) {
         this.eventHandler = new AgentEventHandler(projectUri);
@@ -155,6 +158,102 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     getPendingQuestions(): Map<string, PendingQuestion> {
         return this.pendingQuestions;
+    }
+
+    private normalizeShellApprovalRule(rule: string[]): string[] {
+        return rule
+            .map((token) => token.trim().toLowerCase())
+            .filter((token) => token.length > 0);
+    }
+
+    private getShellApprovalRulesFilePath(sessionId: string): string {
+        return path.join(getCopilotSessionDir(this.projectUri, sessionId), SHELL_APPROVAL_RULES_FILE_NAME);
+    }
+
+    private clearShellApprovalRules(): void {
+        this.shellApprovalRules = [];
+    }
+
+    private getShellApprovalRulesSnapshot(): string[][] {
+        return this.shellApprovalRules.map((rule) => [...rule]);
+    }
+
+    private async loadShellApprovalRulesForSession(sessionId: string): Promise<void> {
+        this.clearShellApprovalRules();
+        const rulesPath = this.getShellApprovalRulesFilePath(sessionId);
+
+        try {
+            const content = await fs.readFile(rulesPath, 'utf8');
+            const parsed = JSON.parse(content);
+            const rawRules = Array.isArray(parsed)
+                ? parsed
+                : (Array.isArray(parsed?.rules) ? parsed.rules : []);
+
+            const dedupedRules = new Map<string, string[]>();
+            for (const rawRule of rawRules) {
+                if (!Array.isArray(rawRule)) {
+                    continue;
+                }
+                const normalizedRule = this.normalizeShellApprovalRule(rawRule);
+                if (normalizedRule.length === 0) {
+                    continue;
+                }
+                dedupedRules.set(normalizedRule.join('\u0000'), normalizedRule);
+            }
+
+            this.shellApprovalRules = Array.from(dedupedRules.values());
+            logInfo(`[AgentPanel] Loaded ${this.shellApprovalRules.length} shell approval rule(s) for session ${sessionId}`);
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError(`[AgentPanel] Failed to load shell approval rules for session ${sessionId}`, error);
+            }
+            this.clearShellApprovalRules();
+        }
+    }
+
+    private async persistShellApprovalRulesForSession(sessionId: string): Promise<void> {
+        const rulesPath = this.getShellApprovalRulesFilePath(sessionId);
+        const payload = {
+            updatedAt: new Date().toISOString(),
+            rules: this.shellApprovalRules,
+        };
+
+        await fs.mkdir(path.dirname(rulesPath), { recursive: true });
+        await fs.writeFile(rulesPath, JSON.stringify(payload, null, 2), 'utf8');
+    }
+
+    private async addShellApprovalRule(rule: string[]): Promise<void> {
+        if (!this.currentSessionId) {
+            return;
+        }
+
+        const normalizedRule = this.normalizeShellApprovalRule(rule);
+        if (normalizedRule.length === 0) {
+            return;
+        }
+
+        const existingKeys = new Set(this.shellApprovalRules.map((currentRule) => currentRule.join('\u0000')));
+        const ruleKey = normalizedRule.join('\u0000');
+        if (existingKeys.has(ruleKey)) {
+            return;
+        }
+
+        this.shellApprovalRules.push(normalizedRule);
+        await this.persistShellApprovalRulesForSession(this.currentSessionId);
+        logInfo(`[AgentPanel] Added shell approval rule for session ${this.currentSessionId}: ${normalizedRule.join(' ')}`);
+    }
+
+    private async deleteShellApprovalRulesForSession(sessionId: string): Promise<void> {
+        const rulesPath = this.getShellApprovalRulesFilePath(sessionId);
+        try {
+            await fs.unlink(rulesPath);
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError(`[AgentPanel] Failed to delete shell approval rules for session ${sessionId}`, error);
+            }
+        }
     }
 
     /**
@@ -251,6 +350,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             await this.chatHistoryManager.initialize();
             this.currentSessionId = this.chatHistoryManager.getSessionId();
             this.currentMode = await this.chatHistoryManager.getLatestMode(DEFAULT_AGENT_MODE);
+            await this.loadShellApprovalRulesForSession(this.currentSessionId);
             await cleanupPersistedToolResultsForProject(this.projectUri);
 
             if (sessionId) {
@@ -276,6 +376,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.chatHistoryManager = null;
             this.currentSessionId = null;
             this.currentMode = DEFAULT_AGENT_MODE;
+            this.clearShellApprovalRules();
             this.undoCheckpointManager = null;
             this.undoCheckpointManagerSessionId = null;
         }
@@ -573,6 +674,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                             chatHistoryManager: historyManager,
                             pendingQuestions: this.pendingQuestions,
                             pendingApprovals: this.pendingApprovals,
+                            shellApprovalRuleStore: {
+                                getRules: () => this.getShellApprovalRulesSnapshot(),
+                                addRule: async (rule: string[]) => this.addShellApprovalRule(rule),
+                            },
                             undoCheckpointManager,
                         },
                         (event: AgentEvent) => {
@@ -831,7 +936,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      * This resolves the pending promise in the exit_plan_mode tool
      */
     async respondToPlanApproval(response: PlanApprovalResponse): Promise<void> {
-        const { approvalId, approved, feedback } = response;
+        const { approvalId, approved, feedback, rememberForSession, suggestedPrefixRule } = response;
         logInfo(`[AgentPanel] Received plan approval response: ${approvalId}, approved: ${approved}`);
 
         const pending = this.pendingApprovals.get(approvalId);
@@ -843,7 +948,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             }
 
             logDebug(`[AgentPanel] Resolving pending plan approval: ${approvalId}`);
-            pending.resolve({ approved, feedback });
+            pending.resolve({ approved, feedback, rememberForSession, suggestedPrefixRule });
             // Note: The pendingApprovals.delete is handled in the resolve callback
         } else {
             logError(`[AgentPanel] No pending plan approval found for ID: ${approvalId}`);
@@ -974,6 +1079,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.chatHistoryManager = new ChatHistoryManager(this.projectUri, sessionId);
             await this.chatHistoryManager.initialize();
             this.currentSessionId = sessionId;
+            await this.loadShellApprovalRulesForSession(sessionId);
             const { events, lastTotalInputTokens, mode } = await this.loadAndNormalizeSessionEvents(this.chatHistoryManager);
             this.currentMode = mode;
             logInfo(`[AgentPanel] Switched to session: ${sessionId}, loaded ${events.length} events`);
@@ -1011,6 +1117,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             await this.chatHistoryManager.initialize();
             this.currentSessionId = this.chatHistoryManager.getSessionId();
             this.currentMode = DEFAULT_AGENT_MODE;
+            await this.loadShellApprovalRulesForSession(this.currentSessionId);
 
             logInfo(`[AgentPanel] Created new session: ${this.currentSessionId}`);
 
@@ -1047,6 +1154,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             // Delete the session
             await ChatHistoryManager.deleteSession(this.projectUri, sessionId);
+            await this.deleteShellApprovalRulesForSession(sessionId);
 
             logInfo(`[AgentPanel] Deleted session: ${sessionId}`);
 

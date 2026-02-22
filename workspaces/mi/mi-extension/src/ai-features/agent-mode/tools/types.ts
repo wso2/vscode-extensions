@@ -340,6 +340,11 @@ export interface BashResult extends ToolResult {
     taskId?: string;
 }
 
+export interface ShellApprovalRuleStore {
+    getRules: () => string[][];
+    addRule: (rule: string[]) => Promise<void>;
+}
+
 export type BashExecuteFn = (args: {
     command: string;
     description?: string;

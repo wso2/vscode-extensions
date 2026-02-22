@@ -19,12 +19,20 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import * as childProcess from 'child_process';
-import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { BashResult, ToolResult, BashExecuteFn, KillTaskExecuteFn, TaskOutputExecuteFn, TaskOutputResult, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './types';
-import { logDebug, logError, logInfo } from '../../copilot/logger';
+import { AgentEvent } from '@wso2/mi-core';
+import { BashResult, ToolResult, BashExecuteFn, KillTaskExecuteFn, TaskOutputExecuteFn, TaskOutputResult, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, ShellApprovalRuleStore } from './types';
+import { logError, logInfo } from '../../copilot/logger';
 import { getBackgroundSubagents } from './subagent_tool';
 import { setJavaHomeInEnvironmentAndPath } from '../../../debugger/debugHelper';
+import { PendingPlanApproval } from './plan_mode_tools';
+import {
+    analyzeShellCommand,
+    buildShellCommandDeniedResult,
+    buildShellSandboxBlockedResult,
+    isAnalysisCoveredByRules,
+    normalizePrefixRule,
+} from './shell_sandbox';
 import treeKill = require('tree-kill');
 
 // ============================================================================
@@ -83,6 +91,71 @@ function generateShellTaskId(): string {
     return `task-shell-${uuidv4().split('-')[0]}`;
 }
 
+type AgentEventHandler = (event: AgentEvent) => void;
+
+function formatApprovalReasons(reasons: string[]): string {
+    if (reasons.length === 0) {
+        return '- Shell policy requires explicit user approval for this command.';
+    }
+
+    return reasons.map((reason) => `- ${reason}`).join('\n');
+}
+
+function buildShellApprovalContent(command: string, reasons: string[], suggestedPrefixRule: string[]): string {
+    const lines: string[] = [
+        'Agent wants to run this shell command:',
+        `\`${command}\``,
+        '',
+        'Why approval is required:',
+        formatApprovalReasons(reasons),
+    ];
+
+    if (suggestedPrefixRule.length > 0) {
+        lines.push('', `Suggested session rule prefix: \`${suggestedPrefixRule.join(' ')}\``);
+    }
+
+    return lines.join('\n');
+}
+
+async function requestShellApproval(
+    eventHandler: AgentEventHandler,
+    pendingApprovals: Map<string, PendingPlanApproval>,
+    request: {
+        command: string;
+        reasons: string[];
+        suggestedPrefixRule: string[];
+    }
+): Promise<{ approved: boolean; feedback?: string; rememberForSession?: boolean; suggestedPrefixRule?: string[] }> {
+    const approvalId = uuidv4();
+
+    eventHandler({
+        type: 'plan_approval_requested',
+        approvalId,
+        approvalKind: 'shell_command',
+        approvalTitle: 'Allow Shell Command?',
+        approveLabel: 'Allow',
+        rejectLabel: 'Deny',
+        allowFeedback: false,
+        content: buildShellApprovalContent(request.command, request.reasons, request.suggestedPrefixRule),
+        suggestedPrefixRule: request.suggestedPrefixRule,
+    });
+
+    return new Promise((resolve, reject) => {
+        pendingApprovals.set(approvalId, {
+            approvalId,
+            approvalKind: 'shell_command',
+            resolve: (result) => {
+                pendingApprovals.delete(approvalId);
+                resolve(result);
+            },
+            reject: (error: Error) => {
+                pendingApprovals.delete(approvalId);
+                reject(error);
+            }
+        });
+    });
+}
+
 // ============================================================================
 // Shell Tool
 // ============================================================================
@@ -90,7 +163,12 @@ function generateShellTaskId(): string {
 /**
  * Creates the execute function for the shell tool
  */
-export function createBashExecute(projectPath: string): BashExecuteFn {
+export function createBashExecute(
+    projectPath: string,
+    eventHandler?: AgentEventHandler,
+    pendingApprovals?: Map<string, PendingPlanApproval>,
+    shellApprovalRuleStore?: ShellApprovalRuleStore
+): BashExecuteFn {
     return async (args: {
         command: string;
         description?: string;
@@ -103,6 +181,54 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
             timeout = DEFAULT_TIMEOUT,
             run_in_background = false
         } = args;
+
+        const analysis = analyzeShellCommand(command, process.platform, projectPath, run_in_background);
+        if (analysis.blocked) {
+            return buildShellSandboxBlockedResult(analysis.reasons);
+        }
+
+        const sessionRules = shellApprovalRuleStore?.getRules() ?? [];
+        const approvalBypassedByRule = analysis.requiresApproval
+            && !analysis.isDestructive
+            && isAnalysisCoveredByRules(analysis, sessionRules);
+
+        if (analysis.requiresApproval && !approvalBypassedByRule) {
+            if (!eventHandler || !pendingApprovals) {
+                return {
+                    success: false,
+                    message: 'Shell command requires user approval, but approval flow is unavailable in this context.',
+                    error: 'SHELL_APPROVAL_UNAVAILABLE',
+                };
+            }
+
+            const approvalResult = await requestShellApproval(eventHandler, pendingApprovals, {
+                command,
+                reasons: analysis.reasons,
+                suggestedPrefixRule: analysis.suggestedPrefixRule,
+            });
+
+            if (!approvalResult.approved) {
+                return buildShellCommandDeniedResult();
+            }
+
+            const rememberForSession = approvalResult.rememberForSession === true;
+            if (rememberForSession && shellApprovalRuleStore && !analysis.isDestructive) {
+                const selectedRule = normalizePrefixRule(
+                    (approvalResult.suggestedPrefixRule && approvalResult.suggestedPrefixRule.length > 0)
+                        ? approvalResult.suggestedPrefixRule
+                        : analysis.suggestedPrefixRule
+                );
+                if (selectedRule.length > 0) {
+                    try {
+                        await shellApprovalRuleStore.addRule(selectedRule);
+                    } catch (error) {
+                        logError('[ShellTool] Failed to persist shell approval rule', error);
+                    }
+                }
+            }
+        } else if (approvalBypassedByRule) {
+            logInfo(`[ShellTool] Approval bypassed by session rule for command: ${command}`);
+        }
 
         logInfo(`[ShellTool] Executing: ${command}${description ? ` (${description})` : ''}`);
 

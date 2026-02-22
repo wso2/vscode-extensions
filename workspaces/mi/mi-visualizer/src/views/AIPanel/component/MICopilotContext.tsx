@@ -37,11 +37,12 @@ export interface PendingUserQuestion {
 // Pending plan approval type (for UI)
 export interface PendingPlanApproval {
     approvalId: string;
-    approvalKind?: 'enter_plan_mode' | 'exit_plan_mode' | 'exit_plan_mode_without_plan' | 'web_search' | 'web_fetch';
+    approvalKind?: 'enter_plan_mode' | 'exit_plan_mode' | 'exit_plan_mode_without_plan' | 'web_search' | 'web_fetch' | 'shell_command';
     approvalTitle?: string;
     approveLabel?: string;
     rejectLabel?: string;
     allowFeedback?: boolean;
+    suggestedPrefixRule?: string[];
     planFilePath?: string;
     content?: string;  // Summary or plan content to display
 }

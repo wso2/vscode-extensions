@@ -85,7 +85,14 @@ function resolveProjectBoundPath(projectPath: string, requestedPath: string): st
 async function getUnsupportedRuntimeToolResult(projectPath: string, toolName: string): Promise<ToolResult | undefined> {
     const runtimeVersion = await getRuntimeVersionFromPom(projectPath);
     if (!runtimeVersion) {
-        return undefined;
+        const message = `${toolName} requires MI runtime version information, but it was not found in pom.xml. ` +
+            `Set <project.runtime.version> to ${RUNTIME_VERSION_440} or newer, then retry.`;
+        logWarn(`[DataMapperTools] ${message}`);
+        return {
+            success: false,
+            message,
+            error: 'Error: MI runtime version not configured',
+        };
     }
 
     if (compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {

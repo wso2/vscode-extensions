@@ -169,7 +169,8 @@ export type PlanApprovalKind =
     | 'exit_plan_mode'
     | 'exit_plan_mode_without_plan'
     | 'web_search'
-    | 'web_fetch';
+    | 'web_fetch'
+    | 'shell_command';
 
 /**
  * Agent event for streaming.
@@ -179,7 +180,7 @@ export type PlanApprovalKind =
  * - `tool_result`: `toolName`, `toolOutput`, `completedAction` (+ optional shell fields)
  * - `ask_user`: `questionId`, `questions`
  * - `todo_updated`: `todos`
- * - `plan_approval_requested`: `approvalId`, `approvalKind`, `approvalTitle`, `approveLabel`, `rejectLabel`, `allowFeedback`, `planFilePath`, `content`
+ * - `plan_approval_requested`: `approvalId`, `approvalKind`, `approvalTitle`, `approveLabel`, `rejectLabel`, `allowFeedback`, `planFilePath`, `content`, `suggestedPrefixRule`
  * - `compact`: `summary`, `content`
  * - `usage`: `totalInputTokens`
  * - `error`: `error`
@@ -223,6 +224,8 @@ export interface AgentEvent {
     rejectLabel?: string;
     /** Whether the UI should collect rejection feedback */
     allowFeedback?: boolean;
+    /** Suggested command prefix rule for shell approval dialogs */
+    suggestedPrefixRule?: string[];
     /** Summary text for compact event */
     summary?: string;
 
@@ -257,6 +260,7 @@ export interface PlanApprovalRequestedEvent extends AgentEvent {
     approveLabel: string;
     rejectLabel: string;
     allowFeedback: boolean;
+    suggestedPrefixRule?: string[];
     planFilePath?: string;
 }
 
@@ -334,6 +338,10 @@ export interface PlanApprovalResponse {
     approved: boolean;
     /** Optional feedback if user rejects the plan */
     feedback?: string;
+    /** Optional per-session approval preference for shell command approvals */
+    rememberForSession?: boolean;
+    /** Optional command-prefix rule to persist for shell command approvals */
+    suggestedPrefixRule?: string[];
 }
 
 // ============================================================================

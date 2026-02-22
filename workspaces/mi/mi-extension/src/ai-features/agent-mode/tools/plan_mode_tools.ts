@@ -226,7 +226,7 @@ export interface PendingQuestion {
 export interface PendingPlanApproval {
     approvalId: string;
     approvalKind: PlanApprovalKind;
-    resolve: (result: { approved: boolean; feedback?: string }) => void;
+    resolve: (result: { approved: boolean; feedback?: string; rememberForSession?: boolean; suggestedPrefixRule?: string[] }) => void;
     reject: (error: Error) => void;
 }
 
@@ -244,7 +244,7 @@ async function requestPlanApproval(
         rejectLabel: string;
         allowFeedback: boolean;
     }
-): Promise<{ approved: boolean; feedback?: string }> {
+): Promise<{ approved: boolean; feedback?: string; rememberForSession?: boolean; suggestedPrefixRule?: string[] }> {
     const approvalId = uuidv4();
 
     const approvalEvent: PlanApprovalRequestedEvent = {

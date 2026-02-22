@@ -115,7 +115,7 @@ import {
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
 } from '../../tools/types';
-import { BashExecuteFn, ToolResult } from '../../tools/types';
+import { BashExecuteFn, ToolResult, ShellApprovalRuleStore } from '../../tools/types';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
 import * as path from 'path';
 import { getCopilotSessionDir } from '../../storage-paths';
@@ -172,6 +172,8 @@ export interface CreateToolsParams {
     getAnthropicClient: (model: AnthropicModel) => Promise<any>;
     /** Skip per-call web approval prompts for this run */
     webAccessPreapproved: boolean;
+    /** Session-scoped shell approval rule store */
+    shellApprovalRuleStore?: ShellApprovalRuleStore;
     /** Optional undo checkpoint manager for capturing pre-change states */
     undoCheckpointManager?: AgentUndoCheckpointManager;
 }
@@ -404,6 +406,7 @@ export function createAgentTools(params: CreateToolsParams) {
         pendingApprovals,
         getAnthropicClient,
         webAccessPreapproved,
+        shellApprovalRuleStore,
         undoCheckpointManager,
     } = params;
 
@@ -496,7 +499,7 @@ export function createAgentTools(params: CreateToolsParams) {
 
         // Shell Tools (3 tools)
         [BASH_TOOL_NAME]: createBashTool(
-            getWrappedExecute(BASH_TOOL_NAME, createBashExecute(projectPath))
+            getWrappedExecute(BASH_TOOL_NAME, createBashExecute(projectPath, eventHandler, pendingApprovals, shellApprovalRuleStore))
         ),
         [KILL_TASK_TOOL_NAME]: createKillTaskTool(
             getWrappedExecute(KILL_TASK_TOOL_NAME, createKillTaskExecute())

@@ -724,6 +724,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 setPendingPlanApproval(null);
                 setShowRejectionInput(false);
                 setPlanRejectionFeedback("");
+                setRememberShellApprovalForSession(false);
                 setAnswers(new Map());
                 setOtherAnswers(new Map());
                 setMessages((prevMessages) => {
@@ -874,7 +875,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 | 'exit_plan_mode'
                                 | 'exit_plan_mode_without_plan'
                                 | 'web_search'
-                                | 'web_fetch';
+                                | 'web_fetch'
+                                | 'shell_command';
                             const planContent = typeof planEvent.content === "string" ? planEvent.content.trim() : "";
                             if (approvalKind === 'exit_plan_mode' && planContent) {
                                 setMessages((prev) => {
@@ -899,6 +901,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                         ? 'Agent wants permission to run a web search.'
                                         : approvalKind === 'web_fetch'
                                             ? 'Agent wants permission to fetch a web page.'
+                                            : approvalKind === 'shell_command'
+                                                ? 'Agent wants permission to run a shell command.'
                                             : getPlanApprovalPrompt(planContent, planEvent.planFilePath);
 
                             const dialogContent = approvalKind === 'exit_plan_mode'
@@ -912,6 +916,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 approveLabel: planEvent.approveLabel,
                                 rejectLabel: planEvent.rejectLabel,
                                 allowFeedback: planEvent.allowFeedback,
+                                suggestedPrefixRule: planEvent.suggestedPrefixRule,
                                 planFilePath: planEvent.planFilePath,
                                 content: dialogContent,
                             });
@@ -941,6 +946,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setOtherAnswers(new Map());
         setShowRejectionInput(false);
         setPlanRejectionFeedback("");
+        setRememberShellApprovalForSession(false);
     };
 
     // Handle user response to ask_user questions
@@ -990,11 +996,18 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 await rpcClient.getMiAgentPanelRpcClient().respondToPlanApproval({
                     approvalId: pendingPlanApproval.approvalId,
                     approved,
-                    feedback
+                    feedback,
+                    rememberForSession: pendingPlanApproval.approvalKind === 'shell_command'
+                        ? rememberShellApprovalForSession
+                        : undefined,
+                    suggestedPrefixRule: pendingPlanApproval.approvalKind === 'shell_command' && rememberShellApprovalForSession
+                        ? pendingPlanApproval.suggestedPrefixRule
+                        : undefined,
                 });
                 setPendingPlanApproval(null);
                 setShowRejectionInput(false);
                 setPlanRejectionFeedback("");
+                setRememberShellApprovalForSession(false);
             } catch (error) {
                 console.error("Error responding to plan approval:", error);
             }
@@ -1010,6 +1023,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setPendingPlanApproval(null);
         setShowRejectionInput(false);
         setPlanRejectionFeedback("");
+        setRememberShellApprovalForSession(false);
         setAnswers(new Map());
         setOtherAnswers(new Map());
         try {
@@ -1396,6 +1410,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     // State for plan rejection feedback
     const [planRejectionFeedback, setPlanRejectionFeedback] = useState("");
     const [showRejectionInput, setShowRejectionInput] = useState(false);
+    const [rememberShellApprovalForSession, setRememberShellApprovalForSession] = useState(false);
     const [activeQuestionTab, setActiveQuestionTab] = useState(0);
 
     const handlePlanApprovalCancel = async () => {
@@ -1429,6 +1444,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     useEffect(() => {
         setShowRejectionInput(false);
         setPlanRejectionFeedback("");
+        setRememberShellApprovalForSession(false);
     }, [pendingPlanApproval?.approvalId]);
 
     // Close mode menu on click outside
@@ -1582,6 +1598,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             ? 'Plan Approval'
             : pendingPlanApproval?.approvalKind === 'web_search' || pendingPlanApproval?.approvalKind === 'web_fetch'
                 ? 'Web Access Approval'
+                : pendingPlanApproval?.approvalKind === 'shell_command'
+                    ? 'Shell Access Approval'
                 : 'Approval Required');
     const planApproveLabel = pendingPlanApproval?.approveLabel || 'Approve';
     const planRejectLabel = pendingPlanApproval?.rejectLabel || 'Reject';
@@ -1953,7 +1971,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             fontSize: "12.5px",
                             marginBottom: "8px",
                             color: "var(--vscode-foreground)",
-                            lineHeight: "1.4"
+                            lineHeight: "1.4",
+                            whiteSpace: pendingPlanApproval.approvalKind === 'shell_command' ? "pre-wrap" : "normal",
+                            overflowWrap: pendingPlanApproval.approvalKind === 'shell_command' ? "anywhere" : "normal"
                         }}>
                             {pendingPlanApproval.content || "The plan is ready for your review."}
                         </div>
@@ -1970,6 +1990,40 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             }}>
                                 <span className="codicon codicon-file-code" />
                                 Full plan details are shown above in chat.
+                            </div>
+                        )}
+
+                        {pendingPlanApproval.approvalKind === 'shell_command' && (
+                            <div style={{
+                                marginTop: "8px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "6px",
+                                fontSize: "11.5px",
+                                color: "var(--vscode-descriptionForeground)"
+                            }}>
+                                <label style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "6px",
+                                    cursor: "pointer"
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={rememberShellApprovalForSession}
+                                        onChange={(e) => setRememberShellApprovalForSession(e.target.checked)}
+                                        style={{ cursor: "pointer" }}
+                                    />
+                                    Remember for this session
+                                </label>
+                                {pendingPlanApproval.suggestedPrefixRule && pendingPlanApproval.suggestedPrefixRule.length > 0 && (
+                                    <div style={{
+                                        fontSize: "10.5px",
+                                        color: "var(--vscode-descriptionForeground)"
+                                    }}>
+                                        Suggested rule prefix: <code>{pendingPlanApproval.suggestedPrefixRule.join(" ")}</code>
+                                    </div>
+                                )}
                             </div>
                         )}
 

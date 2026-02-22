@@ -59,6 +59,7 @@ import { ChatHistoryManager } from '../../chat-history-manager';
 import { getToolAction } from '../../tool-action-mapper';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
 import { getCopilotSessionDir } from '../../storage-paths';
+import { ShellApprovalRuleStore } from '../../tools/types';
 
 // Import types from mi-core (shared with visualizer)
 import { AgentEvent, AgentEventType, FileObject, ImageObject, AgentMode } from '@wso2/mi-core';
@@ -103,6 +104,8 @@ export interface AgentRequest {
     pendingQuestions?: Map<string, PendingQuestion>;
     /** Pending plan approvals map for exit_plan_mode tool (shared with RPC layer) */
     pendingApprovals?: Map<string, PendingPlanApproval>;
+    /** Session-scoped shell approval rule store */
+    shellApprovalRuleStore?: ShellApprovalRuleStore;
     /** Optional checkpoint manager for undo support */
     undoCheckpointManager?: AgentUndoCheckpointManager;
 }
@@ -245,6 +248,7 @@ export async function executeAgent(
             pendingApprovals,
             getAnthropicClient,
             webAccessPreapproved: request.webAccessPreapproved === true,
+            shellApprovalRuleStore: request.shellApprovalRuleStore,
             undoCheckpointManager: request.undoCheckpointManager,
         });
 
