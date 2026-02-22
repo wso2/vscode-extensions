@@ -82,7 +82,7 @@ Example:
 5. Do not use the utility connector unless absolutely necessary.
 
 ### 3) Revamped response handling (supported only by certain connectors)
-Some connectors support two additional operation parameters:
+Now some connectors support two additional operation parameters ( ongoing connector improvement by WSO2 team ) :
 1. \`responseVariable\`
     - Stores connector response in a named variable.
     - Reference later using Synapse expressions (for example, \`\${vars.my_variable}\`).
@@ -92,8 +92,7 @@ Some connectors support two additional operation parameters:
     - Useful when next operation should consume previous response as \`\${payload}\`.
     - Prefer this when response must be forwarded through the flow.
 
-Important:
-This update is ongoing. If validation errors appear for a connector, do not use \`responseVariable\` or \`overwriteBody\` for that connector. Use the older response-handling approach instead.
+For other connectors, use the older response-handling approach instead.
 `;
 
 export const AI_CONNECTOR_DOCUMENTATION = `

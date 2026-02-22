@@ -26,7 +26,7 @@ export const SYNAPSE_GUIDE = `
 ## Steps for developing integration solutions:
     - Make necessary assumptions to complete the solution.
     - Identify the necessary mediators from the following list of supported mediators
-        - Core Mediators: call, call-template, drop, log, loopback, property(deprecated), variable, propertyGroup(deprecated), respond, send, sequence, store
+        - Core Mediators: call, call-template, drop, log, loopback, property(deprecated), variable, propertyGroup(deprecated), respond, send(legacy; prefer HTTP connector for new REST integrations), sequence, store
         - Routing & Conditional Processing: filter, switch, validate
         - Custom & External Service Invocation: class, script
         - Message Transformation: enrich, header, payloadFactory, smooks, rewrite, xquery, xslt, datamapper, fastXSLT, jsontransform
@@ -46,7 +46,6 @@ export const SYNAPSE_GUIDE = `
    - Adhere to Synapse best practices.
    - Create a separate file for each endpoint.
    - Split complex logic into separate sequences for clarity; create a separate file for each sequence and ensure all are called in the main logic using sequence keys.
-   - Do not use \`outSequence\` as it is deprecated.
    - Give meaningful names to Synapse artifacts.
    - Provide a meaningful path in the uri-template in APIs.
    - Use &amp; instead of & in XML.
@@ -59,8 +58,15 @@ export const SYNAPSE_GUIDE = `
    - To include an API key in uri-template, define:
     \`\`\`xml
     <variable name="username" value="your_api_key_here" type="STRING"/>
-    \`\`\`
+   \`\`\`
    - The respond mediator should be empty; it does not support child elements.
+
+## Deprecated patterns quick reference
+   - \`outSequence\` is deprecated. Use \`inSequence\` and explicit sequence flow.
+   - \`property\` / \`propertyGroup\` mediators are deprecated for new flows. Use \`variable\`.
+   - In \`log\` mediator, \`level\` and \`<property>\` children are deprecated. Use \`category\` + \`<message>\`.
+   - \`clone\` mediator is deprecated. Use \`scatter-gather\`.
+   - For new REST integrations, prefer the HTTP connector over \`send\` or generic \`call\`. For SOAP, prefer \`call\` with named endpoints.
 
 ## WSO2 Synapse Connector Guidelines:
     - You can use WSO2 Synapse Connectors to integrate with WSO2 services and third-party services.
@@ -182,6 +188,7 @@ export const SYNAPSE_GUIDE = `
           <forceHttpContentLength>false</forceHttpContentLength>
        </http.post>
        \`\`\`
+    
     - How to add query parameters:
     \`\`\`xml
     <http.get configKey="SimpleStockQuoteService">
@@ -201,7 +208,7 @@ export const SYNAPSE_GUIDE = `
 
 ## SOAP / XML Integration Rules
     - For SOAP services, always prefer the \\\`call\\\` mediator with a named endpoint over the HTTP connector. The HTTP connector is designed for REST; it can cause stream-building failures with SOAP responses.
-    - Before using any external service URL, verify whether it uses HTTP or HTTPS (e.g., test with curl -L). Never assume HTTP — many services redirect to HTTPS. Use an HTTPS endpoint URI when the service requires it.
+    - Never assume HTTP for external service URLs. Prefer HTTPS endpoint URIs unless the service is explicitly HTTP-only.
 
 ### SOAP Response Handling After \\\`call\\\` Mediator (MI 4.x)
     - After a \\\`call\\\` mediator to a SOAP endpoint with \\\`format="soap11"\\\`, WSO2 MI 4.x automatically converts the SOAP XML response body to JSON in the message context.
@@ -422,7 +429,7 @@ export function mapFunction(input: InputRoot): OutputRoot {
 - Property access: \`dmUtils.getPropertyValue(scope, name)\`
 
 ## Registry Resources
-When creating supportive resources that are needed for the Integration inside src/main/java/wso2mi/resources, an entry should be added to the src/main/java/wso2mi/resources/artifact.xml. If an artifacts.xml doesn't exist, then create one and add the entry. The format should be as follows:
+When creating supportive resources that are needed for the Integration inside src/main/wso2mi/resources, an entry should be added to the src/main/wso2mi/resources/artifact.xml. If an artifacts.xml doesn't exist, then create one and add the entry. The format should be as follows:
 For data mappers this is get automatically done by the ${CREATE_DATA_MAPPER_TOOL_NAME} tool. But for other resources, you need to add the entry manually.
 
 \`\`\`xml
@@ -440,7 +447,7 @@ For data mappers this is get automatically done by the ${CREATE_DATA_MAPPER_TOOL
 \`\`\`
 
 Here the path artifact name should be unique and generally resembles the file path inside the resources folder. The file element should be the name of the file inside the resources folder. The path element should be the registry path where the resource will be added when the integration is deployed. Generally resources are added inside '/_system/governance/mi-resources'. The mediaType should be the media type of the resource. The properties element can be used to add any additional properties to the resource, but it can be left empty if there are no additional properties to add. 
-For an example if an XSLT file is added inside src/main/java/wso2mi/resources/xslt/conversion.xslt, then the artifact entry can be as follows:
+For an example if an XSLT file is added inside src/main/wso2mi/resources/xslt/conversion.xslt, then the artifact entry can be as follows:
 
 \`\`\`xml
 <artifact name="resources_xslt_conversion_xslt" groupId="com.microintegrator.projects" version="1.0.0" type="registry/resource" serverRole="EnterpriseIntegrator">
@@ -453,5 +460,5 @@ For an example if an XSLT file is added inside src/main/java/wso2mi/resources/xs
   </artifact>
 \`\`\`
 
-Content under api-definitions, conf, connectors and metadata are not added as registry resources and hence do not require an entry in the artifact.xml. Only supportive resources that are needed for the integration and are added inside src/main/java/wso2mi/resources need to be added as registry resources and require an entry in the artifact.xml.
+Content under api-definitions, conf, connectors and metadata are not added as registry resources and hence do not require an entry in the artifact.xml. Only supportive resources that are needed for the integration and are added inside src/main/wso2mi/resources need to be added as registry resources and require an entry in the artifact.xml.
 `;
