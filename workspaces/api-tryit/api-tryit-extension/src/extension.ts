@@ -430,7 +430,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	ApiTryItStateMachine.registerExplorer(apiExplorerProvider);
 
 	// Register the activity panel with the API explorer provider
-	activateActivityPanel(context, apiExplorerProvider);
+	const activityPanelProvider = activateActivityPanel(context, apiExplorerProvider);
 
 	// If we just opened a folder/window from an import flow, restore focus and selection.
 	const pendingImport = context.globalState.get<PendingHurlImportContext>(PENDING_HURL_IMPORT_KEY);
@@ -475,6 +475,10 @@ export async function activate(context: vscode.ExtensionContext) {
 			const msg = error instanceof Error ? error.message : 'Unknown error';
 			vscode.window.showErrorMessage(`Failed to refresh explorer: ${msg}`);
 		}
+	});
+
+	const runAllCollectionsCommand = vscode.commands.registerCommand('api-tryit.runAllCollections', async () => {
+		await activityPanelProvider.runAllCollections();
 	});
 
 	// Register command to open TryIt webview panel
@@ -1187,6 +1191,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		refreshCommand,
+		runAllCollectionsCommand,
 		openTryItCommand,
 		openRequestCommand,
 		selectItemByPathCommand,

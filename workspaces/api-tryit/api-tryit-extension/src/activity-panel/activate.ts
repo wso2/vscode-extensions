@@ -20,9 +20,13 @@ import * as vscode from 'vscode';
 import { ActivityPanel } from './webview';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
 
-export function activateActivityPanel(context: vscode.ExtensionContext, apiExplorerProvider: ApiExplorerProvider) {
+export function activateActivityPanel(
+	context: vscode.ExtensionContext,
+	apiExplorerProvider: ApiExplorerProvider
+): ActivityPanel {
 	const activityPanelProvider = new ActivityPanel(context, apiExplorerProvider);
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(ActivityPanel.viewType, activityPanelProvider)
 	);
+	return activityPanelProvider;
 }

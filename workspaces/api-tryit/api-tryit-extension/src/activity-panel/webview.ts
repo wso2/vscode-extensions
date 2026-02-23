@@ -139,6 +139,14 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 					// Handle adding a request to a folder
 					this._handleAddRequestToFolder(message.folderId as string, message.folderPath as string);
 					break;				
+				case 'deleteFolder':
+					// Handle deleting a folder
+					this._handleDeleteFolder(
+						message.folderId as string,
+						message.folderPath as string,
+						message.currentName as string
+					);
+					break;
 				case 'deleteCollection':
 					// Handle deleting a collection
 					this._handleDeleteCollection(message.collectionId as string);
@@ -161,6 +169,13 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 					break;
 				case 'runCollection':
 					this._handleRunCollection(message.collectionId as string);
+					break;
+				case 'runFolder':
+					this._handleRunFolder(
+						message.folderId as string,
+						message.folderPath as string,
+						message.folderName as string
+					);
 					break;
 				case 'runAllCollections':
 					this._handleRunAllCollections();
@@ -681,6 +696,39 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		}
 	}
 
+	private async _handleRunFolder(folderId: string, folderPath: string, folderName?: string): Promise<void> {
+		try {
+			if (!folderPath) {
+				vscode.window.showErrorMessage('Unable to determine folder path for run.');
+				return;
+			}
+
+			const fs = await import('fs/promises');
+			try {
+				const stats = await fs.stat(folderPath);
+				if (!stats.isDirectory()) {
+					vscode.window.showErrorMessage('Selected folder path is not a directory.');
+					return;
+				}
+			} catch (error) {
+				vscode.window.showErrorMessage(`Folder does not exist: ${error}`);
+				return;
+			}
+
+			const label = folderName || path.basename(folderPath) || folderId || 'Folder Run';
+			await this._startHurlRun(
+				{ collectionPath: folderPath },
+				{
+					scope: 'collection',
+					label,
+					sourcePath: folderPath
+				}
+			);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to run folder: ${error}`);
+		}
+	}
+
 	private async _handleRunAllCollections(): Promise<void> {
 		try {
 			const targets = await this._getCollectionRunTargets();
@@ -725,6 +773,55 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			);
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to run all collections: ${error}`);
+		}
+	}
+
+	public async runAllCollections(): Promise<void> {
+		await this._handleRunAllCollections();
+	}
+
+	private async _handleDeleteFolder(folderId: string, folderPath: string, currentName: string): Promise<void> {
+		try {
+			if (!folderPath) {
+				vscode.window.showErrorMessage('Unable to determine folder path');
+				return;
+			}
+
+			const folderName = currentName || path.basename(folderPath) || folderId || 'Folder';
+			const result = await vscode.window.showWarningMessage(
+				`Are you sure you want to delete the folder "${folderName}"? This cannot be undone.`,
+				{ modal: true },
+				'Delete',
+				'Cancel'
+			);
+
+			if (result !== 'Delete') {
+				return;
+			}
+
+			const fs = await import('fs/promises');
+			try {
+				await fs.rm(folderPath, { recursive: true, force: true });
+				vscode.window.showInformationMessage(`Folder "${folderName}" deleted successfully`);
+			} catch (error) {
+				vscode.window.showErrorMessage(`Failed to delete folder: ${error}`);
+				return;
+			}
+
+			await vscode.commands.executeCommand('api-tryit.clearSelection');
+			try {
+				ApiTryItStateMachine.sendEvent(EVENT_TYPE.CLEAR_COLLECTION_CONTEXT, undefined, folderPath);
+			} catch {
+				// non-fatal
+			}
+
+			if (this._apiExplorerProvider) {
+				await this._apiExplorerProvider.reloadCollections();
+			}
+
+			this._sendCollections(true);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to delete folder: ${error}`);
 		}
 	}
 

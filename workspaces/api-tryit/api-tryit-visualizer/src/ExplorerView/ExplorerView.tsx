@@ -244,7 +244,7 @@ const CollectionActions = styled.div`
 	align-items: center;
 	gap: 2px;
 	margin-left: auto;
-	margin-right: 6px;
+	margin-right: 2px;
 `;
 
 const IconContainer = styled.span`
@@ -277,7 +277,7 @@ const AddButton = styled.button`
 `;
 
 const RunButton = styled(AddButton)`
-	color: var(--vscode-textLink-foreground);
+	color: var(--vscode-notebookStatusSuccessIcon-foreground);
 `;
 
 const CollectionChildren = styled.div`
@@ -381,6 +381,34 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 		}
 	}, [vscode, item.id, item.filePath, item.name, setContextMenu]);
 
+	const handleRunFolder = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'runFolder',
+				folderId: item.id,
+				folderPath: item.filePath,
+				folderName: item.name
+			});
+		}
+		if (setContextMenu) {
+			setContextMenu(null);
+		}
+	}, [vscode, item.id, item.filePath, item.name, setContextMenu]);
+
+	const handleDeleteFolder = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'deleteFolder',
+				folderId: item.id,
+				folderPath: item.filePath,
+				currentName: item.name
+			});
+		}
+		if (setContextMenu) {
+			setContextMenu(null);
+		}
+	}, [vscode, item.id, item.filePath, item.name, setContextMenu]);
+
 	return (
 		<div>
 			<FolderHeader
@@ -393,17 +421,30 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 				</IconContainer>
 				<Codicon name="folder" sx={{ marginRight: 8 }} />
 				<span>{item.name}</span>
-				<AddButton
-					title={`Add request to ${item.name}`}
-					aria-label={`Add request to ${item.name}`}
-					onClick={(e: React.MouseEvent) => {
-						e.stopPropagation();
-						e.preventDefault();
-						handleAddRequest();
-					}}
-				>
-					<Codicon name="plus" />
-				</AddButton>
+				<CollectionActions>
+					<AddButton
+						title={`Add request to ${item.name}`}
+						aria-label={`Add request to ${item.name}`}
+						onClick={(e: React.MouseEvent) => {
+							e.stopPropagation();
+							e.preventDefault();
+							handleAddRequest();
+						}}
+					>
+						<Codicon name="plus" />
+					</AddButton>
+					<RunButton
+						title={`Run ${item.name}`}
+						aria-label={`Run ${item.name}`}
+						onClick={(e: React.MouseEvent) => {
+							e.stopPropagation();
+							e.preventDefault();
+							handleRunFolder();
+						}}
+					>
+						<Codicon name="play" />
+					</RunButton>
+				</CollectionActions>
 			</FolderHeader>
 			{contextMenu && contextMenu.collectionId === item.id && (
 				<ContextMenu x={contextMenu.x} y={contextMenu.y} visible={true}>
@@ -411,9 +452,17 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 						<Codicon name="file-add" sx={{ marginRight: 8 }} />
 						Add Request
 					</ContextMenuItem>
+					<ContextMenuItem onClick={handleRunFolder}>
+						<Codicon name="play" sx={{ marginRight: 8 }} />
+						Run Folder
+					</ContextMenuItem>
 					<ContextMenuItem onClick={handleRenameFolder}>
 						<Codicon name="edit" sx={{ marginRight: 8 }} />
 						Rename Folder
+					</ContextMenuItem>
+					<ContextMenuItem onClick={handleDeleteFolder}>
+						<Codicon name="trash" sx={{ marginRight: 8 }} />
+						Delete Folder
 					</ContextMenuItem>
 				</ContextMenu>
 			)}
@@ -531,17 +580,6 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 				<Codicon name="library" sx={{ marginRight: 8 }} />
 				<span>{item.name}</span>
 				<CollectionActions>
-					<RunButton
-						title={`Run ${item.name}`}
-						aria-label={`Run ${item.name}`}
-						onClick={(e: React.MouseEvent) => {
-							e.stopPropagation();
-							e.preventDefault();
-							handleRunCollection();
-						}}
-					>
-						<Codicon name="play" />
-					</RunButton>
 					<AddButton
 						title={`Add to ${item.name}`}
 						aria-label={`Add to ${item.name}`}
@@ -567,6 +605,17 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 					>
 						<Codicon name="plus" />
 					</AddButton>
+					<RunButton
+						title={`Run ${item.name}`}
+						aria-label={`Run ${item.name}`}
+						onClick={(e: React.MouseEvent) => {
+							e.stopPropagation();
+							e.preventDefault();
+							handleRunCollection();
+						}}
+					>
+						<Codicon name="play" />
+					</RunButton>
 				</CollectionActions>
 			</CollectionHeader>
 			{addMenu && (
@@ -586,6 +635,10 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 					<ContextMenuItem onClick={handleAddRequest}>
 						<Codicon name="file-add" sx={{ marginRight: 8 }} />
 						Add Request
+					</ContextMenuItem>
+					<ContextMenuItem onClick={handleRunCollection}>
+						<Codicon name="play" sx={{ marginRight: 8 }} />
+						Run Collection
 					</ContextMenuItem>
 					<ContextMenuItem onClick={handleRenameCollection}>
 						<Codicon name="edit" sx={{ marginRight: 8 }} />
@@ -852,16 +905,6 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 	return (
 		<Container>
 			<ControlsContainer>
-				<ToolbarRow>
-					<IconCommandButton
-						type="button"
-						title="Run all collections"
-						aria-label="Run all collections"
-						onClick={handleRunAll}
-					>
-						<Codicon name="play" />
-					</IconCommandButton>
-				</ToolbarRow>
 				<NewRequestButton onClick={handleNewRequest}>
 					New Request
 				</NewRequestButton>

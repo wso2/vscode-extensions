@@ -71,6 +71,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "api-tryit.runAllCollections",
+        "title": "Run All Collections",
+        "icon": "$(play)"
+      },
+      {
         "command": "api-tryit.newCollection",
         "title": "New Collection",
         "icon": "$(new-folder)"
@@ -121,6 +126,11 @@
           "command": "api-tryit.refreshExplorer",
           "when": "view == api-tryit.activity.panel",
           "group": "navigation@2"
+        },
+        {
+          "command": "api-tryit.runAllCollections",
+          "when": "view == api-tryit.activity.panel",
+          "group": "navigation@1"
         },
         {
           "command": "api-tryit.newCollection",
