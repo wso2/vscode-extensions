@@ -197,4 +197,130 @@ describe('parseFileResult', () => {
 		expect(parsed.status).toBe('failed');
 		expect(parsed.errorMessage).toBe('the section is not valid. Valid values are Captures or Asserts');
 	});
+
+	it('maps assertion expression/expected/actual from value and assert-failure message shape', async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hurl-runner-report-'));
+		const reportPath = path.join(tempDir, 'report');
+		await fs.mkdir(reportPath, { recursive: true });
+
+		await fs.writeFile(
+			path.join(reportPath, 'report.json'),
+			JSON.stringify([
+				{
+					filename: '/tmp/cases/create-post.hurl',
+					success: false,
+					entries: [
+						{
+							name: 'Create post',
+							success: false,
+							time: 1118,
+							asserts: [
+								{
+									line: 14,
+									value: 'status == 202',
+									success: false,
+									message: 'Assert failure --> /tmp/cases/create-post.hurl:14:0 | POST https://example.com | ... 14 | status == 202 | actual: integer <201> | expected: integer <202> |'
+								},
+								{
+									line: 15,
+									value: 'header "content-type" contains "application/json"',
+									success: true
+								},
+								{
+									line: 16,
+									assertion: {
+										value: 'jsonpath "$.id" exists'
+									},
+									success: true
+								}
+							]
+						}
+					]
+				}
+			]),
+			'utf8'
+		);
+
+		const parsed = await parseFileResult({
+			filePath: '/tmp/cases/create-post.hurl',
+			reportPath,
+			startedAt: new Date('2026-02-23T00:00:00.000Z'),
+			finishedAt: new Date('2026-02-23T00:00:01.118Z'),
+			execResult: makeExecResult({ exitCode: 3 })
+		});
+
+		expect(parsed.status).toBe('failed');
+		expect(parsed.assertions).toHaveLength(3);
+		expect(parsed.assertions[0]).toMatchObject({
+			expression: 'status == 202',
+			status: 'failed',
+			line: 14,
+			actual: 'integer <201>',
+			expected: 'integer <202>'
+		});
+		expect(parsed.assertions[1]).toMatchObject({
+			expression: 'header "content-type" contains "application/json"',
+			status: 'passed'
+		});
+		expect(parsed.assertions[2]).toMatchObject({
+			expression: 'jsonpath "$.id" exists',
+			status: 'passed'
+		});
+	});
+
+	it('infers assertion text from source file when report assertion expression is missing', async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hurl-runner-report-'));
+		const hurlFilePath = path.join(tempDir, 'source-asserts.hurl');
+		const reportPath = path.join(tempDir, 'report');
+		await fs.mkdir(reportPath, { recursive: true });
+
+		await fs.writeFile(
+			hurlFilePath,
+			[
+				'POST https://example.com/posts',
+				'HTTP 201',
+				'',
+				'[Asserts]',
+				'status == 201',
+				'header "content-type" contains "application/json"',
+				'jsonpath "$.id" exists'
+			].join('\n'),
+			'utf8'
+		);
+
+		await fs.writeFile(
+			path.join(reportPath, 'report.json'),
+			JSON.stringify([
+				{
+					filename: hurlFilePath,
+					success: true,
+					entries: [
+						{
+							name: 'Create',
+							success: true,
+							asserts: [
+								{ line: 5, success: true },
+								{ line: 6, success: true },
+								{ line: 7, success: true }
+							]
+						}
+					]
+				}
+			]),
+			'utf8'
+		);
+
+		const parsed = await parseFileResult({
+			filePath: hurlFilePath,
+			reportPath,
+			startedAt: new Date('2026-02-23T00:00:00.000Z'),
+			finishedAt: new Date('2026-02-23T00:00:00.010Z'),
+			execResult: makeExecResult({ exitCode: 0 })
+		});
+
+		expect(parsed.assertions).toHaveLength(3);
+		expect(parsed.assertions[0].expression).toBe('status == 201');
+		expect(parsed.assertions[1].expression).toBe('header "content-type" contains "application/json"');
+		expect(parsed.assertions[2].expression).toBe('jsonpath "$.id" exists');
+	});
 });

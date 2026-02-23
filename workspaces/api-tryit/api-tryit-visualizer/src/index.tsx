@@ -19,6 +19,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { ActivityPanelUI } from "./ActivityPanelUI";
 import { MainPanel } from "./MainPanel/MainPanel";
+import { warmupMonacoEditor } from "./utils/monaco-preload";
 import "./styles.css";
 
 export function renderActivityPanel(target: HTMLElement) {
@@ -27,6 +28,8 @@ export function renderActivityPanel(target: HTMLElement) {
 }
 
 export function renderEditorPanel(target: HTMLElement) {
+    // Warm-up Monaco before rendering the panel to reduce first-load "Loading..." time.
+    warmupMonacoEditor().catch(() => undefined);
     const root = createRoot(target);
     root.render(<MainPanel />);
 }

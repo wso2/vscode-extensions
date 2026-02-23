@@ -184,6 +184,61 @@ function extractHurlErrorMessage(stderr: string | undefined): string | undefined
 	return lines[0];
 }
 
+function toDisplayText(value: unknown): string | undefined {
+	if (typeof value === 'string') {
+		const normalized = value.trim();
+		return normalized.length > 0 ? normalized : undefined;
+	}
+
+	if (typeof value === 'number' || typeof value === 'boolean') {
+		return String(value);
+	}
+
+	if (value === null) {
+		return 'null';
+	}
+
+	if (Array.isArray(value) || isObject(value)) {
+		try {
+			return JSON.stringify(value);
+		} catch {
+			return String(value);
+		}
+	}
+
+	return undefined;
+}
+
+function pickFirstDisplayText(...values: unknown[]): string | undefined {
+	for (const value of values) {
+		const normalized = toDisplayText(value);
+		if (normalized) {
+			return normalized;
+		}
+	}
+	return undefined;
+}
+
+function parseAssertFailureMessage(
+	message: string | undefined
+): { expression?: string; actual?: string; expected?: string } {
+	if (!message) {
+		return {};
+	}
+
+	const normalized = message.replace(/\r\n/g, '\n');
+
+	const barExpression = normalized.match(/\|\s*([^|]+?)\s*\|\s*actual\s*:/i)?.[1]?.trim();
+	const actual = normalized.match(/actual:\s*([^|\n]+)\s*(?:\||$)/i)?.[1]?.trim();
+	const expected = normalized.match(/expected:\s*([^|\n]+)\s*(?:\||$)/i)?.[1]?.trim();
+
+	return {
+		expression: barExpression && barExpression.length > 0 ? barExpression : undefined,
+		actual: actual && actual.length > 0 ? actual : undefined,
+		expected: expected && expected.length > 0 ? expected : undefined
+	};
+}
+
 function toEntry(entry: unknown, index: number): HurlEntryResult {
 	const obj = (entry && typeof entry === 'object') ? entry as Record<string, unknown> : {};
 	const requestObj = obj.request && typeof obj.request === 'object' ? obj.request as Record<string, unknown> : {};
@@ -218,17 +273,60 @@ function toEntry(entry: unknown, index: number): HurlEntryResult {
 
 function toAssertion(assertion: unknown, filePath: string): HurlAssertionResult {
 	const obj = (assertion && typeof assertion === 'object') ? assertion as Record<string, unknown> : {};
-	const success = obj.success;
+	const success = typeof obj.success === 'boolean'
+		? obj.success
+		: (typeof obj.passed === 'boolean' ? obj.passed : undefined);
+	const assertionObj = isObject(obj.assertion) ? obj.assertion as Record<string, unknown> : undefined;
+	const resultObj = isObject(obj.result) ? obj.result as Record<string, unknown> : undefined;
+	const message = pickFirstDisplayText(obj.message, obj.error, resultObj?.message);
+	const parsedFromMessage = parseAssertFailureMessage(message);
+
 	return {
 		filePath,
-		entryName: typeof obj.entryName === 'string' ? obj.entryName : undefined,
-		expression: typeof obj.expression === 'string' ? obj.expression : (typeof obj.assertion === 'string' ? obj.assertion : 'unknown assertion'),
+		entryName: pickFirstDisplayText(obj.entryName, obj.entry, assertionObj?.entryName),
+		expression: pickFirstDisplayText(
+			obj.expression,
+			obj.value,
+			typeof obj.assertion === 'string' ? obj.assertion : undefined,
+			assertionObj?.expression,
+			assertionObj?.value,
+			assertionObj?.raw,
+			parsedFromMessage.expression
+		) || 'unknown assertion',
 		status: success === false ? 'failed' : 'passed',
-		expected: typeof obj.expected === 'string' ? obj.expected : undefined,
-		actual: typeof obj.actual === 'string' ? obj.actual : undefined,
-		message: typeof obj.message === 'string' ? obj.message : undefined,
+		expected: pickFirstDisplayText(
+			obj.expected,
+			assertionObj?.expected,
+			resultObj?.expected,
+			parsedFromMessage.expected
+		),
+		actual: pickFirstDisplayText(
+			obj.actual,
+			assertionObj?.actual,
+			resultObj?.actual,
+			parsedFromMessage.actual
+		),
+		message,
 		line: typeof obj.line === 'number' ? obj.line : undefined
 	};
+}
+
+function inferExpressionFromSourceLine(lines: string[], lineNumber: number): string | undefined {
+	if (!Number.isInteger(lineNumber) || lineNumber <= 0 || lineNumber > lines.length) {
+		return undefined;
+	}
+
+	const rawLine = lines[lineNumber - 1];
+	if (!rawLine) {
+		return undefined;
+	}
+
+	const expression = rawLine.trim();
+	if (!expression || expression.startsWith('#') || expression.startsWith('[')) {
+		return undefined;
+	}
+
+	return expression;
 }
 
 function deriveFileStatus(execResult: ProcessExecResult, report?: GenericReport, entries?: HurlEntryResult[], assertions?: HurlAssertionResult[]): HurlFileStatus {
@@ -282,6 +380,37 @@ export async function parseFileResult(context: ParseContext): Promise<HurlFileRe
 		: (Array.isArray(report?.asserts) ? report.asserts : []);
 
 	const assertions = rawAssertions.map(assertion => toAssertion(assertion, context.filePath));
+
+	let sourceLines: string[] | undefined;
+	const getSourceLines = async (): Promise<string[] | undefined> => {
+		if (sourceLines) {
+			return sourceLines;
+		}
+
+		try {
+			const text = await fs.readFile(context.filePath, 'utf8');
+			sourceLines = text.replace(/\r\n/g, '\n').split('\n');
+			return sourceLines;
+		} catch {
+			return undefined;
+		}
+	};
+
+	for (const assertion of assertions) {
+		if (assertion.expression !== 'unknown assertion' || typeof assertion.line !== 'number') {
+			continue;
+		}
+
+		const lines = await getSourceLines();
+		if (!lines) {
+			break;
+		}
+
+		const inferred = inferExpressionFromSourceLine(lines, assertion.line);
+		if (inferred) {
+			assertion.expression = inferred;
+		}
+	}
 
 	const status = deriveFileStatus(context.execResult, report, entries, assertions);
 	const stderrMessage = extractHurlErrorMessage(context.execResult.stderr);

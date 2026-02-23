@@ -187,6 +187,47 @@ function formatDuration(durationMs?: number): string {
 	return `${durationMs} ms`;
 }
 
+function normalizeAssertionText(value?: string): string {
+	return typeof value === 'string' ? value.trim() : '';
+}
+
+function dedupeAssertions(assertions: HurlAssertionResult[]): HurlAssertionResult[] {
+	const seen = new Set<string>();
+	const deduped: HurlAssertionResult[] = [];
+
+	for (const assertion of assertions) {
+		const normalizedExpression = normalizeAssertionText(assertion.expression);
+		const normalizedExpected = normalizeAssertionText(assertion.expected);
+		const normalizedActual = normalizeAssertionText(assertion.actual);
+		const normalizedMessage = normalizeAssertionText(assertion.message);
+		const normalizedEntryName = normalizeAssertionText(assertion.entryName);
+		const line = typeof assertion.line === 'number' ? String(assertion.line) : '';
+
+		const fingerprint = [
+			assertion.status,
+			normalizedExpression,
+			normalizedExpected,
+			normalizedActual,
+			normalizedMessage,
+			normalizedEntryName,
+			line
+		].join('\u001F');
+
+		if (seen.has(fingerprint)) {
+			continue;
+		}
+
+		seen.add(fingerprint);
+		deduped.push(
+			normalizedExpression === assertion.expression
+				? assertion
+				: { ...assertion, expression: normalizedExpression || assertion.expression }
+		);
+	}
+
+	return deduped;
+}
+
 export const HurlRunResults: React.FC<HurlRunResultsProps> = ({
 	context,
 	status,
@@ -255,8 +296,9 @@ export const HurlRunResults: React.FC<HurlRunResultsProps> = ({
 				) : (
 					sortedFiles.map(file => {
 						const expanded = expandedPaths.has(file.filePath);
-						const failedAssertions = file.assertions.filter(assertion => assertion.status === 'failed');
-						const passedAssertions = file.assertions.filter(assertion => assertion.status === 'passed');
+						const uniqueAssertions = dedupeAssertions(file.assertions);
+						const failedAssertions = uniqueAssertions.filter(assertion => assertion.status === 'failed');
+						const passedAssertions = uniqueAssertions.filter(assertion => assertion.status === 'passed');
 
 						return (
 							<FileCard key={file.filePath} status={file.status} expanded={expanded}>
@@ -266,7 +308,7 @@ export const HurlRunResults: React.FC<HurlRunResultsProps> = ({
 										<FileNameWrap>
 											<FileName>{getFileName(file.filePath)}</FileName>
 											<FileHint>
-												{file.assertions.length} assertions · {formatDuration(file.durationMs)}
+												{uniqueAssertions.length} assertions · {formatDuration(file.durationMs)}
 											</FileHint>
 										</FileNameWrap>
 									</FileHeaderLeft>
@@ -275,13 +317,16 @@ export const HurlRunResults: React.FC<HurlRunResultsProps> = ({
 
 								{expanded ? (
 									<FileBody>
-										{file.assertions.length === 0 ? (
+										{uniqueAssertions.length === 0 ? (
 											<Typography variant="caption" sx={{ opacity: 0.7 }}>
 												No assertions captured for this request.
 											</Typography>
 										) : null}
-										{failedAssertions.map(assertion => (
-											<AssertionRow key={`${file.filePath}-${assertion.expression}-${assertion.line || 0}`} passed={false}>
+										{failedAssertions.map((assertion, index) => (
+											<AssertionRow
+												key={`${file.filePath}-failed-${index}-${assertion.expression}-${assertion.line || 0}`}
+												passed={false}
+											>
 												<Typography variant="caption" sx={{ fontWeight: 600 }}>
 													✗ {assertion.expression}
 												</Typography>
@@ -297,8 +342,11 @@ export const HurlRunResults: React.FC<HurlRunResultsProps> = ({
 												) : null}
 											</AssertionRow>
 										))}
-										{passedAssertions.map(assertion => (
-											<AssertionRow key={`${file.filePath}-${assertion.expression}-${assertion.line || 0}`} passed>
+										{passedAssertions.map((assertion, index) => (
+											<AssertionRow
+												key={`${file.filePath}-passed-${index}-${assertion.expression}-${assertion.line || 0}`}
+												passed
+											>
 												<Typography variant="caption" sx={{ fontWeight: 600 }}>
 													✓ {assertion.expression}
 												</Typography>

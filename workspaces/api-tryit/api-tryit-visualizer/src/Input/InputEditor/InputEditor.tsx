@@ -20,27 +20,10 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Editor, { Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 import styled from '@emotion/styled';
+import { ensureMonacoEnvironment } from '../../utils/monaco-preload';
 
-// Configure Monaco Environment for web workers
-if (typeof window !== 'undefined') {
-    (window as any).MonacoEnvironment = {
-        getWorkerUrl: function (_moduleId: any, label: string) {
-            if (label === 'json') {
-                return './json.worker.js';
-            }
-            if (label === 'css' || label === 'scss' || label === 'less') {
-                return './css.worker.js';
-            }
-            if (label === 'html' || label === 'handlebars' || label === 'razor') {
-                return './html.worker.js';
-            }
-            if (label === 'typescript' || label === 'javascript') {
-                return './ts.worker.js';
-            }
-            return './editor.worker.js';
-        }
-    };
-}
+// Configure Monaco environment once, shared by all editor instances.
+ensureMonacoEnvironment();
 
 /**
  * Utility function to check if VS Code is in dark theme
