@@ -58,7 +58,6 @@ import {
     CollaborationTextSelection,
     CollaborationPresenceData,
 } from "@wso2/ballerina-core";
-
 import {
     convertBICategoriesToSidePanelCategories,
     convertFunctionCategoriesToSidePanelCategories,
@@ -140,6 +139,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const [selectedNodeId, setSelectedNodeId] = useState<string>();
     const [projectOrg, setProjectOrg] = useState<string>("");
     const [isUserAuthenticated, setIsUserAuthenticated] = useState<boolean>(false);
+    
     // Initialize with a fallback ID to ensure currentUserId is never empty
     // This will be updated with OCT client ID when collaboration is detected
     const [currentUserId, setCurrentUserId] = useState<string>(() => 
@@ -149,10 +149,13 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const [nodeLocks, setNodeLocks] = useState<Record<string, any>>({});
     const [isCollaborationActive, setIsCollaborationActive] = useState<boolean>(false);
     const [remoteCursors, setRemoteCursors] = useState<Map<string, any>>(new Map());
+    const hasAuthoritativeLockUpdatesRef = useRef<boolean>(false);
+    const octPeerLocksRef = useRef<Record<string, Record<string, any>>>({});
 
 
     // Navigation stack for back navigation
     const [navigationStack, setNavigationStack] = useState<NavigationStackItem[]>([]);
+
 
     const {
         addDraftNode,
@@ -161,6 +164,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         completeDraft,
         hasDraft,
         isProcessing: isDraftProcessing,
+
         description: draftDescription,
         originalModel,
     } = useDraftNodeManager(model);
@@ -267,8 +271,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         try {
             const rpcClientAny = rpcClient as any;
             if (typeof rpcClientAny.onNodeLockUpdated === 'function') {
+                hasAuthoritativeLockUpdatesRef.current = true;
                 unsubscribe = rpcClientAny.onNodeLockUpdated((updatedLocks: any) => {
-                    console.log(`[Lock Frontend] Received lock update broadcast:`, updatedLocks);
+                    octPeerLocksRef.current = {};
                     setNodeLocks(updatedLocks.locks);
                 });
             }
@@ -278,33 +283,22 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
         // Check if collaboration is active
         let collaborationCheckInterval: ReturnType<typeof setInterval> | undefined;
-        let unsubscribeCursors: (() => void) | undefined;
 
         const checkCollaboration = async () => {
             try {
                 const biClient = rpcClient.getBIDiagramRpcClient() as any;
                 if (typeof biClient.isCollaborationActive === 'function') {
                     const response = await biClient.isCollaborationActive();
-                    console.log(`[Collaboration] ===== CHECK COLLABORATION RESPONSE =====`);
-                    console.log(`[Collaboration] Response:`, JSON.stringify(response, null, 2));
-                    console.log(`[Collaboration] Current user ID before update: ${currentUserId}`);
                     
                     setIsCollaborationActive(response.isActive);
-                    // Use OCT client ID if collaboration is active
                     if (response.isActive && response.clientId) {
-                        console.log(`[Collaboration] ✅ Updating currentUserId from ${currentUserId} to ${response.clientId}`);
                         setCurrentUserId(response.clientId);
-                    } else {
-                        console.log(`[Collaboration] ⚠️ Not updating currentUserId - isActive: ${response.isActive}, clientId: ${response.clientId}`);
                     }
-                    // If collaboration is not active, we already have a fallback ID from initial state
-                    console.log(`[Collaboration] Session active: ${response.isActive}, Final currentUserId: ${currentUserId}`);
                 } else {
-                    console.log(`[Collaboration] ⚠️ isCollaborationActive method not available`);
                     setIsCollaborationActive(false);
                 }
             } catch (error) {
-                console.error(`[Collaboration] ❌ Error checking collaboration:`, error);
+                console.error(`[Collaboration] Error checking collaboration:`, error);
                 setIsCollaborationActive(false);
             }
         };
@@ -320,32 +314,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             });
         }, 5000);
 
-        // Subscribe to cursor updates from other users (only if collaboration is active)
-        try {
-            const rpcClientAny = rpcClient as any;
-            if (typeof rpcClientAny.onDiagramCursorUpdated === 'function') {
-                unsubscribeCursors = rpcClientAny.onDiagramCursorUpdated((update: any) => {
-                    console.log(`[Cursor Frontend] Received cursor update:`, update);
-                    const cursorsMap = new Map();
-                    update.cursors.forEach((cursor: any, index: number) => {
-                        cursorsMap.set(index, cursor);
-                    });
-                    setRemoteCursors(cursorsMap);
-                });
-            }
-        } catch (error) {
-            // Silently fail - cursor updates are optional
-            console.log('[Collaboration] Cursor subscription not available');
-        }
         let unsubscribeOctSelection: (() => void) | undefined;
         let unsubscribeOctPresence: (() => void) | undefined;
 
         try {
             // Listen for text selection updates from OCT (webview collaboration)
             unsubscribeOctSelection = rpcClient.onOctUpdateTextSelection((data: CollaborationTextSelection) => {
-                console.log(`[OCT Webview] Received selection update:`, data);
-                // Update UI with remote user's selection
-                // You can highlight selected nodes or show indicators
                 if (data.selectedNodes && data.selectedNodes.length > 0) {
                     // Handle remote node selection visualization
                     // For example: highlight the nodes selected by remote user
@@ -362,71 +336,59 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 // Skip updating cursors for the current user
                 if (data.peerId === currentUserId) {
                     console.log('[OCT Webview] Skipping own cursor update (peer ID matches current user)');
-                    return;
-                }
-                
-                // Update remote cursors
-                if (data.cursor) {
-                    console.log(`[OCT Webview] ✅ Updating cursor for peer ${data.peerId} at position (${data.cursor.x}, ${data.cursor.y})`);
-                    setRemoteCursors((prev) => {
-                        const updated = new Map(prev);
-                        updated.set(data.peerId, {
-                            user: {
-                                id: data.peerId,
-                                name: data.peerName,
-                                color: data.color,
-                            },
-                            cursor: {
-                                x: data.cursor.x,
-                                y: data.cursor.y,
-                                nodeId: data.cursor.nodeId,
-                                timestamp: data.cursor.timestamp,
-                            },
-                        });
-                        console.log(`[OCT Webview] ✅ Updated remote cursors map, total peers: ${updated.size}`, Array.from(updated.keys()));
-                        return updated;
-                    });
                 } else {
-                    console.log(`[OCT Webview] ⚠️ No cursor data in presence update`);
-                }
-                
-                // Update node locks from remote user
-                if (data.locks && data.locks.length > 0) {
-                    setNodeLocks((prev) => {
-                        const updated = { ...prev };
-                        data.locks.forEach((lock) => {
-                            updated[lock.nodeId] = {
-                                userId: lock.userId,
-                                userName: lock.userName,
-                                timestamp: lock.timestamp,
-                            };
+                    // Update remote cursors
+                    if (data.cursor) {
+                        console.log(`[OCT Webview] ✅ Updating cursor for peer ${data.peerId} at position (${data.cursor.x}, ${data.cursor.y})`);
+                        setRemoteCursors((prev) => {
+                            const updated = new Map(prev);
+                            updated.set(data.peerId, {
+                                user: {
+                                    id: data.peerId,
+                                    name: data.peerName,
+                                    color: data.color,
+                                },
+                                cursor: {
+                                    x: data.cursor.x,
+                                    y: data.cursor.y,
+                                    nodeId: data.cursor.nodeId,
+                                    timestamp: data.cursor.timestamp,
+                                },
+                            });
+                            console.log(`[OCT Webview] Updated remote cursors map, total peers: ${updated.size}`, Array.from(updated.keys()));
+                            return updated;
                         });
-                        return updated;
-                    });
+                    } else {
+                        console.log(`[OCT Webview] ⚠️ No cursor data in presence update`);
+                    }
                 }
 
-                // if (data.locks !== undefined) {
-                //     setNodeLocks((prev) => {
-                //         const updated = { ...prev };
-                       
-                       
-                //         Object.keys(updated).forEach((nodeId) => {
-                //             if (updated[nodeId].userId === data.peerId) {
-                //                 delete updated[nodeId];
-                //             }
-                //         });
-                       
-                //         data.locks.forEach((lock) => {
-                //             updated[lock.nodeId] = {
-                //                 userId: lock.userId,
-                //                 userName: lock.userName,
-                //                 timestamp: lock.timestamp,
-                //             };
-                //         });
-                       
-                //         return updated;
-                //     });
-                // }
+                // Use OCT presence as lock source only when authoritative lock subscription is not available.
+                // Always process empty lock arrays as an explicit clear for that peer.
+                if (!hasAuthoritativeLockUpdatesRef.current && data.locks !== undefined) {
+                    const normalizedCurrentFile = model?.fileName ? normalizeFilePath(model.fileName) : undefined;
+                    const nextPeerLocks: Record<string, any> = {};
+
+                    data.locks.forEach((lock) => {
+                        if (normalizedCurrentFile && normalizeFilePath(lock.filePath) !== normalizedCurrentFile) {
+                            return;
+                        }
+
+                        nextPeerLocks[lock.nodeId] = {
+                            userId: lock.userId,
+                            userName: lock.userName,
+                            timestamp: lock.timestamp,
+                        };
+                    });
+
+                    octPeerLocksRef.current[data.peerId] = nextPeerLocks;
+
+                    const mergedLocks = Object.values(octPeerLocksRef.current).reduce((acc, peerLocks) => {
+                        return { ...acc, ...peerLocks };
+                    }, {} as Record<string, any>);
+
+                    setNodeLocks(mergedLocks);
+                }                
             });
         } catch (error) {
             console.log('[OCT] Collaboration notifications not available:', error);
@@ -436,13 +398,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             if (unsubscribe) {
                 try {
                     unsubscribe();
-                } catch (error) {
-                    // Ignore cleanup errors
-                }
-            }
-            if (unsubscribeCursors) {
-                try {
-                    unsubscribeCursors();
                 } catch (error) {
                     // Ignore cleanup errors
                 }
@@ -469,7 +424,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
     // Update model with lock information when locks change
     useEffect(() => {
-        if (model && Object.keys(nodeLocks).length > 0) {
+        if (model) {
             const updatedModel = updateNodeLocks(model, nodeLocks);
             setModel(updatedModel);
         }
@@ -1107,23 +1062,14 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
     // Lock management functions
     const acquireNodeLock = async (nodeId: string): Promise<{ success: boolean; error?: string }> => {
-        console.log(`[Lock Frontend] acquireNodeLock called with:`, {
-            nodeId,
-            currentUserId,
-            fileName: model?.fileName,
-            willProceed: !!(currentUserId && nodeId && model?.fileName)
-        });
         
         if (!currentUserId || !nodeId || !model?.fileName) {
-            console.warn(`[Lock Frontend] Early return - missing required data`);
             return { success: false, error: 'Missing required data' };
         }
         
         try {
             // Backend handles all lock logic and broadcasts updates to all clients
             // The onNodeLockUpdated subscription will update nodeLocks state automatically
-            console.log(`[Lock Frontend] Requesting lock from backend for node ${nodeId} at ${model.fileName}`);
-            
             const response = await rpcClient.getBIDiagramRpcClient().acquireNodeLock({
                 nodeId,
                 userId: currentUserId,
@@ -1132,16 +1078,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 timestamp: Date.now(),
             });
             
-            console.log(`[Lock Frontend] Backend response:`, response);
-            
             if (response.success) {
-                console.log(`[Lock Frontend] Lock acquired successfully - backend will broadcast update`);
                 if (isCollaborationActive) {
                     sendSelectionUpdate([nodeId]);
                 }
                 return { success: true };
             } else {
-                console.error('[Lock Frontend] Lock acquisition failed:', response.error);
                 return { success: false, error: response.error };
             }
         } catch (error) {
@@ -1150,23 +1092,32 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
     };
 
-    const releaseNodeLock = async (nodeId: string) => {
-        if (!currentUserId || !nodeId || !model?.fileName) return;
+    const releaseNodeLock = async (nodeId: string): Promise<{ success: boolean; error?: string }> => {
+        if (!currentUserId || !nodeId || !model?.fileName) {
+            return { success: false, error: 'Missing required data' };
+        }
         
         try {
             // Backend handles lock release and broadcasts updates to all clients
             // The onNodeLockUpdated subscription will update nodeLocks state automatically
             console.log(`[Lock Frontend] Releasing lock for node ${nodeId}`);
             
-            await rpcClient.getBIDiagramRpcClient().releaseNodeLock({
+            const response = await rpcClient.getBIDiagramRpcClient().releaseNodeLock({
                 nodeId,
                 userId: currentUserId,
                 filePath: model.fileName,
             });
+
+            if (!response.success) {
+                console.warn(`[Lock Frontend] Failed to release lock for ${nodeId}: ${response.error ?? 'Unknown error'}`);
+                return { success: false, error: response.error };
+            }
             
             console.log(`[Lock Frontend] Lock released - backend will broadcast update`);
+            return { success: true };
         } catch (error) {
             console.error('[Lock Frontend] Error releasing node lock:', error);
+            return { success: false, error: String(error) };
         }
     };
 
@@ -1175,10 +1126,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         throttle((x: number, y: number, nodeId?: string) => {
             
             if (!model?.fileName || !isCollaborationActive) {
-                console.log('[FlowDiagram] Skipping cursor update - collaboration not active or no fileName', {
-                    hasFileName: !!model?.fileName,
-                    isCollaborationActive
-                });
                 return;
             }
         
@@ -1186,7 +1133,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 const presenceData: CollaborationPresenceData = {
                     peerId: currentUserId,
                     peerName: currentUserName,
-                    color: '#007ACC', 
+                    color: "#7A00FF", // Purple - could be enhanced to assign consistent colors per user
                     filePath: normalizeFilePath(model.fileName),
                     cursor: {
                         x,
@@ -2036,11 +1983,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const handleOnEditNode = async (node: FlowNode) => {
         // Check if node is locked by another user
         if (isNodeLockedByOther(node, currentUserId)) {
-            // Show warning and block selection
-        //     rpcClient.getVisualizerRpcClient().showNotification({
-        //         message: `This node is currently being edited by ${node.locked?.userName || 'another user'}`,
-        //         type: 'warning'
-        // });
             return;
         }
 

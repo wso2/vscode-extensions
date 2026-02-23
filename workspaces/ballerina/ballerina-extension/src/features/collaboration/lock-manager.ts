@@ -202,7 +202,6 @@ export class CollaborationLockManager {
      */
     public setBasenameOnlyMode(enabled: boolean): void {
         this.useBasenameOnly = enabled;
-        console.log(`[Collaboration] Basename-only mode: ${enabled ? 'ENABLED' : 'DISABLED'}`);
     }
 
     /**
@@ -238,7 +237,7 @@ export class CollaborationLockManager {
         } else if (!instance && this.isCollaborationMode) {
             this.teardownCollaboration('[Collaboration] Manually clearing collaboration instance');
         }
-    }
+    } 
 
     /**
      * Check if currently in collaboration mode
@@ -253,7 +252,6 @@ export class CollaborationLockManager {
     private watchForOCTActivation(): void {
         const octExtension = vscode.extensions.getExtension('typefox.open-collaboration-tools');
         if (octExtension?.isActive) {
-            console.log('[Collaboration] OCT extension already active at initialization');
             setTimeout(() => void this.refreshCollaborationInstance(), 100);
         }
         let commandCheckScheduled = false;
@@ -332,75 +330,75 @@ export class CollaborationLockManager {
     /**
      * Try to get collaboration instance via VS Code commands
      */
-    private async tryGetViaCommands(): Promise<CollaborationInstanceLike | undefined> {
-        try {
-            console.log('[Collaboration] Attempting to access via VS Code commands...');
+    // private async tryGetViaCommands(): Promise<CollaborationInstanceLike | undefined> {
+    //     try {
+    //         console.log('[Collaboration] Attempting to access via VS Code commands...');
             
-            // Get all registered commands
-            const allCommands = await vscode.commands.getCommands(true);
-            const octCommands = allCommands.filter(cmd => 
-                cmd.includes('oct') || 
-                cmd.includes('collaboration') || 
-                cmd.includes('open-collaboration')
-            );
+    //         // Get all registered commands
+    //         const allCommands = await vscode.commands.getCommands(true);
+    //         const octCommands = allCommands.filter(cmd => 
+    //             cmd.includes('oct') || 
+    //             cmd.includes('collaboration') || 
+    //             cmd.includes('open-collaboration')
+    //         );
             
-            // Try to find a command that might return the active collaboration instance
-            // Common patterns: getActiveSession, getCurrentCollaboration, etc.
-            const possibleCommands = [
-                'oct.getActiveCollaboration',
-                'oct.getCurrentSession',
-                'oct.getSession',
-                'openCollaborationTools.getActive',
-                'openCollaborationTools.getActiveCollaboration',
-                'open-collaboration-tools.getActive',
-                'collaboration.getActive'
-            ];
+    //         // Try to find a command that might return the active collaboration instance
+    //         // Common patterns: getActiveSession, getCurrentCollaboration, etc.
+    //         const possibleCommands = [
+    //             'oct.getActiveCollaboration',
+    //             'oct.getCurrentSession',
+    //             'oct.getSession',
+    //             'openCollaborationTools.getActive',
+    //             'openCollaborationTools.getActiveCollaboration',
+    //             'open-collaboration-tools.getActive',
+    //             'collaboration.getActive'
+    //         ];
             
-            for (const cmdName of possibleCommands) {
-                if (allCommands.includes(cmdName)) {
-                    try {
-                        console.log(`[Collaboration] Trying command: ${cmdName}`);
-                        const result = await vscode.commands.executeCommand(cmdName);
-                        if (result) {
-                            console.log('[Collaboration] Got result from command:', cmdName);
-                            return result as CollaborationInstanceLike;
-                        }
-                    } catch (cmdError) {
-                        console.log(`[Collaboration] Command ${cmdName} failed:`, cmdError);
-                    }
-                }
-            }
+    //         for (const cmdName of possibleCommands) {
+    //             if (allCommands.includes(cmdName)) {
+    //                 try {
+    //                     console.log(`[Collaboration] Trying command: ${cmdName}`);
+    //                     const result = await vscode.commands.executeCommand(cmdName);
+    //                     if (result) {
+    //                         console.log('[Collaboration] Got result from command:', cmdName);
+    //                         return result as CollaborationInstanceLike;
+    //                     }
+    //                 } catch (cmdError) {
+    //                     console.log(`[Collaboration] Command ${cmdName} failed:`, cmdError);
+    //                 }
+    //             }
+    //         }
             
-            // Try to inspect extension context
-            // Some extensions store their state in the extension context
-            const octExtension = vscode.extensions.getExtension('typefox.open-collaboration-tools');
-            if (octExtension?.isActive) {
-                // Check if the extension has any properties we can access via reflection
-                const extensionAny = octExtension as any;
+    //         // Try to inspect extension context
+    //         // Some extensions store their state in the extension context
+    //         const octExtension = vscode.extensions.getExtension('typefox.open-collaboration-tools');
+    //         if (octExtension?.isActive) {
+    //             // Check if the extension has any properties we can access via reflection
+    //             const extensionAny = octExtension as any;
                 
-                // Try common property names
-                const possiblePaths = [
-                    extensionAny._collaboration,
-                    extensionAny.collaboration,
-                    extensionAny._activeCollaboration,
-                    extensionAny.activeSession,
-                    extensionAny._session
-                ];
+    //             // Try common property names
+    //             const possiblePaths = [
+    //                 extensionAny._collaboration,
+    //                 extensionAny.collaboration,
+    //                 extensionAny._activeCollaboration,
+    //                 extensionAny.activeSession,
+    //                 extensionAny._session
+    //             ];
                 
-                for (const path of possiblePaths) {
-                    if (path && typeof path === 'object') {
-                        console.log('[Collaboration] Found potential instance via extension property');
-                        return path as CollaborationInstanceLike;
-                    }
-                }
-            }
+    //             for (const path of possiblePaths) {
+    //                 if (path && typeof path === 'object') {
+    //                     console.log('[Collaboration] Found potential instance via extension property');
+    //                     return path as CollaborationInstanceLike;
+    //                 }
+    //             }
+    //         }
             
-            return undefined;
-        } catch (error) {
-            console.log('[Collaboration] Error in tryGetViaCommands:', error);
-            return undefined;
-        }
-    }
+    //         return undefined;
+    //     } catch (error) {
+    //         console.log('[Collaboration] Error in tryGetViaCommands:', error);
+    //         return undefined;
+    //     }
+    // }
 
     /**
      * Check if there are indicators of an active collaboration session
@@ -463,10 +461,10 @@ export class CollaborationLockManager {
             }
 
             // Try to access collaboration instance via commands
-            const commandInstance = await this.tryGetViaCommands();
-            if (commandInstance) {
-                return commandInstance;
-            }
+            // const commandInstance = await this.tryGetViaCommands();
+            // if (commandInstance) {
+            //     return commandInstance;
+            // }
 
             // Get the exported APIs from the OCT extension
             const octAPI = octExtension.exports;
@@ -553,81 +551,6 @@ export class CollaborationLockManager {
                     }
                 }
                 
-                // Last resort: Check if the protocol package itself has any global registry
-                // try {
-                //     const protocolModule = require('open-collaboration-protocol');
-                //     console.log('[Collaboration] Checking open-collaboration-protocol module for active connections');
-                    
-                //     if (protocolModule && typeof protocolModule === 'object') {
-                //         const protocolKeys = Object.keys(protocolModule);
-                //         console.log('[Collaboration] Protocol module exports:', protocolKeys);
-                        
-                //         // Check for common patterns that might expose active connections
-                //         const possibleConnection = protocolModule.activeConnection ||
-                //                                    protocolModule.connection ||
-                //                                    protocolModule.currentConnection ||
-                //                                    protocolModule.getConnection;
-                        
-                //         if (possibleConnection) {
-                //             console.log('[Collaboration] Found potential connection in protocol module');
-                            
-                //             // Try to construct a CollaborationInstanceLike object
-                //             const connection = typeof possibleConnection === 'function' 
-                //                 ? possibleConnection() 
-                //                 : possibleConnection;
-                            
-                //             if (connection) {
-                //                 console.log('[Collaboration] Successfully accessed connection from protocol module');
-                //                 // Note: This is a fallback and may not have all expected properties
-                //             }
-                //         }
-                //     }
-                // } catch (protocolError) {
-                //     console.log('[Collaboration] Could not access protocol module directly:', protocolError);
-                // }
-                
-                // Try to access OCT extension's internal state via require cache
-                // This is a hack but may work if the extension uses CommonJS modules
-                // try {
-                //     console.log('[Collaboration] Attempting to access extension module cache...');
-                //     const requireCache = (require as any).cache;
-                //     if (requireCache) {
-                //         const octModules = Object.keys(requireCache).filter(key => 
-                //             key.includes('open-collaboration-tools') || key.includes('typefox')
-                //         );
-                        
-                //         console.log('[Collaboration] Found OCT modules in cache:', octModules.length);
-                        
-                //         // Try to find modules that might export the collaboration instance
-                //         for (const modulePath of octModules) {
-                //             try {
-                //                 const mod = requireCache[modulePath];
-                //                 if (mod && mod.exports) {
-                //                     const exp = mod.exports;
-                                    
-                //                     // Check if this module has collaboration-related exports
-                //                     if (exp.activeCollaboration || exp.collaboration || exp.instance) {
-                //                         const possibleInstance = exp.activeCollaboration || exp.collaboration || exp.instance;
-                //                         if (possibleInstance && typeof possibleInstance === 'object') {
-                //                             console.log('[Collaboration] Found potential instance in module:', modulePath);
-                //                             return possibleInstance as CollaborationInstanceLike;
-                //                         }
-                //                     }
-                                    
-                //                     // Check if the module itself looks like a collaboration instance
-                //                     if (exp.connection && exp.ownUserData) {
-                //                         console.log('[Collaboration] Found collaboration-like object in module:', modulePath);
-                //                         return exp as CollaborationInstanceLike;
-                //                     }
-                //                 }
-                //             } catch (modError) {
-                //                 // Skip this module
-                //             }
-                //         }
-                //     }
-                // } catch (cacheError) {
-                //     console.log('[Collaboration] Could not access require cache:', cacheError);
-                // }
             }
             return undefined;
         } catch (error) {
@@ -681,8 +604,6 @@ export class CollaborationLockManager {
     }
 
     private async attachToCollaborationInstance(instance: CollaborationInstanceLike): Promise<void> {
-        console.log('[Collaboration] Found active OCT collaboration session');
-        console.log('[Collaboration] attachToCollaborationInstance called, octApi:', !!this.octApi);
 
         // Clean up any previous state before attaching
         this.teardownCollaboration();
@@ -694,18 +615,14 @@ export class CollaborationLockManager {
             this.isCollaborationMode = false;
             return;
         }
-        // try to access OCT primitives via API
         let sharedDoc = this.octApi?.getSharedDoc?.();
         let sharedAwareness = this.octApi?.getAwareness?.();
      
         if (!sharedDoc || !sharedAwareness) {
-            console.log('[Collaboration] API methods not available, trying direct property access...');
             const instanceAny = instance as any;
             
             sharedDoc = sharedDoc || instanceAny.yjs || instanceAny._yjs || instanceAny.ydoc;
             sharedAwareness = sharedAwareness || instanceAny.yjsAwareness || instanceAny.yAwareness || instanceAny._yAwareness || instanceAny.awareness;
-            
-            console.log('[Collaboration] Fallback result - sharedDoc:', !!sharedDoc, 'sharedAwareness:', !!sharedAwareness);
         }
         
         console.log('[Collaboration] Got sharedDoc:', !!sharedDoc, 'sharedAwareness:', !!sharedAwareness);
@@ -851,7 +768,9 @@ export class CollaborationLockManager {
         const finalUserId = userId || this.currentUserId;
         const finalUserName = userName || this.currentUserName;
         const normalizedPath = this.normalizeFilePath(filePath);
-        console.log(`[Collaboration] Acquiring lock for ${nodeId} at ${filePath}`);
+        const ctx = StateMachine.context();
+        console.log(`[Collaboration] Acquiring lock for ${nodeId} at ${filePath} by user ${finalUserName} (${finalUserId})`, ctx);
+        console.log(`[Collaboration] Normalized path: ${normalizedPath}`);
 
         // If collaboration is active but not yet attached, wait for initialization
         if (this.isCollaborationActive() && !this.locksMap && this.octApi) {
@@ -859,15 +778,10 @@ export class CollaborationLockManager {
             console.log('[Collaboration] Current state - locksMap:', !!this.locksMap, 'collaborationInstance:', !!this.collaborationInstance);
             
             const instance = this.octApi.getCollaborationInstance();
-            
-            // Force re-attachment if locksMap is null, even if instance is the same
-            // This handles cases where initial attachment failed to set up shared primitives
+        
             if (instance) {
                 try {
-                    console.log('[Collaboration] Force re-attaching to ensure locksMap is set up...');
                     await this.attachToCollaborationInstance(instance);
-                    console.log('[Collaboration] OCT instance attached, proceeding with lock');
-                    console.log('[Collaboration] After attach - locksMap:', !!this.locksMap, 'isCollaborationMode:', this.isCollaborationMode);
                 } catch (err) {
                     console.error('[Collaboration] Failed to attach to OCT instance:', err);
                 }
@@ -881,26 +795,23 @@ export class CollaborationLockManager {
             
             // Get current locks for this file
             const fileLocks = this.locksMap.get(normalizedPath) || {};
-            console.log('[Collaboration] Current file locks:', JSON.stringify(fileLocks));
             const existingLock = fileLocks[nodeId];
             console.log('[Collaboration] Existing lock for node:', existingLock);
             
             if (existingLock && existingLock.userId !== finalUserId) {
-                console.log('[Collaboration] Lock blocked! Already locked by:', existingLock.userName);
                 return {
                     success: false,
                     error: `Locked by ${existingLock.userName}`
                 };
             }
 
-            // Acquire lock
             fileLocks[nodeId] = {
                 userId: finalUserId,
                 userName: finalUserName,
                 timestamp: Date.now()
             };
             
-            // Update Y.Map (automatically broadcasts to all collaborators)
+            // Update the locksmap which is created on the shared Y.Doc 
             this.locksMap.set(normalizedPath, fileLocks);
             console.log('[Collaboration] Lock set in Yjs, broadcasting to collaborators');
 
@@ -922,12 +833,9 @@ export class CollaborationLockManager {
         filePath: string,
         nodeId: string,
         userId?: string
-    ): Promise<{ success: boolean }> {
+    ): Promise<{ success: boolean; error?: string }> {
         const finalUserId = userId || this.currentUserId;
         const normalizedPath = this.normalizeFilePath(filePath);
-        const ctx = StateMachine.context();
-        console.log(`[Collaboration] Releasing lock for ${nodeId} at ${filePath}`, ctx);
-        console.log(`[Collaboration] Normalized path: ${normalizedPath}`);
 
         // If collaboration is active but not yet attached, wait for initialization
         if (this.isCollaborationActive() && !this.locksMap && this.octApi) {
@@ -945,6 +853,13 @@ export class CollaborationLockManager {
         if (this.isCollaborationActive() && this.locksMap) {
             const fileLocks = this.locksMap.get(normalizedPath) || {};
             const existingLock = fileLocks[nodeId];
+
+            if (existingLock && existingLock.userId !== finalUserId) {
+                return {
+                    success: false,
+                    error: `Lock owned by ${existingLock.userName}`
+                };
+            }
             
             // Only allow the lock owner to release it
             if (existingLock && existingLock.userId === finalUserId) {
@@ -1172,12 +1087,19 @@ export class CollaborationLockManager {
         filePath: string,
         nodeId: string,
         userId: string
-    ): { success: boolean } {
+    ): { success: boolean; error?: string } {
         const fileKey = this.normalizeFilePath(filePath);
         const fileLocks = this.localLocks.get(fileKey);
         if (!fileLocks) { return { success: true }; }
 
         const existingLock = fileLocks.get(nodeId);
+        if (existingLock && existingLock.userId !== userId) {
+            return {
+                success: false,
+                error: `Lock owned by ${existingLock.userName}`
+            };
+        }
+
         if (existingLock && existingLock.userId === userId) {
             fileLocks.delete(nodeId);
             this.clearAutoRelease(fileKey, nodeId);

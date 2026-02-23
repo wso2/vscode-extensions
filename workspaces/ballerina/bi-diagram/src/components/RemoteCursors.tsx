@@ -58,7 +58,7 @@ const CursorContainer = styled.div`
     top: 0;
     left: 0;
     pointer-events: none;
-    z-index: 10000;
+    z-index: 1000;
     width: 100%;
     height: 100%;
 `;
@@ -74,8 +74,8 @@ const Cursor = styled.div<{ x: number; y: number; color: string }>`
 `;
 
 const CursorSVG = styled.svg<{ color: string }>`
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     fill: ${(props) => props.color};
 `;
 
@@ -93,21 +93,11 @@ const CursorLabel = styled.div<{ color: string }>`
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 `;
 
-const USER_COLORS = [
-    "#FF6B6B", // Red
-    "#4ECDC4", // Teal
-    "#45B7D1", // Blue
-    "#FFA07A", // Light Salmon
-    "#98D8C8", // Mint
-    "#F7DC6F", // Yellow
-    "#BB8FCE", // Purple
-    "#85C1E2", // Sky Blue
-];
-
 function getColorForUser(userId: string): string {
-    // Generate a consistent color based on user ID
-    const hash = userId.split('').reduce((acc, char) => char.charCodeAt(0) + acc, 0);
-    return USER_COLORS[hash % USER_COLORS.length];
+  const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hue = hash % 360; 
+
+  return `hsl(${hue}, 70%, 60%)`;
 }
 
 export function RemoteCursors() {
@@ -140,7 +130,6 @@ export function RemoteCursors() {
     console.log('[RemoteCursors] Filtered cursors to render:', cursors.length, cursors);
 
     if (cursors.length === 0) {
-        console.log('[RemoteCursors] No cursors after filtering (all were own cursor or invalid)');
         return null;
     }
 
@@ -149,22 +138,9 @@ export function RemoteCursors() {
             {cursors.map((presence) => {
                 const { user, cursor } = presence;
                 if (!cursor) return null;
-
-                // Convert diagram coordinates to screen coordinates for rendering
                 const screenPos = diagramToScreenPosition(diagramEngine, cursor.x, cursor.y);
-                
-                console.log('[RemoteCursors] Rendering cursor for', user.name, {
-                    userId: user.id,
-                    diagramPos: { x: cursor.x, y: cursor.y },
-                    screenPos,
-                    zoom: diagramEngine?.getModel()?.getZoomLevel(),
-                    offset: {
-                        x: diagramEngine?.getModel()?.getOffsetX(),
-                        y: diagramEngine?.getModel()?.getOffsetY()
-                    }
-                });
 
-                const color = user.color || getColorForUser(user.id);
+                const color = getColorForUser(user.id) || user.color;
                 const userName = user.name || user.id;
 
                 return (

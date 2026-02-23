@@ -222,6 +222,7 @@ export interface ReleaseNodeLockRequest {
 
 export interface ReleaseNodeLockResponse {
     success: boolean;
+    error?: string;
 }
 
 export interface GetNodeLocksRequest {

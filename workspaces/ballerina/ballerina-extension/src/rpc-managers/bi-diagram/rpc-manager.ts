@@ -2150,9 +2150,8 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         });
     }
 
-    // Node lock management methods
+    // frontend calls this method to acquire lock for a node
     async acquireNodeLock(params: AcquireNodeLockRequest): Promise<AcquireNodeLockResponse> {
-        console.log('[RPC Manager] acquireNodeLock called with:', params);
         const lockManager = CollaborationLockManager.getInstance();
         const result = await lockManager.acquireLock(
             params.filePath,

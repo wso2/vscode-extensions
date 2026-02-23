@@ -106,7 +106,7 @@ export function getOctClientId(): string | undefined {
  * Call this during extension activation
  */
 export async function initializeOctIntegration(): Promise<void> {
-    
+       
     try {
         const octExtension = vscode.extensions.getExtension('typefox.open-collaboration-tools');
         if (!octExtension) {
@@ -120,8 +120,7 @@ export async function initializeOctIntegration(): Promise<void> {
             octApi = octExtension.exports;
         }
     
-        if (octApi) {          
-            // Get and store our own client ID for filtering
+        if (octApi) {
             ownClientId = octApi.getClientId?.();
 
             ensureOctListenersRegistered('initializeOctIntegration');
@@ -142,9 +141,6 @@ export async function initializeOctIntegration(): Promise<void> {
             // This ensures host and collaborator use the same lock keys
             // TODO: Fix workspace detection to use proper relative paths
             lockManager.setBasenameOnlyMode(true);
-            
-            debug('[OCT Integration] Lock manager initialized with OCT API');
-            debug('[OCT Integration] ===== OCT INTEGRATION COMPLETE =====');
         } else {
             debug('[OCT Integration] OCT extension did not export an API');
         }
