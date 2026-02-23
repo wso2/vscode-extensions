@@ -21,6 +21,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
 import { ApiCollection, ApiFolder, ApiRequestItem, ApiRequest, ApiResponse, FormDataParameter, FormUrlEncodedParameter } from '@wso2/api-tryit-core';
+import { parseHurlCollection } from '@wso2/api-tryit-hurl-parser';
 import { HurlFormatAdapter } from '../util/hurl-format-adapter';
 
 export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem> {
@@ -57,30 +58,31 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 			.replace(/[-_]/g, ' ')
 			.replace(/\b\w/g, l => l.toUpperCase());
 	}
-
 	/**
 	 * Loads a single request file and validates it
 	 */
-	private async loadRequestFile(filePath: string): Promise<ApiRequestItem | null> {
+	private async loadRequestFile(filePath: string): Promise<ApiRequestItem[]> {
+		const loadedItems: ApiRequestItem[] = [];
+
 		try {
 			const requestContent = await fs.readFile(filePath, 'utf-8');
 
 			// Check if this is a Hurl file or YAML file
 			if (HurlFormatAdapter.isHurlFile(filePath)) {
-				// Parse Hurl format
-				const parsed = HurlFormatAdapter.parseHurlContent(requestContent, filePath);
-				if (parsed) {
-					const { request, response, assertions } = parsed;
-					const item: ApiRequestItem = {
-						id: request.id,
-						name: request.name,
-						request,
-						response,
-						filePath,
-						assertions
-					};
-					console.log(`✓ Loaded Hurl request: ${filePath} (id: ${request.id}, name: ${request.name})`);
-					return item;
+				const parsedCollection = parseHurlCollection(requestContent, {
+					sourceFilePath: filePath
+				});
+				const hurlItems = parsedCollection.rootItems || [];
+
+				for (const item of hurlItems) {
+					loadedItems.push({
+						...item,
+						filePath
+					});
+				}
+
+				if (hurlItems.length > 0) {
+					console.log(`✓ Loaded ${hurlItems.length} Hurl request(s) from: ${filePath}`);
 				} else {
 					console.warn(`✗ Failed to parse Hurl content from ${filePath}`);
 				}
@@ -167,11 +169,11 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 							? (persisted.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
 							: undefined;
 
-							const requestAssertions = Array.isArray(requestObj.assertions)
-								? (requestObj.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
-								: undefined;
+						const requestAssertions = Array.isArray(requestObj.assertions)
+							? (requestObj.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
+							: undefined;
 
-							const assertions = topLevelAssertions ?? requestAssertions;
+						const assertions = topLevelAssertions ?? requestAssertions;
 
 						const requestWithId: ApiRequest = {
 							id: typeof requestObj.id === 'string' ? requestObj.id : id,
@@ -179,7 +181,7 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 							method: (typeof requestObj.method === 'string' ? requestObj.method : 'GET') as ApiRequest['method'],
 							url: typeof requestObj.url === 'string' ? requestObj.url : '',
 							queryParameters: qp,
-							headers: headers
+							headers
 						};
 
 						if (typeof requestObj.body === 'string') {
@@ -211,15 +213,16 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 							assertions
 						};
 
+						loadedItems.push(item);
 						console.log(`✓ Loaded YAML request: ${filePath} (id: ${id}, name: ${name})`);
-						return item;
 					}
 				}
 			}
 		} catch (error) {
 			console.error(`✗ Error loading request file ${filePath}:`, error);
 		}
-		return null;
+
+		return loadedItems;
 	}
 
 	/**
@@ -243,9 +246,9 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				) {
 					console.log(`   Found: ${entry.name}`);
 					const requestPath = path.join(dirPath, entry.name);
-					const requestItem = await this.loadRequestFile(requestPath);
-					if (requestItem) {
-						items.push(requestItem);
+					const requestItems = await this.loadRequestFile(requestPath);
+					if (requestItems.length > 0) {
+						items.push(...requestItems);
 					}
 				}
 			}
@@ -558,9 +561,9 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				) {
 					// Load root-level request file (support .yaml, .yml, .hurl and legacy .json)
 					const requestPath = path.join(collectionPath, entry.name);
-					const requestItem = await this.loadRequestFile(requestPath);
-					if (requestItem) {
-						rootLevelRequests.push(requestItem);
+					const requestItems = await this.loadRequestFile(requestPath);
+					if (requestItems.length > 0) {
+						rootLevelRequests.push(...requestItems);
 					}
 				}
 			}

@@ -643,10 +643,10 @@ export async function activate(context: vscode.ExtensionContext) {
 				}
 			}
 
-			// Use the hurl converter utility
-			const { hurlToApiRequestItem } = await import('./util');
+			const { parseHurlCollection } = await import('@wso2/api-tryit-hurl-parser');
 
 			let normalized = hurlString.trim();
+			let sourceFilePath: string | undefined;
 
 			// If user pasted escaped newlines (e.g. "\n"), convert them to real newlines
 			if (normalized.includes('\\n')) {
@@ -656,15 +656,18 @@ export async function activate(context: vscode.ExtensionContext) {
 			// If user provided a path to a .hurl file, read its contents
 			try {
 				if (normalized.endsWith('.hurl') && await fs.access(normalized).then(() => true).catch(() => false)) {
+					sourceFilePath = normalized;
 					normalized = await fs.readFile(normalized, 'utf-8');
 				}
 			} catch {
 				// ignore - we'll try to parse the original string below
 			}
 
-			let requestItem;
+			let parsedCollection;
 			try {
-				requestItem = hurlToApiRequestItem(normalized);
+				parsedCollection = parseHurlCollection(normalized, {
+					sourceFilePath
+				});
 			} catch (err: unknown) {
 				// Provide a more actionable error message for common mistakes
 				const msg = err instanceof Error ? err.message : 'Invalid Hurl content';
@@ -672,9 +675,16 @@ export async function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			if (!requestItem || !requestItem.request.url) {
+			const requestItems = parsedCollection.rootItems || [];
+			const firstRequestItem = requestItems[0];
+
+			if (!firstRequestItem || !firstRequestItem.request.url) {
 				vscode.window.showErrorMessage('Could not parse Hurl content. Please check the format and try again.');
 				return;
+			}
+
+			if (requestItems.length > 1) {
+				apiExplorerProvider.addInMemoryCollection(parsedCollection);
 			}
 
 			// Reveal panel and load the request
@@ -686,9 +696,14 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 
 			TryItPanel.show(context);
-			ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, requestItem, undefined);
-			TryItPanel.postMessage('apiRequestItemSelected', requestItem);
-			vscode.window.showInformationMessage(`Loaded: ${requestItem.request.method} ${requestItem.request.url}`);
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, firstRequestItem, undefined);
+			TryItPanel.postMessage('apiRequestItemSelected', firstRequestItem);
+
+			const loadedMessage = requestItems.length > 1
+				? `Loaded ${requestItems.length} requests from Hurl collection "${parsedCollection.name}"`
+				: `Loaded: ${firstRequestItem.request.method} ${firstRequestItem.request.url}`;
+
+			vscode.window.showInformationMessage(loadedMessage);
 		} catch (err: unknown) {
 			const msg = err instanceof Error ? err.message : 'Unknown error';
 			vscode.window.showErrorMessage(`Failed to import Hurl: ${msg}`);

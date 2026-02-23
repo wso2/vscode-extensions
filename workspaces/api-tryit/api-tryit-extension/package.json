@@ -203,11 +203,12 @@
   },
   "dependencies": {
     "@wso2/api-tryit-core": "workspace:*",
+    "@wso2/api-tryit-hurl-parser": "workspace:*",
     "@wso2/api-tryit-rpc-client": "workspace:*",
+    "axios": "1.13.2",
     "js-yaml": "4.1.0",
     "vscode-messenger": "0.5.1",
     "vscode-messenger-common": "0.5.1",
-    "xstate": "4.38.3",
-    "axios": "1.13.2"
+    "xstate": "4.38.3"
   }
 }
