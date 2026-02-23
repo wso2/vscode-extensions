@@ -55,11 +55,24 @@ import {
     WEB_FETCH_TOOL_NAME,
 } from './tools';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
-import { ChatHistoryManager } from '../../chat-history-manager';
+import { ChatHistoryManager, TOOL_USE_INTERRUPTION_CONTEXT } from '../../chat-history-manager';
 import { getToolAction } from '../../tool-action-mapper';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
 import { getCopilotSessionDir } from '../../storage-paths';
 import { ShellApprovalRuleStore } from '../../tools/types';
+import {
+    awaitWithTimeout,
+    createProxyTerminatedError,
+    createStreamWatchdog,
+    DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS,
+    DEFAULT_STREAM_IDLE_TIMEOUT_MS,
+    DEFAULT_STREAM_TOTAL_TIMEOUT_MS,
+    getErrorDiagnostics,
+    getErrorMessage,
+    isProxyTerminatedStreamError,
+    isStreamTimeoutError,
+    StreamWatchdog,
+} from '../../stream_guard';
 
 // Import types from mi-core (shared with visualizer)
 import { AgentEvent, AgentEventType, FileObject, ImageObject, AgentMode } from '@wso2/mi-core';
@@ -190,6 +203,23 @@ export async function executeAgent(
     let response: any = null; // Store response promise for later access
     let accumulatedContent: string = ''; // Accumulate assistant response content
     let isExecutingTool = false; // Track if we're currently executing a tool (for interruption message)
+    let cleanupStreamLifecycle: (() => void) | undefined;
+    let streamWatchdog: StreamWatchdog | undefined;
+    let pauseIdleTimeout = false;
+    let touchStreamActivity: () => void = () => undefined;
+    let finalResponseWaitTimeoutMs = DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS;
+
+    const emitEvent = (event: AgentEvent) => {
+        const eventType = (event as { type?: string })?.type;
+        if (eventType === 'ask_user' || eventType === 'plan_approval_requested') {
+            pauseIdleTimeout = true;
+        } else {
+            pauseIdleTimeout = false;
+        }
+
+        touchStreamActivity();
+        eventHandler(event);
+    };
 
     // Use provided pendingQuestions map or create a new one
     const pendingQuestions = request.pendingQuestions || new Map<string, PendingQuestion>();
@@ -293,7 +323,7 @@ export async function executeAgent(
             modifiedFiles,
             sessionId,
             sessionDir,
-            eventHandler,
+            eventHandler: emitEvent,
             pendingQuestions,
             pendingApprovals,
             getAnthropicClient,
@@ -343,7 +373,28 @@ export async function executeAgent(
         ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' }
         : undefined;
 
-        // Setup Langfuse tracing if enabled
+        // Setup stream watchdog and timeout controls (fixed constants)
+        const idleTimeoutMs = DEFAULT_STREAM_IDLE_TIMEOUT_MS;
+        const totalTimeoutMs = DEFAULT_STREAM_TOTAL_TIMEOUT_MS;
+        finalResponseWaitTimeoutMs = DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS;
+        streamWatchdog = createStreamWatchdog({
+            requestAbortSignal: request.abortSignal,
+            idleTimeoutMs,
+            totalTimeoutMs,
+            shouldPauseIdleTimeout: () => pauseIdleTimeout || isExecutingTool,
+            onTimeout: (kind, timeoutError) => {
+                const timeoutLabel = kind === 'idle' ? 'idle' : 'total';
+                logError(`[Agent] Stream ${timeoutLabel} timeout reached`, timeoutError);
+            },
+        });
+
+        touchStreamActivity = () => {
+            streamWatchdog?.markActivity();
+        };
+        cleanupStreamLifecycle = () => {
+            streamWatchdog?.cleanup();
+        };
+
         const streamConfig: any = {
             model,
             maxOutputTokens: 15000,
@@ -351,13 +402,28 @@ export async function executeAgent(
             messages: allMessages,
             stopWhen: stepCountIs(50),
             tools,
-            abortSignal: request.abortSignal,
+            abortSignal: streamWatchdog.abortSignal,
             headers: requestHeaders,
             providerOptions: {
                 anthropic: anthropicOptions,
             },
             prepareStep,
+            onAbort: () => {
+                logInfo('[Agent] streamText aborted');
+            },
+            onError: (error: unknown) => {
+                const errorMsg = getErrorMessage(error);
+                logError(`[Agent] streamText error: ${errorMsg}`, error);
+                logDebug(`[Agent] streamText error diagnostics: ${getErrorDiagnostics(error)}`);
+                if (streamWatchdog && !streamWatchdog.abortSignal.aborted) {
+                    const abortReason = error instanceof Error
+                        ? error
+                        : new Error(errorMsg);
+                    streamWatchdog.abort(abortReason);
+                }
+            },
             onStepFinish: async (step) => {
+                touchStreamActivity();
                 currentStepNumber++;
 
                 // Simple cache metrics logging
@@ -372,7 +438,7 @@ export async function executeAgent(
 
                     // Emit usage event to UI
                     const totalInputTokens = inputTokens + cachedInputTokens;
-                    eventHandler({ type: 'usage', totalInputTokens });
+                    emitEvent({ type: 'usage', totalInputTokens });
                 }
 
                 // Save only unsaved messages from this step
@@ -410,8 +476,19 @@ export async function executeAgent(
         const streamResult = streamText(streamConfig);
         const fullStream = streamResult.fullStream;
         response = streamResult.response; // Assign to outer scope variable
+        response?.catch((error: unknown) => {
+            const errorMsg = getErrorMessage(error);
+            logError(`[Agent] streamText response error: ${errorMsg}`, error);
+            logDebug(`[Agent] streamText response error diagnostics: ${getErrorDiagnostics(error)}`);
+            if (streamWatchdog && !streamWatchdog.abortSignal.aborted) {
+                const abortReason = isProxyTerminatedStreamError(errorMsg)
+                    ? createProxyTerminatedError(errorMsg)
+                    : (error instanceof Error ? error : new Error(errorMsg));
+                streamWatchdog.abort(abortReason);
+            }
+        });
 
-        eventHandler({ type: 'start' });
+        emitEvent({ type: 'start' });
 
         // Track tool inputs for use in tool results (by toolCallId)
         const toolInputMap = new Map<string, any>();
@@ -422,6 +499,8 @@ export async function executeAgent(
 
         // Process stream
         for await (const part of fullStream) {
+            touchStreamActivity();
+            pauseIdleTimeout = false;
             // Check for abort signal at each iteration
             if (request.abortSignal?.aborted) {
                 logInfo('[Agent] Abort signal detected during stream processing');
@@ -433,7 +512,7 @@ export async function executeAgent(
                     // Accumulate content for later recording as complete message
                     accumulatedContent += part.text;
 
-                    eventHandler({
+                    emitEvent({
                         type: 'content_block',
                         content: part.text,
                     });
@@ -442,7 +521,7 @@ export async function executeAgent(
 
                 case 'reasoning-start': {
                     reasoningById.set(part.id, '');
-                    eventHandler({
+                    emitEvent({
                         type: 'thinking_start',
                         thinkingId: part.id,
                     });
@@ -458,7 +537,7 @@ export async function executeAgent(
                     const current = reasoningById.get(part.id) || '';
                     reasoningById.set(part.id, current + delta);
 
-                    eventHandler({
+                    emitEvent({
                         type: 'thinking_delta',
                         thinkingId: part.id,
                         content: delta,
@@ -468,7 +547,7 @@ export async function executeAgent(
 
                 case 'reasoning-end': {
                     reasoningById.delete(part.id);
-                    eventHandler({
+                    emitEvent({
                         type: 'thinking_end',
                         thinkingId: part.id,
                     });
@@ -476,6 +555,7 @@ export async function executeAgent(
                 }
 
                 case 'tool-input-start': {
+                    isExecutingTool = true;
                     const toolCallId = (part as any).id ?? (part as any).toolCallId;
                     if (toolCallId && preloadedToolCallIds.has(toolCallId)) {
                         break;
@@ -494,7 +574,7 @@ export async function executeAgent(
                     const loadingAction = toolActions?.loading || toolName;
 
                     // Emit an early loading event so UI shows progress while tool input streams.
-                    eventHandler({
+                    emitEvent({
                         type: 'tool_call',
                         toolName,
                         toolInput: {},
@@ -598,7 +678,7 @@ export async function executeAgent(
 
                     // Skip tool call UI for todo_write (handled by inline todo list)
                     if (part.toolName !== TODO_WRITE_TOOL_NAME) {
-                        eventHandler({
+                        emitEvent({
                             type: 'tool_call',
                             toolName: part.toolName,
                             toolInput: displayInput,
@@ -647,7 +727,7 @@ export async function executeAgent(
                         }
 
                         // Send to visualizer with result action for display
-                        eventHandler(toolResultEvent);
+                        emitEvent(toolResultEvent);
                     }
 
                     // Clean up stored tool input
@@ -656,9 +736,10 @@ export async function executeAgent(
                 }
 
                 case 'error': {
+                    cleanupStreamLifecycle?.();
                     const errorMsg = getErrorMessage(part.error);
                     logError(`[Agent] Stream error: ${errorMsg}`);
-                    eventHandler({
+                    emitEvent({
                         type: 'error',
                         error: errorMsg,
                     });
@@ -671,7 +752,7 @@ export async function executeAgent(
 
                 case 'text-start': {
                     // Add newline for formatting
-                    eventHandler({
+                    emitEvent({
                         type: 'content_block',
                         content: ' \n',
                     });
@@ -679,20 +760,23 @@ export async function executeAgent(
                 }
 
                 case 'finish': {
+                    cleanupStreamLifecycle?.();
                     logInfo(`[Agent] Execution finished. Modified files: ${modifiedFiles.length}`);
                     const finishReason = normalizeFinishReason(part);
                     const continuationReason = getContinuationReasonFromFinish(finishReason);
 
                     // Capture final messages and log cache usage
                     try {
-                        const finalResponse = await response;
+                        const finalResponse: any = response
+                            ? await awaitWithTimeout<any>(response, finalResponseWaitTimeoutMs)
+                            : undefined;
                         finalModelMessages = finalResponse.messages || [];
                     } catch (error) {
-                        logError('[Agent] Failed to capture model messages', error);
+                        logError('[Agent] Failed to capture model messages on finish', error);
                     }
 
                     // Send stop event to UI
-                    eventHandler({ type: 'stop', modelMessages: finalModelMessages });
+                    emitEvent({ type: 'stop', modelMessages: finalModelMessages });
                     return {
                         success: true,
                         modifiedFiles,
@@ -701,47 +785,60 @@ export async function executeAgent(
                         continuationReason,
                     };
                 }
+
+                default:
+                    break;
             }
         }
 
         // Stream completed without finish event (shouldn't happen normally)
-        // Capture final model messages for UI only (recording should have happened in onStepFinish)
+        cleanupStreamLifecycle?.();
+        // Capture partial messages if available, but do not block forever waiting for response.
         try {
-            const finalResponse = await response;
+            const finalResponse: any = response
+                ? await awaitWithTimeout<any>(response, finalResponseWaitTimeoutMs)
+                : undefined;
             finalModelMessages = finalResponse.messages || [];
-            logDebug(`[Agent] Captured ${finalModelMessages.length} model messages (no finish event)`);
+            logDebug(`[Agent] Captured ${finalModelMessages.length} model messages after unexpected stream end`);
         } catch (error) {
-            logError('[Agent] Failed to capture model messages', error);
+            logError('[Agent] Failed to capture model messages after unexpected stream end', error);
         }
 
-        // Send stop event with modelMessages
-        eventHandler({ type: 'stop', modelMessages: finalModelMessages });
+        const unexpectedStreamEndMessage = 'Agent stream ended unexpectedly before completion. Please retry.';
+        logError(`[Agent] ${unexpectedStreamEndMessage}`);
+        emitEvent({ type: 'error', error: unexpectedStreamEndMessage });
         return {
-            success: true,
+            success: false,
             modifiedFiles,
+            error: unexpectedStreamEndMessage,
             modelMessages: finalModelMessages,
-            continuationSuggested: false,
         };
 
     } catch (error: any) {
+        cleanupStreamLifecycle?.();
         const errorMsg = getErrorMessage(error);
+        const abortReason = streamWatchdog?.getAbortReason();
 
         // Try to capture partial model messages even on error
         try {
-            const finalResponse = await response;
+            const finalResponse: any = response
+                ? await awaitWithTimeout<any>(response, finalResponseWaitTimeoutMs)
+                : undefined;
             finalModelMessages = finalResponse.messages || [];
-        } catch {
-            // Ignore errors in capturing messages
+        } catch (captureError) {
+            logDebug(`[Agent] Skipped capturing final model messages after error: ${getErrorMessage(captureError)}`);
         }
 
         // Check if aborted - be thorough about detecting abort scenarios
         // The abort could come from various sources with different error types
-        const isAborted = 
-            error?.name === 'AbortError' || 
-            request.abortSignal?.aborted ||
-            errorMsg.toLowerCase().includes('abort') ||
-            errorMsg.toLowerCase().includes('cancel') ||
-            error?.code === 'ABORT_ERR';
+        const isToolInterruptionAbort = errorMsg.includes(TOOL_USE_INTERRUPTION_CONTEXT);
+        const isUserInitiatedAbort = (streamWatchdog?.isUserAbortRequested() || false) || request.abortSignal?.aborted || isToolInterruptionAbort;
+        const isTimeoutAbort = isStreamTimeoutError(error) || isStreamTimeoutError(abortReason);
+        const isProxyTerminated = isProxyTerminatedStreamError(errorMsg) || isProxyTerminatedStreamError(getErrorMessage(abortReason));
+        const isAborted =
+            !isTimeoutAbort &&
+            !isProxyTerminated &&
+            isUserInitiatedAbort;
 
         if (isAborted) {
             logInfo(`[Agent] Execution aborted by user (isExecutingTool: ${isExecutingTool})`);
@@ -757,7 +854,7 @@ export async function executeAgent(
                 }
             }
 
-            eventHandler({ type: 'abort' });
+            emitEvent({ type: 'abort' });
             return {
                 success: false,
                 modifiedFiles,
@@ -766,9 +863,41 @@ export async function executeAgent(
             };
         }
 
-        logError(`[Agent] Execution error: ${errorMsg}`);
+        if (isTimeoutAbort) {
+            const timeoutMessage = 'Agent request timed out while waiting for the model proxy response. Please retry.';
+            logError(`[Agent] Execution timeout: ${errorMsg}`);
+            emitEvent({
+                type: 'error',
+                error: timeoutMessage,
+            });
+            return {
+                success: false,
+                modifiedFiles,
+                error: timeoutMessage,
+                modelMessages: finalModelMessages,
+            };
+        }
 
-        eventHandler({
+        if (isProxyTerminated) {
+            const proxyTerminatedMessage = 'Agent stream was terminated by the proxy/network before completion. Please retry. If this keeps happening, increase proxy stream timeout limits.';
+            logError(`[Agent] Proxy/network terminated stream: ${errorMsg}`, error);
+            logDebug(`[Agent] Proxy/network termination diagnostics: error=${getErrorDiagnostics(error)} abortReason=${getErrorDiagnostics(abortReason)}`);
+            emitEvent({
+                type: 'error',
+                error: proxyTerminatedMessage,
+            });
+            return {
+                success: false,
+                modifiedFiles,
+                error: proxyTerminatedMessage,
+                modelMessages: finalModelMessages,
+            };
+        }
+
+        logError(`[Agent] Execution error: ${errorMsg}`, error);
+        logDebug(`[Agent] Execution error diagnostics: error=${getErrorDiagnostics(error)} abortReason=${getErrorDiagnostics(abortReason)}`);
+
+        emitEvent({
             type: 'error',
             error: errorMsg,
         });
@@ -779,26 +908,6 @@ export async function executeAgent(
             modelMessages: finalModelMessages,
         };
     }
-}
-
-// ============================================================================
-// Utilities
-// ============================================================================
-
-/**
- * Extracts a readable error message from an error object
- */
-function getErrorMessage(error: unknown): string {
-    if (error instanceof Error) {
-        return error.message;
-    }
-    if (typeof error === 'string') {
-        return error;
-    }
-    if (error && typeof error === 'object' && 'message' in error) {
-        return String((error as any).message);
-    }
-    return 'An unknown error occurred';
 }
 
 /**
