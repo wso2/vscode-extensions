@@ -19,68 +19,33 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { AvailableNode, Category, Item, LinePosition } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
-import { Codicon, Icon, ThemeColors, Typography, ProgressRing, Tooltip } from "@wso2/ui-toolkit";
+import { Codicon, Icon, ThemeColors, Typography, ProgressRing } from "@wso2/ui-toolkit";
 import { cloneDeep, debounce } from "lodash";
 import ButtonCard from "../../../../components/ButtonCard";
 import { ConnectorIcon } from "@wso2/bi-diagram";
 import { BodyTinyInfo } from "../../../styles";
-import { ArrowIcon, ConnectorOptionButtons, ConnectorOptionCard, ConnectorOptionContent, ConnectorOptionDescription, ConnectorOptionIcon, ConnectorOptionTitle, ConnectorOptionTitleContainer, ConnectorsGrid, ConnectorTypeLabel, CreateConnectorOptions, ExperimentalBadge, FilterButton, FilterButtons, IntroText, SearchContainer, Section, SectionHeader, SectionTitle, StyledSearchBox } from "./styles";
+import { ArrowIcon, ConnectorOptionButtons, ConnectorOptionCard, ConnectorOptionContent, ConnectorOptionDescription, ConnectorOptionIcon, ConnectorOptionTitle, ConnectorOptionTitleContainer, ConnectorsGrid, ConnectorTypeLabel, CreateConnectorOptions, FilterButton, FilterButtons, IntroText, SearchContainer, Section, SectionHeader, SectionTitle, StyledSearchBox } from "./styles";
 import { AddConnectionPopupProps } from "./index";
+import { usePlatformExtContext } from "../../../../providers/platform-ext-ctx-provider";
+import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
 
 interface Props extends AddConnectionPopupProps {
     handleDatabaseConnection?: () => void;
     handleApiSpecConnection?: () => void;
     handleSelectConnector: (connector: AvailableNode, filteredCategories: Category[]) => void;
+    DevantServicesSection?: React.ComponentType<{ searchText: string }>;
 }
 
 export function AddConnectionPopupContent(props: Props) {
-    const { fileName, target, handleDatabaseConnection, handleApiSpecConnection, handleSelectConnector } = props;
+    const { fileName, target, handleDatabaseConnection, handleApiSpecConnection, handleSelectConnector, DevantServicesSection } = props;
     const { rpcClient } = useRpcContext();
+    const { platformExtState, loginToDevant } = usePlatformExtContext();
 
     const [searchText, setSearchText] = useState<string>("");
     const [connectors, setConnectors] = useState<Category[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [fetchingInfo, setFetchingInfo] = useState(false);
     const [filterType, setFilterType] = useState<"All" | "Standard" | "Organization">("All");
-    const [experimentalEnabled, setExperimentalEnabled] = useState<boolean>(false);
-    const [hasPersistConnection, setHasPersistConnection] = useState<boolean>(false);
-
-    useEffect(() => {
-        rpcClient
-            ?.getCommonRpcClient()
-            .experimentalEnabled()
-            .then((enabled) => setExperimentalEnabled(enabled))
-            .catch((err) => {
-                console.error(">>> error checking experimental flag", err);
-                setExperimentalEnabled(false);
-            });
-    }, [rpcClient]);
-
-    // Temporary fix to check for existing database Persist connection till the backend is updated to support this.
-    useEffect(() => {
-        const checkExistingDatabaseConnection = async () => {
-            if (!rpcClient || !experimentalEnabled) {
-                return;
-            }
-            try {
-                const res = await rpcClient.getBIDiagramRpcClient().getModuleNodes();
-
-                const hasDatabaseConnection = res.flowModel.connections?.some((connection) => {
-                    const metadataData = connection.metadata?.data as any;
-                    return metadataData?.connectorType === "persist";
-                });
-
-                setHasPersistConnection(hasDatabaseConnection || false);
-            } catch (error) {
-                console.error(">>> Error checking for existing database connection", error);
-                setHasPersistConnection(false);
-            }
-        };
-
-        if (experimentalEnabled) {
-            checkExistingDatabaseConnection();
-        }
-    }, [rpcClient, experimentalEnabled]);
 
     const fetchConnectors = useCallback((filter?: boolean) => {
         setFetchingInfo(true);
@@ -302,12 +267,29 @@ export function AddConnectionPopupContent(props: Props) {
 
     return (
         <>
-            <IntroText>
-                To establish your connection, first define a connector. You may create a custom connector using
-                an API specification or by introspecting a database. Alternatively, you can select one of the
-                pre-built connectors below. You will then be guided to provide the required details to complete
-                the connection setup.
-            </IntroText>
+            {(platformExtState?.hasPossibleComponent && !platformExtState?.isLoggedIn) && (
+                 <IntroText>
+                    <VSCodeLink onClick={loginToDevant}>
+                        Login
+                    </VSCodeLink>{" "}
+                    to Devant in order to connect with Devant dependencies
+                </IntroText>
+            )}
+            {platformExtState?.selectedContext?.project ? (
+                <IntroText>
+                    To establish your connection, first define a connector. You may create a custom connector using an
+                    API specification. Alternatively, you can select one of the pre-built
+                    connectors below or connect to services running in Devant or services configured in Devant. You will
+                    then be guided to provide the required details to complete the connection setup.
+                </IntroText>
+            ) : (
+                <IntroText>
+                    To establish your connection, first define a connector. You may create a custom connector using an
+                    API specification or by introspecting a database. Alternatively, you can select one of the pre-built
+                    connectors below. You will then be guided to provide the required details to complete the connection
+                    setup.
+                </IntroText>
+            )}
 
             <SearchContainer>
                 <StyledSearchBox
@@ -322,7 +304,7 @@ export function AddConnectionPopupContent(props: Props) {
                 <Section>
                     <SectionTitle variant="h4">Create New Connector</SectionTitle>
                     <CreateConnectorOptions>
-                        {connectorOptions.showApiSpec && (
+                        {connectorOptions.showApiSpec && handleApiSpecConnection && (
                             <ConnectorOptionCard onClick={handleApiSpecConnection}>
                                 <ConnectorOptionIcon>
                                     <Icon name="bi-api-spec" sx={{ fontSize: 24, width: 24, height: 24 }} />
@@ -347,7 +329,7 @@ export function AddConnectionPopupContent(props: Props) {
                             </ConnectorOptionCard>
                         )}
                         {/* Database connection option */}
-                        {connectorOptions.showDatabase && (
+                        {connectorOptions.showDatabase && handleDatabaseConnection && (
                             <ConnectorOptionCard onClick={handleDatabaseConnection}>
                                 <ConnectorOptionIcon>
                                     <Icon name="bi-db" sx={{ fontSize: 24, width: 24, height: 24 }} />
@@ -379,6 +361,8 @@ export function AddConnectionPopupContent(props: Props) {
                     </CreateConnectorOptions>
                 </Section>
             )}
+
+            {DevantServicesSection && <DevantServicesSection searchText={searchText} />}
 
             <Section>
                 <SectionHeader>

@@ -51,6 +51,7 @@ import {
 	ChoreoRpcGetEndpointsRequest,
 	ChoreoRpcGetEnvsRequest,
 	ChoreoRpcGetGitRepoMetadata,
+	ChoreoRpcGetGitRepoMetadataBatch,
 	ChoreoRpcGetGitTokenForRepository,
 	ChoreoRpcGetMarketplaceItemIdl,
 	ChoreoRpcGetMarketplaceItems,
@@ -80,6 +81,7 @@ import {
 	type GetDeploymentStatusReq,
 	type GetDeploymentTracksReq,
 	type GetGitMetadataReq,
+	type GetGitMetadataResp,
 	type GetGitTokenForRepositoryReq,
 	type GetMarketplaceIdlReq,
 	type GetMarketplaceListReq,
@@ -191,6 +193,12 @@ export function registerChoreoRpcResolver(messenger: Messenger, rpcClient: IChor
 	messenger.onRequest(ChoreoRpcGetGitRepoMetadata, async (params: GetGitMetadataReq) => {
 		return window.withProgress({ title: "Fetching repo metadata...", location: ProgressLocation.Notification }, () =>
 			rpcClient.getGitRepoMetadata(params),
+		);
+	});
+	messenger.onRequest(ChoreoRpcGetGitRepoMetadataBatch, async (params: GetGitMetadataReq[]) => {
+		return window.withProgress(
+			{ title: "Fetching repo metadata...", location: ProgressLocation.Notification },
+			() => rpcClient.getGitRepoMetadataBatch(params)
 		);
 	});
 }

@@ -3,7 +3,7 @@
   "displayName": "WSO2 Platform",
   "description": "Manage WSO2 Choreo and Devant projects in VS Code.",
   "license": "Apache-2.0",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "cliVersion": "v1.2.212602161800",
   "publisher": "wso2",
   "bugs": {
