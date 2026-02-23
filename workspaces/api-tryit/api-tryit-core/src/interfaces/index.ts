@@ -138,3 +138,79 @@ export interface ApiCollection {
     folders: ApiFolder[];
     rootItems?: ApiRequestItem[];
 }
+
+// Hurl run models
+export type HurlRunStatus = 'passed' | 'failed' | 'error' | 'cancelled';
+
+export type HurlFileStatus = 'passed' | 'failed' | 'error' | 'skipped';
+
+export interface HurlRunSummary {
+    totalFiles: number;
+    passedFiles: number;
+    failedFiles: number;
+    errorFiles: number;
+    skippedFiles: number;
+    totalEntries: number;
+    passedEntries: number;
+    failedEntries: number;
+}
+
+export interface HurlAssertionResult {
+    filePath: string;
+    entryName?: string;
+    expression: string;
+    status: 'passed' | 'failed';
+    expected?: string;
+    actual?: string;
+    message?: string;
+    line?: number;
+}
+
+export interface HurlEntryResult {
+    name: string;
+    method?: string;
+    url?: string;
+    statusCode?: number;
+    status: 'passed' | 'failed' | 'error';
+    durationMs?: number;
+    assertions?: HurlAssertionResult[];
+}
+
+export interface HurlFileResult {
+    filePath: string;
+    status: HurlFileStatus;
+    startedAt: string;
+    finishedAt: string;
+    durationMs: number;
+    entries: HurlEntryResult[];
+    assertions: HurlAssertionResult[];
+    errorMessage?: string;
+    stdout?: string;
+    stderr?: string;
+}
+
+export interface HurlRunResult {
+    runId: string;
+    status: HurlRunStatus;
+    startedAt: string;
+    finishedAt: string;
+    durationMs: number;
+    summary: HurlRunSummary;
+    files: HurlFileResult[];
+}
+
+export type HurlRunEvent =
+    | { type: 'runStarted'; runId: string; totalFiles: number }
+    | { type: 'fileStarted'; runId: string; filePath: string }
+    | { type: 'fileFinished'; runId: string; file: HurlFileResult }
+    | { type: 'runProgress'; runId: string; completedFiles: number; totalFiles: number }
+    | { type: 'runFinished'; runId: string; result: HurlRunResult }
+    | { type: 'runCancelled'; runId: string };
+
+export type HurlRunScope = 'all' | 'collection';
+
+export interface HurlRunViewContext {
+    scope: HurlRunScope;
+    label: string;
+    sourcePath: string;
+}

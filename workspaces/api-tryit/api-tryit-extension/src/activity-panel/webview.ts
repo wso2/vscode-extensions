@@ -23,6 +23,19 @@ import { getComposerJSFiles } from '../util';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
 import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
 import { TryItPanel } from '../webview-panel/TryItPanel';
+import type {
+	HurlFileResult,
+	HurlRunEvent,
+	HurlRunResult,
+	HurlRunViewContext
+} from '@wso2/api-tryit-core';
+import {
+	createHurlRunner,
+	HurlFileResult as RunnerHurlFileResult,
+	HurlRunEvent as RunnerHurlRunEvent,
+	HurlRunInput as RunnerHurlRunInput,
+	HurlRunResult as RunnerHurlRunResult
+} from '@wso2/api-tryit-hurl-runner';
 
 /**
  * Sanitize a name to be used as a folder name or ID
@@ -41,6 +54,8 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 	private _listenersInitialized = false;
 	private _webviewReady = false;
 	private _pendingMessages: Array<{ type: string; data?: unknown }> = [];
+	private readonly _hurlRunner = createHurlRunner();
+	private _activeRunAbortController: AbortController | undefined;
 
 	constructor(
 		private readonly _extensionContext: vscode.ExtensionContext,
@@ -143,6 +158,15 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				case 'renameFolder':
 					// Handle renaming a folder
 					this._handleRenameFolder(message.folderId as string, message.folderPath as string, message.currentName as string);
+					break;
+				case 'runCollection':
+					this._handleRunCollection(message.collectionId as string);
+					break;
+				case 'runAllCollections':
+					this._handleRunAllCollections();
+					break;
+				case 'stopHurlRun':
+					this._stopActiveRun();
 					break;
 			}
 		});
@@ -481,6 +505,226 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			vscode.window.showInformationMessage(`Add request to "${folderId}" folder`);
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to add request to folder: ${error}`);
+		}
+	}
+
+	private _mapRunFileResult(file: RunnerHurlFileResult): HurlFileResult {
+		const assertions = file.assertions.map(assertion => ({ ...assertion }));
+		const entries = file.entries.map(entry => ({
+			...entry,
+			assertions: assertions.filter(assertion => assertion.entryName === entry.name)
+		}));
+
+		return {
+			...file,
+			entries,
+			assertions
+		};
+	}
+
+	private _mapRunResult(result: RunnerHurlRunResult): HurlRunResult {
+		return {
+			...result,
+			files: result.files.map(file => this._mapRunFileResult(file))
+		};
+	}
+
+	private _mapRunEvent(event: RunnerHurlRunEvent): HurlRunEvent {
+		if (event.type === 'fileFinished') {
+			return {
+				...event,
+				file: this._mapRunFileResult(event.file)
+			};
+		}
+
+		if (event.type === 'runFinished') {
+			return {
+				...event,
+				result: this._mapRunResult(event.result)
+			};
+		}
+
+		return event;
+	}
+
+	private _normalizePatternPath(pathValue: string): string {
+		return pathValue.replace(/\\/g, '/');
+	}
+
+	private _findCommonRoot(paths: string[]): string {
+		if (paths.length === 0) {
+			return '';
+		}
+		if (paths.length === 1) {
+			return path.resolve(paths[0]);
+		}
+
+		const resolved = paths.map(value => path.resolve(value));
+		const splitPaths = resolved.map(value => value.split(path.sep).filter(Boolean));
+		let shared = splitPaths[0];
+
+		for (const parts of splitPaths.slice(1)) {
+			let index = 0;
+			while (index < shared.length && index < parts.length && shared[index] === parts[index]) {
+				index += 1;
+			}
+			shared = shared.slice(0, index);
+			if (shared.length === 0) {
+				break;
+			}
+		}
+
+		const root = path.parse(resolved[0]).root || path.sep;
+		return shared.length > 0 ? path.join(root, ...shared) : root;
+	}
+
+	private async _getCollectionRunTargets(): Promise<Array<{ id: string; name: string; collectionPath: string }>> {
+		if (!this._apiExplorerProvider) {
+			return [];
+		}
+
+		const collections = await this._apiExplorerProvider.getCollections();
+		const targets: Array<{ id: string; name: string; collectionPath: string }> = [];
+
+		for (const collection of collections) {
+			if (collection.type !== 'collection') {
+				continue;
+			}
+
+			const collectionPath = this._apiExplorerProvider.getCollectionPathById(collection.id);
+			if (!collectionPath) {
+				continue;
+			}
+
+			targets.push({
+				id: collection.id,
+				name: collection.name,
+				collectionPath
+			});
+		}
+
+		return targets;
+	}
+
+	private async _startHurlRun(input: RunnerHurlRunInput, viewContext: HurlRunViewContext): Promise<void> {
+		if (this._activeRunAbortController) {
+			vscode.window.showWarningMessage('A Hurl run is already in progress.');
+			return;
+		}
+
+		const environment = await this._hurlRunner.verifyEnvironment();
+		if (!environment.available) {
+			const message = environment.errorMessage || 'The hurl command is not available in PATH.';
+			TryItPanel.postMessage('hurlRunError', { message, context: viewContext });
+			vscode.window.showErrorMessage(message);
+			return;
+		}
+
+		this._activeRunAbortController = new AbortController();
+		TryItPanel.show(this._extensionContext);
+		TryItPanel.postMessage('hurlRunViewOpened', viewContext);
+
+		try {
+			await this._hurlRunner.runStream(
+				input,
+				{
+					parallelism: 1,
+					signal: this._activeRunAbortController.signal
+				},
+				event => {
+					const uiEvent = this._mapRunEvent(event);
+					TryItPanel.postMessage('hurlRunEvent', uiEvent);
+				}
+			);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Failed to execute Hurl run.';
+			TryItPanel.postMessage('hurlRunError', { message, context: viewContext });
+			vscode.window.showErrorMessage(message);
+		} finally {
+			this._activeRunAbortController = undefined;
+		}
+	}
+
+	private _stopActiveRun(): void {
+		if (this._activeRunAbortController) {
+			this._activeRunAbortController.abort();
+		}
+	}
+
+	private async _handleRunCollection(collectionId: string): Promise<void> {
+		try {
+			if (!this._apiExplorerProvider) {
+				vscode.window.showErrorMessage('API Explorer provider not available');
+				return;
+			}
+
+			const collectionPath = this._apiExplorerProvider.getCollectionPathById(collectionId);
+			if (!collectionPath) {
+				vscode.window.showErrorMessage('Unable to determine collection path for run.');
+				return;
+			}
+
+			const allCollections = await this._apiExplorerProvider.getCollections();
+			const collection = allCollections.find(item => item.id === collectionId);
+			const label = collection?.name || 'Collection Run';
+
+			await this._startHurlRun(
+				{ collectionPath },
+				{
+					scope: 'collection',
+					label,
+					sourcePath: collectionPath
+				}
+			);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to run collection: ${error}`);
+		}
+	}
+
+	private async _handleRunAllCollections(): Promise<void> {
+		try {
+			const targets = await this._getCollectionRunTargets();
+			if (targets.length === 0) {
+				vscode.window.showWarningMessage('No collections available to run.');
+				return;
+			}
+
+			if (targets.length === 1) {
+				await this._startHurlRun(
+					{ collectionPath: targets[0].collectionPath },
+					{
+						scope: 'all',
+						label: targets[0].name,
+						sourcePath: targets[0].collectionPath
+					}
+				);
+				return;
+			}
+
+			const collectionPaths = targets.map(target => target.collectionPath);
+			const commonRoot = this._findCommonRoot(collectionPaths);
+			const includePatterns = Array.from(
+				new Set(
+					collectionPaths.map(collectionPath => {
+						const relative = this._normalizePatternPath(path.relative(commonRoot, collectionPath));
+						return relative.length > 0 ? `${relative}/**/*.hurl` : '**/*.hurl';
+					})
+				)
+			);
+
+			await this._startHurlRun(
+				{
+					collectionPath: commonRoot,
+					includePatterns
+				},
+				{
+					scope: 'all',
+					label: 'All Collections',
+					sourcePath: commonRoot
+				}
+			);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to run all collections: ${error}`);
 		}
 	}
 

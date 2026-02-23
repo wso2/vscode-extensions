@@ -56,6 +56,29 @@ const ControlsContainer = styled.div`
 	background-color: var(--vscode-sideBar-background);
 `;
 
+const ToolbarRow = styled.div`
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+`;
+
+const IconCommandButton = styled.button`
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border: 1px solid transparent;
+	border-radius: 3px;
+	background: transparent;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+
+	&:hover {
+		background: var(--vscode-toolbar-hoverBackground);
+	}
+`;
+
 const ButtonRow = styled.div`
 	display: flex;
 	gap: 8px;
@@ -216,6 +239,14 @@ const CollectionHeader = styled.div<{ isSelected: boolean }>`
 	}
 `;
 
+const CollectionActions = styled.div`
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	margin-left: auto;
+	margin-right: 6px;
+`;
+
 const IconContainer = styled.span`
 	margin-right: 4px;
 	font-size: 11px;
@@ -243,6 +274,10 @@ const AddButton = styled.button`
 		background: var(--vscode-list-hoverBackground);
 		color: var(--vscode-foreground);
 	}
+`;
+
+const RunButton = styled(AddButton)`
+	color: var(--vscode-textLink-foreground);
 `;
 
 const CollectionChildren = styled.div`
@@ -438,6 +473,19 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 		}
 	}, [vscode, item.id, setContextMenu]);
 
+	const handleRunCollection = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'runCollection',
+				collectionId: item.id
+			});
+		}
+		setAddMenu(null);
+		if (setContextMenu) {
+			setContextMenu(null);
+		}
+	}, [vscode, item.id, setContextMenu]);
+
 	useEffect(() => {
 		if (!addMenu) return;
 		const handleOutside = () => setAddMenu(null);
@@ -482,31 +530,44 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 				</IconContainer>
 				<Codicon name="library" sx={{ marginRight: 8 }} />
 				<span>{item.name}</span>
-				<AddButton
-					title={`Add to ${item.name}`}
-					aria-label={`Add to ${item.name}`}
-					onClick={(e: React.MouseEvent) => {
-						e.stopPropagation();
-						e.preventDefault();
-						// flip the menu to the left if there's insufficient space on the right
-						const MENU_WIDTH = 200; // >= ContextMenu min-width
-						const MENU_HEIGHT = 140;
-						const PAD = 8;
-						const clickX = e.clientX;
-						const clickY = e.clientY;
-						let x = clickX;
-						let y = clickY;
-						if (window.innerWidth - clickX < MENU_WIDTH + PAD) {
-							x = Math.max(PAD, clickX - MENU_WIDTH);
-						}
-						if (window.innerHeight - clickY < MENU_HEIGHT + PAD) {
-							y = Math.max(PAD, clickY - MENU_HEIGHT);
-						}
-						setAddMenu({ x, y });
-					}}
-				>
-					<Codicon name="plus" />
-				</AddButton>
+				<CollectionActions>
+					<RunButton
+						title={`Run ${item.name}`}
+						aria-label={`Run ${item.name}`}
+						onClick={(e: React.MouseEvent) => {
+							e.stopPropagation();
+							e.preventDefault();
+							handleRunCollection();
+						}}
+					>
+						<Codicon name="play" />
+					</RunButton>
+					<AddButton
+						title={`Add to ${item.name}`}
+						aria-label={`Add to ${item.name}`}
+						onClick={(e: React.MouseEvent) => {
+							e.stopPropagation();
+							e.preventDefault();
+							// flip the menu to the left if there's insufficient space on the right
+							const MENU_WIDTH = 200; // >= ContextMenu min-width
+							const MENU_HEIGHT = 140;
+							const PAD = 8;
+							const clickX = e.clientX;
+							const clickY = e.clientY;
+							let x = clickX;
+							let y = clickY;
+							if (window.innerWidth - clickX < MENU_WIDTH + PAD) {
+								x = Math.max(PAD, clickX - MENU_WIDTH);
+							}
+							if (window.innerHeight - clickY < MENU_HEIGHT + PAD) {
+								y = Math.max(PAD, clickY - MENU_HEIGHT);
+							}
+							setAddMenu({ x, y });
+						}}
+					>
+						<Codicon name="plus" />
+					</AddButton>
+				</CollectionActions>
 			</CollectionHeader>
 			{addMenu && (
 				<ContextMenu x={addMenu.x} y={addMenu.y} visible={true}>
@@ -632,6 +693,14 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 		if (vscode) {
 			vscode.postMessage({
 				command: 'newRequest'
+			});
+		}
+	}, [vscode]);
+
+	const handleRunAll = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'runAllCollections'
 			});
 		}
 	}, [vscode]);
@@ -783,6 +852,16 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 	return (
 		<Container>
 			<ControlsContainer>
+				<ToolbarRow>
+					<IconCommandButton
+						type="button"
+						title="Run all collections"
+						aria-label="Run all collections"
+						onClick={handleRunAll}
+					>
+						<Codicon name="play" />
+					</IconCommandButton>
+				</ToolbarRow>
 				<NewRequestButton onClick={handleNewRequest}>
 					New Request
 				</NewRequestButton>

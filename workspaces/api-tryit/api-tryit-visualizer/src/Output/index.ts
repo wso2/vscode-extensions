@@ -18,3 +18,4 @@
 
 export * from './Output';
 export * from './ResponseHeaderItem';
+export * from './HurlRunResults';

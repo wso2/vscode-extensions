@@ -623,6 +623,10 @@
       "projectFolder": "workspaces/api-tryit/hurl-parser"
     },
     {
+      "packageName": "@wso2/api-tryit-hurl-runner",
+      "projectFolder": "workspaces/api-tryit/hurl-runner"
+    },
+    {
       "packageName": "@wso2/api-tryit-core",
       "projectFolder": "workspaces/api-tryit/api-tryit-core"
     },

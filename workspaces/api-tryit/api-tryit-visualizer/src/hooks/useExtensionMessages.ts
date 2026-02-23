@@ -17,7 +17,14 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { ApiRequestItem, ApiRequest, HttpRequestOptions, HttpResponseResult } from '@wso2/api-tryit-core';
+import {
+	ApiRequestItem,
+	ApiRequest,
+	HttpRequestOptions,
+	HttpResponseResult,
+	HurlRunEvent,
+	HurlRunViewContext
+} from '@wso2/api-tryit-core';
 import { getVSCodeAPI } from '../utils/vscode-api';
 
 // Get VS Code API instance (singleton)
@@ -32,6 +39,9 @@ interface MessageHandlers {
     onApiRequestSelected?: (item: ApiRequestItem) => void;
     onShowCreateCollectionForm?: () => void;
     onCreateCollectionResult?: (result: { success: boolean; message?: string }) => void;
+	onHurlRunViewOpened?: (context: HurlRunViewContext) => void;
+	onHurlRunEvent?: (event: HurlRunEvent) => void;
+	onHurlRunError?: (payload: { message: string; context?: HurlRunViewContext }) => void;
 }
 
 /**
@@ -183,6 +193,22 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
             if (type === 'createCollectionResult' && handlersRef.current.onCreateCollectionResult) {
                 handlersRef.current.onCreateCollectionResult(data as { success: boolean; message?: string });
             }
+
+			if (type === 'hurlRunViewOpened' && handlersRef.current.onHurlRunViewOpened) {
+				handlersRef.current.onHurlRunViewOpened(data as HurlRunViewContext);
+			}
+
+			if (type === 'hurlRunEvent' && handlersRef.current.onHurlRunEvent) {
+				handlersRef.current.onHurlRunEvent(data as HurlRunEvent);
+			}
+
+			if (type === 'hurlRunError' && handlersRef.current.onHurlRunError) {
+				const payload = data as { message?: string; context?: HurlRunViewContext } | undefined;
+				handlersRef.current.onHurlRunError({
+					message: payload?.message || 'Hurl run failed.',
+					context: payload?.context
+				});
+			}
         };
 
         window.addEventListener('message', messageHandler);

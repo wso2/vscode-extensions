@@ -1,0 +1,117 @@
+export interface HurlEnvironmentInfo {
+	available: boolean;
+	command: string;
+	version?: string;
+	errorMessage?: string;
+}
+
+export interface HurlRunInput {
+	collectionPath: string;
+	includePatterns?: string[];
+	excludePatterns?: string[];
+}
+
+export interface HurlRunOptions {
+	parallelism?: number;
+	failFast?: boolean;
+	timeoutMs?: number;
+	env?: Record<string, string>;
+	variables?: Record<string, string>;
+	insecure?: boolean;
+	followRedirects?: boolean;
+	onlyFailedFromRunId?: string;
+	reportArtifactsDir?: string;
+	signal?: AbortSignal;
+}
+
+export type HurlRunStatus = 'passed' | 'failed' | 'error' | 'cancelled';
+
+export type HurlFileStatus = 'passed' | 'failed' | 'error' | 'skipped';
+
+export interface HurlRunResult {
+	runId: string;
+	status: HurlRunStatus;
+	startedAt: string;
+	finishedAt: string;
+	durationMs: number;
+	summary: HurlRunSummary;
+	files: HurlFileResult[];
+	diagnostics: HurlRunDiagnostics;
+}
+
+export interface HurlRunSummary {
+	totalFiles: number;
+	passedFiles: number;
+	failedFiles: number;
+	errorFiles: number;
+	skippedFiles: number;
+	totalEntries: number;
+	passedEntries: number;
+	failedEntries: number;
+}
+
+export interface HurlFileResult {
+	filePath: string;
+	status: HurlFileStatus;
+	startedAt: string;
+	finishedAt: string;
+	durationMs: number;
+	entries: HurlEntryResult[];
+	assertions: HurlAssertionResult[];
+	errorMessage?: string;
+	stdout?: string;
+	stderr?: string;
+}
+
+export interface HurlEntryResult {
+	name: string;
+	method?: string;
+	url?: string;
+	statusCode?: number;
+	status: 'passed' | 'failed' | 'error';
+	durationMs?: number;
+}
+
+export interface HurlAssertionResult {
+	filePath: string;
+	entryName?: string;
+	expression: string;
+	status: 'passed' | 'failed';
+	expected?: string;
+	actual?: string;
+	message?: string;
+	line?: number;
+}
+
+export interface HurlRunDiagnostics {
+	hurlVersion?: string;
+	commandLine: string[];
+	exitCode?: number;
+	warnings: string[];
+}
+
+export interface HurlDiscoveryResult {
+	rootPath: string;
+	files: string[];
+	totalFiles: number;
+	warnings: string[];
+}
+
+export type HurlRunEvent =
+	| { type: 'runStarted'; runId: string; totalFiles: number }
+	| { type: 'fileStarted'; runId: string; filePath: string }
+	| { type: 'fileFinished'; runId: string; file: HurlFileResult }
+	| { type: 'runProgress'; runId: string; completedFiles: number; totalFiles: number }
+	| { type: 'runFinished'; runId: string; result: HurlRunResult }
+	| { type: 'runCancelled'; runId: string };
+
+export interface HurlRunner {
+	verifyEnvironment(): Promise<HurlEnvironmentInfo>;
+	discover(input: HurlRunInput): Promise<HurlDiscoveryResult>;
+	run(input: HurlRunInput, options?: HurlRunOptions): Promise<HurlRunResult>;
+	runStream(
+		input: HurlRunInput,
+		options: HurlRunOptions,
+		onEvent: (event: HurlRunEvent) => void
+	): Promise<HurlRunResult>;
+}

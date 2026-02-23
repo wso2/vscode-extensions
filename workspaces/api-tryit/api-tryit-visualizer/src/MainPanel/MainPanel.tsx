@@ -22,11 +22,20 @@ import { Button, Codicon, TextField, Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { Input } from '../Input/Input';
 import { Assert } from '../Assert/Assert';
-import { ApiRequestItem, ApiRequest, ApiResponse, ResponseHeader } from '@wso2/api-tryit-core';
+import {
+	ApiRequestItem,
+	ApiRequest,
+	ApiResponse,
+	HurlRunEvent,
+	HurlRunStatus,
+	HurlRunSummary,
+	HurlRunViewContext
+} from '@wso2/api-tryit-core';
 import { useExtensionMessages } from '../hooks/useExtensionMessages';
 import CollectionForm from '../CollectionForm/CollectionForm';
 import { getVSCodeAPI } from '../utils/vscode-api';
 import { getMethodBgColor } from '../utils/methods';
+import { HurlRunFileView, HurlRunResults } from '../Output';
 
 const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -89,6 +98,112 @@ const createSaveSnapshot = (item?: ApiRequestItem): string => {
     return JSON.stringify(getStableValue({
         request: requestForSnapshot
     }));
+};
+
+interface RunViewState {
+	context?: HurlRunViewContext;
+	runId?: string;
+	status: HurlRunStatus | 'running';
+	files: HurlRunFileView[];
+	completedFiles: number;
+	totalFiles: number;
+	summary?: HurlRunSummary;
+	errorMessage?: string;
+}
+
+const createInitialRunState = (context?: HurlRunViewContext): RunViewState => ({
+	context,
+	status: 'running',
+	files: [],
+	completedFiles: 0,
+	totalFiles: 0
+});
+
+const toRunFileView = (file: Extract<HurlRunEvent, { type: 'fileFinished' }>['file']): HurlRunFileView => ({
+	filePath: file.filePath,
+	status: file.status,
+	durationMs: file.durationMs,
+	assertions: file.assertions || [],
+	errorMessage: file.errorMessage
+});
+
+const upsertRunFile = (files: HurlRunFileView[], nextFile: HurlRunFileView): HurlRunFileView[] => {
+	const next = [...files];
+	const index = next.findIndex(file => file.filePath === nextFile.filePath);
+	if (index >= 0) {
+		next[index] = nextFile;
+	} else {
+		next.push(nextFile);
+	}
+	return next;
+};
+
+const applyRunEvent = (previous: RunViewState, event: HurlRunEvent): RunViewState => {
+	if (event.type === 'runStarted') {
+		return {
+			...previous,
+			runId: event.runId,
+			status: 'running',
+			totalFiles: event.totalFiles,
+			completedFiles: 0,
+			files: [],
+			summary: undefined,
+			errorMessage: undefined
+		};
+	}
+
+	if (event.type === 'fileStarted') {
+		return {
+			...previous,
+			files: upsertRunFile(previous.files, {
+				filePath: event.filePath,
+				status: 'running',
+				assertions: []
+			})
+		};
+	}
+
+	if (event.type === 'fileFinished') {
+		return {
+			...previous,
+			files: upsertRunFile(previous.files, toRunFileView(event.file))
+		};
+	}
+
+	if (event.type === 'runProgress') {
+		return {
+			...previous,
+			completedFiles: event.completedFiles,
+			totalFiles: event.totalFiles
+		};
+	}
+
+	if (event.type === 'runCancelled') {
+		return {
+			...previous,
+			status: 'cancelled'
+		};
+	}
+
+	if (event.type === 'runFinished') {
+		return {
+			...previous,
+			runId: event.result.runId,
+			status: event.result.status,
+			files: event.result.files.map(file => ({
+				filePath: file.filePath,
+				status: file.status,
+				durationMs: file.durationMs,
+				assertions: file.assertions || [],
+				errorMessage: file.errorMessage
+			})),
+			completedFiles: event.result.summary.totalFiles,
+			totalFiles: event.result.summary.totalFiles,
+			summary: event.result.summary
+		};
+	}
+
+	return previous;
 };
 
 const PanelsWrapper = styled.div`
@@ -430,6 +545,7 @@ export const MainPanel: React.FC = () => {
     const [methodDropdownOpen, setMethodDropdownOpen] = useState(false);
     // Handle messages from VS Code extension
     const [showCollectionForm, setShowCollectionForm] = React.useState(false);
+	const [runViewState, setRunViewState] = useState<RunViewState | undefined>();
     const selectedIdentityRef = useRef('');
     const savedSnapshotRef = useRef('');
     const currentSnapshotRef = useRef('');
@@ -443,6 +559,7 @@ export const MainPanel: React.FC = () => {
 
     const { updateRequest, sendHttpRequest } = useExtensionMessages({
         onApiRequestSelected: (item) => {
+			setRunViewState(undefined);
             setRequestItem(item);
             setTempName(item.name);
             setIsEditingName(false);
@@ -474,7 +591,22 @@ export const MainPanel: React.FC = () => {
                 // Keep form open and show error in console for now
                 console.error('Failed to create collection:', res.message);
             }
-        }
+        },
+		onHurlRunViewOpened: (context) => {
+			setShowCollectionForm(false);
+			setRunViewState(createInitialRunState(context));
+		},
+		onHurlRunEvent: (event) => {
+			setRunViewState(previous => applyRunEvent(previous ?? createInitialRunState(), event));
+		},
+		onHurlRunError: (payload) => {
+			setRunViewState(previous => ({
+				...(previous ?? createInitialRunState(payload.context)),
+				context: payload.context || previous?.context,
+				status: 'error',
+				errorMessage: payload.message
+			}));
+		}
     });
 
     const handleCloseCollectionForm = () => {
@@ -702,102 +834,122 @@ export const MainPanel: React.FC = () => {
     return (
         <PageContainer>
             <HeaderBar>
-                <TitleRow>
-                    <EditableNameWrapper>
-                        {isEditingName ? (
-                            <NameTextField
-                                id="request-name-input"
-                                value={tempName}
-                                onTextChange={handleNameChange}
-                                onKeyDown={handleNameKeyDown}
-                                onBlur={handleNameBlur}
-                                autoFocus
-                                placeholder="Enter request name"
-                            />
-                        ) : (
-                            <NameDisplay onClick={handleNameClick}>
-                                <Typography variant="h3" sx={{ margin: 0 }}>
-                                    {requestItem?.name}
-                                </Typography>
-                            </NameDisplay>
-                        )}
-                    </EditableNameWrapper>
-                </TitleRow>
+				{runViewState ? (
+					<TitleRow>
+						<Typography variant="h3" sx={{ margin: 0 }}>
+							Run Results
+						</Typography>
+					</TitleRow>
+				) : (
+					<>
+						<TitleRow>
+							<EditableNameWrapper>
+								{isEditingName ? (
+									<NameTextField
+										id="request-name-input"
+										value={tempName}
+										onTextChange={handleNameChange}
+										onKeyDown={handleNameKeyDown}
+										onBlur={handleNameBlur}
+										autoFocus
+										placeholder="Enter request name"
+									/>
+								) : (
+									<NameDisplay onClick={handleNameClick}>
+										<Typography variant="h3" sx={{ margin: 0 }}>
+											{requestItem?.name}
+										</Typography>
+									</NameDisplay>
+								)}
+							</EditableNameWrapper>
+						</TitleRow>
 
-                {requestItem && (
-                    <RequestToolbar>
-                        <MethodSelectWrapper ref={methodSelectRef}>
-                            <MethodSelectButton
-                                type="button"
-                                accent={getMethodBgColor(requestItem.request.method)}
-                                onClick={() => setMethodDropdownOpen(open => !open)}
-                                aria-label="HTTP method"
-                                aria-haspopup="listbox"
-                                aria-expanded={methodDropdownOpen}
-                            >
-                                {requestItem.request.method}
-                            </MethodSelectButton>
-                            <SelectChevron>
-                                <Codicon iconSx={{color: 'var(--vscode-editor-foreground)', fontWeight: 'bold'}} name="chevron-down" />
-                            </SelectChevron>
-                            {methodDropdownOpen && (
-                                <MethodDropdown role="listbox" aria-label="HTTP method">
-                                    {methodOptions.map((method) => (
-                                        <MethodOption
-                                            key={method}
-                                            active={requestItem.request.method === method}
-                                            role="option"
-                                            aria-selected={requestItem.request.method === method}
-                                            onClick={() => {
-                                                handleRequestChange({
-                                                    ...requestItem.request,
-                                                    method
-                                                });
-                                                setMethodDropdownOpen(false);
-                                            }}
-                                        >
-                                            {method}
-                                        </MethodOption>
-                                    ))}
-                                </MethodDropdown>
-                            )}
-                        </MethodSelectWrapper>
+						{requestItem && (
+							<RequestToolbar>
+								<MethodSelectWrapper ref={methodSelectRef}>
+									<MethodSelectButton
+										type="button"
+										accent={getMethodBgColor(requestItem.request.method)}
+										onClick={() => setMethodDropdownOpen(open => !open)}
+										aria-label="HTTP method"
+										aria-haspopup="listbox"
+										aria-expanded={methodDropdownOpen}
+									>
+										{requestItem.request.method}
+									</MethodSelectButton>
+									<SelectChevron>
+										<Codicon iconSx={{color: 'var(--vscode-editor-foreground)', fontWeight: 'bold'}} name="chevron-down" />
+									</SelectChevron>
+									{methodDropdownOpen && (
+										<MethodDropdown role="listbox" aria-label="HTTP method">
+											{methodOptions.map((method) => (
+												<MethodOption
+													key={method}
+													active={requestItem.request.method === method}
+													role="option"
+													aria-selected={requestItem.request.method === method}
+													onClick={() => {
+														handleRequestChange({
+															...requestItem.request,
+															method
+														});
+														setMethodDropdownOpen(false);
+													}}
+												>
+													{method}
+												</MethodOption>
+											))}
+										</MethodDropdown>
+									)}
+								</MethodSelectWrapper>
 
-                        <UrlInputWrapper>
-                            <UrlInputField
-                                id="url-input"
-                                value={requestItem.request.url || ''}
-                                placeholder="Enter URL or paste text"
-                                onChange={(event) => handleRequestChange({
-                                    ...requestItem.request,
-                                    url: event.target.value
-                                })}
-                            />
+								<UrlInputWrapper>
+									<UrlInputField
+										id="url-input"
+										value={requestItem.request.url || ''}
+										placeholder="Enter URL or paste text"
+										onChange={(event) => handleRequestChange({
+											...requestItem.request,
+											url: event.target.value
+										})}
+									/>
 
-                            <SaveInlineButton
-                                type="button"
-                                aria-label="Save request"
-                                onClick={handleSaveRequest}
-                                disabled={!isDirty}
-                            >
-                                <Codicon sx={{ height: 20 }} iconSx={{ fontSize: 20, fontWeight: isDirty ? 'bolder' : 'lighter', color: isDirty ? 'var(--vscode-button-foreground)' : 'var(--vscode-disabledForeground)' }} tooltip='Save request' name="save" />
-                            </SaveInlineButton>
-                        </UrlInputWrapper>
+									<SaveInlineButton
+										type="button"
+										aria-label="Save request"
+										onClick={handleSaveRequest}
+										disabled={!isDirty}
+									>
+										<Codicon sx={{ height: 20 }} iconSx={{ fontSize: 20, fontWeight: isDirty ? 'bolder' : 'lighter', color: isDirty ? 'var(--vscode-button-foreground)' : 'var(--vscode-disabledForeground)' }} tooltip='Save request' name="save" />
+									</SaveInlineButton>
+								</UrlInputWrapper>
 
-                        <Button
-                            buttonSx={{height: 35, borderRadius: 4, width: 75}}
-                            appearance="primary"
-                            onClick={handleSendRequest}
-                            disabled={isLoading}
-                        >
-                            {isLoading ? 'Sending...' : 'Send'}
-                        </Button>
-                    </RequestToolbar>
-                )}
+								<Button
+									buttonSx={{height: 35, borderRadius: 4, width: 75}}
+									appearance="primary"
+									onClick={handleSendRequest}
+									disabled={isLoading}
+								>
+									{isLoading ? 'Sending...' : 'Send'}
+								</Button>
+							</RequestToolbar>
+						)}
+					</>
+				)}
             </HeaderBar>
 
             <Content>
-                {!showCollectionForm && requestItem ? (
+				{runViewState ? (
+					<HurlRunResults
+						context={runViewState.context}
+						status={runViewState.status}
+						files={runViewState.files}
+						completedFiles={runViewState.completedFiles}
+						totalFiles={runViewState.totalFiles}
+						summary={runViewState.summary}
+						errorMessage={runViewState.errorMessage}
+					/>
+				) : !showCollectionForm && requestItem ? (
                     <PanelsWrapper>
                         <ControlsWrapper>
                             {activeTab === 'input' && inputMode === 'code' && (

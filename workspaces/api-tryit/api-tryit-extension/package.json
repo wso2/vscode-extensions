@@ -203,6 +203,7 @@
   },
   "dependencies": {
     "@wso2/api-tryit-core": "workspace:*",
+    "@wso2/api-tryit-hurl-runner": "workspace:*",
     "@wso2/api-tryit-hurl-parser": "workspace:*",
     "@wso2/api-tryit-rpc-client": "workspace:*",
     "axios": "1.13.2",
