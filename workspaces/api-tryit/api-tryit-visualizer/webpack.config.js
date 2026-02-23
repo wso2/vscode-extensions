@@ -4,7 +4,7 @@ const webpack = require("webpack");
 module.exports = {
     entry: "./src/index.tsx",
     target: "web",
-    devtool: !process.env.CI ? "eval-source-map" : undefined,
+    devtool: !process.env.CI ? "source-map" : undefined,
     mode: !process.env.CI ? "development" : "production",
     output: {
         path: path.resolve(__dirname, "build"),

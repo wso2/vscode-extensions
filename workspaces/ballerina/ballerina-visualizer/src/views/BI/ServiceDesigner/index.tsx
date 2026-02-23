@@ -730,13 +730,22 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             const basePath = serviceModel.properties?.basePath?.value?.trim() || '';
             const listener = serviceModel.properties?.listener?.value?.trim() || 'localhost:8080';
 
+            // Start the Ballerina service without opening HTTP YAC
+            await rpcClient
+                .getCommonRpcClient()
+                .executeCommand({
+                    commands: ["ballerina.project.run"],
+                });
+
+            // Wait longer for the service to fully start
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+
             // Filter HTTP resources for the collection
             const httpResources = resources.filter(
                 (resource) => resource.type === DIRECTORY_MAP.RESOURCE
             );
 
             if (httpResources.length === 0) {
-                // Fallback to old behavior if no resources found
                 console.warn('No HTTP resources found for TryIt');
                 return;
             }
@@ -748,9 +757,10 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                 description: `API TryIt collection for ${serviceModel.name}`,
                 requests: httpResources.map((resource) => {
                     const method = extractHttpMethod(resource.icon);
-                    const url = `${baseUrl}/${resource.name}`;
-                    // Build Hurl-formatted content for this request
-                    const hurlContent = `${method} ${url}\n`;
+                    const resourcePath = resource.name.startsWith('/') ? resource.name : `/${resource.name}`;
+                    const url = `${baseUrl}${resourcePath}`;
+                    // Build proper Hurl-formatted content with method and full URL
+                    const hurlContent = `${method} ${url}`;
                     return {
                         name: `${method} ${resource.name}`,
                         content: hurlContent,
@@ -758,7 +768,9 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                 }),
             };
 
-            // Invoke API TryIt with the Hurl collection
+            console.log('Opening API TryIt with collection:', hurlCollection);
+
+            // Open ONLY API TryIt with the Hurl collection (no HTTP YAC)
             const commands = ["api-tryit.openFromHurlCollection", hurlCollection];
             rpcClient.getCommonRpcClient().executeCommand({ commands });
         } catch (error) {

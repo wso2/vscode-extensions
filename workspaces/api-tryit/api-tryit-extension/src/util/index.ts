@@ -30,9 +30,22 @@ export function getComposerJSFiles(
 	const devHost = process.env.TRY_VIEW_DEV_HOST || 'http://localhost:9092';
 
 	if (isDevMode) {
-		// Load from webpack-dev-server for hot reload
-		return [`${devHost}/${composerName}.js`];
+		// Load from webpack-dev-server for hot reload.
+		// Also include local bundles as a fallback to avoid endless loading
+		// when the dev server is not running.
+		const devBundle = `${devHost}/${composerName}.js`;
+		const localBundles = getLocalComposerJSFiles(context, composerName, webview);
+		return [devBundle, ...localBundles];
 	}
+
+	return getLocalComposerJSFiles(context, composerName, webview);
+}
+
+function getLocalComposerJSFiles(
+	context: vscode.ExtensionContext,
+	composerName: string,
+	webview: vscode.Webview
+): string[] {
 
 	// Production mode: load from local files
 	const jsLibsPath = path.join(context.extensionPath, 'resources', 'jslibs');
