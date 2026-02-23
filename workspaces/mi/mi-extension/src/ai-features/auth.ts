@@ -38,6 +38,7 @@ import { CommandIds as PlatformExtCommandIds, IWso2PlatformExtensionAPI } from '
 import { logInfo, logWarn, logError } from './copilot/logger';
 
 export const TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = 'Access token is not available.';
+export const STS_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = 'Failed to get STS token from platform extension';
 export const PLATFORM_EXTENSION_ID = 'wso2.wso2-platform';
 export const TOKEN_REFRESH_ONLY_SUPPORTED_FOR_MI_INTEL = 'Token refresh is only supported for MI Intelligence authentication';
 export const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5';
@@ -50,6 +51,7 @@ const LEGACY_ACCESS_TOKEN_SECRET_KEY = 'MIAIUser';
 const LEGACY_REFRESH_TOKEN_SECRET_KEY = 'MIAIRefreshToken';
 
 const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
+const PLATFORM_USER_NOT_LOGGED_IN_MESSAGE = 'user not logged in';
 
 interface MIIntelTokenSecrets {
     accessToken: string;
@@ -88,6 +90,18 @@ export const getCopilotLlmApiBaseUrl = (): string | undefined => {
 };
 
 /**
+ * Resolve usage API URL.
+ */
+export const getCopilotUsageApiUrl = (): string | undefined => {
+    const rootUrl = getCopilotRootUrl();
+    if (rootUrl) {
+        return `${rootUrl}/llm-api/v1.0/usage`;
+    }
+
+    return undefined;
+};
+
+/**
  * Resolve token exchange URL.
  * Prefers COPILOT_ROOT_URL-derived endpoint and falls back to explicit env vars.
  */
@@ -117,14 +131,17 @@ export const isPlatformExtensionAvailable = (): boolean => {
     return !!vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
 };
 
-const getPlatformExtensionAPI = async (): Promise<IWso2PlatformExtensionAPI | undefined> => {
+export const getPlatformExtensionAPI = async (): Promise<IWso2PlatformExtensionAPI | undefined> => {
     const platformExt = vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
     if (!platformExt) {
         return undefined;
     }
 
     try {
-        return await platformExt.activate() as IWso2PlatformExtensionAPI;
+        if (!platformExt.isActive) {
+            await platformExt.activate();
+        }
+        return platformExt.exports as IWso2PlatformExtensionAPI;
     } catch (error) {
         logError('Failed to activate platform extension', error);
         return undefined;
@@ -141,8 +158,15 @@ export const getPlatformStsToken = async (): Promise<string | undefined> => {
     }
 
     try {
+        if (!api.isLoggedIn()) {
+            return undefined;
+        }
         return await api.getStsToken();
     } catch (error) {
+        if (error instanceof Error && error.message.toLowerCase().includes(PLATFORM_USER_NOT_LOGGED_IN_MESSAGE)) {
+            // Expected when platform session is not active.
+            return undefined;
+        }
         logError('Error getting STS token from platform extension', error);
         return undefined;
     }
@@ -209,10 +233,18 @@ export const exchangeStsToCopilotToken = async (stsToken: string): Promise<MIInt
 export const refreshTokenViaStsExchange = async (): Promise<MIIntelTokenSecrets> => {
     const stsToken = await getPlatformStsToken();
     if (!stsToken) {
-        throw new Error('Failed to get STS token from platform extension');
+        throw new Error(STS_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE);
     }
 
     return await exchangeStsToCopilotToken(stsToken);
+};
+
+export const isStsTokenUnavailableError = (error: unknown): boolean => {
+    if (!(error instanceof Error)) {
+        return false;
+    }
+
+    return error.message.includes(STS_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE);
 };
 
 // ==================================

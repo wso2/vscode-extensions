@@ -24,6 +24,7 @@ import { AiPanelWebview } from './webview';
 import { extension } from '../MIExtensionContext';
 import {
     getAuthCredentials,
+    getPlatformExtensionAPI,
     initiateInbuiltAuth,
     logout,
     validateApiKey,
@@ -32,11 +33,9 @@ import {
     isDevantUserLoggedIn,
     getPlatformStsToken,
     exchangeStsToCopilotToken,
-    storeAuthCredentials,
-    PLATFORM_EXTENSION_ID
+    storeAuthCredentials
 } from './auth';
 import { PromptObject } from '@wso2/mi-core';
-import { IWso2PlatformExtensionAPI } from '@wso2/wso2-platform-core';
 import { logError } from './copilot/logger';
 
 export const openAIWebview = (initialPrompt?: PromptObject) => {
@@ -486,17 +485,16 @@ const openLogin = async () => {
     const isLoggedIn = await isDevantUserLoggedIn();
     if (isLoggedIn) {
         const stsToken = await getPlatformStsToken();
-        if (!stsToken) {
-            throw new Error('Failed to get STS token from platform extension');
+        if (stsToken) {
+            const secrets = await exchangeStsToCopilotToken(stsToken);
+            await storeAuthCredentials({
+                loginMethod: LoginMethod.MI_INTEL,
+                secrets
+            });
+            aiStateService.send({ type: AI_EVENT_TYPE.COMPLETE_AUTH });
+            return true;
         }
-
-        const secrets = await exchangeStsToCopilotToken(stsToken);
-        await storeAuthCredentials({
-            loginMethod: LoginMethod.MI_INTEL,
-            secrets
-        });
-        aiStateService.send({ type: AI_EVENT_TYPE.COMPLETE_AUTH });
-        return true;
+        // Platform state can race during session transitions; continue with interactive sign-in.
     }
 
     // Otherwise trigger platform login; completion is handled by the platform login listener.
@@ -583,19 +581,14 @@ const isExtendedEvent = <K extends AI_EVENT_TYPE>(
 let platformLoginListenerSetup = false;
 
 const setupPlatformExtensionListener = async () => {
-    if (platformLoginListenerSetup || !isPlatformExtensionAvailable()) {
+    if (platformLoginListenerSetup) {
         return;
     }
     platformLoginListenerSetup = true;
 
-    const platformExt = vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
-    if (!platformExt) {
-        return;
-    }
-
     try {
-        const api = await platformExt.activate() as IWso2PlatformExtensionAPI;
-        if (!api.subscribeIsLoggedIn) {
+        const api = await getPlatformExtensionAPI();
+        if (!api || !api.subscribeIsLoggedIn) {
             return;
         }
 
