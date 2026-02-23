@@ -895,9 +895,8 @@ export function createReadTool(execute: ReadExecute) {
     - You can optionally specify a line offset and limit (especially handy for long files).
     - Any lines longer than 2000 characters will be truncated
     - The file content will be returned as string
-    - By default, it reads up to lines starting from the beginning of the file
-    - You can optionally specify a line offset and limit (especially handy for long files)
-    - For read a specific **component** of a file, If you know the line range ALWAYS prefer read that specific line range rather than the entire file.
+    - If you know the exact line range of a COMPONENT you want to read, ALWAYS prefer reading that specific line range rather than the entire file.
+    - If you dont know the line range to read, start by reading the entire file.
     - If the file is very large, consider using the offset and limit parameters to read it in chunks.
     - If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents.`,
     inputSchema: z.object({

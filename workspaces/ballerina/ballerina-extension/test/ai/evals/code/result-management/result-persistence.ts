@@ -91,6 +91,7 @@ export async function persistUsecaseResult(
 
     for (const file of usecaseResult.files) {
         const filePath = path.join(codeDir, file.fileName);
+        await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
         await fs.promises.writeFile(filePath, file.content);
     }
 
