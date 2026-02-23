@@ -2,12 +2,13 @@
 
 ## 1. Overview
 
-`@wso2/api-tryit-hurl-parser` parses Hurl text into API TryIt visualizer models.
+`@wso2/api-tryit-hurl-parser` parses Hurl text into API TryIt visualizer models and serializes models back to Hurl.
 
 Primary objective:
 - Convert one `.hurl` content string into one `ApiCollection`.
 - Support multiple requests in a single Hurl document.
 - Produce output directly usable by API TryIt extension and visualizer.
+- Convert `ApiCollection` models back into valid multi-request Hurl text.
 
 ## 2. Package
 
@@ -53,6 +54,21 @@ normalizeHurlCollectionPayload(input: unknown): HurlCollectionPayload
 Behavior:
 - Normalizes and validates collection import payloads where each entry contains Hurl text.
 
+### 3.4 `apiCollectionToHurl`
+
+```ts
+apiCollectionToHurl(collection: ApiCollection, options?: SerializeHurlCollectionOptions): string
+```
+
+Behavior:
+- Serializes `ApiCollection` into Hurl text.
+- Multiple request items are serialized into one Hurl document (one request block per item).
+- Supports serializing root items and folder items.
+
+`SerializeHurlCollectionOptions`:
+- `includeMetadataComments?: boolean` (default `true`)
+- `includeFolderComments?: boolean` (default `true`)
+
 ## 4. Input Contract
 
 Input is expected to be valid Hurl text. The parser accepts:
@@ -72,6 +88,14 @@ Output model is `ApiCollection` from `@wso2/api-tryit-core`:
 Each request item includes:
 - `id`, `name`, `request`
 - Optional `assertions`
+
+Serialization output contract:
+- Returns a single Hurl string.
+- Each request block may include:
+  - `# @id`, `# @name` metadata comments
+  - `METHOD URL`
+  - headers/body/request sections
+  - response status line and `[Asserts]`
 
 ## 6. Grammar Coverage
 
@@ -155,6 +179,17 @@ Generated from:
 - Response headers before sections (`headers.<k> == <v>`)
 - `[Asserts]` content
 
+### 7.7 Serialization mapping
+
+- `request.queryParameters` are serialized into URL query string when URL has no query part.
+- `request.headers` are serialized as header lines (`Key: Value`).
+- `request.body` is serialized as raw body when no structured form/multipart sections exist.
+- `request.bodyFormUrlEncoded` is serialized into `[Form]`.
+- `request.bodyFormData` is serialized into `[Multipart]`.
+- Assertions are serialized as:
+  - first status-like assertion -> response status line (`HTTP <code|class>`)
+  - remaining assertions -> `[Asserts]`
+
 ## 8. Error Handling
 
 Throws on:
@@ -178,6 +213,8 @@ These can be supported in future by extending `@wso2/api-tryit-core` model.
 Jest coverage MUST include:
 - Single-request parse
 - Multi-request parse in one Hurl string
+- ApiCollection-to-Hurl serialization for multi-request collections
+- Round-trip behavior (`parse -> serialize -> parse`) for core fields
 - Escaped newline input
 - Section parsing: Query, Form, Multipart, Cookies, BasicAuth
 - Response line + asserts parsing
@@ -191,6 +228,7 @@ Jest coverage MUST include:
 3. Extension compiles with parser dependency integrated.
 4. `pnpm -C workspaces/api-tryit/hurl-parser test` passes.
 5. `pnpm -C workspaces/api-tryit/hurl-parser build` passes.
+6. Serialization output is consumable again by `parseHurlCollection`.
 
 ## 12. Versioning and Compatibility
 

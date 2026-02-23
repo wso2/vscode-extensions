@@ -1,8 +1,10 @@
 import {
+	apiCollectionToHurl,
 	hurlToApiRequestItem,
 	normalizeHurlCollectionPayload,
 	parseHurlCollection,
 } from '../src';
+import type { ApiCollection } from '@wso2/api-tryit-core';
 
 describe('parseHurlCollection', () => {
 	it('parses a single Hurl request into an ApiCollection model', () => {
@@ -192,5 +194,118 @@ describe('normalizeHurlCollectionPayload', () => {
 		expect(normalized.requests).toHaveLength(1);
 		expect(normalized.folders).toHaveLength(1);
 		expect(normalized.folders?.[0].items).toHaveLength(1);
+	});
+});
+
+describe('apiCollectionToHurl', () => {
+	it('serializes ApiCollection with multiple requests into one hurl string', () => {
+		const collection: ApiCollection = {
+			id: 'c-1',
+			name: 'Collection',
+			folders: [],
+			rootItems: [
+				{
+					id: 'req-1',
+					name: 'List users',
+					request: {
+						id: 'req-1',
+						name: 'List users',
+						method: 'GET',
+						url: 'https://example.com/users',
+						queryParameters: [{ id: 'q-1', key: 'page', value: '1' }],
+						headers: [{ id: 'h-1', key: 'Accept', value: 'application/json' }],
+						assertions: ['HTTP 200', 'status == 200'],
+					},
+					assertions: ['HTTP 200', 'status == 200'],
+				},
+				{
+					id: 'req-2',
+					name: 'Create user',
+					request: {
+						id: 'req-2',
+						name: 'Create user',
+						method: 'POST',
+						url: 'https://example.com/users',
+						queryParameters: [],
+						headers: [{ id: 'h-2', key: 'Content-Type', value: 'application/json' }],
+						body: '{"name":"Alice"}',
+						assertions: ['HTTP 201'],
+					},
+					assertions: ['HTTP 201'],
+				},
+			],
+		};
+
+		const output = apiCollectionToHurl(collection);
+
+		expect(output).toContain('# @id req-1');
+		expect(output).toContain('# @name List users');
+		expect(output).toContain('GET https://example.com/users?page=1');
+		expect(output).toContain('Accept: application/json');
+		expect(output).toContain('HTTP 200');
+		expect(output).toContain('[Asserts]\nstatus == 200');
+		expect(output).toContain('# @id req-2');
+		expect(output).toContain('POST https://example.com/users');
+		expect(output).toContain('{"name":"Alice"}');
+		expect(output).toContain('HTTP 201');
+	});
+
+	it('serializes form and multipart sections', () => {
+		const collection: ApiCollection = {
+			id: 'c-2',
+			name: 'Sections',
+			folders: [],
+			rootItems: [
+				{
+					id: 'req-1',
+					name: 'Upload',
+					request: {
+						id: 'req-1',
+						name: 'Upload',
+						method: 'POST',
+						url: 'https://example.com/upload',
+						queryParameters: [],
+						headers: [],
+						bodyFormUrlEncoded: [{ id: 'f-1', key: 'name', value: 'Alice' }],
+						bodyFormData: [{ id: 'm-1', key: 'file', filePath: '/tmp/a.txt', contentType: 'text/plain' }],
+					},
+				},
+			],
+		};
+
+		const output = apiCollectionToHurl(collection);
+
+		expect(output).toContain('[Form]\nname: Alice');
+		expect(output).toContain('[Multipart]\nfile: file,/tmp/a.txt; text/plain');
+	});
+
+	it('round-trips parse -> serialize -> parse for major fields', () => {
+		const input = [
+			'# @id r1',
+			'# @name One',
+			'GET https://example.com/a?x=1',
+			'HTTP 200',
+			'[Asserts]',
+			'status == 200',
+			'',
+			'# @id r2',
+			'# @name Two',
+			'POST https://example.com/b',
+			'[Form]',
+			'name: alice',
+			'HTTP 201',
+		].join('\n');
+
+		const parsed1 = parseHurlCollection(input, { collectionName: 'rt' });
+		const serialized = apiCollectionToHurl(parsed1);
+		const parsed2 = parseHurlCollection(serialized, { collectionName: 'rt' });
+
+		expect(parsed2.rootItems?.length).toBe(parsed1.rootItems?.length);
+		expect(parsed2.rootItems?.[0]?.request.method).toBe('GET');
+		expect(parsed2.rootItems?.[0]?.request.url).toBe('https://example.com/a');
+		expect(parsed2.rootItems?.[0]?.request.queryParameters?.[0]?.key).toBe('x');
+		expect(parsed2.rootItems?.[0]?.assertions).toContain('HTTP 200');
+		expect(parsed2.rootItems?.[1]?.request.method).toBe('POST');
+		expect(parsed2.rootItems?.[1]?.request.bodyFormUrlEncoded?.[0]?.key).toBe('name');
 	});
 });

@@ -22,6 +22,11 @@ export interface ParseHurlCollectionOptions {
 	sourceFilePath?: string;
 }
 
+export interface SerializeHurlCollectionOptions {
+	includeMetadataComments?: boolean;
+	includeFolderComments?: boolean;
+}
+
 export interface HurlRequestPayload {
 	name?: string;
 	content: string;
@@ -85,6 +90,132 @@ export function hurlToApiRequestItem(hurlContent: string): ApiRequestItem {
 		throw new Error('Could not parse Hurl content');
 	}
 	return firstRequest;
+}
+
+export function apiCollectionToHurl(
+	collection: ApiCollection,
+	options: SerializeHurlCollectionOptions = {}
+): string {
+	if (!collection || typeof collection !== 'object') {
+		throw new Error('Invalid ApiCollection provided');
+	}
+
+	const includeMetadataComments = options.includeMetadataComments !== false;
+	const includeFolderComments = options.includeFolderComments !== false;
+	const requestEntries: Array<{ item: ApiRequestItem; folderName?: string }> = [];
+
+	for (const item of collection.rootItems || []) {
+		requestEntries.push({ item });
+	}
+
+	for (const folder of collection.folders || []) {
+		for (const item of folder.items || []) {
+			requestEntries.push({ item, folderName: folder.name });
+		}
+	}
+
+	if (requestEntries.length === 0) {
+		throw new Error('ApiCollection has no request items to serialize');
+	}
+
+	const blocks = requestEntries.map((entry, index) =>
+		apiRequestItemToHurl(entry.item, {
+			includeMetadataComments,
+			includeFolderComment: includeFolderComments,
+			folderName: entry.folderName,
+			emitLeadingSeparator: index > 0
+		})
+	);
+
+	return blocks.join('\n\n').trimEnd() + '\n';
+}
+
+interface SerializeRequestOptions {
+	includeMetadataComments: boolean;
+	includeFolderComment: boolean;
+	folderName?: string;
+	emitLeadingSeparator: boolean;
+}
+
+function apiRequestItemToHurl(item: ApiRequestItem, options: SerializeRequestOptions): string {
+	if (!item || !item.request) {
+		throw new Error('Invalid ApiRequestItem provided');
+	}
+
+	const request = item.request;
+	const lines: string[] = [];
+
+	if (options.emitLeadingSeparator) {
+		lines.push('');
+	}
+
+	if (options.includeFolderComment && options.folderName && options.folderName.trim()) {
+		lines.push(`# @folder ${options.folderName.trim()}`);
+	}
+
+	if (options.includeMetadataComments) {
+		if (request.id || item.id) {
+			lines.push(`# @id ${request.id || item.id}`);
+		}
+		if (request.name || item.name) {
+			lines.push(`# @name ${request.name || item.name}`);
+		}
+	}
+
+	const method = (request.method || 'GET').toUpperCase();
+	const fullUrl = buildRequestUrl(request.url, request.queryParameters || []);
+	lines.push(`${method} ${fullUrl}`);
+
+	const activeHeaders = (request.headers || []).filter(header => header?.key?.trim());
+	for (const header of activeHeaders) {
+		lines.push(`${header.key}: ${header.value ?? ''}`);
+	}
+
+	const hasFormSection = Array.isArray(request.bodyFormUrlEncoded) && request.bodyFormUrlEncoded.length > 0;
+	const hasMultipartSection = Array.isArray(request.bodyFormData) && request.bodyFormData.length > 0;
+	const hasRawBody = typeof request.body === 'string' && request.body.trim().length > 0;
+
+	if (hasRawBody && !hasFormSection && !hasMultipartSection) {
+		lines.push('');
+		lines.push(...splitToLinesPreserveEmpty(request.body || ''));
+	}
+
+	if (hasFormSection) {
+		lines.push('[Form]');
+		for (const formParam of request.bodyFormUrlEncoded || []) {
+			lines.push(`${formParam.key}: ${formParam.value ?? ''}`);
+		}
+	}
+
+	if (hasMultipartSection) {
+		lines.push('[Multipart]');
+		for (const part of request.bodyFormData || []) {
+			if (part.filePath) {
+				const suffix = part.contentType ? ` ${part.contentType}` : '';
+				lines.push(`${part.key}: file,${part.filePath};${suffix}`);
+			} else {
+				lines.push(`${part.key}: ${part.value ?? ''}`);
+			}
+		}
+	}
+
+	const assertions = mergeAssertions(item.assertions, request.assertions);
+	const { statusLine, otherAssertions } = splitStatusAssertion(assertions);
+
+	if (statusLine || otherAssertions.length > 0) {
+		lines.push('');
+		if (statusLine) {
+			lines.push(statusLine);
+		}
+		if (otherAssertions.length > 0) {
+			lines.push('[Asserts]');
+			for (const assertion of otherAssertions) {
+				lines.push(convertAssertionToHurlFormat(assertion));
+			}
+		}
+	}
+
+	return lines.join('\n').trim();
 }
 
 export function normalizeHurlCollectionPayload(input: unknown): HurlCollectionPayload {
@@ -691,6 +822,105 @@ function buildBasicAuthHeader(pairs: Array<{ key: string; value: string }>): str
 	}
 
 	return `Basic ${globalThis.Buffer.from(`${username}:${password}`).toString('base64')}`;
+}
+
+function buildRequestUrl(url: string, queryParameters: QueryParameter[]): string {
+	if (!url) {
+		return '';
+	}
+
+	if (url.includes('?') || queryParameters.length === 0) {
+		return url;
+	}
+
+	const queryString = queryParameters
+		.filter(param => param.key)
+		.map(param => `${encodeURIComponent(param.key)}=${encodeURIComponent(param.value || '')}`)
+		.join('&');
+
+	return queryString ? `${url}?${queryString}` : url;
+}
+
+function splitToLinesPreserveEmpty(content: string): string[] {
+	return normalizeLineEndings(content).split('\n');
+}
+
+function mergeAssertions(...sources: Array<string[] | undefined>): string[] {
+	const merged: string[] = [];
+	for (const source of sources) {
+		for (const assertion of source || []) {
+			if (!assertion || typeof assertion !== 'string') {
+				continue;
+			}
+			if (!merged.includes(assertion)) {
+				merged.push(assertion);
+			}
+		}
+	}
+	return merged;
+}
+
+function splitStatusAssertion(assertions: string[]): { statusLine?: string; otherAssertions: string[] } {
+	let statusLine: string | undefined;
+	const otherAssertions: string[] = [];
+
+	for (const rawAssertion of assertions) {
+		const assertion = rawAssertion.trim();
+		if (!assertion) {
+			continue;
+		}
+
+		if (!statusLine && /^HTTP\s+/i.test(assertion)) {
+			statusLine = assertion.replace(/^HTTP\s+/i, 'HTTP ');
+			continue;
+		}
+
+		if (!statusLine) {
+			const statusDirect = assertion.match(/^status\s+([0-9]{3}|[1-5]xx)$/i);
+			if (statusDirect) {
+				statusLine = `HTTP ${statusDirect[1]}`;
+				continue;
+			}
+			const statusEq = assertion.match(/^status\s*(?:==|=)\s*([0-9]{3}|[1-5]xx)$/i);
+			if (statusEq) {
+				statusLine = `HTTP ${statusEq[1]}`;
+				continue;
+			}
+		}
+
+		otherAssertions.push(assertion);
+	}
+
+	return { statusLine, otherAssertions };
+}
+
+function convertAssertionToHurlFormat(assertion: string): string {
+	const trimmed = assertion.trim();
+
+	if (/^status\s+/i.test(trimmed) || /^HTTP\s+/i.test(trimmed)) {
+		return trimmed;
+	}
+
+	const headerRegex = new RegExp(
+		`^headers\\.([^\\s]+)\\s+(${HEADER_ASSERTION_OPERATORS})\\s*(.*)$`,
+		'i'
+	);
+	const headerMatch = trimmed.match(headerRegex);
+	if (headerMatch) {
+		const [, key, operator, rawValue] = headerMatch;
+		const value = rawValue.trim().replace(/^"|"$/g, '');
+		const unaryOps = new Set([
+			'isNull', 'isNotEmpty', 'isEmpty', 'isDefined', 'isUndefined',
+			'isTruthy', 'isFalsy', 'isNumber', 'isString', 'isBoolean', 'isArray', 'isJson'
+		]);
+
+		if (unaryOps.has(operator)) {
+			return `header "${key}" ${operator}`;
+		}
+		return `header "${key}" ${operator} "${value}"`;
+	}
+
+	return trimmed;
 }
 
 function convertAssertionFromHurlFormat(assertion: string): string {
