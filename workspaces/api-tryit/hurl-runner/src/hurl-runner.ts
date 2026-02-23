@@ -284,7 +284,7 @@ export class HurlRunnerImpl implements HurlRunner {
 		fileIndex: number,
 		context: ExecutionContext
 	): Promise<SingleFileExecutionResult> {
-		const reportPath = path.join(context.tempDir, `report-${fileIndex + 1}.json`);
+		const reportPath = path.join(context.tempDir, `report-${fileIndex + 1}`);
 		const args = this.buildHurlArgs(filePath, reportPath, context.runOptions);
 		if (!context.firstCommandLine) {
 			context.firstCommandLine = ['hurl', ...args];

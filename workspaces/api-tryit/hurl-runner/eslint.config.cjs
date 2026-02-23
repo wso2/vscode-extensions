@@ -4,7 +4,7 @@ const tsparser = require("@typescript-eslint/parser");
 
 module.exports = [
   {
-    ignores: ["lib/**", "node_modules/**"],
+    ignores: ["lib/**", "node_modules/**", "tests/**/*.js", "tests/**/*.js.map"],
   },
   eslint.configs.recommended,
   {
@@ -35,7 +35,7 @@ module.exports = [
     },
   },
   {
-    files: ["tests/**/*.ts"],
+    files: ["tests/**/*.ts", "tests/**/*.js"],
     languageOptions: {
       globals: {
         describe: "readonly",
@@ -44,6 +44,14 @@ module.exports = [
         beforeEach: "readonly",
         afterEach: "readonly",
         jest: "readonly",
+        exports: "readonly",
+        require: "readonly",
+        module: "readonly",
+        console: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        AbortController: "readonly",
+        AbortSignal: "readonly",
       },
     },
   },

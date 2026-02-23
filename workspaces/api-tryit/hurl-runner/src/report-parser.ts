@@ -1,4 +1,5 @@
 import * as fs from 'fs/promises';
+import * as path from 'path';
 import { HurlAssertionResult, HurlEntryResult, HurlFileResult, HurlFileStatus } from './types';
 import { ProcessExecResult } from './process-adapter';
 
@@ -20,6 +21,167 @@ interface GenericReport {
 		failed?: number;
 		passed?: number;
 	};
+	filename?: string;
+}
+
+interface GenericStats {
+	entries?: number;
+	failed?: number;
+	passed?: number;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+function normalizeStats(value: unknown): GenericStats | undefined {
+	if (!isObject(value)) {
+		return undefined;
+	}
+
+	const entries = typeof value.entries === 'number' ? value.entries : undefined;
+	const failed = typeof value.failed === 'number' ? value.failed : undefined;
+	const passed = typeof value.passed === 'number' ? value.passed : undefined;
+
+	if (typeof entries !== 'number' && typeof failed !== 'number' && typeof passed !== 'number') {
+		return undefined;
+	}
+
+	return { entries, failed, passed };
+}
+
+function extractAssertionsFromEntries(entries: unknown[]): unknown[] {
+	const assertions: unknown[] = [];
+
+	for (const entry of entries) {
+		if (!isObject(entry) || !Array.isArray(entry.asserts)) {
+			continue;
+		}
+
+		const entryName = typeof entry.name === 'string' ? entry.name : undefined;
+		for (const assertValue of entry.asserts) {
+			if (!isObject(assertValue)) {
+				assertions.push(assertValue);
+				continue;
+			}
+
+			const normalizedAssert: Record<string, unknown> = { ...assertValue };
+			if (entryName && typeof normalizedAssert.entryName !== 'string') {
+				normalizedAssert.entryName = entryName;
+			}
+			assertions.push(normalizedAssert);
+		}
+	}
+
+	return assertions;
+}
+
+function normalizeReportObject(value: Record<string, unknown>): GenericReport {
+	const entries = Array.isArray(value.entries) ? value.entries : [];
+	const rootAssertions = Array.isArray(value.assertions)
+		? value.assertions
+		: (Array.isArray(value.asserts) ? value.asserts : []);
+	const entryAssertions = extractAssertionsFromEntries(entries);
+
+	return {
+		success: typeof value.success === 'boolean' ? value.success : undefined,
+		entries,
+		assertions: rootAssertions.length > 0 ? rootAssertions : entryAssertions,
+		asserts: rootAssertions.length > 0 ? rootAssertions : entryAssertions,
+		stats: normalizeStats(value.stats),
+		filename: typeof value.filename === 'string' ? value.filename : undefined
+	};
+}
+
+function normalizeReport(raw: unknown, filePath: string): GenericReport | undefined {
+	const targetPath = path.resolve(filePath);
+
+	if (Array.isArray(raw)) {
+		const reports = raw.filter(isObject);
+		if (reports.length === 0) {
+			return undefined;
+		}
+
+		const matched = reports.find(report => {
+			if (typeof report.filename !== 'string') {
+				return false;
+			}
+			return path.resolve(report.filename) === targetPath;
+		});
+
+		return normalizeReportObject(matched || reports[0]);
+	}
+
+	if (!isObject(raw)) {
+		return undefined;
+	}
+
+	if (Array.isArray(raw.files)) {
+		const reports = raw.files.filter(isObject);
+		if (reports.length === 0) {
+			return undefined;
+		}
+
+		const matched = reports.find(report => {
+			if (typeof report.filename !== 'string') {
+				return false;
+			}
+			return path.resolve(report.filename) === targetPath;
+		});
+
+		return normalizeReportObject(matched || reports[0]);
+	}
+
+	return normalizeReportObject(raw);
+}
+
+async function resolveReportJsonPath(reportPath: string): Promise<string> {
+	try {
+		const stat = await fs.stat(reportPath);
+		if (stat.isDirectory()) {
+			return path.join(reportPath, 'report.json');
+		}
+	} catch {
+		// Keep original report path; parseFileResult will surface the resulting file access error.
+	}
+
+	return reportPath;
+}
+
+function extractHurlErrorMessage(stderr: string | undefined): string | undefined {
+	if (!stderr) {
+		return undefined;
+	}
+
+	const lines = stderr
+		.replace(/\r\n/g, '\n')
+		.split('\n')
+		.map(line => line.trim())
+		.filter(line => line.length > 0);
+
+	if (lines.length === 0) {
+		return undefined;
+	}
+
+	for (const line of lines.reverse()) {
+		const markerIndex = line.lastIndexOf('^');
+		if (markerIndex < 0) {
+			continue;
+		}
+
+		const detail = line.slice(markerIndex).replace(/^\^+\s*/, '').trim();
+		if (detail.length > 0) {
+			return detail;
+		}
+	}
+
+	const errorLine = lines.find(line => /^error:/i.test(line));
+	if (errorLine) {
+		const normalized = errorLine.replace(/^error:\s*/i, '').trim();
+		return normalized.length > 0 ? normalized : errorLine;
+	}
+
+	return lines[0];
 }
 
 function toEntry(entry: unknown, index: number): HurlEntryResult {
@@ -101,8 +263,12 @@ export async function parseFileResult(context: ParseContext): Promise<HurlFileRe
 	let parseError: string | undefined;
 
 	try {
-		const reportText = await fs.readFile(context.reportPath, 'utf8');
-		report = JSON.parse(reportText) as GenericReport;
+		const reportJsonPath = await resolveReportJsonPath(context.reportPath);
+		const reportText = await fs.readFile(reportJsonPath, 'utf8');
+		report = normalizeReport(JSON.parse(reportText), context.filePath);
+		if (!report) {
+			parseError = 'Unsupported hurl report format';
+		}
 	} catch (error) {
 		parseError = error instanceof Error ? error.message : 'Failed to parse report';
 	}
@@ -118,6 +284,7 @@ export async function parseFileResult(context: ParseContext): Promise<HurlFileRe
 	const assertions = rawAssertions.map(assertion => toAssertion(assertion, context.filePath));
 
 	const status = deriveFileStatus(context.execResult, report, entries, assertions);
+	const stderrMessage = extractHurlErrorMessage(context.execResult.stderr);
 
 	let errorMessage: string | undefined;
 	if (context.execResult.timedOut) {
@@ -126,6 +293,8 @@ export async function parseFileResult(context: ParseContext): Promise<HurlFileRe
 		errorMessage = context.execResult.error;
 	} else if (context.execResult.cancelled) {
 		errorMessage = 'Execution cancelled';
+	} else if (status !== 'passed' && assertions.length === 0 && stderrMessage) {
+		errorMessage = stderrMessage;
 	} else if (parseError && context.execResult.exitCode !== 0) {
 		errorMessage = parseError;
 	}

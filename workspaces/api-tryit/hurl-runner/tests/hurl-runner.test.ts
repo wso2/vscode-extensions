@@ -75,7 +75,8 @@ class MockProcessAdapter implements ProcessAdapter {
 		}
 
 		if (reportPath && scenario.report !== undefined) {
-			await fs.writeFile(reportPath, JSON.stringify(scenario.report), 'utf8');
+			await fs.mkdir(reportPath, { recursive: true });
+			await fs.writeFile(path.join(reportPath, 'report.json'), JSON.stringify([scenario.report]), 'utf8');
 		}
 
 		return {

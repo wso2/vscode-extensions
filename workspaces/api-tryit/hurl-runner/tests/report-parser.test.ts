@@ -27,33 +27,37 @@ describe('parseFileResult', () => {
 
 	it('maps report entries and assertions into normalized model', async () => {
 		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hurl-runner-report-'));
-		const reportPath = path.join(tempDir, 'report.json');
+		const reportPath = path.join(tempDir, 'report');
+		await fs.mkdir(reportPath, { recursive: true });
 
 		await fs.writeFile(
-			reportPath,
-			JSON.stringify({
-				success: false,
-				entries: [
-					{
-						name: 'Create user',
-						success: false,
-						time: 12,
-						request: { method: 'POST', url: 'https://example.com/users' },
-						response: { status: 500 }
-					}
-				],
-				assertions: [
-					{
-						entryName: 'Create user',
-						expression: 'status == 201',
-						success: false,
-						expected: '201',
-						actual: '500',
-						message: 'Expected status 201',
-						line: 9
-					}
-				]
-			}),
+			path.join(reportPath, 'report.json'),
+			JSON.stringify([
+				{
+					filename: '/tmp/cases/create-user.hurl',
+					success: false,
+					entries: [
+						{
+							name: 'Create user',
+							success: false,
+							time: 12,
+							request: { method: 'POST', url: 'https://example.com/users' },
+							response: { status: 500 },
+							asserts: [
+								{
+									entryName: 'Create user',
+									expression: 'status == 201',
+									success: false,
+									expected: '201',
+									actual: '500',
+									message: 'Expected status 201',
+									line: 9
+								}
+							]
+						}
+					]
+				}
+			]),
 			'utf8'
 		);
 
@@ -95,8 +99,9 @@ describe('parseFileResult', () => {
 
 	it('surfaces parse errors when the report is invalid and process failed', async () => {
 		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hurl-runner-report-'));
-		const reportPath = path.join(tempDir, 'invalid.json');
-		await fs.writeFile(reportPath, 'not-json', 'utf8');
+		const reportPath = path.join(tempDir, 'invalid');
+		await fs.mkdir(reportPath, { recursive: true });
+		await fs.writeFile(path.join(reportPath, 'report.json'), 'not-json', 'utf8');
 
 		const parsed = await parseFileResult({
 			filePath: '/tmp/cases/broken.hurl',
@@ -107,7 +112,7 @@ describe('parseFileResult', () => {
 		});
 
 		expect(parsed.status).toBe('failed');
-		expect(parsed.errorMessage).toMatch(/Unexpected token|JSON/);
+		expect(parsed.errorMessage).toBe('failed run');
 	});
 
 	it('marks cancellation as file error with explicit message', async () => {
@@ -124,5 +129,72 @@ describe('parseFileResult', () => {
 
 		expect(parsed.status).toBe('error');
 		expect(parsed.errorMessage).toBe('Execution cancelled');
+	});
+
+	it('extracts actionable failure details from stderr when assertions are unavailable', async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hurl-runner-report-'));
+		const reportPath = path.join(tempDir, 'report');
+		await fs.mkdir(reportPath, { recursive: true });
+
+		await fs.writeFile(
+			path.join(reportPath, 'report.json'),
+			JSON.stringify([
+				{
+					filename: '/tmp/cases/upload.hurl',
+					success: false,
+					entries: [
+						{
+							name: 'Upload',
+							time: 0,
+							asserts: []
+						}
+					]
+				}
+			]),
+			'utf8'
+		);
+
+		const parsed = await parseFileResult({
+			filePath: '/tmp/cases/upload.hurl',
+			reportPath,
+			startedAt: new Date('2026-02-23T00:00:00.000Z'),
+			finishedAt: new Date('2026-02-23T00:00:00.010Z'),
+			execResult: makeExecResult({
+				exitCode: 3,
+				stderr: [
+					'error: File read access',
+					'  --> /tmp/cases/upload.hurl:8:11',
+					' 8 | key: file,tests.zip; application/octet-stream',
+					'   |           ^^^^^^^^^ file tests.zip can not be read'
+				].join('\n')
+			})
+		});
+
+		expect(parsed.status).toBe('failed');
+		expect(parsed.errorMessage).toBe('file tests.zip can not be read');
+	});
+
+	it('prefers stderr message when report artifact is missing', async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hurl-runner-report-'));
+		const reportPath = path.join(tempDir, 'missing-report-dir');
+
+		const parsed = await parseFileResult({
+			filePath: '/tmp/cases/delete-post.hurl',
+			reportPath,
+			startedAt: new Date('2026-02-23T00:00:00.000Z'),
+			finishedAt: new Date('2026-02-23T00:00:00.010Z'),
+			execResult: makeExecResult({
+				exitCode: 3,
+				stderr: [
+					'error: Parsing response section name',
+					'  --> /tmp/cases/delete-post.hurl:7:2',
+					' 7 | [Form]',
+					'   |  ^ the section is not valid. Valid values are Captures or Asserts'
+				].join('\n')
+			})
+		});
+
+		expect(parsed.status).toBe('failed');
+		expect(parsed.errorMessage).toBe('the section is not valid. Valid values are Captures or Asserts');
 	});
 });
