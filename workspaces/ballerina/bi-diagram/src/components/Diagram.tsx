@@ -49,7 +49,7 @@ import { RemoteCursors } from "./RemoteCursors";
 
 export interface DiagramProps {
     model: Flow;
-    onAddNode?: (parent: FlowNode | Branch, target: LineRange) => void;
+    onAddNode?: (parent: FlowNode | Branch, target: LineRange, clickedNodeId?: string) => void;
     onAddNodePrompt?: (parent: FlowNode | Branch, target: LineRange, prompt: string) => void;
     onDeleteNode?: (node: FlowNode) => void;
     onAddComment?: (comment: string, target: LineRange) => void;

@@ -79,7 +79,10 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
             console.error(">>> NodeLinkWidget: handleAddNode: target not found");
             return;
         }
-        onAddNode(node, { startLine: target, endLine: target });
+        const clickedNodeId =
+            (link.targetNode as any)?.getID?.() ??
+            (link.sourceNode as any)?.getID?.();
+        onAddNode(node, { startLine: target, endLine: target }, clickedNodeId);
     };
 
     const handleAddPrompt = () => {

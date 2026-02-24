@@ -170,6 +170,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     } = useDraftNodeManager(model);
 
     const selectedNodeRef = useRef<FlowNode>();
+    const pinnedCursorRef = useRef<{ x: number; y: number; nodeId: string }>();
+    const lastBroadcastCursorRef = useRef<{ x: number; y: number; nodeId?: string }>();
+    const clickedCursorAnchorNodeIdRef = useRef<string>();
     const parentNodeRef = useRef<FlowNode>();
     const nodeTemplateRef = useRef<FlowNode>();
     const topNodeRef = useRef<FlowNode | Branch>();
@@ -1022,6 +1025,17 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             console.log('[Lock Frontend] All locks released successfully');
         }
 
+        if (isCollaborationActive) {
+            sendSelectionUpdate([]);
+            const lastCursor = lastBroadcastCursorRef.current;
+            if (lastCursor) {
+                sendPresenceUpdate(lastCursor.x, lastCursor.y, undefined, { selectedNodeIdsOverride: [] });
+            }
+        }
+
+        pinnedCursorRef.current = undefined;
+        clickedCursorAnchorNodeIdRef.current = undefined;
+
         setShowSidePanel(false);
         setSidePanelView(SidePanelView.NODE_LIST);
         setSubPanel({ view: SubPanelView.UNDEFINED });
@@ -1121,14 +1135,49 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
     };
 
-
-    const updateCursorPosition = useMemo(() =>
-        throttle((x: number, y: number, nodeId?: string) => {
-            
+    const sendPresenceUpdate = useCallback(
+        (
+            x: number,
+            y: number,
+            nodeId?: string,
+            options?: { selectedNodeIdsOverride?: string[] }
+        ) => {
             if (!model?.fileName || !isCollaborationActive) {
                 return;
             }
-        
+
+            const selectedNodeIds = options?.selectedNodeIdsOverride ?? (selectedNodeRef.current ? [selectedNodeRef.current.id] : []);
+            const selectedNodeId = selectedNodeIds[0];
+            const explicitPinnedNodeId = clickedCursorAnchorNodeIdRef.current;
+            const activePinnedNodeId = explicitPinnedNodeId ?? selectedNodeId ?? nodeId;
+
+            let broadcastX = x;
+            let broadcastY = y;
+            let broadcastNodeId = nodeId;
+
+            if (activePinnedNodeId) {
+                if (!pinnedCursorRef.current || pinnedCursorRef.current.nodeId !== activePinnedNodeId) {
+                    pinnedCursorRef.current = {
+                        x,
+                        y,
+                        nodeId: activePinnedNodeId,
+                    };
+                }
+
+                broadcastX = pinnedCursorRef.current.x;
+                broadcastY = pinnedCursorRef.current.y;
+                broadcastNodeId = activePinnedNodeId;
+            } else {
+                pinnedCursorRef.current = undefined;
+                broadcastNodeId = undefined;
+            }
+
+            lastBroadcastCursorRef.current = {
+                x: broadcastX,
+                y: broadcastY,
+                nodeId: broadcastNodeId,
+            };
+
             try {
                 const presenceData: CollaborationPresenceData = {
                     peerId: currentUserId,
@@ -1136,12 +1185,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     color: "#7A00FF", // Purple - could be enhanced to assign consistent colors per user
                     filePath: normalizeFilePath(model.fileName),
                     cursor: {
-                        x,
-                        y,
-                        nodeId,
+                        x: broadcastX,
+                        y: broadcastY,
+                        nodeId: broadcastNodeId,
                         timestamp: Date.now(),
                     },
-                    selectedNodes: selectedNodeRef.current ? [selectedNodeRef.current.id] : [],
+                    selectedNodes: selectedNodeIds,
                     locks: Object.entries(nodeLocks)
                         .filter(([_, lock]) => lock.userId === currentUserId)
                         .map(([nodeId, lock]) => ({
@@ -1157,9 +1206,22 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             } catch (error) {
                 console.error('[OCT] Failed to send presence update:', error);
             }
-        }, 100), 
+        },
         [model?.fileName, isCollaborationActive, currentUserId, currentUserName, nodeLocks, rpcClient]
     );
+
+    const updateCursorPosition = useMemo(() =>
+        throttle((x: number, y: number, nodeId?: string) => {
+            sendPresenceUpdate(x, y, nodeId);
+        }, 100),
+        [sendPresenceUpdate]
+    );
+
+    useEffect(() => {
+        return () => {
+            updateCursorPosition.cancel();
+        };
+    }, [updateCursorPosition]);
     
     // Send selection updates when nodes are selected
     const sendSelectionUpdate = useCallback((selectedNodeIds: string[]) => {
@@ -1309,7 +1371,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             });
     };
 
-    const handleOnAddNode = (parent: FlowNode | Branch, target: LineRange) => {
+    const handleOnAddNode = (parent: FlowNode | Branch, target: LineRange, clickedNodeId?: string) => {
         
         // clear previous selections if had
         if (topNodeRef.current || targetRef.current) {
@@ -1319,6 +1381,15 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         // store parent and target in refs
         topNodeRef.current = parent;
         changeTargetRange(target)
+        clickedCursorAnchorNodeIdRef.current = clickedNodeId;
+
+        if (isCollaborationActive && clickedNodeId) {
+            const lastCursor = lastBroadcastCursorRef.current;
+            if (lastCursor) {
+                sendPresenceUpdate(lastCursor.x, lastCursor.y, clickedNodeId, { selectedNodeIdsOverride: [] });
+            }
+        }
+
         console.log(`[Lock Frontend] Calling fetchNodesAndAISuggestions`);
         fetchNodesAndAISuggestions(parent, target);
     };
@@ -1988,6 +2059,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
         setSelectedNodeId(node.id);
         selectedNodeRef.current = node;
+        clickedCursorAnchorNodeIdRef.current = node.id;
         if (suggestedText.current) {
             // use targetRef from suggested model
         } else {
@@ -2009,6 +2081,8 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             setShowProgressIndicator(false);
             setSelectedNodeId(undefined);
             selectedNodeRef.current = undefined;
+            pinnedCursorRef.current = undefined;
+            clickedCursorAnchorNodeIdRef.current = undefined;
             topNodeRef.current = undefined;
             targetRef.current = undefined;
             setTargetLineRange(undefined);
@@ -2020,6 +2094,14 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
 
         console.log('[Lock Frontend] Node lock acquired, proceeding to load form');
+
+        if (isCollaborationActive) {
+            const lastCursor = lastBroadcastCursorRef.current;
+            if (lastCursor) {
+                sendPresenceUpdate(lastCursor.x, lastCursor.y, node.id, { selectedNodeIdsOverride: [node.id] });
+            }
+        }
+
         rpcClient
             .getBIDiagramRpcClient()
             .getNodeTemplate({

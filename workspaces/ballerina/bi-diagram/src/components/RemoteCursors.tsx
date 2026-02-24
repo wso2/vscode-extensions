@@ -19,6 +19,7 @@
 import React from "react";
 import styled from "@emotion/styled";
 import { useDiagramContext } from "./DiagramContext";
+import { getPreferredCursorAnchor } from "./cursorAnchor";
 
 /**
  * Convert diagram coordinates back to screen/viewport coordinates for rendering
@@ -138,7 +139,12 @@ export function RemoteCursors() {
             {cursors.map((presence) => {
                 const { user, cursor } = presence;
                 if (!cursor) return null;
-                const screenPos = diagramToScreenPosition(diagramEngine, cursor.x, cursor.y);
+                const anchoredDiagramPos = getPreferredCursorAnchor(diagramEngine, cursor.nodeId);
+                const screenPos = diagramToScreenPosition(
+                    diagramEngine,
+                    anchoredDiagramPos?.x ?? cursor.x,
+                    anchoredDiagramPos?.y ?? cursor.y
+                );
 
                 const color = getColorForUser(user.id) || user.color;
                 const userName = user.name || user.id;

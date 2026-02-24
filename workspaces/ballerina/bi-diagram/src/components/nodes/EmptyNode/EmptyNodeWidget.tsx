@@ -108,7 +108,7 @@ export function EmptyNodeWidget(props: EmptyNodeWidgetProps) {
             console.error(">>> EmptyNodeWidget: handleAddNode: target not found");
             return;
         }
-        onAddNode(topNode, { startLine: target, endLine: target });
+        onAddNode(topNode, { startLine: target, endLine: target }, node.getID());
     };
 
     const handleAddPrompt = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {

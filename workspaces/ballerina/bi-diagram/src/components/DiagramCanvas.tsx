@@ -22,6 +22,7 @@ import styled from "@emotion/styled";
 import "../resources/assets/font/fonts.css";
 import { useDiagramContext } from "./DiagramContext";
 import { ThemeColors } from "@wso2/ui-toolkit";
+import { getPreferredCursorAnchor } from "./cursorAnchor";
 
 export interface DiagramCanvasProps {
     color?: string;
@@ -79,7 +80,7 @@ function screenToDiagramPosition(engine: any, screenX: number, screenY: number):
 
 export function DiagramCanvas(props: DiagramCanvasProps) {
     const { color, background, children } = props;
-    const { lockCanvas, onCursorMove, isCollaborationActive, diagramEngine } = useDiagramContext();
+    const { lockCanvas, onCursorMove, isCollaborationActive, diagramEngine, selectedNodeId } = useDiagramContext();
 
     const handleMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
         if (onCursorMove && isCollaborationActive) {
@@ -100,9 +101,20 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 }
             });
             
+            if (selectedNodeId) {
+                const selectedNodeAnchor = getPreferredCursorAnchor(diagramEngine, selectedNodeId);
+                if (selectedNodeAnchor) {
+                    onCursorMove(selectedNodeAnchor.x, selectedNodeAnchor.y, selectedNodeId);
+                    return;
+                }
+
+                onCursorMove(diagramPos.x, diagramPos.y, selectedNodeId);
+                return;
+            }
+
             onCursorMove(diagramPos.x, diagramPos.y);
         }
-    }, [onCursorMove, isCollaborationActive, diagramEngine]);
+    }, [onCursorMove, isCollaborationActive, diagramEngine, selectedNodeId]);
 
     return (
         <>
