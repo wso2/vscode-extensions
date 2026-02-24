@@ -18,16 +18,6 @@
 
 import { FlowNode } from '../utils/types';
 
-/**
- * DepthSearch: Identifies the "Main Happy Path" (spine) in the workflow.
- * * Strategy:
- * 1. Always prioritize the FIRST success child/branch (primary path)
- * 2. Avoid failure paths unless no other option
- * 3. The longest continuous sequence of STEP nodes wins
- * * Optimization:
- * Uses a single-pass Depth First Search (DFS) to gather the full path
- * bubble-up style, rather than re-calculating depth iteratively.
- */
 export class DepthSearch {
     private mainPathNodes: Set<string> = new Set();
     private mainPath: FlowNode[] = [];
