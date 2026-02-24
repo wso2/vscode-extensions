@@ -22,12 +22,14 @@ interface RunnerDependencies {
 	processAdapter?: ProcessAdapter;
 	now?: () => Date;
 	runId?: () => string;
+	command?: string;
 }
 
 interface ExecutionContext {
 	runId: string;
 	tempDir: string;
 	rootPath: string;
+	command: string;
 	warnings: string[];
 	runOptions: HurlRunOptions;
 	cancelled: boolean;
@@ -45,20 +47,23 @@ export class HurlRunnerImpl implements HurlRunner {
 	private readonly processAdapter: ProcessAdapter;
 	private readonly now: () => Date;
 	private readonly makeRunId: () => string;
+	private readonly command: string;
 	private readonly previousRuns = new Map<string, HurlRunResult>();
 
 	constructor(deps: RunnerDependencies = {}) {
 		this.processAdapter = deps.processAdapter || new ChildProcessAdapter();
 		this.now = deps.now || (() => new Date());
 		this.makeRunId = deps.runId || (() => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+		this.command = deps.command || 'hurl';
 	}
 
-	async verifyEnvironment(): Promise<HurlEnvironmentInfo> {
-		const result = await this.processAdapter.exec('hurl', ['--version']);
+	async verifyEnvironment(commandPath?: string): Promise<HurlEnvironmentInfo> {
+		const resolvedCommand = commandPath || this.command;
+		const result = await this.processAdapter.exec(resolvedCommand, ['--version']);
 		if (result.exitCode !== 0 || result.error) {
 			return {
 				available: false,
-				command: 'hurl',
+				command: resolvedCommand,
 				errorMessage: result.error || result.stderr || 'hurl command is not available'
 			};
 		}
@@ -68,7 +73,7 @@ export class HurlRunnerImpl implements HurlRunner {
 
 		return {
 			available: true,
-			command: 'hurl',
+			command: resolvedCommand,
 			version: firstLine || undefined
 		};
 	}
@@ -178,6 +183,7 @@ export class HurlRunnerImpl implements HurlRunner {
 			runId,
 			tempDir,
 			rootPath: discovery.rootPath,
+			command: options.commandPath || this.command,
 			warnings,
 			runOptions: options,
 			cancelled: false,
@@ -287,11 +293,11 @@ export class HurlRunnerImpl implements HurlRunner {
 		const reportPath = path.join(context.tempDir, `report-${fileIndex + 1}`);
 		const args = this.buildHurlArgs(filePath, reportPath, context.runOptions);
 		if (!context.firstCommandLine) {
-			context.firstCommandLine = ['hurl', ...args];
+			context.firstCommandLine = [context.command, ...args];
 		}
 
 		const startedAt = this.now();
-		const execResult = await this.processAdapter.exec('hurl', args, {
+		const execResult = await this.processAdapter.exec(context.command, args, {
 			cwd: context.rootPath,
 			env: context.runOptions.env,
 			timeoutMs: context.runOptions.timeoutMs,
@@ -315,6 +321,9 @@ export class HurlRunnerImpl implements HurlRunner {
 	private buildHurlArgs(filePath: string, reportPath: string, options: HurlRunOptions): string[] {
 		const args = [filePath, '--report-json', reportPath];
 
+		if (options.includeResponseOutput) {
+			args.push('-i');
+		}
 		if (options.insecure) {
 			args.push('-k');
 		}

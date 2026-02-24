@@ -19,6 +19,8 @@ export interface HurlRunOptions {
 	variables?: Record<string, string>;
 	insecure?: boolean;
 	followRedirects?: boolean;
+	includeResponseOutput?: boolean;
+	commandPath?: string;
 	onlyFailedFromRunId?: string;
 	reportArtifactsDir?: string;
 	signal?: AbortSignal;
@@ -106,7 +108,7 @@ export type HurlRunEvent =
 	| { type: 'runCancelled'; runId: string };
 
 export interface HurlRunner {
-	verifyEnvironment(): Promise<HurlEnvironmentInfo>;
+	verifyEnvironment(commandPath?: string): Promise<HurlEnvironmentInfo>;
 	discover(input: HurlRunInput): Promise<HurlDiscoveryResult>;
 	run(input: HurlRunInput, options?: HurlRunOptions): Promise<HurlRunResult>;
 	runStream(

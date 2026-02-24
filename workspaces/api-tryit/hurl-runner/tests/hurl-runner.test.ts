@@ -179,6 +179,29 @@ describe('HurlRunnerImpl', () => {
 		expect(env.version).toBe('hurl 5.0.0');
 	});
 
+	it('uses configured command path for environment verification and execution', async () => {
+		const collection = await createCollection(['custom-command.hurl']);
+		createdDirs.push(collection.root);
+		const scenarios = new Map<string, MockScenario>([
+			[collection.files[0], { report: buildPassReport('custom-command') }]
+		]);
+		const adapter = new MockProcessAdapter(scenarios);
+		const runner = new HurlRunnerImpl({
+			processAdapter: adapter,
+			runId: () => `run-${++runCounter}`,
+			now: () => new Date(baseTime + timeCounter++ * 10),
+			command: '/opt/tools/hurl'
+		});
+
+		const env = await runner.verifyEnvironment();
+		expect(env.available).toBe(true);
+		expect(env.command).toBe('/opt/tools/hurl');
+
+		await runner.run({ collectionPath: collection.root }, { parallelism: 1 });
+		const commandCalls = adapter.calls.map(call => call.command);
+		expect(commandCalls).toEqual(['/opt/tools/hurl', '/opt/tools/hurl']);
+	});
+
 	it('run returns aggregated summary and command diagnostics', async () => {
 		const collection = await createCollection(['a.hurl', 'b.hurl']);
 		createdDirs.push(collection.root);
@@ -214,6 +237,22 @@ describe('HurlRunnerImpl', () => {
 		expect(result.diagnostics.commandLine).toEqual(
 			expect.arrayContaining(['hurl', '-k', '-L', '--variable', 'token=abc'])
 		);
+	});
+
+	it('appends include output flag when includeResponseOutput is enabled', async () => {
+		const collection = await createCollection(['include-output.hurl']);
+		createdDirs.push(collection.root);
+		const scenarios = new Map<string, MockScenario>([
+			[collection.files[0], { report: buildPassReport('include-output') }]
+		]);
+		const adapter = new MockProcessAdapter(scenarios);
+		const runner = createRunner(adapter);
+
+		await runner.run({ collectionPath: collection.root }, { parallelism: 1, includeResponseOutput: true });
+
+		const hurlCall = adapter.calls.find(call => call.args.includes('--report-json'));
+		expect(hurlCall).toBeDefined();
+		expect(hurlCall?.args).toEqual(expect.arrayContaining(['-i']));
 	});
 
 	it('runStream emits progress events in expected order', async () => {

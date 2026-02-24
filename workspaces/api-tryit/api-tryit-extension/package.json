@@ -110,6 +110,11 @@
         "icon": "$(folder)"
       },
       {
+        "command": "api-tryit.installHurl",
+        "title": "API TryIt: Install Hurl",
+        "icon": "$(cloud-download)"
+      },
+      {
         "command": "api-tryit.importCollectionPayload",
         "title": "API TryIt: Import Collection Payload",
         "icon": "$(add)"
@@ -169,6 +174,9 @@
         },
         {
           "command": "api-tryit.openFromHurlCollection"
+        },
+        {
+          "command": "api-tryit.installHurl"
         }
       ]
     },
@@ -179,6 +187,21 @@
           "type": "string",
           "default": "",
           "description": "Path to the directory containing API collections. If not set, uses the current workspace folder."
+        },
+        "api-tryit.hurl.path": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the hurl executable. If empty, API TryIt uses managed install or PATH."
+        },
+        "api-tryit.hurl.autoInstall": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically download and install a managed hurl binary when needed."
+        },
+        "api-tryit.hurl.version": {
+          "type": "string",
+          "default": "7.1.0",
+          "description": "Managed hurl version to install."
         }
       }
     }
@@ -216,7 +239,6 @@
     "@wso2/api-tryit-hurl-runner": "workspace:*",
     "@wso2/api-tryit-hurl-parser": "workspace:*",
     "@wso2/api-tryit-rpc-client": "workspace:*",
-    "axios": "1.13.2",
     "js-yaml": "4.1.0",
     "vscode-messenger": "0.5.1",
     "vscode-messenger-common": "0.5.1",

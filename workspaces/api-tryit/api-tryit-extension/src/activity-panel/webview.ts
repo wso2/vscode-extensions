@@ -34,8 +34,10 @@ import {
 	HurlFileResult as RunnerHurlFileResult,
 	HurlRunEvent as RunnerHurlRunEvent,
 	HurlRunInput as RunnerHurlRunInput,
-	HurlRunResult as RunnerHurlRunResult
+	HurlRunResult as RunnerHurlRunResult,
+	HurlRunner as RunnerHurlRunner
 } from '@wso2/api-tryit-hurl-runner';
+import { getHurlBinaryManager } from '../hurl/hurl-binary-manager';
 
 /**
  * Sanitize a name to be used as a folder name or ID
@@ -54,7 +56,6 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 	private _listenersInitialized = false;
 	private _webviewReady = false;
 	private _pendingMessages: Array<{ type: string; data?: unknown }> = [];
-	private readonly _hurlRunner = createHurlRunner();
 	private _activeRunAbortController: AbortController | undefined;
 
 	constructor(
@@ -627,7 +628,21 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			return;
 		}
 
-		const environment = await this._hurlRunner.verifyEnvironment();
+		let runner: RunnerHurlRunner;
+		try {
+			const commandPath = await getHurlBinaryManager().resolveCommandPath({
+				autoInstall: true,
+				promptOnFailure: true
+			});
+			runner = createHurlRunner({ command: commandPath });
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Failed to resolve hurl executable.';
+			TryItPanel.postMessage('hurlRunError', { message, context: viewContext });
+			vscode.window.showErrorMessage(message);
+			return;
+		}
+
+		const environment = await runner.verifyEnvironment();
 		if (!environment.available) {
 			const message = environment.errorMessage || 'The hurl command is not available in PATH.';
 			TryItPanel.postMessage('hurlRunError', { message, context: viewContext });
@@ -640,7 +655,7 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		TryItPanel.postMessage('hurlRunViewOpened', viewContext);
 
 		try {
-			await this._hurlRunner.runStream(
+			await runner.runStream(
 				input,
 				{
 					parallelism: 1,

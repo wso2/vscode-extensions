@@ -27,6 +27,7 @@ import type { HurlCollectionPayload } from './util/hurl-collection-converter';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
+import { getHurlBinaryManager, initializeHurlBinaryManager } from './hurl/hurl-binary-manager';
 
 const PENDING_HURL_IMPORT_KEY = 'api-tryit.pendingHurlImportContext';
 
@@ -360,6 +361,8 @@ async function createHurlCollectionFolderStructure(
 }
 
 export async function activate(context: vscode.ExtensionContext) {
+	initializeHurlBinaryManager(context);
+
 	// Register the API Explorer tree view provider
 	const apiExplorerProvider = new ApiExplorerProvider();
 
@@ -1187,6 +1190,16 @@ export async function activate(context: vscode.ExtensionContext) {
 		await apiExplorerProvider.reloadCollections();
 	});
 
+	const installHurlCommand = vscode.commands.registerCommand('api-tryit.installHurl', async () => {
+		try {
+			const binaryPath = await getHurlBinaryManager().installManagedHurl({ interactive: true, force: true });
+			vscode.window.showInformationMessage(`Hurl installed successfully: ${binaryPath}`);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Failed to install Hurl.';
+			vscode.window.showErrorMessage(message);
+		}
+	});
+
 	context.subscriptions.push(setCollectionsPathCommand);
 
 	context.subscriptions.push(
@@ -1200,13 +1213,14 @@ export async function activate(context: vscode.ExtensionContext) {
 		openFromHurlCommand,
 		openFromHurlCollectionCommand,
 		newCollectionCommand,
-		importCollectionCommand,
-		importCollectionPayloadCommand,
-		openCollectionCommand,
-		plusMenuCommand,
-		settingsCommand,
-		clearSelectionCommand,
-	);
+			importCollectionCommand,
+			importCollectionPayloadCommand,
+			openCollectionCommand,
+			plusMenuCommand,
+			settingsCommand,
+			clearSelectionCommand,
+			installHurlCommand,
+		);
 }
 
 export function deactivate() {
