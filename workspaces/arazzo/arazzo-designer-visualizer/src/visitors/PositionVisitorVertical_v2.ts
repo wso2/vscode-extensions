@@ -66,6 +66,11 @@ export class PositionVisitorVertical_v2 {
             return;
         }
 
+        // Prevent infinite loops from cycles (e.g. step A → goto step B → goto step A)
+        if (this.mainSpineVisited.has(node.id)) {
+            return;
+        }
+
         this.mainSpineVisited.add(node.id);
 
         // Position this node at the spine (center-aligned)
