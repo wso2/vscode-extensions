@@ -77,7 +77,12 @@ export interface DiagramContextState {
     showErrorFlow: boolean;
     expandedErrorHandler?: string;
     toggleErrorHandlerExpansion?: (nodeId: string) => void;
-    onAddNode?: (parent: FlowNode | Branch, target: LineRange, clickedNodeId?: string) => void;
+    onAddNode?: (
+        parent: FlowNode | Branch,
+        target: LineRange,
+        clickedNodeId?: string,
+        anchor?: AddNodeAnchor
+    ) => void;
     onAddNodePrompt?: (parent: FlowNode | Branch, target: LineRange, prompt: string) => void;
     onDeleteNode?: (node: FlowNode) => void;
     onAddComment?: (comment: string, target: LineRange) => void;
@@ -129,6 +134,12 @@ export interface DiagramContextState {
     onCursorMove?: (x: number, y: number, nodeId?: string) => void;
     isCollaborationActive?: boolean;
     expressionContext: ExpressionContextProps;
+}
+
+export interface AddNodeAnchor {
+    anchorX: number;
+    anchorY: number;
+    anchorKey: string;
 }
 
 export const DiagramContext = React.createContext<DiagramContextState>({

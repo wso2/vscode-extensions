@@ -112,6 +112,12 @@ interface NavigationStackItem {
     clientName?: string;
 }
 
+interface AddNodeAnchor {
+    anchorX: number;
+    anchorY: number;
+    anchorKey: string;
+}
+
 export type FormSubmitOptions = {
     closeSidePanel?: boolean;
     isChangeFromHelperPane?: boolean;
@@ -362,7 +368,16 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                             return updated;
                         });
                     } else {
-                        console.log(`[OCT Webview] ⚠️ No cursor data in presence update`);
+                        console.log(`[OCT Webview] Removing remote cursor for peer without cursor data: ${data.peerId}`);
+                        setRemoteCursors((prev) => {
+                            if (!prev.has(data.peerId)) {
+                                return prev;
+                            }
+
+                            const updated = new Map(prev);
+                            updated.delete(data.peerId);
+                            return updated;
+                        });
                     }
                 }
 
@@ -1371,7 +1386,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             });
     };
 
-    const handleOnAddNode = (parent: FlowNode | Branch, target: LineRange, clickedNodeId?: string) => {
+    const handleOnAddNode = (
+        parent: FlowNode | Branch,
+        target: LineRange,
+        clickedNodeId?: string,
+        anchor?: AddNodeAnchor
+    ) => {
         
         // clear previous selections if had
         if (topNodeRef.current || targetRef.current) {
@@ -1381,12 +1401,28 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         // store parent and target in refs
         topNodeRef.current = parent;
         changeTargetRange(target)
-        clickedCursorAnchorNodeIdRef.current = clickedNodeId;
+        const parentId = 'id' in parent ? parent.id : 'branch';
+        const positionLockKey = `position_${parentId}_${target.startLine.line}_${target.startLine.offset}`;
+        const activeAnchorKey = anchor?.anchorKey || positionLockKey || clickedNodeId;
 
-        if (isCollaborationActive && clickedNodeId) {
-            const lastCursor = lastBroadcastCursorRef.current;
-            if (lastCursor) {
-                sendPresenceUpdate(lastCursor.x, lastCursor.y, clickedNodeId, { selectedNodeIdsOverride: [] });
+        clickedCursorAnchorNodeIdRef.current = activeAnchorKey;
+
+        if (anchor) {
+            pinnedCursorRef.current = {
+                x: anchor.anchorX,
+                y: anchor.anchorY,
+                nodeId: activeAnchorKey,
+            };
+        }
+
+        if (isCollaborationActive && activeAnchorKey) {
+            if (anchor) {
+                sendPresenceUpdate(anchor.anchorX, anchor.anchorY, activeAnchorKey, { selectedNodeIdsOverride: [] });
+            } else {
+                const lastCursor = lastBroadcastCursorRef.current;
+                if (lastCursor) {
+                    sendPresenceUpdate(lastCursor.x, lastCursor.y, activeAnchorKey, { selectedNodeIdsOverride: [] });
+                }
             }
         }
 

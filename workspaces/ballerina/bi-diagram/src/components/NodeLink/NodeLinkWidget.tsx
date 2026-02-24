@@ -43,7 +43,7 @@ const fadeInZoomIn = keyframes`
 `;
 
 export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) => {
-    const { onAddNode, onAddNodePrompt, onAddComment, setLockCanvas, readOnly, isUserAuthenticated } = useDiagramContext();
+    const { onAddNode, onAddNodePrompt, onAddComment, setLockCanvas, readOnly, isUserAuthenticated, isPositionLocked } = useDiagramContext();
 
     const [isHovered, setIsHovered] = useState(false);
     const [isCommentButtonHovered, setIsCommentButtonHovered] = useState(false);
@@ -66,8 +66,38 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
         : ThemeColors.PRIMARY;
 
     const addButtonPosition = link.getAddButtonPosition();
+    const topNode = link.getTopNode();
+    const target = link.getTarget();
+    const positionIsLocked = topNode && target && isPositionLocked
+        ? isPositionLocked(topNode, { startLine: target, endLine: target })
+        : false;
+    const linkOpacity = positionIsLocked ? 0.45 : 1;
 
-    const handleAddNode = () => {
+    const getDiagramPositionFromElementCenter = (element: SVGSVGElement) => {
+        const canvas = document.getElementById("bi-diagram-canvas");
+        if (!canvas || !engine) {
+            return;
+        }
+
+        const canvasRect = canvas.getBoundingClientRect();
+        const buttonRect = element.getBoundingClientRect();
+        const viewportX = buttonRect.left - canvasRect.left + buttonRect.width / 2;
+        const viewportY = buttonRect.top - canvasRect.top + buttonRect.height / 2;
+
+        const model = engine.getModel();
+        const zoomLevel = model.getZoomLevel() / 100.0;
+
+        return {
+            x: (viewportX - model.getOffsetX()) / zoomLevel,
+            y: (viewportY - model.getOffsetY()) / zoomLevel,
+        };
+    };
+
+    const handleAddNode = (event: React.MouseEvent<SVGSVGElement>) => {
+        if (readOnly || positionIsLocked) {
+            return;
+        }
+
         let node = link.getTopNode();
         if (!node) {
             console.error(">>> NodeLinkWidget: handleAddNode: top node not found");
@@ -79,10 +109,18 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
             console.error(">>> NodeLinkWidget: handleAddNode: target not found");
             return;
         }
-        const clickedNodeId =
-            (link.targetNode as any)?.getID?.() ??
-            (link.sourceNode as any)?.getID?.();
-        onAddNode(node, { startLine: target, endLine: target }, clickedNodeId);
+
+        const parentId = "id" in node ? node.id : "branch";
+        const anchorKey = `position_${parentId}_${target.line}_${target.offset}`;
+        const anchorPosition = getDiagramPositionFromElementCenter(event.currentTarget);
+
+        onAddNode(node, { startLine: target, endLine: target }, anchorKey, anchorPosition
+            ? {
+                anchorX: anchorPosition.x,
+                anchorY: anchorPosition.y,
+                anchorKey,
+            }
+            : undefined);
     };
 
     const handleAddPrompt = () => {
@@ -139,6 +177,7 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
                 strokeWidth={1.5}
                 strokeDasharray={link.brokenLine ? "5,5" : "0"}
                 markerEnd={link.showArrowToNode() ? `url(#${link.getID()}-arrow-head)` : ""}
+                style={{ opacity: linkOpacity }}
             />
             {link.label && (
                 <foreignObject
@@ -166,6 +205,7 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
                                 padding: "2px 10px",
                                 boxSizing: "border-box",
                                 width: "fit-content",
+                                opacity: linkOpacity,
                             }}
                         >
                             <span
@@ -208,6 +248,7 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
                             css={css`
                                 cursor: pointer;
                                 visibility: ${shouldHighlight ? "visible" : "hidden"};
+                                    opacity: ${linkOpacity};
                             `}
                         >
                             <path
@@ -225,19 +266,21 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
                             width="24"
                             height="24"
                             viewBox="0 0 24 24"
-                            onClick={handleAddNode}
-                            onMouseEnter={() => setIsNodeButtonHovered(true)}
+                            onClick={positionIsLocked ? undefined : handleAddNode}
+                            onMouseEnter={() => !positionIsLocked && setIsNodeButtonHovered(true)}
                             onMouseLeave={() => setIsNodeButtonHovered(false)}
                             css={css`
-                                cursor: pointer;
+                                cursor: ${positionIsLocked ? "not-allowed" : "pointer"};
+                                opacity: ${linkOpacity};
                             `}
                         >
+                            {positionIsLocked && <title>Position locked by another user</title>}
                             <path
                                 fill={ThemeColors.SURFACE_BRIGHT}
                                 d="M12 0C5 0 0 5 0 12s5 12 12 12 12-5 12-12S19 0 12 0z"
                             />
                             <path
-                                fill={isNodeButtonHovered ? ThemeColors.SECONDARY : ThemeColors.PRIMARY}
+                                fill={positionIsLocked ? ThemeColors.OUTLINE : isNodeButtonHovered ? ThemeColors.SECONDARY : ThemeColors.PRIMARY}
                                 d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8 8 0 0 1-8 8m4-9h-3V8a1 1 0 0 0-2 0v3H8a1 1 0 0 0 0 2h3v3a1 1 0 0 0 2 0v-3h3a1 1 0 0 0 0-2"
                             />
                         </svg>
@@ -252,6 +295,7 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
                             css={css`
                                 cursor: ${isUserAuthenticated ? "pointer" : "not-allowed"};
                                 visibility: ${shouldHighlight ? "visible" : "hidden"};
+                                opacity: ${linkOpacity};
                             `}
                         >
                             {!isUserAuthenticated && <title>You need to be logged into BI Copilot to access AI features</title>}
@@ -292,7 +336,7 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
                     orient="auto"
                     id={`${link.getID()}-arrow-head`}
                 >
-                    <polygon points="0,4 0,0 4,2" fill={linkColor}></polygon>
+                    <polygon points="0,4 0,0 4,2" fill={linkColor} style={{ opacity: linkOpacity }}></polygon>
                 </marker>
             </defs>
         </g>

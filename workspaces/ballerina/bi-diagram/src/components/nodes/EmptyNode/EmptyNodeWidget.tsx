@@ -96,7 +96,36 @@ export function EmptyNodeWidget(props: EmptyNodeWidgetProps) {
         ? isPositionLocked(topNode, { startLine: target, endLine: target })
         : false;
 
-    const handleAddNode = () => {
+    const getDiagramPositionFromElementCenter = (element: SVGSVGElement) => {
+        const canvas = document.getElementById("bi-diagram-canvas");
+        if (!canvas || !engine) {
+            return;
+        }
+
+        const canvasRect = canvas.getBoundingClientRect();
+        const buttonRect = element.getBoundingClientRect();
+        const viewportX = buttonRect.left - canvasRect.left + buttonRect.width / 2;
+        const viewportY = buttonRect.top - canvasRect.top + buttonRect.height / 2;
+
+        const model = engine.getModel();
+        const zoomLevel = model.getZoomLevel() / 100.0;
+
+        return {
+            x: (viewportX - model.getOffsetX()) / zoomLevel,
+            y: (viewportY - model.getOffsetY()) / zoomLevel,
+        };
+    };
+
+    const getPositionLockKey = () => {
+        if (!topNode || !target) {
+            return;
+        }
+
+        const parentId = "id" in topNode ? topNode.id : "branch";
+        return `position_${parentId}_${target.line}_${target.offset}`;
+    };
+
+    const handleAddNode = (event: React.MouseEvent<SVGSVGElement>) => {
         if (readOnly || positionIsLocked) {
             return;
         }
@@ -108,7 +137,16 @@ export function EmptyNodeWidget(props: EmptyNodeWidgetProps) {
             console.error(">>> EmptyNodeWidget: handleAddNode: target not found");
             return;
         }
-        onAddNode(topNode, { startLine: target, endLine: target }, node.getID());
+
+        const anchorKey = getPositionLockKey();
+        const anchorPosition = getDiagramPositionFromElementCenter(event.currentTarget);
+        onAddNode(topNode, { startLine: target, endLine: target }, anchorKey, anchorPosition && anchorKey
+            ? {
+                anchorX: anchorPosition.x,
+                anchorY: anchorPosition.y,
+                anchorKey,
+            }
+            : undefined);
     };
 
     const handleAddPrompt = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
@@ -195,11 +233,11 @@ export function EmptyNodeWidget(props: EmptyNodeWidgetProps) {
                             onMouseEnter={() => !readOnly && !positionIsLocked && setIsNodeButtonHovered(true)}
                             onMouseLeave={() => setIsNodeButtonHovered(false)}
                             style={{
-                                cursor: positionIsLocked ? 'not-allowed' : 'pointer',
-                                opacity: positionIsLocked ? 0.4 : 1
+                                cursor: positionIsLocked ? "not-allowed" : "pointer",
+                                opacity: positionIsLocked ? 0.4 : 1,
                             }}
                         >
-                            {positionIsLocked && <title>Position locked by another user</title>}
+                        
                             <path
                                 fill={ThemeColors.SURFACE_BRIGHT}
                                 d="M12 0C5 0 0 5 0 12s5 12 12 12 12-5 12-12S19 0 12 0z"
@@ -235,6 +273,7 @@ export function EmptyNodeWidget(props: EmptyNodeWidgetProps) {
                         </svg>
                     </div>
                 )}
+                
                 {isCommentBoxOpen && (
                     <foreignObject>
                         <Popover
