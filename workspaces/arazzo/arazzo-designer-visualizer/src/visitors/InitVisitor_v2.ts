@@ -30,6 +30,7 @@ import { resolveReference } from '../utils/referenceUtils';
  */
 export class InitVisitor_v2 {
     private stepNodeMap: Map<string, FlowNode> = new Map();
+    private allNodes: Set<FlowNode> = new Set();
     private definition?: ArazzoDefinition;
 
     constructor(definition?: ArazzoDefinition) {
@@ -190,7 +191,7 @@ export class InitVisitor_v2 {
     }
 
     private createNode(id: string, type: any, label: string, data?: any): FlowNode {        //this creats a flownode object for a given step
-        return {
+        const node: FlowNode = {
             id, 
             type, 
             label, 
@@ -204,5 +205,12 @@ export class InitVisitor_v2 {
             },
             isMainSpine: false
         };
+        this.allNodes.add(node);
+        return node;
+    }
+
+
+    public getAllNodes(): FlowNode[] {
+        return Array.from(this.allNodes);
     }
 }

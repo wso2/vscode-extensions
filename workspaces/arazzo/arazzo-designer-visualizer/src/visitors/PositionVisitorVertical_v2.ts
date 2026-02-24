@@ -269,10 +269,10 @@ export class PositionVisitorVertical_v2 {
                 failNode.isInFailurePath = true; // Mark as part of failure path for rendering logic
                 if (this.levelTracker.has(failNode.columnNo)) {
                         failNode.levelNo = this.levelTracker.get(failNode.columnNo) + 1;
-                    } else {
-                        failNode.levelNo = 0;
-                    }
-                    this.levelTracker.set(failNode.columnNo, failNode.levelNo);
+                } else {
+                    failNode.levelNo = 0;
+                }
+                this.levelTracker.set(failNode.columnNo, failNode.levelNo);
                 console.log(`[Phase 2] Positioned failure node ${failNode.id} at (${failNode.viewState.x}, ${failNode.viewState.y}) [center-aligned]`);
             }
             if(failNode.type === 'CONDITION'){
