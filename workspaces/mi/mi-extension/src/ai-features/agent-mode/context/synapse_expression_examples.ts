@@ -20,7 +20,7 @@ export const SYNAPSE_EXPRESSION_EXAMPLES = `
 These are concise usage samples that complement SYNAPSE_EXPRESSIONS_DOCS.
 Use SYNAPSE_EXPRESSIONS_DOCS as the source of truth for syntax and constraints.
 
-- Example filter mediator configuration:
+### Example filter mediator configuration:
 \`\`\`xml
 <filter xpath="\${payload.store.book[?(@.price < 10)]}">
     <then>
@@ -36,7 +36,7 @@ Use SYNAPSE_EXPRESSIONS_DOCS as the source of truth for syntax and constraints.
 </filter>
 \`\`\`
 
-- Example switch mediator configuration:
+### Example switch mediator configuration:
 \`\`\`xml
 <switch source="\${vars.store.book[0].category}">
     <case regex="fiction">
@@ -52,7 +52,7 @@ Use SYNAPSE_EXPRESSIONS_DOCS as the source of truth for syntax and constraints.
 </switch>
 \`\`\`
 
-- Example of complex filtering using Synapse expressions:
+### Example of complex filtering using Synapse expressions:
 \`\`\`xml
 <?xml version="1.0" encoding="UTF-8"?>
 <api context="/promotion" name="promotionCheck" xmlns="http://ws.apache.org/ns/synapse">
@@ -68,5 +68,52 @@ Use SYNAPSE_EXPRESSIONS_DOCS as the source of truth for syntax and constraints.
         </faultSequence>
     </resource>
 </api>
+\`\`\`
+
+### PayloadFactory with Synapse expressions:
+- If you select default as the Template Type, you can define the payload using inline synapse expressions as shown below. This example defines a JSON payload.
+\`\`\`xml
+<payloadFactory description="Construct payload for addition operation" media-type="json">
+    <format>
+        {
+            "AddInteger": {
+                "Arg1": \${payload.grocery.arg1},
+                "Arg2": \${payload.grocery.arg2}
+            }
+        }
+    </format>
+</payloadFactory>
+\`\`\`
+
+- Now the Payload mediator supports FreeMarker Templates. If you select freemarker as the Template Type, you can define the payload as a FreeMarker template. The following example defines a JSON payload.
+\`\`\`xml
+<variable name="customer_id" type="STRING" value="43672343"/>
+<payloadFactory media-type="json" template-type="freemarker">
+    <format><![CDATA[{
+        "name": "\${payload.customer_name}"
+        "customer_id" : "\${vars.customer_id}",
+        "axis2 property": "\${props.axis2.REST_URL_POSTFIX}",
+        "trp property": "\${props.trp.Host}"
+        }]]>
+    </format>
+</payloadFactory>
+\`\`\`
+
+### Deprecated pattern
+- NEVER use <args> with $1/$2 placeholders in payloadFactory. This is a deprecated pattern. Always embed Synapse expressions directly inside <format>. Using <arg expression="\${...}"/> will fail at runtime with an XPath parse error because <args> only accepts XPath, not Synapse expressions.
+- Wrong deprecated syntax:
+\`\`\`xml
+<payloadFactory media-type="xml">
+    <format><root><value>$1</value></root></format>
+    <args>
+        <arg expression="\${vars.myValue}"/>
+    </args>
+</payloadFactory>
+\`\`\`
+- Correct syntax:
+\`\`\`xml
+<payloadFactory media-type="xml">
+    <format><root><value>\${vars.myValue}</value></root></format>
+</payloadFactory>
 \`\`\`
 `;

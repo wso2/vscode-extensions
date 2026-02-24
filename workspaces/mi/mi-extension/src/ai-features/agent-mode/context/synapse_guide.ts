@@ -152,7 +152,7 @@ export const SYNAPSE_GUIDE = `
     \`\`\`
     - Correct syntax:
     \`\`\`xml
-    <log category="INFO">
+    <log [category="INFO|TRACE|DEBUG|WARN|ERROR|FATAL"] [separator="string"] logMessageID=(true | false) logFullPayload=(true | false)>
        <message>Hello \${payload.name}, RequestID=\${vars.requestId}</message>
     </log>
     \`\`\`
@@ -210,30 +210,18 @@ export const SYNAPSE_GUIDE = `
     - Supported methods: GET, POST, PUT, DELETE, HEAD, PATCH, OPTIONS
 
 ## SOAP / XML Integration Recommendations
-    - For SOAP, prefer the \\\`call\\\` mediator with a named endpoint. Avoid the HTTP connector for SOAP because it is REST-focused and can cause stream-building issues with SOAP responses.
+    - For SOAP, use the \\\`call\\\` mediator with a named endpoint. Avoid the HTTP connector as it does not support SOAP.
     - Never assume HTTP for external services. Prefer HTTPS unless the service is explicitly HTTP-only.
 
-### SOAP response access after \\\`call\\\` (MI 4.x)
-    - After \\\`call\\\` to a SOAP endpoint with \\\`format="soap11"\\\`, MI 4.x exposes the SOAP response as JSON in message context.
-    - First access MUST use JSON payload paths (for example \\\`\\\${payload.ResponseElementName.ChildElement}\\\`).
-    - Do not use XPath as the first read after SOAP \\\`call\\\` (it can return empty on unbuilt pass-through messages).
-    - If XPath is required, force message build first:
-      \\\`<variable name="soapPayload" expression="\\\${payload}" type="JSON"/>\\\`
-      Then evaluate XPath in a later expression.
-
-### \\\`payloadFactory\\\` caveat for SOAP/XML
-    - In \\\`payloadFactory\\\`, \\\`<arg expression="...">\\\` is XPath-only, not Synapse-expression syntax. Never use \\\`\\\${...}\\\` inside \\\`<arg expression>\\\`.
-    - Prefer embedding Synapse expressions directly inside \\\`<format>\\\`:
-      \`\`\`xml
-      <payloadFactory media-type="xml">
-          <format>
-              <ns:Op xmlns:ns="http://example.com/">
-                  <ns:field>\${vars.myVar}</ns:field>
-              </ns:Op>
-          </format>
-      </payloadFactory>
-      \`\`\`
-    - If \\\`<arg expression>\\\` must be used, use valid XPath forms (for example \\\`get-property('varName')\\\`, \\\`$url:paramName\\\`, \\\`$ctx:varName\\\`), never \\\`\\\${...}\\\`.
+### SOAP response access after \`call\` (MI 4.x)
+    - \`\${payload}\` is ALWAYS JSON — including after a SOAP \`call\`. The Synapse expression engine converts all payloads to JSON for \`\${payload}\` access.
+    - ALWAYS extract SOAP response values using JSON paths. The JSON key names match the XML element local names (namespace prefix is stripped):
+    \`\`\`xml
+    <!-- SOAP response: <m:NumberToWordsResponse><m:NumberToWordsResult>five hundred -->
+    <variable name="result" expression="\${payload.NumberToWordsResponse.NumberToWordsResult}" type="STRING"/>
+    \`\`\`
+    - NEVER store \`\${payload}\` as \`type="XML"\` after a SOAP call — it will always fail with \`WstxUnexpectedCharException: Unexpected character '{'\` because the value is already JSON, not XML.
+    - AVOID \`xpath()\` on SOAP responses. The underlying XML body may not be materialized, causing \`xpath()\` to silently return empty strings with no error. Prefer JSON paths.
 
 ### SOAP namespace accuracy
     - Never infer SOAP operation namespace from service URL.
