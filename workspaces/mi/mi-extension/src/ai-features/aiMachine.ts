@@ -38,6 +38,47 @@ import {
 import { PromptObject } from '@wso2/mi-core';
 import { logError } from './copilot/logger';
 
+let silentPlatformBootstrapInFlight = false;
+
+const trySilentPlatformBootstrap = async (): Promise<void> => {
+    if (silentPlatformBootstrapInFlight) {
+        return;
+    }
+
+    // Only bootstrap when the machine is currently unauthenticated.
+    if (aiStateService.getSnapshot().value !== 'Unauthenticated') {
+        return;
+    }
+
+    silentPlatformBootstrapInFlight = true;
+    try {
+        const isLoggedIn = await isDevantUserLoggedIn();
+        if (!isLoggedIn) {
+            return;
+        }
+
+        const stsToken = await getPlatformStsToken();
+        if (!stsToken) {
+            return;
+        }
+
+        const secrets = await exchangeStsToCopilotToken(stsToken);
+        await storeAuthCredentials({
+            loginMethod: LoginMethod.MI_INTEL,
+            secrets
+        });
+
+        // Transition to authenticated only if state is still unauthenticated.
+        if (aiStateService.getSnapshot().value === 'Unauthenticated') {
+            aiStateService.send({ type: AI_EVENT_TYPE.SIGN_IN_SUCCESS });
+        }
+    } catch (error) {
+        logError('Silent platform auth bootstrap failed', error);
+    } finally {
+        silentPlatformBootstrapInFlight = false;
+    }
+};
+
 export const openAIWebview = (initialPrompt?: PromptObject) => {
     extension.initialPrompt = initialPrompt;
     if (!AiPanelWebview.currentPanel) {
@@ -45,6 +86,9 @@ export const openAIWebview = (initialPrompt?: PromptObject) => {
     } else {
         AiPanelWebview.currentPanel!.getWebview()?.reveal();
     }
+
+    // If platform session is already active, silently bootstrap auth for the AI panel.
+    void trySilentPlatformBootstrap();
 };
 
 export const closeAIWebview = () => {
@@ -155,6 +199,18 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                     target: 'Authenticating',
                     actions: assign({
                         loginMethod: (_ctx) => LoginMethod.AWS_BEDROCK
+                    })
+                },
+                [AI_EVENT_TYPE.COMPLETE_AUTH]: {
+                    target: 'Authenticated',
+                    actions: assign({
+                        errorMessage: (_ctx) => undefined,
+                    })
+                },
+                [AI_EVENT_TYPE.SIGN_IN_SUCCESS]: {
+                    target: 'Authenticated',
+                    actions: assign({
+                        errorMessage: (_ctx) => undefined,
                     })
                 }
             }
