@@ -235,7 +235,7 @@ describe('HurlRunnerImpl', () => {
 		});
 		expect(result.files.map(file => file.status)).toEqual(['passed', 'failed']);
 		expect(result.diagnostics.commandLine).toEqual(
-			expect.arrayContaining(['hurl', '--test', '-k', '-L', '--variable', 'token=abc'])
+			expect.arrayContaining(['hurl', '--test', '--continue-on-error', '-k', '-L', '--variable', 'token=abc'])
 		);
 	});
 
@@ -252,7 +252,26 @@ describe('HurlRunnerImpl', () => {
 
 		const hurlCall = adapter.calls.find(call => call.args.includes('--report-json'));
 		expect(hurlCall).toBeDefined();
-		expect(hurlCall?.args).toEqual(expect.arrayContaining(['--test', '-i']));
+		expect(hurlCall?.args).toEqual(expect.arrayContaining(['--test', '--continue-on-error', '-i']));
+	});
+
+	it('allows disabling continue-on-error per run', async () => {
+		const collection = await createCollection(['no-continue.hurl']);
+		createdDirs.push(collection.root);
+		const scenarios = new Map<string, MockScenario>([
+			[collection.files[0], { report: buildPassReport('no-continue') }]
+		]);
+		const adapter = new MockProcessAdapter(scenarios);
+		const runner = createRunner(adapter);
+
+		await runner.run(
+			{ collectionPath: collection.root },
+			{ parallelism: 1, continueOnError: false }
+		);
+
+		const hurlCall = adapter.calls.find(call => call.args.includes('--report-json'));
+		expect(hurlCall).toBeDefined();
+		expect(hurlCall?.args).not.toContain('--continue-on-error');
 	});
 
 	it('runStream emits progress events in expected order', async () => {

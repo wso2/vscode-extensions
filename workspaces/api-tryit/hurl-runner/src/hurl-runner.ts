@@ -320,6 +320,9 @@ export class HurlRunnerImpl implements HurlRunner {
 
 	private buildHurlArgs(filePath: string, reportPath: string, options: HurlRunOptions): string[] {
 		const args = [filePath, '--test', '--report-json', reportPath];
+		if (options.continueOnError !== false) {
+			args.push('--continue-on-error');
+		}
 
 		if (options.includeResponseOutput) {
 			args.push('-i');

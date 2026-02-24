@@ -174,6 +174,8 @@ export interface HurlEntryResult {
     status: 'passed' | 'failed' | 'error';
     durationMs?: number;
     assertions?: HurlAssertionResult[];
+    line?: number;
+    errorMessage?: string;
 }
 
 export interface HurlFileResult {

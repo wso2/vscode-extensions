@@ -26,6 +26,7 @@ import {
 	ApiRequestItem,
 	ApiRequest,
 	ApiResponse,
+	HurlEntryResult,
 	HurlRunEvent,
 	HurlRunStatus,
 	HurlRunSummary,
@@ -123,8 +124,10 @@ const toRunFileView = (file: Extract<HurlRunEvent, { type: 'fileFinished' }>['fi
 	filePath: file.filePath,
 	status: file.status,
 	durationMs: file.durationMs,
+	entries: file.entries || [],
 	assertions: file.assertions || [],
-	errorMessage: file.errorMessage
+	errorMessage: file.errorMessage,
+	stderr: file.stderr
 });
 
 const upsertRunFile = (files: HurlRunFileView[], nextFile: HurlRunFileView): HurlRunFileView[] => {
@@ -158,6 +161,7 @@ const applyRunEvent = (previous: RunViewState, event: HurlRunEvent): RunViewStat
 			files: upsertRunFile(previous.files, {
 				filePath: event.filePath,
 				status: 'running',
+				entries: [] as HurlEntryResult[],
 				assertions: []
 			})
 		};
@@ -194,8 +198,10 @@ const applyRunEvent = (previous: RunViewState, event: HurlRunEvent): RunViewStat
 				filePath: file.filePath,
 				status: file.status,
 				durationMs: file.durationMs,
+				entries: file.entries || [],
 				assertions: file.assertions || [],
-				errorMessage: file.errorMessage
+				errorMessage: file.errorMessage,
+				stderr: file.stderr
 			})),
 			completedFiles: event.result.summary.totalFiles,
 			totalFiles: event.result.summary.totalFiles,

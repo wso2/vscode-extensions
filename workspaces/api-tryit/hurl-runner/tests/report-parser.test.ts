@@ -73,16 +73,16 @@ describe('parseFileResult', () => {
 
 		expect(parsed.status).toBe('failed');
 		expect(parsed.durationMs).toBe(30);
-		expect(parsed.entries).toEqual([
-			{
-				name: 'Create user',
-				method: 'POST',
-				url: 'https://example.com/users',
-				statusCode: 500,
-				status: 'failed',
-				durationMs: 12
-			}
-		]);
+		expect(parsed.entries).toHaveLength(1);
+		expect(parsed.entries[0]).toMatchObject({
+			name: 'Create user',
+			method: 'POST',
+			url: 'https://example.com/users',
+			statusCode: 500,
+			status: 'failed',
+			durationMs: 12
+		});
+		expect(parsed.entries[0].assertions).toHaveLength(1);
 		expect(parsed.assertions).toEqual([
 			{
 				filePath: '/tmp/cases/create-user.hurl',
@@ -322,5 +322,69 @@ describe('parseFileResult', () => {
 		expect(parsed.assertions[0].expression).toBe('status == 201');
 		expect(parsed.assertions[1].expression).toBe('header "content-type" contains "application/json"');
 		expect(parsed.assertions[2].expression).toBe('jsonpath "$.id" exists');
+	});
+
+	it('maps request names from source by line and attaches assertions per request block', async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hurl-runner-report-'));
+		const hurlFilePath = path.join(tempDir, 'multi.hurl');
+		const reportPath = path.join(tempDir, 'report');
+		await fs.mkdir(reportPath, { recursive: true });
+
+		await fs.writeFile(
+			hurlFilePath,
+			[
+				'# @collectionName Demo',
+				'',
+				'# @name Create post',
+				'POST https://example.com/posts',
+				'HTTP 201',
+				'',
+				'[Asserts]',
+				'status == 202',
+				'',
+				'# @name Delete post',
+				'DELETE https://example.com/posts/1',
+				'HTTP 200',
+				'',
+				'[Asserts]',
+				'status == 200'
+			].join('\n'),
+			'utf8'
+		);
+
+		await fs.writeFile(
+			path.join(reportPath, 'report.json'),
+			JSON.stringify([
+				{
+					filename: hurlFilePath,
+					success: false,
+					entries: [
+						{ index: 1, line: 4, time: 12 },
+						{ index: 2, line: 11, time: 9 }
+					],
+					assertions: [
+						{ line: 8, success: false, message: 'expected 202, got 201' },
+						{ line: 12, success: true },
+						{ line: 15, success: true }
+					]
+				}
+			]),
+			'utf8'
+		);
+
+		const parsed = await parseFileResult({
+			filePath: hurlFilePath,
+			reportPath,
+			startedAt: new Date('2026-02-23T00:00:00.000Z'),
+			finishedAt: new Date('2026-02-23T00:00:00.020Z'),
+			execResult: makeExecResult({ exitCode: 3 })
+		});
+
+		expect(parsed.entries).toHaveLength(2);
+		expect(parsed.entries[0].name).toBe('Create post');
+		expect(parsed.entries[0].status).toBe('passed');
+		expect(parsed.entries[1].name).toBe('Delete post');
+		expect(parsed.entries[1].status).toBe('passed');
+		expect(parsed.assertions).toHaveLength(3);
 	});
 });

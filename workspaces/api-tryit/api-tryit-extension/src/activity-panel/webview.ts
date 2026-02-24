@@ -510,7 +510,9 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		const assertions = file.assertions.map(assertion => ({ ...assertion }));
 		const entries = file.entries.map(entry => ({
 			...entry,
-			assertions: assertions.filter(assertion => assertion.entryName === entry.name)
+			assertions: (entry.assertions && entry.assertions.length > 0)
+				? entry.assertions.map(assertion => ({ ...assertion }))
+				: assertions.filter(assertion => assertion.entryName === entry.name)
 		}));
 
 		return {

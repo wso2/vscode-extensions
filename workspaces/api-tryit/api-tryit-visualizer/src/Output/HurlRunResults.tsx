@@ -16,11 +16,12 @@
  * under the License.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { Typography, Codicon } from '@wso2/ui-toolkit';
 import type {
 	HurlAssertionResult,
+	HurlEntryResult,
 	HurlFileResult,
 	HurlRunStatus,
 	HurlRunSummary,
@@ -28,13 +29,16 @@ import type {
 } from '@wso2/api-tryit-core';
 
 export type HurlRunFileViewStatus = HurlFileResult['status'] | 'running';
+type HurlRunRequestViewStatus = HurlRunFileViewStatus;
 
 export interface HurlRunFileView {
 	filePath: string;
 	status: HurlRunFileViewStatus;
 	durationMs?: number;
+	entries: HurlEntryResult[];
 	assertions: HurlAssertionResult[];
 	errorMessage?: string;
+	stderr?: string;
 }
 
 interface HurlRunResultsProps {
@@ -47,18 +51,29 @@ interface HurlRunResultsProps {
 	errorMessage?: string;
 }
 
+interface RequestRunView {
+	id: string;
+	filePath: string;
+	name: string;
+	method?: string;
+	durationMs?: number;
+	status: HurlRunRequestViewStatus;
+	assertions: HurlAssertionResult[];
+	errorMessage?: string;
+}
+
 const Container = styled.div`
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
-	padding: 8px 0 0;
+	gap: 12px;
+	padding-top: 8px;
 `;
 
 const RunHeader = styled.div`
 	border: 1px solid var(--vscode-panel-border);
-	border-radius: 4px;
-	background: var(--vscode-tab-inactiveBackground, rgba(255, 255, 255, 0.03));
-	padding: 10px 12px;
+	border-radius: 6px;
+	background: var(--vscode-tab-inactiveBackground, rgba(255, 255, 255, 0.04));
+	padding: 14px 16px;
 `;
 
 const RunMeta = styled.div`
@@ -68,24 +83,50 @@ const RunMeta = styled.div`
 	gap: 10px;
 `;
 
-const StatusPill = styled.span<{ status: HurlRunFileViewStatus | HurlRunStatus | 'running' }>`
+const HeaderActions = styled.div`
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 10px;
+`;
+
+const HeaderActionButton = styled.button<{ active?: boolean }>`
+	height: 28px;
+	padding: 0 10px;
+	border-radius: 5px;
+	border: 1px solid ${({ active }) => active ? 'var(--vscode-focusBorder)' : 'var(--vscode-panel-border)'};
+	background: ${({ active }) =>
+		active
+			? 'var(--vscode-button-secondaryBackground, rgba(37, 99, 235, 0.45))'
+			: 'var(--vscode-input-background, rgba(255, 255, 255, 0.04))'};
+	color: var(--vscode-foreground);
+	font-size: 12px;
+	font-weight: 600;
+	cursor: pointer;
+
+	&:hover {
+		filter: brightness(1.08);
+	}
+`;
+
+const StatusPill = styled.span<{ status: HurlRunRequestViewStatus | HurlRunStatus | 'running' }>`
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-width: 74px;
-	height: 24px;
-	padding: 0 10px;
-	border-radius: 4px;
-	font-size: 11px;
+	min-width: 96px;
+	height: 32px;
+	padding: 0 12px;
+	border-radius: 6px;
+	font-size: 12px;
 	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: 0.2px;
 	background: ${({ status }) => {
-		if (status === 'passed') return 'rgba(34, 197, 94, 0.25)';
-		if (status === 'running') return 'rgba(14, 165, 233, 0.25)';
-		if (status === 'failed') return 'rgba(239, 68, 68, 0.25)';
-		if (status === 'error') return 'rgba(249, 115, 22, 0.25)';
-		if (status === 'cancelled') return 'rgba(100, 116, 139, 0.4)';
+		if (status === 'passed') return 'rgba(22, 163, 74, 0.35)';
+		if (status === 'running') return 'rgba(14, 165, 233, 0.35)';
+		if (status === 'failed') return 'rgba(185, 28, 28, 0.38)';
+		if (status === 'error') return 'rgba(194, 65, 12, 0.45)';
+		if (status === 'cancelled') return 'rgba(100, 116, 139, 0.45)';
 		return 'rgba(100, 116, 139, 0.25)';
 	}};
 	color: ${({ status }) => {
@@ -101,75 +142,139 @@ const StatusPill = styled.span<{ status: HurlRunFileViewStatus | HurlRunStatus |
 const List = styled.div`
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: 10px;
 `;
 
-const FileCard = styled.div<{ status: HurlRunFileViewStatus; expanded: boolean }>`
+const RequestCard = styled.div<{ status: HurlRunRequestViewStatus }>`
 	border: 1px solid
-		${({ status }) => (status === 'failed' ? 'rgba(239, 68, 68, 0.45)' : 'var(--vscode-panel-border)')};
-	border-radius: 4px;
+		${({ status }) => (status === 'failed' || status === 'error'
+			? 'rgba(239, 68, 68, 0.5)'
+			: 'var(--vscode-panel-border)')};
+	border-radius: 6px;
 	background: var(--vscode-editor-background);
 	overflow: hidden;
 `;
 
-const FileHeader = styled.button`
+const RequestHeader = styled.button`
 	width: 100%;
-	text-align: left;
-	padding: 10px 12px;
 	border: none;
 	background: var(--vscode-tab-inactiveBackground, rgba(255, 255, 255, 0.03));
 	color: var(--vscode-foreground);
+	padding: 10px 12px;
 	cursor: pointer;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 10px;
+	gap: 12px;
+	text-align: left;
 `;
 
-const FileHeaderLeft = styled.div`
+const RequestHeaderLeft = styled.div`
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	min-width: 0;
 `;
 
-const FileNameWrap = styled.div`
+const RequestNameWrap = styled.div`
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+`;
+
+const RequestNameTextWrap = styled.div`
 	display: flex;
 	flex-direction: column;
 	min-width: 0;
 `;
 
-const FileName = styled.span`
-	font-size: 14px;
-	font-weight: 600;
+const RequestName = styled.span`
+	font-size: 16px;
+	font-weight: 700;
 	color: var(--vscode-foreground);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 `;
 
-const FileHint = styled.span`
+const RequestHint = styled.span`
 	font-size: 12px;
 	color: var(--vscode-descriptionForeground);
 `;
 
-const FileBody = styled.div`
-	padding: 10px 12px 12px;
+const MethodPill = styled.span<{ method?: string }>`
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 22px;
+	min-width: 52px;
+	padding: 0 8px;
+	border-radius: 6px;
+	font-size: 11px;
+	font-weight: 700;
+	background: ${({ method }) => {
+		if (method === 'GET') return 'rgba(59, 130, 246, 0.85)';
+		if (method === 'POST') return 'rgba(34, 197, 94, 0.85)';
+		if (method === 'PUT') return 'rgba(245, 158, 11, 0.9)';
+		if (method === 'DELETE') return 'rgba(239, 68, 68, 0.9)';
+		if (method === 'HEAD') return 'rgba(148, 163, 184, 0.9)';
+		return 'rgba(100, 116, 139, 0.8)';
+	}};
+	color: #f8fafc;
+`;
+
+const RequestBody = styled.div`
+	padding: 12px;
 	border-top: 1px solid var(--vscode-panel-border);
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: 10px;
+`;
+
+const SectionTitle = styled.div`
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--vscode-descriptionForeground);
+	text-transform: uppercase;
+	letter-spacing: 0.2px;
 `;
 
 const AssertionRow = styled.div<{ passed: boolean }>`
-	border: 1px solid ${({ passed }) => (passed ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.35)')};
-	border-radius: 4px;
+	border: 1px solid ${({ passed }) => (passed ? 'rgba(22, 163, 74, 0.45)' : 'rgba(239, 68, 68, 0.5)')};
+	border-radius: 5px;
 	padding: 8px 10px;
-	background: ${({ passed }) => (passed ? 'rgba(21, 128, 61, 0.2)' : 'rgba(127, 29, 29, 0.25)')};
+	background: ${({ passed }) => (passed ? 'rgba(20, 83, 45, 0.45)' : 'rgba(127, 29, 29, 0.35)')};
+`;
+
+const AssertionTitle = styled.div`
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 15px;
+	font-weight: 700;
+`;
+
+const AssertionMeta = styled.div`
+	margin-top: 4px;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	white-space: pre-wrap;
+`;
+
+const ErrorBox = styled.div`
+	border: 1px solid rgba(239, 68, 68, 0.5);
+	border-radius: 5px;
+	background: rgba(127, 29, 29, 0.25);
+	padding: 10px;
+	color: #fca5a5;
+	font-size: 13px;
+	font-weight: 600;
+	white-space: pre-wrap;
 `;
 
 const EmptyState = styled.div`
-	padding: 24px 0;
+	padding: 22px 0;
 	text-align: center;
 	color: var(--vscode-descriptionForeground);
 `;
@@ -187,8 +292,11 @@ function formatDuration(durationMs?: number): string {
 	return `${durationMs} ms`;
 }
 
-function normalizeAssertionText(value?: string): string {
-	return typeof value === 'string' ? value.trim() : '';
+function formatTotalDuration(durationMs: number): string {
+	if (durationMs < 1000) {
+		return `${durationMs} ms`;
+	}
+	return `${(durationMs / 1000).toFixed(1)} s`;
 }
 
 function dedupeAssertions(assertions: HurlAssertionResult[]): HurlAssertionResult[] {
@@ -196,36 +304,68 @@ function dedupeAssertions(assertions: HurlAssertionResult[]): HurlAssertionResul
 	const deduped: HurlAssertionResult[] = [];
 
 	for (const assertion of assertions) {
-		const normalizedExpression = normalizeAssertionText(assertion.expression);
-		const normalizedExpected = normalizeAssertionText(assertion.expected);
-		const normalizedActual = normalizeAssertionText(assertion.actual);
-		const normalizedMessage = normalizeAssertionText(assertion.message);
-		const normalizedEntryName = normalizeAssertionText(assertion.entryName);
-		const line = typeof assertion.line === 'number' ? String(assertion.line) : '';
-
-		const fingerprint = [
+		const key = [
 			assertion.status,
-			normalizedExpression,
-			normalizedExpected,
-			normalizedActual,
-			normalizedMessage,
-			normalizedEntryName,
-			line
+			assertion.expression.trim(),
+			assertion.expected?.trim() || '',
+			assertion.actual?.trim() || '',
+			assertion.message?.trim() || '',
+			assertion.entryName?.trim() || '',
+			typeof assertion.line === 'number' ? String(assertion.line) : ''
 		].join('\u001F');
 
-		if (seen.has(fingerprint)) {
+		if (seen.has(key)) {
 			continue;
 		}
 
-		seen.add(fingerprint);
-		deduped.push(
-			normalizedExpression === assertion.expression
-				? assertion
-				: { ...assertion, expression: normalizedExpression || assertion.expression }
-		);
+		seen.add(key);
+		deduped.push(assertion);
 	}
 
 	return deduped;
+}
+
+function isFailedStatus(status: HurlRunRequestViewStatus | HurlRunStatus): boolean {
+	return status === 'failed' || status === 'error';
+}
+
+function deriveRequestStatus(
+	fileStatus: HurlRunFileViewStatus,
+	entryStatus: HurlEntryResult['status'],
+	assertions: HurlAssertionResult[],
+	errorMessage?: string
+): HurlRunRequestViewStatus {
+	if (fileStatus === 'running') {
+		return 'running';
+	}
+	if (errorMessage || entryStatus === 'error') {
+		return 'error';
+	}
+	if (entryStatus === 'failed' || assertions.some(assertion => assertion.status === 'failed')) {
+		return 'failed';
+	}
+	if (fileStatus === 'skipped') {
+		return 'skipped';
+	}
+	return 'passed';
+}
+
+function splitAssertions(assertions: HurlAssertionResult[]): {
+	builtIn: HurlAssertionResult[];
+	custom: HurlAssertionResult[];
+} {
+	const builtIn: HurlAssertionResult[] = [];
+	const custom: HurlAssertionResult[] = [];
+
+	for (const assertion of assertions) {
+		if (/^HTTP\b/i.test(assertion.expression.trim())) {
+			builtIn.push(assertion);
+		} else {
+			custom.push(assertion);
+		}
+	}
+
+	return { builtIn, custom };
 }
 
 export const HurlRunResults: React.FC<HurlRunResultsProps> = ({
@@ -234,136 +374,246 @@ export const HurlRunResults: React.FC<HurlRunResultsProps> = ({
 	files,
 	completedFiles,
 	totalFiles,
-	summary,
 	errorMessage
 }) => {
-	const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+	const requestViews = useMemo<RequestRunView[]>(() => {
+		const views: RequestRunView[] = [];
 
-	const sortedFiles = useMemo(() => {
-		const rank: Record<HurlRunFileViewStatus, number> = {
-			failed: 0,
-			error: 1,
-			running: 2,
-			passed: 3,
-			skipped: 4
-		};
-
-		return [...files].sort((left, right) => {
-			const leftRank = rank[left.status];
-			const rightRank = rank[right.status];
-			if (leftRank !== rightRank) {
-				return leftRank - rightRank;
+		for (const file of files) {
+			if (file.entries.length === 0) {
+				const assertions = dedupeAssertions(file.assertions || []);
+				views.push({
+					id: `${file.filePath}::file`,
+					filePath: file.filePath,
+					name: getFileName(file.filePath),
+					durationMs: file.durationMs,
+					status: deriveRequestStatus(file.status, 'passed', assertions, file.errorMessage),
+					assertions,
+					errorMessage: file.errorMessage
+				});
+				continue;
 			}
-			return left.filePath.localeCompare(right.filePath);
-		});
+
+			file.entries.forEach((entry, index) => {
+				const currentLine = typeof entry.line === 'number' ? entry.line : undefined;
+				const nextLine = index < file.entries.length - 1 && typeof file.entries[index + 1].line === 'number'
+					? file.entries[index + 1].line
+					: undefined;
+				const fallbackAssertions = (file.assertions || []).filter(assertion => {
+					if (assertion.entryName && assertion.entryName === entry.name) {
+						return true;
+					}
+
+					if (typeof assertion.line !== 'number' || typeof currentLine !== 'number') {
+						return false;
+					}
+
+					const endLine = typeof nextLine === 'number' ? nextLine - 1 : Number.MAX_SAFE_INTEGER;
+					return assertion.line >= currentLine && assertion.line <= endLine;
+				});
+					const assertions = dedupeAssertions(
+						Array.isArray(entry.assertions) && entry.assertions.length > 0
+							? entry.assertions
+							: fallbackAssertions
+					);
+				const entryError = entry.errorMessage || file.errorMessage;
+
+				views.push({
+					id: `${file.filePath}::${entry.line || index}::${entry.name}`,
+					filePath: file.filePath,
+					name: entry.name || `Request ${index + 1}`,
+					method: entry.method?.toUpperCase(),
+					durationMs: entry.durationMs,
+					status: deriveRequestStatus(file.status, entry.status, assertions, entryError),
+					assertions,
+					errorMessage: entryError
+				});
+			});
+		}
+
+		return views;
 	}, [files]);
 
-	const togglePath = (filePath: string): void => {
-		setExpandedPaths(prev => {
-			const next = new Set(prev);
-			if (next.has(filePath)) {
-				next.delete(filePath);
+	const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+	const [showFailedOnly, setShowFailedOnly] = useState(false);
+
+	useEffect(() => {
+		setExpandedIds(previous => {
+			const ids = new Set(requestViews.map(view => view.id));
+			const next = new Set<string>();
+			for (const value of previous) {
+				if (ids.has(value)) {
+					next.add(value);
+				}
+			}
+			return next;
+		});
+	}, [requestViews]);
+
+	const visibleRequests = useMemo(
+		() => showFailedOnly
+			? requestViews.filter(view => isFailedStatus(view.status))
+			: requestViews,
+		[requestViews, showFailedOnly]
+	);
+
+	const passedRequests = requestViews.filter(view => view.status === 'passed').length;
+	const failedRequests = requestViews.filter(view => isFailedStatus(view.status)).length;
+	const totalDuration = requestViews.reduce((sum, view) => sum + (view.durationMs || 0), 0);
+
+	const toggleExpanded = (id: string): void => {
+		setExpandedIds(previous => {
+			const next = new Set(previous);
+			if (next.has(id)) {
+				next.delete(id);
 			} else {
-				next.add(filePath);
+				next.add(id);
 			}
 			return next;
 		});
 	};
 
+	const expandAll = (): void => {
+		setExpandedIds(new Set(visibleRequests.map(view => view.id)));
+	};
+
+	const collapseAll = (): void => {
+		setExpandedIds(new Set());
+	};
+
+	const summaryText = status === 'running'
+		? `${completedFiles}/${totalFiles} files running`
+		: `${requestViews.length} requests • ${passedRequests} passed • ${failedRequests} failed • ${formatTotalDuration(totalDuration)}`;
+
 	return (
 		<Container>
 			<RunHeader>
-				<Typography variant="subtitle1" sx={{ margin: 0 }}>
-					Run Results{context ? ` · ${context.label}` : ''}
-				</Typography>
 				<RunMeta>
-					<Typography variant="caption" sx={{ opacity: 0.8 }}>
-						{totalFiles > 0 ? `${completedFiles}/${totalFiles} files` : 'No files to run'}
-						{summary ? ` · ${summary.failedFiles} failed` : ''}
-					</Typography>
-					<StatusPill status={status}>{status}</StatusPill>
+					<div>
+						<Typography variant="h3">
+							Run Results • {context?.label || 'Collection'}
+						</Typography>
+						<Typography variant="body2" sx={{ opacity: 0.8 }}>
+							{summaryText}
+						</Typography>
+					</div>
+					<StatusPill status={status}>
+						{status === 'running' ? 'Running' : status}
+					</StatusPill>
 				</RunMeta>
-				{errorMessage ? (
-					<Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', marginTop: '6px' }}>
-						{errorMessage}
-					</Typography>
-				) : null}
+				{requestViews.length > 0 && (
+					<HeaderActions>
+						<HeaderActionButton active={showFailedOnly} onClick={() => setShowFailedOnly(value => !value)}>
+							Failed Only
+						</HeaderActionButton>
+						<HeaderActionButton onClick={expandAll}>Expand All</HeaderActionButton>
+						<HeaderActionButton onClick={collapseAll}>Collapse All</HeaderActionButton>
+					</HeaderActions>
+				)}
 			</RunHeader>
 
-			<List>
-				{sortedFiles.length === 0 ? (
-					<EmptyState>No request results yet.</EmptyState>
-				) : (
-					sortedFiles.map(file => {
-						const expanded = expandedPaths.has(file.filePath);
-						const uniqueAssertions = dedupeAssertions(file.assertions);
-						const failedAssertions = uniqueAssertions.filter(assertion => assertion.status === 'failed');
-						const passedAssertions = uniqueAssertions.filter(assertion => assertion.status === 'passed');
+			{errorMessage ? (
+				<ErrorBox>{errorMessage}</ErrorBox>
+			) : visibleRequests.length === 0 ? (
+				<EmptyState>
+					<Typography variant="body2">
+						{showFailedOnly ? 'No failed requests.' : 'No run results yet.'}
+					</Typography>
+				</EmptyState>
+			) : (
+				<List>
+					{visibleRequests.map(request => {
+						const isExpanded = expandedIds.has(request.id);
+						const { builtIn, custom } = splitAssertions(request.assertions);
+						const checksCount = request.assertions.length;
 
 						return (
-							<FileCard key={file.filePath} status={file.status} expanded={expanded}>
-								<FileHeader type="button" onClick={() => togglePath(file.filePath)}>
-									<FileHeaderLeft>
-										<Codicon name={expanded ? 'chevron-down' : 'chevron-right'} />
-										<FileNameWrap>
-											<FileName>{getFileName(file.filePath)}</FileName>
-											<FileHint>
-												{uniqueAssertions.length} assertions · {formatDuration(file.durationMs)}
-											</FileHint>
-										</FileNameWrap>
-									</FileHeaderLeft>
-									<StatusPill status={file.status}>{file.status}</StatusPill>
-								</FileHeader>
+							<RequestCard key={request.id} status={request.status}>
+								<RequestHeader onClick={() => toggleExpanded(request.id)}>
+									<RequestHeaderLeft>
+										<Codicon
+											name={isExpanded ? 'chevron-down' : 'chevron-right'}
+											iconSx={{ fontSize: 16, color: 'var(--vscode-descriptionForeground)' }}
+										/>
+										<RequestNameWrap>
+											<RequestNameTextWrap>
+												<RequestName>{request.name}</RequestName>
+												<RequestHint>
+													{checksCount} checks • {formatDuration(request.durationMs)}
+												</RequestHint>
+											</RequestNameTextWrap>
+											{request.method && <MethodPill method={request.method}>{request.method}</MethodPill>}
+										</RequestNameWrap>
+									</RequestHeaderLeft>
+									<StatusPill status={request.status}>
+										{request.status}
+									</StatusPill>
+								</RequestHeader>
 
-								{expanded ? (
-									<FileBody>
-										{uniqueAssertions.length === 0 ? (
-											<Typography variant="caption" sx={{ opacity: 0.7 }}>
+								{isExpanded && (
+									<RequestBody>
+										{builtIn.length > 0 && (
+											<>
+												<SectionTitle>Built-in HTTP checks</SectionTitle>
+												{builtIn.map((assertion, index) => {
+													const passed = assertion.status === 'passed';
+													return (
+														<AssertionRow key={`${request.id}-built-in-${index}`} passed={passed}>
+															<AssertionTitle>{passed ? '✓' : '✕'} {assertion.expression}</AssertionTitle>
+															{(!passed || assertion.message) && (
+																<AssertionMeta>
+																	{[
+																		assertion.expected ? `expected ${assertion.expected}` : undefined,
+																		assertion.actual ? `actual ${assertion.actual}` : undefined,
+																		typeof assertion.line === 'number' ? `line ${assertion.line}` : undefined,
+																		assertion.message
+																	].filter(Boolean).join(', ')}
+																</AssertionMeta>
+															)}
+														</AssertionRow>
+													);
+												})}
+											</>
+										)}
+
+										{custom.length > 0 && (
+											<>
+												<SectionTitle>Custom Asserts</SectionTitle>
+												{custom.map((assertion, index) => {
+													const passed = assertion.status === 'passed';
+													return (
+														<AssertionRow key={`${request.id}-custom-${index}`} passed={passed}>
+															<AssertionTitle>{passed ? '✓' : '✕'} {assertion.expression}</AssertionTitle>
+															{(!passed || assertion.message) && (
+																<AssertionMeta>
+																	{[
+																		assertion.expected ? `expected ${assertion.expected}` : undefined,
+																		assertion.actual ? `actual ${assertion.actual}` : undefined,
+																		typeof assertion.line === 'number' ? `line ${assertion.line}` : undefined,
+																		assertion.message
+																	].filter(Boolean).join(', ')}
+																</AssertionMeta>
+															)}
+														</AssertionRow>
+													);
+												})}
+											</>
+										)}
+
+										{checksCount === 0 && !request.errorMessage && (
+											<Typography variant="body3" sx={{ opacity: 0.8 }}>
 												No assertions captured for this request.
 											</Typography>
-										) : null}
-										{failedAssertions.map((assertion, index) => (
-											<AssertionRow
-												key={`${file.filePath}-failed-${index}-${assertion.expression}-${assertion.line || 0}`}
-												passed={false}
-											>
-												<Typography variant="caption" sx={{ fontWeight: 600 }}>
-													✗ {assertion.expression}
-												</Typography>
-												<Typography variant="caption" sx={{ display: 'block', opacity: 0.9 }}>
-													{assertion.expected ? `expected ${assertion.expected}` : 'expected value'}
-													{assertion.actual ? `, actual ${assertion.actual}` : ''}
-													{typeof assertion.line === 'number' ? `, line ${assertion.line}` : ''}
-												</Typography>
-												{assertion.message ? (
-													<Typography variant="caption" sx={{ display: 'block', opacity: 0.9 }}>
-														{assertion.message}
-													</Typography>
-												) : null}
-											</AssertionRow>
-										))}
-										{passedAssertions.map((assertion, index) => (
-											<AssertionRow
-												key={`${file.filePath}-passed-${index}-${assertion.expression}-${assertion.line || 0}`}
-												passed
-											>
-												<Typography variant="caption" sx={{ fontWeight: 600 }}>
-													✓ {assertion.expression}
-												</Typography>
-											</AssertionRow>
-										))}
-										{file.errorMessage ? (
-											<Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>
-												{file.errorMessage}
-											</Typography>
-										) : null}
-									</FileBody>
-								) : null}
-							</FileCard>
+										)}
+
+										{request.errorMessage && <ErrorBox>{request.errorMessage}</ErrorBox>}
+									</RequestBody>
+								)}
+							</RequestCard>
 						);
-					})
-				)}
-			</List>
+					})}
+				</List>
+			)}
 		</Container>
 	);
 };

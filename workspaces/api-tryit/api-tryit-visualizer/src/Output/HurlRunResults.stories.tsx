@@ -19,32 +19,102 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { HurlRunResults, HurlRunFileView } from './HurlRunResults';
 
-const failedFile: HurlRunFileView = {
-	filePath: '/workspace/api-test/payments/update-payment.hurl',
+const runFile: HurlRunFileView = {
+	filePath: '/workspace/api-test/multiDemo.hurl',
 	status: 'failed',
-	durationMs: 198,
-	assertions: [
+	durationMs: 1929,
+	assertions: [],
+	entries: [
 		{
-			filePath: '/workspace/api-test/payments/update-payment.hurl',
-			expression: 'status == 200',
+			name: 'Create post',
+			method: 'POST',
 			status: 'failed',
-			expected: '200',
-			actual: '500',
-			line: 28,
-			message: 'Expected HTTP status 200'
+			durationMs: 498,
+			line: 4,
+			assertions: [
+				{
+					filePath: '/workspace/api-test/multiDemo.hurl',
+					entryName: 'Create post',
+					expression: 'status == 202',
+					status: 'failed',
+					expected: 'integer <202>',
+					actual: 'integer <201>',
+					line: 15,
+					message: 'Assert failure'
+				},
+				{
+					filePath: '/workspace/api-test/multiDemo.hurl',
+					entryName: 'Create post',
+					expression: 'HTTP 201',
+					status: 'passed'
+				}
+			]
 		},
 		{
-			filePath: '/workspace/api-test/payments/update-payment.hurl',
-			expression: 'jsonpath "$.paymentId" exists',
-			status: 'failed',
-			actual: 'null',
-			line: 30,
-			message: 'paymentId is missing'
+			name: 'Delete post',
+			method: 'DELETE',
+			status: 'passed',
+			durationMs: 82,
+			line: 18,
+			assertions: [
+				{
+					filePath: '/workspace/api-test/multiDemo.hurl',
+					entryName: 'Delete post',
+					expression: 'HTTP 200',
+					status: 'passed'
+				},
+				{
+					filePath: '/workspace/api-test/multiDemo.hurl',
+					entryName: 'Delete post',
+					expression: 'status == 200',
+					status: 'passed'
+				}
+			]
 		},
 		{
-			filePath: '/workspace/api-test/payments/update-payment.hurl',
-			expression: 'header "content-type" contains "application/json"',
-			status: 'passed'
+			name: 'Update post',
+			method: 'PUT',
+			status: 'passed',
+			durationMs: 91,
+			line: 27,
+			assertions: [
+				{
+					filePath: '/workspace/api-test/multiDemo.hurl',
+					entryName: 'Update post',
+					expression: 'HTTP 200',
+					status: 'passed'
+				},
+				{
+					filePath: '/workspace/api-test/multiDemo.hurl',
+					entryName: 'Update post',
+					expression: 'status == 200',
+					status: 'passed'
+				}
+			]
+		},
+		{
+			name: 'Test',
+			method: 'POST',
+			status: 'error',
+			durationMs: 15,
+			line: 38,
+			errorMessage: 'file tests.zip can not be read',
+			assertions: []
+		},
+		{
+			name: 'Head Request',
+			method: 'HEAD',
+			status: 'passed',
+			durationMs: 42,
+			line: 44,
+			assertions: [
+				{
+					filePath: '/workspace/api-test/multiDemo.hurl',
+					entryName: 'Head Request',
+					expression: 'HTTP 200',
+					status: 'passed'
+				}
+			]
 		}
 	]
 };
@@ -58,8 +128,8 @@ const meta: Meta<typeof HurlRunResults> = {
 	args: {
 		context: {
 			scope: 'collection',
-			label: 'Multi Hurl Demo',
-			sourcePath: '/workspace/api-test/multi-hurl-demo'
+			label: 'Multi Demo',
+			sourcePath: '/workspace/api-test'
 		}
 	}
 };
@@ -70,27 +140,14 @@ type Story = StoryObj<typeof HurlRunResults>;
 export const Running: Story = {
 	args: {
 		status: 'running',
-		completedFiles: 2,
-		totalFiles: 5,
+		completedFiles: 0,
+		totalFiles: 1,
 		files: [
 			{
-				filePath: '/workspace/api-test/payments/create-payment.hurl',
-				status: 'passed',
-				durationMs: 142,
-				assertions: [
-					{
-						filePath: '/workspace/api-test/payments/create-payment.hurl',
-						expression: 'status == 201',
-						status: 'passed'
-					}
-				]
-			},
-			{
-				filePath: '/workspace/api-test/payments/get-payment.hurl',
+				...runFile,
 				status: 'running',
-				assertions: []
-			},
-			failedFile
+				entries: runFile.entries.map(entry => ({ ...entry, status: 'passed', assertions: [] }))
+			}
 		]
 	}
 };
@@ -98,33 +155,9 @@ export const Running: Story = {
 export const Failed: Story = {
 	args: {
 		status: 'failed',
-		completedFiles: 5,
-		totalFiles: 5,
-		summary: {
-			totalFiles: 5,
-			passedFiles: 3,
-			failedFiles: 2,
-			errorFiles: 0,
-			skippedFiles: 0,
-			totalEntries: 5,
-			passedEntries: 3,
-			failedEntries: 2
-		},
-		files: [
-			{
-				filePath: '/workspace/api-test/payments/create-payment.hurl',
-				status: 'passed',
-				durationMs: 142,
-				assertions: [{ filePath: '/workspace/api-test/payments/create-payment.hurl', expression: 'status == 201', status: 'passed' }]
-			},
-			failedFile,
-			{
-				filePath: '/workspace/api-test/payments/history.hurl',
-				status: 'passed',
-				durationMs: 98,
-				assertions: [{ filePath: '/workspace/api-test/payments/history.hurl', expression: 'status == 200', status: 'passed' }]
-			}
-		]
+		completedFiles: 1,
+		totalFiles: 1,
+		files: [runFile]
 	}
 };
 

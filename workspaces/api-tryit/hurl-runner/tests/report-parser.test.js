@@ -96,16 +96,16 @@ describe('parseFileResult', () => {
         });
         expect(parsed.status).toBe('failed');
         expect(parsed.durationMs).toBe(30);
-        expect(parsed.entries).toEqual([
-            {
-                name: 'Create user',
-                method: 'POST',
-                url: 'https://example.com/users',
-                statusCode: 500,
-                status: 'failed',
-                durationMs: 12
-            }
-        ]);
+        expect(parsed.entries).toHaveLength(1);
+        expect(parsed.entries[0]).toMatchObject({
+            name: 'Create user',
+            method: 'POST',
+            url: 'https://example.com/users',
+            statusCode: 500,
+            status: 'failed',
+            durationMs: 12
+        });
+        expect(parsed.entries[0].assertions).toHaveLength(1);
         expect(parsed.assertions).toEqual([
             {
                 filePath: '/tmp/cases/create-user.hurl',

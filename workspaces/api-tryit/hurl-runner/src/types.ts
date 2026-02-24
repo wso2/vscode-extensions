@@ -14,6 +14,7 @@ export interface HurlRunInput {
 export interface HurlRunOptions {
 	parallelism?: number;
 	failFast?: boolean;
+	continueOnError?: boolean;
 	timeoutMs?: number;
 	env?: Record<string, string>;
 	variables?: Record<string, string>;
@@ -72,6 +73,9 @@ export interface HurlEntryResult {
 	statusCode?: number;
 	status: 'passed' | 'failed' | 'error';
 	durationMs?: number;
+	assertions?: HurlAssertionResult[];
+	line?: number;
+	errorMessage?: string;
 }
 
 export interface HurlAssertionResult {
