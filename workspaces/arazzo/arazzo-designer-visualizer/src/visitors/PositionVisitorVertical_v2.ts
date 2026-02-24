@@ -29,6 +29,7 @@ export class PositionVisitorVertical_v2 {
     private visited = new Set<string>();
     private mainSpineVisited = new Set<string>(); // Track visited nodes during main spine positioning
     private nodePositions: Array<{ id: string; x: number; y: number; w: number; h: number }> = [];
+    private levelTracker: Map<number, number> = new Map(); // Track max level for each column
 
     constructor(depthSearch: DepthSearch, spineX: number = 0) {
         this.mainPathNodes = depthSearch.getHappyPathNodes();
@@ -73,6 +74,7 @@ export class PositionVisitorVertical_v2 {
         node.isPositioned = true;
         node.isMainSpine = true; // Mark as main spine node for rendering logic 
         node.columnNo = 0; // Main spine is column 0
+        node.levelNo = 0; // Set level 0 for the main spine as there are no sub sections in the main spine
 
         // Track positioned node for collision detection
         if (node.type === 'STEP') {
@@ -146,6 +148,7 @@ export class PositionVisitorVertical_v2 {
         if (this.visited.has(node.id)) {
             return;
         }
+        node.isInFailurePath = isInFailPath; // Mark node as part of failure path if applicable
         console.log(`came to ${node.id}`);
         if (!isImmediateCondition_and_Firsttime) {      //if its an immediate condition node and we are visiting it for the first time, we skip marking it as visited as we want to come back to it again
             this.visited.add(node.id);
@@ -172,9 +175,9 @@ export class PositionVisitorVertical_v2 {
                     child.viewState.x = nodeX + (node.viewState.w/2) - (child.viewState.w/2); // Position to the right of parent
                     child.viewState.y = nextY;
                     child.isPositioned = true;
-                    //child.columnNo = node.columnNo; // Set column number based on parent
-                    //child.levelNo = node.levelNo;
-                    //child.isMainSpine = false; // Mark as non-spine node for rendering logic
+                    child.columnNo = node.columnNo; // Set column number based on parent
+                    child.levelNo = node.levelNo;
+                    child.isMainSpine = false; // Mark as non-spine node for rendering logic
 
                     // Track positioned node for collision detection
                     if (child.type === 'STEP') {
@@ -212,11 +215,23 @@ export class PositionVisitorVertical_v2 {
 
                 if (!head.isPositioned) {
                     //const branchCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (i + 1);
-                    const branchCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * (isFailPathCondition? (i) : (i + 1)); // Position to the right of parent
+                    const currentCenterX = node.viewState.x + node.viewState.w/2;
+                    const colShift = (isFailPathCondition? (i) : (i + 1)) //branches can exist in both the success path condition blocks and the failure path condition blocks as well. in the success path case, the 1st positioning head must always shift. But in the failure condition case, the first positionin head must be directly under the condition block
+                    const branchCenterX = currentCenterX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical) * colShift; // Position to the right of parent
                     head.viewState.x = branchCenterX - (head.viewState.w / 2);
                     //head.viewState.y = (!isFailPathCondition) ? nextY - C.CONDITION_NODE_SECOND_BRANCH_OFFSET : nextY
                     head.viewState.y = (head.type == 'RETRY') ? nextY_RETRY : nextY;
                     head.isPositioned = true;
+                    head.columnNo = node.columnNo + colShift  // Set column number based on parent
+                    
+                    if (this.levelTracker.has(head.columnNo)) {
+                        head.levelNo = this.levelTracker.get(head.columnNo) + 1;
+                    } else {
+                        head.levelNo = 0;
+                    }
+                    this.levelTracker.set(head.columnNo, head.levelNo);
+
+                    head.isMainSpine = false; // Mark as non-spine node for rendering logic
 
                     // Track positioned node for collision detection
                     if (head.type === 'STEP') {
@@ -244,16 +259,26 @@ export class PositionVisitorVertical_v2 {
             const failNode = node.failureNode;
             if (!failNode.isPositioned) {
                 // Position failure node to the right (center-aligned)
-                const failCenterX = node.viewState.x + node.viewState.w/2 + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical);
+                const currentCenterX = node.viewState.x + node.viewState.w/2;
+                const failCenterX = currentCenterX + (C.NODE_WIDTH + C.NODE_GAP_X_Vertical);
                 failNode.viewState.x = failCenterX - (failNode.viewState.w / 2);
                 failNode.viewState.y = node.viewState.y + (node.viewState.h / 2) - (failNode.viewState.h / 2); // Center-aligned vertically with parent
                 failNode.isPositioned = true;
+                failNode.columnNo = node.columnNo + 1; // Set column number based on parent
+                failNode.isMainSpine = false; // Mark as non-spine node for rendering logic
+                failNode.isInFailurePath = true; // Mark as part of failure path for rendering logic
+                if (this.levelTracker.has(failNode.columnNo)) {
+                        failNode.levelNo = this.levelTracker.get(failNode.columnNo) + 1;
+                    } else {
+                        failNode.levelNo = 0;
+                    }
+                    this.levelTracker.set(failNode.columnNo, failNode.levelNo);
                 console.log(`[Phase 2] Positioned failure node ${failNode.id} at (${failNode.viewState.x}, ${failNode.viewState.y}) [center-aligned]`);
             }
             if(failNode.type === 'CONDITION'){
                 isFailPathCondition = true;
             }
-            this.positionBranches(failNode, false, isFailPathCondition);
+            this.positionBranches(failNode, false, isFailPathCondition,true);
             
         }
     }
