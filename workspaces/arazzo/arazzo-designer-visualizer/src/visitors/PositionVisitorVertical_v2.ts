@@ -66,7 +66,7 @@ export class PositionVisitorVertical_v2 {
             return;
         }
 
-        // Prevent infinite loops from cycles (e.g. step A → goto step B → goto step A)
+        // Prevent infinite loops from cycles 
         if (this.mainSpineVisited.has(node.id)) {
             return;
         }
