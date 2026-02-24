@@ -509,19 +509,6 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 		}
 	}, [vscode, item.id, setContextMenu]);
 
-	const handleAddFolder = useCallback(() => {
-		if (vscode) {
-			vscode.postMessage({
-				command: 'addFolderToCollection',
-				collectionId: item.id
-			});
-		}
-		setAddMenu(null);
-		if (setContextMenu) {
-			setContextMenu(null);
-		}
-	}, [vscode, item.id, setContextMenu]);
-
 	const handleRunCollection = useCallback(() => {
 		if (vscode) {
 			vscode.postMessage({
@@ -623,10 +610,6 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 					<ContextMenuItem onClick={() => { handleAddRequest(); }}>
 						<Codicon name="file-add" sx={{ marginRight: 8 }} />
 						Add Request
-					</ContextMenuItem>
-					<ContextMenuItem onClick={() => { handleAddFolder(); }}>
-						<Codicon name="folder" sx={{ marginRight: 8 }} />
-						Add Folder
 					</ContextMenuItem>
 				</ContextMenu>
 			)}

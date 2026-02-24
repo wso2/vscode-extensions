@@ -175,7 +175,6 @@ async function createCollectionFolderStructure(
 		const folderObj = folders[folderIndex] && typeof folders[folderIndex] === 'object'
 			? (folders[folderIndex] as Record<string, unknown>)
 			: {};
-
 		const folderName = typeof folderObj.name === 'string' ? folderObj.name : `Folder ${folderIndex + 1}`;
 		const folderDirName = sanitizePathSegment(folderName, `folder-${folderIndex + 1}`);
 		const folderPath = path.join(collectionPath, folderDirName);
@@ -231,73 +230,32 @@ async function createHurlCollectionFolderStructure(
 	);
 	const collectionPath = path.join(apiTestPath, collectionDirName);
 	await fs.mkdir(collectionPath, { recursive: true });
-	let firstRequestPath: string | undefined;
+	const collectionFileName = `${sanitizePathSegment(collectionName, collectionDirName)}.hurl`;
+	const collectionFilePath = path.join(collectionPath, collectionFileName);
 
-	const collectionId = typeof collectionData.id === 'string'
-		? collectionData.id
-		: `${collectionDirName}-${Date.now()}`;
+	const normalizeEntryContent = (raw: Record<string, unknown>, fallbackName: string): string => {
+		const name = typeof raw.name === 'string' ? raw.name : fallbackName;
+		let content = typeof raw.content === 'string' ? raw.content : (typeof raw.hurl === 'string' ? raw.hurl : '');
+		if (content.includes('\\n')) {
+			content = content.replace(/\\n/g, '\n');
+		}
+		content = content.replace(/\r\n/g, '\n').trim();
+		content = content.replace(/^#\s*@collectionName[^\n]*\n?/gim, '').trim();
 
-	const collectionMetadata = {
-		id: collectionId,
-		name: collectionName,
-		description: typeof collectionData.description === 'string' ? collectionData.description : ''
+		if (!/^#\s*@name\s+/m.test(content)) {
+			content = `# @name ${name}\n${content}`;
+		}
+
+		return content.trim();
 	};
-
-	await fs.writeFile(
-		path.join(collectionPath, 'collection.yaml'),
-		yaml.dump(collectionMetadata),
-		'utf-8'
-	);
 
 	const rootItems = Array.isArray(collectionData.requests)
 		? collectionData.requests
 		: (Array.isArray(collectionData.rootItems) ? collectionData.rootItems : []);
 
-	for (let index = 0; index < rootItems.length; index++) {
-		const raw = rootItems[index] as Record<string, unknown>;
-		const name = typeof raw.name === 'string' ? raw.name : `Request ${index + 1}`;
-		let content = typeof raw.content === 'string' ? raw.content : (typeof raw.hurl === 'string' ? raw.hurl : '');
-
-		// Convert escaped newlines ("\\n") to real newlines so saved .hurl files are syntactically correct
-		if (content.includes('\\n')) {
-			content = content.replace(/\\n/g, '\n');
-		}
-
-		// Normalize CRLF to LF
-		content = content.replace(/\r\n/g, '\n');
-
-		// Ensure a blank line before [Asserts] if the user omitted it
-		content = content.replace(/\n\[Asserts\]/g, '\n\n[Asserts]');
-
-		// Add metadata comments if not already present (API Explorer uses @name/@id)
-		const hasId = /^#\s*@id/m.test(content);
-		const hasName = /^#\s*@name/m.test(content);
-		const reqId = typeof raw.id === 'string' ? raw.id : `new-${Date.now()}-${index}`;
-		let meta = '';
-		if (!hasId) meta += `# @id ${reqId}\n`;
-		if (!hasName) meta += `# @name ${name}\n`;
-		if (meta) content = meta + '\n' + content.trim() + '\n';
-
-		const baseName = sanitizePathSegment(name, `request-${index + 1}`);
-		let fileName = `${baseName}.hurl`;
-		let requestPath = path.join(collectionPath, fileName);
-		let suffix = 1;
-		while (true) {
-			try {
-				await fs.access(requestPath);
-				fileName = `${baseName}-${suffix}.hurl`;
-				requestPath = path.join(collectionPath, fileName);
-				suffix++;
-			} catch {
-				break;
-			}
-		}
-
-		await fs.writeFile(requestPath, content.endsWith('\n') ? content : content + '\n', 'utf-8');
-		if (!firstRequestPath) {
-			firstRequestPath = requestPath;
-		}
-	}
+	const blocks: string[] = rootItems.map((rawUnknown, index) =>
+		normalizeEntryContent(rawUnknown as Record<string, unknown>, `Request ${index + 1}`)
+	);
 
 	const folders = Array.isArray(collectionData.folders) ? collectionData.folders : [];
 	for (let folderIndex = 0; folderIndex < folders.length; folderIndex++) {
@@ -316,48 +274,15 @@ async function createHurlCollectionFolderStructure(
 
 		for (let requestIndex = 0; requestIndex < folderItems.length; requestIndex++) {
 			const raw = folderItems[requestIndex] as Record<string, unknown>;
-			const name = typeof raw.name === 'string' ? raw.name : `Request ${requestIndex + 1}`;
-			let content = typeof raw.content === 'string' ? raw.content : (typeof raw.hurl === 'string' ? raw.hurl : '');
-
-			// Convert escaped newlines to real newlines
-			if (content.includes('\\n')) {
-				content = content.replace(/\\n/g, '\n');
-			}
-			content = content.replace(/\r\n/g, '\n');
-			content = content.replace(/\n\[Asserts\]/g, '\n\n[Asserts]');
-
-			// Add metadata comments when missing
-			const hasId = /^#\s*@id/m.test(content);
-			const hasName = /^#\s*@name/m.test(content);
-			const reqId = typeof raw.id === 'string' ? raw.id : `new-${Date.now()}-${requestIndex}`;
-			let meta = '';
-			if (!hasId) meta += `# @id ${reqId}\n`;
-			if (!hasName) meta += `# @name ${name}\n`;
-			if (meta) content = meta + '\n' + content.trim() + '\n';
-
-			const baseName = sanitizePathSegment(name, `request-${requestIndex + 1}`);
-			let fileName = `${baseName}.hurl`;
-			let requestPath = path.join(folderPath, fileName);
-			let suffix = 1;
-			while (true) {
-				try {
-					await fs.access(requestPath);
-					fileName = `${baseName}-${suffix}.hurl`;
-					requestPath = path.join(folderPath, fileName);
-					suffix++;
-				} catch {
-					break;
-				}
-			}
-
-			await fs.writeFile(requestPath, content.endsWith('\n') ? content : content + '\n', 'utf-8');
-			if (!firstRequestPath) {
-				firstRequestPath = requestPath;
-			}
+			blocks.push(normalizeEntryContent(raw, `Request ${requestIndex + 1}`));
 		}
 	}
 
-	return { collectionPath, firstRequestPath };
+	const collectionHeader = `# @collectionName ${collectionName.trim() || 'Hurl Collection'}`;
+	const combinedContent = [collectionHeader, ...blocks.filter(Boolean)].join('\n\n').trimEnd() + '\n';
+	await fs.writeFile(collectionFilePath, combinedContent, 'utf-8');
+
+	return { collectionPath, firstRequestPath: collectionFilePath };
 }
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -379,17 +304,24 @@ export async function activate(context: vscode.ExtensionContext) {
 		isWorkspaceRefreshInProgress = true;
 		hasPendingWorkspaceRefresh = false;
 
-		try {
-			await apiExplorerProvider.reloadCollections();
+			try {
+				await apiExplorerProvider.reloadCollections();
 
-			const stateContext = ApiTryItStateMachine.getContext();
-			const selectedFilePath = stateContext.selectedFilePath || stateContext.selectedItem?.filePath;
-			if (selectedFilePath) {
-				const match = apiExplorerProvider.findRequestByFilePath(selectedFilePath);
-				if (match?.requestItem) {
-					await ApiTryItStateMachine.sendEvent(
-						EVENT_TYPE.API_ITEM_SELECTED,
-						match.requestItem,
+				const stateContext = ApiTryItStateMachine.getContext();
+				const selectedFilePath = stateContext.selectedFilePath || stateContext.selectedItem?.filePath;
+				if (selectedFilePath) {
+					const selectedItem = stateContext.selectedItem;
+					const match = apiExplorerProvider.findRequestByFilePath(
+						selectedFilePath,
+						selectedItem?.id,
+						selectedItem?.name || selectedItem?.request?.name,
+						selectedItem?.request?.method,
+						selectedItem?.request?.url
+					);
+					if (match?.requestItem) {
+						await ApiTryItStateMachine.sendEvent(
+							EVENT_TYPE.API_ITEM_SELECTED,
+							match.requestItem,
 						match.requestItem.filePath
 					);
 				}
@@ -506,17 +438,19 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 
 	// Register command to select an item in the explorer by file path (used after save)
-	const selectItemByPathCommand = vscode.commands.registerCommand('api-tryit.selectItemByPath', async (filePath: string) => {
+	const selectItemByPathCommand = vscode.commands.registerCommand(
+		'api-tryit.selectItemByPath',
+		async (filePath: string, requestId?: string, requestName?: string, requestMethod?: string, requestUrl?: string) => {
 		if (!filePath || typeof filePath !== 'string') {
 			vscode.window.showWarningMessage('No file path provided to select');
 			return;
 		}
 
 		// Try to locate the request using cached collections; reload once if not found
-		let match = apiExplorerProvider.findRequestByFilePath(filePath);
+		let match = apiExplorerProvider.findRequestByFilePath(filePath, requestId, requestName, requestMethod, requestUrl);
 		if (!match) {
 			await apiExplorerProvider.reloadCollections();
-			match = apiExplorerProvider.findRequestByFilePath(filePath);
+			match = apiExplorerProvider.findRequestByFilePath(filePath, requestId, requestName, requestMethod, requestUrl);
 		}
 
 		if (!match) {
@@ -524,7 +458,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		const { collection, folder, requestItem, treeItemId, parentIds } = match;
+		const { collection, requestItem, treeItemId, parentIds } = match;
 
 		// Inform the activity panel webview so it can highlight the saved request
 		ActivityPanel.postMessage('selectItem', {
@@ -534,8 +468,6 @@ export async function activate(context: vscode.ExtensionContext) {
 			name: requestItem.name,
 			collectionId: collection.id,
 			collectionName: collection.name,
-			folderId: folder?.id,
-			folderName: folder?.name,
 			method: requestItem.request.method,
 			request: requestItem.request
 		});

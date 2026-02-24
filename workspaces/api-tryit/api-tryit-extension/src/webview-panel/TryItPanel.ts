@@ -102,31 +102,27 @@ export class TryItPanel {
 						
 						const safeName = name.trim();
 						const safeId = safeName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-						
-						// 1. Create a folder with the given name in the provided path (only if it doesn't exist)
-						const collectionFolderPath = path.join(folderPath, safeId);
-						const collectionFolderUri = vscode.Uri.file(collectionFolderPath);
-						try {
-							await vscode.workspace.fs.stat(collectionFolderUri);
-							// Directory already exists, skip creation
-						} catch {
-							// Directory doesn't exist, create it
-							await vscode.workspace.fs.createDirectory(collectionFolderUri);
-						}
-						
-						// 2. Create collection.yaml file inside the folder
-						const collectionFilePath = path.join(collectionFolderPath, 'collection.yaml');
+
+						// Create a single collection .hurl file with @collectionName metadata.
+						const collectionFilePath = path.join(folderPath, `${safeId || `collection-${Date.now()}`}.hurl`);
 						const collectionFileUri = vscode.Uri.file(collectionFilePath);
-						const yamlContent = `id: ${safeId}\nname: ${safeName}\n`;
-						await vscode.workspace.fs.writeFile(collectionFileUri, Buffer.from(yamlContent, 'utf8'));
-						
-						// 3. Check if the collection is in the current workspace
+						try {
+							await vscode.workspace.fs.stat(collectionFileUri);
+							this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: false, message: 'Collection file already exists' } });
+							return;
+						} catch {
+							// expected: file does not exist
+						}
+
+						const hurlContent = `# @collectionName ${safeName}\n`;
+						await vscode.workspace.fs.writeFile(collectionFileUri, Buffer.from(hurlContent, 'utf8'));
+
+						// Check if the collection is in the current workspace
 						const isInWorkspace = vscode.workspace.workspaceFolders?.some(folder => 
-							collectionFolderPath.startsWith(folder.uri.fsPath)
+							collectionFilePath.startsWith(folder.uri.fsPath)
 						) || false;
 						
 						if (!isInWorkspace) {
-							// Open the folder as a new workspace
 							const openInNewWindow = await vscode.window.showInformationMessage(
 								`Collection "${safeName}" created outside the workspace. Would you like to open it?`,
 								'Open in New Window',
@@ -135,12 +131,12 @@ export class TryItPanel {
 							);
 							
 							if (openInNewWindow === 'Open in New Window') {
-								await vscode.commands.executeCommand('vscode.openFolder', collectionFolderUri, true);
+								await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(folderPath), true);
 							} else if (openInNewWindow === 'Add to Workspace') {
 								vscode.workspace.updateWorkspaceFolders(
 									vscode.workspace.workspaceFolders?.length || 0,
 									0,
-									{ uri: collectionFolderUri, name: safeName }
+									{ uri: vscode.Uri.file(folderPath), name: path.basename(folderPath) }
 								);
 							}
 						} else {
@@ -267,6 +263,7 @@ export class TryItPanel {
 
 							// Get the current state to check for persisted file path or collection path
 							const stateContext = ApiTryItStateMachine.getContext();
+							const selectedTreeItemId = stateContext.selectedItem?.id;
 							// Track whether the user explicitly picked a file during this save
 							let userSelectedFile = false;
 							// Prefer explicit filePath from the message, then the request's filePath (if present)
@@ -274,8 +271,9 @@ export class TryItPanel {
 
 							// Fallback: check savedItems cache (preserved by state machine) for filePath if missing
 							try {
-								if (!targetFilePath && request && (request.id as string | undefined) && stateContext.savedItems instanceof Map) {
-									const cached = stateContext.savedItems.get(request.id as string);
+								const cacheKey = selectedTreeItemId || (request && (request.id as string | undefined));
+								if (!targetFilePath && cacheKey && stateContext.savedItems instanceof Map) {
+									const cached = stateContext.savedItems.get(cacheKey);
 									if (cached && cached.filePath) {
 										try {
 											// Verify the cached path still exists on disk before re-using it
@@ -304,26 +302,30 @@ export class TryItPanel {
 							}
 
 							if (!targetFilePath && stateContext.currentCollectionPath) {
-								// Verify the collection path still exists before using it
+								// Verify the collection target still exists before using it.
+								// It can be either a collection .hurl file (new flow) or a directory (legacy flow).
 								try {
-									await vscode.workspace.fs.stat(vscode.Uri.file(stateContext.currentCollectionPath));
-									// Collection path exists, auto-generate filename
-									const baseName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-');
-									let candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}.hurl`);
-									let counter = 1;
-									while (true) {
-										try {
-											await vscode.workspace.fs.stat(vscode.Uri.file(candidatePath));
-											candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}-${counter}.hurl`);
-											counter++;
-										} catch {
-											// Not found, candidatePath is available
-											break;
+									const stat = await vscode.workspace.fs.stat(vscode.Uri.file(stateContext.currentCollectionPath));
+									if ((stat.type & vscode.FileType.File) === vscode.FileType.File && stateContext.currentCollectionPath.toLowerCase().endsWith('.hurl')) {
+										targetFilePath = stateContext.currentCollectionPath;
+									} else {
+										const baseName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+										let candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}.hurl`);
+										let counter = 1;
+										while (true) {
+											try {
+												await vscode.workspace.fs.stat(vscode.Uri.file(candidatePath));
+												candidatePath = path.join(stateContext.currentCollectionPath, `${baseName}-${counter}.hurl`);
+												counter++;
+											} catch {
+												// Not found, candidatePath is available
+												break;
+											}
 										}
+										targetFilePath = candidatePath;
 									}
-									targetFilePath = candidatePath;
 								} catch {
-									// Collection path no longer exists, skip auto-generate and fall through to prompt
+									// Collection target no longer exists, skip auto-select and fall through to prompt
 									console.log(`Collection path no longer exists: ${stateContext.currentCollectionPath}`);
 								}
 							}
@@ -376,6 +378,15 @@ export class TryItPanel {
 								}
 							}
 
+							const selectedHasBackingFile = Boolean(stateContext.selectedFilePath || existingFilePath);
+							const appendIfNotFound = Boolean(
+								!selectedHasBackingFile &&
+								stateContext.currentCollectionPath &&
+								targetFilePath &&
+								stateContext.currentCollectionPath === targetFilePath &&
+								stateContext.currentCollectionPath.toLowerCase().endsWith('.hurl')
+							);
+
 			// Ensure the directory exists before saving
 							if (targetFilePath) {
 								const dirPath = path.dirname(targetFilePath);
@@ -389,11 +400,13 @@ export class TryItPanel {
 							// Import the RPC manager here to avoid circular dependencies
 							const { ApiTryItRpcManager } = await import('../rpc-managers/rpc-manager');
 							const rpcManager = new ApiTryItRpcManager();
-							const saveResponse = await rpcManager.saveRequest({ 
-								filePath: targetFilePath, 
-								request,
-								response
-							});
+								const saveResponse = await rpcManager.saveRequest({ 
+									filePath: targetFilePath, 
+									request,
+									response,
+									appendIfNotFound,
+									selectedRequestTreeId: selectedTreeItemId
+								});
 
 							// Send response back to webview
 							this._panel.webview.postMessage({
@@ -401,17 +414,17 @@ export class TryItPanel {
 								data: saveResponse
 							});
 
-							if (saveResponse.success) {
-								vscode.window.showInformationMessage(`Request saved successfully to: ${targetFilePath}`);
-								
-								// Inform state machine about the saved request so it can update caches and notify webviews
-								try {
-									const savedItem: ApiRequestItem = {
-										id: request.id,
-										name: request.name,
-										request,
-										filePath: targetFilePath
-									};
+								if (saveResponse.success) {
+									vscode.window.showInformationMessage(`Request saved successfully to: ${targetFilePath}`);
+									
+									// Inform state machine about the saved request so it can update caches and notify webviews
+									try {
+										const savedItem: ApiRequestItem = {
+											id: selectedTreeItemId || request.id,
+											name: request.name,
+											request,
+											filePath: targetFilePath
+										};
 									ApiTryItStateMachine.sendEvent(EVENT_TYPE.REQUEST_UPDATED, savedItem);
 								} catch {
 									vscode.window.showErrorMessage('Failed to notify state machine about saved request');
@@ -423,7 +436,14 @@ export class TryItPanel {
 										await vscode.commands.executeCommand('api-tryit.refreshExplorer');
 										// Give the explorer time to load, then select the saved request in the tree
 										setTimeout(async () => {
-											await vscode.commands.executeCommand('api-tryit.selectItemByPath', targetFilePath);
+												await vscode.commands.executeCommand(
+													'api-tryit.selectItemByPath',
+													targetFilePath,
+													selectedTreeItemId || request.id,
+													request.name,
+													request.method,
+													request.url
+												);
 										}, 300);
 									} catch (error: unknown) {
 										const msg = error instanceof Error ? error.message : 'Unknown error';

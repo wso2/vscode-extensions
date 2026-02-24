@@ -30,13 +30,110 @@ import * as yaml from 'js-yaml';
 import * as os from 'os';
 import * as path from 'path';
 import { createHurlRunner } from '@wso2/api-tryit-hurl-runner';
+import { parseHurlCollection } from '@wso2/api-tryit-hurl-parser';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
 import { HurlFormatAdapter } from '../util/hurl-format-adapter';
 import { getHurlBinaryManager } from '../hurl/hurl-binary-manager';
+import {
+	composeHurlDocument,
+	parseHurlDocument
+} from '../util/hurl-collection-file';
+
+interface SaveRequestInternalRequest extends SaveRequestRequest {
+    appendIfNotFound?: boolean;
+    selectedRequestTreeId?: string;
+}
 
 export class ApiTryItRpcManager {
     constructor(private apiExplorerProvider?: ApiExplorerProvider) {}
-    async saveRequest(params: SaveRequestRequest): Promise<SaveRequestResponse> {
+
+    private parseRequestIndexFromTreeId(treeId?: string): number | undefined {
+        if (!treeId || !treeId.startsWith('request-')) {
+            return undefined;
+        }
+        const match = treeId.match(/-(\d+)$/);
+        if (!match) {
+            return undefined;
+        }
+        const oneBased = Number.parseInt(match[1], 10);
+        if (!Number.isFinite(oneBased) || oneBased < 1) {
+            return undefined;
+        }
+        return oneBased - 1;
+    }
+
+    private findRequestBlockIndex(fileContent: string, filePath: string, request: ApiRequest): number {
+        const parsedDocument = parseHurlDocument(fileContent);
+        if (parsedDocument.blocks.length === 0) {
+            return -1;
+        }
+
+        let parsedCollection;
+        try {
+            parsedCollection = parseHurlCollection(fileContent, { sourceFilePath: filePath });
+        } catch {
+            return -1;
+        }
+
+        const items = parsedCollection.rootItems || [];
+        if (items.length === 0) {
+            return -1;
+        }
+
+        if (request.id && request.id.trim()) {
+            const byId = items.findIndex(item => item.request.id === request.id || item.id === request.id);
+            if (byId >= 0 && byId < parsedDocument.blocks.length) {
+                return byId;
+            }
+        }
+
+        const bySignature = items.findIndex(item =>
+            item.name === request.name &&
+            item.request.method === request.method &&
+            item.request.url === request.url
+        );
+        if (bySignature >= 0 && bySignature < parsedDocument.blocks.length) {
+            return bySignature;
+        }
+
+        const byMethodAndUrl = items
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) =>
+                item.request.method === request.method &&
+                item.request.url === request.url
+            );
+        if (byMethodAndUrl.length === 1) {
+            return byMethodAndUrl[0].index;
+        }
+
+        const byMethodOnly = items
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) => item.request.method === request.method);
+        if (byMethodOnly.length === 1) {
+            return byMethodOnly[0].index;
+        }
+
+        if (items.length === 1) {
+            return 0;
+        }
+
+        return -1;
+    }
+
+    private serializeHurlRequestBlock(request: ApiRequest, response?: ApiResponse, preserveId = false): string {
+        const requestForSerialization: ApiRequest = {
+            ...request,
+            id: preserveId ? request.id : '',
+            queryParameters: Array.isArray(request.queryParameters) ? request.queryParameters : [],
+            headers: Array.isArray(request.headers) ? request.headers : []
+        };
+
+        return HurlFormatAdapter
+            .serializeRequest(requestForSerialization, response, request.assertions)
+            .trim();
+    }
+
+    async saveRequest(params: SaveRequestInternalRequest): Promise<SaveRequestResponse> {
         const { filePath, request, response } = params;
         
         if (!filePath) {
@@ -49,13 +146,44 @@ export class ApiTryItRpcManager {
         try {
             // Check if the file is a Hurl file or YAML file
             const isHurlFile = HurlFormatAdapter.isHurlFile(filePath);
-            const isYamlFile = HurlFormatAdapter.isYamlFile(filePath);
 
             let contentToWrite: string;
 
             if (isHurlFile) {
-                // Serialize to Hurl format
-                contentToWrite = HurlFormatAdapter.serializeRequest(request, response, request.assertions);
+                let existingContent = '';
+                try {
+                    existingContent = await readFile(filePath, 'utf8');
+                } catch {
+                    // New file, start with empty content.
+                }
+
+                const parsedDocument = parseHurlDocument(existingContent);
+                const serializedBlock = this.serializeHurlRequestBlock(request, response, false);
+
+                if (parsedDocument.blocks.length === 0) {
+                    contentToWrite = composeHurlDocument(parsedDocument.header, [serializedBlock]);
+                } else {
+                    let existingBlockIndex = -1;
+                    const treeIndex = this.parseRequestIndexFromTreeId(params.selectedRequestTreeId);
+                    if (typeof treeIndex === 'number' && treeIndex >= 0 && treeIndex < parsedDocument.blocks.length) {
+                        existingBlockIndex = treeIndex;
+                    } else {
+                        existingBlockIndex = this.findRequestBlockIndex(existingContent, filePath, request);
+                    }
+                    const shouldAppendWhenNotFound = params.appendIfNotFound === true;
+
+                    const updatedBlocks = parsedDocument.blocks.map(block => block.text);
+                    if (existingBlockIndex >= 0 && existingBlockIndex < updatedBlocks.length) {
+                        const preserveId = parsedDocument.blocks[existingBlockIndex].hasIdComment;
+                        updatedBlocks[existingBlockIndex] = this.serializeHurlRequestBlock(request, response, preserveId);
+                    } else if (shouldAppendWhenNotFound) {
+                        updatedBlocks.push(serializedBlock);
+                    } else {
+                        throw new Error('Unable to resolve the existing request block to update. Please reopen the request and save again.');
+                    }
+
+                    contentToWrite = composeHurlDocument(parsedDocument.header, updatedBlocks);
+                }
             } else {
                 // Keep YAML format for backward compatibility
                 let existingData: { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse; assertions?: unknown[] } | null = null;

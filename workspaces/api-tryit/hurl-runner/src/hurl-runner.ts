@@ -319,7 +319,7 @@ export class HurlRunnerImpl implements HurlRunner {
 	}
 
 	private buildHurlArgs(filePath: string, reportPath: string, options: HurlRunOptions): string[] {
-		const args = [filePath, '--report-json', reportPath];
+		const args = [filePath, '--test', '--report-json', reportPath];
 
 		if (options.includeResponseOutput) {
 			args.push('-i');

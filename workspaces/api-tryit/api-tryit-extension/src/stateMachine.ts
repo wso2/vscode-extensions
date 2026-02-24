@@ -197,20 +197,24 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                 REQUEST_UPDATED: {
                     actions: assign({
                         selectedItem: (context: ApiTryItContext, event: RequestUpdatedEvent) => {
+                            const stableItemId = context.selectedItem?.id || event.data.id;
                             // Preserve the filePath from the previous selectedItem
                             return {
                                 ...event.data,
+                                id: stableItemId,
                                 filePath: context.selectedItem?.filePath || context.selectedFilePath || event.data.filePath
                             };
                         },
                         savedItems: (context: ApiTryItContext, event: RequestUpdatedEvent) => {
+                            const stableItemId = context.selectedItem?.id || event.data.id;
                             // Save the updated item to cache (preserving filePath)
                             const updatedItem: ApiRequestItem = {
                                 ...event.data,
+                                id: stableItemId,
                                 filePath: context.selectedItem?.filePath || context.selectedFilePath || event.data.filePath
                             };
                             const newMap = new Map(context.savedItems);
-                            newMap.set(event.data.id, updatedItem);
+                            newMap.set(stableItemId, updatedItem);
                             return newMap;
                         }
                     })

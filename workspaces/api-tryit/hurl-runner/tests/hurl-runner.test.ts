@@ -235,7 +235,7 @@ describe('HurlRunnerImpl', () => {
 		});
 		expect(result.files.map(file => file.status)).toEqual(['passed', 'failed']);
 		expect(result.diagnostics.commandLine).toEqual(
-			expect.arrayContaining(['hurl', '-k', '-L', '--variable', 'token=abc'])
+			expect.arrayContaining(['hurl', '--test', '-k', '-L', '--variable', 'token=abc'])
 		);
 	});
 
@@ -252,7 +252,7 @@ describe('HurlRunnerImpl', () => {
 
 		const hurlCall = adapter.calls.find(call => call.args.includes('--report-json'));
 		expect(hurlCall).toBeDefined();
-		expect(hurlCall?.args).toEqual(expect.arrayContaining(['-i']));
+		expect(hurlCall?.args).toEqual(expect.arrayContaining(['--test', '-i']));
 	});
 
 	it('runStream emits progress events in expected order', async () => {

@@ -18,6 +18,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs/promises';
 import type { ApiRequestItem, ApiRequest } from '@wso2/api-tryit-core';
 import { getComposerJSFiles } from '../util';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
@@ -37,7 +38,14 @@ import {
 	HurlRunResult as RunnerHurlRunResult,
 	HurlRunner as RunnerHurlRunner
 } from '@wso2/api-tryit-hurl-runner';
+import { parseHurlCollection } from '@wso2/api-tryit-hurl-parser';
 import { getHurlBinaryManager } from '../hurl/hurl-binary-manager';
+import {
+	composeHurlDocument,
+	parseHurlDocument,
+	replaceRequestBlockName,
+	upsertCollectionNameInHurl
+} from '../util/hurl-collection-file';
 
 /**
  * Sanitize a name to be used as a folder name or ID
@@ -130,24 +138,6 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 					// Handle adding a request to a collection
 					this._handleAddRequestToCollection(message.collectionId as string);
 					break;
-
-				case 'addFolderToCollection':
-					// Handle creating a new folder inside a collection
-					this._handleAddFolderToCollection(message.collectionId as string);
-					break;
-
-				case 'addRequestToFolder':
-					// Handle adding a request to a folder
-					this._handleAddRequestToFolder(message.folderId as string, message.folderPath as string);
-					break;				
-				case 'deleteFolder':
-					// Handle deleting a folder
-					this._handleDeleteFolder(
-						message.folderId as string,
-						message.folderPath as string,
-						message.currentName as string
-					);
-					break;
 				case 'deleteCollection':
 					// Handle deleting a collection
 					this._handleDeleteCollection(message.collectionId as string);
@@ -164,19 +154,8 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 					// Handle renaming a request
 					this._handleRenameRequest(message.requestId as string, message.currentName as string);
 					break;
-				case 'renameFolder':
-					// Handle renaming a folder
-					this._handleRenameFolder(message.folderId as string, message.folderPath as string, message.currentName as string);
-					break;
 				case 'runCollection':
 					this._handleRunCollection(message.collectionId as string);
-					break;
-				case 'runFolder':
-					this._handleRunFolder(
-						message.folderId as string,
-						message.folderPath as string,
-						message.folderName as string
-					);
 					break;
 				case 'runAllCollections':
 					this._handleRunAllCollections();
@@ -296,7 +275,7 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				};
 
 				// Send event to state machine to load the request
-				ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, apiRequestItem, '');
+				ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, apiRequestItem, apiRequestItem.filePath);
 				
 				// Also send the request directly to the TryIt webview
 				TryItPanel.sendRequestToWebview(apiRequestItem);
@@ -336,21 +315,24 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				collectionPath = this._apiExplorerProvider.getCollectionPathById(collectionId);
 			}
 
-			// Fallback: construct path from configuration if not found in provider
+			// Fallback: derive from first request item under the collection
 			if (!collectionPath) {
-				const config = vscode.workspace.getConfiguration('api-tryit');
-				const configuredPath = config.get<string>('collectionsPath');
-				const storagePath = configuredPath || 
-					(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
-
-				if (!storagePath) {
-					vscode.window.showErrorMessage('No workspace path available');
-					return;
+				const collectionRecord = collection as Record<string, unknown>;
+				const children = collectionRecord.children;
+				if (Array.isArray(children)) {
+					const firstChildWithPath = children.find(child => {
+						const typed = child as Record<string, unknown>;
+						return typeof typed.filePath === 'string' && typed.filePath.length > 0;
+					}) as Record<string, unknown> | undefined;
+					collectionPath = typeof firstChildWithPath?.filePath === 'string'
+						? firstChildWithPath.filePath
+						: undefined;
 				}
+			}
 
-				// Sanitize the collection ID to ensure it's filesystem-safe
-				const sanitizedCollectionId = sanitizeForFileSystem(collectionId);
-				collectionPath = path.join(storagePath, sanitizedCollectionId);
+			if (!collectionPath) {
+				vscode.window.showErrorMessage('Unable to determine collection file path');
+				return;
 			}
 
 			// Send event to state machine to create a new request in this collection
@@ -563,6 +545,135 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		return event;
 	}
 
+	private _resolveRequestBlockIndex(
+		fileContent: string,
+		requestNode: Record<string, unknown>
+	): number {
+		const requestPath = requestNode.filePath as string | undefined;
+		if (!requestPath) {
+			return -1;
+		}
+
+		const parsedDocument = parseHurlDocument(fileContent);
+		if (parsedDocument.blocks.length === 0) {
+			return -1;
+		}
+
+		let parsedCollection;
+		try {
+			parsedCollection = parseHurlCollection(fileContent, {
+				sourceFilePath: requestPath
+			});
+		} catch {
+			return -1;
+		}
+
+		const parsedItems = parsedCollection.rootItems || [];
+		const request = requestNode.request && typeof requestNode.request === 'object'
+			? (requestNode.request as Record<string, unknown>)
+			: undefined;
+		const requestTreeId = typeof requestNode.id === 'string' ? requestNode.id : undefined;
+		const requestId = typeof request?.id === 'string' ? request.id : undefined;
+		const requestName = typeof requestNode.name === 'string'
+			? requestNode.name
+			: (typeof request?.name === 'string' ? request.name : undefined);
+		const requestMethod = typeof request?.method === 'string' ? request.method.toUpperCase() : undefined;
+		const requestUrl = typeof request?.url === 'string' ? request.url : undefined;
+
+		if (requestTreeId && requestTreeId.startsWith('request-')) {
+			const match = requestTreeId.match(/-(\d+)$/);
+			if (match) {
+				const oneBased = Number.parseInt(match[1], 10);
+				if (Number.isFinite(oneBased)) {
+					const zeroBased = oneBased - 1;
+					if (zeroBased >= 0 && zeroBased < parsedDocument.blocks.length) {
+						return zeroBased;
+					}
+				}
+			}
+		}
+
+		if (requestId) {
+			const byIdIndex = parsedItems.findIndex(item => item.request.id === requestId || item.id === requestId);
+			if (byIdIndex >= 0 && byIdIndex < parsedDocument.blocks.length) {
+				return byIdIndex;
+			}
+		}
+
+		if (requestName) {
+			const byNameMethodUrl = parsedItems.findIndex(item =>
+				item.name === requestName &&
+				(!requestMethod || item.request.method.toUpperCase() === requestMethod) &&
+				(!requestUrl || item.request.url === requestUrl)
+			);
+			if (byNameMethodUrl >= 0 && byNameMethodUrl < parsedDocument.blocks.length) {
+				return byNameMethodUrl;
+			}
+		}
+
+		const byMethodAndUrl = parsedItems.findIndex(item =>
+			(!requestMethod || item.request.method.toUpperCase() === requestMethod) &&
+			(!requestUrl || item.request.url === requestUrl)
+		);
+		if (byMethodAndUrl >= 0 && byMethodAndUrl < parsedDocument.blocks.length) {
+			return byMethodAndUrl;
+		}
+
+		if (parsedItems.length === 1) {
+			return 0;
+		}
+
+		return -1;
+	}
+
+	private _buildRunInputFromFilePaths(filePaths: string[]): RunnerHurlRunInput | undefined {
+		const normalizedPaths = Array.from(
+			new Set(
+				filePaths
+					.map(value => value.trim())
+					.filter(value => value.length > 0)
+			)
+		);
+
+		if (normalizedPaths.length === 0) {
+			return undefined;
+		}
+
+		if (normalizedPaths.length === 1) {
+			return { collectionPath: normalizedPaths[0] };
+		}
+
+		const commonRoot = this._findCommonRoot(normalizedPaths.map(filePath => path.dirname(filePath)));
+		const includePatterns = Array.from(
+			new Set(
+				normalizedPaths.map(filePath => this._normalizePatternPath(path.relative(commonRoot, filePath)))
+			)
+		);
+
+		return {
+			collectionPath: commonRoot,
+			includePatterns
+		};
+	}
+
+	private async _getAllCollectionFilePaths(): Promise<string[]> {
+		if (!this._apiExplorerProvider) {
+			return [];
+		}
+
+		const collections = await this._apiExplorerProvider.getCollections();
+		const allPaths: string[] = [];
+		for (const collection of collections) {
+			if (collection.type !== 'collection') {
+				continue;
+			}
+			const paths = this._apiExplorerProvider.getCollectionFilePathsById(collection.id);
+			allPaths.push(...paths);
+		}
+
+		return Array.from(new Set(allPaths));
+	}
+
 	private _normalizePatternPath(pathValue: string): string {
 		return pathValue.replace(/\\/g, '/');
 	}
@@ -594,28 +705,28 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		return shared.length > 0 ? path.join(root, ...shared) : root;
 	}
 
-	private async _getCollectionRunTargets(): Promise<Array<{ id: string; name: string; collectionPath: string }>> {
+	private async _getCollectionRunTargets(): Promise<Array<{ id: string; name: string; filePaths: string[] }>> {
 		if (!this._apiExplorerProvider) {
 			return [];
 		}
 
 		const collections = await this._apiExplorerProvider.getCollections();
-		const targets: Array<{ id: string; name: string; collectionPath: string }> = [];
+		const targets: Array<{ id: string; name: string; filePaths: string[] }> = [];
 
 		for (const collection of collections) {
 			if (collection.type !== 'collection') {
 				continue;
 			}
 
-			const collectionPath = this._apiExplorerProvider.getCollectionPathById(collection.id);
-			if (!collectionPath) {
+			const collectionFilePaths = this._apiExplorerProvider.getCollectionFilePathsById(collection.id);
+			if (collectionFilePaths.length === 0) {
 				continue;
 			}
 
 			targets.push({
 				id: collection.id,
 				name: collection.name,
-				collectionPath
+				filePaths: collectionFilePaths
 			});
 		}
 
@@ -688,22 +799,24 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				return;
 			}
 
-			const collectionPath = this._apiExplorerProvider.getCollectionPathById(collectionId);
-			if (!collectionPath) {
-				vscode.window.showErrorMessage('Unable to determine collection path for run.');
+			const filePaths = this._apiExplorerProvider.getCollectionFilePathsById(collectionId);
+			const runInput = this._buildRunInputFromFilePaths(filePaths);
+			if (!runInput) {
+				vscode.window.showErrorMessage('Unable to determine collection files for run.');
 				return;
 			}
 
 			const allCollections = await this._apiExplorerProvider.getCollections();
 			const collection = allCollections.find(item => item.id === collectionId);
 			const label = collection?.name || 'Collection Run';
+			const sourcePath = runInput.collectionPath;
 
 			await this._startHurlRun(
-				{ collectionPath },
+				runInput,
 				{
 					scope: 'collection',
 					label,
-					sourcePath: collectionPath
+					sourcePath
 				}
 			);
 		} catch (error) {
@@ -746,44 +859,24 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 
 	private async _handleRunAllCollections(): Promise<void> {
 		try {
-			const targets = await this._getCollectionRunTargets();
-			if (targets.length === 0) {
+			const allFilePaths = await this._getAllCollectionFilePaths();
+			if (allFilePaths.length === 0) {
 				vscode.window.showWarningMessage('No collections available to run.');
 				return;
 			}
 
-			if (targets.length === 1) {
-				await this._startHurlRun(
-					{ collectionPath: targets[0].collectionPath },
-					{
-						scope: 'all',
-						label: targets[0].name,
-						sourcePath: targets[0].collectionPath
-					}
-				);
+			const runInput = this._buildRunInputFromFilePaths(allFilePaths);
+			if (!runInput) {
+				vscode.window.showWarningMessage('No collections available to run.');
 				return;
 			}
 
-			const collectionPaths = targets.map(target => target.collectionPath);
-			const commonRoot = this._findCommonRoot(collectionPaths);
-			const includePatterns = Array.from(
-				new Set(
-					collectionPaths.map(collectionPath => {
-						const relative = this._normalizePatternPath(path.relative(commonRoot, collectionPath));
-						return relative.length > 0 ? `${relative}/**/*.hurl` : '**/*.hurl';
-					})
-				)
-			);
-
 			await this._startHurlRun(
-				{
-					collectionPath: commonRoot,
-					includePatterns
-				},
+				runInput,
 				{
 					scope: 'all',
 					label: 'All Collections',
-					sourcePath: commonRoot
+					sourcePath: runInput.collectionPath
 				}
 			);
 		} catch (error) {
@@ -855,33 +948,24 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 	}
 
 	private _findRequestItem(collections: unknown[], requestId: string): Record<string, unknown> | undefined {
-		for (const collectionUnknown of collections) {
-			const collection = collectionUnknown as Record<string, unknown>;
-			if (collection.id === requestId) {
-				return collection;
-			}
-
-			const children = collection.children as unknown[];
-			if (children && Array.isArray(children)) {
-				for (const folderUnknown of children) {
-					const folder = folderUnknown as Record<string, unknown>;
-					if (folder.id === requestId) {
-						return folder;
-					}
-
-					const folderChildren = folder.children as unknown[];
-					if (folderChildren && Array.isArray(folderChildren)) {
-						for (const requestUnknown of folderChildren) {
-							const request = requestUnknown as Record<string, unknown>;
-							if (request.id === requestId) {
-								return request;
-							}
-						}
+		const visit = (nodes: unknown[]): Record<string, unknown> | undefined => {
+			for (const nodeUnknown of nodes) {
+				const node = nodeUnknown as Record<string, unknown>;
+				if (node.id === requestId) {
+					return node;
+				}
+				const children = node.children;
+				if (Array.isArray(children)) {
+					const found = visit(children);
+					if (found) {
+						return found;
 					}
 				}
 			}
-		}
-		return undefined;
+			return undefined;
+		};
+
+		return visit(collections);
 	}
 
 	private async _handleDeleteCollection(collectionId: string) {
@@ -916,44 +1000,39 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				return;
 			}
 
-			// Get the collection path
-			const collectionPath = this._apiExplorerProvider.getCollectionPathById(collectionId);
-
-			if (!collectionPath) {
-				vscode.window.showErrorMessage('Unable to determine collection path');
+			const collectionFilePaths = this._apiExplorerProvider.getCollectionFilePathsById(collectionId);
+			if (collectionFilePaths.length === 0) {
+				vscode.window.showErrorMessage('Unable to determine collection file path(s)');
 				return;
 			}
 
-			// Delete the collection folder
-			const fs = await import('fs/promises');
 			try {
-				await fs.rm(collectionPath, { recursive: true, force: true });
+				await Promise.all(
+					collectionFilePaths.map(async collectionFilePath => {
+						await fs.rm(collectionFilePath, { recursive: false, force: true });
+					})
+				);
 				vscode.window.showInformationMessage(`Collection "${collectionName}" deleted successfully`);
 			} catch (error) {
-				vscode.window.showErrorMessage(`Failed to delete collection folder: ${error}`);
+				vscode.window.showErrorMessage(`Failed to delete collection file(s): ${error}`);
 				return;
 			}
 
-			// Clear selection if the deleted collection was selected (clear selection + inform state machine with path)
 			await vscode.commands.executeCommand('api-tryit.clearSelection');
 			try {
-				// Pass the deleted collection path so the state machine can prune savedItems / selectedItem
-				ApiTryItStateMachine.sendEvent(EVENT_TYPE.CLEAR_COLLECTION_CONTEXT, undefined, collectionPath);
+				ApiTryItStateMachine.sendEvent(EVENT_TYPE.CLEAR_COLLECTION_CONTEXT, undefined, path.dirname(collectionFilePaths[0]));
 			} catch {
 				// non-fatal
 			}
 
-			// Remove collection from provider immediately (before reload) to prevent stale in-memory persistence
 			if (this._apiExplorerProvider) {
 				this._apiExplorerProvider.removeCollectionById(collectionId);
 			}
 
-			// Reload collections from disk to ensure fresh data
 			if (this._apiExplorerProvider) {
 				await this._apiExplorerProvider.reloadCollections();
 			}
 
-			// Refresh the tree view immediately
 			this._sendCollections(true);
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to delete collection: ${error}`);
@@ -1002,25 +1081,40 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				return;
 			}
 
-			// Delete the request file
-			const fs = await import('fs/promises');
+			let fileContent = '';
 			try {
-				await fs.unlink(requestFilePath);
-				vscode.window.showInformationMessage(`Request "${requestName}" deleted successfully`);
+				fileContent = await fs.readFile(requestFilePath, 'utf-8');
 			} catch (error) {
-				vscode.window.showErrorMessage(`Failed to delete request file: ${error}`);
+				vscode.window.showErrorMessage(`Failed to read request file: ${error}`);
 				return;
 			}
 
-			// Clear selection if the deleted request was selected
+			const blockIndex = this._resolveRequestBlockIndex(fileContent, requestItem);
+			if (blockIndex < 0) {
+				vscode.window.showErrorMessage('Failed to locate the request block in collection file.');
+				return;
+			}
+
+			const parsed = parseHurlDocument(fileContent);
+			const remainingBlocks = parsed.blocks
+				.filter((_, index) => index !== blockIndex)
+				.map(block => block.text);
+			const updatedContent = composeHurlDocument(parsed.header, remainingBlocks);
+
+			try {
+				await fs.writeFile(requestFilePath, updatedContent, 'utf-8');
+				vscode.window.showInformationMessage(`Request "${requestName}" deleted successfully`);
+			} catch (error) {
+				vscode.window.showErrorMessage(`Failed to update request file: ${error}`);
+				return;
+			}
+
 			await vscode.commands.executeCommand('api-tryit.clearSelection');
 
-			// Reload collections from disk to ensure fresh data
 			if (this._apiExplorerProvider) {
 				await this._apiExplorerProvider.reloadCollections();
 			}
 
-			// Refresh the tree view immediately
 			this._sendCollections(true);
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to delete request: ${error}`);
@@ -1059,47 +1153,30 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				return;
 			}
 
-			// Get the collection path
-			const collectionPath = this._apiExplorerProvider.getCollectionPathById(collectionId);
-
-			if (!collectionPath) {
-				vscode.window.showErrorMessage('Unable to determine collection path');
+			const collectionFilePaths = this._apiExplorerProvider.getCollectionFilePathsById(collectionId);
+			if (collectionFilePaths.length === 0) {
+				vscode.window.showErrorMessage('Unable to determine collection file path(s)');
 				return;
 			}
 
-			// Get parent directory and rename the collection folder
-			const fs = await import('fs/promises');
-			const path = await import('path');
-			const yaml = await import('js-yaml');
-			const parentDir = path.dirname(collectionPath);
-			const newPath = path.join(parentDir, newName);
-
 			try {
-				await fs.rename(collectionPath, newPath);
+				await Promise.all(
+					collectionFilePaths.map(async collectionFilePath => {
+						const content = await fs.readFile(collectionFilePath, 'utf-8');
+						const updated = upsertCollectionNameInHurl(content, newName.trim());
+						await fs.writeFile(collectionFilePath, updated, 'utf-8');
+					})
+				);
 				vscode.window.showInformationMessage(`Collection renamed to "${newName}" successfully`);
 			} catch (error) {
-				vscode.window.showErrorMessage(`Failed to rename collection folder: ${error}`);
+				vscode.window.showErrorMessage(`Failed to rename collection: ${error}`);
 				return;
 			}
 
-			// Update the collection.yaml file with the new name
-			const collectionYamlPath = path.join(newPath, 'collection.yaml');
-			try {
-				const fileContent = await fs.readFile(collectionYamlPath, 'utf-8');
-				const collectionMetadata = yaml.load(fileContent) as Record<string, unknown>;
-				collectionMetadata.name = newName;
-				await fs.writeFile(collectionYamlPath, yaml.dump(collectionMetadata), 'utf-8');
-			} catch (error) {
-				vscode.window.showErrorMessage(`Failed to update collection metadata: ${error}`);
-				return;
-			}
-
-			// Reload collections from disk to ensure fresh data
 			if (this._apiExplorerProvider) {
 				await this._apiExplorerProvider.reloadCollections();
 			}
 
-			// Refresh the tree view immediately
 			this._sendCollections(true);
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to rename collection: ${error}`);
@@ -1212,47 +1289,30 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				return;
 			}
 
-			// Read the current request data
-			const fs = await import('fs/promises');
-			const path = await import('path');
-			const yaml = await import('js-yaml');
-			const { HurlFormatAdapter } = await import('../util/hurl-format-adapter');
-
 			try {
 				const fileContent = await fs.readFile(requestFilePath, 'utf-8');
-
-				// Check if this is a Hurl file or YAML file
-				if (HurlFormatAdapter.isHurlFile(requestFilePath)) {
-					// Parse and update Hurl format
-					const parsed = HurlFormatAdapter.parseHurlContent(fileContent, requestFilePath);
-					if (parsed) {
-						const { request, response, assertions } = parsed;
-						request.name = newName;
-						const updatedContent = HurlFormatAdapter.serializeRequest(request, response, assertions);
-						await fs.writeFile(requestFilePath, updatedContent, 'utf-8');
-						vscode.window.showInformationMessage(`Request renamed to "${newName}" successfully`);
-					} else {
-						vscode.window.showErrorMessage('Failed to parse Hurl file');
-						return;
-					}
-				} else {
-					// Parse and update YAML format
-					const requestData = yaml.load(fileContent) as Record<string, unknown>;
-					requestData.name = newName;
-					await fs.writeFile(requestFilePath, yaml.dump(requestData), 'utf-8');
-					vscode.window.showInformationMessage(`Request renamed to "${newName}" successfully`);
+				const blockIndex = this._resolveRequestBlockIndex(fileContent, requestItem);
+				if (blockIndex < 0) {
+					vscode.window.showErrorMessage('Failed to locate the request block in collection file.');
+					return;
 				}
+
+				const parsed = parseHurlDocument(fileContent);
+				const updatedBlocks = parsed.blocks.map((block, index) =>
+					index === blockIndex ? replaceRequestBlockName(block.text, newName.trim()) : block.text
+				);
+				const updatedContent = composeHurlDocument(parsed.header, updatedBlocks);
+				await fs.writeFile(requestFilePath, updatedContent, 'utf-8');
+				vscode.window.showInformationMessage(`Request renamed to "${newName}" successfully`);
 			} catch (error) {
 				vscode.window.showErrorMessage(`Failed to update request file: ${error}`);
 				return;
 			}
 
-			// Reload collections from disk to ensure fresh data
 			if (this._apiExplorerProvider) {
 				await this._apiExplorerProvider.reloadCollections();
 			}
 
-			// Refresh the tree view immediately
 			this._sendCollections(true);
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to rename request: ${error}`);
