@@ -440,15 +440,9 @@ async function loadCatalog(
         };
     }
 
+    let fetchedItems: CatalogItem[];
     try {
-        const fetchedItems = await fetchCatalogFromStore(itemType);
-        await writeCatalogCache(cachePath, itemType, runtimeVersion, fetchedItems);
-        logDebug(`[ConnectorStoreCache] Refreshed ${label} summary cache with ${fetchedItems.length} item(s)`);
-        return {
-            items: fetchedItems,
-            source: 'store',
-            warnings,
-        };
+        fetchedItems = await fetchCatalogFromStore(itemType);
     } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
             logError(`[ConnectorStoreCache] Timed out fetching ${label} summaries after ${STORE_FETCH_TIMEOUT_MS}ms`, error);
@@ -478,6 +472,23 @@ async function loadCatalog(
             warnings,
         };
     }
+
+    try {
+        await writeCatalogCache(cachePath, itemType, runtimeVersion, fetchedItems);
+        logDebug(`[ConnectorStoreCache] Refreshed ${label} summary cache with ${fetchedItems.length} item(s)`);
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logWarn(
+            `[ConnectorStoreCache] Failed to write ${label} summary cache (${cachePath}) for type=${itemType}, runtimeVersion=${runtimeVersion}: ${errorMessage}`
+        );
+        warnings.push(`[ConnectorStoreCache] Unable to refresh cached ${label}; using freshly fetched store data.`);
+    }
+
+    return {
+        items: fetchedItems,
+        source: 'store',
+        warnings,
+    };
 }
 
 async function readDefinitionCacheForName(

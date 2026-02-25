@@ -855,8 +855,16 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     async loadChatHistory(_request: LoadChatHistoryRequest): Promise<LoadChatHistoryResponse> {
         try {
-            const shouldCreateStartupSession = !startupSessionInitializedProjects.has(this.projectUri);
+            const startupSessionAlreadyInitialized = startupSessionInitializedProjects.has(this.projectUri);
+            const hasInitializedSession = Boolean(this.chatHistoryManager || this.currentSessionId);
+            const shouldCreateStartupSession = !startupSessionAlreadyInitialized && !hasInitializedSession;
             let startupSessionId: string | undefined;
+
+            if (!startupSessionAlreadyInitialized && hasInitializedSession) {
+                // Another RPC (for example sendAgentMessage) may have already initialized a session.
+                // Mark startup initialization complete to avoid replacing that active session.
+                startupSessionInitializedProjects.add(this.projectUri);
+            }
 
             if (shouldCreateStartupSession) {
                 logInfo('[AgentPanel] Creating startup fresh session for project');
