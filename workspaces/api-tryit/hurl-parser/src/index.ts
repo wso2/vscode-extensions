@@ -55,6 +55,8 @@ interface ParsedRequestPart {
 	bodyFormUrlEncoded?: FormUrlEncodedParameter[];
 }
 
+export * from './hurl-collection-file';
+
 export function parseHurlCollection(hurlContent: string, options: ParseHurlCollectionOptions = {}): ApiCollection {
 	if (typeof hurlContent !== 'string' || hurlContent.trim().length === 0) {
 		throw new Error('Invalid hurl content provided');

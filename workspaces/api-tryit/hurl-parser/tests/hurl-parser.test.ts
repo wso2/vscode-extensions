@@ -5,6 +5,36 @@ import {
 	parseHurlCollection,
 } from '../src';
 import type { ApiCollection } from '@wso2/api-tryit-core';
+import { parseHurlDocument } from '../src';
+
+// verify that the utility for splitting Hurl documents is available
+
+describe('parseHurlDocument helper', () => {
+	it('splits a multi-request Hurl string into blocks preserving response lines', () => {
+		const input = [
+			'# @name A',
+			'GET https://example.com/foo',
+			'HTTP 200',
+			'[Asserts]',
+			'status == 200',
+			'',
+			'# @name B',
+			'POST https://example.com/bar',
+			'HTTP 201',
+			'[Asserts]',
+			'status == 201',
+		].join('\n');
+
+		const { header, blocks } = parseHurlDocument(input);
+		expect(header).toBe('');
+		expect(blocks).toHaveLength(2);
+		expect(blocks[0].text).toContain('GET https://example.com/foo');
+		expect(blocks[0].text).toContain('HTTP 200');
+		expect(blocks[1].text).toContain('POST https://example.com/bar');
+		expect(blocks[1].text).toContain('HTTP 201');
+	});
+});
+
 
 describe('parseHurlCollection', () => {
 	it('parses a single Hurl request into an ApiCollection model', () => {

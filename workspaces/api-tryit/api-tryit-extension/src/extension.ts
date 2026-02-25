@@ -23,7 +23,7 @@ import { ActivityPanel } from './activity-panel/webview';
 import { ApiExplorerProvider } from './tree-view/ApiExplorerProvider';
 import { ApiTryItStateMachine, EVENT_TYPE } from './stateMachine';
 import { ApiRequestItem } from '@wso2/api-tryit-core';
-import type { HurlCollectionPayload } from './util/hurl-collection-converter';
+import type { HurlCollectionPayload } from '@wso2/api-tryit-hurl-parser';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';

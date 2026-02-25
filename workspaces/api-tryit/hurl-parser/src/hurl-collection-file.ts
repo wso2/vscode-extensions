@@ -1,27 +1,4 @@
-/**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
- *
- * WSO2 LLC. licenses this file to you under the Apache License,
- * Version 2.0 (the "License"); you may not use this file except
- * in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied. See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
-
 import * as path from 'path';
-
-const REQUEST_LINE_REGEX = /^([A-Z][A-Z0-9_-]*)\s+(.+)$/;
-const COLLECTION_NAME_REGEX = /^#\s*@collectionName\s+(.+)$/im;
-const REQUEST_NAME_REGEX = /^#\s*@name\s+(.+)$/im;
-const REQUEST_ID_REGEX = /^#\s*@id\s+(.+)$/im;
 
 export interface HurlRequestBlock {
 	index: number;
@@ -33,6 +10,11 @@ export interface HurlRequestBlock {
 	hasNameComment: boolean;
 	hasIdComment: boolean;
 }
+
+const REQUEST_LINE_REGEX = /^([A-Z][A-Z0-9_-]*)\s+(.+)$/;
+const COLLECTION_NAME_REGEX = /^#\s*@collectionName\s+(.+)$/im;
+const REQUEST_NAME_REGEX = /^#\s*@name\s+(.+)$/im;
+const REQUEST_ID_REGEX = /^#\s*@id\s+(.+)$/im;
 
 export function normalizeHurlLineEndings(content: string): string {
 	return content.replace(/\r\n/g, '\n');
@@ -55,65 +37,6 @@ export function extractCollectionNameFromHurl(content: string): string | undefin
 	}
 	const name = match[1]?.trim();
 	return name || undefined;
-}
-
-function parseRequestLine(line: string): { method: string; url: string } | null {
-	const match = line.match(REQUEST_LINE_REGEX);
-	if (!match) {
-		return null;
-	}
-
-	const method = match[1].toUpperCase();
-	// Reject HTTP status lines (HTTP 200, HTTP 201, etc.)
-	if (method === 'HTTP') {
-		return null;
-	}
-
-	// Only accept valid HTTP request methods
-	const validMethods = new Set([
-		'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS',
-		'CONNECT', 'TRACE', 'PROPFIND', 'PROPPATCH', 'MKCOL', 'COPY', 'MOVE', 'LOCK', 'UNLOCK'
-	]);
-	if (!validMethods.has(method)) {
-		return null;
-	}
-
-	return {
-		method,
-		url: match[2].trim()
-	};
-}
-
-function computeRequestBlockStarts(lines: string[]): number[] {
-	const starts: number[] = [];
-
-	for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-		const trimmed = lines[lineIndex].trim();
-		if (!parseRequestLine(trimmed)) {
-			continue;
-		}
-
-		let blockStart = lineIndex;
-		for (let backIndex = lineIndex - 1; backIndex >= 0; backIndex--) {
-			const backLine = lines[backIndex].trim();
-			if (!backLine) {
-				break;
-			}
-			if (backLine.startsWith('#')) {
-				// Keep collection metadata in document header, not in request blocks.
-				if (/^#\s*@collectionname\b/i.test(backLine)) {
-					break;
-				}
-				blockStart = backIndex;
-				continue;
-			}
-			break;
-		}
-
-		starts.push(blockStart);
-	}
-
-	return starts;
 }
 
 export function parseHurlDocument(content: string): { header: string; blocks: HurlRequestBlock[] } {
@@ -165,6 +88,54 @@ export function parseHurlDocument(content: string): { header: string; blocks: Hu
 	};
 }
 
+function parseRequestLine(line: string): { method: string; url: string } | null {
+	const match = line.match(REQUEST_LINE_REGEX);
+	if (!match) {
+		return null;
+	}
+	const method = match[1].toUpperCase();
+	// `HTTP 200` lines are response assertions, not request starts
+	if (method === 'HTTP') {
+		return null;
+	}
+	return {
+		method,
+		url: match[2].trim()
+	};
+}
+
+function computeRequestBlockStarts(lines: string[]): number[] {
+	const starts: number[] = [];
+
+	for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+		const trimmed = lines[lineIndex].trim();
+		if (!parseRequestLine(trimmed)) {
+			continue;
+		}
+
+		let blockStart = lineIndex;
+		for (let backIndex = lineIndex - 1; backIndex >= 0; backIndex--) {
+			const backLine = lines[backIndex].trim();
+			if (!backLine) {
+				break;
+			}
+			if (backLine.startsWith('#')) {
+				// Keep collection metadata in document header, not in request blocks.
+				if (/^#\s*@collectionname\b/i.test(backLine)) {
+					break;
+				}
+				blockStart = backIndex;
+				continue;
+			}
+			break;
+		}
+
+		starts.push(blockStart);
+	}
+
+	return starts;
+}
+
 export function splitHurlRequestBlocks(content: string): string[] {
 	return parseHurlDocument(content).blocks.map(block => block.text);
 }
@@ -210,6 +181,12 @@ export function upsertCollectionNameInHurl(content: string, collectionName: stri
 	return composeHurlDocument(updatedHeader, parsed.blocks.map(block => block.text));
 }
 
+/**
+ * Replace (or insert) a `# @name` comment inside a particular request block.
+ *
+ * This utility is used by the extension when the user renames a request in the
+ * UI; it needs to update the comment but not otherwise disturb the block.
+ */
 export function replaceRequestBlockName(blockText: string, newName: string): string {
 	const safeName = newName.trim();
 	if (!safeName) {
@@ -232,17 +209,4 @@ export function replaceRequestBlockName(blockText: string, newName: string): str
 
 	lines.unshift(`# @name ${safeName}`);
 	return lines.join('\n').trim();
-}
-
-export function removeRequestIdComment(blockText: string): string {
-	const normalized = normalizeHurlLineEndings(blockText);
-	const lines = normalized
-		.split('\n')
-		.filter(line => !/^#\s*@id\s+/.test(line.trim()));
-	return lines.join('\n').trim();
-}
-
-export function looksLikeCollectionHurl(content: string): boolean {
-	const parsed = parseHurlDocument(content);
-	return Boolean(extractCollectionNameFromHurl(content)) || parsed.blocks.length > 1;
 }

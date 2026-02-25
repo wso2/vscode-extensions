@@ -37,7 +37,7 @@ import { getHurlBinaryManager } from '../hurl/hurl-binary-manager';
 import {
 	composeHurlDocument,
 	parseHurlDocument
-} from '../util/hurl-collection-file';
+} from '@wso2/api-tryit-hurl-parser';
 
 interface SaveRequestInternalRequest extends SaveRequestRequest {
     appendIfNotFound?: boolean;

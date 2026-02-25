@@ -25,7 +25,7 @@ import {
 	extractCollectionNameFromHurl,
 	getCollectionNameFromPath,
 	parseHurlDocument
-} from '../util/hurl-collection-file';
+} from '@wso2/api-tryit-hurl-parser';
 
 const IGNORED_DIRECTORIES = new Set([
 	'.git',

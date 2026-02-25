@@ -65,4 +65,4 @@ function getLocalComposerJSFiles(
 }
 export { curlToApiRequestItem } from './curl-converter';
 export { hurlToApiRequestItem } from './hurl-converter';
-export { normalizeHurlCollectionPayload } from './hurl-collection-converter';
+export { normalizeHurlCollectionPayload } from '@wso2/api-tryit-hurl-parser';

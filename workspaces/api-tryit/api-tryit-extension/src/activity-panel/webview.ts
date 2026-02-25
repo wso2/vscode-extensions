@@ -45,7 +45,7 @@ import {
 	parseHurlDocument,
 	replaceRequestBlockName,
 	upsertCollectionNameInHurl
-} from '../util/hurl-collection-file';
+} from '@wso2/api-tryit-hurl-parser';
 
 /**
  * Sanitize a name to be used as a folder name or ID
