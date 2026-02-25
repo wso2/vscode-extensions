@@ -23,6 +23,38 @@ const TARGETS = [
     { type: 'Inbound', fileName: 'inbound_db.ts', exportName: 'INBOUND_DB' },
 ];
 
+function getRequestedTargets(argv) {
+    const args = Array.isArray(argv) ? argv : [];
+    const targetArg = args.find((arg) => arg.startsWith('--type='));
+    if (!targetArg) {
+        return TARGETS;
+    }
+
+    const requested = targetArg
+        .slice('--type='.length)
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => value.length > 0);
+
+    if (requested.length === 0) {
+        throw new Error('No valid target types provided. Use --type=connector,inbound.');
+    }
+
+    const validValues = new Set(['connector', 'inbound']);
+    for (const value of requested) {
+        if (!validValues.has(value)) {
+            throw new Error(`Unsupported target type '${value}'. Use connector and/or inbound.`);
+        }
+    }
+
+    const selected = TARGETS.filter((target) => requested.includes(target.type.toLowerCase()));
+    if (selected.length === 0) {
+        throw new Error('No matching targets found for --type argument.');
+    }
+
+    return selected;
+}
+
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -46,6 +78,152 @@ function getConnectorName(item) {
     }
 
     return rawName.trim();
+}
+
+function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function findMatchingArrayEnd(content, arrayStart, filePath, exportName) {
+    if (content[arrayStart] !== '[') {
+        throw new Error(`Expected array start for ${exportName} in ${filePath}.`);
+    }
+
+    let depth = 0;
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+    let inTemplateLiteral = false;
+    let inLineComment = false;
+    let inBlockComment = false;
+    let escaped = false;
+
+    for (let i = arrayStart; i < content.length; i++) {
+        const char = content[i];
+        const next = content[i + 1];
+
+        if (inLineComment) {
+            if (char === '\n') {
+                inLineComment = false;
+            }
+            continue;
+        }
+
+        if (inBlockComment) {
+            if (char === '*' && next === '/') {
+                inBlockComment = false;
+                i++;
+            }
+            continue;
+        }
+
+        if (inSingleQuote) {
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (char === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (char === '\'') {
+                inSingleQuote = false;
+            }
+            continue;
+        }
+
+        if (inDoubleQuote) {
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (char === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (char === '"') {
+                inDoubleQuote = false;
+            }
+            continue;
+        }
+
+        if (inTemplateLiteral) {
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (char === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (char === '`') {
+                inTemplateLiteral = false;
+            }
+            continue;
+        }
+
+        if (char === '/' && next === '/') {
+            inLineComment = true;
+            i++;
+            continue;
+        }
+
+        if (char === '/' && next === '*') {
+            inBlockComment = true;
+            i++;
+            continue;
+        }
+
+        if (char === '\'') {
+            inSingleQuote = true;
+            continue;
+        }
+
+        if (char === '"') {
+            inDoubleQuote = true;
+            continue;
+        }
+
+        if (char === '`') {
+            inTemplateLiteral = true;
+            continue;
+        }
+
+        if (char === '[') {
+            depth++;
+            continue;
+        }
+
+        if (char === ']') {
+            depth--;
+            if (depth === 0) {
+                return i;
+            }
+        }
+    }
+
+    throw new Error(`Could not find the end of the array export for ${exportName} in ${filePath}.`);
+}
+
+function findExportArrayRange(content, filePath, exportName) {
+    const exportRegex = new RegExp(`\\bexport\\s+const\\s+${escapeRegex(exportName)}\\b`);
+    const match = exportRegex.exec(content);
+
+    if (!match) {
+        throw new Error(`Could not find export declaration for ${exportName} in ${filePath}.`);
+    }
+
+    const equalsIndex = content.indexOf('=', match.index + match[0].length);
+    if (equalsIndex < 0) {
+        throw new Error(`Could not find '=' for export ${exportName} in ${filePath}.`);
+    }
+
+    const arrayStart = content.indexOf('[', equalsIndex);
+    if (arrayStart < 0) {
+        throw new Error(`Could not find array start for export ${exportName} in ${filePath}.`);
+    }
+
+    const arrayEnd = findMatchingArrayEnd(content, arrayStart, filePath, exportName);
+    return { arrayStart, arrayEnd };
 }
 
 function normalizeArrayPayload(payload, label) {
@@ -273,16 +451,7 @@ async function fetchAllDetails(type, names) {
 
 async function readExistingRecordsByName(filePath, exportName) {
     const existing = await fs.readFile(filePath, 'utf8');
-    const exportIndex = existing.indexOf(`export const ${exportName} =`);
-    if (exportIndex < 0) {
-        throw new Error(`Could not find export declaration for ${exportName} in ${filePath}.`);
-    }
-
-    const arrayStart = existing.indexOf('[', exportIndex);
-    const arrayEnd = existing.lastIndexOf(']');
-    if (arrayStart < 0 || arrayEnd < 0 || arrayEnd < arrayStart) {
-        throw new Error(`Could not parse array contents from ${filePath}.`);
-    }
+    const { arrayStart, arrayEnd } = findExportArrayRange(existing, filePath, exportName);
 
     const parsed = JSON.parse(existing.slice(arrayStart, arrayEnd + 1));
     if (!Array.isArray(parsed)) {
@@ -302,14 +471,10 @@ async function readExistingRecordsByName(filePath, exportName) {
 
 async function writeTsArrayFile(filePath, exportName, records) {
     const existing = await fs.readFile(filePath, 'utf8');
-    const exportRegex = new RegExp(`^[\\s\\S]*?export const\\s+${exportName}\\s*=\\s*`);
-    const match = existing.match(exportRegex);
-
-    if (!match) {
-        throw new Error(`Could not find export declaration for ${exportName} in ${filePath}.`);
-    }
-
-    const content = `${match[0]}${JSON.stringify(records, null, 4)}\n`;
+    const { arrayStart, arrayEnd } = findExportArrayRange(existing, filePath, exportName);
+    const prefix = existing.slice(0, arrayStart);
+    const suffix = existing.slice(arrayEnd + 1);
+    const content = `${prefix}${JSON.stringify(records, null, 4)}${suffix}`;
     await fs.writeFile(filePath, content, 'utf8');
 }
 
@@ -359,7 +524,8 @@ async function main() {
         throw new Error('MAX_NAMES_PER_REQUEST must be 3 or less to avoid backend overload.');
     }
 
-    for (const target of TARGETS) {
+    const requestedTargets = getRequestedTargets(process.argv.slice(2));
+    for (const target of requestedTargets) {
         await updateTarget(target);
     }
 }

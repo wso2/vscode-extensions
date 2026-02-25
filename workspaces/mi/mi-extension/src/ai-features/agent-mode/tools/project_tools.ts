@@ -280,7 +280,12 @@ async function processItem(
 
         const item = resolvedItem;
 
-        if (typeof item?.mavenGroupId !== 'string' || typeof item?.mavenArtifactId !== 'string') {
+        const hasValidMavenCoordinates = typeof item?.mavenGroupId === 'string'
+            && item.mavenGroupId.trim().length > 0
+            && typeof item?.mavenArtifactId === 'string'
+            && item.mavenArtifactId.trim().length > 0;
+
+        if (!hasValidMavenCoordinates) {
             return {
                 name: itemName,
                 type: itemType,
@@ -289,12 +294,15 @@ async function processItem(
             };
         }
 
+        const mavenGroupId = item.mavenGroupId.trim();
+        const mavenArtifactId = item.mavenArtifactId.trim();
+
         // For add operation, check if item is already in pom.xml
         if (isAdd) {
             const alreadyExists = existingDependencies.connectorDependencies?.some(
                 (existingDep: any) =>
-                    existingDep.groupId === item.mavenGroupId &&
-                    existingDep.artifact === item.mavenArtifactId
+                    existingDep.groupId === mavenGroupId &&
+                    existingDep.artifact === mavenArtifactId
             );
 
             if (alreadyExists) {
@@ -311,13 +319,13 @@ async function processItem(
 
         // Prepare dependency details
         const dependencies: DependencyDetails[] = [{
-            groupId: item.mavenGroupId,
-            artifact: item.mavenArtifactId,
+            groupId: mavenGroupId,
+            artifact: mavenArtifactId,
             version: item.version?.tagName,
             type: "zip"
         }];
 
-        logDebug(`[${toolName}] ${isAdd ? 'Adding' : 'Removing'} ${itemType}: ${itemName} (${item.mavenArtifactId}:${item.version?.tagName})`);
+        logDebug(`[${toolName}] ${isAdd ? 'Adding' : 'Removing'} ${itemType}: ${itemName} (${mavenArtifactId}:${item.version?.tagName})`);
 
         // Update pom.xml
         const response = await miVisualizerRpcManager.updateAiDependencies({

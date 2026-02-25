@@ -90,6 +90,7 @@ interface CacheReadResult {
 
 const CACHE_ROOT_DIR = path.join(os.homedir(), '.wso2-mi', 'copilot', 'cache');
 const CATALOG_FILE_NAME = 'catalog.json';
+const pendingCacheFileWrites = new Map<string, Promise<void>>();
 
 function normalizeName(value: unknown): string {
     if (typeof value !== 'string') {
@@ -250,14 +251,42 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
     try {
         const content = await fs.promises.readFile(filePath, 'utf8');
         return JSON.parse(content) as T;
-    } catch {
+    } catch (error: unknown) {
+        const errorCode = typeof error === 'object' && error !== null && 'code' in error
+            ? (error as NodeJS.ErrnoException).code
+            : undefined;
+
+        if (errorCode === 'ENOENT') {
+            return null;
+        }
+
+        logError(`[ConnectorStoreCache] Failed to read or parse JSON cache file: ${filePath}`, error);
         return null;
     }
 }
 
+function enqueueFileWrite(filePath: string, writeOperation: () => Promise<void>): Promise<void> {
+    const previousWrite = pendingCacheFileWrites.get(filePath) ?? Promise.resolve();
+
+    const queuedWrite = previousWrite
+        .catch(() => undefined)
+        .then(writeOperation);
+
+    const trackedWrite = queuedWrite.finally(() => {
+        if (pendingCacheFileWrites.get(filePath) === trackedWrite) {
+            pendingCacheFileWrites.delete(filePath);
+        }
+    });
+
+    pendingCacheFileWrites.set(filePath, trackedWrite);
+    return trackedWrite;
+}
+
 async function writeJsonFile(filePath: string, content: unknown): Promise<void> {
-    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.promises.writeFile(filePath, JSON.stringify(content, null, 2), 'utf8');
+    await enqueueFileWrite(filePath, async () => {
+        await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.promises.writeFile(filePath, JSON.stringify(content, null, 2), 'utf8');
+    });
 }
 
 async function readCatalogCache(filePath: string): Promise<CatalogCacheFile | null> {

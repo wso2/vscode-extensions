@@ -855,11 +855,14 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     async loadChatHistory(_request: LoadChatHistoryRequest): Promise<LoadChatHistoryResponse> {
         try {
-            if (!startupSessionInitializedProjects.has(this.projectUri)) {
+            const shouldCreateStartupSession = !startupSessionInitializedProjects.has(this.projectUri);
+            let startupSessionId: string | undefined;
+
+            if (shouldCreateStartupSession) {
                 logInfo('[AgentPanel] Creating startup fresh session for project');
                 const freshSessionResult = await this.createNewSession({});
-                if (freshSessionResult.success) {
-                    startupSessionInitializedProjects.add(this.projectUri);
+                if (freshSessionResult.success && freshSessionResult.sessionId) {
+                    startupSessionId = freshSessionResult.sessionId;
                 } else {
                     logError('[AgentPanel] Failed to create startup fresh session', freshSessionResult.error);
                 }
@@ -881,6 +884,12 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             const { events, lastTotalInputTokens, mode } = await this.loadAndNormalizeSessionEvents(historyManager);
             this.currentMode = mode;
             logInfo(`[AgentPanel] Loaded ${events.length} events`);
+
+            if (startupSessionId && this.currentSessionId === startupSessionId) {
+                startupSessionInitializedProjects.add(this.projectUri);
+            } else if (shouldCreateStartupSession && startupSessionId) {
+                logError('[AgentPanel] Startup session changed before history load completed; will retry on next load');
+            }
 
             return {
                 success: true,
