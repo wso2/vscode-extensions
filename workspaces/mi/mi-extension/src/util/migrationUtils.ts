@@ -964,34 +964,52 @@ async function determineProjectType(source: string): Promise<Nature | undefined>
     const rootMetaDataFilePath = path.join(source, '.project');
     const rootPomFilePath = path.join(source, 'pom.xml');
     let configType;
+    // Try reading from .project file
     if (fs.existsSync(rootMetaDataFilePath)) {
-        const projectFileContent = fs.readFileSync(rootMetaDataFilePath, 'utf-8');
-        const result = await new Promise<any>((resolve, reject) => {
-            parseString(projectFileContent, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
-                if (err) {
-                    console.error('Error occured while reading ' + rootMetaDataFilePath, err);
-                    resolve('');
-                } else {
-                    resolve(result);
-                }
-            });
-        });
-        if (result && result.projectDescription) {
-            const projectDescription = result.projectDescription;
-            if (projectDescription && projectDescription.natures && projectDescription.natures.nature) {
-                let nature = projectDescription.natures.nature;
-                if (Array.isArray(nature)) {
-                    nature = nature.find(element => element.startsWith("org.wso2.developerstudio.eclipse"));
-                }
-                configType = getNatureFromString(nature);
-            }
-        }
-    } else if (fs.existsSync(rootPomFilePath)) {
+        configType = await getNatureFromProjectFile(rootMetaDataFilePath);
+    } 
+    // If not found OR it is LEGACY, fallback to pom.xml
+    if ((!configType || configType === Nature.LEGACY) && fs.existsSync(rootPomFilePath)) {
         const pomContent = fs.readFileSync(rootPomFilePath, 'utf-8');
         const fetchedNatureStr = await extractNatureFromPomContent(pomContent);
         configType = getNatureFromString(fetchedNatureStr);
     }
     return configType;
+}
+
+/**
+ * Extracts the {@link Nature} from a `.project` file.
+ *
+ * If multiple natures are present, the method selects the one that starts
+ * with "org.wso2.developerstudio.eclipse".
+ *
+ * @param projectFilePath Absolute path to the `.project` file.
+ * @returns A resolved {@link Nature} if a valid nature is found,
+ *          otherwise `undefined`.
+ */
+async function getNatureFromProjectFile(projectFilePath: string): Promise<Nature | undefined> {
+    const projectFileContent = fs.readFileSync(projectFilePath, 'utf-8');
+    const result = await new Promise<any>((resolve, reject) => {
+        parseString(projectFileContent, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
+            if (err) {
+                console.error('Error occured while reading ' + projectFilePath, err);
+                resolve('');
+            } else {
+                resolve(result);
+            }
+        });
+    });
+    if (result && result.projectDescription) {
+        const projectDescription = result.projectDescription;
+        if (projectDescription && projectDescription.natures && projectDescription.natures.nature) {
+            let nature = projectDescription.natures.nature;
+            if (Array.isArray(nature)) {
+                nature = nature.find(element => element.startsWith("org.wso2.developerstudio.eclipse"));
+            }
+            return getNatureFromString(nature);
+        }
+    }
+    return undefined;
 }
 
 function getNatureFromString(nature: string | undefined): Nature | undefined {
