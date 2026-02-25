@@ -85,6 +85,10 @@ export interface UsecaseResult {
     readonly toolEvents?: readonly ToolEvent[];
     readonly iteration?: number;
     readonly evaluationResult: LLMEvaluationResult;
+    /** Whether the generated bal.md (codemap) matches the expected one. undefined = no expected file exists. */
+    readonly codeMapMatch?: boolean;
+    /** Content of the generated bal.md (codemap) from the isolated project. */
+    readonly generatedCodeMap?: string;
     readonly usage?: {
         readonly initial: {
             readonly inputTokens: number;
@@ -210,6 +214,7 @@ export interface UsecaseCompact {
     readonly iteration?: number;
     readonly toolEvents?: readonly ToolEvent[];
     readonly evaluationResult: LLMEvaluationResult;
+    readonly codeMapMatch?: boolean;
     readonly usage?: {
         readonly totalTokens: number;
         readonly cacheHits: number;

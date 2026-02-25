@@ -78,7 +78,9 @@ export function convertTestResultToUsecaseResult(testResult: TestCaseResult, ite
         errorEvents: errorEvents.length > 0 ? errorEvents : undefined,
         toolEvents: toolEvents.length > 0 ? toolEvents : undefined,
         iteration,
-        usage: testResult.result.usageMetrics?.usage
+        usage: testResult.result.usageMetrics?.usage,
+        codeMapMatch: testResult.codeMapMatch,
+        generatedCodeMap: testResult.generatedCodeMap
     };
 }
 

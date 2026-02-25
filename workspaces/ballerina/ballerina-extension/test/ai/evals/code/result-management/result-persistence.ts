@@ -39,6 +39,13 @@ export async function persistUsecaseResult(
     }
     await fs.promises.mkdir(resultDir, { recursive: true });
 
+    // Save generated codemap if present
+    if (usecaseResult.generatedCodeMap) {
+        const codeMapDir = path.join(resultDir, "code_map");
+        await fs.promises.mkdir(codeMapDir, { recursive: true });
+        await fs.promises.writeFile(path.join(codeMapDir, "bal.md"), usecaseResult.generatedCodeMap);
+    }
+
     const compactResult: UsecaseCompact = {
         usecase: usecaseResult.usecase,
         compiled: usecaseResult.compiled,
@@ -46,6 +53,7 @@ export async function persistUsecaseResult(
         iteration: usecaseResult.iteration,
         toolEvents: usecaseResult.toolEvents,
         evaluationResult: usecaseResult.evaluationResult,
+        codeMapMatch: usecaseResult.codeMapMatch,
         usage: usecaseResult.usage ? {
             totalTokens: usecaseResult.usage.initial.inputTokens + usecaseResult.usage.initial.outputTokens +
                         usecaseResult.usage.repairs.reduce((sum, repair) => sum + repair.inputTokens + repair.outputTokens, 0),

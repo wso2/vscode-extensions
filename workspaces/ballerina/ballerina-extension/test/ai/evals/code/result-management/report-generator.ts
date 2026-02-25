@@ -155,6 +155,9 @@ function logSuccessfulCompilations(results: readonly UsecaseResult[]): void {
         if (result.evaluationResult) {
             console.log(`      LLM Rating: ${result.evaluationResult.rating.toFixed(1)}/10 (${result.evaluationResult.is_correct ? '✅' : '❌'})`);
         }
+        if (result.codeMapMatch !== undefined) {
+            console.log(`      Expected Code Map: ${result.codeMapMatch}`);
+        }
         if (result.files.length > 0) {
             console.log(`      Files: ${result.files.map(f => f.fileName).join(', ')}`);
         }
@@ -176,6 +179,9 @@ function logFailedCompilations(results: readonly UsecaseResult[]): void {
         if (result.evaluationResult) {
             console.log(`      LLM Rating: ${result.evaluationResult.rating.toFixed(1)}/10`);
             console.log(`      LLM Reasoning: ${result.evaluationResult.reasoning.substring(0, 100)}${result.evaluationResult.reasoning.length > 100 ? '...' : ''}`);
+        }
+        if (result.codeMapMatch !== undefined) {
+            console.log(`      Expected Code Map: ${result.codeMapMatch}`);
         }
 
         if (result.errorEvents && result.errorEvents.length > 0) {
