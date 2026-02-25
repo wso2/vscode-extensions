@@ -24,7 +24,7 @@
             "undici": "^7.18.2",
             "lodash": "4.17.23",
             "hono": "^4.11.7",
-            "fast-xml-parser": "5.3.4"
+            "fast-xml-parser": "5.3.7"
         }
     },
     "scripts": {

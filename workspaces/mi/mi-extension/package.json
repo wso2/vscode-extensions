@@ -1060,7 +1060,7 @@
     "copyfiles": "^2.4.1",
     "cors-anywhere": "^0.4.4",
     "dotenv": "~16.5.0",
-    "fast-xml-parser": "5.3.4",
+    "fast-xml-parser": "5.3.7",
     "find-process": "~1.4.10",
     "fs-extra": "~11.3.0",
     "handlebars": "^4.7.8",
