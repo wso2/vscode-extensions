@@ -989,10 +989,10 @@ async function determineProjectType(source: string): Promise<Nature | undefined>
  */
 async function getNatureFromProjectFile(projectFilePath: string): Promise<Nature | undefined> {
     const projectFileContent = fs.readFileSync(projectFilePath, 'utf-8');
-    const result = await new Promise<any>((resolve, reject) => {
+    const result = await new Promise<any>((resolve) => {
         parseString(projectFileContent, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
             if (err) {
-                console.error('Error occured while reading ' + projectFilePath, err);
+                console.error('Error occurred while reading ' + projectFilePath, err);
                 resolve('');
             } else {
                 resolve(result);
