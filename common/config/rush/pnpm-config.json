@@ -91,9 +91,6 @@
     "globalOverrides": {
       // "example1": "^1.0.0",
       // "example2": "npm:@company/example2@^1.0.0"
-      // CVE-2026-2739: bn.js DoS via maskn(0) - fix versions 4.12.3 / 5.2.3
-      "bn.js@^4.0.0": "4.12.3",
-      "bn.js@^5.0.0": "5.2.3"
     },
   
     /**

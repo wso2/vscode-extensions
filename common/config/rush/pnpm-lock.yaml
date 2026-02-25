@@ -4,10 +4,6 @@ settings:
   autoInstallPeers: false
   excludeLinksFromLockfile: false
 
-overrides:
-  bn.js@^4.0.0: 4.12.3
-  bn.js@^5.0.0: 5.2.3
-
 pnpmfileChecksum: sha256-XTeZQwJtKk4dimqf7175GhJCXrnq3Yh7+kwb86Bwcdo=
 
 importers:
@@ -42931,7 +42927,7 @@ snapshots:
 
   browserify-rsa@4.1.1:
     dependencies:
-      bn.js: 5.2.3
+      bn.js: 4.12.3
       randombytes: 2.1.0
       safe-buffer: 5.2.1
 
