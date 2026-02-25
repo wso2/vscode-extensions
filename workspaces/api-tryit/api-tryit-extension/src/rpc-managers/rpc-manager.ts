@@ -24,16 +24,13 @@ import {
     HttpRequestOptions,
     HttpResponseResult,
 } from "@wso2/api-tryit-core";
-import { writeFile, readFile, mkdtemp, rm } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import * as vscode from 'vscode';
 import * as yaml from 'js-yaml';
-import * as os from 'os';
 import * as path from 'path';
-import { createHurlRunner } from '@wso2/api-tryit-hurl-runner';
 import { parseHurlCollection } from '@wso2/api-tryit-hurl-parser';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
 import { HurlFormatAdapter } from '../util/hurl-format-adapter';
-import { getHurlBinaryManager } from '../hurl/hurl-binary-manager';
 import {
 	composeHurlDocument,
 	parseHurlDocument
@@ -296,144 +293,45 @@ export class ApiTryItRpcManager {
         return url.includes('?') ? `${url}&${queryString}` : `${url}?${queryString}`;
     }
 
-    private buildHurlRequest(options: HttpRequestOptions): string {
+    async sendHttpRequest(options: HttpRequestOptions): Promise<HttpResponseResult> {
         const method = (options.method || 'GET').toUpperCase();
         const url = this.appendQueryParams(options.url, options.params);
-        const headers = { ...(options.headers || {}) };
+        const headers = { ...(options.headers || {}) } as Record<string, string>;
 
         const hasBody = options.data !== undefined && options.data !== null;
-        if (hasBody && typeof options.data === 'object') {
-            const hasContentTypeHeader = Object.keys(headers).some(key => key.toLowerCase() === 'content-type');
-            if (!hasContentTypeHeader) {
-                headers['Content-Type'] = 'application/json';
-            }
-        }
+        let body: string | undefined;
 
-        let hurl = `${method} ${url}\n`;
-        for (const [key, value] of Object.entries(headers)) {
-            if (!key || value === undefined || value === null) {
-                continue;
-            }
-            hurl += `${key}: ${String(value)}\n`;
-        }
-
-        const methodSupportsBody = !['GET', 'HEAD', 'OPTIONS'].includes(method);
-        if (methodSupportsBody && hasBody) {
-            hurl += '\n';
+        if (hasBody && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
             if (typeof options.data === 'string') {
-                hurl += options.data;
+                body = options.data;
             } else {
-                hurl += JSON.stringify(options.data, null, 2);
-            }
-            if (!hurl.endsWith('\n')) {
-                hurl += '\n';
-            }
-        }
-
-        return hurl;
-    }
-
-    private parseResponseFromStdout(stdout: string): HttpResponseResult | undefined {
-        if (!stdout || stdout.trim().length === 0) {
-            return undefined;
-        }
-
-        const lines = stdout.replace(/\r\n/g, '\n').split('\n');
-        const statusLineIndexes: number[] = [];
-        for (let index = 0; index < lines.length; index++) {
-            if (/^HTTP\/\S+\s+\d{3}\b/i.test(lines[index].trim())) {
-                statusLineIndexes.push(index);
+                const hasContentTypeHeader = Object.keys(headers).some(key => key.toLowerCase() === 'content-type');
+                if (!hasContentTypeHeader) {
+                    headers['Content-Type'] = 'application/json';
+                }
+                body = JSON.stringify(options.data);
             }
         }
 
-        if (statusLineIndexes.length === 0) {
-            return undefined;
-        }
-
-        const startIndex = statusLineIndexes[statusLineIndexes.length - 1];
-        const endIndex = lines.length;
-        let headerEndIndex = endIndex;
-        for (let index = startIndex + 1; index < endIndex; index++) {
-            if (lines[index].trim() === '') {
-                headerEndIndex = index;
-                break;
-            }
-        }
-
-        const statusLine = lines[startIndex].trim();
-        const statusMatch = statusLine.match(/^HTTP\/\S+\s+(\d{3})\b/i);
-        if (!statusMatch) {
-            return undefined;
-        }
-
-        const headers: Array<{ key: string; value: string }> = [];
-        for (let index = startIndex + 1; index < headerEndIndex; index++) {
-            const line = lines[index];
-            const separatorIndex = line.indexOf(':');
-            if (separatorIndex <= 0) {
-                continue;
-            }
-
-            const key = line.slice(0, separatorIndex).trim().toLowerCase();
-            const value = line.slice(separatorIndex + 1).trim();
-            headers.push({ key, value });
-        }
-
-        const bodyStartIndex = headerEndIndex < endIndex ? headerEndIndex + 1 : headerEndIndex;
-        const body = lines.slice(bodyStartIndex, endIndex).join('\n').trimEnd();
-        return {
-            statusCode: Number.parseInt(statusMatch[1], 10),
-            headers,
-            body
-        };
-    }
-
-    async sendHttpRequest(options: HttpRequestOptions): Promise<HttpResponseResult> {
-        let tempDir: string | undefined;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
 
         try {
-            const commandPath = await getHurlBinaryManager().resolveCommandPath({
-                autoInstall: true,
-                promptOnFailure: true
+            const response = await fetch(url, {
+                method,
+                headers,
+                body,
+                redirect: 'follow',
+                signal: controller.signal
             });
-            const runner = createHurlRunner({ command: commandPath });
-            const environment = await runner.verifyEnvironment();
-            if (!environment.available) {
-                const message = environment.errorMessage || 'The hurl command is not available in PATH.';
-                return {
-                    statusCode: 0,
-                    headers: [],
-                    body: JSON.stringify({ error: message }, null, 2),
-                    error: message
-                };
-            }
 
-            tempDir = await mkdtemp(path.join(os.tmpdir(), 'api-tryit-send-'));
-            const requestFilePath = path.join(tempDir, 'request.hurl');
-            const reportDir = path.join(tempDir, 'report');
-            await writeFile(requestFilePath, this.buildHurlRequest(options), 'utf8');
+            const responseBody = await response.text();
+            const responseHeaders = Array.from(response.headers.entries()).map(([key, value]) => ({ key, value }));
 
-            const runResult = await runner.run(
-                { collectionPath: requestFilePath },
-                {
-                    parallelism: 1,
-                    followRedirects: true,
-                    includeResponseOutput: true,
-                    reportArtifactsDir: reportDir
-                }
-            );
-            const fileResult = runResult.files[0];
-            const parsedResponse = this.parseResponseFromStdout(fileResult?.stdout || '');
-            if (parsedResponse) {
-                return parsedResponse;
-            }
-
-            const errorMessage = fileResult?.errorMessage || 'Request failed.';
             return {
-                statusCode: 0,
-                headers: [],
-                body: JSON.stringify({ error: errorMessage }, null, 2),
-                error: errorMessage
+                statusCode: response.status,
+                headers: responseHeaders,
+                body: responseBody
             };
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Request failed.';
@@ -444,9 +342,7 @@ export class ApiTryItRpcManager {
                 error: message
             };
         } finally {
-            if (tempDir) {
-                await rm(tempDir, { recursive: true, force: true });
-            }
+            clearTimeout(timeout);
         }
     }
 }
