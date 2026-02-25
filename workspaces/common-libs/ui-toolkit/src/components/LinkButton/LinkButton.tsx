@@ -53,11 +53,8 @@ export interface LinkButtonProps {
 export const LinkButton: React.FC<PropsWithChildren<LinkButtonProps>> = 
     (props: PropsWithChildren<LinkButtonProps>) => {
         const { id, className, children, sx, onClick } = props;
-        const handleComponentClick = () => {
-            onClick();
-        }
         return (
-            <LinkContainer id={id} className={className} sx={sx} onClick={handleComponentClick}>
+            <LinkContainer id={id} className={className} sx={sx} onClick={onClick}>
                 {children}
             </LinkContainer>
         );

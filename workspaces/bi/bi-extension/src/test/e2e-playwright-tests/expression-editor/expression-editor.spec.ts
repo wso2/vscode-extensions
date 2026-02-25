@@ -29,7 +29,7 @@ export default function createTests() {
         test('Retrieving suggestions', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
             console.log('Retrieving suggestions: ', testAttempt);
-            
+
             // Create an automation
             await addArtifact('Automation', 'automation');
 

@@ -50,6 +50,8 @@ interface AddConnectorProps {
     control: any;
     errors: any;
     setValue: any;
+    setError: any;
+    clearErrors: any;
     handleSubmit: any;
     reset: any;
     watch: any;
@@ -59,7 +61,7 @@ interface AddConnectorProps {
 }
 
 const AddConnector = (props: AddConnectorProps) => {
-    const { formData, connectionName, nodePosition, control, errors, setValue, reset, watch, getValues, dirtyFields, isUpdate, handleSubmit, documentUri } = props;
+    const { formData, connectionName, nodePosition, control, errors, setValue, setError, clearErrors, reset, watch, getValues, dirtyFields, isUpdate, handleSubmit, documentUri } = props;
     const { rpcClient, setIsLoading: setDiagramLoading } = useVisualizerContext();
 
     const sidePanelContext = React.useContext(SidePanelContext);
@@ -328,6 +330,8 @@ const AddConnector = (props: AddConnectorProps) => {
                             control={control}
                             errors={errors}
                             setValue={setValue}
+                            setError={setError}
+                            clearErrors={clearErrors}
                             reset={reset}
                             watch={watch}
                             getValues={getValues}
@@ -346,6 +350,7 @@ const AddConnector = (props: AddConnectorProps) => {
                 <Button
                     appearance="primary"
                     onClick={handleSubmit(onClick)}
+                    disabled={Boolean(errors?.mcpTools)}
                 >
                     {isUpdate ? "Update" : "Add"}
                 </Button>

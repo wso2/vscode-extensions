@@ -309,7 +309,7 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
             <WaitingMessage>
                 <Title>Waiting for Login</Title>
                 <SubTitle>
-                    Waiting for the login credentials. Please sign in to your MI Copilot account in the browser window to continue.
+                    Waiting for Devant sign-in. Complete your login in the WSO2 Platform extension to continue with MI Copilot.
                 </SubTitle>
                 <ButtonContainer>
                     <VSCodeButton appearance="secondary" onClick={cancelLogin}>
@@ -320,4 +320,3 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
         </Container>
     );
 };
-

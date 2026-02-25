@@ -20,13 +20,27 @@ import React, { useState, useEffect } from "react";
 import { Button, Codicon } from "@wso2/ui-toolkit";
 import { Badge, Header, HeaderButtons, ResetsInBadge } from '../styles';
 import { useMICopilotContext } from "./MICopilotContext";
+import SessionSwitcher from "./SessionSwitcher";
 
 /**
  * Header component for the chat interface
- * Shows token information and action buttons
+ * Shows session switcher, token information, and action buttons
  */
 const AIChatHeader: React.FC = () => {
-  const { rpcClient, setChatClearEventTriggered, tokenInfo, chatClearEventTriggered, backendRequestTriggered} = useMICopilotContext();
+  const {
+    rpcClient,
+    tokenInfo,
+    backendRequestTriggered,
+    // Session management
+    currentSessionId,
+    currentSessionTitle,
+    sessions,
+    isSessionsLoading,
+    refreshSessions,
+    switchToSession,
+    createNewSession,
+    deleteSession
+  } = useMICopilotContext();
   const [hasApiKey, setHasApiKey] = useState(false);
 
   const handleLogout = async () => {
@@ -43,7 +57,7 @@ const AIChatHeader: React.FC = () => {
     checkApiKey();
   }, [rpcClient]);
 
-  const isLoading = chatClearEventTriggered || backendRequestTriggered;
+  const isLoading = backendRequestTriggered || isSessionsLoading;
 
   return (
       <Header>
@@ -75,15 +89,16 @@ const AIChatHeader: React.FC = () => {
               )}
           </Badge>
           <HeaderButtons>
-              <Button
-                  appearance="icon"
-                  onClick={() => setChatClearEventTriggered(true)}
-                  tooltip="Clear Chat"
-                  disabled={isLoading}
-              >
-                  <Codicon name="clear-all" />
-                  &nbsp;&nbsp;Clear
-              </Button>
+              <SessionSwitcher
+                  currentSessionId={currentSessionId}
+                  sessions={sessions}
+                  currentSessionTitle={currentSessionTitle}
+                  isLoading={isLoading}
+                  onSessionSwitch={switchToSession}
+                  onNewSession={createNewSession}
+                  onDeleteSession={deleteSession}
+                  onRefresh={refreshSessions}
+              />
               <Button appearance="icon" onClick={handleLogout} tooltip="Logout" disabled={isLoading}>
                   <Codicon name="sign-out" />
                   &nbsp;&nbsp;Logout

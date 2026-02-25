@@ -223,6 +223,8 @@ import {
     GetMediatorsResponse,
     GetMediatorRequest,
     GetMediatorResponse,
+    McpToolsRequest,
+    McpToolsResponse,
     UpdateMediatorRequest,
     ExpressionCompletionsRequest,
     ExpressionCompletionsResponse,
@@ -267,7 +269,8 @@ import {
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
     Property,
-    UpdateRegistryPropertyRequest
+    UpdateRegistryPropertyRequest,
+    GenerateMappingsParamsRequest
 } from "./types";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -433,6 +436,7 @@ export const getAllInputDefaultPayloads: RequestType<void, Record<string, unknow
 export const getMediators: RequestType<GetMediatorsRequest, GetMediatorsResponse> = { method: `${_preFix}/getMediators` };
 export const getMediator: RequestType<GetMediatorRequest, GetMediatorResponse> = { method: `${_preFix}/getMediator` };
 export const updateMediator: RequestType<UpdateMediatorRequest, UpdateMediatorResponse> = { method: `${_preFix}/updateMediator` };
+export const getMcpTools: RequestType<McpToolsRequest, McpToolsResponse> = { method: `${_preFix}/getMcpTools` };
 export const getLocalInboundConnectors: RequestType<void, LocalInboundConnectorsResponse> = { method: `${_preFix}/getLocalInboundConnectors` };
 export const getConnectionSchema: RequestType<GetConnectionSchemaRequest, GetConnectionSchemaResponse> = { method: `${_preFix}/getConnectionSchema` };
 export const getExpressionCompletions: RequestType<ExpressionCompletionsRequest, ExpressionCompletionsResponse> = { method: `${_preFix}/getExpressionCompletions` };
@@ -453,3 +457,4 @@ export const configureKubernetes: RequestType<ConfigureKubernetesRequest, Config
 export const isKubernetesConfigured: RequestType<void, boolean> = { method: `${_preFix}/isKubernetesConfigured` };
 export const updatePropertiesInArtifactXML: RequestType<UpdateRegistryPropertyRequest, string> = { method: `${_preFix}/updatePropertiesInArtifactXML` };
 export const getPropertiesFromArtifactXML: RequestType<string, Property[] | undefined> = { method: `${_preFix}/getPropertiesFromArtifactXML` };
+export const getInputOutputMappings: RequestType<GenerateMappingsParamsRequest, string[]> = { method: `${_preFix}/getInputOutputMappings` };

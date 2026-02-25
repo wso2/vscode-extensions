@@ -16,14 +16,14 @@
     "@typescript-eslint/parser": "8.32.1",
     "@typescript-eslint/eslint-plugin": "8.32.1",
     "eslint": "9.27.0",
-    "@eslint/eslintrc": "~3.3.1",
-    "@eslint/js": "~9.27.0"
+    "@eslint/eslintrc": "3.3.1",
+    "@eslint/js": "9.27.0"
   },
   "dependencies": {
-    "@types/vscode-webview": "^1.57.5",
-    "vscode-messenger-common": "^0.5.1",
+    "@types/vscode-webview": "1.57.5",
+    "vscode-messenger-common": "0.5.1",
     "@wso2/mi-syntax-tree": "workspace:*",
-    "vscode-languageserver-types": "~3.17.5"
+    "vscode-languageserver-types": "3.17.5"
   },
   "repository": {
     "type": "git",

@@ -21,3 +21,6 @@ export const SELECTED_JAVA_HOME = "JAVA_HOME";
 
 export const INCORRECT_SERVER_PATH_MSG = "Unable to locate the MI server at the provided path. Please provide the correct path.";
 
+export const REMOTE = "remote";
+export const LOCALHOST = "localhost";
+export const ADMIN = "admin";

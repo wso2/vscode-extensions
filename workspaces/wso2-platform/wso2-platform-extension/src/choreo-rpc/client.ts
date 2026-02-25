@@ -108,12 +108,12 @@ export class RPCClient {
 		if (this._conn) {
 			this._conn.dispose();
 		}
-		const stdioConnection = new StdioConnection();
-		this._conn = stdioConnection.getProtocolConnection();
-		this._conn.trace(Trace.Verbose, new ChoreoTracer());
-		this._conn.listen();
-
 		try {
+			const stdioConnection = new StdioConnection();
+			this._conn = stdioConnection.getProtocolConnection();
+			this._conn.trace(Trace.Verbose, new ChoreoTracer());
+			this._conn.listen();
+			
 			// biome-ignore lint/complexity/noBannedTypes:
 			const resp = await this._conn.sendRequest<{}>("initialize", {
 				clientName: "vscode",
@@ -122,7 +122,8 @@ export class RPCClient {
 			});
 			console.log("Initialized RPC server", resp);
 		} catch (e) {
-			getLogger().error("failed to initialize rpc client", e);
+			getLogger().error("Failed to initialize RPC client", e);
+			throw e;
 		}
 	}
 
