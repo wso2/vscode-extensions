@@ -69,7 +69,7 @@ import { URI } from 'vscode-uri';
 import { prepareAndGenerateConfig, cleanAndValidateProject } from '../config-generator/configGenerator';
 import { extension } from '../../BalExtensionContext';
 import * as fs from 'fs';
-import { findHighestVersionJdk } from '../../utils/server/server';
+import { findJdkInDirectory, findSystemJdk } from '../../utils/server/server';
 import { PlatformExtRpcManager } from '../../rpc-managers/platform-ext/rpc-manager';
 
 const BALLERINA_COMMAND = "ballerina.command";
@@ -788,13 +788,14 @@ function getJavaCommand(): string {
         ? ballerinaHome.substring(0, ballerinaHome.indexOf('distributions'))
         : ballerinaHome;
 
-    // Find any JDK in the dependencies directory
-    const dependenciesDir = join(baseHome, 'dependencies');
-    const jdkDir = findHighestVersionJdk(dependenciesDir);
+    // Find any JDK: check ballerinaHome/dependencies first, then baseHome/dependencies, then fall back to system JDK
+    const jdkDir = findJdkInDirectory(join(ballerinaHome, 'dependencies'))
+        ?? findJdkInDirectory(join(baseHome, 'dependencies'))
+        ?? findSystemJdk();
 
     if (!jdkDir) {
-        log(`No JDK found in dependencies directory: ${dependenciesDir}`);
-        throw new Error(`JDK not found in ${dependenciesDir}`);
+        log(`No JDK found in ballerinaHome/dependencies, baseHome/dependencies, or system JAVA_HOME`);
+        throw new Error(`JDK not found. Please set JAVA_HOME or install a JDK in the Ballerina dependencies directory.`);
     }
 
     const jdkVersionMatch = jdkDir.match(/jdk-(.+)-jre/);
