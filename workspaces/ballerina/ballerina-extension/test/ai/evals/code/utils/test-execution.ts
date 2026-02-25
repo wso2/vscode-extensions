@@ -30,6 +30,7 @@ const CODE_MAP_DIR = path.resolve(__dirname, '../../../../../../test/code_map');
 interface CodeMapCheckResult {
     match: boolean | undefined;
     content: string | undefined;
+    reason?: string;
 }
 
 /**
@@ -52,31 +53,50 @@ function parseCodeMapSections(content: string): { header: string; sections: stri
  * Returns match=undefined if no expected file exists for the project.
  * Always returns content if the generated bal.md exists.
  */
-function checkCodeMap(isolatedProjectPath: string, originalProjectPath: string): CodeMapCheckResult {
+function checkCodeMap(isolatedProjectPath: string, originalProjectPath: string, useCaseId: string): CodeMapCheckResult {
+    const prefix = `[${useCaseId}][CodeMap]`;
+    const projectFolderName = path.basename(originalProjectPath);
+
     const generatedPath = path.join(isolatedProjectPath, 'bal.md');
     const generatedContent = fs.existsSync(generatedPath)
         ? fs.readFileSync(generatedPath, 'utf-8')
         : undefined;
 
-    const projectFolderName = path.basename(originalProjectPath);
+    if (!generatedContent) {
+        console.warn(`${prefix} Generated bal.md not found at: ${generatedPath}`);
+    } else {
+        console.log(`${prefix} Generated bal.md found (${generatedContent.length} chars)`);
+    }
+
     const expectedPath = path.join(CODE_MAP_DIR, projectFolderName, 'bal.md');
 
     if (!fs.existsSync(expectedPath)) {
+        console.warn(`${prefix} No expected bal.md found for project "${projectFolderName}" at: ${expectedPath} — skipping comparison`);
         return { match: undefined, content: generatedContent };
     }
 
+    console.log(`${prefix} Expected bal.md found — running comparison`);
+
     if (!generatedContent) {
-        console.warn(`[CodeMap] Expected file exists but generated bal.md not found at: ${generatedPath}`);
-        return { match: false, content: undefined };
+        return { match: false, content: undefined, reason: `Generated bal.md not found at: ${generatedPath}` };
     }
 
     const generated = parseCodeMapSections(generatedContent);
     const expected = parseCodeMapSections(fs.readFileSync(expectedPath, 'utf-8'));
 
+    console.log(`${prefix} Sections — generated: ${generated.sections.length}, expected: ${expected.sections.length}`);
+
     const headerMatch = generated.header === expected.header;
     const sectionsMatch =
         generated.sections.length === expected.sections.length &&
         generated.sections.every((s, i) => s === expected.sections[i]);
+
+    if (!headerMatch) {
+        console.log(`${prefix} Header mismatch`);
+    }
+    if (!sectionsMatch) {
+        console.log(`${prefix} Sections mismatch`);
+    }
 
     return { match: headerMatch && sectionsMatch, content: generatedContent };
 }
@@ -149,8 +169,11 @@ export async function executeSingleTestCase(useCase: TestUseCase): Promise<TestC
         console.log(`[${useCase.id}] Extracted ${finalSources.length} files from AI temp project for validation`);
 
         // Step 7: Check codemap against expected (no LLM needed - exact match)
-        const codeMapResult = checkCodeMap(generationResult.isolatedProjectPath, useCase.projectPath);
-        if (codeMapResult.match !== undefined) {
+        console.log(`[${useCase.id}] Starting codemap comparison...`);
+        const codeMapResult = checkCodeMap(generationResult.isolatedProjectPath, useCase.projectPath, useCase.id);
+        if (codeMapResult.reason) {
+            console.warn(`[${useCase.id}] Expected Code Map: false — ${codeMapResult.reason}`);
+        } else if (codeMapResult.match !== undefined) {
             console.log(`[${useCase.id}] Expected Code Map: ${codeMapResult.match}`);
         }
 
