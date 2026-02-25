@@ -96,6 +96,7 @@ const MENTION_SKIP_DIRS = new Set([
 // Per extension-host lifetime, create one fresh startup session per project.
 // This gives a new session after VSCode restart, but not when reopening only the AI panel.
 const startupSessionInitializedProjects: Set<string> = new Set();
+const startupSessionInFlightProjects: Set<string> = new Set();
 
 export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private eventHandler: AgentEventHandler;
@@ -857,7 +858,9 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         try {
             const startupSessionAlreadyInitialized = startupSessionInitializedProjects.has(this.projectUri);
             const hasInitializedSession = Boolean(this.chatHistoryManager || this.currentSessionId);
-            const shouldCreateStartupSession = !startupSessionAlreadyInitialized && !hasInitializedSession;
+            const startupSessionCreationInFlight = startupSessionInFlightProjects.has(this.projectUri);
+            const shouldCreateStartupSession =
+                !startupSessionAlreadyInitialized && !hasInitializedSession && !startupSessionCreationInFlight;
             let startupSessionId: string | undefined;
 
             if (!startupSessionAlreadyInitialized && hasInitializedSession) {
@@ -867,13 +870,25 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             }
 
             if (shouldCreateStartupSession) {
-                logInfo('[AgentPanel] Creating startup fresh session for project');
-                const freshSessionResult = await this.createNewSession({});
-                if (freshSessionResult.success && freshSessionResult.sessionId) {
-                    startupSessionId = freshSessionResult.sessionId;
-                } else {
-                    logError('[AgentPanel] Failed to create startup fresh session', freshSessionResult.error);
+                startupSessionInFlightProjects.add(this.projectUri);
+                try {
+                    // Re-check inside the lock to avoid double creation with concurrent RPC calls.
+                    const startupStillNotInitialized = !startupSessionInitializedProjects.has(this.projectUri);
+                    const sessionStillNotInitialized = !this.chatHistoryManager && !this.currentSessionId;
+                    if (startupStillNotInitialized && sessionStillNotInitialized) {
+                        logInfo('[AgentPanel] Creating startup fresh session for project');
+                        const freshSessionResult = await this.createNewSession({});
+                        if (freshSessionResult.success && freshSessionResult.sessionId) {
+                            startupSessionId = freshSessionResult.sessionId;
+                        } else {
+                            logError('[AgentPanel] Failed to create startup fresh session', freshSessionResult.error);
+                        }
+                    }
+                } finally {
+                    startupSessionInFlightProjects.delete(this.projectUri);
                 }
+            } else if (!startupSessionAlreadyInitialized && startupSessionCreationInFlight) {
+                logDebug('[AgentPanel] Startup fresh session creation already in progress for project');
             }
 
             // Initialize chat history manager (finds latest session or creates new)

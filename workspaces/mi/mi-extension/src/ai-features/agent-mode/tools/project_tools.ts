@@ -31,6 +31,7 @@ import {
     getInboundDefinitions,
     ConnectorDefinitionLookupResult,
     getRuntimeVersionFromPom,
+    DEFAULT_RUNTIME_VERSION,
 } from './connector_store_cache';
 
 // ============================================================================
@@ -103,7 +104,7 @@ export function createManageConnectorExecute(
                 fallbackUsedNames: [],
                 storeFailureNames: [],
                 warnings: [],
-                runtimeVersionUsed: runtimeVersion || 'unknown',
+                runtimeVersionUsed: runtimeVersion ?? DEFAULT_RUNTIME_VERSION,
             };
 
             const results: ProcessItemResult[] = [];

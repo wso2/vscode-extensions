@@ -25,7 +25,8 @@ import { logDebug, logError, logInfo, logWarn } from '../../copilot/logger';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const STORE_FETCH_TIMEOUT_MS = 5000;
-const DEFAULT_RUNTIME_VERSION = '4.5.0';
+const STORE_DEFINITION_FETCH_TIMEOUT_MS = 30000;
+export const DEFAULT_RUNTIME_VERSION = '4.5.0';
 const DEFAULT_SUMMARY_ENDPOINT_TEMPLATE =
     'https://apis.wso2.com/qgpf/connector-store-backend/endpoint-9090-803/v1.0/connectors/summaries?type=${type}&limit=100&offset=0&product=MI';
 const DEFAULT_DETAILS_ENDPOINT =
@@ -367,9 +368,9 @@ function getDetailsUrl(): string {
         || DEFAULT_DETAILS_ENDPOINT;
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = STORE_FETCH_TIMEOUT_MS): Promise<Response> {
     const controller = new AbortController();
-    const timeoutHandle = setTimeout(() => controller.abort(), STORE_FETCH_TIMEOUT_MS);
+    const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
     try {
         return await fetch(url, { ...init, signal: controller.signal });
     } finally {
@@ -396,18 +397,22 @@ async function fetchCatalogFromStore(itemType: ConnectorStoreItemType): Promise<
 
 async function fetchDefinitionsFromStore(names: string[], runtimeVersion: string): Promise<any[]> {
     const detailsUrl = getDetailsUrl();
-    const response = await fetchWithTimeout(detailsUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
+    const response = await fetchWithTimeout(
+        detailsUrl,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                connectorNames: names,
+                runtimeVersion,
+                product: 'MI',
+                latest: true,
+            }),
         },
-        body: JSON.stringify({
-            connectorNames: names,
-            runtimeVersion,
-            product: 'MI',
-            latest: true,
-        }),
-    });
+        STORE_DEFINITION_FETCH_TIMEOUT_MS
+    );
 
     if (!response.ok) {
         throw new Error(`HTTP ${response.status} ${response.statusText}`);
@@ -579,7 +584,7 @@ async function resolveDefinitions(
     } catch (error) {
         storeFailed = true;
         if (error instanceof Error && error.name === 'AbortError') {
-            logError(`[ConnectorStoreCache] Timed out fetching ${label} details after ${STORE_FETCH_TIMEOUT_MS}ms`, error);
+            logError(`[ConnectorStoreCache] Timed out fetching ${label} details after ${STORE_DEFINITION_FETCH_TIMEOUT_MS}ms`, error);
         } else {
             logError(`[ConnectorStoreCache] Failed to fetch ${label} details from connector store`, error);
         }

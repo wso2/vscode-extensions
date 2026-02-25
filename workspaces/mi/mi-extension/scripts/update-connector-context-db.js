@@ -466,11 +466,28 @@ async function fetchAllDetails(type, names) {
     return { detailsByName, missing };
 }
 
+// Assumes exported array content is pure JSON written by writeTsArrayFile().
+// If hand-edits introduce TS/JS syntax (e.g., trailing commas, single quotes, comments),
+// parsing may fail; switch to a TS/JS parser if hand-edited sources must be supported.
 async function readExistingRecordsByName(filePath, exportName) {
     const existing = await fs.readFile(filePath, 'utf8');
     const { arrayStart, arrayEnd } = findExportArrayRange(existing, filePath, exportName);
 
-    const parsed = JSON.parse(existing.slice(arrayStart, arrayEnd + 1));
+    const rawArrayContent = existing.slice(arrayStart, arrayEnd + 1);
+    let parsed;
+    try {
+        parsed = JSON.parse(rawArrayContent);
+    } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(
+            `Failed to parse existing export array for ${exportName} in ${filePath}. `
+            + `This parser expects pure JSON array content, but found non-JSON syntax. `
+            + `Possible causes: trailing commas, single-quoted strings, comments, or other TS/JS-only syntax. `
+            + `Use strict JSON formatting for this export (or update this script to use a TS/JS parser). `
+            + `Original parse error: ${reason}`
+        );
+    }
+
     if (!Array.isArray(parsed)) {
         throw new Error(`Parsed existing data from ${filePath} is not an array.`);
     }
