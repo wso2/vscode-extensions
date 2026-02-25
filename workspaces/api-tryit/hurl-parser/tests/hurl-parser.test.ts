@@ -308,4 +308,146 @@ describe('apiCollectionToHurl', () => {
 		expect(parsed2.rootItems?.[1]?.request.method).toBe('POST');
 		expect(parsed2.rootItems?.[1]?.request.bodyFormUrlEncoded?.[0]?.key).toBe('name');
 	});
+
+	it('preserves assertions for multi-request collection with HTTP status lines', () => {
+		const input = [
+			'# @name Create post',
+			'POST https://jsonplaceholder.typicode.com/posts?key=value&key2=val2',
+			'Content-Type: application/json',
+			'',
+			'{"title":"foommm","body":"bar","userId":1}',
+			'HTTP 201',
+			'[Asserts]',
+			'status == 202',
+			'',
+			'# @name Delete post',
+			'DELETE https://jsonplaceholder.typicode.com/posts/1',
+			'Content-Type: application/json',
+			'HTTP 200',
+			'[Asserts]',
+			'status == 200',
+			'',
+			'# @name Update post',
+			'PUT https://jsonplaceholder.typicode.com/posts/1',
+			'Content-Type: application/json',
+			'',
+			'{"id":1,"title":"updated","body":"bar","userId":1}',
+			'HTTP 200',
+			'[Asserts]',
+			'status == 200',
+		].join('\n');
+
+		const collection = parseHurlCollection(input, { collectionName: 'Multi Demo' });
+
+		expect(collection.rootItems).toHaveLength(3);
+
+		const createPost = collection.rootItems?.[0];
+		expect(createPost?.name).toBe('Create post');
+		expect(createPost?.request.method).toBe('POST');
+		expect(createPost?.assertions).toContain('HTTP 201');
+		expect(createPost?.assertions).toContain('status == 202');
+
+		const deletePost = collection.rootItems?.[1];
+		expect(deletePost?.name).toBe('Delete post');
+		expect(deletePost?.request.method).toBe('DELETE');
+		expect(deletePost?.assertions).toContain('HTTP 200');
+		expect(deletePost?.assertions).toContain('status == 200');
+
+		const updatePost = collection.rootItems?.[2];
+		expect(updatePost?.name).toBe('Update post');
+		expect(updatePost?.request.method).toBe('PUT');
+		expect(updatePost?.assertions).toContain('HTTP 200');
+		expect(updatePost?.assertions).toContain('status == 200');
+	});
+
+	it('preserves assertions for requests with Multipart sections', () => {
+		const input = [
+			'# @name Test',
+			'POST https://jsonplaceholder.typicode.com/posts?key=value',
+			'Content-Type: application/json',
+			'[Multipart]',
+			'keyq: valueqd',
+			'key: file,tests.zip; application/octet-stream',
+			'HTTP 200',
+			'[Asserts]',
+			'status == 200',
+			'',
+			'# @name Head Request',
+			'HEAD https://jsonplaceholder.typicode.com/posts/1?key=value&keyds=value88888',
+			'Content-Type: application/json',
+		].join('\n');
+
+		const collection = parseHurlCollection(input);
+
+		expect(collection.rootItems).toHaveLength(2);
+
+		const test = collection.rootItems?.[0];
+		expect(test?.name).toBe('Test');
+		expect(test?.request.method).toBe('POST');
+		expect(test?.request.bodyFormData).toHaveLength(2);
+		expect(test?.assertions).toContain('HTTP 200');
+		expect(test?.assertions).toContain('status == 200');
+
+		const head = collection.rootItems?.[1];
+		expect(head?.name).toBe('Head Request');
+		expect(head?.request.method).toBe('HEAD');
+		expect(head?.assertions ?? []).toHaveLength(0);
+	});
+
+	it('keeps assertions attached to correct request when HTTP status line is followed by [Asserts]', () => {
+		const input = [
+			'# @name Create post',
+			'POST https://jsonplaceholder.typicode.com/posts?key=value',
+			'Content-Type: application/json',
+			'',
+			'{"title":"foommm","body":"bar","userId":1}',
+			'HTTP 201',
+			'[Asserts]',
+			'status == 202',
+			'',
+			'# @name Delete post',
+			'DELETE https://jsonplaceholder.typicode.com/posts/1',
+			'HTTP 200',
+			'[Asserts]',
+			'status == 200'
+		].join('\n');
+
+		const collection = parseHurlCollection(input, { collectionName: 'Multi Demo' });
+
+		expect(collection.rootItems).toHaveLength(2);
+
+		const createPost = collection.rootItems?.[0];
+		expect(createPost?.name).toBe('Create post');
+		expect(createPost?.request.method).toBe('POST');
+		expect(createPost?.assertions).toContain('HTTP 201');
+		expect(createPost?.assertions).toContain('status == 202');
+
+		const deletePost = collection.rootItems?.[1];
+		expect(deletePost?.name).toBe('Delete post');
+		expect(deletePost?.request.method).toBe('DELETE');
+		expect(deletePost?.assertions).toContain('HTTP 200');
+		expect(deletePost?.assertions).toContain('status == 200');
+	});
+
+	it('does not treat HTTP status line as a new request block', () => {
+		const input = [
+			'GET https://example.com/users',
+			'HTTP 200',
+			'',
+			'POST https://example.com/posts',
+			'HTTP 201'
+		].join('\n');
+
+		const collection = parseHurlCollection(input);
+
+		expect(collection.rootItems).toHaveLength(2);
+
+		const get = collection.rootItems?.[0];
+		expect(get?.request.method).toBe('GET');
+		expect(get?.assertions).toContain('HTTP 200');
+
+		const post = collection.rootItems?.[1];
+		expect(post?.request.method).toBe('POST');
+		expect(post?.assertions).toContain('HTTP 201');
+	});
 });

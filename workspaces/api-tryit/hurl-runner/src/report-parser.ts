@@ -206,8 +206,23 @@ function parseRequestLine(line: string): { method: string; url: string } | undef
 		return undefined;
 	}
 
+	const method = match[1].toUpperCase();
+	// Reject HTTP status lines (HTTP 200, HTTP 201, etc.)
+	if (method === 'HTTP') {
+		return undefined;
+	}
+
+	// Only accept valid HTTP request methods
+	const validMethods = new Set([
+		'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS',
+		'CONNECT', 'TRACE', 'PROPFIND', 'PROPPATCH', 'MKCOL', 'COPY', 'MOVE', 'LOCK', 'UNLOCK'
+	]);
+	if (!validMethods.has(method)) {
+		return undefined;
+	}
+
 	return {
-		method: match[1].toUpperCase(),
+		method,
 		url: match[2].trim()
 	};
 }

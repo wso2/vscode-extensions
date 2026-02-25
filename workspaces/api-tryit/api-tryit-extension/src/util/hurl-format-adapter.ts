@@ -136,13 +136,6 @@ export class HurlFormatAdapter {
 			}
 		}
 
-		// HTTP assertions should appear before body sections.
-		if (allResponseLines.length > 0) {
-			for (const assertion of allResponseLines) {
-				hurl += `${assertion}\n`;
-			}
-		}
-
 		const hasBinaryFileBody = !!(request.bodyBinaryFiles && request.bodyBinaryFiles.some(file => !!file.filePath));
 
 		const hasStructuredBody =
@@ -196,6 +189,16 @@ export class HurlFormatAdapter {
 				if (firstFile?.filePath) {
 					hurl += `file,${firstFile.filePath};\n`;
 				}
+			}
+		}
+
+		// HTTP response lines come after body sections, before [Asserts]
+		if (allResponseLines.length > 0) {
+			if (hasBody) {
+				hurl += '\n';
+			}
+			for (const assertion of allResponseLines) {
+				hurl += `${assertion}\n`;
 			}
 		}
 

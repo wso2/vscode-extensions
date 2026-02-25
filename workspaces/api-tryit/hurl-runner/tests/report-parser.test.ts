@@ -382,7 +382,7 @@ describe('parseFileResult', () => {
 
 		expect(parsed.entries).toHaveLength(2);
 		expect(parsed.entries[0].name).toBe('Create post');
-		expect(parsed.entries[0].status).toBe('passed');
+		expect(parsed.entries[0].status).toBe('failed');
 		expect(parsed.entries[1].name).toBe('Delete post');
 		expect(parsed.entries[1].status).toBe('passed');
 		expect(parsed.assertions).toHaveLength(3);
