@@ -120,4 +120,8 @@ export interface TestCaseResult {
     };
     readonly evaluationResult?: LLMEvaluationResult;
     readonly generatedSources?: readonly SourceFile[];
+    /** Whether the generated bal.md (codemap) matches the expected one. undefined = no expected file exists. */
+    readonly codeMapMatch?: boolean;
+    /** Content of the generated bal.md (codemap) from the isolated project. */
+    readonly generatedCodeMap?: string;
 }
