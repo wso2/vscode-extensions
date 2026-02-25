@@ -682,6 +682,8 @@ export function createReadExecute(
   }): Promise<TextEditorResult> => {
     const { file_path, offset, limit } = args;
 
+    emitFileToolCall(eventHandler, FILE_READ_TOOL_NAME, file_path);
+
     // Validate file path
     const pathValidation = validateFilePath(file_path);
     if (!pathValidation.valid) {
