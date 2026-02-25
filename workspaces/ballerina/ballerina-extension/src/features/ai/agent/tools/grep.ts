@@ -24,7 +24,7 @@ import { CopilotEventHandler } from '../../utils/events';
 // Constants
 // ============================================================================
 
-export const GREP_TOOL_NAME = "Grep";
+export const GREP_TOOL_NAME = "grep";
 
 /** File extensions to search by default in Ballerina projects */
 const DEFAULT_SEARCH_EXTENSIONS = ['.bal', '.toml', '.md', '.json', '.yaml', '.yml', '.sql'];
