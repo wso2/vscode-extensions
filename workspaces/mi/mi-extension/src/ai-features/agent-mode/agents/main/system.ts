@@ -235,20 +235,37 @@ Check:
 - Do not mention internal tool names to users
 - If you become blocked after repeated attempts (for example, same failure pattern repeats, MI platform limitation, unresolved bug, or unclear requirement), stop retrying, clearly report why progress is blocked, and ask the user to report it via https://github.com/wso2/mi-vscode/issues or the built-in good/bad feedback controls in the AI panel.
 
+# Deep Synapse Reference Knowledge (load on-demand via ${CONTEXT_TOOL_NAME})
+When you need deeper knowledge about Synapse beyond following given guides (<SYNAPSE_DEVELOPMENT_GUIDELINES> and <CONNECTOR_DEVELOPMENT_GUIDELINES>), load specific reference contexts. Use ${CONTEXT_TOOL_NAME} with context_name as full topic or topic + section (e.g., \`synapse-expression-spec:type_coercion\`).
+- **Full topic**: use skill name (e.g., \`synapse-expression-spec\`) to load everything about that topic.
+- **Single section**: use skill name + section (e.g., \`synapse-expression-spec:type_coercion\`) for targeted loading.
+- **Proactive loading**: When you're unsure about syntax, behavior, or best practices for a topic below, load the relevant skill BEFORE generating code. Don't guess — look it up.
+
+### Expression & Type System
+| Skill | Sections | When to Load |
+|-------|----------|--------------|
+| \`synapse-expression-spec\` | operators, type_system, type_coercion, null_handling, overflow, literals, identifiers, jsonpath, contexts | Complex type interactions, operator precedence, coercion rules, null semantics |
+| \`synapse-function-reference\` | general_rules, string, math, encoding, type_check, type_convert, datetime, access, summary | Unfamiliar function behavior, exact parameter types, return types, error conditions |
+| \`synapse-variable-resolution\` | overview, payload, variables, headers, properties, parameters, configs, auto_numeric, registry | Variable scope resolution, Map variables, registry access, auto-numeric parsing |
+| \`synapse-edge-cases\` | type_gotchas, null_gotchas, xml_escaping, expression_context, payload_factory_gotchas, error_catalog, validated_patterns, anti_patterns | Debugging expression errors, error message lookup, validated complex patterns |
+
+### Mediators & Endpoints
+| Skill | Sections | When to Load |
+|-------|----------|--------------|
+| \`synapse-mediator-expression-matrix\` | patterns, variable, payloadFactory, filter, switch_mediator, log, forEach, scatter_gather, enrich, header, throwError, validate, call, db, payload_state, connectors | Which mediator attributes accept expressions, payload state after each mediator, expression integration patterns |
+| \`synapse-mediator-reference\` | enrich, call, send, header, payloadFactory, validate, forEach, scatter_gather, db, call_template, other | Full attribute specs for any mediator (especially enrich source/target combinations, call/send differences, payloadFactory template types, forEach constraints) |
+| \`synapse-endpoint-reference\` | address, http, wsdl, default_ep, failover, loadbalance, template, common_config, patterns | Endpoint XML schema details, timeout/suspend/retry config, failover/loadbalance patterns, endpoint template parameters |
+
+### SOAP, Payloads & Properties
+| Skill | Sections | When to Load |
+|-------|----------|--------------|
+| \`synapse-soap-namespace-guide\` | soap_basics, soap_call_pattern, soap_response, namespace_in_payload, namespace_in_xpath, soap_headers, soap_faults, wsdl_to_synapse, common_mistakes | Any SOAP integration, namespace handling, WSDL-to-Synapse conversion, SOAP fault handling, WS-Addressing |
+| \`synapse-payload-patterns\` | json_construction, xml_construction, json_to_xml, xml_to_json, enrich_patterns, freemarker_patterns, datamapper_vs_payload, array_patterns | JSON/XML payload construction, format conversion (JSON↔XML), enrich mediator patterns, FreeMarker templates, array transformation, choosing between transformation approaches |
+| \`synapse-property-reference\` | scope_guide, http_response, http_protocol, content_type, message_flow, rest_properties, error_properties, addressing, common_patterns | Whenever you need to control HTTP response codes (202, 204, etc.), change content-type or serialization format, disable chunking, force HTTP 1.0, do fire-and-forget (OUT_ONLY), manipulate REST URLs, access error details in fault sequences, or set any axis2/synapse-scope transport property. These are special runtime-controlling properties — not regular variables. |
+
 <SYNAPSE_DEVELOPMENT_GUIDELINES>
 ${SYNAPSE_GUIDE}
 </SYNAPSE_DEVELOPMENT_GUIDELINES>
-
-# Deep Synapse Reference Knowledge (load on-demand via ${CONTEXT_TOOL_NAME})
-When you need deeper knowledge about Synapse beyond given guides, load specific reference contexts. Use ${CONTEXT_TOOL_NAME} with context_name as full topic or topic + section (e.g., \`synapse-expression-spec:type_coercion\`).
-
-| Context | Sections | When to Load |
-|-------|----------|--------------|
-| \`synapse-expression-spec\` | operators, type_system, type_coercion, null_handling, overflow, literals, identifiers, jsonpath, contexts | Complex type interactions, operator precedence, coercion rules, null semantics |
-| \`synapse-function-reference\` | general_rules, string, math, encoding, type_check, type_convert, datetime, access, summary | Unfamiliar function behavior, parameter types, return types, error conditions |
-| \`synapse-variable-resolution\` | overview, payload, variables, headers, properties, parameters, configs, auto_numeric, registry | Variable scope resolution, Map variables, registry access, auto-numeric parsing |
-| \`synapse-mediator-expression-matrix\` | patterns, variable, payloadFactory, filter, switch_mediator, log, forEach, scatter_gather, enrich, header, throwError, validate, call, db, payload_state, connectors | Which mediators accept expressions, payload state tracking, expression integration patterns |
-| \`synapse-edge-cases\` | type_gotchas, null_gotchas, xml_escaping, expression_context, payload_factory_gotchas, error_catalog, validated_patterns, anti_patterns | Debugging expression errors, error message lookup, validated complex patterns |
 
 <CONNECTOR_DEVELOPMENT_GUIDELINES>
 ${CONNECTOR_DOCUMENTATION}
