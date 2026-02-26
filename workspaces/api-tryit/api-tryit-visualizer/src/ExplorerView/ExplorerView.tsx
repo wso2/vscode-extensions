@@ -195,7 +195,7 @@ const MethodBadge = styled.span<{ method: string }>`
 	align-items: center;
 	justify-content: center;
 	padding: 2px 8px;
-	margin-left: 8px;
+	width: 45px;
 	border-radius: 3px;
 	font-size: 11px;
 	font-weight: 600;
@@ -824,13 +824,12 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 						<RequestItemContainer style={{
 							color: isSelected ? '#007acc' : 'inherit'
 						}}>
-							<Codicon name="symbol-method" sx={{ display: 'inline' }} />
-							<span>{item.name}</span>
 							{item.method && (
 								<MethodBadge method={item.method}>
 									{item.method}
 								</MethodBadge>
 							)}
+							<span>{item.name}</span>
 						</RequestItemContainer>
 					</TreeViewItem>
 					{globalContextMenu && globalContextMenu.collectionId === item.id && (
