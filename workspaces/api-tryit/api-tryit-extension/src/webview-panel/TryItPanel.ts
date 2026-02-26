@@ -422,6 +422,7 @@ export class TryItPanel {
 											id: selectedTreeItemId || request.id,
 											name: request.name,
 											request,
+											response,
 											filePath: targetFilePath
 										};
 									ApiTryItStateMachine.sendEvent(EVENT_TYPE.REQUEST_UPDATED, savedItem);

@@ -97,7 +97,8 @@ const createSaveSnapshot = (item?: ApiRequestItem): string => {
     }
 
     return JSON.stringify(getStableValue({
-        request: requestForSnapshot
+        request: requestForSnapshot,
+        response: item.response ?? null
     }));
 };
 
