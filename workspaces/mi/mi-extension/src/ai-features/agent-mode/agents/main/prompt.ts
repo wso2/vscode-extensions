@@ -22,13 +22,14 @@ import * as path from 'path';
 import * as os from 'os';
 import { formatFileTree, getExistingFiles } from '../../../utils/file-utils';
 import { getAvailableConnectorCatalog } from '../../tools/connector_tools';
-import { getAvailableSkills } from '../../tools/skill_tools';
+import { getAvailableContexts } from '../../tools/context_tools';
 import { getPlanModeReminder as getPlanModeSessionReminder } from '../../tools/plan_mode_tools';
 import { getRuntimeVersionFromPom } from '../../tools/connector_store_cache';
 import { getServerPathFromConfig } from '../../../../util/onboardingUtils';
 import { AgentMode } from '@wso2/mi-core';
 import { getModeReminder } from './mode';
 import { buildSystemReminder } from './prompt_system_reminder';
+import { CONTEXT_TOOL_NAME } from '../../tools/types';
 
 const MAX_PROJECT_STRUCTURE_FILES = 50;
 const MAX_PROJECT_STRUCTURE_CHARS = 10000;
@@ -69,10 +70,10 @@ These are the available WSO2 connectors from WSO2 connector store.
 These are the available WSO2 inbound endpoints from WSO2 inbound endpoint store.
 </available_inbound_endpoints>
 
-<available_skills>
-{{available_skills}}
-These are optional specialized skill contexts. Load them on demand with load_skill_context when needed.
-</available_skills>
+<available_contexts>
+{{available_contexts}}
+These are optional deep-reference contexts. Load them on demand with ${CONTEXT_TOOL_NAME} using "topic" or "topic:section".
+</available_contexts>
 
 <env>
 Working directory: {{env_working_directory}}
@@ -247,7 +248,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     // Get available connectors and inbound endpoints
     const connectorCatalog = await getAvailableConnectorCatalog(params.projectPath);
     const { connectors: availableConnectors, inboundEndpoints: availableInboundEndpoints } = connectorCatalog;
-    const availableSkills = getAvailableSkills();
+    const availableContexts = getAvailableContexts();
 
     const mode = params.mode || 'edit';
     const modePolicyReminder = await getModeReminder({
@@ -276,7 +277,14 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         payloads: params.payloads, // Backward-compatible template key
         available_connectors: availableConnectors.join(', '), // Available connectors list
         available_inbound_endpoints: availableInboundEndpoints.join(', '), // Available inbound endpoints list
-        available_skills: availableSkills.map((skill) => `${skill.name} - ${skill.description}`).join('\n'), // Specialized skills
+        available_contexts: availableContexts
+            .map((context) => {
+                const sectionText = context.sections && context.sections.length > 0
+                    ? ` (sections: ${context.sections.join(', ')})`
+                    : '';
+                return `${context.name} - ${context.description}${sectionText}`;
+            })
+            .join('\n'),
         env_working_directory: params.projectPath,
         env_is_git_repo: isGitRepo ? 'true' : 'false',
         env_platform: process.platform,

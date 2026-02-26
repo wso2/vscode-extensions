@@ -34,8 +34,8 @@ import {
     createConnectorTool,
 } from '../../tools/connector_tools';
 import {
-    createSkillTool,
-} from '../../tools/skill_tools';
+    createContextTool,
+} from '../../tools/context_tools';
 import {
     createManageConnectorTool,
 } from '../../tools/project_tools';
@@ -75,7 +75,7 @@ import {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
@@ -102,7 +102,7 @@ export {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
@@ -161,7 +161,7 @@ export function createCompactAgentTools() {
 
         // Connector Tools (2 tools) - execution blocked
         [CONNECTOR_TOOL_NAME]: createConnectorTool(createBlockedExecute()),
-        [SKILL_TOOL_NAME]: createSkillTool(createBlockedExecute()),
+        [CONTEXT_TOOL_NAME]: createContextTool(createBlockedExecute()),
 
         // Project Tools (1 tool) - execution blocked
         [MANAGE_CONNECTOR_TOOL_NAME]: createManageConnectorTool(createBlockedExecute()),

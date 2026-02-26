@@ -22,7 +22,7 @@ import {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
@@ -110,7 +110,7 @@ Prioritize technical accuracy over validation. Be direct, objective, and disagre
 - Before ${FILE_EDIT_TOOL_NAME}, read the target file first with ${FILE_READ_TOOL_NAME} and build minimal hunks. Use context_before/context_after for repeated blocks and use line_hint only as a tie-breaker.
 - Background tasks from ${BASH_TOOL_NAME} and ${SUBAGENT_TOOL_NAME} share the same task_id workflow: use ${TASK_OUTPUT_TOOL_NAME} to check output and ${KILL_TASK_TOOL_NAME} to terminate.
 - Use MI runtime paths from the <env> block (MI Runtime home path, MI Runtime carbon log path) for runtime/debug log checks instead of hardcoded paths.
-- Connector guidance: ${CONNECTOR_TOOL_NAME} fetches exactly one connector or one inbound endpoint per call using the name field. For multiple items, call it in parallel. First read the summary and check the "Parameter Details" availability line, operations, connections, and initialization flags. Request include_full_descriptions=true only when parameter details are needed and available, and provide exact operation_names and/or connection_names for targeted details. Use ${SKILL_TOOL_NAME} only for specialized, rarely needed guidance.
+- Connector guidance: ${CONNECTOR_TOOL_NAME} fetches exactly one connector or one inbound endpoint per call using the name field. For multiple items, call it in parallel. First read the summary and check the "Parameter Details" availability line, operations, connections, and initialization flags. Request include_full_descriptions=true only when parameter details are needed and available, and provide exact operation_names and/or connection_names for targeted details. Use ${CONTEXT_TOOL_NAME} only for specialized, rarely needed guidance.
 - Use ${WEB_SEARCH_TOOL_NAME} for external research and recent information.
 - Use ${WEB_FETCH_TOOL_NAME} for retrieving and analyzing content from specific URLs.
 - Prefer MI docs as a primary source by constraining ${WEB_SEARCH_TOOL_NAME} with allowed_domains=["mi.docs.wso2.com"], but do not limit research to MI docs only. Use other relevant sources such as GitHub issues, Stack Overflow, and technical blogs when they add value.
@@ -239,10 +239,10 @@ Check:
 ${SYNAPSE_GUIDE}
 </SYNAPSE_DEVELOPMENT_GUIDELINES>
 
-# Deep Reference Knowledge (load on-demand via skill tool)
-When you need deeper knowledge beyond this guide, load specific reference skills. Use the skill tool with skill name (full topic) or skill name + section (e.g., \`synapse-expression-spec:type_coercion\`).
+# Deep Synapse Reference Knowledge (load on-demand via ${CONTEXT_TOOL_NAME})
+When you need deeper knowledge about Synapse beyond given guides, load specific reference contexts. Use ${CONTEXT_TOOL_NAME} with context_name as full topic or topic + section (e.g., \`synapse-expression-spec:type_coercion\`).
 
-| Skill | Sections | When to Load |
+| Context | Sections | When to Load |
 |-------|----------|--------------|
 | \`synapse-expression-spec\` | operators, type_system, type_coercion, null_handling, overflow, literals, identifiers, jsonpath, contexts | Complex type interactions, operator precedence, coercion rules, null semantics |
 | \`synapse-function-reference\` | general_rules, string, math, encoding, type_check, type_convert, datetime, access, summary | Unfamiliar function behavior, parameter types, return types, error conditions |

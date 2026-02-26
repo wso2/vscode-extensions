@@ -41,7 +41,7 @@ import {
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
@@ -620,9 +620,9 @@ export async function executeAgent(
                             operation_names: toolInput?.operation_names,
                             connection_names: toolInput?.connection_names,
                         };
-                    } else if (part.toolName === SKILL_TOOL_NAME) {
+                    } else if (part.toolName === CONTEXT_TOOL_NAME) {
                         displayInput = {
-                            skill_name: toolInput?.skill_name,
+                            context_name: toolInput?.context_name,
                         };
                     } else if (part.toolName === MANAGE_CONNECTOR_TOOL_NAME) {
                         displayInput = {
