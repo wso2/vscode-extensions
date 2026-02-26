@@ -414,6 +414,10 @@ function splitTopLevelSegments(command: string): { segments: string[]; parseFail
                 i++;
                 continue;
             }
+            if (ch === '&') {
+                pushSegment();
+                continue;
+            }
             if (ch === '|' && next === '|') {
                 pushSegment();
                 i++;
@@ -731,6 +735,12 @@ function extractOptionValues(tokens: string[], optionNames: string[]): string[] 
                 values.push(token.slice(optionName.length + 1));
                 break;
             }
+            const isShortOption = optionName.startsWith('-') && !optionName.startsWith('--');
+            if (isShortOption && token.startsWith(optionName) && token.length > optionName.length) {
+                const attached = token.slice(optionName.length);
+                values.push(attached.startsWith('=') ? attached.slice(1) : attached);
+                break;
+            }
         }
     }
     return values;
@@ -980,6 +990,33 @@ function isSedOrPerlInPlaceMutation(tokens: string[]): boolean {
     return tokens.some((token) => token === '-i' || token.startsWith('-i'));
 }
 
+function isFindDestructive(tokens: string[], rawSegment: string): boolean {
+    if (normalizeToken(tokens[0] || '') !== 'find') {
+        return false;
+    }
+
+    const normalizedTokens = tokens.map((token) => normalizeToken(stripWrappingQuotes(token)));
+    const hasDeleteAction = normalizedTokens.some((token) => token === '-delete' || token.startsWith('-delete'));
+    if (hasDeleteAction) {
+        return true;
+    }
+
+    const hasExecAction = normalizedTokens.some((token) =>
+        token === '-exec'
+        || token.startsWith('-exec=')
+        || token === '-execdir'
+        || token.startsWith('-execdir=')
+    );
+    if (hasExecAction) {
+        return true;
+    }
+
+    const hasPlaceholder = tokens.some((token) => stripWrappingQuotes(token) === '{}') || /\{\s*\}/.test(rawSegment);
+    const hasExecTerminator = normalizedTokens.some((token) => token === ';' || token === '\\;' || token === '+')
+        || /\{\s*\}\s*(?:\\;|;|\+)/.test(rawSegment);
+    return hasPlaceholder && hasExecTerminator;
+}
+
 function isDestructiveCommand(command: string, tokens: string[]): boolean {
     if (DESTRUCTIVE_COMMANDS.has(command)) {
         return true;
@@ -1055,12 +1092,14 @@ function analyzeSegment(
     }
 
     const isNetwork = NETWORK_COMMANDS.has(command);
+    const findIsDestructive = isFindDestructive(tokens, rawSegment);
     const isMutation = MUTATION_COMMANDS.has(command)
+        || findIsDestructive
         || isGitMutation(tokens)
         || isPackageManagerMutation(tokens)
         || isSedOrPerlInPlaceMutation(tokens)
         || hasOutputRedirection(rawSegment);
-    const isDestructive = isDestructiveCommand(command, tokens);
+    const isDestructive = isDestructiveCommand(command, tokens) || findIsDestructive;
     const segmentPathTokens = extractSegmentPathTokens(command, tokens, rawSegment, isMutation);
     const sensitivePaths = findSensitivePaths(projectPath, segmentPathTokens);
     const writePathTokens = isMutation ? extractMutationWritePathTokens(command, tokens, rawSegment) : [];

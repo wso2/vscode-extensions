@@ -283,8 +283,12 @@ async function readExistingRecordsByName(filePath, exportName) {
     }
 
     const arrayStart = existing.indexOf('[', exportIndex);
-    const arrayEnd = existing.lastIndexOf(']');
-    if (arrayStart < 0 || arrayEnd < 0 || arrayEnd < arrayStart) {
+    if (arrayStart < 0) {
+        throw new Error(`Could not parse array contents from ${filePath}.`);
+    }
+
+    const arrayEnd = findArrayEndIndex(existing, arrayStart, filePath, exportName);
+    if (arrayEnd < 0 || arrayEnd < arrayStart) {
         throw new Error(`Could not parse array contents from ${filePath}.`);
     }
 
@@ -327,6 +331,9 @@ function findArrayEndIndex(content, arrayStart, filePath, exportName) {
     let escaped = false;
     let inLineComment = false;
     let inBlockComment = false;
+    let inTemplateExpression = false;
+    let templateExpressionDepth = 0;
+    const templateResumeDepths = [];
 
     for (let i = arrayStart; i < content.length; i++) {
         const char = content[i];
@@ -356,6 +363,15 @@ function findArrayEndIndex(content, arrayStart, filePath, exportName) {
                 escaped = true;
                 continue;
             }
+            if (stringQuote === '`' && char === '$' && next === '{') {
+                inTemplateExpression = true;
+                templateExpressionDepth++;
+                templateResumeDepths.push(templateExpressionDepth - 1);
+                inString = false;
+                stringQuote = '';
+                i++;
+                continue;
+            }
             if (char === stringQuote) {
                 inString = false;
                 stringQuote = '';
@@ -379,6 +395,28 @@ function findArrayEndIndex(content, arrayStart, filePath, exportName) {
             inString = true;
             stringQuote = char;
             continue;
+        }
+
+        if (inTemplateExpression) {
+            if (char === '{') {
+                templateExpressionDepth++;
+                continue;
+            }
+            if (char === '}') {
+                templateExpressionDepth--;
+                if (
+                    templateResumeDepths.length > 0
+                    && templateExpressionDepth === templateResumeDepths[templateResumeDepths.length - 1]
+                ) {
+                    templateResumeDepths.pop();
+                    inString = true;
+                    stringQuote = '`';
+                }
+                if (templateExpressionDepth === 0) {
+                    inTemplateExpression = false;
+                }
+                continue;
+            }
         }
 
         if (char === '[') {

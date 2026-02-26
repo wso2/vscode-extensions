@@ -27,114 +27,146 @@ import {
     isAnalysisCoveredByRules,
 } from '../../ai-features/agent-mode/tools/shell_sandbox';
 
-const PROJECT_PATH = path.resolve('/tmp/mi-shell-sandbox-project');
+const TEST_PLATFORM: NodeJS.Platform = 'linux';
+const PROJECT_PATH = '/tmp/mi-shell-sandbox-project';
 
 suite('Shell Sandbox Tests', () => {
     test('safe read command does not require approval', () => {
-        const analysis = analyzeShellCommand('git status', process.platform, PROJECT_PATH, false);
+        const analysis = analyzeShellCommand('git status', TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.blocked, false);
         assert.strictEqual(analysis.requiresApproval, false);
     });
 
     test('find command requires approval', () => {
-        const analysis = analyzeShellCommand('find . -name "*.ts"', process.platform, PROJECT_PATH, false);
+        const analysis = analyzeShellCommand('find . -name "*.ts"', TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.blocked, false);
         assert.strictEqual(analysis.requiresApproval, true);
         assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('read-only allowlist')));
     });
 
+    test('find with -delete is treated as destructive mutation', () => {
+        const analysis = analyzeShellCommand('find . -type f -name "*.tmp" -delete', TEST_PLATFORM, PROJECT_PATH, false);
+        assert.strictEqual(analysis.blocked, false);
+        assert.strictEqual(analysis.requiresApproval, true);
+        assert.strictEqual(analysis.isDestructive, true);
+        assert.strictEqual(isAnalysisCoveredByRules(analysis, [['find']]), false);
+    });
+
+    test('find with -exec is treated as destructive mutation', () => {
+        const analysis = analyzeShellCommand('find . -type f -exec rm {} \\;', TEST_PLATFORM, PROJECT_PATH, false);
+        assert.strictEqual(analysis.blocked, false);
+        assert.strictEqual(analysis.requiresApproval, true);
+        assert.strictEqual(analysis.isDestructive, true);
+        assert.strictEqual(isAnalysisCoveredByRules(analysis, [['find']]), false);
+    });
+
     test('network command does not require approval', () => {
-        const analysis = analyzeShellCommand('curl https://example.com', process.platform, PROJECT_PATH, false);
+        const analysis = analyzeShellCommand('curl https://example.com', TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.requiresApproval, false);
         assert.strictEqual(analysis.blocked, false);
     });
 
     test('outside-project read command does not require approval', () => {
-        const command = process.platform === 'win32'
-            ? 'type C:\\Windows\\System32\\drivers\\etc\\hosts'
-            : 'cat /etc/hosts';
-        const analysis = analyzeShellCommand(command, process.platform, PROJECT_PATH, false);
+        const command = 'cat /etc/hosts';
+        const analysis = analyzeShellCommand(command, TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.blocked, false);
         assert.strictEqual(analysis.requiresApproval, false);
     });
 
     test('sensitive home shell rc read is hard-blocked', () => {
-        const command = process.platform === 'win32'
-            ? 'type $HOME\\.bashrc'
-            : 'cat ~/.zshrc';
-        const analysis = analyzeShellCommand(command, process.platform, PROJECT_PATH, false);
+        const command = 'cat ~/.zshrc';
+        const analysis = analyzeShellCommand(command, TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.blocked, true);
         assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('sensitive paths')));
     });
 
     test('project .env read is hard-blocked', () => {
-        const analysis = analyzeShellCommand('cat .env', process.platform, PROJECT_PATH, false);
+        const analysis = analyzeShellCommand('cat .env', TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.blocked, true);
         assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('sensitive paths')));
     });
 
     test('outside-project mutation path is hard-blocked', () => {
-        const disallowedTarget = process.platform === 'win32'
-            ? 'C:\\Windows\\System32\\mi-shell-sandbox.txt'
-            : '/etc/mi-shell-sandbox.txt';
-        const analysis = analyzeShellCommand(`echo hello > ${disallowedTarget}`, process.platform, PROJECT_PATH, false);
+        const disallowedTarget = '/etc/mi-shell-sandbox.txt';
+        const analysis = analyzeShellCommand(`echo hello > ${disallowedTarget}`, TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.blocked, true);
         assert.strictEqual(analysis.requiresApproval, true);
         assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('outside allowed roots')));
     });
 
     test('outside-project mutation to allowed /tmp root is not blocked and does not require approval', () => {
-        const tmpTarget = process.platform === 'win32'
-            ? path.join(os.tmpdir(), 'mi-shell-sandbox.txt')
-            : '/tmp/mi-shell-sandbox.txt';
+        const tmpTarget = '/tmp/mi-shell-sandbox.txt';
         const escapedTarget = tmpTarget.includes(' ') ? `"${tmpTarget}"` : tmpTarget;
-        const analysis = analyzeShellCommand(`echo hello > ${escapedTarget}`, process.platform, PROJECT_PATH, false);
+        const analysis = analyzeShellCommand(`echo hello > ${escapedTarget}`, TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.blocked, false);
         assert.strictEqual(analysis.requiresApproval, false);
     });
 
+    test('attached short option values are extracted for mutation destinations', () => {
+        const sourcePath = '/etc/hosts';
+        const targetDirectory = `${PROJECT_PATH}/sandbox-target`.replace(/\\/g, '/');
+        const analysis = analyzeShellCommand(
+            `cp ${sourcePath} -t${targetDirectory}`,
+            TEST_PLATFORM,
+            PROJECT_PATH,
+            false
+        );
+        assert.strictEqual(analysis.blocked, false);
+        assert.strictEqual(analysis.requiresApproval, true);
+    });
+
     test('destructive commands always require approval', () => {
-        const analysis = analyzeShellCommand('rm -rf src', process.platform, PROJECT_PATH, false);
+        const analysis = analyzeShellCommand('rm -rf src', TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.requiresApproval, true);
         assert.strictEqual(analysis.isDestructive, true);
     });
 
     test('remembered rule can bypass approval for non-destructive command', () => {
-        const analysis = analyzeShellCommand('npm install lodash', process.platform, PROJECT_PATH, false);
+        const analysis = analyzeShellCommand('npm install lodash', TEST_PLATFORM, PROJECT_PATH, false);
         const covered = isAnalysisCoveredByRules(analysis, [['npm', 'install']]);
         assert.strictEqual(covered, true);
     });
 
     test('remembered rule does not bypass destructive command', () => {
-        const analysis = analyzeShellCommand('rm -rf src', process.platform, PROJECT_PATH, false);
+        const analysis = analyzeShellCommand('rm -rf src', TEST_PLATFORM, PROJECT_PATH, false);
         const covered = isAnalysisCoveredByRules(analysis, [['rm']]);
         assert.strictEqual(analysis.isDestructive, true);
         assert.strictEqual(covered, false);
     });
 
     test('complex syntax falls back to approval', () => {
-        const analysis = analyzeShellCommand('echo $(date)', process.platform, PROJECT_PATH, false);
+        const analysis = analyzeShellCommand('echo $(date)', TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.isComplexSyntax, true);
         assert.strictEqual(analysis.requiresApproval, true);
     });
 
     test('background execution does not require approval by itself', () => {
-        const analysis = analyzeShellCommand('pwd', process.platform, PROJECT_PATH, true);
+        const analysis = analyzeShellCommand('pwd', TEST_PLATFORM, PROJECT_PATH, true);
         assert.strictEqual(analysis.runInBackground, true);
         assert.strictEqual(analysis.requiresApproval, false);
     });
 
+    test('standalone ampersand splits backgrounded commands into separate segments', () => {
+        const analysis = analyzeShellCommand('pwd & rm -rf src', TEST_PLATFORM, PROJECT_PATH, false);
+        assert.strictEqual(analysis.blocked, false);
+        assert.strictEqual(analysis.requiresApproval, true);
+        assert.strictEqual(analysis.isDestructive, true);
+        assert.strictEqual(analysis.segments.length, 2);
+        assert.strictEqual(analysis.segments[0].command, 'pwd');
+        assert.strictEqual(analysis.segments[1].command, 'rm');
+        assert.strictEqual(analysis.segments[1].requiresApproval, true);
+        assert.strictEqual(analysis.segments[1].isDestructive, true);
+    });
+
     test('tee write outside project is hard-blocked', () => {
-        const disallowedTarget = process.platform === 'win32'
-            ? 'C:\\Windows\\System32\\mi-shell-sandbox.log'
-            : '/etc/mi-shell-sandbox.log';
-        const analysis = analyzeShellCommand(`cat /etc/hosts | tee ${disallowedTarget}`, process.platform, PROJECT_PATH, false);
+        const disallowedTarget = '/etc/mi-shell-sandbox.log';
+        const analysis = analyzeShellCommand(`cat /etc/hosts | tee ${disallowedTarget}`, TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.blocked, true);
         assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('outside allowed roots')));
     });
 
     test('sensitive .env write is hard-blocked', () => {
-        const analysis = analyzeShellCommand('echo KEY=VALUE > .env', process.platform, PROJECT_PATH, false);
+        const analysis = analyzeShellCommand('echo KEY=VALUE > .env', TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.blocked, true);
         assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('sensitive paths')));
     });
@@ -157,7 +189,7 @@ suite('Shell Sandbox Tests', () => {
         }
 
         try {
-            const analysis = analyzeShellCommand('touch link-out/file.txt', process.platform, projectDir, false);
+            const analysis = analyzeShellCommand('touch link-out/file.txt', TEST_PLATFORM, projectDir, false);
             assert.strictEqual(analysis.blocked, true);
             assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('outside allowed roots')));
         } finally {
@@ -166,7 +198,7 @@ suite('Shell Sandbox Tests', () => {
     });
 
     test('interactive/elevated commands are blocked', () => {
-        const analysis = analyzeShellCommand('sudo ls', process.platform, PROJECT_PATH, false);
+        const analysis = analyzeShellCommand('sudo ls', TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.blocked, true);
     });
 
@@ -185,7 +217,7 @@ suite('Shell Sandbox Tests', () => {
     });
 
     test('rule matching remains session-scoped by rule set', () => {
-        const analysis = analyzeShellCommand('npm install lodash', process.platform, PROJECT_PATH, false);
+        const analysis = analyzeShellCommand('npm install lodash', TEST_PLATFORM, PROJECT_PATH, false);
         const firstSessionCoverage = isAnalysisCoveredByRules(analysis, [['npm', 'install']]);
         const secondSessionCoverage = isAnalysisCoveredByRules(analysis, []);
         assert.strictEqual(firstSessionCoverage, true);

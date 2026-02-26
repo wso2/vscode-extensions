@@ -210,7 +210,7 @@ export const SYNAPSE_GUIDE = `
     - Supported methods: GET, POST, PUT, DELETE, HEAD, PATCH, OPTIONS
 
 ## SOAP / XML Integration Recommendations
-    - For SOAP, use the \\\`call\\\` mediator with a named endpoint. Avoid the HTTP connector as it does not support SOAP.
+    - For SOAP, use the \`call\` mediator with a named endpoint. Avoid the HTTP connector as it does not support SOAP.
     - Never assume HTTP for external services. Prefer HTTPS unless the service is explicitly HTTP-only.
 
 ### SOAP response access after \`call\` (MI 4.x)
@@ -225,7 +225,7 @@ export const SYNAPSE_GUIDE = `
 
 ### SOAP namespace accuracy
     - Never infer SOAP operation namespace from service URL.
-    - Always use WSDL \\\`targetNamespace\\\` when building SOAP bodies (especially in \\\`payloadFactory\\\`).
+    - Always use WSDL \`targetNamespace\` when building SOAP bodies (especially in \`payloadFactory\`).
     - Wrong namespace can cause silent SOAP Fault behavior (empty results without explicit MI exception).
 
 ## For the new filter mediator, do not use source. Use only xpath:
@@ -366,7 +366,9 @@ export const SYNAPSE_GUIDE = `
             <inSequence>
                 <filter xpath="\${exists(payload.required)}">
                     <then>
-                        <log level="full"/>
+                        <log category="INFO" logMessageID="false" logFullPayload="true">
+                            <message>Required field exists: \${payload.required}</message>
+                        </log>
                         <respond/>
                     </then>
                     <else>
@@ -443,7 +445,7 @@ export function mapFunction(input: InputRoot): OutputRoot {
 
 ## Registry Resources
 When creating supportive resources that are needed for the Integration inside src/main/wso2mi/resources, an entry should be added to the src/main/wso2mi/resources/artifact.xml. If an artifact.xml doesn't exist, then create one and add the entry. The format should be as follows:
-For data mappers this is get automatically done by the ${CREATE_DATA_MAPPER_TOOL_NAME} tool. But for other resources, you need to add the entry manually.
+For data mappers this is automatically done by the ${CREATE_DATA_MAPPER_TOOL_NAME} tool. But for other resources, you need to add the entry manually.
 
 \`\`\`xml
 <?xml version="1.0" encoding="UTF-8"?>

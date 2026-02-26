@@ -207,12 +207,16 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
 
         try {
             while (responseBody.length < 32768) {
+                let readTimeoutHandle: ReturnType<typeof setTimeout> | undefined;
                 const readResult = await Promise.race([
                     reader.read(),
                     new Promise<typeof timeoutMarker>((resolve) => {
-                        setTimeout(() => resolve(timeoutMarker), readTimeoutMs);
+                        readTimeoutHandle = setTimeout(() => resolve(timeoutMarker), readTimeoutMs);
                     })
                 ]);
+                if (readResult !== timeoutMarker && readTimeoutHandle !== undefined) {
+                    clearTimeout(readTimeoutHandle);
+                }
 
                 if (readResult === timeoutMarker) {
                     break;
