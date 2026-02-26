@@ -217,7 +217,7 @@ describe('HurlRunnerImpl', () => {
 
 		await runner.run({ collectionPath: collection.root }, { parallelism: 1 });
 		const commandCalls = adapter.calls.map(call => call.command);
-		expect(commandCalls).toEqual(['/opt/tools/hurl', '/opt/tools/hurl']);
+		expect(commandCalls).toEqual(['/opt/tools/hurl', '/opt/tools/hurl', '/opt/tools/hurl']);
 	});
 
 	it('run returns aggregated summary and command diagnostics', async () => {

@@ -48,6 +48,7 @@ interface ExecutionContext {
 	tempDir: string;
 	rootPath: string;
 	command: string;
+	hurlVersion?: string;
 	warnings: string[];
 	runOptions: HurlRunOptions;
 	cancelled: boolean;
@@ -174,6 +175,50 @@ export class HurlRunnerImpl implements HurlRunner {
 			return result;
 		}
 
+		let hurlVersion: string | undefined;
+		const resolvedCommand = options.commandPath || this.command;
+		try {
+			const envInfo = await this.verifyEnvironment(resolvedCommand);
+			if (!envInfo.available) {
+				const result = this.buildFinalResult({
+					runId,
+					startedAt: runStarted,
+					finishedAt: this.now(),
+					files: [],
+					diagnostics: {
+						commandLine: [resolvedCommand],
+						warnings,
+						exitCode: 1
+					},
+					forcedStatus: 'error'
+				});
+				if (envInfo.errorMessage) {
+					result.diagnostics.warnings.push(envInfo.errorMessage);
+				}
+				onEvent({ type: 'runFinished', runId, result });
+				this.previousRuns.set(runId, result);
+				return result;
+			}
+			hurlVersion = envInfo.version;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Failed to verify Hurl environment';
+			const result = this.buildFinalResult({
+				runId,
+				startedAt: runStarted,
+				finishedAt: this.now(),
+				files: [],
+				diagnostics: {
+					commandLine: [resolvedCommand],
+					warnings: [...warnings, message],
+					exitCode: 1
+				},
+				forcedStatus: 'error'
+			});
+			onEvent({ type: 'runFinished', runId, result });
+			this.previousRuns.set(runId, result);
+			return result;
+		}
+
 		if (files.length === 0) {
 			const result = this.buildFinalResult({
 				runId,
@@ -201,7 +246,8 @@ export class HurlRunnerImpl implements HurlRunner {
 			runId,
 			tempDir,
 			rootPath: discovery.rootPath,
-			command: options.commandPath || this.command,
+			command: resolvedCommand,
+			hurlVersion,
 			warnings,
 			runOptions: options,
 			cancelled: false,
@@ -279,7 +325,7 @@ export class HurlRunnerImpl implements HurlRunner {
 
 		const finalDiagnostics: HurlRunDiagnostics = {
 			commandLine: context.firstCommandLine || [],
-			hurlVersion: undefined,
+			hurlVersion: context.hurlVersion,
 			exitCode: context.globalExitCode,
 			warnings: [...warnings]
 		};
