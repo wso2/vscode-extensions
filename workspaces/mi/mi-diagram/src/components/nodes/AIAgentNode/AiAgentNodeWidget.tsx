@@ -301,6 +301,7 @@ export function AiAgentNodeWidget(props: CallNodeWidgetProps) {
 
                 if (!connectorData) {
                     console.error(`Connector data not found for connector: ${stNode.tag.split(".")[0]}`);
+                    setIsLoading(false);
                     return;
                 }
 
