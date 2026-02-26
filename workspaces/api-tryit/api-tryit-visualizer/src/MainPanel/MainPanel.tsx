@@ -551,6 +551,7 @@ export const MainPanel: React.FC = () => {
     const [methodDropdownOpen, setMethodDropdownOpen] = useState(false);
     // Handle messages from VS Code extension
     const [showCollectionForm, setShowCollectionForm] = React.useState(false);
+    const [collectionFormWorkspacePath, setCollectionFormWorkspacePath] = React.useState<string | undefined>(undefined);
 	const [runViewState, setRunViewState] = useState<RunViewState | undefined>();
     const selectedIdentityRef = useRef('');
     const savedSnapshotRef = useRef('');
@@ -583,8 +584,9 @@ export const MainPanel: React.FC = () => {
                 expectSavedSelectionRefreshRef.current = false;
             }
         },
-        onShowCreateCollectionForm: () => {
+        onShowCreateCollectionForm: (workspacePath?: string) => {
             console.log('[MainPanel] onShowCreateCollectionForm called - setting showCollectionForm to true');
+            setCollectionFormWorkspacePath(workspacePath);
             setShowCollectionForm(true);
         },
         onCreateCollectionResult: (res) => {
@@ -1051,7 +1053,7 @@ export const MainPanel: React.FC = () => {
                     </Typography>
                 ) : null}
                 {showCollectionForm && (
-                    <CollectionForm onCancel={handleCloseCollectionForm} />
+                    <CollectionForm onCancel={handleCloseCollectionForm} initialFolderPath={collectionFormWorkspacePath} />
                 )}
             </Content>
         </PageContainer>

@@ -37,7 +37,7 @@ interface ExtensionMessage {
 
 interface MessageHandlers {
     onApiRequestSelected?: (item: ApiRequestItem) => void;
-    onShowCreateCollectionForm?: () => void;
+    onShowCreateCollectionForm?: (workspacePath?: string) => void;
     onCreateCollectionResult?: (result: { success: boolean; message?: string }) => void;
 	onHurlRunViewOpened?: (context: HurlRunViewContext) => void;
 	onHurlRunEvent?: (event: HurlRunEvent) => void;
@@ -161,7 +161,7 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
 
             if (type === 'showCreateCollectionForm' && handlersRef.current.onShowCreateCollectionForm) {
                 console.log('[useExtensionMessages] Calling onShowCreateCollectionForm handler');
-                handlersRef.current.onShowCreateCollectionForm();
+                handlersRef.current.onShowCreateCollectionForm(data?.workspacePath as string | undefined);
             }
 
             // Treat 'requestUpdated' like a selection so UI updates the current request form after a save

@@ -211,18 +211,18 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 					continue;
 				}
 
-				const collectionName = extractCollectionNameFromHurl(content) || getCollectionNameFromPath(filePath);
+				const explicitCollectionName = extractCollectionNameFromHurl(content);
+				const collectionName = explicitCollectionName || getCollectionNameFromPath(filePath);
 				const parsedDocument = parseHurlDocument(content);
-				if (parsedDocument.blocks.length === 0) {
+				const mappedItems = this.mapParsedBlocks(filePath, parsedDocument.blocks.map(block => block.text));
+
+				// Skip files with no usable content unless they declare an explicit @collectionName
+				if (mappedItems.length === 0 && !explicitCollectionName) {
 					continue;
 				}
 
 				const key = collectionName.trim().toLowerCase();
 				const existing = groupByCollectionName.get(key);
-				const mappedItems = this.mapParsedBlocks(filePath, parsedDocument.blocks.map(block => block.text));
-				if (mappedItems.length === 0) {
-					continue;
-				}
 				if (!existing) {
 					groupByCollectionName.set(key, {
 						id: this.buildCollectionId(collectionName),

@@ -822,9 +822,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		TryItPanel.show(context);
 
 		// Notify state machine and webviews to show the collection form
+		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 		ApiTryItStateMachine.sendEvent(EVENT_TYPE.SHOW_CREATE_COLLECTION_FORM);
-		TryItPanel.postMessage('showCreateCollectionForm');
-		ActivityPanel.postMessage('showCreateCollectionForm');
+		TryItPanel.postMessage('showCreateCollectionForm', { workspacePath });
+		ActivityPanel.postMessage('showCreateCollectionForm', { workspacePath });
 
 		// Provide quick feedback so the user knows the action was triggered
 		vscode.window.setStatusBarMessage('✓ Sent showCreateCollectionForm message to webviews', 3000);

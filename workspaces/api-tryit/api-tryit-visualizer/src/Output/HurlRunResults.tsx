@@ -190,8 +190,7 @@ const RequestNameTextWrap = styled.div`
 `;
 
 const RequestName = styled.span`
-	font-size: 16px;
-	font-weight: 700;
+	font-size: 14px;
 	color: var(--vscode-foreground);
 	white-space: nowrap;
 	overflow: hidden;
