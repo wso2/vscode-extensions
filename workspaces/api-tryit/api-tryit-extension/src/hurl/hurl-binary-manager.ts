@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -164,12 +164,7 @@ export class HurlBinaryManager {
 			if (asset.sha256) {
 				this.verifyChecksum(archiveBuffer, asset.sha256);
 			}
-			await fs.writeFile(archivePath, archiveBuffer);
-
-			progress?.report({ message: 'Extracting managed hurl binary' });
-			if (asset.archiveType === 'tar.gz') {
-				await this.extractTarGz(archivePath, extractRoot);
-			}
+		await fs.writeFile(archivePath, archiveBuffer as unknown as Uint8Array);
 
 			progress?.report({ message: 'Finalizing installation' });
 			const locatedBinary = await this.findBinary(extractRoot, getBinaryName());
@@ -233,7 +228,7 @@ export class HurlBinaryManager {
 	}
 
 	private verifyChecksum(data: Buffer, expectedHash: string): void {
-		const digest = crypto.createHash('sha256').update(data).digest('hex');
+		const digest = crypto.createHash('sha256').update(data as unknown as Uint8Array).digest('hex');
 		if (digest.toLowerCase() !== expectedHash.toLowerCase()) {
 			throw new Error(`Checksum validation failed. Expected ${expectedHash}, received ${digest}`);
 		}
@@ -263,11 +258,11 @@ export class HurlBinaryManager {
 					return;
 				}
 
-				const chunks: Buffer[] = [];
-				response.on('data', chunk => {
-					chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-				});
-				response.on('end', () => resolve(Buffer.concat(chunks)));
+			const chunks: Array<Buffer | Uint8Array> = [];
+			response.on('data', chunk => {
+				chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+			});
+			response.on('end', () => resolve(Buffer.concat(chunks as any) as unknown as Buffer));
 				response.on('error', reject);
 			});
 
