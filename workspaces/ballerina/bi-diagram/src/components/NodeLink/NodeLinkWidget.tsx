@@ -71,7 +71,7 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
     const positionIsLocked = topNode && target && isPositionLocked
         ? isPositionLocked(topNode, { startLine: target, endLine: target })
         : false;
-    const linkOpacity = positionIsLocked ? 0.45 : 1;
+    const linkOpacity = positionIsLocked ? 0.5 : 1;
 
     const getDiagramPositionFromElementCenter = (element: SVGSVGElement) => {
         const canvas = document.getElementById("bi-diagram-canvas");
@@ -248,7 +248,7 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
                             css={css`
                                 cursor: pointer;
                                 visibility: ${shouldHighlight ? "visible" : "hidden"};
-                                    opacity: ${linkOpacity};
+                                opacity: ${linkOpacity};
                             `}
                         >
                             <path

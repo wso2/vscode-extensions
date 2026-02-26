@@ -210,7 +210,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
     } = useDiagramContext();
 
     const isSelected = selectedNodeId === model.node.id;
-    const isLocked = model.node.locked && model.node.locked.userId !== currentUserId;
+    const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
     const isLockedBySelf = model.node.locked && model.node.locked.userId === currentUserId;
 
     const [isHovered, setIsHovered] = useState(false);
@@ -265,7 +265,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         setMenuAnchorEl(event.currentTarget);
@@ -273,6 +273,9 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
         event.preventDefault();
+        if (readOnly || isLocked) {
+            return;
+        }
         setMenuAnchorEl(menuButtonElement || event.currentTarget);
     };
 
@@ -384,7 +387,6 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
                 cursor: isLocked ? 'not-allowed' : readOnly ? 'default' : 'pointer'
             }}
         >
-            {/* Lock indicator */}
             {isLocked && (
                 <Tooltip content={`Locked by ${model.node.locked.userName}`} >
                     <NodeStyles.LockIndicator>
@@ -423,7 +425,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
                         {hasError && <DiagnosticsPopUp node={model.node} />}
                         <NodeStyles.MenuButton
                             ref={setMenuButtonElement}
-                            buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
+                            buttonSx={readOnly || isLocked ? { cursor: "not-allowed" } : {}}
                             appearance="icon"
                             onClick={handleOnMenuClick}
                         >

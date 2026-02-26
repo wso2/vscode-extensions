@@ -555,6 +555,12 @@
                 }
             },
             {
+                "command": "ballerina.open.oct.chat",
+                "title": "Chat",
+                "category": "Ballerina",
+                "icon": "$(comment-discussion)"
+            },
+            {
                 "command": "ballerina.open.bi.welcome",
                 "title": "Open Welcome",
                 "category": "BI"
@@ -906,6 +912,12 @@
                     "group": "navigation",
                     "title": "Save Changes in the cloud",
                     "when": "isBIProject && devant.editor"
+                },
+                {
+                    "command": "ballerina.open.oct.chat",
+                    "group": "navigation@4",
+                    "title": "OCT Chat",
+                    "when": "oct.connection && (resourceLangId == ballerina || isBallerinaDiagram || (isBalVisualizerActive && isBIProject))"
                 }
             ],
             "notebook/toolbar": [

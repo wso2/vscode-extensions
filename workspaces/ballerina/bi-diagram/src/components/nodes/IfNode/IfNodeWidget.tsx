@@ -21,7 +21,7 @@ import styled from "@emotion/styled";
 import { DiagramEngine, PortWidget } from "@projectstorm/react-diagrams-core";
 import { IfNodeModel } from "./IfNodeModel";
 import { IF_NODE_WIDTH, NODE_BORDER_WIDTH, NODE_HEIGHT, NODE_WIDTH } from "../../../resources/constants";
-import { Button, Item, Menu, MenuItem, Popover, ThemeColors } from "@wso2/ui-toolkit";
+import { Button, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
 import { FlowNode } from "../../../utils/types";
 import { useDiagramContext } from "../../DiagramContext";
 import { MoreVertIcon } from "../../../resources";
@@ -123,6 +123,27 @@ export namespace NodeStyles {
     export const Hr = styled.hr`
         width: 100%;
     `;
+
+    export const LockIndicator = styled.div`
+        position: absolute;
+        top: -8px;
+        right: 4px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: ${ThemeColors.SECONDARY_CONTAINER};
+        border: 2px solid ${ThemeColors.SECONDARY};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        cursor: help;
+    `;
+
+    export const LockIcon = styled.div`
+        color: ${ThemeColors.ON_SECONDARY};
+        font-size: 10px;
+    `;
 }
 
 interface IfNodeWidgetProps {
@@ -135,7 +156,7 @@ export interface NodeWidgetProps extends Omit<IfNodeWidgetProps, "children"> {}
 
 export function IfNodeWidget(props: IfNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId } =
+    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId, currentUserId } =
         useDiagramContext();
 
     const isSelected = selectedNodeId === model.node.id;
@@ -146,7 +167,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
     const isMenuOpen = Boolean(anchorEl);
     const hasBreakpoint = model.hasBreakpoint();
     const isActiveBreakpoint = model.isActiveBreakpoint();
-
+    const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
     useEffect(() => {
         if (model.node.suggested) {
             model.setAroundLinksDisabled(model.node.suggested === true);
@@ -154,7 +175,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
     }, [model.node.suggested]);
 
     const handleOnClick = (event: React.MouseEvent<HTMLDivElement>) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         if (event.metaKey) {
@@ -181,7 +202,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         setAnchorEl(event.currentTarget);
@@ -189,6 +210,9 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
         event.preventDefault();
+        if (readOnly || isLocked) {
+            return;
+        }
         setAnchorEl(menuButtonElement || event.currentTarget);
     };
 
@@ -224,10 +248,14 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
         <NodeStyles.Node
             disabled={disabled}
             hovered={isHovered}
-            readOnly={readOnly}
+            readOnly={readOnly || isLocked}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            onContextMenu={!readOnly ? handleOnContextMenu : undefined}
+            onContextMenu={!readOnly && !isLocked ? handleOnContextMenu : undefined}
+            style={{
+                opacity: isLocked ? 0.6 : 1,
+                cursor: isLocked ? "not-allowed" : readOnly ? "default" : "pointer",
+            }}
         >
             <NodeStyles.Row>
                 <NodeStyles.Column onClick={handleOnClick}>
@@ -243,6 +271,15 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
                                 backgroundColor: "red",
                             }}
                         />
+                    )}
+                    {isLocked && (
+                        <Tooltip content={`Locked by ${model.node.locked.userName}`} >
+                            <NodeStyles.LockIndicator>
+                                <NodeStyles.LockIcon>
+                                    🔒
+                                </NodeStyles.LockIcon>
+                            </NodeStyles.LockIndicator>
+                        </Tooltip>
                     )}
                     <NodeStyles.TopPortWidget port={model.getPort("in")!} engine={engine} />
                     <svg width={IF_NODE_WIDTH} height={IF_NODE_WIDTH} viewBox="0 0 70 70">
@@ -291,7 +328,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
                 )}
                 <NodeStyles.StyledButton
                     ref={setMenuButtonElement}
-                    buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
+                    buttonSx={readOnly || isLocked  ? { cursor: "not-allowed" } : {}}
                     appearance="icon"
                     onClick={handleOnMenuClick}
                 >

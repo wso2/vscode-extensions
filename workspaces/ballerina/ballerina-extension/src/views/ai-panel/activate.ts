@@ -34,6 +34,15 @@ export function activateAiPanel(ballerinaExtInstance: BallerinaExtension) {
         vscode.commands.registerCommand(SHARED_COMMANDS.OPEN_AI_PANEL, handleOpenAIPanel)
     );
     ballerinaExtInstance.context.subscriptions.push(
+        vscode.commands.registerCommand('ballerina.open.oct.chat', async () => {
+            try {
+                await vscode.commands.executeCommand('workbench.view.extension.oct_chat_container');
+            } catch {
+            }
+            await vscode.commands.executeCommand('oct.chatView.focus');
+        })
+    );
+    ballerinaExtInstance.context.subscriptions.push(
         vscode.commands.registerCommand(SHARED_COMMANDS.CLOSE_AI_PANEL, () => {
             closeAIWebview();
         })

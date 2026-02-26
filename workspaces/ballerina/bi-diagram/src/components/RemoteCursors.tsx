@@ -146,7 +146,7 @@ export function RemoteCursors() {
                     anchoredDiagramPos?.y ?? cursor.y
                 );
 
-                const color = getColorForUser(user.id) || user.color;
+                const color = getColorForUser(user.id);
                 const userName = user.name || user.id;
 
                 return (
