@@ -19,7 +19,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import type { ApiRequestItem, ApiRequest } from '@wso2/api-tryit-core';
+import type { ApiRequestItem, ApiRequest, ApiResponse } from '@wso2/api-tryit-core';
 import { getComposerJSFiles } from '../util';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
 import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
@@ -271,6 +271,7 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 					id: itemId,
 					name: itemName,
 					request: apiRequest,
+					response: (requestItem.response as ApiResponse) || undefined,
 					filePath: (requestItem.filePath as string) || ''
 				};
 

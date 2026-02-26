@@ -411,7 +411,7 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		return null;
 	}
 
-	async getCollections(): Promise<Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; requestId?: string; children?: Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; requestId?: string; filePath?: string}>}>> {
+	async getCollections(): Promise<Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; requestId?: string; response?: unknown; children?: Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; requestId?: string; response?: unknown; filePath?: string}>}>> {
 		if (this.loadingPromise) {
 			await this.loadingPromise;
 			this.loadingPromise = null;
@@ -439,6 +439,7 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						method: item.request.method,
 						request: item.request,
 						requestId: item.request.id,
+						response: item.response,
 						filePath: item.filePath
 					}));
 

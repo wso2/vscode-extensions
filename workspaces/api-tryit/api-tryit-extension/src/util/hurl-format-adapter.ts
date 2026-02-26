@@ -221,6 +221,12 @@ export class HurlFormatAdapter {
 					hurl += `#   ${header.key}: ${header.value}\n`;
 				}
 			}
+			if (response.body) {
+				hurl += '# Body:\n';
+				for (const line of response.body.split('\n')) {
+					hurl += `# ${line}\n`;
+				}
+			}
 		}
 
 		return hurl;
@@ -406,6 +412,41 @@ export class HurlFormatAdapter {
 					body += line + '\n';
 				}
 			}
+		}
+
+		// Parse response comment section (# Response: / # Status: / # Headers: / # Body:)
+		let inResponseBody = false;
+		const responseBodyLines: string[] = [];
+		for (; currentLineIdx < lines.length; currentLineIdx++) {
+			const raw = lines[currentLineIdx];
+			const trimmed = raw.trim();
+			if (inResponseBody) {
+				if (trimmed.startsWith('#')) {
+					responseBodyLines.push(raw.startsWith('# ') ? raw.slice(2) : raw.slice(1));
+				} else {
+					break;
+				}
+				continue;
+			}
+			if (trimmed.startsWith('# Status:')) {
+				responseMetadata.statusCode = parseInt(trimmed.substring(9).trim(), 10);
+			} else if (trimmed === '# Headers:') {
+				if (!responseMetadata.headers) { responseMetadata.headers = []; }
+			} else if (trimmed.startsWith('#   ') && responseMetadata.headers !== undefined) {
+				const headerLine = trimmed.substring(4);
+				const colonIdx = headerLine.indexOf(':');
+				if (colonIdx > 0) {
+					(responseMetadata.headers as Array<{ key: string; value: string }>).push({
+						key: headerLine.substring(0, colonIdx).trim(),
+						value: headerLine.substring(colonIdx + 1).trim()
+					});
+				}
+			} else if (trimmed === '# Body:') {
+				inResponseBody = true;
+			}
+		}
+		if (responseBodyLines.length > 0) {
+			responseMetadata.body = responseBodyLines.join('\n').trimEnd();
 		}
 
 		// Parse body and special sections (FormData, Form/FormParams, multipart, legacy shorthands)

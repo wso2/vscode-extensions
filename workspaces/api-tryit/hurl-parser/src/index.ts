@@ -21,6 +21,7 @@ import {
 	ApiCollection,
 	ApiRequest,
 	ApiRequestItem,
+	ApiResponse,
 	FormDataParameter,
 	FormUrlEncodedParameter,
 	HeaderParameter,
@@ -405,7 +406,63 @@ function parseRequestBlock(block: string, requestIndex: number): ApiRequestItem 
 		item.assertions = assertions;
 	}
 
+	const cachedResponse = parseResponseComments(responseLines);
+	if (cachedResponse) {
+		item.response = cachedResponse;
+	}
+
 	return item;
+}
+
+function parseResponseComments(lines: string[]): ApiResponse | undefined {
+	let inResponseSection = false;
+	let inHeaderSection = false;
+	let inBodySection = false;
+	const response: Partial<ApiResponse & { headers: Array<{ key: string; value: string }> }> = {};
+	const bodyLines: string[] = [];
+
+	for (const line of lines) {
+		const trimmed = line.trim();
+
+		if (trimmed === '# Response:') {
+			inResponseSection = true;
+			inHeaderSection = false;
+			inBodySection = false;
+			continue;
+		}
+
+		if (!inResponseSection) { continue; }
+
+		if (trimmed.startsWith('# Status:')) {
+			response.statusCode = parseInt(trimmed.substring(9).trim(), 10);
+		} else if (trimmed === '# Headers:') {
+			inHeaderSection = true;
+			inBodySection = false;
+			if (!response.headers) { response.headers = []; }
+		} else if (trimmed === '# Body:') {
+			inHeaderSection = false;
+			inBodySection = true;
+		} else if (inHeaderSection && trimmed.startsWith('#   ')) {
+			const headerLine = trimmed.substring(4);
+			const colonIdx = headerLine.indexOf(':');
+			if (colonIdx > 0) {
+				response.headers!.push({
+					key: headerLine.substring(0, colonIdx).trim(),
+					value: headerLine.substring(colonIdx + 1).trim()
+				});
+			}
+		} else if (inBodySection && trimmed.startsWith('#')) {
+			bodyLines.push(line.startsWith('# ') ? line.slice(2) : line.slice(1));
+		}
+	}
+
+	if (!response.statusCode) { return undefined; }
+
+	if (bodyLines.length > 0) {
+		response.body = bodyLines.join('\n').trimEnd();
+	}
+
+	return response as ApiResponse;
 }
 
 function parseRequestPart(lines: string[], requestIndex: number, initialQueryCount: number): ParsedRequestPart {
