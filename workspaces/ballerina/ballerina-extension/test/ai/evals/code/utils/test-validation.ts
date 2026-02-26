@@ -44,7 +44,7 @@ export async function validateTestResult(result: TestEventResult, useCase: TestU
 
     const [evaluation, codeContextRetrievalEvaluation] = await Promise.all([
         evaluateCodeWithLLM(useCase.usecase, initialSources, finalSources),
-        evaluateCodeContextRetrieval(useCase.usecase, result.events)
+        evaluateCodeContextRetrieval(useCase.usecase, initialSources, result.events)
     ]);
 
     return {

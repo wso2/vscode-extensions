@@ -212,21 +212,18 @@ function extractContextRetrievalCalls(events: readonly ChatNotify[]): {
 
 const codeContextRetrievalSchema = z.object({
     is_relevant: z.boolean().describe(
-        'True if the grep searches and files read are relevant and sufficient for the user query. ' +
-        'False if the LLM searched for the wrong things or missed critical context.'
+        'True if the agent retrieved all the relevant code from the existing codebase that is needed to fulfill the user query. ' +
+        'False if the agent missed retrieving existing code that was necessary to understand and fulfill the user query.'
     ),
     coverage_score: z.number().min(0).max(10).describe(
-        'Score from 0 to 10 for how well the retrieved context covers what is needed to implement the user query. ' +
-        '0 = completely irrelevant or empty, 5 = partially covers the needed context, 10 = fully covers all relevant code.'
+        'Score from 0 to 10 for how well the retrieved context covers the relevant parts of the existing codebase. ' +
+        '0 = no useful existing code was retrieved, 5 = some relevant existing code retrieved but significant parts missed, ' +
+        '10 = all relevant existing code was retrieved. Base this only on what exists in the Initial Code.'
     ),
     reasoning: z.string().describe(
-        'Explanation of the score. Describe which grep searches were useful, which files were relevant, ' +
-        'and what context gaps remain. Be specific about what the LLM found and what it missed.'
-    ),
-    missed_patterns: z.array(z.string()).describe(
-        'List of grep patterns the LLM should have searched for but did not. ' +
-        'These are patterns that would have retrieved context critical to implementing the user query. ' +
-        'Use regex-style patterns. Return an empty array if coverage is complete.'
+        'A clear and concise explanation of your evaluation. ' +
+        'Reference specific parts of the existing codebase that were or were not retrieved. ' +
+        'Do not suggest hypothetical patterns — only judge against what exists in the Initial Code.'
     )
 });
 
@@ -240,19 +237,26 @@ const codeContextRetrievalSchema = z.object({
  */
 export async function evaluateCodeContextRetrieval(
     userQuery: string,
+    initialSource: SourceFile[],
     events: readonly ChatNotify[]
 ): Promise<CodeContextRetrievalEvaluation> {
     console.log("🔍 Starting code context retrieval evaluation...");
 
     const { grepCalls, fileReadCalls } = extractContextRetrievalCalls(events);
 
+    const stringifySources = (sources: SourceFile[]): string => {
+        if (sources.length === 0) return "No files in the project.";
+        return sources.map(file => `--- File: ${file.filePath} ---\n${file.content}`).join("\n\n");
+    };
+
+    const initialCodeString = stringifySources(initialSource);
+
     if (grepCalls.length === 0 && fileReadCalls.length === 0) {
-        console.log("⚠️ No grep or file_read calls found — skipping context retrieval evaluation.");
+        console.log("⚠️ No grep or file_read calls found — agent relied solely on CodeMap.");
         return {
             is_relevant: false,
             coverage_score: 0,
-            reasoning: "No grep or file_read tool calls were made. The LLM did not retrieve any code context.",
-            missed_patterns: [],
+            reasoning: "The agent made no file_read or grep calls. It relied solely on the CodeMap (high-level structure) without retrieving any implementation details from the existing codebase.",
             grep_calls: [],
             file_read_calls: []
         };
@@ -284,37 +288,40 @@ export async function evaluateCodeContextRetrieval(
           }).join('\n\n')
         : 'No files were read.';
 
-    const systemPrompt = `You are an expert Ballerina developer evaluating whether an AI agent retrieved the right code context before making changes to a codebase.
+    const systemPrompt = `You are an expert Ballerina developer evaluating whether an AI agent retrieved the relevant code from an existing codebase.
 
-Your role is to assess:
-1. Whether the grep searches used relevant patterns to find the code that needs to change
-2. Whether the files read were the right ones for the user query
-3. What context gaps exist — what the agent should have looked at but didn't
-4. A coverage score reflecting how complete the context retrieval was
+Your role is to:
+1. Read the Initial Code (the existing codebase before any changes).
+2. Read the user query to understand what change was requested.
+3. Evaluate whether the agent's file_read and grep calls retrieved the relevant parts of the existing code needed to fulfill the query.
 
-Focus on context quality for the specific user query, not on the final code output.`;
+Important:
+- Judge only against what exists in the Initial Code. Do not assume or invent code that is not there.
+- The agent has access to a CodeMap providing high-level structure, so it does not need to retrieve trivially obvious information.
+- The agent uses file_read to read files and grep to search for specific patterns within the existing codebase.`
 
     const userPrompt = `# User Query
+The user requested the following change:
 \`\`\`
 ${userQuery}
 \`\`\`
 
-# Context Retrieved by the LLM Agent
+# Initial Code (Before Changes)
+\`\`\`ballerina
+${initialCodeString}
+\`\`\`
 
-## Grep Searches
-${grepSection}
+# Context Retrieved by the LLM Agent
 
 ## Files Read
 ${fileReadSection}
 
+## Grep Searches
+${grepSection}
+
 ---
 
-Evaluate whether the retrieved context is relevant and sufficient to implement the user query.
-Consider:
-- Did the grep patterns target the right functions, types, or keywords related to the query?
-- Were the grep results useful (did they find what the agent needed)?
-- Were the right files read?
-- What critical code context is missing that would have helped?
+Evaluate whether the agent retrieved all relevant code from the existing codebase (shown above) that was needed to fulfill the user query.
 
 Use the submit_evaluation tool to provide your assessment.`;
 
@@ -346,6 +353,7 @@ Use the submit_evaluation tool to provide your assessment.`;
 
         const evaluation = toolCall.input as Omit<CodeContextRetrievalEvaluation, 'grep_calls' | 'file_read_calls'>;
 
+
         console.log(`✅ Code Context Retrieval Evaluation Complete. Relevant: ${evaluation.is_relevant}. Score: ${evaluation.coverage_score}/10`);
         return {
             ...evaluation,
@@ -359,7 +367,6 @@ Use the submit_evaluation tool to provide your assessment.`;
             is_relevant: false,
             coverage_score: 0,
             reasoning: `Failed to evaluate due to an error: ${error instanceof Error ? error.message : "Unknown error"}`,
-            missed_patterns: [],
             grep_calls: grepCalls,
             file_read_calls: fileReadCalls
         };

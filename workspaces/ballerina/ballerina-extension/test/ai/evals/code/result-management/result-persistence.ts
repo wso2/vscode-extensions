@@ -94,11 +94,12 @@ export async function persistUsecaseResult(
 
     // Persist code context retrieval evaluation if present
     if (usecaseResult.codeContextRetrievalEvaluation) {
+        const { grep_calls, file_read_calls, ...evaluationOnly } = usecaseResult.codeContextRetrievalEvaluation;
         const codeRetrievalDir = path.join(resultDir, "code_retrieval");
         await fs.promises.mkdir(codeRetrievalDir, { recursive: true });
         await fs.promises.writeFile(
             path.join(codeRetrievalDir, "evaluation.json"),
-            JSON.stringify(usecaseResult.codeContextRetrievalEvaluation, null, 2)
+            JSON.stringify(evaluationOnly, null, 2)
         );
     }
 
@@ -148,7 +149,6 @@ export async function persistSummary(summary: Summary, resultsDir: string): Prom
             usecase: r.usecase,
             is_relevant: r.codeContextRetrievalEvaluation!.is_relevant,
             coverage_score: r.codeContextRetrievalEvaluation!.coverage_score,
-            missed_patterns: r.codeContextRetrievalEvaluation!.missed_patterns,
         }));
 
     if (codeRetrievalEntries.length > 0) {
