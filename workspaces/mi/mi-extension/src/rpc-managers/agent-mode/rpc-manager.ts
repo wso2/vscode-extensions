@@ -369,6 +369,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.pendingApprovals.set(approvalId, {
                 approvalId,
                 approvalKind: 'continue_after_limit',
+                sessionId: this.currentSessionId ?? '',
                 resolve: (result) => {
                     this.pendingApprovals.delete(approvalId);
                     resolve(result);

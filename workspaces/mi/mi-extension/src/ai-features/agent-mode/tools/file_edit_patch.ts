@@ -152,7 +152,17 @@ function validateHunk(hunk: FileEditHunk, hunkIndex: number): PatchApplyFailure 
         };
     }
 
-    const normalizedOld = toNormalizedLines(hunk.old_text).join('\n');
+    const normalizedOldLines = toNormalizedLines(hunk.old_text);
+    if (normalizedOldLines.length === 0 || normalizedOldLines.every((line) => line.length === 0)) {
+        return {
+            success: false,
+            code: 'INVALID_HUNK',
+            hunkIndex,
+            message: `Hunk #${hunkIndex + 1} is invalid: old_text must be non-empty.`,
+        };
+    }
+
+    const normalizedOld = normalizedOldLines.join('\n');
     const normalizedNew = toNormalizedLines(hunk.new_text).join('\n');
     if (normalizedOld === normalizedNew) {
         return {

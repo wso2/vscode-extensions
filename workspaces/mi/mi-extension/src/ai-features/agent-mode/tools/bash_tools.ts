@@ -121,6 +121,7 @@ async function requestShellApproval(
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
     request: {
+        sessionId: string;
         command: string;
         reasons: string[];
         suggestedPrefixRule: string[];
@@ -144,6 +145,7 @@ async function requestShellApproval(
         pendingApprovals.set(approvalId, {
             approvalId,
             approvalKind: 'shell_command',
+            sessionId: request.sessionId,
             resolve: (result) => {
                 pendingApprovals.delete(approvalId);
                 resolve(result);
@@ -167,7 +169,8 @@ export function createBashExecute(
     projectPath: string,
     eventHandler?: AgentEventHandler,
     pendingApprovals?: Map<string, PendingPlanApproval>,
-    shellApprovalRuleStore?: ShellApprovalRuleStore
+    shellApprovalRuleStore?: ShellApprovalRuleStore,
+    sessionId: string = ''
 ): BashExecuteFn {
     return async (args: {
         command: string;
@@ -202,6 +205,7 @@ export function createBashExecute(
             }
 
             const approvalResult = await requestShellApproval(eventHandler, pendingApprovals, {
+                sessionId,
                 command,
                 reasons: analysis.reasons,
                 suggestedPrefixRule: analysis.suggestedPrefixRule,

@@ -102,7 +102,6 @@ const SAFE_READ_COMMANDS = new Set([
     'dirname',
     'du',
     'echo',
-    'env',
     'git',
     'grep',
     'head',
@@ -123,6 +122,11 @@ const SAFE_READ_COMMANDS = new Set([
     'where',
     'which',
     'whoami',
+]);
+
+const WRAPPER_COMMANDS_REQUIRING_APPROVAL = new Set([
+    'env',
+    'xargs',
 ]);
 
 const NETWORK_COMMANDS = new Set([
@@ -415,8 +419,31 @@ function splitTopLevelSegments(command: string): { segments: string[]; parseFail
                 continue;
             }
             if (ch === '&') {
-                pushSegment();
-                continue;
+                let previousNonSpace = '';
+                for (let j = i - 1; j >= 0; j--) {
+                    if (!/\s/.test(command[j])) {
+                        previousNonSpace = command[j];
+                        break;
+                    }
+                }
+
+                const previousChar = command[i - 1] || '';
+                const nextChar = next || '';
+                const isRedirectionAmpersand =
+                    nextChar === '>'
+                    || nextChar === '&'
+                    || /\d/.test(nextChar)
+                    || (/\d/.test(previousNonSpace) && nextChar === '>');
+                const isBackgroundBoundary =
+                    i === 0
+                    || i === command.length - 1
+                    || /\s/.test(previousChar)
+                    || /\s/.test(nextChar);
+
+                if (!isRedirectionAmpersand && isBackgroundBoundary) {
+                    pushSegment();
+                    continue;
+                }
             }
             if (ch === '|' && next === '|') {
                 pushSegment();
@@ -1093,6 +1120,7 @@ function analyzeSegment(
 
     const isNetwork = NETWORK_COMMANDS.has(command);
     const findIsDestructive = isFindDestructive(tokens, rawSegment);
+    const isWrapperCommand = WRAPPER_COMMANDS_REQUIRING_APPROVAL.has(command);
     const isMutation = MUTATION_COMMANDS.has(command)
         || findIsDestructive
         || isGitMutation(tokens)
@@ -1130,7 +1158,9 @@ function analyzeSegment(
     } else if (isMutation && !writesOnlyToExternalAllowedRoots) {
         reasons.push('Commands that may modify files or system state require approval.');
     }
-    if (!SAFE_READ_COMMANDS.has(command) && !isNetwork && !isMutation) {
+    if (isWrapperCommand) {
+        reasons.push('Wrapper commands that can execute nested subcommands require approval.');
+    } else if (!SAFE_READ_COMMANDS.has(command) && !isNetwork && !isMutation) {
         reasons.push('Command is outside the read-only allowlist and requires approval.');
     }
 

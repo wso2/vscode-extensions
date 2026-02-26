@@ -493,15 +493,33 @@ export function createAgentTools(params: CreateToolsParams) {
 
         // Web Tools (2 tools)
         [WEB_SEARCH_TOOL_NAME]: createWebSearchTool(
-            getWrappedExecute(WEB_SEARCH_TOOL_NAME, createWebSearchExecute(getAnthropicClient, eventHandler, pendingApprovals, webAccessPreapproved))
+            getWrappedExecute(WEB_SEARCH_TOOL_NAME, createWebSearchExecute(
+                getAnthropicClient,
+                eventHandler,
+                pendingApprovals,
+                webAccessPreapproved,
+                sessionId
+            ))
         ),
         [WEB_FETCH_TOOL_NAME]: createWebFetchTool(
-            getWrappedExecute(WEB_FETCH_TOOL_NAME, createWebFetchExecute(getAnthropicClient, eventHandler, pendingApprovals, webAccessPreapproved))
+            getWrappedExecute(WEB_FETCH_TOOL_NAME, createWebFetchExecute(
+                getAnthropicClient,
+                eventHandler,
+                pendingApprovals,
+                webAccessPreapproved,
+                sessionId
+            ))
         ),
 
         // Shell Tools (3 tools)
         [BASH_TOOL_NAME]: createBashTool(
-            getWrappedExecute(BASH_TOOL_NAME, createBashExecute(projectPath, eventHandler, pendingApprovals, shellApprovalRuleStore))
+            getWrappedExecute(BASH_TOOL_NAME, createBashExecute(
+                projectPath,
+                eventHandler,
+                pendingApprovals,
+                shellApprovalRuleStore,
+                sessionId
+            ))
         ),
         [KILL_TASK_TOOL_NAME]: createKillTaskTool(
             getWrappedExecute(KILL_TASK_TOOL_NAME, createKillTaskExecute())

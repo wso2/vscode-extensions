@@ -24,7 +24,7 @@ import { handleFileAttach, convertChatHistoryToModelMessages } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
 import { generateId, updateTokenInfo } from "../utils";
 import { BackendRequestType } from "../types";
-import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem, Question, UndoCheckpointSummary } from "@wso2/mi-core";
+import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem, Question, UndoCheckpointSummary, PlanApprovalKind } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 
 // Tool name constant
@@ -178,6 +178,45 @@ function getPlanApprovalPrompt(planContent?: string, planFilePath?: string): str
     }
 
     return "Review the plan above and choose Approve Plan or Request Changes.";
+}
+
+function getApprovalFallbackContent(
+    approvalKind: PlanApprovalKind | undefined,
+    planContent?: string,
+    planFilePath?: string
+): string {
+    switch (approvalKind) {
+        case 'enter_plan_mode':
+            return 'Agent recommends entering Plan mode. Do you want to switch now?';
+        case 'exit_plan_mode_without_plan':
+            return 'Agent wants to exit Plan mode without a full plan. Do you want to continue?';
+        case 'web_search':
+            return 'Agent wants permission to run a web search.';
+        case 'web_fetch':
+            return 'Agent wants permission to fetch a web page.';
+        case 'shell_command':
+            return 'Agent wants permission to run a shell command.';
+        case 'continue_after_limit':
+            return 'Agent paused because it reached a run limit. Continue in a new run?';
+        default:
+            return getPlanApprovalPrompt(planContent, planFilePath);
+    }
+}
+
+function getApprovalTitle(approvalKind: PlanApprovalKind | undefined): string {
+    switch (approvalKind) {
+        case 'exit_plan_mode':
+            return 'Plan Approval';
+        case 'web_search':
+        case 'web_fetch':
+            return 'Web Access Approval';
+        case 'shell_command':
+            return 'Shell Access Approval';
+        case 'continue_after_limit':
+            return 'Continue Agent Run?';
+        default:
+            return 'Approval Required';
+    }
 }
 
 function markFileChangesTagsAsNonUndoable(content: string): string {
@@ -870,14 +909,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
                     case "plan_approval_requested":
                         if (planEvent.approvalId) {
-                            const approvalKind = (planEvent.approvalKind || 'exit_plan_mode') as
-                                | 'enter_plan_mode'
-                                | 'exit_plan_mode'
-                                | 'exit_plan_mode_without_plan'
-                                | 'web_search'
-                                | 'web_fetch'
-                                | 'shell_command'
-                                | 'continue_after_limit';
+                            const approvalKind: PlanApprovalKind = planEvent.approvalKind || 'exit_plan_mode';
                             const planContent = typeof planEvent.content === "string" ? planEvent.content.trim() : "";
                             if (approvalKind === 'exit_plan_mode' && planContent) {
                                 setMessages((prev) => {
@@ -894,19 +926,11 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 });
                             }
 
-                            const fallbackContent = approvalKind === 'enter_plan_mode'
-                                ? 'Agent recommends entering Plan mode. Do you want to switch now?'
-                                : approvalKind === 'exit_plan_mode_without_plan'
-                                    ? 'Agent wants to exit Plan mode without a full plan. Do you want to continue?'
-                                    : approvalKind === 'web_search'
-                                        ? 'Agent wants permission to run a web search.'
-                                        : approvalKind === 'web_fetch'
-                                            ? 'Agent wants permission to fetch a web page.'
-                                            : approvalKind === 'shell_command'
-                                                ? 'Agent wants permission to run a shell command.'
-                                                : approvalKind === 'continue_after_limit'
-                                                    ? 'Agent paused because it reached a run limit. Continue in a new run?'
-                                            : getPlanApprovalPrompt(planContent, planEvent.planFilePath);
+                            const fallbackContent = getApprovalFallbackContent(
+                                approvalKind,
+                                planContent,
+                                planEvent.planFilePath
+                            );
 
                             const dialogContent = approvalKind === 'exit_plan_mode'
                                 ? getPlanApprovalPrompt(planContent, planEvent.planFilePath)
@@ -1599,15 +1623,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const planApprovalAllowsFeedback =
         (pendingPlanApproval?.allowFeedback ?? (pendingPlanApproval?.approvalKind === 'exit_plan_mode')) === true;
     const planApprovalTitle = pendingPlanApproval?.approvalTitle
-        || (pendingPlanApproval?.approvalKind === 'exit_plan_mode'
-            ? 'Plan Approval'
-            : pendingPlanApproval?.approvalKind === 'web_search' || pendingPlanApproval?.approvalKind === 'web_fetch'
-                ? 'Web Access Approval'
-                : pendingPlanApproval?.approvalKind === 'shell_command'
-                    ? 'Shell Access Approval'
-                : pendingPlanApproval?.approvalKind === 'continue_after_limit'
-                    ? 'Continue Agent Run?'
-                : 'Approval Required');
+        || getApprovalTitle(pendingPlanApproval?.approvalKind);
     const planApproveLabel = pendingPlanApproval?.approveLabel || 'Approve';
     const planRejectLabel = pendingPlanApproval?.rejectLabel || 'Reject';
 

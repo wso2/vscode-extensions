@@ -79,6 +79,7 @@ async function requestWebApproval(
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
     request: {
+        sessionId: string;
         kind: WebApprovalKind;
         approvalTitle: string;
         content: string;
@@ -101,6 +102,7 @@ async function requestWebApproval(
         pendingApprovals.set(approvalId, {
             approvalId,
             approvalKind: request.kind,
+            sessionId: request.sessionId,
             resolve: (result) => {
                 pendingApprovals.delete(approvalId);
                 resolve(result);
@@ -123,7 +125,8 @@ export function createWebSearchExecute(
     getAnthropicClient: (model: AnthropicModel) => Promise<any>,
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
-    webAccessPreapproved: boolean
+    webAccessPreapproved: boolean,
+    sessionId: string
 ): WebSearchExecuteFn {
     return async (args): Promise<ToolResult> => {
         const allowedDomains = sanitizeDomainList(args.allowed_domains);
@@ -132,6 +135,7 @@ export function createWebSearchExecute(
         let approved = true;
         if (!webAccessPreapproved) {
             approved = await requestWebApproval(eventHandler, pendingApprovals, {
+                sessionId,
                 kind: 'web_search',
                 approvalTitle: 'Allow Web Search?',
                 content: `Agent wants to search the web for: "${args.query}"`,
@@ -210,7 +214,8 @@ export function createWebFetchExecute(
     getAnthropicClient: (model: AnthropicModel) => Promise<any>,
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
-    webAccessPreapproved: boolean
+    webAccessPreapproved: boolean,
+    sessionId: string
 ): WebFetchExecuteFn {
     return async (args): Promise<ToolResult> => {
         try {
@@ -232,6 +237,7 @@ export function createWebFetchExecute(
         let approved = true;
         if (!webAccessPreapproved) {
             approved = await requestWebApproval(eventHandler, pendingApprovals, {
+                sessionId,
                 kind: 'web_fetch',
                 approvalTitle: 'Allow Web Fetch?',
                 content: `Agent wants to fetch content from: ${args.url}`,

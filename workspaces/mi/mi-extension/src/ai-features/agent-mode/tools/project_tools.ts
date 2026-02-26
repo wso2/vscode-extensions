@@ -49,6 +49,8 @@ interface ProcessItemResult {
     success: boolean;
     alreadyAdded?: boolean;
     usedFallback?: boolean;
+    storeFailure?: boolean;
+    storeUnavailable?: boolean;
     error?: string;
 }
 
@@ -188,7 +190,7 @@ export function createManageConnectorExecute(
             const successful = results.filter(r => r.success);
             const failed = results.filter(r => !r.success);
             const fallbackUsed = results.filter(r => r.success && r.usedFallback);
-            const storeFailedUnavailable = results.filter(r => !r.success && r.error?.includes('connector store is unavailable'));
+            const storeFailedUnavailable = results.filter((r) => !r.success && r.storeUnavailable);
 
             let message = '';
 
@@ -280,6 +282,8 @@ async function processItem(
                 name: itemName,
                 type: itemType,
                 success: false,
+                storeFailure,
+                storeUnavailable: storeFailure,
                 error: storeFailure
                     ? `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} is unavailable because connector store is unavailable and no cache/fallback definition exists`
                     : `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} not found in connector store or fallback`
@@ -385,7 +389,7 @@ const manageConnectorInputSchema = z.object({
  * Creates the manage_connector tool (unified add/remove for connectors and inbound endpoints)
  */
 export function createManageConnectorTool(execute: ManageConnectorExecuteFn) {
-    return (tool as any)({
+    return tool({
         description: `Add or remove MI connector and inbound endpoint dependencies in pom.xml.
             Use 'add' when Synapse configs reference connector operations or inbound endpoints.
             Names must match <AVAILABLE_CONNECTORS> or <AVAILABLE_INBOUND_ENDPOINTS>.

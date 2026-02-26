@@ -4,7 +4,7 @@
 
 const fs = require('fs/promises');
 const path = require('path');
-const vm = require('vm');
+const ts = require('typescript');
 
 const API_BASE = process.env.CONNECTOR_STORE_BASE_URL
     || 'https://apis.wso2.com/qgpf/connector-store-backend/endpoint-9090-803/v1.0';
@@ -16,6 +16,7 @@ const REQUEST_TIMEOUT_MS = 120000;
 const RETRY_COUNT = 3;
 const RETRY_DELAY_MS = 1250;
 const BATCH_DELAY_MS = 250;
+const SUMMARY_PAGE_SIZE = 100;
 
 const CONTEXT_DIR = path.resolve(__dirname, '../src/ai-features/agent-mode/context');
 const TARGETS = [
@@ -119,24 +120,38 @@ async function requestJson(url, init, label) {
     throw lastError;
 }
 
-function getSummaryUrl(type) {
-    return `${API_BASE}/connectors/summaries?type=${encodeURIComponent(type)}&limit=100&offset=0&product=${encodeURIComponent(PRODUCT)}`;
+function getSummaryUrl(type, offset = 0, limit = SUMMARY_PAGE_SIZE) {
+    return `${API_BASE}/connectors/summaries?type=${encodeURIComponent(type)}&limit=${limit}&offset=${offset}&product=${encodeURIComponent(PRODUCT)}`;
 }
 
 async function fetchSummaries(type) {
-    const summaryUrl = getSummaryUrl(type);
-    const payload = await requestJson(
-        summaryUrl,
-        {
-            method: 'GET',
-            headers: {
-                Accept: 'application/json',
-            },
-        },
-        `${type} summaries`
-    );
+    const summaries = [];
+    let offset = 0;
 
-    return normalizeArrayPayload(payload, `${type} summaries`);
+    while (true) {
+        const summaryUrl = getSummaryUrl(type, offset, SUMMARY_PAGE_SIZE);
+        const payload = await requestJson(
+            summaryUrl,
+            {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                },
+            },
+            `${type} summaries (offset=${offset}, limit=${SUMMARY_PAGE_SIZE})`
+        );
+
+        const page = normalizeArrayPayload(payload, `${type} summaries`);
+        summaries.push(...page);
+
+        if (page.length < SUMMARY_PAGE_SIZE) {
+            break;
+        }
+
+        offset += SUMMARY_PAGE_SIZE;
+    }
+
+    return summaries;
 }
 
 function extractUniqueNames(summaries, type) {
@@ -295,7 +310,7 @@ async function readExistingRecordsByName(filePath, exportName) {
     const arrayLiteral = existing.slice(arrayStart, arrayEnd + 1);
     let parsed;
     try {
-        parsed = vm.runInNewContext(`(${arrayLiteral})`, Object.create(null), { timeout: 1000 });
+        parsed = parseArrayLiteralWithTypeScript(arrayLiteral, filePath, exportName);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.warn(
@@ -322,6 +337,111 @@ async function readExistingRecordsByName(filePath, exportName) {
     }
 
     return recordsByName;
+}
+
+function parseArrayLiteralWithTypeScript(arrayLiteral, filePath, exportName) {
+    const sourceText = `const __parsed = ${arrayLiteral};`;
+    const sourceFile = ts.createSourceFile(
+        `${exportName}.ts`,
+        sourceText,
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.TS
+    );
+
+    if (sourceFile.parseDiagnostics.length > 0) {
+        const diagnostic = sourceFile.parseDiagnostics[0];
+        const diagnosticText = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
+        throw new Error(`TypeScript parse error near position ${diagnostic.start ?? 0}: ${diagnosticText}`);
+    }
+
+    const statement = sourceFile.statements[0];
+    if (!statement || !ts.isVariableStatement(statement)) {
+        throw new Error(`Expected a variable declaration while parsing ${exportName} in ${filePath}.`);
+    }
+
+    const declaration = statement.declarationList.declarations[0];
+    const initializer = declaration?.initializer;
+    if (!initializer || !ts.isArrayLiteralExpression(initializer)) {
+        throw new Error(`Expected ${exportName} in ${filePath} to be an array literal.`);
+    }
+
+    return tsNodeToValue(initializer, filePath, exportName);
+}
+
+function tsNodeToValue(node, filePath, exportName) {
+    if (ts.isParenthesizedExpression(node)) {
+        return tsNodeToValue(node.expression, filePath, exportName);
+    }
+
+    if (ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) {
+        return tsNodeToValue(node.expression, filePath, exportName);
+    }
+
+    if (ts.isArrayLiteralExpression(node)) {
+        return node.elements.map((element) => {
+            if (ts.isSpreadElement(element)) {
+                throw new Error(`Spread elements are not supported while parsing ${exportName} in ${filePath}.`);
+            }
+            if (ts.isOmittedExpression(element)) {
+                throw new Error(`Array holes are not supported while parsing ${exportName} in ${filePath}.`);
+            }
+            return tsNodeToValue(element, filePath, exportName);
+        });
+    }
+
+    if (ts.isObjectLiteralExpression(node)) {
+        const obj = {};
+        for (const property of node.properties) {
+            if (!ts.isPropertyAssignment(property)) {
+                throw new Error(`Only plain object properties are supported while parsing ${exportName} in ${filePath}.`);
+            }
+
+            if (property.name && ts.isComputedPropertyName(property.name)) {
+                throw new Error(`Computed property names are not supported while parsing ${exportName} in ${filePath}.`);
+            }
+
+            let key;
+            if (ts.isIdentifier(property.name)) {
+                key = property.name.text;
+            } else if (ts.isStringLiteral(property.name) || ts.isNumericLiteral(property.name)) {
+                key = property.name.text;
+            } else {
+                throw new Error(`Unsupported object property name while parsing ${exportName} in ${filePath}.`);
+            }
+
+            obj[key] = tsNodeToValue(property.initializer, filePath, exportName);
+        }
+        return obj;
+    }
+
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+        return node.text;
+    }
+
+    if (ts.isNumericLiteral(node)) {
+        return Number(node.text);
+    }
+
+    if (node.kind === ts.SyntaxKind.TrueKeyword) {
+        return true;
+    }
+
+    if (node.kind === ts.SyntaxKind.FalseKeyword) {
+        return false;
+    }
+
+    if (node.kind === ts.SyntaxKind.NullKeyword) {
+        return null;
+    }
+
+    if (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.MinusToken && ts.isNumericLiteral(node.operand)) {
+        return -Number(node.operand.text);
+    }
+
+    throw new Error(
+        `Unsupported syntax kind "${ts.SyntaxKind[node.kind]}" while parsing ${exportName} in ${filePath}.`
+    );
 }
 
 function findArrayEndIndex(content, arrayStart, filePath, exportName) {
@@ -451,9 +571,79 @@ async function writeTsArrayFile(filePath, exportName, records) {
 
     const arrayEnd = findArrayEndIndex(existing, arrayStart, filePath, exportName);
     const prefix = existing.slice(0, arrayStart);
-    const suffix = existing.slice(arrayEnd + 1).replace(/^(\s*);/, '$1');
-    const content = `${prefix}${JSON.stringify(records, null, 4)};${suffix}`;
+    const semicolonIndex = findStatementTerminatorIndex(existing, arrayEnd + 1);
+    const assertionSuffix = semicolonIndex >= 0 ? existing.slice(arrayEnd + 1, semicolonIndex) : '';
+    const remainingSuffix = semicolonIndex >= 0 ? existing.slice(semicolonIndex + 1) : existing.slice(arrayEnd + 1);
+    const content = `${prefix}${JSON.stringify(records, null, 4)}${assertionSuffix};${remainingSuffix}`;
     await fs.writeFile(filePath, content, 'utf8');
+}
+
+function findStatementTerminatorIndex(content, startIndex) {
+    let inString = false;
+    let stringQuote = '';
+    let escaped = false;
+    let inLineComment = false;
+    let inBlockComment = false;
+
+    for (let i = startIndex; i < content.length; i++) {
+        const char = content[i];
+        const next = content[i + 1];
+
+        if (inLineComment) {
+            if (char === '\n') {
+                inLineComment = false;
+            }
+            continue;
+        }
+
+        if (inBlockComment) {
+            if (char === '*' && next === '/') {
+                inBlockComment = false;
+                i++;
+            }
+            continue;
+        }
+
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (char === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (char === stringQuote) {
+                inString = false;
+                stringQuote = '';
+            }
+            continue;
+        }
+
+        if (char === '/' && next === '/') {
+            inLineComment = true;
+            i++;
+            continue;
+        }
+
+        if (char === '/' && next === '*') {
+            inBlockComment = true;
+            i++;
+            continue;
+        }
+
+        if (char === '"' || char === '\'' || char === '`') {
+            inString = true;
+            stringQuote = char;
+            continue;
+        }
+
+        if (char === ';') {
+            return i;
+        }
+    }
+
+    return -1;
 }
 
 async function updateTarget(target) {

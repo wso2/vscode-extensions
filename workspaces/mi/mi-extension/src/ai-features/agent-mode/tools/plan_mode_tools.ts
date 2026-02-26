@@ -226,7 +226,7 @@ export interface PendingQuestion {
 export interface PendingPlanApproval {
     approvalId: string;
     approvalKind: PlanApprovalKind;
-    sessionId?: string;
+    sessionId: string;
     createdAt?: number;
     expiresAt?: number;
     timeoutHandle?: ReturnType<typeof setTimeout>;

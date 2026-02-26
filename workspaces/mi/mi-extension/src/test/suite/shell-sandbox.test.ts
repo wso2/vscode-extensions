@@ -44,6 +44,13 @@ suite('Shell Sandbox Tests', () => {
         assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('read-only allowlist')));
     });
 
+    test('wrapper env command requires approval', () => {
+        const analysis = analyzeShellCommand('env ls', TEST_PLATFORM, PROJECT_PATH, false);
+        assert.strictEqual(analysis.blocked, false);
+        assert.strictEqual(analysis.requiresApproval, true);
+        assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('wrapper commands')));
+    });
+
     test('find with -delete is treated as destructive mutation', () => {
         const analysis = analyzeShellCommand('find . -type f -name "*.tmp" -delete', TEST_PLATFORM, PROJECT_PATH, false);
         assert.strictEqual(analysis.blocked, false);
@@ -156,6 +163,18 @@ suite('Shell Sandbox Tests', () => {
         assert.strictEqual(analysis.segments[1].command, 'rm');
         assert.strictEqual(analysis.segments[1].requiresApproval, true);
         assert.strictEqual(analysis.segments[1].isDestructive, true);
+    });
+
+    test('redirection forms using ampersand are not split as background operators', () => {
+        const analysis = analyzeShellCommand(
+            'echo hello > /tmp/mi-shell-sandbox.log 2>&1',
+            TEST_PLATFORM,
+            PROJECT_PATH,
+            false
+        );
+        assert.strictEqual(analysis.blocked, false);
+        assert.strictEqual(analysis.requiresApproval, false);
+        assert.strictEqual(analysis.segments.length, 1);
     });
 
     test('tee write outside project is hard-blocked', () => {
