@@ -2131,7 +2131,9 @@ function moveFiles(sourcePath: string, destinationPath: string, depth: number = 
 
         if (isDirectory) {
             moveFiles(sourceItemPath, destinationItemPath, depth + 1);
-            fs.rmSync(sourceItemPath, { recursive: true });
+            if (item !== ".vscode") {
+                fs.rmSync(sourceItemPath, { recursive: true });
+            }
         } else {
             fs.renameSync(sourceItemPath, destinationItemPath);
         }
