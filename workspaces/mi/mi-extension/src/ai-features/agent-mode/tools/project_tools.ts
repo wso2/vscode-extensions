@@ -52,6 +52,14 @@ interface ProcessItemResult {
     error?: string;
 }
 
+interface ConnectorDefinition {
+    mavenGroupId?: string;
+    mavenArtifactId?: string;
+    version?: {
+        tagName?: string;
+    };
+}
+
 // ============================================================================
 // Execute Functions
 // ============================================================================
@@ -257,7 +265,7 @@ export function createManageConnectorExecute(
 async function processItem(
     itemName: string,
     itemType: 'connector' | 'inbound',
-    resolvedItem: any | null,
+    resolvedItem: ConnectorDefinition | null,
     usedFallback: boolean,
     storeFailure: boolean,
     existingDependencies: any,
@@ -279,8 +287,11 @@ async function processItem(
         }
 
         const item = resolvedItem;
+        const mavenGroupId = typeof item?.mavenGroupId === 'string' ? item.mavenGroupId.trim() : '';
+        const mavenArtifactId = typeof item?.mavenArtifactId === 'string' ? item.mavenArtifactId.trim() : '';
+        const versionTag = typeof item?.version?.tagName === 'string' ? item.version.tagName.trim() : '';
 
-        if (typeof item?.mavenGroupId !== 'string' || typeof item?.mavenArtifactId !== 'string') {
+        if (!mavenGroupId || !mavenArtifactId) {
             return {
                 name: itemName,
                 type: itemType,
@@ -289,12 +300,21 @@ async function processItem(
             };
         }
 
+        if (!versionTag) {
+            return {
+                name: itemName,
+                type: itemType,
+                success: false,
+                error: `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} definition is missing a valid version tag`
+            };
+        }
+
         // For add operation, check if item is already in pom.xml
         if (isAdd) {
             const alreadyExists = existingDependencies.connectorDependencies?.some(
                 (existingDep: any) =>
-                    existingDep.groupId === item.mavenGroupId &&
-                    existingDep.artifact === item.mavenArtifactId
+                    existingDep.groupId === mavenGroupId &&
+                    existingDep.artifact === mavenArtifactId
             );
 
             if (alreadyExists) {
@@ -311,13 +331,13 @@ async function processItem(
 
         // Prepare dependency details
         const dependencies: DependencyDetails[] = [{
-            groupId: item.mavenGroupId,
-            artifact: item.mavenArtifactId,
-            version: item.version?.tagName,
+            groupId: mavenGroupId,
+            artifact: mavenArtifactId,
+            version: versionTag,
             type: "zip"
         }];
 
-        logDebug(`[${toolName}] ${isAdd ? 'Adding' : 'Removing'} ${itemType}: ${itemName} (${item.mavenArtifactId}:${item.version?.tagName})`);
+        logDebug(`[${toolName}] ${isAdd ? 'Adding' : 'Removing'} ${itemType}: ${itemName} (${mavenArtifactId}:${versionTag})`);
 
         // Update pom.xml
         const response = await miVisualizerRpcManager.updateAiDependencies({

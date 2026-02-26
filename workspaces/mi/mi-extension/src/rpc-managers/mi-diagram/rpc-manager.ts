@@ -4950,7 +4950,7 @@ ${keyValuesXML}`;
 
             const platformExtAPI = await getPlatformExtensionAPI();
             if (!platformExtAPI) {
-                return { hasComponent: hasContextYaml, isLoggedIn: false };
+                return { hasComponent: hasContextYaml, isLoggedIn: false, hasLocalChanges: false };
             }
             hasLocalChanges = await platformExtAPI.localRepoHasChanges(this.projectUri);
             isLoggedIn = platformExtAPI.isLoggedIn();

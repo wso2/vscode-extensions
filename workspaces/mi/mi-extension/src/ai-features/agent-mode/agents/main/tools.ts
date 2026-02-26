@@ -91,6 +91,7 @@ import { AnthropicModel } from '../../../connection';
 import { AgentMode } from '@wso2/mi-core';
 import { persistOversizedToolResult } from '../../tools/tool-result-persistence';
 import {
+    BashExecuteFn,
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
@@ -112,10 +113,11 @@ import {
     BASH_TOOL_NAME,
     KILL_TASK_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
+    ToolResult,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    ShellApprovalRuleStore,
 } from '../../tools/types';
-import { BashExecuteFn, ToolResult, ShellApprovalRuleStore } from '../../tools/types';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
 import * as path from 'path';
 import { getCopilotSessionDir } from '../../storage-paths';

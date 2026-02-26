@@ -98,6 +98,13 @@ export const closeAIWebview = () => {
     }
 };
 
+const createAuthSuccessTransition = (target: string) => ({
+    target,
+    actions: assign({
+        errorMessage: (_ctx: AIMachineContext) => undefined,
+    }),
+});
+
 const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
     id: 'mi-ai',
     initial: 'Initialize',
@@ -201,18 +208,8 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                         loginMethod: (_ctx) => LoginMethod.AWS_BEDROCK
                     })
                 },
-                [AI_EVENT_TYPE.COMPLETE_AUTH]: {
-                    target: 'Authenticated',
-                    actions: assign({
-                        errorMessage: (_ctx) => undefined,
-                    })
-                },
-                [AI_EVENT_TYPE.SIGN_IN_SUCCESS]: {
-                    target: 'Authenticated',
-                    actions: assign({
-                        errorMessage: (_ctx) => undefined,
-                    })
-                }
+                [AI_EVENT_TYPE.COMPLETE_AUTH]: createAuthSuccessTransition('Authenticated'),
+                [AI_EVENT_TYPE.SIGN_IN_SUCCESS]: createAuthSuccessTransition('Authenticated'),
             }
         },
         Authenticating: {
@@ -250,18 +247,8 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                         }
                     },
                     on: {
-                        [AI_EVENT_TYPE.COMPLETE_AUTH]: {
-                            target: '#mi-ai.Authenticated',
-                            actions: assign({
-                                errorMessage: (_ctx) => undefined,
-                            })
-                        },
-                        [AI_EVENT_TYPE.SIGN_IN_SUCCESS]: {
-                            target: '#mi-ai.Authenticated',
-                            actions: assign({
-                                errorMessage: (_ctx) => undefined,
-                            })
-                        },
+                        [AI_EVENT_TYPE.COMPLETE_AUTH]: createAuthSuccessTransition('#mi-ai.Authenticated'),
+                        [AI_EVENT_TYPE.SIGN_IN_SUCCESS]: createAuthSuccessTransition('#mi-ai.Authenticated'),
                         [AI_EVENT_TYPE.CANCEL_LOGIN]: {
                             target: '#mi-ai.Unauthenticated',
                             actions: assign({

@@ -8,7 +8,6 @@ const vm = require('vm');
 
 const API_BASE = process.env.CONNECTOR_STORE_BASE_URL
     || 'https://apis.wso2.com/qgpf/connector-store-backend/endpoint-9090-803/v1.0';
-const SUMMARY_URL_TEMPLATE = `${API_BASE}/connectors/summaries?type=\${type}&limit=100&offset=0&product=MI`;
 const DETAILS_URL = `${API_BASE}/connectors/details/filter`;
 const PRODUCT = 'MI';
 const RUNTIME_VERSION = process.env.MI_RUNTIME_VERSION || '4.5.0';
@@ -120,8 +119,12 @@ async function requestJson(url, init, label) {
     throw lastError;
 }
 
+function getSummaryUrl(type) {
+    return `${API_BASE}/connectors/summaries?type=${encodeURIComponent(type)}&limit=100&offset=0&product=${encodeURIComponent(PRODUCT)}`;
+}
+
 async function fetchSummaries(type) {
-    const summaryUrl = SUMMARY_URL_TEMPLATE.replace('${type}', encodeURIComponent(type));
+    const summaryUrl = getSummaryUrl(type);
     const payload = await requestJson(
         summaryUrl,
         {

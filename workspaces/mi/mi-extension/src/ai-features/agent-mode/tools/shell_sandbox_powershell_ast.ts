@@ -68,7 +68,7 @@ export interface PowerShellAstResult {
     elapsedMs: number;
 }
 
-const PARSER_TIMEOUT_MS = 1500;
+const PARSER_TIMEOUT_MS = 3000;
 const PARSER_MAX_BUFFER = 1024 * 1024;
 const PARSER_BINARIES = ['powershell.exe', 'pwsh'];
 

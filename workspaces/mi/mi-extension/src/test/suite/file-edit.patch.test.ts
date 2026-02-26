@@ -112,6 +112,38 @@ suite('File Edit Patch Tests', () => {
         }
     });
 
+    test('deletion hunk removes matching line', () => {
+        const content = 'keep_before\nline_to_delete\nkeep_after';
+        const result = applyStructuredFilePatch(content, [
+            {
+                old_text: 'line_to_delete',
+                new_text: '',
+            },
+        ]);
+
+        assert.strictEqual(result.success, true);
+        if (result.success) {
+            assert.strictEqual(result.newContent, 'keep_before\nkeep_after');
+            assert.ok(!result.newContent.includes('line_to_delete'));
+        }
+    });
+
+    test('equidistant line_hint remains ambiguous when multiple candidates tie', () => {
+        const content = 'start\nneedle\nmiddle\nneedle\nend';
+        const result = applyStructuredFilePatch(content, [
+            {
+                old_text: 'needle',
+                new_text: 'NEEDLE',
+                line_hint: 3,
+            },
+        ]);
+
+        assert.strictEqual(result.success, false);
+        if (!result.success) {
+            assert.strictEqual(result.code, 'HUNK_AMBIGUOUS');
+        }
+    });
+
     test('missing target returns not found', () => {
         const result = applyStructuredFilePatch('a\nb\nc', [
             { old_text: 'missing', new_text: 'x' },

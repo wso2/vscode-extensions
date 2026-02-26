@@ -226,6 +226,10 @@ export interface PendingQuestion {
 export interface PendingPlanApproval {
     approvalId: string;
     approvalKind: PlanApprovalKind;
+    sessionId?: string;
+    createdAt?: number;
+    expiresAt?: number;
+    timeoutHandle?: ReturnType<typeof setTimeout>;
     resolve: (result: { approved: boolean; feedback?: string; rememberForSession?: boolean; suggestedPrefixRule?: string[] }) => void;
     reject: (error: Error) => void;
 }
@@ -236,6 +240,7 @@ async function requestPlanApproval(
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
     request: {
+        sessionId: string;
         approvalKind: PlanApprovalKind;
         content: string;
         planFilePath?: string;
@@ -261,14 +266,31 @@ async function requestPlanApproval(
     eventHandler(approvalEvent);
 
     return new Promise((resolve, reject) => {
+        const createdAt = Date.now();
+        const expiresAt = createdAt + ASK_USER_TIMEOUT_MS;
+        const timeoutHandle = setTimeout(() => {
+            const pending = pendingApprovals.get(approvalId);
+            if (!pending) {
+                return;
+            }
+            pendingApprovals.delete(approvalId);
+            reject(new Error(`Plan approval timed out after ${ASK_USER_TIMEOUT_MS / 1000} seconds`));
+        }, ASK_USER_TIMEOUT_MS);
+
         pendingApprovals.set(approvalId, {
             approvalId,
             approvalKind: request.approvalKind,
+            sessionId: request.sessionId,
+            createdAt,
+            expiresAt,
+            timeoutHandle,
             resolve: (result) => {
+                clearTimeout(timeoutHandle);
                 pendingApprovals.delete(approvalId);
                 resolve(result);
             },
             reject: (error: Error) => {
+                clearTimeout(timeoutHandle);
                 pendingApprovals.delete(approvalId);
                 reject(error);
             }
@@ -296,6 +318,28 @@ export function cleanupPendingQuestionsForSession(
 
         pendingQuestions.delete(questionId);
         pending.resolve(USER_CANCELLED_RESPONSE);
+    }
+}
+
+export function cleanupPendingApprovalsForSession(
+    pendingApprovals: Map<string, PendingPlanApproval>,
+    sessionId: string
+): void {
+    if (!sessionId) {
+        return;
+    }
+
+    const pendingEntries = Array.from(pendingApprovals.entries())
+        .filter(([, pending]) => pending.sessionId === sessionId);
+
+    for (const [approvalId, pending] of pendingEntries) {
+        if (pending.timeoutHandle) {
+            clearTimeout(pending.timeoutHandle);
+            pending.timeoutHandle = undefined;
+        }
+
+        pendingApprovals.delete(approvalId);
+        pending.reject(new Error('Plan approval cancelled because the session was closed.'));
     }
 }
 
@@ -486,6 +530,7 @@ export function createEnterPlanModeExecute(
 
         try {
             const approval = await requestPlanApproval(eventHandler, pendingApprovals, {
+                sessionId,
                 approvalKind: 'enter_plan_mode',
                 approvalTitle: 'Enter Plan Mode?',
                 approveLabel: 'Enter Plan Mode',
@@ -584,6 +629,7 @@ export function createExitPlanModeExecute(
         if (forceExitWithoutPlan) {
             try {
                 const approval = await requestPlanApproval(eventHandler, pendingApprovals, {
+                    sessionId,
                     approvalKind: 'exit_plan_mode_without_plan',
                     approvalTitle: 'Exit Plan Mode?',
                     approveLabel: 'Exit Plan Mode',
@@ -675,6 +721,7 @@ export function createExitPlanModeExecute(
 
         try {
             const approval = await requestPlanApproval(eventHandler, pendingApprovals, {
+                sessionId,
                 approvalKind: 'exit_plan_mode',
                 approvalTitle: 'Plan Approval',
                 approveLabel: 'Approve Plan',

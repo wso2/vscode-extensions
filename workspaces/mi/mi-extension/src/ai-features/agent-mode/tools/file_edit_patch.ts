@@ -152,7 +152,9 @@ function validateHunk(hunk: FileEditHunk, hunkIndex: number): PatchApplyFailure 
         };
     }
 
-    if (hunk.old_text === hunk.new_text) {
+    const normalizedOld = toNormalizedLines(hunk.old_text).join('\n');
+    const normalizedNew = toNormalizedLines(hunk.new_text).join('\n');
+    if (normalizedOld === normalizedNew) {
         return {
             success: false,
             code: 'INVALID_HUNK',

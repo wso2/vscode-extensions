@@ -406,16 +406,6 @@ export function createGenerateDataMappingExecute(
                 }
             }
 
-            const validatedTsFilePath = resolveProjectBoundPath(projectPath, tsFilePath);
-            if (!validatedTsFilePath) {
-                return {
-                    success: false,
-                    message: `Path not found: ${dm_config_path}`,
-                    error: 'Error: Path not found',
-                };
-            }
-            tsFilePath = validatedTsFilePath;
-
             if (!fs.existsSync(tsFilePath)) {
                 return {
                     success: false,
@@ -426,7 +416,6 @@ export function createGenerateDataMappingExecute(
 
             // Verify it's a valid data mapper file
             const content = fs.readFileSync(tsFilePath, 'utf8');
-            await undoCheckpointManager?.captureBeforeChange(path.relative(projectPath, tsFilePath));
             if (!content.includes('mapFunction')) {
                 return {
                     success: false,
@@ -434,6 +423,7 @@ export function createGenerateDataMappingExecute(
                     error: 'Error: Invalid data mapper file',
                 };
             }
+            await undoCheckpointManager?.captureBeforeChange(path.relative(projectPath, tsFilePath));
 
             // Call sub-agent
             logInfo(`[GenerateDataMapping] Calling data mapper sub-agent...`);

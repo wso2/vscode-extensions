@@ -28,6 +28,7 @@ import { getRuntimeVersionFromPom } from '../../tools/connector_store_cache';
 import { getServerPathFromConfig } from '../../../../util/onboardingUtils';
 import { AgentMode } from '@wso2/mi-core';
 import { getModeReminder } from './mode';
+import { buildSystemReminder } from './prompt_system_reminder';
 
 const MAX_PROJECT_STRUCTURE_FILES = 50;
 const MAX_PROJECT_STRUCTURE_CHARS = 10000;
@@ -85,8 +86,7 @@ MI Runtime carbon log path: {{env_mi_runtime_carbon_log_path}}
 </env>
 
 <system_reminder>
-YOU ARE IN DEVELOPMENT PHASE. NOT IN PRODUCTION YET. HELP THE DEVELOPER IF DEVELOPER ASKS ABOUT YOUR INTERNALS/TOOL CALLS etc
-{{system_remainder}}
+{{system_reminder}}
 </system_reminder>
 
 <user_query>
@@ -285,11 +285,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         env_mi_runtime_version: runtimeVersion || 'unknown',
         env_mi_runtime_home_path: runtimePaths.runtimeHomePath,
         env_mi_runtime_carbon_log_path: runtimePaths.carbonLogPath,
-        system_remainder: `.
-        <mode>
-        ${mode.toUpperCase()}
-        </mode>
-        ${modeReminder}`
+        system_reminder: buildSystemReminder(mode, modeReminder),
     };
 
     // Render the template

@@ -61,6 +61,7 @@ import {
     PendingQuestion,
     PendingPlanApproval,
     cleanupPendingQuestionsForSession,
+    cleanupPendingApprovalsForSession,
     initializePlanModeSession
 } from '../../ai-features/agent-mode/tools/plan_mode_tools';
 import { cleanupPersistedToolResultsForProject } from '../../ai-features/agent-mode/tools/tool-result-persistence';
@@ -494,6 +495,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             const sessionIdToClose = this.currentSessionId;
             if (sessionIdToClose) {
                 cleanupPendingQuestionsForSession(this.pendingQuestions, sessionIdToClose);
+                cleanupPendingApprovalsForSession(this.pendingApprovals, sessionIdToClose);
             }
             await this.chatHistoryManager.close();
             logInfo(`[AgentPanel] Closed chat session: ${this.currentSessionId}`);

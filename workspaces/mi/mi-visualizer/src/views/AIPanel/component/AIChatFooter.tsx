@@ -1000,10 +1000,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     approvalId: pendingPlanApproval.approvalId,
                     approved,
                     feedback,
-                    rememberForSession: pendingPlanApproval.approvalKind === 'shell_command'
+                    rememberForSession: approved && pendingPlanApproval.approvalKind === 'shell_command'
                         ? rememberShellApprovalForSession
                         : undefined,
-                    suggestedPrefixRule: pendingPlanApproval.approvalKind === 'shell_command' && rememberShellApprovalForSession
+                    suggestedPrefixRule: approved
+                        && pendingPlanApproval.approvalKind === 'shell_command'
+                        && rememberShellApprovalForSession
                         ? pendingPlanApproval.suggestedPrefixRule
                         : undefined,
                 });
