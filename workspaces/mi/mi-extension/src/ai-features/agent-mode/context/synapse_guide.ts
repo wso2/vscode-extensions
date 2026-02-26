@@ -89,7 +89,7 @@ export const SYNAPSE_GUIDE = `
 ## WSO2 has introduced Synapse Expressions, which should be used instead of JsonPath or XPath.
     - \`SYNAPSE_EXPRESSIONS_DOCS\` is the authoritative source for syntax and rules.
     - \`SYNAPSE_EXPRESSION_EXAMPLES\` provides short usage patterns only.
-    - For complex expression patterns, type coercion rules, function details, and edge cases, load deep reference skills listed in the expression guide's **Deep Reference Knowledge** table.
+    - For complex expression patterns, type coercion rules, function details, and edge cases, load deep reference contexts listed in the expression guide's **Deep Reference Knowledge** table.
 
 <SYNAPSE_EXPRESSIONS_DOCS>
     ${SYNAPSE_EXPRESSION_GUIDE}

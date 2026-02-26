@@ -46,15 +46,15 @@ export {
     getAvailableInboundEndpoints,
 } from './connector_tools';
 
-// Export skill tools
+// Export deep-context tools
 export {
     // Execute function creator
-    createSkillExecute,
+    createContextExecute,
     // Tool creator
-    createSkillTool,
+    createContextTool,
     // Utility functions
-    getAvailableSkills,
-} from './skill_tools';
+    getAvailableContexts,
+} from './context_tools';
 
 // Export project tools
 export {
@@ -147,7 +147,7 @@ export {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,

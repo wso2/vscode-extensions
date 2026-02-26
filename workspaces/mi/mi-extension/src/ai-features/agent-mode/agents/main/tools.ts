@@ -33,9 +33,9 @@ import {
     createConnectorExecute,
 } from '../../tools/connector_tools';
 import {
-    createSkillTool,
-    createSkillExecute,
-} from '../../tools/skill_tools';
+    createContextTool,
+    createContextExecute,
+} from '../../tools/context_tools';
 import {
     createManageConnectorTool,
     createManageConnectorExecute,
@@ -98,7 +98,7 @@ import {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
@@ -130,7 +130,7 @@ export {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
@@ -185,7 +185,7 @@ const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
@@ -444,8 +444,8 @@ export function createAgentTools(params: CreateToolsParams) {
         [CONNECTOR_TOOL_NAME]: createConnectorTool(
             getWrappedExecute(CONNECTOR_TOOL_NAME, createConnectorExecute(projectPath))
         ),
-        [SKILL_TOOL_NAME]: createSkillTool(
-            getWrappedExecute(SKILL_TOOL_NAME, createSkillExecute(projectPath))
+        [CONTEXT_TOOL_NAME]: createContextTool(
+            getWrappedExecute(CONTEXT_TOOL_NAME, createContextExecute(projectPath))
         ),
 
         // Project Tools (1 tool)

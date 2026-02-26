@@ -19,7 +19,7 @@
 import { CONNECTOR_TOOL_NAME } from "../tools/types";
 
 const CONNECTOR_DOCUMENTATION_BASE = `
-When using connectors, follow these rules.
+When using connectors, follow these guidelines.
 
 ### 1) Resolve initialization mode first (authoritative)
 This is the single source of truth for connector/inbound initialization behavior.
@@ -80,10 +80,17 @@ Example:
 3. Implement complete, functional solutions without placeholders or partial code.
 4. Explicitly include all required parameters for each operation.
 5. Do not use the utility connector unless absolutely necessary.
+
+
+### 3) Common Connector Gotchas
+1. **Don't re-initialize connections**: If a connector uses local entry initialization (\`connectionLocalEntryNeeded: true\`), do NOT call \`.init\` in the sequence. The local entry IS the initialization.
+2. **configKey must match local entry key**: The \`configKey\` parameter in connector operations must exactly match the \`key\` attribute of the local entry.
+3. **Timeouts**: Connector-specific timeouts (e.g. HTTP connector's \`connectionTimeout\`) override global endpoint timeouts. Set them explicitly for long-running operations.
+4. **Response variable scope**: Variables set by \`responseVariable\` are accessible in the same flow scope. They're available immediately after the connector operation.
 `;
 
 const CONNECTOR_DOCUMENTATION_REVAMPED_RESPONSE_HANDLING = `
-### 3) Revamped response handling (supported only by certain connectors)
+### 4) Revamped response handling (supported only by certain connectors)
 Now some connectors support two additional operation parameters ( ongoing connector improvement by WSO2 team ) :
 1. \`responseVariable\`
     - Stores connector response in a named variable.
@@ -97,6 +104,42 @@ Now some connectors support two additional operation parameters ( ongoing connec
    - If an operation does not support these parameters, fall back to the older response-handling approach.
 
 For other connectors, use the older response-handling approach instead.
+
+### 5) Connector Response Structure
+When a connector stores its response in a variable (via \`responseVariable\`), the variable is a **Map** with these keys:
+- \`payload\` — the response body (JSON, XML, or text depending on the connector)
+- \`headers\` — response headers as a map
+- \`attributes\` — metadata including HTTP status code
+
+Access patterns:
+\`\`\`xml
+<!-- Access response payload -->
+\${vars.myResponse.payload}
+\${vars.myResponse.payload.someField}
+
+<!-- Access HTTP status code -->
+\${vars.myResponse.attributes.statusCode}
+
+<!-- Access response headers -->
+\${vars.myResponse.headers["Content-Type"]}
+\`\`\`
+
+### 6) Error Handling with Connectors
+- On failure (e.g. HTTP 4xx/5xx, connection timeout), check the status code:
+\`\`\`xml
+<filter xpath="\${vars.myResponse.attributes.statusCode != 200}">
+  <then>
+    <log category="ERROR">
+      <message>Call failed with status: \${vars.myResponse.attributes.statusCode}</message>
+    </log>
+    <payloadFactory media-type="json">
+      <format>{"error": "Backend call failed", "status": \${vars.myResponse.attributes.statusCode}}</format>
+    </payloadFactory>
+    <respond/>
+  </then>
+</filter>
+\`\`\`
+- Connectors that don't support \`responseVariable\` replace the message body directly. Use a fault sequence for error handling.
 `;
 
 export const CONNECTOR_DOCUMENTATION_OLD = CONNECTOR_DOCUMENTATION_BASE;
