@@ -723,6 +723,8 @@ export function createReadExecute(
     const lines = content.split('\n');
     const totalLines = lines.length;
 
+    let result: TextEditorResult;
+
     // Handle ranged read
     if (offset !== undefined && limit !== undefined) {
       const validation = validateLineRange(offset, limit, totalLines);
@@ -741,20 +743,23 @@ export function createReadExecute(
       const rangedContent = truncateLongLines(rangedLines.join('\n'));
 
       console.log(`[FileReadTool] Read lines ${offset} to ${endIndex} from file: ${file_path}`);
-      return {
+      result = {
         success: true,
         message: `Read lines ${offset} to ${endIndex} from '${file_path}' (${endIndex - startIndex} lines). \nContent:${rangedContent}`,
       };
+    } else {
+      // Return full content
+      const truncatedContent = truncateLongLines(content);
+
+      console.log(`[FileReadTool] Read entire file: ${file_path}, total lines: ${totalLines}`);
+      result = {
+        success: true,
+        message: `Read entire file '${file_path}' (${totalLines} lines).\nContent:${truncatedContent}`,
+      };
     }
 
-    // Return full content
-    const truncatedContent = truncateLongLines(content);
-
-    console.log(`[FileReadTool] Read entire file: ${file_path}, total lines: ${totalLines}`);
-    return {
-      success: true,
-      message: `Read entire file '${file_path}' (${totalLines} lines).\nContent:${truncatedContent}`,
-    };
+    eventHandler({ type: "tool_result", toolName: FILE_READ_TOOL_NAME, toolOutput: result });
+    return result;
   };
 }
 

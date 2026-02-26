@@ -230,10 +230,10 @@ export const testCasesForExistingProject = [
   //   prompt: "Add a new REST endpoint to cancel an existing order by updating its status to 'CANCELLED' and publishing a cancellation event to Kafka.",
   //   projectPath: "simple_order_management_system"
   // },
-  {
-    prompt: "Add validation to ensure the order total amount is greater than zero before creating an order in the system.",
-    projectPath: "simple_order_management_system"
-  }
+  // {
+  //   prompt: "Add validation to ensure the order total amount is greater than zero before creating an order in the system.",
+  //   projectPath: "simple_order_management_system"
+  // }
 ];
 
 export const testCasesForExistingSemanticErrors = [
@@ -370,10 +370,10 @@ export const testCasesForCodeIndexing = [
   //   prompt: "Refactor the customer creation flow to persist newly created customers in a SQL database instead of the in-memory customerStore map, implementing a repository layer with connection pooling, parameterized queries for security, and proper error handling for database failures while maintaining data validation and response consistency in the CustomerService.",
   //   projectPath: "order_management_system"
   // },
-  // {
-  //   prompt: "Change the delete endpoint in CustomerService so that instead of permanently removing the customer, it marks them as inactive by setting a deletedAt timestamp.",
-  //   projectPath: "order_management_system"
-  // },
+  {
+    prompt: "Change the delete endpoint in CustomerService so that instead of permanently removing the customer, it marks them as inactive by setting a deletedAt timestamp.",
+    projectPath: "order_management_system"
+  },
   // {
   //   prompt: "Add a stockQuantity validation to the order creation flow so that when an order is successfully placed, the stock count of each ordered product is decremented in the product store.",
   //   projectPath: "order_management_system"

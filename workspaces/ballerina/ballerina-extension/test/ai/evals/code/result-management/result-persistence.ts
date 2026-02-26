@@ -53,6 +53,7 @@ export async function persistUsecaseResult(
         iteration: usecaseResult.iteration,
         toolEvents: usecaseResult.toolEvents,
         evaluationResult: usecaseResult.evaluationResult,
+        codeContextRetrievalEvaluation: usecaseResult.codeContextRetrievalEvaluation,
         codeMapMatch: usecaseResult.codeMapMatch,
         usage: usecaseResult.usage ? {
             totalTokens: usecaseResult.usage.initial.inputTokens + usecaseResult.usage.initial.outputTokens +
@@ -88,6 +89,16 @@ export async function persistUsecaseResult(
         await fs.promises.writeFile(
             path.join(resultDir, "tool-events.json"),
             JSON.stringify(usecaseResult.toolEvents, null, 2)
+        );
+    }
+
+    // Persist code context retrieval evaluation if present
+    if (usecaseResult.codeContextRetrievalEvaluation) {
+        const codeRetrievalDir = path.join(resultDir, "code_retrieval");
+        await fs.promises.mkdir(codeRetrievalDir, { recursive: true });
+        await fs.promises.writeFile(
+            path.join(codeRetrievalDir, "evaluation.json"),
+            JSON.stringify(usecaseResult.codeContextRetrievalEvaluation, null, 2)
         );
     }
 
@@ -129,6 +140,36 @@ export async function persistSummary(summary: Summary, resultsDir: string): Prom
         path.join(resultsDir, "summary_detailed.json"),
         JSON.stringify(summary, null, 2)
     );
+
+    // Persist code retrieval summary across all test cases
+    const codeRetrievalEntries = summary.results
+        .filter(r => r.codeContextRetrievalEvaluation)
+        .map(r => ({
+            usecase: r.usecase,
+            is_relevant: r.codeContextRetrievalEvaluation!.is_relevant,
+            coverage_score: r.codeContextRetrievalEvaluation!.coverage_score,
+            missed_patterns: r.codeContextRetrievalEvaluation!.missed_patterns,
+        }));
+
+    if (codeRetrievalEntries.length > 0) {
+        const scores = codeRetrievalEntries.map(e => e.coverage_score);
+        const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+        const relevantCount = codeRetrievalEntries.filter(e => e.is_relevant).length;
+
+        const codeRetrievalSummary = {
+            average_coverage_score: Math.round(avgScore * 100) / 100,
+            relevant_count: relevantCount,
+            total_count: codeRetrievalEntries.length,
+            results: codeRetrievalEntries
+        };
+
+        const codeRetrievalDir = path.join(resultsDir, "code_retrieval");
+        await fs.promises.mkdir(codeRetrievalDir, { recursive: true });
+        await fs.promises.writeFile(
+            path.join(codeRetrievalDir, "summary.json"),
+            JSON.stringify(codeRetrievalSummary, null, 2)
+        );
+    }
 
     console.log("Summary files saved");
 }
