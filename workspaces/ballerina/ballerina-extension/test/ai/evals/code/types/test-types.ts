@@ -16,6 +16,7 @@
 
 import { ChatNotify, CodeContext, FileAttatchment, OperationType, SourceFile } from "@wso2/ballerina-core";
 import { LLMEvaluationResult } from "../utils/evaluator-utils";
+import { CodeContextRetrievalEvaluation } from "./result-types";
 
 /**
  * Test use case definition
@@ -119,6 +120,7 @@ export interface TestCaseResult {
         readonly noDiagnosticsCheck: boolean;
     };
     readonly evaluationResult?: LLMEvaluationResult;
+    readonly codeContextRetrievalEvaluation?: CodeContextRetrievalEvaluation;
     readonly generatedSources?: readonly SourceFile[];
     /** Whether the generated bal.md (codemap) matches the expected one. undefined = no expected file exists. */
     readonly codeMapMatch?: boolean;

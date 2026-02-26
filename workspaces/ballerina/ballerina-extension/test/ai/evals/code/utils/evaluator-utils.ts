@@ -15,11 +15,12 @@
 // under the License.
 
 import { generateText } from "ai";
-import { ProjectModule, ProjectSource, SourceFile } from "@wso2/ballerina-core";
+import { ProjectModule, ProjectSource, SourceFile, ChatNotify } from "@wso2/ballerina-core";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import path from "path";
 import fs from "fs";
 import { z } from 'zod';
+import { CodeContextRetrievalEvaluation } from "../types/result-types";
 
 export interface LLMEvaluationResult {
     is_correct: boolean;
@@ -119,7 +120,7 @@ Use the submit_evaluation tool to provide your assessment.`;
             temperature: 0.1,
             tools: {
                 submit_evaluation: {
-                    description: 
+                    description:
                         'Submit a comprehensive evaluation of whether the final code correctly implements the user query.',
                     inputSchema: evaluationSchema,
                 }
@@ -133,13 +134,13 @@ Use the submit_evaluation tool to provide your assessment.`;
 
         // Extract the tool call result
         const toolCall = result.toolCalls[0];
-        
+
         if (!toolCall || toolCall.toolName !== 'submit_evaluation') {
             throw new Error("Expected submit_evaluation tool call but received none");
         }
 
         const evaluationResult = toolCall.input as LLMEvaluationResult;
-        
+
         console.log(`✅ LLM Evaluation Complete. Correct: ${evaluationResult.is_correct}. Reason: ${evaluationResult.reasoning}, Rating: ${evaluationResult.rating}`);
         return evaluationResult;
 
@@ -149,6 +150,220 @@ Use the submit_evaluation tool to provide your assessment.`;
             is_correct: false,
             reasoning: `Failed to evaluate due to an error: ${error instanceof Error ? error.message : "Unknown error"}`,
             rating: 0
+        };
+    }
+}
+
+// ============================================================================
+// Code Context Retrieval Evaluation
+// ============================================================================
+
+interface GrepCall {
+    pattern: string;
+    path?: string;
+    glob?: string;
+    output_mode?: string;
+    result?: string;
+}
+
+interface FileReadCall {
+    fileName: string;
+    content?: string;
+}
+
+/**
+ * Extracts grep and file_read tool calls from the event stream and pairs
+ * each call with its corresponding tool result.
+ */
+function extractContextRetrievalCalls(events: readonly ChatNotify[]): {
+    grepCalls: GrepCall[];
+    fileReadCalls: FileReadCall[];
+} {
+    const grepCalls: GrepCall[] = [];
+    const fileReadCalls: FileReadCall[] = [];
+
+    const pendingGrepCalls: GrepCall[] = [];
+    const pendingFileReadCalls: FileReadCall[] = [];
+
+    for (const event of events) {
+        if (event.type === 'tool_call') {
+            if (event.toolName === 'grep' && event.toolInput) {
+                pendingGrepCalls.push({
+                    pattern: event.toolInput.pattern ?? '',
+                    path: event.toolInput.path,
+                    glob: event.toolInput.glob,
+                    output_mode: event.toolInput.output_mode,
+                });
+            } else if (event.toolName === 'file_read' && event.toolInput) {
+                pendingFileReadCalls.push({ fileName: event.toolInput.fileName ?? '' });
+            }
+        } else if (event.type === 'tool_result') {
+            if (event.toolName === 'grep') {
+                const call = pendingGrepCalls.shift();
+                if (call) {
+                    call.result = event.toolOutput?.message ?? '';
+                    grepCalls.push(call);
+                }
+            } else if (event.toolName === 'file_read') {
+                const call = pendingFileReadCalls.shift();
+                if (call) {
+                    call.content = event.toolOutput?.message ?? '';
+                    fileReadCalls.push(call);
+                }
+            }
+        }
+    }
+
+    // Any calls without results are added as-is
+    for (const remaining of pendingGrepCalls) {
+        grepCalls.push(remaining);
+    }
+    for (const remaining of pendingFileReadCalls) {
+        fileReadCalls.push(remaining);
+    }
+
+    return { grepCalls, fileReadCalls };
+}
+
+const codeContextRetrievalSchema = z.object({
+    is_relevant: z.boolean().describe(
+        'True if the grep searches and files read are relevant and sufficient for the user query. ' +
+        'False if the LLM searched for the wrong things or missed critical context.'
+    ),
+    coverage_score: z.number().min(0).max(10).describe(
+        'Score from 0 to 10 for how well the retrieved context covers what is needed to implement the user query. ' +
+        '0 = completely irrelevant or empty, 5 = partially covers the needed context, 10 = fully covers all relevant code.'
+    ),
+    reasoning: z.string().describe(
+        'Explanation of the score. Describe which grep searches were useful, which files were relevant, ' +
+        'and what context gaps remain. Be specific about what the LLM found and what it missed.'
+    ),
+    missed_patterns: z.array(z.string()).describe(
+        'List of grep patterns the LLM should have searched for but did not. ' +
+        'These are patterns that would have retrieved context critical to implementing the user query. ' +
+        'Use regex-style patterns. Return an empty array if coverage is complete.'
+    )
+});
+
+/**
+ * Uses an LLM to evaluate whether the grep and file_read tool calls retrieved
+ * sufficiently relevant code context for the given user query.
+ *
+ * @param userQuery The original user request.
+ * @param events All ChatNotify events captured during agent execution.
+ * @returns A promise resolving to the context retrieval evaluation.
+ */
+export async function evaluateCodeContextRetrieval(
+    userQuery: string,
+    events: readonly ChatNotify[]
+): Promise<CodeContextRetrievalEvaluation> {
+    console.log("🔍 Starting code context retrieval evaluation...");
+
+    const { grepCalls, fileReadCalls } = extractContextRetrievalCalls(events);
+
+    if (grepCalls.length === 0 && fileReadCalls.length === 0) {
+        console.log("⚠️ No grep or file_read calls found — skipping context retrieval evaluation.");
+        return {
+            is_relevant: false,
+            coverage_score: 0,
+            reasoning: "No grep or file_read tool calls were made. The LLM did not retrieve any code context.",
+            missed_patterns: []
+        };
+    }
+
+    // Build the grep section of the prompt
+    const grepSection = grepCalls.length > 0
+        ? grepCalls.map((call, i) => {
+            const meta = [
+                `pattern: "${call.pattern}"`,
+                call.path ? `path: "${call.path}"` : null,
+                call.glob ? `glob: "${call.glob}"` : null,
+                call.output_mode ? `output_mode: "${call.output_mode}"` : null,
+            ].filter(Boolean).join(', ');
+            const result = call.result
+                ? `Result:\n${call.result}`
+                : 'Result: (no result captured)';
+            return `Grep #${i + 1} (${meta})\n${result}`;
+          }).join('\n\n')
+        : 'No grep searches were performed.';
+
+    // Build the file_read section of the prompt
+    const fileReadSection = fileReadCalls.length > 0
+        ? fileReadCalls.map((call, i) => `File #${i + 1}: ${call.fileName}`).join('\n')
+        : 'No files were read.';
+
+    const systemPrompt = `You are an expert Ballerina developer evaluating whether an AI agent retrieved the right code context before making changes to a codebase.
+
+Your role is to assess:
+1. Whether the grep searches used relevant patterns to find the code that needs to change
+2. Whether the files read were the right ones for the user query
+3. What context gaps exist — what the agent should have looked at but didn't
+4. A coverage score reflecting how complete the context retrieval was
+
+Focus on context quality for the specific user query, not on the final code output.`;
+
+    const userPrompt = `# User Query
+\`\`\`
+${userQuery}
+\`\`\`
+
+# Context Retrieved by the LLM Agent
+
+## Grep Searches
+${grepSection}
+
+## Files Read
+${fileReadSection}
+
+---
+
+Evaluate whether the retrieved context is relevant and sufficient to implement the user query.
+Consider:
+- Did the grep patterns target the right functions, types, or keywords related to the query?
+- Were the grep results useful (did they find what the agent needed)?
+- Were the right files read?
+- What critical code context is missing that would have helped?
+
+Use the submit_evaluation tool to provide your assessment.`;
+
+    try {
+        const result = await generateText({
+            model: anthropic('claude-sonnet-4-20250514'),
+            system: systemPrompt,
+            prompt: userPrompt,
+            temperature: 0.1,
+            tools: {
+                submit_evaluation: {
+                    description:
+                        'Submit the code context retrieval evaluation.',
+                    inputSchema: codeContextRetrievalSchema,
+                }
+            },
+            toolChoice: {
+                type: 'tool',
+                toolName: 'submit_evaluation'
+            },
+            maxRetries: 1,
+        });
+
+        const toolCall = result.toolCalls[0];
+
+        if (!toolCall || toolCall.toolName !== 'submit_evaluation') {
+            throw new Error("Expected submit_evaluation tool call but received none");
+        }
+
+        const evaluation = toolCall.input as CodeContextRetrievalEvaluation;
+
+        console.log(`✅ Code Context Retrieval Evaluation Complete. Relevant: ${evaluation.is_relevant}. Score: ${evaluation.coverage_score}/10`);
+        return evaluation;
+
+    } catch (error) {
+        console.error("Error during code context retrieval evaluation:", error);
+        return {
+            is_relevant: false,
+            coverage_score: 0,
+            reasoning: `Failed to evaluate due to an error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            missed_patterns: []
         };
     }
 }
@@ -211,7 +426,7 @@ export async function getProjectSource(dirPath: string): Promise<ProjectSource |
 export function getProjectFromResponse(req: string): SourceFile[] {
     const sourceFiles: SourceFile[] = [];
     const regex = /<code filename="([^"]+)">\s*```ballerina([\s\S]*?)```\s*<\/code>/g;
-    let match;
+    let match: RegExpExecArray | null;
 
     while ((match = regex.exec(req)) !== null) {
         const filePath = match[1];
