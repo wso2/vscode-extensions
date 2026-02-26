@@ -51,7 +51,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	StateMachine.initialize();
 
 	// Prompt user to enable Arazzo file icon theme (one-time)
-	await promptForFileIconTheme(context);
+	// await promptForFileIconTheme(context); // TODO: Fix this
 
 	// Register the createOpenAPIFile command
 	let disposable = vscode.commands.registerCommand('ArazzoDesigner.createOpenAPIFile', createOpenAPIFile);
