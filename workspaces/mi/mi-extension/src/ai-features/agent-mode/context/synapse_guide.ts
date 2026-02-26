@@ -210,6 +210,23 @@ export const SYNAPSE_GUIDE = `
     - Always use WSDL \`targetNamespace\` when building SOAP bodies (especially in \`payloadFactory\`).
     - Wrong namespace can cause silent SOAP Fault behavior (empty results without explicit MI exception).
 
+## Synapse Runtime Properties (axis2 & synapse scope)
+Synapse has special properties set via the \`variable\` mediator (with axis2 or synapse scope) that control runtime HTTP/transport behavior. These are NOT regular application variables — they change how MI processes and sends messages. Common scenarios:
+- **Custom HTTP status codes**: Return 202 Accepted, 204 No Content, etc. → set \`HTTP_SC\` in axis2 scope
+- **Content-type control**: \`messageType\` (controls serialization format) vs \`ContentType\` (controls HTTP Content-Type header) — both in axis2 scope
+- **Transport behavior**: Disable chunking, force HTTP 1.0, disable keep-alive, force Content-Length header
+- **Fire-and-forget**: \`OUT_ONLY\` / \`FORCE_SC_ACCEPTED\` for async one-way messages
+- **Error info in fault sequences**: \`ERROR_CODE\`, \`ERROR_MESSAGE\`, \`ERROR_DETAIL\` in synapse scope
+- **REST URL manipulation**: \`REST_URL_POSTFIX\` to dynamically append to endpoint URLs
+
+These properties are set using the variable mediator with scope:
+\`\`\`xml
+<variable name="HTTP_SC" type="INTEGER" value="202" action="set" scope="axis2"/>
+<variable name="messageType" type="STRING" value="application/json" action="set" scope="axis2"/>
+\`\`\`
+
+For the full property reference (70+ properties with exact names, scopes, and usage patterns), load the \`synapse-property-reference\` context.
+
 ## For the new filter mediator, do not use source. Use only xpath:
     - The \`xpath\` attribute accepts Synapse Expressions (despite the attribute name). The expression must evaluate to a boolean.
 \`\`\`xml
