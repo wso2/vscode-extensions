@@ -20,7 +20,7 @@
  * Synapse Expression Edge Cases, Anti-Patterns, and Error Catalog
  * Extracted from test files, source code error paths, and evaluator behavior.
  *
- * Section-based exports for granular skill loading.
+ * Section-based exports for granular context loading.
  */
 
 export const SYNAPSE_EDGE_CASES_SECTIONS: Record<string, string> = {

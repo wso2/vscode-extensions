@@ -20,7 +20,7 @@
  * Synapse Mediator-Expression Integration Matrix
  * Extracted from mediator factory classes and mediator implementations.
  *
- * Section-based exports for granular skill loading.
+ * Section-based exports for granular context loading.
  */
 
 export const SYNAPSE_MEDIATOR_EXPRESSION_MATRIX_SECTIONS: Record<string, string> = {

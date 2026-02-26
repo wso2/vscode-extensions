@@ -21,7 +21,7 @@
  * Extracted from: PayloadAccessNode.java, EvaluationContext.java,
  * HeadersAndPropertiesAccessNode.java, ExpressionConstants.java
  *
- * Section-based exports for granular skill loading.
+ * Section-based exports for granular context loading.
  */
 
 export const SYNAPSE_VARIABLE_RESOLUTION_SECTIONS: Record<string, string> = {
