@@ -41,7 +41,7 @@ import {
 } from '../../tools/types';
 import { SYNAPSE_GUIDE } from '../../context/synapse_guide';
 import { SYNAPSE_GUIDE as SYNAPSE_GUIDE_OLD } from '../../context/synapse_guide_old';
-import { CONNECTOR_DOCUMENTATION } from '../../context/connectors_guide';
+import { CONNECTOR_DOCUMENTATION, CONNECTOR_DOCUMENTATION_OLD } from '../../context/connectors_guide';
 import { compareVersions } from '../../../../util/onboardingUtils';
 import { RUNTIME_VERSION_440 } from '../../../../constants';
 
@@ -243,7 +243,9 @@ ${SYNAPSE_GUIDE}
 ${CONNECTOR_DOCUMENTATION}
 </CONNECTOR_DEVELOPMENT_GUIDELINES>
 `;
-const SYSTEM_PROMPT_OLD = SYSTEM_PROMPT.replace(SYNAPSE_GUIDE, SYNAPSE_GUIDE_OLD);
+const SYSTEM_PROMPT_OLD = SYSTEM_PROMPT
+    .replace(SYNAPSE_GUIDE, SYNAPSE_GUIDE_OLD)
+    .replace(CONNECTOR_DOCUMENTATION, CONNECTOR_DOCUMENTATION_OLD);
 
 /**
  * Generates the system prompt for the MI design agent

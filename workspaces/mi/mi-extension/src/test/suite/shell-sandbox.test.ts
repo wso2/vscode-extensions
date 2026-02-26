@@ -36,6 +36,13 @@ suite('Shell Sandbox Tests', () => {
         assert.strictEqual(analysis.requiresApproval, false);
     });
 
+    test('find command requires approval', () => {
+        const analysis = analyzeShellCommand('find . -name "*.ts"', process.platform, PROJECT_PATH, false);
+        assert.strictEqual(analysis.blocked, false);
+        assert.strictEqual(analysis.requiresApproval, true);
+        assert.ok(analysis.reasons.some((reason) => reason.toLowerCase().includes('read-only allowlist')));
+    });
+
     test('network command does not require approval', () => {
         const analysis = analyzeShellCommand('curl https://example.com', process.platform, PROJECT_PATH, false);
         assert.strictEqual(analysis.requiresApproval, false);

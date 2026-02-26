@@ -214,14 +214,14 @@ export const SYNAPSE_GUIDE = `
     - Never assume HTTP for external services. Prefer HTTPS unless the service is explicitly HTTP-only.
 
 ### SOAP response access after \`call\` (MI 4.x)
-    - \`\${payload}\` is ALWAYS JSON — including after a SOAP \`call\`. The Synapse expression engine converts all payloads to JSON for \`\${payload}\` access.
-    - ALWAYS extract SOAP response values using JSON paths. The JSON key names match the XML element local names (namespace prefix is stripped):
+    - After a SOAP \`call\`, \`\${payload}\` is JSON. When using \`\${payload}\`, prefer JSON paths. The JSON key names match the XML element local names (namespace prefix is stripped):
     \`\`\`xml
     <!-- SOAP response: <m:NumberToWordsResponse><m:NumberToWordsResult>five hundred -->
     <variable name="result" expression="\${payload.NumberToWordsResponse.NumberToWordsResult}" type="STRING"/>
     \`\`\`
-    - NEVER store \`\${payload}\` as \`type="XML"\` after a SOAP call — it will always fail with \`WstxUnexpectedCharException: Unexpected character '{'\` because the value is already JSON, not XML.
-    - AVOID \`xpath()\` on SOAP responses. The underlying XML body may not be materialized, causing \`xpath()\` to silently return empty strings with no error. Prefer JSON paths.
+    - Storing \`\${payload}\` as \`type="XML"\` after a SOAP call can fail with \`WstxUnexpectedCharException: Unexpected character '{'\` because the value is JSON, not XML.
+    - \`xpath()\` and \`\$body\` access are supported when the raw XML body is explicitly materialized and that usage is documented by the expression engine for the flow.
+    - For \`\$body\`/\`xpath()\` syntax and quoting patterns, follow the Synapse Expression Guide examples in this document.
 
 ### SOAP namespace accuracy
     - Never infer SOAP operation namespace from service URL.
@@ -442,7 +442,7 @@ export function mapFunction(input: InputRoot): OutputRoot {
 - Property access: \`dmUtils.getPropertyValue(scope, name)\`
 
 ## Registry Resources
-When creating supportive resources that are needed for the Integration inside src/main/wso2mi/resources, an entry should be added to the src/main/wso2mi/resources/artifact.xml. If an artifacts.xml doesn't exist, then create one and add the entry. The format should be as follows:
+When creating supportive resources that are needed for the Integration inside src/main/wso2mi/resources, an entry should be added to the src/main/wso2mi/resources/artifact.xml. If an artifact.xml doesn't exist, then create one and add the entry. The format should be as follows:
 For data mappers this is get automatically done by the ${CREATE_DATA_MAPPER_TOOL_NAME} tool. But for other resources, you need to add the entry manually.
 
 \`\`\`xml

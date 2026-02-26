@@ -4,6 +4,7 @@
 
 const fs = require('fs/promises');
 const path = require('path');
+const vm = require('vm');
 
 const API_BASE = process.env.CONNECTOR_STORE_BASE_URL
     || 'https://apis.wso2.com/qgpf/connector-store-backend/endpoint-9090-803/v1.0';
@@ -284,9 +285,25 @@ async function readExistingRecordsByName(filePath, exportName) {
         throw new Error(`Could not parse array contents from ${filePath}.`);
     }
 
-    const parsed = JSON.parse(existing.slice(arrayStart, arrayEnd + 1));
+    const arrayLiteral = existing.slice(arrayStart, arrayEnd + 1);
+    let parsed;
+    try {
+        parsed = vm.runInNewContext(`(${arrayLiteral})`, Object.create(null), { timeout: 1000 });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(
+            `Failed to parse existing records for ${exportName} in ${filePath}. `
+            + `Returning empty fallback map. Reason: ${message}`
+        );
+        return new Map();
+    }
+
     if (!Array.isArray(parsed)) {
-        throw new Error(`Parsed existing data from ${filePath} is not an array.`);
+        console.warn(
+            `Parsed existing data for ${exportName} in ${filePath} is not an array. `
+            + 'Returning empty fallback map.'
+        );
+        return new Map();
     }
 
     const recordsByName = new Map();
@@ -300,16 +317,101 @@ async function readExistingRecordsByName(filePath, exportName) {
     return recordsByName;
 }
 
+function findArrayEndIndex(content, arrayStart, filePath, exportName) {
+    let depth = 0;
+    let inString = false;
+    let stringQuote = '';
+    let escaped = false;
+    let inLineComment = false;
+    let inBlockComment = false;
+
+    for (let i = arrayStart; i < content.length; i++) {
+        const char = content[i];
+        const next = content[i + 1];
+
+        if (inLineComment) {
+            if (char === '\n') {
+                inLineComment = false;
+            }
+            continue;
+        }
+
+        if (inBlockComment) {
+            if (char === '*' && next === '/') {
+                inBlockComment = false;
+                i++;
+            }
+            continue;
+        }
+
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (char === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (char === stringQuote) {
+                inString = false;
+                stringQuote = '';
+            }
+            continue;
+        }
+
+        if (char === '/' && next === '/') {
+            inLineComment = true;
+            i++;
+            continue;
+        }
+
+        if (char === '/' && next === '*') {
+            inBlockComment = true;
+            i++;
+            continue;
+        }
+
+        if (char === '"' || char === '\'' || char === '`') {
+            inString = true;
+            stringQuote = char;
+            continue;
+        }
+
+        if (char === '[') {
+            depth++;
+            continue;
+        }
+
+        if (char === ']') {
+            depth--;
+            if (depth === 0) {
+                return i;
+            }
+        }
+    }
+
+    throw new Error(`Could not find end of exported array for ${exportName} in ${filePath}.`);
+}
+
 async function writeTsArrayFile(filePath, exportName, records) {
     const existing = await fs.readFile(filePath, 'utf8');
-    const exportRegex = new RegExp(`^[\\s\\S]*?export const\\s+${exportName}\\s*=\\s*`);
-    const match = existing.match(exportRegex);
+    const exportRegex = new RegExp(`export const\\s+${exportName}\\s*=\\s*`);
+    const match = exportRegex.exec(existing);
 
     if (!match) {
         throw new Error(`Could not find export declaration for ${exportName} in ${filePath}.`);
     }
 
-    const content = `${match[0]}${JSON.stringify(records, null, 4)}\n`;
+    const arrayStart = existing.indexOf('[', match.index + match[0].length);
+    if (arrayStart < 0) {
+        throw new Error(`Could not find array start for ${exportName} in ${filePath}.`);
+    }
+
+    const arrayEnd = findArrayEndIndex(existing, arrayStart, filePath, exportName);
+    const prefix = existing.slice(0, arrayStart);
+    const suffix = existing.slice(arrayEnd + 1).replace(/^(\s*);/, '$1');
+    const content = `${prefix}${JSON.stringify(records, null, 4)};${suffix}`;
     await fs.writeFile(filePath, content, 'utf8');
 }
 

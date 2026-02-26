@@ -65,7 +65,6 @@ const POWERSHELL_SAFE_READ_COMMANDS = new Set([
     'get-item',
     'get-location',
     'get-process',
-    'git',
     'ls',
     'measure-object',
     'pwd',
@@ -76,6 +75,15 @@ const POWERSHELL_SAFE_READ_COMMANDS = new Set([
     'test-path',
     'type',
     'whoami',
+]);
+
+const POWERSHELL_SAFE_READ_GIT_SUBCOMMANDS = new Set([
+    'status',
+    'rev-parse',
+    'log',
+    'show',
+    'diff',
+    'ls-files',
 ]);
 
 const POWERSHELL_NETWORK_COMMANDS = new Set([
@@ -466,6 +474,91 @@ function normalizePowerShellCommandName(commandName: string): string {
     return normalizeToken(normalizedName);
 }
 
+function getGitSubcommand(commandNode: PowerShellAstCommand): { subcommand: string; remainingArgs: string[] } | null {
+    const args = commandNode.positionalArguments
+        .map((argument) => normalizeToken(stripWrappingQuotes(argument)))
+        .filter((argument) => argument.length > 0);
+
+    if (args.length === 0) {
+        return null;
+    }
+
+    const globalFlagsWithValues = new Set([
+        '-c',
+        '-C',
+        '--config-env',
+        '--exec-path',
+        '--git-dir',
+        '--namespace',
+        '--super-prefix',
+        '--work-tree',
+    ]);
+
+    for (let index = 0; index < args.length; index += 1) {
+        const current = args[index];
+        if (current === '--') {
+            break;
+        }
+
+        if (current.startsWith('-')) {
+            if (globalFlagsWithValues.has(current)) {
+                index += 1;
+            }
+            continue;
+        }
+
+        return {
+            subcommand: current,
+            remainingArgs: args.slice(index + 1),
+        };
+    }
+
+    return null;
+}
+
+function isReadOnlyGitCommand(commandNode: PowerShellAstCommand): boolean {
+    const gitSubcommand = getGitSubcommand(commandNode);
+    if (!gitSubcommand) {
+        return false;
+    }
+
+    if (POWERSHELL_SAFE_READ_GIT_SUBCOMMANDS.has(gitSubcommand.subcommand)) {
+        return true;
+    }
+
+    if (gitSubcommand.subcommand === 'branch') {
+        return gitSubcommand.remainingArgs.some((arg) => arg === '-r' || arg === '--remotes');
+    }
+
+    if (gitSubcommand.subcommand === 'remote') {
+        return gitSubcommand.remainingArgs.some((arg) => arg === '-v' || arg === '--verbose');
+    }
+
+    if (gitSubcommand.subcommand === 'tag') {
+        return gitSubcommand.remainingArgs.some((arg) => arg === '-l' || arg === '--list');
+    }
+
+    return false;
+}
+
+function getUnsupportedReadCommand(commandNode: PowerShellAstCommand): string | null {
+    const commandName = normalizePowerShellCommandName(commandNode.name);
+    if (!commandName) {
+        return null;
+    }
+
+    if (commandName !== 'git') {
+        return POWERSHELL_SAFE_READ_COMMANDS.has(commandName) ? null : commandName;
+    }
+
+    if (isReadOnlyGitCommand(commandNode)) {
+        return null;
+    }
+
+    const gitSubcommand = getGitSubcommand(commandNode);
+    return gitSubcommand ? `git ${gitSubcommand.subcommand}` : 'git';
+}
+
 function buildPowerShellSuggestedPrefixRule(commands: PowerShellAstCommand[]): string[] {
     if (commands.length === 0) {
         return [];
@@ -704,9 +797,24 @@ export function analyzePowerShellCommand(
         processCommands.push('invoke-command');
     }
 
-    const networkFromCommands = commandNames.some((commandName) => POWERSHELL_NETWORK_COMMANDS.has(commandName));
+    const networkCommandNames = commandNames.filter((commandName) => POWERSHELL_NETWORK_COMMANDS.has(commandName));
+    const networkFromCommands = networkCommandNames.length > 0;
     const networkFromDotNet = detectNetworkFromDotNet(trimmedCommand);
     const networkDetected = networkFromCommands || networkFromDotNet;
+    if (networkDetected) {
+        const reasonParts: string[] = [];
+        if (networkFromCommands) {
+            reasonParts.push(`command(s): ${dedupe(networkCommandNames).join(', ')}`);
+        }
+        if (networkFromDotNet) {
+            reasonParts.push('.NET network API invocation');
+        }
+
+        const reasonDetail = reasonParts.length > 0
+            ? reasonParts.join(' and ')
+            : 'command/dotnet call';
+        reasons.push(`Network access detected via ${reasonDetail}; explicit approval is required.`);
+    }
 
     const mutationFromCommands = commandNames.some((commandName) =>
         POWERSHELL_MUTATION_COMMANDS.has(commandName) || commandName.startsWith('export-')
@@ -805,7 +913,9 @@ export function analyzePowerShellCommand(
         if (commandNames.length === 0) {
             reasons.push('Unable to classify PowerShell command intent; explicit approval is required.');
         } else {
-            const unsupportedReadCommands = commandNames.filter((commandName) => !POWERSHELL_SAFE_READ_COMMANDS.has(commandName));
+            const unsupportedReadCommands = parseResult.commands
+                .map((commandNode) => getUnsupportedReadCommand(commandNode))
+                .filter((commandName): commandName is string => commandName !== null);
             if (unsupportedReadCommands.length > 0) {
                 reasons.push(
                     `Command is outside the read-only allowlist and requires approval: ${dedupe(unsupportedReadCommands).join(', ')}.`

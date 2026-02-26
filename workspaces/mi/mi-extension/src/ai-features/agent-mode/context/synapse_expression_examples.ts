@@ -90,7 +90,7 @@ Use SYNAPSE_EXPRESSIONS_DOCS as the source of truth for syntax and constraints.
 <variable name="customer_id" type="STRING" value="43672343"/>
 <payloadFactory media-type="json" template-type="freemarker">
     <format><![CDATA[{
-        "name": "\${payload.customer_name}"
+        "name": "\${payload.customer_name}",
         "customer_id" : "\${vars.customer_id}",
         "axis2 property": "\${props.axis2.REST_URL_POSTFIX}",
         "trp property": "\${props.trp.Host}"

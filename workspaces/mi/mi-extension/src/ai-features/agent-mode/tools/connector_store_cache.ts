@@ -26,6 +26,7 @@ import { logDebug, logError, logInfo, logWarn } from '../../copilot/logger';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const STORE_FETCH_TIMEOUT_MS = 5000;
 const DEFAULT_RUNTIME_VERSION = '4.5.0';
+const SAFE_RUNTIME_VERSION_SEGMENT_PATTERN = /^[A-Za-z0-9._-]+$/;
 const DEFAULT_SUMMARY_ENDPOINT_TEMPLATE =
     'https://apis.wso2.com/qgpf/connector-store-backend/endpoint-9090-803/v1.0/connectors/summaries?type=${type}&limit=100&offset=0&product=MI';
 const DEFAULT_DETAILS_ENDPOINT =
@@ -107,8 +108,41 @@ function stripConnectorPrefix(value: unknown): string {
     return value.replace(/^mi-(connector|module|inbound)-/i, '');
 }
 
+function sanitizeRuntimeVersionSegment(runtimeVersion: string): string {
+    const trimmed = runtimeVersion.trim();
+    if (
+        trimmed.length === 0
+        || trimmed === '.'
+        || trimmed === '..'
+        || !SAFE_RUNTIME_VERSION_SEGMENT_PATTERN.test(trimmed)
+    ) {
+        const canonicalized = trimmed
+            .replace(/[\\/]/g, '-')
+            .replace(/[^a-zA-Z0-9._-]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^[.-]+/, '')
+            .replace(/[.-]+$/, '')
+            .slice(0, 64);
+        if (
+            canonicalized.length === 0
+            || canonicalized === '.'
+            || canonicalized === '..'
+            || !SAFE_RUNTIME_VERSION_SEGMENT_PATTERN.test(canonicalized)
+        ) {
+            return DEFAULT_RUNTIME_VERSION;
+        }
+        return canonicalized;
+    }
+
+    return trimmed;
+}
+
 function getRuntimeVersionUsed(runtimeVersion: string | null): string {
-    return runtimeVersion ?? DEFAULT_RUNTIME_VERSION;
+    if (runtimeVersion === null) {
+        return DEFAULT_RUNTIME_VERSION;
+    }
+
+    return sanitizeRuntimeVersionSegment(runtimeVersion);
 }
 
 function sanitizeFileNameSegment(value: string): string {
@@ -120,7 +154,8 @@ function sanitizeFileNameSegment(value: string): string {
 }
 
 function buildItemDirectory(itemType: ConnectorStoreItemType, runtimeVersion: string): string {
-    return path.join(CACHE_ROOT_DIR, itemType, runtimeVersion);
+    const safeRuntimeVersion = sanitizeRuntimeVersionSegment(runtimeVersion);
+    return path.join(CACHE_ROOT_DIR, itemType, safeRuntimeVersion);
 }
 
 function buildCatalogFilePath(itemType: ConnectorStoreItemType, runtimeVersion: string): string {

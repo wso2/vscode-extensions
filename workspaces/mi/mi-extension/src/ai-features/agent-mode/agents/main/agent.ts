@@ -770,7 +770,7 @@ export async function executeAgent(
                         const finalResponse: any = response
                             ? await awaitWithTimeout<any>(response, finalResponseWaitTimeoutMs)
                             : undefined;
-                        finalModelMessages = finalResponse.messages || [];
+                        finalModelMessages = finalResponse?.messages ?? [];
                     } catch (error) {
                         logError('[Agent] Failed to capture model messages on finish', error);
                     }
@@ -798,7 +798,7 @@ export async function executeAgent(
             const finalResponse: any = response
                 ? await awaitWithTimeout<any>(response, finalResponseWaitTimeoutMs)
                 : undefined;
-            finalModelMessages = finalResponse.messages || [];
+            finalModelMessages = finalResponse?.messages ?? [];
             logDebug(`[Agent] Captured ${finalModelMessages.length} model messages after unexpected stream end`);
         } catch (error) {
             logError('[Agent] Failed to capture model messages after unexpected stream end', error);
@@ -824,7 +824,7 @@ export async function executeAgent(
             const finalResponse: any = response
                 ? await awaitWithTimeout<any>(response, finalResponseWaitTimeoutMs)
                 : undefined;
-            finalModelMessages = finalResponse.messages || [];
+            finalModelMessages = finalResponse?.messages ?? [];
         } catch (captureError) {
             logDebug(`[Agent] Skipped capturing final model messages after error: ${getErrorMessage(captureError)}`);
         }

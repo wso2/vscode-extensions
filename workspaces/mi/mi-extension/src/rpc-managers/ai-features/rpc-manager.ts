@@ -663,11 +663,9 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 return undefined;
             }
 
-            // Get current state before updating
-            const currentState = StateMachineAI.state();
-
             // Update usage via state machine event (proper XState pattern)
-            if (currentState === 'Authenticated' || currentState === 'UsageExceeded') {
+            const stateBeforeUsageUpdate = StateMachineAI.state();
+            if (stateBeforeUsageUpdate === 'Authenticated' || stateBeforeUsageUpdate === 'UsageExceeded') {
                 StateMachineAI.sendEvent({ type: AI_EVENT_TYPE.UPDATE_USAGE, payload: { usage } });
             }
 
@@ -675,17 +673,23 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             const isUnlimitedUsage = usage.remainingUsagePercentage === -1;
             const isUsageExceeded = !isUnlimitedUsage && usage.remainingUsagePercentage <= 0;
 
-            if (isUsageExceeded && currentState === 'Authenticated') {
-                logInfo('Quota exceeded. Transitioning to UsageExceeded state.');
-                StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_EXCEEDED);
+            if (isUsageExceeded) {
+                const stateBeforeUsageExceeded = StateMachineAI.state();
+                if (stateBeforeUsageExceeded === 'Authenticated') {
+                    logInfo('Quota exceeded. Transitioning to UsageExceeded state.');
+                    StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_EXCEEDED);
+                }
             }
 
             // Check if we're in UsageExceeded state and if usage has reset
             const isUsageReset = isUnlimitedUsage || usage.remainingUsagePercentage > 0;
 
-            if (currentState === 'UsageExceeded' && isUsageReset) {
-                logInfo('Usage has reset. Transitioning back to Authenticated state.');
-                StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_RESET);
+            if (isUsageReset) {
+                const stateBeforeUsageReset = StateMachineAI.state();
+                if (stateBeforeUsageReset === 'UsageExceeded') {
+                    logInfo('Usage has reset. Transitioning back to Authenticated state.');
+                    StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_RESET);
+                }
             }
 
             return usage;

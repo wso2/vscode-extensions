@@ -18,7 +18,7 @@
 
 import { CONNECTOR_TOOL_NAME } from "../tools/types";
 
-export const CONNECTOR_DOCUMENTATION = `
+const CONNECTOR_DOCUMENTATION_BASE = `
 When using connectors, follow these rules.
 
 ### 1) Resolve initialization mode first (authoritative)
@@ -80,7 +80,9 @@ Example:
 3. Implement complete, functional solutions without placeholders or partial code.
 4. Explicitly include all required parameters for each operation.
 5. Do not use the utility connector unless absolutely necessary.
+`;
 
+const CONNECTOR_DOCUMENTATION_REVAMPED_RESPONSE_HANDLING = `
 ### 3) Revamped response handling (supported only by certain connectors)
 Now some connectors support two additional operation parameters ( ongoing connector improvement by WSO2 team ) :
 1. \`responseVariable\`
@@ -94,6 +96,11 @@ Now some connectors support two additional operation parameters ( ongoing connec
 
 For other connectors, use the older response-handling approach instead.
 `;
+
+export const CONNECTOR_DOCUMENTATION_OLD = CONNECTOR_DOCUMENTATION_BASE;
+
+export const CONNECTOR_DOCUMENTATION = `${CONNECTOR_DOCUMENTATION_BASE}
+${CONNECTOR_DOCUMENTATION_REVAMPED_RESPONSE_HANDLING}`;
 
 export const AI_CONNECTOR_DOCUMENTATION = `
 <AI_CONNECTOR_DOCUMENTATION>

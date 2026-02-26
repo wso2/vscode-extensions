@@ -103,7 +103,6 @@ const SAFE_READ_COMMANDS = new Set([
     'du',
     'echo',
     'env',
-    'find',
     'git',
     'grep',
     'head',

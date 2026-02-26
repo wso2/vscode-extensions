@@ -244,8 +244,16 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         }
 
         this.shellApprovalRules.push(normalizedRule);
-        await this.persistShellApprovalRulesForSession(this.currentSessionId);
-        logInfo(`[AgentPanel] Added shell approval rule for session ${this.currentSessionId}: ${normalizedRule.join(' ')}`);
+        try {
+            await this.persistShellApprovalRulesForSession(this.currentSessionId);
+            logInfo(`[AgentPanel] Added shell approval rule for session ${this.currentSessionId}: ${normalizedRule.join(' ')}`);
+        } catch (error) {
+            logError(
+                `[AgentPanel] Failed to persist shell approval rule for session ${this.currentSessionId}. ` +
+                `Keeping in-memory rule: ${normalizedRule.join(' ')}`,
+                error
+            );
+        }
     }
 
     private async deleteShellApprovalRulesForSession(sessionId: string): Promise<void> {
