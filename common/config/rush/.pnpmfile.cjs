@@ -56,7 +56,7 @@ module.exports = {
           pkg.dependencies['eslint'] = '^9.27.0';
         }
         if (pkg.dependencies['hono']) {
-          pkg.dependencies['hono'] = '^4.11.7';
+          pkg.dependencies['hono'] = '4.12.2';
         }
         if (pkg.dependencies['lodash']) {
           pkg.dependencies['lodash'] = '4.17.23';
@@ -107,7 +107,7 @@ module.exports = {
           pkg.devDependencies['eslint'] = '^9.27.0';
         }
         if (pkg.devDependencies['hono']) {
-          pkg.devDependencies['hono'] = '^4.11.7';
+          pkg.devDependencies['hono'] = '4.12.2';
         }
         if (pkg.devDependencies['lodash']) {
           pkg.devDependencies['lodash'] = '4.17.23';
