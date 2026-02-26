@@ -20,7 +20,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import path from "path";
 import fs from "fs";
 import { z } from 'zod';
-import { CodeContextRetrievalEvaluation } from "../types/result-types";
+import { CodeContextRetrievalEvaluation, GrepCallRecord, FileReadCallRecord } from "../types/result-types";
 
 export interface LLMEvaluationResult {
     is_correct: boolean;
@@ -158,32 +158,19 @@ Use the submit_evaluation tool to provide your assessment.`;
 // Code Context Retrieval Evaluation
 // ============================================================================
 
-interface GrepCall {
-    pattern: string;
-    path?: string;
-    glob?: string;
-    output_mode?: string;
-    result?: string;
-}
-
-interface FileReadCall {
-    fileName: string;
-    content?: string;
-}
-
 /**
  * Extracts grep and file_read tool calls from the event stream and pairs
  * each call with its corresponding tool result.
  */
 function extractContextRetrievalCalls(events: readonly ChatNotify[]): {
-    grepCalls: GrepCall[];
-    fileReadCalls: FileReadCall[];
+    grepCalls: GrepCallRecord[];
+    fileReadCalls: FileReadCallRecord[];
 } {
-    const grepCalls: GrepCall[] = [];
-    const fileReadCalls: FileReadCall[] = [];
+    const grepCalls: GrepCallRecord[] = [];
+    const fileReadCalls: FileReadCallRecord[] = [];
 
-    const pendingGrepCalls: GrepCall[] = [];
-    const pendingFileReadCalls: FileReadCall[] = [];
+    const pendingGrepCalls: GrepCallRecord[] = [];
+    const pendingFileReadCalls: FileReadCallRecord[] = [];
 
     for (const event of events) {
         if (event.type === 'tool_call') {
@@ -201,14 +188,12 @@ function extractContextRetrievalCalls(events: readonly ChatNotify[]): {
             if (event.toolName === 'grep') {
                 const call = pendingGrepCalls.shift();
                 if (call) {
-                    call.result = event.toolOutput?.message ?? '';
-                    grepCalls.push(call);
+                    grepCalls.push({ ...call, result: event.toolOutput?.message ?? '' });
                 }
             } else if (event.toolName === 'file_read') {
                 const call = pendingFileReadCalls.shift();
                 if (call) {
-                    call.content = event.toolOutput?.message ?? '';
-                    fileReadCalls.push(call);
+                    fileReadCalls.push({ ...call, content: event.toolOutput?.message ?? '' });
                 }
             }
         }
@@ -267,7 +252,9 @@ export async function evaluateCodeContextRetrieval(
             is_relevant: false,
             coverage_score: 0,
             reasoning: "No grep or file_read tool calls were made. The LLM did not retrieve any code context.",
-            missed_patterns: []
+            missed_patterns: [],
+            grep_calls: [],
+            file_read_calls: []
         };
     }
 
@@ -289,7 +276,12 @@ export async function evaluateCodeContextRetrieval(
 
     // Build the file_read section of the prompt
     const fileReadSection = fileReadCalls.length > 0
-        ? fileReadCalls.map((call, i) => `File #${i + 1}: ${call.fileName}`).join('\n')
+        ? fileReadCalls.map((call, i) => {
+            const contentLine = call.content
+                ? `Content:\n${call.content}`
+                : '(content not captured)';
+            return `File #${i + 1}: ${call.fileName}\n${contentLine}`;
+          }).join('\n\n')
         : 'No files were read.';
 
     const systemPrompt = `You are an expert Ballerina developer evaluating whether an AI agent retrieved the right code context before making changes to a codebase.
@@ -352,10 +344,14 @@ Use the submit_evaluation tool to provide your assessment.`;
             throw new Error("Expected submit_evaluation tool call but received none");
         }
 
-        const evaluation = toolCall.input as CodeContextRetrievalEvaluation;
+        const evaluation = toolCall.input as Omit<CodeContextRetrievalEvaluation, 'grep_calls' | 'file_read_calls'>;
 
         console.log(`✅ Code Context Retrieval Evaluation Complete. Relevant: ${evaluation.is_relevant}. Score: ${evaluation.coverage_score}/10`);
-        return evaluation;
+        return {
+            ...evaluation,
+            grep_calls: grepCalls,
+            file_read_calls: fileReadCalls
+        };
 
     } catch (error) {
         console.error("Error during code context retrieval evaluation:", error);
@@ -363,7 +359,9 @@ Use the submit_evaluation tool to provide your assessment.`;
             is_relevant: false,
             coverage_score: 0,
             reasoning: `Failed to evaluate due to an error: ${error instanceof Error ? error.message : "Unknown error"}`,
-            missed_patterns: []
+            missed_patterns: [],
+            grep_calls: grepCalls,
+            file_read_calls: fileReadCalls
         };
     }
 }
