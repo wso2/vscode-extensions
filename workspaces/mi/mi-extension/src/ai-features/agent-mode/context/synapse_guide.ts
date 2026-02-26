@@ -89,6 +89,7 @@ export const SYNAPSE_GUIDE = `
 ## WSO2 has introduced Synapse Expressions, which should be used instead of JsonPath or XPath.
     - \`SYNAPSE_EXPRESSIONS_DOCS\` is the authoritative source for syntax and rules.
     - \`SYNAPSE_EXPRESSION_EXAMPLES\` provides short usage patterns only.
+    - For complex expression patterns, type coercion rules, function details, and edge cases, load deep reference skills listed in the expression guide's **Deep Reference Knowledge** table.
 
 <SYNAPSE_EXPRESSIONS_DOCS>
     ${SYNAPSE_EXPRESSION_GUIDE}
@@ -165,14 +166,8 @@ export const SYNAPSE_GUIDE = `
     - Example GET:
        \`\`\`xml
        <http.get configKey="QueryDoctorConn">
-          <relativePath>/\${params.uriParams.category}</relativePath>
-          <headers>[[&quot;content-type&quot;,&quot;application/xml&quot;],]</headers>
-          <forceScAccepted>false</forceScAccepted>
-          <disableChunking>false</disableChunking>
-          <forceHttp10>false</forceHttp10>
-          <noKeepAlive>false</noKeepAlive>
-          <forcePostPutNobody>false</forcePostPutNobody>
-          <forceHttpContentLength>false</forceHttpContentLength>
+          <relativePath>/\${params.pathParams.category}</relativePath>
+          <headers>[[&quot;content-type&quot;,&quot;application/xml&quot;]]</headers>
        </http.get>
        \`\`\`
 
@@ -183,31 +178,18 @@ export const SYNAPSE_GUIDE = `
           <headers>[]</headers>
           <requestBodyType>XML</requestBodyType>
           <requestBodyXml>{\${xpath('$body/node()')}}</requestBodyXml>
-          <forceScAccepted>false</forceScAccepted>
-          <disableChunking>false</disableChunking>
-          <forceHttp10>false</forceHttp10>
-          <noKeepAlive>false</noKeepAlive>
-          <forcePostPutNobody>false</forcePostPutNobody>
-          <forceHttpContentLength>false</forceHttpContentLength>
        </http.post>
        \`\`\`
-    
+
     - How to add query parameters:
     \`\`\`xml
     <http.get configKey="SimpleStockQuoteService">
       <relativePath>/getQuote?userId=\${vars.userId}</relativePath>
       <headers>[]</headers>
-      <requestBodyType>XML</requestBodyType>
-      <requestBodyXml>{\${xpath('$body/node()')}}</requestBodyXml>
-      <forceScAccepted>false</forceScAccepted>
-      <disableChunking>false</disableChunking>
-      <forceHttp10>false</forceHttp10>
-      <noKeepAlive>false</noKeepAlive>
-      <forcePostPutNobody>false</forcePostPutNobody>
-      <forceHttpContentLength>false</forceHttpContentLength>
     </http.get>
     \`\`\`
     - Supported methods: GET, POST, PUT, DELETE, HEAD, PATCH, OPTIONS
+    - Optional boolean flags (all default to false): \`forceScAccepted\`, \`disableChunking\`, \`forceHttp10\`, \`noKeepAlive\`, \`forcePostPutNobody\`, \`forceHttpContentLength\`. Only include when needed.
 
 ## SOAP / XML Integration Recommendations
     - For SOAP, use the \`call\` mediator with a named endpoint. Avoid the HTTP connector as it does not support SOAP.
@@ -229,13 +211,14 @@ export const SYNAPSE_GUIDE = `
     - Wrong namespace can cause silent SOAP Fault behavior (empty results without explicit MI exception).
 
 ## For the new filter mediator, do not use source. Use only xpath:
+    - The \`xpath\` attribute accepts Synapse Expressions (despite the attribute name). The expression must evaluate to a boolean.
 \`\`\`xml
-<filter xpath="[SynapseExpression]">
+<filter xpath="\${payload.age &gt; 18}">
     <then>
-     mediator+
+        <!-- adult flow -->
     </then>
     <else>
-     mediator+
+        <!-- minor flow -->
     </else>
 </filter>
 \`\`\`
@@ -289,6 +272,30 @@ export const SYNAPSE_GUIDE = `
         </sequence>
 
     </scatter-gather>
+    \`\`\`
+
+## ForEach Mediator (v2 — collection-based iteration)
+    - Use forEach to iterate over a JSON array.
+    - Syntax:
+    \`\`\`xml
+    <foreach collection="\${expression}" parallel-execution=(true | false) counter-variable="string" update-original=(true | false) result-content-type=(JSON | XML) target-variable="string">
+        <sequence>
+            (mediator)+
+        </sequence>
+    </foreach>
+    \`\`\`
+    - During iteration, \`\${payload}\` refers to the current array element, not the original payload.
+    - Use \`counter-variable\` to access the current index via \`\${vars.counterName}\`.
+    - Sequences inside forEach cannot contain \`call\`, \`send\`, or \`callout\` mediators.
+    - Example:
+    \`\`\`xml
+    <foreach collection="\${payload.orders}" parallel-execution="false" counter-variable="i">
+        <sequence>
+            <log category="INFO">
+                <message>Order \${vars.i}: \${payload.orderId}</message>
+            </log>
+        </sequence>
+    </foreach>
     \`\`\`
 
 ## Correct syntax for dblookup mediator:
