@@ -20,7 +20,7 @@
  * Complete Synapse Expression Function Reference
  * Extracted from: PredefinedFunctionNode.java and ExpressionConstants.java
  *
- * Section-based exports for granular skill loading.
+ * Section-based exports for granular context loading.
  */
 
 export const SYNAPSE_FUNCTION_REFERENCE_SECTIONS: Record<string, string> = {

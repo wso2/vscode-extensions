@@ -20,7 +20,7 @@
  * Synapse Expression Language Formal Specification
  * Extracted from ANTLR grammar and evaluator source.
  *
- * Section-based exports for granular skill loading.
+ * Section-based exports for granular context loading.
  * Usage: SYNAPSE_EXPRESSION_SPEC_SECTIONS["type_system"] for just type info.
  *        SYNAPSE_EXPRESSION_SPEC_FULL for entire spec.
  */
