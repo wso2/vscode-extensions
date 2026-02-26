@@ -23,6 +23,6 @@ interface Props extends React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement
 	name: string;
 }
 
-export const Codicon: FC<Props> = ({ title, name, className }) => {
-	return <i title={title} className={classNames("codicon", `codicon-${name}`, className)} />;
+export const Codicon: FC<Props> = ({ title, name, className, style }) => {
+	return <i title={title} className={classNames("codicon", `codicon-${name}`, className)} style={style} />;
 };

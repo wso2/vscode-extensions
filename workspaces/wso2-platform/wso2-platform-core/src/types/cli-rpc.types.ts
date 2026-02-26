@@ -16,7 +16,8 @@
  * under the License.
  */
 
-import { HOST_EXTENSION, type RequestType } from "vscode-messenger-common";
+import type { RequestType } from "vscode-messenger-common";
+import { HOST_EXTENSION } from "vscode-messenger-common";
 import type { Messenger } from "vscode-messenger-webview";
 import type {
 	BuildKind,
@@ -106,17 +107,17 @@ export interface CreateComponentReq {
 	gitCredRef: string;
 	branch: string;
 	langVersion: string;
-	dockerFile: string;
+	dockerFile?: string;
 	port: number;
 	spaBuildCommand: string;
 	spaNodeVersion: string;
 	spaOutputDir: string;
-	proxyApiVersion: string;
-	proxyEndpointUrl: string;
-	proxyApiContext: string;
+	proxyApiVersion?: string;
+	proxyEndpointUrl?: string;
+	proxyApiContext?: string;
 	originCloud?: string;
 	// todo: remove
-	proxyAccessibility: string;
+	proxyAccessibility?: string;
 }
 export interface CreateConfigYamlReq {
 	componentDir: string;
@@ -258,6 +259,11 @@ export interface GetMarketplaceListReq {
 	request: GetMarketplaceItemsParams;
 }
 
+export interface GetMarketplaceItemReq {
+	orgId: string;
+	serviceId: string;
+}
+
 export interface GetMarketplaceIdlReq {
 	orgId: string;
 	serviceId: string;
@@ -286,6 +292,53 @@ export interface CreateComponentConnectionReq {
 	serviceSchemaId: string;
 	name: string;
 	generateCreds: boolean;
+}
+
+export interface CreateThirdPartyConnectionReq {
+	orgId: string;
+	orgUuid: string;
+	projectId: string;
+	componentId: string;
+	name: string;
+	serviceId: string;
+	serviceSchemaId: string;
+	endpointRefs: Record<string, string>;
+	sensitiveKeys: string[];
+}
+
+export type  MarketplaceIdlTypes = 'UDP' | 'TCP' | 'WSDL' | 'Proto3' | 'GraphQL_SDL' | 'OpenAPI' | 'AsyncAPI';
+
+export type MarketplaceServiceTypes = 'ASYNC_API' | 'GRPC' | 'GRAPHQL' | 'SOAP' | 'REST';
+
+export type RegisterMarketplaceConfigMap = Record<
+    string,
+    {
+        environmentTemplateIds: string[];
+        values: {
+            key: string;
+            value: string;
+            isOptional?: boolean;
+        }[];
+        name: string;
+    }
+>;
+
+export interface RegisterMarketplaceConnectionReq {
+	orgId: string;
+	orgUuid: string;
+	projectId: string;
+	name: string;
+	serviceType: MarketplaceServiceTypes;
+	idlType: MarketplaceIdlTypes;
+	idlContent: string;
+	schemaEntries: {
+		name: string;
+		type: string;
+		description?: string;
+		isSensitive: boolean;
+		isOptional?: boolean;
+	}[];
+	configs: RegisterMarketplaceConfigMap;
 }
 
 export interface DeleteConnectionReq {
@@ -503,7 +556,7 @@ export interface IChoreoRPCClient {
 	getMarketplaceItems(params: GetMarketplaceListReq): Promise<MarketplaceListResp>;
 	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>;
 	getConnections(params: GetConnectionsReq): Promise<ConnectionListItem[]>;
-	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionListItem>;
+	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionDetailed>;
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>;
 	deleteConnection(params: DeleteConnectionReq): Promise<void>;
 	getConnectionGuide(params: GetConnectionGuideReq): Promise<GetConnectionGuideResp>;
@@ -520,6 +573,7 @@ export interface IChoreoRPCClient {
 	getSubscriptions(params: GetSubscriptionsReq): Promise<SubscriptionsResp>;
 	getGitTokenForRepository(params: GetGitTokenForRepositoryReq): Promise<GetGitTokenForRepositoryResp>;
 	getGitRepoMetadata(params: GetGitMetadataReq): Promise<GetGitMetadataResp>;
+	getGitRepoMetadataBatch(params: GetGitMetadataReq[]): Promise<GetGitMetadataResp[]>;
 }
 
 export class ChoreoRpcWebview implements IChoreoRPCClient {
@@ -600,7 +654,7 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	getConnections(params: GetConnectionsReq): Promise<ConnectionListItem[]> {
 		return this._messenger.sendRequest(ChoreoRpcGetConnections, HOST_EXTENSION, params);
 	}
-	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionListItem> {
+	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionDetailed> {
 		return this._messenger.sendRequest(ChoreoRpcGetConnectionItem, HOST_EXTENSION, params);
 	}
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed> {
@@ -651,6 +705,9 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	getGitRepoMetadata(params: GetGitMetadataReq): Promise<GetGitMetadataResp> {
 		return this._messenger.sendRequest(ChoreoRpcGetGitRepoMetadata, HOST_EXTENSION, params);
 	}
+	getGitRepoMetadataBatch(params: GetGitMetadataReq[]): Promise<GetGitMetadataResp[]> {
+		return this._messenger.sendRequest(ChoreoRpcGetGitRepoMetadataBatch, HOST_EXTENSION, params);
+	}
 }
 
 export const ChoreoRpcGetProjectsRequest: RequestType<string, Project[]> = { method: "rpc/project/getProjects" };
@@ -690,7 +747,7 @@ export const ChoreoRpcGetMarketplaceItemIdl: RequestType<GetMarketplaceIdlReq, M
 export const ChoreoRpcGetConnections: RequestType<GetConnectionsReq, ConnectionListItem[]> = {
 	method: "rpc/connections/getConnections",
 };
-export const ChoreoRpcGetConnectionItem: RequestType<GetConnectionItemReq, ConnectionListItem> = {
+export const ChoreoRpcGetConnectionItem: RequestType<GetConnectionItemReq, ConnectionDetailed> = {
 	method: "rpc/connections/getConnectionItem",
 };
 export const ChoreoRpcCreateComponentConnection: RequestType<CreateComponentConnectionReq, ConnectionDetailed> = {
@@ -726,4 +783,7 @@ export const ChoreoRpcGetGitTokenForRepository: RequestType<GetGitTokenForReposi
 };
 export const ChoreoRpcGetGitRepoMetadata: RequestType<GetGitMetadataReq, GetGitMetadataResp> = {
 	method: "rpc/repo/getRepoMetadata",
+};
+export const ChoreoRpcGetGitRepoMetadataBatch: RequestType<GetGitMetadataReq[], GetGitMetadataResp[]> = {
+	method: "rpc/repo/getRepoMetadataBatch",
 };

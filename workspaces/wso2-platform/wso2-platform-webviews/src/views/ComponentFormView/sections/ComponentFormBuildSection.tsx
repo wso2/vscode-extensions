@@ -21,8 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
 	ChoreoBuildPackNames,
 	ChoreoComponentType,
-	ChoreoImplementationType,
-	type NewComponentWebviewProps,
+	type ComponentFormSectionProps,
 	WebAppSPATypes,
 } from "@wso2/wso2-platform-core";
 import React, { type FC, type ReactNode, useEffect } from "react";
@@ -40,7 +39,7 @@ import { type componentBuildDetailsSchema, getPossibleBuildPack } from "../compo
 
 type ComponentFormBuildDetailsType = z.infer<typeof componentBuildDetailsSchema>;
 
-interface Props extends NewComponentWebviewProps {
+interface Props extends ComponentFormSectionProps {
 	selectedType: string;
 	baseUriPath: string;
 	onNextClick: () => void;
@@ -205,7 +204,7 @@ export const ComponentFormBuildSection: FC<Props> = (props) => {
 						value: item.language,
 					}))}
 					loading={isLoadingBuildPacks}
-					disabled={buildpacks.length === 0 || !!initialValues.buildPackLang}
+					disabled={buildpacks.length === 0 || !!initialValues?.buildPackLang}
 				/>
 				{buildConfigs}
 				{/** TODO: enable autoBuildOnCommit once its stable */}
