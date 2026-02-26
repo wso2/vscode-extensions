@@ -461,6 +461,7 @@ export interface ShowErrorMessageRequest {
 export interface OpenDiagramRequest {
     path: string;
     beside?: boolean;
+    line?: number;
 }
 
 export interface CreateAPIResponse {
@@ -1439,6 +1440,7 @@ export interface MultipleResourceType {
 export interface GetAvailableResourcesRequest {
     documentIdentifier: string | undefined;
     resourceType: ResourceType | MultipleResourceType[];
+    isDebugFlow?: boolean;
 }
 
 export interface GetAvailableResourcesResponse {
@@ -1479,7 +1481,6 @@ export interface ConfigureKubernetesResponse {
 }
 
 export interface GetProxyRootUrlResponse {
-    openaiUrl: string;
     anthropicUrl: string;
 }
 
@@ -2105,6 +2106,8 @@ export interface UpdateMediatorRequest {
 }
 
 export interface McpToolsRequest {
+    documentUri: string;
+    range: Range;
     connectionName: string;
 }
 
@@ -2113,6 +2116,7 @@ export interface McpToolsResponse {
         name: string;
         description?: string;
     }>;
+    selectedTools?: string[];
     error?: string;
 }
 

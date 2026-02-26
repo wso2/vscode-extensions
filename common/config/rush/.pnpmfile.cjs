@@ -61,6 +61,9 @@ module.exports = {
         if (pkg.dependencies['lodash']) {
           pkg.dependencies['lodash'] = '4.17.23';
         }
+        if (pkg.dependencies['bn.js']) {
+          pkg.dependencies['bn.js'] = '5.2.3';
+        }
       }
 
       if (pkg.devDependencies) {
@@ -108,6 +111,9 @@ module.exports = {
         }
         if (pkg.devDependencies['lodash']) {
           pkg.devDependencies['lodash'] = '4.17.23';
+        }
+        if (pkg.devDependencies['bn.js']) {
+          pkg.devDependencies['bn.js'] = '5.2.3';
         }
       }
 

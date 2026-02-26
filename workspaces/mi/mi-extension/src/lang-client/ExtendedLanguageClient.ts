@@ -87,7 +87,7 @@ import {
 import { readFileSync } from "fs";
 import { CancellationToken, FormattingOptions, Position, Uri, workspace } from "vscode";
 import { CompletionParams, LanguageClient, LanguageClientOptions, ServerOptions, TextEdit } from "vscode-languageclient/node";
-import { TextDocumentIdentifier } from "vscode-languageserver-protocol";
+import { TextDocumentIdentifier, CodeAction, CodeActionParams } from "vscode-languageserver-protocol";
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { RPCLayer } from "../RPCLayer";
@@ -259,7 +259,10 @@ export class ExtendedLanguageClient extends LanguageClient {
         if (req.documentIdentifier) {
             uri = Uri.file(req.documentIdentifier).toString();
         }
-        return this.sendRequest("synapse/availableResources", { documentIdentifier: { uri: uri }, "resourceType": req.resourceType });
+        return this.sendRequest("synapse/availableResources", { 
+            documentIdentifier: { uri: uri }, resourceType: req.resourceType, 
+            ...(req.isDebugFlow && { customProjectUri: req.documentIdentifier }) 
+        });
     }
 
     async getDiagnostics(req: GetDiagnosticsReqeust): Promise<GetDiagnosticsResponse> {
@@ -481,6 +484,10 @@ export class ExtendedLanguageClient extends LanguageClient {
     }  
     
     async getMcpTools(req: McpToolsRequest): Promise<McpToolsResponse> {
-        return this.sendRequest("synapse/getMCPTools", { connectionName: req.connectionName });
+        return this.sendRequest("synapse/getMCPTools", { documentUri: Uri.file(req.documentUri).toString(), connectionName: req.connectionName, range: req.range });
+    }
+
+    async getCodeActions(params: CodeActionParams): Promise<CodeAction[]> {
+        return this.sendRequest("textDocument/codeAction", params);
     }
 }
