@@ -41,6 +41,7 @@ const BodyTitleWrapper = styled.div`
 const FormatSelectorWrapper = styled.div`
     position: relative;
     display: flex;
+    padding-right: 5px;
     justify-content: flex-end;
 `;
 const FormatButton = styled.button`

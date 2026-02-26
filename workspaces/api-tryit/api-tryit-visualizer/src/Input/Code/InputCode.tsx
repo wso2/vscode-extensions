@@ -26,7 +26,7 @@ type BodyFormat = 'json' | 'xml' | 'text' | 'html' | 'javascript' | 'form-data' 
 
 const BodyHeaderContainer = styled.div`display:flex;align-items:center;justify-content:space-between;margin:8px 0;gap:12px;`;
 const BodyTitleWrapper = styled.div`display:flex;align-items:center;gap:8px;flex:1;`;
-const FormatSelectorWrapper = styled.div`position:relative;display:flex;justify-content:flex-end;`;
+const FormatSelectorWrapper = styled.div`position:relative;display:flex;justify-content:flex-end;padding-right:5px;`;
 const FormatButton = styled.button`background:transparent;border:1px solid rgba(255,255,255,0.2);color:inherit;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;font-family:inherit;transition:all .2s ease;`;
 const FormatDropdown = styled.div<{ isOpen: boolean }>`position:absolute;max-height:160px;overflow:auto;top:100%;right:0;margin-top:4px;background:#3e3e42;border:1px solid rgba(255,255,255,0.2);border-radius:4px;min-width:180px;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:${props => props.isOpen ? 'block' : 'none'};`;
 const FormatGroupTitle = styled.div`padding:8px 10px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;background-color:rgba(0,0,0,0.2);border-bottom:1px solid rgba(255,255,255,0.1);margin:0;`;

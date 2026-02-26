@@ -327,7 +327,7 @@ const UrlInputField = styled.input`
     border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
     border-radius: 4px;
     padding: 0 12px 0 12px;
-    padding-right: 110px; /* Reserve space for inline Save button */
+    padding-right: 50px; /* Reserve space for inline Save button */
     color: var(--vscode-foreground);
     font-size: 14px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 16px rgba(0, 0, 0, 0.28);
@@ -840,13 +840,7 @@ export const MainPanel: React.FC = () => {
     return (
         <PageContainer>
             <HeaderBar>
-				{runViewState ? (
-					<TitleRow>
-						<Typography variant="h3" sx={{ margin: 0 }}>
-							Run Results
-						</Typography>
-					</TitleRow>
-				) : (
+				{!runViewState && (
 					<>
 						<TitleRow>
 							<EditableNameWrapper>

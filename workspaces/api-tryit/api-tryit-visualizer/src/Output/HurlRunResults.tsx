@@ -73,7 +73,7 @@ const RunHeader = styled.div`
 	border: 1px solid var(--vscode-panel-border);
 	border-radius: 6px;
 	background: var(--vscode-tab-inactiveBackground, rgba(255, 255, 255, 0.04));
-	padding: 14px 16px;
+	padding: 0 16px 10px;
 `;
 
 const RunMeta = styled.div`
