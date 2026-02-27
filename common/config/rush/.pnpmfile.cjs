@@ -15,107 +15,52 @@
 module.exports = {
   hooks: {
     readPackage(pkg, context) {
-      if (pkg.dependencies) {
-        if (pkg.dependencies['http-proxy']) {
-          pkg.dependencies['http-proxy'] = '1.18.1';
+      function applyOverrides(deps) {
+        if (!deps) return;
+        if (deps['http-proxy']) deps['http-proxy'] = '1.18.1';
+        if (deps['prismjs']) deps['prismjs'] = '1.30.0';
+        if (deps['xmldom']) deps['xmldom'] = 'npm:@xmldom/xmldom@0.8.10';
+        if (deps['braces']) deps['braces'] = '3.0.3';
+        if (deps['micromatch']) deps['micromatch'] = '4.0.8';
+        if (deps['js-yaml']) deps['js-yaml'] = '4.1.1';
+        if (deps['diff']) deps['diff'] = '^8.0.3';
+        if (deps['eslint']) deps['eslint'] = '^9.27.0';
+        if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.3.8';
+        if (deps['lodash']) deps['lodash'] = '4.17.23';
+        if (deps['qs']) deps['qs'] = '6.14.2';
+        if (deps['hono']) deps['hono'] = '4.11.10';
+        if (deps['bn.js']) {
+          deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
         }
-        if (pkg.dependencies['prismjs']) {
-          pkg.dependencies['prismjs'] = '1.30.0';
-        }
-        if (pkg.dependencies['xmldom']) {
-          pkg.dependencies['xmldom'] = 'npm:@xmldom/xmldom@0.8.10';
-        }
-        if (pkg.dependencies['braces']) {
-          pkg.dependencies['braces'] = '3.0.3';
-        }
-        if (pkg.dependencies['micromatch']) {
-          pkg.dependencies['micromatch'] = '4.0.8';
-        }
-        if (pkg.dependencies['js-yaml']) {
-          pkg.dependencies['js-yaml'] = '4.1.1';
-        }
-        if (pkg.dependencies['diff']) {
-          pkg.dependencies['diff'] = '^8.0.3';
-        }
-        if (pkg.dependencies['eslint']) {
-          pkg.dependencies['eslint'] = '^9.27.0';
-        }
-        if (pkg.dependencies['fast-xml-parser']) {
-          pkg.dependencies['fast-xml-parser'] = '5.3.6';
-        }
-        if (pkg.dependencies['lodash']) {
-          pkg.dependencies['lodash'] = '4.17.23';
-        }
-        if (pkg.dependencies['qs']) {
-          pkg.dependencies['qs'] = '6.14.2';
-        }
-        if (pkg.dependencies['diff']) {
-          pkg.dependencies['diff'] = '^8.0.3';
-        }
-        if (pkg.dependencies['eslint']) {
-          pkg.dependencies['eslint'] = '^9.27.0';
-        }
-        if (pkg.dependencies['hono']) {
-          pkg.dependencies['hono'] = '4.12.2';
-        }
-        if (pkg.dependencies['lodash']) {
-          pkg.dependencies['lodash'] = '4.17.23';
-        }
-        if (pkg.dependencies['bn.js']) {
-          pkg.dependencies['bn.js'] = '5.2.3';
+        if (deps['minimatch']) {
+          const currentVersion = deps['minimatch'];
+          let newVersion;
+          if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
+            newVersion = '3.1.4';
+          } else if (currentVersion.startsWith('^4') || currentVersion.startsWith('4')) {
+            newVersion = '4.2.5';
+          } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
+            newVersion = '5.1.8';
+          } else if (currentVersion.startsWith('^6') || currentVersion.startsWith('6')) {
+            newVersion = '6.2.2';
+          } else if (currentVersion.startsWith('^7') || currentVersion.startsWith('7')) {
+            newVersion = '7.4.8';
+          } else if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
+            newVersion = '8.0.6';
+          } else if (currentVersion.startsWith('^9') || currentVersion.startsWith('9')) {
+            newVersion = '9.0.7';
+          } else if (currentVersion.startsWith('^10') || currentVersion.startsWith('10')) {
+            newVersion = '10.2.3';
+          } else {
+            context.log(`Unexpected minimatch version: ${currentVersion}`);
+            newVersion = currentVersion;
+          }
+          deps['minimatch'] = newVersion;
         }
       }
 
-      if (pkg.devDependencies) {
-        if (pkg.devDependencies['http-proxy']) {
-          pkg.devDependencies['http-proxy'] = '1.18.1';
-        }
-        if (pkg.devDependencies['prismjs']) {
-          pkg.devDependencies['prismjs'] = '1.30.0';
-        }
-        if (pkg.devDependencies['xmldom']) {
-          pkg.devDependencies['xmldom'] = 'npm:@xmldom/xmldom@0.8.10';
-        }
-        if (pkg.devDependencies['js-yaml']) {
-          pkg.devDependencies['js-yaml'] = '4.1.1';
-        }
-        if (pkg.devDependencies['braces']) {
-          pkg.devDependencies['braces'] = '3.0.3';
-        }
-        if (pkg.devDependencies['micromatch']) {
-          pkg.devDependencies['micromatch'] = '4.0.8';
-        }
-        if (pkg.devDependencies['diff']) {
-          pkg.devDependencies['diff'] = '^8.0.3';
-        }
-        if (pkg.devDependencies['eslint']) {
-          pkg.devDependencies['eslint'] = '^9.27.0';
-        }
-        if (pkg.devDependencies['fast-xml-parser']) {
-          pkg.devDependencies['fast-xml-parser'] = '5.3.6';
-        }
-        if (pkg.devDependencies['lodash']) {
-          pkg.devDependencies['lodash'] = '4.17.23';
-        }
-        if (pkg.devDependencies['qs']) {
-          pkg.devDependencies['qs'] = '6.14.2';
-        }
-        if (pkg.devDependencies['diff']) {
-          pkg.devDependencies['diff'] = '^8.0.3';
-        }
-        if (pkg.devDependencies['eslint']) {
-          pkg.devDependencies['eslint'] = '^9.27.0';
-        }
-        if (pkg.devDependencies['hono']) {
-          pkg.devDependencies['hono'] = '4.12.2';
-        }
-        if (pkg.devDependencies['lodash']) {
-          pkg.devDependencies['lodash'] = '4.17.23';
-        }
-        if (pkg.devDependencies['bn.js']) {
-          pkg.devDependencies['bn.js'] = '5.2.3';
-        }
-      }
+      applyOverrides(pkg.dependencies);
+      applyOverrides(pkg.devDependencies);
 
       return pkg;
     }
