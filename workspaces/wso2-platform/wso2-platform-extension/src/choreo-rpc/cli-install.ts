@@ -16,7 +16,6 @@
  * under the License.
  */
 
-import { execSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -54,118 +53,33 @@ export const getChoreoEnv = (): string => {
 const getChoreoBinPath = () => {
 	const OS = os.platform();
 	const ARCH = getArchitecture();
-	return path.join(ext.context.extensionPath, "resources", "choreo-cli", getCliVersion(), OS, ARCH, "bin");
+	return path.join(ext.context.extensionPath, "resources", "choreo-cli", getCliVersion(), OS, ARCH);
 };
 
 export const installCLI = async () => {
 	const OS = os.platform();
-	const ARCH = getArchitecture();
-	const CHOREO_BIN_DIR = getChoreoBinPath();
 	const CHOREO_CLI_EXEC = getChoreoExecPath();
-	const CLI_VERSION = getCliVersion();
-	
-	// Path to the combined zip file in resources
-	const COMBINED_ZIP_PATH = path.join(ext.context.extensionPath, "resources", "choreo-cli", `choreo-cli-${CLI_VERSION}.zip`);
-	
-	if (!fs.existsSync(COMBINED_ZIP_PATH)) {
-		throw new Error(`Combined CLI zip not found at: ${COMBINED_ZIP_PATH}\nPlease run 'pnpm run download-choreo-cli' to download the CLI.`);
+
+	if (!fs.existsSync(CHOREO_CLI_EXEC)) {
+		const CLI_VERSION = getCliVersion();
+		const ARCH = getArchitecture();
+		throw new Error(
+			`Choreo CLI binary not found at: ${CHOREO_CLI_EXEC}\n` +
+			`Expected path: resources/choreo-cli/${CLI_VERSION}/${OS}/${ARCH}/${OS === "win32" ? "choreo.exe" : "choreo"}\n` +
+			`Please run 'pnpm run download-choreo-cli' to download the CLI.`
+		);
 	}
 
-	getLogger().trace(`Extracting Choreo CLI from: ${COMBINED_ZIP_PATH}`);
-
-	const CHOREO_TMP_DIR = await fs.promises.mkdtemp(path.join(os.tmpdir(), `choreo-cli-rpc-${CLI_VERSION}-`));
-
-	try {
-		fs.mkdirSync(CHOREO_BIN_DIR, { recursive: true });
-
-		// Extract the combined zip to temp directory
-		getLogger().trace(`Extracting combined zip to temp dir: ${CHOREO_TMP_DIR}`);
+	// Ensure executable permissions on Unix systems (may be lost after git checkout or copy)
+	if (OS !== "win32") {
 		try {
-			if (OS === "win32") {
-				execSync(`powershell.exe -Command "Expand-Archive -Path '${COMBINED_ZIP_PATH}' -DestinationPath '${CHOREO_TMP_DIR}' -Force"`);
-			} else {
-				execSync(`unzip -q '${COMBINED_ZIP_PATH}' -d '${CHOREO_TMP_DIR}'`);
-			}
+			await fs.promises.chmod(CHOREO_CLI_EXEC, 0o755);
 		} catch (error) {
-			throw new Error(`Failed to extract combined zip: ${error instanceof Error ? error.message : String(error)}`);
+			throw new Error(`Failed to set executable permissions on ${CHOREO_CLI_EXEC}: ${error instanceof Error ? error.message : String(error)}`);
 		}
-
-		// Determine the specific file to extract based on OS and architecture
-		const FILE_NAME = `choreo-cli-${CLI_VERSION}-${OS === "win32" ? "windows" : OS}-${ARCH}`;
-		let FILE_TYPE = "";
-
-		if (OS === "linux") {
-			FILE_TYPE = ".tar.gz";
-		} else if (OS === "darwin") {
-			FILE_TYPE = ".zip";
-		} else if (OS === "win32") {
-			FILE_TYPE = ".zip";
-		} else {
-			throw new Error(`Unsupported OS: ${OS}`);
-		}
-
-		const PLATFORM_ARCHIVE = path.join(CHOREO_TMP_DIR, `${FILE_NAME}${FILE_TYPE}`);
-		
-		if (!fs.existsSync(PLATFORM_ARCHIVE)) {
-			throw new Error(`Platform-specific archive not found: ${FILE_NAME}${FILE_TYPE}`);
-		}
-
-		getLogger().trace(`Extracting platform-specific archive: ${FILE_NAME}${FILE_TYPE}`);
-		const PLATFORM_TMP_DIR = path.join(CHOREO_TMP_DIR, "platform-extract");
-		fs.mkdirSync(PLATFORM_TMP_DIR, { recursive: true });
-
-		// Extract the platform-specific archive
-		try {
-			if (FILE_TYPE === ".tar.gz") {
-				execSync(`tar -xzf '${PLATFORM_ARCHIVE}' -C '${PLATFORM_TMP_DIR}'`);
-			} else if (FILE_TYPE === ".zip") {
-				if (OS === "darwin") {
-					execSync(`unzip -q '${PLATFORM_ARCHIVE}' -d '${PLATFORM_TMP_DIR}'`);
-				} else if (OS === "win32") {
-					execSync(`powershell.exe -Command "Expand-Archive -Path '${PLATFORM_ARCHIVE}' -DestinationPath '${PLATFORM_TMP_DIR}' -Force"`);
-				}
-			}
-		} catch (error) {
-			throw new Error(`Failed to extract platform-specific archive: ${error instanceof Error ? error.message : String(error)}`);
-		}
-
-		// Copy the executable to the bin directory
-		const executableName = OS === "win32" ? "choreo.exe" : "choreo";
-		const extractedExecutable = path.join(PLATFORM_TMP_DIR, executableName);
-		
-		if (!fs.existsSync(extractedExecutable)) {
-			throw new Error(`Executable not found after extraction: ${extractedExecutable}`);
-		}
-
-		getLogger().trace(`Copying executable to ${CHOREO_BIN_DIR}`);
-		try {
-			await fs.promises.copyFile(extractedExecutable, CHOREO_CLI_EXEC);
-		} catch (error) {
-			throw new Error(`Failed to copy executable: ${error instanceof Error ? error.message : String(error)}`);
-		}
-
-		// Set executable permissions on Unix systems
-		if (OS !== "win32") {
-			try {
-				await fs.promises.chmod(CHOREO_CLI_EXEC, 0o755);
-			} catch (error) {
-				throw new Error(`Failed to set executable permissions: ${error instanceof Error ? error.message : String(error)}`);
-			}
-		}
-
-		getLogger().trace("WSO2 Platform RPC server was installed successfully 🎉");
-	} catch (error) {
-		// Clean up temp directory on error and re-throw
-		getLogger().error("Error during CLI installation:", error);
-		await fs.promises.rm(CHOREO_TMP_DIR, { recursive: true, force: true }).catch(() => {
-			// Ignore cleanup errors
-		});
-		throw error;
 	}
 
-	// Clean up temp directory on success
-	getLogger().trace("Cleaning up temporary files...");
-	await fs.promises.rm(CHOREO_TMP_DIR, { recursive: true, force: true });
+	getLogger().trace("WSO2 Platform RPC server is ready 🎉");
 };
 
 function getArchitecture() {

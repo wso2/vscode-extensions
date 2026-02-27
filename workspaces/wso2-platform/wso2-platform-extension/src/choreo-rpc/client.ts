@@ -649,6 +649,15 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		return response;
 	}
 
+	async getGitRepoMetadataBatch(params: GetGitMetadataReq[]): Promise<GetGitMetadataResp[]> {
+		const results: GetGitMetadataResp[] = [];
+		for (const item of params) {
+			const res = await this.getGitRepoMetadata(item);
+			results.push(res);
+		}
+		return results;
+	}
+
 	async updateCodeServer(params: UpdateCodeServerReq): Promise<void> {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");

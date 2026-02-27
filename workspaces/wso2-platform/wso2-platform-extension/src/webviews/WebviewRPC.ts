@@ -96,6 +96,7 @@ import {
 	ShowInputBox,
 	ShowQuickPick,
 	ShowTextInOutputChannel,
+	SubmitBatchComponentCreate,
 	SubmitComponentCreate,
 	TriggerGithubAuthFlow,
 	TriggerGithubInstallFlow,
@@ -118,7 +119,7 @@ import { registerChoreoRpcResolver } from "../choreo-rpc";
 import { getChoreoExecPath } from "../choreo-rpc/cli-install";
 import { quickPickWithLoader } from "../cmds/cmd-utils";
 import { enrichGitUsernamePassword } from "../cmds/commit-and-push-to-git-cmd";
-import { submitCreateComponentHandler } from "../cmds/create-component-cmd";
+import { submitBatchCreateComponentsHandler, submitCreateComponentHandler } from "../cmds/create-component-cmd";
 import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
 import { getGitHead, getGitRemotes, getGitRoot, hasDirtyRepo, removeCredentialsFromGitURL } from "../git/util";
@@ -308,6 +309,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		await env.openExternal(ghURL);
 	});
 	messenger.onRequest(SubmitComponentCreate, submitCreateComponentHandler);
+	messenger.onRequest(SubmitBatchComponentCreate, submitBatchCreateComponentsHandler);
 	messenger.onRequest(GetDirectoryFileNames, (dirPath: string) => {
 		return readdirSync(dirPath)?.filter((fileName) => statSync(join(dirPath, fileName)).isFile());
 	});
