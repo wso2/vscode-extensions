@@ -35,6 +35,21 @@
     "ui-toolkit-stories": "npm run --prefix ./workspaces/common-libs/ui-toolkit serve-storybook",
     "prepare": "husky"
   },
+  "pnpm": {
+    "overrides": {
+      "http-proxy": "1.18.1",
+      "prismjs": "1.30.0",
+      "braces": "3.0.3",
+      "micromatch": "4.0.8",
+      "js-yaml": "4.1.1",
+      "diff": "^8.0.3",
+      "fast-xml-parser": "5.3.8",
+      "lodash": "4.17.23",
+      "minimatch@3": "3.1.4",
+      "esbuild": "0.25.0",
+      "tmp": "0.2.4"
+    }
+  },
   "devDependencies": {
     "husky": "9.1.7"
   }

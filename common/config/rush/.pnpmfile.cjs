@@ -76,9 +76,12 @@ module.exports = {
         if (pkg.dependencies['lodash']) {
           pkg.dependencies['lodash'] = '4.17.23';
         }
+        if (pkg.dependencies['tmp']) {
+          pkg.dependencies['tmp'] = '0.2.4';
+        }
         if (pkg.dependencies['bn.js']) {
-          pkg.dependencies['bn.js'] = pkg.dependencies['bn.js'].startsWith('^5') 
-            ? '5.2.3' 
+          pkg.dependencies['bn.js'] = pkg.dependencies['bn.js'].startsWith('^5')
+            ? '5.2.3'
             : '4.12.3';
         }
       }
@@ -144,9 +147,12 @@ module.exports = {
         if (pkg.devDependencies['lodash']) {
           pkg.devDependencies['lodash'] = '4.17.23';
         }
+        if (pkg.devDependencies['tmp']) {
+          pkg.devDependencies['tmp'] = '0.2.4';
+        }
         if (pkg.devDependencies['bn.js']) {
-          pkg.devDependencies['bn.js'] = pkg.devDependencies['bn.js'].startsWith('^5') 
-            ? '5.2.3' 
+          pkg.devDependencies['bn.js'] = pkg.devDependencies['bn.js'].startsWith('^5')
+            ? '5.2.3'
             : '4.12.3';
         }
       }
