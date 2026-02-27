@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { HurlFormatAdapter } from '../src/util/hurl-format-adapter';
+import { HurlFormatAdapter } from '../src/hurl-format-adapter';
 import type { ApiRequest } from '@wso2/api-tryit-core';
 
 describe('HurlFormatAdapter serialization order', () => {

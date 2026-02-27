@@ -28,12 +28,12 @@ import { readFile, writeFile } from 'fs/promises';
 import * as vscode from 'vscode';
 import * as yaml from 'js-yaml';
 import * as path from 'path';
-import { parseHurlCollection } from '@wso2/api-tryit-hurl-parser';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
-import { HurlFormatAdapter } from '../util/hurl-format-adapter';
 import {
+	parseHurlCollection,
 	composeHurlDocument,
-	parseHurlDocument
+	parseHurlDocument,
+	HurlFormatAdapter
 } from '@wso2/api-tryit-hurl-parser';
 
 interface SaveRequestInternalRequest extends SaveRequestRequest {

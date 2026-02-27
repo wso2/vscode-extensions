@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { ApiRequest, ApiResponse, HeaderParameter, QueryParameter, FormDataParameter, FormUrlEncodedParameter, BinaryFileParameter } from '@wso2/api-tryit-core';
+import { ApiRequest, ApiResponse, FormDataParameter } from '@wso2/api-tryit-core';
 
 /**
  * Hurl Format Adapter
@@ -97,10 +97,10 @@ export class HurlFormatAdapter {
 			typeof request.body === 'string'
 		) {
 			const raw = request.body.trim();
-			const looksLikeFormData = /(^@file:)|(^[^\s:{\[]+\s*:\s*[^\n]+)/m.test(raw) && !/^\s*\{/.test(raw) && !/^\s*\[/.test(raw) && !/^\s*</.test(raw);
+			const looksLikeFormData = /(^@file:)|(^[^\s:{[]+\s*:\s*[^\n]+)/m.test(raw) && !/^\s*\{/.test(raw) && !/^\s*\[/.test(raw) && !/^\s*</.test(raw);
 			if (looksLikeFormData) {
 				const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-				const parsed: any[] = [];
+				const parsed: Array<{id: string; key: string; value?: string; filePath?: string; contentType?: string}> = [];
 				for (const line of lines) {
 					// key: @file: contentType
 					const fileAt = line.match(/^([^:]+):\s*@file:\s*(.+)$/i);
@@ -287,7 +287,7 @@ export class HurlFormatAdapter {
 					console.log(`[HurlFormatAdapter] Found request line: ${request.method} ${urlPart}`);
 
 					// Parse URL and query parameters
-					const urlMatch = urlPart.match(/^([^\?]+)(?:\?(.+))?$/);
+					const urlMatch = urlPart.match(/^([^?]+)(?:\?(.+))?$/);
 					if (urlMatch) {
 						request.url = urlMatch[1];
 
@@ -453,7 +453,7 @@ export class HurlFormatAdapter {
 		const bodyText = body.trim();
 		if (bodyText) {
 			// Helper: push a form-data param
-			const pushFormParam = (arr: any[], key: string, value?: string, filePath?: string, contentType?: string) => {
+			const pushFormParam = (arr: Array<{id: string; key: string; value?: string; filePath?: string; contentType?: string}>, key: string, value?: string, filePath?: string, contentType?: string) => {
 				arr.push({ id: `form-${Math.random().toString(36).substring(2, 9)}`, key: (key || '').toString(), value: value || undefined, filePath: filePath || undefined, contentType: contentType || undefined });
 			};
 
@@ -462,7 +462,7 @@ export class HurlFormatAdapter {
 				const lines = bodyText.split('\n');
 				let currentSection: string | null = null;
 				const formData: FormDataParameter[] = [];
-				const urlEncoded: any[] = [];
+				const urlEncoded: Array<{id: string; key: string; value: string}> = [];
 				const formDataBodyLines: string[] = [];
 				const urlEncodedBodyLines: string[] = [];
 				for (const rawLine of lines) {
@@ -522,7 +522,7 @@ export class HurlFormatAdapter {
 					request.bodyFormData = formData as unknown as FormDataParameter[];
 				}
 				if (urlEncoded.length) {
-					request.bodyFormUrlEncoded = urlEncoded as any;
+					request.bodyFormUrlEncoded = urlEncoded as unknown as typeof request.bodyFormUrlEncoded;
 				}
 				// Populate UI body without section markers like [Multipart]/[FormData]/[Form]/[FormParams].
 				// Keep raw body only when no structured sections were parsed.
@@ -566,8 +566,8 @@ export class HurlFormatAdapter {
 							const hm = hl.match(/^Content-Disposition:\s*form-data;\s*(.*)$/i);
 							if (hm) {
 								const attrs = hm[1];
-								const nMatch = attrs.match(/name=\"([^\"]+)\"/);
-								const fMatch = attrs.match(/filename=\"([^\"]+)\"/);
+								const nMatch = attrs.match(/name="([^"]+)"/);
+								const fMatch = attrs.match(/filename="([^"]+)"/);
 								if (nMatch) name = nMatch[1];
 								if (fMatch) filename = fMatch[1];
 							}
@@ -591,7 +591,7 @@ export class HurlFormatAdapter {
 				// 3) Legacy/editor shorthand parsing inside body text
 				const lines = bodyText.split('\n').map(l => l.trim()).filter(Boolean);
 				const formData: FormDataParameter[] = [];
-				const binaryFiles: any[] = [];
+				const binaryFiles: Array<{id: string; filePath?: string; contentType: string}> = [];
 				for (const line of lines) {
 					// inline form-data shorthand: key: value: contentType  OR key: @file: contentType
 					const kvct = line.match(/^([^:]+):\s*([^:]+):\s*(.+)$/);
@@ -627,7 +627,7 @@ export class HurlFormatAdapter {
 					}
 				}
 				if (formData.length) request.bodyFormData = formData as unknown as FormDataParameter[];
-				if (binaryFiles.length) request.bodyBinaryFiles = binaryFiles as any;
+				if (binaryFiles.length) request.bodyBinaryFiles = binaryFiles as unknown as typeof request.bodyBinaryFiles;
 				// always keep raw body as fallback
 				request.body = bodyText;
 			}
@@ -643,7 +643,7 @@ export class HurlFormatAdapter {
 		if (!metadata.name) {
 			// Extract name from filename first, then URL path
 			const fileBaseName = filePath.split('/').pop()?.replace(/\.[^.]+$/, '') || '';
-			const urlPath = request.url ? new URL(request.url, 'http://localhost').pathname : '';
+			const urlPath = request.url ? request.url.replace(/^https?:\/\/[^/]*/, '').split('?')[0] : '';
 				const nameFromUrl = urlPath.split('/').filter(p => p).pop() || '';
 				metadata.name = fileBaseName || nameFromUrl || 'api-request';
 				console.log(`[HurlFormatAdapter] Generated name: ${metadata.name}`);

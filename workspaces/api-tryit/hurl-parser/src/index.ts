@@ -75,6 +75,7 @@ interface ParsedRequestPart {
 }
 
 export * from './hurl-collection-file';
+export { HurlFormatAdapter } from './hurl-format-adapter';
 
 export function parseHurlCollection(hurlContent: string, options: ParseHurlCollectionOptions = {}): ApiCollection {
 	if (typeof hurlContent !== 'string' || hurlContent.trim().length === 0) {
