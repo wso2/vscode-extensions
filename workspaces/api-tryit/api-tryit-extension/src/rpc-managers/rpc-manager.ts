@@ -33,7 +33,8 @@ import {
 	parseHurlCollection,
 	composeHurlDocument,
 	parseHurlDocument,
-	HurlFormatAdapter
+	HurlFormatAdapter,
+	upsertCollectionNameInHurl
 } from '@wso2/api-tryit-hurl-parser';
 
 interface SaveRequestInternalRequest extends SaveRequestRequest {
@@ -158,16 +159,19 @@ export class ApiTryItRpcManager {
                 const serializedBlock = this.serializeHurlRequestBlock(request, response, false);
 
                 if (parsedDocument.blocks.length === 0) {
-                    contentToWrite = composeHurlDocument(parsedDocument.header, [serializedBlock]);
+                    const rawDoc = composeHurlDocument(parsedDocument.header, [serializedBlock]);
+                    const collectionName = request.name?.trim() || path.basename(filePath, path.extname(filePath));
+                    contentToWrite = upsertCollectionNameInHurl(rawDoc, collectionName);
                 } else {
                     let existingBlockIndex = -1;
+                    const shouldAppendWhenNotFound = params.appendIfNotFound === true;
                     const treeIndex = this.parseRequestIndexFromTreeId(params.selectedRequestTreeId);
                     if (typeof treeIndex === 'number' && treeIndex >= 0 && treeIndex < parsedDocument.blocks.length) {
                         existingBlockIndex = treeIndex;
-                    } else {
+                    } else if (!shouldAppendWhenNotFound) {
+                        // Only search for an existing block when updating (not when adding a new request)
                         existingBlockIndex = this.findRequestBlockIndex(existingContent, filePath, request);
                     }
-                    const shouldAppendWhenNotFound = params.appendIfNotFound === true;
 
                     const updatedBlocks = parsedDocument.blocks.map(block => block.text);
                     if (existingBlockIndex >= 0 && existingBlockIndex < updatedBlocks.length) {
