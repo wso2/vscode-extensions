@@ -113,7 +113,7 @@ const xmlBuilderOptions = {
 };
 
 const BACKUP_DIR = '.backup';
-const BACKUP_LOG_FILE = 'migration-console.txt';
+const BACKUP_LOG_FILE = 'migration.log';
 const SRC = 'src';
 const MAIN = 'main';
 const WSO2MI = 'wso2mi';
@@ -149,6 +149,10 @@ function stringifyLogArg(arg: unknown): string {
     }
 }
 
+function getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
 function appendLogToBackup(level: 'log' | 'warn' | 'error', args: unknown[]) {
     if (!backupLogFilePath) {
         return;
@@ -182,6 +186,16 @@ function logError(...args: unknown[]) {
 
 function getNatureName(nature: Nature | undefined): string {
     return nature === undefined ? 'UNKNOWN' : Nature[nature];
+}
+
+function warnParseFailure(filePath: string, artifactType: string, error: unknown) {
+    const errorMessage = getErrorMessage(error);
+    const logMessage = `Failed to parse ${artifactType} at ${filePath}: ${errorMessage}`;
+    logError(logMessage);
+    void window.showWarningMessage(
+        `Migration stopped: Failed to parse ${artifactType} at ${filePath}. ${errorMessage}`,
+        { modal: true }
+    );
 }
 
 const SYNAPSE_TO_MI_ARTIFACT_FOLDER_MAP: Record<string, string> = {
@@ -381,8 +395,14 @@ export async function generateProjectDirToResolvedPomMap(multiModuleProjectDir: 
     let match;
     while ((match = projectRegex.exec(resolvedPomContent)) !== null) {
         const projectXml = match[0];
-        const parser = new XMLParser({ ignoreAttributes: false });
-        const parsed = parser.parse(projectXml);
+        let parsed: any;
+        try {
+            const parser = new XMLParser({ ignoreAttributes: false });
+            parsed = parser.parse(projectXml);
+        } catch (error) {
+            warnParseFailure(path.join(multiModuleProjectDir, 'pom.xml'), 'pom.xml', error);
+            continue;
+        }
         const reportingDir = parsed?.project?.build?.sourceDirectory;
 
         if (reportingDir) {
@@ -425,18 +445,23 @@ export function getProjectDetails(filePath: string, projectDirToResolvedPomMap?:
     if (fs.existsSync(pomPath)) {
         if (projectDirToResolvedPomMap && projectDirToResolvedPomMap.get(filePath)) {
             const resolvedPomContent = projectDirToResolvedPomMap.get(filePath);
-            const parser = new XMLParser({ ignoreAttributes: false });
-            const parsed = resolvedPomContent ? parser.parse(resolvedPomContent) : {};
-            projectName = parsed?.project?.name;
-            groupId = parsed?.project?.groupId;
-            artifactId = parsed?.project?.artifactId;
-            version = parsed?.project?.version;
-            runtimeVersion = parsed?.project?.properties?.["project.runtime.version"];
+            try {
+                const parser = new XMLParser({ ignoreAttributes: false });
+                const parsed = resolvedPomContent ? parser.parse(resolvedPomContent) : {};
+                projectName = parsed?.project?.name;
+                groupId = parsed?.project?.groupId;
+                artifactId = parsed?.project?.artifactId;
+                version = parsed?.project?.version;
+                runtimeVersion = parsed?.project?.properties?.["project.runtime.version"];
+            } catch (error) {
+                warnParseFailure(pomPath, 'pom.xml', error);
+                return { projectName, groupId, artifactId, version, runtimeVersion };
+            }
         } else {
             const pomContent = fs.readFileSync(pomPath, 'utf8');
             parseString(pomContent, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
                 if (err) {
-                    logError('Error parsing pom.xml:', err);
+                    warnParseFailure(pomPath, 'pom.xml', err);
                     return;
                 }
                 projectName = result?.project?.name;
@@ -993,9 +1018,15 @@ function getPomIdentifier(projectDir: string, projectDirToResolvedPom: Map<strin
 
     const resolvedPomContent = projectDirToResolvedPom.get(projectDir);
     if (resolvedPomContent) {
-        // Parse the effective POM XML output
-        const parser = new XMLParser({ ignoreAttributes: false });
-        const parsed = parser.parse(resolvedPomContent);
+        let parsed: any;
+        try {
+            // Parse the effective POM XML output
+            const parser = new XMLParser({ ignoreAttributes: false });
+            parsed = parser.parse(resolvedPomContent);
+        } catch (error) {
+            warnParseFailure(projectPomFilePath, 'pom.xml', error);
+            return null;
+        }
 
         const groupId = parsed?.project?.groupId;
         const artifactId = parsed?.project?.artifactId;
@@ -1078,9 +1109,14 @@ async function determineProjectType(source: string): Promise<Nature | undefined>
     } 
     // If not found OR it is LEGACY, fallback to pom.xml
     if ((!configType || configType === Nature.LEGACY) && fs.existsSync(rootPomFilePath)) {
-        const pomContent = fs.readFileSync(rootPomFilePath, 'utf-8');
-        const fetchedNatureStr = await extractNatureFromPomContent(pomContent);
-        configType = getNatureFromString(fetchedNatureStr);
+        try {
+            const pomContent = fs.readFileSync(rootPomFilePath, 'utf-8');
+            const fetchedNatureStr = await extractNatureFromPomContent(pomContent);
+            configType = getNatureFromString(fetchedNatureStr);
+        } catch (error) {
+            warnParseFailure(rootPomFilePath, 'pom.xml', error);
+            return undefined;
+        }
     }
     logInfo(`[Migration] determineProjectType. source=${source}, resolvedType=${getNatureName(configType)}`);
     return configType;
@@ -1607,7 +1643,7 @@ function processRegistryResources(source: string, target: string) {
 
     parseString(xmlContent, { explicitArray: false, ignoreAttrs: false }, (err, result) => {
         if (err) {
-            logError('Error parsing pom.xml:', err);
+            warnParseFailure(artifactXMLPath, 'artifact.xml', err);
             return;
         }
 
@@ -1732,8 +1768,14 @@ function readPomDependencies(source: string, projectDirToResolvedPomMap: Map<str
         }
     }
 
-    const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: false });
-    const parsed = parser.parse(resolvedPomContent);
+    let parsed: any;
+    try {
+        const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: false });
+        parsed = parser.parse(resolvedPomContent);
+    } catch (error) {
+        warnParseFailure(pomFilePath, 'pom.xml', error);
+        return [];
+    }
 
     const dependencies = parsed?.project?.dependencies?.dependency;
     if (!dependencies) {
@@ -1825,9 +1867,14 @@ export async function containsMultiModuleNatureInProjectFile(filePath: string): 
  */
 export async function containsMultiModuleNatureInPomFile(filePath: string): Promise<boolean> {
     if (!fs.existsSync(filePath)) return false;
-    const pomContent = await fs.promises.readFile(filePath, 'utf-8');
-    const projectNature = await extractNatureFromPomContent(pomContent);
-    return OLD_MULTI_MODULE_PROJECT_NATURES.includes(projectNature ?? '');
+    try {
+        const pomContent = await fs.promises.readFile(filePath, 'utf-8');
+        const projectNature = await extractNatureFromPomContent(pomContent);
+        return OLD_MULTI_MODULE_PROJECT_NATURES.includes(projectNature ?? '');
+    } catch (error) {
+        warnParseFailure(filePath, 'pom.xml', error);
+        return false;
+    }
 }
 
 /**
