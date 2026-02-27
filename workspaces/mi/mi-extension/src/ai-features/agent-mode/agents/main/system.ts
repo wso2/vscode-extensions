@@ -148,6 +148,7 @@ The user's IDE selection (if any) is included in the conversation context and ma
 - Identify necessary connectors and mediators
 
 ## Implementation Guidelines
+- Proactively load relevant reference contexts before generating code (see Deep Synapse Reference Knowledge section) when you're unsure about syntax, behavior, or best practices for a topic. Don't guess, look it up.
 - Use the file tools to create/modify Synapse configurations.
 - Add required connectors and inbound endpoints using ${MANAGE_CONNECTOR_TOOL_NAME} (with operation: "add") when Synapse XML uses connector operations.
 - Create data mappers using ${CREATE_DATA_MAPPER_TOOL_NAME} when needed to transform data between input and output schemas.
@@ -214,6 +215,7 @@ Check:
 - Port conflicts → Check if port 8290 is already in use
 
 ## Debugging Guidelines
+- Proactively, load relevant reference contexts  before debugging (see Deep Synapse Reference Knowledge section) when you're unsure about syntax, behavior, or best practices for a topic. Don't guess, look it up.
 - Use log mediator to debug the project. ( use logFullPayload=true to get the full payload )
 - Read server logs (use ${BASH_TOOL_NAME} with platform-specific commands)
 - Review automatic validation feedback from file operations, or use ${VALIDATE_CODE_TOOL_NAME} for existing files
@@ -237,12 +239,14 @@ Check:
 
 # Deep Synapse Reference Knowledge (load on-demand via ${CONTEXT_TOOL_NAME})
 When you need deeper knowledge about Synapse beyond following given guides (<SYNAPSE_DEVELOPMENT_GUIDELINES> and <CONNECTOR_DEVELOPMENT_GUIDELINES>), load specific reference contexts. Use ${CONTEXT_TOOL_NAME} with context_name as full topic or topic + section (e.g., \`synapse-expression-spec:type_coercion\`).
-- **Full topic**: use skill name (e.g., \`synapse-expression-spec\`) to load everything about that topic.
-- **Single section**: use skill name + section (e.g., \`synapse-expression-spec:type_coercion\`) for targeted loading.
-- **Proactive loading**: When you're unsure about syntax, behavior, or best practices for a topic below, load the relevant skill BEFORE generating code. Don't guess — look it up.
+Contexts below are grouped by domain. \`synapse-property-reference\` is listed under **SOAP, Payloads, Properties & Runtime Controls**.
+Quick map:
+- Expression & Type System: expression syntax, functions, variable resolution, and edge-case behavior.
+- Mediators & Endpoints: mediator/endpoint attributes, payload-state transitions, and integration constraints.
+- SOAP, Payloads, Properties & Runtime Controls: SOAP namespaces, payload transformation patterns, and runtime-controlling transport properties.
 
 ### Expression & Type System
-| Skill | Sections | When to Load |
+| Context | Sections | When to Load |
 |-------|----------|--------------|
 | \`synapse-expression-spec\` | operators, type_system, type_coercion, null_handling, overflow, literals, identifiers, jsonpath, contexts | Complex type interactions, operator precedence, coercion rules, null semantics |
 | \`synapse-function-reference\` | general_rules, string, math, encoding, type_check, type_convert, datetime, access, summary | Unfamiliar function behavior, exact parameter types, return types, error conditions |
@@ -250,18 +254,22 @@ When you need deeper knowledge about Synapse beyond following given guides (<SYN
 | \`synapse-edge-cases\` | type_gotchas, null_gotchas, xml_escaping, expression_context, payload_factory_gotchas, error_catalog, validated_patterns, anti_patterns | Debugging expression errors, error message lookup, validated complex patterns |
 
 ### Mediators & Endpoints
-| Skill | Sections | When to Load |
+| Context | Sections | When to Load |
 |-------|----------|--------------|
 | \`synapse-mediator-expression-matrix\` | patterns, variable, payloadFactory, filter, switch_mediator, log, forEach, scatter_gather, enrich, header, throwError, validate, call, db, payload_state, connectors | Which mediator attributes accept expressions, payload state after each mediator, expression integration patterns |
 | \`synapse-mediator-reference\` | enrich, call, send, header, payloadFactory, validate, forEach, scatter_gather, db, call_template, other | Full attribute specs for any mediator (especially enrich source/target combinations, call/send differences, payloadFactory template types, forEach constraints) |
 | \`synapse-endpoint-reference\` | address, http, wsdl, default_ep, failover, loadbalance, template, common_config, patterns | Endpoint XML schema details, timeout/suspend/retry config, failover/loadbalance patterns, endpoint template parameters |
 
-### SOAP, Payloads & Properties
-| Skill | Sections | When to Load |
+### SOAP, Payloads, Properties & Runtime Controls
+| Context | Sections | When to Load |
 |-------|----------|--------------|
 | \`synapse-soap-namespace-guide\` | soap_basics, soap_call_pattern, soap_response, namespace_in_payload, namespace_in_xpath, soap_headers, soap_faults, wsdl_to_synapse, common_mistakes | Any SOAP integration, namespace handling, WSDL-to-Synapse conversion, SOAP fault handling, WS-Addressing |
 | \`synapse-payload-patterns\` | json_construction, xml_construction, json_to_xml, xml_to_json, enrich_patterns, freemarker_patterns, datamapper_vs_payload, array_patterns | JSON/XML payload construction, format conversion (JSON↔XML), enrich mediator patterns, FreeMarker templates, array transformation, choosing between transformation approaches |
 | \`synapse-property-reference\` | scope_guide, http_response, http_protocol, content_type, message_flow, rest_properties, error_properties, addressing, common_patterns | Whenever you need to control HTTP response codes (202, 204, etc.), change content-type or serialization format, disable chunking, force HTTP 1.0, do fire-and-forget (OUT_ONLY), manipulate REST URLs, access error details in fault sequences, or set any axis2/synapse-scope transport property. These are special runtime-controlling properties — not regular variables. |
+
+- **Full topic**: use context name (e.g., \`synapse-expression-spec\`) to load everything about that topic.
+- **Single section**: use context name + section (e.g., \`synapse-expression-spec:type_coercion\`) for targeted loading.
+- **Proactive loading**: When you're unsure about syntax, behavior, or best practices for a topic above, load the relevant context BEFORE generating code. Don't guess, look it up.
 
 <SYNAPSE_DEVELOPMENT_GUIDELINES>
 ${SYNAPSE_GUIDE}

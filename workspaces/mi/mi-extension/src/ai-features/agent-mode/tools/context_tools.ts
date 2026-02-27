@@ -52,6 +52,10 @@ import {
     SYNAPSE_PAYLOAD_PATTERNS_SECTIONS,
 } from '../context/synapse-core/synapse_payload_patterns';
 import {
+    SYNAPSE_PROPERTY_REFERENCE_FULL,
+    SYNAPSE_PROPERTY_REFERENCE_SECTIONS,
+} from '../context/synapse-core/synapse_property_reference';
+import {
     SYNAPSE_SOAP_NAMESPACE_GUIDE_FULL,
     SYNAPSE_SOAP_NAMESPACE_GUIDE_SECTIONS,
 } from '../context/synapse-core/synapse_soap_namespace_guide';
@@ -125,6 +129,12 @@ const CONTEXT_REFERENCES: ContextDefinition[] = [
         description: 'Payload transformation cookbook with practical JSON/XML and mixed-payload construction patterns.',
         content: SYNAPSE_PAYLOAD_PATTERNS_FULL,
         sections: SYNAPSE_PAYLOAD_PATTERNS_SECTIONS,
+    },
+    {
+        name: 'synapse-property-reference',
+        description: 'Reference for runtime-controlling Synapse and Axis2 properties, scopes, and usage patterns.',
+        content: SYNAPSE_PROPERTY_REFERENCE_FULL,
+        sections: SYNAPSE_PROPERTY_REFERENCE_SECTIONS,
     },
     {
         name: 'synapse-soap-namespace-guide',
@@ -282,13 +292,13 @@ export function createContextExecute(projectPath: string): ContextExecuteFn {
 }
 
 const contextInputSchema = z.object({
-    context_name: z.string().describe('Context selector in the form "topic" or "topic:section" (see <available_contexts>).'),
+    context_name: z.string().describe('Context selector in the form "topic" or "topic:section".'),
 });
 
 export function createContextTool(execute: ContextExecuteFn) {
     return (tool as any)({
         description: `Loads deep reference context on demand to avoid prompt bloat.
-            Use context_name in the form "topic" or "topic:section" from <available_contexts>.
+            Use context_name in the form "topic" or "topic:section".
             Example: "synapse-expression-spec:type_coercion".
             Note: AI connector context requires MI runtime 4.4.0 or newer.`,
         inputSchema: contextInputSchema,
