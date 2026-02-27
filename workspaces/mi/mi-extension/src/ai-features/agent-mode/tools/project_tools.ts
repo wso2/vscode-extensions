@@ -50,7 +50,6 @@ interface ProcessItemResult {
     alreadyAdded?: boolean;
     usedFallback?: boolean;
     storeFailure?: boolean;
-    storeUnavailable?: boolean;
     error?: string;
 }
 
@@ -60,6 +59,17 @@ interface ConnectorDefinition {
     version?: {
         tagName?: string;
     };
+}
+
+interface ExistingDependency {
+    groupId: string;
+    artifact: string;
+    version?: string;
+}
+
+interface ExistingDependencies {
+    connectorDependencies?: ExistingDependency[];
+    otherDependencies?: ExistingDependency[];
 }
 
 // ============================================================================
@@ -99,7 +109,7 @@ export function createManageConnectorExecute(
             logDebug(`[${toolName}] Runtime version: ${runtimeVersion}`);
 
             // For add operation, get existing dependencies to check for duplicates
-            let existingDependencies: any = { connectorDependencies: [], otherDependencies: [] };
+            let existingDependencies: ExistingDependencies = { connectorDependencies: [], otherDependencies: [] };
             if (isAdd) {
                 const langClient = await MILanguageClient.getInstance(projectPath);
                 const projectDetails = await langClient.getProjectDetails();
@@ -190,7 +200,7 @@ export function createManageConnectorExecute(
             const successful = results.filter(r => r.success);
             const failed = results.filter(r => !r.success);
             const fallbackUsed = results.filter(r => r.success && r.usedFallback);
-            const storeFailedUnavailable = results.filter((r) => !r.success && r.storeUnavailable);
+            const storeFailed = results.filter((r) => !r.success && r.storeFailure);
 
             let message = '';
 
@@ -241,8 +251,8 @@ export function createManageConnectorExecute(
                 });
             }
 
-            if (storeFailedUnavailable.length > 0) {
-                message += `\nConnector store outage impacted ${storeFailedUnavailable.length} item(s). `;
+            if (storeFailed.length > 0) {
+                message += `\nConnector store outage impacted ${storeFailed.length} item(s). `;
                 message += `Those items were not in cache or fallback data.`;
             }
 
@@ -270,7 +280,7 @@ async function processItem(
     resolvedItem: ConnectorDefinition | null,
     usedFallback: boolean,
     storeFailure: boolean,
-    existingDependencies: any,
+    existingDependencies: ExistingDependencies,
     miVisualizerRpcManager: MiVisualizerRpcManager,
     isAdd: boolean,
     operation: 'add' | 'remove',
@@ -283,17 +293,15 @@ async function processItem(
                 type: itemType,
                 success: false,
                 storeFailure,
-                storeUnavailable: storeFailure,
                 error: storeFailure
                     ? `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} is unavailable because connector store is unavailable and no cache/fallback definition exists`
                     : `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} not found in connector store or fallback`
             };
         }
 
-        const item = resolvedItem;
-        const mavenGroupId = typeof item?.mavenGroupId === 'string' ? item.mavenGroupId.trim() : '';
-        const mavenArtifactId = typeof item?.mavenArtifactId === 'string' ? item.mavenArtifactId.trim() : '';
-        const versionTag = typeof item?.version?.tagName === 'string' ? item.version.tagName.trim() : '';
+        const mavenGroupId = typeof resolvedItem?.mavenGroupId === 'string' ? resolvedItem.mavenGroupId.trim() : '';
+        const mavenArtifactId = typeof resolvedItem?.mavenArtifactId === 'string' ? resolvedItem.mavenArtifactId.trim() : '';
+        const versionTag = typeof resolvedItem?.version?.tagName === 'string' ? resolvedItem.version.tagName.trim() : '';
 
         if (!mavenGroupId || !mavenArtifactId) {
             return {
@@ -316,7 +324,7 @@ async function processItem(
         // For add operation, check if item is already in pom.xml
         if (isAdd) {
             const alreadyExists = existingDependencies.connectorDependencies?.some(
-                (existingDep: any) =>
+                (existingDep: ExistingDependency) =>
                     existingDep.groupId === mavenGroupId &&
                     existingDep.artifact === mavenArtifactId
             );

@@ -223,9 +223,7 @@ const BLOCKED_INTERACTIVE_OR_ELEVATED_COMMANDS = new Set([
     'zsh',
 ]);
 
-const ALLOWED_EXTERNAL_MUTATION_ROOTS = process.platform === 'win32'
-    ? [path.resolve(os.tmpdir())]
-    : ['/tmp'];
+const ALLOWED_EXTERNAL_MUTATION_ROOTS = [resolvePathWithRealpath(os.tmpdir())];
 
 const SENSITIVE_PATH_SEGMENTS = new Set([
     '.aws',
@@ -829,6 +827,65 @@ function extractMutationWritePathTokens(command: string, tokens: string[], rawSe
         }
     } else if (command === 'git') {
         writePaths.push(...extractOptionValues(tokens, ['-C', '--git-dir', '--work-tree']));
+        const gitGlobalOptionsWithValue = new Set(['-C', '--git-dir', '--work-tree']);
+        const gitSubcommandOptionsWithValue = new Set([
+            '--config',
+            '--config-env',
+            '--depth',
+            '--branch',
+            '--origin',
+            '--reference',
+            '--reference-if-able',
+            '--server-option',
+            '--template',
+            '--upload-pack',
+            '--separate-git-dir',
+            '--object-format',
+            '--shared',
+            '--initial-branch',
+        ]);
+
+        const gitArgs = tokens.slice(1);
+        let subcommandIndex = -1;
+        for (let i = 0; i < gitArgs.length; i++) {
+            const token = gitArgs[i];
+            if (token === '--') {
+                break;
+            }
+            if (!token.startsWith('-')) {
+                subcommandIndex = i;
+                break;
+            }
+            if (gitGlobalOptionsWithValue.has(token) && i + 1 < gitArgs.length) {
+                i++;
+            }
+        }
+
+        if (subcommandIndex >= 0) {
+            const subcommand = normalizeToken(gitArgs[subcommandIndex]);
+            const positionalArgs: string[] = [];
+            for (let i = subcommandIndex + 1; i < gitArgs.length; i++) {
+                const token = gitArgs[i];
+                if (token === '--') {
+                    positionalArgs.push(...gitArgs.slice(i + 1).filter(Boolean));
+                    break;
+                }
+                if (token.startsWith('-')) {
+                    const optionName = token.includes('=') ? token.slice(0, token.indexOf('=')) : token;
+                    if (!token.includes('=') && gitSubcommandOptionsWithValue.has(optionName) && i + 1 < gitArgs.length) {
+                        i++;
+                    }
+                    continue;
+                }
+                positionalArgs.push(token);
+            }
+
+            if (subcommand === 'clone' && positionalArgs.length >= 2) {
+                writePaths.push(positionalArgs[positionalArgs.length - 1]);
+            } else if (subcommand === 'init' && positionalArgs.length >= 1) {
+                writePaths.push(positionalArgs[positionalArgs.length - 1]);
+            }
+        }
     } else if (['bun', 'npm', 'pnpm', 'pip', 'pip3', 'poetry', 'yarn'].includes(command)) {
         writePaths.push(...extractOptionValues(tokens, ['-C', '--prefix', '--cwd']));
     } else {
@@ -959,8 +1016,10 @@ function isGitMutation(tokens: string[]): boolean {
         'checkout',
         'cherry-pick',
         'clean',
+        'clone',
         'commit',
         'fetch',
+        'init',
         'merge',
         'pull',
         'push',

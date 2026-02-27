@@ -70,12 +70,15 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
 
         case CONNECTOR_TOOL_NAME: {
             const targetName = toolInput?.name;
-            if (typeof targetName === 'string' && targetName.trim().length > 0) {
-                return {
-                    loading: `fetching ${targetName}`,
-                    completed: `fetched ${targetName}`,
-                    failed: `failed to fetch ${targetName}`
-                };
+            if (typeof targetName === 'string') {
+                const trimmedName = targetName.trim();
+                if (trimmedName.length > 0) {
+                    return {
+                        loading: `fetching ${trimmedName}`,
+                        completed: `fetched ${trimmedName}`,
+                        failed: `failed to fetch ${trimmedName}`
+                    };
+                }
             }
             return { loading: 'fetching connector details', completed: 'fetched connector details', failed: 'failed to fetch connector details' };
         }

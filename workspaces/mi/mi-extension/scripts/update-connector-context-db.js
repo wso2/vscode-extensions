@@ -105,11 +105,23 @@ async function requestJson(url, init, label) {
     let lastError;
 
     for (let attempt = 1; attempt <= RETRY_COUNT; attempt++) {
+        let response;
+        let retryableStatus = false;
         try {
-            const response = await fetchWithTimeout(url, init);
+            response = await fetchWithTimeout(url, init);
+            retryableStatus = response.status === 429 || response.status >= 500;
+
+            if (!response.ok && !retryableStatus) {
+                // Non-retryable client failures (for example auth/config issues) should fail fast.
+                return await parseResponse(response, label);
+            }
+
             return await parseResponse(response, label);
         } catch (error) {
             lastError = error;
+            if (response && !retryableStatus) {
+                throw error;
+            }
             if (attempt < RETRY_COUNT) {
                 console.warn(`${label} attempt ${attempt}/${RETRY_COUNT} failed. Retrying...`);
                 await sleep(RETRY_DELAY_MS * attempt);
@@ -584,6 +596,22 @@ function findStatementTerminatorIndex(content, startIndex) {
     let escaped = false;
     let inLineComment = false;
     let inBlockComment = false;
+    let braceDepth = 0;
+    let parenDepth = 0;
+    let bracketDepth = 0;
+    let angleDepth = 0;
+    let inTypeContext = false;
+
+    const isIdentifierStart = (char) => /[A-Za-z_$]/.test(char);
+    const isIdentifierPart = (char) => /[A-Za-z0-9_$]/.test(char);
+    const findNextNonWhitespaceChar = (index) => {
+        for (let cursor = index; cursor < content.length; cursor++) {
+            if (!/\s/.test(content[cursor])) {
+                return content[cursor];
+            }
+        }
+        return '';
+    };
 
     for (let i = startIndex; i < content.length; i++) {
         const char = content[i];
@@ -638,7 +666,69 @@ function findStatementTerminatorIndex(content, startIndex) {
             continue;
         }
 
-        if (char === ';') {
+        if (isIdentifierStart(char)) {
+            let end = i + 1;
+            while (end < content.length && isIdentifierPart(content[end])) {
+                end++;
+            }
+            const identifier = content.slice(i, end).toLowerCase();
+            if (identifier === 'as' || identifier === 'satisfies') {
+                inTypeContext = true;
+            }
+            i = end - 1;
+            continue;
+        }
+
+        if (char === '{') {
+            braceDepth++;
+            continue;
+        }
+
+        if (char === '}' && braceDepth > 0) {
+            braceDepth--;
+            continue;
+        }
+
+        if (char === '(') {
+            parenDepth++;
+            continue;
+        }
+
+        if (char === ')' && parenDepth > 0) {
+            parenDepth--;
+            continue;
+        }
+
+        if (char === '[') {
+            bracketDepth++;
+            continue;
+        }
+
+        if (char === ']' && bracketDepth > 0) {
+            bracketDepth--;
+            continue;
+        }
+
+        if (char === '<' && (inTypeContext || angleDepth > 0)) {
+            const nextNonWhitespace = findNextNonWhitespaceChar(i + 1);
+            if (nextNonWhitespace && nextNonWhitespace !== '=') {
+                angleDepth++;
+            }
+            continue;
+        }
+
+        if (char === '>' && angleDepth > 0) {
+            angleDepth--;
+            continue;
+        }
+
+        if (
+            char === ';' &&
+            braceDepth === 0 &&
+            parenDepth === 0 &&
+            bracketDepth === 0 &&
+            angleDepth === 0
+        ) {
             return i;
         }
     }

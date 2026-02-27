@@ -243,6 +243,7 @@ async function requestPlanApproval(
         sessionId: string;
         approvalKind: PlanApprovalKind;
         content: string;
+        summary?: string;
         planFilePath?: string;
         approvalTitle: string;
         approveLabel: string;
@@ -257,6 +258,7 @@ async function requestPlanApproval(
         approvalId,
         planFilePath: request.planFilePath,
         content: request.content,
+        summary: request.summary,
         approvalKind: request.approvalKind,
         approvalTitle: request.approvalTitle,
         approveLabel: request.approveLabel,
@@ -720,6 +722,7 @@ export function createExitPlanModeExecute(
         }
 
         try {
+            const approvalSummary = typeof summary === 'string' ? summary.trim() : '';
             const approval = await requestPlanApproval(eventHandler, pendingApprovals, {
                 sessionId,
                 approvalKind: 'exit_plan_mode',
@@ -728,7 +731,8 @@ export function createExitPlanModeExecute(
                 rejectLabel: 'Request Changes',
                 allowFeedback: true,
                 planFilePath: planInfo.planPath,
-                content: planContent || summary || 'Plan ready for approval',
+                summary: approvalSummary || undefined,
+                content: planContent || 'Plan ready for approval',
             });
 
             if (approval.approved) {

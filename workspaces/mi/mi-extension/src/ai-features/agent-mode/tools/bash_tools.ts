@@ -101,6 +101,18 @@ function formatApprovalReasons(reasons: string[]): string {
     return reasons.map((reason) => `- ${reason}`).join('\n');
 }
 
+function summarizeCommandForLog(command: string): string {
+    const trimmed = command.trim();
+    if (!trimmed) {
+        return '<empty>';
+    }
+
+    const tokens = trimmed.split(/\s+/);
+    const commandName = tokens[0].replace(/^['"`]+|['"`]+$/g, '');
+    const argCount = Math.max(tokens.length - 1, 0);
+    return `${commandName || '<unknown>'} (args=${argCount})`;
+}
+
 function buildShellApprovalContent(command: string, reasons: string[], suggestedPrefixRule: string[]): string {
     const lines: string[] = [
         'Agent wants to run this shell command:',
@@ -231,7 +243,7 @@ export function createBashExecute(
                 }
             }
         } else if (approvalBypassedByRule) {
-            logInfo(`[ShellTool] Approval bypassed by session rule for command: ${command}`);
+            logInfo(`[ShellTool] Approval bypassed by session rule for command summary: ${summarizeCommandForLog(command)}`);
         }
 
         logInfo(`[ShellTool] Executing: ${command}${description ? ` (${description})` : ''}`);

@@ -256,6 +256,7 @@ export interface PlanApprovalRequestedEvent extends AgentEvent {
     type: 'plan_approval_requested';
     approvalId: string;
     content: string;
+    summary?: string;
     approvalKind: PlanApprovalKind;
     approvalTitle: string;
     approveLabel: string;

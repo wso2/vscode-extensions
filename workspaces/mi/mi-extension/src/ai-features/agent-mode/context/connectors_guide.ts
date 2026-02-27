@@ -93,6 +93,8 @@ Now some connectors support two additional operation parameters ( ongoing connec
     - Replaces the message payload/body directly with connector response.
     - Useful when next operation should consume previous response as \`\${payload}\`.
     - Prefer this when response must be forwarded through the flow.
+3. Before using \`responseVariable\` or \`overwriteBody\`, verify the selected operation signature/supported parameters include them.
+   - If an operation does not support these parameters, fall back to the older response-handling approach.
 
 For other connectors, use the older response-handling approach instead.
 `;

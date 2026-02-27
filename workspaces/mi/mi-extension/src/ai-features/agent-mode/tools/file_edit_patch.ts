@@ -65,6 +65,10 @@ function toNormalizedLines(content: string): string[] {
     return normalizeLineEndings(content).split('\n').map(trimTrailingWhitespace);
 }
 
+function toNormalizedLinesPreserveTrailingWhitespace(content: string): string[] {
+    return normalizeLineEndings(content).split('\n');
+}
+
 function toRawLfLines(content: string): string[] {
     return normalizeLineEndings(content).split('\n');
 }
@@ -162,8 +166,8 @@ function validateHunk(hunk: FileEditHunk, hunkIndex: number): PatchApplyFailure 
         };
     }
 
-    const normalizedOld = normalizedOldLines.join('\n');
-    const normalizedNew = toNormalizedLines(hunk.new_text).join('\n');
+    const normalizedOld = toNormalizedLinesPreserveTrailingWhitespace(hunk.old_text).join('\n');
+    const normalizedNew = toNormalizedLinesPreserveTrailingWhitespace(hunk.new_text).join('\n');
     if (normalizedOld === normalizedNew) {
         return {
             success: false,

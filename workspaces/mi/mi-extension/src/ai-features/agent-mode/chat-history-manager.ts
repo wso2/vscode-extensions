@@ -78,7 +78,7 @@ export interface GroupedSessions {
  * Session storage version for compatibility checks.
  * Increase this only when introducing breaking changes to persisted session data.
  */
-export const SESSION_STORAGE_VERSION = 1.0;
+export const SESSION_STORAGE_VERSION = 1;
 
 /**
  * JSONL entry format (Claude Code style).

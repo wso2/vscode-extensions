@@ -219,6 +219,16 @@ function getApprovalTitle(approvalKind: PlanApprovalKind | undefined): string {
     }
 }
 
+function sanitizeSuggestedPrefixRule(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value.filter((item): item is string =>
+        typeof item === 'string' && item.trim().length > 0
+    );
+}
+
 function markFileChangesTagsAsNonUndoable(content: string): string {
     return content.replace(/<filechanges>([\s\S]*?)<\/filechanges>/g, (fullMatch, summaryText) => {
         try {
@@ -763,8 +773,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 setPendingPlanApproval(null);
                 setShowRejectionInput(false);
                 setPlanRejectionFeedback("");
-                setRememberShellApprovalForSession(false);
-                setAnswers(new Map());
+                resetApprovalUiState();
                 setOtherAnswers(new Map());
                 setMessages((prevMessages) => {
                     if (prevMessages.length === 0) return prevMessages;
@@ -911,6 +920,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         if (planEvent.approvalId) {
                             const approvalKind: PlanApprovalKind = planEvent.approvalKind || 'exit_plan_mode';
                             const planContent = typeof planEvent.content === "string" ? planEvent.content.trim() : "";
+                            const planSummary = typeof planEvent.summary === "string" ? planEvent.summary.trim() : "";
+                            const safeSuggestedPrefixRule = sanitizeSuggestedPrefixRule(planEvent.suggestedPrefixRule);
                             if (approvalKind === 'exit_plan_mode' && planContent) {
                                 setMessages((prev) => {
                                     const planTag = `<plan>${planContent}</plan>`;
@@ -933,7 +944,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             );
 
                             const dialogContent = approvalKind === 'exit_plan_mode'
-                                ? getPlanApprovalPrompt(planContent, planEvent.planFilePath)
+                                ? (planSummary || getPlanApprovalPrompt(planContent, planEvent.planFilePath))
                                 : (planContent || fallbackContent);
 
                             setPendingPlanApproval({
@@ -943,7 +954,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 approveLabel: planEvent.approveLabel,
                                 rejectLabel: planEvent.rejectLabel,
                                 allowFeedback: planEvent.allowFeedback,
-                                suggestedPrefixRule: planEvent.suggestedPrefixRule,
+                                suggestedPrefixRule: safeSuggestedPrefixRule,
                                 planFilePath: planEvent.planFilePath,
                                 content: dialogContent,
                             });
@@ -969,11 +980,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         // Clear local dialog state immediately.
         setPendingQuestion(null);
         setPendingPlanApproval(null);
-        setAnswers(new Map());
+        resetApprovalUiState();
         setOtherAnswers(new Map());
         setShowRejectionInput(false);
         setPlanRejectionFeedback("");
-        setRememberShellApprovalForSession(false);
     };
 
     // Handle user response to ask_user questions
@@ -1052,8 +1062,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setPendingPlanApproval(null);
         setShowRejectionInput(false);
         setPlanRejectionFeedback("");
-        setRememberShellApprovalForSession(false);
-        setAnswers(new Map());
+        resetApprovalUiState();
         setOtherAnswers(new Map());
         try {
             await rpcClient.getMiAgentPanelRpcClient().abortAgentGeneration();
@@ -1441,6 +1450,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const [showRejectionInput, setShowRejectionInput] = useState(false);
     const [rememberShellApprovalForSession, setRememberShellApprovalForSession] = useState(false);
     const [activeQuestionTab, setActiveQuestionTab] = useState(0);
+    const resetApprovalUiState = useCallback(() => {
+        setRememberShellApprovalForSession(false);
+        setAnswers(new Map());
+    }, []);
 
     const handlePlanApprovalCancel = async () => {
         await handleQuestionCancel();
@@ -1626,6 +1639,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         || getApprovalTitle(pendingPlanApproval?.approvalKind);
     const planApproveLabel = pendingPlanApproval?.approveLabel || 'Approve';
     const planRejectLabel = pendingPlanApproval?.rejectLabel || 'Reject';
+    const shellApprovalSuggestedPrefixRule = pendingPlanApproval?.approvalKind === 'shell_command'
+        ? sanitizeSuggestedPrefixRule(pendingPlanApproval.suggestedPrefixRule)
+        : [];
 
     return (
         <Footer>
@@ -2039,12 +2055,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                     />
                                     Remember for this session
                                 </label>
-                                {pendingPlanApproval.suggestedPrefixRule && pendingPlanApproval.suggestedPrefixRule.length > 0 && (
+                                {shellApprovalSuggestedPrefixRule.length > 0 && (
                                     <div style={{
                                         fontSize: "10.5px",
                                         color: "var(--vscode-descriptionForeground)"
                                     }}>
-                                        Suggested rule prefix: <code>{pendingPlanApproval.suggestedPrefixRule.join(" ")}</code>
+                                        Suggested rule prefix: <code>{shellApprovalSuggestedPrefixRule.join(" ")}</code>
                                     </div>
                                 )}
                             </div>

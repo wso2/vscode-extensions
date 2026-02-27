@@ -763,9 +763,17 @@ export function analyzePowerShellCommand(
     }
 
     const hasInvokeExpression = commandNames.includes('invoke-expression') || commandNames.includes('iex');
-    const hasEncodedCommand = parseResult.commands.some((commandNode) =>
-        commandNode.parameters.some((parameter) => normalizeToken(parameter.name || '') === 'encodedcommand')
-    ) || /(^|\s)-EncodedCommand(\s|$)/i.test(trimmedCommand);
+    const hasEncodedCommandParameter = parseResult.commands.some((commandNode) =>
+        commandNode.parameters.some((parameter) => {
+            const parameterName = normalizeToken(parameter.name || '').replace(/^-+/, '');
+            return parameterName === 'encodedcommand'
+                || parameterName === 'e'
+                || parameterName === 'ec'
+                || parameterName.startsWith('enc');
+        })
+    );
+    const hasEncodedCommand = hasEncodedCommandParameter
+        || /(^|\s)-(?:e|ec|enc[a-z]*|encodedcommand)(?=[:=]|\s|$)/i.test(trimmedCommand);
     const hasStopParsingToken = parseResult.tokens.some((token) => token.text === '--%') || /(^|\s)--%(\s|$)/.test(trimmedCommand);
     const hasScriptBlockCreate = detectScriptBlockCreateInvocation(trimmedCommand);
 
