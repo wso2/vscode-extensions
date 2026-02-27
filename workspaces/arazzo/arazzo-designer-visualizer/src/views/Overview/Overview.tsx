@@ -28,24 +28,28 @@ interface OverviewProps {
 
 const styles = {
     container: css`
-        padding: 20px;
+        padding: 30px 46px;
         box-sizing: border-box;
         height: 100vh;
         overflow-y: auto;
         font-family: var(--vscode-font-family);
         color: var(--vscode-editor-foreground);
+        max-width: 980px;
+        margin: 0 auto;
     `,
     titleContainer: css`
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 0.5em;
+        margin-bottom: 16px;
         border-bottom: 1px solid var(--vscode-panel-border);
-        padding-bottom: 10px;
+        padding-bottom: 12px;
     `,
     title: css`
-        font-size: 1.5em;
+        font-size: 2em;
         margin: 0;
+        font-weight: 600;
+        line-height: 1.25;
     `,
     arazzoVersion: css`
         font-size: 1.05em;
@@ -54,9 +58,13 @@ const styles = {
         margin-left: 12px;
     `,
     subtitle: css`
-        font-size: 1.2em;
-        margin-top: 20px;
-        margin-bottom: 10px;
+        font-size: 1.5em;
+        margin-top: 24px;
+        margin-bottom: 16px;
+        font-weight: 600;
+        line-height: 1.25;
+        padding-bottom: 0.3em;
+        border-bottom: 1px solid var(--vscode-panel-border);
     `,
     card: css`
         background-color: var(--vscode-editor-inactiveSelectionBackground);
@@ -65,7 +73,7 @@ const styles = {
         margin-bottom: 15px;
     `,
     field: css`
-        margin-bottom: 8px;
+        margin-bottom: 12px;
     `,
     label: css`
         font-weight: bold;
