@@ -53,7 +53,7 @@ function isChoreoCliInstalled(): Promise<boolean> {
 	});
 }
 
-export async function initRPCServer() {
+export async function installRPCServer() {
 	try {
 		const installed = await isChoreoCliInstalled();
 		if (!installed) {

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import * as os from "os";
 import { join } from "path";
 import * as path from "path";
@@ -24,19 +24,25 @@ import {
 	ChoreoComponentType,
 	type ComponentConfigYamlContent,
 	type ComponentYamlContent,
+	CreateLocalConnectionsConfigReq,
+	DeleteLocalConnectionsConfigReq,
 	type Endpoint,
 	type EndpointYamlContent,
 	type ReadLocalEndpointsConfigResp,
 	type ReadLocalProxyConfigResp,
+	deepEqual,
 	getRandomNumber,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
 import * as yaml from "js-yaml";
-import { type ExtensionContext, Uri, commands, window, workspace } from "vscode";
+import { type ExtensionContext, ProgressLocation, Uri, commands, window, workspace } from "vscode";
 import type { IFileStatus } from "./git/git";
 import { initGit } from "./git/main";
 import { getGitRemotes } from "./git/util";
 import { getLogger } from "./logger/logger";
+import { ext } from "./extensionVariables";
+import { dataCacheStore } from "./stores/data-cache-store";
+import { webviewStateStore } from "./stores/webview-state-store";
 
 export const readLocalEndpointsConfig = (componentPath: string): ReadLocalEndpointsConfigResp => {
 	const filterEndpointSchemaPath = (eps: Endpoint[] = []) =>
@@ -442,3 +448,107 @@ export const getExtVersion = (context: ExtensionContext): string => {
 	const packageJson = JSON.parse(readFileSync(path.join(context?.extensionPath, "package.json"), "utf8"));
 	return packageJson?.version;
 };
+
+export const deleteLocalConnectionConfig = (params: DeleteLocalConnectionsConfigReq) => {
+	const componentYamlPath = join(params.componentDir, ".choreo", "component.yaml");
+	if (existsSync(componentYamlPath)) {
+		const componentYamlFileContent: ComponentYamlContent = yaml.load(readFileSync(componentYamlPath, "utf8")) as any;
+		if (componentYamlFileContent.dependencies?.connectionReferences) {
+			componentYamlFileContent.dependencies.connectionReferences = componentYamlFileContent.dependencies.connectionReferences.filter(
+				(item) => item.name !== params.connectionName,
+			);
+		}
+		if (componentYamlFileContent.dependencies?.serviceReferences) {
+			componentYamlFileContent.dependencies.serviceReferences = componentYamlFileContent.dependencies.serviceReferences.filter(
+				(item) => item.name !== params.connectionName,
+			);
+		}
+		writeFileSync(componentYamlPath, yaml.dump(componentYamlFileContent));
+	}
+}
+
+export const createConnectionConfig = async (params: CreateLocalConnectionsConfigReq):Promise<string>=>{
+	const org = ext.authProvider?.getUserInfo()?.organizations?.find((item) => item.uuid === params.marketplaceItem?.organizationId);
+	if (!org) {
+		return "";
+	}
+
+	if (existsSync(join(params.componentDir, ".choreo", "endpoints.yaml"))) {
+		rmSync(join(params.componentDir, ".choreo", "endpoints.yaml"));
+	}
+	if (existsSync(join(params.componentDir, ".choreo", "component-config.yaml"))) {
+		rmSync(join(params.componentDir, ".choreo", "component-config.yaml"));
+	}
+	const componentYamlPath = join(params.componentDir, ".choreo", "component.yaml");
+
+	let resourceRef =  ``;
+	if(params.marketplaceItem?.isThirdParty){
+		resourceRef = `thirdparty:${params.marketplaceItem?.name}/${params.marketplaceItem?.version}`;
+	}else{
+		let project = dataCacheStore
+			.getState()
+			.getProjects(org.handle)
+			?.find((item) => item.id === params.marketplaceItem?.projectId);
+		if (!project) {
+			const projects = await window.withProgress(
+				{ title: `Fetching projects of organization ${org.name}...`, location: ProgressLocation.Notification },
+				() => ext.clients.rpcClient.getProjects(org.id.toString()),
+			);
+			project = projects?.find((item) => item.id === params.marketplaceItem?.projectId);
+			if (!project) {
+				return "";
+			}
+		}
+
+		let component = dataCacheStore
+			.getState()
+			.getComponents(org.handle, project.handler)
+			?.find((item) => item.metadata?.id === params.marketplaceItem?.component?.componentId);
+		if (!component) {
+			const extName = webviewStateStore.getState().state?.extensionName;
+			const components = await window.withProgress(
+				{
+					title: `Fetching ${extName === "Devant" ? "integrations" : "components"} of project ${project.name}...`,
+					location: ProgressLocation.Notification,
+				},
+				() =>
+					ext.clients.rpcClient.getComponentList({
+						orgHandle: org.handle,
+						orgId: org.id.toString(),
+						projectHandle: project?.handler!,
+						projectId: project?.id!,
+					}),
+			);
+			component = components?.find((item) => item.metadata?.id === params.marketplaceItem?.component?.componentId);
+			if(!component){
+				return ""
+			}
+		}
+		resourceRef = `service:/${project.handler}/${component?.metadata?.handler}/v1/${params?.marketplaceItem?.component?.endpointId}/${params.visibility}`;
+	}
+	if (existsSync(componentYamlPath)) {
+		const componentYamlFileContent: ComponentYamlContent = yaml.load(readFileSync(componentYamlPath, "utf8")) as any;
+		const schemaVersion = Number(componentYamlFileContent.schemaVersion);
+		if (schemaVersion < 1.2) {
+			componentYamlFileContent.schemaVersion = "1.2";
+		}
+		componentYamlFileContent.dependencies = {
+			...componentYamlFileContent.dependencies,
+			connectionReferences: [...(componentYamlFileContent.dependencies?.connectionReferences ?? []), { name: params?.name, resourceRef }],
+		};
+		const originalContent: ComponentYamlContent = yaml.load(readFileSync(componentYamlPath, "utf8")) as any;
+		if (!deepEqual(originalContent, componentYamlFileContent)) {
+			writeFileSync(componentYamlPath, yaml.dump(componentYamlFileContent));
+		}
+	} else {
+		if (!existsSync(join(params.componentDir, ".choreo"))) {
+			mkdirSync(join(params.componentDir, ".choreo"));
+		}
+		const endpointFileContent: ComponentYamlContent = {
+			schemaVersion: "1.2",
+			dependencies: { connectionReferences: [{ name: params?.name, resourceRef }] },
+		};
+		writeFileSync(componentYamlPath, yaml.dump(endpointFileContent));
+	}
+	return componentYamlPath;
+}
