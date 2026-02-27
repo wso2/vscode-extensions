@@ -20,7 +20,7 @@
  * SOAP Patterns and XML Namespace Handling Guide
  * Extracted from Synapse source code, endpoint factories, mediator implementations, and test patterns.
  *
- * Section-based exports for granular context loading.
+ * Section-based exports for granular skill loading.
  */
 
 export const SYNAPSE_SOAP_NAMESPACE_GUIDE_SECTIONS: Record<string, string> = {
