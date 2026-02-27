@@ -532,6 +532,12 @@ const NameTextField = styled(TextField)`
     }
 `;
 
+const NameEditIndicator = styled.span`
+    display: inline-flex;
+    align-items: center;
+    color: var(--vscode-descriptionForeground);
+`;
+
 // TODO: Support TRACE
 const methodOptions: ApiRequest['method'][] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
 
@@ -858,11 +864,16 @@ export const MainPanel: React.FC = () => {
 										placeholder="Enter request name"
 									/>
 								) : (
-									<NameDisplay onClick={handleNameClick}>
+									<>
+                                        <NameDisplay onClick={handleNameClick}>
 										<Typography variant="h3" sx={{ margin: 0 }}>
 											{requestItem?.name}
 										</Typography>
-									</NameDisplay>
+                                        </NameDisplay>
+                                        <NameEditIndicator>
+                                            <Codicon name="edit" onClick={handleNameClick} />
+                                        </NameEditIndicator>
+                                    </>
 								)}
 							</EditableNameWrapper>
 						</TitleRow>
