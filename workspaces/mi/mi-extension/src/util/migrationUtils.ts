@@ -188,11 +188,11 @@ function getNatureName(nature: Nature | undefined): string {
     return nature === undefined ? 'UNKNOWN' : Nature[nature];
 }
 
-function warnParseFailure(filePath: string, artifactType: string, error: unknown) {
+function errorParseFailure(filePath: string, artifactType: string, error: unknown) {
     const errorMessage = getErrorMessage(error);
     const logMessage = `Failed to parse ${artifactType} at ${filePath}: ${errorMessage}`;
     logError(logMessage);
-    void window.showWarningMessage(
+    void window.showErrorMessage(
         `Migration stopped: Failed to parse ${artifactType} at ${filePath}. ${errorMessage}`,
         { modal: true }
     );
@@ -400,7 +400,7 @@ export async function generateProjectDirToResolvedPomMap(multiModuleProjectDir: 
             const parser = new XMLParser({ ignoreAttributes: false });
             parsed = parser.parse(projectXml);
         } catch (error) {
-            warnParseFailure(path.join(multiModuleProjectDir, 'pom.xml'), 'pom.xml', error);
+            errorParseFailure(path.join(multiModuleProjectDir, 'pom.xml'), 'pom.xml', error);
             continue;
         }
         const reportingDir = parsed?.project?.build?.sourceDirectory;
@@ -454,14 +454,14 @@ export function getProjectDetails(filePath: string, projectDirToResolvedPomMap?:
                 version = parsed?.project?.version;
                 runtimeVersion = parsed?.project?.properties?.["project.runtime.version"];
             } catch (error) {
-                warnParseFailure(pomPath, 'pom.xml', error);
+                errorParseFailure(pomPath, 'pom.xml', error);
                 return { projectName, groupId, artifactId, version, runtimeVersion };
             }
         } else {
             const pomContent = fs.readFileSync(pomPath, 'utf8');
             parseString(pomContent, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
                 if (err) {
-                    warnParseFailure(pomPath, 'pom.xml', err);
+                    errorParseFailure(pomPath, 'pom.xml', err);
                     return;
                 }
                 projectName = result?.project?.name;
@@ -1024,7 +1024,7 @@ function getPomIdentifier(projectDir: string, projectDirToResolvedPom: Map<strin
             const parser = new XMLParser({ ignoreAttributes: false });
             parsed = parser.parse(resolvedPomContent);
         } catch (error) {
-            warnParseFailure(projectPomFilePath, 'pom.xml', error);
+            errorParseFailure(projectPomFilePath, 'pom.xml', error);
             return null;
         }
 
@@ -1114,7 +1114,7 @@ async function determineProjectType(source: string): Promise<Nature | undefined>
             const fetchedNatureStr = await extractNatureFromPomContent(pomContent);
             configType = getNatureFromString(fetchedNatureStr);
         } catch (error) {
-            warnParseFailure(rootPomFilePath, 'pom.xml', error);
+            errorParseFailure(rootPomFilePath, 'pom.xml', error);
             return undefined;
         }
     }
@@ -1643,7 +1643,7 @@ function processRegistryResources(source: string, target: string) {
 
     parseString(xmlContent, { explicitArray: false, ignoreAttrs: false }, (err, result) => {
         if (err) {
-            warnParseFailure(artifactXMLPath, 'artifact.xml', err);
+            errorParseFailure(artifactXMLPath, 'artifact.xml', err);
             return;
         }
 
@@ -1773,7 +1773,7 @@ function readPomDependencies(source: string, projectDirToResolvedPomMap: Map<str
         const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: false });
         parsed = parser.parse(resolvedPomContent);
     } catch (error) {
-        warnParseFailure(pomFilePath, 'pom.xml', error);
+        errorParseFailure(pomFilePath, 'pom.xml', error);
         return [];
     }
 
@@ -1872,7 +1872,7 @@ export async function containsMultiModuleNatureInPomFile(filePath: string): Prom
         const projectNature = await extractNatureFromPomContent(pomContent);
         return OLD_MULTI_MODULE_PROJECT_NATURES.includes(projectNature ?? '');
     } catch (error) {
-        warnParseFailure(filePath, 'pom.xml', error);
+        errorParseFailure(filePath, 'pom.xml', error);
         return false;
     }
 }
