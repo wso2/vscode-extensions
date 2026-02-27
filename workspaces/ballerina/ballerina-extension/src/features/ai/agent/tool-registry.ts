@@ -41,6 +41,7 @@ import { getHealthcareLibraryProviderTool, HEALTHCARE_LIBRARY_PROVIDER_TOOL } fr
 import { createConnectorGeneratorTool, CONNECTOR_GENERATOR_TOOL } from './tools/connector-generator';
 import { LIBRARY_SEARCH_TOOL, getLibrarySearchTool } from './tools/library-search';
 import { createConfigCollectorTool, CONFIG_COLLECTOR_TOOL } from './tools/config-collector';
+import { createRunHurlTestTool, RUN_HURL_TEST_TOOL_NAME } from './tools/run-hurl-test';
 
 export interface ToolRegistryOptions {
     eventHandler: CopilotEventHandler;
@@ -101,5 +102,6 @@ export function createToolRegistry(opts: ToolRegistryOptions) {
             createReadExecute(eventHandler, tempProjectPath)
         ),
         [DIAGNOSTICS_TOOL_NAME]: createDiagnosticsTool(tempProjectPath, eventHandler),
+        [RUN_HURL_TEST_TOOL_NAME]: createRunHurlTestTool(eventHandler),
     };
 }

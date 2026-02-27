@@ -26,6 +26,7 @@ import { ApiRequestItem } from '@wso2/api-tryit-core';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
+import RunHurlTest from './tools/run-hurl-test';
 
 async function getWorkspaceRoot(): Promise<string | undefined> {
 	const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -660,6 +661,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage(`API TryIt collections path set to: ${selected.fsPath}`);
 		await apiExplorerProvider.reloadCollections();
 	});
+	// Register run hurl test tool
+	const hurlTool = vscode.lm.registerTool('run-hurl-test', new RunHurlTest());
 
 	context.subscriptions.push(setCollectionsPathCommand);
 
@@ -677,6 +680,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		plusMenuCommand,
 		settingsCommand,
 		clearSelectionCommand,
+		hurlTool,
 	);
 }
 
