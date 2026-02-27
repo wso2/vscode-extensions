@@ -3,7 +3,6 @@
   "displayName": "Arazzo Designer",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing Arazzo Specification.",
   "version": "0.1.0",
-  "icon": "assets/arazzo-language.png",
   "publisher": "wso2",
   "repository": {
     "type": "git",
