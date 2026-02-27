@@ -36,9 +36,11 @@ import {
     storeAuthCredentials
 } from './auth';
 import { PromptObject } from '@wso2/mi-core';
-import { logError } from './copilot/logger';
+import { logError, logWarn } from './copilot/logger';
 
 let silentPlatformBootstrapInFlight = false;
+const LOGIN_STS_RETRY_COUNT = 10;
+const LOGIN_STS_RETRY_DELAY_MS = 500;
 
 const trySilentPlatformBootstrap = async (): Promise<void> => {
     if (silentPlatformBootstrapInFlight) {
@@ -57,7 +59,10 @@ const trySilentPlatformBootstrap = async (): Promise<void> => {
             return;
         }
 
-        const stsToken = await getPlatformStsToken();
+        const stsToken = await getPlatformStsToken({
+            retries: LOGIN_STS_RETRY_COUNT,
+            retryDelayMs: LOGIN_STS_RETRY_DELAY_MS,
+        });
         if (!stsToken) {
             return;
         }
@@ -524,27 +529,40 @@ const checkWorkspaceAndToken = async (): Promise<{ workspaceSupported: boolean; 
 const openLogin = async () => {
     await setupPlatformExtensionListener();
 
+    const tryCompleteAuthFromSts = async (): Promise<boolean> => {
+        const stsToken = await getPlatformStsToken({
+            retries: LOGIN_STS_RETRY_COUNT,
+            retryDelayMs: LOGIN_STS_RETRY_DELAY_MS,
+        });
+        if (!stsToken) {
+            return false;
+        }
+
+        const secrets = await exchangeStsToCopilotToken(stsToken);
+        await storeAuthCredentials({
+            loginMethod: LoginMethod.MI_INTEL,
+            secrets
+        });
+        aiStateService.send({ type: AI_EVENT_TYPE.COMPLETE_AUTH });
+        return true;
+    };
+
     // If platform extension already has an authenticated session, complete auth immediately.
     const isLoggedIn = await isDevantUserLoggedIn();
     if (isLoggedIn) {
-        const stsToken = await getPlatformStsToken();
-        if (stsToken) {
-            const secrets = await exchangeStsToCopilotToken(stsToken);
-            await storeAuthCredentials({
-                loginMethod: LoginMethod.MI_INTEL,
-                secrets
-            });
-            aiStateService.send({ type: AI_EVENT_TYPE.COMPLETE_AUTH });
+        if (await tryCompleteAuthFromSts()) {
             return true;
         }
-        // Platform state can race during session transitions; continue with interactive sign-in.
+        logWarn('Platform reports logged in but STS token is not available yet; continuing with interactive sign-in.');
     }
 
     // Otherwise trigger platform login; completion is handled by the platform login listener.
     const status = await initiateInbuiltAuth();
     if (!status) {
         aiStateService.send({ type: AI_EVENT_TYPE.CANCEL_LOGIN });
+        return status;
     }
+    // Keep waiting in ssoFlow; platform login callback will complete token exchange.
     return status;
 };
 
@@ -647,7 +665,10 @@ const setupPlatformExtensionListener = async () => {
             }
 
             try {
-                const stsToken = await getPlatformStsToken();
+                const stsToken = await getPlatformStsToken({
+                    retries: LOGIN_STS_RETRY_COUNT,
+                    retryDelayMs: LOGIN_STS_RETRY_DELAY_MS,
+                });
                 if (!stsToken) {
                     throw new Error('Failed to get STS token after platform login');
                 }

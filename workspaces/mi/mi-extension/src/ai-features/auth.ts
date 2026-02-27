@@ -52,13 +52,22 @@ const LEGACY_REFRESH_TOKEN_SECRET_KEY = 'MIAIRefreshToken';
 
 const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
 const PLATFORM_USER_NOT_LOGGED_IN_MESSAGE = 'user not logged in';
+const STS_TOKEN_DEFAULT_RETRY_DELAY_MS = 500;
+const STS_TOKEN_REFRESH_RETRY_COUNT = 6;
+const STS_TOKEN_REFRESH_RETRY_DELAY_MS = 500;
 
 interface MIIntelTokenSecrets {
     accessToken: string;
     expiresAt?: number;
 }
 
+interface StsTokenFetchOptions {
+    retries?: number;
+    retryDelayMs?: number;
+}
+
 const normalizeUrl = (url: string): string => url.replace(/\/+$/, '');
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Resolve the base Copilot root URL.
@@ -151,7 +160,7 @@ export const getPlatformExtensionAPI = async (): Promise<IWso2PlatformExtensionA
 /**
  * Get STS token from the platform extension.
  */
-export const getPlatformStsToken = async (): Promise<string | undefined> => {
+const getPlatformStsTokenOnce = async (): Promise<string | undefined> => {
     const api = await getPlatformExtensionAPI();
     if (!api) {
         return undefined;
@@ -170,6 +179,27 @@ export const getPlatformStsToken = async (): Promise<string | undefined> => {
         logError('Error getting STS token from platform extension', error);
         return undefined;
     }
+};
+
+/**
+ * Get STS token from the platform extension with optional retries.
+ */
+export const getPlatformStsToken = async (options: StsTokenFetchOptions = {}): Promise<string | undefined> => {
+    const retries = Math.max(0, options.retries ?? 0);
+    const retryDelayMs = Math.max(0, options.retryDelayMs ?? STS_TOKEN_DEFAULT_RETRY_DELAY_MS);
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        const stsToken = await getPlatformStsTokenOnce();
+        if (stsToken) {
+            return stsToken;
+        }
+
+        if (attempt < retries) {
+            await sleep(retryDelayMs);
+        }
+    }
+
+    return undefined;
 };
 
 /**
@@ -213,10 +243,15 @@ export const exchangeStsToCopilotToken = async (stsToken: string): Promise<MIInt
             if (!access_token) {
                 throw new Error('Token exchange response did not include access_token');
             }
+            const expiresInSeconds = typeof expires_in === 'number'
+                ? expires_in
+                : Number(expires_in);
 
             return {
                 accessToken: access_token,
-                expiresAt: typeof expires_in === 'number' ? Date.now() + (expires_in * 1000) : undefined,
+                expiresAt: Number.isFinite(expiresInSeconds) && expiresInSeconds > 0
+                    ? Date.now() + (expiresInSeconds * 1000)
+                    : undefined,
             };
         }
 
@@ -231,7 +266,10 @@ export const exchangeStsToCopilotToken = async (stsToken: string): Promise<MIInt
  * Refresh the MI Copilot token using STS token from platform extension.
  */
 export const refreshTokenViaStsExchange = async (): Promise<MIIntelTokenSecrets> => {
-    const stsToken = await getPlatformStsToken();
+    const stsToken = await getPlatformStsToken({
+        retries: STS_TOKEN_REFRESH_RETRY_COUNT,
+        retryDelayMs: STS_TOKEN_REFRESH_RETRY_DELAY_MS,
+    });
     if (!stsToken) {
         throw new Error(STS_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE);
     }
@@ -403,7 +441,10 @@ export const checkToken = async (): Promise<{ token: string; loginMethod: LoginM
         return undefined;
     }
 
-    const stsToken = await getPlatformStsToken();
+    const stsToken = await getPlatformStsToken({
+        retries: STS_TOKEN_REFRESH_RETRY_COUNT,
+        retryDelayMs: STS_TOKEN_REFRESH_RETRY_DELAY_MS,
+    });
     if (!stsToken) {
         return undefined;
     }
