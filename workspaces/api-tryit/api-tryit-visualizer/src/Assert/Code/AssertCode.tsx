@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -106,7 +106,7 @@ export const AssertCode: React.FC<AssertCodeProps> = ({
             onExecute: (editor: any, model: any) => {
                 const lineCount = model.getLineCount();
                 const lastLineLength = model.getLineLength(lineCount);
-                const textToInsert = model.getValue() ? '\nstatus == 200' : 'status == 200';
+                const textToInsert = model.getValue() ? '\nstatus 200' : 'status 200';
 
                 editor.executeEdits('add-assertion', [{
                     range: {
@@ -160,7 +160,7 @@ export const AssertCode: React.FC<AssertCodeProps> = ({
                 assertionStatuses={assertionResults}
                 suggestions={{
                     assertions: {
-                        initial: ['status', 'headers', 'body'],
+                        initial: ['HTTP', 'status', 'headers', 'body'],
                         properties: {
                             'headers': {
                                 names: COMMON_HEADERS.map(h => h.name),

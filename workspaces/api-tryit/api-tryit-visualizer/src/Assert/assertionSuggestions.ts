@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -23,15 +23,15 @@ import { COMMON_HEADERS } from '../Input/InputEditor/SuggestionsConstants';
  * Get initial suggestions for the target field (always show base targets)
  */
 export const getInitialTargetSuggestions = (): string[] => {
-    return ['status', 'headers', 'body'];
+    return ['HTTP', 'status', 'headers', 'body'];
 };
 
 /**
- * Get suggestions for the target field (status, headers, body, etc.)
+ * Get suggestions for the target field (HTTP, status, headers, body, etc.)
  * This filters and expands based on what the user is typing
  */
 export const getTargetSuggestions = (prefix: string): string[] => {
-    const baseTargets = ['status', 'headers', 'body'];
+    const baseTargets = ['HTTP', 'status', 'headers', 'body'];
 
     if (prefix === '') {
         return baseTargets;
@@ -81,8 +81,15 @@ export const completeTarget = (target: string): string => {
 
 /**
  * Get operator suggestions
+ * Note: HTTP assertions don't use operators per Hurl spec
+ * Status can be operatorless or with operators
  */
-export const getOperatorSuggestions = (): string[] => {
+export const getOperatorSuggestions = (target?: string): string[] => {
+    // No operators for HTTP assertions (strictly operatorless)
+    if (target && target.toUpperCase() === 'HTTP') {
+        return [];
+    }
+    
     // include function-style operators and symbol comparisons; prefer `==` over `=` for equality
     return [
         '==', '!=', '>', '<', '>=', '<=',
@@ -98,6 +105,19 @@ export const getOperatorSuggestions = (): string[] => {
  * Get value suggestions based on the target field
  */
 export const getValueSuggestions = (target: string, response?: ApiResponse): string[] => {
+    // For status, suggest common HTTP status codes and classes
+    if (target.toLowerCase() === 'status' || target.toUpperCase() === 'HTTP') {
+        const suggestions = ['200', '201', '204', '400', '401', '403', '404', '500', '502', '503'];
+        // Add actual response status if available
+        if (response?.statusCode) {
+            const statusStr = String(response.statusCode);
+            if (!suggestions.includes(statusStr)) {
+                suggestions.unshift(statusStr);
+            }
+        }
+        return suggestions;
+    }
+    
     // If target is a header (e.g., headers.Content-Type), suggest header values
     if (target.startsWith('headers.')) {
         const headerKey = target.substring('headers.'.length).trim();
@@ -121,11 +141,44 @@ export const getValueSuggestions = (target: string, response?: ApiResponse): str
 
 /**
  * Parse assertion string into target, operator, and value
- * Format: "target operator value"
- * e.g., "status == 200" or "headers.Content-Type == application/json"
+ * Format: "target operator value" or for HTTP/status: "HTTP <code|class>" / "status <code|class>"
+ * e.g., "HTTP 200", "status 200", "status == 200", "headers.Content-Type == application/json"
  */
 export const parseAssertion = (assertion: string): { target: string; operator: string; value: string } => {
     const trimmed = assertion.trim();
+
+    // Special handling for HTTP assertions (operatorless per Hurl spec)
+    // HTTP can be: "HTTP 200", "HTTP 2xx", etc.
+    const httpMatch = trimmed.match(/^HTTP\s+(.+)$/i);
+    if (httpMatch) {
+        return {
+            target: 'HTTP',
+            operator: '',
+            value: httpMatch[1].trim()
+        };
+    }
+
+    // Special handling for status assertions (operatorless legacy, or with operator)
+    // status can be: "status 200", "status 2xx", "status == 200", etc.
+    const statusMatch = trimmed.match(/^status\s+(.+)$/i);
+    if (statusMatch) {
+        const rest = statusMatch[1].trim();
+        // Check if it has an operator
+        const statusOpMatch = rest.match(/^(==|!=|>|<|>=|<=)\s*(.*)$/);
+        if (statusOpMatch) {
+            return {
+                target: 'status',
+                operator: statusOpMatch[1],
+                value: statusOpMatch[2].trim()
+            };
+        }
+        // Operatorless status (legacy format)
+        return {
+            target: 'status',
+            operator: '',
+            value: rest
+        };
+    }
 
     // Try to match: target operator value
     // Operators: ==, !=, >, <, >=, <=, =
@@ -160,10 +213,32 @@ export const parseAssertion = (assertion: string): { target: string; operator: s
 
 /**
  * Build assertion string from target, operator, and value
+ * Special handling for HTTP and status which are operatorless or operator-based
  */
 export const buildAssertion = (target: string, operator: string, value: string): string => {
     if (!target) {
         return '';
+    }
+
+    // Special case: HTTP assertions are operatorless
+    if (target.toUpperCase() === 'HTTP') {
+        if (!value) {
+            return 'HTTP';
+        }
+        return `HTTP ${value}`;
+    }
+
+    // Special case: status can be operatorless or with operator
+    if (target.toLowerCase() === 'status') {
+        if (!value) {
+            return 'status';
+        }
+        // If operator is provided, include it; otherwise operatorless
+        if (operator) {
+            const normalizedOp = operator === '=' ? '==' : operator;
+            return `status ${normalizedOp} ${value}`;
+        }
+        return `status ${value}`;
     }
 
     // If operator is missing, keep the target so partial input isn't lost

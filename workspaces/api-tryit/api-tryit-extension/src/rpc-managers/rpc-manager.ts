@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -24,15 +24,114 @@ import {
     HttpRequestOptions,
     HttpResponseResult,
 } from "@wso2/api-tryit-core";
-import { writeFile, readFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import * as vscode from 'vscode';
 import * as yaml from 'js-yaml';
-import axios, { AxiosError } from 'axios';
+import * as path from 'path';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
+import {
+	parseHurlCollection,
+	composeHurlDocument,
+	parseHurlDocument,
+	HurlFormatAdapter,
+	upsertCollectionNameInHurl
+} from '@wso2/api-tryit-hurl-parser';
+
+interface SaveRequestInternalRequest extends SaveRequestRequest {
+    appendIfNotFound?: boolean;
+    selectedRequestTreeId?: string;
+}
 
 export class ApiTryItRpcManager {
     constructor(private apiExplorerProvider?: ApiExplorerProvider) {}
-    async saveRequest(params: SaveRequestRequest): Promise<SaveRequestResponse> {
+
+    private parseRequestIndexFromTreeId(treeId?: string): number | undefined {
+        if (!treeId || !treeId.startsWith('request-')) {
+            return undefined;
+        }
+        const match = treeId.match(/-(\d+)$/);
+        if (!match) {
+            return undefined;
+        }
+        const oneBased = Number.parseInt(match[1], 10);
+        if (!Number.isFinite(oneBased) || oneBased < 1) {
+            return undefined;
+        }
+        return oneBased - 1;
+    }
+
+    private findRequestBlockIndex(fileContent: string, filePath: string, request: ApiRequest): number {
+        const parsedDocument = parseHurlDocument(fileContent);
+        if (parsedDocument.blocks.length === 0) {
+            return -1;
+        }
+
+        let parsedCollection;
+        try {
+            parsedCollection = parseHurlCollection(fileContent, { sourceFilePath: filePath });
+        } catch {
+            return -1;
+        }
+
+        const items = parsedCollection.rootItems || [];
+        if (items.length === 0) {
+            return -1;
+        }
+
+        if (request.id && request.id.trim()) {
+            const byId = items.findIndex(item => item.request.id === request.id || item.id === request.id);
+            if (byId >= 0 && byId < parsedDocument.blocks.length) {
+                return byId;
+            }
+        }
+
+        const bySignature = items.findIndex(item =>
+            item.name === request.name &&
+            item.request.method === request.method &&
+            item.request.url === request.url
+        );
+        if (bySignature >= 0 && bySignature < parsedDocument.blocks.length) {
+            return bySignature;
+        }
+
+        const byMethodAndUrl = items
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) =>
+                item.request.method === request.method &&
+                item.request.url === request.url
+            );
+        if (byMethodAndUrl.length === 1) {
+            return byMethodAndUrl[0].index;
+        }
+
+        const byMethodOnly = items
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) => item.request.method === request.method);
+        if (byMethodOnly.length === 1) {
+            return byMethodOnly[0].index;
+        }
+
+        if (items.length === 1) {
+            return 0;
+        }
+
+        return -1;
+    }
+
+    private serializeHurlRequestBlock(request: ApiRequest, response?: ApiResponse, preserveId = false): string {
+        const requestForSerialization: ApiRequest = {
+            ...request,
+            id: preserveId ? request.id : '',
+            queryParameters: Array.isArray(request.queryParameters) ? request.queryParameters : [],
+            headers: Array.isArray(request.headers) ? request.headers : []
+        };
+
+        return HurlFormatAdapter
+            .serializeRequest(requestForSerialization, response, request.assertions)
+            .trim();
+    }
+
+    async saveRequest(params: SaveRequestInternalRequest): Promise<SaveRequestResponse> {
         const { filePath, request, response } = params;
         
         if (!filePath) {
@@ -43,75 +142,121 @@ export class ApiTryItRpcManager {
         }
 
         try {
-            let existingData: { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse; assertions?: unknown[] } | null = null;
+            // Check if the file is a Hurl file or YAML file
+            const isHurlFile = HurlFormatAdapter.isHurlFile(filePath);
 
-            // Try to read existing file
-            try {
-                const existingContent = await readFile(filePath, 'utf8');
-                const parsed = yaml.load(existingContent);
-                if (parsed && typeof parsed === 'object') {
-                    existingData = parsed as { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse; assertions?: unknown[] };
+            let contentToWrite: string;
+
+            if (isHurlFile) {
+                let existingContent = '';
+                try {
+                    existingContent = await readFile(filePath, 'utf8');
+                } catch {
+                    // New file, start with empty content.
                 }
-            } catch {
-                // File doesn't exist or content can't be parsed, we'll create it from scratch
+
+                const parsedDocument = parseHurlDocument(existingContent);
+                const serializedBlock = this.serializeHurlRequestBlock(request, response, false);
+
+                if (parsedDocument.blocks.length === 0) {
+                    const rawDoc = composeHurlDocument(parsedDocument.header, [serializedBlock]);
+                    const collectionName = request.name?.trim() || path.basename(filePath, path.extname(filePath));
+                    contentToWrite = upsertCollectionNameInHurl(rawDoc, collectionName);
+                } else {
+                    let existingBlockIndex = -1;
+                    const shouldAppendWhenNotFound = params.appendIfNotFound === true;
+                    const treeIndex = this.parseRequestIndexFromTreeId(params.selectedRequestTreeId);
+                    if (typeof treeIndex === 'number' && treeIndex >= 0 && treeIndex < parsedDocument.blocks.length) {
+                        existingBlockIndex = treeIndex;
+                    } else if (!shouldAppendWhenNotFound) {
+                        // Only search for an existing block when updating (not when adding a new request)
+                        existingBlockIndex = this.findRequestBlockIndex(existingContent, filePath, request);
+                    }
+
+                    const updatedBlocks = parsedDocument.blocks.map(block => block.text);
+                    if (existingBlockIndex >= 0 && existingBlockIndex < updatedBlocks.length) {
+                        const preserveId = parsedDocument.blocks[existingBlockIndex].hasIdComment;
+                        updatedBlocks[existingBlockIndex] = this.serializeHurlRequestBlock(request, response, preserveId);
+                    } else if (shouldAppendWhenNotFound) {
+                        updatedBlocks.push(serializedBlock);
+                    } else {
+                        throw new Error('Unable to resolve the existing request block to update. Please reopen the request and save again.');
+                    }
+
+                    contentToWrite = composeHurlDocument(parsedDocument.header, updatedBlocks);
+                }
+            } else {
+                // Keep YAML format for backward compatibility
+                let existingData: { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse; assertions?: unknown[] } | null = null;
+
+                // Try to read existing file
+                try {
+                    const existingContent = await readFile(filePath, 'utf8');
+                    const parsed = yaml.load(existingContent);
+                    if (parsed && typeof parsed === 'object') {
+                        existingData = parsed as { id?: string; name?: string; request?: ApiRequest; response?: ApiResponse; assertions?: unknown[] };
+                    }
+                } catch {
+                    // File doesn't exist or content can't be parsed, we'll create it from scratch
+                }
+
+                const sanitizedRequest: ApiRequest = {
+                    id: request.id,
+                    name: request.name,
+                    method: request.method,
+                    url: request.url,
+                    queryParameters: request.queryParameters || [],
+                    headers: request.headers || []
+                };
+
+                if (request.body !== undefined) {
+                    sanitizedRequest.body = request.body;
+                }
+
+                if (request.bodyFormData && request.bodyFormData.length > 0) {
+                    sanitizedRequest.bodyFormData = request.bodyFormData;
+                }
+
+                if (request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) {
+                    sanitizedRequest.bodyFormUrlEncoded = request.bodyFormUrlEncoded;
+                }
+
+                if (request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0) {
+                    sanitizedRequest.bodyBinaryFiles = request.bodyBinaryFiles
+                        .filter(file => file.filePath?.trim())
+                        .map(file => ({
+                            ...file,
+                            enabled: file.enabled ?? true,
+                            contentType: file.contentType?.includes('/') 
+                                ? file.contentType 
+                                : 'application/octet-stream'
+                        }));
+                }
+
+                // Persist assertions at top-level (do NOT embed into `request` any more). Prefer incoming assertions; otherwise preserve existing file's top-level assertions.
+                const updatedData: Record<string, unknown> = {
+                    id: request.id,
+                    name: request.name,
+                    request: sanitizedRequest,
+                    response: response ? {
+                        statusCode: response.statusCode,
+                        headers: response.headers,
+                        body: response.body
+                    } : existingData?.response
+                };
+
+                if (request.assertions && request.assertions.length > 0) {
+                    updatedData.assertions = request.assertions;
+                } else if (existingData?.assertions && Array.isArray(existingData.assertions)) {
+                    updatedData.assertions = existingData.assertions;
+                }
+
+                // Convert to YAML
+                contentToWrite = yaml.dump(updatedData);
             }
-
-            const sanitizedRequest: ApiRequest = {
-                id: request.id,
-                name: request.name,
-                method: request.method,
-                url: request.url,
-                queryParameters: request.queryParameters || [],
-                headers: request.headers || []
-            };
-
-            if (request.body !== undefined) {
-                sanitizedRequest.body = request.body;
-            }
-
-            if (request.bodyFormData && request.bodyFormData.length > 0) {
-                sanitizedRequest.bodyFormData = request.bodyFormData;
-            }
-
-            if (request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) {
-                sanitizedRequest.bodyFormUrlEncoded = request.bodyFormUrlEncoded;
-            }
-
-            if (request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0) {
-                sanitizedRequest.bodyBinaryFiles = request.bodyBinaryFiles
-                    .filter(file => file.filePath?.trim())
-                    .map(file => ({
-                        ...file,
-                        enabled: file.enabled ?? true,
-                        contentType: file.contentType?.includes('/') 
-                            ? file.contentType 
-                            : 'application/octet-stream'
-                    }));
-            }
-
-            // Persist assertions at top-level (do NOT embed into `request` any more). Prefer incoming assertions; otherwise preserve existing file's top-level assertions.
-            const updatedData: Record<string, unknown> = {
-                id: request.id,
-                name: request.name,
-                request: sanitizedRequest,
-                response: response ? {
-                    statusCode: response.statusCode,
-                    headers: response.headers,
-                    body: response.body
-                } : existingData?.response
-            };
-
-            if (request.assertions && request.assertions.length > 0) {
-                updatedData.assertions = request.assertions;
-            } else if (existingData?.assertions && Array.isArray(existingData.assertions)) {
-                updatedData.assertions = existingData.assertions;
-            }
-
-            // Convert to YAML
-            const requestData = yaml.dump(updatedData);
             
             // Write to file
-            await writeFile(filePath, requestData, 'utf8');
+            await writeFile(filePath, contentToWrite, 'utf8');
             
             // Update the in-memory collection with the file path if it exists
             if (this.apiExplorerProvider) {
@@ -131,30 +276,61 @@ export class ApiTryItRpcManager {
         }
     }
 
+    private appendQueryParams(url: string, params?: Record<string, string>): string {
+        if (!params || Object.keys(params).length === 0) {
+            return url;
+        }
+
+        const query = new URLSearchParams();
+        for (const [key, value] of Object.entries(params)) {
+            if (!key) {
+                continue;
+            }
+            query.append(key, value ?? '');
+        }
+
+        const queryString = query.toString();
+        if (!queryString) {
+            return url;
+        }
+
+        return url.includes('?') ? `${url}&${queryString}` : `${url}?${queryString}`;
+    }
+
     async sendHttpRequest(options: HttpRequestOptions): Promise<HttpResponseResult> {
+        const method = (options.method || 'GET').toUpperCase();
+        const url = this.appendQueryParams(options.url, options.params);
+        const headers = { ...(options.headers || {}) } as Record<string, string>;
+
+        const hasBody = options.data !== undefined && options.data !== null;
+        let body: string | undefined;
+
+        if (hasBody && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+            if (typeof options.data === 'string') {
+                body = options.data;
+            } else {
+                const hasContentTypeHeader = Object.keys(headers).some(key => key.toLowerCase() === 'content-type');
+                if (!hasContentTypeHeader) {
+                    headers['Content-Type'] = 'application/json';
+                }
+                body = JSON.stringify(options.data);
+            }
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+
         try {
-            const response = await axios({
-                method: options.method,
-                url: options.url,
-                params: options.params,
-                headers: options.headers,
-                data: options.data,
-                validateStatus: () => true // Accept any status code
+            const response = await fetch(url, {
+                method,
+                headers,
+                body,
+                redirect: 'follow',
+                signal: controller.signal
             });
 
-            // Convert response headers to ResponseHeader format
-            const responseHeaders = Object.entries(response.headers).map(([key, value]) => ({
-                key,
-                value: String(value)
-            }));
-
-            // Format response body
-            let responseBody: string;
-            if (typeof response.data === 'object') {
-                responseBody = JSON.stringify(response.data, null, 2);
-            } else {
-                responseBody = String(response.data || '');
-            }
+            const responseBody = await response.text();
+            const responseHeaders = Array.from(response.headers.entries()).map(([key, value]) => ({ key, value }));
 
             return {
                 statusCode: response.status,
@@ -162,37 +338,15 @@ export class ApiTryItRpcManager {
                 body: responseBody
             };
         } catch (error) {
-            const axiosError = error as AxiosError;
-            let errorBody = '';
-            let statusCode = 0;
-            let headers: Array<{ key: string; value: string }> = [];
-
-            if (axiosError.response) {
-                statusCode = axiosError.response.status;
-                headers = Object.entries(axiosError.response.headers).map(([key, value]) => ({
-                    key,
-                    value: String(value)
-                }));
-
-                if (typeof axiosError.response.data === 'object') {
-                    errorBody = JSON.stringify(axiosError.response.data, null, 2);
-                } else {
-                    errorBody = String(axiosError.response.data || '');
-                }
-            } else {
-                // Network error or request setup error
-                errorBody = JSON.stringify({
-                    error: axiosError.message || 'Request failed',
-                    code: axiosError.code
-                }, null, 2);
-            }
-
+            const message = error instanceof Error ? error.message : 'Request failed.';
             return {
-                statusCode,
-                headers,
-                body: errorBody,
-                error: axiosError.message
+                statusCode: 0,
+                headers: [],
+                body: JSON.stringify({ error: message }, null, 2),
+                error: message
             };
+        } finally {
+            clearTimeout(timeout);
         }
     }
 }

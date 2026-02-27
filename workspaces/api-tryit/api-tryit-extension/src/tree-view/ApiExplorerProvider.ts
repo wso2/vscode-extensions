@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -19,18 +19,43 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import * as yaml from 'js-yaml';
-import { ApiCollection, ApiFolder, ApiRequestItem, ApiRequest, ApiResponse, FormDataParameter, FormUrlEncodedParameter } from '@wso2/api-tryit-core';
+import { ApiCollection, ApiRequest, ApiRequestItem } from '@wso2/api-tryit-core';
+import { parseHurlCollection } from '@wso2/api-tryit-hurl-parser';
+import {
+	extractCollectionNameFromHurl,
+	getCollectionNameFromPath,
+	parseHurlDocument
+} from '@wso2/api-tryit-hurl-parser';
+
+const IGNORED_DIRECTORIES = new Set([
+	'.git',
+	'.github',
+	'.vscode',
+	'.idea',
+	'node_modules',
+	'dist',
+	'build',
+	'out',
+	'target'
+]);
+
+interface CollectionGroup {
+	id: string;
+	name: string;
+	files: string[];
+	rootItems: ApiRequestItem[];
+}
 
 export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem> {
 	private collections: ApiCollection[] = [];
-	private searchFilter: string = '';
-	private _onDidChangeTreeData: vscode.EventEmitter<ApiTreeItem | undefined | null | void> = new vscode.EventEmitter<ApiTreeItem | undefined | null | void>();
-	readonly onDidChangeTreeData: vscode.Event<ApiTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
+	private searchFilter = '';
+	private _onDidChangeTreeData = new vscode.EventEmitter<ApiTreeItem | undefined | null | void>();
+	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private loadingPromise: Promise<void> | null = null;
 	private treeView?: vscode.TreeView<ApiTreeItem>;
-	private collectionPathMap: Map<string, string> = new Map();
-	private inMemoryCollectionIds: Set<string> = new Set();
+	private collectionPathMap = new Map<string, string>();
+	private collectionFilesMap = new Map<string, string[]>();
+	private inMemoryCollectionIds = new Set<string>();
 
 	constructor(private workspacePath?: string) {
 		this.loadingPromise = this.loadCollections();
@@ -42,501 +67,287 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 
 	clearSelection(): void {
 		if (this.treeView) {
-			// Force a refresh which will rebuild the tree
-			// This is the only reliable way to clear selection since treeView.selection is readonly
 			this._onDidChangeTreeData.fire();
 		}
 	}
 
-	/**
-	 * Derives a display name from a directory name by converting kebab-case/snake_case to Title Case
-	 */
-	private deriveDisplayName(directoryName: string): string {
-		return directoryName
-			.replace(/[-_]/g, ' ')
-			.replace(/\b\w/g, l => l.toUpperCase());
+	private buildCollectionId(name: string): string {
+		const normalized = name
+			.toLowerCase()
+			.trim()
+			.replace(/[^a-z0-9\s_-]/g, '')
+			.replace(/[\s_]+/g, '-')
+			.replace(/-+/g, '-')
+			.replace(/^-|-$/g, '');
+
+		return normalized || `hurl-collection-${Date.now()}`;
 	}
 
-	/**
-	 * Loads a single request file and validates it
-	 */
-	private async loadRequestFile(filePath: string): Promise<ApiRequestItem | null> {
-		try {
-			const requestContent = await fs.readFile(filePath, 'utf-8');
-			const loaded = yaml.load(requestContent) as unknown;
+	private makeRequestTreeId(filePath: string, index: number): string {
+		const normalizedPath = path
+			.resolve(filePath)
+			.replace(/[:\\/\s.]+/g, '-')
+			.replace(/-+/g, '-')
+			.replace(/^-|-$/g, '');
+		return `request-${normalizedPath}-${index + 1}`;
+	}
 
-			if (loaded && typeof loaded === 'object') {
-				const persisted = loaded as Record<string, unknown>;
-				const id = typeof persisted.id === 'string' ? persisted.id : undefined;
-				const name = typeof persisted.name === 'string' ? persisted.name : undefined;
-				const requestObj = persisted.request && typeof persisted.request === 'object'
-					? (persisted.request as Record<string, unknown>)
-					: undefined;
+	private async discoverHurlFiles(rootPath: string): Promise<string[]> {
+		const files: string[] = [];
+		const stack: string[] = [rootPath];
 
-				if (id && name && requestObj) {
-					const qp = Array.isArray(requestObj.queryParameters)
-						? (requestObj.queryParameters as unknown[]).map(q => {
-							const qq = q as Record<string, unknown>;
-							return {
-								id: typeof qq.id === 'string' ? qq.id : `${Date.now()}`,
-								key: typeof qq.key === 'string' ? qq.key : '',
-								value: typeof qq.value === 'string' ? qq.value : ''
-							};
-						})
-						: [];
-
-					const headers = Array.isArray(requestObj.headers)
-						? (requestObj.headers as unknown[]).map(h => {
-							const hh = h as Record<string, unknown>;
-							return {
-								id: typeof hh.id === 'string' ? hh.id : `${Date.now()}`,
-								key: typeof hh.key === 'string' ? hh.key : '',
-								value: typeof hh.value === 'string' ? hh.value : ''
-							};
-						})
-						: [];
-
-					const formDataParams: FormDataParameter[] | undefined = Array.isArray(requestObj.bodyFormData)
-						? (requestObj.bodyFormData as unknown[]).map((param, index) => {
-							const fd = param as Record<string, unknown>;
-							const normalized: FormDataParameter = {
-								id: typeof fd.id === 'string' ? fd.id : `${Date.now()}-form-data-${index}`,
-								key: typeof fd.key === 'string' ? fd.key : '',
-								contentType: typeof fd.contentType === 'string' ? fd.contentType : ''
-							};
-
-							if (typeof fd.filePath === 'string' && fd.filePath.length > 0) {
-								normalized.filePath = fd.filePath;
-							}
-
-							if (typeof fd.value === 'string') {
-								normalized.value = fd.value;
-							}
-
-							return normalized;
-						})
-						: undefined;
-
-					const formUrlEncodedParams: FormUrlEncodedParameter[] | undefined = Array.isArray(requestObj.bodyFormUrlEncoded)
-						? (requestObj.bodyFormUrlEncoded as unknown[]).map((param, index) => {
-							const fe = param as Record<string, unknown>;
-							return {
-								id: typeof fe.id === 'string' ? fe.id : `${Date.now()}-form-urlencoded-${index}`,
-								key: typeof fe.key === 'string' ? fe.key : '',
-								value: typeof fe.value === 'string' ? fe.value : ''
-							};
-						})
-						: undefined;
-
-					const binaryFiles = Array.isArray(requestObj.bodyBinaryFiles)
-						? (requestObj.bodyBinaryFiles as unknown[]).map((file, index) => {
-							const bf = file as Record<string, unknown>;
-							return {
-								id: typeof bf.id === 'string' ? bf.id : `${Date.now()}-binary-${index}`,
-								filePath: typeof bf.filePath === 'string' ? bf.filePath : '',
-								contentType: typeof bf.contentType === 'string' ? bf.contentType : 'application/octet-stream',
-								enabled: typeof bf.enabled === 'boolean' ? bf.enabled : true
-							};
-						})
-						: undefined;
-
-					const topLevelAssertions = Array.isArray(persisted.assertions)
-						? (persisted.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
-						: undefined;
-
-						const requestAssertions = Array.isArray(requestObj.assertions)
-							? (requestObj.assertions as unknown[]).filter((a): a is string => typeof a === 'string')
-							: undefined;
-
-						const assertions = topLevelAssertions ?? requestAssertions;
-
-					const requestWithId: ApiRequest = {
-						id: typeof requestObj.id === 'string' ? requestObj.id : id,
-						name: typeof requestObj.name === 'string' ? requestObj.name : name,
-						method: (typeof requestObj.method === 'string' ? requestObj.method : 'GET') as ApiRequest['method'],
-						url: typeof requestObj.url === 'string' ? requestObj.url : '',
-						queryParameters: qp,
-						headers: headers
-					};
-
-					if (typeof requestObj.body === 'string') {
-						requestWithId.body = requestObj.body;
-					}
-
-					if (formDataParams) {
-						requestWithId.bodyFormData = formDataParams;
-					}
-
-					if (formUrlEncodedParams) {
-						requestWithId.bodyFormUrlEncoded = formUrlEncodedParams;
-					}
-
-					if (binaryFiles) {
-						requestWithId.bodyBinaryFiles = binaryFiles;
-					}
-
-					if (assertions && assertions.length > 0) {
-						requestWithId.assertions = assertions;
-					}
-
-					const item: ApiRequestItem = {
-						id,
-						name,
-						request: requestWithId,
-						response: typeof persisted.response === 'object' ? (persisted.response as unknown as ApiResponse) : undefined,
-						filePath,
-						assertions
-					};
-
-					return item;
-				}
+		while (stack.length > 0) {
+			const current = stack.pop() as string;
+			let entries: Array<{ name: string; isDirectory(): boolean; isFile(): boolean }> = [];
+			try {
+				entries = await fs.readdir(current, { withFileTypes: true });
+			} catch {
+				continue;
 			}
-		} catch {
-			// Skip files that can't be parsed or don't have required structure
-		}
-		return null;
-	}
 
-	/**
-	 * Loads all request files from a directory
-	 */
-	private async loadRequestsFromDirectory(dirPath: string): Promise<ApiRequestItem[]> {
-		const items: ApiRequestItem[] = [];
-		try {
-			const entries = await fs.readdir(dirPath, { withFileTypes: true });
 			for (const entry of entries) {
-				if (
-					entry.isFile() &&
-					(
-						entry.name.endsWith('.yaml') || entry.name.endsWith('.yml') || entry.name.endsWith('.json')
-					)
-				) {
-					const requestPath = path.join(dirPath, entry.name);
-					const requestItem = await this.loadRequestFile(requestPath);
-					if (requestItem) {
-						items.push(requestItem);
+				if (entry.name.startsWith('.')) {
+					continue;
+				}
+
+				const fullPath = path.join(current, entry.name);
+				if (entry.isDirectory()) {
+					if (IGNORED_DIRECTORIES.has(entry.name)) {
+						continue;
 					}
+					stack.push(fullPath);
+					continue;
+				}
+
+				if (entry.isFile() && entry.name.toLowerCase().endsWith('.hurl')) {
+					files.push(fullPath);
 				}
 			}
-		} catch {
-			// Silently skip directories that can't be read
 		}
-		return items;
+
+		files.sort((left, right) => left.localeCompare(right));
+		return files;
 	}
 
-	private async loadFolder(folderPath: string, folderId: string, collectionId: string): Promise<ApiFolder | null> {
-		try {
-			const folderName = this.deriveDisplayName(folderId);
-			const items = await this.loadRequestsFromDirectory(folderPath);
+	private mapParsedBlocks(filePath: string, blocks: string[]): ApiRequestItem[] {
+		const mappedItems: ApiRequestItem[] = [];
+		for (let index = 0; index < blocks.length; index++) {
+			let parsedItem: ApiRequestItem | undefined;
+			try {
+				const parsed = parseHurlCollection(blocks[index], {
+					sourceFilePath: filePath
+				});
+				parsedItem = parsed.rootItems?.[0];
+			} catch {
+				continue;
+			}
 
-			return {
-				id: folderId,
-				name: folderName,
-				items,
-				filePath: folderPath
+			if (!parsedItem) {
+				continue;
+			}
+
+			const item = parsedItem;
+			const request = item.request || ({
+				id: `request-${index + 1}`,
+				name: item.name || `Request ${index + 1}`,
+				method: 'GET',
+				url: '',
+				queryParameters: [],
+				headers: []
+			} as ApiRequest);
+
+			const requestId = typeof request.id === 'string' && request.id.trim().length > 0
+				? request.id
+				: `request-${index + 1}`;
+			const requestName = typeof request.name === 'string' && request.name.trim().length > 0
+				? request.name
+				: (item.name || `Request ${index + 1}`);
+
+			const normalizedRequest: ApiRequest = {
+				...request,
+				id: requestId,
+				name: requestName,
+				queryParameters: Array.isArray(request.queryParameters) ? request.queryParameters : [],
+				headers: Array.isArray(request.headers) ? request.headers : []
 			};
-		} catch (error) {
-			vscode.window.showErrorMessage(`Failed to load folder ${folderId} in collection ${collectionId}, ${error as string}.`);
-			return null;
+
+			mappedItems.push({
+				...item,
+				id: this.makeRequestTreeId(filePath, index),
+				name: requestName,
+				request: normalizedRequest,
+				filePath
+			});
 		}
+
+		return mappedItems;
+	}
+
+	private resolveStoragePath(): string {
+		const config = vscode.workspace.getConfiguration('api-tryit');
+		const configuredPath = config.get<string>('collectionsPath')?.trim();
+		if (configuredPath) {
+			return configuredPath;
+		}
+		return this.workspacePath || (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
 	}
 
 	private async loadCollections(): Promise<void> {
 		try {
-			const isDirectory = async (targetPath: string): Promise<boolean> => {
-				try {
-					const stats = await fs.stat(targetPath);
-					return stats.isDirectory();
-				} catch {
-					return false;
-				}
-			};
-
-			// Check for configured collections path first
-			const config = vscode.workspace.getConfiguration('api-tryit');
-			const configuredPath = config.get<string>('collectionsPath')?.trim();
-
-			let storagePath = '';
-			if (configuredPath) {
-				storagePath = configuredPath;
-			} else {
-				const workspaceRoot = this.workspacePath || (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
-				if (workspaceRoot) {
-					const workspaceApiTestPath = path.join(workspaceRoot, 'api-test');
-					storagePath = await isDirectory(workspaceApiTestPath)
-						? workspaceApiTestPath
-						: workspaceRoot;
-				}
-			}
-
+			const storagePath = this.resolveStoragePath();
 			if (!storagePath) {
-				// Show error notification if no workspace is available
-				vscode.window.showErrorMessage('No workspace path available. Please open a workspace or specify a path.');
 				return;
 			}
 
-			// Keep track of in-memory collections (explicitly tracked by ID)
-			const inMemoryCollections = this.collections.filter(col => 
-				this.inMemoryCollectionIds.has(col.id)
-			);
+			const inMemoryCollections = this.collections.filter(col => this.inMemoryCollectionIds.has(col.id));
+			const discoveredFiles = await this.discoverHurlFiles(storagePath);
 
-			// Clear and rebuild the collectionPathMap for disk collections
-			const newPathMap = new Map<string, string>();
+			const groupByCollectionName = new Map<string, CollectionGroup>();
+			for (const filePath of discoveredFiles) {
+				let content = '';
+				try {
+					content = await fs.readFile(filePath, 'utf-8');
+				} catch {
+					continue;
+				}
 
-			// Discover collections by reading directories
-			const entries = await fs.readdir(storagePath, { withFileTypes: true });
-			const diskCollections: ApiCollection[] = [];
+				const explicitCollectionName = extractCollectionNameFromHurl(content);
+				const collectionName = explicitCollectionName || getCollectionNameFromPath(filePath);
+				const parsedDocument = parseHurlDocument(content);
+				const mappedItems = this.mapParsedBlocks(filePath, parsedDocument.blocks.map(block => block.text));
 
-			for (const entry of entries) {
-				// Skip hidden directories and files
-				if (entry.isDirectory() && !entry.name.startsWith('.')) {
-					try {
-						const collectionPath = path.join(storagePath, entry.name);
-						const collection = await this.loadCollection(collectionPath, entry.name);
-						if (collection) {
-							diskCollections.push(collection);
-							// Store the actual directory path for this collection ID
-							newPathMap.set(collection.id, collectionPath);
-						}
-					} catch (error) {
-						vscode.window.showErrorMessage(`Error loading collection ${entry.name}, ${error as string}`);
-					}
+				// Skip files with no usable content unless they declare an explicit @collectionName
+				if (mappedItems.length === 0 && !explicitCollectionName) {
+					continue;
+				}
+
+				const key = collectionName.trim().toLowerCase();
+				const existing = groupByCollectionName.get(key);
+				if (!existing) {
+					groupByCollectionName.set(key, {
+						id: this.buildCollectionId(collectionName),
+						name: collectionName,
+						files: [filePath],
+						rootItems: [...mappedItems]
+					});
+				} else {
+					existing.files.push(filePath);
+					existing.rootItems.push(...mappedItems);
 				}
 			}
 
-			// Update the collectionPathMap with new disk collections
-			this.collectionPathMap = newPathMap;
+			const diskCollections: ApiCollection[] = [];
+			const newPrimaryFileMap = new Map<string, string>();
+			const newCollectionFilesMap = new Map<string, string[]>();
 
-			// Remove IDs from inMemoryCollectionIds that now exist on disk (promotion)
+			for (const group of groupByCollectionName.values()) {
+				group.files.sort((left, right) => left.localeCompare(right));
+				const rootItems = group.rootItems.sort((left, right) => {
+					const leftPath = left.filePath || '';
+					const rightPath = right.filePath || '';
+					if (leftPath === rightPath) {
+						return left.id.localeCompare(right.id);
+					}
+					return leftPath.localeCompare(rightPath);
+				});
+
+				diskCollections.push({
+					id: group.id,
+					name: group.name,
+					folders: [],
+					rootItems
+				});
+				newPrimaryFileMap.set(group.id, group.files[0]);
+				newCollectionFilesMap.set(group.id, [...group.files]);
+			}
+
+			diskCollections.sort((left, right) => left.name.localeCompare(right.name));
+
+			this.collectionPathMap = newPrimaryFileMap;
+			this.collectionFilesMap = newCollectionFilesMap;
+
 			for (const diskCollection of diskCollections) {
 				if (this.inMemoryCollectionIds.has(diskCollection.id)) {
 					this.inMemoryCollectionIds.delete(diskCollection.id);
 				}
 			}
 
-			// Filter in-memory collections to exclude those that now exist on disk
-			const actualInMemoryCollections = inMemoryCollections.filter(col => 
+			const actualInMemoryCollections = inMemoryCollections.filter(col =>
 				!diskCollections.some(disk => disk.id === col.id)
 			);
 
-			// Combine in-memory collections with disk collections
-			// In-memory collections come first, then disk collections
 			this.collections = [...actualInMemoryCollections, ...diskCollections];
-
-			// Notify tree of changes
 			this.refresh();
 		} catch (error) {
-			vscode.window.showErrorMessage(`Failed to load API collections, ${error as string}`);
+			vscode.window.showErrorMessage(`Failed to load API collections: ${error as string}`);
 		}
 	}
 
-	/**
-	 * Public helper to reload collections from disk and update the tree.
-	 */
 	public async reloadCollections(): Promise<void> {
 		await this.loadCollections();
 	}
 
 	/**
-	 * Get the actual filesystem path for a collection by its ID.
-	 * This resolves the ID to the real directory path, handling cases where
-	 * the collection ID differs from the directory name (e.g., imported collections).
+	 * Returns the primary collection file path (used for create/append operations).
 	 */
 	public getCollectionPathById(collectionId: string): string | undefined {
 		return this.collectionPathMap.get(collectionId);
 	}
 
 	/**
-	 * Add a collection in-memory without saving to disk.
-	 * Useful for temporary collections or programmatic imports.
+	 * Returns all .hurl files that belong to a collection (used for run/delete operations).
 	 */
+	public getCollectionFilePathsById(collectionId: string): string[] {
+		return [...(this.collectionFilesMap.get(collectionId) || [])];
+	}
+
 	public addInMemoryCollection(collection: ApiCollection): void {
-		// Track this collection as in-memory
 		this.inMemoryCollectionIds.add(collection.id);
-		
-		// Check if collection with same ID already exists
 		const existingIndex = this.collections.findIndex(c => c.id === collection.id);
 		if (existingIndex >= 0) {
-			// Replace existing collection
 			this.collections[existingIndex] = collection;
 		} else {
-			// Add new collection
 			this.collections.push(collection);
 		}
-		
-		// Notify tree of changes
 		this.refresh();
 	}
 
-	/**
-	 * Remove a collection by ID from both in-memory and disk tracking.
-	 * This ensures the collection doesn't persist after deletion.
-	 */
 	public removeCollectionById(collectionId: string): void {
-		// Remove from collections array
 		this.collections = this.collections.filter(c => c.id !== collectionId);
-		
-		// Remove from path map
 		this.collectionPathMap.delete(collectionId);
-		
-		// Remove from in-memory tracking
+		this.collectionFilesMap.delete(collectionId);
 		this.inMemoryCollectionIds.delete(collectionId);
-		
-		// Notify tree of changes
 		this.refresh();
 	}
 
-	/**
-	 * Update the filePath of a request in the in-memory collections
-	 */
 	public updateRequestFilePath(requestId: string, filePath: string): void {
 		for (const collection of this.collections) {
-			// Check root-level requests
 			for (const requestItem of collection.rootItems || []) {
-				if (requestItem.id === requestId) {
+				if (requestItem.id === requestId || requestItem.request.id === requestId) {
 					requestItem.filePath = filePath;
 					this.refresh();
 					return;
 				}
 			}
-			
-			// Check folder requests
-			for (const folder of collection.folders) {
-				for (const requestItem of folder.items) {
-					if (requestItem.id === requestId) {
-						requestItem.filePath = filePath;
-						this.refresh();
-						return;
-					}
-				}
-			}
 		}
 	}
 
-	private async loadCollection(collectionPath: string, collectionId: string): Promise<ApiCollection | null> {
-		try {
-			// Resolve collection metadata path (support .yaml, .yml and fallback to .json)
-			let metadataPath = path.join(collectionPath, 'collection.yaml');
-			let metadataContent: string | null = null;
-			try {
-				metadataContent = await fs.readFile(metadataPath, 'utf-8');
-			} catch {
-				// try .yml
-				try {
-					metadataPath = path.join(collectionPath, 'collection.yml');
-					metadataContent = await fs.readFile(metadataPath, 'utf-8');
-				} catch {
-					// try legacy json
-					try {
-						metadataPath = path.join(collectionPath, 'collection.json');
-						metadataContent = await fs.readFile(metadataPath, 'utf-8');
-					} catch {
-						// No metadata found - skip this collection
-						throw new Error('Missing collection metadata (collection.yaml|collection.yml|collection.json)');
-					}
-				}
-			}
-
-			// Parse metadata (prefer YAML parsing, fallback to JSON parse if needed)
-			let metadata: unknown;
-			try {
-				const loaded = yaml.load(metadataContent as string);
-				if (!loaded || typeof loaded === 'string') {
-					metadata = JSON.parse(metadataContent as string);
-				} else {
-					metadata = loaded;
-				}
-			} catch {
-				// Last resort: try JSON.parse
-				metadata = JSON.parse(metadataContent as string);
-			}
-
-			// Extract only essential fields from collection metadata in a type-safe way
-			const metaObj = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
-			const collectionMetadata = {
-				id: typeof metaObj.id === 'string' ? metaObj.id : collectionId,
-				name: typeof metaObj.name === 'string' ? metaObj.name : this.deriveDisplayName(collectionId)
-			};
-
-			// Discover folders by reading directories
-			const entries = await fs.readdir(collectionPath, { withFileTypes: true });
-			const folders: ApiFolder[] = [];
-			const rootLevelRequests: ApiRequestItem[] = [];
-
-			for (const entry of entries) {
-				if (entry.isDirectory() && !entry.name.startsWith('.')) {
-					try {
-						const folderPath = path.join(collectionPath, entry.name);
-						const folder = await this.loadFolder(folderPath, entry.name, collectionMetadata.id);
-						if (folder) {
-							folders.push(folder);
-						}
-					} catch (error) {
-						vscode.window.showErrorMessage(`Error loading folder ${entry.name} in collection ${collectionId}, ${error as string}.`);
-					}
-				} else if (
-					entry.isFile() &&
-					(
-						entry.name.endsWith('.yaml') || entry.name.endsWith('.yml') || entry.name.endsWith('.json')
-					) &&
-					entry.name.toLowerCase() !== 'collection.yaml' &&
-					entry.name.toLowerCase() !== 'collection.yml' &&
-					entry.name.toLowerCase() !== 'collection.json'
-				) {
-					// Load root-level request file (support .yaml, .yml, and legacy .json)
-					const requestPath = path.join(collectionPath, entry.name);
-					const requestItem = await this.loadRequestFile(requestPath);
-					if (requestItem) {
-						rootLevelRequests.push(requestItem);
-					}
-				}
-			}
-
-			return {
-				id: collectionMetadata.id,
-				name: collectionMetadata.name,
-				folders,
-				rootItems: rootLevelRequests
-			};
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		} catch (error) {
-			// If collection metadata is missing or invalid, skip this collection
-			return null;
-		}
-	}
-
-
-
-	/**
-	 * Set workspace path for loading collections
-	 * Used when workspace needs to be changed dynamically
-	 */
 	setWorkspacePath(workspacePath: string): void {
 		this.workspacePath = workspacePath;
-		this.loadCollections();
+		void this.loadCollections();
 	}
 
-	/**
-	 * Set search filter term
-	 */
 	setSearchFilter(searchTerm: string): void {
 		this.searchFilter = searchTerm;
 		this.refresh();
 	}
 
-	/**
-	 * Get search filter term
-	 */
 	getSearchFilter(): string {
 		return this.searchFilter;
 	}
 
-	/**
-	 * Find a request by its persisted file path and return identifiers needed for selection.
-	 */
-	public findRequestByFilePath(filePath: string): {
+	public findRequestByFilePath(filePath: string, requestId?: string, requestName?: string, requestMethod?: string, requestUrl?: string): {
 		collection: ApiCollection;
-		folder?: ApiFolder;
 		requestItem: ApiRequestItem;
 		treeItemId: string;
 		parentIds: string[];
@@ -544,131 +355,102 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		const normalizedTarget = path.normalize(filePath);
 
 		for (const collection of this.collections) {
-			// Root-level requests
-			for (const requestItem of collection.rootItems || []) {
-				if (requestItem.filePath && path.normalize(requestItem.filePath) === normalizedTarget) {
-					const treeItemId = `${collection.id}-${requestItem.name}`;
+			const sameFileItems = (collection.rootItems || []).filter(requestItem =>
+				requestItem.filePath && path.normalize(requestItem.filePath) === normalizedTarget
+			);
+
+			if (sameFileItems.length === 0) {
+				continue;
+			}
+
+			if (requestId) {
+				const byId = sameFileItems.find(requestItem =>
+					requestItem.id === requestId || requestItem.request.id === requestId
+				);
+				if (byId) {
 					return {
 						collection,
-						requestItem,
-						treeItemId,
+						requestItem: byId,
+						treeItemId: byId.id,
 						parentIds: [collection.id]
 					};
 				}
 			}
 
-			// Folder requests
-			for (const folder of collection.folders || []) {
-				for (const requestItem of folder.items) {
-					if (requestItem.filePath && path.normalize(requestItem.filePath) === normalizedTarget) {
-						const folderId = `${collection.id}-${folder.name}`;
-						const treeItemId = `${folderId}-${requestItem.name}`;
-						return {
-							collection,
-							folder,
-							requestItem,
-							treeItemId,
-							parentIds: [collection.id, folderId]
-						};
-					}
+			if (requestName) {
+				const normalizedMethod = requestMethod ? requestMethod.toUpperCase() : undefined;
+				const byName = sameFileItems.find(requestItem =>
+					requestItem.name === requestName &&
+					(!normalizedMethod || requestItem.request.method.toUpperCase() === normalizedMethod) &&
+					(!requestUrl || requestItem.request.url === requestUrl)
+				);
+				if (byName) {
+					return {
+						collection,
+						requestItem: byName,
+						treeItemId: byName.id,
+						parentIds: [collection.id]
+					};
 				}
+			}
+
+			for (const requestItem of collection.rootItems || []) {
+				if (!requestItem.filePath || path.normalize(requestItem.filePath) !== normalizedTarget) {
+					continue;
+				}
+
+				return {
+					collection,
+					requestItem,
+					treeItemId: requestItem.id,
+					parentIds: [collection.id]
+				};
 			}
 		}
 
 		return null;
 	}
 
-	/**
-	 * Get collections as JSON-serializable format for webview
-	 */
-	async getCollections(): Promise<Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; children?: Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; children?: Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest}>}>}>> {
-		// Wait for loading to complete if it's still in progress
+	async getCollections(): Promise<Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; requestId?: string; response?: unknown; children?: Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; requestId?: string; response?: unknown; filePath?: string}>}>> {
 		if (this.loadingPromise) {
 			await this.loadingPromise;
-			this.loadingPromise = null; // Clear the promise once loaded
+			this.loadingPromise = null;
 		}
 
-		const filterCollections = (collections: ApiCollection[], searchTerm: string) => {
+		const searchTerm = this.searchFilter.trim().toLowerCase();
+		const matchesSearch = (item: ApiRequestItem) => {
 			if (!searchTerm) {
-				return collections.map(col => ({
-					id: col.id,
-					name: col.name,
-					type: 'collection',
-					children: [
-						// Add root-level requests first
-						...(col.rootItems || []).map(item => ({
-							id: `${col.id}-${item.name}`,
-							name: item.name,
-							type: 'request',
-							method: item.request.method,
-							request: item.request,
-							filePath: item.filePath
-						})),
-						// Then add folders
-						...col.folders.map(folder => ({
-							id: `${col.id}-${folder.name}`,
-							name: folder.name,
-							type: 'folder',						filePath: folder.filePath,							children: folder.items.map(item => ({
-								id: `${col.id}-${folder.name}-${item.name}`,
-								name: item.name,
-								type: 'request',
-								method: item.request.method,
-								request: item.request,
-								filePath: item.filePath
-							}))
-						}))
-					]
-				}));
+				return true;
 			}
-
-			return collections
-				.map(col => ({
-					id: col.id,
-					name: col.name,
-					type: 'collection',
-					children: [
-						// Add root-level requests first (filtered)
-						...(col.rootItems || [])
-							.filter(item => 
-								item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-								item.request.method.toLowerCase().includes(searchTerm.toLowerCase())
-							)
-							.map(item => ({
-								id: `${col.id}-${item.name}`,
-								name: item.name,
-								type: 'request',
-								method: item.request.method,
-								request: item.request,
-								filePath: item.filePath
-							})),
-						// Then add folders with filtered items
-						...col.folders
-							.map(folder => ({
-								id: `${col.id}-${folder.name}`,
-								name: folder.name,
-								type: 'folder',
-								filePath: folder.filePath,
-								children: folder.items
-									.filter(item => 
-										item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-										item.request.method.toLowerCase().includes(searchTerm.toLowerCase())
-									)
-									.map(item => ({
-										id: `${col.id}-${folder.name}-${item.name}`,
-										name: item.name,
-										type: 'request',
-										method: item.request.method,
-										request: item.request,
-										filePath: item.filePath
-									}))
-							}))
-							.filter(folder => folder.children && folder.children.length > 0)
-					]
-				}))
-				.filter(col => col.children && col.children.length > 0);
+			const requestName = item.name.toLowerCase();
+			const method = item.request.method.toLowerCase();
+			const url = item.request.url.toLowerCase();
+			return requestName.includes(searchTerm) || method.includes(searchTerm) || url.includes(searchTerm);
 		};
 
-		return filterCollections(this.collections, this.searchFilter);
+		return this.collections
+			.map(collection => {
+				const children = (collection.rootItems || [])
+					.filter(matchesSearch)
+					.map(item => ({
+						id: item.id,
+						name: item.name,
+						type: 'request',
+						method: item.request.method,
+						request: item.request,
+						requestId: item.request.id,
+						response: item.response,
+						filePath: item.filePath
+					}));
+
+				return {
+					id: collection.id,
+					name: collection.name,
+					type: 'collection',
+					children
+				};
+			})
+			.filter(collection => !searchTerm || (collection.children && collection.children.length > 0));
 	}
 
 	refresh(): void {
@@ -681,7 +463,6 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 
 	getChildren(element?: ApiTreeItem): Promise<ApiTreeItem[]> {
 		if (!element) {
-			// Root level - show collections
 			return Promise.resolve(
 				this.collections.map(collection =>
 					new ApiTreeItem(
@@ -694,48 +475,11 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 					)
 				)
 			);
-		} else if (element.type === 'collection' && element.collection) {
-			// Collection level - show root-level requests first, then folders
-			const children: ApiTreeItem[] = [];
-			
-			// Add root-level requests
-			if (element.collection.rootItems && element.collection.rootItems.length > 0) {
-				element.collection.rootItems.forEach((item: ApiRequestItem) => {
-					children.push(
-						new ApiTreeItem(
-							item.name,
-							vscode.TreeItemCollapsibleState.None,
-							'request',
-							'$(symbol-method)',
-							item.request.method,
-							undefined,
-							undefined,
-							item
-						)
-					);
-				});
-			}
-			
-			// Then add folders
-			element.collection.folders.forEach((folder: ApiFolder) => {
-				children.push(
-					new ApiTreeItem(
-						folder.name,
-						vscode.TreeItemCollapsibleState.Collapsed,
-						'folder',
-						'$(folder)',
-						undefined,
-						undefined,
-						folder
-					)
-				);
-			});
-			
-			return Promise.resolve(children);
-		} else if (element.type === 'folder' && element.folder) {
-			// Folder level - show request items
+		}
+
+		if (element.type === 'collection' && element.collection) {
 			return Promise.resolve(
-				element.folder.items.map((item: ApiRequestItem) =>
+				(element.collection.rootItems || []).map(item =>
 					new ApiTreeItem(
 						item.name,
 						vscode.TreeItemCollapsibleState.None,
@@ -743,12 +487,12 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						'$(symbol-method)',
 						item.request.method,
 						undefined,
-						undefined,
 						item
 					)
 				)
 			);
 		}
+
 		return Promise.resolve([]);
 	}
 }
@@ -761,37 +505,30 @@ export class ApiTreeItem extends vscode.TreeItem {
 		iconPathString?: string,
 		public readonly method?: string,
 		public readonly collection?: ApiCollection,
-		public readonly folder?: ApiFolder,
 		public readonly requestItem?: ApiRequestItem
 	) {
 		super(label, collapsibleState);
 		this.contextValue = type;
-		
-		// Set resourceUri for requests
+
 		if (requestItem?.filePath) {
 			this.resourceUri = vscode.Uri.file(requestItem.filePath);
 		}
-		
-		// Set icon
+
 		if (iconPathString) {
 			this.iconPath = new vscode.ThemeIcon(iconPathString.replace('$(', '').replace(')', ''));
 		}
 
-		// Customize for requests with HTTP methods
 		if (type === 'request' && method && requestItem) {
 			this.tooltip = `${method} ${this.label}`;
 			this.description = method;
-			// Set different colors based on method
 			const methodColors: { [key: string]: string } = {
-				'GET': 'charts.blue',
-				'POST': 'charts.green',
-				'PUT': 'charts.yellow',
-				'DELETE': 'charts.red',
-				'PATCH': 'charts.orange'
+				GET: 'charts.blue',
+				POST: 'charts.green',
+				PUT: 'charts.yellow',
+				DELETE: 'charts.red',
+				PATCH: 'charts.orange'
 			};
 			this.iconPath = new vscode.ThemeIcon('symbol-method', new vscode.ThemeColor(methodColors[method] || 'foreground'));
-			
-			// Make requests clickable - pass the full ApiRequestItem
 			this.command = {
 				command: 'api-tryit.openRequest',
 				title: 'Open Request',

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -20,9 +20,13 @@ import * as vscode from 'vscode';
 import { ActivityPanel } from './webview';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
 
-export function activateActivityPanel(context: vscode.ExtensionContext, apiExplorerProvider: ApiExplorerProvider) {
+export function activateActivityPanel(
+	context: vscode.ExtensionContext,
+	apiExplorerProvider: ApiExplorerProvider
+): ActivityPanel {
 	const activityPanelProvider = new ActivityPanel(context, apiExplorerProvider);
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(ActivityPanel.viewType, activityPanelProvider)
 	);
+	return activityPanelProvider;
 }
