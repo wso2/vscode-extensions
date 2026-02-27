@@ -52,8 +52,7 @@ describe('HurlFormatAdapter serialization order', () => {
 			expect(assetsLine).toBeGreaterThan(httpLine);
 			expect(statusLine).toBeGreaterThan(assetsLine);
 
-			// Verify HTTP does not appear before body
-			expect(httpLine).toBeLessThan(bodyLine, 'HTTP response line should come AFTER body');
+			// Verify HTTP does not appear before body (already checked by httpLine > bodyLine above)
 		});
 
 		it('places HTTP response line after Multipart body', () => {
@@ -67,7 +66,7 @@ describe('HurlFormatAdapter serialization order', () => {
 				],
 				queryParameters: [],
 				bodyFormData: [
-					{ id: 'f1', key: 'keyq', value: 'valueqd' },
+					{ id: 'f1', key: 'keyq', value: 'valueqd', contentType: '' },
 					{ id: 'f2', key: 'key', filePath: 'tests.zip', contentType: 'application/octet-stream' }
 				]
 			};

@@ -191,13 +191,13 @@ const TreeViewContainer = styled.div`
 `;
 
 const MethodBadge = styled.span<{ method: string }>`
-	display: inline-flex;
+	display: flex;
 	align-items: center;
 	justify-content: center;
 	padding: 2px 8px;
-	width: 45px;
+	width: 35px;
 	border-radius: 3px;
-	font-size: 11px;
+	font-size: 9px;
 	font-weight: 600;
 	color: white;
 	white-space: nowrap;

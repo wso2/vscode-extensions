@@ -215,7 +215,8 @@
     "build": "pnpm clean && pnpm run copyFonts && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run copyVSIX",
     "copyFonts": "copyfiles -f ./node_modules/@wso2/font-wso2-vscode/dist/* ./resources/font-wso2-vscode/dist/",
     "copyVSIX": "copyfiles *.vsix ./vsix",
-    "copyVSIXToRoot": "copyfiles -u 0 \"vsix/*.vsix\" ../../../"
+    "copyVSIXToRoot": "copyfiles -u 0 \"vsix/*.vsix\" ../../../",
+    "test": "jest --runInBand"
   },
   "devDependencies": {
     "@vscode/vsce": "3.7.0",
@@ -226,6 +227,7 @@
     "@types/jest": "30.0.0",
     "@typescript-eslint/eslint-plugin": "8.32.1",
     "@typescript-eslint/parser": "8.32.1",
+    "ts-jest": "29.4.1",
     "eslint": "9.27.0",
     "typescript": "5.8.3",
     "ts-loader": "9.5.1",
