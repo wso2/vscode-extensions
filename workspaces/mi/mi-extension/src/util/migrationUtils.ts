@@ -215,6 +215,85 @@ const OLD_MULTI_MODULE_PROJECT_NATURES = [
     'org.wso2.developerstudio.eclipse.mavenmultimodule.project.nature',
     'org.eclipse.m2e.core.maven2Nature'
 ];
+const VALIDATION_SKIPPED_DIRS = new Set(['.backup', '.git', 'node_modules', 'dist', 'out', 'target']);
+
+function collectXmlFilesForValidation(rootDir: string, fileNames: Set<string>): string[] {
+    const files: string[] = [];
+
+    function walk(currentDir: string) {
+        const items = fs.readdirSync(currentDir, { withFileTypes: true });
+        for (const item of items) {
+            const fullPath = path.join(currentDir, item.name);
+            if (item.isDirectory()) {
+                if (VALIDATION_SKIPPED_DIRS.has(item.name)) {
+                    continue;
+                }
+                walk(fullPath);
+                continue;
+            }
+            if (fileNames.has(item.name)) {
+                files.push(fullPath);
+            }
+        }
+    }
+
+    walk(rootDir);
+    return files;
+}
+
+async function validateXmlFileIsParsable(filePath: string, artifactType: string): Promise<boolean> {
+    try {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        await new Promise<void>((resolve, reject) => {
+            parseString(content, { explicitArray: false, ignoreAttrs: false }, (err) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve();
+            });
+        });
+        return true;
+    } catch (error) {
+        logError(`Failed to parse ${artifactType} at ${filePath}: ${getErrorMessage(error)}`);
+        return false;
+    }
+}
+
+async function validateMigrationInputs(source: string): Promise<boolean> {
+    logInfo(`[Migration] Validation phase started. source=${source}`);
+    const pomFiles = collectXmlFilesForValidation(source, new Set(['pom.xml']));
+    const artifactFiles = collectXmlFilesForValidation(source, new Set(['artifact.xml']));
+    logInfo(`[Migration] Validation targets identified. pomCount=${pomFiles.length}, artifactXmlCount=${artifactFiles.length}`);
+    const invalidFiles: string[] = [];
+
+    for (const pomFilePath of pomFiles) {
+        const valid = await validateXmlFileIsParsable(pomFilePath, 'pom.xml');
+        if (!valid) {
+            invalidFiles.push(pomFilePath);
+        }
+    }
+
+    for (const artifactXmlPath of artifactFiles) {
+        const valid = await validateXmlFileIsParsable(artifactXmlPath, 'artifact.xml');
+        if (!valid) {
+            invalidFiles.push(artifactXmlPath);
+        }
+    }
+
+    if (invalidFiles.length > 0) {
+        const fileList = invalidFiles.join('\n');
+        logError(`[Migration] Validation failed. Invalid XML files:\n${fileList}`);
+        void window.showErrorMessage(
+            `Migration stopped: Found ${invalidFiles.length} invalid XML file(s).\n${fileList}`,
+            { modal: true }
+        );
+        return false;
+    }
+
+    logInfo(`[Migration] Validation phase completed successfully. source=${source}`);
+    return true;
+}
 
 export async function importProjects(params: ImportProjectRequest[]): Promise<ImportProjectResponse[]> {
     const responses: ImportProjectResponse[] = [];
@@ -251,6 +330,12 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
     if (!projectUri) {
         window.showErrorMessage('Please select a valid project directory');
         throw new Error('Invalid project directory');
+    }
+
+    const validationSucceeded = await validateMigrationInputs(source);
+    if (!validationSucceeded) {
+        logWarn(`[Migration] importProject aborted due to validation errors. source=${source}`);
+        return [];
     }
 
     const projectUuid = uuidv4();
