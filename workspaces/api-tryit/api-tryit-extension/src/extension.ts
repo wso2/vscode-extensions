@@ -400,6 +400,49 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
+	// Auto-trigger API TryIt when workspace contains .hurl files with @collectionName or @name annotations
+	const autoTriggerFromHurlWorkspace = async () => {
+		const workspaceFolders = vscode.workspace.workspaceFolders;
+		if (!workspaceFolders || workspaceFolders.length === 0) {
+			return;
+		}
+		try {
+			const hurlFiles = await vscode.workspace.findFiles('**/*.hurl', '**/node_modules/**', 20);
+			for (const fileUri of hurlFiles) {
+				try {
+					const bytes = await vscode.workspace.fs.readFile(fileUri);
+					const text = Buffer.from(bytes).toString('utf8');
+					if (/^#\s*@collectionName\s+/im.test(text) || /^#\s*@name\s+/im.test(text)) {
+						await apiExplorerProvider.reloadCollections();
+						try {
+							await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
+							await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
+						} catch {
+							// ignore if view is not available
+						}
+						return;
+					}
+				} catch {
+					// ignore unreadable files
+				}
+			}
+		} catch {
+			// ignore workspace scan errors
+		}
+	};
+
+	if (!pendingImport) {
+		setTimeout(() => void autoTriggerFromHurlWorkspace(), 1000);
+	}
+
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeWorkspaceFolders(event => {
+			if (event.added.length > 0) {
+				void autoTriggerFromHurlWorkspace();
+			}
+		})
+	);
+
 	// Register command to refresh tree view
 	const refreshCommand = vscode.commands.registerCommand('api-tryit.refreshExplorer', async () => {
 		try {
