@@ -49,7 +49,7 @@ const NoBodyMessage = styled.div`
 export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFormatChange: (format: BodyFormat) => void }> = ({ request, onRequestChange, bodyFormat, onFormatChange }) => {
     const [bodyFormatOpen, setBodyFormatOpen] = React.useState(false);
     const formatMenuRef = React.useRef<HTMLDivElement>(null);
-    const methodSupportsBody = !['GET', 'HEAD', 'OPTIONS'].includes((request.method || '').toUpperCase());
+    const methodSupportsBody = !['GET', 'HEAD', 'OPTIONS', 'DELETE'].includes((request.method || '').toUpperCase());
 
     React.useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {

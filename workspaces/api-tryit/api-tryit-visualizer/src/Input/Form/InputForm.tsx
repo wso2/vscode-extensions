@@ -137,7 +137,7 @@ type BodyFormat = 'json' | 'xml' | 'text' | 'html' | 'javascript' | 'form-data' 
 export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, bodyFormat, updateFormDataParamContentType, handleFileSelect, onFormatChange }) => {
     const [formatOpen, setFormatOpen] = React.useState(false);
     const formatRef = React.useRef<HTMLDivElement>(null);
-    const methodSupportsBody = !['GET', 'HEAD', 'OPTIONS'].includes((request.method || '').toUpperCase());
+    const methodSupportsBody = !['GET', 'HEAD', 'OPTIONS', 'DELETE'].includes((request.method || '').toUpperCase());
 
     React.useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {

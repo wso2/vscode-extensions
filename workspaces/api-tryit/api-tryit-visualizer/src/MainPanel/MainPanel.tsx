@@ -38,7 +38,7 @@ import { getVSCodeAPI } from '../utils/vscode-api';
 import { getMethodBgColor } from '../utils/methods';
 import { HurlRunFileView, HurlRunResults } from '../Output';
 
-const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS']);
+const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS', 'DELETE']);
 
 const stripTransientFields = (value: unknown): unknown => {
     if (Array.isArray(value)) {
