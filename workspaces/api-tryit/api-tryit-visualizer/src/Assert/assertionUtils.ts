@@ -251,9 +251,17 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
             case 'endswith':
                 return actual.endsWith(expected);
             case 'matches':
-                try { return new RegExp(expected).test(actual); } catch { return false; }
+                try {
+                    // Guard against ReDoS: reject patterns that are too long or contain nested quantifiers
+                    if (expected.length > 500 || /[+*?}][+*?]/.test(expected) || /\)\s*[+*?{]/.test(expected)) { return false; }
+                    return new RegExp(expected).test(actual);
+                } catch { return false; }
             case 'notmatches':
-                try { return !new RegExp(expected).test(actual); } catch { return false; }
+                try {
+                    // Guard against ReDoS: reject patterns that are too long or contain nested quantifiers
+                    if (expected.length > 500 || /[+*?}][+*?]/.test(expected) || /\)\s*[+*?{]/.test(expected)) { return false; }
+                    return !new RegExp(expected).test(actual);
+                } catch { return false; }
             case 'isnull':
                 return actual === '' || actual.toLowerCase() === 'null' || actual === undefined;
             case 'isempty':

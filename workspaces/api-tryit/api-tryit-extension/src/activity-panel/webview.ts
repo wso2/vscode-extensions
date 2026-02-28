@@ -19,6 +19,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import * as crypto from 'crypto';
 import type { ApiRequestItem, ApiRequest, ApiResponse } from '@wso2/api-tryit-core';
 import { getComposerJSFiles } from '../util';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
@@ -1324,6 +1325,13 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 
     private _getWebviewContent(webview: vscode.Webview) {
         const scriptUris = getComposerJSFiles(this._extensionContext, 'ApiTryItVisualizer', webview);
+        const nonce = crypto.randomBytes(16).toString('hex');
+        const isDevMode = process.env.WEB_VIEW_WATCH_MODE === 'true';
+        const devHost = process.env.TRY_VIEW_DEV_HOST || 'http://localhost:9092';
+        // In dev mode, scripts and fonts may come from the webpack-dev-server (e.g. localhost:9092).
+        // Those dynamic chunk URLs have no nonce and are not from ${webview.cspSource}, so we must
+        // explicitly allow the dev host in the CSP. In production only local extension resources apply.
+        const extraSrc = isDevMode ? ` ${devHost}` : '';
 
         return /*html*/ `
         <!DOCTYPE html>
@@ -1332,6 +1340,9 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
           <meta name="theme-color" content="#000000">
+          <meta http-equiv="Content-Security-Policy"
+                content="default-src 'none'; font-src ${webview.cspSource}${extraSrc} data:; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource}${extraSrc} 'unsafe-inline'; script-src ${webview.cspSource}${extraSrc} 'nonce-${nonce}';">
+
           <title>WSO2 API TryIt</title>
           <style>
             body {
@@ -1353,8 +1364,8 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
             <div id="root">
                 Loading ....
             </div>
-            ${scriptUris.map(jsFile => `<script charset="UTF-8" src="${jsFile}"></script>`).join('\n')}
-            <script>
+            ${scriptUris.map(jsFile => `<script nonce="${nonce}" charset="UTF-8" src="${jsFile}"></script>`).join('\n')}
+            <script nonce="${nonce}">
                 // Function to initialize the React app
                 function initializeApp() {
                     console.log('API TryIt: Initializing app...');

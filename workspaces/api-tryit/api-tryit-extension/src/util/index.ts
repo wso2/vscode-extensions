@@ -31,11 +31,11 @@ export function getComposerJSFiles(
 
 	if (isDevMode) {
 		// Load from webpack-dev-server for hot reload.
-		// Also include local bundles as a fallback to avoid endless loading
-		// when the dev server is not running.
-		const devBundle = `${devHost}/${composerName}.js`;
-		const localBundles = getLocalComposerJSFiles(context, composerName, webview);
-		return [devBundle, ...localBundles];
+		// Only the dev bundle is loaded — loading both dev + local bundles in the same
+		// webview causes the bundle to execute twice, which makes acquireVsCodeApi()
+		// be called a second time and throws "An instance of the VS Code API has already
+		// been acquired".
+		return [`${devHost}/${composerName}.js`];
 	}
 
 	return getLocalComposerJSFiles(context, composerName, webview);

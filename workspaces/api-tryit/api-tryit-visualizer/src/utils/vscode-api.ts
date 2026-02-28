@@ -25,7 +25,13 @@ let vscodeApi: any = null;
 
 export function getVSCodeAPI() {
     if (!vscodeApi && typeof acquireVsCodeApi !== 'undefined') {
-        vscodeApi = acquireVsCodeApi();
+        try {
+            vscodeApi = acquireVsCodeApi();
+        } catch {
+            // acquireVsCodeApi() throws if called more than once in the same webview.
+            // This should not happen in production but can occur in dev mode if the
+            // bundle is loaded twice. Return null so callers degrade gracefully.
+        }
     }
     return vscodeApi;
 }
