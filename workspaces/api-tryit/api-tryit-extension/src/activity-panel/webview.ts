@@ -155,6 +155,18 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 					// Handle renaming a request
 					this._handleRenameRequest(message.requestId as string, message.currentName as string);
 					break;
+				case 'addRequestToFolder':
+					this._handleAddRequestToFolder(message.folderId as string, message.folderPath as string);
+					break;
+				case 'renameFolder':
+					this._handleRenameFolder(message.folderId as string, message.folderPath as string, message.currentName as string);
+					break;
+				case 'runFolder':
+					this._handleRunFolder(message.folderId as string, message.folderPath as string, message.folderName as string | undefined);
+					break;
+				case 'deleteFolder':
+					this._handleDeleteFolder(message.folderId as string, message.folderPath as string, message.currentName as string);
+					break;
 				case 'runCollection':
 					this._handleRunCollection(message.collectionId as string);
 					break;
@@ -212,20 +224,25 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 	}
 
 	private async _sendCollections(skipHashCheck: boolean = false) {
-		if (this._view && this._apiExplorerProvider) {
-			const collections = await this._apiExplorerProvider.getCollections();
-			
-			// Create a hash of the collections to avoid sending identical data
-			const collectionsHash = JSON.stringify(collections);
-			
-			// Only send if collections have changed (skip hash check for initial sends)
-			if (skipHashCheck || collectionsHash !== this._lastSentCollectionsHash) {
-				this._lastSentCollectionsHash = collectionsHash;
-				this._view.webview.postMessage({
-					command: 'updateCollections',
-					collections
-				});
+		try {
+			if (this._view && this._apiExplorerProvider) {
+				const collections = await this._apiExplorerProvider.getCollections();
+
+				// Create a hash of the collections to avoid sending identical data
+				const collectionsHash = JSON.stringify(collections);
+
+				// Only send if collections have changed (skip hash check for initial sends)
+				if (skipHashCheck || collectionsHash !== this._lastSentCollectionsHash) {
+					this._lastSentCollectionsHash = collectionsHash;
+					this._view.webview.postMessage({
+						command: 'updateCollections',
+						collections
+					});
+				}
 			}
+		} catch (error) {
+			// Swallow errors so a failed refresh (e.g. from a debounce timer) never
+			// bubbles up as an unhandled rejection.
 		}
 	}
 
@@ -344,11 +361,12 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			// The empty request will be created and selected below
 
 			// Also create and select an empty request immediately so the TryIt panel shows it without waiting for the state machine debounce
+			const newRequestId = `new-${Date.now()}`;
 			const emptyRequestItem: ApiRequestItem = {
-				id: `new-${Date.now()}`,
+				id: newRequestId,
 				name: 'New Request',
 				request: {
-					id: `new-${Date.now()}`,
+					id: newRequestId,
 					name: 'New Request',
 					method: 'GET',
 					url: '',
@@ -484,11 +502,12 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			// The empty request will be created and selected below
 
 			// Also create and select an empty request immediately so the TryIt panel shows it without waiting for the state machine debounce
+			const newRequestId = `new-${Date.now()}`;
 			const emptyRequestItem: ApiRequestItem = {
-				id: `new-${Date.now()}`,
+				id: newRequestId,
 				name: 'New Request',
 				request: {
-					id: `new-${Date.now()}`,
+					id: newRequestId,
 					name: 'New Request',
 					method: 'GET',
 					url: '',
@@ -615,12 +634,14 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			}
 		}
 
-		const byMethodAndUrl = parsedItems.findIndex(item =>
-			(!requestMethod || item.request.method.toUpperCase() === requestMethod) &&
-			(!requestUrl || item.request.url === requestUrl)
-		);
-		if (byMethodAndUrl >= 0 && byMethodAndUrl < parsedDocument.blocks.length) {
-			return byMethodAndUrl;
+		if (requestMethod || requestUrl) {
+			const byMethodAndUrl = parsedItems.findIndex(item =>
+				(!requestMethod || item.request.method.toUpperCase() === requestMethod) &&
+				(!requestUrl || item.request.url === requestUrl)
+			);
+			if (byMethodAndUrl >= 0 && byMethodAndUrl < parsedDocument.blocks.length) {
+				return byMethodAndUrl;
+			}
 		}
 
 		if (parsedItems.length === 1) {

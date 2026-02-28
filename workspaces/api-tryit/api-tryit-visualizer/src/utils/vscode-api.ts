@@ -47,23 +47,25 @@ function parseCurl(curl: string): { method: string; url: string; headers: Record
     const cleanCurl = curl.replace(/\\\s*\n/g, ' ').trim();
     
     let method = 'GET';
+    let explicitMethod = false;
     let url = '';
     const headers: Record<string, string> = {};
     let body = '';
-    
+
     // Parse the curl string while respecting quoted values
     const tokens = tokenizeCurl(cleanCurl);
-    
+
     for (let i = 0; i < tokens.length; i++) {
         const token = tokens[i];
-        
+
         if (token === 'curl') {
             continue;
         }
-        
+
         if (token === '-X' || token === '--request') {
             if (i + 1 < tokens.length) {
                 method = tokens[i + 1];
+                explicitMethod = true;
                 i++;
             }
         } else if (token === '-H' || token === '--header') {
@@ -86,7 +88,12 @@ function parseCurl(curl: string): { method: string; url: string; headers: Record
             url = token;
         }
     }
-    
+
+    // -d/--data implies POST when no explicit method was given (mirrors curl's own behaviour)
+    if (!explicitMethod && body) {
+        method = 'POST';
+    }
+
     return { method, url, headers, body };
 }
 
@@ -133,7 +140,14 @@ function tokenizeCurl(curl: string): string[] {
  * @returns An ApiRequestItem object with the curl data
  */
 export function curlToApiRequestItem(curl: string): ApiRequestItem {
-    const parsed = parseCurl(curl);
+    const trimmed = curl.trim();
+    if (!trimmed) {
+        throw new Error('curl command must not be empty');
+    }
+    const parsed = parseCurl(trimmed);
+    if (!parsed.url) {
+        throw new Error('curl command does not contain a valid URL (must start with http:// or https://)');
+    }
     const id = generateId();
     const name = `${parsed.method} ${parsed.url}`;
     

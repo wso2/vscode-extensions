@@ -175,7 +175,7 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
         const actualStatus = String(apiResponse.statusCode);
         
         // Handle status class patterns (2xx, 3xx, etc.)
-        if (expectedPattern.match(/^\d[xx]$/)) {
+        if (expectedPattern.match(/^\d[xX]{2}$/i)) {
             const firstDigit = expectedPattern[0];
             return actualStatus[0] === firstDigit;
         }
@@ -193,7 +193,7 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
         const actualStatus = String(apiResponse.statusCode);
         
         // Handle status class patterns (2xx, 3xx, etc.)
-        if (expectedPattern.match(/^\d[xx]$/)) {
+        if (expectedPattern.match(/^\d[xX]{2}$/i)) {
             const firstDigit = expectedPattern[0];
             return actualStatus[0] === firstDigit;
         }
@@ -277,7 +277,9 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
             case 'isfalsy':
                 return !isTruthyString(actual);
             case 'isnumber':
-                return !isNaN(Number(actual));
+                return actual.trim() !== '' && !isNaN(Number(actual));
+            case 'isstring':
+                return typeof actual === 'string';
             case 'isboolean':
                 return ['true', 'false'].includes(actual.toLowerCase());
             case 'isarray':
