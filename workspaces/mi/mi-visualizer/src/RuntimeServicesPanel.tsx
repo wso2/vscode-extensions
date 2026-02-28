@@ -187,7 +187,8 @@ export function RuntimeServicePanel() {
     const onTryit = async (name: any) => {
         const api_resource = await rpcClient.getMiDiagramRpcClient().getAvailableResources({
             documentIdentifier: undefined,
-            resourceType: "api"
+            resourceType: "api",
+            isDebugFlow: true
         });
 
         const resource = api_resource.resources.find((resource: any) => resource.name === name.split("__").pop());

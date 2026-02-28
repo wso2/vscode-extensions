@@ -58,6 +58,9 @@ export type CopilotChatEntry = {
     role: Role.CopilotUser | Role.CopilotAssistant;
     content: string;
     type?: MessageType;
+    /** Full AI SDK messages (includes tool calls/results) - only for assistant messages */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    modelMessages?: any[];
 };
 
 export type ChatMessage = {

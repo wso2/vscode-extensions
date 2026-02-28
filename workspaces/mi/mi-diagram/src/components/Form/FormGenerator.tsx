@@ -1296,6 +1296,8 @@ export function FormGenerator(props: FormGeneratorProps) {
                         getValues={getValues}
                         setError={setError}
                         clearErrors={clearErrors}
+                        documentUri={documentUri}
+                        range={range}
                     />
                 );
             default:
