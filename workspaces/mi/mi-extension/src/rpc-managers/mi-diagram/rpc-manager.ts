@@ -351,7 +351,7 @@ import { DebuggerConfig } from "../../debugger/config";
 import { getKubernetesConfiguration, getKubernetesDataConfiguration } from "../../util/template-engine/mustach-templates/KubernetesConfiguration";
 import { parseStringPromise, Builder } from "xml2js";
 import { MILanguageClient } from "../../lang-client/activator";
-import { addWSO2AIConfigProperties } from "../../ai-panel/configUtils";
+import { addWSO2AIConfigProperties } from "../../ai-features/configUtils";
 const AdmZip = require('adm-zip');
 
 const { XMLParser, XMLBuilder } = require("fast-xml-parser");
