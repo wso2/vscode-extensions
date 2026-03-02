@@ -692,7 +692,10 @@ export class DynamicFieldsHandler {
 
         } catch (error) {
             console.error("Error testing DB connection:", error);
-            this.setCustomError(FIELD_NAMES.CONFIG_KEY, ERROR_MESSAGES.CONNECTION_FAILED + " (RPC Error)");
+            this.setCustomError(
+                getNameForController(FIELD_NAMES.CONFIG_KEY),
+                ERROR_MESSAGES.CONNECTION_FAILED + " (RPC Error)",
+            );
             this.setValue(FIELD_NAMES.ASSISTANCE_MODE, false);
             this.setValue(FIELD_NAMES.QUERY_TYPE, UI_MODES.OFFLINE);
             return undefined;
@@ -763,6 +766,7 @@ export class DynamicFieldsHandler {
                 }
             }
             //Handling Response Columns (SELECT only)
+            console.log('Response Columns Value:', formValues[FIELD_NAMES.RESPONSE_COLUMNS]);
             if ( operationType === QUERY_TYPES.SELECT && typeof formValues[FIELD_NAMES.RESPONSE_COLUMNS] === 'string' &&
             formValues[FIELD_NAMES.RESPONSE_COLUMNS].trim() !== '') {
                 const selectColumns = formValues[FIELD_NAMES.RESPONSE_COLUMNS].split(',').map((col: string) => col.trim()).filter((col: string) => col);
@@ -1169,7 +1173,6 @@ export class DynamicFieldsHandler {
         config: OnValueChangeParams,
         element: Element
     ): Promise<void> {
-        let parseSuccess = true;
         let parseErrorMessage = '';
 
         const queryFieldName = getNameForController(config.resultField!);
@@ -1188,7 +1191,6 @@ export class DynamicFieldsHandler {
         const match = currentRegex?.exec(userQuery);
 
         if (!match?.groups) {
-            parseSuccess = false;
             this.setCustomError(queryFieldName, ERROR_MESSAGES.COMPLEX_QUERY);
             // Clear dependent fields
             this._clearFieldValue(config.preparedResultField!);

@@ -294,7 +294,7 @@ export function FormGenerator(props: FormGeneratorProps) {
         version: '',
         driverPath: ''
     });
-    const [isDriverConfigLoading, setIsDriverConfigLoading] = useState(true);
+    const [, setIsDriverConfigLoading] = useState(true);
 
     useEffect(() => {
         const initializeDriverConfig = () => {
