@@ -31,7 +31,7 @@ import { buildBallerinaModule, setPathsInWorkSpace, verifyJavaHomePath, verifyMI
 import { MACHINE_VIEW } from '@wso2/mi-core';
 import { askForProject } from '../util/workspace';
 import { webviews } from '../visualizer/webview';
-import { getWSO2AIEnvVariables } from '../ai-panel/configUtils';
+import { getWSO2AIEnvVariables } from '../ai-features/configUtils';
 
 
 class MiConfigurationProvider implements vscode.DebugConfigurationProvider {
@@ -274,9 +274,10 @@ export function activateDebugger(context: vscode.ExtensionContext) {
             if (fs.existsSync(envPath)) {
                 const envFileContent = fs.readFileSync(envPath, 'utf-8');
                 const envVariables = envFileContent.split('\n').reduce((acc, line) => {
-                    const [key, value] = line.split('=').map(part => part.trim());
+                    const [key, ...values] = line.split('=');
+                    const value = values.join('=').trim();
                     if (key && value) {
-                        acc[key] = value;
+                        acc[key.trim()] = value;
                     }
                     return acc;
                 }, {} as { [key: string]: string });
@@ -379,6 +380,6 @@ class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory 
             window.showErrorMessage(errorMessage);
             return;
         }
-        return new vscode.DebugAdapterInlineImplementation(new MiDebugAdapter(projectUri));
+        return new vscode.DebugAdapterInlineImplementation(new MiDebugAdapter(projectUri, session));
     }
 }

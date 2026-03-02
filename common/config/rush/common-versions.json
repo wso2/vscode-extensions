@@ -24,44 +24,5 @@
      * instead of the latest version.
      */
     // "some-library": "1.2.3"
-    "webpack": "^5.56.0",
-    "@eslint/plugin-kit": "^0.3.4",
-    "on-headers": "^1.1.0",
-    "form-data": "^4.0.4",
-    "tmp": "^0.2.4"
-  },
-
-  /**
-   * When set to true, for all projects in the repo, all dependencies will be automatically added as preferredVersions,
-   * except in cases where different projects specify different version ranges for a given dependency.  For older
-   * package managers, this tended to reduce duplication of indirect dependencies.  However, it can sometimes cause
-   * trouble for indirect dependencies with incompatible peerDependencies ranges.
-   *
-   * The default value is true.  If you're encountering installation errors related to peer dependencies,
-   * it's recommended to set this to false.
-   *
-   * After modifying this field, it's recommended to run "rush update --full" so that the package manager
-   * will recalculate all version selections.
-   */
-  "implicitlyPreferredVersions": false,
-
-  /**
-   * The "rush check" command can be used to enforce that every project in the repo must specify
-   * the same SemVer range for a given dependency.  However, sometimes exceptions are needed.
-   * The allowedAlternativeVersions table allows you to list other SemVer ranges that will be
-   * accepted by "rush check" for a given dependency.
-   *
-   * IMPORTANT: THIS TABLE IS FOR *ADDITIONAL* VERSION RANGES THAT ARE ALTERNATIVES TO THE
-   * USUAL VERSION (WHICH IS INFERRED BY LOOKING AT ALL PROJECTS IN THE REPO).
-   * This design avoids unnecessary churn in this file.
-   */
-  "allowedAlternativeVersions": {
-    /**
-     * For example, allow some projects to use an older TypeScript compiler
-     * (in addition to whatever "usual" version is being used by other projects in the repo):
-     */
-    // "typescript": [
-    //   "~2.4.0"
-    // ]
   }
 }

@@ -2,6 +2,12 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
+## [3.1.3] - 2026-02-05
+
+### Fixed
+
+Fixed: Minor issues in the project migration flow
+
 ## [3.1.2] - 2026-01-22
 
 ### Fixed

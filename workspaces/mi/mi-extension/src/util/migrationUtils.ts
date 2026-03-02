@@ -1595,7 +1595,7 @@ function readPomDependencies(source: string, projectDirToResolvedPomMap: Map<str
         }
     }
 
-    const parser = new XMLParser({ ignoreAttributes: false });
+    const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: false });
     const parsed = parser.parse(resolvedPomContent);
 
     const dependencies = parsed?.project?.dependencies?.dependency;

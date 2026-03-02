@@ -13,3 +13,8 @@ vsc-extension-quickstart.md
 scripts/**
 *.log
 rush-logs
+vsix/**
+playwright-report/**
+test-results/**
+.rush/**
+*.vsix

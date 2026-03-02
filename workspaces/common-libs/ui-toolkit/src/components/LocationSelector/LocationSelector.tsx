@@ -30,6 +30,7 @@ type FileSelectorBaseProps = {
 	required?: boolean;
 	sx?: any;
     onSelect: () => void;
+    errorMsg?: string;
 }
 
 export type FileSelectorProps = FileSelectorBaseProps & {
@@ -64,8 +65,14 @@ const PathText = styled.div`
     opacity: 0.8;
 `;
 
+const ErrorText = styled.div`
+    color: var(--vscode-errorForeground);
+    font-size: 12px;
+    margin-top: 4px;
+`;
+
 export const LocationSelector: React.FC<FileSelectorProps> = (props: FileSelectorProps) => {
-    const { id, label, required, selectionText, sx, btnText, onSelect, selectedFile } = props;
+    const { id, label, required, selectionText, sx, btnText, onSelect, selectedFile, errorMsg } = props;
 
     return (
         <Container id={id} sx={sx}>
@@ -81,12 +88,13 @@ export const LocationSelector: React.FC<FileSelectorProps> = (props: FileSelecto
             <BrowseBtn appearance="secondary" id="file-selector-btn" onClick={onSelect}>
                 {btnText || "Select Location"}
             </BrowseBtn>
+            {errorMsg && <ErrorText>{errorMsg}</ErrorText>}
         </Container>
     );
 };
 
 export const FormLocationSelector = <T extends FieldValues>(props: FormFileSelectorProps<T>) => {
-    const { id, name, control, label, selectionText, btnText, required, onSelect, sx } = props;
+    const { id, name, control, label, selectionText, btnText, required, onSelect, sx, errorMsg } = props;
     const {
         field: { value, ...rest },
     } = useController<T>({ name, control });
@@ -102,6 +110,7 @@ export const FormLocationSelector = <T extends FieldValues>(props: FormFileSelec
             btnText={btnText}
             required={required}
             sx={sx}
+            errorMsg={errorMsg}
             {...rest}
         />
     );

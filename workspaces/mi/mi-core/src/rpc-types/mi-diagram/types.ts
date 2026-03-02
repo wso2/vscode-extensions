@@ -461,6 +461,7 @@ export interface ShowErrorMessageRequest {
 export interface OpenDiagramRequest {
     path: string;
     beside?: boolean;
+    line?: number;
 }
 
 export interface CreateAPIResponse {
@@ -1439,6 +1440,7 @@ export interface MultipleResourceType {
 export interface GetAvailableResourcesRequest {
     documentIdentifier: string | undefined;
     resourceType: ResourceType | MultipleResourceType[];
+    isDebugFlow?: boolean;
 }
 
 export interface GetAvailableResourcesResponse {
@@ -1479,7 +1481,6 @@ export interface ConfigureKubernetesResponse {
 }
 
 export interface GetProxyRootUrlResponse {
-    openaiUrl: string;
     anthropicUrl: string;
 }
 
@@ -1780,6 +1781,7 @@ export interface SwaggerFromAPIRequest {
     swaggerPath?: string;
     isJsonIn?: boolean;
     isJsonOut?: boolean;
+    host?: string;
     port?: number;
     projectPath?: string;
 }
@@ -2104,6 +2106,21 @@ export interface UpdateMediatorRequest {
     trailingSpace?: string;
 }
 
+export interface McpToolsRequest {
+    documentUri: string;
+    range: Range;
+    connectionName: string;
+}
+
+export interface McpToolsResponse {
+    tools: Array<{
+        name: string;
+        description?: string;
+    }>;
+    selectedTools?: string[];
+    error?: string;
+}
+
 export interface UpdateMediatorResponse {
     textEdits: ExtendedTextEdit[];
 }
@@ -2253,4 +2270,13 @@ export interface GetMockServicesResponse{
 export interface UpdateRegistryPropertyRequest {
     targetFile: string;
     properties: Property[];
+}
+
+export interface GenerateMappingsParamsRequest {
+    query: string;
+    className?: string;
+    url?: string;
+    username?: string;
+    password?: string;
+    type: 'input' | 'output'
 }
