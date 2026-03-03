@@ -154,7 +154,7 @@ const REGEX = {
 };
 
 const EXPRESSION_TYPES = ['stringOrExpression', 'integerOrExpression', 'expression', 'keyOrExpression', 'resourceOrExpression',
-    'textOrExpression', 'textAreaOrExpression', 'stringOrExpression'
+    'textOrExpression', 'textAreaOrExpression'
 ];
 
 const NO_QUOTES_SQL_TYPES = ['INT', 'INTEGER', 'BIGINT', 'SMALLINT', 'TINYINT', 'FLOAT', 'DOUBLE', 'DECIMAL', 'NUMERIC', 'BOOLEAN', 'BIT', 'DATE', 'TIME', 'TIMESTAMP', 'DATETIME'];
