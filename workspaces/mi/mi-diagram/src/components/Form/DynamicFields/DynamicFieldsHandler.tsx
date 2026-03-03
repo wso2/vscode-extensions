@@ -1624,9 +1624,16 @@ export class DynamicFieldsHandler {
     }
 
     /** Helper: Builds a prepared statement string for CALL */
-    private _buildCallPreparedStatement(tableName: string, matchedFields: Record<string, DynamicFieldValue>): string {
+    private _buildCallPreparedStatement(tableName: string, matchedFields: Record<string, DynamicFieldValue>, dbType?: string): string {
         const placeholders = Object.keys(matchedFields).map(() => '?').join(', ');
-        return `CALL ${tableName}(${placeholders})`;
+        switch (dbType?.toLowerCase()) {
+            case 'oracle':
+                return `BEGIN ${tableName}(${placeholders}); END;`;
+            case 'microsoft sql server':
+                return `EXEC ${tableName} ${placeholders}`;
+            default:
+                return `CALL ${tableName}(${placeholders})`;
+        }
     }
 
     private async _handleAssistanceModeChange(value: any, fieldName: string, rpc?: string): Promise<void> {
