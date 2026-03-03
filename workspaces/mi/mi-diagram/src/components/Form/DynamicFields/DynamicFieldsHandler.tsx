@@ -237,7 +237,7 @@ export class DynamicFieldsHandler {
         element: Element, // The element triggering the change
         selectedValue: string,
         parentFieldName: string
-    ): Promise<DynamicField[] | null> => {
+    ): Promise<DynamicField[] | null | undefined> => {
         try {
             // //if offline mode do not fetch dynamic fields
             // if(element.inputType === 'string' && element.name === FIELD_NAMES.TABLE_NAME) {
