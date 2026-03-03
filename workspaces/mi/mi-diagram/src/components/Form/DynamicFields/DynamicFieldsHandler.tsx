@@ -769,7 +769,6 @@ export class DynamicFieldsHandler {
                 }
             }
             //Handling Response Columns (SELECT only)
-            console.log('Response Columns Value:', formValues[FIELD_NAMES.RESPONSE_COLUMNS]);
             if ( operationType === QUERY_TYPES.SELECT && typeof formValues[FIELD_NAMES.RESPONSE_COLUMNS] === 'string' &&
             formValues[FIELD_NAMES.RESPONSE_COLUMNS].trim() !== '') {
                 const selectColumns = formValues[FIELD_NAMES.RESPONSE_COLUMNS].split(',').map((col: string) => col.trim()).filter((col: string) => col);
