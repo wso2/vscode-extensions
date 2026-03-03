@@ -6098,7 +6098,7 @@ ${keyValuesXML}`;
     async getDynamicFields(params: GetDynamicFieldsRequest): Promise<GetDynamicFieldsResponse> {
         return new Promise(async (resolve) => {
             try {
-                const langClient = getStateMachine(this.projectUri).context().langClient!;
+                const langClient = await MILanguageClient.getInstance(this.projectUri);
                 const response = await langClient.getDynamicFields({
                     connectorName: params.connectorName,
                     operationName: params.operationName,
@@ -6122,7 +6122,7 @@ ${keyValuesXML}`;
 
     async getStoredProcedures(params: DSSFetchTablesRequest): Promise<GetStoredProceduresResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.getStoredProcedures({
                 ...params, tableData: "", datasourceName: ""
             });
@@ -6132,7 +6132,7 @@ ${keyValuesXML}`;
 
     async downloadDriverForConnector(params: DriverDownloadRequest): Promise<DriverDownloadResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.downloadDriverForConnector(params);
             resolve(res);
         });
@@ -6141,7 +6141,7 @@ ${keyValuesXML}`;
     async loadDriverAndTestConnection(req: LoadDriverAndTestConnectionRequest): Promise<TestDbConnectionResponse> {
 
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const response = await langClient?.loadDriverAndTestConnection(req);
             resolve({ success: response ? response.success : false });
         });
@@ -6150,7 +6150,7 @@ ${keyValuesXML}`;
     async getDriverMavenCoordinates(params: DriverMavenCoordinatesRequest): Promise<DriverMavenCoordinatesResponse> {
         return new Promise(async (resolve) => {
 
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.getDriverMavenCoordinates(params);
             resolve(res);
 

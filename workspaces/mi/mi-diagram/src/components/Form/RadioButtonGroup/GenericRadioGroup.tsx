@@ -19,7 +19,6 @@ export interface GenericRadioGroupProps {
   orientation?: 'vertical' | 'horizontal';
 }
 
-// The helpTipElement prop is already passed to the component.
 export const GenericRadioGroup: React.FC<GenericRadioGroupProps> = ({
   name,
   label,

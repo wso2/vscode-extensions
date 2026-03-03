@@ -660,9 +660,9 @@ export class DynamicFieldsHandler {
                     }
                     retryCount++;
                 }
-            }
-            if (!isDriverDownloaded) {
+                if (!isDriverDownloaded) {
                 this.setCustomError(getNameForController(FIELD_NAMES.CONFIG_KEY), "Failed to download the DB driver after 5 attempts.");
+                }
             }
             connection.parameters.push({
                 name: FIELD_NAMES.DRIVER_PATH,
@@ -714,8 +714,11 @@ export class DynamicFieldsHandler {
             };
             let tables;
             if (rpc === "getStoredProcedures") {
-                tables = await this.rpcClient.getMiDiagramRpcClient().getStoredProcedures(credentials);
-                tables = Object.fromEntries(tables.map((key: string) => [key, true]));
+                // tables = await this.rpcClient.getMiDiagramRpcClient().getStoredProcedures(credentials);
+                // tables = Object.fromEntries(tables.map((key: string) => [key, true]));
+                const response = await this.rpcClient.getMiDiagramRpcClient().getStoredProcedures(credentials);
+                const procedures = Array.isArray(response) ? response : (response?.procedures ?? []);
+                tables = Object.fromEntries(procedures.map((name: string) => [name, true]));
             } else {
                 tables = await this.rpcClient.getMiDiagramRpcClient().fetchDSSTables(credentials);
             }
