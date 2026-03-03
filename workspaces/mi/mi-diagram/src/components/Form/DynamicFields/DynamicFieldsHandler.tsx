@@ -1033,7 +1033,7 @@ export class DynamicFieldsHandler {
                     const cols = insertColumns.map(f => this._encodeColumnName(f.displayName, dbType)).join(', ');
                     const placeholders = insertColumns.map(() => '?').join(', ');
                     const values = insertColumns.map(f =>
-                        this._checkNoQuotesNeeded(f) ? f.value : `'${f.value}'` // Handle expressions and quoting
+                        this._checkNoQuotesNeeded(f) ? f.value : `'${this._escapeSqlValue(f.value ?? '')}'` // Handle expressions and quoting
                     ).join(', ');
 
                     query = `INSERT INTO ${encodedTableName} (${cols}) VALUES (${values})`;
@@ -1055,7 +1055,7 @@ export class DynamicFieldsHandler {
                 if (Object.keys(activeFields).length > 0) {
                     const where = Object.values(activeFields).map(f => {
                         const col = this._encodeColumnName(f.displayName, dbType);
-                        const val = this._checkNoQuotesNeeded(f) ? f.value : `'${f.value}'`;
+                        const val = this._checkNoQuotesNeeded(f) ? f.value : `'${this._escapeSqlValue(f.value ?? '')}'`;
                         return `${col} = ${val}`;
                     }).join(' AND ');
                     const prepWhere = Object.values(activeFields).map(f =>
@@ -1079,7 +1079,7 @@ export class DynamicFieldsHandler {
                 if (Object.keys(activeFields).length > 0) {
                     const where = Object.values(activeFields).map(f => {
                         const col = this._encodeColumnName(f.displayName, dbType);
-                        const val = this._checkNoQuotesNeeded(f) ? f.value : `'${f.value}'`;
+                        const val = this._checkNoQuotesNeeded(f) ? f.value : `'${this._escapeSqlValue(f.value ?? '')}'`;
                         return `${col} = ${val}`;
                     }).join(' AND ');
                     const prepWhere = Object.values(activeFields).map(f =>
@@ -1634,6 +1634,11 @@ export class DynamicFieldsHandler {
             default:
                 return `CALL ${tableName}(${placeholders})`;
         }
+    }
+
+    /** Escapes single quotes in SQL string values */
+    private _escapeSqlValue(value: string): string {
+        return value.replace(/'/g, "''");
     }
 
     private async _handleAssistanceModeChange(value: any, fieldName: string, rpc?: string): Promise<void> {
