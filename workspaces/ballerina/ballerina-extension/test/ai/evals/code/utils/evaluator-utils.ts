@@ -223,7 +223,8 @@ const codeContextRetrievalSchema = z.object({
     reasoning: z.string().describe(
         'A clear and concise explanation of your evaluation. ' +
         'Reference specific parts of the existing codebase that were or were not retrieved. ' +
-        'Do not suggest hypothetical patterns — only judge against what exists in the Initial Code.'
+        'Do not suggest hypothetical patterns — only judge against what exists in the Initial Code.' +
+        'If there is missing context, list each missing piece as a bullet point with the file name, line numbers, and the relevant code snippet from the Initial Code.'
     )
 });
 
@@ -296,9 +297,11 @@ Your role is to:
 3. Evaluate whether the agent's file_read and grep calls retrieved the relevant parts of the existing code needed to fulfill the query.
 
 Important:
-- Judge only against what exists in the Initial Code. Do not assume or invent code that is not there.
+- The Initial Code section is the ONLY source of truth. It represents the exact state of the codebase BEFORE the agent made any changes.
+- CRITICAL: Before penalizing the agent for not reading a file, you MUST verify that the file appears in the Initial Code section. If a file does NOT appear in the Initial Code, it was created by the agent as part of its implementation and should NOT be expected to have been read — it did not exist yet.
 - The agent has access to a CodeMap providing high-level structure, so it does not need to retrieve trivially obvious information.
-- The agent uses file_read to read files and grep to search for specific patterns within the existing codebase.`
+- The agent uses file_read to read files and grep to search for specific patterns within the existing codebase.
+- Only judge the agent on whether it read the files that already existed and were relevant to fulfilling the query. Never penalize for not reading files it created itself.`
 
     const userPrompt = `# User Query
 The user requested the following change:
