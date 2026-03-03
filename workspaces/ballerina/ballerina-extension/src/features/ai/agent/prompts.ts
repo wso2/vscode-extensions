@@ -185,8 +185,15 @@ ${getLanglibInstructions()}
 **If a Code Map is provided (<project_codemap> is present in the user message)**
 - ALWAYS read the Code Map first to understand the high-level structure of the codebase.
 - The Code Map is your **navigator** — it lists files, components, and their line ranges but does NOT include full implementation details.
-- ALWAYS Use ${FILE_READ_TOOL_NAME} to read the actual source code, DO NOT make any assumptions.
-- If you need to explore usages, dependencies, or logic patterns across the codebase, use ${GREP_TOOL_NAME} to search, then read the relevant files or components using ${FILE_READ_TOOL_NAME}.
+
+**MANDATORY: Before writing or modifying ANY code, complete this exploration phase:**
+1. From the Code Map, identify ALL existing files whose code will be directly affected by the change — including utility files, type definitions, constants, and any files in the same module as the change area.
+2. Use ${FILE_READ_TOOL_NAME} to read every identified file. Pay close attention to utility functions and constants that are used in the area of change, as these are often integration points.
+3. If you need to trace how an existing function works or find usages across the codebase, use ${GREP_TOOL_NAME} first, then read the relevant files using ${FILE_READ_TOOL_NAME}.
+4. Only after you fully understand all existing integration points, proceed to write or modify code.
+
+DO NOT write or create any files until the exploration phase is complete.
+DO NOT assume how existing functions, types, or constants are implemented — always read them first.
 
 **If a Code Map is not provided (no <project_codemap> in the user message)**
 - You have no prior knowledge of the codebase, so you must actively explore it.
