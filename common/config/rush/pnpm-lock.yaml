@@ -450,25 +450,25 @@ importers:
   ../../workspaces/ballerina/ballerina-extension:
     dependencies:
       '@ai-sdk/amazon-bedrock':
-        specifier: ^4.0.52
+        specifier: 4.0.67
         version: 4.0.67(zod@4.1.8)
       '@ai-sdk/anthropic':
-        specifier: ^3.0.39
+        specifier: 3.0.48
         version: 3.0.48(zod@4.1.8)
       '@ai-sdk/google-vertex':
-        specifier: ^4.0.27
+        specifier: 4.0.66
         version: 4.0.66(zod@4.1.8)
       '@iarna/toml':
-        specifier: ^2.2.5
+        specifier: 2.2.5
         version: 2.2.5
       '@types/lodash':
-        specifier: ^4.14.200
-        version: 4.17.17
+        specifier: 4.14.200
+        version: 4.14.200
       '@vscode/test-electron':
-        specifier: ^2.5.2
+        specifier: 2.5.2
         version: 2.5.2
       '@vscode/vsce':
-        specifier: ^3.7.0
+        specifier: 3.7.1
         version: 3.7.1
       '@wso2/ballerina-core':
         specifier: workspace:*
@@ -489,28 +489,28 @@ importers:
         specifier: workspace:*
         version: link:../../wso2-platform/wso2-platform-core
       ai:
-        specifier: ^6.0.77
+        specifier: 6.0.103
         version: 6.0.103(zod@4.1.8)
       cors-anywhere:
-        specifier: ^0.4.4
+        specifier: 0.4.4
         version: 0.4.4
       del-cli:
-        specifier: ^5.1.0
+        specifier: 5.1.0
         version: 5.1.0
       dotenv:
-        specifier: ~16.5.0
+        specifier: 16.5.0
         version: 16.5.0
       file-uri-to-path:
-        specifier: ^2.0.0
+        specifier: 2.0.0
         version: 2.0.0
       glob:
-        specifier: ^11.1.0
+        specifier: 11.1.0
         version: 11.1.0
       handlebars:
-        specifier: ~4.7.8
+        specifier: 4.7.8
         version: 4.7.8
       jwt-decode:
-        specifier: ^4.0.0
+        specifier: 4.0.0
         version: 4.0.0
       lodash:
         specifier: 4.17.23
