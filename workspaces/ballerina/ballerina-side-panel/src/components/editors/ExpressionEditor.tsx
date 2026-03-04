@@ -486,9 +486,11 @@ export const ExpressionEditor = (props: ExpressionEditorProps) => {
         const inputMode = getInputModeFromTypes(selectedInputType);
         if (!inputMode) {
             setInputMode(InputMode.EXP);
+            updateFieldTypesSelection(InputMode.EXP);
             return;
         };
         setInputMode(inputMode);
+        updateFieldTypesSelection(inputMode);
     }, [field?.types, recordTypeField]);
 
     const handleFocus = async (controllerOnChange?: (value: string) => void) => {
@@ -576,10 +578,17 @@ export const ExpressionEditor = (props: ExpressionEditorProps) => {
         return valueConfigObject.getIsValueCompatible(expValue);
     }
 
+    const updateFieldTypesSelection = (targetMode: InputMode) => {
+        field.types?.forEach(type => {
+            type.selected = getInputModeFromTypes(type) === targetMode;
+        });
+    };
+
     const handleModeChange = (value: InputMode) => {
         const raw = watch(key);
         const currentValue = raw && typeof raw === "string" ? raw.trim() : "";
         if (inputMode !== InputMode.EXP) {
+            updateFieldTypesSelection(value);
             setInputMode(value);
             return;
         }
@@ -588,11 +597,13 @@ export const ExpressionEditor = (props: ExpressionEditorProps) => {
             setShowModeSwitchWarning(true)
             return;
         }
+        updateFieldTypesSelection(value);
         setInputMode(value);
     };
 
     const handleModeSwitchWarningContinue = () => {
         if (targetInputModeRef.current !== null) {
+            updateFieldTypesSelection(targetInputModeRef.current);
             setInputMode(targetInputModeRef.current);
             const targetMode = targetInputModeRef.current;
             const shouldClearValue = [
@@ -667,7 +678,7 @@ export const ExpressionEditor = (props: ExpressionEditorProps) => {
                                 <S.HeaderContainer>
                                     <S.LabelContainer>
                                         <S.Label>{field.label}</S.Label>
-                                        {field.defaultValue && <S.DefaultValue style={{marginLeft: '8px'}}>{ `(Default: ${field.defaultValue}) `}</S.DefaultValue>}
+                                        {field.defaultValue && <S.DefaultValue style={{ marginLeft: '8px' }}>{`(Default: ${field.defaultValue}) `}</S.DefaultValue>}
                                         {(required ?? !field.optional) && <RequiredFormInput />}
                                         {getPrimaryInputType(field.types)?.ballerinaType && (
                                             <S.Type style={{ marginLeft: '5px' }} isVisible={focused} title={getPrimaryInputType(field.types)?.ballerinaType}>
@@ -795,8 +806,8 @@ export const ExpressionEditor = (props: ExpressionEditorProps) => {
                                         setFormDiagnostics([]);
                                         // Use ref to get current mode (not stale closure value)
                                         const currentMode = inputModeRef.current;
-                                        const rawValue = (currentMode === InputMode.PROMPT || currentMode === InputMode.TEMPLATE) && 
-                                        rawExpression ? rawExpression(typeof updatedValue === 'string' ? updatedValue : JSON.stringify(updatedValue)) : updatedValue;
+                                        const rawValue = (currentMode === InputMode.PROMPT || currentMode === InputMode.TEMPLATE) &&
+                                            rawExpression ? rawExpression(typeof updatedValue === 'string' ? updatedValue : JSON.stringify(updatedValue)) : updatedValue;
 
                                         onChange(rawValue);
                                         if (getExpressionEditorDiagnostics && (currentMode === InputMode.EXP || currentMode === InputMode.PROMPT || currentMode === InputMode.TEMPLATE)) {
