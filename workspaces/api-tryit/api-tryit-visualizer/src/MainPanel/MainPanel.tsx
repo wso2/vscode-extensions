@@ -970,6 +970,14 @@ export const MainPanel: React.FC = () => {
 						totalFiles={runViewState.totalFiles}
 						summary={runViewState.summary}
 						errorMessage={runViewState.errorMessage}
+						onNavigateToAssert={(requestName, filePath) => {
+							setRunViewState(undefined);
+							setActiveTab('assert');
+							const vscode = getVSCodeAPI();
+							if (vscode) {
+								vscode.postMessage({ type: 'navigateToRequest', data: { filePath, requestName } });
+							}
+						}}
 					/>
 				) : !showCollectionForm && requestItem ? (
                     <PanelsWrapper>

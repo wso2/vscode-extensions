@@ -21,13 +21,17 @@ import { getComposerJSFiles } from '../util';
 import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
 import { ApiRequestItem, HttpResponseResult } from '@wso2/api-tryit-core';
 import * as path from 'path';
+import * as fs from 'fs/promises';
 import { Buffer } from 'buffer';
 import { Messenger } from 'vscode-messenger';
 import { registerApiTryItRpcHandlers, ApiTryItRpcManager } from '../rpc-managers';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
+import { ActivityPanel } from '../activity-panel/webview';
+import { parseHurlDocument, parseHurlCollection } from '@wso2/api-tryit-hurl-parser';
 
 export class TryItPanel {
 	public static currentPanel: TryItPanel | undefined;
+	private static _explorerProvider: ApiExplorerProvider | undefined;
 	private readonly _panel: vscode.WebviewPanel;
 	private _disposables: vscode.Disposable[] = [];
 	private static _messenger: Messenger = new Messenger();
@@ -481,6 +485,63 @@ export class TryItPanel {
 							vscode.window.showErrorMessage(`Error selecting file: ${error instanceof Error ? error.message : 'Unknown error'}`);
 						}
 						break;
+					case 'navigateToRequest':
+						try {
+							const { filePath: navFilePath, requestName } = message.data || {};
+							if (!navFilePath) { break; }
+
+							// Prefer item from the already-indexed explorer (has stable tree ID)
+							const explorerMatch = TryItPanel._explorerProvider?.findRequestByFilePath(navFilePath, undefined, requestName);
+							if (explorerMatch) {
+								const { collection, requestItem: matchedItem, treeItemId, parentIds } = explorerMatch;
+								// Update state machine + send apiRequestItemSelected to TryIt webview
+								ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, matchedItem, navFilePath);
+								// Highlight item in the Activity Panel (Explorer sidebar)
+								ActivityPanel.postMessage('selectItem', {
+									id: treeItemId,
+									parentIds,
+									filePath: matchedItem.filePath,
+									name: matchedItem.name,
+									collectionId: collection.id,
+									collectionName: collection.name,
+									method: matchedItem.request.method,
+									request: matchedItem.request
+								});
+								break;
+							}
+
+							// Fallback: parse file from disk when not yet indexed
+							const content = await fs.readFile(navFilePath, 'utf-8');
+							const parsedDocument = parseHurlDocument(content);
+							let foundItem: ApiRequestItem | undefined;
+							for (let index = 0; index < parsedDocument.blocks.length; index++) {
+								const block = parsedDocument.blocks[index];
+								let parsed;
+								try {
+									parsed = parseHurlCollection(block.text, { sourceFilePath: navFilePath });
+								} catch {
+									continue;
+								}
+								const item = parsed.rootItems?.[0];
+								if (!item) { continue; }
+								const itemName = item.request?.name || item.name || `Request ${index + 1}`;
+								if (itemName === requestName) {
+									foundItem = {
+										...item,
+										id: `${navFilePath}::${index}`,
+										filePath: navFilePath,
+										name: itemName
+									};
+									break;
+								}
+							}
+							if (foundItem) {
+								ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, foundItem, navFilePath);
+							}
+						} catch (error: unknown) {
+							console.error('navigateToRequest error:', error instanceof Error ? error.message : error);
+						}
+						break;
 				}
 			},
 			null,
@@ -489,6 +550,7 @@ export class TryItPanel {
 	}
 
 	public static init(apiExplorerProvider: ApiExplorerProvider) {
+		TryItPanel._explorerProvider = apiExplorerProvider;
 		// Register RPC handlers
 		registerApiTryItRpcHandlers(TryItPanel._messenger, apiExplorerProvider);
 	}
