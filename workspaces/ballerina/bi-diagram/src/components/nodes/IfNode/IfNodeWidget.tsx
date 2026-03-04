@@ -127,7 +127,7 @@ export namespace NodeStyles {
     export const LockIndicator = styled.div`
         position: absolute;
         top: -8px;
-        right: 4px;
+        right: -11px;
         width: 24px;
         height: 24px;
         border-radius: 50%;
