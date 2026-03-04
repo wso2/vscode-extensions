@@ -11,5 +11,5 @@ CVE-2025-14505
 # Library is used in nested dependencies and not directly used by our codebase. No fix released by the author.
 CVE-2025-69873
 
-# Library is used in nested dependencies and not directly used by our codebase. No fix released by the author.
+# used in nested dependencies and not directly used by our codebase. No fix released by the author.
 CVE-2026-26996
