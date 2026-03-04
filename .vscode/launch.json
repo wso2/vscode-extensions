@@ -27,7 +27,7 @@
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension",
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/bi/bi-extension"
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/bi/bi-extension",
             ],
             "env": {
                 "LS_EXTENSIONS_PATH": "",
@@ -41,7 +41,35 @@
                 "${workspaceFolder}/workspaces/ballerina/ballerina-extension/dist/**/*.js",
                 "${workspaceFolder}/workspaces/bi/bi-extension/out/**/*.js"
             ],
-            "preLaunchTask": "watch-all",
+            "preLaunchTask": "watch-ballerina-bi",
+            "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
+        },
+         {
+            "name": "Ballerina, BI & Platform Extensions",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension",
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/bi/bi-extension",
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/wso2-platform/wso2-platform-extension"
+            ],
+            "env": {
+                "LS_EXTENSIONS_PATH": "",
+                "LSDEBUG": "false",
+                "WEB_VIEW_WATCH_MODE": "true",
+                "WEB_VIEW_DEV_HOST": "http://localhost:9000",
+                "BALLERINA_STAGE_CENTRAL": "false",
+
+                "PLATFORM_WEB_VIEW_DEV_MODE": "true",
+                "PLATFORM_WEB_VIEW_DEV_HOST": "http://localhost:3000/main.js",
+            },
+            "outFiles": [
+                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/dist/**/*.js",
+                "${workspaceFolder}/workspaces/bi/bi-extension/out/**/*.js",
+                "${workspaceFolder}/workspaces/wso2-platform/wso2-platform-extension/dist/**/*.js",
+            ],
+            "preLaunchTask": "watch-ballerina-bi-platform",
             "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
         },
         {

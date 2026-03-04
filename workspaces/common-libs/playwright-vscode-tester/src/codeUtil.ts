@@ -42,7 +42,7 @@ export const DEFAULT_RUN_OPTIONS = {
  * Includes downloading, unpacking, launching, and version checks.
  */
 export class CodeUtil {
-    
+
     private codeFolder: string;
     private downloadPlatform: string;
     private downloadFolder: string;
@@ -75,7 +75,6 @@ export class CodeUtil {
             this.codeFolder = path.join(this.downloadFolder, (process.platform === 'darwin')
                 ? 'Visual Studio Code - Insiders.app' : `VSCode-${this.downloadPlatform}-insider`);
         }
-        this.findExecutables();
     }
 
     /**
@@ -130,6 +129,7 @@ export class CodeUtil {
         } else {
             console.log('VS Code exists in local cache, skipping download');
         }
+        this.findExecutables();
     }
 
     /**
@@ -159,6 +159,7 @@ export class CodeUtil {
     }
 
     private installExt(pathOrID: string): void {
+        this.ensureExecutablePaths();
         let command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node --force --install-extension "${pathOrID}" --user-data-dir="${path.join(this.downloadFolder, 'settings', this.profileName, 'Code')}"`;
         if (this.extensionsFolder) {
             command += ` --extensions-dir=${this.extensionsFolder}`;
@@ -173,6 +174,7 @@ export class CodeUtil {
      * @param paths vararg paths to files or folders to open
      */
     open(...paths: string[]): void {
+        this.ensureExecutablePaths();
         const segments = paths.map(f => `"${f}"`).join(' ');
         const command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node -r ${segments} --user-data-dir="${path.join(this.downloadFolder, 'settings', this.profileName, 'Code')}"`;
         child_process.execSync(command);
@@ -216,6 +218,7 @@ export class CodeUtil {
         const extension = `${pjson.publisher}.${pjson.name}`;
 
         if (cleanup) {
+            this.ensureExecutablePaths();
             let command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node --uninstall-extension "${extension}" --user-data-dir="${path.join(this.downloadFolder, 'settings', this.profileName, 'Code')}"`;
             if (this.extensionsFolder) {
                 command += ` --extensions-dir=${this.extensionsFolder}`;
@@ -352,7 +355,24 @@ export class CodeUtil {
      * Setup paths specific to used OS
      */
     private findExecutables(): void {
-        this.cliPath = path.join(this.codeFolder, 'resources', 'app', 'out', 'cli.js');
+        const defaultCliPath = path.join(this.codeFolder, 'resources', 'app', 'out', 'cli.js');
+        this.cliPath = defaultCliPath;
+
+        if (process.platform === 'win32' && fs.existsSync(this.codeFolder) && !fs.existsSync(this.cliPath)) {
+            const entries = fs.readdirSync(this.codeFolder, { withFileTypes: true });
+            for (const entry of entries) {
+                if (!entry.isDirectory()) {
+                    continue;
+                }
+                const candidate = path.join(this.codeFolder, entry.name, 'resources', 'app', 'out', 'cli.js');
+                if (fs.existsSync(candidate)) {
+                    this.cliPath = candidate;
+                    break;
+                }
+            }
+        }
+        console.log(`Using CLI path: ${this.cliPath}`);
+
         switch (process.platform) {
             case 'darwin':
                 this.executablePath = path.join(this.codeFolder, 'Contents', 'MacOS', 'Electron');
@@ -386,10 +406,10 @@ export class CodeUtil {
         Object.assign(finalEnv, {});
         const key = 'PATH';
         finalEnv[key] = [this.downloadFolder, process.env[key]].join(path.delimiter);
-        
+
         const browser = new VSBrowser(literalVersion, this.releaseType, runOptions.resources, {}, this.profileName, this.extensionsFolder);
         const launchArgs = await browser.getLaunchArgs()
-        
+
         process.env = {
             ...process.env,
             ...finalEnv,
@@ -407,13 +427,14 @@ export class CodeUtil {
     }
 
     async getBrowser(runOptions: RunOptions = DEFAULT_RUN_OPTIONS): Promise<Browser> {
+        this.ensureExecutablePaths();
         if (!runOptions.offline) {
             await this.checkCodeVersion(runOptions.vscodeVersion ?? DEFAULT_RUN_OPTIONS.vscodeVersion);
         } else {
             this.availableVersions = [await this.getExistingCodeVersion()];
         }
         const literalVersion = runOptions.vscodeVersion === undefined || runOptions.vscodeVersion === 'latest' ? this.availableVersions[0] : runOptions.vscodeVersion;
-        
+
         return {
             name: 'vscode',
             family: 'chromium',
@@ -424,6 +445,12 @@ export class CodeUtil {
             channel: this.releaseType,
             isHeaded: process.env.CI === 'true' ? false : true,
             isHeadless: process.env.CI === 'true' ? true : false,
+        }
+    }
+
+    private ensureExecutablePaths(): void {
+        if (!this.executablePath || !this.cliPath) {
+            this.findExecutables();
         }
     }
 }

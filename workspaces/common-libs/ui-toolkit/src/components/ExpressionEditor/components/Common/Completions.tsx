@@ -130,17 +130,13 @@ const DefaultCompletionItem = (props: DefaultCompletionDropdownItemProps) => {
         itemRef.current.classList.add('hovered');
     }
 
-    const handleClick = () => {
-        onClick();
-    }
-
     return (
         <DropdownItemContainer
             ref={itemRef}
             className="hovered"
             id="default-completion"
             onMouseEnter={handleMouseEnter}
-            onClick={handleClick}
+            onClick={onClick}
         >
             {getDefaultCompletion()}
         </DropdownItemContainer>

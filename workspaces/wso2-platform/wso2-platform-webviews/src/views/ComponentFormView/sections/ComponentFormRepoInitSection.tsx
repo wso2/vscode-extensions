@@ -18,8 +18,7 @@
 
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { RequiredFormInput } from "@wso2/ui-toolkit";
-import { GitProvider, type NewComponentWebviewProps, buildGitURL } from "@wso2/wso2-platform-core";
+import { type ComponentFormSectionProps, GitProvider, buildGitURL } from "@wso2/wso2-platform-core";
 import classNames from "classnames";
 import debounce from "lodash.debounce";
 import React, { type FC, useCallback, useEffect, useState } from "react";
@@ -36,7 +35,7 @@ import type { componentRepoInitSchema } from "../componentFormSchema";
 
 type ComponentRepoInitSchemaType = z.infer<typeof componentRepoInitSchema>;
 
-interface Props extends NewComponentWebviewProps {
+interface Props extends ComponentFormSectionProps {
 	onNextClick: () => void;
 	initializingRepo?: boolean;
 	initialFormValues?: ComponentRepoInitSchemaType;

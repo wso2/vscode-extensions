@@ -83,5 +83,9 @@ package.json.backup
 
 pnpm-lock.yaml
 
+TODO.md
+
 # AI evaluation results
 **/results
+
+cc_run_log.json

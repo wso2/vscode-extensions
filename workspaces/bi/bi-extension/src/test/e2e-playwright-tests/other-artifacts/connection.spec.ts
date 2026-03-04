@@ -41,23 +41,22 @@ export default function createTests() {
             await cardHttp.waitFor();
             await cardHttp.click({ force: true });
 
+            // Wait for the form to be loaded. (Wait till "Loading connector package..." is not visible)
+            const loadingConnectorPackage = artifactWebView.locator('text=Loading connector package...');
+            await loadingConnectorPackage.waitFor({ state: 'hidden' });
+
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
-            const connectionName = `sample${testAttempt}`;
+            const connectionName = `httpClient`;
             await form.switchToFormView(false, artifactWebView);
             await form.fill({
                 values: {
-                    'Url': {
-                        type: 'textarea',
-                        value: '"https://foo.bar/baz"',
-                        additionalProps: { clickLabel: true }
-                    },
-                    'Connection Name*Name of the connection': {
-                        type: 'input',
-                        value: connectionName,
+                    'url': {
+                        type: 'cmEditor',
+                        value: 'https://foo.bar/baz',
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     }
                 }
             });
-            await page.page.waitForTimeout(1000); // Wait for the form button to be enabled
             await form.submit('Create');
 
             const connectionCard = artifactWebView.getByText(connectionName, { exact: true }).first();

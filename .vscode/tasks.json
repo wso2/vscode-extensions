@@ -12,8 +12,12 @@
             "problemMatcher": ["$tsc"]
         },
         {
-            "label": "watch-all",
+            "label": "watch-ballerina-bi",
             "dependsOn": ["watch-ballerina", "watch-bi"]
+        },
+        {
+            "label": "watch-ballerina-bi-platform",
+            "dependsOn": ["watch-ballerina", "watch-bi", "npm: watch-wso2-platform"]
         },
         {
             "label": "watch-ballerina",

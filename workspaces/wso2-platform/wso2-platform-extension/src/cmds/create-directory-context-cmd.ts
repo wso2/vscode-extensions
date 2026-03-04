@@ -24,6 +24,7 @@ import {
 	CommandIds,
 	type ContextItem,
 	type ICmdParamsBase,
+	ICreateDirCtxCmdParams,
 	type Organization,
 	type Project,
 	type UserInfo,
@@ -38,10 +39,11 @@ import { contextStore, getContextKey, waitForContextStoreToLoad } from "../store
 import { webviewStateStore } from "../stores/webview-state-store";
 import { convertFsPathToUriPath, isSubpath, openDirectory } from "../utils";
 import { getUserInfoForCmd, isRpcActive, selectOrg, selectProjectWithCreateNew, setExtensionName } from "./cmd-utils";
+import { initGit } from "../git/main";
 
 export function createDirectoryContextCommand(context: ExtensionContext) {
 	context.subscriptions.push(
-		commands.registerCommand(CommandIds.CreateDirectoryContext, async (params: ICmdParamsBase) => {
+		commands.registerCommand(CommandIds.CreateDirectoryContext, async (params: ICreateDirCtxCmdParams) => {
 			setExtensionName(params?.extName);
 			const extensionName = webviewStateStore.getState().state.extensionName;
 			try {
@@ -60,6 +62,8 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 
 					if (gitRoot) {
 						directoryUrl = Uri.parse(convertFsPathToUriPath(gitRoot));
+					} else if (params?.fsPath) {
+						directoryUrl = Uri.parse(convertFsPathToUriPath(params.fsPath));
 					} else {
 						const componentDir = await window.showOpenDialog({
 							canSelectFolders: true,
@@ -76,14 +80,19 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 						directoryUrl = componentDir[0];
 					}
 
-					gitRoot = await getGitRoot(context, directoryUrl.fsPath);
-					if (!gitRoot) {
-						throw new Error("Selected directory is not within a git repository");
+					try {
+						gitRoot = await getGitRoot(context, directoryUrl.fsPath);
+					}catch{
+						// ignore error
 					}
-
-					const remotes = await getGitRemotes(context, gitRoot);
-					if (remotes.length === 0) {
-						throw new Error("The Selected directory does not have any Git remotes");
+					if (!gitRoot) {
+						if(params?.fsPath){
+							const git = await initGit(context);
+							await git?.init(params?.fsPath)
+							gitRoot = params?.fsPath;
+						}else {
+							throw new Error("Selected directory is not within a git repository");
+						}
 					}
 
 					const selectedOrg = await selectOrg(userInfo, "Select organization");
@@ -98,7 +107,12 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 						ext?.clients?.rpcClient?.changeOrgContext(selectedOrg?.id?.toString()!),
 					);
 
-					const components = await window.withProgress(
+					if (!params || !params?.skipComponentExistCheck) {
+						const remotes = await getGitRemotes(context, gitRoot);
+						if (remotes.length === 0) {
+							throw new Error("The Selected directory does not have any Git remotes");
+						}
+						const components = await window.withProgress(
 						{
 							title: `Fetching ${extensionName === "Devant" ? "integrations" : "components"} of project ${selectedProject.name}...`,
 							location: ProgressLocation.Notification,
@@ -110,43 +124,43 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 								projectHandle: selectedProject.handler,
 								projectId: selectedProject.id,
 							}),
-					);
+						);
 
-					if (components.length > 0) {
-						// Check if user is trying to link with the correct Git directory
-						const hasMatchingRemote = components.some((componentItem) => {
-							const repoUrl = getComponentKindRepoSource(componentItem.spec.source).repo;
-							const parsedRepoUrl = parseGitURL(repoUrl);
-							if (parsedRepoUrl) {
-								const [repoOrg, repoName, repoProvider] = parsedRepoUrl;
-								return remotes.some((remoteItem) => {
-									const parsedRemoteUrl = parseGitURL(remoteItem.fetchUrl);
-									if (parsedRemoteUrl) {
-										const [repoRemoteOrg, repoRemoteName, repoRemoteProvider] = parsedRemoteUrl;
-										return repoOrg === repoRemoteOrg && repoName === repoRemoteName && repoRemoteProvider === repoProvider;
-									}
-								});
-							}
-						});
+						if (components.length > 0) {
+							// Check if user is trying to link with the correct Git directory
+							const hasMatchingRemote = components.some((componentItem) => {
+								const repoUrl = getComponentKindRepoSource(componentItem.spec.source).repo;
+								const parsedRepoUrl = parseGitURL(repoUrl);
+								if (parsedRepoUrl) {
+									const [repoOrg, repoName, repoProvider] = parsedRepoUrl;
+									return remotes.some((remoteItem) => {
+										const parsedRemoteUrl = parseGitURL(remoteItem.fetchUrl);
+										if (parsedRemoteUrl) {
+											const [repoRemoteOrg, repoRemoteName, repoRemoteProvider] = parsedRemoteUrl;
+											return repoOrg === repoRemoteOrg && repoName === repoRemoteName && repoRemoteProvider === repoProvider;
+										}
+									});
+								}
+							});
 
-						if (!hasMatchingRemote) {
-							const resp = await window.showInformationMessage(
-								"The selected directory does not have any Git remotes that match with the repositories associated with the selected project. Do you wish to continue?",
-								{ modal: true },
-								"Continue",
-							);
-							if (resp !== "Continue") {
-								return;
+							if (!hasMatchingRemote) {
+								const resp = await window.showInformationMessage(
+									"The selected directory does not have any Git remotes that match with the repositories associated with the selected project. Do you wish to continue?",
+									{ modal: true },
+									"Continue",
+								);
+								if (resp !== "Continue") {
+									return;
+								}
 							}
 						}
 					}
 
 					const contextFilePath = updateContextFile(gitRoot, userInfo, selectedProject, selectedOrg, projectList);
 
-					// todo: check this in windows
-					const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(gitRoot!, item.uri?.fsPath));
+					const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, gitRoot!));
 
-					if (isWithinWorkspace) {
+					if (isWithinWorkspace || params?.fsPath) {
 						contextStore.getState().refreshState();
 						await waitForContextStoreToLoad();
 

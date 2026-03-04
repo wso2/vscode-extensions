@@ -19,7 +19,7 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useQuery } from "@tanstack/react-query";
 import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
-import { EndpointType, type NewComponentWebviewProps } from "@wso2/wso2-platform-core";
+import { type ComponentFormSectionProps, EndpointType } from "@wso2/wso2-platform-core";
 import React, { type FC, type ReactNode } from "react";
 import { type SubmitHandler, type UseFieldArrayAppend, type UseFieldArrayRemove, type UseFormReturn, useFieldArray, useWatch } from "react-hook-form";
 import type { z } from "zod/v3";
@@ -38,7 +38,7 @@ import { type componentEndpointItemSchema, type componentEndpointsFormSchema, ge
 type ComponentFormEndpointsType = z.infer<typeof componentEndpointsFormSchema>;
 type ComponentFormEndpointItemType = z.infer<typeof componentEndpointItemSchema>;
 
-interface Props extends NewComponentWebviewProps {
+interface Props extends ComponentFormSectionProps {
 	componentName: string;
 	isSaving?: boolean;
 	onNextClick: (data: ComponentFormEndpointsType) => void;

@@ -17,24 +17,22 @@
  */
 import { expect, test } from '@playwright/test';
 import { addArtifact, enableICP, initTest, page } from '../utils/helpers';
-import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
+import { Form } from '@wso2/playwright-vscode-tester';
 import { ConfigEditor } from '../utils/pages';
-import { config } from 'process';
 
 export default function createTests() {
     test.describe('Configuration Tests', {
         tag: '@group1',
     }, async () => {
         initTest();
-        test('Create Configuration', async () => {
+        test.beforeAll(async () => {
             await enableICP();
-
-            // Create new configurable variables in configuration view
             await addArtifact('Configuration', 'configurable');
-
             // Wait for 3 seconds to ensure the webview is loaded
             await new Promise(resolve => setTimeout(resolve, 3000));
+        });
 
+        test('Create Configuration', async () => {
             const configEditor = new ConfigEditor(page.page, 'WSO2 Integrator: BI');
             await configEditor.init();
             const configurationWebView = configEditor.getWebView();
@@ -58,30 +56,38 @@ export default function createTests() {
                     'Variable Type': {
                         type: 'textarea',
                         value: 'int',
+                        additionalProps: { clickLabel: true, clickItem: true }
+                    },
+                    'defaultValue': {
+                        type: 'cmEditor',
+                        value: '100',
                         additionalProps: { clickLabel: true }
                     },
-                    'Default Value': {
-                        type: 'textarea',
-                        value: '100',
+                    'documentation': {
+                        type: 'cmEditor',
+                        value: 'This is the description of the time config variable',
                         additionalProps: { clickLabel: true }
                     }
                 }
             });
 
-            const documentationField = await configurationWebView.locator('textarea[name="documentation"]');
-            await documentationField.fill('This is the description of the time config variable');
-
             await configurationWebView.getByRole('button', { name: 'Save' }).click();
             await configEditor.verifyConfigurableVariable('time', '100', '');
+        });
 
-            // Edit the configurable variable
+        test('Edit Configuration', async () => {
+            const configEditor = new ConfigEditor(page.page, 'WSO2 Integrator: BI');
+            await configEditor.init();
+            const configurationWebView = configEditor.getWebView();
+
+            // Edit the existing configurable variable created in previous test
             await configEditor.editConfigurableVariable('time');
             const editForm = new Form(page.page, 'WSO2 Integrator: BI', configurationWebView);
             await editForm.switchToFormView(false, configurationWebView);
             await editForm.fill({
                 values: {
-                    'Default Value': {
-                        type: 'textarea',
+                    'defaultValue': {
+                        type: 'cmEditor',
                         value: '200',
                         additionalProps: { clickLabel: true }
                     }
@@ -90,10 +96,22 @@ export default function createTests() {
 
             await configurationWebView.getByRole('button', { name: 'Save' }).click();
             await configEditor.verifyConfigurableVariable('time', '200', '');
+        });
 
-            // Add a config toml value to the configurable variable through inline editor
+        test('Add Config TOML Value', async () => {
+            const configEditor = new ConfigEditor(page.page, 'WSO2 Integrator: BI');
+            await configEditor.init();
+
+            // Add a config toml value to the existing configurable variable through inline editor
             await configEditor.addConfigTomlValue('time', '500');
+            await page.page.waitForTimeout(1000); // Wait for the config toml value to be set.
             await configEditor.verifyConfigurableVariable('time', '200', '500');
+        });
+
+        test('Create Configuration Without Default Value and Verify Warning', async () => {
+            const configEditor = new ConfigEditor(page.page, 'WSO2 Integrator: BI');
+            await configEditor.init();
+            const configurationWebView = configEditor.getWebView();
 
             // Create a new configurable variable with no default value and verify warning
             await configEditor.addNewConfigurableVariable();
@@ -108,19 +126,29 @@ export default function createTests() {
                     'Variable Type': {
                         type: 'textarea',
                         value: 'string',
-                        additionalProps: { clickLabel: true }
+                        additionalProps: { clickLabel: true, clickItem: true }
                     }
                 }
             });
             await configurationWebView.getByRole('button', { name: 'Save' }).click();
             await configEditor.verifyConfigurableVariable('place', '', '');
             await configEditor.verifyWarning('place');
+        });
 
-            // Create a new configurable variable with no default value
+        test('Verify Multiple Warnings for Missing Configurations', async () => {
+            const configEditor = new ConfigEditor(page.page, 'WSO2 Integrator: BI');
+            await configEditor.init();
+            const configurationWebView = configEditor.getWebView();
+
+            // Verify existing 'place' variable from previous test still has warning
+            await configEditor.verifyConfigurableVariable('place', '', '');
+            await configEditor.verifyWarning('place');
+
+            // Create second configurable variable with no default value
             await configEditor.addNewConfigurableVariable();
-            const addNewForm = new Form(page.page, 'WSO2 Integrator: BI', configurationWebView);
-            await addNewForm.switchToFormView(false, configurationWebView);
-            await addNewForm.fill({
+            const addForm2 = new Form(page.page, 'WSO2 Integrator: BI', configurationWebView);
+            await addForm2.switchToFormView(false, configurationWebView);
+            await addForm2.fill({
                 values: {
                     'Variable Name*Name of the variable': {
                         type: 'input',
@@ -129,47 +157,84 @@ export default function createTests() {
                     'Variable Type': {
                         type: 'textarea',
                         value: 'string',
-                        additionalProps: { clickLabel: true }
+                        additionalProps: { clickLabel: true, clickItem: true }
                     }
                 }
             });
-
             await configurationWebView.getByRole('button', { name: 'Save' }).click();
             await configEditor.verifyConfigurableVariable('destination', '', '');
             await configEditor.verifyWarning('destination');
 
             // Verify 2 warnings in the integration package
             await configEditor.verifyNumberofWarningIntegration(2);
+        });
 
-            // Add value to library config variable and check if warning is removed
+        test('Update Config TOML Value and Remove Warning', async () => {
+            const configEditor = new ConfigEditor(page.page, 'WSO2 Integrator: BI');
+            await configEditor.init();
+
+            // Verify existing 'place' variable still has warning
+            await configEditor.verifyConfigurableVariable('place', '', '');
+            await configEditor.verifyWarning('place');
+
+            // Add value to existing config variable and check if warning is removed
             await configEditor.addConfigTomlValue('place', 'new-string-value');
+            await page.page.waitForTimeout(1000); // Wait for the form to be loaded.
             await configEditor.verifyConfigurableVariable('place', '', 'new-string-value');
             await configEditor.verifyNoWarning('place');
+        });
+
+        test('Delete Configuration', async () => {
+            const configEditor = new ConfigEditor(page.page, 'WSO2 Integrator: BI');
+            await configEditor.init();
+
+            // Delete the existing configurable variable 'place'
+            await configEditor.deleteConfigVariable('place');
+        });
+
+        test('Run Integration with Missing Configurations', async () => {
+            const configEditor = new ConfigEditor(page.page, 'WSO2 Integrator: BI');
+            await configEditor.init();
+
+            // Verify existing 'destination' variable still has warning
+            await configEditor.verifyConfigurableVariable('destination', '', '');
+            await configEditor.verifyWarning('destination');
 
             // Click run integration button and check for missing configurations popup
             await page.page.locator('a[role="button"][aria-label="Run Integration"]').click();
             await page.page.getByText('Missing required configurations in Config.toml file', { exact: true }).waitFor();
             await page.page.getByRole('button', { name: 'Update Configurables' }).click();
+        });
 
-            // Delete the configurable variable
-            await configEditor.deleteConfigVariable('place');
+        test('Update Config TOML Value for Missing Configuration', async () => {
+            const configEditor = new ConfigEditor(page.page, 'WSO2 Integrator: BI');
+            await configEditor.init();
 
-            // Add config value for missing configurable variables
+            // Add config value for existing missing configurable variable
             await configEditor.addConfigTomlValue('destination', 'new-destination-value');
+            await page.page.waitForTimeout(1000); // Wait for the form to be loaded.
             await configEditor.verifyConfigurableVariable('destination', '', 'new-destination-value');
+        });
+
+        test('Package Selection and Configuration', async () => {
+            const configEditor = new ConfigEditor(page.page, 'WSO2 Integrator: BI');
+            await configEditor.init();
 
             // Add value to library config variable
             await configEditor.selectPackage('ballerinax/wso2.controlplane');
             await configEditor.addConfigTomlValue('dashboard', 'example-dashboard');
             await configEditor.verifyConfigurableVariable('dashboard', '', 'example-dashboard');
+        });
 
-            // Click run integration button and check for missing configurations popup
+        test('Run Integration Successfully', async () => {
+            const configEditor = new ConfigEditor(page.page, 'WSO2 Integrator: BI');
+            await configEditor.init();
+            // Click run integration button
             await page.page.locator('a[role="button"][aria-label="Run Integration"]').click();
 
             // Verify vs code terminal is opened
             const terminalPanel = page.page.locator('div.composite.panel#terminal');
             await terminalPanel.waitFor({ state: 'visible', timeout: 60000 });
-
         });
     });
 }

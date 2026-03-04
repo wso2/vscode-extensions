@@ -56,6 +56,7 @@ export * from './components/CheckBoxGroup/CheckBoxGroup';
 export * from './components/ErrorBoundary/ErrorBoundary';
 export * from "./components/Card/Card";
 export * from './components/RadioButtonGroup/RadioButtonGroup';
+export * from './components/Slider/Slider';
 export * from './components/Accordion/Accordion';
 export * from './components/SyntaxHighlighter/SyntaxHighlighter';
 export * from './components/Drawer/Drawer';
@@ -99,5 +100,6 @@ export * from './components/Banner/Banner';
 
 export * from './components/ImageWithFallback';
 export * from './components/ExpressionEditor/components/Common/SlidingPane';
+export * from './components/ScrollableList/ScrollableList';
 export * from './components/ExpressionEditor/components/Form';
 export * from './components/BrowserComponents';
