@@ -756,6 +756,7 @@ export class NodeFactoryVisitor implements Visitor {
                             continue;
                         }
                         if (toolNode.mediator == undefined) {
+                            this.createNodeAndLinks({ node: toolNode, name: toolNode.tag, type: NodeTypes.CONNECTOR_NODE, dontLink: true });
                             continue;
                         }
                         const isConnector = toolNode.mediator?.connectorName !== undefined;
