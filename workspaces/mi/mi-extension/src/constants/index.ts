@@ -18,7 +18,6 @@
 
 export const COMMANDS = {
     OPEN_PROJECT: "MI.openProject",
-    IMPORT_CAPP: "MI.importCAPP",
     MIGRATE_PROJECT: "MI.migrateProject",
     SHOW_OVERVIEW: "MI.showOverview",
     DISABLE_OVERVIEW: "MI.disableOverview",
@@ -73,7 +72,6 @@ export const COMMANDS = {
     ADD_TEMPLATE_COMMAND: 'MI.project-explorer.add-template',
     ADD_DATA_SERVICE_COMMAND: 'MI.project-explorer.add-data-service',
     CREATE_PROJECT_COMMAND: 'MI.project-explorer.create-project',
-    IMPORT_PROJECT_COMMAND: 'MI.project-explorer.import-project',
     REVEAL_ITEM_COMMAND: 'MI.project-explorer.revealItem',
     OPEN_SERVICE_DESIGNER: 'MI.project-explorer.open-service-designer',
     OPEN_PROJECT_OVERVIEW: 'MI.project-explorer.open-project-overview',

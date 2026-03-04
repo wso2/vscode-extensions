@@ -24,7 +24,6 @@ import styled from "@emotion/styled";
 import { Button, Codicon, ComponentCard } from "@wso2/ui-toolkit";
 import { ProjectWizard } from "../Forms/ProjectForm";
 import { VSCodeButton, VSCodeLink } from "@vscode/webview-ui-toolkit/react";
-import { ImportProjectWizard } from "../Forms/ImportProjectForm";
 import { COMMANDS } from "../../constants";
 
 const TextWrapper = styled.div`

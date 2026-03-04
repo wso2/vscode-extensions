@@ -142,11 +142,6 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
         })
     );
     context.subscriptions.push(
-        vscode.commands.registerCommand(COMMANDS.IMPORT_CAPP, () => {
-            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ImportProjectForm });
-        })
-    );
-    context.subscriptions.push(
         vscode.commands.registerCommand(COMMANDS.OPEN_WELCOME, () => {
             const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
             openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.Welcome, projectUri: webview ? webview.getProjectUri() : firstProject });
