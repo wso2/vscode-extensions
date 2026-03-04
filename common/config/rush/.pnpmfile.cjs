@@ -28,6 +28,7 @@ module.exports = {
         if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.3.8';
         if (deps['lodash']) deps['lodash'] = '4.17.23';
         if (deps['qs']) deps['qs'] = '6.14.2';
+        if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.3';
         if (deps['hono']) deps['hono'] = '4.11.10';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
