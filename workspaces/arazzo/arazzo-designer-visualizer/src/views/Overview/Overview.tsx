@@ -28,24 +28,28 @@ interface OverviewProps {
 
 const styles = {
     container: css`
-        padding: 20px;
+        padding: 30px 46px;
         box-sizing: border-box;
         height: 100vh;
         overflow-y: auto;
         font-family: var(--vscode-font-family);
         color: var(--vscode-editor-foreground);
+        max-width: 980px;
+        margin: 0 auto;
     `,
     titleContainer: css`
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 0.5em;
+        margin-bottom: 16px;
         border-bottom: 1px solid var(--vscode-panel-border);
-        padding-bottom: 10px;
+        padding-bottom: 12px;
     `,
     title: css`
-        font-size: 1.5em;
+        font-size: 2em;
         margin: 0;
+        font-weight: 600;
+        line-height: 1.25;
     `,
     arazzoVersion: css`
         font-size: 1.05em;
@@ -54,9 +58,13 @@ const styles = {
         margin-left: 12px;
     `,
     subtitle: css`
-        font-size: 1.2em;
-        margin-top: 20px;
-        margin-bottom: 10px;
+        font-size: 1.5em;
+        margin-top: 24px;
+        margin-bottom: 16px;
+        font-weight: 600;
+        line-height: 1.25;
+        padding-bottom: 0.3em;
+        border-bottom: 1px solid var(--vscode-panel-border);
     `,
     card: css`
         background-color: var(--vscode-editor-inactiveSelectionBackground);
@@ -65,7 +73,7 @@ const styles = {
         margin-bottom: 15px;
     `,
     field: css`
-        margin-bottom: 8px;
+        margin-bottom: 12px;
     `,
     label: css`
         font-weight: bold;
@@ -83,9 +91,91 @@ const styles = {
     markdownContent: css`
         margin-top: 10px;
         line-height: 1.6;
+        font-size: 14px;
         
         p {
-            margin: 0.5em 0;
+            margin: 0 0 16px 0;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+
+        h1 {
+            font-size: 2em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+
+        h2 {
+            font-size: 1.5em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+
+        h3 { font-size: 1.25em; }
+        h4 { font-size: 1em; }
+        h5 { font-size: 0.875em; }
+        h6 { font-size: 0.85em; color: var(--vscode-descriptionForeground); }
+
+        ul, ol {
+            margin: 0 0 16px 0;
+            padding-left: 2em;
+        }
+
+        li {
+            margin: 4px 0;
+        }
+
+        li > p {
+            margin: 0;
+        }
+
+        li + li {
+            margin-top: 4px;
+        }
+
+        blockquote {
+            margin: 0 0 16px 0;
+            padding: 0 1em;
+            border-left: 4px solid var(--vscode-textBlockQuote-border);
+            color: var(--vscode-descriptionForeground);
+        }
+
+        blockquote > p {
+            margin: 0;
+        }
+
+        table {
+            border-collapse: collapse;
+            margin: 0 0 16px 0;
+            width: auto;
+        }
+
+        th, td {
+            padding: 6px 13px;
+            border: 1px solid var(--vscode-panel-border);
+        }
+
+        th {
+            font-weight: 600;
+        }
+
+        tr:nth-child(2n) {
+            background: var(--vscode-editor-inactiveSelectionBackground);
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid var(--vscode-panel-border);
+            margin: 24px 0;
+        }
+
+        img {
+            max-width: 100%;
         }
         
         code {
@@ -93,13 +183,23 @@ const styles = {
             padding: 2px 4px;
             border-radius: 3px;
             font-family: var(--vscode-editor-font-family);
+            font-size: 85%;
         }
         
         pre {
             background: var(--vscode-textCodeBlock-background);
-            padding: 10px;
+            padding: 16px;
             border-radius: 5px;
             overflow-x: auto;
+            margin: 0 0 16px 0;
+            line-height: 1.45;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            border-radius: 0;
+            font-size: 100%;
         }
         
         a {

@@ -17,6 +17,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import styled from '@emotion/styled';
 import { Node } from '@xyflow/react';
 import { ArazzoWorkflow, ArazzoDefinition } from '@wso2/arazzo-designer-core';
@@ -30,32 +31,29 @@ const Container = styled.div`
 `;
 
 const Section = styled.div`
-    background: var(--vscode-editor-inactiveSelectionBackground);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
     border: 1px solid var(--vscode-panel-border);
     border-radius: 6px;
-    overflow: hidden;
 `;
 
 const SectionHeader = styled.div<{ clickable?: boolean }>`
-    padding: 12px 16px;
-    background: var(--vscode-sideBar-background);
-    font-weight: 600;
-    font-size: 13px;
+    font-weight: 700;
+    font-size: 14px;
     color: var(--vscode-foreground);
-    border-bottom: 1px solid var(--vscode-panel-border);
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--vscode-focusBorder);
     cursor: ${(props: { clickable?: boolean }) => props.clickable ? 'pointer' : 'default'};
     user-select: none;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    
-    &:hover {
-        background: ${(props: { clickable?: boolean }) => props.clickable ? 'var(--vscode-list-hoverBackground)' : 'var(--vscode-sideBar-background)'};
-    }
 `;
 
 const SectionContent = styled.div`
-    padding: 12px 16px;
+    padding: 4px 4px;
     font-size: 12px;
     line-height: 1.6;
     color: var(--vscode-foreground);
@@ -79,15 +77,13 @@ const FieldValue = styled.div`
 `;
 
 const ArrayItemContainer = styled.div`
-    margin-top: 8px;
-    border: 1px solid var(--vscode-panel-border);
+    margin-top: 4px;
     border-radius: 4px;
     overflow: hidden;
 `;
 
 const ArrayItemHeader = styled.div<{ expanded: boolean }>`
-    padding: 8px 12px;
-    background: var(--vscode-editor-background);
+    padding: 6px 10px;
     cursor: pointer;
     user-select: none;
     font-weight: 500;
@@ -95,6 +91,7 @@ const ArrayItemHeader = styled.div<{ expanded: boolean }>`
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-radius: 4px;
     
     &:hover {
         background: var(--vscode-list-hoverBackground);
@@ -102,9 +99,7 @@ const ArrayItemHeader = styled.div<{ expanded: boolean }>`
 `;
 
 const ArrayItemContent = styled.div`
-    padding: 12px;
-    background: var(--vscode-editor-inactiveSelectionBackground);
-    border-top: 1px solid var(--vscode-panel-border);
+    padding: 8px 12px;
 `;
 
 const PropertyRow = styled.div`
@@ -136,6 +131,58 @@ const JsonBlock = styled.pre`
     line-height: 1.5;
     color: var(--vscode-editor-foreground);
     font-family: var(--vscode-editor-font-family);
+`;
+
+const MarkdownContent = styled.div`
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--vscode-foreground);
+    word-break: break-word;
+
+    p { margin: 0 0 6px 0; }
+    p:last-child { margin-bottom: 0; }
+    code {
+        font-family: var(--vscode-editor-font-family);
+        background: var(--vscode-textCodeBlock-background);
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-size: 11px;
+    }
+    strong { color: var(--vscode-textPreformat-foreground); }
+    em { opacity: 0.85; }
+`;
+
+const MinimalSection = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 6px;
+`;
+
+const MinimalSectionHeader = styled.div`
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--vscode-foreground);
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--vscode-focusBorder);
+`;
+
+const MinimalField = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-left: 4px;
+`;
+
+const MinimalFieldLabel = styled.div`
+    font-weight: 500;
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    opacity: 0.7;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 `;
 
 const CollapseIcon = styled.span<{ expanded: boolean }>`
@@ -351,6 +398,22 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
                 <SectionHeader>{title}</SectionHeader>
                 <SectionContent>{content}</SectionContent>
             </Section>
+        );
+    };
+
+    const renderMarkdownSection = (title: string, fields: Array<{ label: string; value: string }>, sectionId: string) => {
+        return (
+            <MinimalSection key={sectionId}>
+                <MinimalSectionHeader>{title}</MinimalSectionHeader>
+                {fields.map(({ label, value }) => (
+                    <MinimalField key={label}>
+                        <MinimalFieldLabel>{label}</MinimalFieldLabel>
+                        <MarkdownContent>
+                            <ReactMarkdown>{value}</ReactMarkdown>
+                        </MarkdownContent>
+                    </MinimalField>
+                ))}
+            </MinimalSection>
         );
     };
 
@@ -742,56 +805,19 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
 
     // General Section (stepId, description)
     if (stepData.stepId || stepData.description) {
-        sections.push(
-            renderSimpleSection(
-                'General',
-                <>
-                    {stepData.stepId && (
-                        <div style={{ marginBottom: '12px' }}>
-                            <FieldLabel>Step ID</FieldLabel>
-                            <FieldValue>{stepData.stepId}</FieldValue>
-                        </div>
-                    )}
-                    {stepData.description && (
-                        <div>
-                            <FieldLabel>Description</FieldLabel>
-                            <FieldValue>{stepData.description}</FieldValue>
-                        </div>
-                    )}
-                </>,
-                'general'
-            )
-        );
+        const fields: Array<{ label: string; value: string }> = [];
+        if (stepData.stepId) fields.push({ label: 'Step ID', value: String(stepData.stepId) });
+        if (stepData.description) fields.push({ label: 'Description', value: String(stepData.description) });
+        sections.push(renderMarkdownSection('General', fields, 'general'));
     }
 
     // Operation Details
     if (stepData.operationId || stepData.operationPath || stepData.workflowId) {
-        sections.push(
-            renderSimpleSection(
-                'Operation Details',
-                <>
-                    {stepData.operationId && (
-                        <div style={{ marginBottom: '12px' }}>
-                            <FieldLabel>Operation ID</FieldLabel>
-                            <FieldValue>{stepData.operationId}</FieldValue>
-                        </div>
-                    )}
-                    {stepData.operationPath && (
-                        <div style={{ marginBottom: '12px' }}>
-                            <FieldLabel>Operation Path</FieldLabel>
-                            <FieldValue>{stepData.operationPath}</FieldValue>
-                        </div>
-                    )}
-                    {stepData.workflowId && (
-                        <div>
-                            <FieldLabel>Workflow ID</FieldLabel>
-                            <FieldValue>{stepData.workflowId}</FieldValue>
-                        </div>
-                    )}
-                </>,
-                'operation'
-            )
-        );
+        const fields: Array<{ label: string; value: string }> = [];
+        if (stepData.operationId) fields.push({ label: 'Operation ID', value: String(stepData.operationId) });
+        if (stepData.operationPath) fields.push({ label: 'Operation Path', value: String(stepData.operationPath) });
+        if (stepData.workflowId) fields.push({ label: 'Workflow ID', value: String(stepData.workflowId) });
+        sections.push(renderMarkdownSection('Operation Details', fields, 'operation'));
     }
 
     // Parameters (array)
