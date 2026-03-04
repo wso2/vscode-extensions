@@ -373,6 +373,13 @@ const Content = styled.div`
     padding: 0px 20px 16px 20px;
 `;
 
+const TabSeparator = styled.div`
+    width: 2px;
+    height: 16px;
+    background: var(--vscode-panel-border);
+    align-self: center;
+`;
+
 const TabsBar = styled.div`
     display: flex;
     gap: 14px;
@@ -546,7 +553,7 @@ type InputMode = 'code' | 'form';
 export const MainPanel: React.FC = () => {
     const [requestItem, setRequestItem] = useState<ApiRequestItem | undefined>();
     const [savedSnapshot, setSavedSnapshot] = useState('');
-    const [activeTab, setActiveTab] = useState<'input' | 'assert'>('input');
+    const [activeTab, setActiveTab] = useState<'input' | 'response' | 'assert'>('input');
     const [isLoading, setIsLoading] = useState(false);
     const [inputMode, setInputMode] = useState<InputMode>('code');
     const [showHelp, setShowHelp] = useState(false);
@@ -555,6 +562,7 @@ export const MainPanel: React.FC = () => {
     const methodSelectRef = useRef<HTMLDivElement>(null);
     // Counter used to trigger scrolling the Output inside Input without switching tabs
     const [bringOutputCounter, setBringOutputCounter] = useState(0);
+    const [scrollToTopCounter, setScrollToTopCounter] = useState(0);
     const [methodDropdownOpen, setMethodDropdownOpen] = useState(false);
     // Handle messages from VS Code extension
     const [showCollectionForm, setShowCollectionForm] = React.useState(false);
@@ -815,11 +823,11 @@ export const MainPanel: React.FC = () => {
                 });
             }
 
-            // Trigger scrolling to output in the Input panel and switch to Input view
+            // Trigger scrolling to output in the Input panel and switch to Response view
             setBringOutputCounter(c => c + 1);
             if (activeTab !== 'assert') {
-                setActiveTab('input');     
-            }       
+                setActiveTab('response');
+            }
         } catch (error) {
             console.error('Request failed:', error);
             
@@ -1020,13 +1028,15 @@ export const MainPanel: React.FC = () => {
 
                         <div>
                             <TabsBar>
-                                <TabButton active={activeTab === 'input'} onClick={() => setActiveTab('input')}>
+                                <TabButton active={activeTab === 'input'} onClick={() => { setActiveTab('input'); setScrollToTopCounter(c => c + 1); }}>
                                     Request
                                 </TabButton>
 
-                                <TabButton onClick={() => { setBringOutputCounter(c => c + 1); setActiveTab('input'); }}>
+                                <TabButton active={activeTab === 'response'} onClick={() => { setBringOutputCounter(c => c + 1); setActiveTab('response'); }}>
                                     Response
                                 </TabButton>
+
+                                <TabSeparator />
 
                                 <TabButton active={activeTab === 'assert'} onClick={() => setActiveTab('assert')}>
                                     Assert
@@ -1034,13 +1044,15 @@ export const MainPanel: React.FC = () => {
                             </TabsBar>
 
                             <div style={{ marginTop: 12 }}>
-                                {activeTab === 'input' && (
+                                {(activeTab === 'input' || activeTab === 'response') && (
                                     <Input
                                         request={requestItem.request}
                                         onRequestChange={handleRequestChange}
                                         mode={inputMode}
                                         response={requestItem.response}
                                         bringOutputCounter={bringOutputCounter}
+                                        scrollToTopCounter={scrollToTopCounter}
+                                        onActiveTabChange={(tab) => setActiveTab(tab)}
                                     />
                                 )}
 
