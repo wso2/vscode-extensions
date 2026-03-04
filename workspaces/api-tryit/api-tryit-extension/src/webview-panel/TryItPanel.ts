@@ -26,7 +26,6 @@ import { Buffer } from 'buffer';
 import { Messenger } from 'vscode-messenger';
 import { registerApiTryItRpcHandlers, ApiTryItRpcManager } from '../rpc-managers';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
-import { ActivityPanel } from '../activity-panel/webview';
 import { parseHurlDocument, parseHurlCollection } from '@wso2/api-tryit-hurl-parser';
 
 export class TryItPanel {
@@ -490,30 +489,28 @@ export class TryItPanel {
 							const { filePath: navFilePath, requestName } = message.data || {};
 							if (!navFilePath) { break; }
 
-							// Prefer item from the already-indexed explorer (has stable tree ID)
-							const explorerMatch = TryItPanel._explorerProvider?.findRequestByFilePath(navFilePath, undefined, requestName);
+							// Use the proven selectItemByPath command for Explorer selection
+							// (it handles reload-fallback and Activity Panel messaging internally)
+							vscode.commands.executeCommand('api-tryit.selectItemByPath', navFilePath, undefined, requestName).then(
+								undefined,
+								(err: unknown) => { console.error('selectItemByPath failed:', err instanceof Error ? err.message : err); }
+							);
+
+							// Update the TryIt panel: find item (reload once if not found)
+							let explorerMatch = TryItPanel._explorerProvider?.findRequestByFilePath(navFilePath, undefined, requestName);
+							if (!explorerMatch && TryItPanel._explorerProvider) {
+								await TryItPanel._explorerProvider.reloadCollections();
+								explorerMatch = TryItPanel._explorerProvider.findRequestByFilePath(navFilePath, undefined, requestName);
+							}
+
 							if (explorerMatch) {
-								const { collection, requestItem: matchedItem, treeItemId, parentIds } = explorerMatch;
-								// Update state machine + send apiRequestItemSelected to TryIt webview
-								ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, matchedItem, navFilePath);
-								// Highlight item in the Activity Panel (Explorer sidebar)
-								ActivityPanel.postMessage('selectItem', {
-									id: treeItemId,
-									parentIds,
-									filePath: matchedItem.filePath,
-									name: matchedItem.name,
-									collectionId: collection.id,
-									collectionName: collection.name,
-									method: matchedItem.request.method,
-									request: matchedItem.request
-								});
+								ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, explorerMatch.requestItem, navFilePath);
 								break;
 							}
 
-							// Fallback: parse file from disk when not yet indexed
+							// Final fallback: parse file from disk
 							const content = await fs.readFile(navFilePath, 'utf-8');
 							const parsedDocument = parseHurlDocument(content);
-							let foundItem: ApiRequestItem | undefined;
 							for (let index = 0; index < parsedDocument.blocks.length; index++) {
 								const block = parsedDocument.blocks[index];
 								let parsed;
@@ -526,17 +523,14 @@ export class TryItPanel {
 								if (!item) { continue; }
 								const itemName = item.request?.name || item.name || `Request ${index + 1}`;
 								if (itemName === requestName) {
-									foundItem = {
+									ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, {
 										...item,
 										id: `${navFilePath}::${index}`,
 										filePath: navFilePath,
 										name: itemName
-									};
+									}, navFilePath);
 									break;
 								}
-							}
-							if (foundItem) {
-								ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, foundItem, navFilePath);
 							}
 						} catch (error: unknown) {
 							console.error('navigateToRequest error:', error instanceof Error ? error.message : error);

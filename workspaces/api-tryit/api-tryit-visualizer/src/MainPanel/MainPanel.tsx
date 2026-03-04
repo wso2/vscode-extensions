@@ -568,6 +568,9 @@ export const MainPanel: React.FC = () => {
     const [showCollectionForm, setShowCollectionForm] = React.useState(false);
     const [collectionFormWorkspacePath, setCollectionFormWorkspacePath] = React.useState<string | undefined>(undefined);
 	const [runViewState, setRunViewState] = useState<RunViewState | undefined>();
+    // Response produced in the current session (by clicking Send). Separate from requestItem.response
+    // which may carry a stale stored response loaded from the hurl file.
+    const [sessionResponse, setSessionResponse] = useState<ApiResponse | undefined>();
     const selectedIdentityRef = useRef('');
     const savedSnapshotRef = useRef('');
     const currentSnapshotRef = useRef('');
@@ -582,6 +585,7 @@ export const MainPanel: React.FC = () => {
     const { updateRequest, sendHttpRequest } = useExtensionMessages({
         onApiRequestSelected: (item) => {
 			setRunViewState(undefined);
+			setSessionResponse(undefined);
             setRequestItem(item);
             setTempName(item.name);
             setIsEditingName(false);
@@ -821,6 +825,7 @@ export const MainPanel: React.FC = () => {
                     response: apiResponse,
                     id: requestItem.id || ''
                 });
+                setSessionResponse(apiResponse);
             }
 
             // Trigger scrolling to output in the Input panel and switch to Response view
@@ -848,6 +853,7 @@ export const MainPanel: React.FC = () => {
                     response: errorResponse,
                     id: requestItem.id || ''
                 });
+                setSessionResponse(errorResponse);
             }
         } finally {
             setIsLoading(false);
@@ -1068,7 +1074,7 @@ export const MainPanel: React.FC = () => {
                                     requestItem ? (
                                         <Assert
                                             request={requestItem.request}
-                                            response={requestItem.response}
+                                            response={sessionResponse}
                                             onRequestChange={handleRequestChange}
                                             mode={inputMode}
                                         />

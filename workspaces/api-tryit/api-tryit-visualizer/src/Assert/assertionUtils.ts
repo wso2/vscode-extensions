@@ -30,6 +30,14 @@ export const getAssertionKey = (assertion: string): string | undefined => {
         return undefined;
     }
 
+    if (/^HTTP\s+/i.test(trimmed)) {
+        return 'HTTP status';
+    }
+
+    if (/^status\s+/i.test(trimmed) && !/^status\s+(==|!=|<=|>=|<|>)/i.test(trimmed)) {
+        return 'status';
+    }
+
     const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
     if (!match) {
         return undefined;
@@ -81,6 +89,14 @@ export const getOperator = (assertion: string): string | undefined => {
         return undefined;
     }
 
+    if (/^HTTP\s+/i.test(trimmed)) {
+        return '==';
+    }
+
+    if (/^status\s+\d/i.test(trimmed)) {
+        return '==';
+    }
+
     const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|={1,2}|!=|<=|>=|<|>)\s*(.*)$/i);
     if (!match) {
         return undefined;
@@ -106,6 +122,26 @@ export const getAssertionDetails = (assertion: string, apiResponse?: ApiResponse
     const trimmed = assertion.trim();
     if (!trimmed) {
         return undefined;
+    }
+
+    // Handle HTTP assertions (HTTP 200, HTTP 2xx, etc.)
+    const httpMatch = trimmed.match(/^HTTP\s+(.+)$/i);
+    if (httpMatch) {
+        return {
+            expected: httpMatch[1].trim(),
+            actual: String(apiResponse.statusCode),
+            operator: '=='
+        };
+    }
+
+    // Handle operatorless status assertions (status 200, status 2xx)
+    const statusNoOpMatch = trimmed.match(/^status\s+(\d[\dxX]*)$/i);
+    if (statusNoOpMatch) {
+        return {
+            expected: statusNoOpMatch[1].trim(),
+            actual: String(apiResponse.statusCode),
+            operator: '=='
+        };
     }
 
     const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|={1,2}|!=|<=|>=|<|>)\s*(.*)$/i);
