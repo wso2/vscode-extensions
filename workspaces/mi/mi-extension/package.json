@@ -1069,6 +1069,7 @@
     "yaml": "2.8.0"
   },
   "dependencies": {
+    "@ai-sdk/amazon-bedrock": "4.0.4",
     "@ai-sdk/anthropic": "3.0.46",
     "@anthropic-ai/tokenizer": "0.0.4",
     "@apidevtools/json-schema-ref-parser": "12.0.2",

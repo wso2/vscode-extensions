@@ -18,6 +18,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Button, Codicon } from "@wso2/ui-toolkit";
+import { LoginMethod } from "@wso2/mi-core";
 import { Badge, Header, HeaderButtons, ResetsInBadge } from '../styles';
 import { useMICopilotContext } from "./MICopilotContext";
 import SessionSwitcher from "./SessionSwitcher";
@@ -42,6 +43,7 @@ const AIChatHeader: React.FC = () => {
     deleteSession
   } = useMICopilotContext();
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [isAwsBedrock, setIsAwsBedrock] = useState(false);
 
   const handleLogout = async () => {
     await rpcClient?.getMiDiagramRpcClient().logoutFromMIAccount();
@@ -50,6 +52,9 @@ const AIChatHeader: React.FC = () => {
   const checkApiKey = async () => {
     const hasApiKey = await rpcClient?.getMiAiPanelRpcClient().hasAnthropicApiKey();
     setHasApiKey(hasApiKey);
+    // Check if specifically using AWS Bedrock
+    const machineView = await rpcClient?.getAIVisualizerState();
+    setIsAwsBedrock(machineView?.loginMethod === LoginMethod.AWS_BEDROCK);
   };
 
   // Check for API key on component mount
@@ -66,9 +71,9 @@ const AIChatHeader: React.FC = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <Codicon name="key" />
-                          Copilot is using your API Key
+                          {isAwsBedrock ? "Copilot is using your AWS Bedrock Account" : "Copilot is using your API Key"}
                       </div>
-                      <ResetsInBadge>Logout to clear the API key</ResetsInBadge>
+                      <ResetsInBadge>{isAwsBedrock ? "Logout to clear the credentials" : "Logout to clear the API key"}</ResetsInBadge>
                   </div>
               ) : (
                   <>
