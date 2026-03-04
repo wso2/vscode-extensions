@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { ApiRequest, ApiResponse, FormDataParameter } from '@wso2/api-tryit-core';
+import { ApiRequest, ApiResponse, CaptureExtractorType, CaptureVariable, FormDataParameter, TemplateVariable } from '@wso2/api-tryit-core';
 
 /**
  * Hurl Format Adapter
@@ -136,6 +136,17 @@ export class HurlFormatAdapter {
 			}
 		}
 
+		// Add [Options] section for template variables
+		if (request.variables && request.variables.length > 0) {
+			const validVars = request.variables.filter(v => v.name.trim());
+			if (validVars.length > 0) {
+				hurl += '\n[Options]\n';
+				for (const v of validVars) {
+					hurl += `variable: ${v.name}=${v.value ?? ''}\n`;
+				}
+			}
+		}
+
 		const hasBinaryFileBody = !!(request.bodyBinaryFiles && request.bodyBinaryFiles.some(file => !!file.filePath));
 
 		const hasStructuredBody =
@@ -199,6 +210,23 @@ export class HurlFormatAdapter {
 			}
 			for (const assertion of allResponseLines) {
 				hurl += `${assertion}\n`;
+			}
+		}
+
+		// Add [Captures] section between HTTP response line and [Asserts]
+		if (request.captures && request.captures.length > 0) {
+			const validCaptures = request.captures.filter(c => c.name.trim() && c.extractorType);
+			if (validCaptures.length > 0) {
+				hurl += '\n[Captures]\n';
+				const expressionExtractors = new Set(['jsonpath', 'xpath', 'header', 'cookie', 'regex']);
+				for (const c of validCaptures) {
+					if (expressionExtractors.has(c.extractorType) && c.expression.trim()) {
+						hurl += `${c.name}: ${c.extractorType} "${c.expression}"\n`;
+					} else {
+						// body, status, bytes, url, duration — no expression
+						hurl += `${c.name}: ${c.extractorType}\n`;
+					}
+				}
 			}
 		}
 
@@ -350,29 +378,88 @@ export class HurlFormatAdapter {
 			}
 
 		// Parse body and sections
-		let inAssertsSection = false;
+		type ActiveSection = 'asserts' | 'options' | 'captures' | null;
+		let activeSection: ActiveSection = null;
+		const variables: TemplateVariable[] = [];
+		const captures: CaptureVariable[] = [];
+		const CAPTURE_WITH_EXPR = /^(jsonpath|xpath|header|cookie|regex)\s+"?(.+?)"?\s*$/i;
+		const CAPTURE_NO_EXPR = /^(body|status|bytes|url|duration)\s*$/i;
+
 		for (; currentLineIdx < lines.length; currentLineIdx++) {
 			const line = lines[currentLineIdx];
 			const trimmed = line.trim();
 
-			// Check for [Asserts] section start
+			// Check for section headers
 			if (trimmed === '[Asserts]') {
-				inAssertsSection = true;
+				activeSection = 'asserts';
+				continue;
+			}
+			if (trimmed === '[Options]') {
+				activeSection = 'options';
+				continue;
+			}
+			if (trimmed === '[Captures]') {
+				activeSection = 'captures';
 				continue;
 			}
 
 			// Check for response/assertions comments (legacy format)
 			if (trimmed.startsWith('# Response:') || trimmed.startsWith('# Assertions:')) {
-				inAssertsSection = false;
+				activeSection = null;
 				break;
 			}
 
 			// If in Asserts section, parse assertions
-			if (inAssertsSection) {
+			if (activeSection === 'asserts') {
 				if (trimmed && !trimmed.startsWith('#')) {
-					// Convert Hurl format to internal format
 					const internalAssertion = HurlFormatAdapter.convertAssertionFromHurlFormat(trimmed);
 					assertions.push(internalAssertion);
+				}
+				continue;
+			}
+
+			// If in Options section, parse variable entries
+			if (activeSection === 'options') {
+				if (trimmed && !trimmed.startsWith('#')) {
+					// "variable: name=value"
+					const varMatch = trimmed.match(/^variable:\s*(.+)=(.*)$/i);
+					if (varMatch) {
+						variables.push({
+							id: `var-${variables.length + 1}`,
+							name: varMatch[1].trim(),
+							value: varMatch[2].trim()
+						});
+					}
+				}
+				continue;
+			}
+
+			// If in Captures section, parse capture entries
+			if (activeSection === 'captures') {
+				if (trimmed && !trimmed.startsWith('#')) {
+					// "varName: extractorType [expression]"
+					const colonIdx = trimmed.indexOf(':');
+					if (colonIdx > 0) {
+						const capName = trimmed.substring(0, colonIdx).trim();
+						const rest = trimmed.substring(colonIdx + 1).trim();
+						const withExpr = rest.match(CAPTURE_WITH_EXPR);
+						const noExpr = rest.match(CAPTURE_NO_EXPR);
+						if (withExpr) {
+							captures.push({
+								id: `cap-${captures.length + 1}`,
+								name: capName,
+								extractorType: withExpr[1].toLowerCase() as CaptureExtractorType,
+								expression: withExpr[2].trim()
+							});
+						} else if (noExpr) {
+							captures.push({
+								id: `cap-${captures.length + 1}`,
+								name: capName,
+								extractorType: noExpr[1].toLowerCase() as CaptureExtractorType,
+								expression: ''
+							});
+						}
+					}
 				}
 				continue;
 			}
@@ -402,15 +489,13 @@ export class HurlFormatAdapter {
 				break;
 			}
 
-			// Parse body (only before Asserts section)
-			if (!inAssertsSection) {
-				if (trimmed.startsWith('# Response:') || trimmed.startsWith('# Assertions:')) {
-					break;
-				}
-
+			// Parse body (only when not in a named section)
+			if (!trimmed.startsWith('# Response:') && !trimmed.startsWith('# Assertions:')) {
 				if (!trimmed.startsWith('#')) {
 					body += line + '\n';
 				}
+			} else {
+				break;
 			}
 		}
 
@@ -661,7 +746,9 @@ export class HurlFormatAdapter {
 				...(request.bodyFormData && request.bodyFormData.length > 0 && { bodyFormData: request.bodyFormData }),
 				...(request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0 && { bodyFormUrlEncoded: request.bodyFormUrlEncoded }),
 				...(request.bodyBinaryFiles && request.bodyBinaryFiles.length > 0 && { bodyBinaryFiles: request.bodyBinaryFiles }),
-				...(assertions.length > 0 && { assertions })
+				...(assertions.length > 0 && { assertions }),
+				...(variables.length > 0 && { variables }),
+				...(captures.length > 0 && { captures })
 			};
 
 			console.log(`[HurlFormatAdapter] Successfully parsed ${filePath}: id=${finalRequest.id}, name=${finalRequest.name}, url=${finalRequest.url}`);
@@ -701,6 +788,12 @@ export class HurlFormatAdapter {
 	 */
 	static convertAssertionToHurlFormat(assertion: string): string {
 		const trimmed = assertion.trim();
+
+		// Pass through native Hurl extractor assertions unchanged
+		// e.g. "jsonpath "$.id" == "value"", "header "Content-Type" contains "json""
+		if (/^(jsonpath|xpath|cookie|regex|duration|url|bytes)\s+/i.test(trimmed)) {
+			return trimmed;
+		}
 
 		// Keep status assertions with operators as-is (they go in [Asserts] section)
 		// Only operatorless status assertions get converted to HTTP

@@ -85,6 +85,29 @@ export interface HttpResponseResult {
     error?: string;
 }
 
+// Template variable — used in [Options] section as "variable: name=value"
+// Referenced in requests via {{name}} syntax
+export interface TemplateVariable {
+    id: string;
+    name: string;
+    value: string;
+}
+
+// Extractor types that require a quoted expression (e.g. jsonpath "$.id")
+// vs types that stand alone (e.g. body, status)
+export type CaptureExtractorType =
+    | 'jsonpath' | 'xpath' | 'header' | 'cookie' | 'regex'
+    | 'body' | 'status' | 'bytes' | 'url' | 'duration';
+
+// Response capture — used in [Captures] section as "name: extractorType [expression]"
+// Captured values are accessible via {{name}} in subsequent requests
+export interface CaptureVariable {
+    id: string;
+    name: string;
+    extractorType: CaptureExtractorType;
+    expression: string; // empty for body/status/bytes/url/duration
+}
+
 // Request definition
 export interface ApiRequest {
     id: string;
@@ -98,6 +121,8 @@ export interface ApiRequest {
     bodyFormUrlEncoded?: FormUrlEncodedParameter[];
     bodyBinaryFiles?: BinaryFileParameter[];
     assertions?: string[];
+    variables?: TemplateVariable[];
+    captures?: CaptureVariable[];
 }
 
 // Response types

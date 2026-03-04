@@ -23,7 +23,14 @@ import { COMMON_HEADERS } from '../Input/InputEditor/SuggestionsConstants';
  * Get initial suggestions for the target field (always show base targets)
  */
 export const getInitialTargetSuggestions = (): string[] => {
-    return ['HTTP', 'status', 'headers', 'body'];
+    return [
+        // Operatorless / simple targets
+        'HTTP', 'status', 'body', 'duration', 'url', 'bytes',
+        // Extractor targets that require a quoted expression
+        'jsonpath', 'xpath', 'header', 'cookie', 'regex',
+        // Legacy dot-notation (kept for backward compatibility)
+        'headers'
+    ];
 };
 
 /**
@@ -31,15 +38,33 @@ export const getInitialTargetSuggestions = (): string[] => {
  * This filters and expands based on what the user is typing
  */
 export const getTargetSuggestions = (prefix: string): string[] => {
-    const baseTargets = ['HTTP', 'status', 'headers', 'body'];
+    const baseTargets = ['HTTP', 'status', 'body', 'duration', 'url', 'bytes', 'jsonpath', 'xpath', 'header', 'cookie', 'regex', 'headers'];
 
     if (prefix === '') {
         return baseTargets;
     }
 
+    const lowerPrefix = prefix.toLowerCase();
     const headerNames = COMMON_HEADERS.map((h: any) => h.name);
 
-    // If prefix is "headers." or starts with headers., return header names
+    // Extractor-with-expression: suggest starter expressions
+    if (lowerPrefix === 'jsonpath' || prefix.startsWith('jsonpath ') || prefix.startsWith('jsonpath"')) {
+        return ['jsonpath "$.field"', 'jsonpath "$.arr[0].id"', 'jsonpath "$.nested.value"'];
+    }
+    if (lowerPrefix === 'xpath' || prefix.startsWith('xpath ')) {
+        return ['xpath "string(//title)"', 'xpath "normalize-space(//h1)"'];
+    }
+    if (lowerPrefix === 'header' || prefix.startsWith('header "')) {
+        return headerNames.map((name: string) => `header "${name}"`);
+    }
+    if (lowerPrefix === 'cookie' || prefix.startsWith('cookie "')) {
+        return ['cookie "session"', 'cookie "JSESSIONID"'];
+    }
+    if (lowerPrefix === 'regex' || prefix.startsWith('regex "')) {
+        return ['regex "([0-9]+)"'];
+    }
+
+    // If prefix is "headers." or starts with headers., return header names (legacy)
     if (prefix.startsWith('headers.')) {
         const headerPrefix = prefix.substring('headers.'.length);
         return headerNames
@@ -47,34 +72,36 @@ export const getTargetSuggestions = (prefix: string): string[] => {
             .map((name: string) => `headers.${name}`);
     }
 
-    // If user types a header name directly (e.g. "Cache"), suggest `headers.<Name>` targets
+    // If user types a header name directly (e.g. "Cache"), suggest `header "Name"` targets
     const looseHeaderMatches = headerNames
-        .filter((name: string) => name.toLowerCase().includes(prefix.toLowerCase()))
-        .map((name: string) => `headers.${name}`);
+        .filter((name: string) => name.toLowerCase().includes(lowerPrefix))
+        .map((name: string) => `header "${name}"`);
     if (looseHeaderMatches.length > 0) {
         return looseHeaderMatches;
     }
 
     // If prefix is "body." or starts with body., could extend for JSON paths
     if (prefix.startsWith('body.')) {
-        // For now, just return as-is. In future, could parse response body
         return [prefix];
     }
 
     // Filter base targets
-    return baseTargets.filter(target => target.toLowerCase().includes(prefix.toLowerCase()));
+    return baseTargets.filter(target => target.toLowerCase().includes(lowerPrefix));
 };
 
 /**
  * Get suggestions for completing the target when a base target is selected
  */
 export const completeTarget = (target: string): string => {
-    // If target is exactly "headers" or "body", append a dot for sub-property
     if (target === 'headers') {
         return 'headers.';
     }
     if (target === 'body') {
         return 'body';
+    }
+    // For extractor types that need an expression, append a space+quote
+    if (['jsonpath', 'xpath', 'header', 'cookie', 'regex'].includes(target)) {
+        return `${target} "`;
     }
     return target;
 };

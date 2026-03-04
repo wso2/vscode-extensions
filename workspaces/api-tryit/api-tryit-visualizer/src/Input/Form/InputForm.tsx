@@ -21,7 +21,7 @@ import { Typography, LinkButton, Codicon } from '@wso2/ui-toolkit';
 import { ParamItem } from './ParamItem/ParamItem';
 import { COMMON_HEADERS } from '../InputEditor/SuggestionsConstants';
 import { MultipartForm } from './MultipartForm/MultipartForm';
-import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
+import { QueryParameter, HeaderParameter, ApiRequest, TemplateVariable } from '@wso2/api-tryit-core';
 import { CodeTextArea } from '../../Components/CodeTextArea/CodeTextArea';
 import BinaryForm from './BinaryForm/BinaryForm';
 
@@ -207,6 +207,19 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
         onRequestChange?.({ ...request, headers: (request.headers || []).filter(header => header.id !== id) });
     };
 
+    const addVariable = () => {
+        const newVar: TemplateVariable = { id: Date.now().toString(), name: '', value: '' };
+        onRequestChange?.({ ...request, variables: [...(request.variables || []), newVar] });
+    };
+
+    const updateVariable = (id: string, name: string, value: string) => {
+        onRequestChange?.({ ...request, variables: (request.variables || []).map(v => v.id === id ? { ...v, name, value } : v) });
+    };
+
+    const deleteVariable = (id: string) => {
+        onRequestChange?.({ ...request, variables: (request.variables || []).filter(v => v.id !== id) });
+    };
+
     const addFormDataParam = () => {
         const newParam: any = { id: Date.now().toString(), key: '', contentType: '', value: '' };
         onRequestChange?.({ ...request, bodyFormData: [...(request.bodyFormData || []), newParam] });
@@ -298,6 +311,27 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
                 </ParamList>
                 <AddButtonWrapper>
                     <LinkButton onClick={addHeader}><Codicon name="add" />Header</LinkButton>
+                </AddButtonWrapper>
+            </Section>
+
+            {/* Variables Section */}
+            <Section>
+                <Typography variant="subtitle2" sx={{ margin: '10px 0' }}>Variables</Typography>
+                <ParamList>
+                    {(request.variables || []).map((variable, idx) => (
+                        <ParamItem
+                            id={`${idx}`}
+                            key={variable.id}
+                            keyValue={variable.name}
+                            value={variable.value}
+                            onKeyChange={(name) => updateVariable(variable.id, name, variable.value)}
+                            onValueChange={(value) => updateVariable(variable.id, variable.name, value)}
+                            onDelete={() => deleteVariable(variable.id)}
+                        />
+                    ))}
+                </ParamList>
+                <AddButtonWrapper>
+                    <LinkButton onClick={addVariable}><Codicon name="add" />Variable</LinkButton>
                 </AddButtonWrapper>
             </Section>
 

@@ -74,7 +74,7 @@ export const AssertForm: React.FC<AssertFormProps> = ({
     // Create stable keys for assertions based on their position + content
     // This ensures proper reconciliation during deletions
     const assertionKeys = React.useMemo(() => {
-        return (request.assertions || []).map((assertion, index) => 
+        return (request.assertions || []).map((assertion, index) =>
             `assertion-${index}-${assertion.substring(0, 20)}`
         );
     }, [request.assertions]);
@@ -105,6 +105,7 @@ export const AssertForm: React.FC<AssertFormProps> = ({
 
     return (
         <>
+            {/* Assertions Section */}
             <StickyHeader>
                 <Typography variant="h3" sx={{ margin: 0 }}>
                     Assertions

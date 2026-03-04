@@ -20,7 +20,7 @@ import { Typography } from '@wso2/ui-toolkit';
 import { InputEditor } from '../InputEditor/InputEditor';
 import { COMMON_HEADERS, COMMON_QUERY_KEYS, COMMON_BODY_SNIPPETS } from '../InputEditor/SuggestionsConstants';
 import styled from '@emotion/styled';
-import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
+import { QueryParameter, HeaderParameter, ApiRequest, TemplateVariable } from '@wso2/api-tryit-core';
 
 type BodyFormat = 'json' | 'xml' | 'text' | 'html' | 'javascript' | 'form-data' | 'form-urlencoded' | 'binary' | 'no-body';
 
@@ -91,6 +91,24 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             });
         };
         onRequestChange?.({ ...request, headers: parseHeaders(value || '') });
+    };
+
+    const formatVariables = (variables: TemplateVariable[] | undefined): string => {
+        if (!Array.isArray(variables)) return '';
+        return variables.filter(v => v.name).map(v => `${v.name}=${v.value ?? ''}`).join('\n');
+    };
+
+    const handleVariablesChange = (value: string | undefined) => {
+        const parseVariables = (text: string): TemplateVariable[] => {
+            if (!text.trim()) return [];
+            return text.split('\n').filter(line => line.trim()).map((line, index) => {
+                const eqIdx = line.indexOf('=');
+                const name = eqIdx >= 0 ? line.substring(0, eqIdx).trim() : line.trim();
+                const val = eqIdx >= 0 ? line.substring(eqIdx + 1).trim() : '';
+                return { id: Date.now().toString() + index, name, value: val };
+            });
+        };
+        onRequestChange?.({ ...request, variables: parseVariables(value || '') });
     };
 
     const handleBodyChange = (value: string | undefined) => {
@@ -382,6 +400,35 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
         }
     ], []);
 
+    const variablesCodeLenses = React.useMemo(() => [
+        {
+            id: 'add-variable',
+            title: '$(add) Add Variable',
+            shouldShow: (model: any) => true,
+            getLineNumber: (model: any) => 1,
+            onExecute: (editor: any, model: any) => {
+                const lineCount = model.getLineCount();
+                const lastLineLength = model.getLineLength(lineCount);
+                const textToInsert = model.getValue() ? '\nname=value' : 'name=value';
+
+                editor.executeEdits('add-variable', [{
+                    range: {
+                        startLineNumber: lineCount,
+                        startColumn: lastLineLength + 1,
+                        endLineNumber: lineCount,
+                        endColumn: lastLineLength + 1
+                    },
+                    text: textToInsert
+                }]);
+
+                setTimeout(() => {
+                    editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+                    editor.focus();
+                }, 0);
+            }
+        }
+    ], []);
+
     const bodyCodeLenses = React.useMemo(() => {
         const lenses: any[] = [
             {
@@ -545,6 +592,14 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 value={formatHeaders(request.headers)}
                 codeLenses={headersCodeLenses}
                 suggestions={{ headers: COMMON_HEADERS }}
+            />
+
+            <Typography variant="subtitle2" sx={{ margin: '10px 0' }}> Variables </Typography>
+            <InputEditor
+                minHeight='calc((100vh - 420px) / 3)'
+                onChange={handleVariablesChange}
+                value={formatVariables(request.variables)}
+                codeLenses={variablesCodeLenses}
             />
 
             {methodSupportsBody && bodyFormat !== 'no-body' && (

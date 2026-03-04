@@ -17,13 +17,16 @@
  */
 
 import React from 'react';
-import { Typography } from '@wso2/ui-toolkit';
+import { Typography, LinkButton, Codicon } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { InputForm } from './Form/InputForm';
 import { InputCode } from './Code/InputCode';
-import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
+import { InputEditor } from './InputEditor/InputEditor';
+import { QueryParameter, HeaderParameter, ApiRequest, CaptureVariable, CaptureExtractorType } from '@wso2/api-tryit-core';
 import { getVSCodeAPI } from '../utils/vscode-api';
 import { Output } from '../Output';
+import { CaptureRow } from '../Assert/Form/CaptureRow';
+import { captureNeedsExpression } from '../Assert/captureUtils';
 
 type InputMode = 'code' | 'form';
 type BodyFormat = 'json' | 'xml' | 'text' | 'html' | 'javascript' | 'form-data' | 'form-urlencoded' | 'binary' | 'no-body';
@@ -48,6 +51,17 @@ const Container = styled.div`
     overflow-x: hidden;
 `;
 
+const CapturesSection = styled.div`
+    // margin-top: 20px;
+    // padding-top: 16px;
+    // border-top: 1px solid var(--vscode-panel-border);
+`;
+
+const AddButtonWrapper = styled.div`
+    margin-top: 8px;
+    margin-left: 4px;
+`;
+
 export const Input: React.FC<InputProps> = ({
     request,
     onRequestChange,
@@ -64,6 +78,9 @@ export const Input: React.FC<InputProps> = ({
     const containerRef = React.useRef<HTMLDivElement>(null);
     const lastRequestIdRef = React.useRef<string | undefined>(undefined);
     const lastScrollTopCounterRef = React.useRef<number>(scrollToTopCounter ?? 0);
+    // Suppress scroll-based tab switching during programmatic scrolling so smooth-scroll
+    // events don't override the tab that was just explicitly selected by clicking.
+    const suppressScrollSwitchRef = React.useRef(false);
     // Keep a ref to the callback so the scroll listener doesn't need to be re-attached on every render
     const onActiveTabChangeRef = React.useRef(onActiveTabChange);
     React.useEffect(() => { onActiveTabChangeRef.current = onActiveTabChange; });
@@ -73,24 +90,36 @@ export const Input: React.FC<InputProps> = ({
         if (typeof scrollToTopCounter !== 'number') return;
         if (lastScrollTopCounterRef.current === scrollToTopCounter) return;
         lastScrollTopCounterRef.current = scrollToTopCounter;
+        suppressScrollSwitchRef.current = true;
         containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => { suppressScrollSwitchRef.current = false; }, 600);
     }, [scrollToTopCounter]);
 
     // Update active tab based on scroll position relative to the response section
     React.useEffect(() => {
         const container = containerRef.current;
-        if (!container) return;
-        const handleScroll = () => {
-            if (!outputRef.current || !onActiveTabChangeRef.current) return;
-            const threshold = 50;
-            if (container.scrollTop >= outputRef.current.offsetTop - threshold) {
-                onActiveTabChangeRef.current('response');
-            } else {
-                onActiveTabChangeRef.current('input');
+        const outputEl = outputRef.current;
+        if (!container || !outputEl) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (suppressScrollSwitchRef.current) return;
+                const entry = entries[0];
+                if (!onActiveTabChangeRef.current) return;
+                if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
+                    onActiveTabChangeRef.current('response');
+                } else {
+                    onActiveTabChangeRef.current('input');
+                }
+            },
+            {
+                root: container,
+                threshold: [0, 0.1, 0.25, 0.5]
             }
-        };
-        container.addEventListener('scroll', handleScroll, { passive: true });
-        return () => container.removeEventListener('scroll', handleScroll);
+        );
+
+        observer.observe(outputEl);
+        return () => observer.disconnect();
     }, []); // empty deps — uses refs to stay stable
 
     // Fallback: if a selected request has [Multipart] body text but missing structured params,
@@ -182,20 +211,20 @@ export const Input: React.FC<InputProps> = ({
         if (typeof bringOutputCounter !== 'number') return;
         if (lastBringCounterRef.current === bringOutputCounter) return; // no change
 
-        // Record the new bring counter value
         lastBringCounterRef.current = bringOutputCounter;
 
-        if (response && outputRef.current && containerRef.current) {
-            // Response already present — perform scroll immediately
+        // The response div is always in the DOM — scroll immediately.
+        // Suppress scroll-based tab switching for the duration of the animation so the
+        // Response tab stays selected while smooth-scroll events fire.
+        if (outputRef.current && containerRef.current) {
+            suppressScrollSwitchRef.current = true;
             setTimeout(() => {
                 try {
                     const container = containerRef.current!;
                     const outputEl = outputRef.current!;
                     const containerRect = container.getBoundingClientRect();
                     const outputRect = outputEl.getBoundingClientRect();
-                    const offset = 16; // small padding from top
-
-                    // Align the top of the output with a small offset
+                    const offset = 16;
                     const targetScrollTop = container.scrollTop + (outputRect.top - containerRect.top) - offset;
                     container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
                     setTimeout(() => outputEl.focus(), 300);
@@ -203,12 +232,10 @@ export const Input: React.FC<InputProps> = ({
                     outputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     outputRef.current?.focus();
                 }
+                // Release suppression after smooth scroll completes (~400ms)
+                setTimeout(() => { suppressScrollSwitchRef.current = false; }, 500);
             }, 150);
-
             pendingBringRef.current = null;
-        } else {
-            // Response not yet available — remember we need to scroll when it arrives
-            pendingBringRef.current = bringOutputCounter;
         }
     }, [bringOutputCounter]);
 
@@ -348,6 +375,69 @@ export const Input: React.FC<InputProps> = ({
         }
     };
 
+    // ── Capture handlers ────────────────────────────────────────────────────
+
+    const addCapture = () => {
+        const newCapture: CaptureVariable = { id: Date.now().toString(), name: '', extractorType: 'jsonpath', expression: '' };
+        onRequestChange?.({ ...request, captures: [...(request.captures || []), newCapture] });
+    };
+
+    const updateCapture = (index: number, updated: CaptureVariable) => {
+        onRequestChange?.({ ...request, captures: (request.captures || []).map((c, i) => i === index ? updated : c) });
+    };
+
+    const deleteCapture = (index: number) => {
+        onRequestChange?.({ ...request, captures: (request.captures || []).filter((_, i) => i !== index) });
+    };
+
+    const formatCaptures = (captures: CaptureVariable[] | undefined): string => {
+        if (!Array.isArray(captures)) return '';
+        return captures.filter(c => c.name || c.extractorType).map(c => {
+            if (captureNeedsExpression(c.extractorType) && c.expression) {
+                return `${c.name}: ${c.extractorType} "${c.expression}"`;
+            }
+            return `${c.name}: ${c.extractorType}`;
+        }).join('\n');
+    };
+
+    const handleCapturesChange = (value: string | undefined) => {
+        const lines = (value || '').split('\n').filter(line => line.trim());
+        const captures: CaptureVariable[] = lines.map((line, index) => {
+            const withExpr = line.match(/^([^:]+):\s*(jsonpath|xpath|header|cookie|regex)\s+"([^"]*)"$/i);
+            if (withExpr) {
+                return { id: Date.now().toString() + index, name: withExpr[1].trim(), extractorType: withExpr[2].toLowerCase() as CaptureExtractorType, expression: withExpr[3] };
+            }
+            const noExpr = line.match(/^([^:]+):\s*(body|status|bytes|url|duration)\s*$/i);
+            if (noExpr) {
+                return { id: Date.now().toString() + index, name: noExpr[1].trim(), extractorType: noExpr[2].toLowerCase() as CaptureExtractorType, expression: '' };
+            }
+            const colonIdx = line.indexOf(':');
+            const name = colonIdx >= 0 ? line.substring(0, colonIdx).trim() : line.trim();
+            const rest = colonIdx >= 0 ? line.substring(colonIdx + 1).trim() : '';
+            return { id: Date.now().toString() + index, name, extractorType: (rest || 'jsonpath') as CaptureExtractorType, expression: '' };
+        });
+        onRequestChange?.({ ...request, captures });
+    };
+
+    const capturesCodeLenses = React.useMemo(() => [
+        {
+            id: 'add-capture',
+            title: '$(add) Add Capture Variable',
+            shouldShow: (model: any) => true,
+            getLineNumber: (model: any) => 1,
+            onExecute: (editor: any, model: any) => {
+                const lineCount = model.getLineCount();
+                const lastLineLength = model.getLineLength(lineCount);
+                const textToInsert = model.getValue() ? '\nvarName: jsonpath "$.field"' : 'varName: jsonpath "$.field"';
+                editor.executeEdits('add-capture', [{
+                    range: { startLineNumber: lineCount, startColumn: lastLineLength + 1, endLineNumber: lineCount, endColumn: lastLineLength + 1 },
+                    text: textToInsert
+                }]);
+                setTimeout(() => { editor.setPosition({ lineNumber: model.getLineCount(), column: 1 }); editor.focus(); }, 0);
+            }
+        }
+    ], []);
+
     return (
         <Container ref={containerRef}>
             {mode === 'code' ? (
@@ -362,14 +452,46 @@ export const Input: React.FC<InputProps> = ({
                     onFormatChange={handleFormatChange}
                 />
             )}
-            {response && (
-                <div ref={outputRef} tabIndex={-1} role="region" aria-label="Response output" style={{ marginTop: '24px', borderTop: '1px solid var(--vscode-panel-border)', paddingTop: '16px' }}>
-                    <Typography variant='h3' sx={{ margin: 0 }}>
-                        Response
+            {/* Response section — always visible; Output handles its own empty state */}
+            <div ref={outputRef} tabIndex={-1} role="region" aria-label="Response output" style={{ marginTop: '24px', borderTop: '1px solid var(--vscode-panel-border)', paddingTop: '16px' }}>
+                <Typography variant='h3' sx={{ margin: 0 }}>
+                    Response
+                </Typography>
+                <Output response={response} embedded />
+
+                {/* Captures — at the end of Response, always visible */}
+                <CapturesSection>
+                    <Typography variant="subtitle2" sx={{ margin: '10px 0' }}>
+                        Captures
                     </Typography>
-                    <Output response={response} embedded />
-                </div>
-            )}
+                    {mode === 'code' ? (
+                        <InputEditor
+                            minHeight='80px'
+                            onChange={handleCapturesChange}
+                            value={formatCaptures(request.captures)}
+                            codeLenses={capturesCodeLenses}
+                        />
+                    ) : (
+                        <>
+                            {(request.captures || []).map((capture, index) => (
+                                <CaptureRow
+                                    key={capture.id}
+                                    capture={capture}
+                                    response={response}
+                                    onChange={(updated) => updateCapture(index, updated)}
+                                    onDelete={() => deleteCapture(index)}
+                                />
+                            ))}
+                            <AddButtonWrapper>
+                                <LinkButton onClick={addCapture}>
+                                    <Codicon name="add" />
+                                    Add Capture Variable
+                                </LinkButton>
+                            </AddButtonWrapper>
+                        </>
+                    )}
+                </CapturesSection>
+            </div>
         </Container>
     );
 };

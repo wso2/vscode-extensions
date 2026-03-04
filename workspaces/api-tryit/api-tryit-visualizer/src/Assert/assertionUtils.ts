@@ -38,6 +38,12 @@ export const getAssertionKey = (assertion: string): string | undefined => {
         return 'status';
     }
 
+    // Native Hurl extractor with expression: jsonpath "$.id" == ...
+    const extractorWithExpr = trimmed.match(/^(jsonpath|xpath|header|cookie|regex)\s+"([^"]+)"/i);
+    if (extractorWithExpr) {
+        return `${extractorWithExpr[1].toLowerCase()} "${extractorWithExpr[2]}"`;
+    }
+
     const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
     if (!match) {
         return undefined;
@@ -192,6 +198,82 @@ export const getAssertionDetails = (assertion: string, apiResponse?: ApiResponse
     return undefined;
 };
 
+function compareValues(actual: string, expected: string, operator: string): boolean {
+    switch (operator) {
+        case '=':
+        case '==':
+            return actual === expected;
+        case '!=':
+            return actual !== expected;
+        case '>':
+            return Number(actual) > Number(expected);
+        case '<':
+            return Number(actual) < Number(expected);
+        case '>=':
+            return Number(actual) >= Number(expected);
+        case '<=':
+            return Number(actual) <= Number(expected);
+        default:
+            return false;
+    }
+}
+
+function evalOperator(actual: string, expected: string, operator: string): boolean {
+    const lowerOp = operator.toLowerCase();
+    const isTruthyString = (v: string) => {
+        if (!v) return false;
+        const lower = v.toLowerCase();
+        return !(lower === 'false' || lower === '0' || lower === 'null' || lower === 'undefined' || lower === '');
+    };
+
+    switch (lowerOp) {
+        case 'contains':
+            return actual.includes(expected);
+        case 'notcontains':
+            return !actual.includes(expected);
+        case 'startswith':
+            return actual.startsWith(expected);
+        case 'endswith':
+            return actual.endsWith(expected);
+        case 'matches':
+            try {
+                if (expected.length > 500 || /[+*?}][+*?]/.test(expected) || /\)\s*[+*?{]/.test(expected)) { return false; }
+                return new RegExp(expected).test(actual);
+            } catch { return false; }
+        case 'notmatches':
+            try {
+                if (expected.length > 500 || /[+*?}][+*?]/.test(expected) || /\)\s*[+*?{]/.test(expected)) { return false; }
+                return !new RegExp(expected).test(actual);
+            } catch { return false; }
+        case 'isnull':
+            return actual === '' || actual.toLowerCase() === 'null' || actual === undefined;
+        case 'isempty':
+            return actual === '';
+        case 'isnotempty':
+            return actual !== '';
+        case 'isdefined':
+            return actual !== '';
+        case 'isundefined':
+            return actual === '';
+        case 'istruthy':
+            return isTruthyString(actual);
+        case 'isfalsy':
+            return !isTruthyString(actual);
+        case 'isnumber':
+            return actual.trim() !== '' && !isNaN(Number(actual));
+        case 'isstring':
+            return typeof actual === 'string';
+        case 'isboolean':
+            return ['true', 'false'].includes(actual.toLowerCase());
+        case 'isarray':
+            try { const p = JSON.parse(actual); return Array.isArray(p); } catch { return false; }
+        case 'isjson':
+            try { JSON.parse(actual); return true; } catch { return false; }
+        default:
+            return compareValues(actual, expected, operator);
+    }
+}
+
 export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse): boolean | undefined => {
     if (!apiResponse) {
         return undefined;
@@ -239,6 +321,63 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
         return statusCodes.includes(actualStatus);
     }
 
+    // Native Hurl extractor assertions: jsonpath/xpath/header/cookie/regex/duration/url/bytes
+    // Format: extractorType "expression" operator value
+    //      or: extractorType operator value (for expression-less types like duration, url)
+    const EXTRACTOR_OPS = 'contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|={1,2}|!=|<=|>=|<|>';
+    const extractorWithExprMatch = trimmed.match(
+        new RegExp(`^(jsonpath|xpath|header|cookie|regex)\\s+"([^"]*)"\\s+(${EXTRACTOR_OPS})\\s*(.*)$`, 'i')
+    );
+    if (extractorWithExprMatch) {
+        const [, extractorType, expression, operator, rawExpected] = extractorWithExprMatch;
+        const expected = rawExpected.trim().replace(/^['"]|['"]$/g, '');
+        let actual: string;
+        switch (extractorType.toLowerCase()) {
+            case 'header':
+                actual = (apiResponse.headers || []).find(
+                    h => h.key.toLowerCase() === expression.toLowerCase()
+                )?.value ?? '';
+                break;
+            case 'jsonpath': {
+                try {
+                    const obj = JSON.parse(apiResponse.body ?? '');
+                    const val = evaluateSimpleJsonPath(obj, expression);
+                    actual = val !== undefined ? String(val) : '';
+                } catch { return false; }
+                break;
+            }
+            case 'cookie': {
+                const setCookie = (apiResponse.headers || []).find(
+                    h => h.key.toLowerCase() === 'set-cookie'
+                )?.value ?? '';
+                try {
+                    const m = setCookie.match(new RegExp(`(?:^|;\\s*)${expression}=([^;]+)`, 'i'));
+                    actual = m?.[1] ?? '';
+                } catch { return false; }
+                break;
+            }
+            case 'regex': {
+                try {
+                    const m = (apiResponse.body ?? '').match(new RegExp(expression));
+                    actual = m?.[1] ?? m?.[0] ?? '';
+                } catch { return false; }
+                break;
+            }
+            default:
+                actual = '';
+        }
+        return evalOperator(actual, expected, operator);
+    }
+
+    // No-expression extractor assertions: duration/url/bytes operator value
+    const extractorNoExprMatch = trimmed.match(
+        new RegExp(`^(duration|url|bytes)\\s+(${EXTRACTOR_OPS})\\s*(.*)$`, 'i')
+    );
+    if (extractorNoExprMatch) {
+        // duration/url not available in ApiResponse — treat as true (evaluated at run time by hurl)
+        return undefined;
+    }
+
     // Original parsing for operator-based assertions
     const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|={1,2}|!=|<=|>=|<|>)\s*(.*)$/i);
     if (!match) {
@@ -247,85 +386,6 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
 
     const [, target, property, operator, rawExpected] = match;
     const expected = rawExpected.trim().replace(/^['"]|['"]$/g, '');
-
-    const compareValues = (actual: string, expected: string, operator: string): boolean => {
-        switch (operator) {
-            case '=':
-            case '==':
-                return actual === expected;
-            case '!=':
-                return actual !== expected;
-            case '>':
-                return Number(actual) > Number(expected);
-            case '<':
-                return Number(actual) < Number(expected);
-            case '>=':
-                return Number(actual) >= Number(expected);
-            case '<=':
-                return Number(actual) <= Number(expected);
-            default:
-                return false;
-        }
-    };
-
-    const evalOperator = (actual: string, expected: string, operator: string): boolean => {
-        const op = operator;
-        const lowerOp = op.toLowerCase();
-        const isTruthyString = (v: string) => {
-            if (!v) return false;
-            const lower = v.toLowerCase();
-            return !(lower === 'false' || lower === '0' || lower === 'null' || lower === 'undefined' || lower === '');
-        };
-
-        switch (lowerOp) {
-            case 'contains':
-                return actual.includes(expected);
-            case 'notcontains':
-                return !actual.includes(expected);
-            case 'startswith':
-                return actual.startsWith(expected);
-            case 'endswith':
-                return actual.endsWith(expected);
-            case 'matches':
-                try {
-                    // Guard against ReDoS: reject patterns that are too long or contain nested quantifiers
-                    if (expected.length > 500 || /[+*?}][+*?]/.test(expected) || /\)\s*[+*?{]/.test(expected)) { return false; }
-                    return new RegExp(expected).test(actual);
-                } catch { return false; }
-            case 'notmatches':
-                try {
-                    // Guard against ReDoS: reject patterns that are too long or contain nested quantifiers
-                    if (expected.length > 500 || /[+*?}][+*?]/.test(expected) || /\)\s*[+*?{]/.test(expected)) { return false; }
-                    return !new RegExp(expected).test(actual);
-                } catch { return false; }
-            case 'isnull':
-                return actual === '' || actual.toLowerCase() === 'null' || actual === undefined;
-            case 'isempty':
-                return actual === '';
-            case 'isnotempty':
-                return actual !== '';
-            case 'isdefined':
-                return actual !== '';
-            case 'isundefined':
-                return actual === '';
-            case 'istruthy':
-                return isTruthyString(actual);
-            case 'isfalsy':
-                return !isTruthyString(actual);
-            case 'isnumber':
-                return actual.trim() !== '' && !isNaN(Number(actual));
-            case 'isstring':
-                return typeof actual === 'string';
-            case 'isboolean':
-                return ['true', 'false'].includes(actual.toLowerCase());
-            case 'isarray':
-                try { const p = JSON.parse(actual); return Array.isArray(p); } catch { return false; }
-            case 'isjson':
-                try { JSON.parse(actual); return true; } catch { return false; }
-            default:
-                return compareValues(actual, expected, operator);
-        }
-    };
 
     if (target.toLowerCase() === 'status') {
         return evalOperator(String(apiResponse.statusCode), expected, operator);
@@ -372,3 +432,22 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
 
     return false;
 };
+
+/**
+ * Evaluate common JSONPath patterns against a parsed object.
+ * Supports: $.field, $.a.b.c, $.arr[0].id, $[0], $[0].field
+ */
+function evaluateSimpleJsonPath(obj: unknown, path: string): unknown {
+    const normalized = path
+        .replace(/^\$/, '')
+        .replace(/\[(\d+)\]/g, '.$1');
+    const parts = normalized.split('.').filter(Boolean);
+    let current: unknown = obj;
+    for (const part of parts) {
+        if (current == null || typeof current !== 'object') {
+            return undefined;
+        }
+        current = (current as Record<string, unknown>)[part];
+    }
+    return current;
+}

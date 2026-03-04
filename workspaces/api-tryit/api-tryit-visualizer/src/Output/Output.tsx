@@ -125,8 +125,6 @@ const CodeBlock = styled.pre`
 `;
 
 const EmptyState = styled.div`
-    padding: 40px 20px;
-    text-align: center;
     color: var(--vscode-descriptionForeground);
     font-style: italic;
 `;

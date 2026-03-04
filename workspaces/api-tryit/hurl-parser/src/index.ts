@@ -22,10 +22,13 @@ import {
 	ApiRequest,
 	ApiRequestItem,
 	ApiResponse,
+	CaptureVariable,
+	CaptureExtractorType,
 	FormDataParameter,
 	FormUrlEncodedParameter,
 	HeaderParameter,
-	QueryParameter
+	QueryParameter,
+	TemplateVariable
 } from '@wso2/api-tryit-core';
 
 type RequestSectionName = 'basic-auth' | 'query' | 'form' | 'multipart' | 'cookies' | 'options';
@@ -72,6 +75,8 @@ interface ParsedRequestPart {
 	body?: string;
 	bodyFormData?: FormDataParameter[];
 	bodyFormUrlEncoded?: FormUrlEncodedParameter[];
+	variables?: TemplateVariable[];
+	captures?: CaptureVariable[];
 }
 
 export * from './hurl-collection-file';
@@ -368,7 +373,7 @@ function parseRequestBlock(block: string, requestIndex: number): ApiRequestItem 
 
 	const { url, queryParameters: queryParamsFromUrl } = parseUrlAndQuery(rawUrl, requestIndex);
 	const parsedRequestPart = parseRequestPart(requestLines, requestIndex, queryParamsFromUrl.length);
-	const assertions = parseResponsePart(responseLines);
+	const { assertions, captures } = parseResponsePart(responseLines);
 
 	const requestId = sanitizeId(metadata.id) || `request-${requestIndex}`;
 	const requestName = metadata.name?.trim() || `${method} ${url}`;
@@ -395,6 +400,14 @@ function parseRequestBlock(block: string, requestIndex: number): ApiRequestItem 
 
 	if (assertions.length > 0) {
 		request.assertions = assertions;
+	}
+
+	if (parsedRequestPart.variables && parsedRequestPart.variables.length > 0) {
+		request.variables = parsedRequestPart.variables;
+	}
+
+	if (captures.length > 0) {
+		request.captures = captures;
 	}
 
 	const item: ApiRequestItem = {
@@ -474,6 +487,7 @@ function parseRequestPart(lines: string[], requestIndex: number, initialQueryCou
 	const bodyLines: string[] = [];
 	const cookies: Array<{ key: string; value: string }> = [];
 	const basicAuthPairs: Array<{ key: string; value: string }> = [];
+	const variables: TemplateVariable[] = [];
 
 	let activeSection: RequestSectionName | null = null;
 	let bodyStarted = false;
@@ -505,6 +519,18 @@ function parseRequestPart(lines: string[], requestIndex: number, initialQueryCou
 
 		if (activeSection) {
 			if (activeSection === 'options') {
+				const entry = parseKeyValueLine(line);
+				// Parse "variable: name=value" entries
+				if (entry?.key === 'variable') {
+					const eqIdx = entry.value.indexOf('=');
+					if (eqIdx >= 0) {
+						variables.push({
+							id: `var-${requestIndex}-${variables.length + 1}`,
+							name: entry.value.substring(0, eqIdx).trim(),
+							value: entry.value.substring(eqIdx + 1).trim()
+						});
+					}
+				}
 				continue;
 			}
 
@@ -604,15 +630,25 @@ function parseRequestPart(lines: string[], requestIndex: number, initialQueryCou
 		requestPart.body = body;
 	}
 
+	if (variables.length > 0) {
+		requestPart.variables = variables;
+	}
+
 	return requestPart;
 }
 
-function parseResponsePart(lines: string[]): string[] {
+// Extractor types that require a quoted expression (e.g. jsonpath "$.id")
+const CAPTURE_WITH_EXPRESSION = /^(jsonpath|xpath|header|cookie|regex)\s+"?(.+?)"?\s*$/i;
+// Extractor types that stand alone (no expression)
+const CAPTURE_NO_EXPRESSION = /^(body|status|bytes|url|duration)\s*$/i;
+
+function parseResponsePart(lines: string[]): { assertions: string[]; captures: CaptureVariable[] } {
 	if (lines.length === 0) {
-		return [];
+		return { assertions: [], captures: [] };
 	}
 
 	const assertions: string[] = [];
+	const captures: CaptureVariable[] = [];
 	let cursor = 0;
 
 	while (cursor < lines.length) {
@@ -625,12 +661,12 @@ function parseResponsePart(lines: string[]): string[] {
 	}
 
 	if (cursor >= lines.length) {
-		return assertions;
+		return { assertions, captures };
 	}
 
 	const statusMatch = lines[cursor].trim().match(RESPONSE_LINE_REGEX);
 	if (!statusMatch) {
-		return assertions;
+		return { assertions, captures };
 	}
 
 	assertions.push(`HTTP ${statusMatch[1]}`);
@@ -659,6 +695,28 @@ function parseResponsePart(lines: string[]): string[] {
 		}
 
 		if (activeSection === 'captures') {
+			// Parse "varName: extractorType [expression]"
+			const entry = parseKeyValueLine(line);
+			if (entry) {
+				const rest = entry.value.trim();
+				const withExpr = rest.match(CAPTURE_WITH_EXPRESSION);
+				const noExpr = rest.match(CAPTURE_NO_EXPRESSION);
+				if (withExpr) {
+					captures.push({
+						id: `cap-${captures.length + 1}`,
+						name: entry.key,
+						extractorType: withExpr[1].toLowerCase() as CaptureExtractorType,
+						expression: withExpr[2].trim()
+					});
+				} else if (noExpr) {
+					captures.push({
+						id: `cap-${captures.length + 1}`,
+						name: entry.key,
+						extractorType: noExpr[1].toLowerCase() as CaptureExtractorType,
+						expression: ''
+					});
+				}
+			}
 			continue;
 		}
 
@@ -685,7 +743,7 @@ function parseResponsePart(lines: string[]): string[] {
 		responseBodyStarted = true;
 	}
 
-	return assertions;
+	return { assertions, captures };
 }
 
 function parseUrlAndQuery(rawUrl: string, requestIndex: number): { url: string; queryParameters: QueryParameter[] } {
