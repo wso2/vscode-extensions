@@ -86,7 +86,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const rpcClient = new ChoreoRPCClient();
 	await rpcClient.waitUntilActive();
 	ext.clients = { rpcClient: rpcClient };
-	authProvider.getState().initAuth();
+	await authProvider.getState().initAuth();
 	continueCreateComponent();
 	if (ext.isChoreoExtInstalled) {
 		addTerminalHandlers();

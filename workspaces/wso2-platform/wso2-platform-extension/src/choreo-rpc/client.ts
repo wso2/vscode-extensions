@@ -309,7 +309,7 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}
-		const response = await this.client.sendRequest<{ userInfo: UserInfo; isLoggedIn: boolean }>("auth/getUserInfo");
+		const response = await this.client.sendRequest<{ userInfo: UserInfo; isLoggedIn: boolean }>("auth/getUserInfo", {}, 10000);
 		return response.userInfo;
 	}
 
@@ -364,7 +364,7 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}
-		const resp: { region: "US" | "EU" } = await this.client.sendRequest("auth/getCurrentRegion");
+		const resp: { region: "US" | "EU" } = await this.client.sendRequest("auth/getCurrentRegion", {}, 2000);
 		return resp.region;
 	}
 
@@ -723,7 +723,7 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}
-		const response: GetCliRpcResp = await this.client.sendRequest("auth/getConfigs", {});
+		const response: GetCliRpcResp = await this.client.sendRequest("auth/getConfigs", {}, 2000);
 		return response;
 	}
 
