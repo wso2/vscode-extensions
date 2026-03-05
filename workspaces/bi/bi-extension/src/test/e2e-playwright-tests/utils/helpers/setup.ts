@@ -144,7 +144,7 @@ export async function createProject(page: ExtendedPage, projectName?: string) {
                 value: projectName ?? DEFAULT_PROJECT_NAME,
             },
             'Select Path': {
-                type: 'file',
+                type: 'directory',
                 value: newProjectPath
             }
         }

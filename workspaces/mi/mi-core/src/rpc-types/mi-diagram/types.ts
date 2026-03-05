@@ -461,6 +461,7 @@ export interface ShowErrorMessageRequest {
 export interface OpenDiagramRequest {
     path: string;
     beside?: boolean;
+    line?: number;
 }
 
 export interface CreateAPIResponse {
@@ -1439,6 +1440,7 @@ export interface MultipleResourceType {
 export interface GetAvailableResourcesRequest {
     documentIdentifier: string | undefined;
     resourceType: ResourceType | MultipleResourceType[];
+    isDebugFlow?: boolean;
 }
 
 export interface GetAvailableResourcesResponse {
@@ -1479,7 +1481,6 @@ export interface ConfigureKubernetesResponse {
 }
 
 export interface GetProxyRootUrlResponse {
-    openaiUrl: string;
     anthropicUrl: string;
 }
 
@@ -1929,6 +1930,7 @@ export interface DSSFetchTablesRequest {
     username: string;
     password: string;
     url: string;
+    driverPath: string;
 }
 
 export interface DSSFetchTablesResponse {
@@ -2104,6 +2106,21 @@ export interface UpdateMediatorRequest {
     trailingSpace?: string;
 }
 
+export interface McpToolsRequest {
+    documentUri: string;
+    range: Range;
+    connectionName: string;
+}
+
+export interface McpToolsResponse {
+    tools: Array<{
+        name: string;
+        description?: string;
+    }>;
+    selectedTools?: string[];
+    error?: string;
+}
+
 export interface UpdateMediatorResponse {
     textEdits: ExtendedTextEdit[];
 }
@@ -2262,4 +2279,66 @@ export interface GenerateMappingsParamsRequest {
     username?: string;
     password?: string;
     type: 'input' | 'output'
+}
+export interface DynamicField {
+    type: string;
+    value: {
+        name: string;
+        displayName: string;
+        inputType: string;
+        required: string;
+        helpTip: string;
+        placeholder: string;
+        defaultValue: string;
+    };
+}
+
+export interface GetDynamicFieldsRequest {
+    connectorName: string;
+    operationName: string;
+    fieldName: string;
+    selectedValue: string;
+    connection: ConnectorConnection;
+}
+
+export interface GetDynamicFieldsResponse {
+    columns: DynamicField[];
+}
+
+export interface GetStoredProceduresResponse {
+    procedures: string[];
+}
+
+export interface DriverDownloadRequest {
+    groupId: string;
+    artifactId: string;
+    version: string;
+}
+
+export interface DriverDownloadResponse {
+    driverPath: string;
+}
+export interface DriverMavenCoordinatesRequest {
+    filePath: string;
+    connectorName: string;
+    connectionType: string;
+}
+
+export interface DriverMavenCoordinatesResponse {
+    groupId: string;
+    artifactId: string;
+    version: string;
+    found: boolean;
+}
+
+export interface LoadDriverAndTestConnectionRequest {
+    dbType: string;
+    username: string;
+    password: string;
+    host: string;
+    port: string;
+    dbName: string;
+    url: string;
+    className: string;
+    driverPath: string;
 }
