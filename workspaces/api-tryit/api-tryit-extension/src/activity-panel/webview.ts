@@ -211,6 +211,17 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		}
 	}
 
+	/**
+	 * Force an immediate (skip-hash-check) collections push to the activity panel webview.
+	 * Used when in-memory collections are added so the Explorer updates without waiting
+	 * for the debounced `_onDidChangeTreeData` handler.
+	 */
+	public static forceCollectionsRefresh(): void {
+		if (ActivityPanel.currentPanel) {
+			ActivityPanel.currentPanel._sendCollections(true);
+		}
+	}
+
 	private _debouncedSendCollections() {
 		// Clear any pending timeout
 		if (this._sendCollectionsTimeoutId) {

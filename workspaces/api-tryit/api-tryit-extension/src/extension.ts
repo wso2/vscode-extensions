@@ -28,6 +28,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
 import { getHurlBinaryManager, initializeHurlBinaryManager } from './hurl/hurl-binary-manager';
+import { setPendingBiSavePath } from './bi-save-context';
 
 const PENDING_HURL_IMPORT_KEY = 'api-tryit.pendingHurlImportContext';
 
@@ -798,6 +799,79 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			if (!parentPath) {
 				vscode.window.showErrorMessage('Could not determine target directory for collection');
+				return;
+			}
+
+			// IN-MEMORY MODE: when baseDirArg is provided (Ballerina Integrator "Try It"),
+			// do NOT write to disk yet. Load the request in-memory and store the intended
+			// save path so the Save dialog defaults to bi-tryit-apis/<name>/<name>.hurl.
+			if (baseDirArg && workspaceRoot) {
+				// Build a combined Hurl string and parse FIRST so the collection name
+				// and save file name are both derived from the same parsed result.
+				const { parseHurlCollection } = await import('@wso2/api-tryit-hurl-parser');
+				const serviceName = normalized.name.trim() || 'API Collection';
+				const collectionHeader = `# @collectionName ${serviceName}`;
+				const rawRequests = Array.isArray(normalized.requests) ? normalized.requests : [];
+				const blocks = rawRequests.map((rawUnknown, idx) => {
+					const raw = rawUnknown as unknown as Record<string, unknown>;
+					const name = typeof raw.name === 'string' ? raw.name : `Request ${idx + 1}`;
+					let content = typeof raw.content === 'string' ? raw.content : (typeof raw.hurl === 'string' ? raw.hurl : '');
+					if (content.includes('\\n')) { content = content.replace(/\\n/g, '\n'); }
+					content = content.replace(/\r\n/g, '\n').trim();
+					content = content.replace(/^#\s*@collectionName[^\n]*\n?/gim, '').trim();
+					if (!/^#\s*@name\s+/m.test(content)) { content = `# @name ${name}\n${content}`; }
+					return content.trim();
+				}).filter(Boolean);
+
+				const combinedHurl = [collectionHeader, ...blocks].join('\n\n');
+				let parsedCollection;
+				try {
+					// Pass collectionName AND collectionId so the in-memory collection
+					// ID is consistent with the disk collection ID that loadCollections()
+					// derives via buildCollectionId(serviceName) — preventing duplicate
+					// collection entries after the first save.
+					parsedCollection = parseHurlCollection(combinedHurl, {
+						collectionName: serviceName,
+						collectionId: serviceName,
+					});
+				} catch {
+					// Fallback: open empty request
+				}
+
+				// Derive file name from the parsed collection name so they always match
+				const collName = parsedCollection?.name || serviceName;
+				const collFileName = `${sanitizePathSegment(collName, `collection-${Date.now()}`)}.hurl`;
+				const pendingPath = path.join(workspaceRoot, 'api-tryit', collFileName);
+				// Store collection name and full Hurl content so TryItPanel can write
+				// ALL requests to disk on first save, preventing other in-memory
+				// requests from disappearing when one is saved.
+				setPendingBiSavePath(pendingPath, collName, combinedHurl);
+
+				const firstRequestItem = parsedCollection?.rootItems?.[0];
+
+				try {
+					await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
+					await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
+				} catch {
+					// ignore if views not available
+				}
+
+				TryItPanel.show(context);
+
+				if (firstRequestItem) {
+					await ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, firstRequestItem as ApiRequestItem, undefined);
+					TryItPanel.postMessage('apiRequestItemSelected', firstRequestItem);
+				}
+
+				// Register the parsed collection in-memory AFTER the views are ready so
+				// the Explorer tree updates are not lost to a concurrent reloadCollections()
+				// triggered by the project runner's file-system writes.
+				if (parsedCollection) {
+					apiExplorerProvider.addInMemoryCollection(parsedCollection);
+					// Force an immediate push to the activity panel webview (bypass debounce / hash cache)
+					setTimeout(() => ActivityPanel.forceCollectionsRefresh(), 200);
+				}
+
 				return;
 			}
 

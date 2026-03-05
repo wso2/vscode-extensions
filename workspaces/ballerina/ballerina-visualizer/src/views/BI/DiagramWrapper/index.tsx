@@ -258,7 +258,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
         // Delegate to ballerina.tryIt so it can detect the actual running port via the
         // language server / process scan rather than parsing the listener string.
         const resourceMetadata = serviceType === "http" ? { methodValue, pathValue } : undefined;
-        const commands = ["ballerina.tryIt", false, resourceMetadata, { basePath, listener }];
+        const commands = ["ballerina.tryIt", false, resourceMetadata, { basePath, listener, name: serviceName }];
         rpcClient.getCommonRpcClient().executeCommand({ commands });
     };
 

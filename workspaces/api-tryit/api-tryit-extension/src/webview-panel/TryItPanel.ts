@@ -27,6 +27,7 @@ import { Messenger } from 'vscode-messenger';
 import { registerApiTryItRpcHandlers, ApiTryItRpcManager } from '../rpc-managers';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
 import { parseHurlDocument, parseHurlCollection } from '@wso2/api-tryit-hurl-parser';
+import { getPendingBiSavePath, getPendingBiCollectionName, getPendingBiCollectionContent, clearPendingBiSavePath } from '../bi-save-context';
 
 export class TryItPanel {
 	public static currentPanel: TryItPanel | undefined;
@@ -335,38 +336,67 @@ export class TryItPanel {
 							// If still no file path, prompt user to select a file directly.
 							// Do not auto-create folders/collections during save.
 							if (!targetFilePath) {
-								// Suggest a file name based on the request name
-								const suggestedFileName = ((request && request.name) ? request.name : 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.hurl';
-								let defaultFolderUri = vscode.workspace.workspaceFolders?.[0]?.uri;
-								if (stateContext.currentCollectionPath) {
-									try {
-										await vscode.workspace.fs.stat(vscode.Uri.file(stateContext.currentCollectionPath));
-										defaultFolderUri = vscode.Uri.file(stateContext.currentCollectionPath);
-									} catch {
-										// ignore invalid/removed collection path and fall back to workspace root
+								// Prefer the pending BI save path (set when Ballerina opens TryIt in-memory)
+								const pendingBiPath = getPendingBiSavePath();
+
+								if (pendingBiPath && vscode.workspace.workspaceFolders?.length) {
+									// Auto-save to api-tryit/ folder without prompting the user
+									const apiTryItDir = path.dirname(pendingBiPath);
+									await fs.mkdir(apiTryItDir, { recursive: true });
+									// Write the full in-memory collection to disk so that all
+									// requests are preserved when saveRequest updates just one block.
+									const pendingCollContent = getPendingBiCollectionContent();
+									const pendingCollName = getPendingBiCollectionName();
+									if (pendingCollContent) {
+										await fs.writeFile(pendingBiPath, pendingCollContent);
+									} else if (pendingCollName) {
+										await fs.writeFile(pendingBiPath, `# @collectionName ${pendingCollName}\n`);
 									}
-								}
+									clearPendingBiSavePath();
+									userSelectedFile = true;
+									targetFilePath = pendingBiPath;
+								} else {
+									let defaultUri: vscode.Uri | undefined;
+									if (pendingBiPath) {
+										defaultUri = vscode.Uri.file(pendingBiPath);
+									} else {
+										// Suggest a file name based on the request name
+										const suggestedFileName = ((request && request.name) ? request.name : 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.hurl';
+										let defaultFolderUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+										if (stateContext.currentCollectionPath) {
+											try {
+												await vscode.workspace.fs.stat(vscode.Uri.file(stateContext.currentCollectionPath));
+												defaultFolderUri = vscode.Uri.file(stateContext.currentCollectionPath);
+											} catch {
+												// ignore invalid/removed collection path and fall back to workspace root
+											}
+										}
+										defaultUri = defaultFolderUri ? vscode.Uri.joinPath(defaultFolderUri, suggestedFileName) : undefined;
+									}
 
-								const fileUri = await vscode.window.showSaveDialog({
-									defaultUri: defaultFolderUri ? vscode.Uri.joinPath(defaultFolderUri, suggestedFileName) : undefined,
-									filters: {
-										'Hurl files': ['hurl'],
-										'YAML files': ['yaml', 'yml']
-									},
-									saveLabel: 'Save API Request'
-								});
-
-								if (!fileUri) {
-									// User cancelled file save
-									this._panel.webview.postMessage({
-										type: 'saveRequestResponse',
-										data: { success: false, message: 'Save cancelled by user' }
+									const fileUri = await vscode.window.showSaveDialog({
+										defaultUri,
+										filters: {
+											'Hurl files': ['hurl'],
+											'YAML files': ['yaml', 'yml']
+										},
+										saveLabel: 'Save API Request'
 									});
-									break;
-								}
 
-								userSelectedFile = true;
-								targetFilePath = fileUri.fsPath;
+									if (!fileUri) {
+										// User cancelled file save
+										this._panel.webview.postMessage({
+											type: 'saveRequestResponse',
+											data: { success: false, message: 'Save cancelled by user' }
+										});
+										break;
+									}
+
+									// Clear the pending BI path once the user has chosen a save location
+									clearPendingBiSavePath();
+									userSelectedFile = true;
+									targetFilePath = fileUri.fsPath;
+								}
 							}
 
 							// If the request already has an associated file, prefer to reuse it only when the user did not explicitly choose a file

@@ -196,9 +196,10 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
                 }
             }
 
+            const collectionName = serviceMetadata?.name || selectedService.name || 'api-collection';
             const hurlCollection = {
-                name: selectedService.name || 'api-collection',
-                description: `API TryIt collection for ${selectedService.name || 'service'}`,
+                name: collectionName,
+                description: `API TryIt collection for ${collectionName}`,
                 requests,
             };
 
@@ -1163,6 +1164,7 @@ interface ResourceMetadata {
 interface ServiceMetadata {
     basePath: string;
     listener: string;
+    name?: string;
 }
 
 function createServiceInfoFromMetadata(serviceMetadata: ServiceMetadata, workspaceRoot: string, filepath?: string): ServiceInfo {

@@ -607,8 +607,11 @@ export const MainPanel: React.FC = () => {
             setShowCollectionForm(false);
             if (selectedItemChanged || !savedSnapshotRef.current || expectSavedSelectionRefreshRef.current) {
                 const snapshot = createSaveSnapshot(item);
-                savedSnapshotRef.current = snapshot;
-                setSavedSnapshot(snapshot);
+                // In-memory items have no filePath — treat them as unsaved so Save is
+                // enabled immediately without requiring the user to make a change first.
+                const savedSnap = item.filePath ? snapshot : '';
+                savedSnapshotRef.current = savedSnap;
+                setSavedSnapshot(savedSnap);
                 pendingSaveSnapshotRef.current = null;
                 expectSavedSelectionRefreshRef.current = false;
             }

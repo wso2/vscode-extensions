@@ -720,7 +720,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             // Delegate to ballerina.tryIt so it can detect the actual running port via the
             // language server / process scan rather than trying to parse the listener string.
             // openTryItView in activator.ts (already patched) now opens API TryIt instead of HTTP YAC.
-            const commands = ["ballerina.tryIt", false, undefined, { basePath, listener }];
+            const commands = ["ballerina.tryIt", false, undefined, { basePath, listener, name: serviceIdentifier }];
             rpcClient.getCommonRpcClient().executeCommand({ commands });
         } catch (error) {
             console.error('Error opening API TryIt:', error);
