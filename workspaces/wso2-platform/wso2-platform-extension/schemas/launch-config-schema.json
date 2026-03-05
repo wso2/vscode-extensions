@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "choreoConnect": {
+      "description": "Connect with Choreo/Devant when launching the app",
+      "oneOf": [
+        {
+          "type": "boolean",
+          "const": true,
+          "description": "Connect with Choreo/Devant when launching the app"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "project": {
+              "type": "string",
+              "description": "Choreo project name"
+            },
+            "component": {
+              "type": "string",
+              "description": "Choreo component name"
+            },
+            "env": {
+              "type": "string",
+              "description": "Non-critical deployed Choreo environment to connect with"
+            },
+            "skipConnection": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "List of Choreo connections to skip (if you want to point to local or other instance instead of the one running in Choreo)"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "configurations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "choreoConnect": {
+            "$ref": "#/definitions/choreoConnect"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

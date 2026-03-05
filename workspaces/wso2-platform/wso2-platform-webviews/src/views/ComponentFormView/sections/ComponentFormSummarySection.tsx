@@ -22,7 +22,7 @@ import {
 	type Buildpack,
 	ChoreoBuildPackNames,
 	ChoreoComponentType,
-	type NewComponentWebviewProps,
+	type MultiComponentSectionProps,
 	WebAppSPATypes,
 	getComponentTypeText,
 	getIntegrationComponentTypeText,
@@ -42,13 +42,15 @@ import type {
 	componentGeneralDetailsSchema,
 	componentGitProxyFormSchema,
 } from "../componentFormSchema";
+import type { PerComponentFormData } from "../hooks";
+import { MultiComponentSummary } from "./MultiComponentSummary";
 
 type ComponentFormGenDetailsType = z.infer<typeof componentGeneralDetailsSchema>;
 type ComponentFormBuildDetailsType = z.infer<typeof componentBuildDetailsSchema>;
 type ComponentFormEndpointsType = z.infer<typeof componentEndpointsFormSchema>;
 type ComponentFormGitProxyType = z.infer<typeof componentGitProxyFormSchema>;
 
-interface Props extends NewComponentWebviewProps {
+interface Props extends MultiComponentSectionProps {
 	isCreating: boolean;
 	onNextClick: () => void;
 	onBackClick: () => void;
@@ -56,6 +58,10 @@ interface Props extends NewComponentWebviewProps {
 	buildDetailsForm: UseFormReturn<ComponentFormBuildDetailsType>;
 	endpointDetailsForm: UseFormReturn<ComponentFormEndpointsType>;
 	gitProxyForm: UseFormReturn<ComponentFormGitProxyType>;
+	/** Per-component form data map (for multi-component mode) */
+	componentDataMap?: Map<number, PerComponentFormData>;
+	/** Whether all per-component data has been loaded */
+	isMultiComponentDataLoaded?: boolean;
 }
 
 export const ComponentFormSummarySection: FC<Props> = ({
@@ -69,6 +75,11 @@ export const ComponentFormSummarySection: FC<Props> = ({
 	genDetailsForm,
 	gitProxyForm,
 	initialValues,
+	isMultiComponentMode,
+	allComponents,
+	selectedComponents,
+	componentDataMap,
+	isMultiComponentDataLoaded,
 }) => {
 	const [summaryWrapRef] = useAutoAnimate();
 	const queryClient = useQueryClient();
@@ -155,12 +166,26 @@ export const ComponentFormSummarySection: FC<Props> = ({
 		}
 
 		if (type === ChoreoComponentType.Service && endpointDetails?.endpoints?.length) {
-			items.push(
-				<ComponentSummaryItem
-					title="Endpoints"
-					text={`${endpointDetails?.endpoints?.length} endpoint${endpointDetails?.endpoints?.length > 1 ? "s" : ""}`}
-				/>,
-			);
+			if ([ChoreoBuildPackNames.MicroIntegrator, ChoreoBuildPackNames.Ballerina].includes(buildDetails?.buildPackLang as ChoreoBuildPackNames)) {
+				// if ballerina or MI
+				if (!buildDetails?.useDefaultEndpoints) {
+					// if not using default endpoints
+					items.push(
+						<ComponentSummaryItem
+							title="Endpoints"
+							text={`${endpointDetails?.endpoints?.length} endpoint${endpointDetails?.endpoints?.length > 1 ? "s" : ""}`}
+						/>,
+					);
+				}
+			} else {
+				// if not using ballerina or MI
+				items.push(
+					<ComponentSummaryItem
+						title="Endpoints"
+						text={`${endpointDetails?.endpoints?.length} endpoint${endpointDetails?.endpoints?.length > 1 ? "s" : ""}`}
+					/>,
+				);
+			}
 		}
 	}
 
@@ -184,19 +209,31 @@ export const ComponentFormSummarySection: FC<Props> = ({
 				/>
 			)}
 
-			<div
-				className={classNames("grid grid-cols-2 gap-1 md:grid-cols-3 md:gap-2 xl:grid-cols-4 xl:gap-3", isLoadingConfigDriftFiles && "animate-pulse")}
-			>
-				<ComponentSummaryItem title="Name" text={genDetails?.name} />
-				<ComponentSummaryItem
-					title="Type"
-					text={extensionName === "Devant" ? getIntegrationComponentTypeText(type, initialValues?.subType) : getComponentTypeText(type)}
+			{isMultiComponentMode && selectedComponents ? (
+				<MultiComponentSummary
+					selectedComponents={selectedComponents}
+					allComponents={allComponents}
+					genDetails={genDetails}
+					extensionName={extensionName}
+					isLoading={isLoadingConfigDriftFiles || !isMultiComponentDataLoaded}
+					componentDataMap={componentDataMap}
+					organization={organization}
 				/>
-				<ComponentSummaryItem title="Repository" text={genDetails?.repoUrl} className="col-span-2" />
-				<ComponentSummaryItem title="Branch" text={genDetails?.branch} />
-				{genDetails?.subPath && genDetails?.subPath !== "." && <ComponentSummaryItem title="Directory" text={genDetails?.subPath} />}
-				{items}
-			</div>
+			) : (
+				<div
+					className={classNames("grid grid-cols-2 gap-1 md:grid-cols-3 md:gap-2 xl:grid-cols-4 xl:gap-3", isLoadingConfigDriftFiles && "animate-pulse")}
+				>
+					<ComponentSummaryItem title="Name" text={genDetails?.name} />
+					<ComponentSummaryItem
+						title="Type"
+						text={extensionName === "Devant" ? getIntegrationComponentTypeText(type, initialValues?.subType) : getComponentTypeText(type)}
+					/>
+					<ComponentSummaryItem title="Repository" text={genDetails?.repoUrl} className="col-span-2" />
+					<ComponentSummaryItem title="Branch" text={genDetails?.branch} />
+					{genDetails?.subPath && genDetails?.subPath !== "." && <ComponentSummaryItem title="Directory" text={genDetails?.subPath} />}
+					{items}
+				</div>
+			)}
 
 			<div className="flex justify-end gap-3 pt-6 pb-2">
 				<Button appearance="secondary" onClick={onBackClick} disabled={isCreating}>

@@ -147,6 +147,7 @@ typeProperties.forEach(property => {
     const returnPromiseRegex = /Promise<(\w+)>/;
     const returnPromiseMatch = cleanedTypeNode.match(returnPromiseRegex);
     const returnPromiseType = returnPromiseMatch ? returnPromiseMatch[1] : "";
+    const hasPromise = returnPromiseMatch !== null;
 
     if (!typescriptTypes.includes(returnPromiseType) && !definedTypes.includes(returnPromiseType)) {
         definedTypes.push(returnPromiseType);
@@ -171,7 +172,8 @@ typeProperties.forEach(property => {
         },
         return: {
             eventType: returnEventType,
-            promiseType: returnPromiseType
+            promiseType: returnPromiseType,
+            hasPromise: hasPromise
         }
     });
 
@@ -605,9 +607,10 @@ function handleManagerClassMethod(classDeclaration, value, sourceFile) {
 
 function handleTypeMethodConstants(prefix, value, sourceFile) {
     // Define the constant
-    const isVoid = value.return.promiseType === 'void' || value.return.promiseType === '';
-    const messageType = isVoid || value.return.eventType ? 'NotificationType' : 'RequestType';
-    const paramType = isVoid || value.return.eventType ? `${value.return.eventType || value.params.type || 'void'}` : `${value.params.type || 'void'}, ${value.return.promiseType}`;
+    // Only treat as notification if it's truly void (not Promise<void>)
+    const isTrueVoid = !value.return.hasPromise && (value.return.promiseType === 'void' || value.return.promiseType === '');
+    const messageType = isTrueVoid || value.return.eventType ? 'NotificationType' : 'RequestType';
+    const paramType = isTrueVoid || value.return.eventType ? `${value.return.eventType || value.params.type || 'void'}` : `${value.params.type || 'void'}, ${value.return.promiseType}`;
     const methodValue = "`" + prefix + "/" + value.name + "`";
     const constant = `export const ${value.name}: ${messageType}<${paramType}> = { method: ${methodValue} };`;
     // Insert the constant at a specific index, for example at the end of the file
@@ -626,8 +629,9 @@ function handleMessengerTypes(handlerFunction, value, sourceFile) {
         handleImportStatment(sourceFile, 'vscode-messenger-common', 'BROADCAST');
     } else {
         // Define the message definitions
-        const isVoid = value.return.promiseType === 'void' || value.return.promiseType === '';
-        const messageType = isVoid ? 'onNotification' : 'onRequest';
+        // Only treat as notification if it's truly void (not Promise<void>)
+        const isTrueVoid = !value.return.hasPromise && (value.return.promiseType === 'void' || value.return.promiseType === '');
+        const messageType = isTrueVoid ? 'onNotification' : 'onRequest';
         const paramType = value.params.type ? `(args: ${value.params.type})` : `()`;
         const paramTypeArgs = value.params.type ? `(args)` : `()`;
 
@@ -683,8 +687,9 @@ function handleClientClassMethod(classDeclaration, value, sourceFile) {
 
     let statement = '';
     let returnType = '';
-    const isVoid = value.return.promiseType === 'void' || value.return.promiseType === '';
-    if (isVoid) {
+    // Only treat as notification if it's truly void (not Promise<void>)
+    const isTrueVoid = !value.return.hasPromise && (value.return.promiseType === 'void' || value.return.promiseType === '');
+    if (isTrueVoid) {
         statement = `return this._messenger.sendNotification(${value.name}, HOST_EXTENSION, params);`;
         if (!value.params.type) {
             statement = `return this._messenger.sendNotification(${value.name}, HOST_EXTENSION);`;

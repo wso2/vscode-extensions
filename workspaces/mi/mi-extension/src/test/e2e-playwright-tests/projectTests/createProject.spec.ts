@@ -40,7 +40,7 @@ export default function createTests() {
                 await createProject(page, 'newProject', '4.4.0');
                 console.log('Waiting for pom.xml to contain new project artifactId');
                 await waitUntilPomContains(page.page, path.join(newProjectPath, 'newProject', 'pom.xml'), 
-                '<artifactId>newproject</artifactId>');
+                '<artifactId>newProject</artifactId>');
                 console.log('New project created successfully');
             });
 
