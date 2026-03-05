@@ -192,9 +192,9 @@ export function loadEnvVariables(filePath: string): void {
         const trimmedLine = line.trim();
         // Ignore empty lines or comments
         if (trimmedLine && trimmedLine[0] !== '#') {
-            const [key, value] = trimmedLine.split('=');
+            const [key, ...value] = trimmedLine.split('=');
             if (key && value) {
-                process.env[key.trim()] = value.trim();
+                process.env[key.trim()] = value.join('=').trim();
             }
         }
     });

@@ -91,6 +91,7 @@ import {
     FileRenameRequest,
     FileStructure,
     GenerateAPIResponse,
+    GenerateMappingsParamsRequest,
     GetAllArtifactsRequest,
     GetAllArtifactsResponse,
     GetAllDependenciesResponse,
@@ -291,7 +292,15 @@ import {
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
     UpdateRegistryPropertyRequest,
-    GenerateMappingsParamsRequest
+    LoginMethod,
+    LoadDriverAndTestConnectionRequest,
+    GetDynamicFieldsRequest,
+    GetDynamicFieldsResponse,
+    GetStoredProceduresResponse,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse
 } from "@wso2/mi-core";
 import axios from 'axios';
 import { error } from "console";
@@ -309,7 +318,14 @@ import { parse, stringify } from "yaml";
 import { DiagramService, APIResource, NamedSequence, UnitTest, Proxy } from "../../../../syntax-tree/lib/src";
 import { extension } from '../../MIExtensionContext';
 import { RPCLayer } from "../../RPCLayer";
-import { StateMachineAI } from '../../ai-panel/aiMachine';
+import { StateMachineAI } from '../../ai-features/aiMachine';
+import {
+    getAccessToken as getCopilotAccessToken,
+    getCopilotLlmApiBaseUrl,
+    getLoginMethod as getCopilotLoginMethod,
+    getRefreshedAccessToken as refreshCopilotAccessToken,
+    logout as logoutFromCopilot
+} from '../../ai-features/auth';
 import { APIS, COMMANDS, DEFAULT_ICON, DEFAULT_PROJECT_VERSION, LAST_EXPORTED_CAR_PATH, RUNTIME_VERSION_440, SWAGGER_REL_DIR, ERROR_MESSAGES } from "../../constants";
 import { getStateMachine, navigate, openView } from "../../stateMachine";
 import { openPopupView } from "../../stateMachinePopup";
@@ -2652,12 +2668,7 @@ ${endpointAttributes}
                 });
             }
 
-            if (params.waitForEdits) {
-                await this.applyEditAndWait(edit, params.documentUri);
-            } else {
-                await workspace.applyEdit(edit);
-            }
-
+            await workspace.applyEdit(edit);
             const file = Uri.file(params.documentUri);
             let document = workspace.textDocuments.find(doc => doc.uri.fsPath === params.documentUri) 
                             || await workspace.openTextDocument(file);
@@ -2667,7 +2678,7 @@ ${endpointAttributes}
                 const formatEdits = (editRequest: ExtendedTextEdit) => {
                     const textToInsert = editRequest.newText.endsWith('\n') ? editRequest.newText : `${editRequest.newText}\n`;
                     const formatRange = this.getFormatRange(getRange(editRequest.range), textToInsert);
-                    return this.rangeFormat({ uri: editRequest.documentUri!, range: formatRange, waitForEdits: params.waitForEdits ?? false });
+                    return this.rangeFormat({ uri: editRequest.documentUri!, range: formatRange });
                 };
                 if ('text' in params) {
                     await formatEdits({ range: getRange(params.range), newText: params.text, documentUri: params.documentUri });
@@ -2721,15 +2732,9 @@ ${endpointAttributes}
             } else {
                 edits = await commands.executeCommand("vscode.executeFormatDocumentProvider", uri, formattingOptions);
             }
-
             const workspaceEdit = new WorkspaceEdit();
             workspaceEdit.set(uri, edits);
-            if (req.waitForEdits) {
-                await this.applyEditAndWait(workspaceEdit, req.uri);
-            } else {
-                await workspace.applyEdit(workspaceEdit);
-            }
-            
+            await workspace.applyEdit(workspaceEdit);
             resolve({ status: true });
         });
     }
@@ -2959,7 +2964,15 @@ ${endpointAttributes}
         if (!fs.lstatSync(params.path).isDirectory()) {
             const uri = Uri.file(params.path);
             workspace.openTextDocument(uri).then((document) => {
-                window.showTextDocument(document, params.beside ? ViewColumn.Beside : undefined);
+                const options: { viewColumn?: ViewColumn; selection?: Selection } = {};
+                if (params.beside) {
+                    options.viewColumn = ViewColumn.Beside;
+                }
+                if (params.line && params.line > 0) {
+                    const pos = new Position(params.line - 1, 0);
+                    options.selection = new Selection(pos, pos);
+                }
+                window.showTextDocument(document, options);
             });
         }
     }
@@ -3044,10 +3057,11 @@ ${endpointAttributes}
             const projectUuid = uuidv4();
             const { directory, name, open, groupID, artifactID, version, miVersion } = params;
             const initialDependencies = compareVersions(miVersion, RUNTIME_VERSION_440) >= 0 ? generateInitialDependencies() : '';
+            const artifactIdNormalized = artifactID ?? name;
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
                 [tempName]: { // Project folder
-                    'pom.xml': rootPomXmlContent(name, groupID ?? "com.example", artifactID ?? name, projectUuid, version ?? DEFAULT_PROJECT_VERSION, miVersion, initialDependencies),
+                    'pom.xml': rootPomXmlContent(name, groupID ?? "com.example", artifactIdNormalized, projectUuid, version ?? DEFAULT_PROJECT_VERSION, miVersion, initialDependencies),
                     '.env': '',
                     'src': {
                         'main': {
@@ -3920,7 +3934,25 @@ ${endpointAttributes}
     }
 
     async getAvailableResources(params: GetAvailableResourcesRequest): Promise<GetAvailableResourcesResponse> {
-        return (await MILanguageClient.getInstance(this.projectUri)).getAvailableResources(params);
+
+        if (params.isDebugFlow) {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const responses = await Promise.all(
+                DebuggerConfig.getProjectList().map(async projectPath =>
+                    langClient.getAvailableResources({ 
+                        documentIdentifier: projectPath, 
+                        resourceType: params.resourceType, 
+                        isDebugFlow: params.isDebugFlow 
+                    })
+                )
+            );
+            return {
+                resources: responses.flatMap(r => r?.resources ?? []),
+                registryResources: responses.flatMap(r => r?.registryResources ?? [])
+            };
+        } else {
+            return (await MILanguageClient.getInstance(this.projectUri)).getAvailableResources(params);
+        }
     }
 
     async browseFile(params: BrowseFileRequest): Promise<BrowseFileResponse> {
@@ -4187,9 +4219,9 @@ ${endpointAttributes}
     }
 
     async getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {
-        const openaiUrl = process.env.MI_COPILOT_OPENAI_PROXY_URL as string;
-        const anthropicUrl = process.env.MI_COPILOT_ANTHROPIC_PROXY_URL as string;
-        return { openaiUrl, anthropicUrl };
+        const llmBaseUrl = getCopilotLlmApiBaseUrl();
+        const anthropicUrl = llmBaseUrl || process.env.MI_COPILOT_ANTHROPIC_PROXY_URL as string;
+        return { anthropicUrl };
     }
 
     async getAvailableRegistryResources(params: ListRegistryArtifactsRequest): Promise<RegistryArtifactNamesResponse> {
@@ -4567,13 +4599,16 @@ ${endpointAttributes}
     }
 
     async getUserAccessToken(): Promise<GetUserAccessTokenResponse> {
-        const token = await extension.context.secrets.get('MIAIUser');
-        if (token) {
-            return { token: token };
-        } else {
+        const [token, loginMethod] = await Promise.all([
+            getCopilotAccessToken(),
+            getCopilotLoginMethod(),
+        ]);
+
+        if (!token || loginMethod !== LoginMethod.MI_INTEL) {
             throw new Error('User access token not found');
         }
 
+        return { token };
     }
 
     async createConnection(params: CreateConnectionRequest): Promise<CreateConnectionResponse> {
@@ -4613,21 +4648,7 @@ ${keyValuesXML}`;
             'Yes'
         );
         if (confirm === 'Yes') {
-            const token = await extension.context.secrets.get('MIAIUser');
-            const clientId = process.env.MI_AUTH_CLIENT_ID as string;
-            const authOrg = process.env.MI_AUTH_ORG as string;
-
-            let response = await fetch(`https://api.asgardeo.io/t/${authOrg}/oauth2/revoke`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: `token=${token}&client_id=${clientId}`
-            });
-
-            await extension.context.secrets.delete('MIAIUser');
-            await extension.context.secrets.delete('MIAIRefreshToken');
-            await extension.context.secrets.delete('AnthropicApiKey');
+            await logoutFromCopilot();
             StateMachineAI.sendEvent(AI_EVENT_TYPE.LOGOUT);
         } else {
             return;
@@ -4794,35 +4815,7 @@ ${keyValuesXML}`;
     }
 
     async refreshAccessToken(): Promise<void> {
-        const CommonReqHeaders = {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=utf8',
-            'Accept': 'application/json'
-        };
-        const refresh_token = await extension.context.secrets.get('MIAIRefreshToken');
-        const AUTH_ORG = process.env.MI_AUTH_ORG as string;
-        const AUTH_CLIENT_ID = process.env.MI_AUTH_CLIENT_ID as string;
-        if (!refresh_token) {
-            throw new Error("Refresh token is not available.");
-        } else {
-            try {
-                console.log("Refreshing token...");
-                const params = new URLSearchParams({
-                    client_id: AUTH_CLIENT_ID,
-                    refresh_token: refresh_token,
-                    grant_type: 'refresh_token',
-                    scope: 'openid email'
-                });
-                const response = await axios.post(`https://api.asgardeo.io/t/${AUTH_ORG}/oauth2/token`, params.toString(), { headers: CommonReqHeaders });
-                const newAccessToken = response.data.access_token;
-                const newRefreshToken = response.data.refresh_token;
-                await extension.context.secrets.store('MIAIUser', newAccessToken);
-                await extension.context.secrets.store('MIAIRefreshToken', newRefreshToken);
-                console.log("Token refreshed successfully!");
-            } catch (error: any) {
-                const errMsg = "Error while refreshing token! " + error?.message;
-                throw new Error(errMsg);
-            }
-        }
+        await refreshCopilotAccessToken();
     }
 
     async buildProject(params: BuildProjectRequest): Promise<void> {
@@ -5441,7 +5434,7 @@ ${keyValuesXML}`;
         let response;
         if (params.isRuntimeService) {
             const versionedUrl = await exposeVersionedServices(this.projectUri);
-            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, host: DebuggerConfig.getHost(), port: DebuggerConfig.getServerPort(), projectPath: versionedUrl ? this.projectUri : "", ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
+            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort(), projectPath: versionedUrl ? this.projectUri : "", ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         } else {
             response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         }
@@ -6102,6 +6095,68 @@ ${keyValuesXML}`;
         return updatedXml;
     }
 
+    async getDynamicFields(params: GetDynamicFieldsRequest): Promise<GetDynamicFieldsResponse> {
+        return new Promise(async (resolve) => {
+            try {
+                const langClient = await MILanguageClient.getInstance(this.projectUri);
+                const response = await langClient.getDynamicFields({
+                    connectorName: params.connectorName,
+                    operationName: params.operationName,
+                    fieldName: params.fieldName,
+                    selectedValue: params.selectedValue,
+                    connection: params.connection
+                });
+
+                if (!response || !response.columns || !response.columns.length) {
+                    resolve({ columns: [] });
+                    return;
+                }
+
+                resolve(response);
+            } catch (error) {
+                console.error(`Error getting dynamic fields: ${error}`);
+                resolve({ columns: [] });
+            }
+        });
+    }
+
+    async getStoredProcedures(params: DSSFetchTablesRequest): Promise<GetStoredProceduresResponse> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.getStoredProcedures({
+                ...params, tableData: "", datasourceName: ""
+            });
+            resolve(res);
+        });
+    }
+
+    async downloadDriverForConnector(params: DriverDownloadRequest): Promise<DriverDownloadResponse> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.downloadDriverForConnector(params);
+            resolve(res);
+        });
+    }
+
+    async loadDriverAndTestConnection(req: LoadDriverAndTestConnectionRequest): Promise<TestDbConnectionResponse> {
+
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const response = await langClient?.loadDriverAndTestConnection(req);
+            resolve({ success: response ? response.success : false });
+        });
+    }
+
+    async getDriverMavenCoordinates(params: DriverMavenCoordinatesRequest): Promise<DriverMavenCoordinatesResponse> {
+        return new Promise(async (resolve) => {
+
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.getDriverMavenCoordinates(params);
+            resolve(res);
+
+        });
+    }
+
     async getPropertiesFromArtifactXML(targetFile: string): Promise<Property[] | undefined> {
         if (!targetFile) {
             await window.showInformationMessage(
@@ -6148,33 +6203,6 @@ ${keyValuesXML}`;
         return undefined;
     }
 
-    async applyEditAndWait(edit: WorkspaceEdit, documentUri: string): Promise<void> {
-
-        if (edit.size === 0) {
-            await workspace.applyEdit(edit);
-            return;
-        }
-
-        const success = await workspace.applyEdit(edit);
-        if (!success) {
-            return;
-        }
-
-        await Promise.race([
-            new Promise<void>(resolve => {
-                const disposable = workspace.onDidChangeTextDocument(e => {
-                    if (e.document.uri.fsPath === documentUri) {
-                        disposable.dispose();
-                        setTimeout(resolve, 0);
-                    }
-                });
-            }),
-            new Promise<void>((_, reject) => 
-                setTimeout(() => reject(new Error('Wait timeout for document update')), 5000)
-            )
-        ]);
-    }
-  
     async getInputOutputMappings(params: GenerateMappingsParamsRequest): Promise<string[]> {
         return new Promise(async (resolve) => {
             const langClient = await MILanguageClient.getInstance(this.projectUri);
