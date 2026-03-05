@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -22,11 +22,196 @@ import { Button, Codicon, TextField, Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { Input } from '../Input/Input';
 import { Assert } from '../Assert/Assert';
-import { ApiRequestItem, ApiRequest, ApiResponse, ResponseHeader } from '@wso2/api-tryit-core';
+import {
+	ApiRequestItem,
+	ApiRequest,
+	ApiResponse,
+	HurlEntryResult,
+	HurlRunEvent,
+	HurlRunStatus,
+	HurlRunSummary,
+	HurlRunViewContext
+} from '@wso2/api-tryit-core';
 import { useExtensionMessages } from '../hooks/useExtensionMessages';
 import CollectionForm from '../CollectionForm/CollectionForm';
 import { getVSCodeAPI } from '../utils/vscode-api';
 import { getMethodBgColor } from '../utils/methods';
+import { HurlRunFileView, HurlRunResults } from '../Output';
+
+const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS', 'DELETE']);
+
+const stripTransientFields = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+        return value.map(stripTransientFields);
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.keys(value as Record<string, unknown>).reduce((acc, key) => {
+            if (key === 'id') {
+                return acc;
+            }
+            acc[key] = stripTransientFields((value as Record<string, unknown>)[key]);
+            return acc;
+        }, {} as Record<string, unknown>);
+    }
+
+    return value;
+};
+
+const getStableValue = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+        return value.map(getStableValue);
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.keys(value as Record<string, unknown>)
+            .sort()
+            .reduce((acc, key) => {
+                acc[key] = getStableValue((value as Record<string, unknown>)[key]);
+                return acc;
+            }, {} as Record<string, unknown>);
+    }
+
+    return value;
+};
+
+const getItemIdentity = (item?: ApiRequestItem): string => {
+    if (!item) {
+        return '';
+    }
+    return `${item.id || ''}::${item.filePath || ''}`;
+};
+
+const createSaveSnapshot = (item?: ApiRequestItem): string => {
+    if (!item?.request) {
+        return '';
+    }
+
+    const method = (item.request.method || '').toUpperCase();
+    const requestForSnapshot = stripTransientFields(item.request) as Record<string, unknown>;
+    if (METHODS_WITHOUT_BODY.has(method)) {
+        delete requestForSnapshot.body;
+        delete requestForSnapshot.bodyFormData;
+        delete requestForSnapshot.bodyFormUrlEncoded;
+        delete requestForSnapshot.bodyBinaryFiles;
+    }
+
+    return JSON.stringify(getStableValue({
+        request: requestForSnapshot,
+        response: item.response ?? null
+    }));
+};
+
+interface RunViewState {
+	context?: HurlRunViewContext;
+	runId?: string;
+	status: HurlRunStatus | 'running';
+	files: HurlRunFileView[];
+	completedFiles: number;
+	totalFiles: number;
+	summary?: HurlRunSummary;
+	errorMessage?: string;
+}
+
+const createInitialRunState = (context?: HurlRunViewContext): RunViewState => ({
+	context,
+	status: 'running',
+	files: [],
+	completedFiles: 0,
+	totalFiles: 0
+});
+
+const toRunFileView = (file: Extract<HurlRunEvent, { type: 'fileFinished' }>['file']): HurlRunFileView => ({
+	filePath: file.filePath,
+	status: file.status,
+	durationMs: file.durationMs,
+	entries: file.entries || [],
+	assertions: file.assertions || [],
+	errorMessage: file.errorMessage,
+	stderr: file.stderr
+});
+
+const upsertRunFile = (files: HurlRunFileView[], nextFile: HurlRunFileView): HurlRunFileView[] => {
+	const next = [...files];
+	const index = next.findIndex(file => file.filePath === nextFile.filePath);
+	if (index >= 0) {
+		next[index] = nextFile;
+	} else {
+		next.push(nextFile);
+	}
+	return next;
+};
+
+const applyRunEvent = (previous: RunViewState, event: HurlRunEvent): RunViewState => {
+	if (event.type === 'runStarted') {
+		return {
+			...previous,
+			runId: event.runId,
+			status: 'running',
+			totalFiles: event.totalFiles,
+			completedFiles: 0,
+			files: [],
+			summary: undefined,
+			errorMessage: undefined
+		};
+	}
+
+	if (event.type === 'fileStarted') {
+		return {
+			...previous,
+			files: upsertRunFile(previous.files, {
+				filePath: event.filePath,
+				status: 'running',
+				entries: [] as HurlEntryResult[],
+				assertions: []
+			})
+		};
+	}
+
+	if (event.type === 'fileFinished') {
+		return {
+			...previous,
+			files: upsertRunFile(previous.files, toRunFileView(event.file))
+		};
+	}
+
+	if (event.type === 'runProgress') {
+		return {
+			...previous,
+			completedFiles: event.completedFiles,
+			totalFiles: event.totalFiles
+		};
+	}
+
+	if (event.type === 'runCancelled') {
+		return {
+			...previous,
+			status: 'cancelled'
+		};
+	}
+
+	if (event.type === 'runFinished') {
+		return {
+			...previous,
+			runId: event.result.runId,
+			status: event.result.status,
+			files: event.result.files.map(file => ({
+				filePath: file.filePath,
+				status: file.status,
+				durationMs: file.durationMs,
+				entries: file.entries || [],
+				assertions: file.assertions || [],
+				errorMessage: file.errorMessage,
+				stderr: file.stderr
+			})),
+			completedFiles: event.result.summary.totalFiles,
+			totalFiles: event.result.summary.totalFiles,
+			summary: event.result.summary
+		};
+	}
+
+	return previous;
+};
 
 const PanelsWrapper = styled.div`
     position: relative;
@@ -143,7 +328,7 @@ const UrlInputField = styled.input`
     border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
     border-radius: 4px;
     padding: 0 12px 0 12px;
-    padding-right: 110px; /* Reserve space for inline Save button */
+    padding-right: 50px; /* Reserve space for inline Save button */
     color: var(--vscode-foreground);
     font-size: 14px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 16px rgba(0, 0, 0, 0.28);
@@ -347,18 +532,23 @@ const NameTextField = styled(TextField)`
     }
 `;
 
+const NameEditIndicator = styled.span`
+    display: inline-flex;
+    align-items: center;
+    color: var(--vscode-descriptionForeground);
+`;
+
 // TODO: Support TRACE
 const methodOptions: ApiRequest['method'][] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
 
 type InputMode = 'code' | 'form';
-type AssertMode = 'code' | 'form';
 
 export const MainPanel: React.FC = () => {
     const [requestItem, setRequestItem] = useState<ApiRequestItem | undefined>();
+    const [savedSnapshot, setSavedSnapshot] = useState('');
     const [activeTab, setActiveTab] = useState<'input' | 'assert'>('input');
     const [isLoading, setIsLoading] = useState(false);
     const [inputMode, setInputMode] = useState<InputMode>('code');
-    const [assertMode, setAssertMode] = useState<AssertMode>('form');
     const [showHelp, setShowHelp] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(requestItem?.name);
@@ -368,17 +558,42 @@ export const MainPanel: React.FC = () => {
     const [methodDropdownOpen, setMethodDropdownOpen] = useState(false);
     // Handle messages from VS Code extension
     const [showCollectionForm, setShowCollectionForm] = React.useState(false);
+    const [collectionFormWorkspacePath, setCollectionFormWorkspacePath] = React.useState<string | undefined>(undefined);
+	const [runViewState, setRunViewState] = useState<RunViewState | undefined>();
+    const selectedIdentityRef = useRef('');
+    const savedSnapshotRef = useRef('');
+    const currentSnapshotRef = useRef('');
+    const pendingSaveSnapshotRef = useRef<string | null>(null);
+    const expectSavedSelectionRefreshRef = useRef(false);
+    const currentSnapshot = React.useMemo(() => createSaveSnapshot(requestItem), [requestItem]);
+
+    useEffect(() => {
+        currentSnapshotRef.current = currentSnapshot;
+    }, [currentSnapshot]);
 
     const { updateRequest, sendHttpRequest } = useExtensionMessages({
         onApiRequestSelected: (item) => {
+			setRunViewState(undefined);
             setRequestItem(item);
             setTempName(item.name);
             setIsEditingName(false);
             // Close collection form when a request is selected
             setShowCollectionForm(false);
+
+            const incomingIdentity = getItemIdentity(item);
+            const selectedItemChanged = incomingIdentity !== selectedIdentityRef.current;
+            selectedIdentityRef.current = incomingIdentity;
+            if (selectedItemChanged || !savedSnapshotRef.current || expectSavedSelectionRefreshRef.current) {
+                const snapshot = createSaveSnapshot(item);
+                savedSnapshotRef.current = snapshot;
+                setSavedSnapshot(snapshot);
+                pendingSaveSnapshotRef.current = null;
+                expectSavedSelectionRefreshRef.current = false;
+            }
         },
-        onShowCreateCollectionForm: () => {
+        onShowCreateCollectionForm: (workspacePath?: string) => {
             console.log('[MainPanel] onShowCreateCollectionForm called - setting showCollectionForm to true');
+            setCollectionFormWorkspacePath(workspacePath);
             setShowCollectionForm(true);
         },
         onCreateCollectionResult: (res) => {
@@ -391,7 +606,22 @@ export const MainPanel: React.FC = () => {
                 // Keep form open and show error in console for now
                 console.error('Failed to create collection:', res.message);
             }
-        }
+        },
+		onHurlRunViewOpened: (context) => {
+			setShowCollectionForm(false);
+			setRunViewState(createInitialRunState(context));
+		},
+		onHurlRunEvent: (event) => {
+			setRunViewState(previous => applyRunEvent(previous ?? createInitialRunState(), event));
+		},
+		onHurlRunError: (payload) => {
+			setRunViewState(previous => ({
+				...(previous ?? createInitialRunState(payload.context)),
+				context: payload.context || previous?.context,
+				status: 'error',
+				errorMessage: payload.message
+			}));
+		}
     });
 
     const handleCloseCollectionForm = () => {
@@ -399,6 +629,22 @@ export const MainPanel: React.FC = () => {
     };
 
     useEffect(() => {
+        const saveResponseHandler = (event: MessageEvent<{ type?: string; data?: { success?: boolean } }>) => {
+            if (event.data?.type !== 'saveRequestResponse') {
+                return;
+            }
+
+            const success = event.data?.data?.success;
+            if (success) {
+                const snapshot = pendingSaveSnapshotRef.current ?? currentSnapshotRef.current;
+                savedSnapshotRef.current = snapshot;
+                setSavedSnapshot(snapshot);
+                expectSavedSelectionRefreshRef.current = true;
+            }
+
+            pendingSaveSnapshotRef.current = null;
+        };
+
         const handleClickOutside = (event: MouseEvent) => {
             if (methodSelectRef.current && !methodSelectRef.current.contains(event.target as Node)) {
                 setMethodDropdownOpen(false);
@@ -411,10 +657,12 @@ export const MainPanel: React.FC = () => {
             }
         };
 
+        window.addEventListener('message', saveResponseHandler);
         document.addEventListener('mousedown', handleClickOutside);
         window.addEventListener('keydown', handleEscape);
 
         return () => {
+            window.removeEventListener('message', saveResponseHandler);
             document.removeEventListener('mousedown', handleClickOutside);
             window.removeEventListener('keydown', handleEscape);
         };
@@ -485,6 +733,7 @@ export const MainPanel: React.FC = () => {
         }
 
         try {
+            pendingSaveSnapshotRef.current = currentSnapshot;
             // Send save request message to extension (filePath is optional, will use persisted path)
             vscode.postMessage({
                 type: 'saveRequest',
@@ -496,9 +745,12 @@ export const MainPanel: React.FC = () => {
             });
             
         } catch (error) {
+            pendingSaveSnapshotRef.current = null;
             console.error('Error saving request:', error);
         }
     };
+
+    const isDirty = Boolean(requestItem) && currentSnapshot !== savedSnapshot;
 
     const handleSendRequest = async () => {
         setIsLoading(true);
@@ -597,101 +849,121 @@ export const MainPanel: React.FC = () => {
     return (
         <PageContainer>
             <HeaderBar>
-                <TitleRow>
-                    <EditableNameWrapper>
-                        {isEditingName ? (
-                            <NameTextField
-                                id="request-name-input"
-                                value={tempName}
-                                onTextChange={handleNameChange}
-                                onKeyDown={handleNameKeyDown}
-                                onBlur={handleNameBlur}
-                                autoFocus
-                                placeholder="Enter request name"
-                            />
-                        ) : (
-                            <NameDisplay onClick={handleNameClick}>
-                                <Typography variant="h3" sx={{ margin: 0 }}>
-                                    {requestItem?.name}
-                                </Typography>
-                            </NameDisplay>
-                        )}
-                    </EditableNameWrapper>
-                </TitleRow>
+				{!runViewState && (
+					<>
+						<TitleRow>
+							<EditableNameWrapper>
+								{isEditingName ? (
+									<NameTextField
+										id="request-name-input"
+										value={tempName}
+										onTextChange={handleNameChange}
+										onKeyDown={handleNameKeyDown}
+										onBlur={handleNameBlur}
+										autoFocus
+										placeholder="Enter request name"
+									/>
+								) : (
+									<>
+                                        <NameDisplay onClick={handleNameClick}>
+										<Typography variant="h3" sx={{ margin: 0 }}>
+											{requestItem?.name}
+										</Typography>
+                                        </NameDisplay>
+                                        <NameEditIndicator>
+                                            <Codicon name="edit" onClick={handleNameClick} />
+                                        </NameEditIndicator>
+                                    </>
+								)}
+							</EditableNameWrapper>
+						</TitleRow>
 
-                {requestItem && (
-                    <RequestToolbar>
-                        <MethodSelectWrapper ref={methodSelectRef}>
-                            <MethodSelectButton
-                                type="button"
-                                accent={getMethodBgColor(requestItem.request.method)}
-                                onClick={() => setMethodDropdownOpen(open => !open)}
-                                aria-label="HTTP method"
-                                aria-haspopup="listbox"
-                                aria-expanded={methodDropdownOpen}
-                            >
-                                {requestItem.request.method}
-                            </MethodSelectButton>
-                            <SelectChevron>
-                                <Codicon iconSx={{color: 'var(--vscode-editor-foreground)', fontWeight: 'bold'}} name="chevron-down" />
-                            </SelectChevron>
-                            {methodDropdownOpen && (
-                                <MethodDropdown role="listbox" aria-label="HTTP method">
-                                    {methodOptions.map((method) => (
-                                        <MethodOption
-                                            key={method}
-                                            active={requestItem.request.method === method}
-                                            role="option"
-                                            aria-selected={requestItem.request.method === method}
-                                            onClick={() => {
-                                                handleRequestChange({
-                                                    ...requestItem.request,
-                                                    method
-                                                });
-                                                setMethodDropdownOpen(false);
-                                            }}
-                                        >
-                                            {method}
-                                        </MethodOption>
-                                    ))}
-                                </MethodDropdown>
-                            )}
-                        </MethodSelectWrapper>
+						{requestItem && (
+							<RequestToolbar>
+								<MethodSelectWrapper ref={methodSelectRef}>
+									<MethodSelectButton
+										type="button"
+										accent={getMethodBgColor(requestItem.request.method)}
+										onClick={() => setMethodDropdownOpen(open => !open)}
+										aria-label="HTTP method"
+										aria-haspopup="listbox"
+										aria-expanded={methodDropdownOpen}
+									>
+										{requestItem.request.method}
+									</MethodSelectButton>
+									<SelectChevron>
+										<Codicon iconSx={{color: 'var(--vscode-editor-foreground)', fontWeight: 'bold'}} name="chevron-down" />
+									</SelectChevron>
+									{methodDropdownOpen && (
+										<MethodDropdown role="listbox" aria-label="HTTP method">
+											{methodOptions.map((method) => (
+												<MethodOption
+													key={method}
+													active={requestItem.request.method === method}
+													role="option"
+													aria-selected={requestItem.request.method === method}
+													onClick={() => {
+														handleRequestChange({
+															...requestItem.request,
+															method
+														});
+														setMethodDropdownOpen(false);
+													}}
+												>
+													{method}
+												</MethodOption>
+											))}
+										</MethodDropdown>
+									)}
+								</MethodSelectWrapper>
 
-                        <UrlInputWrapper>
-                            <UrlInputField
-                                id="url-input"
-                                value={requestItem.request.url || ''}
-                                placeholder="Enter URL or paste text"
-                                onChange={(event) => handleRequestChange({
-                                    ...requestItem.request,
-                                    url: event.target.value
-                                })}
-                            />
+								<UrlInputWrapper>
+									<UrlInputField
+										id="url-input"
+										value={requestItem.request.url || ''}
+										placeholder="Enter URL or paste text"
+										onChange={(event) => handleRequestChange({
+											...requestItem.request,
+											url: event.target.value
+										})}
+									/>
 
-                            <SaveInlineButton
-                                type="button"
-                                aria-label="Save request"
-                                onClick={handleSaveRequest}
-                            >
-                                <Codicon sx={{ height: 20 }} iconSx={{ fontSize: 20 }} tooltip='Save request' name="save" />
-                            </SaveInlineButton>
-                        </UrlInputWrapper>
+									<SaveInlineButton
+										type="button"
+										aria-label="Save request"
+										onClick={handleSaveRequest}
+										disabled={!isDirty}
+									>
+										<Codicon sx={{ height: 20 }} iconSx={{ fontSize: 20, fontWeight: isDirty ? 'bolder' : 'lighter', color: isDirty ? 'var(--vscode-button-foreground)' : 'var(--vscode-disabledForeground)' }} tooltip='Save request' name="save" />
+									</SaveInlineButton>
+								</UrlInputWrapper>
 
-                        <Button
-                            buttonSx={{height: 35, borderRadius: 4, width: 75}}
-                            appearance="primary"
-                            onClick={handleSendRequest}
-                            disabled={isLoading}
-                        >
-                            {isLoading ? 'Sending...' : 'Send'}
-                        </Button>
-                    </RequestToolbar>
-                )}
+								<Button
+									buttonSx={{height: 35, borderRadius: 4, width: 75}}
+									appearance="primary"
+									onClick={handleSendRequest}
+									disabled={isLoading}
+								>
+									{isLoading ? 'Sending...' : 'Send'}
+								</Button>
+							</RequestToolbar>
+						)}
+					</>
+				)}
             </HeaderBar>
 
             <Content>
-                {!showCollectionForm && requestItem ? (
+				{runViewState ? (
+					<HurlRunResults
+						context={runViewState.context}
+						status={runViewState.status}
+						files={runViewState.files}
+						completedFiles={runViewState.completedFiles}
+						totalFiles={runViewState.totalFiles}
+						summary={runViewState.summary}
+						errorMessage={runViewState.errorMessage}
+					/>
+				) : !showCollectionForm && requestItem ? (
                     <PanelsWrapper>
                         <ControlsWrapper>
                             {activeTab === 'input' && inputMode === 'code' && (
@@ -729,16 +1001,16 @@ export const MainPanel: React.FC = () => {
                             )}
                             {activeTab === 'assert' && (
                                 <SlidingToggle 
-                                    isCodeMode={assertMode === 'code'}
-                                    onClick={() => setAssertMode(assertMode === 'code' ? 'form' : 'code')}
-                                    title={assertMode === 'code' ? 'Switch to Form mode' : 'Switch to Code mode'}
+                                    isCodeMode={inputMode === 'code'}
+                                    onClick={() => setInputMode(inputMode === 'code' ? 'form' : 'code')}
+                                    title={inputMode === 'code' ? 'Switch to Form mode' : 'Switch to Code mode'}
                                 >
-                                    <ToggleBackground isCodeMode={assertMode === 'code'} />
-                                    <ToggleOption isActive={assertMode === 'code'}>
+                                    <ToggleBackground isCodeMode={inputMode === 'code'} />
+                                    <ToggleOption isActive={inputMode === 'code'}>
                                         <Codicon name="code" />
                                         Code
                                     </ToggleOption>
-                                    <ToggleOption isActive={assertMode === 'form'}>
+                                    <ToggleOption isActive={inputMode === 'form'}>
                                         <Codicon name="list-unordered" />
                                         Form
                                     </ToggleOption>
@@ -778,7 +1050,7 @@ export const MainPanel: React.FC = () => {
                                             request={requestItem.request}
                                             response={requestItem.response}
                                             onRequestChange={handleRequestChange}
-                                            mode={assertMode}
+                                            mode={inputMode}
                                         />
                                     ) : (
                                         <div style={{ padding: 16, opacity: 0.6 }}>No request selected. Select a request from the sidebar to add assertions.</div>
@@ -793,7 +1065,7 @@ export const MainPanel: React.FC = () => {
                     </Typography>
                 ) : null}
                 {showCollectionForm && (
-                    <CollectionForm onCancel={handleCloseCollectionForm} />
+                    <CollectionForm onCancel={handleCloseCollectionForm} initialFolderPath={collectionFormWorkspacePath} />
                 )}
             </Content>
         </PageContainer>

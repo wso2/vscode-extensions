@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -71,6 +71,14 @@ export const AssertForm: React.FC<AssertFormProps> = ({
         return (request.assertions || []).map((assertion) => evaluateAssertion(assertion, response));
     }, [request.assertions, response]);
 
+    // Create stable keys for assertions based on their position + content
+    // This ensures proper reconciliation during deletions
+    const assertionKeys = React.useMemo(() => {
+        return (request.assertions || []).map((assertion, index) => 
+            `assertion-${index}-${assertion.substring(0, 20)}`
+        );
+    }, [request.assertions]);
+
     const addAssertion = () => {
         const updatedRequest = {
             ...request,
@@ -103,7 +111,7 @@ export const AssertForm: React.FC<AssertFormProps> = ({
                 </Typography>
             </StickyHeader>
             {(request.assertions || []).map((assertion, index) => (
-                <React.Fragment key={index}>
+                <React.Fragment key={assertionKeys[index]}>
                     <AssertionRow
                         assertion={assertion}
                         response={response}

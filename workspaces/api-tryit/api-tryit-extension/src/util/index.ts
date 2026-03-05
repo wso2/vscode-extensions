@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -30,9 +30,22 @@ export function getComposerJSFiles(
 	const devHost = process.env.TRY_VIEW_DEV_HOST || 'http://localhost:9092';
 
 	if (isDevMode) {
-		// Load from webpack-dev-server for hot reload
-		return [`${devHost}/${composerName}.js`];
+		// Load from webpack-dev-server for hot reload.
+		// Also include local bundles as a fallback to avoid endless loading
+		// when the dev server is not running.
+		const devBundle = `${devHost}/${composerName}.js`;
+		const localBundles = getLocalComposerJSFiles(context, composerName, webview);
+		return [devBundle, ...localBundles];
 	}
+
+	return getLocalComposerJSFiles(context, composerName, webview);
+}
+
+function getLocalComposerJSFiles(
+	context: vscode.ExtensionContext,
+	composerName: string,
+	webview: vscode.Webview
+): string[] {
 
 	// Production mode: load from local files
 	const jsLibsPath = path.join(context.extensionPath, 'resources', 'jslibs');
@@ -51,3 +64,5 @@ export function getComposerJSFiles(
 	return jsFiles;
 }
 export { curlToApiRequestItem } from './curl-converter';
+export { hurlToApiRequestItem } from './hurl-converter';
+export { normalizeHurlCollectionPayload } from '@wso2/api-tryit-hurl-parser';

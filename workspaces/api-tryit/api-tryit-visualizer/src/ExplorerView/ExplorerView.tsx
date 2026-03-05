@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -54,6 +54,29 @@ const ControlsContainer = styled.div`
 	border-bottom: 1px solid var(--vscode-sideBar-border);
 	flex-shrink: 0;
 	background-color: var(--vscode-sideBar-background);
+`;
+
+const ToolbarRow = styled.div`
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+`;
+
+const IconCommandButton = styled.button`
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border: 1px solid transparent;
+	border-radius: 3px;
+	background: transparent;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+
+	&:hover {
+		background: var(--vscode-toolbar-hoverBackground);
+	}
 `;
 
 const ButtonRow = styled.div`
@@ -168,13 +191,13 @@ const TreeViewContainer = styled.div`
 `;
 
 const MethodBadge = styled.span<{ method: string }>`
-	display: inline-flex;
+	display: flex;
 	align-items: center;
 	justify-content: center;
 	padding: 2px 8px;
-	margin-left: 8px;
+	width: 35px;
 	border-radius: 3px;
-	font-size: 11px;
+	font-size: 9px;
 	font-weight: 600;
 	color: white;
 	white-space: nowrap;
@@ -216,6 +239,14 @@ const CollectionHeader = styled.div<{ isSelected: boolean }>`
 	}
 `;
 
+const CollectionActions = styled.div`
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	margin-left: auto;
+	margin-right: 2px;
+`;
+
 const IconContainer = styled.span`
 	margin-right: 4px;
 	font-size: 11px;
@@ -243,6 +274,10 @@ const AddButton = styled.button`
 		background: var(--vscode-list-hoverBackground);
 		color: var(--vscode-foreground);
 	}
+`;
+
+const RunButton = styled(AddButton)`
+	color: var(--vscode-notebookStatusSuccessIcon-foreground);
 `;
 
 const CollectionChildren = styled.div`
@@ -327,10 +362,52 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 		e.preventDefault();
 		e.stopPropagation();
 		if (setContextMenu) {
-			const pos = computeMenuPosition(e.clientX, e.clientY, 200, 120);
+			const pos = computeMenuPosition(e.clientX, e.clientY, 220, 140);
 			setContextMenu({ x: pos.x, y: pos.y, collectionId: item.id });
 		}
 	}, [item.id, setContextMenu]);
+
+	const handleRenameFolder = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'renameFolder',
+				folderId: item.id,
+				folderPath: item.filePath,
+				currentName: item.name
+			});
+		}
+		if (setContextMenu) {
+			setContextMenu(null);
+		}
+	}, [vscode, item.id, item.filePath, item.name, setContextMenu]);
+
+	const handleRunFolder = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'runFolder',
+				folderId: item.id,
+				folderPath: item.filePath,
+				folderName: item.name
+			});
+		}
+		if (setContextMenu) {
+			setContextMenu(null);
+		}
+	}, [vscode, item.id, item.filePath, item.name, setContextMenu]);
+
+	const handleDeleteFolder = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'deleteFolder',
+				folderId: item.id,
+				folderPath: item.filePath,
+				currentName: item.name
+			});
+		}
+		if (setContextMenu) {
+			setContextMenu(null);
+		}
+	}, [vscode, item.id, item.filePath, item.name, setContextMenu]);
 
 	return (
 		<div>
@@ -344,23 +421,48 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 				</IconContainer>
 				<Codicon name="folder" sx={{ marginRight: 8 }} />
 				<span>{item.name}</span>
-				<AddButton
-					title={`Add request to ${item.name}`}
-					aria-label={`Add request to ${item.name}`}
-					onClick={(e: React.MouseEvent) => {
-						e.stopPropagation();
-						e.preventDefault();
-						handleAddRequest();
-					}}
-				>
-					<Codicon name="plus" />
-				</AddButton>
+				<CollectionActions>
+					<AddButton
+						title={`Add request to ${item.name}`}
+						aria-label={`Add request to ${item.name}`}
+						onClick={(e: React.MouseEvent) => {
+							e.stopPropagation();
+							e.preventDefault();
+							handleAddRequest();
+						}}
+					>
+						<Codicon name="plus" />
+					</AddButton>
+					<RunButton
+						title={`Run ${item.name}`}
+						aria-label={`Run ${item.name}`}
+						onClick={(e: React.MouseEvent) => {
+							e.stopPropagation();
+							e.preventDefault();
+							handleRunFolder();
+						}}
+					>
+						<Codicon name="play" />
+					</RunButton>
+				</CollectionActions>
 			</FolderHeader>
 			{contextMenu && contextMenu.collectionId === item.id && (
 				<ContextMenu x={contextMenu.x} y={contextMenu.y} visible={true}>
 					<ContextMenuItem onClick={handleAddRequest}>
 						<Codicon name="file-add" sx={{ marginRight: 8 }} />
 						Add Request
+					</ContextMenuItem>
+					<ContextMenuItem onClick={handleRunFolder}>
+						<Codicon name="play" sx={{ marginRight: 8 }} />
+						Run Folder
+					</ContextMenuItem>
+					<ContextMenuItem onClick={handleRenameFolder}>
+						<Codicon name="edit" sx={{ marginRight: 8 }} />
+						Rename Folder
+					</ContextMenuItem>
+					<ContextMenuItem onClick={handleDeleteFolder}>
+						<Codicon name="trash" sx={{ marginRight: 8 }} />
+						Delete Folder
 					</ContextMenuItem>
 				</ContextMenu>
 			)}
@@ -407,10 +509,10 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 		}
 	}, [vscode, item.id, setContextMenu]);
 
-	const handleAddFolder = useCallback(() => {
+	const handleRunCollection = useCallback(() => {
 		if (vscode) {
 			vscode.postMessage({
-				command: 'addFolderToCollection',
+				command: 'runCollection',
 				collectionId: item.id
 			});
 		}
@@ -464,41 +566,50 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 				</IconContainer>
 				<Codicon name="library" sx={{ marginRight: 8 }} />
 				<span>{item.name}</span>
-				<AddButton
-					title={`Add to ${item.name}`}
-					aria-label={`Add to ${item.name}`}
-					onClick={(e: React.MouseEvent) => {
-						e.stopPropagation();
-						e.preventDefault();
-						// flip the menu to the left if there's insufficient space on the right
-						const MENU_WIDTH = 200; // >= ContextMenu min-width
-						const MENU_HEIGHT = 140;
-						const PAD = 8;
-						const clickX = e.clientX;
-						const clickY = e.clientY;
-						let x = clickX;
-						let y = clickY;
-						if (window.innerWidth - clickX < MENU_WIDTH + PAD) {
-							x = Math.max(PAD, clickX - MENU_WIDTH);
-						}
-						if (window.innerHeight - clickY < MENU_HEIGHT + PAD) {
-							y = Math.max(PAD, clickY - MENU_HEIGHT);
-						}
-						setAddMenu({ x, y });
-					}}
-				>
-					<Codicon name="plus" />
-				</AddButton>
+				<CollectionActions>
+					<AddButton
+						title={`Add to ${item.name}`}
+						aria-label={`Add to ${item.name}`}
+						onClick={(e: React.MouseEvent) => {
+							e.stopPropagation();
+							e.preventDefault();
+							// flip the menu to the left if there's insufficient space on the right
+							const MENU_WIDTH = 200; // >= ContextMenu min-width
+							const MENU_HEIGHT = 140;
+							const PAD = 8;
+							const clickX = e.clientX;
+							const clickY = e.clientY;
+							let x = clickX;
+							let y = clickY;
+							if (window.innerWidth - clickX < MENU_WIDTH + PAD) {
+								x = Math.max(PAD, clickX - MENU_WIDTH);
+							}
+							if (window.innerHeight - clickY < MENU_HEIGHT + PAD) {
+								y = Math.max(PAD, clickY - MENU_HEIGHT);
+							}
+							setAddMenu({ x, y });
+						}}
+					>
+						<Codicon name="plus" />
+					</AddButton>
+					<RunButton
+						title={`Run ${item.name}`}
+						aria-label={`Run ${item.name}`}
+						onClick={(e: React.MouseEvent) => {
+							e.stopPropagation();
+							e.preventDefault();
+							handleRunCollection();
+						}}
+					>
+						<Codicon name="play" />
+					</RunButton>
+				</CollectionActions>
 			</CollectionHeader>
 			{addMenu && (
 				<ContextMenu x={addMenu.x} y={addMenu.y} visible={true}>
 					<ContextMenuItem onClick={() => { handleAddRequest(); }}>
 						<Codicon name="file-add" sx={{ marginRight: 8 }} />
 						Add Request
-					</ContextMenuItem>
-					<ContextMenuItem onClick={() => { handleAddFolder(); }}>
-						<Codicon name="folder" sx={{ marginRight: 8 }} />
-						Add Folder
 					</ContextMenuItem>
 				</ContextMenu>
 			)}
@@ -507,6 +618,10 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 					<ContextMenuItem onClick={handleAddRequest}>
 						<Codicon name="file-add" sx={{ marginRight: 8 }} />
 						Add Request
+					</ContextMenuItem>
+					<ContextMenuItem onClick={handleRunCollection}>
+						<Codicon name="play" sx={{ marginRight: 8 }} />
+						Run Collection
 					</ContextMenuItem>
 					<ContextMenuItem onClick={handleRenameCollection}>
 						<Codicon name="edit" sx={{ marginRight: 8 }} />
@@ -618,6 +733,14 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 		}
 	}, [vscode]);
 
+	const handleRunAll = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'runAllCollections'
+			});
+		}
+	}, [vscode]);
+
 	const handleSelectItem = useCallback((id: string) => {
 		setSelectedId(id);
 		if (vscode) {
@@ -701,13 +824,12 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 						<RequestItemContainer style={{
 							color: isSelected ? '#007acc' : 'inherit'
 						}}>
-							<Codicon name="symbol-method" sx={{ display: 'inline' }} />
-							<span>{item.name}</span>
 							{item.method && (
 								<MethodBadge method={item.method}>
 									{item.method}
 								</MethodBadge>
 							)}
+							<span>{item.name}</span>
 						</RequestItemContainer>
 					</TreeViewItem>
 					{globalContextMenu && globalContextMenu.collectionId === item.id && (
@@ -807,4 +929,3 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 		</Container>
 	);
 };
-

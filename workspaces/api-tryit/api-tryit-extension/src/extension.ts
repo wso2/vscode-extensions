@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -23,10 +23,21 @@ import { ActivityPanel } from './activity-panel/webview';
 import { ApiExplorerProvider } from './tree-view/ApiExplorerProvider';
 import { ApiTryItStateMachine, EVENT_TYPE } from './stateMachine';
 import { ApiRequestItem } from '@wso2/api-tryit-core';
+import type { HurlCollectionPayload } from '@wso2/api-tryit-hurl-parser';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
 import RunHurlTest from './tools/run-hurl-test';
+import { getHurlBinaryManager, initializeHurlBinaryManager } from './hurl/hurl-binary-manager';
+
+const PENDING_HURL_IMPORT_KEY = 'api-tryit.pendingHurlImportContext';
+
+type PendingHurlImportContext = {
+	targetToOpen: string;
+	collectionPath: string;
+	firstRequestPath?: string;
+	timestamp: number;
+};
 
 async function getWorkspaceRoot(): Promise<string | undefined> {
 	const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -136,17 +147,116 @@ async function createCollectionFolderStructure(
 
 	for (let index = 0; index < rootItems.length; index++) {
 		const persistedRequest = normalizeRequestItem(rootItems[index], `Request ${index + 1}`);
-		const fileName = `${String(index + 1).padStart(2, '0')}-${sanitizePathSegment(
+		const baseName = sanitizePathSegment(
 			typeof persistedRequest.name === 'string' ? persistedRequest.name : `request-${index + 1}`,
 			`request-${index + 1}`
-		)}.yaml`;
-		const requestPath = path.join(collectionPath, fileName);
+		);
+		let fileName = `${baseName}.yaml`;
+		let requestPath = path.join(collectionPath, fileName);
+		let suffix = 1;
+		while (true) {
+			try {
+				await fs.access(requestPath);
+				fileName = `${baseName}-${suffix}.yaml`;
+				requestPath = path.join(collectionPath, fileName);
+				suffix++;
+			} catch {
+				break; // filePath available
+			}
+		}
 
 		await fs.writeFile(requestPath, yaml.dump(persistedRequest), 'utf-8');
 		if (!firstRequestPath) {
 			firstRequestPath = requestPath;
 		}
 	}
+
+	const folders = Array.isArray(collectionData.folders) ? collectionData.folders : [];
+	for (let folderIndex = 0; folderIndex < folders.length; folderIndex++) {
+		const folderObj = folders[folderIndex] && typeof folders[folderIndex] === 'object'
+			? (folders[folderIndex] as Record<string, unknown>)
+			: {};
+		const folderName = typeof folderObj.name === 'string' ? folderObj.name : `Folder ${folderIndex + 1}`;
+		const folderDirName = sanitizePathSegment(folderName, `folder-${folderIndex + 1}`);
+		const folderPath = path.join(collectionPath, folderDirName);
+		await fs.mkdir(folderPath, { recursive: true });
+
+		const folderItems = Array.isArray(folderObj.items)
+			? folderObj.items
+			: (Array.isArray(folderObj.requests) ? folderObj.requests : []);
+
+		for (let requestIndex = 0; requestIndex < folderItems.length; requestIndex++) {
+			const persistedRequest = normalizeRequestItem(folderItems[requestIndex], `Request ${requestIndex + 1}`);
+			const baseName = sanitizePathSegment(
+				typeof persistedRequest.name === 'string' ? persistedRequest.name : `request-${requestIndex + 1}`,
+				`request-${requestIndex + 1}`
+			);
+			let fileName = `${baseName}.yaml`;
+			let requestPath = path.join(folderPath, fileName);
+			let suffix = 1;
+			while (true) {
+				try {
+					await fs.access(requestPath);
+					fileName = `${baseName}-${suffix}.yaml`;
+					requestPath = path.join(folderPath, fileName);
+					suffix++;
+				} catch {
+					break;
+				}
+			}
+
+			await fs.writeFile(requestPath, yaml.dump(persistedRequest), 'utf-8');
+			if (!firstRequestPath) {
+				firstRequestPath = requestPath;
+			}
+		}
+	}
+
+	return { collectionPath, firstRequestPath };
+}
+
+async function createHurlCollectionFolderStructure(
+	apiTestPath: string,
+	collectionName: string,
+	collectionData: Record<string, unknown> | HurlCollectionPayload,
+	collectionFolderNameOverride?: string
+): Promise<{ collectionPath: string; firstRequestPath?: string }> {
+	await fs.mkdir(apiTestPath, { recursive: true });
+
+	const collectionDirName = sanitizePathSegment(
+		collectionFolderNameOverride && collectionFolderNameOverride.trim().length > 0
+			? collectionFolderNameOverride
+			: collectionName,
+		`collection-${Date.now()}`
+	);
+	const collectionPath = path.join(apiTestPath, collectionDirName);
+	await fs.mkdir(collectionPath, { recursive: true });
+	const collectionFileName = `${sanitizePathSegment(collectionName, collectionDirName)}.hurl`;
+	const collectionFilePath = path.join(collectionPath, collectionFileName);
+
+	const normalizeEntryContent = (raw: Record<string, unknown>, fallbackName: string): string => {
+		const name = typeof raw.name === 'string' ? raw.name : fallbackName;
+		let content = typeof raw.content === 'string' ? raw.content : (typeof raw.hurl === 'string' ? raw.hurl : '');
+		if (content.includes('\\n')) {
+			content = content.replace(/\\n/g, '\n');
+		}
+		content = content.replace(/\r\n/g, '\n').trim();
+		content = content.replace(/^#\s*@collectionName[^\n]*\n?/gim, '').trim();
+
+		if (!/^#\s*@name\s+/m.test(content)) {
+			content = `# @name ${name}\n${content}`;
+		}
+
+		return content.trim();
+	};
+
+	const rootItems = Array.isArray(collectionData.requests)
+		? collectionData.requests
+		: (Array.isArray(collectionData.rootItems) ? collectionData.rootItems : []);
+
+	const blocks: string[] = rootItems.map((rawUnknown, index) =>
+		normalizeEntryContent(rawUnknown as Record<string, unknown>, `Request ${index + 1}`)
+	);
 
 	const folders = Array.isArray(collectionData.folders) ? collectionData.folders : [];
 	for (let folderIndex = 0; folderIndex < folders.length; folderIndex++) {
@@ -164,26 +274,90 @@ async function createCollectionFolderStructure(
 			: (Array.isArray(folderObj.requests) ? folderObj.requests : []);
 
 		for (let requestIndex = 0; requestIndex < folderItems.length; requestIndex++) {
-			const persistedRequest = normalizeRequestItem(folderItems[requestIndex], `Request ${requestIndex + 1}`);
-			const fileName = `${String(requestIndex + 1).padStart(2, '0')}-${sanitizePathSegment(
-				typeof persistedRequest.name === 'string' ? persistedRequest.name : `request-${requestIndex + 1}`,
-				`request-${requestIndex + 1}`
-			)}.yaml`;
-			const requestPath = path.join(folderPath, fileName);
-
-			await fs.writeFile(requestPath, yaml.dump(persistedRequest), 'utf-8');
-			if (!firstRequestPath) {
-				firstRequestPath = requestPath;
-			}
+			const raw = folderItems[requestIndex] as Record<string, unknown>;
+			blocks.push(normalizeEntryContent(raw, `Request ${requestIndex + 1}`));
 		}
 	}
 
-	return { collectionPath, firstRequestPath };
+	const collectionHeader = `# @collectionName ${collectionName.trim() || 'Hurl Collection'}`;
+	const combinedContent = [collectionHeader, ...blocks.filter(Boolean)].join('\n\n').trimEnd() + '\n';
+	await fs.writeFile(collectionFilePath, combinedContent, 'utf-8');
+
+	return { collectionPath, firstRequestPath: collectionFilePath };
 }
 
 export async function activate(context: vscode.ExtensionContext) {
+	initializeHurlBinaryManager(context);
+
 	// Register the API Explorer tree view provider
 	const apiExplorerProvider = new ApiExplorerProvider();
+
+	// Debounced workspace file-change sync for the visualizer.
+	let workspaceRefreshTimer: NodeJS.Timeout | undefined;
+	let isWorkspaceRefreshInProgress = false;
+	let hasPendingWorkspaceRefresh = false;
+
+	const syncVisualizerWithWorkspace = async () => {
+		if (isWorkspaceRefreshInProgress) {
+			hasPendingWorkspaceRefresh = true;
+			return;
+		}
+		isWorkspaceRefreshInProgress = true;
+		hasPendingWorkspaceRefresh = false;
+
+			try {
+				await apiExplorerProvider.reloadCollections();
+
+				const stateContext = ApiTryItStateMachine.getContext();
+				const selectedFilePath = stateContext.selectedFilePath || stateContext.selectedItem?.filePath;
+				if (selectedFilePath) {
+					const selectedItem = stateContext.selectedItem;
+					const match = apiExplorerProvider.findRequestByFilePath(
+						selectedFilePath,
+						selectedItem?.id,
+						selectedItem?.name || selectedItem?.request?.name,
+						selectedItem?.request?.method,
+						selectedItem?.request?.url
+					);
+					if (match?.requestItem) {
+						await ApiTryItStateMachine.sendEvent(
+							EVENT_TYPE.API_ITEM_SELECTED,
+							match.requestItem,
+						match.requestItem.filePath
+					);
+				}
+			}
+		} catch {
+			// Keep watcher resilient; avoid noisy errors for transient filesystem changes.
+		} finally {
+			isWorkspaceRefreshInProgress = false;
+			if (hasPendingWorkspaceRefresh) {
+				void syncVisualizerWithWorkspace();
+			}
+		}
+	};
+
+	const scheduleWorkspaceSync = () => {
+		if (workspaceRefreshTimer) {
+			clearTimeout(workspaceRefreshTimer);
+		}
+		workspaceRefreshTimer = setTimeout(() => {
+			void syncVisualizerWithWorkspace();
+		}, 250);
+	};
+
+	const relevantWorkspaceFileWatcher = vscode.workspace.createFileSystemWatcher('**/*.{hurl,yaml,yml}');
+	relevantWorkspaceFileWatcher.onDidChange(() => scheduleWorkspaceSync());
+	relevantWorkspaceFileWatcher.onDidCreate(() => scheduleWorkspaceSync());
+	relevantWorkspaceFileWatcher.onDidDelete(() => scheduleWorkspaceSync());
+	context.subscriptions.push(
+		relevantWorkspaceFileWatcher,
+		new vscode.Disposable(() => {
+			if (workspaceRefreshTimer) {
+				clearTimeout(workspaceRefreshTimer);
+			}
+		})
+	);
 
 	// Initialize RPC handlers
 	TryItPanel.init(apiExplorerProvider);
@@ -192,7 +366,83 @@ export async function activate(context: vscode.ExtensionContext) {
 	ApiTryItStateMachine.registerExplorer(apiExplorerProvider);
 
 	// Register the activity panel with the API explorer provider
-	activateActivityPanel(context, apiExplorerProvider);
+	const activityPanelProvider = activateActivityPanel(context, apiExplorerProvider);
+
+	// If we just opened a folder/window from an import flow, restore focus and selection.
+	const pendingImport = context.globalState.get<PendingHurlImportContext>(PENDING_HURL_IMPORT_KEY);
+	if (pendingImport) {
+		const workspaceRoots = (vscode.workspace.workspaceFolders || []).map(f => f.uri.fsPath);
+		const matchesCurrentWorkspace = workspaceRoots.some(root =>
+			pendingImport.targetToOpen === root || pendingImport.collectionPath.startsWith(root)
+		);
+
+		if (matchesCurrentWorkspace) {
+			await context.globalState.update(PENDING_HURL_IMPORT_KEY, undefined);
+
+			setTimeout(async () => {
+				try {
+					await apiExplorerProvider.reloadCollections();
+					await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
+					await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
+
+					TryItPanel.show(context);
+
+					if (pendingImport.firstRequestPath) {
+						await vscode.commands.executeCommand('api-tryit.selectItemByPath', pendingImport.firstRequestPath);
+						const match = apiExplorerProvider.findRequestByFilePath(pendingImport.firstRequestPath);
+						if (match) {
+							await vscode.commands.executeCommand('api-tryit.openRequest', match.requestItem);
+						}
+					}
+				} catch {
+					// ignore startup race issues
+				}
+			}, 800);
+		}
+	}
+
+	// Auto-trigger API TryIt when workspace contains .hurl files with @collectionName or @name annotations
+	const autoTriggerFromHurlWorkspace = async () => {
+		const workspaceFolders = vscode.workspace.workspaceFolders;
+		if (!workspaceFolders || workspaceFolders.length === 0) {
+			return;
+		}
+		try {
+			const hurlFiles = await vscode.workspace.findFiles('**/*.hurl', '**/node_modules/**', 20);
+			for (const fileUri of hurlFiles) {
+				try {
+					const bytes = await vscode.workspace.fs.readFile(fileUri);
+					const text = Buffer.from(bytes).toString('utf8');
+					if (/^#\s*@collectionName\s+/im.test(text) || /^#\s*@name\s+/im.test(text)) {
+						await apiExplorerProvider.reloadCollections();
+						try {
+							await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
+							await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
+						} catch {
+							// ignore if view is not available
+						}
+						return;
+					}
+				} catch {
+					// ignore unreadable files
+				}
+			}
+		} catch {
+			// ignore workspace scan errors
+		}
+	};
+
+	if (!pendingImport) {
+		setTimeout(() => void autoTriggerFromHurlWorkspace(), 1000);
+	}
+
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeWorkspaceFolders(event => {
+			if (event.added.length > 0) {
+				void autoTriggerFromHurlWorkspace();
+			}
+		})
+	);
 
 	// Register command to refresh tree view
 	const refreshCommand = vscode.commands.registerCommand('api-tryit.refreshExplorer', async () => {
@@ -204,6 +454,10 @@ export async function activate(context: vscode.ExtensionContext) {
 			const msg = error instanceof Error ? error.message : 'Unknown error';
 			vscode.window.showErrorMessage(`Failed to refresh explorer: ${msg}`);
 		}
+	});
+
+	const runAllCollectionsCommand = vscode.commands.registerCommand('api-tryit.runAllCollections', async () => {
+		await activityPanelProvider.runAllCollections();
 	});
 
 	// Register command to open TryIt webview panel
@@ -220,25 +474,27 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		// Open the TryIt panel
 		TryItPanel.show(context);
-		
+
 		// Send the selected item through the state machine with file path
 		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, requestItem, requestItem.filePath);
-		
+
 		// vscode.window.showInformationMessage(`Opening: ${requestItem.request.method} ${requestItem.name}`);
 	});
 
 	// Register command to select an item in the explorer by file path (used after save)
-	const selectItemByPathCommand = vscode.commands.registerCommand('api-tryit.selectItemByPath', async (filePath: string) => {
+	const selectItemByPathCommand = vscode.commands.registerCommand(
+		'api-tryit.selectItemByPath',
+		async (filePath: string, requestId?: string, requestName?: string, requestMethod?: string, requestUrl?: string) => {
 		if (!filePath || typeof filePath !== 'string') {
 			vscode.window.showWarningMessage('No file path provided to select');
 			return;
 		}
 
 		// Try to locate the request using cached collections; reload once if not found
-		let match = apiExplorerProvider.findRequestByFilePath(filePath);
+		let match = apiExplorerProvider.findRequestByFilePath(filePath, requestId, requestName, requestMethod, requestUrl);
 		if (!match) {
 			await apiExplorerProvider.reloadCollections();
-			match = apiExplorerProvider.findRequestByFilePath(filePath);
+			match = apiExplorerProvider.findRequestByFilePath(filePath, requestId, requestName, requestMethod, requestUrl);
 		}
 
 		if (!match) {
@@ -246,7 +502,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		const { collection, folder, requestItem, treeItemId, parentIds } = match;
+		const { collection, requestItem, treeItemId, parentIds } = match;
 
 		// Inform the activity panel webview so it can highlight the saved request
 		ActivityPanel.postMessage('selectItem', {
@@ -256,8 +512,6 @@ export async function activate(context: vscode.ExtensionContext) {
 			name: requestItem.name,
 			collectionId: collection.id,
 			collectionName: collection.name,
-			folderId: folder?.id,
-			folderName: folder?.name,
 			method: requestItem.request.method,
 			request: requestItem.request
 		});
@@ -267,7 +521,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const clearSelectionCommand = vscode.commands.registerCommand('api-tryit.clearSelection', async () => {
 		// Clear selection in the activity panel webview
 		ActivityPanel.postMessage('clearSelection');
-		
+
 		// Clear the collection context from state machine
 		ApiTryItStateMachine.sendEvent(EVENT_TYPE.CLEAR_COLLECTION_CONTEXT);
 	});
@@ -293,14 +547,14 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		// Open the TryIt panel
 		TryItPanel.show(context);
-		
+
 		// Send empty request through state machine to ensure context is properly set
 		// This will set selectedItem but NOT currentCollectionPath
 		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, emptyRequestItem, undefined);
-		
+
 		// Also send to webview via postMessage for queueing
 		TryItPanel.postMessage('apiRequestItemSelected', emptyRequestItem);
-		
+
 		vscode.window.showInformationMessage('New request created');
 	});
 
@@ -322,10 +576,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			// Import the utility function
 			const { curlToApiRequestItem } = await import('./util');
-			
+
 			// Convert curl to ApiRequestItem
 			const requestItem = curlToApiRequestItem(curlString);
-			
+
 			if (!requestItem || !requestItem.request.url) {
 				vscode.window.showErrorMessage('Could not parse curl command. Please check the format and try again.');
 				return;
@@ -342,17 +596,267 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			// Open the TryIt panel
 			TryItPanel.show(context);
-			
+
 			// Send the request item through state machine
 			ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, requestItem, undefined);
-			
+
 			// Also send to webview for queueing
 			TryItPanel.postMessage('apiRequestItemSelected', requestItem);
-			
+
 			vscode.window.showInformationMessage(`Loaded: ${requestItem.request.method} ${requestItem.request.url}`);
 		} catch (error: unknown) {
 			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
 			vscode.window.showErrorMessage(`Failed to import from curl: ${errorMsg}`);
+		}
+	});
+
+	// Register command to open from Hurl (paste Hurl content or request)
+	const openFromHurlCommand = vscode.commands.registerCommand('api-tryit.openFromHurl', async (hurlString?: string) => {
+		try {
+			// Prompt user if no value provided
+			if (!hurlString || typeof hurlString !== 'string') {
+				hurlString = await vscode.window.showInputBox({
+					prompt: 'Paste your Hurl request or file contents',
+					placeHolder: 'GET https://api.example.com/path\nHTTP 200\n[Asserts]\nstatus == 200',
+					title: 'Import from Hurl'
+				});
+
+				if (!hurlString) {
+					return; // User cancelled
+				}
+			}
+
+			const { parseHurlCollection } = await import('@wso2/api-tryit-hurl-parser');
+
+			let normalized = hurlString.trim();
+			let sourceFilePath: string | undefined;
+
+			// If user pasted escaped newlines (e.g. "\n"), convert them to real newlines
+			if (normalized.includes('\\n')) {
+				normalized = normalized.replace(/\\n/g, '\n');
+			}
+
+			// If user provided a path to a .hurl file, read its contents
+			try {
+				if (normalized.endsWith('.hurl') && await fs.access(normalized).then(() => true).catch(() => false)) {
+					sourceFilePath = normalized;
+					normalized = await fs.readFile(normalized, 'utf-8');
+				}
+			} catch {
+				// ignore - we'll try to parse the original string below
+			}
+
+			let parsedCollection;
+			try {
+				parsedCollection = parseHurlCollection(normalized, {
+					sourceFilePath
+				});
+			} catch (err: unknown) {
+				// Provide a more actionable error message for common mistakes
+				const msg = err instanceof Error ? err.message : 'Invalid Hurl content';
+				vscode.window.showErrorMessage(`${msg}. Tip: paste full Hurl content (multiline) or select a .hurl file.`);
+				return;
+			}
+
+			const requestItems = parsedCollection.rootItems || [];
+			const firstRequestItem = requestItems[0];
+
+			if (!firstRequestItem || !firstRequestItem.request.url) {
+				vscode.window.showErrorMessage('Could not parse Hurl content. Please check the format and try again.');
+				return;
+			}
+
+			if (requestItems.length > 1) {
+				apiExplorerProvider.addInMemoryCollection(parsedCollection);
+			}
+
+			// Reveal panel and load the request
+			try {
+				await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
+				await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
+			} catch {
+				// ignore
+			}
+
+			TryItPanel.show(context);
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, firstRequestItem, undefined);
+			TryItPanel.postMessage('apiRequestItemSelected', firstRequestItem);
+
+			const loadedMessage = requestItems.length > 1
+				? `Loaded ${requestItems.length} requests from Hurl collection "${parsedCollection.name}"`
+				: `Loaded: ${firstRequestItem.request.method} ${firstRequestItem.request.url}`;
+
+			vscode.window.showInformationMessage(loadedMessage);
+		} catch (err: unknown) {
+			const msg = err instanceof Error ? err.message : 'Unknown error';
+			vscode.window.showErrorMessage(`Failed to import Hurl: ${msg}`);
+		}
+	});
+
+	// Register command to import Hurl collection payload (JSON with multiple .hurl entries)
+	const openFromHurlCollectionCommand = vscode.commands.registerCommand('api-tryit.openFromHurlCollection', async (payload?: string | Record<string, unknown>, folderNameArg?: string) => {
+		try {
+			// Try to obtain workspace root if available, but we will prompt for a directory when none is open
+			const workspaceRoot = await getWorkspaceRoot();
+
+			// If payload not provided, prompt the user to paste JSON
+			if (!payload) {
+				const input = await vscode.window.showInputBox({
+					prompt: 'Paste your Hurl collection JSON payload',
+					placeHolder: '{"name":"My Hurl Collection","requests":[{"name":"List","content":"GET https://...\\nHTTP 200"}], "folders": []}',
+					title: 'Import Hurl Collection Payload'
+				});
+
+				if (!input) return; // user cancelled
+				payload = input;
+			}
+
+			// Accept either JSON string or an object payload
+			let parsed: unknown;
+			if (typeof payload === 'string') {
+				try {
+					parsed = JSON.parse(payload as string);
+				} catch (err) {
+					vscode.window.showErrorMessage('Invalid JSON payload. Please provide a valid JSON object');
+					return;
+				}
+			} else {
+				parsed = payload;
+			}
+
+			// Determine optional target folder name (explicit arg overrides payload field)
+			let providedFolderName: string | undefined = undefined;
+			if (folderNameArg && typeof folderNameArg === 'string' && folderNameArg.trim()) {
+				providedFolderName = folderNameArg.trim();
+			} else if (parsed && typeof parsed === 'object') {
+				const p = parsed as Record<string, unknown>;
+				if (typeof p.folderName === 'string' && p.folderName.trim()) providedFolderName = p.folderName.trim();
+				else if (typeof p.folder === 'string' && p.folder.trim()) providedFolderName = p.folder.trim();
+			}
+
+			// Normalize/validate using utility
+			const { normalizeHurlCollectionPayload } = await import('./util');
+			let normalized;
+			try {
+				normalized = normalizeHurlCollectionPayload(parsed);
+			} catch (err: unknown) {
+				const msg = err instanceof Error ? err.message : 'Invalid payload';
+				vscode.window.showErrorMessage(`Failed to parse Hurl collection payload: ${msg}`);
+				return;
+			}
+
+			// Determine parent path where collection folder will be created
+			let parentPath: string | undefined;
+			// Remember the folder the user explicitly selected (used when no workspace is open)
+			let selectedParentDir: string | undefined;
+			if (workspaceRoot) {
+				// Create under workspace root; providedFolderName is used as the actual collection folder name.
+				parentPath = workspaceRoot;
+			} else {
+				// No workspace open — ask user to select a directory to create the collection in
+				const folderUris = await vscode.window.showOpenDialog({
+					canSelectFolders: true,
+					canSelectFiles: false,
+					canSelectMany: false,
+					openLabel: 'Select folder to create collection in'
+				});
+				if (!folderUris || folderUris.length === 0) return; // user cancelled
+				const parent = folderUris[0].fsPath;
+				selectedParentDir = parent;
+				parentPath = parent;
+			}
+
+			if (!parentPath) {
+				vscode.window.showErrorMessage('Could not determine target directory for collection');
+				return;
+			}
+
+			// Ensure parent path exists
+			await fs.mkdir(parentPath, { recursive: true });
+
+			const { collectionPath, firstRequestPath } = await createHurlCollectionFolderStructure(
+				parentPath,
+				normalized.name,
+				normalized,
+				providedFolderName
+			);
+
+			// If collection created outside workspace, offer to open/add it. When no workspace is open,
+			// prompt to open the new collection in a new window. Do NOT call reloadCollections when
+			// there is no active workspace folder (it will surface an error).
+			let isInWorkspace = vscode.workspace.workspaceFolders?.some(folder => collectionPath.startsWith(folder.uri.fsPath)) || false;
+
+			if (!isInWorkspace) {
+				if (workspaceRoot) {
+					const pick = await vscode.window.showInformationMessage(
+						`Collection "${normalized.name}" created at ${collectionPath}. Add to workspace or open it?`,
+						'Open in New Window',
+						'Add to Workspace',
+						'Cancel'
+					);
+
+					if (pick === 'Open in New Window') {
+						await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(collectionPath), true);
+						return; // new window will load the collection
+					} else if (pick === 'Add to Workspace') {
+						vscode.workspace.updateWorkspaceFolders(vscode.workspace.workspaceFolders?.length || 0, 0, { uri: vscode.Uri.file(collectionPath), name: normalized.name });
+						isInWorkspace = true; // now considered in workspace
+					} else {
+						vscode.window.showInformationMessage(`Hurl collection created at ${collectionPath}`);
+						return;
+					}
+				} else {
+				// No workspace open — ask to open the directory the user selected (not the newly-created collection folder)
+				const pick = await vscode.window.showInformationMessage(
+					`Collection created at ${collectionPath}. Open the selected folder now?`,
+					'Open Folder',
+					'Open in New Window',
+					'Cancel'
+				);
+				if (pick === 'Open Folder' || pick === 'Open in New Window') {
+					// Open the directory the user originally selected (fall back to collectionPath if missing)
+					const targetToOpen = selectedParentDir ? selectedParentDir : collectionPath;
+					await context.globalState.update(PENDING_HURL_IMPORT_KEY, {
+						targetToOpen,
+						collectionPath,
+						firstRequestPath,
+						timestamp: Date.now()
+					} as PendingHurlImportContext);
+					await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(targetToOpen), pick === 'Open in New Window');
+					return;
+				}
+				vscode.window.showInformationMessage(`Hurl collection created at ${collectionPath}`);
+				return;
+			}
+		}
+
+		// At this point the collection is in-workspace (or was just added) — reload the explorer
+			if (isInWorkspace) {
+				await apiExplorerProvider.reloadCollections();
+
+				// Reveal UI and open first request if exists
+				try {
+					await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
+					await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
+				} catch {
+					// ignore
+				}
+
+				TryItPanel.show(context);
+
+				if (firstRequestPath) {
+					await vscode.commands.executeCommand('api-tryit.selectItemByPath', firstRequestPath);
+					const match = apiExplorerProvider.findRequestByFilePath(firstRequestPath);
+					if (match) {
+						await vscode.commands.executeCommand('api-tryit.openRequest', match.requestItem);
+					}
+				}
+			}
+
+			vscode.window.showInformationMessage(`Hurl collection "${normalized.name}" imported to ${collectionPath}`);
+		} catch (error: unknown) {
+			const msg = error instanceof Error ? error.message : 'Unknown error';
+			vscode.window.showErrorMessage(`Failed to import Hurl collection: ${msg}`);
 		}
 	});
 
@@ -362,9 +866,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		TryItPanel.show(context);
 
 		// Notify state machine and webviews to show the collection form
+		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 		ApiTryItStateMachine.sendEvent(EVENT_TYPE.SHOW_CREATE_COLLECTION_FORM);
-		TryItPanel.postMessage('showCreateCollectionForm');
-		ActivityPanel.postMessage('showCreateCollectionForm');
+		TryItPanel.postMessage('showCreateCollectionForm', { workspacePath });
+		ActivityPanel.postMessage('showCreateCollectionForm', { workspacePath });
 
 		// Provide quick feedback so the user knows the action was triggered
 		vscode.window.setStatusBarMessage('✓ Sent showCreateCollectionForm message to webviews', 3000);
@@ -664,15 +1169,28 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Register run hurl test tool
 	const hurlTool = vscode.lm.registerTool('run-hurl-test', new RunHurlTest());
 
+	const installHurlCommand = vscode.commands.registerCommand('api-tryit.installHurl', async () => {
+		try {
+			const binaryPath = await getHurlBinaryManager().installManagedHurl({ interactive: true, force: true });
+			vscode.window.showInformationMessage(`Hurl installed successfully: ${binaryPath}`);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Failed to install Hurl.';
+			vscode.window.showErrorMessage(message);
+		}
+	});
+
 	context.subscriptions.push(setCollectionsPathCommand);
 
 	context.subscriptions.push(
-		refreshCommand, 
-		openTryItCommand, 
-		openRequestCommand, 
+		refreshCommand,
+		runAllCollectionsCommand,
+		openTryItCommand,
+		openRequestCommand,
 		selectItemByPathCommand,
 		newRequestCommand,
 		openFromCurlCommand,
+		openFromHurlCommand,
+		openFromHurlCollectionCommand,
 		newCollectionCommand,
 		importCollectionCommand,
 		importCollectionPayloadCommand,
@@ -680,6 +1198,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		plusMenuCommand,
 		settingsCommand,
 		clearSelectionCommand,
+		installHurlCommand,
 		hurlTool,
 	);
 }

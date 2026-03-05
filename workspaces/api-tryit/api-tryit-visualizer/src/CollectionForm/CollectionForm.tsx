@@ -100,9 +100,9 @@ const Label = styled.label`
     margin-bottom: 4px;
 `;
 
-export const CollectionForm: React.FC<{ onCancel: () => void }> = ({ onCancel }) => {
+export const CollectionForm: React.FC<{ onCancel: () => void; initialFolderPath?: string }> = ({ onCancel, initialFolderPath }) => {
     const [name, setName] = useState('');
-    const [folderPath, setFolderPath] = useState<string | null>(null);
+    const [folderPath, setFolderPath] = useState<string | null>(initialFolderPath ?? null);
 
     const handleSelectFolder = () => {
         // Send message to extension to open folder selector

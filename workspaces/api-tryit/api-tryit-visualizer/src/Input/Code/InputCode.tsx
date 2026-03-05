@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -26,7 +26,7 @@ type BodyFormat = 'json' | 'xml' | 'text' | 'html' | 'javascript' | 'form-data' 
 
 const BodyHeaderContainer = styled.div`display:flex;align-items:center;justify-content:space-between;margin:8px 0;gap:12px;`;
 const BodyTitleWrapper = styled.div`display:flex;align-items:center;gap:8px;flex:1;`;
-const FormatSelectorWrapper = styled.div`position:relative;display:flex;justify-content:flex-end;`;
+const FormatSelectorWrapper = styled.div`position:relative;display:flex;justify-content:flex-end;padding-right:5px;`;
 const FormatButton = styled.button`background:transparent;border:1px solid rgba(255,255,255,0.2);color:inherit;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;font-family:inherit;transition:all .2s ease;`;
 const FormatDropdown = styled.div<{ isOpen: boolean }>`position:absolute;max-height:160px;overflow:auto;top:100%;right:0;margin-top:4px;background:#3e3e42;border:1px solid rgba(255,255,255,0.2);border-radius:4px;min-width:180px;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:${props => props.isOpen ? 'block' : 'none'};`;
 const FormatGroupTitle = styled.div`padding:8px 10px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;background-color:rgba(0,0,0,0.2);border-bottom:1px solid rgba(255,255,255,0.1);margin:0;`;
@@ -49,6 +49,7 @@ const NoBodyMessage = styled.div`
 export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFormatChange: (format: BodyFormat) => void }> = ({ request, onRequestChange, bodyFormat, onFormatChange }) => {
     const [bodyFormatOpen, setBodyFormatOpen] = React.useState(false);
     const formatMenuRef = React.useRef<HTMLDivElement>(null);
+    const methodSupportsBody = !['GET', 'HEAD', 'OPTIONS', 'DELETE'].includes((request.method || '').toUpperCase());
 
     React.useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -93,12 +94,195 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
     };
 
     const handleBodyChange = (value: string | undefined) => {
-        onRequestChange?.({ ...request, body: value || '' });
+        const text = value || '';
+
+        // Helper to parse simple editor-format form-data lines into structured params
+        const parseFormDataFromText = (txt: string) => {
+            const lines = txt.split('\n').map(l => l.trim()).filter(Boolean);
+            const params: any[] = [];
+            for (const line of lines) {
+                // Ignore section markers if user pastes raw Hurl sections
+                if (/^\[(?:FormData|Multipart|MultipartFormData|FormUrlEncoded|Form|FormParams)\]/i.test(line)) {
+                    continue;
+                }
+
+                // key: file,filepath; contentType (Hurl multipart file syntax)
+                const hurlFile = line.match(/^([^:]+):\s*file,([^;]+);(?:\s*(.+))?$/i);
+                if (hurlFile) {
+                    params.push({
+                        id: `f-${Date.now().toString(36)}`,
+                        key: hurlFile[1].trim(),
+                        filePath: hurlFile[2].trim(),
+                        contentType: hurlFile[3]?.trim() || 'application/octet-stream'
+                    });
+                    continue;
+                }
+
+                // key: @file: contentType
+                const fileAt = line.match(/^([^:]+):\s*@file:\s*(.+)$/i);
+                if (fileAt) {
+                    params.push({ id: `f-${Date.now().toString(36)}`, key: fileAt[1].trim(), filePath: undefined, contentType: fileAt[2].trim() });
+                    continue;
+                }
+
+                // key: filename: contentType  (file with content type)
+                // Detect files by checking if value contains a dot (file extension)
+                const kvct = line.match(/^([^:]+):\s*([^:]+):\s*(.+)$/);
+                if (kvct) {
+                    const filename = kvct[2].trim();
+                    const contentType = kvct[3].trim();
+                    // If it looks like a filename (contains dot), treat as file
+                    if (filename.includes('.')) {
+                        params.push({ id: `f-${Date.now().toString(36)}`, key: kvct[1].trim(), filePath: filename, contentType });
+                    } else {
+                        // Otherwise treat as value with content type
+                        params.push({ id: `f-${Date.now().toString(36)}`, key: kvct[1].trim(), value: filename, contentType });
+                    }
+                    continue;
+                }
+
+                // key: value
+                const kv = line.match(/^([^:]+):\s*(.+)$/);
+                if (kv) {
+                    params.push({ id: `f-${Date.now().toString(36)}`, key: kv[1].trim(), value: kv[2].trim() });
+                    continue;
+                }
+            }
+            return params;
+        };
+
+        const parseFormUrlEncodedFromText = (txt: string) => {
+            const lines = txt.split('\n').map(l => l.trim()).filter(Boolean);
+            const params: any[] = [];
+            for (const line of lines) {
+                // Ignore section marker if user pastes raw Hurl sections
+                if (/^\[(?:FormUrlEncoded|Form|FormParams|FormData|Multipart|MultipartFormData)\]/i.test(line)) {
+                    continue;
+                }
+                // key: value  OR key=value
+                const m = line.match(/^([^:=]+)[:=]\s*(.*)$/);
+                if (m) {
+                    params.push({ id: `fue-${Date.now().toString(36)}`, key: m[1].trim(), value: m[2].trim() });
+                }
+            }
+            return params;
+        };
+
+        const parseBinaryFromText = (txt: string) => {
+            const lines = txt.split('\n').map(l => l.trim()).filter(Boolean);
+            const files: any[] = [];
+            for (const line of lines) {
+                // Ignore section markers if user pastes raw Hurl sections
+                if (/^\[(?:Binary|FormData|Multipart|MultipartFormData|FormUrlEncoded|Form|FormParams)\]/i.test(line)) {
+                    continue;
+                }
+
+                // Editor shorthand for binary file: @file: contentType
+                const atFile = line.match(/^@file:\s*(.+)$/i);
+                if (atFile) {
+                    files.push({
+                        id: `bf-${Date.now().toString(36)}`,
+                        filePath: '',
+                        contentType: atFile[1].trim()
+                    });
+                    continue;
+                }
+
+                // Native Hurl file-body syntax: file,<path>;
+                const hurlFileBody = line.match(/^file,([^;]+);(?:\s*(.+))?$/i);
+                if (hurlFileBody) {
+                    files.push({
+                        id: `bf-${Date.now().toString(36)}`,
+                        filePath: hurlFileBody[1].trim(),
+                        contentType: hurlFileBody[2]?.trim() || 'application/octet-stream'
+                    });
+                    continue;
+                }
+
+                // After selecting a file in code mode, line becomes:
+                // /absolute/path/file.ext: application/octet-stream
+                const selectedFileLine = line.match(/^(.*):\s*([A-Za-z0-9.+-]+\/[A-Za-z0-9.+-]+(?:\s*;.*)?)$/);
+                if (selectedFileLine) {
+                    files.push({
+                        id: `bf-${Date.now().toString(36)}`,
+                        filePath: selectedFileLine[1].trim(),
+                        contentType: selectedFileLine[2].trim() || 'application/octet-stream'
+                    });
+                    continue;
+                }
+
+                // Backward compatibility for commented binary metadata
+                const commentFile = line.match(/^#\s*filePath:\s*([^,]+),\s*contentType:\s*(.+)$/i);
+                if (commentFile) {
+                    files.push({
+                        id: `bf-${Date.now().toString(36)}`,
+                        filePath: commentFile[1].trim(),
+                        contentType: commentFile[2].trim()
+                    });
+                }
+            }
+            return files;
+        };
+
+        if (bodyFormat === 'form-data') {
+            const parsed = parseFormDataFromText(text);
+            onRequestChange?.({
+                ...request,
+                body: text,
+                bodyFormData: parsed,
+                bodyFormUrlEncoded: [],
+                bodyBinaryFiles: []
+            });
+            return;
+        }
+
+        if (bodyFormat === 'form-urlencoded') {
+            const parsed = parseFormUrlEncodedFromText(text);
+            onRequestChange?.({
+                ...request,
+                body: text,
+                bodyFormUrlEncoded: parsed,
+                bodyFormData: [],
+                bodyBinaryFiles: []
+            });
+            return;
+        }
+
+        if (bodyFormat === 'binary') {
+            const parsed = parseBinaryFromText(text);
+            onRequestChange?.({
+                ...request,
+                body: text,
+                bodyBinaryFiles: parsed,
+                bodyFormData: [],
+                bodyFormUrlEncoded: []
+            });
+            return;
+        }
+
+        onRequestChange?.({ ...request, body: text });
     };
 
     const handleFormatChange = (format: BodyFormat) => {
         onFormatChange(format);
         setBodyFormatOpen(false);
+    };
+
+    const getBodyEditorValue = () => {
+        const body = request.body || '';
+        if (bodyFormat === 'form-data') {
+            return body
+                .split('\n')
+                .filter(line => !/^\s*\[(?:FormData|Multipart|MultipartFormData)\]\s*$/i.test(line))
+                .join('\n');
+        }
+        if (bodyFormat === 'form-urlencoded') {
+            return body
+                .split('\n')
+                .filter(line => !/^\s*\[(?:FormUrlEncoded|Form|FormParams)\]\s*$/i.test(line))
+                .join('\n');
+        }
+        return body;
     };
 
     // Code lenses (ported from `Input.tsx`)
@@ -214,7 +398,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                         }, 0);
                     } else if (bodyFormat === 'form-data') {
                         const currentValue = model.getValue();
-                        const newValue = currentValue ? currentValue + '\nkey: value: application/octet-stream' : 'key: value: application/octet-stream';
+                        const newValue = currentValue ? currentValue + '\nkey: value' : 'key: value';
 
                         editor.executeEdits('add-parameter', [{
                             range: model.getFullModelRange(),
@@ -347,7 +531,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 suggestions={{ headers: COMMON_HEADERS }}
             />
 
-            {bodyFormat !== 'no-body' && request.method !== 'GET' && (
+            {methodSupportsBody && bodyFormat !== 'no-body' && (
                 <>
                     <BodyHeaderContainer>
                         <BodyTitleWrapper>
@@ -378,7 +562,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                         key={`body-editor-${bodyFormat}`}
                         minHeight='calc((100vh - 420px) / 3)'
                         onChange={handleBodyChange}
-                        value={request.body || ''}
+                        value={getBodyEditorValue()}
                         codeLenses={bodyCodeLenses}
                         suggestions={{ bodySnippets: COMMON_BODY_SNIPPETS }}
                         bodyFormat={bodyFormat}
@@ -386,7 +570,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 </>
             )}
 
-            {bodyFormat === 'no-body' && (
+            {methodSupportsBody && bodyFormat === 'no-body' && (
                 <BodyHeaderContainer>
                     <BodyTitleWrapper>
                         <Typography variant="h3">Body</Typography>
@@ -414,7 +598,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 </BodyHeaderContainer>
             )}
 
-            {bodyFormat === 'no-body' && (
+            {methodSupportsBody && bodyFormat === 'no-body' && (
                 <NoBodyMessage>No body will be sent with this request</NoBodyMessage>
             )}
         </>

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -17,7 +17,14 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { ApiRequestItem, ApiRequest, HttpRequestOptions, HttpResponseResult } from '@wso2/api-tryit-core';
+import {
+	ApiRequestItem,
+	ApiRequest,
+	HttpRequestOptions,
+	HttpResponseResult,
+	HurlRunEvent,
+	HurlRunViewContext
+} from '@wso2/api-tryit-core';
 import { getVSCodeAPI } from '../utils/vscode-api';
 
 // Get VS Code API instance (singleton)
@@ -30,8 +37,11 @@ interface ExtensionMessage {
 
 interface MessageHandlers {
     onApiRequestSelected?: (item: ApiRequestItem) => void;
-    onShowCreateCollectionForm?: () => void;
+    onShowCreateCollectionForm?: (workspacePath?: string) => void;
     onCreateCollectionResult?: (result: { success: boolean; message?: string }) => void;
+	onHurlRunViewOpened?: (context: HurlRunViewContext) => void;
+	onHurlRunEvent?: (event: HurlRunEvent) => void;
+	onHurlRunError?: (payload: { message: string; context?: HurlRunViewContext }) => void;
 }
 
 /**
@@ -47,6 +57,72 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
     }, [handlers]);
     
     useEffect(() => {
+        const hydrateStructuredBody = (req: ApiRequest): ApiRequest => {
+            if (!req?.body || typeof req.body !== 'string') {
+                return req;
+            }
+
+            // If already populated, do nothing
+            if (Array.isArray(req.bodyFormData) && req.bodyFormData.length > 0) {
+                return req;
+            }
+
+            const bodyText = req.body;
+
+            // Hydrate [Multipart]/[FormData]
+            if (/^\[(?:FormData|Multipart)\]/im.test(bodyText)) {
+                const lines = bodyText.split('\n');
+                let inMultipart = false;
+                const formData: any[] = [];
+
+                for (const raw of lines) {
+                    const line = raw.trim();
+                    if (!line || line.startsWith('#')) continue;
+
+                    if (/^\[(?:FormData|Multipart)\]/i.test(line)) {
+                        inMultipart = true;
+                        continue;
+                    }
+
+                    if (/^\[/.test(line) && inMultipart) {
+                        break;
+                    }
+
+                    if (!inMultipart) continue;
+
+                    const fileMatch = line.match(/^([^:]+):\s*file,([^;]+);(?:\s*(.+))?$/i);
+                    if (fileMatch) {
+                        formData.push({
+                            id: `form-${Math.random().toString(36).substring(2, 9)}`,
+                            key: fileMatch[1].trim(),
+                            filePath: fileMatch[2].trim(),
+                            contentType: fileMatch[3]?.trim() || 'application/octet-stream'
+                        });
+                        continue;
+                    }
+
+                    const kv = line.match(/^([^:]+):\s*(.+)$/);
+                    if (kv) {
+                        formData.push({
+                            id: `form-${Math.random().toString(36).substring(2, 9)}`,
+                            key: kv[1].trim(),
+                            value: kv[2].trim(),
+                            contentType: ''
+                        });
+                    }
+                }
+
+                if (formData.length > 0) {
+                    return {
+                        ...req,
+                        bodyFormData: formData
+                    };
+                }
+            }
+
+            return req;
+        };
+
         // Notify extension that webview is ready
         if (vscode) {
             vscode.postMessage({ type: 'webviewReady' });
@@ -74,7 +150,7 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
                 const normalizedItem: ApiRequestItem = {
                     ...item,
                     request: {
-                        ...req,
+                        ...hydrateStructuredBody(req),
                         queryParameters: Array.isArray(req.queryParameters) ? req.queryParameters : [],
                         headers: Array.isArray(req.headers) ? req.headers : [],
                         ...(mergedAssertions ? { assertions: mergedAssertions } : {})
@@ -85,7 +161,7 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
 
             if (type === 'showCreateCollectionForm' && handlersRef.current.onShowCreateCollectionForm) {
                 console.log('[useExtensionMessages] Calling onShowCreateCollectionForm handler');
-                handlersRef.current.onShowCreateCollectionForm();
+                handlersRef.current.onShowCreateCollectionForm(data?.workspacePath as string | undefined);
             }
 
             // Treat 'requestUpdated' like a selection so UI updates the current request form after a save
@@ -105,7 +181,7 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
                 const normalizedItem: ApiRequestItem = {
                     ...item,
                     request: {
-                        ...req,
+                        ...hydrateStructuredBody(req),
                         queryParameters: Array.isArray(req.queryParameters) ? req.queryParameters : [],
                         headers: Array.isArray(req.headers) ? req.headers : [],
                         ...(mergedAssertions ? { assertions: mergedAssertions } : {})
@@ -117,6 +193,22 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
             if (type === 'createCollectionResult' && handlersRef.current.onCreateCollectionResult) {
                 handlersRef.current.onCreateCollectionResult(data as { success: boolean; message?: string });
             }
+
+			if (type === 'hurlRunViewOpened' && handlersRef.current.onHurlRunViewOpened) {
+				handlersRef.current.onHurlRunViewOpened(data as HurlRunViewContext);
+			}
+
+			if (type === 'hurlRunEvent' && handlersRef.current.onHurlRunEvent) {
+				handlersRef.current.onHurlRunEvent(data as HurlRunEvent);
+			}
+
+			if (type === 'hurlRunError' && handlersRef.current.onHurlRunError) {
+				const payload = data as { message?: string; context?: HurlRunViewContext } | undefined;
+				handlersRef.current.onHurlRunError({
+					message: payload?.message || 'Hurl run failed.',
+					context: payload?.context
+				});
+			}
         };
 
         window.addEventListener('message', messageHandler);
