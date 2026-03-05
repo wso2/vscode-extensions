@@ -1,0 +1,9 @@
+node_modules/
+dist/
+out/
+lib/
+build/
+*.vsix
+.vscode-test/
+.rush/
+rush-logs/

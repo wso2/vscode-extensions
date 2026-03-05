@@ -36,7 +36,6 @@ export const StyledPre = styled.pre`
     -moz-hyphens: none;
     -ms-hyphens: none;
     hyphens: none;
-    padding: 1em;
     margin: .5em 0;
     overflow: auto;
     background: var(--vscode-editor-background);
@@ -59,6 +58,7 @@ export const StyledPre = styled.pre`
 
 export const StyledCode = styled.code`
     color: var(--vscode-editor-foreground);
+    background: none;
     font-size: 13px;
     text-shadow: none;
     font-family: Menlo, Monaco, Consolas, "Andale Mono", "Ubuntu Mono", "Courier New", monospace;

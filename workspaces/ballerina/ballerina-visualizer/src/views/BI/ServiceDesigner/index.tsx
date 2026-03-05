@@ -187,6 +187,35 @@ export const ADD_REUSABLE_FUNCTION = "add-reusable-function";
 export const EXPORT_OAS = "export-oas";
 export const ADD_HTTP_RESOURCE = "add-http-resource";
 
+/**
+ * Extract HTTP method from resource icon
+ * Format: "get-resource", "post-resource", etc.
+ */
+function extractHttpMethod(icon: string | undefined): string {
+    if (!icon) return 'GET';
+    const method = icon.split('-')[0].toUpperCase();
+    return ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'].includes(method) ? method : 'GET';
+}
+
+/**
+ * Build base URL from listener and base path
+ * Handles formats like "localhost:8080" or "0.0.0.0:8080"
+ */
+function buildBaseUrl(listener: string, basePath: string = ''): string {
+    let host = 'localhost';
+    let port = '8080';
+
+    if (listener) {
+        const parts = listener.split(':');
+        if (parts.length === 2) {
+            host = parts[0] === '0.0.0.0' ? 'localhost' : parts[0];
+            port = parts[1];
+        }
+    }
+
+    return `http://${host}:${port}${basePath || ''}`;
+}
+
 export function ServiceDesigner(props: ServiceDesignerProps) {
     const { projectPath, filePath, position, serviceIdentifier } = props;
     const { rpcClient } = useRpcContext();
@@ -696,11 +725,57 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
         setIsNew(false);
     };
 
-    const handleServiceTryIt = () => {
-        const basePath = serviceModel.properties?.basePath?.value?.trim();
-        const listener = serviceModel.properties?.listener?.value?.trim();
-        const commands = ["ballerina.tryIt", false, undefined, { basePath, listener }];
-        rpcClient.getCommonRpcClient().executeCommand({ commands });
+    const handleServiceTryIt = async () => {
+        try {
+            const basePath = serviceModel.properties?.basePath?.value?.trim() || '';
+            const listener = serviceModel.properties?.listener?.value?.trim() || 'localhost:8080';
+
+            // Start the Ballerina service without opening HTTP YAC
+            await rpcClient
+                .getCommonRpcClient()
+                .executeCommand({
+                    commands: ["ballerina.project.run"],
+                });
+
+            // Wait longer for the service to fully start
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+
+            // Filter HTTP resources for the collection
+            const httpResources = resources.filter(
+                (resource) => resource.type === DIRECTORY_MAP.RESOURCE
+            );
+
+            if (httpResources.length === 0) {
+                console.warn('No HTTP resources found for TryIt');
+                return;
+            }
+
+            // Build the Hurl collection from service resources
+            const baseUrl = buildBaseUrl(listener, basePath);
+            const hurlCollection = {
+                name: serviceModel.name,
+                description: `API TryIt collection for ${serviceModel.name}`,
+                requests: httpResources.map((resource) => {
+                    const method = extractHttpMethod(resource.icon);
+                    const resourcePath = resource.name.startsWith('/') ? resource.name : `/${resource.name}`;
+                    const url = `${baseUrl}${resourcePath}`;
+                    // Build proper Hurl-formatted content with method and full URL
+                    const hurlContent = `${method} ${url}`;
+                    return {
+                        name: `${method} ${resource.name}`,
+                        content: hurlContent,
+                    };
+                }),
+            };
+
+            console.log('Opening API TryIt with collection:', hurlCollection);
+
+            // Open ONLY API TryIt with the Hurl collection (no HTTP YAC)
+            const commands = ["api-tryit.openFromHurlCollection", hurlCollection];
+            rpcClient.getCommonRpcClient().executeCommand({ commands });
+        } catch (error) {
+            console.error('Error opening API TryIt:', error);
+        }
     }
 
     const handleExportOAS = () => {

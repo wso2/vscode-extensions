@@ -1,0 +1,383 @@
+/**
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import { createMachine, assign, interpret } from 'xstate';
+import * as vscode from 'vscode';
+import { ApiRequestItem } from '@wso2/api-tryit-core';
+import { TryItPanel } from './webview-panel/TryItPanel';
+import * as path from 'path';
+
+// Event types for the state machine
+export const enum EVENT_TYPE {
+    API_ITEM_SELECTED = 'API_ITEM_SELECTED',
+    REQUEST_UPDATED = 'REQUEST_UPDATED',
+    WEBVIEW_READY = 'WEBVIEW_READY',
+    SHOW_CREATE_COLLECTION_FORM = 'SHOW_CREATE_COLLECTION_FORM',
+    ADD_REQUEST_TO_COLLECTION = 'ADD_REQUEST_TO_COLLECTION',
+    CLEAR_COLLECTION_CONTEXT = 'CLEAR_COLLECTION_CONTEXT'
+}
+
+// Context interface for the state machine
+export interface ApiTryItContext {
+    selectedItem?: ApiRequestItem;
+    selectedFilePath?: string; // File path of the selected request
+    webviewReady: boolean;
+    savedItems: Map<string, ApiRequestItem>; // Cache of edited items by ID
+    showCreateCollectionRequest?: boolean;
+    currentCollectionPath?: string; // Path to the collection folder
+    currentCollectionId?: string; // ID of the current collection
+}
+
+// Event interface
+interface ApiItemSelectedEvent {
+    type: 'API_ITEM_SELECTED';
+    data: ApiRequestItem;
+    filePath?: string; // Optional file path where this request is stored
+}
+
+interface RequestUpdatedEvent {
+    type: 'REQUEST_UPDATED';
+    data: ApiRequestItem;
+}
+
+interface WebviewReadyEvent {
+    type: 'WEBVIEW_READY';
+}
+
+interface ShowCreateCollectionEvent {
+    type: 'SHOW_CREATE_COLLECTION_FORM';
+}
+
+interface AddRequestToCollectionEvent {
+    type: 'ADD_REQUEST_TO_COLLECTION';
+    collectionId: string;
+    collectionPath: string;
+}
+
+interface ClearCollectionContextEvent {
+    type: 'CLEAR_COLLECTION_CONTEXT';
+    collectionPath?: string; // optional path of the deleted collection to allow pruning saved state
+}
+
+type ApiTryItEvent = ApiItemSelectedEvent | RequestUpdatedEvent | WebviewReadyEvent | ShowCreateCollectionEvent | AddRequestToCollectionEvent | ClearCollectionContextEvent;
+
+// State machine definition
+const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
+    id: 'apiTryIt',
+    initial: 'idle',
+    predictableActionArguments: true,
+    context: {
+        webviewReady: false,
+        savedItems: new Map()
+    },
+    states: {
+        idle: {
+            on: {
+                WEBVIEW_READY: {
+                    target: 'ready',
+                    actions: assign({
+                        webviewReady: true
+                    })
+                },
+                SHOW_CREATE_COLLECTION_FORM: {
+                    actions: assign({
+                        showCreateCollectionRequest: (_context: ApiTryItContext) => true
+                    })
+                },
+                API_ITEM_SELECTED: {
+                    target: 'itemSelected',
+                    actions: assign({
+                        selectedItem: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.data,
+                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data.filePath,
+                        currentCollectionPath: (context: ApiTryItContext, event: ApiItemSelectedEvent) => {
+                            const selectedPath = event.filePath || event.data.filePath;
+                            return selectedPath ? path.dirname(selectedPath) : context.currentCollectionPath;
+                        }
+                    })
+                },
+                ADD_REQUEST_TO_COLLECTION: {
+                    actions: assign({
+                        currentCollectionId: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionId,
+                        currentCollectionPath: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionPath
+                    })
+                },
+                CLEAR_COLLECTION_CONTEXT: {
+                    actions: assign((context: ApiTryItContext, event: ClearCollectionContextEvent) => {
+                        const collectionPath = event.collectionPath;
+
+                        // Prune savedItems that live under the deleted collection path (if provided)
+                        let newSavedItems = context.savedItems instanceof Map ? new Map(context.savedItems) : new Map();
+                        if (collectionPath && newSavedItems.size > 0) {
+                            for (const [key, item] of Array.from(newSavedItems.entries())) {
+                                if (item && (item.filePath as string | undefined) && (item.filePath as string).startsWith(collectionPath)) {
+                                    newSavedItems.delete(key);
+                                }
+                            }
+                        }
+
+                        // Clear selectedItem/selectedFilePath if they point into the deleted collection
+                        const selectedItem = context.selectedItem && context.selectedItem.filePath && collectionPath && (context.selectedItem.filePath as string).startsWith(collectionPath)
+                            ? undefined
+                            : context.selectedItem;
+
+                        const selectedFilePath = context.selectedFilePath && collectionPath && context.selectedFilePath.startsWith(collectionPath)
+                            ? undefined
+                            : context.selectedFilePath;
+
+                        return {
+                            currentCollectionId: undefined,
+                            currentCollectionPath: undefined,
+                            selectedFilePath,
+                            selectedItem,
+                            savedItems: newSavedItems
+                        } as Partial<ApiTryItContext>;
+                    })
+                }
+            }
+        },
+        ready: {
+            on: {
+                SHOW_CREATE_COLLECTION_FORM: {
+                    actions: assign({
+                        showCreateCollectionRequest: (_context: ApiTryItContext) => true
+                    })
+                },
+                API_ITEM_SELECTED: {
+                    target: 'itemSelected',
+                    actions: assign({
+                        selectedItem: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.data,
+                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data?.filePath,
+                        currentCollectionPath: (context: ApiTryItContext, event: ApiItemSelectedEvent) => {
+                            const selectedPath = event.filePath || event.data?.filePath;
+                            return selectedPath ? path.dirname(selectedPath) : context.currentCollectionPath;
+                        }
+                    })
+                },
+                ADD_REQUEST_TO_COLLECTION: {
+                    actions: assign({
+                        currentCollectionId: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionId,
+                        currentCollectionPath: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionPath
+                    })
+                }
+            }
+        },
+        itemSelected: {
+            on: {
+                SHOW_CREATE_COLLECTION_FORM: {
+                    actions: assign({
+                        showCreateCollectionRequest: (_context: ApiTryItContext) => true
+                    })
+                },
+                API_ITEM_SELECTED: {
+                    target: 'itemSelected',
+                    actions: assign({
+                        selectedItem: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.data,
+                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data?.filePath,
+                        currentCollectionPath: (context: ApiTryItContext, event: ApiItemSelectedEvent) => {
+                            const selectedPath = event.filePath || event.data?.filePath;
+                            return selectedPath ? path.dirname(selectedPath) : context.currentCollectionPath;
+                        }
+                    })
+                },
+                REQUEST_UPDATED: {
+                    actions: assign({
+                        selectedItem: (context: ApiTryItContext, event: RequestUpdatedEvent) => {
+                            const stableItemId = context.selectedItem?.id || event.data.id;
+                            // Preserve the filePath from the previous selectedItem
+                            return {
+                                ...event.data,
+                                id: stableItemId,
+                                filePath: context.selectedItem?.filePath || context.selectedFilePath || event.data.filePath
+                            };
+                        },
+                        savedItems: (context: ApiTryItContext, event: RequestUpdatedEvent) => {
+                            const stableItemId = context.selectedItem?.id || event.data.id;
+                            // Save the updated item to cache (preserving filePath)
+                            const updatedItem: ApiRequestItem = {
+                                ...event.data,
+                                id: stableItemId,
+                                filePath: context.selectedItem?.filePath || context.selectedFilePath || event.data.filePath
+                            };
+                            const newMap = new Map(context.savedItems);
+                            newMap.set(stableItemId, updatedItem);
+                            return newMap;
+                        }
+                    })
+                },
+                ADD_REQUEST_TO_COLLECTION: {
+                    actions: assign({
+                        currentCollectionId: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionId,
+                        currentCollectionPath: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionPath
+                    })
+                },
+                CLEAR_COLLECTION_CONTEXT: {
+                    actions: assign((context: ApiTryItContext, event: ClearCollectionContextEvent) => {
+                        const collectionPath = event.collectionPath;
+
+                        // Prune savedItems that live under the deleted collection path (if provided)
+                        let newSavedItems = context.savedItems instanceof Map ? new Map(context.savedItems) : new Map();
+                        if (collectionPath && newSavedItems.size > 0) {
+                            for (const [key, item] of Array.from(newSavedItems.entries())) {
+                                if (item && (item.filePath as string | undefined) && (item.filePath as string).startsWith(collectionPath)) {
+                                    newSavedItems.delete(key);
+                                }
+                            }
+                        }
+
+                        // Clear selectedItem/selectedFilePath if they point into the deleted collection
+                        const selectedItem = context.selectedItem && context.selectedItem.filePath && collectionPath && (context.selectedItem.filePath as string).startsWith(collectionPath)
+                            ? undefined
+                            : context.selectedItem;
+
+                        const selectedFilePath = context.selectedFilePath && collectionPath && context.selectedFilePath.startsWith(collectionPath)
+                            ? undefined
+                            : context.selectedFilePath;
+
+                        return {
+                            currentCollectionId: undefined,
+                            currentCollectionPath: undefined,
+                            selectedFilePath,
+                            selectedItem,
+                            savedItems: newSavedItems
+                        } as Partial<ApiTryItContext>;
+                    })
+                },
+                WEBVIEW_READY: {
+                    actions: assign({
+                        webviewReady: true
+                    })
+                }
+            }
+        }
+    }
+});
+
+// Service to manage state machine instances
+const stateMachineService = interpret(apiTryItMachine).start();
+
+// Store reference to webview panel for posting messages
+let webviewPanel: vscode.WebviewPanel | undefined;
+// Optional reference to ApiExplorerProvider (registered by extension) to trigger direct reloads
+let explorerProvider: { reloadCollections?: () => Promise<void> } | undefined;
+
+// Export the state machine service and utilities
+export const ApiTryItStateMachine = {
+    service: stateMachineService,
+    
+    registerWebview: (panel: vscode.WebviewPanel) => {
+        webviewPanel = panel;
+    },
+    
+    unregisterWebview: () => {
+        webviewPanel = undefined;
+    },
+
+    // Allow registering the ApiExplorerProvider to trigger direct reloads when files change
+    registerExplorer: (provider: { reloadCollections?: () => Promise<void> }) => {
+        explorerProvider = provider;
+    },
+
+    unregisterExplorer: () => {
+        explorerProvider = undefined;
+    },
+    
+    sendEvent: async (eventType: EVENT_TYPE, data?: ApiTryItContext['selectedItem'], filePath?: string) => {
+        if (eventType === EVENT_TYPE.API_ITEM_SELECTED && data) {
+            // Update state machine context first
+            stateMachineService.send({ type: 'API_ITEM_SELECTED', data, filePath });
+
+            // Use TryItPanel.postMessage so the message is queued when the webview isn't ready.
+            // This avoids races where the panel exists but its webview hasn't signalled 'webviewReady' yet.
+            const context = stateMachineService.getSnapshot().context;
+            TryItPanel.postMessage('apiRequestItemSelected', context.selectedItem);
+        } else if (eventType === EVENT_TYPE.REQUEST_UPDATED && data) {
+            stateMachineService.send({ type: 'REQUEST_UPDATED', data });
+            // Refresh explorer so saved files are re-scanned from disk
+            vscode.commands.executeCommand('api-tryit.refreshExplorer');
+            // Also call reload directly on the registered explorer provider if available
+            try {
+                if (explorerProvider?.reloadCollections) {
+                    await explorerProvider.reloadCollections();
+                }
+            } catch {
+                vscode.window.showErrorMessage('Failed to directly reload explorer provider');
+            }
+            // Notify the registered webview (if any) that a request has been updated/saved
+            const context = stateMachineService.getSnapshot().context;
+            TryItPanel.postMessage('requestUpdated', context.selectedItem);
+            // Also send selection update so UI's selection handler updates the form
+            TryItPanel.postMessage('apiRequestItemSelected', context.selectedItem);
+        } else if (eventType === EVENT_TYPE.ADD_REQUEST_TO_COLLECTION && filePath) {
+            // Update context with collection info and create new request
+            stateMachineService.send({ type: 'ADD_REQUEST_TO_COLLECTION', collectionId: filePath, collectionPath: filePath });
+            // Create an empty request for this collection
+            const emptyRequestItem: ApiRequestItem = {
+                id: `new-${Date.now()}`,
+                name: 'New Request',
+                request: {
+                    id: `new-${Date.now()}`,
+                    name: 'New Request',
+                    method: 'GET',
+                    url: '',
+                    queryParameters: [],
+                    headers: []
+                }
+            };
+            // Wait a moment for state machine to process the context update
+            setTimeout(() => {
+                // Use TryItPanel.postMessage to queue the message if webview isn't ready
+                TryItPanel.postMessage('apiRequestItemSelected', emptyRequestItem);
+            }, 50);
+        } else if (eventType === EVENT_TYPE.SHOW_CREATE_COLLECTION_FORM) {
+            // Record the intent in the state machine context
+            stateMachineService.send({ type: 'SHOW_CREATE_COLLECTION_FORM' });
+            // If the webview is already registered, notify it immediately
+            if (webviewPanel) {
+                webviewPanel.webview.postMessage({ type: 'showCreateCollectionForm' });
+            }
+        } else if (eventType === EVENT_TYPE.CLEAR_COLLECTION_CONTEXT) {
+            // Clear collection context from state machine (accept optional collection path for pruning)
+            stateMachineService.send({ type: 'CLEAR_COLLECTION_CONTEXT', collectionPath: filePath });
+            // Reset the webview selection to clear UI state
+            TryItPanel.postMessage('clearSelection');
+        } else if (eventType === EVENT_TYPE.WEBVIEW_READY) {
+            stateMachineService.send({ type: 'WEBVIEW_READY' });
+            
+            // If there's a pending selection, send it to the now-ready webview
+            const context = stateMachineService.getSnapshot().context;
+            if (context.selectedItem && webviewPanel) {
+                webviewPanel.webview.postMessage({
+                    type: 'apiRequestItemSelected',
+                    data: context.selectedItem
+                });
+            }
+            // If there's a pending create collection request, notify the webview
+            if (context.showCreateCollectionRequest && webviewPanel) {
+                webviewPanel.webview.postMessage({ type: 'showCreateCollectionForm' });
+            }
+        }
+    },
+    
+    getContext: () => {
+        return stateMachineService.getSnapshot().context;
+    },
+    
+    getState: () => {
+        return stateMachineService.getSnapshot().value;
+    }
+};

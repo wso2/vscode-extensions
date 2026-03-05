@@ -1,0 +1,50 @@
+/* Custom styles for API TryIt Visualizer */
+
+/* Aggressive override of Monaco code lens colors */
+.monaco-editor * {
+    --vscode-editorCodeLens-foreground: #a6a6a6 !important;
+}
+
+/* Light theme */
+[data-vscode-theme-kind="vscode-light"] .monaco-editor *,
+[data-vscode-theme-kind="vscode-high-contrast-light"] .monaco-editor * {
+    --vscode-editorCodeLens-foreground: #767676 !important;
+}
+
+/* Direct targeting of all possible code lens elements */
+.monaco-editor .codelens-decoration,
+.monaco-editor .codelens-decoration *,
+.monaco-editor .codelens0,
+.monaco-editor .codelens0 *,
+.monaco-editor [class*="codelens"],
+.monaco-editor [class*="codelens"] *,
+.monaco-editor .view-line [codelens],
+.monaco-editor .view-line [codelens] *,
+.monaco-editor .view-line span[codelens],
+.monaco-editor .view-line span[codelens] * {
+    color: #a6a6a6 !important;
+}
+
+/* Light theme direct targeting */
+[data-vscode-theme-kind="vscode-light"] .monaco-editor .codelens-decoration,
+[data-vscode-theme-kind="vscode-light"] .monaco-editor .codelens-decoration *,
+[data-vscode-theme-kind="vscode-light"] .monaco-editor .codelens0,
+[data-vscode-theme-kind="vscode-light"] .monaco-editor .codelens0 *,
+[data-vscode-theme-kind="vscode-light"] .monaco-editor [class*="codelens"],
+[data-vscode-theme-kind="vscode-light"] .monaco-editor [class*="codelens"] *,
+[data-vscode-theme-kind="vscode-light"] .monaco-editor .view-line [codelens],
+[data-vscode-theme-kind="vscode-light"] .monaco-editor .view-line [codelens] *,
+[data-vscode-theme-kind="vscode-light"] .monaco-editor .view-line span[codelens],
+[data-vscode-theme-kind="vscode-light"] .monaco-editor .view-line span[codelens] *,
+[data-vscode-theme-kind="vscode-high-contrast-light"] .monaco-editor .codelens-decoration,
+[data-vscode-theme-kind="vscode-high-contrast-light"] .monaco-editor .codelens-decoration *,
+[data-vscode-theme-kind="vscode-high-contrast-light"] .monaco-editor .codelens0,
+[data-vscode-theme-kind="vscode-high-contrast-light"] .monaco-editor .codelens0 *,
+[data-vscode-theme-kind="vscode-high-contrast-light"] .monaco-editor [class*="codelens"],
+[data-vscode-theme-kind="vscode-high-contrast-light"] .monaco-editor [class*="codelens"] *,
+[data-vscode-theme-kind="vscode-high-contrast-light"] .monaco-editor .view-line [codelens],
+[data-vscode-theme-kind="vscode-high-contrast-light"] .monaco-editor .view-line [codelens] *,
+[data-vscode-theme-kind="vscode-high-contrast-light"] .monaco-editor .view-line span[codelens],
+[data-vscode-theme-kind="vscode-high-contrast-light"] .monaco-editor .view-line span[codelens] * {
+    color: #767676 !important;
+}

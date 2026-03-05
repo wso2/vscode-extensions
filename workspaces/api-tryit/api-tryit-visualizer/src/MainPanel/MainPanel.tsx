@@ -1,0 +1,1099 @@
+/**
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Button, Codicon, TextField, Typography } from '@wso2/ui-toolkit';
+
+import styled from '@emotion/styled';
+import { Input } from '../Input/Input';
+import { Assert } from '../Assert/Assert';
+import {
+	ApiRequestItem,
+	ApiRequest,
+	ApiResponse,
+	HurlEntryResult,
+	HurlRunEvent,
+	HurlRunStatus,
+	HurlRunSummary,
+	HurlRunViewContext
+} from '@wso2/api-tryit-core';
+import { useExtensionMessages } from '../hooks/useExtensionMessages';
+import CollectionForm from '../CollectionForm/CollectionForm';
+import { getVSCodeAPI } from '../utils/vscode-api';
+import { getMethodBgColor } from '../utils/methods';
+import { HurlRunFileView, HurlRunResults } from '../Output';
+
+const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS', 'DELETE']);
+
+const stripTransientFields = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+        return value.map(stripTransientFields);
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.keys(value as Record<string, unknown>).reduce((acc, key) => {
+            if (key === 'id') {
+                return acc;
+            }
+            acc[key] = stripTransientFields((value as Record<string, unknown>)[key]);
+            return acc;
+        }, {} as Record<string, unknown>);
+    }
+
+    return value;
+};
+
+const getStableValue = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+        return value.map(getStableValue);
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.keys(value as Record<string, unknown>)
+            .sort()
+            .reduce((acc, key) => {
+                acc[key] = getStableValue((value as Record<string, unknown>)[key]);
+                return acc;
+            }, {} as Record<string, unknown>);
+    }
+
+    return value;
+};
+
+const getItemIdentity = (item?: ApiRequestItem): string => {
+    if (!item) {
+        return '';
+    }
+    return `${item.id || ''}::${item.filePath || ''}`;
+};
+
+const createSaveSnapshot = (item?: ApiRequestItem): string => {
+    if (!item?.request) {
+        return '';
+    }
+
+    const method = (item.request.method || '').toUpperCase();
+    const requestForSnapshot = stripTransientFields(item.request) as Record<string, unknown>;
+    if (METHODS_WITHOUT_BODY.has(method)) {
+        delete requestForSnapshot.body;
+        delete requestForSnapshot.bodyFormData;
+        delete requestForSnapshot.bodyFormUrlEncoded;
+        delete requestForSnapshot.bodyBinaryFiles;
+    }
+
+    return JSON.stringify(getStableValue({
+        request: requestForSnapshot,
+        response: item.response ?? null
+    }));
+};
+
+interface RunViewState {
+	context?: HurlRunViewContext;
+	runId?: string;
+	status: HurlRunStatus | 'running';
+	files: HurlRunFileView[];
+	completedFiles: number;
+	totalFiles: number;
+	summary?: HurlRunSummary;
+	errorMessage?: string;
+}
+
+const createInitialRunState = (context?: HurlRunViewContext): RunViewState => ({
+	context,
+	status: 'running',
+	files: [],
+	completedFiles: 0,
+	totalFiles: 0
+});
+
+const toRunFileView = (file: Extract<HurlRunEvent, { type: 'fileFinished' }>['file']): HurlRunFileView => ({
+	filePath: file.filePath,
+	status: file.status,
+	durationMs: file.durationMs,
+	entries: file.entries || [],
+	assertions: file.assertions || [],
+	errorMessage: file.errorMessage,
+	stderr: file.stderr
+});
+
+const upsertRunFile = (files: HurlRunFileView[], nextFile: HurlRunFileView): HurlRunFileView[] => {
+	const next = [...files];
+	const index = next.findIndex(file => file.filePath === nextFile.filePath);
+	if (index >= 0) {
+		next[index] = nextFile;
+	} else {
+		next.push(nextFile);
+	}
+	return next;
+};
+
+const applyRunEvent = (previous: RunViewState, event: HurlRunEvent): RunViewState => {
+	if (event.type === 'runStarted') {
+		return {
+			...previous,
+			runId: event.runId,
+			status: 'running',
+			totalFiles: event.totalFiles,
+			completedFiles: 0,
+			files: [],
+			summary: undefined,
+			errorMessage: undefined
+		};
+	}
+
+	if (event.type === 'fileStarted') {
+		return {
+			...previous,
+			files: upsertRunFile(previous.files, {
+				filePath: event.filePath,
+				status: 'running',
+				entries: [] as HurlEntryResult[],
+				assertions: []
+			})
+		};
+	}
+
+	if (event.type === 'fileFinished') {
+		return {
+			...previous,
+			files: upsertRunFile(previous.files, toRunFileView(event.file))
+		};
+	}
+
+	if (event.type === 'runProgress') {
+		return {
+			...previous,
+			completedFiles: event.completedFiles,
+			totalFiles: event.totalFiles
+		};
+	}
+
+	if (event.type === 'runCancelled') {
+		return {
+			...previous,
+			status: 'cancelled'
+		};
+	}
+
+	if (event.type === 'runFinished') {
+		return {
+			...previous,
+			runId: event.result.runId,
+			status: event.result.status,
+			files: event.result.files.map(file => ({
+				filePath: file.filePath,
+				status: file.status,
+				durationMs: file.durationMs,
+				entries: file.entries || [],
+				assertions: file.assertions || [],
+				errorMessage: file.errorMessage,
+				stderr: file.stderr
+			})),
+			completedFiles: event.result.summary.totalFiles,
+			totalFiles: event.result.summary.totalFiles,
+			summary: event.result.summary
+		};
+	}
+
+	return previous;
+};
+
+const PanelsWrapper = styled.div`
+    position: relative;
+`;
+
+const PageContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--vscode-editor-background);
+    color: var(--vscode-foreground);
+`;
+
+const HeaderBar = styled.div`
+    padding: 16px 20px 10px;
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    backdrop-filter: blur(4px);
+`;
+
+const TitleRow = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+`;
+
+const RequestToolbar = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+`;
+
+const MethodSelectWrapper = styled.div`
+    position: relative;
+    min-width: 100px;
+`;
+
+const MethodSelectButton = styled.button<{ accent: string }>`
+    appearance: none;
+    width: 100%;
+    height: 35px;
+    padding: 10px 36px 10px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--vscode-dropdown-border);
+    background: transparent;
+    color: ${props => props.accent};
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    cursor: pointer;
+    transition: transform 0.08s ease, box-shadow 0.18s ease;
+    text-align: left;
+
+    &:focus {
+        outline: none;
+        outline-offset: 0;
+    }
+`;
+
+const MethodDropdown = styled.ul`
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    width: 100%;
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 6px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    list-style: none;
+    padding: 6px 0;
+    margin: 0;
+    z-index: 30;
+`;
+
+const MethodOption = styled.li<{ active: boolean }>`
+    padding: 10px 14px;
+    cursor: pointer;
+    font-weight: 600;
+    letter-spacing: 0.25px;
+    color: var(--vscode-foreground);
+    background: ${({ active }) => active ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent'};
+    transition: background 0.12s ease;
+
+    &:hover {
+        background: var(--vscode-list-hoverBackground);
+    }
+`;
+
+const SelectChevron = styled.span`
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #0d1f14;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0.8;
+`;
+
+const UrlInputWrapper = styled.div`
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+`;
+
+const UrlInputField = styled.input`
+    width: 100%;
+    height: 32px;
+    background: transparent;
+    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+    border-radius: 4px;
+    padding: 0 12px 0 12px;
+    padding-right: 50px; /* Reserve space for inline Save button */
+    color: var(--vscode-foreground);
+    font-size: 14px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 16px rgba(0, 0, 0, 0.28);
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+
+    &::placeholder {
+        color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground));
+    }
+
+    &:focus {
+        outline: 2px solid var(--vscode-focusBorder);
+        box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+    }
+`;
+
+const SaveInlineButton = styled.button`
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    background: var(--vscode-secondaryButton-background);
+    color: var(--vscode-secondaryButton-foreground);
+    border: 1px solid var(--vscode-button-border, transparent);
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+
+    &:hover {
+        filter: brightness(0.95);
+    }
+`;
+
+const Content = styled.div`
+    flex: 1;
+    overflow-y: auto;
+    padding: 0px 20px 16px 20px;
+`;
+
+const TabSeparator = styled.div`
+    width: 2px;
+    height: 16px;
+    background: var(--vscode-panel-border);
+    align-self: center;
+`;
+
+const TabsBar = styled.div`
+    display: flex;
+    gap: 14px;
+    padding-top: 6px;
+    margin-bottom: 8px;
+`;
+
+const TabButton = styled.button<{ active?: boolean }>`
+    background: transparent;
+    border: none;
+    border-bottom: ${({ active }) => active ? '2px solid var(--vscode-textLink-activeForeground)' : '1px solid transparent'};
+    color: ${({ active }) => active ? 'var(--vscode-textLink-activeForeground)' : 'var(--vscode-foreground)'};
+    padding: 10px 0 8px;
+    cursor: pointer;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    opacity: ${({ active }) => active ? 1 : 0.72};
+    transition: color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+
+    &:hover {
+        color: var(--vscode-foreground);
+        opacity: 1;
+    }
+`;
+
+const ControlsWrapper = styled.div`
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 8px;
+    z-index: 10;
+`;
+
+const SlidingToggle = styled.div<{ isCodeMode: boolean }>`
+    position: relative;
+    display: flex;
+    width: 140px;
+    height: 25px;
+    background-color: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 16px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.2s ease;
+`;
+
+const ToggleBackground = styled.div<{ isCodeMode: boolean }>`
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background-color: var(--vscode-titleBar-activeBackground);
+    border-radius: 15px;
+    transition: transform 0.2s ease;
+    transform: translateX(${({ isCodeMode }) => isCodeMode ? '0%' : '100%'});
+`;
+
+const ToggleOption = styled.div<{ isActive: boolean }>`
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: ${({ isActive }) => 
+        isActive ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)'};
+    z-index: 1;
+    transition: color 0.2s ease;
+    user-select: none;
+`;
+
+const HelpButton = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 25px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--vscode-descriptionForeground);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    
+    &:hover {
+        background: var(--vscode-toolbar-hoverBackground);
+        color: var(--vscode-foreground);
+    }
+    
+    .codicon {
+        font-size: 16px;
+    }
+`;
+
+const HelpTooltip = styled.div<{ show: boolean }>`
+    display: ${props => props.show ? 'block' : 'none'};
+    position: absolute;
+    top: 32px;
+    right: 0;
+    width: 350px;
+    padding: 12px 16px;
+    background: var(--vscode-editorHoverWidget-background);
+    border: 1px solid var(--vscode-editorHoverWidget-border);
+    border-radius: 6px;
+    color: var(--vscode-editorHoverWidget-foreground);
+    font-size: 12px;
+    line-height: 1.6;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    text-align: left;
+    
+    strong {
+        color: var(--vscode-textLink-activeForeground);
+        font-weight: 600;
+    }
+`;
+
+const CodeHint = styled.code`
+    background-color: var(--vscode-textCodeBlock-background);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--vscode-editor-font-family, 'Consolas', 'Courier New', monospace);
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+    color: var(--vscode-textPreformat-foreground);
+`;
+
+const EditableNameWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const NameDisplay = styled.div`
+    cursor: pointer;
+    padding: 4px 0;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    
+    &:hover {
+        background-color: var(--vscode-toolbar-hoverBackground);
+    }
+`;
+
+const NameTextField = styled(TextField)`
+    && {
+        width: 400px;
+        max-width: 100%;
+    }
+`;
+
+const NameEditIndicator = styled.span`
+    display: inline-flex;
+    align-items: center;
+    color: var(--vscode-descriptionForeground);
+`;
+
+// TODO: Support TRACE
+const methodOptions: ApiRequest['method'][] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+
+type InputMode = 'code' | 'form';
+
+export const MainPanel: React.FC = () => {
+    const [requestItem, setRequestItem] = useState<ApiRequestItem | undefined>();
+    const [savedSnapshot, setSavedSnapshot] = useState('');
+    const [activeTab, setActiveTab] = useState<'input' | 'response' | 'assert'>('input');
+    const [isLoading, setIsLoading] = useState(false);
+    const [inputMode, setInputMode] = useState<InputMode>('code');
+    const [showHelp, setShowHelp] = useState(false);
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [tempName, setTempName] = useState(requestItem?.name);
+    const methodSelectRef = useRef<HTMLDivElement>(null);
+    // Counter used to trigger scrolling the Output inside Input without switching tabs
+    const [bringOutputCounter, setBringOutputCounter] = useState(0);
+    const [scrollToTopCounter, setScrollToTopCounter] = useState(0);
+    const [methodDropdownOpen, setMethodDropdownOpen] = useState(false);
+    // Handle messages from VS Code extension
+    const [showCollectionForm, setShowCollectionForm] = React.useState(false);
+    const [collectionFormWorkspacePath, setCollectionFormWorkspacePath] = React.useState<string | undefined>(undefined);
+	const [runViewState, setRunViewState] = useState<RunViewState | undefined>();
+    // Response produced in the current session (by clicking Send). Separate from requestItem.response
+    // which may carry a stale stored response loaded from the hurl file.
+    const [sessionResponse, setSessionResponse] = useState<ApiResponse | undefined>();
+    const selectedIdentityRef = useRef('');
+    const savedSnapshotRef = useRef('');
+    const currentSnapshotRef = useRef('');
+    const pendingSaveSnapshotRef = useRef<string | null>(null);
+    const expectSavedSelectionRefreshRef = useRef(false);
+    const currentSnapshot = React.useMemo(() => createSaveSnapshot(requestItem), [requestItem]);
+
+    useEffect(() => {
+        currentSnapshotRef.current = currentSnapshot;
+    }, [currentSnapshot]);
+
+    const { updateRequest, sendHttpRequest } = useExtensionMessages({
+        onApiRequestSelected: (item) => {
+			setRunViewState(undefined);
+			setSessionResponse(undefined);
+            setRequestItem(item);
+            setTempName(item.name);
+            setIsEditingName(false);
+            // Close collection form when a request is selected
+            setShowCollectionForm(false);
+
+            const incomingIdentity = getItemIdentity(item);
+            const selectedItemChanged = incomingIdentity !== selectedIdentityRef.current;
+            selectedIdentityRef.current = incomingIdentity;
+            if (selectedItemChanged || !savedSnapshotRef.current || expectSavedSelectionRefreshRef.current) {
+                const snapshot = createSaveSnapshot(item);
+                savedSnapshotRef.current = snapshot;
+                setSavedSnapshot(snapshot);
+                pendingSaveSnapshotRef.current = null;
+                expectSavedSelectionRefreshRef.current = false;
+            }
+        },
+        onShowCreateCollectionForm: (workspacePath?: string) => {
+            console.log('[MainPanel] onShowCreateCollectionForm called - setting showCollectionForm to true');
+            setCollectionFormWorkspacePath(workspacePath);
+            setShowCollectionForm(true);
+        },
+        onCreateCollectionResult: (res) => {
+            if (res.success) {
+                setShowCollectionForm(false);
+                // Optionally show UI notification
+                // TODO: add snackbar component
+                console.info('Collection created:', res.message);
+            } else {
+                // Keep form open and show error in console for now
+                console.error('Failed to create collection:', res.message);
+            }
+        },
+		onHurlRunViewOpened: (context) => {
+			setShowCollectionForm(false);
+			setRunViewState(createInitialRunState(context));
+		},
+		onHurlRunEvent: (event) => {
+			setRunViewState(previous => applyRunEvent(previous ?? createInitialRunState(), event));
+		},
+		onHurlRunError: (payload) => {
+			setRunViewState(previous => ({
+				...(previous ?? createInitialRunState(payload.context)),
+				context: payload.context || previous?.context,
+				status: 'error',
+				errorMessage: payload.message
+			}));
+		}
+    });
+
+    const handleCloseCollectionForm = () => {
+        setShowCollectionForm(false);
+    };
+
+    useEffect(() => {
+        const saveResponseHandler = (event: MessageEvent<{ type?: string; data?: { success?: boolean } }>) => {
+            if (event.data?.type !== 'saveRequestResponse') {
+                return;
+            }
+
+            const success = event.data?.data?.success;
+            if (success) {
+                const snapshot = pendingSaveSnapshotRef.current ?? currentSnapshotRef.current;
+                savedSnapshotRef.current = snapshot;
+                setSavedSnapshot(snapshot);
+                expectSavedSelectionRefreshRef.current = true;
+            }
+
+            pendingSaveSnapshotRef.current = null;
+        };
+
+        const handleClickOutside = (event: MouseEvent) => {
+            if (methodSelectRef.current && !methodSelectRef.current.contains(event.target as Node)) {
+                setMethodDropdownOpen(false);
+            }
+        };
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setMethodDropdownOpen(false);
+            }
+        };
+
+        window.addEventListener('message', saveResponseHandler);
+        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('keydown', handleEscape);
+
+        return () => {
+            window.removeEventListener('message', saveResponseHandler);
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('keydown', handleEscape);
+        };
+    }, []);
+
+    const handleRequestChange = (updatedRequest: ApiRequest) => {
+        if (!requestItem) return;
+        const updatedItem: ApiRequestItem = {
+            ...requestItem,
+            request: updatedRequest,
+            id: requestItem.id || ''
+        };
+        setRequestItem(updatedItem);
+        
+        // Notify extension about the change
+        updateRequest(updatedItem);
+    };
+
+    const handleNameClick = () => {
+        setIsEditingName(true);
+        setTempName(requestItem?.name);
+    };
+
+    const handleNameChange = (value: string) => {
+        setTempName(value);
+    };
+
+    const handleNameSubmit = () => {
+        if (tempName?.trim() && requestItem) {
+            const updatedItem: ApiRequestItem = {
+                ...requestItem,
+                name: tempName.trim(),
+                request: {
+                    ...requestItem.request,
+                    name: tempName.trim()
+                },
+                id: requestItem.id || ''
+            };
+            setRequestItem(updatedItem);
+            updateRequest(updatedItem);
+        }
+        setIsEditingName(false);
+    };
+
+    const handleNameKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleNameSubmit();
+        } else if (e.key === 'Escape') {
+            setIsEditingName(false);
+            setTempName(requestItem?.name);
+        }
+    };
+
+    const handleNameBlur = () => {
+        handleNameSubmit();
+    };
+
+    const handleSaveRequest = async (evt: any) => {
+        const vscode = getVSCodeAPI();
+        if (!vscode) {
+            console.error('VS Code API not available');
+            return;
+        }
+
+        if (!requestItem) {
+            return;
+        }
+
+        try {
+            pendingSaveSnapshotRef.current = currentSnapshot;
+            // Send save request message to extension (filePath is optional, will use persisted path)
+            vscode.postMessage({
+                type: 'saveRequest',
+                data: {
+                    filePath: undefined, // Let the extension use the persisted file path from state machine
+                    request: requestItem.request,
+                    response: requestItem.response
+                }
+            });
+            
+        } catch (error) {
+            pendingSaveSnapshotRef.current = null;
+            console.error('Error saving request:', error);
+        }
+    };
+
+    const isDirty = Boolean(requestItem) && currentSnapshot !== savedSnapshot;
+
+    const handleSendRequest = async () => {
+        setIsLoading(true);
+        
+        try {
+            if (!requestItem) {
+                setIsLoading(false);
+                return;
+            }
+            
+            const { request } = requestItem;
+            
+            // Build query parameters
+            const enabledQueryParams = request.queryParameters || [];
+            const params: Record<string, string> = {};
+            enabledQueryParams.forEach(p => {
+                if (p.key) {
+                    params[p.key] = p.value;
+                }
+            });
+            
+            // Build headers
+            const enabledHeaders = request.headers || [];
+            const headers: Record<string, string> = {};
+            enabledHeaders.forEach(h => {
+                if (h.key) {
+                    headers[h.key] = h.value;
+                }
+            });
+            
+            // Parse body if present
+            let data = undefined;
+            if (request.body && ['POST', 'PUT', 'PATCH'].includes(request.method)) {
+                try {
+                    data = JSON.parse(request.body);
+                } catch {
+                    data = request.body;
+                }
+            }
+            
+            // Send request via extension
+            const result = await sendHttpRequest({
+                method: request.method,
+                url: request.url,
+                params,
+                headers,
+                data
+            });
+            
+            // Convert response to ApiResponse format
+            const apiResponse: ApiResponse = {
+                statusCode: result.statusCode,
+                headers: result.headers,
+                body: result.body
+            };
+            
+            if (requestItem) {
+                setRequestItem({
+                    ...requestItem,
+                    response: apiResponse,
+                    id: requestItem.id || ''
+                });
+                setSessionResponse(apiResponse);
+            }
+
+            // Trigger scrolling to output in the Input panel and switch to Response view
+            setBringOutputCounter(c => c + 1);
+            if (activeTab !== 'assert') {
+                setActiveTab('response');
+            }
+        } catch (error) {
+            console.error('Request failed:', error);
+            
+            const errorBody = JSON.stringify({
+                error: error instanceof Error ? error.message : 'Request failed',
+                code: 'ERR_REQUEST_FAILED'
+            }, null, 2);
+            
+            const errorResponse: ApiResponse = {
+                statusCode: 0,
+                headers: [],
+                body: errorBody
+            };
+            
+            if (requestItem) {
+                setRequestItem({
+                    ...requestItem,
+                    response: errorResponse,
+                    id: requestItem.id || ''
+                });
+                setSessionResponse(errorResponse);
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <PageContainer>
+            <HeaderBar>
+				{!runViewState && (
+					<>
+						<TitleRow>
+							<EditableNameWrapper>
+								{isEditingName ? (
+									<NameTextField
+										id="request-name-input"
+										value={tempName}
+										onTextChange={handleNameChange}
+										onKeyDown={handleNameKeyDown}
+										onBlur={handleNameBlur}
+										autoFocus
+										placeholder="Enter request name"
+									/>
+								) : (
+									<>
+                                        <NameDisplay onClick={handleNameClick}>
+										<Typography variant="h3" sx={{ margin: 0 }}>
+											{requestItem?.name}
+										</Typography>
+                                        </NameDisplay>
+                                        <NameEditIndicator>
+                                            <Codicon name="edit" onClick={handleNameClick} />
+                                        </NameEditIndicator>
+                                    </>
+								)}
+							</EditableNameWrapper>
+						</TitleRow>
+
+						{requestItem && (
+							<RequestToolbar>
+								<MethodSelectWrapper ref={methodSelectRef}>
+									<MethodSelectButton
+										type="button"
+										accent={getMethodBgColor(requestItem.request.method)}
+										onClick={() => setMethodDropdownOpen(open => !open)}
+										aria-label="HTTP method"
+										aria-haspopup="listbox"
+										aria-expanded={methodDropdownOpen}
+									>
+										{requestItem.request.method}
+									</MethodSelectButton>
+									<SelectChevron>
+										<Codicon iconSx={{color: 'var(--vscode-editor-foreground)', fontWeight: 'bold'}} name="chevron-down" />
+									</SelectChevron>
+									{methodDropdownOpen && (
+										<MethodDropdown role="listbox" aria-label="HTTP method">
+											{methodOptions.map((method) => (
+												<MethodOption
+													key={method}
+													active={requestItem.request.method === method}
+													role="option"
+													aria-selected={requestItem.request.method === method}
+													onClick={() => {
+														handleRequestChange({
+															...requestItem.request,
+															method
+														});
+														setMethodDropdownOpen(false);
+													}}
+												>
+													{method}
+												</MethodOption>
+											))}
+										</MethodDropdown>
+									)}
+								</MethodSelectWrapper>
+
+								<UrlInputWrapper>
+									<UrlInputField
+										id="url-input"
+										value={requestItem.request.url || ''}
+										placeholder="Enter URL or paste text"
+										onChange={(event) => handleRequestChange({
+											...requestItem.request,
+											url: event.target.value
+										})}
+									/>
+
+									<SaveInlineButton
+										type="button"
+										aria-label="Save request"
+										onClick={handleSaveRequest}
+										disabled={!isDirty}
+									>
+										<Codicon sx={{ height: 20 }} iconSx={{ fontSize: 20, fontWeight: isDirty ? 'bolder' : 'lighter', color: isDirty ? 'var(--vscode-button-foreground)' : 'var(--vscode-disabledForeground)' }} tooltip='Save request' name="save" />
+									</SaveInlineButton>
+								</UrlInputWrapper>
+
+								<Button
+									buttonSx={{height: 35, borderRadius: 4, width: 75}}
+									appearance="primary"
+									onClick={handleSendRequest}
+									disabled={isLoading}
+								>
+									{isLoading ? 'Sending...' : 'Send'}
+								</Button>
+							</RequestToolbar>
+						)}
+					</>
+				)}
+            </HeaderBar>
+
+            <Content>
+				{runViewState ? (
+					<HurlRunResults
+						context={runViewState.context}
+						status={runViewState.status}
+						files={runViewState.files}
+						completedFiles={runViewState.completedFiles}
+						totalFiles={runViewState.totalFiles}
+						summary={runViewState.summary}
+						errorMessage={runViewState.errorMessage}
+						onNavigateToAssert={(requestName, filePath) => {
+							setRunViewState(undefined);
+							setActiveTab('assert');
+							const vscode = getVSCodeAPI();
+							if (vscode) {
+								vscode.postMessage({ type: 'navigateToRequest', data: { filePath, requestName } });
+							}
+						}}
+					/>
+				) : !showCollectionForm && requestItem ? (
+                    <PanelsWrapper>
+                        <ControlsWrapper>
+                            {activeTab === 'input' && inputMode === 'code' && (
+                                <HelpButton
+                                    onMouseEnter={() => setShowHelp(true)}
+                                    onMouseLeave={() => setShowHelp(false)}
+                                    onClick={() => setShowHelp(!showHelp)}
+                                    title="Show help"
+                                >
+                                    <Codicon sx={{height: 'unset', width: 'unset'}} iconSx={{fontSize: 22, marginTop: 4}} name="question" />
+                                    <HelpTooltip show={showHelp}>
+                                        <strong>Write your request with auto-completions:</strong><br/>
+                                        • <CodeHint>key: value</CodeHint> for query parameters<br/>
+                                        • <CodeHint>Header-Name: value</CodeHint> for headers<br/>
+                                        • Press <CodeHint>Cmd+Space</CodeHint> or <CodeHint>Cmd+/</CodeHint> for suggestions
+                                    </HelpTooltip>
+                                </HelpButton>
+                            )}
+                            {activeTab === 'input' && (
+                                <SlidingToggle 
+                                    isCodeMode={inputMode === 'code'}
+                                    onClick={() => setInputMode(inputMode === 'code' ? 'form' : 'code')}
+                                    title={inputMode === 'code' ? 'Switch to Form mode' : 'Switch to Code mode'}
+                                >
+                                    <ToggleBackground isCodeMode={inputMode === 'code'} />
+                                    <ToggleOption isActive={inputMode === 'code'}>
+                                        <Codicon name="code" />
+                                        Code
+                                    </ToggleOption>
+                                    <ToggleOption isActive={inputMode === 'form'}>
+                                        <Codicon name="list-unordered" />
+                                        Form
+                                    </ToggleOption>
+                                </SlidingToggle>
+                            )}
+                            {activeTab === 'assert' && (
+                                <SlidingToggle 
+                                    isCodeMode={inputMode === 'code'}
+                                    onClick={() => setInputMode(inputMode === 'code' ? 'form' : 'code')}
+                                    title={inputMode === 'code' ? 'Switch to Form mode' : 'Switch to Code mode'}
+                                >
+                                    <ToggleBackground isCodeMode={inputMode === 'code'} />
+                                    <ToggleOption isActive={inputMode === 'code'}>
+                                        <Codicon name="code" />
+                                        Code
+                                    </ToggleOption>
+                                    <ToggleOption isActive={inputMode === 'form'}>
+                                        <Codicon name="list-unordered" />
+                                        Form
+                                    </ToggleOption>
+                                </SlidingToggle>
+                            )}
+                        </ControlsWrapper>
+
+                        <div>
+                            <TabsBar>
+                                <TabButton active={activeTab === 'input'} onClick={() => { setActiveTab('input'); setScrollToTopCounter(c => c + 1); }}>
+                                    Request
+                                </TabButton>
+
+                                <TabButton active={activeTab === 'response'} onClick={() => { setBringOutputCounter(c => c + 1); setActiveTab('response'); }}>
+                                    Response
+                                </TabButton>
+
+                                <TabSeparator />
+
+                                <TabButton active={activeTab === 'assert'} onClick={() => setActiveTab('assert')}>
+                                    Assert
+                                </TabButton>
+                            </TabsBar>
+
+                            <div style={{ marginTop: 12 }}>
+                                {(activeTab === 'input' || activeTab === 'response') && (
+                                    <Input
+                                        request={requestItem.request}
+                                        onRequestChange={handleRequestChange}
+                                        mode={inputMode}
+                                        response={requestItem.response}
+                                        bringOutputCounter={bringOutputCounter}
+                                        scrollToTopCounter={scrollToTopCounter}
+                                        onActiveTabChange={(tab) => setActiveTab(tab)}
+                                    />
+                                )}
+
+                                {activeTab === 'assert' && (
+                                    requestItem ? (
+                                        <Assert
+                                            request={requestItem.request}
+                                            response={sessionResponse}
+                                            onRequestChange={handleRequestChange}
+                                            mode={inputMode}
+                                        />
+                                    ) : (
+                                        <div style={{ padding: 16, opacity: 0.6 }}>No request selected. Select a request from the sidebar to add assertions.</div>
+                                    )
+                                )}
+                            </div>
+                        </div>
+                    </PanelsWrapper>
+                ) : !showCollectionForm ? (
+                    <Typography variant="subtitle2" sx={{ opacity: 0.6 }}>
+                        No request selected. Select a request from the sidebar or create a new collection to get started.
+                    </Typography>
+                ) : null}
+                {showCollectionForm && (
+                    <CollectionForm onCancel={handleCloseCollectionForm} initialFolderPath={collectionFormWorkspacePath} />
+                )}
+            </Content>
+        </PageContainer>
+    );
+};

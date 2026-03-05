@@ -1,0 +1,92 @@
+/**
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import React, { useState, useEffect } from 'react';
+import { ExplorerView } from './ExplorerView/ExplorerView';
+import { getVSCodeAPI } from './utils/vscode-api';
+import type { ApiRequest } from '@wso2/api-tryit-core';
+
+interface RequestItem {
+	id: string;
+	name: string;
+	type?: 'collection' | 'folder' | 'request';
+	method?: string;
+	request?: ApiRequest;
+	filePath?: string;
+	children?: RequestItem[];
+}
+
+export const ActivityPanelUI: React.FC = () => {
+	const [collections, setCollections] = useState<RequestItem[]>([]);
+	const [isLoading, setIsLoading] = useState(true);
+	const [clearSelectionTrigger, setClearSelectionTrigger] = useState(0);
+	const [selectedFromHost, setSelectedFromHost] = useState<{ id: string; parentIds?: string[] }>();
+	const vscode = getVSCodeAPI();
+
+	useEffect(() => {
+		// Listen for messages from the extension
+		const handleMessage = (event: MessageEvent) => {
+			const message = event.data;
+			console.log('[ActivityPanelUI] Received message:', message);
+			if (message.command === 'updateCollections') {
+				// Deduplicate collections by ID to prevent rendering duplicates
+				const newCollections: RequestItem[] = message.collections || [];
+				const uniqueCollections = Array.from(
+					new Map(newCollections.map((col: RequestItem) => [col.id, col])).values()
+				) as RequestItem[];
+				setCollections(uniqueCollections);
+				setIsLoading(false);
+			} else if (message.type === 'clearSelection') {
+				console.log('[ActivityPanelUI] Clearing selection, current trigger:', clearSelectionTrigger);
+				// Trigger selection clear in ExplorerView
+				setClearSelectionTrigger(prev => prev + 1);
+				setSelectedFromHost(undefined);
+			} else if (message.type === 'selectItem') {
+				const payload = (message.data || {}) as { id?: string; parentIds?: unknown };
+				if (payload.id) {
+					const parentIds = Array.isArray(payload.parentIds)
+						? (payload.parentIds as unknown[]).filter((id): id is string => typeof id === 'string')
+						: [];
+					setSelectedFromHost({ id: payload.id, parentIds });
+				}
+			}
+		};
+
+		window.addEventListener('message', handleMessage);
+		return () => window.removeEventListener('message', handleMessage);
+	}, []);
+
+	// Request initial data when component mounts
+	useEffect(() => {
+		if (vscode) {
+			// Send ready message first
+			vscode.postMessage({
+				command: 'webviewReady'
+			});
+			// Then request collections
+			vscode.postMessage({
+				command: 'getCollections'
+			});
+		}
+	}, [vscode]);
+
+	useEffect(() => {
+	}, [collections, isLoading]);
+
+	return <ExplorerView collections={collections} isLoading={isLoading} clearSelectionTrigger={clearSelectionTrigger} selectedItemId={selectedFromHost?.id} expandItemIds={selectedFromHost?.parentIds} />;
+};
