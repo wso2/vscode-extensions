@@ -68,7 +68,6 @@ export enum MACHINE_VIEW {
     DSSResourceServiceDesigner = "DSS Resource Designer",
     DSSQueryServiceDesigner = "DSS Query Designer",
     ProjectCreationForm = "Project Creation Form",
-    ImportProjectForm = "Import Project Form",
     LocalEntryForm = "Local Entry Form",
     RegistryResourceForm = "Resource Creation Form",
     RegistryMetadataForm = "Registry Metadata Form",
