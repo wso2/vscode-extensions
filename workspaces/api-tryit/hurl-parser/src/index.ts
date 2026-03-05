@@ -407,7 +407,9 @@ function parseRequestBlock(block: string, requestIndex: number): ApiRequestItem 
 		item.assertions = assertions;
 	}
 
-	const cachedResponse = parseResponseComments(responseLines);
+	// When there is no real HTTP response line, the stored response comments live in requestLines.
+	// Pass all lines from cursor onwards so parseResponseComments can find them.
+	const cachedResponse = parseResponseComments(responseStartIndex >= 0 ? responseLines : lines.slice(cursor));
 	if (cachedResponse) {
 		item.response = cachedResponse;
 	}

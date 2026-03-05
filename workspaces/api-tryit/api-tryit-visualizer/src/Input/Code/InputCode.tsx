@@ -75,8 +75,26 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
         const parseQueryParameters = (text: string) => {
             if (!text.trim()) return [] as QueryParameter[];
             return text.split('\n').filter(line => line.trim()).map((line, index) => {
-                const [key, value] = line.split(':').map(s => s.trim());
-                return { id: Date.now().toString() + index, key: key || '', value: value || '' };
+                const colonIndex = line.indexOf(':');
+                const equalsIndex = line.indexOf('=');
+                const hasColon = colonIndex >= 0;
+                const hasEquals = equalsIndex >= 0;
+
+                let separatorIndex = -1;
+                if (hasColon && hasEquals) {
+                    separatorIndex = Math.min(colonIndex, equalsIndex);
+                } else if (hasColon) {
+                    separatorIndex = colonIndex;
+                } else if (hasEquals) {
+                    separatorIndex = equalsIndex;
+                }
+
+                if (separatorIndex < 0) {
+                    return { id: Date.now().toString() + index, key: line.trim(), value: '' };
+                }
+                const key = line.slice(0, separatorIndex).trim();
+                const paramValue = line.slice(separatorIndex + 1).trim();
+                return { id: Date.now().toString() + index, key: key || '', value: paramValue || '' };
             });
         };
         onRequestChange?.({ ...request, queryParameters: parseQueryParameters(value || '') });

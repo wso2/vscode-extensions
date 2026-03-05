@@ -576,25 +576,35 @@ export const MainPanel: React.FC = () => {
     const currentSnapshotRef = useRef('');
     const pendingSaveSnapshotRef = useRef<string | null>(null);
     const expectSavedSelectionRefreshRef = useRef(false);
+    const latestRequestItemRef = useRef<ApiRequestItem | undefined>(undefined);
     const currentSnapshot = React.useMemo(() => createSaveSnapshot(requestItem), [requestItem]);
 
     useEffect(() => {
         currentSnapshotRef.current = currentSnapshot;
     }, [currentSnapshot]);
 
+    useEffect(() => {
+        latestRequestItemRef.current = requestItem;
+    }, [requestItem]);
+
     const { updateRequest, sendHttpRequest } = useExtensionMessages({
         onApiRequestSelected: (item) => {
-			setRunViewState(undefined);
-			setSessionResponse(undefined);
+            const incomingIdentity = getItemIdentity(item);
+            const selectedItemChanged = incomingIdentity !== selectedIdentityRef.current;
+            selectedIdentityRef.current = incomingIdentity;
+
+            // Only clear session response when the user selects a different request,
+            // not when the same item is refreshed after a save.
+            if (selectedItemChanged) {
+                setRunViewState(undefined);
+                setSessionResponse(undefined);
+            }
             setRequestItem(item);
+            latestRequestItemRef.current = item;
             setTempName(item.name);
             setIsEditingName(false);
             // Close collection form when a request is selected
             setShowCollectionForm(false);
-
-            const incomingIdentity = getItemIdentity(item);
-            const selectedItemChanged = incomingIdentity !== selectedIdentityRef.current;
-            selectedIdentityRef.current = incomingIdentity;
             if (selectedItemChanged || !savedSnapshotRef.current || expectSavedSelectionRefreshRef.current) {
                 const snapshot = createSaveSnapshot(item);
                 savedSnapshotRef.current = snapshot;
@@ -687,6 +697,7 @@ export const MainPanel: React.FC = () => {
             request: updatedRequest,
             id: requestItem.id || ''
         };
+        latestRequestItemRef.current = updatedItem;
         setRequestItem(updatedItem);
         
         // Notify extension about the change
@@ -768,12 +779,13 @@ export const MainPanel: React.FC = () => {
         setIsLoading(true);
         
         try {
-            if (!requestItem) {
+            const activeItem = latestRequestItemRef.current ?? requestItem;
+            if (!activeItem) {
                 setIsLoading(false);
                 return;
             }
             
-            const { request } = requestItem;
+            const { request } = activeItem;
             
             // Build query parameters
             const enabledQueryParams = request.queryParameters || [];
@@ -819,11 +831,11 @@ export const MainPanel: React.FC = () => {
                 body: result.body
             };
             
-            if (requestItem) {
+            if (activeItem) {
                 setRequestItem({
-                    ...requestItem,
+                    ...activeItem,
                     response: apiResponse,
-                    id: requestItem.id || ''
+                    id: activeItem.id || ''
                 });
                 setSessionResponse(apiResponse);
             }
@@ -847,11 +859,12 @@ export const MainPanel: React.FC = () => {
                 body: errorBody
             };
             
-            if (requestItem) {
+            const activeItem = latestRequestItemRef.current ?? requestItem;
+            if (activeItem) {
                 setRequestItem({
-                    ...requestItem,
+                    ...activeItem,
                     response: errorResponse,
-                    id: requestItem.id || ''
+                    id: activeItem.id || ''
                 });
                 setSessionResponse(errorResponse);
             }

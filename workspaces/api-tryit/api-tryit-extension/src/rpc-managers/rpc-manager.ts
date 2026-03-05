@@ -34,7 +34,8 @@ import {
 	composeHurlDocument,
 	parseHurlDocument,
 	HurlFormatAdapter,
-	upsertCollectionNameInHurl
+	upsertCollectionNameInHurl,
+	extractCollectionNameFromHurl
 } from '@wso2/api-tryit-hurl-parser';
 
 interface SaveRequestInternalRequest extends SaveRequestRequest {
@@ -160,8 +161,14 @@ export class ApiTryItRpcManager {
 
                 if (parsedDocument.blocks.length === 0) {
                     const rawDoc = composeHurlDocument(parsedDocument.header, [serializedBlock]);
-                    const collectionName = request.name?.trim() || path.basename(filePath, path.extname(filePath));
-                    contentToWrite = upsertCollectionNameInHurl(rawDoc, collectionName);
+                    // Only set collection name if there isn't one already in the header
+                    const existingCollectionName = extractCollectionNameFromHurl(parsedDocument.header);
+                    if (!existingCollectionName) {
+                        const collectionName = request.name?.trim() || path.basename(filePath, path.extname(filePath));
+                        contentToWrite = upsertCollectionNameInHurl(rawDoc, collectionName);
+                    } else {
+                        contentToWrite = rawDoc;
+                    }
                 } else {
                     let existingBlockIndex = -1;
                     const shouldAppendWhenNotFound = params.appendIfNotFound === true;

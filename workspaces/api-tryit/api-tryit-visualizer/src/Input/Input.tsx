@@ -82,8 +82,9 @@ export const Input: React.FC<InputProps> = ({
         if (!container) return;
         const handleScroll = () => {
             if (!outputRef.current || !onActiveTabChangeRef.current) return;
-            const threshold = 50;
-            if (container.scrollTop >= outputRef.current.offsetTop - threshold) {
+            const outputTop = outputRef.current.offsetTop - container.scrollTop;
+            const switchLine = Math.max(80, container.clientHeight * 0.45);
+            if (outputTop <= switchLine) {
                 onActiveTabChangeRef.current('response');
             } else {
                 onActiveTabChangeRef.current('input');
