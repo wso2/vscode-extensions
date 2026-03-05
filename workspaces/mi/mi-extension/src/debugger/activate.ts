@@ -263,9 +263,10 @@ export function activateDebugger(context: vscode.ExtensionContext) {
             if (fs.existsSync(envPath)) {
                 const envFileContent = fs.readFileSync(envPath, 'utf-8');
                 const envVariables = envFileContent.split('\n').reduce((acc, line) => {
-                    const [key, value] = line.split('=').map(part => part.trim());
+                    const [key, ...values] = line.split('=');
+                    const value = values.join('=').trim();
                     if (key && value) {
-                        acc[key] = value;
+                        acc[key.trim()] = value;
                     }
                     return acc;
                 }, {} as { [key: string]: string });

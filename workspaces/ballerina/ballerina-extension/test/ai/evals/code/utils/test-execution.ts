@@ -14,14 +14,92 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import * as fs from "fs";
+import * as path from "path";
 import { commands } from "vscode";
 import { TestUseCase, TestCaseResult } from '../types';
 import { createTestEventHandler } from './test-event-handler';
 import { validateTestResult } from './test-validation';
 import { VSCODE_COMMANDS } from './constants';
 import { SourceFile } from "@wso2/ballerina-core";
-import { createIsolatedTestProject, cleanupIsolatedTestProject, extractSourceFiles, IsolatedProjectResult } from './test-project-utils';
+import { createIsolatedTestProject, extractSourceFiles, IsolatedProjectResult } from './test-project-utils';
 import { GenerateAgentForTestParams, GenerateAgentForTestResult } from "../../../../../src/features/ai/activator";
+
+const CODE_MAP_DIR = path.resolve(__dirname, '../../../../../../test/code_map');
+
+interface CodeMapCheckResult {
+    match: boolean | undefined;
+    content: string | undefined;
+    reason?: string;
+}
+
+/**
+ * Splits a bal.md into sorted file sections for order-independent comparison.
+ * The header (before the first ---) is separated so only file sections are sorted.
+ */
+function parseCodeMapSections(content: string): { header: string; sections: string[] } {
+    const normalize = (s: string) => s.replace(/\r\n/g, '\n').trim();
+    const parts = normalize(content).split(/\n---\n/);
+    const header = parts[0].trim();
+    const sections = parts.slice(1).map(s => s.trim()).filter(s => s.length > 0).sort();
+    return { header, sections };
+}
+
+/**
+ * Compares the generated bal.md (codemap) from the isolated project against
+ * the expected bal.md stored in test/code_map/{projectName}/bal.md.
+ * Comparison is order-independent: file sections are sorted before comparing
+ * so differing file ordering does not cause a mismatch.
+ * Returns match=undefined if no expected file exists for the project.
+ * Always returns content if the generated bal.md exists.
+ */
+function checkCodeMap(isolatedProjectPath: string, originalProjectPath: string, useCaseId: string): CodeMapCheckResult {
+    const prefix = `[${useCaseId}][CodeMap]`;
+    const projectFolderName = path.basename(originalProjectPath);
+
+    const generatedPath = path.join(isolatedProjectPath, 'bal.md');
+    const generatedContent = fs.existsSync(generatedPath)
+        ? fs.readFileSync(generatedPath, 'utf-8')
+        : undefined;
+
+    if (!generatedContent) {
+        console.warn(`${prefix} Generated bal.md not found at: ${generatedPath}`);
+    } else {
+        console.log(`${prefix} Generated bal.md found (${generatedContent.length} chars)`);
+    }
+
+    const expectedPath = path.join(CODE_MAP_DIR, projectFolderName, 'bal.md');
+
+    if (!fs.existsSync(expectedPath)) {
+        console.warn(`${prefix} No expected bal.md found for project "${projectFolderName}" at: ${expectedPath} — skipping comparison`);
+        return { match: undefined, content: generatedContent };
+    }
+
+    console.log(`${prefix} Expected bal.md found — running comparison`);
+
+    if (!generatedContent) {
+        return { match: false, content: undefined, reason: `Generated bal.md not found at: ${generatedPath}` };
+    }
+
+    const generated = parseCodeMapSections(generatedContent);
+    const expected = parseCodeMapSections(fs.readFileSync(expectedPath, 'utf-8'));
+
+    console.log(`${prefix} Sections — generated: ${generated.sections.length}, expected: ${expected.sections.length}`);
+
+    const headerMatch = generated.header === expected.header;
+    const sectionsMatch =
+        generated.sections.length === expected.sections.length &&
+        generated.sections.every((s, i) => s === expected.sections[i]);
+
+    if (!headerMatch) {
+        console.log(`${prefix} Header mismatch`);
+    }
+    if (!sectionsMatch) {
+        console.log(`${prefix} Sections mismatch`);
+    }
+
+    return { match: headerMatch && sectionsMatch, content: generatedContent };
+}
 
 /**
  * Executes a single test case and returns the result
@@ -90,8 +168,18 @@ export async function executeSingleTestCase(useCase: TestUseCase): Promise<TestC
 
         console.log(`[${useCase.id}] Extracted ${finalSources.length} files from AI temp project for validation`);
 
-        // Step 7: Validate results
-        return await validateTestResult(result, useCase, initialSources, finalSources);
+        // Step 7: Check codemap against expected (no LLM needed - exact match)
+        console.log(`[${useCase.id}] Starting codemap comparison...`);
+        const codeMapResult = checkCodeMap(generationResult.isolatedProjectPath, useCase.projectPath, useCase.id);
+        if (codeMapResult.reason) {
+            console.warn(`[${useCase.id}] Expected Code Map: false — ${codeMapResult.reason}`);
+        } else if (codeMapResult.match !== undefined) {
+            console.log(`[${useCase.id}] Expected Code Map: ${codeMapResult.match}`);
+        }
+
+        // Step 8: Validate results
+        const testCaseResult = await validateTestResult(result, useCase, initialSources, finalSources);
+        return { ...testCaseResult, codeMapMatch: codeMapResult.match, generatedCodeMap: codeMapResult.content };
 
     } catch (error) {
         console.error(`❌ Test case ${useCase.id} failed with error:`, error);

@@ -56,7 +56,7 @@ import { DMProject } from "../../datamapper/DMProject";
 import { DM_OPERATORS_FILE_NAME, DM_OPERATORS_IMPORT_NAME, READONLY_MAPPING_FUNCTION_NAME, RUNTIME_VERSION_440 } from "../../constants";
 import { readTSFile, removeMapFunctionEntry, showMappingEndNotification } from "../../util/ai-datamapper-utils";
 import { compareVersions } from "../../util/onboardingUtils";
-import { mapDataMapper } from "../../ai-panel/copilot/data-mapper/mapper";
+import { mapDataMapper } from "../../ai-features/copilot/data-mapper/mapper";
 import { MILanguageClient } from "../../lang-client/activator";
 
 const undoRedoManager = new UndoRedoManager();

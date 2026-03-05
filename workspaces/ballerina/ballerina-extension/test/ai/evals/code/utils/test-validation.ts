@@ -15,7 +15,7 @@
 // under the License.
 
 import { TestEventResult, TestUseCase, TestCaseResult } from '../types';
-import { evaluateCodeWithLLM, LLMEvaluationResult } from './evaluator-utils';
+import { evaluateCodeWithLLM, evaluateCodeContextRetrieval } from './evaluator-utils';
 import { SourceFile } from '@wso2/ballerina-core';
 
 /**
@@ -41,7 +41,11 @@ export async function validateTestResult(result: TestEventResult, useCase: TestU
         passed = false;
         failureReason += `${failureReason ? '; ' : ''}Diagnostics received: ${result.diagnostics.length} diagnostic(s)`;
     }
-    const evaluation: LLMEvaluationResult = await evaluateCodeWithLLM(useCase.usecase, initialSources, finalSources);
+
+    const [evaluation, codeContextRetrievalEvaluation] = await Promise.all([
+        evaluateCodeWithLLM(useCase.usecase, initialSources, finalSources),
+        evaluateCodeContextRetrieval(useCase.usecase, initialSources, result.events)
+    ]);
 
     return {
         useCase,
@@ -50,6 +54,7 @@ export async function validateTestResult(result: TestEventResult, useCase: TestU
         failureReason: failureReason || undefined,
         validationDetails,
         evaluationResult: evaluation,
+        codeContextRetrievalEvaluation,
         generatedSources: finalSources
     };
 }

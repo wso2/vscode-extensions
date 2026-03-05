@@ -18,16 +18,32 @@
 
 import React, { useState, useEffect } from "react";
 import { Button, Codicon } from "@wso2/ui-toolkit";
+import { LoginMethod } from "@wso2/mi-core";
 import { Badge, Header, HeaderButtons, ResetsInBadge } from '../styles';
 import { useMICopilotContext } from "./MICopilotContext";
+import SessionSwitcher from "./SessionSwitcher";
 
 /**
  * Header component for the chat interface
- * Shows token information and action buttons
+ * Shows session switcher, token information, and action buttons
  */
 const AIChatHeader: React.FC = () => {
-  const { rpcClient, setChatClearEventTriggered, tokenInfo, chatClearEventTriggered, backendRequestTriggered} = useMICopilotContext();
+  const {
+    rpcClient,
+    tokenInfo,
+    backendRequestTriggered,
+    // Session management
+    currentSessionId,
+    currentSessionTitle,
+    sessions,
+    isSessionsLoading,
+    refreshSessions,
+    switchToSession,
+    createNewSession,
+    deleteSession
+  } = useMICopilotContext();
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [isAwsBedrock, setIsAwsBedrock] = useState(false);
 
   const handleLogout = async () => {
     await rpcClient?.getMiDiagramRpcClient().logoutFromMIAccount();
@@ -36,6 +52,9 @@ const AIChatHeader: React.FC = () => {
   const checkApiKey = async () => {
     const hasApiKey = await rpcClient?.getMiAiPanelRpcClient().hasAnthropicApiKey();
     setHasApiKey(hasApiKey);
+    // Check if specifically using AWS Bedrock
+    const machineView = await rpcClient?.getAIVisualizerState();
+    setIsAwsBedrock(machineView?.loginMethod === LoginMethod.AWS_BEDROCK);
   };
 
   // Check for API key on component mount
@@ -43,7 +62,7 @@ const AIChatHeader: React.FC = () => {
     checkApiKey();
   }, [rpcClient]);
 
-  const isLoading = chatClearEventTriggered || backendRequestTriggered;
+  const isLoading = backendRequestTriggered || isSessionsLoading;
 
   return (
       <Header>
@@ -52,9 +71,9 @@ const AIChatHeader: React.FC = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <Codicon name="key" />
-                          Copilot is using your API Key
+                          {isAwsBedrock ? "Copilot is using your AWS Bedrock Account" : "Copilot is using your API Key"}
                       </div>
-                      <ResetsInBadge>Logout to clear the API key</ResetsInBadge>
+                      <ResetsInBadge>{isAwsBedrock ? "Logout to clear the credentials" : "Logout to clear the API key"}</ResetsInBadge>
                   </div>
               ) : (
                   <>
@@ -75,15 +94,16 @@ const AIChatHeader: React.FC = () => {
               )}
           </Badge>
           <HeaderButtons>
-              <Button
-                  appearance="icon"
-                  onClick={() => setChatClearEventTriggered(true)}
-                  tooltip="Clear Chat"
-                  disabled={isLoading}
-              >
-                  <Codicon name="clear-all" />
-                  &nbsp;&nbsp;Clear
-              </Button>
+              <SessionSwitcher
+                  currentSessionId={currentSessionId}
+                  sessions={sessions}
+                  currentSessionTitle={currentSessionTitle}
+                  isLoading={isLoading}
+                  onSessionSwitch={switchToSession}
+                  onNewSession={createNewSession}
+                  onDeleteSession={deleteSession}
+                  onRefresh={refreshSessions}
+              />
               <Button appearance="icon" onClick={handleLogout} tooltip="Logout" disabled={isLoading}>
                   <Codicon name="sign-out" />
                   &nbsp;&nbsp;Logout

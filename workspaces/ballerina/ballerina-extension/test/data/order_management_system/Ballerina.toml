@@ -1,0 +1,8 @@
+[package]
+org = "test"
+name = "order_management_system"
+version = "0.1.0"
+distribution = "2201.13.1"
+
+[build-options]
+observabilityIncluded = true
