@@ -168,7 +168,8 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
 
             // Build a Hurl collection from the OpenAPI spec and open in API TryIt
             const host = 'localhost';
-            const svcBasePath = selectedService.basePath === '/' ? '' : (selectedService.basePath || '');
+            // Strip trailing slashes from basePath so appending "/resource" never gives "//resource"
+            const svcBasePath = (selectedService.basePath || '').replace(/\/+$/, '');
             const baseUrl = `http://${host}:${selectedPort}${svcBasePath}`;
 
             const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'];
@@ -176,7 +177,8 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
 
             if (resourceMetadata) {
                 const method = resourceMetadata.methodValue.toUpperCase();
-                const resourcePath = resourceMetadata.pathValue;
+                const rawPath = resourceMetadata.pathValue;
+                const resourcePath = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
                 requests.push({
                     name: `${method} ${resourcePath}`,
                     content: `${method} ${baseUrl}${resourcePath}`,

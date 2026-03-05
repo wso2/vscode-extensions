@@ -33,7 +33,7 @@ import { getColorByMethod } from "../ServiceDesigner/components/ResourceAccordio
 import { SwitchSkeleton, TitleBarSkeleton } from "../../../components/Skeletons";
 import { PanelContainer } from "@wso2/ballerina-side-panel";
 import { ResourceForm } from "../ServiceDesigner/Forms/ResourceForm";
-import { removeForwardSlashes, buildBaseUrl } from "../ServiceDesigner/utils";
+import { removeForwardSlashes } from "../ServiceDesigner/utils";
 
 const ActionButton = styled(Button)`
     display: flex;
@@ -255,22 +255,10 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
         });
         await new Promise((resolve) => setTimeout(resolve, 3000));
 
-        // Build single-request Hurl collection
-        const method = methodValue.toUpperCase();
-        const resourcePath = pathValue.startsWith('/') ? pathValue : `/${pathValue}`;
-        const baseUrl = buildBaseUrl(listener || 'localhost:8080', basePath || '');
-        const url = `${baseUrl}${resourcePath}`;
-
-        const hurlCollection = {
-            name: serviceName || "api-collection",
-            description: `API TryIt collection for ${serviceName || "service"}`,
-            requests: [{
-                name: `${method} ${pathValue}`,
-                content: `${method} ${url}`,
-            }],
-        };
-
-        const commands = ["api-tryit.openFromHurlCollection", hurlCollection, undefined, "bi-tryit-apis"];
+        // Delegate to ballerina.tryIt so it can detect the actual running port via the
+        // language server / process scan rather than parsing the listener string.
+        const resourceMetadata = serviceType === "http" ? { methodValue, pathValue } : undefined;
+        const commands = ["ballerina.tryIt", false, resourceMetadata, { basePath, listener }];
         rpcClient.getCommonRpcClient().executeCommand({ commands });
     };
 
