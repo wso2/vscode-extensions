@@ -33,7 +33,7 @@ import { getColorByMethod } from "../ServiceDesigner/components/ResourceAccordio
 import { SwitchSkeleton, TitleBarSkeleton } from "../../../components/Skeletons";
 import { PanelContainer } from "@wso2/ballerina-side-panel";
 import { ResourceForm } from "../ServiceDesigner/Forms/ResourceForm";
-import { removeForwardSlashes } from "../ServiceDesigner/utils";
+import { removeForwardSlashes, buildBaseUrl } from "../ServiceDesigner/utils";
 
 const ActionButton = styled(Button)`
     display: flex;
@@ -103,6 +103,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     const [loadingDiagram, setLoadingDiagram] = useState(true);
     const [fileName, setFileName] = useState("");
     const [serviceType, setServiceType] = useState("");
+    const [serviceName, setServiceName] = useState("");
     const [basePath, setBasePath] = useState("");
     const [listener, setListener] = useState("");
     const [parentMetadata, setParentMetadata] = useState<ParentMetadata>();
@@ -155,6 +156,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
                                     endColumn: serviceModel.service?.codedata.lineRange.endLine.offset,
                                 });
                                 setServiceType(serviceModel.service?.type);
+                                setServiceName(serviceModel.service?.name || "");
                                 setBasePath(serviceModel.service?.properties?.basePath?.value?.trim());
                                 setListener(serviceModel.service?.properties?.listener?.value?.trim());
                             });
@@ -246,9 +248,29 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     let isAgent = parentMetadata?.kind === "AI Chat Agent" && parentMetadata?.label === "chat";
     let isNPFunction = view === FOCUS_FLOW_DIAGRAM_VIEW.NP_FUNCTION;
 
-    const handleResourceTryIt = (methodValue: string, pathValue: string) => {
-        const resource = serviceType === "http" ? { methodValue, pathValue } : undefined;
-        const commands = ["ballerina.tryIt", false, resource, { basePath, listener }];
+    const handleResourceTryIt = async (methodValue: string, pathValue: string) => {
+        // Start the project first and wait for service startup
+        await rpcClient.getCommonRpcClient().executeCommand({
+            commands: ["ballerina.project.run"],
+        });
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        // Build single-request Hurl collection
+        const method = methodValue.toUpperCase();
+        const resourcePath = pathValue.startsWith('/') ? pathValue : `/${pathValue}`;
+        const baseUrl = buildBaseUrl(listener || 'localhost:8080', basePath || '');
+        const url = `${baseUrl}${resourcePath}`;
+
+        const hurlCollection = {
+            name: serviceName || "api-collection",
+            description: `API TryIt collection for ${serviceName || "service"}`,
+            requests: [{
+                name: `${method} ${pathValue}`,
+                content: `${method} ${url}`,
+            }],
+        };
+
+        const commands = ["api-tryit.openFromHurlCollection", hurlCollection, undefined, "bi-tryit-apis"];
         rpcClient.getCommonRpcClient().executeCommand({ commands });
     };
 

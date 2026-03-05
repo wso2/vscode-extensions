@@ -45,7 +45,7 @@ import { FunctionForm } from "./Forms/FunctionForm";
 import { ResourceForm } from "./Forms/ResourceForm";
 import { getCustomEntryNodeIcon } from "../ComponentListView/EventIntegrationPanel";
 import { McpToolForm } from "./Forms/McpToolForm";
-import { removeForwardSlashes, canDataBind, getReadableListenerName } from "./utils";
+import { removeForwardSlashes, canDataBind, getReadableListenerName, buildBaseUrl } from "./utils";
 import { DatabindForm } from "./Forms/DatabindForm";
 import { FTPForm } from "./Forms/FTPForm";
 import FTPConfigForm from "./Forms/FTPForm/FTPConfigForm";
@@ -195,25 +195,6 @@ function extractHttpMethod(icon: string | undefined): string {
     if (!icon) return 'GET';
     const method = icon.split('-')[0].toUpperCase();
     return ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'].includes(method) ? method : 'GET';
-}
-
-/**
- * Build base URL from listener and base path
- * Handles formats like "localhost:8080" or "0.0.0.0:8080"
- */
-function buildBaseUrl(listener: string, basePath: string = ''): string {
-    let host = 'localhost';
-    let port = '8080';
-
-    if (listener) {
-        const parts = listener.split(':');
-        if (parts.length === 2) {
-            host = parts[0] === '0.0.0.0' ? 'localhost' : parts[0];
-            port = parts[1];
-        }
-    }
-
-    return `http://${host}:${port}${basePath || ''}`;
 }
 
 export function ServiceDesigner(props: ServiceDesignerProps) {
@@ -770,8 +751,8 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
 
             console.log('Opening API TryIt with collection:', hurlCollection);
 
-            // Open ONLY API TryIt with the Hurl collection (no HTTP YAC)
-            const commands = ["api-tryit.openFromHurlCollection", hurlCollection];
+            // Open API TryIt with the Hurl collection, saved under bi-tryit-apis/
+            const commands = ["api-tryit.openFromHurlCollection", hurlCollection, undefined, "bi-tryit-apis"];
             rpcClient.getCommonRpcClient().executeCommand({ commands });
         } catch (error) {
             console.error('Error opening API TryIt:', error);

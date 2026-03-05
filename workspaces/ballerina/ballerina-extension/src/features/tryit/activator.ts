@@ -166,8 +166,41 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
             const selectedPort: number = await getServicePort(projectPath, selectedService, openapiSpec);
             selectedService.port = selectedPort;
 
-            const tryitFileUri = await generateTryItFileContent(targetDir, openapiSpec, selectedService, resourceMetadata);
-            await openInSplitView(tryitFileUri, 'http');
+            // Build a Hurl collection from the OpenAPI spec and open in API TryIt
+            const host = 'localhost';
+            const svcBasePath = selectedService.basePath === '/' ? '' : (selectedService.basePath || '');
+            const baseUrl = `http://${host}:${selectedPort}${svcBasePath}`;
+
+            const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'];
+            const requests: { name: string; content: string }[] = [];
+
+            if (resourceMetadata) {
+                const method = resourceMetadata.methodValue.toUpperCase();
+                const resourcePath = resourceMetadata.pathValue;
+                requests.push({
+                    name: `${method} ${resourcePath}`,
+                    content: `${method} ${baseUrl}${resourcePath}`,
+                });
+            } else {
+                for (const [apiPath, pathItem] of Object.entries(openapiSpec.paths || {})) {
+                    for (const method of HTTP_METHODS) {
+                        if (pathItem[method]) {
+                            requests.push({
+                                name: `${method.toUpperCase()} ${apiPath}`,
+                                content: `${method.toUpperCase()} ${baseUrl}${apiPath}`,
+                            });
+                        }
+                    }
+                }
+            }
+
+            const hurlCollection = {
+                name: selectedService.name || 'api-collection',
+                description: `API TryIt collection for ${selectedService.name || 'service'}`,
+                requests,
+            };
+
+            await vscode.commands.executeCommand('api-tryit.openFromHurlCollection', hurlCollection, undefined, 'bi-tryit-apis');
         } else if (selectedService.type === ServiceType.GRAPHQL) {
             const selectedPort: number = await getServicePort(projectPath, selectedService);
             const port = selectedPort;

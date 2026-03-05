@@ -90,6 +90,25 @@ export function getReadableListenerName(name: string) {
     return `${listenerType.charAt(0).toUpperCase() + listenerType.slice(1)} Listener`;
 }
 
+/**
+ * Build base URL from listener and base path.
+ * Handles formats like "localhost:8080" or "0.0.0.0:8080".
+ */
+export function buildBaseUrl(listener: string, basePath: string = ''): string {
+    let host = 'localhost';
+    let port = '8080';
+
+    if (listener) {
+        const parts = listener.split(':');
+        if (parts.length === 2) {
+            host = parts[0] === '0.0.0.0' ? 'localhost' : parts[0];
+            port = parts[1];
+        }
+    }
+
+    return `http://${host}:${port}${basePath || ''}`;
+}
+
 export function hasEditableParameters(parameters: FunctionModel['parameters']): boolean {
     if (!parameters || parameters.length === 0) {
         return false;

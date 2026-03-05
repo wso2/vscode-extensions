@@ -278,9 +278,38 @@ async function createHurlCollectionFolderStructure(
 		}
 	}
 
-	const collectionHeader = `# @collectionName ${collectionName.trim() || 'Hurl Collection'}`;
-	const combinedContent = [collectionHeader, ...blocks.filter(Boolean)].join('\n\n').trimEnd() + '\n';
-	await fs.writeFile(collectionFilePath, combinedContent, 'utf-8');
+	// Read existing file if present so we can merge instead of overwrite
+	let existingContent = '';
+	try {
+		existingContent = await fs.readFile(collectionFilePath, 'utf-8');
+	} catch {
+		// File doesn't exist yet — will be created fresh
+	}
+
+	if (existingContent.trim()) {
+		// Collect @name values already in the file
+		const existingNames = new Set<string>();
+		const nameRegex = /^#\s*@name\s+(.+)$/gm;
+		let m: RegExpExecArray | null;
+		while ((m = nameRegex.exec(existingContent)) !== null) {
+			existingNames.add(m[1].trim());
+		}
+
+		// Only append blocks whose @name is not already present
+		const newBlocks = blocks.filter(block => {
+			const nameMatch = /^#\s*@name\s+(.+)$/m.exec(block);
+			const blockName = nameMatch ? nameMatch[1].trim() : null;
+			return !blockName || !existingNames.has(blockName);
+		});
+
+		if (newBlocks.length > 0) {
+			await fs.appendFile(collectionFilePath, '\n\n' + newBlocks.join('\n\n') + '\n', 'utf-8');
+		}
+	} else {
+		const collectionHeader = `# @collectionName ${collectionName.trim() || 'Hurl Collection'}`;
+		const combinedContent = [collectionHeader, ...blocks.filter(Boolean)].join('\n\n').trimEnd() + '\n';
+		await fs.writeFile(collectionFilePath, combinedContent, 'utf-8');
+	}
 
 	return { collectionPath, firstRequestPath: collectionFilePath };
 }
@@ -693,7 +722,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 
 	// Register command to import Hurl collection payload (JSON with multiple .hurl entries)
-	const openFromHurlCollectionCommand = vscode.commands.registerCommand('api-tryit.openFromHurlCollection', async (payload?: string | Record<string, unknown>, folderNameArg?: string) => {
+	const openFromHurlCollectionCommand = vscode.commands.registerCommand('api-tryit.openFromHurlCollection', async (payload?: string | Record<string, unknown>, folderNameArg?: string, baseDirArg?: string) => {
 		try {
 			// Try to obtain workspace root if available, but we will prompt for a directory when none is open
 			const workspaceRoot = await getWorkspaceRoot();
@@ -749,8 +778,10 @@ export async function activate(context: vscode.ExtensionContext) {
 			// Remember the folder the user explicitly selected (used when no workspace is open)
 			let selectedParentDir: string | undefined;
 			if (workspaceRoot) {
-				// Create under workspace root; providedFolderName is used as the actual collection folder name.
-				parentPath = workspaceRoot;
+				// When baseDirArg is provided (e.g. "bi-tryit-apis"), nest the collection under that subdirectory.
+				parentPath = baseDirArg && typeof baseDirArg === 'string' && baseDirArg.trim()
+					? path.join(workspaceRoot, baseDirArg.trim())
+					: workspaceRoot;
 			} else {
 				// No workspace open — ask user to select a directory to create the collection in
 				const folderUris = await vscode.window.showOpenDialog({
@@ -844,8 +875,14 @@ export async function activate(context: vscode.ExtensionContext) {
 				TryItPanel.show(context);
 
 				if (firstRequestPath) {
-					await vscode.commands.executeCommand('api-tryit.selectItemByPath', firstRequestPath);
-					const match = apiExplorerProvider.findRequestByFilePath(firstRequestPath);
+					// Prefer the specific request from the payload (by @name) so we open exactly
+					// what was clicked, even if the file already contained other requests.
+					const firstReqRaw = Array.isArray(normalized.requests) && normalized.requests.length > 0
+						? (normalized.requests[0] as unknown as Record<string, unknown>)
+						: undefined;
+					const firstReqName = typeof firstReqRaw?.name === 'string' ? firstReqRaw.name : undefined;
+					await vscode.commands.executeCommand('api-tryit.selectItemByPath', firstRequestPath, undefined, firstReqName);
+					const match = apiExplorerProvider.findRequestByFilePath(firstRequestPath, undefined, firstReqName);
 					if (match) {
 						await vscode.commands.executeCommand('api-tryit.openRequest', match.requestItem);
 					}
