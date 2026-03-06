@@ -269,6 +269,24 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 			for (const diskCollection of diskCollections) {
 				if (this.inMemoryCollectionIds.has(diskCollection.id)) {
 					this.inMemoryCollectionIds.delete(diskCollection.id);
+					// Merge in-memory items that haven't been saved yet (no filePath) into
+					// the disk collection so they remain visible until explicitly saved.
+					// Skip items whose method+URL already appear on disk to avoid duplicates.
+					const inMemColl = inMemoryCollections.find(col => col.id === diskCollection.id);
+					if (inMemColl) {
+						const diskItems = diskCollection.rootItems || [];
+						const unsavedItems = (inMemColl.rootItems || []).filter(item =>
+							!item.filePath &&
+							!diskItems.some(d =>
+								d.request?.method === item.request?.method &&
+								d.request?.url === item.request?.url
+							)
+						);
+						if (unsavedItems.length > 0) {
+							diskCollection.rootItems = [...diskItems, ...unsavedItems];
+							this.inMemoryCollectionIds.add(diskCollection.id);
+						}
+					}
 				}
 			}
 

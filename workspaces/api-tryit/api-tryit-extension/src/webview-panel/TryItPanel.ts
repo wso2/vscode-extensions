@@ -27,7 +27,7 @@ import { Messenger } from 'vscode-messenger';
 import { registerApiTryItRpcHandlers, ApiTryItRpcManager } from '../rpc-managers';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
 import { parseHurlDocument, parseHurlCollection } from '@wso2/api-tryit-hurl-parser';
-import { getPendingBiSavePath, getPendingBiCollectionName, getPendingBiCollectionContent, clearPendingBiSavePath } from '../bi-save-context';
+import { getPendingBiSavePath, getPendingBiCollectionName, clearPendingBiSavePath, setActiveCollectionFilePath, getActiveCollectionFilePath } from '../bi-save-context';
 
 export class TryItPanel {
 	public static currentPanel: TryItPanel | undefined;
@@ -304,6 +304,24 @@ export class TryItPanel {
 								}
 							}
 
+							// For in-memory requests (no backing file), check if a previous save in this
+							// Try It session already created the collection file. If so, append to it so
+							// all requests from the same service land in the same .hurl file.
+							let appendToActiveCollection = false;
+							const requestFilePath = request && (request.filePath as string | undefined);
+							if (!targetFilePath && !requestFilePath && !stateContext.selectedFilePath) {
+								const activeCollFile = getActiveCollectionFilePath();
+								if (activeCollFile) {
+									try {
+										await vscode.workspace.fs.stat(vscode.Uri.file(activeCollFile));
+										targetFilePath = activeCollFile;
+										appendToActiveCollection = true;
+									} catch {
+										// File no longer exists — fall through to normal save logic
+									}
+								}
+							}
+
 							if (!targetFilePath && stateContext.currentCollectionPath) {
 								// Verify the collection target still exists before using it.
 								// It can be either a collection .hurl file (new flow) or a directory (legacy flow).
@@ -343,18 +361,18 @@ export class TryItPanel {
 									// Auto-save to api-tryit/ folder without prompting the user
 									const apiTryItDir = path.dirname(pendingBiPath);
 									await fs.mkdir(apiTryItDir, { recursive: true });
-									// Write the full in-memory collection to disk so that all
-									// requests are preserved when saveRequest updates just one block.
-									const pendingCollContent = getPendingBiCollectionContent();
+									// Write only the collection name header — saveRequest will append the
+									// saved request block. Other in-memory requests are NOT written to disk
+									// yet; they remain in-memory until the user explicitly saves them.
 									const pendingCollName = getPendingBiCollectionName();
-									if (pendingCollContent) {
-										await fs.writeFile(pendingBiPath, pendingCollContent);
-									} else if (pendingCollName) {
-										await fs.writeFile(pendingBiPath, `# @collectionName ${pendingCollName}\n`);
-									}
+									await fs.writeFile(pendingBiPath, pendingCollName ? `# @collectionName ${pendingCollName}\n` : '');
 									clearPendingBiSavePath();
 									userSelectedFile = true;
 									targetFilePath = pendingBiPath;
+									// Remember the target file so other in-memory requests from the same
+									// collection are appended here, even after selectItemByPath resets
+									// the state machine's currentCollectionPath to the directory.
+									setActiveCollectionFilePath(pendingBiPath);
 								} else {
 									let defaultUri: vscode.Uri | undefined;
 									if (pendingBiPath) {
@@ -411,7 +429,7 @@ export class TryItPanel {
 							}
 
 							const selectedHasBackingFile = Boolean(stateContext.selectedFilePath || existingFilePath);
-							const appendIfNotFound = Boolean(
+							const appendIfNotFound = appendToActiveCollection || Boolean(
 								!selectedHasBackingFile &&
 								stateContext.currentCollectionPath &&
 								targetFilePath &&
@@ -437,7 +455,11 @@ export class TryItPanel {
 									request,
 									response,
 									appendIfNotFound,
-									selectedRequestTreeId: selectedTreeItemId
+									// When appending an in-memory request to the active collection file,
+									// do NOT pass the tree item ID — the in-memory ID has no positional
+									// mapping in the disk file and would cause parseRequestIndexFromTreeId
+									// to overwrite an existing block instead of appending.
+									selectedRequestTreeId: appendToActiveCollection ? undefined : selectedTreeItemId
 								});
 
 							// Send response back to webview

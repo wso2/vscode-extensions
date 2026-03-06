@@ -31,10 +31,27 @@ let _pendingBiSavePath: string | undefined;
 let _pendingBiCollectionName: string | undefined;
 let _pendingBiCollectionContent: string | undefined;
 
+/**
+ * The .hurl file path that subsequent unsaved in-memory requests in the same
+ * collection should be appended to. Set once the first request in a Try It
+ * session is saved, and cleared when a new Try It session starts.
+ */
+let _activeCollectionFilePath: string | undefined;
+
 export function setPendingBiSavePath(p: string, collectionName?: string, collectionContent?: string): void {
     _pendingBiSavePath = p;
     _pendingBiCollectionName = collectionName;
     _pendingBiCollectionContent = collectionContent;
+    // Reset the active collection file whenever a new Try It session starts.
+    _activeCollectionFilePath = undefined;
+}
+
+export function setActiveCollectionFilePath(p: string): void {
+    _activeCollectionFilePath = p;
+}
+
+export function getActiveCollectionFilePath(): string | undefined {
+    return _activeCollectionFilePath;
 }
 
 export function getPendingBiSavePath(): string | undefined {

@@ -842,12 +842,16 @@ export async function activate(context: vscode.ExtensionContext) {
 				const collName = parsedCollection?.name || serviceName;
 				const collFileName = `${sanitizePathSegment(collName, `collection-${Date.now()}`)}.hurl`;
 				const pendingPath = path.join(workspaceRoot, 'api-tryit', collFileName);
-				// Store collection name and full Hurl content so TryItPanel can write
-				// ALL requests to disk on first save, preventing other in-memory
-				// requests from disappearing when one is saved.
-				setPendingBiSavePath(pendingPath, collName, combinedHurl);
 
-				const firstRequestItem = parsedCollection?.rootItems?.[0];
+				// If the collection file already exists on disk, open it directly instead
+				// of registering a duplicate in-memory collection.
+				let diskFileExists = false;
+				try {
+					await fs.access(pendingPath);
+					diskFileExists = true;
+				} catch {
+					// file does not exist yet
+				}
 
 				try {
 					await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
@@ -855,8 +859,23 @@ export async function activate(context: vscode.ExtensionContext) {
 				} catch {
 					// ignore if views not available
 				}
-
 				TryItPanel.show(context);
+
+				if (diskFileExists) {
+					// Reload so the Explorer reflects the current disk state, then select
+					// the first request from the existing file.
+					await apiExplorerProvider.reloadCollections();
+					setTimeout(() => {
+						vscode.commands.executeCommand('api-tryit.selectItemByPath', pendingPath);
+						ActivityPanel.forceCollectionsRefresh();
+					}, 200);
+					return;
+				}
+
+				// File does not exist yet — register as in-memory and queue for save.
+				setPendingBiSavePath(pendingPath, collName, combinedHurl);
+
+				const firstRequestItem = parsedCollection?.rootItems?.[0];
 
 				if (firstRequestItem) {
 					await ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, firstRequestItem as ApiRequestItem, undefined);
@@ -868,7 +887,6 @@ export async function activate(context: vscode.ExtensionContext) {
 				// triggered by the project runner's file-system writes.
 				if (parsedCollection) {
 					apiExplorerProvider.addInMemoryCollection(parsedCollection);
-					// Force an immediate push to the activity panel webview (bypass debounce / hash cache)
 					setTimeout(() => ActivityPanel.forceCollectionsRefresh(), 200);
 				}
 
