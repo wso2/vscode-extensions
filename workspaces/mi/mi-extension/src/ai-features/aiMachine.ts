@@ -27,6 +27,7 @@ import {
     initiateInbuiltAuth,
     logout,
     validateApiKey,
+    validateAwsCredentials,
     isPlatformExtensionAvailable,
     isDevantUserLoggedIn,
     getPlatformStsToken,
@@ -150,6 +151,12 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                     actions: assign({
                         loginMethod: (_ctx) => LoginMethod.ANTHROPIC_KEY
                     })
+                },
+                [AI_EVENT_TYPE.AUTH_WITH_AWS_BEDROCK]: {
+                    target: 'Authenticating',
+                    actions: assign({
+                        loginMethod: (_ctx) => LoginMethod.AWS_BEDROCK
+                    })
                 }
             }
         },
@@ -165,6 +172,10 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                         {
                             cond: (context) => context.loginMethod === LoginMethod.ANTHROPIC_KEY,
                             target: 'apiKeyFlow'
+                        },
+                        {
+                            cond: (context) => context.loginMethod === LoginMethod.AWS_BEDROCK,
+                            target: 'awsBedrockFlow'
                         },
                         {
                             target: 'ssoFlow' // default
@@ -253,6 +264,48 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                             })
                         }
                     }
+                },
+                awsBedrockFlow: {
+                    on: {
+                        [AI_EVENT_TYPE.SUBMIT_AWS_CREDENTIALS]: {
+                            target: 'validatingAwsCredentials',
+                            actions: assign({
+                                errorMessage: (_ctx) => undefined
+                            })
+                        },
+                        [AI_EVENT_TYPE.CANCEL_LOGIN]: {
+                            target: '#mi-ai.Unauthenticated',
+                            actions: assign({
+                                loginMethod: (_ctx) => undefined,
+                                errorMessage: (_ctx) => undefined,
+                            })
+                        },
+                        [AI_EVENT_TYPE.CANCEL]: {
+                            target: '#mi-ai.Unauthenticated',
+                            actions: assign({
+                                loginMethod: (_ctx) => undefined,
+                                errorMessage: (_ctx) => undefined,
+                            })
+                        }
+                    }
+                },
+                validatingAwsCredentials: {
+                    invoke: {
+                        id: 'validateAwsCredentials',
+                        src: 'validateAwsCredentials',
+                        onDone: {
+                            target: '#mi-ai.Authenticated',
+                            actions: assign({
+                                errorMessage: (_ctx) => undefined,
+                            })
+                        },
+                        onError: {
+                            target: 'awsBedrockFlow',
+                            actions: assign({
+                                errorMessage: (_ctx, event) => event.data?.message || 'AWS credentials validation failed'
+                            })
+                        }
+                    }
                 }
             }
         },
@@ -321,6 +374,13 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                     target: 'Authenticating',
                     actions: assign({
                         loginMethod: (_ctx) => LoginMethod.ANTHROPIC_KEY,
+                        errorMessage: (_ctx) => undefined,
+                    })
+                },
+                [AI_EVENT_TYPE.AUTH_WITH_AWS_BEDROCK]: {
+                    target: 'Authenticating',
+                    actions: assign({
+                        loginMethod: (_ctx) => LoginMethod.AWS_BEDROCK,
                         errorMessage: (_ctx) => undefined,
                     })
                 },
@@ -409,6 +469,11 @@ const checkWorkspaceAndToken = async (): Promise<{ workspaceSupported: boolean; 
         if (apiKey) {
             tokenData = { token: apiKey, loginMethod: LoginMethod.ANTHROPIC_KEY };
         }
+    } else if (credentials?.loginMethod === LoginMethod.AWS_BEDROCK) {
+        const secrets = credentials.secrets as { accessKeyId?: string; secretAccessKey?: string; region?: string };
+        if (secrets.accessKeyId && secrets.secretAccessKey && secrets.region) {
+            tokenData = { token: secrets.accessKeyId, loginMethod: LoginMethod.AWS_BEDROCK };
+        }
     }
 
     return { workspaceSupported: true, tokenData };
@@ -450,6 +515,14 @@ const validateApiKeyService = async (_context: AIMachineContext, event: any) => 
     return await validateApiKey(apiKey, LoginMethod.ANTHROPIC_KEY);
 };
 
+const validateAwsCredentialsService = async (_context: AIMachineContext, event: any) => {
+    const { accessKeyId, secretAccessKey, region, sessionToken } = event.payload || {};
+    if (!accessKeyId || !secretAccessKey || !region) {
+        throw new Error('AWS access key ID, secret access key, and region are required');
+    }
+    return await validateAwsCredentials({ accessKeyId, secretAccessKey, region, sessionToken });
+};
+
 const getTokenAndLoginMethod = async () => {
     const credentials = await getAuthCredentials();
     if (!credentials) {
@@ -472,6 +545,14 @@ const getTokenAndLoginMethod = async () => {
         return { token: apiKey, loginMethod: LoginMethod.ANTHROPIC_KEY };
     }
 
+    if (credentials.loginMethod === LoginMethod.AWS_BEDROCK) {
+        const secrets = credentials.secrets as { accessKeyId?: string; secretAccessKey?: string; region?: string };
+        if (!secrets.accessKeyId || !secrets.secretAccessKey || !secrets.region) {
+            throw new Error('Incomplete AWS Bedrock credentials. Please log in again.');
+        }
+        return { token: secrets.accessKeyId, loginMethod: LoginMethod.AWS_BEDROCK };
+    }
+
     throw new Error('No authentication credentials found');
 };
 
@@ -480,6 +561,7 @@ const aiStateService = interpret(aiMachine.withConfig({
         checkWorkspaceAndToken: checkWorkspaceAndToken,
         openLogin: openLogin,
         validateApiKey: validateApiKeyService,
+        validateAwsCredentials: validateAwsCredentialsService,
         getTokenAndLoginMethod: getTokenAndLoginMethod,
     },
     actions: {

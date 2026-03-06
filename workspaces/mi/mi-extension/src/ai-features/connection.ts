@@ -15,8 +15,9 @@
 // under the License.
 
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import * as vscode from "vscode";
-import { getAccessToken, getCopilotLlmApiBaseUrl, getLoginMethod, getRefreshedAccessToken } from "./auth";
+import { getAccessToken, getCopilotLlmApiBaseUrl, getLoginMethod, getRefreshedAccessToken, getAwsBedrockCredentials } from "./auth";
 import { StateMachineAI, openAIWebview } from "./aiMachine";
 import { AI_EVENT_TYPE, LoginMethod } from "@wso2/mi-core";
 import { logInfo, logDebug, logError } from "./copilot/logger";
@@ -30,7 +31,34 @@ export type AnthropicModel =
     | typeof ANTHROPIC_HAIKU_4_5
     | typeof ANTHROPIC_SONNET_4_6;
 
+// Bedrock model ID mappings
+const BEDROCK_MODEL_MAP: Record<string, string> = {
+    [ANTHROPIC_HAIKU_4_5]: "anthropic.claude-3-5-haiku-20241022-v1:0",
+    [ANTHROPIC_SONNET_4_6]: "anthropic.claude-sonnet-4-20250514-v1:0",
+};
+
+/**
+ * Get the regional prefix for Bedrock model IDs based on AWS region.
+ * Cross-region inference requires a regional prefix (e.g., us., eu.).
+ */
+export const getBedrockRegionalPrefix = (region: string): string => {
+    const prefix = region.split('-')[0];
+    switch (prefix) {
+        case 'us':
+        case 'eu':
+        case 'ap':
+        case 'ca':
+        case 'sa':
+        case 'me':
+        case 'af':
+            return prefix;
+        default:
+            return 'us';
+    }
+};
+
 let cachedAnthropic: ReturnType<typeof createAnthropic> | null = null;
+let cachedBedrock: ReturnType<typeof createAmazonBedrock> | null = null;
 let cachedAuthMethod: LoginMethod | null = null;
 let reLoginPromptInFlight = false;
 
@@ -87,6 +115,7 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
         if (accessToken && loginMethod === LoginMethod.MI_INTEL) {
             headers['Authorization'] = `Bearer ${accessToken}`;
         }
+        // AWS_BEDROCK auth is handled by the AWS SDK directly, no auth headers needed here
 
         // Ensure headers object exists
         // Note: anthropic-beta header for prompt caching is added by the AI SDK
@@ -187,6 +216,9 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
             } else if (loginMethod === LoginMethod.ANTHROPIC_KEY) {
                 StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
                 throw new Error('Authentication failed: Anthropic API key is invalid or expired');
+            } else if (loginMethod === LoginMethod.AWS_BEDROCK) {
+                StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
+                throw new Error('Authentication failed: AWS Bedrock credentials are invalid or expired');
             }
         }
 
@@ -226,6 +258,13 @@ export const getAnthropicProvider = async (): Promise<ReturnType<typeof createAn
                 baseURL: "https://api.anthropic.com/v1",
                 apiKey: apiKey,
             });
+        } else if (loginMethod === LoginMethod.AWS_BEDROCK) {
+            // For Bedrock, Anthropic provider is not used directly.
+            // Return a dummy provider; actual model creation happens in getAnthropicClient.
+            cachedAnthropic = createAnthropic({
+                baseURL: "https://api.anthropic.com/v1",
+                apiKey: "xx", // dummy; not used for Bedrock
+            });
         } else {
             throw new Error(`Unsupported login method: ${loginMethod}`);
         }
@@ -238,15 +277,56 @@ export const getAnthropicProvider = async (): Promise<ReturnType<typeof createAn
     return cachedAnthropic!;
 };
 
+/**
+ * Get or create a cached Bedrock provider instance.
+ */
+const getBedrockProvider = async (): Promise<{
+    provider: ReturnType<typeof createAmazonBedrock>;
+    credentials: Awaited<ReturnType<typeof getAwsBedrockCredentials>> & {};
+}> => {
+    const credentials = await getAwsBedrockCredentials();
+    if (!credentials) {
+        throw new Error("Authentication failed: Unable to get AWS Bedrock credentials");
+    }
+
+    // Always recreate to ensure fresh credentials
+    cachedBedrock = createAmazonBedrock({
+        region: credentials.region,
+        accessKeyId: credentials.accessKeyId,
+        secretAccessKey: credentials.secretAccessKey,
+        sessionToken: credentials.sessionToken,
+    });
+
+    return { provider: cachedBedrock, credentials };
+};
+
 export const getAnthropicClient = async (model: AnthropicModel): Promise<any> => {
+    const loginMethod = await getLoginMethod();
+
+    if (loginMethod === LoginMethod.AWS_BEDROCK) {
+        const { provider: bedrockProvider, credentials } = await getBedrockProvider();
+        const regionalPrefix = getBedrockRegionalPrefix(credentials.region);
+        const bedrockModelId = BEDROCK_MODEL_MAP[model];
+        if (!bedrockModelId) {
+            throw new Error(`No Bedrock model mapping found for: ${model}`);
+        }
+        const fullModelId = `${regionalPrefix}.${bedrockModelId}`;
+        logDebug(`Using Bedrock model: ${fullModelId}`);
+        return bedrockProvider(fullModelId);
+    }
+
     const provider = await getAnthropicProvider();
     return provider(model);
 };
 
 /**
  * Returns cache control options for prompt caching
- * @returns Cache control options for Anthropic
+ * @returns Cache control options for Anthropic or Bedrock
  */
-export const getProviderCacheControl = () => {
+export const getProviderCacheControl = async (): Promise<Record<string, { cacheControl: { type: string } }>> => {
+    const loginMethod = await getLoginMethod();
+    if (loginMethod === LoginMethod.AWS_BEDROCK) {
+        return { bedrock: { cacheControl: { type: "ephemeral" } } };
+    }
     return { anthropic: { cacheControl: { type: "ephemeral" } } };
 };

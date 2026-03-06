@@ -478,11 +478,11 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
     }
 
     /**
-     * Check if user is using their own Anthropic API key
+     * Check if user is using their own Anthropic API key or AWS Bedrock credentials
      */
     async hasAnthropicApiKey(): Promise<boolean | undefined> {
         const loginMethod = await getLoginMethod();
-        return loginMethod === LoginMethod.ANTHROPIC_KEY;
+        return loginMethod === LoginMethod.ANTHROPIC_KEY || loginMethod === LoginMethod.AWS_BEDROCK;
     }
 
     /**

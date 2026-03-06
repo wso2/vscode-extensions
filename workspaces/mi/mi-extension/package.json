@@ -291,11 +291,6 @@
         "category": "MI"
       },
       {
-        "command": "MI.importCAPP",
-        "title": "Import project from car file(CAPP)",
-        "category": "MI"
-      },
-      {
         "command": "MI.openWelcome",
         "title": "Open MI Welcome",
         "category": "MI"
@@ -361,13 +356,6 @@
         "title": "Open Project Overview",
         "icon": "$(list-unordered)",
         "when": "false"
-      },
-      {
-        "command": "MI.project-explorer.import-project",
-        "title": "Import Project",
-        "icon": "$(add)",
-        "group": "navigation",
-        "category": "MI"
       },
       {
         "command": "MI.project-explorer.open-service-designer",
@@ -616,10 +604,6 @@
     ],
     "menus": {
       "commandPalette": [
-        {
-          "command": "MI.importCAPP",
-          "when": "!projectOpened"
-        },
         {
           "command": "MI.project-explorer.add-api",
           "when": "false"
@@ -1069,6 +1053,7 @@
     "yaml": "2.8.0"
   },
   "dependencies": {
+    "@ai-sdk/amazon-bedrock": "4.0.4",
     "@ai-sdk/anthropic": "3.0.46",
     "@anthropic-ai/tokenizer": "0.0.4",
     "@apidevtools/json-schema-ref-parser": "12.0.2",
