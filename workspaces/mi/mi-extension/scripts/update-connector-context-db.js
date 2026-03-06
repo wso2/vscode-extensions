@@ -1,4 +1,21 @@
 #!/usr/bin/env node
+/**
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 /* eslint-disable no-console */
 
@@ -6,11 +23,23 @@ const fs = require('fs/promises');
 const path = require('path');
 const ts = require('typescript');
 
-const API_BASE = process.env.CONNECTOR_STORE_BASE_URL
-    || 'https://apis.wso2.com/qgpf/connector-store-backend/endpoint-9090-803/v1.0';
-const DETAILS_URL = `${API_BASE}/connectors/details/filter`;
+function stripQueryString(url) {
+    const idx = url.indexOf('?');
+    return idx >= 0 ? url.slice(0, idx) : url;
+}
+
+function requireEnv(name) {
+    const value = process.env[name];
+    if (!value) {
+        throw new Error(`Required environment variable ${name} is not set. See .env.example for reference.`);
+    }
+    return value;
+}
+
+const SUMMARIES_BASE_URL = stripQueryString(requireEnv('MI_CONNECTOR_STORE_BACKEND_SUMMARIES'));
+const DETAILS_URL = stripQueryString(requireEnv('MI_CONNECTOR_STORE_BACKEND_DETAILS_FILTER'));
 const PRODUCT = 'MI';
-const RUNTIME_VERSION = process.env.MI_RUNTIME_VERSION || '4.5.0';
+const RUNTIME_VERSION = process.env.MI_RUNTIME_VERSION || '4.6.0';
 const MAX_NAMES_PER_REQUEST = 3;
 const REQUEST_TIMEOUT_MS = 120000;
 const RETRY_COUNT = 3;
@@ -133,7 +162,7 @@ async function requestJson(url, init, label) {
 }
 
 function getSummaryUrl(type, offset = 0, limit = SUMMARY_PAGE_SIZE) {
-    return `${API_BASE}/connectors/summaries?type=${encodeURIComponent(type)}&limit=${limit}&offset=${offset}&product=${encodeURIComponent(PRODUCT)}`;
+    return `${SUMMARIES_BASE_URL}?type=${encodeURIComponent(type)}&limit=${limit}&offset=${offset}&product=${encodeURIComponent(PRODUCT)}`;
 }
 
 async function fetchSummaries(type) {

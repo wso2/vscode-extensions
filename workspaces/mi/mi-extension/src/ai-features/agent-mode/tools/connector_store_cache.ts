@@ -25,12 +25,8 @@ import { logDebug, logError, logInfo, logWarn } from '../../copilot/logger';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const STORE_FETCH_TIMEOUT_MS = 5000;
-const DEFAULT_RUNTIME_VERSION = '4.5.0';
+const DEFAULT_RUNTIME_VERSION = process.env.MI_RUNTIME_VERSION || '4.6.0';
 const SAFE_RUNTIME_VERSION_SEGMENT_PATTERN = /^[A-Za-z0-9._-]+$/;
-const DEFAULT_SUMMARY_ENDPOINT_TEMPLATE =
-    'https://apis.wso2.com/qgpf/connector-store-backend/endpoint-9090-803/v1.0/connectors/summaries?type=${type}&limit=100&offset=0&product=MI';
-const DEFAULT_DETAILS_ENDPOINT =
-    'https://apis.wso2.com/qgpf/connector-store-backend/endpoint-9090-803/v1.0/connectors/details/filter';
 
 export type ConnectorStoreItemType = 'connector' | 'inbound';
 export type ConnectorStoreSource = 'fresh-cache' | 'stale-cache' | 'store' | 'local-db';
@@ -362,7 +358,7 @@ async function writeDefinitionCaches(
 }
 
 function getSummaryUrl(itemType: ConnectorStoreItemType): string {
-    const template = process.env.MI_CONNECTOR_STORE_BACKEND_SUMMARIES || DEFAULT_SUMMARY_ENDPOINT_TEMPLATE;
+    const template = process.env.MI_CONNECTOR_STORE_BACKEND_SUMMARIES ?? '';
     const typeValue = itemType === 'connector' ? 'Connector' : 'Inbound';
     return template.replace('${type}', typeValue);
 }
@@ -370,7 +366,7 @@ function getSummaryUrl(itemType: ConnectorStoreItemType): string {
 function getDetailsUrl(): string {
     return process.env.MI_CONNECTOR_STORE_BACKEND_DETAILS_FILTER
         || process.env.MI_CONNECTOR_STORE_BACKEND_DETAILS
-        || DEFAULT_DETAILS_ENDPOINT;
+        || '';
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
