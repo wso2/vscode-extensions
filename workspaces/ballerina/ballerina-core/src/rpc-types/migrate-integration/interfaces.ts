@@ -65,12 +65,26 @@ export interface SaveMigrationReportRequest {
     };
 }
 
+export type MigrationEnhancementMode = 'auto-fix' | 'guided-review' | 'none';
+
+/**
+ * Describes the current state of a migration AI enhancement session.
+ * Returned by `getActiveMigrationSession` so the UI can show a live banner.
+ */
+export interface ActiveMigrationSession {
+    /** `true` while the enhancement pipeline is running. */
+    isActive: boolean;
+    /** The mode that is currently running (or was last run). */
+    mode: MigrationEnhancementMode;
+}
+
 export interface MigrateRequest {
     project: ProjectRequest;
     textEdits: {
         [key: string]: string;
     };
     projects?: ProjectMigrationResult[];
+    enhancementMode?: MigrationEnhancementMode;
 }
 
 export interface OpenSubProjectReportRequest {

@@ -37,6 +37,12 @@ import {
     ApprovalOverlayState,
 } from "@wso2/ballerina-core";
 
+/** Local mirror of ActiveMigrationSession – avoids cross-package build-order issues. */
+interface ActiveMigrationSession {
+    isActive: boolean;
+    mode: 'auto-fix' | 'guided-review' | 'none';
+}
+
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { Button, Codicon } from "@wso2/ui-toolkit";
 
@@ -84,6 +90,7 @@ import FeedbackBar from "./../FeedbackBar";
 import { useFeedback } from "./utils/useFeedback";
 import { SegmentType, splitContent } from "./segment";
 import ReviewActions from "../ReviewActions";
+import MigrationEnhancementBanner from "../MigrationEnhancementBanner";
 
 const NO_DRIFT_FOUND = "No drift identified between the code and the documentation.";
 const DRIFT_CHECK_ERROR = "Failed to check drift between the code and the documentation. Please try again.";
@@ -181,6 +188,10 @@ const AIChat: React.FC = () => {
     const [approvalRequest, setApprovalRequest] = useState<TaskApprovalRequest | null>(null);
     const [approvalOverlay, setApprovalOverlay] = useState<ApprovalOverlayState>({ show: false });
 
+    // Migration enhancement banner
+    const [activeMigrationSession, setActiveMigrationSession] = useState<ActiveMigrationSession | null>(null);
+    const [bannerDismissed, setBannerDismissed] = useState(false);
+
     const [currentFileArray, setCurrentFileArray] = useState<SourceFile[]>([]);
     const [codeContext, setCodeContext] = useState<CodeContext | undefined>(undefined);
 
@@ -266,6 +277,35 @@ const AIChat: React.FC = () => {
      */
     useEffect(function updateOnboardingState() {
         incrementOnboardingOpens();
+    }, []);
+
+    /**
+     * Effect: Fetch active migration session state once on mount.
+     * If an enhancement pipeline was started in this window, the banner
+     * will be shown in the AI chat above the messages area.
+     */
+    useEffect(function fetchMigrationSession() {
+        // Wrapped in try/catch: getActiveMigrationSession may not exist on the
+        // unbuilt RPC client, causing a synchronous TypeError before the Promise
+        // chain starts (which .catch() alone cannot intercept).
+        try {
+            const client = rpcClient.getMigrateIntegrationRpcClient() as any;
+            if (typeof client?.getActiveMigrationSession !== "function") {
+                return;
+            }
+            client
+                .getActiveMigrationSession()
+                .then((session: ActiveMigrationSession) => {
+                    if (session?.isActive) {
+                        setActiveMigrationSession(session);
+                    }
+                })
+                .catch((err: unknown) => {
+                    console.debug("[AIChat] Migration session fetch skipped:", err);
+                });
+        } catch {
+            // Non-critical – silently ignore if the RPC method is unavailable
+        }
     }, []);
     /* REFACTORED CODE END [2] */
 
@@ -1344,6 +1384,13 @@ const AIChat: React.FC = () => {
                             </Button>
                         </HeaderButtons>
                     </Header>
+                    {activeMigrationSession?.isActive && !bannerDismissed && (
+                        <MigrationEnhancementBanner
+                            mode={activeMigrationSession.mode}
+                            messages={otherMessages}
+                            onDismiss={() => setBannerDismissed(true)}
+                        />
+                    )}
                     <main style={{ flex: 1, overflowY: "auto" }}>
                         {Array.isArray(otherMessages) && otherMessages.length === 0 && (
                             <WelcomeMessage isOnboarding={getOnboardingOpens() <= 3.0} />

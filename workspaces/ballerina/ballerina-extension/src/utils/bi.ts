@@ -42,6 +42,7 @@ import { debug } from "./logger";
 import { parse } from "@iarna/toml";
 import { getProjectTomlValues } from "./config";
 import { extension } from "../BalExtensionContext";
+import { scheduleMigrationEnhancement } from "../features/ai/migration/orchestrator";
 
 export const README_FILE = "README.md";
 export const FUNCTIONS_FILE = "functions.bal";
@@ -594,11 +595,14 @@ export async function createBIProjectFromMigration(params: MigrateRequest) {
         if (fileName === "Ballerina.toml") {
             content = content.replace(/name = ".*?"/, `name = "${sanitizedPackageName}"`);
             content = content.replace(/org = ".*?"/, `org = "${projectInfo.finalOrgName}"`);
-            
+
+            // Remove any existing distribution line
+            content = content.replace(/^\s*distribution\s*=\s*".*?"\n?/m, '');
+
             // Get the Ballerina distribution version
             const distribution = getBallerinaDistribution();
             const distributionLine = distribution ? `\ndistribution = "${distribution}"` : '';
-            
+
             content = content.replace(/version = ".*?"/, `version = "${projectInfo.finalVersion}"${distributionLine}\ntitle = "${projectInfo.integrationName}"`);
         }
 
@@ -617,6 +621,11 @@ export async function createBIProjectFromMigration(params: MigrateRequest) {
     fs.writeFileSync(gitignorePath, gitignoreContent.trim());
 
     debug(`BI project created successfully at ${projectRoot}`);
+
+    // Persist the AI enhancement mode so the pipeline resumes after the
+    // window reloads when vscode.openFolder is executed.
+    scheduleMigrationEnhancement(params.enhancementMode ?? 'none', path.resolve(projectRoot));
+
     commands.executeCommand('vscode.openFolder', Uri.file(path.resolve(projectRoot)));
 }
 
