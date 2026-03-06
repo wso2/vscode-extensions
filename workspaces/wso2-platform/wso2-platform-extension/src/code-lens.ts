@@ -21,6 +21,7 @@ import { CommandIds, type IViewDependencyCmdParams } from "@wso2/wso2-platform-c
 import * as vscode from "vscode";
 import * as yaml from "yaml";
 import { webviewStateStore } from "./stores/webview-state-store";
+import { ext } from "./extensionVariables";
 
 // Register all code lenses here
 export function activateCodeLenses(context: vscode.ExtensionContext) {
@@ -32,12 +33,11 @@ class YAMLCodeLensProvider implements vscode.CodeLensProvider {
 	provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
 		const codeLenses: vscode.CodeLens[] = [];
 		const componentFsPath = path.dirname(path.dirname(document.uri.fsPath));
-		const extName = webviewStateStore.getState().state?.extensionName;
 
 		const addDependencyCmd: vscode.Command = {
 			title: "Add Connection",
 			command: CommandIds.CreateComponentDependency,
-			tooltip: `Add a new API connection to your ${webviewStateStore.getState().state.extensionName} ${extName === "Devant" ? "integration" : "component"}`,
+			tooltip: `Add a new API connection to your ${webviewStateStore.getState().state.extensionName} ${ext.terminologies?.componentTerm}`,
 			arguments: [{ componentFsPath, isCodeLens: true } as IViewDependencyCmdParams],
 		};
 

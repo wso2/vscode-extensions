@@ -94,6 +94,8 @@ import type {
 	ProxyDeploymentInfo,
 	RegisterMarketplaceConnectionReq,
 	RequestPromoteApprovalReq,
+	ResolveConnectionSecretsReq,
+	ResolveConnectionSecretsResp,
 	StartProxyServerReq,
 	StartProxyServerResp,
 	StopProxyServerReq,
@@ -255,6 +257,15 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		}
 		const response = await this.client.sendRequest<{ components: ComponentKind[] }>("component/getList", params);
 		return response.components || [];
+	}
+	
+	async resolveConnectionSecrets(params: ResolveConnectionSecretsReq): Promise<ResolveConnectionSecretsResp> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response = await this.client.sendRequest<ResolveConnectionSecretsResp>("connections/resolveConnectionSecrets", params);
+		return response;
+
 	}
 
 	async getBuildPacks(params: BuildPackReq) {

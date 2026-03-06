@@ -91,8 +91,8 @@ export class ComponentFormView {
 		);
 
 		panel.iconPath = {
-			light: vscode.Uri.joinPath(ext.context.extensionUri, "resources", "icons", extName === "Devant" ? "devant-2-black.svg" : "choreo-2-black.svg"),
-			dark: vscode.Uri.joinPath(ext.context.extensionUri, "resources", "icons", extName === "Devant" ? "devant-2-white.svg" : "choreo-2-white.svg"),
+			light: vscode.Uri.joinPath(ext.context.extensionUri, "resources", "icons", "wso2-platform-logo-black.svg"),
+			dark: vscode.Uri.joinPath(ext.context.extensionUri, "resources", "icons","wso2-platform-logo-white.svg"),
 		};
 
 		return panel;

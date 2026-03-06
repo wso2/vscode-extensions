@@ -32,7 +32,7 @@ export function openInConsoleCommand(context: ExtensionContext) {
 			const extensionName = webviewStateStore.getState().state.extensionName;
 			try {
 				isRpcActive(ext);
-				const userInfo = await getUserInfoForCmd(`open a ${extensionName === "Devant" ? "integration" : "component"} in ${extensionName} console`);
+				const userInfo = await getUserInfoForCmd(`open ${ext.terminologies.articleComponentTerm} in ${extensionName} console`);
 				if (userInfo) {
 					let selectedOrg = params?.organization;
 					let selectedProject = params?.project;
@@ -73,7 +73,7 @@ export function openInConsoleCommand(context: ExtensionContext) {
 							// create a new component
 							window
 								.showInformationMessage(
-									`No ${extensionName} ${extensionName === "Devant" ? "integration" : "component"} found in this directory. Do you want to create one?`,
+									`No ${extensionName} ${ext.terminologies?.componentTerm} found in this directory. Do you want to create one?`,
 									{ modal: true },
 									"Proceed",
 								)
@@ -94,7 +94,7 @@ export function openInConsoleCommand(context: ExtensionContext) {
 								item: item?.component,
 							}));
 							const selectedComp = await window.showQuickPick(componentItems, {
-								title: `Multiple ${extensionName === "Devant" ? "integrations" : "components"} detected. Please select ${extensionName === "Devant" ? "an integration" : "a component"} to open`,
+								title: `Multiple ${ext.terminologies?.componentTermPlural} detected. Please select ${ext.terminologies?.articleComponentTerm} to open`,
 							});
 							if (selectedComp?.item) {
 								env.openExternal(Uri.parse(`${projectBaseUrl}/components/${selectedComp?.item?.metadata?.handler}/overview`));
@@ -114,7 +114,7 @@ export function openInConsoleCommand(context: ExtensionContext) {
 						} else {
 							const components = await window.withProgress(
 								{
-									title: `Fetching ${extensionName === "Devant" ? "integrations" : "components"} of project ${selectedProject.name}...`,
+									title: `Fetching ${ext.terminologies?.componentTermPlural} of project ${selectedProject.name}...`,
 									location: ProgressLocation.Notification,
 								},
 								() =>
@@ -141,7 +141,7 @@ export function openInConsoleCommand(context: ExtensionContext) {
 						];
 
 						if (cacheComponentPick.length > 0) {
-							cacheQuickPicks.push({ kind: QuickPickItemKind.Separator, label: "Components" }, ...cacheComponentPick);
+							cacheQuickPicks.push({ kind: QuickPickItemKind.Separator, label: ext.terminologies?.componentTermPlural }, ...cacheComponentPick);
 						}
 
 						const selectedOption = await quickPickWithLoader({
@@ -170,12 +170,12 @@ export function openInConsoleCommand(context: ExtensionContext) {
 								];
 
 								if (componentPick.length > 0) {
-									cacheQuickPicks.push({ kind: QuickPickItemKind.Separator, label: "Components" }, ...componentPick);
+									cacheQuickPicks.push({ kind: QuickPickItemKind.Separator, label: ext.terminologies?.componentTermPlural }, ...componentPick);
 								}
 
 								return cacheQuickPicks;
 							},
-							loadingTitle: `Loading ${extensionName === "Devant" ? "integrations" : "components"} of project ${selectedProject.name}`,
+							loadingTitle: `Loading ${ext.terminologies?.componentTermPlural} of project ${selectedProject.name}`,
 							selectTitle: `Select an option to open in ${extensionName} Console`,
 						});
 
@@ -187,8 +187,8 @@ export function openInConsoleCommand(context: ExtensionContext) {
 					}
 				}
 			} catch (err: any) {
-				console.error(`Failed to open ${extensionName === "Devant" ? "integration" : "component"}`, err);
-				window.showErrorMessage(err?.message || `Failed to open ${extensionName === "Devant" ? "integration" : "component"}`);
+				console.error(`Failed to open ${ext.terminologies?.componentTerm}`, err);
+				window.showErrorMessage(err?.message || `Failed to open ${ext.terminologies?.componentTerm}`);
 			}
 		}),
 	);
