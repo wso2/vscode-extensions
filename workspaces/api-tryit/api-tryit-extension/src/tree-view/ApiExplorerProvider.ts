@@ -339,6 +339,10 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		return this.collections.find(c => c.id === id);
 	}
 
+	public isInMemoryCollection(collectionId: string): boolean {
+		return this.inMemoryCollectionIds.has(collectionId);
+	}
+
 	public removeCollectionById(collectionId: string): void {
 		this.collections = this.collections.filter(c => c.id !== collectionId);
 		this.collectionPathMap.delete(collectionId);

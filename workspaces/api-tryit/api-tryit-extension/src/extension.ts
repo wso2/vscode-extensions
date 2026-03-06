@@ -1048,7 +1048,20 @@ export async function activate(context: vscode.ExtensionContext) {
 				// triggered by the project runner's file-system writes.
 				if (parsedCollection) {
 					apiExplorerProvider.addInMemoryCollection(parsedCollection);
-					setTimeout(() => ActivityPanel.forceCollectionsRefresh(), 200);
+					const firstItemId = (firstRequestItem as ApiRequestItem | undefined)?.id;
+					const collectionId = parsedCollection.id;
+					setTimeout(async () => {
+						ActivityPanel.forceCollectionsRefresh();
+						// Yield to macrotask queue so _sendCollections microtask can complete
+						// and send updateCollections to the webview before selectItem arrives.
+						await new Promise<void>(resolve => setTimeout(resolve, 0));
+						if (firstItemId) {
+							ActivityPanel.postMessage('selectItem', {
+								id: firstItemId,
+								parentIds: [collectionId]
+							});
+						}
+					}, 200);
 				}
 
 				return;

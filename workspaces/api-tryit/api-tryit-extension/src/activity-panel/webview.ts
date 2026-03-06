@@ -1038,8 +1038,17 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			}
 
 			const collectionFilePaths = this._apiExplorerProvider.getCollectionFilePathsById(collectionId);
+
+			// In-memory-only collections have no file paths — skip file deletion
 			if (collectionFilePaths.length === 0) {
-				vscode.window.showErrorMessage('Unable to determine collection file path(s)');
+				if (this._apiExplorerProvider.isInMemoryCollection(collectionId)) {
+					this._apiExplorerProvider.removeCollectionById(collectionId);
+					await vscode.commands.executeCommand('api-tryit.clearSelection');
+					this._sendCollections(true);
+					vscode.window.showInformationMessage(`Collection "${collectionName}" deleted successfully`);
+				} else {
+					vscode.window.showErrorMessage('Unable to determine collection file path(s)');
+				}
 				return;
 			}
 
