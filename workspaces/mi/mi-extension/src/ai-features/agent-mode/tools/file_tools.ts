@@ -25,11 +25,11 @@ import * as vscode from 'vscode';
 
 import {
     ValidationResult,
+    FileEditHunk,
     ToolResult,
     VALID_FILE_EXTENSIONS,
     VALID_SPECIAL_FILE_NAMES,
     MAX_LINE_LENGTH,
-    PREVIEW_LENGTH,
     ErrorMessages,
     FILE_READ_TOOL_NAME,
     FILE_WRITE_TOOL_NAME,
@@ -44,6 +44,7 @@ import { logDebug, logError } from '../../copilot/logger';
 import { validateXmlFile, formatValidationMessage } from './validation-utils';
 import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
 import { getCopilotProjectsRootDir } from '../storage-paths';
+import { applyStructuredFilePatch } from './file_edit_patch';
 
 // ============================================================================
 // Validation Functions
@@ -646,37 +647,6 @@ function validateLineRange(
 // ============================================================================
 
 /**
- * Replace all occurrences of a string (ES2020 compatible)
- */
-function replaceAll(text: string, search: string, replacement: string): string {
-    return text.split(search).join(replacement);
-}
-
-/**
- * Counts non-overlapping occurrences of a search string in text
- */
-function countOccurrences(text: string, searchString: string): number {
-    // Handle edge case of empty strings
-    if (searchString.trim().length === 0 && text.trim().length === 0) {
-        return 1;
-    }
-
-    if (!searchString) {
-        return 0;
-    }
-
-    let count = 0;
-    let position = 0;
-
-    while ((position = text.indexOf(searchString, position)) !== -1) {
-        count++;
-        position += searchString.length;
-    }
-
-    return count;
-}
-
-/**
  * Truncates lines that exceed maximum length
  */
 function truncateLongLines(content: string, maxLength: number = MAX_LINE_LENGTH): string {
@@ -997,12 +967,10 @@ export function createEditExecute(
 ): EditExecuteFn {
     return async (args: {
         file_path: string;
-        old_string: string;
-        new_string: string;
-        replace_all?: boolean;
+        hunks: FileEditHunk[];
     }): Promise<ToolResult> => {
-        const { file_path, old_string, new_string, replace_all = false } = args;
-        logDebug(`[FileEditTool] Editing ${file_path}, replace_all: ${replace_all}`);
+        const { file_path, hunks } = args;
+        logDebug(`[FileEditTool] Editing ${file_path}, hunks: ${hunks?.length ?? 0}`);
 
         // Validate file path
         const pathValidation = validateFilePath(projectPath, file_path);
@@ -1015,13 +983,12 @@ export function createEditExecute(
             };
         }
 
-        // Check if old_string and new_string are identical
-        if (old_string === new_string) {
-            logError(`[FileEditTool] old_string and new_string are identical`);
+        if (!Array.isArray(hunks) || hunks.length === 0) {
+            logError(`[FileEditTool] No hunks provided for file: ${file_path}`);
             return {
                 success: false,
-                message: 'old_string and new_string are identical. No changes to make.',
-                error: `Error: ${ErrorMessages.IDENTICAL_STRINGS}`
+                message: 'No hunks were provided. Provide at least one patch hunk.',
+                error: `Error: ${ErrorMessages.NO_EDITS}`
             };
         }
 
@@ -1037,43 +1004,22 @@ export function createEditExecute(
             };
         }
 
-        await undoCheckpointManager?.captureBeforeChange(file_path);
-
         // Read file content
         const content = fs.readFileSync(fullPath, 'utf-8');
 
-        // Count occurrences
-        const occurrenceCount = countOccurrences(content, old_string);
-
-        if (occurrenceCount === 0) {
-            const preview = content.substring(0, PREVIEW_LENGTH);
-            logError(`[FileEditTool] No occurrences of old_string found in file: ${file_path}`);
+        const patchResult = applyStructuredFilePatch(content, hunks);
+        if (!patchResult.success) {
+            const errorCode = ErrorMessages[patchResult.code as keyof typeof ErrorMessages] ?? patchResult.code;
+            logError(`[FileEditTool] Failed to apply hunk patch for: ${file_path}. ${patchResult.message}`);
             return {
                 success: false,
-                message: `String to replace was not found in '${file_path}'. Please verify the exact text to replace, including whitespace and indentation.\n\nFile Preview:\n${preview}${content.length > PREVIEW_LENGTH ? '...' : ''}`,
-                error: `Error: ${ErrorMessages.NO_MATCH_FOUND}`,
+                message: patchResult.message,
+                error: `Error: ${errorCode}`,
             };
         }
 
-        // If not replace_all, ensure exactly one match
-        if (!replace_all && occurrenceCount > 1) {
-            logError(`[FileEditTool] Multiple occurrences (${occurrenceCount}) found`);
-            return {
-                success: false,
-                message: `Found ${occurrenceCount} occurrences of the text in '${file_path}'. Either make old_string more specific to match exactly one occurrence, or set replace_all to true to replace all occurrences.`,
-                error: `Error: ${ErrorMessages.MULTIPLE_MATCHES}`,
-            };
-        }
-
-        // Perform replacement
-        let newContent: string;
-        if (content.trim() === '' && old_string.trim() === '') {
-            newContent = new_string;
-        } else {
-            newContent = replace_all
-                ? replaceAll(content, old_string, new_string)
-                : content.replace(old_string, new_string);
-        }
+        await undoCheckpointManager?.captureBeforeChange(file_path);
+        const newContent = patchResult.newContent;
 
         // Use WorkspaceEdit for LSP synchronization
         const uri = vscode.Uri.file(fullPath);
@@ -1104,19 +1050,19 @@ export function createEditExecute(
         // Track modified file
         trackModifiedFile(modifiedFiles, file_path);
 
-        const replacedCount = replace_all ? occurrenceCount : 1;
+        const appliedHunkCount = patchResult.appliedHunks;
 
         // Give language services a brief moment to settle before automatic validation.
         await delay(POST_WRITE_VALIDATION_DELAY_MS);
         // Automatically validate the file and get structured diagnostics
         const validation = await validateXmlFile(fullPath, projectPath, false);
 
-        logDebug(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) and synced file: ${file_path}`);
+        logDebug(`[FileEditTool] Successfully applied ${appliedHunkCount} hunk(s) and synced file: ${file_path}`);
 
         // Build result with structured validation data
         const result: ToolResult = {
             success: true,
-            message: `Successfully replaced ${replacedCount} occurrence(s) in '${file_path}'.${validation ? formatValidationMessage(validation) : ''}`
+            message: `Successfully applied ${appliedHunkCount} hunk(s) in '${file_path}'.${validation ? formatValidationMessage(validation) : ''}`
         };
 
         if (validation) {
@@ -1505,9 +1451,7 @@ export function createReadTool(execute: ReadExecuteFn, projectPath: string) {
         description: `Reads a file from the project.
             Text files return line-numbered content (supports offset/limit).
             Image files (.png, .jpg, .jpeg, .gif, .webp) are provided for multimodal analysis.
-            PDFs can be read with pages ("N" or "N-M"). For PDFs over ${PDF_MAX_PAGES_PER_REQUEST} pages, pages is required. Maximum ${PDF_MAX_PAGES_PER_REQUEST} pages per request.
-            ALWAYS read a file before editing it.
-            You can speculatively read multiple files in parallel.`,
+            PDFs can be read with pages ("N" or "N-M"). For PDFs over ${PDF_MAX_PAGES_PER_REQUEST} pages, pages is required. Maximum ${PDF_MAX_PAGES_PER_REQUEST} pages per request.`,
         inputSchema: readInputSchema,
         execute,
         toModelOutput: async ({ input, output }: { input: { file_path?: string; pages?: string }; output: unknown }) => {
@@ -1522,17 +1466,22 @@ export function createReadTool(execute: ReadExecuteFn, projectPath: string) {
 
 const editInputSchema = z.object({
     file_path: z.string().describe(`The file path to edit. Use a path relative to the project root, or an absolute path under ~/.wso2-mi/copilot/projects for copilot session artifacts.`),
-    old_string: z.string().describe(`The exact text to replace (must match file contents exactly, including whitespace)`),
-    new_string: z.string().describe(`The replacement text (must be different from old_string)`),
-    replace_all: z.boolean().optional().describe(`Replace all occurrences (default false)`)
+    hunks: z.array(z.object({
+        old_text: z.string().describe(`Exact text block to replace (non-empty). Matching ignores trailing whitespace and line ending style.`),
+        new_text: z.string().describe(`Replacement text block. Use empty string to delete matched content.`),
+        context_before: z.string().optional().describe(`Optional stable text immediately before old_text to disambiguate repeated matches.`),
+        context_after: z.string().optional().describe(`Optional stable text immediately after old_text to disambiguate repeated matches.`),
+        line_hint: z.number().int().positive().optional().describe(`Optional 1-based approximate start line for old_text. Used only as a tie-breaker.`),
+    })).min(1).describe(`One or more patch hunks for this file. Hunks must not overlap.`)
 });
 
 export function createEditTool(execute: EditExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Find-and-replace on an existing file. ALWAYS read the file first.
-            old_string must match EXACTLY (whitespace, indentation, line breaks).
-            Fails if old_string is not unique - provide more context or set replace_all=true.
+        description: `Apply structured patch hunks to an existing file (single file per call).
+            Use minimal old_text blocks with stable context_before/context_after for repeated sections.
+            Use line_hint only for disambiguation when multiple matches remain.
+            Matching is strict but normalizes line endings and ignores trailing whitespace.
             Cannot create new files - use ${FILE_WRITE_TOOL_NAME} for that.
             XML files are automatically validated after editing (results included in response).
             LemMinx may reports "Premature end of file". This is a known false positive when LemMinx is not synchronized with the file system. Ignore it and verify by building the project instead if needed.`,

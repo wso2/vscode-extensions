@@ -364,18 +364,29 @@ export function updateTokenInfo(machineView: any) {
 
     const remainingUsagePercentage = machineView.usage.remainingUsagePercentage;
     const resetsIn = machineView.usage.resetsIn;
-    const resetsInDays = typeof resetsIn === "number" ? resetsIn / (60 * 60 * 24) : 0;
+    const resetsInSeconds = typeof resetsIn === "number" ? Math.max(0, Math.round(resetsIn)) : 0;
+    const isUnlimitedUsage = remainingUsagePercentage === -1
+        || (remainingUsagePercentage === 100 && resetsIn === -1);
+
+    if (isUnlimitedUsage) {
+        return {
+            timeToReset: resetsInSeconds,
+            remainingTokenPercentage: -1,
+            remaingTokenLessThanOne: false
+        };
+    }
+
     if (typeof remainingUsagePercentage === "number") {
         const normalized = Math.max(0, Math.min(100, Math.round(remainingUsagePercentage)));
         return {
-            timeToReset: resetsInDays,
+            timeToReset: resetsInSeconds,
             remainingTokenPercentage: normalized,
             remaingTokenLessThanOne: normalized > 0 && normalized < 1
         };
     }
 
     return {
-        timeToReset: resetsInDays,
+        timeToReset: resetsInSeconds,
         remainingTokenPercentage: -1,
         remaingTokenLessThanOne: false
     };

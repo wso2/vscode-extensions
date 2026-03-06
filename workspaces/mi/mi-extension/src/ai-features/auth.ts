@@ -38,6 +38,7 @@ import { CommandIds as PlatformExtCommandIds, IWso2PlatformExtensionAPI } from '
 import { logInfo, logWarn, logError } from './copilot/logger';
 
 export const TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = 'Access token is not available.';
+export const STS_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = 'Failed to get STS token from platform extension';
 export const PLATFORM_EXTENSION_ID = 'wso2.wso2-platform';
 export const TOKEN_REFRESH_ONLY_SUPPORTED_FOR_MI_INTEL = 'Token refresh is only supported for MI Intelligence authentication';
 export const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5';
@@ -50,13 +51,23 @@ const LEGACY_ACCESS_TOKEN_SECRET_KEY = 'MIAIUser';
 const LEGACY_REFRESH_TOKEN_SECRET_KEY = 'MIAIRefreshToken';
 
 const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
+const PLATFORM_USER_NOT_LOGGED_IN_MESSAGE = 'user not logged in';
+const STS_TOKEN_DEFAULT_RETRY_DELAY_MS = 500;
+const STS_TOKEN_REFRESH_RETRY_COUNT = 6;
+const STS_TOKEN_REFRESH_RETRY_DELAY_MS = 500;
 
 interface MIIntelTokenSecrets {
     accessToken: string;
     expiresAt?: number;
 }
 
+interface StsTokenFetchOptions {
+    retries?: number;
+    retryDelayMs?: number;
+}
+
 const normalizeUrl = (url: string): string => url.replace(/\/+$/, '');
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Resolve the base Copilot root URL.
@@ -82,6 +93,18 @@ export const getCopilotLlmApiBaseUrl = (): string | undefined => {
     const rootUrl = getCopilotRootUrl();
     if (rootUrl) {
         return `${rootUrl}/llm-api/v1.0/claude`;
+    }
+
+    return undefined;
+};
+
+/**
+ * Resolve usage API URL.
+ */
+export const getCopilotUsageApiUrl = (): string | undefined => {
+    const rootUrl = getCopilotRootUrl();
+    if (rootUrl) {
+        return `${rootUrl}/llm-api/v1.0/usage`;
     }
 
     return undefined;
@@ -117,14 +140,17 @@ export const isPlatformExtensionAvailable = (): boolean => {
     return !!vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
 };
 
-const getPlatformExtensionAPI = async (): Promise<IWso2PlatformExtensionAPI | undefined> => {
+export const getPlatformExtensionAPI = async (): Promise<IWso2PlatformExtensionAPI | undefined> => {
     const platformExt = vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
     if (!platformExt) {
         return undefined;
     }
 
     try {
-        return await platformExt.activate() as IWso2PlatformExtensionAPI;
+        if (!platformExt.isActive) {
+            await platformExt.activate();
+        }
+        return platformExt.exports as IWso2PlatformExtensionAPI;
     } catch (error) {
         logError('Failed to activate platform extension', error);
         return undefined;
@@ -134,18 +160,46 @@ const getPlatformExtensionAPI = async (): Promise<IWso2PlatformExtensionAPI | un
 /**
  * Get STS token from the platform extension.
  */
-export const getPlatformStsToken = async (): Promise<string | undefined> => {
+const getPlatformStsTokenOnce = async (): Promise<string | undefined> => {
     const api = await getPlatformExtensionAPI();
     if (!api) {
         return undefined;
     }
 
     try {
+        if (!api.isLoggedIn()) {
+            return undefined;
+        }
         return await api.getStsToken();
     } catch (error) {
+        if (error instanceof Error && error.message.toLowerCase().includes(PLATFORM_USER_NOT_LOGGED_IN_MESSAGE)) {
+            // Expected when platform session is not active.
+            return undefined;
+        }
         logError('Error getting STS token from platform extension', error);
         return undefined;
     }
+};
+
+/**
+ * Get STS token from the platform extension with optional retries.
+ */
+export const getPlatformStsToken = async (options: StsTokenFetchOptions = {}): Promise<string | undefined> => {
+    const retries = Math.max(0, options.retries ?? 0);
+    const retryDelayMs = Math.max(0, options.retryDelayMs ?? STS_TOKEN_DEFAULT_RETRY_DELAY_MS);
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        const stsToken = await getPlatformStsTokenOnce();
+        if (stsToken) {
+            return stsToken;
+        }
+
+        if (attempt < retries) {
+            await sleep(retryDelayMs);
+        }
+    }
+
+    return undefined;
 };
 
 /**
@@ -189,10 +243,15 @@ export const exchangeStsToCopilotToken = async (stsToken: string): Promise<MIInt
             if (!access_token) {
                 throw new Error('Token exchange response did not include access_token');
             }
+            const expiresInSeconds = typeof expires_in === 'number'
+                ? expires_in
+                : Number(expires_in);
 
             return {
                 accessToken: access_token,
-                expiresAt: typeof expires_in === 'number' ? Date.now() + (expires_in * 1000) : undefined,
+                expiresAt: Number.isFinite(expiresInSeconds) && expiresInSeconds > 0
+                    ? Date.now() + (expiresInSeconds * 1000)
+                    : undefined,
             };
         }
 
@@ -207,12 +266,23 @@ export const exchangeStsToCopilotToken = async (stsToken: string): Promise<MIInt
  * Refresh the MI Copilot token using STS token from platform extension.
  */
 export const refreshTokenViaStsExchange = async (): Promise<MIIntelTokenSecrets> => {
-    const stsToken = await getPlatformStsToken();
+    const stsToken = await getPlatformStsToken({
+        retries: STS_TOKEN_REFRESH_RETRY_COUNT,
+        retryDelayMs: STS_TOKEN_REFRESH_RETRY_DELAY_MS,
+    });
     if (!stsToken) {
-        throw new Error('Failed to get STS token from platform extension');
+        throw new Error(STS_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE);
     }
 
     return await exchangeStsToCopilotToken(stsToken);
+};
+
+export const isStsTokenUnavailableError = (error: unknown): boolean => {
+    if (!(error instanceof Error)) {
+        return false;
+    }
+
+    return error.message.includes(STS_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE);
 };
 
 // ==================================
@@ -371,7 +441,10 @@ export const checkToken = async (): Promise<{ token: string; loginMethod: LoginM
         return undefined;
     }
 
-    const stsToken = await getPlatformStsToken();
+    const stsToken = await getPlatformStsToken({
+        retries: STS_TOKEN_REFRESH_RETRY_COUNT,
+        retryDelayMs: STS_TOKEN_REFRESH_RETRY_DELAY_MS,
+    });
     if (!stsToken) {
         return undefined;
     }
