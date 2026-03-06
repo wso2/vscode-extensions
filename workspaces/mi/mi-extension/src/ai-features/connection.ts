@@ -65,7 +65,7 @@ let reLoginPromptInFlight = false;
 /**
  * Get the backend URL for MI Copilot
  */
-const getAnthropicProxyUrl = (): string => {
+export const getAnthropicProxyUrl = (): string => {
     const proxyUrl = getCopilotLlmApiBaseUrl();
     if (!proxyUrl) {
         throw new Error('Copilot LLM API URL is not set. Configure COPILOT_ROOT_URL (or COPILOT_DEV_ROOT_URL when CLOUD_ENV=dev) so getCopilotLlmApiBaseUrl() resolves correctly.');
