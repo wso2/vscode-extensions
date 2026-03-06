@@ -78,6 +78,7 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		_token: vscode.CancellationToken
 	): void | Promise<void> {
 		this._view = webviewView;
+		this._webviewReady = false;
 		ActivityPanel.currentPanel = this;
 		const isDevMode = process.env.WEB_VIEW_WATCH_MODE === 'true';
 		const devHost = process.env.TRY_VIEW_DEV_HOST || 'http://localhost:9092';

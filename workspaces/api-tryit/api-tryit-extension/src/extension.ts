@@ -28,7 +28,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
 import { getHurlBinaryManager, initializeHurlBinaryManager } from './hurl/hurl-binary-manager';
-import { setPendingBiSavePath } from './bi-save-context';
+import { setPendingBiSavePath, getActiveCollectionFilePath, setActiveCollectionFilePath } from './bi-save-context';
 
 const PENDING_HURL_IMPORT_KEY = 'api-tryit.pendingHurlImportContext';
 
@@ -843,15 +843,37 @@ export async function activate(context: vscode.ExtensionContext) {
 				const collFileName = `${sanitizePathSegment(collName, `collection-${Date.now()}`)}.hurl`;
 				const pendingPath = path.join(workspaceRoot, 'api-tryit', collFileName);
 
-				// If the collection file already exists on disk, open it directly instead
-				// of registering a duplicate in-memory collection.
-				let diskFileExists = false;
+				// Check for an existing collection: disk file first, then in-memory.
+				// Resource TryIt must merge into an existing collection rather than
+				// replacing it with a single-request one.
+				let existingDiskPath: string | undefined;
 				try {
 					await fs.access(pendingPath);
-					diskFileExists = true;
+					existingDiskPath = pendingPath;
 				} catch {
-					// file does not exist yet
+					// pendingPath doesn't exist — check the active collection file from
+					// the current session (handles name differences between ServiceDesigner
+					// serviceIdentifier and DiagramWrapper serviceName).
+					const activeFile = getActiveCollectionFilePath();
+					if (activeFile) {
+						try {
+							await fs.access(activeFile);
+							existingDiskPath = activeFile;
+						} catch {
+							// active file also gone — fall through
+						}
+					}
 				}
+
+				// If no disk file, look for a matching in-memory collection (e.g. Service
+				// TryIt was opened but nothing saved yet).
+				// Match by name first; if that misses (Service TryIt and Resource TryIt
+				// may produce slightly different display names), fall back to ID match so
+				// we never accidentally replace an existing multi-request collection.
+				const existingInMemCollection = !existingDiskPath
+					? (apiExplorerProvider.findCollectionByName(collName) ||
+					   (parsedCollection ? apiExplorerProvider.findCollectionById(parsedCollection.id) : undefined))
+					: undefined;
 
 				try {
 					await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
@@ -861,18 +883,157 @@ export async function activate(context: vscode.ExtensionContext) {
 				}
 				TryItPanel.show(context);
 
-				if (diskFileExists) {
-					// Reload so the Explorer reflects the current disk state, then select
-					// the first request from the existing file.
-					await apiExplorerProvider.reloadCollections();
-					setTimeout(() => {
-						vscode.commands.executeCommand('api-tryit.selectItemByPath', pendingPath);
+				if (existingDiskPath || existingInMemCollection) {
+					// An existing collection was found. Instead of replacing it, check
+					// whether the specific resource is already in it:
+					//   - If YES  → open that existing request.
+					//   - If NO   → add this resource as a new in-memory item alongside
+					//               the existing ones, then select it.
+					const resourceRequest = parsedCollection?.rootItems?.[0];
+					const parsedCollectionId: string | undefined = parsedCollection?.id;
+
+					setTimeout(async () => {
+						// Resolve current collection state (reload from disk if needed).
+						if (existingDiskPath && !apiExplorerProvider.findRequestByFilePath(existingDiskPath)) {
+							await apiExplorerProvider.reloadCollections();
+						}
+						// Match by name first; fall back to ID in case collection names
+						// differ between Service TryIt and Resource TryIt invocations.
+						const currentCollection =
+							apiExplorerProvider.findCollectionByName(collName) ||
+							(parsedCollectionId ? apiExplorerProvider.findCollectionById(parsedCollectionId) : undefined);
+						if (!currentCollection) {
+							ActivityPanel.forceCollectionsRefresh();
+							return;
+						}
+
 						ActivityPanel.forceCollectionsRefresh();
+
+						// Look for the resource in the collection by @name and method.
+						const existingItem = resourceRequest
+							? (currentCollection.rootItems || []).find(item =>
+								item.name === resourceRequest.name &&
+								item.request.method.toUpperCase() === resourceRequest.request.method.toUpperCase()
+							)
+							: undefined;
+
+						if (existingItem) {
+							// Resource already saved/in-memory — open it directly.
+							// Open the form first, then send selectItem.  forceCollectionsRefresh
+							// is async (awaits getCollections microtask), so by the time our
+							// postMessage('selectItem') executes, updateCollections has already
+							// been sent to the webview — ensuring the item is rendered before
+							// the highlight arrives.
+							await ApiTryItStateMachine.sendEvent(
+								EVENT_TYPE.API_ITEM_SELECTED,
+								existingItem as ApiRequestItem,
+								existingItem.filePath
+							);
+							ActivityPanel.postMessage('selectItem', {
+								id: existingItem.id,
+								parentIds: [currentCollection.id],
+								filePath: existingItem.filePath,
+								name: existingItem.name,
+								collectionId: currentCollection.id,
+								collectionName: currentCollection.name,
+								method: existingItem.request.method,
+								request: existingItem.request
+							});
+						} else if (resourceRequest) {
+							// Resource not yet in collection — add it as a new in-memory item.
+							const ts = Date.now();
+							const newItem: ApiRequestItem = {
+								id: `new-${ts}`,
+								name: resourceRequest.name,
+								request: { ...resourceRequest.request, id: `new-${ts}` }
+								// filePath intentionally absent — stays in-memory until saved
+							};
+
+							apiExplorerProvider.addInMemoryCollection({
+								...currentCollection,
+								rootItems: [...(currentCollection.rootItems || []), newItem]
+							});
+
+							// If the collection already has a disk file, point the save
+							// context at it so the new request appends there on save.
+							if (existingDiskPath) {
+								setActiveCollectionFilePath(existingDiskPath);
+							}
+
+							// Open form, then refresh collections (includes new item), then select.
+							await ApiTryItStateMachine.sendEvent(
+								EVENT_TYPE.API_ITEM_SELECTED,
+								newItem,
+								undefined
+							);
+							ActivityPanel.forceCollectionsRefresh();
+							ActivityPanel.postMessage('selectItem', {
+								id: newItem.id,
+								parentIds: [currentCollection.id]
+							});
+						}
 					}, 200);
 					return;
 				}
 
-				// File does not exist yet — register as in-memory and queue for save.
+				// No existing collection found by name or ID — but do a final check:
+				// if parsedCollection.id already maps to a collection that was registered
+				// in-memory (e.g. name lookup failed due to minor name differences), treat
+				// it as existing rather than overwriting it with the single-request payload.
+				if (parsedCollection) {
+					const collById = apiExplorerProvider.findCollectionById(parsedCollection.id);
+					if (collById) {
+						// Redirect to the existing-collection path inline.
+						const resourceRequest = parsedCollection.rootItems?.[0];
+						setTimeout(async () => {
+							ActivityPanel.forceCollectionsRefresh();
+							const existingItem = resourceRequest
+								? (collById.rootItems || []).find(item =>
+									item.name === resourceRequest.name &&
+									item.request.method.toUpperCase() === resourceRequest.request.method.toUpperCase()
+								)
+								: undefined;
+							if (existingItem) {
+								await ApiTryItStateMachine.sendEvent(
+									EVENT_TYPE.API_ITEM_SELECTED,
+									existingItem as ApiRequestItem,
+									existingItem.filePath
+								);
+								ActivityPanel.postMessage('selectItem', {
+									id: existingItem.id,
+									parentIds: [collById.id],
+									filePath: existingItem.filePath,
+									name: existingItem.name,
+									collectionId: collById.id,
+									collectionName: collById.name,
+									method: existingItem.request.method,
+									request: existingItem.request
+								});
+							} else if (resourceRequest) {
+								const ts = Date.now();
+								const newItem: ApiRequestItem = {
+									id: `new-${ts}`,
+									name: resourceRequest.name,
+									request: { ...resourceRequest.request, id: `new-${ts}` }
+								};
+								apiExplorerProvider.addInMemoryCollection({
+									...collById,
+									rootItems: [...(collById.rootItems || []), newItem]
+								});
+								await ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, newItem, undefined);
+								ActivityPanel.forceCollectionsRefresh();
+								ActivityPanel.postMessage('selectItem', {
+									id: newItem.id,
+									parentIds: [collById.id]
+								});
+							}
+						}, 200);
+						return;
+					}
+				}
+
+				// Truly no existing collection — first time opening this service in TryIt.
+				// Register as in-memory and queue for save on first explicit save action.
 				setPendingBiSavePath(pendingPath, collName, combinedHurl);
 
 				const firstRequestItem = parsedCollection?.rootItems?.[0];

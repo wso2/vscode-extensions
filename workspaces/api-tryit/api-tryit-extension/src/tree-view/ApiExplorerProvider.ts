@@ -330,6 +330,15 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		this.refresh();
 	}
 
+	public findCollectionByName(name: string): ApiCollection | undefined {
+		const key = name.trim().toLowerCase();
+		return this.collections.find(c => c.name.trim().toLowerCase() === key);
+	}
+
+	public findCollectionById(id: string): ApiCollection | undefined {
+		return this.collections.find(c => c.id === id);
+	}
+
 	public removeCollectionById(collectionId: string): void {
 		this.collections = this.collections.filter(c => c.id !== collectionId);
 		this.collectionPathMap.delete(collectionId);

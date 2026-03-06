@@ -26,7 +26,9 @@ export function activateActivityPanel(
 ): ActivityPanel {
 	const activityPanelProvider = new ActivityPanel(context, apiExplorerProvider);
 	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(ActivityPanel.viewType, activityPanelProvider)
+		vscode.window.registerWebviewViewProvider(ActivityPanel.viewType, activityPanelProvider, {
+			webviewOptions: { retainContextWhenHidden: true }
+		})
 	);
 	return activityPanelProvider;
 }
