@@ -346,6 +346,7 @@ interface NodeListProps {
     showAiPanel?: boolean;
     title?: string;
     onSelect: (id: string, metadata?: any) => void;
+    onSelectConnector?: (id: string, metadata?: any) => void; // For connector routing
     onSearchTextChange?: (text: string) => void;
     onAddConnection?: () => void;
     onAddFunction?: () => void;
@@ -357,6 +358,7 @@ interface NodeListProps {
     onImportDevantConn?: (devantConn: ConnectionListItem) => void;
     onLinkDevantProject?: () => void;
     onRefreshDevantConnections?: () => void;
+    searchText?: string;
 }
 
 export function NodeList(props: NodeListProps) {
@@ -365,6 +367,7 @@ export function NodeList(props: NodeListProps) {
         showAiPanel,
         title,
         onSelect,
+        onSelectConnector,
         onSearchTextChange,
         onAddConnection,
         onAddFunction,
@@ -380,6 +383,12 @@ export function NodeList(props: NodeListProps) {
 
     const [searchText, setSearchText] = useState<string>("");
     const [showGeneratePanel, setShowGeneratePanel] = useState(false);
+
+    useEffect(() => {
+        if (props.searchText !== undefined) {
+            setSearchText(props.searchText);
+        }
+    }, [props.searchText]);
     const [isSearching, setIsSearching] = useState(false);
     const [expandedMoreSections, setExpandedMoreSections] = useState<Record<string, boolean>>({});
     const [expandedCategories, setExpandedCategoriesState] = useState<Record<string, boolean>>({});
@@ -410,6 +419,12 @@ export function NodeList(props: NodeListProps) {
 
     useEffect(() => {
         if (onSearchTextChange) {
+            if (!searchText.trim()) {
+                setIsSearching(false);
+                debouncedSearch.cancel();
+                onSearchTextChange("");
+                return;
+            }
             setIsSearching(true);
             debouncedSearch(searchText);
             return () => debouncedSearch.cancel();
@@ -453,7 +468,12 @@ export function NodeList(props: NodeListProps) {
 
     const handleAddNode = (node: Node, category?: string) => {
         if (node.enabled) {
-            onSelect(node.id, { node: node.metadata, category });
+            // Check if this item is from a "Connectors" category and should use connector routing
+            if (category === "Connectors" && onSelectConnector) {
+                onSelectConnector(node.id, { node: node.metadata, category });
+            } else {
+                onSelect(node.id, { node: node.metadata, category });
+            }
         }
     };
 
@@ -526,7 +546,7 @@ export function NodeList(props: NodeListProps) {
                             >
                                 <S.Component
                                     enabled={node.enabled}
-                                    onClick={() => handleAddNode(node)}
+                                    onClick={() => handleAddNode(node, parentCategoryTitle)}
                                 >
                                     <S.IconContainer>{node.icon || <LogIcon />}</S.IconContainer>
                                     <S.ComponentTitle
@@ -612,7 +632,8 @@ export function NodeList(props: NodeListProps) {
     const getCategoryContainer = (groups: Category[], isSubCategory = false, parentCategoryTitle?: string) => {
         // Configuration for special categories
         const categoryConfig = {
-            "Connections": { hasBackground: false },
+            "Connections": { hasBackground: false }, // Existing connections (already configured)
+            "Connectors": { hasBackground: true, useConnectionRouting: true }, // Available connectors to be added
             "Statement": { hasBackground: true, showSeparatorBefore: true }, // Show separator before Statement
             "AI": { hasBackground: true, targetPosition: 3 }, // 4th position (0-indexed)
             "Control": { hasBackground: true },
