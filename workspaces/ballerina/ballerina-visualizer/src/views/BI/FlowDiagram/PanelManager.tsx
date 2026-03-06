@@ -16,6 +16,7 @@
  * under the License.
  */
 
+import { useEffect, useRef } from "react";
 import { PanelContainer, NodeList, CardList, ExpressionFormField } from "@wso2/ballerina-side-panel";
 import {
     FlowNode,
@@ -69,6 +70,7 @@ export enum SidePanelView {
     NEW_AGENT = "NEW_AGENT",
     ADD_TOOL = "ADD_TOOL",
     NEW_TOOL = "NEW_TOOL",
+    NEW_TOOL_CUSTOM = "NEW_TOOL_CUSTOM",
     NEW_TOOL_FROM_CONNECTION = "NEW_TOOL_FROM_CONNECTION",
     NEW_TOOL_FROM_FUNCTION = "NEW_TOOL_FROM_FUNCTION",
     ADD_MCP_SERVER = "ADD_MCP_SERVER",
@@ -211,6 +213,16 @@ export function PanelManager(props: PanelManagerProps) {
         onRefreshDevantConnections,
     } = props;
 
+    const backOverrideRef = useRef<(() => void) | null>(null);
+
+    useEffect(() => {
+        backOverrideRef.current = null;
+    }, [sidePanelView]);
+
+    const handleSetBackOverride = (handler: (() => void) | null) => {
+        backOverrideRef.current = handler;
+    };
+
     const handleOnBackToAddTool = () => {
         setSidePanelView(SidePanelView.ADD_TOOL);
     };
@@ -225,6 +237,10 @@ export function PanelManager(props: PanelManagerProps) {
 
     const handleOnUseMcpServer = () => {
         setSidePanelView(SidePanelView.ADD_MCP_SERVER);
+    };
+
+    const handleOnCreateCustomTool = () => {
+        setSidePanelView(SidePanelView.NEW_TOOL_CUSTOM);
     };
 
     const findSubPanelComponent = (subPanel: SubPanel) => {
@@ -264,6 +280,7 @@ export function PanelManager(props: PanelManagerProps) {
                 return (
                     <AddTool
                         agentCallNode={selectedNode}
+                        onCreateCustomTool={handleOnCreateCustomTool}
                         onUseConnection={handleOnUseConnection}
                         onUseFunction={handleOnUseFunction}
                         onUseMcpServer={handleOnUseMcpServer}
@@ -298,6 +315,18 @@ export function PanelManager(props: PanelManagerProps) {
                         mode={NewToolSelectionMode.ALL}
                         onSave={onClose}
                         onBack={handleOnBackToAddTool}
+                        onSetBackOverride={handleSetBackOverride}
+                    />
+                );
+
+            case SidePanelView.NEW_TOOL_CUSTOM:
+                return (
+                    <NewTool
+                        agentCallNode={selectedNode}
+                        mode={NewToolSelectionMode.CUSTOM_TOOL}
+                        onSave={onClose}
+                        onBack={handleOnBackToAddTool}
+                        onSetBackOverride={handleSetBackOverride}
                     />
                 );
 
@@ -308,6 +337,7 @@ export function PanelManager(props: PanelManagerProps) {
                         mode={NewToolSelectionMode.CONNECTION}
                         onSave={onClose}
                         onBack={handleOnBackToAddTool}
+                        onSetBackOverride={handleSetBackOverride}
                     />
                 );
 
@@ -318,6 +348,7 @@ export function PanelManager(props: PanelManagerProps) {
                         mode={NewToolSelectionMode.FUNCTION}
                         onSave={onClose}
                         onBack={handleOnBackToAddTool}
+                        onSetBackOverride={handleSetBackOverride}
                     />
                 );
 
@@ -612,6 +643,8 @@ export function PanelManager(props: PanelManagerProps) {
             case SidePanelView.NEW_TOOL:
             case SidePanelView.NEW_TOOL_FROM_CONNECTION:
             case SidePanelView.NEW_TOOL_FROM_FUNCTION:
+                // Read ref at call time so registering an override never causes a re-render
+                return () => (backOverrideRef.current ?? handleOnBackToAddTool)();
             case SidePanelView.ADD_MCP_SERVER:
                 return handleOnBackToAddTool;
             case SidePanelView.CONNECTION_SELECT:

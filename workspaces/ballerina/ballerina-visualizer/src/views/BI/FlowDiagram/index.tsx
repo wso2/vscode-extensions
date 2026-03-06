@@ -177,11 +177,11 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const isCreatingNewDataLoader = useRef<boolean>(false);
     const isCreatingNewChunker = useRef<boolean>(false);
 
-    const { platformExtState, platformRpcClient, onLinkDevantProject,  importConnection: importDevantConn } = usePlatformExtContext()
+    const { platformExtState, platformRpcClient, onLinkDevantProject, importConnection: importDevantConn } = usePlatformExtContext()
 
-    const enrichedCategories = useMemo(()=>{
-         return  enrichCategoryWithDevant(platformExtState?.devantConns?.list, categories, importingConn)
-    },[platformExtState, categories, importingConn])
+    const enrichedCategories = useMemo(() => {
+        return enrichCategoryWithDevant(platformExtState?.devantConns?.list, categories, importingConn)
+    }, [platformExtState, categories, importingConn])
 
     const handleClickImportDevantConn = (data: ConnectionListItem) => {
         rpcClient.getVisualizerRpcClient().openView({
@@ -207,6 +207,10 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         rpcClient.onParentPopupSubmitted((parent: ParentPopupData) => {
             if (parent.dataMapperMetadata) {
                 // Skip if the parent is a data mapper popup
+                return;
+            }
+            if (parent.artifactType === DIRECTORY_MAP.AGENT_TOOL) {
+                // Agent tool creation is handled by AIAgentSidePanel — skip to avoid interfering
                 return;
             }
             if (
@@ -1448,7 +1452,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                             return;
                         }
                     }
-                
+
                     if (updatedNode?.codedata?.symbol === GET_DEFAULT_MODEL_PROVIDER
                         || (updatedNode?.codedata?.node === "AGENT_CALL" && updatedNode?.properties?.model?.value === "")) {
                         await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider();
@@ -2119,6 +2123,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
         selectedNodeRef.current = agentNode;
         showEditForm.current = true;
+        setSelectedNodeId(agentNode.id);
         setSelectedConnectionKind('MODEL_PROVIDER');
         setSidePanelView(SidePanelView.CONNECTION_CONFIG);
         setShowSidePanel(true);
@@ -2172,6 +2177,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         selectedNodeRef.current = existingMemoryVariable;
         parentNodeRef.current = agentNode;
         showEditForm.current = true;
+        setSelectedNodeId(agentNode.id);
         setSidePanelView(SidePanelView.AGENT_MEMORY_MANAGER);
         setShowSidePanel(true);
     };
@@ -2220,6 +2226,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const handleOnAddTool = (node: FlowNode) => {
         selectedNodeRef.current = node;
         selectedClientName.current = "Add Tool";
+        setSelectedNodeId(node.id);
 
         // Open the tool selection panel
         setShowProgressIndicator(true);
@@ -2228,7 +2235,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             setSidePanelView(SidePanelView.ADD_TOOL);
             setShowSidePanel(true);
             setShowProgressIndicator(false);
-        }, 500);
+        }, 100);
     };
 
     const handleOnAddMcpServer = (node: FlowNode) => {
@@ -2419,11 +2426,24 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 await rpcClient
                     .getBIDiagramRpcClient()
                     .getSourceCode({ filePath: agentFilePath, flowNode: updatedAgentNode });
+
+                // Delete the tool function definition
+                const projectComponents = await rpcClient.getBIDiagramRpcClient().getProjectComponents();
+                if (projectComponents?.components) {
+                    const functionInfo = findFunctionByName(projectComponents.components, tool.name);
+                    if (functionInfo) {
+                        await rpcClient.getBIDiagramRpcClient().deleteByComponentInfo({
+                            filePath: functionInfo.filePath,
+                            component: functionInfo,
+                        });
+                    }
+                }
             }
         } catch (error) {
             console.error("Error deleting tool:", error);
             alert(`Failed to remove tool "${tool.name}". Please try again.`);
         } finally {
+            selectedNodeRef.current = undefined;
             setShowProgressIndicator(false);
             debouncedGetFlowModel();
         }
