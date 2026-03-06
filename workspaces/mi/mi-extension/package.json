@@ -291,11 +291,6 @@
         "category": "MI"
       },
       {
-        "command": "MI.importCAPP",
-        "title": "Import project from car file(CAPP)",
-        "category": "MI"
-      },
-      {
         "command": "MI.openWelcome",
         "title": "Open MI Welcome",
         "category": "MI"
@@ -366,13 +361,6 @@
         "title": "Open Project Overview",
         "icon": "$(list-unordered)",
         "when": "false"
-      },
-      {
-        "command": "MI.project-explorer.import-project",
-        "title": "Import Project",
-        "icon": "$(add)",
-        "group": "navigation",
-        "category": "MI"
       },
       {
         "command": "MI.project-explorer.open-service-designer",
@@ -621,10 +609,6 @@
     ],
     "menus": {
       "commandPalette": [
-        {
-          "command": "MI.importCAPP",
-          "when": "!projectOpened"
-        },
         {
           "command": "MI.project-explorer.add-api",
           "when": "false"
