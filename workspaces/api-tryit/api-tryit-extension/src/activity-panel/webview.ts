@@ -125,16 +125,19 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 					this._sendCollections(true);
 					break;
 				case 'webviewReady':
-					// Webview is ready, send initial data
+					// Webview is ready, send initial data.
+					// Await _sendCollections before flushing pending messages so that
+					// updateCollections always arrives at the webview before selectItem.
 					this._webviewReady = true;
-					this._sendCollections(true);
-					// flush pending messages
-					while (this._pendingMessages.length > 0 && this._view) {
-						const msg = this._pendingMessages.shift();
-						if (msg) {
-							this._view.webview.postMessage({ type: msg.type, data: msg.data });
+					(async () => {
+						await this._sendCollections(true);
+						while (this._pendingMessages.length > 0 && this._view) {
+							const msg = this._pendingMessages.shift();
+							if (msg) {
+								this._view.webview.postMessage({ type: msg.type, data: msg.data });
+							}
 						}
-					}
+					})();
 					break;
 				case 'addRequestToCollection':
 					// Handle adding a request to a collection

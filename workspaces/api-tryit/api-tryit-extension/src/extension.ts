@@ -918,17 +918,15 @@ export async function activate(context: vscode.ExtensionContext) {
 							: undefined;
 
 						if (existingItem) {
-							// Resource already saved/in-memory — open it directly.
-							// Open the form first, then send selectItem.  forceCollectionsRefresh
-							// is async (awaits getCollections microtask), so by the time our
-							// postMessage('selectItem') executes, updateCollections has already
-							// been sent to the webview — ensuring the item is rendered before
-							// the highlight arrives.
 							await ApiTryItStateMachine.sendEvent(
 								EVENT_TYPE.API_ITEM_SELECTED,
 								existingItem as ApiRequestItem,
 								existingItem.filePath
 							);
+							// Macrotask wait: ensures _sendCollections (queued by
+							// forceCollectionsRefresh above) has fully sent updateCollections
+							// to the webview before selectItem arrives.
+							await new Promise<void>(resolve => setTimeout(resolve, 0));
 							ActivityPanel.postMessage('selectItem', {
 								id: existingItem.id,
 								parentIds: [currentCollection.id],
@@ -960,13 +958,14 @@ export async function activate(context: vscode.ExtensionContext) {
 								setActiveCollectionFilePath(existingDiskPath);
 							}
 
-							// Open form, then refresh collections (includes new item), then select.
 							await ApiTryItStateMachine.sendEvent(
 								EVENT_TYPE.API_ITEM_SELECTED,
 								newItem,
 								undefined
 							);
 							ActivityPanel.forceCollectionsRefresh();
+							// Macrotask wait: ensures updateCollections arrives before selectItem.
+							await new Promise<void>(resolve => setTimeout(resolve, 0));
 							ActivityPanel.postMessage('selectItem', {
 								id: newItem.id,
 								parentIds: [currentCollection.id]
@@ -999,6 +998,7 @@ export async function activate(context: vscode.ExtensionContext) {
 									existingItem as ApiRequestItem,
 									existingItem.filePath
 								);
+								await new Promise<void>(resolve => setTimeout(resolve, 0));
 								ActivityPanel.postMessage('selectItem', {
 									id: existingItem.id,
 									parentIds: [collById.id],
@@ -1022,6 +1022,7 @@ export async function activate(context: vscode.ExtensionContext) {
 								});
 								await ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, newItem, undefined);
 								ActivityPanel.forceCollectionsRefresh();
+								await new Promise<void>(resolve => setTimeout(resolve, 0));
 								ActivityPanel.postMessage('selectItem', {
 									id: newItem.id,
 									parentIds: [collById.id]
