@@ -47,6 +47,22 @@ let errorLogWatcher: FileSystemWatcher | undefined;
 // Store session IDs by chat endpoint to maintain sessions across reopenings
 const chatSessionMap: Map<string, string> = new Map();
 
+function buildCollectionIdFromService(service: ServiceInfo): string {
+    const basePath = (service.basePath || '/').trim();
+    const listenerPort = (service.listener?.port || '').trim();
+    const listenerName = (service.listener?.name || '').trim();
+    const listenerPortMatch = listenerName.match(/new\s+http:Listener\((\d+)\)/i);
+    const listenerKey = listenerPort || listenerPortMatch?.[1] || listenerName;
+    const raw = `${listenerKey}|${basePath}`.toLowerCase();
+    const normalized = raw
+        .replace(/[^a-z0-9|/_\-\s]/g, '')
+        .replace(/[|/_\s]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+
+    return normalized || `service-${Date.now()}`;
+}
+
 // Export a function to update the session ID for an endpoint (used when clearing chat)
 export function updateChatSessionId(endpoint: string, newSessionId: string): void {
     chatSessionMap.set(endpoint, newSessionId);
@@ -256,8 +272,11 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
                 }
             }
 
-            const collectionName = serviceMetadata?.name || selectedService.name || 'api-collection';
+            const canonicalBasePath = (selectedService.basePath || '/').trim() || '/';
+            const collectionName = `HTTP Service - ${canonicalBasePath}`;
+            const collectionId = buildCollectionIdFromService(selectedService);
             const hurlCollection = {
+                id: collectionId,
                 name: collectionName,
                 description: `API TryIt collection for ${collectionName}`,
                 requests,

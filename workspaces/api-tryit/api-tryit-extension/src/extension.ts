@@ -72,6 +72,47 @@ function sanitizePathSegment(value: string, fallback: string): string {
 	return sanitized || fallback;
 }
 
+function buildCollectionIdFromName(name: string): string {
+	const normalized = name
+		.toLowerCase()
+		.trim()
+		.replace(/[^a-z0-9\s_-]/g, '')
+		.replace(/[\s_]+/g, '-')
+		.replace(/-+/g, '-')
+		.replace(/^-|-$/g, '');
+
+	return normalized || `hurl-collection-${Date.now()}`;
+}
+
+function normalizeCollectionNameKey(name: string): string {
+	return name.trim().toLowerCase();
+}
+
+function extractCollectionNameFromHurlText(content: string): string | undefined {
+	const match = content.match(/^#\s*@collectionName\s+(.+)$/im);
+	return match?.[1]?.trim();
+}
+
+async function resolveMatchingActiveCollectionFile(
+	activeFilePath: string,
+	expectedCollectionName: string
+): Promise<string | undefined> {
+	try {
+		await fs.access(activeFilePath);
+		const content = await fs.readFile(activeFilePath, 'utf-8');
+		const activeCollectionName = extractCollectionNameFromHurlText(content) ||
+			path.basename(activeFilePath, path.extname(activeFilePath));
+		const matchesByName = normalizeCollectionNameKey(activeCollectionName) ===
+			normalizeCollectionNameKey(expectedCollectionName);
+		const matchesById = buildCollectionIdFromName(activeCollectionName) ===
+			buildCollectionIdFromName(expectedCollectionName);
+
+		return (matchesByName || matchesById) ? activeFilePath : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function normalizeRequestItem(rawItem: unknown, fallbackName: string): Record<string, unknown> {
 	const nowId = `${Date.now()}`;
 	const itemObj = rawItem && typeof rawItem === 'object' ? (rawItem as Record<string, unknown>) : {};
@@ -810,6 +851,9 @@ export async function activate(context: vscode.ExtensionContext) {
 				// and save file name are both derived from the same parsed result.
 				const { parseHurlCollection } = await import('@wso2/api-tryit-hurl-parser');
 				const serviceName = normalized.name.trim() || 'API Collection';
+				const payloadCollectionId = typeof normalized.id === 'string' && normalized.id.trim()
+					? normalized.id.trim()
+					: undefined;
 				const collectionHeader = `# @collectionName ${serviceName}`;
 				const rawRequests = Array.isArray(normalized.requests) ? normalized.requests : [];
 				const blocks = rawRequests.map((rawUnknown, idx) => {
@@ -832,7 +876,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					// collection entries after the first save.
 					parsedCollection = parseHurlCollection(combinedHurl, {
 						collectionName: serviceName,
-						collectionId: serviceName,
+						collectionId: payloadCollectionId || buildCollectionIdFromName(serviceName),
 					});
 				} catch {
 					// Fallback: open empty request
@@ -856,23 +900,17 @@ export async function activate(context: vscode.ExtensionContext) {
 					// serviceIdentifier and DiagramWrapper serviceName).
 					const activeFile = getActiveCollectionFilePath();
 					if (activeFile) {
-						try {
-							await fs.access(activeFile);
-							existingDiskPath = activeFile;
-						} catch {
-							// active file also gone — fall through
-						}
+						existingDiskPath = await resolveMatchingActiveCollectionFile(activeFile, collName);
 					}
 				}
 
 				// If no disk file, look for a matching in-memory collection (e.g. Service
 				// TryIt was opened but nothing saved yet).
-				// Match by name first; if that misses (Service TryIt and Resource TryIt
-				// may produce slightly different display names), fall back to ID match so
-				// we never accidentally replace an existing multi-request collection.
+				// Match by ID first to avoid cross-service collisions when resource names
+				// overlap; fall back to name for compatibility with older payloads.
 				const existingInMemCollection = !existingDiskPath
-					? (apiExplorerProvider.findCollectionByName(collName) ||
-					   (parsedCollection ? apiExplorerProvider.findCollectionById(parsedCollection.id) : undefined))
+					? ((parsedCollection ? apiExplorerProvider.findCollectionById(parsedCollection.id) : undefined) ||
+					   apiExplorerProvider.findCollectionByName(collName))
 					: undefined;
 
 				try {
@@ -897,11 +935,11 @@ export async function activate(context: vscode.ExtensionContext) {
 						if (existingDiskPath && !apiExplorerProvider.findRequestByFilePath(existingDiskPath)) {
 							await apiExplorerProvider.reloadCollections();
 						}
-						// Match by name first; fall back to ID in case collection names
+						// Match by ID first; fall back to name in case collection names
 						// differ between Service TryIt and Resource TryIt invocations.
 						const currentCollection =
-							apiExplorerProvider.findCollectionByName(collName) ||
-							(parsedCollectionId ? apiExplorerProvider.findCollectionById(parsedCollectionId) : undefined);
+							(parsedCollectionId ? apiExplorerProvider.findCollectionById(parsedCollectionId) : undefined) ||
+							apiExplorerProvider.findCollectionByName(collName);
 						if (!currentCollection) {
 							ActivityPanel.forceCollectionsRefresh();
 							return;

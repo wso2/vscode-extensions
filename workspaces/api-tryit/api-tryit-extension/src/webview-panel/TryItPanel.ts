@@ -351,14 +351,64 @@ export class TryItPanel {
 								}
 							}
 
-							// If still no file path, prompt user to select a file directly.
-							// Do not auto-create folders/collections during save.
-							if (!targetFilePath) {
-								// Prefer the pending BI save path (set when Ballerina opens TryIt in-memory)
-								const pendingBiPath = getPendingBiSavePath();
+								// If still no file path, prompt user to select a file directly.
+								// Do not auto-create folders/collections during save.
+								if (!targetFilePath) {
+									// Prefer the pending BI save path (set when Ballerina opens TryIt in-memory)
+									const pendingBiPath = getPendingBiSavePath();
 
-								if (pendingBiPath && vscode.workspace.workspaceFolders?.length) {
-									// Auto-save to api-tryit/ folder without prompting the user
+									// Generic in-memory collection fallback:
+									// If this request belongs to an in-memory collection (e.g., imported Hurl collection),
+									// auto-persist to api-tryit/<collection-name>.hurl instead of opening Save As.
+									if (!pendingBiPath && vscode.workspace.workspaceFolders?.length && TryItPanel._explorerProvider) {
+										const collections = await TryItPanel._explorerProvider.getCollections() as Array<{
+											id: string;
+											name: string;
+											children?: Array<{ id: string; name?: string; method?: string; request?: { url?: string } }>;
+										}>;
+										const selectedCollection = collections.find(collection =>
+											(collection.children || []).some(item =>
+												item.id === selectedTreeItemId ||
+												(item.name === request?.name &&
+												 item.method === request?.method &&
+												 item.request?.url === request?.url)
+											)
+										);
+
+										if (selectedCollection) {
+											const existingCollectionPath = TryItPanel._explorerProvider.getCollectionPathById(selectedCollection.id);
+											if (existingCollectionPath) {
+												targetFilePath = existingCollectionPath;
+												appendToActiveCollection = true;
+												setActiveCollectionFilePath(existingCollectionPath);
+											} else {
+												const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
+												const safeCollectionName = (selectedCollection.name || request?.name || 'api-collection')
+													.toLowerCase()
+													.replace(/[^a-z0-9-]/g, '-')
+													.replace(/-+/g, '-')
+													.replace(/^-|-$/g, '');
+												const collectionFilePath = path.join(
+													workspaceRoot,
+													'api-tryit',
+													`${safeCollectionName || 'api-collection'}.hurl`
+												);
+												await fs.mkdir(path.dirname(collectionFilePath), { recursive: true });
+												try {
+													await vscode.workspace.fs.stat(vscode.Uri.file(collectionFilePath));
+												} catch {
+													const header = selectedCollection.name ? `# @collectionName ${selectedCollection.name}\n` : '';
+													await fs.writeFile(collectionFilePath, header);
+												}
+												targetFilePath = collectionFilePath;
+												appendToActiveCollection = true;
+												setActiveCollectionFilePath(collectionFilePath);
+											}
+										}
+									}
+
+									if (!targetFilePath && pendingBiPath && vscode.workspace.workspaceFolders?.length) {
+										// Auto-save to api-tryit/ folder without prompting the user
 									const apiTryItDir = path.dirname(pendingBiPath);
 									await fs.mkdir(apiTryItDir, { recursive: true });
 									// Write only the collection name header — saveRequest will append the
@@ -373,7 +423,7 @@ export class TryItPanel {
 									// collection are appended here, even after selectItemByPath resets
 									// the state machine's currentCollectionPath to the directory.
 									setActiveCollectionFilePath(pendingBiPath);
-								} else {
+								} else if (!targetFilePath) {
 									let defaultUri: vscode.Uri | undefined;
 									if (pendingBiPath) {
 										defaultUri = vscode.Uri.file(pendingBiPath);
