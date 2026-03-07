@@ -172,25 +172,85 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
             const svcBasePath = (selectedService.basePath || '').replace(/\/+$/, '');
             const baseUrl = `http://${host}:${selectedPort}${svcBasePath}`;
 
-            const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'];
+            const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'] as const;
             const requests: { name: string; content: string }[] = [];
+            const getParameterValue = (parameter: Parameter): string => {
+                const defaultValue = parameter?.schema?.default;
+                if (defaultValue === undefined || defaultValue === null || `${defaultValue}`.trim() === '') {
+                    return '{?}';
+                }
+                return `${defaultValue}`;
+            };
+            const buildQuerySuffix = (parameters: Parameter[]): string => {
+                const query = parameters
+                    .filter((parameter) => parameter?.in === 'query' && parameter?.name)
+                    .map((parameter) => `${parameter.name}=${getParameterValue(parameter)}`)
+                    .join('&');
+                return query ? `?${query}` : '';
+            };
+            const normalizeResourcePath = (rawPath: string): string => {
+                const pathWithSlash = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
+                const segments = pathWithSlash
+                    .split('/')
+                    .filter(segment => segment.length > 0)
+                    .map((segment) => {
+                        const sanitized = sanitizeBallerinaPathSegment(segment);
+                        if (sanitized.startsWith('[') && sanitized.endsWith(']')) {
+                            const inner = sanitized.slice(1, -1).trim();
+                            const name = inner.split(/\s+/).pop() || inner || 'param';
+                            return `{${name}}`;
+                        }
+                        return sanitized;
+                    });
+                return `/${segments.join('/')}`;
+            };
+            const collectParameters = (pathItem: Record<string, unknown>, operation?: Operation): Parameter[] => {
+                const pathParameters = Array.isArray(pathItem?.parameters) ? (pathItem.parameters as Parameter[]) : [];
+                const operationParameters = Array.isArray(operation?.parameters) ? operation.parameters : [];
+                const unique = new Map<string, Parameter>();
+                [...pathParameters, ...operationParameters].forEach((parameter) => {
+                    if (parameter?.name && parameter?.in) {
+                        unique.set(`${parameter.in}:${parameter.name}`, parameter);
+                    }
+                });
+                return Array.from(unique.values());
+            };
+            const addRequest = (methodUpper: string, resourcePath: string, parameters: Parameter[] = []) => {
+                const querySuffix = buildQuerySuffix(parameters);
+                requests.push({
+                    name: `${methodUpper} ${resourcePath}`,
+                    content: `${methodUpper} ${baseUrl}${resourcePath}${querySuffix}`,
+                });
+            };
 
             if (resourceMetadata) {
                 const method = resourceMetadata.methodValue.toUpperCase();
-                const rawPath = resourceMetadata.pathValue;
-                const resourcePath = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
-                requests.push({
-                    name: `${method} ${resourcePath}`,
-                    content: `${method} ${baseUrl}${resourcePath}`,
-                });
+                const methodLower = method.toLowerCase();
+                const rawPath = resourceMetadata.pathValue?.trim() || '';
+                const normalizedRawPath = normalizeResourcePath(rawPath);
+
+                let matchedPath: string | undefined;
+                let matchedPathItem: Record<string, unknown> | undefined;
+                for (const [specPath, specPathItem] of Object.entries(openapiSpec.paths || {})) {
+                    if (comparePathPatterns(specPath, normalizedRawPath)) {
+                        matchedPath = specPath;
+                        matchedPathItem = specPathItem as Record<string, unknown>;
+                        break;
+                    }
+                }
+
+                const resourcePath = matchedPath || normalizedRawPath;
+                const operation = matchedPathItem?.[methodLower] as Operation | undefined;
+                const parameters = collectParameters(matchedPathItem || {}, operation);
+                addRequest(method, resourcePath, parameters);
             } else {
-                for (const [apiPath, pathItem] of Object.entries(openapiSpec.paths || {})) {
+                for (const [apiPath, pathItemRaw] of Object.entries(openapiSpec.paths || {})) {
+                    const pathItem = pathItemRaw as Record<string, unknown>;
                     for (const method of HTTP_METHODS) {
-                        if (pathItem[method]) {
-                            requests.push({
-                                name: `${method.toUpperCase()} ${apiPath}`,
-                                content: `${method.toUpperCase()} ${baseUrl}${apiPath}`,
-                            });
+                        const operation = pathItem[method] as Operation | undefined;
+                        if (operation) {
+                            const parameters = collectParameters(pathItem, operation);
+                            addRequest(method.toUpperCase(), apiPath, parameters);
                         }
                     }
                 }

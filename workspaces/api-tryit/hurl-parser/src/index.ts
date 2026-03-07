@@ -691,7 +691,9 @@ function parseResponsePart(lines: string[]): string[] {
 }
 
 function parseUrlAndQuery(rawUrl: string, requestIndex: number): { url: string; queryParameters: QueryParameter[] } {
-	const [baseUrl, rawQuery = ''] = rawUrl.split('?', 2);
+	const queryStart = rawUrl.indexOf('?');
+	const baseUrl = queryStart >= 0 ? rawUrl.slice(0, queryStart) : rawUrl;
+	const rawQuery = queryStart >= 0 ? rawUrl.slice(queryStart + 1) : '';
 	const queryParameters: QueryParameter[] = [];
 
 	if (rawQuery) {
