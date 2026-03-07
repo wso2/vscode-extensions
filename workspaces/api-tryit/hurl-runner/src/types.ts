@@ -89,6 +89,8 @@ export interface HurlEntryResult {
 	method?: string;
 	url?: string;
 	statusCode?: number;
+	responseHeaders?: Array<{ name: string; value: string }>;
+	responseBody?: string;
 	status: 'passed' | 'failed' | 'error';
 	durationMs?: number;
 	assertions?: HurlAssertionResult[];

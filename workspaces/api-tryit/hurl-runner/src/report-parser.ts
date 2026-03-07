@@ -181,6 +181,21 @@ async function resolveReportJsonPath(reportPath: string): Promise<string> {
 	return reportPath;
 }
 
+async function resolveEntryResponseBodies(entries: HurlEntryResult[], reportDir: string): Promise<void> {
+	await Promise.all(entries.map(async (entry) => {
+		if (!entry.responseBody || typeof entry.responseBody !== 'string') {
+			return;
+		}
+
+		const bodyPath = path.resolve(reportDir, entry.responseBody);
+		try {
+			entry.responseBody = await fs.readFile(bodyPath, 'utf8');
+		} catch {
+			// Keep the original value if the body file cannot be read
+		}
+	}));
+}
+
 function extractHurlErrorMessage(stderr: string | undefined): string | undefined {
 	if (!stderr) {
 		return undefined;
@@ -476,8 +491,9 @@ function toEntry(
 	stderrLineFailure: StderrLineFailure | undefined
 ): HurlEntryResult {
 	const obj = (entry && typeof entry === 'object') ? entry as Record<string, unknown> : {};
-	const requestObj = obj.request && typeof obj.request === 'object' ? obj.request as Record<string, unknown> : {};
-	const responseObj = obj.response && typeof obj.response === 'object' ? obj.response as Record<string, unknown> : {};
+	const calls = Array.isArray(obj.calls) ? obj.calls : [];
+	const requestObj = calls.length > 0 && isObject(calls[0].request) ? calls[0].request as Record<string, unknown> : {};
+	const responseObj = calls.length > 0 && isObject(calls[calls.length - 1].response) ? calls[calls.length - 1].response as Record<string, unknown> : {};
 	const success = obj.success;
 	const error = obj.error;
 	const line = typeof obj.line === 'number' ? obj.line : sourceRequest?.startLine;
@@ -505,6 +521,13 @@ function toEntry(
 
 	const statusValue = responseObj.status ?? obj.statusCode;
 	const statusCode = typeof statusValue === 'number' ? statusValue : undefined;
+	const responseHeaders = Array.isArray(responseObj.headers)
+		? responseObj.headers.filter(isObject).map(header => ({
+			name: typeof header.name === 'string' ? header.name : '',
+			value: typeof header.value === 'string' ? header.value : ''
+		}))
+		: undefined;
+	const responseBody = typeof responseObj.body === 'string' ? responseObj.body : undefined;
 	const errorMessage = typeof error === 'string' && error.length > 0
 		? error
 		: stderrLineFailure?.message;
@@ -514,6 +537,8 @@ function toEntry(
 		method: typeof requestObj.method === 'string' ? requestObj.method : sourceRequest?.method,
 		url: typeof requestObj.url === 'string' ? requestObj.url : sourceRequest?.url,
 		statusCode,
+		responseHeaders,
+		responseBody,
 		status,
 		durationMs: typeof obj.time === 'number' ? obj.time : undefined,
 		line,
@@ -617,9 +642,10 @@ export async function parseFileResult(context: ParseContext): Promise<HurlFileRe
 	const durationMs = context.finishedAt.getTime() - context.startedAt.getTime();
 	let report: GenericReport | undefined;
 	let parseError: string | undefined;
+	let reportJsonPath: string | undefined;
 
 	try {
-		const reportJsonPath = await resolveReportJsonPath(context.reportPath);
+		reportJsonPath = await resolveReportJsonPath(context.reportPath);
 		const reportText = await fs.readFile(reportJsonPath, 'utf8');
 		report = normalizeReport(JSON.parse(reportText), context.filePath);
 		if (!report) {
@@ -661,6 +687,11 @@ export async function parseFileResult(context: ParseContext): Promise<HurlFileRe
 			entries.push(toEntry({}, entries.length, sourceRequest, lineFailure));
 			entrySourceRequests.push(sourceRequest);
 		}
+	}
+
+	if (reportJsonPath) {
+		const reportDir = path.dirname(reportJsonPath);
+		await resolveEntryResponseBodies(entries, reportDir);
 	}
 
 	const rawAssertions = Array.isArray(report?.assertions)
