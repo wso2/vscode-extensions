@@ -295,7 +295,7 @@ const MethodOption = styled.li<{ active: boolean }>`
     font-weight: 600;
     letter-spacing: 0.25px;
     color: var(--vscode-foreground);
-    background: ${({ active }) => active ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent'};
+    background: ${({ active }) => active ? 'var(--vscode-editor-selectionBackground)' : 'transparent'};
     transition: background 0.12s ease;
 
     &:hover {
@@ -331,7 +331,6 @@ const UrlInputField = styled.input`
     padding-right: 50px; /* Reserve space for inline Save button */
     color: var(--vscode-foreground);
     font-size: 14px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 16px rgba(0, 0, 0, 0.28);
     transition: border-color 0.12s ease, box-shadow 0.12s ease;
 
     &::placeholder {
