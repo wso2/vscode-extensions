@@ -222,11 +222,11 @@ export class TryItPanel {
 						// Handle HTTP request sent from webview
 						try {
 							const { requestId, data } = message;
-							const { method, url, params, headers, data: body } = data || {};
-							
+							const { method, url, params, headers, data: body, formData } = data || {};
+
 							// Delegate to RPC manager to handle the HTTP request
 							const rpcManager = new ApiTryItRpcManager();
-							rpcManager.sendHttpRequest({ method, url, params, headers, data: body }).then(
+							rpcManager.sendHttpRequest({ method, url, params, headers, data: body, formData }).then(
 							(result: HttpResponseResult) => {
 									this._panel.webview.postMessage({
 										type: 'httpRequestResponse',

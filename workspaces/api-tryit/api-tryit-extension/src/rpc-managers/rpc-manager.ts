@@ -309,10 +309,29 @@ export class ApiTryItRpcManager {
         const url = this.appendQueryParams(options.url, options.params);
         const headers = { ...(options.headers || {}) } as Record<string, string>;
 
-        const hasBody = options.data !== undefined && options.data !== null;
-        let body: string | undefined;
+        const hasFormData = Array.isArray(options.formData) && options.formData.length > 0;
+        const hasBody = !hasFormData && options.data !== undefined && options.data !== null;
+        let body: string | FormData | undefined;
 
-        if (hasBody && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        if (hasFormData && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+            const fd = new FormData();
+            for (const field of options.formData!) {
+                if (field.filePath) {
+                    const fileBuffer = await readFile(field.filePath);
+                    const blob = new Blob([new Uint8Array(fileBuffer)], { type: field.contentType || 'application/octet-stream' });
+                    fd.append(field.key, blob, path.basename(field.filePath));
+                } else {
+                    fd.append(field.key, field.value ?? '');
+                }
+            }
+            body = fd;
+            // Remove any manually set Content-Type so fetch can set the multipart boundary
+            for (const key of Object.keys(headers)) {
+                if (key.toLowerCase() === 'content-type') {
+                    delete headers[key];
+                }
+            }
+        } else if (hasBody && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
             if (typeof options.data === 'string') {
                 body = options.data;
             } else {

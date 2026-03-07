@@ -810,21 +810,27 @@ export const MainPanel: React.FC = () => {
             
             // Parse body if present
             let data = undefined;
-            if (request.body && ['POST', 'PUT', 'PATCH'].includes(request.method)) {
-                try {
-                    data = JSON.parse(request.body);
-                } catch {
-                    data = request.body;
+            let formData = undefined;
+            if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
+                if (request.bodyFormData && request.bodyFormData.length > 0) {
+                    formData = request.bodyFormData;
+                } else if (request.body) {
+                    try {
+                        data = JSON.parse(request.body);
+                    } catch {
+                        data = request.body;
+                    }
                 }
             }
-            
+
             // Send request via extension
             const result = await sendHttpRequest({
                 method: request.method,
                 url: request.url,
                 params,
                 headers,
-                data
+                data,
+                formData
             });
             
             // Convert response to ApiResponse format
