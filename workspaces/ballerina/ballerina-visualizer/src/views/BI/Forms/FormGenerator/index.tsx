@@ -234,7 +234,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
 
     const { rpcClient } = useRpcContext();
     const [baseFields, setBaseFields] = useState<FormField[]>([]);
-    const [formImports, setFormImports] = useState<FormImports>({});
+    const formImportsRef = useRef<FormImports>({});
     const [typeEditorState, setTypeEditorState] = useState<TypeEditorState>({ isOpen: false, newTypeValue: "" });
     const [visualizableField, setVisualizableField] = useState<VisualizableField>();
     const [recordTypeFields, setRecordTypeFields] = useState<RecordTypeField[]>([]);
@@ -475,7 +475,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
 
         const sortedFields = sortFieldsByPriority(fields);
         setBaseFields(sortedFields);
-        setFormImports(getImportsForFormFields(sortedFields));
+        formImportsRef.current = getImportsForFormFields(sortedFields);
     };
 
     const setDiagnosticsToFields = (data: FormValues, nodeWithDiagnostics: FlowNode) => {
@@ -514,7 +514,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         if (node && targetLineRange) {
             const updatedNode = mergeFormDataWithFlowNode(data, targetLineRange, dirtyFields);
             const editorConfig = data["editorConfig"];
-            onSubmit(updatedNode, editorConfig, formImports);
+            onSubmit(updatedNode, editorConfig, formImportsRef.current);
         }
     };
 
@@ -535,7 +535,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         const processedData = processFormData(data);
 
         // Update node properties
-        const nodeWithUpdatedProps = updateNodeWithProperties(clonedNode, updatedNode, processedData, formImports, dirtyFields);
+        const nodeWithUpdatedProps = updateNodeWithProperties(clonedNode, updatedNode, processedData, formImportsRef.current, dirtyFields);
 
         // check all nodes and remove empty nodes
         return removeEmptyNodes(nodeWithUpdatedProps);
@@ -578,14 +578,13 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         importsCodedataRef.current = codedata;
         const importKey = Object.keys(imports)?.[0];
 
-        if (Object.keys(formImports).includes(key)) {
-            if (importKey && !Object.keys(formImports[key]).includes(importKey)) {
-                const updatedImports = { ...formImports, [key]: { ...formImports[key], ...imports } };
-                setFormImports(updatedImports);
+        const prevImports = formImportsRef.current;
+        if (key in prevImports) {
+            if (importKey && importKey in prevImports[key]) {
+                formImportsRef.current = { ...prevImports, [key]: { ...prevImports[key], ...imports } };
             }
         } else {
-            const updatedImports = { ...formImports, [key]: imports };
-            setFormImports(updatedImports);
+            formImportsRef.current = { ...prevImports, [key]: imports };
         }
     }
 
@@ -709,7 +708,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                         searchKind: 'TYPE'
                     });
 
-                    const allItems = searchResponse.categories.flatMap(category => 
+                    const allItems = searchResponse.categories.flatMap(category =>
                         category.items.flatMap(item => {
                             if ('codedata' in item) {
                                 return [item];
@@ -845,6 +844,16 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                     node.properties["type"].value = variableType || "any";
                 }
 
+                // Add form imports
+                const existingImports = property.imports ?? undefined;
+                const newImports = formImportsRef.current[key];
+                const mergedImports = newImports
+                    ? { ...(existingImports || {}), ...newImports }
+                    : existingImports;
+                const updatedProperty = mergedImports !== undefined
+                    ? { ...property, imports: mergedImports }
+                    : property;
+
                 try {
                     const response = await rpcClient.getBIDiagramRpcClient().getExpressionDiagnostics({
                         filePath: fileName,
@@ -854,7 +863,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                             lineOffset: 0,
                             offset: 0,
                             codedata: node.codedata,
-                            property: property,
+                            property: updatedProperty,
                         },
                     });
 
@@ -873,7 +882,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             },
             250
         ),
-        [rpcClient, fileName, targetLineRange, node]
+        [rpcClient, fileName, targetLineRange, node, formImportsRef.current]
     );
 
     const handleCompletionItemSelect = async (
@@ -1556,7 +1565,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                     actionButton={actionButton}
                     recordTypeFields={recordTypeFields}
                     isInferredReturnType={!!node.codedata?.inferredReturnType}
-                    formImports={formImports}
+                    formImports={formImportsRef.current}
                     handleSelectedTypeChange={handleSelectedTypeChange}
                     preserveOrder={node.codedata.node === "VARIABLE" as NodeKind || node.codedata.node === "CONFIG_VARIABLE" as NodeKind}
                 />
@@ -1676,7 +1685,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                     actionButton={actionButton}
                     recordTypeFields={recordTypeFields}
                     isInferredReturnType={!!node.codedata?.inferredReturnType}
-                    formImports={formImports}
+                    formImports={formImportsRef.current}
                     handleSelectedTypeChange={handleSelectedTypeChange}
                     preserveOrder={
                         node.codedata.node === ("VARIABLE" as NodeKind) ||
