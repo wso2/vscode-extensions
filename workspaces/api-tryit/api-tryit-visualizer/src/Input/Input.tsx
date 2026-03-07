@@ -21,7 +21,7 @@ import { Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { InputForm } from './Form/InputForm';
 import { InputCode } from './Code/InputCode';
-import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
+import { ApiRequest } from '@wso2/api-tryit-core';
 import { getVSCodeAPI } from '../utils/vscode-api';
 import { Output } from '../Output';
 
@@ -63,6 +63,9 @@ export const Input: React.FC<InputProps> = ({
     const outputRef = React.useRef<HTMLDivElement>(null);
     const containerRef = React.useRef<HTMLDivElement>(null);
     const lastRequestIdRef = React.useRef<string | undefined>(undefined);
+    // Tracks whether the user explicitly chose a format for the current request.
+    // While true, auto-detection is suppressed so typing doesn't override the selection.
+    const userSetFormatRef = React.useRef(false);
     const lastScrollTopCounterRef = React.useRef<number>(scrollToTopCounter ?? 0);
     // Keep a ref to the callback so the scroll listener doesn't need to be re-attached on every render
     const onActiveTabChangeRef = React.useRef(onActiveTabChange);
@@ -153,6 +156,12 @@ export const Input: React.FC<InputProps> = ({
         const isNewRequest = lastRequestIdRef.current !== request.id;
         if (isNewRequest) {
             lastRequestIdRef.current = request.id;
+            userSetFormatRef.current = false; // Reset explicit-format flag for new request
+        }
+
+        // If the user manually picked a format for this request, don't override it.
+        if (!isNewRequest && userSetFormatRef.current) {
+            return;
         }
 
         if (request.bodyFormData && request.bodyFormData.length > 0) {
@@ -241,6 +250,7 @@ export const Input: React.FC<InputProps> = ({
     }, [response]);
 
     const handleFormatChange = (format: BodyFormat) => {
+        userSetFormatRef.current = true;
         setBodyFormat(format);
         const isRawFormat = (value: BodyFormat) => ['json', 'xml', 'text', 'html', 'javascript'].includes(value);
         const keepRawBody = isRawFormat(format) && isRawFormat(bodyFormat);
