@@ -1126,7 +1126,13 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				: undefined;
 
 			if (!requestFilePath) {
-				vscode.window.showErrorMessage('Unable to determine request file path');
+				if (this._apiExplorerProvider.removeRequestById(requestId)) {
+					await vscode.commands.executeCommand('api-tryit.clearSelection');
+					this._sendCollections(true);
+					vscode.window.showInformationMessage(`Request "${requestName}" deleted successfully`);
+				} else {
+					vscode.window.showErrorMessage('Unable to determine request file path');
+				}
 				return;
 			}
 

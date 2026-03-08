@@ -386,6 +386,30 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		}
 	}
 
+	public removeRequestById(requestId: string): boolean {
+		for (const collection of this.collections) {
+			const rootItems = collection.rootItems || [];
+			const filteredItems = rootItems.filter(requestItem =>
+				requestItem.id !== requestId && requestItem.request.id !== requestId
+			);
+
+			if (filteredItems.length === rootItems.length) {
+				continue;
+			}
+
+			collection.rootItems = filteredItems;
+
+			if (filteredItems.length === 0 && this.inMemoryCollectionIds.has(collection.id)) {
+				this.removeCollectionById(collection.id);
+			} else {
+				this.refresh();
+			}
+			return true;
+		}
+
+		return false;
+	}
+
 	setWorkspacePath(workspacePath: string): void {
 		this.workspacePath = workspacePath;
 		void this.loadCollections();
