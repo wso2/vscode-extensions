@@ -204,6 +204,21 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
                     .join('&');
                 return query ? `?${query}` : '';
             };
+            const buildHeaderLines = (parameters: Parameter[]): string => {
+                const headers = parameters
+                    .filter((p) => p?.in === 'header' && p?.name)
+                    .map((p) => `${p.name}: ${getParameterValue(p)}`)
+                    .join('\n');
+                return headers ? `\n${headers}` : '';
+            };
+            const buildBodySection = (operation?: Operation): string => {
+                if (!operation?.requestBody) { return ''; }
+                const contentTypes = Object.keys(operation.requestBody.content);
+                if (!contentTypes.length) { return ''; }
+                const contentType = contentTypes[0];
+                const body = generateRequestBody(operation.requestBody, openapiSpec);
+                return `\nContent-Type: ${contentType}\n\n${body}`;
+            };
             const normalizeResourcePath = (rawPath: string): string => {
                 const pathWithSlash = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
                 const segments = pathWithSlash
@@ -231,11 +246,13 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
                 });
                 return Array.from(unique.values());
             };
-            const addRequest = (methodUpper: string, resourcePath: string, parameters: Parameter[] = []) => {
+            const addRequest = (methodUpper: string, resourcePath: string, parameters: Parameter[] = [], operation?: Operation) => {
                 const querySuffix = buildQuerySuffix(parameters);
+                const headerLines = buildHeaderLines(parameters);
+                const bodySection = buildBodySection(operation);
                 requests.push({
                     name: `${methodUpper} ${resourcePath}`,
-                    content: `${methodUpper} ${baseUrl}${resourcePath}${querySuffix}`,
+                    content: `${methodUpper} ${baseUrl}${resourcePath}${querySuffix}${headerLines}${bodySection}`,
                 });
             };
 
@@ -258,7 +275,7 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
                 const resourcePath = matchedPath || normalizedRawPath;
                 const operation = matchedPathItem?.[methodLower] as Operation | undefined;
                 const parameters = collectParameters(matchedPathItem || {}, operation);
-                addRequest(method, resourcePath, parameters);
+                addRequest(method, resourcePath, parameters, operation);
             } else {
                 for (const [apiPath, pathItemRaw] of Object.entries(openapiSpec.paths || {})) {
                     const pathItem = pathItemRaw as Record<string, unknown>;
@@ -266,7 +283,7 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
                         const operation = pathItem[method] as Operation | undefined;
                         if (operation) {
                             const parameters = collectParameters(pathItem, operation);
-                            addRequest(method.toUpperCase(), apiPath, parameters);
+                            addRequest(method.toUpperCase(), apiPath, parameters, operation);
                         }
                     }
                 }
@@ -936,30 +953,34 @@ function getCommentText(contentType: string): string {
     }
 }
 
-function generateSampleValue(schema: Schema, context: OAISpec): any {
+function generateSampleValue(schema: Schema, context: OAISpec, key?: string): any {
     // Handle schema reference
     if (schema.$ref) {
         const resolvedSchema = resolveSchemaRef(schema.$ref, context);
         if (!resolvedSchema) {
             return { error: `Reference not found: ${schema.$ref}` };
         }
-        return generateSampleValue(resolvedSchema, context);
+        return generateSampleValue(resolvedSchema, context, key);
     }
 
     if (!schema.type) {
-        return {};
+        return null;
     }
+
+    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+    const singularize = (s: string) => s.endsWith('s') ? s.slice(0, -1) : s;
+    const testValue = (k?: string) => k ? `test${capitalize(k)}` : 'testValue';
 
     switch (schema.type) {
         case 'object':
             if (!schema.properties) {
-                return {};
+                return null;
             }
             const obj: Record<string, any> = {};
             for (const [propName, prop] of Object.entries(schema.properties)) {
                 // Handle property references
                 const propSchema = '$ref' in prop ? resolveSchemaRef(prop.$ref, context) || prop : prop;
-                obj[propName] = generateSampleValue(propSchema as Schema, context);
+                obj[propName] = generateSampleValue(propSchema as Schema, context, propName);
             }
             return obj;
 
@@ -969,7 +990,7 @@ function generateSampleValue(schema: Schema, context: OAISpec): any {
             }
             // Handle array item references
             const itemsSchema = '$ref' in schema.items ? resolveSchemaRef(schema.items.$ref, context) || schema.items : schema.items;
-            return [generateSampleValue(itemsSchema as Schema, context)];
+            return [generateSampleValue(itemsSchema as Schema, context, key ? singularize(key) : undefined)];
         case 'string':
             if (schema.enum && schema.enum.length > 0) {
                 return schema.enum[0];
@@ -985,10 +1006,10 @@ function generateSampleValue(schema: Schema, context: OAISpec): any {
                     case 'uuid':
                         return "123e4567-e89b-12d3-a456-426614174000";
                     default:
-                        return "{?}";
+                        return testValue(key);
                 }
             }
-            return schema.default || "{?}";
+            return schema.default || testValue(key);
         case 'integer':
         case 'number':
             return schema.default || 0;
