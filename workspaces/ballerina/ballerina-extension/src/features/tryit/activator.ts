@@ -47,6 +47,22 @@ let errorLogWatcher: FileSystemWatcher | undefined;
 // Store session IDs by chat endpoint to maintain sessions across reopenings
 const chatSessionMap: Map<string, string> = new Map();
 
+function buildCollectionIdFromService(service: ServiceInfo): string {
+    const basePath = (service.basePath || '/').trim();
+    const listenerPort = (service.listener?.port || '').trim();
+    const listenerName = (service.listener?.name || '').trim();
+    const listenerPortMatch = listenerName.match(/new\s+http:Listener\((\d+)\)/i);
+    const listenerKey = listenerPort || listenerPortMatch?.[1] || listenerName;
+    const raw = `${listenerKey}|${basePath}`.toLowerCase();
+    const normalized = raw
+        .replace(/[^a-z0-9|/_\-\s]/g, '')
+        .replace(/[|/_\s]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+
+    return normalized || `service-${Date.now()}`;
+}
+
 // Export a function to update the session ID for an endpoint (used when clearing chat)
 export function updateChatSessionId(endpoint: string, newSessionId: string): void {
     chatSessionMap.set(endpoint, newSessionId);
@@ -166,8 +182,124 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
             const selectedPort: number = await getServicePort(projectPath, selectedService, openapiSpec);
             selectedService.port = selectedPort;
 
-            const tryitFileUri = await generateTryItFileContent(targetDir, openapiSpec, selectedService, resourceMetadata);
-            await openInSplitView(tryitFileUri, 'http');
+            // Build a Hurl collection from the OpenAPI spec and open in API TryIt
+            const host = 'localhost';
+            // Strip trailing slashes from basePath so appending "/resource" never gives "//resource"
+            const svcBasePath = (selectedService.basePath || '').replace(/\/+$/, '');
+            const baseUrl = `http://${host}:${selectedPort}${svcBasePath}`;
+
+            const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'] as const;
+            const requests: { name: string; content: string }[] = [];
+            const getParameterValue = (parameter: Parameter): string => {
+                const defaultValue = parameter?.schema?.default;
+                if (defaultValue === undefined || defaultValue === null || `${defaultValue}`.trim() === '') {
+                    return '{?}';
+                }
+                return `${defaultValue}`;
+            };
+            const buildQuerySuffix = (parameters: Parameter[]): string => {
+                const query = parameters
+                    .filter((parameter) => parameter?.in === 'query' && parameter?.name)
+                    .map((parameter) => `${parameter.name}=${getParameterValue(parameter)}`)
+                    .join('&');
+                return query ? `?${query}` : '';
+            };
+            const buildHeaderLines = (parameters: Parameter[]): string => {
+                const headers = parameters
+                    .filter((p) => p?.in === 'header' && p?.name)
+                    .map((p) => `${p.name}: ${getParameterValue(p)}`)
+                    .join('\n');
+                return headers ? `\n${headers}` : '';
+            };
+            const buildBodySection = (operation?: Operation): string => {
+                if (!operation?.requestBody) { return ''; }
+                const contentTypes = Object.keys(operation.requestBody.content);
+                if (!contentTypes.length) { return ''; }
+                const contentType = contentTypes[0];
+                const body = generateRequestBody(operation.requestBody, openapiSpec);
+                return `\nContent-Type: ${contentType}\n\n${body}`;
+            };
+            const normalizeResourcePath = (rawPath: string): string => {
+                const pathWithSlash = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
+                const segments = pathWithSlash
+                    .split('/')
+                    .filter(segment => segment.length > 0)
+                    .map((segment) => {
+                        const sanitized = sanitizeBallerinaPathSegment(segment);
+                        if (sanitized.startsWith('[') && sanitized.endsWith(']')) {
+                            const inner = sanitized.slice(1, -1).trim();
+                            const name = inner.split(/\s+/).pop() || inner || 'param';
+                            return `{${name}}`;
+                        }
+                        return sanitized;
+                    });
+                return `/${segments.join('/')}`;
+            };
+            const collectParameters = (pathItem: Record<string, unknown>, operation?: Operation): Parameter[] => {
+                const pathParameters = Array.isArray(pathItem?.parameters) ? (pathItem.parameters as Parameter[]) : [];
+                const operationParameters = Array.isArray(operation?.parameters) ? operation.parameters : [];
+                const unique = new Map<string, Parameter>();
+                [...pathParameters, ...operationParameters].forEach((parameter) => {
+                    if (parameter?.name && parameter?.in) {
+                        unique.set(`${parameter.in}:${parameter.name}`, parameter);
+                    }
+                });
+                return Array.from(unique.values());
+            };
+            const addRequest = (methodUpper: string, resourcePath: string, parameters: Parameter[] = [], operation?: Operation) => {
+                const querySuffix = buildQuerySuffix(parameters);
+                const headerLines = buildHeaderLines(parameters);
+                const bodySection = buildBodySection(operation);
+                requests.push({
+                    name: `${methodUpper} ${resourcePath}`,
+                    content: `${methodUpper} ${baseUrl}${resourcePath}${querySuffix}${headerLines}${bodySection}`,
+                });
+            };
+
+            if (resourceMetadata) {
+                const method = resourceMetadata.methodValue.toUpperCase();
+                const methodLower = method.toLowerCase();
+                const rawPath = resourceMetadata.pathValue?.trim() || '';
+                const normalizedRawPath = normalizeResourcePath(rawPath);
+
+                let matchedPath: string | undefined;
+                let matchedPathItem: Record<string, unknown> | undefined;
+                for (const [specPath, specPathItem] of Object.entries(openapiSpec.paths || {})) {
+                    if (comparePathPatterns(specPath, normalizedRawPath)) {
+                        matchedPath = specPath;
+                        matchedPathItem = specPathItem as Record<string, unknown>;
+                        break;
+                    }
+                }
+
+                const resourcePath = matchedPath || normalizedRawPath;
+                const operation = matchedPathItem?.[methodLower] as Operation | undefined;
+                const parameters = collectParameters(matchedPathItem || {}, operation);
+                addRequest(method, resourcePath, parameters, operation);
+            } else {
+                for (const [apiPath, pathItemRaw] of Object.entries(openapiSpec.paths || {})) {
+                    const pathItem = pathItemRaw as Record<string, unknown>;
+                    for (const method of HTTP_METHODS) {
+                        const operation = pathItem[method] as Operation | undefined;
+                        if (operation) {
+                            const parameters = collectParameters(pathItem, operation);
+                            addRequest(method.toUpperCase(), apiPath, parameters, operation);
+                        }
+                    }
+                }
+            }
+
+            const canonicalBasePath = (selectedService.basePath || '/').trim() || '/';
+            const collectionName = `HTTP Service - ${canonicalBasePath}`;
+            const collectionId = buildCollectionIdFromService(selectedService);
+            const hurlCollection = {
+                id: collectionId,
+                name: collectionName,
+                description: `API TryIt collection for ${collectionName}`,
+                requests,
+            };
+
+            await vscode.commands.executeCommand('api-tryit.openFromHurlCollection', hurlCollection, undefined, 'bi-tryit-apis');
         } else if (selectedService.type === ServiceType.GRAPHQL) {
             const selectedPort: number = await getServicePort(projectPath, selectedService);
             const port = selectedPort;
@@ -821,30 +953,34 @@ function getCommentText(contentType: string): string {
     }
 }
 
-function generateSampleValue(schema: Schema, context: OAISpec): any {
+function generateSampleValue(schema: Schema, context: OAISpec, key?: string): any {
     // Handle schema reference
     if (schema.$ref) {
         const resolvedSchema = resolveSchemaRef(schema.$ref, context);
         if (!resolvedSchema) {
             return { error: `Reference not found: ${schema.$ref}` };
         }
-        return generateSampleValue(resolvedSchema, context);
+        return generateSampleValue(resolvedSchema, context, key);
     }
 
     if (!schema.type) {
-        return {};
+        return null;
     }
+
+    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+    const singularize = (s: string) => s.endsWith('s') ? s.slice(0, -1) : s;
+    const testValue = (k?: string) => k ? `test${capitalize(k)}` : 'testValue';
 
     switch (schema.type) {
         case 'object':
             if (!schema.properties) {
-                return {};
+                return null;
             }
             const obj: Record<string, any> = {};
             for (const [propName, prop] of Object.entries(schema.properties)) {
                 // Handle property references
                 const propSchema = '$ref' in prop ? resolveSchemaRef(prop.$ref, context) || prop : prop;
-                obj[propName] = generateSampleValue(propSchema as Schema, context);
+                obj[propName] = generateSampleValue(propSchema as Schema, context, propName);
             }
             return obj;
 
@@ -854,7 +990,7 @@ function generateSampleValue(schema: Schema, context: OAISpec): any {
             }
             // Handle array item references
             const itemsSchema = '$ref' in schema.items ? resolveSchemaRef(schema.items.$ref, context) || schema.items : schema.items;
-            return [generateSampleValue(itemsSchema as Schema, context)];
+            return [generateSampleValue(itemsSchema as Schema, context, key ? singularize(key) : undefined)];
         case 'string':
             if (schema.enum && schema.enum.length > 0) {
                 return schema.enum[0];
@@ -870,10 +1006,10 @@ function generateSampleValue(schema: Schema, context: OAISpec): any {
                     case 'uuid':
                         return "123e4567-e89b-12d3-a456-426614174000";
                     default:
-                        return "{?}";
+                        return testValue(key);
                 }
             }
-            return schema.default || "{?}";
+            return schema.default || testValue(key);
         case 'integer':
         case 'number':
             return schema.default || 0;
@@ -1128,6 +1264,7 @@ interface ResourceMetadata {
 interface ServiceMetadata {
     basePath: string;
     listener: string;
+    name?: string;
 }
 
 function createServiceInfoFromMetadata(serviceMetadata: ServiceMetadata, workspaceRoot: string, filepath?: string): ServiceInfo {

@@ -68,7 +68,6 @@ export enum MACHINE_VIEW {
     DSSResourceServiceDesigner = "DSS Resource Designer",
     DSSQueryServiceDesigner = "DSS Query Designer",
     ProjectCreationForm = "Project Creation Form",
-    ImportProjectForm = "Import Project Form",
     LocalEntryForm = "Local Entry Form",
     RegistryResourceForm = "Resource Creation Form",
     RegistryMetadataForm = "Registry Metadata Form",
@@ -113,7 +112,7 @@ export type MachineStateValue =
 export type AIMachineStateValue =
     | 'Initialize'          // (checking auth, first load)
     | 'Unauthenticated'     // (show login window)
-    | { Authenticating: 'determineFlow' | 'ssoFlow' | 'apiKeyFlow' | 'validatingApiKey' } // hierarchical substates
+    | { Authenticating: 'determineFlow' | 'ssoFlow' | 'apiKeyFlow' | 'validatingApiKey' | 'awsBedrockFlow' | 'validatingAwsCredentials' } // hierarchical substates
     | 'Authenticated'       // (ready, main view)
     | 'UsageExceeded'       // (free usage quota exceeded, prompt user to set API key)
     | 'Disabled'            // (optional: if AI Chat is globally unavailable)
@@ -128,6 +127,8 @@ export enum AI_EVENT_TYPE {
     LOGIN = "LOGIN",
     AUTH_WITH_API_KEY = 'AUTH_WITH_API_KEY',
     SUBMIT_API_KEY = 'SUBMIT_API_KEY',
+    AUTH_WITH_AWS_BEDROCK = 'AUTH_WITH_AWS_BEDROCK',
+    SUBMIT_AWS_CREDENTIALS = 'SUBMIT_AWS_CREDENTIALS',
     SIGN_IN_SUCCESS = "SIGN_IN_SUCCESS",
     LOGOUT = "LOGOUT",
     SILENT_LOGOUT = "SILENT_LOGOUT",
@@ -149,6 +150,13 @@ export type AIMachineEventMap = {
     [AI_EVENT_TYPE.LOGIN]: undefined;
     [AI_EVENT_TYPE.AUTH_WITH_API_KEY]: undefined;
     [AI_EVENT_TYPE.SUBMIT_API_KEY]: { apiKey: string };
+    [AI_EVENT_TYPE.AUTH_WITH_AWS_BEDROCK]: undefined;
+    [AI_EVENT_TYPE.SUBMIT_AWS_CREDENTIALS]: {
+        accessKeyId: string;
+        secretAccessKey: string;
+        region: string;
+        sessionToken?: string;
+    };
     [AI_EVENT_TYPE.SIGN_IN_SUCCESS]: undefined;
     [AI_EVENT_TYPE.LOGOUT]: undefined;
     [AI_EVENT_TYPE.SILENT_LOGOUT]: undefined;
@@ -173,16 +181,25 @@ export type AIMachineSendableEvent =
 
 export enum LoginMethod {
     MI_INTEL = 'miIntel',
-    ANTHROPIC_KEY = 'anthropic_key'
+    ANTHROPIC_KEY = 'anthropic_key',
+    AWS_BEDROCK = 'aws_bedrock'
 }
 
 interface MIIntelSecrets {
     accessToken: string;
-    refreshToken: string;
+    refreshToken?: string;
+    expiresAt?: number;
 }
 
 interface AnthropicKeySecrets {
     apiKey: string;
+}
+
+export interface AwsBedrockSecrets {
+    accessKeyId: string;
+    secretAccessKey: string;
+    region: string;
+    sessionToken?: string;
 }
 
 export type AuthCredentials =
@@ -193,6 +210,10 @@ export type AuthCredentials =
     | {
         loginMethod: LoginMethod.ANTHROPIC_KEY;
         secrets: AnthropicKeySecrets;
+    }
+    | {
+        loginMethod: LoginMethod.AWS_BEDROCK;
+        secrets: AwsBedrockSecrets;
     };
 
 export interface AIUserToken {
@@ -289,9 +310,8 @@ export interface AIVisualizerLocation {
 }
 
 export interface AIUserTokens {
-    max_usage: number;
-    remaining_tokens: number;
-    time_to_reset: number;
+    remainingUsagePercentage?: number;
+    resetsIn?: number;
 }
 
 export interface ParentPopupData {

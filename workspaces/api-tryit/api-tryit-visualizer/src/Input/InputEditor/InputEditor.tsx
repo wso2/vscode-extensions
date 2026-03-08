@@ -209,6 +209,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     const assertionDecorationsRef = useRef<string[]>([]);
     const bodyFormatRef = useRef(bodyFormat);
     const lastPropValueRef = useRef(value);
+    const isProgrammaticUpdateRef = useRef(false);
     const previousBodyFormatRef = useRef(bodyFormat);
     const suggestionsKeyRef = useRef<string>(serializeSuggestions(suggestions));
 
@@ -1126,7 +1127,9 @@ export const InputEditor: React.FC<InputEditorProps> = ({
             // Only update if content is actually different
             if (currentValue !== value) {
                 const position = editorRef.current.getPosition();
+                isProgrammaticUpdateRef.current = true;
                 editorRef.current.setValue(value);
+                isProgrammaticUpdateRef.current = false;
                 if (position) {
                     const model = editorRef.current.getModel();
                     if (model && position.lineNumber <= model.getLineCount()) {
@@ -1141,7 +1144,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
      * Handles changes to the editor content
      */
     const handleEditorChange = (newValue: string | undefined) => {
-        if (newValue !== undefined) {
+        if (newValue !== undefined && !isProgrammaticUpdateRef.current) {
             isTypingRef.current = true;
             onChange(newValue);
             // Reset typing flag after a short delay

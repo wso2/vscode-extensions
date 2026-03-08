@@ -31,7 +31,7 @@ import { RPCLayer } from '../RPCLayer';
 import { deleteSwagger, generateSwagger } from '../util/swagger';
 import { VisualizerWebview, webviews } from './webview';
 import * as fs from 'fs';
-import { AiPanelWebview } from '../ai-panel/webview';
+import { AiPanelWebview } from '../ai-features/webview';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log } from '../util/logger';
 import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR } from '../util/onboardingUtils';
@@ -109,7 +109,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                             directory: path.dirname(args.path),
                             name: path.basename(args.path),
                             open: args.open ?? false,
-                            miVersion: "4.4.0"
+                            miVersion: args.miVersion ?? "4.6.0"
                         }
                     );
                     await createSettingsFile(args);
@@ -139,11 +139,6 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ProjectCreationForm, projectUri });
                 log('Create New Project');
             }
-        })
-    );
-    context.subscriptions.push(
-        vscode.commands.registerCommand(COMMANDS.IMPORT_CAPP, () => {
-            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ImportProjectForm });
         })
     );
     context.subscriptions.push(

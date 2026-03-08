@@ -29,6 +29,7 @@ import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
 import RunHurlTest from './tools/run-hurl-test';
 import { getHurlBinaryManager, initializeHurlBinaryManager } from './hurl/hurl-binary-manager';
+import { setPendingBiSavePath, getActiveCollectionFilePath, setActiveCollectionFilePath } from './bi-save-context';
 
 const PENDING_HURL_IMPORT_KEY = 'api-tryit.pendingHurlImportContext';
 
@@ -70,6 +71,47 @@ function sanitizePathSegment(value: string, fallback: string): string {
 		.replace(/\s+/g, '-');
 
 	return sanitized || fallback;
+}
+
+function buildCollectionIdFromName(name: string): string {
+	const normalized = name
+		.toLowerCase()
+		.trim()
+		.replace(/[^a-z0-9\s_-]/g, '')
+		.replace(/[\s_]+/g, '-')
+		.replace(/-+/g, '-')
+		.replace(/^-|-$/g, '');
+
+	return normalized || `hurl-collection-${Date.now()}`;
+}
+
+function normalizeCollectionNameKey(name: string): string {
+	return name.trim().toLowerCase();
+}
+
+function extractCollectionNameFromHurlText(content: string): string | undefined {
+	const match = content.match(/^#\s*@collectionName\s+(.+)$/im);
+	return match?.[1]?.trim();
+}
+
+async function resolveMatchingActiveCollectionFile(
+	activeFilePath: string,
+	expectedCollectionName: string
+): Promise<string | undefined> {
+	try {
+		await fs.access(activeFilePath);
+		const content = await fs.readFile(activeFilePath, 'utf-8');
+		const activeCollectionName = extractCollectionNameFromHurlText(content) ||
+			path.basename(activeFilePath, path.extname(activeFilePath));
+		const matchesByName = normalizeCollectionNameKey(activeCollectionName) ===
+			normalizeCollectionNameKey(expectedCollectionName);
+		const matchesById = buildCollectionIdFromName(activeCollectionName) ===
+			buildCollectionIdFromName(expectedCollectionName);
+
+		return (matchesByName || matchesById) ? activeFilePath : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 function normalizeRequestItem(rawItem: unknown, fallbackName: string): Record<string, unknown> {
@@ -279,9 +321,38 @@ async function createHurlCollectionFolderStructure(
 		}
 	}
 
-	const collectionHeader = `# @collectionName ${collectionName.trim() || 'Hurl Collection'}`;
-	const combinedContent = [collectionHeader, ...blocks.filter(Boolean)].join('\n\n').trimEnd() + '\n';
-	await fs.writeFile(collectionFilePath, combinedContent, 'utf-8');
+	// Read existing file if present so we can merge instead of overwrite
+	let existingContent = '';
+	try {
+		existingContent = await fs.readFile(collectionFilePath, 'utf-8');
+	} catch {
+		// File doesn't exist yet — will be created fresh
+	}
+
+	if (existingContent.trim()) {
+		// Collect @name values already in the file
+		const existingNames = new Set<string>();
+		const nameRegex = /^#\s*@name\s+(.+)$/gm;
+		let m: RegExpExecArray | null;
+		while ((m = nameRegex.exec(existingContent)) !== null) {
+			existingNames.add(m[1].trim());
+		}
+
+		// Only append blocks whose @name is not already present
+		const newBlocks = blocks.filter(block => {
+			const nameMatch = /^#\s*@name\s+(.+)$/m.exec(block);
+			const blockName = nameMatch ? nameMatch[1].trim() : null;
+			return !blockName || !existingNames.has(blockName);
+		});
+
+		if (newBlocks.length > 0) {
+			await fs.appendFile(collectionFilePath, '\n\n' + newBlocks.join('\n\n') + '\n', 'utf-8');
+		}
+	} else {
+		const collectionHeader = `# @collectionName ${collectionName.trim() || 'Hurl Collection'}`;
+		const combinedContent = [collectionHeader, ...blocks.filter(Boolean)].join('\n\n').trimEnd() + '\n';
+		await fs.writeFile(collectionFilePath, combinedContent, 'utf-8');
+	}
 
 	return { collectionPath, firstRequestPath: collectionFilePath };
 }
@@ -694,7 +765,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 
 	// Register command to import Hurl collection payload (JSON with multiple .hurl entries)
-	const openFromHurlCollectionCommand = vscode.commands.registerCommand('api-tryit.openFromHurlCollection', async (payload?: string | Record<string, unknown>, folderNameArg?: string) => {
+	const openFromHurlCollectionCommand = vscode.commands.registerCommand('api-tryit.openFromHurlCollection', async (payload?: string | Record<string, unknown>, folderNameArg?: string, baseDirArg?: string) => {
 		try {
 			// Try to obtain workspace root if available, but we will prompt for a directory when none is open
 			const workspaceRoot = await getWorkspaceRoot();
@@ -750,8 +821,10 @@ export async function activate(context: vscode.ExtensionContext) {
 			// Remember the folder the user explicitly selected (used when no workspace is open)
 			let selectedParentDir: string | undefined;
 			if (workspaceRoot) {
-				// Create under workspace root; providedFolderName is used as the actual collection folder name.
-				parentPath = workspaceRoot;
+				// When baseDirArg is provided (e.g. "bi-tryit-apis"), nest the collection under that subdirectory.
+				parentPath = baseDirArg && typeof baseDirArg === 'string' && baseDirArg.trim()
+					? path.join(workspaceRoot, baseDirArg.trim())
+					: workspaceRoot;
 			} else {
 				// No workspace open — ask user to select a directory to create the collection in
 				const folderUris = await vscode.window.showOpenDialog({
@@ -768,6 +841,269 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			if (!parentPath) {
 				vscode.window.showErrorMessage('Could not determine target directory for collection');
+				return;
+			}
+
+			// IN-MEMORY MODE: when baseDirArg is provided (Ballerina Integrator "Try It"),
+			// do NOT write to disk yet. Load the request in-memory and store the intended
+			// save path so the Save dialog defaults to bi-tryit-apis/<name>/<name>.hurl.
+			if (baseDirArg && workspaceRoot) {
+				// Build a combined Hurl string and parse FIRST so the collection name
+				// and save file name are both derived from the same parsed result.
+				const { parseHurlCollection } = await import('@wso2/api-tryit-hurl-parser');
+				const serviceName = normalized.name.trim() || 'API Collection';
+				const payloadCollectionId = typeof normalized.id === 'string' && normalized.id.trim()
+					? normalized.id.trim()
+					: undefined;
+				const collectionHeader = `# @collectionName ${serviceName}`;
+				const rawRequests = Array.isArray(normalized.requests) ? normalized.requests : [];
+				const blocks = rawRequests.map((rawUnknown, idx) => {
+					const raw = rawUnknown as unknown as Record<string, unknown>;
+					const name = typeof raw.name === 'string' ? raw.name : `Request ${idx + 1}`;
+					let content = typeof raw.content === 'string' ? raw.content : (typeof raw.hurl === 'string' ? raw.hurl : '');
+					if (content.includes('\\n')) { content = content.replace(/\\n/g, '\n'); }
+					content = content.replace(/\r\n/g, '\n').trim();
+					content = content.replace(/^#\s*@collectionName[^\n]*\n?/gim, '').trim();
+					if (!/^#\s*@name\s+/m.test(content)) { content = `# @name ${name}\n${content}`; }
+					return content.trim();
+				}).filter(Boolean);
+
+				const combinedHurl = [collectionHeader, ...blocks].join('\n\n');
+				let parsedCollection;
+				try {
+					// Pass collectionName AND collectionId so the in-memory collection
+					// ID is consistent with the disk collection ID that loadCollections()
+					// derives via buildCollectionId(serviceName) — preventing duplicate
+					// collection entries after the first save.
+					parsedCollection = parseHurlCollection(combinedHurl, {
+						collectionName: serviceName,
+						collectionId: payloadCollectionId || buildCollectionIdFromName(serviceName),
+					});
+				} catch {
+					// Fallback: open empty request
+				}
+
+				// Derive file name from the parsed collection name so they always match
+				const collName = parsedCollection?.name || serviceName;
+				const collFileName = `${sanitizePathSegment(collName, `collection-${Date.now()}`)}.hurl`;
+				const pendingPath = path.join(workspaceRoot, 'api-tryit', collFileName);
+
+				// Check for an existing collection: disk file first, then in-memory.
+				// Resource TryIt must merge into an existing collection rather than
+				// replacing it with a single-request one.
+				let existingDiskPath: string | undefined;
+				try {
+					await fs.access(pendingPath);
+					existingDiskPath = pendingPath;
+				} catch {
+					// pendingPath doesn't exist — check the active collection file from
+					// the current session (handles name differences between ServiceDesigner
+					// serviceIdentifier and DiagramWrapper serviceName).
+					const activeFile = getActiveCollectionFilePath();
+					if (activeFile) {
+						existingDiskPath = await resolveMatchingActiveCollectionFile(activeFile, collName);
+					}
+				}
+
+				// If no disk file, look for a matching in-memory collection (e.g. Service
+				// TryIt was opened but nothing saved yet).
+				// Match by ID first to avoid cross-service collisions when resource names
+				// overlap; fall back to name for compatibility with older payloads.
+				const existingInMemCollection = !existingDiskPath
+					? ((parsedCollection ? apiExplorerProvider.findCollectionById(parsedCollection.id) : undefined) ||
+					   apiExplorerProvider.findCollectionByName(collName))
+					: undefined;
+
+				try {
+					await vscode.commands.executeCommand('workbench.view.extension.api-tryit');
+					await vscode.commands.executeCommand('api-tryit.activity.panel.focus');
+				} catch {
+					// ignore if views not available
+				}
+				TryItPanel.show(context);
+
+				if (existingDiskPath || existingInMemCollection) {
+					// An existing collection was found. Instead of replacing it, check
+					// whether the specific resource is already in it:
+					//   - If YES  → open that existing request.
+					//   - If NO   → add this resource as a new in-memory item alongside
+					//               the existing ones, then select it.
+					const resourceRequest = parsedCollection?.rootItems?.[0];
+					const parsedCollectionId: string | undefined = parsedCollection?.id;
+
+					setTimeout(async () => {
+						// Resolve current collection state (reload from disk if needed).
+						if (existingDiskPath && !apiExplorerProvider.findRequestByFilePath(existingDiskPath)) {
+							await apiExplorerProvider.reloadCollections();
+						}
+						// Match by ID first; fall back to name in case collection names
+						// differ between Service TryIt and Resource TryIt invocations.
+						const currentCollection =
+							(parsedCollectionId ? apiExplorerProvider.findCollectionById(parsedCollectionId) : undefined) ||
+							apiExplorerProvider.findCollectionByName(collName);
+						if (!currentCollection) {
+							ActivityPanel.forceCollectionsRefresh();
+							return;
+						}
+
+						ActivityPanel.forceCollectionsRefresh();
+
+						// Look for the resource in the collection by @name and method.
+						const existingItem = resourceRequest
+							? (currentCollection.rootItems || []).find(item =>
+								item.name === resourceRequest.name &&
+								item.request.method.toUpperCase() === resourceRequest.request.method.toUpperCase()
+							)
+							: undefined;
+
+						if (existingItem) {
+							await ApiTryItStateMachine.sendEvent(
+								EVENT_TYPE.API_ITEM_SELECTED,
+								existingItem as ApiRequestItem,
+								existingItem.filePath
+							);
+							// Macrotask wait: ensures _sendCollections (queued by
+							// forceCollectionsRefresh above) has fully sent updateCollections
+							// to the webview before selectItem arrives.
+							await new Promise<void>(resolve => setTimeout(resolve, 0));
+							ActivityPanel.postMessage('selectItem', {
+								id: existingItem.id,
+								parentIds: [currentCollection.id],
+								filePath: existingItem.filePath,
+								name: existingItem.name,
+								collectionId: currentCollection.id,
+								collectionName: currentCollection.name,
+								method: existingItem.request.method,
+								request: existingItem.request
+							});
+						} else if (resourceRequest) {
+							// Resource not yet in collection — add it as a new in-memory item.
+							const ts = Date.now();
+							const newItem: ApiRequestItem = {
+								id: `new-${ts}`,
+								name: resourceRequest.name,
+								request: { ...resourceRequest.request, id: `new-${ts}` }
+								// filePath intentionally absent — stays in-memory until saved
+							};
+
+							apiExplorerProvider.addInMemoryCollection({
+								...currentCollection,
+								rootItems: [...(currentCollection.rootItems || []), newItem]
+							});
+
+							// If the collection already has a disk file, point the save
+							// context at it so the new request appends there on save.
+							if (existingDiskPath) {
+								setActiveCollectionFilePath(existingDiskPath);
+							}
+
+							await ApiTryItStateMachine.sendEvent(
+								EVENT_TYPE.API_ITEM_SELECTED,
+								newItem,
+								undefined
+							);
+							ActivityPanel.forceCollectionsRefresh();
+							// Macrotask wait: ensures updateCollections arrives before selectItem.
+							await new Promise<void>(resolve => setTimeout(resolve, 0));
+							ActivityPanel.postMessage('selectItem', {
+								id: newItem.id,
+								parentIds: [currentCollection.id]
+							});
+						}
+					}, 200);
+					return;
+				}
+
+				// No existing collection found by name or ID — but do a final check:
+				// if parsedCollection.id already maps to a collection that was registered
+				// in-memory (e.g. name lookup failed due to minor name differences), treat
+				// it as existing rather than overwriting it with the single-request payload.
+				if (parsedCollection) {
+					const collById = apiExplorerProvider.findCollectionById(parsedCollection.id);
+					if (collById) {
+						// Redirect to the existing-collection path inline.
+						const resourceRequest = parsedCollection.rootItems?.[0];
+						setTimeout(async () => {
+							ActivityPanel.forceCollectionsRefresh();
+							const existingItem = resourceRequest
+								? (collById.rootItems || []).find(item =>
+									item.name === resourceRequest.name &&
+									item.request.method.toUpperCase() === resourceRequest.request.method.toUpperCase()
+								)
+								: undefined;
+							if (existingItem) {
+								await ApiTryItStateMachine.sendEvent(
+									EVENT_TYPE.API_ITEM_SELECTED,
+									existingItem as ApiRequestItem,
+									existingItem.filePath
+								);
+								await new Promise<void>(resolve => setTimeout(resolve, 0));
+								ActivityPanel.postMessage('selectItem', {
+									id: existingItem.id,
+									parentIds: [collById.id],
+									filePath: existingItem.filePath,
+									name: existingItem.name,
+									collectionId: collById.id,
+									collectionName: collById.name,
+									method: existingItem.request.method,
+									request: existingItem.request
+								});
+							} else if (resourceRequest) {
+								const ts = Date.now();
+								const newItem: ApiRequestItem = {
+									id: `new-${ts}`,
+									name: resourceRequest.name,
+									request: { ...resourceRequest.request, id: `new-${ts}` }
+								};
+								apiExplorerProvider.addInMemoryCollection({
+									...collById,
+									rootItems: [...(collById.rootItems || []), newItem]
+								});
+								await ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, newItem, undefined);
+								ActivityPanel.forceCollectionsRefresh();
+								await new Promise<void>(resolve => setTimeout(resolve, 0));
+								ActivityPanel.postMessage('selectItem', {
+									id: newItem.id,
+									parentIds: [collById.id]
+								});
+							}
+						}, 200);
+						return;
+					}
+				}
+
+				// Truly no existing collection — first time opening this service in TryIt.
+				// Register as in-memory and queue for save on first explicit save action.
+				setPendingBiSavePath(pendingPath, collName, combinedHurl);
+
+				const firstRequestItem = parsedCollection?.rootItems?.[0];
+
+				if (firstRequestItem) {
+					await ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, firstRequestItem as ApiRequestItem, undefined);
+					TryItPanel.postMessage('apiRequestItemSelected', firstRequestItem);
+				}
+
+				// Register the parsed collection in-memory AFTER the views are ready so
+				// the Explorer tree updates are not lost to a concurrent reloadCollections()
+				// triggered by the project runner's file-system writes.
+				if (parsedCollection) {
+					apiExplorerProvider.addInMemoryCollection(parsedCollection);
+					const firstItemId = (firstRequestItem as ApiRequestItem | undefined)?.id;
+					const collectionId = parsedCollection.id;
+					setTimeout(async () => {
+						ActivityPanel.forceCollectionsRefresh();
+						// Yield to macrotask queue so _sendCollections microtask can complete
+						// and send updateCollections to the webview before selectItem arrives.
+						await new Promise<void>(resolve => setTimeout(resolve, 0));
+						if (firstItemId) {
+							ActivityPanel.postMessage('selectItem', {
+								id: firstItemId,
+								parentIds: [collectionId]
+							});
+						}
+					}, 200);
+				}
+
 				return;
 			}
 
@@ -845,8 +1181,14 @@ export async function activate(context: vscode.ExtensionContext) {
 				TryItPanel.show(context);
 
 				if (firstRequestPath) {
-					await vscode.commands.executeCommand('api-tryit.selectItemByPath', firstRequestPath);
-					const match = apiExplorerProvider.findRequestByFilePath(firstRequestPath);
+					// Prefer the specific request from the payload (by @name) so we open exactly
+					// what was clicked, even if the file already contained other requests.
+					const firstReqRaw = Array.isArray(normalized.requests) && normalized.requests.length > 0
+						? (normalized.requests[0] as unknown as Record<string, unknown>)
+						: undefined;
+					const firstReqName = typeof firstReqRaw?.name === 'string' ? firstReqRaw.name : undefined;
+					await vscode.commands.executeCommand('api-tryit.selectItemByPath', firstRequestPath, undefined, firstReqName);
+					const match = apiExplorerProvider.findRequestByFilePath(firstRequestPath, undefined, firstReqName);
 					if (match) {
 						await vscode.commands.executeCommand('api-tryit.openRequest', match.requestItem);
 					}

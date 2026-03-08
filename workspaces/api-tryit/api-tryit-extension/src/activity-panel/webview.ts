@@ -19,6 +19,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import * as crypto from 'crypto';
 import type { ApiRequestItem, ApiRequest, ApiResponse } from '@wso2/api-tryit-core';
 import { getComposerJSFiles } from '../util';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
@@ -77,6 +78,7 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		_token: vscode.CancellationToken
 	): void | Promise<void> {
 		this._view = webviewView;
+		this._webviewReady = false;
 		ActivityPanel.currentPanel = this;
 		const isDevMode = process.env.WEB_VIEW_WATCH_MODE === 'true';
 		const devHost = process.env.TRY_VIEW_DEV_HOST || 'http://localhost:9092';
@@ -123,16 +125,19 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 					this._sendCollections(true);
 					break;
 				case 'webviewReady':
-					// Webview is ready, send initial data
+					// Webview is ready, send initial data.
+					// Await _sendCollections before flushing pending messages so that
+					// updateCollections always arrives at the webview before selectItem.
 					this._webviewReady = true;
-					this._sendCollections(true);
-					// flush pending messages
-					while (this._pendingMessages.length > 0 && this._view) {
-						const msg = this._pendingMessages.shift();
-						if (msg) {
-							this._view.webview.postMessage({ type: msg.type, data: msg.data });
+					(async () => {
+						await this._sendCollections(true);
+						while (this._pendingMessages.length > 0 && this._view) {
+							const msg = this._pendingMessages.shift();
+							if (msg) {
+								this._view.webview.postMessage({ type: msg.type, data: msg.data });
+							}
 						}
-					}
+					})();
 					break;
 				case 'addRequestToCollection':
 					// Handle adding a request to a collection
@@ -153,6 +158,18 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				case 'renameRequest':
 					// Handle renaming a request
 					this._handleRenameRequest(message.requestId as string, message.currentName as string);
+					break;
+				case 'addRequestToFolder':
+					this._handleAddRequestToFolder(message.folderId as string, message.folderPath as string);
+					break;
+				case 'renameFolder':
+					this._handleRenameFolder(message.folderId as string, message.folderPath as string, message.currentName as string);
+					break;
+				case 'runFolder':
+					this._handleRunFolder(message.folderId as string, message.folderPath as string, message.folderName as string | undefined);
+					break;
+				case 'deleteFolder':
+					this._handleDeleteFolder(message.folderId as string, message.folderPath as string, message.currentName as string);
 					break;
 				case 'runCollection':
 					this._handleRunCollection(message.collectionId as string);
@@ -198,6 +215,17 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		}
 	}
 
+	/**
+	 * Force an immediate (skip-hash-check) collections push to the activity panel webview.
+	 * Used when in-memory collections are added so the Explorer updates without waiting
+	 * for the debounced `_onDidChangeTreeData` handler.
+	 */
+	public static forceCollectionsRefresh(): void {
+		if (ActivityPanel.currentPanel) {
+			ActivityPanel.currentPanel._sendCollections(true);
+		}
+	}
+
 	private _debouncedSendCollections() {
 		// Clear any pending timeout
 		if (this._sendCollectionsTimeoutId) {
@@ -211,20 +239,25 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 	}
 
 	private async _sendCollections(skipHashCheck: boolean = false) {
-		if (this._view && this._apiExplorerProvider) {
-			const collections = await this._apiExplorerProvider.getCollections();
-			
-			// Create a hash of the collections to avoid sending identical data
-			const collectionsHash = JSON.stringify(collections);
-			
-			// Only send if collections have changed (skip hash check for initial sends)
-			if (skipHashCheck || collectionsHash !== this._lastSentCollectionsHash) {
-				this._lastSentCollectionsHash = collectionsHash;
-				this._view.webview.postMessage({
-					command: 'updateCollections',
-					collections
-				});
+		try {
+			if (this._view && this._apiExplorerProvider) {
+				const collections = await this._apiExplorerProvider.getCollections();
+
+				// Create a hash of the collections to avoid sending identical data
+				const collectionsHash = JSON.stringify(collections);
+
+				// Only send if collections have changed (skip hash check for initial sends)
+				if (skipHashCheck || collectionsHash !== this._lastSentCollectionsHash) {
+					this._lastSentCollectionsHash = collectionsHash;
+					this._view.webview.postMessage({
+						command: 'updateCollections',
+						collections
+					});
+				}
 			}
+		} catch (error) {
+			// Swallow errors so a failed refresh (e.g. from a debounce timer) never
+			// bubbles up as an unhandled rejection.
 		}
 	}
 
@@ -343,11 +376,12 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			// The empty request will be created and selected below
 
 			// Also create and select an empty request immediately so the TryIt panel shows it without waiting for the state machine debounce
+			const newRequestId = `new-${Date.now()}`;
 			const emptyRequestItem: ApiRequestItem = {
-				id: `new-${Date.now()}`,
+				id: newRequestId,
 				name: 'New Request',
 				request: {
-					id: `new-${Date.now()}`,
+					id: newRequestId,
 					name: 'New Request',
 					method: 'GET',
 					url: '',
@@ -483,11 +517,12 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			// The empty request will be created and selected below
 
 			// Also create and select an empty request immediately so the TryIt panel shows it without waiting for the state machine debounce
+			const newRequestId = `new-${Date.now()}`;
 			const emptyRequestItem: ApiRequestItem = {
-				id: `new-${Date.now()}`,
+				id: newRequestId,
 				name: 'New Request',
 				request: {
-					id: `new-${Date.now()}`,
+					id: newRequestId,
 					name: 'New Request',
 					method: 'GET',
 					url: '',
@@ -614,12 +649,14 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			}
 		}
 
-		const byMethodAndUrl = parsedItems.findIndex(item =>
-			(!requestMethod || item.request.method.toUpperCase() === requestMethod) &&
-			(!requestUrl || item.request.url === requestUrl)
-		);
-		if (byMethodAndUrl >= 0 && byMethodAndUrl < parsedDocument.blocks.length) {
-			return byMethodAndUrl;
+		if (requestMethod || requestUrl) {
+			const byMethodAndUrl = parsedItems.findIndex(item =>
+				(!requestMethod || item.request.method.toUpperCase() === requestMethod) &&
+				(!requestUrl || item.request.url === requestUrl)
+			);
+			if (byMethodAndUrl >= 0 && byMethodAndUrl < parsedDocument.blocks.length) {
+				return byMethodAndUrl;
+			}
 		}
 
 		if (parsedItems.length === 1) {
@@ -1004,8 +1041,17 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			}
 
 			const collectionFilePaths = this._apiExplorerProvider.getCollectionFilePathsById(collectionId);
+
+			// In-memory-only collections have no file paths — skip file deletion
 			if (collectionFilePaths.length === 0) {
-				vscode.window.showErrorMessage('Unable to determine collection file path(s)');
+				if (this._apiExplorerProvider.isInMemoryCollection(collectionId)) {
+					this._apiExplorerProvider.removeCollectionById(collectionId);
+					await vscode.commands.executeCommand('api-tryit.clearSelection');
+					this._sendCollections(true);
+					vscode.window.showInformationMessage(`Collection "${collectionName}" deleted successfully`);
+				} else {
+					vscode.window.showErrorMessage('Unable to determine collection file path(s)');
+				}
 				return;
 			}
 
@@ -1080,7 +1126,13 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				: undefined;
 
 			if (!requestFilePath) {
-				vscode.window.showErrorMessage('Unable to determine request file path');
+				if (this._apiExplorerProvider.removeRequestById(requestId)) {
+					await vscode.commands.executeCommand('api-tryit.clearSelection');
+					this._sendCollections(true);
+					vscode.window.showInformationMessage(`Request "${requestName}" deleted successfully`);
+				} else {
+					vscode.window.showErrorMessage('Unable to determine request file path');
+				}
 				return;
 			}
 
@@ -1324,6 +1376,13 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 
     private _getWebviewContent(webview: vscode.Webview) {
         const scriptUris = getComposerJSFiles(this._extensionContext, 'ApiTryItVisualizer', webview);
+        const nonce = crypto.randomBytes(16).toString('hex');
+        const isDevMode = process.env.WEB_VIEW_WATCH_MODE === 'true';
+        const devHost = process.env.TRY_VIEW_DEV_HOST || 'http://localhost:9092';
+        // In dev mode, scripts and fonts may come from the webpack-dev-server (e.g. localhost:9092).
+        // Those dynamic chunk URLs have no nonce and are not from ${webview.cspSource}, so we must
+        // explicitly allow the dev host in the CSP. In production only local extension resources apply.
+        const extraSrc = isDevMode ? ` ${devHost}` : '';
 
         return /*html*/ `
         <!DOCTYPE html>
@@ -1332,6 +1391,9 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
           <meta name="theme-color" content="#000000">
+          <meta http-equiv="Content-Security-Policy"
+                content="default-src 'none'; font-src ${webview.cspSource}${extraSrc} data:; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource}${extraSrc} 'unsafe-inline'; script-src ${webview.cspSource}${extraSrc} 'nonce-${nonce}';">
+
           <title>WSO2 API TryIt</title>
           <style>
             body {
@@ -1353,8 +1415,8 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
             <div id="root">
                 Loading ....
             </div>
-            ${scriptUris.map(jsFile => `<script charset="UTF-8" src="${jsFile}"></script>`).join('\n')}
-            <script>
+            ${scriptUris.map(jsFile => `<script nonce="${nonce}" charset="UTF-8" src="${jsFile}"></script>`).join('\n')}
+            <script nonce="${nonce}">
                 // Function to initialize the React app
                 function initializeApp() {
                     console.log('API TryIt: Initializing app...');

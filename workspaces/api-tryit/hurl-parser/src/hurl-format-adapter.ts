@@ -110,7 +110,7 @@ export class HurlFormatAdapter {
 					}
 
 					// key: value: contentType
-					const kvct = line.match(/^([^:]+):\s*([^:]+):\s*(.+)$/);
+					const kvct = line.match(/^([^:]+):\s*([^:{["]+):\s*(.+)$/);
 					if (kvct) {
 						parsed.push({ id: `f-${Math.random().toString(36).substring(2,9)}`, key: kvct[1].trim(), value: kvct[2].trim(), contentType: kvct[3].trim() });
 						continue;
@@ -594,7 +594,7 @@ export class HurlFormatAdapter {
 				const binaryFiles: Array<{id: string; filePath?: string; contentType: string}> = [];
 				for (const line of lines) {
 					// inline form-data shorthand: key: value: contentType  OR key: @file: contentType
-					const kvct = line.match(/^([^:]+):\s*([^:]+):\s*(.+)$/);
+					const kvct = line.match(/^([^:]+):\s*([^:{["]+):\s*(.+)$/);
 					const fileAt = line.match(/^([^:]+):\s*@file:\s*(.+)$/i);
 					const atFileOnly = line.match(/^@file:\s*(.+)$/i);
 					const binaryFileBody = line.match(/^file,([^;]+);(?:\s*(.+))?$/i);

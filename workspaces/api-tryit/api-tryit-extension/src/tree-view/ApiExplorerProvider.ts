@@ -83,6 +83,10 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		return normalized || `hurl-collection-${Date.now()}`;
 	}
 
+	private normalizeCollectionNameKey(name: string): string {
+		return name.trim().toLowerCase();
+	}
+
 	private makeRequestTreeId(filePath: string, index: number): string {
 		const normalizedPath = path
 			.resolve(filePath)
@@ -267,13 +271,41 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 			this.collectionFilesMap = newCollectionFilesMap;
 
 			for (const diskCollection of diskCollections) {
-				if (this.inMemoryCollectionIds.has(diskCollection.id)) {
-					this.inMemoryCollectionIds.delete(diskCollection.id);
+				const diskNameKey = this.normalizeCollectionNameKey(diskCollection.name);
+				const inMemColl = inMemoryCollections.find(col =>
+					col.id === diskCollection.id ||
+					this.normalizeCollectionNameKey(col.name) === diskNameKey
+				);
+				if (!inMemColl) {
+					continue;
+				}
+
+				this.inMemoryCollectionIds.delete(inMemColl.id);
+
+				// Merge in-memory items that haven't been saved yet (no filePath) into
+				// the disk collection so they remain visible until explicitly saved.
+				// Skip items whose method+URL already appear on disk to avoid duplicates.
+				const diskItems = diskCollection.rootItems || [];
+				const unsavedItems = (inMemColl.rootItems || []).filter(item =>
+					!item.filePath &&
+					!diskItems.some(d =>
+						d.request?.method === item.request?.method &&
+						d.request?.url === item.request?.url
+					)
+				);
+				if (unsavedItems.length > 0) {
+					diskCollection.rootItems = [...diskItems, ...unsavedItems];
+					this.inMemoryCollectionIds.add(diskCollection.id);
 				}
 			}
 
+			const diskCollectionIds = new Set(diskCollections.map(disk => disk.id));
+			const diskCollectionNameKeys = new Set(
+				diskCollections.map(disk => this.normalizeCollectionNameKey(disk.name))
+			);
 			const actualInMemoryCollections = inMemoryCollections.filter(col =>
-				!diskCollections.some(disk => disk.id === col.id)
+				!diskCollectionIds.has(col.id) &&
+				!diskCollectionNameKeys.has(this.normalizeCollectionNameKey(col.name))
 			);
 
 			this.collections = [...actualInMemoryCollections, ...diskCollections];
@@ -302,14 +334,36 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	}
 
 	public addInMemoryCollection(collection: ApiCollection): void {
-		this.inMemoryCollectionIds.add(collection.id);
-		const existingIndex = this.collections.findIndex(c => c.id === collection.id);
+		const collectionNameKey = this.normalizeCollectionNameKey(collection.name);
+		const existingIndex = this.collections.findIndex(c =>
+			c.id === collection.id || this.normalizeCollectionNameKey(c.name) === collectionNameKey
+		);
 		if (existingIndex >= 0) {
-			this.collections[existingIndex] = collection;
+			const existingCollectionId = this.collections[existingIndex].id;
+			const collectionToStore = existingCollectionId === collection.id
+				? collection
+				: { ...collection, id: existingCollectionId };
+			this.collections[existingIndex] = collectionToStore;
+			this.inMemoryCollectionIds.delete(collection.id);
+			this.inMemoryCollectionIds.add(collectionToStore.id);
 		} else {
 			this.collections.push(collection);
+			this.inMemoryCollectionIds.add(collection.id);
 		}
 		this.refresh();
+	}
+
+	public findCollectionByName(name: string): ApiCollection | undefined {
+		const key = name.trim().toLowerCase();
+		return this.collections.find(c => c.name.trim().toLowerCase() === key);
+	}
+
+	public findCollectionById(id: string): ApiCollection | undefined {
+		return this.collections.find(c => c.id === id);
+	}
+
+	public isInMemoryCollection(collectionId: string): boolean {
+		return this.inMemoryCollectionIds.has(collectionId);
 	}
 
 	public removeCollectionById(collectionId: string): void {
@@ -330,6 +384,30 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				}
 			}
 		}
+	}
+
+	public removeRequestById(requestId: string): boolean {
+		for (const collection of this.collections) {
+			const rootItems = collection.rootItems || [];
+			const filteredItems = rootItems.filter(requestItem =>
+				requestItem.id !== requestId && requestItem.request.id !== requestId
+			);
+
+			if (filteredItems.length === rootItems.length) {
+				continue;
+			}
+
+			collection.rootItems = filteredItems;
+
+			if (filteredItems.length === 0 && this.inMemoryCollectionIds.has(collection.id)) {
+				this.removeCollectionById(collection.id);
+			} else {
+				this.refresh();
+			}
+			return true;
+		}
+
+		return false;
 	}
 
 	setWorkspacePath(workspacePath: string): void {

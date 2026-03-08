@@ -49,6 +49,7 @@ interface HurlRunResultsProps {
 	totalFiles: number;
 	summary?: HurlRunSummary;
 	errorMessage?: string;
+	onNavigateToAssert?: (requestName: string, filePath: string) => void;
 }
 
 interface RequestRunView {
@@ -155,10 +156,17 @@ const RequestCard = styled.div<{ status: HurlRunRequestViewStatus }>`
 	overflow: hidden;
 `;
 
-const RequestHeader = styled.button`
-	width: 100%;
-	border: none;
+const RequestHeaderRow = styled.div`
+	display: flex;
+	align-items: center;
 	background: var(--vscode-tab-inactiveBackground, rgba(255, 255, 255, 0.03));
+`;
+
+const RequestHeader = styled.button`
+	flex: 1;
+	min-width: 0;
+	border: none;
+	background: transparent;
 	color: var(--vscode-foreground);
 	padding: 10px 12px;
 	cursor: pointer;
@@ -167,6 +175,27 @@ const RequestHeader = styled.button`
 	justify-content: space-between;
 	gap: 12px;
 	text-align: left;
+`;
+
+const EditButton = styled.button`
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border: none;
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	cursor: pointer;
+	border-radius: 4px;
+	padding: 0;
+	flex-shrink: 0;
+	margin-right: 8px;
+
+	&:hover {
+		background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.1));
+		color: var(--vscode-foreground);
+	}
 `;
 
 const RequestHeaderLeft = styled.div`
@@ -373,7 +402,8 @@ export const HurlRunResults: React.FC<HurlRunResultsProps> = ({
 	files,
 	completedFiles,
 	totalFiles,
-	errorMessage
+	errorMessage,
+	onNavigateToAssert
 }) => {
 	const requestViews = useMemo<RequestRunView[]>(() => {
 		const views: RequestRunView[] = [];
@@ -528,26 +558,36 @@ export const HurlRunResults: React.FC<HurlRunResultsProps> = ({
 
 						return (
 							<RequestCard key={request.id} status={request.status}>
-								<RequestHeader onClick={() => toggleExpanded(request.id)}>
-									<RequestHeaderLeft>
-										<Codicon
-											name={isExpanded ? 'chevron-down' : 'chevron-right'}
-											iconSx={{ fontSize: 16, color: 'var(--vscode-descriptionForeground)' }}
-										/>
-										<RequestNameWrap>
-											<RequestNameTextWrap>
-												<RequestName>{request.name}</RequestName>
-												<RequestHint>
-													{checksCount} checks • {formatDuration(request.durationMs)}
-												</RequestHint>
-											</RequestNameTextWrap>
-											{request.method && <MethodPill method={request.method}>{request.method}</MethodPill>}
-										</RequestNameWrap>
-									</RequestHeaderLeft>
-									<StatusPill status={request.status}>
-										{request.status}
-									</StatusPill>
-								</RequestHeader>
+								<RequestHeaderRow>
+									<RequestHeader onClick={() => toggleExpanded(request.id)}>
+										<RequestHeaderLeft>
+											<Codicon
+												name={isExpanded ? 'chevron-down' : 'chevron-right'}
+												iconSx={{ fontSize: 16, color: 'var(--vscode-descriptionForeground)' }}
+											/>
+											<RequestNameWrap>
+												<RequestNameTextWrap>
+													<RequestName>{request.name}</RequestName>
+													<RequestHint>
+														{checksCount} checks • {formatDuration(request.durationMs)}
+													</RequestHint>
+												</RequestNameTextWrap>
+												{request.method && <MethodPill method={request.method}>{request.method}</MethodPill>}
+											</RequestNameWrap>
+										</RequestHeaderLeft>
+										<StatusPill status={request.status}>
+											{request.status}
+										</StatusPill>
+									</RequestHeader>
+									{onNavigateToAssert && (
+										<EditButton
+											title="Go to Assert tab"
+											onClick={() => onNavigateToAssert(request.name, request.filePath)}
+										>
+											<Codicon name="edit" iconSx={{ fontSize: 14 }} />
+										</EditButton>
+									)}
+								</RequestHeaderRow>
 
 								{isExpanded && (
 									<RequestBody>
