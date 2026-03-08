@@ -433,7 +433,8 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 					>
 						<Codicon name="plus" />
 					</AddButton>
-					<RunButton
+					{/*  TOD0: Add run button for folders in future */}
+					{/* <RunButton
 						title={`Run ${item.name}`}
 						aria-label={`Run ${item.name}`}
 						onClick={(e: React.MouseEvent) => {
@@ -443,7 +444,7 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 						}}
 					>
 						<Codicon name="play" />
-					</RunButton>
+					</RunButton> */}
 				</CollectionActions>
 			</FolderHeader>
 			{contextMenu && contextMenu.collectionId === item.id && (
@@ -566,7 +567,8 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 					>
 						<Codicon name="plus" />
 					</AddButton>
-					<RunButton
+					{/* TODO: Add run button for collections in future */}
+					{/* <RunButton
 						title={`Run ${item.name}`}
 						aria-label={`Run ${item.name}`}
 						onClick={(e: React.MouseEvent) => {
@@ -576,7 +578,7 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 						}}
 					>
 						<Codicon name="play" />
-					</RunButton>
+					</RunButton> */}
 				</CollectionActions>
 			</CollectionHeader>
 			{contextMenu && contextMenu.collectionId === item.id && (
@@ -585,10 +587,11 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 						<Codicon name="file-add" sx={{ marginRight: 8 }} />
 						Add Request
 					</ContextMenuItem>
-					<ContextMenuItem onClick={handleRunCollection}>
+					{/*  TODO: Add run option for collections in context menu in future */}
+					{/* <ContextMenuItem onClick={handleRunCollection}>
 						<Codicon name="play" sx={{ marginRight: 8 }} />
 						Run Collection
-					</ContextMenuItem>
+					</ContextMenuItem> */}
 					<ContextMenuItem onClick={handleRenameCollection}>
 						<Codicon name="edit" sx={{ marginRight: 8 }} />
 						Rename Collection

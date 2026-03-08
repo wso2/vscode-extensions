@@ -348,16 +348,17 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 }, 0);
             }
         },
-        {
-            id: 'generate-query-params',
-            title: '$(wand) Generate',
-            shouldShow: (model: any) => true,
-            getLineNumber: (model: any) => 1,
-            onExecute: (editor: any, model: any) => {
-                console.log('Generate query parameters');
-                // Placeholder for AI generation
-            }
-        }
+        // TODO: Add AI generation for query parameters
+        // {
+        //     id: 'generate-query-params',
+        //     title: '$(wand) Generate',
+        //     shouldShow: (model: any) => true,
+        //     getLineNumber: (model: any) => 1,
+        //     onExecute: (editor: any, model: any) => {
+        //         console.log('Generate query parameters');
+        //         // Placeholder for AI generation
+        //     }
+        // }
     ], []);
 
     const headersCodeLenses = React.useMemo(() => [
@@ -388,16 +389,17 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 }, 0);
             }
         },
-        {
-            id: 'generate-headers',
-            title: '$(wand) Generate',
-            shouldShow: (model: any) => true,
-            getLineNumber: (model: any) => 1,
-            onExecute: (editor: any, model: any) => {
-                console.log('Generate headers');
-                // Placeholder for AI generation
-            }
-        }
+        // TODO: Add AI generation for headers
+        // {
+        //     id: 'generate-headers',
+        //     title: '$(wand) Generate',
+        //     shouldShow: (model: any) => true,
+        //     getLineNumber: (model: any) => 1,
+        //     onExecute: (editor: any, model: any) => {
+        //         console.log('Generate headers');
+        //         // Placeholder for AI generation
+        //     }
+        // }
     ], []);
 
     const bodyCodeLenses = React.useMemo(() => {
@@ -529,17 +531,18 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             });
         }
 
-        // Always add generate lens
-        lenses.push({
-            id: 'generate-body',
-            title: '$(wand) Generate',
-            shouldShow: (model: any) => true,
-            getLineNumber: (model: any) => 1,
-            onExecute: (editor: any, model: any) => {
-                console.log('Generate body');
-                // Placeholder for AI generation
-            }
-        });
+        // TODO: Add AI generation for body content
+        // // Always add generate lens
+        // lenses.push({
+        //     id: 'generate-body',
+        //     title: '$(wand) Generate',
+        //     shouldShow: (model: any) => true,
+        //     getLineNumber: (model: any) => 1,
+        //     onExecute: (editor: any, model: any) => {
+        //         console.log('Generate body');
+        //         // Placeholder for AI generation
+        //     }
+        // });
 
         return lenses;
     }, [bodyFormat]);

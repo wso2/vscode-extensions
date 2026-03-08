@@ -1071,11 +1071,11 @@ export const MainPanel: React.FC = () => {
                                     Response
                                 </TabButton>
 
-                                <TabSeparator />
+                                {/* TODO: Re-enable Assert tab when assertion editing is supported in the UI.
 
                                 <TabButton active={activeTab === 'assert'} onClick={() => setActiveTab('assert')}>
                                     Assert
-                                </TabButton>
+                                </TabButton> */}
                             </TabsBar>
 
                             <div style={{ marginTop: 12 }}>
