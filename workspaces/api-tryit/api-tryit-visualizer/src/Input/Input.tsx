@@ -21,7 +21,7 @@ import { Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { InputForm } from './Form/InputForm';
 import { InputCode } from './Code/InputCode';
-import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
+import { ApiRequest } from '@wso2/api-tryit-core';
 import { getVSCodeAPI } from '../utils/vscode-api';
 import { Output } from '../Output';
 
@@ -35,6 +35,10 @@ interface InputProps {
     response?: React.ComponentProps<typeof Output>['response'];
     // A counter that increments when parent requests the Output be scrolled into view
     bringOutputCounter?: number;
+    // A counter that increments when parent requests scroll to top (Request tab clicked)
+    scrollToTopCounter?: number;
+    // Called when scroll position crosses the response boundary
+    onActiveTabChange?: (tab: 'input' | 'response') => void;
 }
 
 const Container = styled.div`
@@ -44,12 +48,14 @@ const Container = styled.div`
     overflow-x: hidden;
 `;
 
-export const Input: React.FC<InputProps> = ({ 
+export const Input: React.FC<InputProps> = ({
     request,
     onRequestChange,
     mode = 'code',
     response,
-    bringOutputCounter
+    bringOutputCounter,
+    scrollToTopCounter,
+    onActiveTabChange
 }) => {
     // Attach ref to the scrollable container so we can control scroll position precisely
     const [bodyFormat, setBodyFormat] = React.useState<BodyFormat>('json');
@@ -57,6 +63,39 @@ export const Input: React.FC<InputProps> = ({
     const outputRef = React.useRef<HTMLDivElement>(null);
     const containerRef = React.useRef<HTMLDivElement>(null);
     const lastRequestIdRef = React.useRef<string | undefined>(undefined);
+    // Tracks whether the user explicitly chose a format for the current request.
+    // While true, auto-detection is suppressed so typing doesn't override the selection.
+    const userSetFormatRef = React.useRef(false);
+    const lastScrollTopCounterRef = React.useRef<number>(scrollToTopCounter ?? 0);
+    // Keep a ref to the callback so the scroll listener doesn't need to be re-attached on every render
+    const onActiveTabChangeRef = React.useRef(onActiveTabChange);
+    React.useEffect(() => { onActiveTabChangeRef.current = onActiveTabChange; });
+
+    // Scroll to top when Request tab is clicked
+    React.useEffect(() => {
+        if (typeof scrollToTopCounter !== 'number') return;
+        if (lastScrollTopCounterRef.current === scrollToTopCounter) return;
+        lastScrollTopCounterRef.current = scrollToTopCounter;
+        containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [scrollToTopCounter]);
+
+    // Update active tab based on scroll position relative to the response section
+    React.useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        const handleScroll = () => {
+            if (!outputRef.current || !onActiveTabChangeRef.current) return;
+            const outputTop = outputRef.current.offsetTop - container.scrollTop;
+            const switchLine = Math.max(80, container.clientHeight * 0.45);
+            if (outputTop <= switchLine) {
+                onActiveTabChangeRef.current('response');
+            } else {
+                onActiveTabChangeRef.current('input');
+            }
+        };
+        container.addEventListener('scroll', handleScroll, { passive: true });
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, []); // empty deps — uses refs to stay stable
 
     // Fallback: if a selected request has [Multipart] body text but missing structured params,
     // parse and hydrate `bodyFormData` so Form view can populate rows.
@@ -117,6 +156,12 @@ export const Input: React.FC<InputProps> = ({
         const isNewRequest = lastRequestIdRef.current !== request.id;
         if (isNewRequest) {
             lastRequestIdRef.current = request.id;
+            userSetFormatRef.current = false; // Reset explicit-format flag for new request
+        }
+
+        // If the user manually picked a format for this request, don't override it.
+        if (!isNewRequest && userSetFormatRef.current) {
+            return;
         }
 
         if (request.bodyFormData && request.bodyFormData.length > 0) {
@@ -205,6 +250,7 @@ export const Input: React.FC<InputProps> = ({
     }, [response]);
 
     const handleFormatChange = (format: BodyFormat) => {
+        userSetFormatRef.current = true;
         setBodyFormat(format);
         const isRawFormat = (value: BodyFormat) => ['json', 'xml', 'text', 'html', 'javascript'].includes(value);
         const keepRawBody = isRawFormat(format) && isRawFormat(bodyFormat);

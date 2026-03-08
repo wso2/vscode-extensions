@@ -30,6 +30,14 @@ export const getAssertionKey = (assertion: string): string | undefined => {
         return undefined;
     }
 
+    if (/^HTTP\s+/i.test(trimmed)) {
+        return 'HTTP status';
+    }
+
+    if (/^status\s+/i.test(trimmed) && !/^status\s+(==|!=|<=|>=|<|>)/i.test(trimmed)) {
+        return 'status';
+    }
+
     const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(={1,2}|!=|<=|>=|<|>)\s*(.+)$/i);
     if (!match) {
         return undefined;
@@ -81,6 +89,14 @@ export const getOperator = (assertion: string): string | undefined => {
         return undefined;
     }
 
+    if (/^HTTP\s+/i.test(trimmed)) {
+        return '==';
+    }
+
+    if (/^status\s+\d/i.test(trimmed)) {
+        return '==';
+    }
+
     const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|={1,2}|!=|<=|>=|<|>)\s*(.*)$/i);
     if (!match) {
         return undefined;
@@ -106,6 +122,26 @@ export const getAssertionDetails = (assertion: string, apiResponse?: ApiResponse
     const trimmed = assertion.trim();
     if (!trimmed) {
         return undefined;
+    }
+
+    // Handle HTTP assertions (HTTP 200, HTTP 2xx, etc.)
+    const httpMatch = trimmed.match(/^HTTP\s+(.+)$/i);
+    if (httpMatch) {
+        return {
+            expected: httpMatch[1].trim(),
+            actual: String(apiResponse.statusCode),
+            operator: '=='
+        };
+    }
+
+    // Handle operatorless status assertions (status 200, status 2xx)
+    const statusNoOpMatch = trimmed.match(/^status\s+(\d[\dxX]*)$/i);
+    if (statusNoOpMatch) {
+        return {
+            expected: statusNoOpMatch[1].trim(),
+            actual: String(apiResponse.statusCode),
+            operator: '=='
+        };
     }
 
     const match = trimmed.match(/^([a-z]+)(?:\.(.+?))?\s*(contains|notContains|startsWith|endsWith|matches|notMatches|isNull|isNotEmpty|isEmpty|isDefined|isUndefined|isTruthy|isFalsy|isNumber|isString|isBoolean|isArray|isJson|={1,2}|!=|<=|>=|<|>)\s*(.*)$/i);
@@ -175,7 +211,7 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
         const actualStatus = String(apiResponse.statusCode);
         
         // Handle status class patterns (2xx, 3xx, etc.)
-        if (expectedPattern.match(/^\d[xx]$/)) {
+        if (expectedPattern.match(/^\d[xX]{2}$/i)) {
             const firstDigit = expectedPattern[0];
             return actualStatus[0] === firstDigit;
         }
@@ -193,7 +229,7 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
         const actualStatus = String(apiResponse.statusCode);
         
         // Handle status class patterns (2xx, 3xx, etc.)
-        if (expectedPattern.match(/^\d[xx]$/)) {
+        if (expectedPattern.match(/^\d[xX]{2}$/i)) {
             const firstDigit = expectedPattern[0];
             return actualStatus[0] === firstDigit;
         }
@@ -251,9 +287,17 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
             case 'endswith':
                 return actual.endsWith(expected);
             case 'matches':
-                try { return new RegExp(expected).test(actual); } catch { return false; }
+                try {
+                    // Guard against ReDoS: reject patterns that are too long or contain nested quantifiers
+                    if (expected.length > 500 || /[+*?}][+*?]/.test(expected) || /\)\s*[+*?{]/.test(expected)) { return false; }
+                    return new RegExp(expected).test(actual);
+                } catch { return false; }
             case 'notmatches':
-                try { return !new RegExp(expected).test(actual); } catch { return false; }
+                try {
+                    // Guard against ReDoS: reject patterns that are too long or contain nested quantifiers
+                    if (expected.length > 500 || /[+*?}][+*?]/.test(expected) || /\)\s*[+*?{]/.test(expected)) { return false; }
+                    return !new RegExp(expected).test(actual);
+                } catch { return false; }
             case 'isnull':
                 return actual === '' || actual.toLowerCase() === 'null' || actual === undefined;
             case 'isempty':
@@ -269,7 +313,9 @@ export const evaluateAssertion = (assertion: string, apiResponse?: ApiResponse):
             case 'isfalsy':
                 return !isTruthyString(actual);
             case 'isnumber':
-                return !isNaN(Number(actual));
+                return actual.trim() !== '' && !isNaN(Number(actual));
+            case 'isstring':
+                return typeof actual === 'string';
             case 'isboolean':
                 return ['true', 'false'].includes(actual.toLowerCase());
             case 'isarray':

@@ -194,7 +194,7 @@ const MethodBadge = styled.span<{ method: string }>`
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 2px 8px;
+	padding: 1px 8px;
 	width: 35px;
 	border-radius: 3px;
 	font-size: 9px;
@@ -433,7 +433,8 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 					>
 						<Codicon name="plus" />
 					</AddButton>
-					<RunButton
+					{/*  TOD0: Add run button for folders in future */}
+					{/* <RunButton
 						title={`Run ${item.name}`}
 						aria-label={`Run ${item.name}`}
 						onClick={(e: React.MouseEvent) => {
@@ -443,7 +444,7 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 						}}
 					>
 						<Codicon name="play" />
-					</RunButton>
+					</RunButton> */}
 				</CollectionActions>
 			</FolderHeader>
 			{contextMenu && contextMenu.collectionId === item.id && (
@@ -480,9 +481,6 @@ const FolderTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: st
 };
 
 const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: string; contextMenu?: { x: number; y: number; collectionId: string } | null; setContextMenu?: (menu: { x: number; y: number; collectionId: string } | null) => void }> = ({ item, selectedId, onSelect, renderTreeItem, isExpanded, onToggle, vscode, collectionId, contextMenu, setContextMenu }) => {
-
-	const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
-
 	const handleSelect = useCallback(() => {
 		onSelect(item.id);
 	}, [onSelect, item.id]);
@@ -503,7 +501,6 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 				collectionId: item.id
 			});
 		}
-		setAddMenu(null);
 		if (setContextMenu) {
 			setContextMenu(null);
 		}
@@ -516,18 +513,10 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 				collectionId: item.id
 			});
 		}
-		setAddMenu(null);
 		if (setContextMenu) {
 			setContextMenu(null);
 		}
 	}, [vscode, item.id, setContextMenu]);
-
-	useEffect(() => {
-		if (!addMenu) return;
-		const handleOutside = () => setAddMenu(null);
-		document.addEventListener('click', handleOutside);
-		return () => document.removeEventListener('click', handleOutside);
-	}, [addMenu]);
 
 	const handleDeleteCollection = useCallback(() => {
 		if (vscode) {
@@ -573,26 +562,13 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 						onClick={(e: React.MouseEvent) => {
 							e.stopPropagation();
 							e.preventDefault();
-							// flip the menu to the left if there's insufficient space on the right
-							const MENU_WIDTH = 200; // >= ContextMenu min-width
-							const MENU_HEIGHT = 140;
-							const PAD = 8;
-							const clickX = e.clientX;
-							const clickY = e.clientY;
-							let x = clickX;
-							let y = clickY;
-							if (window.innerWidth - clickX < MENU_WIDTH + PAD) {
-								x = Math.max(PAD, clickX - MENU_WIDTH);
-							}
-							if (window.innerHeight - clickY < MENU_HEIGHT + PAD) {
-								y = Math.max(PAD, clickY - MENU_HEIGHT);
-							}
-							setAddMenu({ x, y });
+							handleAddRequest();
 						}}
 					>
 						<Codicon name="plus" />
 					</AddButton>
-					<RunButton
+					{/* TODO: Add run button for collections in future */}
+					{/* <RunButton
 						title={`Run ${item.name}`}
 						aria-label={`Run ${item.name}`}
 						onClick={(e: React.MouseEvent) => {
@@ -602,27 +578,20 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 						}}
 					>
 						<Codicon name="play" />
-					</RunButton>
+					</RunButton> */}
 				</CollectionActions>
 			</CollectionHeader>
-			{addMenu && (
-				<ContextMenu x={addMenu.x} y={addMenu.y} visible={true}>
-					<ContextMenuItem onClick={() => { handleAddRequest(); }}>
-						<Codicon name="file-add" sx={{ marginRight: 8 }} />
-						Add Request
-					</ContextMenuItem>
-				</ContextMenu>
-			)}
 			{contextMenu && contextMenu.collectionId === item.id && (
 				<ContextMenu x={contextMenu.x} y={contextMenu.y} visible={true}>
 					<ContextMenuItem onClick={handleAddRequest}>
 						<Codicon name="file-add" sx={{ marginRight: 8 }} />
 						Add Request
 					</ContextMenuItem>
-					<ContextMenuItem onClick={handleRunCollection}>
+					{/*  TODO: Add run option for collections in context menu in future */}
+					{/* <ContextMenuItem onClick={handleRunCollection}>
 						<Codicon name="play" sx={{ marginRight: 8 }} />
 						Run Collection
-					</ContextMenuItem>
+					</ContextMenuItem> */}
 					<ContextMenuItem onClick={handleRenameCollection}>
 						<Codicon name="edit" sx={{ marginRight: 8 }} />
 						Rename Collection

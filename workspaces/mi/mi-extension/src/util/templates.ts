@@ -418,7 +418,7 @@ export const rootPomXmlContent = (projectName: string, groupID: string, artifact
         <plugin>
           <groupId>org.wso2.maven</groupId>
           <artifactId>synapse-unit-test-maven-plugin</artifactId>
-          <version>5.4.13</version>
+          <version>5.4.15</version>
           <executions>
             <execution>
               <id>synapse-unit-test</id>

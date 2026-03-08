@@ -45,7 +45,7 @@ import { FunctionForm } from "./Forms/FunctionForm";
 import { ResourceForm } from "./Forms/ResourceForm";
 import { getCustomEntryNodeIcon } from "../ComponentListView/EventIntegrationPanel";
 import { McpToolForm } from "./Forms/McpToolForm";
-import { removeForwardSlashes, canDataBind, getReadableListenerName } from "./utils";
+import { removeForwardSlashes, canDataBind, getReadableListenerName, buildBaseUrl } from "./utils";
 import { DatabindForm } from "./Forms/DatabindForm";
 import { FTPForm } from "./Forms/FTPForm";
 import FTPConfigForm from "./Forms/FTPForm/FTPConfigForm";
@@ -195,25 +195,6 @@ function extractHttpMethod(icon: string | undefined): string {
     if (!icon) return 'GET';
     const method = icon.split('-')[0].toUpperCase();
     return ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'].includes(method) ? method : 'GET';
-}
-
-/**
- * Build base URL from listener and base path
- * Handles formats like "localhost:8080" or "0.0.0.0:8080"
- */
-function buildBaseUrl(listener: string, basePath: string = ''): string {
-    let host = 'localhost';
-    let port = '8080';
-
-    if (listener) {
-        const parts = listener.split(':');
-        if (parts.length === 2) {
-            host = parts[0] === '0.0.0.0' ? 'localhost' : parts[0];
-            port = parts[1];
-        }
-    }
-
-    return `http://${host}:${port}${basePath || ''}`;
 }
 
 export function ServiceDesigner(props: ServiceDesignerProps) {
@@ -728,50 +709,18 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
     const handleServiceTryIt = async () => {
         try {
             const basePath = serviceModel.properties?.basePath?.value?.trim() || '';
-            const listener = serviceModel.properties?.listener?.value?.trim() || 'localhost:8080';
+            const listener = serviceModel.properties?.listener?.value?.trim() || '';
 
-            // Start the Ballerina service without opening HTTP YAC
-            await rpcClient
-                .getCommonRpcClient()
-                .executeCommand({
-                    commands: ["ballerina.project.run"],
-                });
+            // Start the Ballerina service
+            await rpcClient.getCommonRpcClient().executeCommand({ commands: ["ballerina.project.run"] });
 
-            // Wait longer for the service to fully start
+            // Wait for the service to fully start
             await new Promise((resolve) => setTimeout(resolve, 3000));
 
-            // Filter HTTP resources for the collection
-            const httpResources = resources.filter(
-                (resource) => resource.type === DIRECTORY_MAP.RESOURCE
-            );
-
-            if (httpResources.length === 0) {
-                console.warn('No HTTP resources found for TryIt');
-                return;
-            }
-
-            // Build the Hurl collection from service resources
-            const baseUrl = buildBaseUrl(listener, basePath);
-            const hurlCollection = {
-                name: serviceModel.name,
-                description: `API TryIt collection for ${serviceModel.name}`,
-                requests: httpResources.map((resource) => {
-                    const method = extractHttpMethod(resource.icon);
-                    const resourcePath = resource.name.startsWith('/') ? resource.name : `/${resource.name}`;
-                    const url = `${baseUrl}${resourcePath}`;
-                    // Build proper Hurl-formatted content with method and full URL
-                    const hurlContent = `${method} ${url}`;
-                    return {
-                        name: `${method} ${resource.name}`,
-                        content: hurlContent,
-                    };
-                }),
-            };
-
-            console.log('Opening API TryIt with collection:', hurlCollection);
-
-            // Open ONLY API TryIt with the Hurl collection (no HTTP YAC)
-            const commands = ["api-tryit.openFromHurlCollection", hurlCollection];
+            // Delegate to ballerina.tryIt so it can detect the actual running port via the
+            // language server / process scan rather than trying to parse the listener string.
+            // openTryItView in activator.ts (already patched) now opens API TryIt instead of HTTP YAC.
+            const commands = ["ballerina.tryIt", false, undefined, { basePath, listener, name: serviceIdentifier }];
             rpcClient.getCommonRpcClient().executeCommand({ commands });
         } catch (error) {
             console.error('Error opening API TryIt:', error);

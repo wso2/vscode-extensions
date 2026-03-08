@@ -76,6 +76,7 @@ export interface HttpRequestOptions {
     headers?: Record<string, string>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data?: any;
+    formData?: FormDataParameter[];
 }
 
 export interface HttpResponseResult {

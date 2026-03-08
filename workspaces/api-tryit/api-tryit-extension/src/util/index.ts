@@ -31,11 +31,11 @@ export function getComposerJSFiles(
 
 	if (isDevMode) {
 		// Load from webpack-dev-server for hot reload.
-		// Also include local bundles as a fallback to avoid endless loading
-		// when the dev server is not running.
-		const devBundle = `${devHost}/${composerName}.js`;
-		const localBundles = getLocalComposerJSFiles(context, composerName, webview);
-		return [devBundle, ...localBundles];
+		// Only the dev bundle is loaded — loading both dev + local bundles in the same
+		// webview causes the bundle to execute twice, which makes acquireVsCodeApi()
+		// be called a second time and throws "An instance of the VS Code API has already
+		// been acquired".
+		return [`${devHost}/${composerName}.js`];
 	}
 
 	return getLocalComposerJSFiles(context, composerName, webview);
@@ -47,21 +47,18 @@ function getLocalComposerJSFiles(
 	webview: vscode.Webview
 ): string[] {
 
-	// Production mode: load from local files
+	// Production mode: load only the exact deterministic bundle (e.g. ApiTryItVisualizer.js).
+	// Using startsWith() can match stale hashed chunks left over from previous builds and
+	// inject them all, causing bootstrap code (including acquireVsCodeApi) to run twice.
 	const jsLibsPath = path.join(context.extensionPath, 'resources', 'jslibs');
-	const jsFiles: string[] = [];
+	const exactBundlePath = path.join(jsLibsPath, `${composerName}.js`);
 
-	if (fs.existsSync(jsLibsPath)) {
-		const files = fs.readdirSync(jsLibsPath);
-		files.forEach(file => {
-			if (file.startsWith(composerName) && file.endsWith('.js')) {
-				const jsFilePath = vscode.Uri.file(path.join(jsLibsPath, file));
-				jsFiles.push(webview.asWebviewUri(jsFilePath).toString());
-			}
-		});
+	if (fs.existsSync(exactBundlePath)) {
+		const jsFilePath = vscode.Uri.file(exactBundlePath);
+		return [webview.asWebviewUri(jsFilePath).toString()];
 	}
 
-	return jsFiles;
+	return [];
 }
 export { curlToApiRequestItem } from './curl-converter';
 export { hurlToApiRequestItem } from './hurl-converter';

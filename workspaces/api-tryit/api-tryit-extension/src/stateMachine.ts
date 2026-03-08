@@ -348,7 +348,10 @@ export const ApiTryItStateMachine = {
             stateMachineService.send({ type: 'SHOW_CREATE_COLLECTION_FORM' });
             // If the webview is already registered, notify it immediately
             if (webviewPanel) {
-                webviewPanel.webview.postMessage({ type: 'showCreateCollectionForm' });
+                webviewPanel.webview.postMessage({
+                    type: 'showCreateCollectionForm',
+                    data: { workspacePath: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath }
+                });
             }
         } else if (eventType === EVENT_TYPE.CLEAR_COLLECTION_CONTEXT) {
             // Clear collection context from state machine (accept optional collection path for pruning)
@@ -368,7 +371,10 @@ export const ApiTryItStateMachine = {
             }
             // If there's a pending create collection request, notify the webview
             if (context.showCreateCollectionRequest && webviewPanel) {
-                webviewPanel.webview.postMessage({ type: 'showCreateCollectionForm' });
+                webviewPanel.webview.postMessage({
+                    type: 'showCreateCollectionForm',
+                    data: { workspacePath: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath }
+                });
             }
         }
     },

@@ -75,8 +75,26 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
         const parseQueryParameters = (text: string) => {
             if (!text.trim()) return [] as QueryParameter[];
             return text.split('\n').filter(line => line.trim()).map((line, index) => {
-                const [key, value] = line.split(':').map(s => s.trim());
-                return { id: Date.now().toString() + index, key: key || '', value: value || '' };
+                const colonIndex = line.indexOf(':');
+                const equalsIndex = line.indexOf('=');
+                const hasColon = colonIndex >= 0;
+                const hasEquals = equalsIndex >= 0;
+
+                let separatorIndex = -1;
+                if (hasColon && hasEquals) {
+                    separatorIndex = Math.min(colonIndex, equalsIndex);
+                } else if (hasColon) {
+                    separatorIndex = colonIndex;
+                } else if (hasEquals) {
+                    separatorIndex = equalsIndex;
+                }
+
+                if (separatorIndex < 0) {
+                    return { id: Date.now().toString() + index, key: line.trim(), value: '' };
+                }
+                const key = line.slice(0, separatorIndex).trim();
+                const paramValue = line.slice(separatorIndex + 1).trim();
+                return { id: Date.now().toString() + index, key: key || '', value: paramValue || '' };
             });
         };
         onRequestChange?.({ ...request, queryParameters: parseQueryParameters(value || '') });
@@ -127,7 +145,8 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
 
                 // key: filename: contentType  (file with content type)
                 // Detect files by checking if value contains a dot (file extension)
-                const kvct = line.match(/^([^:]+):\s*([^:]+):\s*(.+)$/);
+                // [^:{["]+  prevents matching when the middle part starts with JSON characters ({ [ ")
+                const kvct = line.match(/^([^:]+):\s*([^:{["]+):\s*(.+)$/);
                 if (kvct) {
                     const filename = kvct[2].trim();
                     const contentType = kvct[3].trim();
@@ -271,16 +290,31 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
     const getBodyEditorValue = () => {
         const body = request.body || '';
         if (bodyFormat === 'form-data') {
-            return body
+            const filtered = body
                 .split('\n')
                 .filter(line => !/^\s*\[(?:FormData|Multipart|MultipartFormData)\]\s*$/i.test(line))
                 .join('\n');
+            // If body text is empty but structured entries exist, reconstruct from bodyFormData
+            if (!filtered.trim() && request.bodyFormData && request.bodyFormData.length > 0) {
+                return request.bodyFormData.map(param => {
+                    if (param.filePath) {
+                        return `${param.key}: file,${param.filePath};${param.contentType ? ' ' + param.contentType : ''}`;
+                    }
+                    return `${param.key}: ${param.value || ''}`;
+                }).join('\n');
+            }
+            return filtered;
         }
         if (bodyFormat === 'form-urlencoded') {
-            return body
+            const filtered = body
                 .split('\n')
                 .filter(line => !/^\s*\[(?:FormUrlEncoded|Form|FormParams)\]\s*$/i.test(line))
                 .join('\n');
+            // If body text is empty but structured entries exist, reconstruct from bodyFormUrlEncoded
+            if (!filtered.trim() && request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) {
+                return request.bodyFormUrlEncoded.map(param => `${param.key}: ${param.value || ''}`).join('\n');
+            }
+            return filtered;
         }
         return body;
     };
@@ -314,16 +348,17 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 }, 0);
             }
         },
-        {
-            id: 'generate-query-params',
-            title: '$(wand) Generate',
-            shouldShow: (model: any) => true,
-            getLineNumber: (model: any) => 1,
-            onExecute: (editor: any, model: any) => {
-                console.log('Generate query parameters');
-                // Placeholder for AI generation
-            }
-        }
+        // TODO: Add AI generation for query parameters
+        // {
+        //     id: 'generate-query-params',
+        //     title: '$(wand) Generate',
+        //     shouldShow: (model: any) => true,
+        //     getLineNumber: (model: any) => 1,
+        //     onExecute: (editor: any, model: any) => {
+        //         console.log('Generate query parameters');
+        //         // Placeholder for AI generation
+        //     }
+        // }
     ], []);
 
     const headersCodeLenses = React.useMemo(() => [
@@ -354,16 +389,17 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 }, 0);
             }
         },
-        {
-            id: 'generate-headers',
-            title: '$(wand) Generate',
-            shouldShow: (model: any) => true,
-            getLineNumber: (model: any) => 1,
-            onExecute: (editor: any, model: any) => {
-                console.log('Generate headers');
-                // Placeholder for AI generation
-            }
-        }
+        // TODO: Add AI generation for headers
+        // {
+        //     id: 'generate-headers',
+        //     title: '$(wand) Generate',
+        //     shouldShow: (model: any) => true,
+        //     getLineNumber: (model: any) => 1,
+        //     onExecute: (editor: any, model: any) => {
+        //         console.log('Generate headers');
+        //         // Placeholder for AI generation
+        //     }
+        // }
     ], []);
 
     const bodyCodeLenses = React.useMemo(() => {
@@ -495,17 +531,18 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             });
         }
 
-        // Always add generate lens
-        lenses.push({
-            id: 'generate-body',
-            title: '$(wand) Generate',
-            shouldShow: (model: any) => true,
-            getLineNumber: (model: any) => 1,
-            onExecute: (editor: any, model: any) => {
-                console.log('Generate body');
-                // Placeholder for AI generation
-            }
-        });
+        // TODO: Add AI generation for body content
+        // // Always add generate lens
+        // lenses.push({
+        //     id: 'generate-body',
+        //     title: '$(wand) Generate',
+        //     shouldShow: (model: any) => true,
+        //     getLineNumber: (model: any) => 1,
+        //     onExecute: (editor: any, model: any) => {
+        //         console.log('Generate body');
+        //         // Placeholder for AI generation
+        //     }
+        // });
 
         return lenses;
     }, [bodyFormat]);

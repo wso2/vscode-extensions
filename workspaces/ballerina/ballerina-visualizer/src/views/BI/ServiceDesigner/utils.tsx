@@ -90,6 +90,43 @@ export function getReadableListenerName(name: string) {
     return `${listenerType.charAt(0).toUpperCase() + listenerType.slice(1)} Listener`;
 }
 
+/**
+ * Build base URL from listener and base path.
+ * Handles listener formats:
+ *   "localhost:8080", "0.0.0.0:8080"          → standard host:port
+ *   "new http:Listener(8080)"                  → anonymous inline listener
+ *   "9090"                                     → port-only number
+ */
+export function buildBaseUrl(listener: string, basePath: string = ''): string {
+    let host = 'localhost';
+    let port = '8080';
+
+    if (listener) {
+        // Anonymous inline listener: new http:Listener(9090) or new http:Listener("host:port")
+        const anonymousMatch = listener.match(/new\s+\w+:Listener\(\s*["']?(\d+)["']?\s*\)/);
+        if (anonymousMatch) {
+            port = anonymousMatch[1];
+        } else if (/^\d+$/.test(listener.trim())) {
+            // Bare port number: "9090"
+            port = listener.trim();
+        } else {
+            // Standard host:port, e.g. "localhost:8080" or "0.0.0.0:9090"
+            const colonIdx = listener.lastIndexOf(':');
+            if (colonIdx !== -1) {
+                const h = listener.slice(0, colonIdx).trim();
+                const p = listener.slice(colonIdx + 1).trim();
+                host = h === '0.0.0.0' ? 'localhost' : h;
+                port = p;
+            }
+        }
+    }
+
+    // Normalise basePath: treat "/" as empty and strip any trailing slash
+    const normalizedBase = (basePath || '').replace(/\/+$/, '') === '' ? '' : (basePath || '').replace(/\/+$/, '');
+
+    return `http://${host}:${port}${normalizedBase}`;
+}
+
 export function hasEditableParameters(parameters: FunctionModel['parameters']): boolean {
     if (!parameters || parameters.length === 0) {
         return false;

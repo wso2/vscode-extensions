@@ -164,7 +164,10 @@ export class HurlBinaryManager {
 			if (asset.sha256) {
 				this.verifyChecksum(archiveBuffer, asset.sha256);
 			}
-		await fs.writeFile(archivePath, archiveBuffer as unknown as Uint8Array);
+		await fs.writeFile(archivePath, new Uint8Array(archiveBuffer));
+
+			progress?.report({ message: 'Extracting archive' });
+			await this.extractTarGz(archivePath, extractRoot);
 
 			progress?.report({ message: 'Finalizing installation' });
 			const locatedBinary = await this.findBinary(extractRoot, getBinaryName());

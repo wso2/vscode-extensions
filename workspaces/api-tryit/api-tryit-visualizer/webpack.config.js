@@ -17,7 +17,6 @@
  */
 
 const path = require("path");
-const webpack = require("webpack");
 
 module.exports = {
     entry: "./src/index.tsx",
@@ -69,14 +68,14 @@ module.exports = {
                     'style-loader',
                     'css-loader'
                 ]
+            },
+            {
+                test: /\.(ttf|woff|woff2|eot)$/,
+                type: 'asset/inline'
             }
         ]
     },
-    plugins: [
-        new webpack.DefinePlugin({
-            "process.env": JSON.stringify(process.env),
-        }),
-    ],
+    plugins: [],
     devServer: {
         port: 9092,
         hot: true,

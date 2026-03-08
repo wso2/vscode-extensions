@@ -103,6 +103,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     const [loadingDiagram, setLoadingDiagram] = useState(true);
     const [fileName, setFileName] = useState("");
     const [serviceType, setServiceType] = useState("");
+    const [serviceName, setServiceName] = useState("");
     const [basePath, setBasePath] = useState("");
     const [listener, setListener] = useState("");
     const [parentMetadata, setParentMetadata] = useState<ParentMetadata>();
@@ -155,6 +156,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
                                     endColumn: serviceModel.service?.codedata.lineRange.endLine.offset,
                                 });
                                 setServiceType(serviceModel.service?.type);
+                                setServiceName(serviceModel.service?.name || "");
                                 setBasePath(serviceModel.service?.properties?.basePath?.value?.trim());
                                 setListener(serviceModel.service?.properties?.listener?.value?.trim());
                             });
@@ -246,9 +248,17 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     let isAgent = parentMetadata?.kind === "AI Chat Agent" && parentMetadata?.label === "chat";
     let isNPFunction = view === FOCUS_FLOW_DIAGRAM_VIEW.NP_FUNCTION;
 
-    const handleResourceTryIt = (methodValue: string, pathValue: string) => {
-        const resource = serviceType === "http" ? { methodValue, pathValue } : undefined;
-        const commands = ["ballerina.tryIt", false, resource, { basePath, listener }];
+    const handleResourceTryIt = async (methodValue: string, pathValue: string) => {
+        // Start the project first and wait for service startup
+        await rpcClient.getCommonRpcClient().executeCommand({
+            commands: ["ballerina.project.run"],
+        });
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        // Delegate to ballerina.tryIt so it can detect the actual running port via the
+        // language server / process scan rather than parsing the listener string.
+        const resourceMetadata = serviceType === "http" ? { methodValue, pathValue } : undefined;
+        const commands = ["ballerina.tryIt", false, resourceMetadata, { basePath, listener, name: serviceName }];
         rpcClient.getCommonRpcClient().executeCommand({ commands });
     };
 

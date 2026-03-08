@@ -21,13 +21,17 @@ import { getComposerJSFiles } from '../util';
 import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
 import { ApiRequestItem, HttpResponseResult } from '@wso2/api-tryit-core';
 import * as path from 'path';
+import * as fs from 'fs/promises';
 import { Buffer } from 'buffer';
 import { Messenger } from 'vscode-messenger';
 import { registerApiTryItRpcHandlers, ApiTryItRpcManager } from '../rpc-managers';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
+import { parseHurlDocument, parseHurlCollection } from '@wso2/api-tryit-hurl-parser';
+import { getPendingBiSavePath, getPendingBiCollectionName, clearPendingBiSavePath, setActiveCollectionFilePath, getActiveCollectionFilePath } from '../bi-save-context';
 
 export class TryItPanel {
 	public static currentPanel: TryItPanel | undefined;
+	private static _explorerProvider: ApiExplorerProvider | undefined;
 	private readonly _panel: vscode.WebviewPanel;
 	private _disposables: vscode.Disposable[] = [];
 	private static _messenger: Messenger = new Messenger();
@@ -218,11 +222,11 @@ export class TryItPanel {
 						// Handle HTTP request sent from webview
 						try {
 							const { requestId, data } = message;
-							const { method, url, params, headers, data: body } = data || {};
-							
+							const { method, url, params, headers, data: body, formData } = data || {};
+
 							// Delegate to RPC manager to handle the HTTP request
 							const rpcManager = new ApiTryItRpcManager();
-							rpcManager.sendHttpRequest({ method, url, params, headers, data: body }).then(
+							rpcManager.sendHttpRequest({ method, url, params, headers, data: body, formData }).then(
 							(result: HttpResponseResult) => {
 									this._panel.webview.postMessage({
 										type: 'httpRequestResponse',
@@ -300,6 +304,24 @@ export class TryItPanel {
 								}
 							}
 
+							// For in-memory requests (no backing file), check if a previous save in this
+							// Try It session already created the collection file. If so, append to it so
+							// all requests from the same service land in the same .hurl file.
+							let appendToActiveCollection = false;
+							const requestFilePath = request && (request.filePath as string | undefined);
+							if (!targetFilePath && !requestFilePath && !stateContext.selectedFilePath) {
+								const activeCollFile = getActiveCollectionFilePath();
+								if (activeCollFile) {
+									try {
+										await vscode.workspace.fs.stat(vscode.Uri.file(activeCollFile));
+										targetFilePath = activeCollFile;
+										appendToActiveCollection = true;
+									} catch {
+										// File no longer exists — fall through to normal save logic
+									}
+								}
+							}
+
 							if (!targetFilePath && stateContext.currentCollectionPath) {
 								// Verify the collection target still exists before using it.
 								// It can be either a collection .hurl file (new flow) or a directory (legacy flow).
@@ -329,41 +351,120 @@ export class TryItPanel {
 								}
 							}
 
-							// If still no file path, prompt user to select a file directly.
-							// Do not auto-create folders/collections during save.
-							if (!targetFilePath) {
-								// Suggest a file name based on the request name
-								const suggestedFileName = ((request && request.name) ? request.name : 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.hurl';
-								let defaultFolderUri = vscode.workspace.workspaceFolders?.[0]?.uri;
-								if (stateContext.currentCollectionPath) {
-									try {
-										await vscode.workspace.fs.stat(vscode.Uri.file(stateContext.currentCollectionPath));
-										defaultFolderUri = vscode.Uri.file(stateContext.currentCollectionPath);
-									} catch {
-										// ignore invalid/removed collection path and fall back to workspace root
+								// If still no file path, prompt user to select a file directly.
+								// Do not auto-create folders/collections during save.
+								if (!targetFilePath) {
+									// Prefer the pending BI save path (set when Ballerina opens TryIt in-memory)
+									const pendingBiPath = getPendingBiSavePath();
+
+									// Generic in-memory collection fallback:
+									// If this request belongs to an in-memory collection (e.g., imported Hurl collection),
+									// auto-persist to api-tryit/<collection-name>.hurl instead of opening Save As.
+									if (!pendingBiPath && vscode.workspace.workspaceFolders?.length && TryItPanel._explorerProvider) {
+										const collections = await TryItPanel._explorerProvider.getCollections() as Array<{
+											id: string;
+											name: string;
+											children?: Array<{ id: string; name?: string; method?: string; request?: { url?: string } }>;
+										}>;
+										const selectedCollection = collections.find(collection =>
+											(collection.children || []).some(item =>
+												item.id === selectedTreeItemId ||
+												(item.name === request?.name &&
+												 item.method === request?.method &&
+												 item.request?.url === request?.url)
+											)
+										);
+
+										if (selectedCollection) {
+											const existingCollectionPath = TryItPanel._explorerProvider.getCollectionPathById(selectedCollection.id);
+											if (existingCollectionPath) {
+												targetFilePath = existingCollectionPath;
+												appendToActiveCollection = true;
+												setActiveCollectionFilePath(existingCollectionPath);
+											} else {
+												const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
+												const safeCollectionName = (selectedCollection.name || request?.name || 'api-collection')
+													.toLowerCase()
+													.replace(/[^a-z0-9-]/g, '-')
+													.replace(/-+/g, '-')
+													.replace(/^-|-$/g, '');
+												const collectionFilePath = path.join(
+													workspaceRoot,
+													'api-tryit',
+													`${safeCollectionName || 'api-collection'}.hurl`
+												);
+												await fs.mkdir(path.dirname(collectionFilePath), { recursive: true });
+												try {
+													await vscode.workspace.fs.stat(vscode.Uri.file(collectionFilePath));
+												} catch {
+													const header = selectedCollection.name ? `# @collectionName ${selectedCollection.name}\n` : '';
+													await fs.writeFile(collectionFilePath, header);
+												}
+												targetFilePath = collectionFilePath;
+												appendToActiveCollection = true;
+												setActiveCollectionFilePath(collectionFilePath);
+											}
+										}
 									}
-								}
 
-								const fileUri = await vscode.window.showSaveDialog({
-									defaultUri: defaultFolderUri ? vscode.Uri.joinPath(defaultFolderUri, suggestedFileName) : undefined,
-									filters: {
-										'Hurl files': ['hurl'],
-										'YAML files': ['yaml', 'yml']
-									},
-									saveLabel: 'Save API Request'
-								});
+									if (!targetFilePath && pendingBiPath && vscode.workspace.workspaceFolders?.length) {
+										// Auto-save to api-tryit/ folder without prompting the user
+									const apiTryItDir = path.dirname(pendingBiPath);
+									await fs.mkdir(apiTryItDir, { recursive: true });
+									// Write only the collection name header — saveRequest will append the
+									// saved request block. Other in-memory requests are NOT written to disk
+									// yet; they remain in-memory until the user explicitly saves them.
+									const pendingCollName = getPendingBiCollectionName();
+									await fs.writeFile(pendingBiPath, pendingCollName ? `# @collectionName ${pendingCollName}\n` : '');
+									clearPendingBiSavePath();
+									userSelectedFile = true;
+									targetFilePath = pendingBiPath;
+									// Remember the target file so other in-memory requests from the same
+									// collection are appended here, even after selectItemByPath resets
+									// the state machine's currentCollectionPath to the directory.
+									setActiveCollectionFilePath(pendingBiPath);
+								} else if (!targetFilePath) {
+									let defaultUri: vscode.Uri | undefined;
+									if (pendingBiPath) {
+										defaultUri = vscode.Uri.file(pendingBiPath);
+									} else {
+										// Suggest a file name based on the request name
+										const suggestedFileName = ((request && request.name) ? request.name : 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.hurl';
+										let defaultFolderUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+										if (stateContext.currentCollectionPath) {
+											try {
+												await vscode.workspace.fs.stat(vscode.Uri.file(stateContext.currentCollectionPath));
+												defaultFolderUri = vscode.Uri.file(stateContext.currentCollectionPath);
+											} catch {
+												// ignore invalid/removed collection path and fall back to workspace root
+											}
+										}
+										defaultUri = defaultFolderUri ? vscode.Uri.joinPath(defaultFolderUri, suggestedFileName) : undefined;
+									}
 
-								if (!fileUri) {
-									// User cancelled file save
-									this._panel.webview.postMessage({
-										type: 'saveRequestResponse',
-										data: { success: false, message: 'Save cancelled by user' }
+									const fileUri = await vscode.window.showSaveDialog({
+										defaultUri,
+										filters: {
+											'Hurl files': ['hurl'],
+											'YAML files': ['yaml', 'yml']
+										},
+										saveLabel: 'Save API Request'
 									});
-									break;
-								}
 
-								userSelectedFile = true;
-								targetFilePath = fileUri.fsPath;
+									if (!fileUri) {
+										// User cancelled file save
+										this._panel.webview.postMessage({
+											type: 'saveRequestResponse',
+											data: { success: false, message: 'Save cancelled by user' }
+										});
+										break;
+									}
+
+									// Clear the pending BI path once the user has chosen a save location
+									clearPendingBiSavePath();
+									userSelectedFile = true;
+									targetFilePath = fileUri.fsPath;
+								}
 							}
 
 							// If the request already has an associated file, prefer to reuse it only when the user did not explicitly choose a file
@@ -378,7 +479,7 @@ export class TryItPanel {
 							}
 
 							const selectedHasBackingFile = Boolean(stateContext.selectedFilePath || existingFilePath);
-							const appendIfNotFound = Boolean(
+							const appendIfNotFound = appendToActiveCollection || Boolean(
 								!selectedHasBackingFile &&
 								stateContext.currentCollectionPath &&
 								targetFilePath &&
@@ -404,7 +505,11 @@ export class TryItPanel {
 									request,
 									response,
 									appendIfNotFound,
-									selectedRequestTreeId: selectedTreeItemId
+									// When appending an in-memory request to the active collection file,
+									// do NOT pass the tree item ID — the in-memory ID has no positional
+									// mapping in the disk file and would cause parseRequestIndexFromTreeId
+									// to overwrite an existing block instead of appending.
+									selectedRequestTreeId: appendToActiveCollection ? undefined : selectedTreeItemId
 								});
 
 							// Send response back to webview
@@ -481,6 +586,58 @@ export class TryItPanel {
 							vscode.window.showErrorMessage(`Error selecting file: ${error instanceof Error ? error.message : 'Unknown error'}`);
 						}
 						break;
+					case 'navigateToRequest':
+						try {
+							const { filePath: navFilePath, requestName } = message.data || {};
+							if (!navFilePath) { break; }
+
+							// Use the proven selectItemByPath command for Explorer selection
+							// (it handles reload-fallback and Activity Panel messaging internally)
+							vscode.commands.executeCommand('api-tryit.selectItemByPath', navFilePath, undefined, requestName).then(
+								undefined,
+								(err: unknown) => { console.error('selectItemByPath failed:', err instanceof Error ? err.message : err); }
+							);
+
+							// Update the TryIt panel: find item (reload once if not found)
+							let explorerMatch = TryItPanel._explorerProvider?.findRequestByFilePath(navFilePath, undefined, requestName);
+							if (!explorerMatch && TryItPanel._explorerProvider) {
+								await TryItPanel._explorerProvider.reloadCollections();
+								explorerMatch = TryItPanel._explorerProvider.findRequestByFilePath(navFilePath, undefined, requestName);
+							}
+
+							if (explorerMatch) {
+								ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, explorerMatch.requestItem, navFilePath);
+								break;
+							}
+
+							// Final fallback: parse file from disk
+							const content = await fs.readFile(navFilePath, 'utf-8');
+							const parsedDocument = parseHurlDocument(content);
+							for (let index = 0; index < parsedDocument.blocks.length; index++) {
+								const block = parsedDocument.blocks[index];
+								let parsed;
+								try {
+									parsed = parseHurlCollection(block.text, { sourceFilePath: navFilePath });
+								} catch {
+									continue;
+								}
+								const item = parsed.rootItems?.[0];
+								if (!item) { continue; }
+								const itemName = item.request?.name || item.name || `Request ${index + 1}`;
+								if (itemName === requestName) {
+									ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, {
+										...item,
+										id: `${navFilePath}::${index}`,
+										filePath: navFilePath,
+										name: itemName
+									}, navFilePath);
+									break;
+								}
+							}
+						} catch (error: unknown) {
+							console.error('navigateToRequest error:', error instanceof Error ? error.message : error);
+						}
+						break;
 				}
 			},
 			null,
@@ -489,6 +646,7 @@ export class TryItPanel {
 	}
 
 	public static init(apiExplorerProvider: ApiExplorerProvider) {
+		TryItPanel._explorerProvider = apiExplorerProvider;
 		// Register RPC handlers
 		registerApiTryItRpcHandlers(TryItPanel._messenger, apiExplorerProvider);
 	}

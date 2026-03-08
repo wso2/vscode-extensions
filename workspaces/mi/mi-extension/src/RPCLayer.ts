@@ -22,12 +22,13 @@ import { stateChanged, getVisualizerState, getAIVisualizerState, VisualizerLocat
 import { registerMiDiagramRpcHandlers } from './rpc-managers/mi-diagram/rpc-handler';
 import { VisualizerWebview } from './visualizer/webview';
 import { registerMiVisualizerRpcHandlers } from './rpc-managers/mi-visualizer/rpc-handler';
-import { AiPanelWebview } from './ai-panel/webview';
-import { StateMachineAI } from './ai-panel/aiMachine';
+import { AiPanelWebview } from './ai-features/webview';
+import { StateMachineAI } from './ai-features/aiMachine';
 import { registerMiDataMapperRpcHandlers } from './rpc-managers/mi-data-mapper/rpc-handler';
 import { extension } from './MIExtensionContext';
 import { registerMiDebuggerRpcHandlers } from './rpc-managers/mi-debugger/rpc-handler';
-import { registerMIAiPanelRpcHandlers } from './rpc-managers/ai-panel/rpc-handler';
+import { registerMIAiPanelRpcHandlers } from './rpc-managers/ai-features/rpc-handler';
+import { registerMIAgentPanelRpcHandlers } from './rpc-managers/agent-mode/rpc-handler';
 import path = require('path');
 import { getStateMachine } from './stateMachine';
 import { getPopupStateMachine } from './stateMachinePopup';
@@ -53,6 +54,7 @@ export class RPCLayer {
         registerMiDataMapperRpcHandlers(messenger, projectUri);
         registerMiDebuggerRpcHandlers(messenger, projectUri);
         registerMIAiPanelRpcHandlers(messenger, projectUri);
+        registerMIAgentPanelRpcHandlers(messenger, projectUri);
         // ----- AI Webview RPC Methods
         messenger.onRequest(getAIVisualizerState, () => getAIContext());
         messenger.onRequest(sendAIStateEvent, (event: any) => StateMachineAI.sendEvent(event));
@@ -105,6 +107,9 @@ async function getContext(projectUri: string): Promise<VisualizerLocation> {
                 MI_AUTH_ORG: process.env.MI_AUTH_ORG || '',
                 MI_AUTH_CLIENT_ID: process.env.MI_AUTH_CLIENT_ID || '',
                 MI_AUTH_REDIRECT_URL: process.env.MI_AUTH_REDIRECT_URL || '',
+                COPILOT_ROOT_URL: process.env.COPILOT_ROOT_URL || '',
+                DEVANT_TOKEN_EXCHANGE_URL: process.env.DEVANT_TOKEN_EXCHANGE_URL || '',
+                MI_COPILOT_TOKEN_EXCHANGE_URL: process.env.MI_COPILOT_TOKEN_EXCHANGE_URL || '',
                 MI_UPDATE_VERSION_CHECK_URL: process.env.MI_UPDATE_VERSION_CHECK_URL || '',
                 MI_SAMPLE_ICONS_GITHUB_URL: process.env.MI_SAMPLE_ICONS_GITHUB_URL || '',
                 MI_CONNECTOR_STORE: process.env.MI_CONNECTOR_STORE || '',

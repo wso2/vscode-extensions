@@ -295,7 +295,7 @@ const MethodOption = styled.li<{ active: boolean }>`
     font-weight: 600;
     letter-spacing: 0.25px;
     color: var(--vscode-foreground);
-    background: ${({ active }) => active ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent'};
+    background: ${({ active }) => active ? 'var(--vscode-editor-selectionBackground)' : 'transparent'};
     transition: background 0.12s ease;
 
     &:hover {
@@ -331,7 +331,6 @@ const UrlInputField = styled.input`
     padding-right: 50px; /* Reserve space for inline Save button */
     color: var(--vscode-foreground);
     font-size: 14px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 16px rgba(0, 0, 0, 0.28);
     transition: border-color 0.12s ease, box-shadow 0.12s ease;
 
     &::placeholder {
@@ -371,6 +370,13 @@ const Content = styled.div`
     flex: 1;
     overflow-y: auto;
     padding: 0px 20px 16px 20px;
+`;
+
+const TabSeparator = styled.div`
+    width: 2px;
+    height: 16px;
+    background: var(--vscode-panel-border);
+    align-self: center;
 `;
 
 const TabsBar = styled.div`
@@ -546,7 +552,7 @@ type InputMode = 'code' | 'form';
 export const MainPanel: React.FC = () => {
     const [requestItem, setRequestItem] = useState<ApiRequestItem | undefined>();
     const [savedSnapshot, setSavedSnapshot] = useState('');
-    const [activeTab, setActiveTab] = useState<'input' | 'assert'>('input');
+    const [activeTab, setActiveTab] = useState<'input' | 'response' | 'assert'>('input');
     const [isLoading, setIsLoading] = useState(false);
     const [inputMode, setInputMode] = useState<InputMode>('code');
     const [showHelp, setShowHelp] = useState(false);
@@ -555,38 +561,56 @@ export const MainPanel: React.FC = () => {
     const methodSelectRef = useRef<HTMLDivElement>(null);
     // Counter used to trigger scrolling the Output inside Input without switching tabs
     const [bringOutputCounter, setBringOutputCounter] = useState(0);
+    const [scrollToTopCounter, setScrollToTopCounter] = useState(0);
     const [methodDropdownOpen, setMethodDropdownOpen] = useState(false);
     // Handle messages from VS Code extension
     const [showCollectionForm, setShowCollectionForm] = React.useState(false);
     const [collectionFormWorkspacePath, setCollectionFormWorkspacePath] = React.useState<string | undefined>(undefined);
 	const [runViewState, setRunViewState] = useState<RunViewState | undefined>();
+    // Response produced in the current session (by clicking Send). Separate from requestItem.response
+    // which may carry a stale stored response loaded from the hurl file.
+    const [sessionResponse, setSessionResponse] = useState<ApiResponse | undefined>();
     const selectedIdentityRef = useRef('');
     const savedSnapshotRef = useRef('');
     const currentSnapshotRef = useRef('');
     const pendingSaveSnapshotRef = useRef<string | null>(null);
     const expectSavedSelectionRefreshRef = useRef(false);
+    const latestRequestItemRef = useRef<ApiRequestItem | undefined>(undefined);
     const currentSnapshot = React.useMemo(() => createSaveSnapshot(requestItem), [requestItem]);
 
     useEffect(() => {
         currentSnapshotRef.current = currentSnapshot;
     }, [currentSnapshot]);
 
+    useEffect(() => {
+        latestRequestItemRef.current = requestItem;
+    }, [requestItem]);
+
     const { updateRequest, sendHttpRequest } = useExtensionMessages({
         onApiRequestSelected: (item) => {
-			setRunViewState(undefined);
+            const incomingIdentity = getItemIdentity(item);
+            const selectedItemChanged = incomingIdentity !== selectedIdentityRef.current;
+            selectedIdentityRef.current = incomingIdentity;
+
+            // Only clear session response when the user selects a different request,
+            // not when the same item is refreshed after a save.
+            if (selectedItemChanged) {
+                setRunViewState(undefined);
+                setSessionResponse(undefined);
+            }
             setRequestItem(item);
+            latestRequestItemRef.current = item;
             setTempName(item.name);
             setIsEditingName(false);
             // Close collection form when a request is selected
             setShowCollectionForm(false);
-
-            const incomingIdentity = getItemIdentity(item);
-            const selectedItemChanged = incomingIdentity !== selectedIdentityRef.current;
-            selectedIdentityRef.current = incomingIdentity;
             if (selectedItemChanged || !savedSnapshotRef.current || expectSavedSelectionRefreshRef.current) {
                 const snapshot = createSaveSnapshot(item);
-                savedSnapshotRef.current = snapshot;
-                setSavedSnapshot(snapshot);
+                // In-memory items have no filePath — treat them as unsaved so Save is
+                // enabled immediately without requiring the user to make a change first.
+                const savedSnap = item.filePath ? snapshot : '';
+                savedSnapshotRef.current = savedSnap;
+                setSavedSnapshot(savedSnap);
                 pendingSaveSnapshotRef.current = null;
                 expectSavedSelectionRefreshRef.current = false;
             }
@@ -675,6 +699,7 @@ export const MainPanel: React.FC = () => {
             request: updatedRequest,
             id: requestItem.id || ''
         };
+        latestRequestItemRef.current = updatedItem;
         setRequestItem(updatedItem);
         
         // Notify extension about the change
@@ -756,12 +781,13 @@ export const MainPanel: React.FC = () => {
         setIsLoading(true);
         
         try {
-            if (!requestItem) {
+            const activeItem = latestRequestItemRef.current ?? requestItem;
+            if (!activeItem) {
                 setIsLoading(false);
                 return;
             }
             
-            const { request } = requestItem;
+            const { request } = activeItem;
             
             // Build query parameters
             const enabledQueryParams = request.queryParameters || [];
@@ -783,21 +809,27 @@ export const MainPanel: React.FC = () => {
             
             // Parse body if present
             let data = undefined;
-            if (request.body && ['POST', 'PUT', 'PATCH'].includes(request.method)) {
-                try {
-                    data = JSON.parse(request.body);
-                } catch {
-                    data = request.body;
+            let formData = undefined;
+            if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
+                if (request.bodyFormData && request.bodyFormData.length > 0) {
+                    formData = request.bodyFormData;
+                } else if (request.body) {
+                    try {
+                        data = JSON.parse(request.body);
+                    } catch {
+                        data = request.body;
+                    }
                 }
             }
-            
+
             // Send request via extension
             const result = await sendHttpRequest({
                 method: request.method,
                 url: request.url,
                 params,
                 headers,
-                data
+                data,
+                formData
             });
             
             // Convert response to ApiResponse format
@@ -807,19 +839,20 @@ export const MainPanel: React.FC = () => {
                 body: result.body
             };
             
-            if (requestItem) {
+            if (activeItem) {
                 setRequestItem({
-                    ...requestItem,
+                    ...activeItem,
                     response: apiResponse,
-                    id: requestItem.id || ''
+                    id: activeItem.id || ''
                 });
+                setSessionResponse(apiResponse);
             }
 
-            // Trigger scrolling to output in the Input panel and switch to Input view
+            // Trigger scrolling to output in the Input panel and switch to Response view
             setBringOutputCounter(c => c + 1);
             if (activeTab !== 'assert') {
-                setActiveTab('input');     
-            }       
+                setActiveTab('response');
+            }
         } catch (error) {
             console.error('Request failed:', error);
             
@@ -834,12 +867,14 @@ export const MainPanel: React.FC = () => {
                 body: errorBody
             };
             
-            if (requestItem) {
+            const activeItem = latestRequestItemRef.current ?? requestItem;
+            if (activeItem) {
                 setRequestItem({
-                    ...requestItem,
+                    ...activeItem,
                     response: errorResponse,
-                    id: requestItem.id || ''
+                    id: activeItem.id || ''
                 });
+                setSessionResponse(errorResponse);
             }
         } finally {
             setIsLoading(false);
@@ -962,6 +997,14 @@ export const MainPanel: React.FC = () => {
 						totalFiles={runViewState.totalFiles}
 						summary={runViewState.summary}
 						errorMessage={runViewState.errorMessage}
+						onNavigateToAssert={(requestName, filePath) => {
+							setRunViewState(undefined);
+							setActiveTab('assert');
+							const vscode = getVSCodeAPI();
+							if (vscode) {
+								vscode.postMessage({ type: 'navigateToRequest', data: { filePath, requestName } });
+							}
+						}}
 					/>
 				) : !showCollectionForm && requestItem ? (
                     <PanelsWrapper>
@@ -1020,27 +1063,31 @@ export const MainPanel: React.FC = () => {
 
                         <div>
                             <TabsBar>
-                                <TabButton active={activeTab === 'input'} onClick={() => setActiveTab('input')}>
+                                <TabButton active={activeTab === 'input'} onClick={() => { setActiveTab('input'); setScrollToTopCounter(c => c + 1); }}>
                                     Request
                                 </TabButton>
 
-                                <TabButton onClick={() => { setBringOutputCounter(c => c + 1); setActiveTab('input'); }}>
+                                <TabButton active={activeTab === 'response'} onClick={() => { setBringOutputCounter(c => c + 1); setActiveTab('response'); }}>
                                     Response
                                 </TabButton>
 
+                                {/* TODO: Re-enable Assert tab when assertion editing is supported in the UI.
+
                                 <TabButton active={activeTab === 'assert'} onClick={() => setActiveTab('assert')}>
                                     Assert
-                                </TabButton>
+                                </TabButton> */}
                             </TabsBar>
 
                             <div style={{ marginTop: 12 }}>
-                                {activeTab === 'input' && (
+                                {(activeTab === 'input' || activeTab === 'response') && (
                                     <Input
                                         request={requestItem.request}
                                         onRequestChange={handleRequestChange}
                                         mode={inputMode}
                                         response={requestItem.response}
                                         bringOutputCounter={bringOutputCounter}
+                                        scrollToTopCounter={scrollToTopCounter}
+                                        onActiveTabChange={(tab) => setActiveTab(tab)}
                                     />
                                 )}
 
@@ -1048,7 +1095,7 @@ export const MainPanel: React.FC = () => {
                                     requestItem ? (
                                         <Assert
                                             request={requestItem.request}
-                                            response={requestItem.response}
+                                            response={sessionResponse}
                                             onRequestChange={handleRequestChange}
                                             mode={inputMode}
                                         />

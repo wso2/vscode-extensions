@@ -407,7 +407,9 @@ function parseRequestBlock(block: string, requestIndex: number): ApiRequestItem 
 		item.assertions = assertions;
 	}
 
-	const cachedResponse = parseResponseComments(responseLines);
+	// When there is no real HTTP response line, the stored response comments live in requestLines.
+	// Pass all lines from cursor onwards so parseResponseComments can find them.
+	const cachedResponse = parseResponseComments(responseStartIndex >= 0 ? responseLines : lines.slice(cursor));
 	if (cachedResponse) {
 		item.response = cachedResponse;
 	}
@@ -689,7 +691,9 @@ function parseResponsePart(lines: string[]): string[] {
 }
 
 function parseUrlAndQuery(rawUrl: string, requestIndex: number): { url: string; queryParameters: QueryParameter[] } {
-	const [baseUrl, rawQuery = ''] = rawUrl.split('?', 2);
+	const queryStart = rawUrl.indexOf('?');
+	const baseUrl = queryStart >= 0 ? rawUrl.slice(0, queryStart) : rawUrl;
+	const rawQuery = queryStart >= 0 ? rawUrl.slice(queryStart + 1) : '';
 	const queryParameters: QueryParameter[] = [];
 
 	if (rawQuery) {
