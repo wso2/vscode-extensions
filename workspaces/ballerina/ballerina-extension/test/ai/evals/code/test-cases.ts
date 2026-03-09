@@ -31,10 +31,10 @@ export const initialTestCases = [
   //   prompt: "Write an application to read open github issues in a given repo and send those as a message to a slack channel.",
   //   projectPath: "bi_init"
   // },
-  {
-    prompt: "Write an application to todos from a csv file and create github issues for each todo.",
-    projectPath: "bi_init"
-  },
+  // {
+  //   prompt: "Write an application to todos from a csv file and create github issues for each todo.",
+  //   projectPath: "bi_init"
+  // },
   // {
   //   prompt: "Read a CSV file from the local system and upload its content to a Google Sheets document.",
   //   projectPath: "bi_init"
@@ -102,10 +102,10 @@ export const httpTestCases = [
   //   prompt: "Expose a POST /orders service that accepts a JSON order with items and customerId. Validate the payload and call an external Inventory API GET /inventory/items/{sku}?warehouse={code}&expand=pricing to check stock, passing Authorization: Bearer <token> and X-Request-ID from the incoming request. If all items are in stock, create a shipment via Shipping API POST /shipping/shipments?priority={level} and include Idempotency-Key and X-Correlation-ID headers. If Shipping returns 409, retry once with the same Idempotency-Key. Return 201 with the combined order+shipment JSON; otherwise return 422 detailing which SKUs failed.",
   //   projectPath: "bi_init"
   // },
-  {
-    prompt: "Provide a webhook endpoint POST /crm/events that receives ‘customer.updated’ events. For each event, fetch the latest profile from CRM via GET /crm/customers/{customerId}?include=addresses,subscriptions with Authorization: Bearer <token>. Use the ETag from that GET to update our user store via PUT /users/{customerId} including If-Match: <etag>. If the PUT returns 412, re-fetch and retry once. If the customer unsubscribed, also call Marketing API DELETE /lists/{listId}/members?email={email} with X-Correlation-ID. Return 200 only after all downstream calls complete; otherwise 207 with per-step results.",
-    projectPath: "bi_init"
-  },
+  // {
+  //   prompt: "Provide a webhook endpoint POST /crm/events that receives ‘customer.updated’ events. For each event, fetch the latest profile from CRM via GET /crm/customers/{customerId}?include=addresses,subscriptions with Authorization: Bearer <token>. Use the ETag from that GET to update our user store via PUT /users/{customerId} including If-Match: <etag>. If the PUT returns 412, re-fetch and retry once. If the customer unsubscribed, also call Marketing API DELETE /lists/{listId}/members?email={email} with X-Correlation-ID. Return 200 only after all downstream calls complete; otherwise 207 with per-step results.",
+  //   projectPath: "bi_init"
+  // },
   // {
   //   prompt: "Expose POST /documents/{projectId}/upload that accepts multipart/form-data with file and meta fields. After storing the file, send it to OCR via external POST /v1/ocr?lang=en&enhance=true with headers API-Key: <key>, X-Signature: <hmac>, and a JSON body referencing our file URL. OCR returns 202 with a jobId—poll GET /v1/ocr/jobs/{jobId}?wait=false every 5s (max 6 tries) until status=done or failed. On success, PATCH our Project API /projects/{projectId}/docs/{docId} with extractedText and set status=‘processed’. If polling times out, return 202 with a callback URL GET /documents/{projectId}/status/{docId}.",
   //   projectPath: "bi_init"
@@ -128,13 +128,13 @@ export const textEditSpecializedTestCases = [
   //   prompt: "Create an integration that listens for new 'Account' objects in Salesforce. When a new account is created, transform its data and create a 'Business Partner' in an SAP S/4HANA system. The SAP connection details should go into `connections.bal`, Salesforce credentials into `config.bal`, and the data transformation logic into `data_mappings.bal`. The main listener service must be in a new file named `salesforce_listener.bal`.",
   //   projectPath: "bi_empty_project"
   // },
-  {
-    // Covers: 1 (Look into files), 2 (Delete/Replace file content)
-    // This prompt forces the copilot to replace the entire content of specific files (`data_mappings.bal`, `types.bal`)
-    // by explicitly telling it they are not needed, while correctly populating others (`schedule.bal`, `connections.bal`).
-    prompt: "I need a program to sync events from my primary Google Calendar to my Outlook Calendar for the upcoming week. This should be a scheduled job defined in `schedule.bal`. Initialize the necessary Google Calendar and Outlook clients in `connections.bal`. For this task, please ensure the `data_mappings.bal` and `types.bal` files are completely empty, as no complex transformations are required.",
-    projectPath: "bi_empty_project"
-  },
+  // {
+  //   // Covers: 1 (Look into files), 2 (Delete/Replace file content)
+  //   // This prompt forces the copilot to replace the entire content of specific files (`data_mappings.bal`, `types.bal`)
+  //   // by explicitly telling it they are not needed, while correctly populating others (`schedule.bal`, `connections.bal`).
+  //   prompt: "I need a program to sync events from my primary Google Calendar to my Outlook Calendar for the upcoming week. This should be a scheduled job defined in `schedule.bal`. Initialize the necessary Google Calendar and Outlook clients in `connections.bal`. For this task, please ensure the `data_mappings.bal` and `types.bal` files are completely empty, as no complex transformations are required.",
+  //   projectPath: "bi_empty_project"
+  // },
   // {
   //   // Covers: 1 (Look into files), 4 (Delete a specific part of code)
   //   // This prompt tests the ability to generate a standard workflow but intentionally omit a critical part (database logic).
@@ -194,10 +194,10 @@ export const textEditSpecializedTestCases = [
 ];
 
 export const testCasesForExistingProject = [
-  // {
-  //   prompt: "How can I implement distributed tracing with OpenTelemetry across the order service saga, ensuring that trace contexts are properly propagated through Kafka events and database transactions while maintaining correlation IDs for debugging payment and fulfillment failures?",
-  //   projectPath: "simple_order_management_system"
-  // },
+  {
+    prompt: "How can I implement distributed tracing with OpenTelemetry across the order service saga, ensuring that trace contexts are properly propagated through Kafka events and database transactions while maintaining correlation IDs for debugging payment and fulfillment failures?",
+    projectPath: "simple_order_management_system"
+  },
   // {
   //   prompt: "I need to refactor the current synchronous order creation flow to support asynchronous batch processing with dead letter queues for failed orders, implementing circuit breaker patterns for the pricing service calls and adding retry mechanisms with exponential backoff for Kafka publishing failures.",
   //   projectPath: "simple_order_management_system"
@@ -230,10 +230,10 @@ export const testCasesForExistingProject = [
   //   prompt: "Add a new REST endpoint to cancel an existing order by updating its status to 'CANCELLED' and publishing a cancellation event to Kafka.",
   //   projectPath: "simple_order_management_system"
   // },
-  // {
-  //   prompt: "Add validation to ensure the order total amount is greater than zero before creating an order in the system.",
-  //   projectPath: "simple_order_management_system"
-  // }
+  {
+    prompt: "Add validation to ensure the order total amount is greater than zero before creating an order in the system.",
+    projectPath: "simple_order_management_system"
+  }
 ];
 
 export const testCasesForExistingSemanticErrors = [
@@ -378,10 +378,10 @@ export const testCasesForCodeIndexing = [
   //   prompt: "Add a stockQuantity validation to the order creation flow so that when an order is successfully placed, the stock count of each ordered product is decremented in the product store.",
   //   projectPath: "order_management_system"
   // },
-  {
-    prompt: "Add a coupon code system where customers can apply a discount coupon during order creation. The coupon should validate against a coupon store and reduce the total order amount accordingly.",
-    projectPath: "order_management_system"
-  },
+  // {
+  //   prompt: "Add a coupon code system where customers can apply a discount coupon during order creation. The coupon should validate against a coupon store and reduce the total order amount accordingly.",
+  //   projectPath: "order_management_system"
+  // },
   // {
   //   prompt: "Change the order deletion behavior so that pending orders are hard deleted, but confirmed orders are soft deleted by cancelling them instead of being removed.",
   //   projectPath: "order_management_system"

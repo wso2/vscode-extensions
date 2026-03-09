@@ -902,8 +902,9 @@ export function createReadTool(execute: ReadExecute) {
     - You can optionally specify a line offset and limit (especially handy for long files).
     - Any lines longer than 2000 characters will be truncated
     - The file content will be returned as string
-    - If you know the exact line range of a COMPONENT you want to read, ALWAYS prefer reading that specific line range rather than the entire file.
-    - If you dont know the line range to read, start by reading the entire file.
+    - If you know the exact line range of a specific COMPONENT and only that isolated component is relevant, you may read just that line range to save context.
+    - However, if you need to understand the full context of a file (e.g., multiple components are related, the file is a config/entry-point file, or you need to understand existing patterns), read the entire file instead.
+    - If you dont know the line range to read, always start by reading the entire file.
     - If the file is very large, consider using the offset and limit parameters to read it in chunks.
     - If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents.`,
     inputSchema: z.object({
