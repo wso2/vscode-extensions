@@ -61,6 +61,7 @@ import {
     PendingQuestion,
     PendingPlanApproval,
     cleanupPendingQuestionsForSession,
+    cleanupPendingApprovalsForSession,
     initializePlanModeSession
 } from '../../ai-features/agent-mode/tools/plan_mode_tools';
 import { cleanupPersistedToolResultsForProject } from '../../ai-features/agent-mode/tools/tool-result-persistence';
@@ -68,6 +69,7 @@ import { validateAttachments } from '../../ai-features/agent-mode/attachment-uti
 import { VALID_FILE_EXTENSIONS, VALID_SPECIAL_FILE_NAMES } from '../../ai-features/agent-mode/tools/types';
 import { AgentUndoCheckpointManager, StoredUndoCheckpoint } from '../../ai-features/agent-mode/undo/checkpoint-manager';
 import { MiDiagramRpcManager } from '../mi-diagram/rpc-manager';
+import { getCopilotSessionDir } from '../../ai-features/agent-mode/storage-paths';
 
 const AUTO_COMPACT_TOKEN_THRESHOLD = 180000;
 const AUTO_COMPACT_TOOL_NAME = 'compact_conversation';
@@ -78,6 +80,8 @@ const MAX_MENTION_SEARCH_LIMIT = 100;
 const DEFAULT_MENTION_SEARCH_LIMIT = 30;
 const MENTION_MAX_CACHE_DEPTH = 8;
 const MENTION_MAX_CACHE_ITEMS = 5000;
+const SHELL_APPROVAL_RULES_FILE_NAME = 'shell-approval-rules.json';
+const CONTINUATION_COMMAND_MAX_LENGTH = 120;
 const MENTION_ROOT_DIRS = ['deployment', 'src'];
 const MENTION_POM_FILE = 'pom.xml';
 const MENTION_SKIP_DIRS = new Set([
@@ -92,6 +96,12 @@ const MENTION_SKIP_DIRS = new Set([
     'out',
     'target',
 ]);
+
+// Per extension-host lifetime, create one fresh startup session per project.
+// This gives a new session after VSCode restart, but not when reopening only the AI panel.
+const startupSessionInitializedProjects: Set<string> = new Set();
+
+type LimitContinuationReason = 'max_output_tokens' | 'max_tool_calls';
 
 export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private eventHandler: AgentEventHandler;
@@ -111,6 +121,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private mentionablePathCacheBuiltAt = 0;
     private undoCheckpointManager: AgentUndoCheckpointManager | null = null;
     private undoCheckpointManagerSessionId: string | null = null;
+    private shellApprovalRules: string[][] = [];
+    private pendingLimitContinuation: { reason: LimitContinuationReason } | null = null;
 
     constructor(private projectUri: string) {
         this.eventHandler = new AgentEventHandler(projectUri);
@@ -151,6 +163,223 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     getPendingQuestions(): Map<string, PendingQuestion> {
         return this.pendingQuestions;
+    }
+
+    private normalizeShellApprovalRule(rule: string[]): string[] {
+        return rule
+            .map((token) => token.trim().toLowerCase())
+            .filter((token) => token.length > 0);
+    }
+
+    private getShellApprovalRulesFilePath(sessionId: string): string {
+        return path.join(getCopilotSessionDir(this.projectUri, sessionId), SHELL_APPROVAL_RULES_FILE_NAME);
+    }
+
+    private clearShellApprovalRules(): void {
+        this.shellApprovalRules = [];
+    }
+
+    private getShellApprovalRulesSnapshot(): string[][] {
+        return this.shellApprovalRules.map((rule) => [...rule]);
+    }
+
+    private async loadShellApprovalRulesForSession(sessionId: string): Promise<void> {
+        this.clearShellApprovalRules();
+        const rulesPath = this.getShellApprovalRulesFilePath(sessionId);
+
+        try {
+            const content = await fs.readFile(rulesPath, 'utf8');
+            const parsed = JSON.parse(content);
+            const rawRules = Array.isArray(parsed)
+                ? parsed
+                : (Array.isArray(parsed?.rules) ? parsed.rules : []);
+
+            const dedupedRules = new Map<string, string[]>();
+            for (const rawRule of rawRules) {
+                if (!Array.isArray(rawRule)) {
+                    continue;
+                }
+                const normalizedRule = this.normalizeShellApprovalRule(rawRule);
+                if (normalizedRule.length === 0) {
+                    continue;
+                }
+                dedupedRules.set(normalizedRule.join('\u0000'), normalizedRule);
+            }
+
+            this.shellApprovalRules = Array.from(dedupedRules.values());
+            logInfo(`[AgentPanel] Loaded ${this.shellApprovalRules.length} shell approval rule(s) for session ${sessionId}`);
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError(`[AgentPanel] Failed to load shell approval rules for session ${sessionId}`, error);
+            }
+            this.clearShellApprovalRules();
+        }
+    }
+
+    private async persistShellApprovalRulesForSession(sessionId: string): Promise<void> {
+        const rulesPath = this.getShellApprovalRulesFilePath(sessionId);
+        const payload = {
+            updatedAt: new Date().toISOString(),
+            rules: this.shellApprovalRules,
+        };
+
+        await fs.mkdir(path.dirname(rulesPath), { recursive: true });
+        await fs.writeFile(rulesPath, JSON.stringify(payload, null, 2), 'utf8');
+    }
+
+    private async addShellApprovalRule(rule: string[]): Promise<void> {
+        if (!this.currentSessionId) {
+            return;
+        }
+
+        const normalizedRule = this.normalizeShellApprovalRule(rule);
+        if (normalizedRule.length === 0) {
+            return;
+        }
+
+        const existingKeys = new Set(this.shellApprovalRules.map((currentRule) => currentRule.join('\u0000')));
+        const ruleKey = normalizedRule.join('\u0000');
+        if (existingKeys.has(ruleKey)) {
+            return;
+        }
+
+        this.shellApprovalRules.push(normalizedRule);
+        try {
+            await this.persistShellApprovalRulesForSession(this.currentSessionId);
+            logInfo(`[AgentPanel] Added shell approval rule for session ${this.currentSessionId}: ${normalizedRule.join(' ')}`);
+        } catch (error) {
+            logError(
+                `[AgentPanel] Failed to persist shell approval rule for session ${this.currentSessionId}. ` +
+                `Keeping in-memory rule: ${normalizedRule.join(' ')}`,
+                error
+            );
+        }
+    }
+
+    private async deleteShellApprovalRulesForSession(sessionId: string): Promise<void> {
+        const rulesPath = this.getShellApprovalRulesFilePath(sessionId);
+        try {
+            await fs.unlink(rulesPath);
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError(`[AgentPanel] Failed to delete shell approval rules for session ${sessionId}`, error);
+            }
+        }
+    }
+
+    private clearPendingLimitContinuation(): void {
+        this.pendingLimitContinuation = null;
+    }
+
+    private setPendingLimitContinuation(reason: LimitContinuationReason): void {
+        this.pendingLimitContinuation = { reason };
+    }
+
+    private isContinuationIntent(message: string): boolean {
+        const normalized = message.trim().toLowerCase();
+        if (!normalized || normalized.length > CONTINUATION_COMMAND_MAX_LENGTH) {
+            return false;
+        }
+
+        if (normalized.includes('\n')) {
+            return false;
+        }
+
+        const compact = normalized
+            .replace(/[`"']/g, '')
+            .replace(/[.!?]+$/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const continuationPatterns = [
+            /^continue$/,
+            /^continue please$/,
+            /^continue the task$/,
+            /^continue from (here|there|where you (left off|stopped))$/,
+            /^resume$/,
+            /^resume please$/,
+            /^resume the task$/,
+            /^go on$/,
+            /^go ahead$/,
+            /^proceed$/,
+            /^carry on$/,
+            /^keep going$/,
+            /^keep working$/,
+        ];
+
+        return continuationPatterns.some((pattern) => pattern.test(compact));
+    }
+
+    private buildContinuationReminder(reason: LimitContinuationReason): string {
+        const reasonText = reason === 'max_tool_calls'
+            ? 'the previous run reached the maximum step limit'
+            : 'the previous run reached the maximum token/output limit';
+
+        return [
+            '<system_reminder>',
+            `Continuation request detected: ${reasonText}.`,
+            'Resume from the existing conversation state in this session.',
+            'Do not repeat already completed tool calls, file edits, or long explanations.',
+            'Start with a brief 1-2 sentence status update (done vs remaining), then continue with the remaining work.',
+            '</system_reminder>',
+        ].join('\n');
+    }
+
+    private buildQueryWithContinuationReminder(message: string): string {
+        if (!this.pendingLimitContinuation) {
+            return message;
+        }
+
+        const reminder = this.buildContinuationReminder(this.pendingLimitContinuation.reason);
+        return `${reminder}\n\n${message}`;
+    }
+
+    private buildContinuationApprovalContent(reason: LimitContinuationReason): string {
+        const reasonText = reason === 'max_tool_calls'
+            ? 'maximum step limit'
+            : 'maximum token/output limit';
+
+        return [
+            'We noticed Copilot has been running for a while.',
+            'Do you want to continue?',
+            '',
+            `It paused after reaching the ${reasonText}.`,
+        ].join('\n');
+    }
+
+    private async requestContinuationApproval(
+        reason: LimitContinuationReason
+    ): Promise<{ approved: boolean; feedback?: string; rememberForSession?: boolean; suggestedPrefixRule?: string[] }> {
+        const approvalId = `continuation-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+        this.eventHandler.handleEvent({
+            type: 'plan_approval_requested',
+            approvalId,
+            approvalKind: 'continue_after_limit',
+            approvalTitle: 'Continue Agent Run?',
+            approveLabel: 'Continue',
+            rejectLabel: 'Stop',
+            allowFeedback: false,
+            content: this.buildContinuationApprovalContent(reason),
+        });
+
+        return new Promise((resolve, reject) => {
+            this.pendingApprovals.set(approvalId, {
+                approvalId,
+                approvalKind: 'continue_after_limit',
+                sessionId: this.currentSessionId ?? '',
+                resolve: (result) => {
+                    this.pendingApprovals.delete(approvalId);
+                    resolve(result);
+                },
+                reject: (error: Error) => {
+                    this.pendingApprovals.delete(approvalId);
+                    reject(error);
+                },
+            });
+        });
     }
 
     /**
@@ -247,6 +476,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             await this.chatHistoryManager.initialize();
             this.currentSessionId = this.chatHistoryManager.getSessionId();
             this.currentMode = await this.chatHistoryManager.getLatestMode(DEFAULT_AGENT_MODE);
+            await this.loadShellApprovalRulesForSession(this.currentSessionId);
             await cleanupPersistedToolResultsForProject(this.projectUri);
 
             if (sessionId) {
@@ -266,12 +496,15 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             const sessionIdToClose = this.currentSessionId;
             if (sessionIdToClose) {
                 cleanupPendingQuestionsForSession(this.pendingQuestions, sessionIdToClose);
+                cleanupPendingApprovalsForSession(this.pendingApprovals, sessionIdToClose);
             }
             await this.chatHistoryManager.close();
             logInfo(`[AgentPanel] Closed chat session: ${this.currentSessionId}`);
             this.chatHistoryManager = null;
             this.currentSessionId = null;
             this.currentMode = DEFAULT_AGENT_MODE;
+            this.clearShellApprovalRules();
+            this.clearPendingLimitContinuation();
             this.undoCheckpointManager = null;
             this.undoCheckpointManagerSessionId = null;
         }
@@ -533,11 +766,25 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 await this.runAutoCompact(historyManager, 'threshold');
             }
 
+            const hasPendingContinuation = this.pendingLimitContinuation !== null;
+            const shouldApplyContinuationReminder = hasPendingContinuation &&
+                this.isContinuationIntent(request.message);
+
+            if (hasPendingContinuation && !shouldApplyContinuationReminder) {
+                this.clearPendingLimitContinuation();
+            }
+
+            const effectiveQuery = shouldApplyContinuationReminder
+                ? this.buildQueryWithContinuationReminder(request.message)
+                : request.message;
+
+            if (shouldApplyContinuationReminder) {
+                logInfo('[AgentPanel] Applying continuation reminder for resumed run');
+                this.clearPendingLimitContinuation();
+            }
+
             await undoCheckpointManager.beginRun('agent');
 
-            // Use these flags to recover from context-limit failures once per request.
-            let suppressedContextErrorFromStream = false;
-            let retriedAfterContextCompact = false;
             const persistModeChange = (mode: AgentMode) => {
                 if (this.currentMode === mode) {
                     return;
@@ -548,81 +795,111 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 });
             };
 
-            const runAgentOnce = async () => {
-                const abortController = createAgentAbortController();
-                this.activeAbortControllers.add(abortController);
-                this.currentAbortController = abortController;
+            const executeRunWithContextRetry = async (query: string) => {
+                let suppressedContextErrorFromStream = false;
+                let retriedAfterContextCompact = false;
 
-                try {
-                    return await executeAgent(
-                        {
-                            query: request.message,
-                            chatId: request.chatId,
-                            mode: effectiveMode,
-                            files: request.files,
-                            images: request.images,
-                            thinking: request.thinking ?? true,
-                            webAccessPreapproved: request.webAccessPreapproved,
-                            projectPath: this.projectUri,
-                            sessionId: this.currentSessionId || undefined,
-                            abortSignal: abortController.signal,
-                            chatHistoryManager: historyManager,
-                            pendingQuestions: this.pendingQuestions,
-                            pendingApprovals: this.pendingApprovals,
-                            undoCheckpointManager,
-                        },
-                        (event: AgentEvent) => {
-                            if (event.type === 'plan_mode_entered') {
-                                persistModeChange('plan');
-                            } else if (event.type === 'plan_mode_exited') {
-                                persistModeChange('edit');
-                            }
+                const runAgentOnce = async () => {
+                    const abortController = createAgentAbortController();
+                    this.activeAbortControllers.add(abortController);
+                    this.currentAbortController = abortController;
 
-                            // When context is exceeded, suppress the immediate error event,
-                            // compact, and retry once for seamless UX.
-                            if (event.type === 'error' && this.isContextLimitError(event.error)) {
-                                suppressedContextErrorFromStream = true;
-                                logInfo('[AgentPanel] Suppressed context-limit error event; attempting compact-and-retry');
-                                return;
+                    try {
+                        return await executeAgent(
+                            {
+                                query,
+                                chatId: request.chatId,
+                                mode: effectiveMode,
+                                files: request.files,
+                                images: request.images,
+                                thinking: request.thinking ?? true,
+                                webAccessPreapproved: request.webAccessPreapproved,
+                                projectPath: this.projectUri,
+                                sessionId: this.currentSessionId || undefined,
+                                abortSignal: abortController.signal,
+                                chatHistoryManager: historyManager,
+                                pendingQuestions: this.pendingQuestions,
+                                pendingApprovals: this.pendingApprovals,
+                                shellApprovalRuleStore: {
+                                    getRules: () => this.getShellApprovalRulesSnapshot(),
+                                    addRule: async (rule: string[]) => this.addShellApprovalRule(rule),
+                                },
+                                undoCheckpointManager,
+                            },
+                            (event: AgentEvent) => {
+                                if (event.type === 'plan_mode_entered') {
+                                    persistModeChange('plan');
+                                } else if (event.type === 'plan_mode_exited') {
+                                    persistModeChange('edit');
+                                }
+
+                                // When context is exceeded, suppress the immediate error event,
+                                // compact, and retry once for seamless UX.
+                                if (event.type === 'error' && this.isContextLimitError(event.error)) {
+                                    suppressedContextErrorFromStream = true;
+                                    logInfo('[AgentPanel] Suppressed context-limit error event; attempting compact-and-retry');
+                                    return;
+                                }
+                                this.eventHandler.handleEvent(event);
                             }
-                            this.eventHandler.handleEvent(event);
+                        );
+                    } finally {
+                        this.activeAbortControllers.delete(abortController);
+                        if (this.currentAbortController === abortController) {
+                            this.currentAbortController = null;
                         }
-                    );
-                } finally {
-                    this.activeAbortControllers.delete(abortController);
-                    if (this.currentAbortController === abortController) {
-                        this.currentAbortController = null;
+                    }
+                };
+
+                let runResult = await runAgentOnce();
+
+                const hitContextLimit = () =>
+                    suppressedContextErrorFromStream || this.isContextLimitError(runResult.error);
+
+                if (!runResult.success && hitContextLimit() && !retriedAfterContextCompact) {
+                    retriedAfterContextCompact = true;
+                    logInfo('[AgentPanel] Context limit reached mid-run. Triggering auto compact and retrying once');
+
+                    const compacted = await this.runAutoCompact(historyManager, 'context_error');
+                    if (compacted) {
+                        await undoCheckpointManager.discardPendingRun();
+                        await undoCheckpointManager.beginRun('agent');
+                        suppressedContextErrorFromStream = false;
+                        runResult = await runAgentOnce();
                     }
                 }
+
+                // If context-limit error was suppressed but we still failed, surface it now.
+                if (!runResult.success && (suppressedContextErrorFromStream || this.isContextLimitError(runResult.error))) {
+                    this.eventHandler.handleEvent({
+                        type: 'error',
+                        error: runResult.error || 'Context window exceeded',
+                    });
+                }
+
+                return runResult;
             };
 
-            let result = await runAgentOnce();
+            let result = await executeRunWithContextRetry(effectiveQuery);
 
-            const hitContextLimit = () =>
-                suppressedContextErrorFromStream || this.isContextLimitError(result.error);
-
-            if (!result.success && hitContextLimit() && !retriedAfterContextCompact) {
-                retriedAfterContextCompact = true;
-                logInfo('[AgentPanel] Context limit reached mid-run. Triggering auto compact and retrying once');
-
-                const compacted = await this.runAutoCompact(historyManager, 'context_error');
-                if (compacted) {
-                    await undoCheckpointManager.discardPendingRun();
-                    await undoCheckpointManager.beginRun('agent');
-                    suppressedContextErrorFromStream = false;
-                    result = await runAgentOnce();
+            while (result.success && result.continuationSuggested && result.continuationReason) {
+                this.setPendingLimitContinuation(result.continuationReason);
+                const approval = await this.requestContinuationApproval(result.continuationReason);
+                if (!approval.approved) {
+                    logInfo('[AgentPanel] User denied automatic continuation after run limit');
+                    this.clearPendingLimitContinuation();
+                    break;
                 }
-            }
 
-            // If context-limit error was suppressed but we still failed, surface it now.
-            if (!result.success && (suppressedContextErrorFromStream || this.isContextLimitError(result.error))) {
-                this.eventHandler.handleEvent({
-                    type: 'error',
-                    error: result.error || 'Context window exceeded',
-                });
+                const continuationQuery = this.buildQueryWithContinuationReminder('continue');
+                logInfo('[AgentPanel] User approved automatic continuation after run limit');
+                this.clearPendingLimitContinuation();
+                result = await executeRunWithContextRetry(continuationQuery);
             }
 
             if (result.success) {
+                this.clearPendingLimitContinuation();
+
                 const undoCheckpoint = await undoCheckpointManager.commitRun();
                 if (undoCheckpoint) {
                     await historyManager.saveUndoCheckpoint(undoCheckpoint, request.chatId);
@@ -636,6 +913,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                     modelMessages: result.modelMessages
                 };
             } else {
+                this.clearPendingLimitContinuation();
                 await undoCheckpointManager.discardPendingRun();
                 logError(`[AgentPanel] Agent failed: ${result.error}`);
                 return {
@@ -648,6 +926,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             logError('[AgentPanel] Error executing agent', error);
             this.currentAbortController = null;
             this.activeAbortControllers.clear();
+            this.clearPendingLimitContinuation();
             if (this.undoCheckpointManager) {
                 try {
                     await this.undoCheckpointManager.discardPendingRun();
@@ -827,7 +1106,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      * This resolves the pending promise in the exit_plan_mode tool
      */
     async respondToPlanApproval(response: PlanApprovalResponse): Promise<void> {
-        const { approvalId, approved, feedback } = response;
+        const { approvalId, approved, feedback, rememberForSession, suggestedPrefixRule } = response;
         logInfo(`[AgentPanel] Received plan approval response: ${approvalId}, approved: ${approved}`);
 
         const pending = this.pendingApprovals.get(approvalId);
@@ -839,7 +1118,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             }
 
             logDebug(`[AgentPanel] Resolving pending plan approval: ${approvalId}`);
-            pending.resolve({ approved, feedback });
+            pending.resolve({ approved, feedback, rememberForSession, suggestedPrefixRule });
             // Note: The pendingApprovals.delete is handled in the resolve callback
         } else {
             logError(`[AgentPanel] No pending plan approval found for ID: ${approvalId}`);
@@ -851,6 +1130,16 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     async loadChatHistory(_request: LoadChatHistoryRequest): Promise<LoadChatHistoryResponse> {
         try {
+            if (!startupSessionInitializedProjects.has(this.projectUri)) {
+                logInfo('[AgentPanel] Creating startup fresh session for project');
+                const freshSessionResult = await this.createNewSession({});
+                if (freshSessionResult.success) {
+                    startupSessionInitializedProjects.add(this.projectUri);
+                } else {
+                    logError('[AgentPanel] Failed to create startup fresh session', freshSessionResult.error);
+                }
+            }
+
             // Initialize chat history manager (finds latest session or creates new)
             const historyManager = await this.getChatHistoryManager();
 
@@ -960,6 +1249,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.chatHistoryManager = new ChatHistoryManager(this.projectUri, sessionId);
             await this.chatHistoryManager.initialize();
             this.currentSessionId = sessionId;
+            await this.loadShellApprovalRulesForSession(sessionId);
             const { events, lastTotalInputTokens, mode } = await this.loadAndNormalizeSessionEvents(this.chatHistoryManager);
             this.currentMode = mode;
             logInfo(`[AgentPanel] Switched to session: ${sessionId}, loaded ${events.length} events`);
@@ -997,6 +1287,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             await this.chatHistoryManager.initialize();
             this.currentSessionId = this.chatHistoryManager.getSessionId();
             this.currentMode = DEFAULT_AGENT_MODE;
+            await this.loadShellApprovalRulesForSession(this.currentSessionId);
 
             logInfo(`[AgentPanel] Created new session: ${this.currentSessionId}`);
 
@@ -1033,6 +1324,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             // Delete the session
             await ChatHistoryManager.deleteSession(this.projectUri, sessionId);
+            await this.deleteShellApprovalRulesForSession(sessionId);
 
             logInfo(`[AgentPanel] Deleted session: ${sessionId}`);
 
