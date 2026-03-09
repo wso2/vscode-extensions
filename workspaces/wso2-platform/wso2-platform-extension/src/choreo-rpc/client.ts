@@ -33,10 +33,14 @@ import type {
 	CreateComponentConnectionReq,
 	CreateComponentReq,
 	CreateConfigYamlReq,
+	CreateDatabaseConnectionReq,
 	CreateDeploymentReq,
 	CreateProjectReq,
 	CreateThirdPartyConnectionReq,
 	CredentialItem,
+	DatabaseAdminCredential,
+	DatabaseCredential,
+	DatabaseServer,
 	DeleteCompReq,
 	DeleteConnectionReq,
 	DeploymentLogsData,
@@ -60,6 +64,7 @@ import type {
 	GetConnectionsReq,
 	GetCredentialDetailsReq,
 	GetCredentialsReq,
+	GetDatabaseServerReq,
 	GetDeploymentStatusReq,
 	GetDeploymentTracksReq,
 	GetGitMetadataReq,
@@ -79,6 +84,7 @@ import type {
 	IChoreoRPCClient,
 	IsRepoAuthorizedReq,
 	IsRepoAuthorizedResp,
+	MarketplaceDatabaseListResp,
 	MarketplaceIdlResp,
 	MarketplaceItem,
 	MarketplaceListResp,
@@ -88,6 +94,8 @@ import type {
 	ProxyDeploymentInfo,
 	RegisterMarketplaceConnectionReq,
 	RequestPromoteApprovalReq,
+	ResolveConnectionSecretsReq,
+	ResolveConnectionSecretsResp,
 	StartProxyServerReq,
 	StartProxyServerResp,
 	StopProxyServerReq,
@@ -250,6 +258,15 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		const response = await this.client.sendRequest<{ components: ComponentKind[] }>("component/getList", params);
 		return response.components || [];
 	}
+	
+	async resolveConnectionSecrets(params: ResolveConnectionSecretsReq): Promise<ResolveConnectionSecretsResp> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response = await this.client.sendRequest<ResolveConnectionSecretsResp>("connections/resolveConnectionSecrets", params);
+		return response;
+
+	}
 
 	async getBuildPacks(params: BuildPackReq) {
 		if (!this.client) {
@@ -303,7 +320,7 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}
-		const response = await this.client.sendRequest<{ userInfo: UserInfo; isLoggedIn: boolean }>("auth/getUserInfo");
+		const response = await this.client.sendRequest<{ userInfo: UserInfo; isLoggedIn: boolean }>("auth/getUserInfo", {}, 10000);
 		return response.userInfo;
 	}
 
@@ -358,7 +375,7 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}
-		const resp: { region: "US" | "EU" } = await this.client.sendRequest("auth/getCurrentRegion");
+		const resp: { region: "US" | "EU" } = await this.client.sendRequest("auth/getCurrentRegion", {}, 2000);
 		return resp.region;
 	}
 
@@ -493,6 +510,46 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		return response;
 	}
 
+	async getMarketplaceDatabases(params: { orgId: string }): Promise<MarketplaceDatabaseListResp> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: MarketplaceDatabaseListResp = await this.client.sendRequest("connections/getMarketplaceDatabases", params);
+		return response;
+	}
+
+	async getMarketplaceDatabaseItem(params: { orgId: string }): Promise<MarketplaceItem> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: MarketplaceItem = await this.client.sendRequest("connections/getMarketplaceDatabaseItem", params);
+		return response;
+	}
+
+	async getDatabaseServer(params: GetDatabaseServerReq): Promise<DatabaseServer> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: DatabaseServer = await this.client.sendRequest("connections/getDatabaseServer", params);
+		return response;
+	}
+
+	async getDatabaseAdminCredential(params: GetDatabaseServerReq): Promise<DatabaseAdminCredential> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: DatabaseAdminCredential = await this.client.sendRequest("connections/getDatabaseAdminCredential", params);
+		return response;
+	}
+
+	async getDatabaseCredentials(params: GetDatabaseServerReq): Promise<DatabaseCredential[]> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: DatabaseCredential[] = await this.client.sendRequest("connections/getDatabaseCredentials", params);
+		return response;
+	}
+
 	async getMarketplaceItem(params: GetMarketplaceItemReq): Promise<MarketplaceItem> {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
@@ -538,6 +595,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 			throw new Error("RPC client is not initialized");
 		}
 		const response: ConnectionDetailed = await this.client.sendRequest("connections/createThirdPartyConnection", params);
+		return response;
+	}
+
+	async createDatabaseConnection(params: CreateDatabaseConnectionReq): Promise<ConnectionDetailed> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: ConnectionDetailed = await this.client.sendRequest("connections/createDatabaseConnection", params);
 		return response;
 	}
 
@@ -669,7 +734,7 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}
-		const response: GetCliRpcResp = await this.client.sendRequest("auth/getConfigs", {});
+		const response: GetCliRpcResp = await this.client.sendRequest("auth/getConfigs", {}, 2000);
 		return response;
 	}
 
