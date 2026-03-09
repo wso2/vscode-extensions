@@ -1041,7 +1041,7 @@
     "@wso2/wso2-platform-core": "workspace:*",
     "await-notify": "1.0.1",
     "eslint": "9.27.0",
-    "glob": "11.0.2",
+    "glob": "11.1.0",
     "mocha": "11.4.0",
     "playwright-core": "1.55.1",
     "rimraf": "6.0.1",
