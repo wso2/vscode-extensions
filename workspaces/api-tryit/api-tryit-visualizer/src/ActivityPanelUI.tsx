@@ -36,6 +36,7 @@ export const ActivityPanelUI: React.FC = () => {
 	const [isLoading, setIsLoading] = useState(true);
 	const [clearSelectionTrigger, setClearSelectionTrigger] = useState(0);
 	const [selectedFromHost, setSelectedFromHost] = useState<{ id: string; parentIds?: string[] }>();
+	const [selectionVersion, setSelectionVersion] = useState(0);
 	const vscode = getVSCodeAPI();
 
 	useEffect(() => {
@@ -63,6 +64,7 @@ export const ActivityPanelUI: React.FC = () => {
 						? (payload.parentIds as unknown[]).filter((id): id is string => typeof id === 'string')
 						: [];
 					setSelectedFromHost({ id: payload.id, parentIds });
+					setSelectionVersion(v => v + 1);
 				}
 			}
 		};
@@ -88,5 +90,5 @@ export const ActivityPanelUI: React.FC = () => {
 	useEffect(() => {
 	}, [collections, isLoading]);
 
-	return <ExplorerView collections={collections} isLoading={isLoading} clearSelectionTrigger={clearSelectionTrigger} selectedItemId={selectedFromHost?.id} expandItemIds={selectedFromHost?.parentIds} />;
+	return <ExplorerView collections={collections} isLoading={isLoading} clearSelectionTrigger={clearSelectionTrigger} selectedItemId={selectedFromHost?.id} expandItemIds={selectedFromHost?.parentIds} selectionVersion={selectionVersion} />;
 };

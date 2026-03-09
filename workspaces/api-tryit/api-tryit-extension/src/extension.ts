@@ -927,8 +927,33 @@ export async function activate(context: vscode.ExtensionContext) {
 					//   - If YES  → open that existing request.
 					//   - If NO   → add this resource as a new in-memory item alongside
 					//               the existing ones, then select it.
+					//
+					// Exception: when the incoming payload contains multiple resources
+					// (Service TryIt), replace the entire collection so all resources
+					// are reflected (e.g. after a prior single-resource TryIt opened it).
 					const resourceRequest = parsedCollection?.rootItems?.[0];
 					const parsedCollectionId: string | undefined = parsedCollection?.id;
+					const incomingItemCount = parsedCollection?.rootItems?.length ?? 0;
+
+					if (parsedCollection && incomingItemCount > 1) {
+						// Service TryIt with multiple resources — replace the whole collection.
+						setTimeout(async () => {
+							if (existingDiskPath && !apiExplorerProvider.findRequestByFilePath(existingDiskPath)) {
+								await apiExplorerProvider.reloadCollections();
+							}
+							apiExplorerProvider.addInMemoryCollection(parsedCollection);
+							await ActivityPanel.forceCollectionsRefresh();
+							const firstItem = parsedCollection.rootItems?.[0] as ApiRequestItem | undefined;
+							if (firstItem) {
+								await ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, firstItem, undefined);
+								ActivityPanel.postMessage('selectItem', {
+									id: firstItem.id,
+									parentIds: [parsedCollection.id]
+								});
+							}
+						}, 200);
+						return;
+					}
 
 					setTimeout(async () => {
 						// Resolve current collection state (reload from disk if needed).
@@ -945,7 +970,7 @@ export async function activate(context: vscode.ExtensionContext) {
 							return;
 						}
 
-						ActivityPanel.forceCollectionsRefresh();
+						await ActivityPanel.forceCollectionsRefresh();
 
 						// Look for the resource in the collection by @name and method.
 						const existingItem = resourceRequest
@@ -961,10 +986,6 @@ export async function activate(context: vscode.ExtensionContext) {
 								existingItem as ApiRequestItem,
 								existingItem.filePath
 							);
-							// Macrotask wait: ensures _sendCollections (queued by
-							// forceCollectionsRefresh above) has fully sent updateCollections
-							// to the webview before selectItem arrives.
-							await new Promise<void>(resolve => setTimeout(resolve, 0));
 							ActivityPanel.postMessage('selectItem', {
 								id: existingItem.id,
 								parentIds: [currentCollection.id],
@@ -1001,9 +1022,7 @@ export async function activate(context: vscode.ExtensionContext) {
 								newItem,
 								undefined
 							);
-							ActivityPanel.forceCollectionsRefresh();
-							// Macrotask wait: ensures updateCollections arrives before selectItem.
-							await new Promise<void>(resolve => setTimeout(resolve, 0));
+							await ActivityPanel.forceCollectionsRefresh();
 							ActivityPanel.postMessage('selectItem', {
 								id: newItem.id,
 								parentIds: [currentCollection.id]
@@ -1022,8 +1041,24 @@ export async function activate(context: vscode.ExtensionContext) {
 					if (collById) {
 						// Redirect to the existing-collection path inline.
 						const resourceRequest = parsedCollection.rootItems?.[0];
+						// Service TryIt (multiple resources) — replace the whole collection.
+						if ((parsedCollection.rootItems?.length ?? 0) > 1) {
+							setTimeout(async () => {
+								apiExplorerProvider.addInMemoryCollection(parsedCollection);
+								await ActivityPanel.forceCollectionsRefresh();
+								const firstItem = parsedCollection.rootItems?.[0] as ApiRequestItem | undefined;
+								if (firstItem) {
+									await ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, firstItem, undefined);
+									ActivityPanel.postMessage('selectItem', {
+										id: firstItem.id,
+										parentIds: [parsedCollection.id]
+									});
+								}
+							}, 200);
+							return;
+						}
 						setTimeout(async () => {
-							ActivityPanel.forceCollectionsRefresh();
+							await ActivityPanel.forceCollectionsRefresh();
 							const existingItem = resourceRequest
 								? (collById.rootItems || []).find(item =>
 									item.name === resourceRequest.name &&
@@ -1036,7 +1071,6 @@ export async function activate(context: vscode.ExtensionContext) {
 									existingItem as ApiRequestItem,
 									existingItem.filePath
 								);
-								await new Promise<void>(resolve => setTimeout(resolve, 0));
 								ActivityPanel.postMessage('selectItem', {
 									id: existingItem.id,
 									parentIds: [collById.id],
@@ -1059,8 +1093,7 @@ export async function activate(context: vscode.ExtensionContext) {
 									rootItems: [...(collById.rootItems || []), newItem]
 								});
 								await ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, newItem, undefined);
-								ActivityPanel.forceCollectionsRefresh();
-								await new Promise<void>(resolve => setTimeout(resolve, 0));
+								await ActivityPanel.forceCollectionsRefresh();
 								ActivityPanel.postMessage('selectItem', {
 									id: newItem.id,
 									parentIds: [collById.id]
@@ -1090,10 +1123,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					const firstItemId = (firstRequestItem as ApiRequestItem | undefined)?.id;
 					const collectionId = parsedCollection.id;
 					setTimeout(async () => {
-						ActivityPanel.forceCollectionsRefresh();
-						// Yield to macrotask queue so _sendCollections microtask can complete
-						// and send updateCollections to the webview before selectItem arrives.
-						await new Promise<void>(resolve => setTimeout(resolve, 0));
+						await ActivityPanel.forceCollectionsRefresh();
 						if (firstItemId) {
 							ActivityPanel.postMessage('selectItem', {
 								id: firstItemId,

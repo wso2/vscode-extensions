@@ -220,6 +220,8 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
                 return `\nContent-Type: ${contentType}\n\n${body}`;
             };
             const normalizeResourcePath = (rawPath: string): string => {
+                // Ballerina '.' means the root of the service base path
+                if (rawPath.trim() === '.') { return '/'; }
                 const pathWithSlash = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
                 const segments = pathWithSlash
                     .split('/')
@@ -426,6 +428,14 @@ async function findServiceForResource(services: ServiceInfo[], resourceMetadata:
             return undefined;
         }
 
+        // Ballerina '.' means the root of the service base path — normalise before comparison.
+        const normalizedTarget = targetPath === '.' ? '/' : targetPath;
+
+        // Track the first service whose basePath+listener matches serviceMetadata.
+        // Used as a fallback when OpenAPI path matching fails (e.g. language server
+        // is temporarily unavailable after a file save, or the path format differs).
+        let metadataMatchedService: ServiceInfo | undefined;
+
         // check all services' OpenAPI specs to see which one contains the path
         // TODO: Optimize this by checking only the relevant service once we have the lang server support for that
         for (const service of services) {
@@ -434,10 +444,15 @@ async function findServiceForResource(services: ServiceInfo[], resourceMetadata:
                     continue;
                 }
 
+                // Remember the first service that matches by metadata alone so we
+                // can fall back to it if no service passes the full path check.
+                if (serviceMetadata && !metadataMatchedService) {
+                    metadataMatchedService = service;
+                }
+
                 const openapiSpec: OAISpec = await getOpenAPIDefinition(service);
                 const matchingPaths = Object.keys(openapiSpec.paths || {}).filter((specPath) => {
-                    return comparePathPatterns(specPath, targetPath);
-
+                    return comparePathPatterns(specPath, normalizedTarget);
                 });
 
                 if (matchingPaths.length > 0) {
@@ -448,7 +463,10 @@ async function findServiceForResource(services: ServiceInfo[], resourceMetadata:
             }
         }
 
-        return undefined;
+        // Fallback: if the service was identified by metadata but the path was not
+        // found in the OpenAPI spec (transient LS failure or saved collection race),
+        // return the metadata-matched service so TryIt can still proceed.
+        return metadataMatchedService;
     } catch (error) {
         handleError(error, "Finding service for resource", false);
         return undefined;

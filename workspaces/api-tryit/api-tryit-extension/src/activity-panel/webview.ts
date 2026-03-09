@@ -220,10 +220,11 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 	 * Used when in-memory collections are added so the Explorer updates without waiting
 	 * for the debounced `_onDidChangeTreeData` handler.
 	 */
-	public static forceCollectionsRefresh(): void {
+	public static forceCollectionsRefresh(): Promise<void> {
 		if (ActivityPanel.currentPanel) {
-			ActivityPanel.currentPanel._sendCollections(true);
+			return ActivityPanel.currentPanel._sendCollections(true);
 		}
+		return Promise.resolve();
 	}
 
 	private _debouncedSendCollections() {

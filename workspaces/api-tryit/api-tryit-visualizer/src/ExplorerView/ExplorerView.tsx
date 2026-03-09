@@ -217,6 +217,7 @@ interface ExplorerViewProps {
 	clearSelectionTrigger?: number;
 	selectedItemId?: string;
 	expandItemIds?: string[];
+	selectionVersion?: number;
 }
 
 // Custom collapsible component props
@@ -615,7 +616,7 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 	);
 };
 
-export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], isLoading = false, clearSelectionTrigger = 0, selectedItemId, expandItemIds }) => {
+export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], isLoading = false, clearSelectionTrigger = 0, selectedItemId, expandItemIds, selectionVersion }) => {
 	const [searchTerm, setSearchTerm] = useState('');
 	const [selectedId, setSelectedId] = useState<string>();
 	const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -630,12 +631,14 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 		}
 	}, [clearSelectionTrigger]);
 
-	// Apply external selection (e.g., after save) and ensure parents are expanded
+	// Apply external selection (e.g., after save) and ensure parents are expanded.
+	// selectionVersion is incremented on every selectItem event so this effect
+	// re-runs even when the same item is re-selected (same selectedItemId value).
 	useEffect(() => {
 		if (selectedItemId) {
 			setSelectedId(selectedItemId);
 		}
-	}, [selectedItemId]);
+	}, [selectedItemId, selectionVersion]);
 
 	useEffect(() => {
 		if (expandItemIds && expandItemIds.length > 0) {
