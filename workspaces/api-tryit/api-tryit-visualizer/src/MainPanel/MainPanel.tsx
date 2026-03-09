@@ -1067,7 +1067,11 @@ export const MainPanel: React.FC = () => {
                                     Request
                                 </TabButton>
 
-                                <TabButton active={activeTab === 'response'} onClick={() => { setBringOutputCounter(c => c + 1); setActiveTab('response'); }}>
+                                <TabButton 
+                                    active={activeTab === 'response'} 
+                                    onClick={requestItem?.response ? () => { setBringOutputCounter(c => c + 1); setActiveTab('response'); } : undefined}
+                                    style={requestItem?.response ? {} : { opacity: 0.5, cursor: 'not-allowed' }}
+                                >
                                     Response
                                 </TabButton>
 
