@@ -738,7 +738,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                             suggestionsList.push({
                                 label: key,
                                 kind: monaco.languages.CompletionItemKind.Property,
-                                insertText: key,
+                                insertText: `${key}: `,
                                 range: range,
                                 documentation: `Query parameter: ${key}`
                             });
