@@ -643,18 +643,27 @@ async function getOpenAPIDefinition(service: ServiceInfo): Promise<OAISpec> {
 
         if (openapiDefinitions === 'NOT_SUPPORTED_TYPE') {
             throw new Error(`OpenAPI spec generation failed for the service with base path: '${service.basePath}'`);
-        } else if (openapiDefinitions.error) {
-            throw new Error(openapiDefinitions.error);
         }
 
-        const matchingDefinition = (openapiDefinitions as OpenAPISpec).content?.filter(content =>
+        const spec = openapiDefinitions as OpenAPISpec;
+
+        // Only throw immediately on LS error if there is no content to try — the LS can
+        // return a partial result (content + error) for files with multiple services.
+        if (!spec.content || spec.content.length === 0) {
+            throw new Error(spec.error || `No OpenAPI definitions returned for base path '${service.basePath}'`);
+        }
+
+        const matchingDefinition = spec.content.filter(content =>
             content.serviceName.toLowerCase() === service?.name.toLowerCase()
             || (service.basePath !== "" && service?.name === '' && content.spec?.servers[0]?.url?.endsWith(service.basePath))
             || (service?.name === '' && content.spec?.servers[0]?.url == undefined) // TODO: Update the condition after fixing the issue in the OpenAPI tool
             || extractPath(content.spec?.servers[0]?.url) === extractPath(service.basePath));
 
         if (matchingDefinition.length === 0) {
-            throw new Error(`Failed to find matching OpenAPI definition: No service matches the base path '${service.basePath}' ${service.name !== '' ? `and service name '${service.name}'` : ''}`);
+            // Re-surface the LS error (if any) alongside our own message so the user
+            // can see what the language server actually reported.
+            const lsNote = spec.error ? ` Language server reported: ${spec.error}` : '';
+            throw new Error(`Failed to find matching OpenAPI definition: No service matches the base path '${service.basePath}' ${service.name !== '' ? `and service name '${service.name}'` : ''}.${lsNote}`);
         }
 
         if (matchingDefinition.length > 1) {
@@ -1127,7 +1136,8 @@ function sanitizeBallerinaPathSegment(pathSegment: string): string {
     return sanitized;
 }
 
-function extractPath(url) {
+function extractPath(url: string | undefined | null): string {
+    if (!url) { return ''; }
     let match;
 
     // Remove escaping backslashes
