@@ -1148,9 +1148,27 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         if (newValue !== undefined && !isProgrammaticUpdateRef.current) {
             isTypingRef.current = true;
             onChange(newValue);
-            // Reset typing flag after a short delay
+            // Reset typing flag after a short delay, then sync editor to prop value
+            // (e.g. to apply trailing empty-line padding that the parent adds)
             setTimeout(() => {
                 isTypingRef.current = false;
+                if (editorRef.current) {
+                    const propValue = lastPropValueRef.current;
+                    const currentEditorValue = editorRef.current.getValue();
+                    if (propValue !== undefined && currentEditorValue !== propValue) {
+                        const position = editorRef.current.getPosition();
+                        isProgrammaticUpdateRef.current = true;
+                        editorRef.current.setValue(propValue);
+                        isProgrammaticUpdateRef.current = false;
+                        // Restore cursor so typing continues from the same position
+                        if (position) {
+                            const model = editorRef.current.getModel();
+                            if (model && position.lineNumber <= model.getLineCount()) {
+                                editorRef.current.setPosition(position);
+                            }
+                        }
+                    }
+                }
             }, 100);
         }
     };
