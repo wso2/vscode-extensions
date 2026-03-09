@@ -187,7 +187,7 @@
         "modelDescription": "A tool to run a Hurl test script and get the results. This tool can be used to execute a full Hurl test script containing multiple requests and assertions. You can use chained requests using captured variable. Note: This command works even if Hurl is not installed in the system.",
         "userDescription": "Runs a Hurl test script and returns the results.",
         "canBeReferencedInPrompt": true,
-        "toolReferenceName": "Run-Hurl-Test",
+        "toolReferenceName": "runHurlTest",
         "inputSchema": {
           "type": "object",
           "properties": {
