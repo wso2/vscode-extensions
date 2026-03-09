@@ -16,11 +16,12 @@
  * under the License.
  */
 
-import type { GetCliRpcResp } from "@wso2/wso2-platform-core";
+import type { GetCliRpcResp, WSO2Terminologies } from "@wso2/wso2-platform-core";
 import { type ExtensionContext, type StatusBarItem, extensions } from "vscode";
 import type { WSO2AuthenticationProvider } from "./auth/wso2-auth-provider";
 import type { PlatformExtensionApi } from "./PlatformExtensionApi";
 import type { ChoreoRPCClient } from "./choreo-rpc";
+import { defaultTerminologies, webviewStateStore } from "./stores/webview-state-store";
 
 // TODO: move into seperate type file along with PlatformExtensionApi
 export class ExtensionVariables {
@@ -32,11 +33,17 @@ export class ExtensionVariables {
 	public isChoreoExtInstalled: boolean;
 	public isDevantCloudEditor: boolean;
 	public authProvider?: WSO2AuthenticationProvider;
+	public terminologies: WSO2Terminologies = defaultTerminologies
 
 	public constructor() {
 		this.choreoEnv = "prod";
 		this.isDevantCloudEditor = !!process.env.CLOUD_STS_TOKEN;
 		this.isChoreoExtInstalled = !!extensions.getExtension("wso2.choreo");
+		this.terminologies = webviewStateStore.getState().state?.terminologies || defaultTerminologies
+		
+		webviewStateStore.subscribe((state) => {
+			this.terminologies = state.state.terminologies || defaultTerminologies;
+		})
 	}
 
 	public clients!: {

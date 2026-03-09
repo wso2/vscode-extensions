@@ -43,7 +43,6 @@ export function cloneRepoCommand(context: ExtensionContext) {
 			setExtensionName(params?.extName);
 			try {
 				isRpcActive(ext);
-				const extName = webviewStateStore.getState().state.extensionName;
 				const userInfo = await getUserInfoForCmd("clone project repository");
 				if (userInfo) {
 					const selectedOrg = params?.organization ?? (await selectOrg(userInfo, "Select organization"));
@@ -77,7 +76,7 @@ export function cloneRepoCommand(context: ExtensionContext) {
 					} else {
 						components = await window.withProgress(
 							{
-								title: `Fetching ${extName === "Devant" ? "integrations" : "components"} of project ${selectedProject.name}...`,
+								title: `Fetching ${ext.terminologies?.componentTermPlural} of project ${selectedProject.name}...`,
 								location: ProgressLocation.Notification,
 							},
 							() =>
@@ -92,7 +91,7 @@ export function cloneRepoCommand(context: ExtensionContext) {
 
 					// clone single or multiple repos
 					if (components.length === 0) {
-						throw new Error(`No ${extName === "Devant" ? "integrations" : "components"} found within ${selectedProject.name}.`);
+						throw new Error(`No ${ext.terminologies?.componentTermPlural} found within ${selectedProject.name}.`);
 					}
 
 					const repoSet = new Set<string>();
@@ -120,7 +119,7 @@ export function cloneRepoCommand(context: ExtensionContext) {
 								detail: "Clone all the repositories associated with the selected project",
 								picked: true,
 							},
-							{ kind: QuickPickItemKind.Separator, label: `Clone ${extName === "Devant" ? "an integration" : "a component"} of the project` },
+							{ kind: QuickPickItemKind.Separator, label: `Clone ${ext.terminologies?.articleComponentTerm} of the project` },
 							...components.map((item) => ({
 								label: item.metadata.name,
 								detail: `Repository: ${getComponentKindRepoSource(item.spec.source).repo}`,
@@ -138,7 +137,7 @@ export function cloneRepoCommand(context: ExtensionContext) {
 							repoSet.add(getComponentKindRepoSource((selection as any)?.item.spec.source).repo);
 						} else {
 							throw new Error(
-								`Repository or ${extName === "Devant" ? "integration" : "component"} selection is required in order to clone the repository`,
+								`Repository or ${ext.terminologies?.componentTerm} selection is required in order to clone the repository`,
 							);
 						}
 					}

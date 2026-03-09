@@ -509,10 +509,9 @@ export const createConnectionConfig = async (params: CreateLocalConnectionsConfi
 			.getComponents(org.handle, project.handler)
 			?.find((item) => item.metadata?.id === marketplaceItem?.component?.componentId);
 		if (!component) {
-			const extName = webviewStateStore.getState().state?.extensionName;
 			const components = await window.withProgress(
 				{
-					title: `Fetching ${extName === "Devant" ? "integrations" : "components"} of project ${project.name}...`,
+					title: `Fetching ${ext.terminologies?.componentTermCapitalized} of project ${project.name}...`,
 					location: ProgressLocation.Notification,
 				},
 				() =>
