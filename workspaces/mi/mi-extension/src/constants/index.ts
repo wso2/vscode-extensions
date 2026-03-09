@@ -18,6 +18,7 @@
 
 export const COMMANDS = {
     OPEN_PROJECT: "MI.openProject",
+    IMPORT_FROM_CAPP: "MI.importProjectFromCapp",
     MIGRATE_PROJECT: "MI.migrateProject",
     SHOW_OVERVIEW: "MI.showOverview",
     DISABLE_OVERVIEW: "MI.disableOverview",
