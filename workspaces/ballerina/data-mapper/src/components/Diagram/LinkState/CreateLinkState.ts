@@ -114,11 +114,7 @@ export class CreateLinkState extends State<DiagramEngine> {
 						this.temporaryLink = undefined;
 					}
 
-					if (isExprBarFocused && element instanceof InputOutputPortModel && element.attributes.portType === "OUT") {
-						element.fireEvent({}, "addToExpression");
-						this.clearState();
-						this.eject();
-					} else if (element instanceof InputOutputPortModel && !this.sourcePort && !isHeaderPort(element)) {
+					if (element instanceof InputOutputPortModel && !this.sourcePort && !isHeaderPort(element)) {
 						if (element.attributes.portType === "OUT") {
 							this.sourcePort = element;
 							element.fireEvent({}, "mappingStartedFrom");
