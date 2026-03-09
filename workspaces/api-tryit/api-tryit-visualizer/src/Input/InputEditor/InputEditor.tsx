@@ -199,6 +199,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     const suggestionsRef = useRef<SuggestionsConfig | undefined>(suggestions);
     const cursorListenerDisposableRef = useRef<monaco.IDisposable | null>(null);
     const focusListenerDisposableRef = useRef<monaco.IDisposable | null>(null);
+    const mouseDownListenerDisposableRef = useRef<monaco.IDisposable | null>(null);
     const lastSuggestionContextRef = useRef<{ line: number; section: SectionType | null } | null>(null);
     // Generate a unique language ID for this editor instance to avoid conflicts
     const languageIdRef = useRef(`${LANGUAGE_ID}-${Math.random().toString(36).substring(7)}`);
@@ -1173,6 +1174,9 @@ export const InputEditor: React.FC<InputEditorProps> = ({
             if (focusListenerDisposableRef.current) {
                 focusListenerDisposableRef.current.dispose();
             }
+            if (mouseDownListenerDisposableRef.current) {
+                mouseDownListenerDisposableRef.current.dispose();
+            }
         };
     }, []);
 
@@ -1249,7 +1253,19 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                         lastSuggestionContextRef.current = null;
                         triggerInitialSuggestionsIfNeeded();
                     });
-                    
+
+                    if (mouseDownListenerDisposableRef.current) {
+                        mouseDownListenerDisposableRef.current.dispose();
+                    }
+                    mouseDownListenerDisposableRef.current = editor.onMouseDown(() => {
+                        // Reset so the same empty line can re-trigger suggestions after dismissal,
+                        // then wait one animation frame for the cursor position to settle.
+                        lastSuggestionContextRef.current = null;
+                        requestAnimationFrame(() => {
+                            triggerInitialSuggestionsIfNeeded();
+                        });
+                    });
+
                     // Override Monaco's default copy-paste actions
                     console.log('[InputEditor] Overriding default Monaco copy-paste actions');
                     
