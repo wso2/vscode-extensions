@@ -294,10 +294,22 @@ async function validateMigrationInputs(source: string): Promise<boolean> {
     }
 
     if (invalidFiles.length > 0) {
-        const fileList = invalidFiles.join('\n');
-        logError(`Migration validation failed. Invalid files:\n${fileList}`);
+        const MAX_DISPLAY = 10;
+
+        const filesToShow = invalidFiles.slice(0, MAX_DISPLAY);
+        const remainingCount = invalidFiles.length - filesToShow.length;
+
+        const displayedList = filesToShow.join('\n');
+        const moreMessage = remainingCount > 0
+            ? `\n...and ${remainingCount} more file(s).\n\nRefer to the migration.log file inside the .backup directory for the full list.`
+            : '';
+
+        const fullList = invalidFiles.join('\n');
+
+        logError(`Migration validation failed. Invalid files:\n${fullList}`);
         void window.showErrorMessage(
-            `Migration stopped: Found ${invalidFiles.length} invalid file(s).\n${fileList}`,
+            `Migration stopped: Found ${invalidFiles.length} invalid file(s).\n\n` +
+            `${displayedList}${moreMessage}`,
             { modal: true }
         );
         return false;
@@ -361,7 +373,7 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
         deleteEmptyFoldersInPath(source);
         logInfo('Source directory cleanup completed after moving content to .backup directory.');
 
-        const projectDirsWithType = getProjectDirectoriesWithType(destinationFolderPath);
+        const projectDirsWithType = await getProjectDirectoriesWithType(destinationFolderPath);
         const projectDirToResolvedPomMap = await generateProjectDirToResolvedPomMap(destinationFolderPath);
 
         const createdProjectCount = await createFolderStructuresForDistributionProjects(
@@ -762,7 +774,7 @@ function writeUnusedFileInfos(
  *   - `projectDir`: The absolute path to the project directory.
  *   - `projectType`: The type of the project as determined by `determineProjectType`.
  */
-function getProjectDirectoriesWithType(rootDir: string, items?: fs.Dirent[]): { projectDir: string, projectType: Nature }[] {
+async function getProjectDirectoriesWithType(rootDir: string, items?: fs.Dirent[]): Promise<{ projectDir: string; projectType: Nature; }[]> {
     const results: { projectDir: string, projectType: Nature }[] = [];
     logInfo(`Scanning for project directories.`);
 
@@ -780,12 +792,12 @@ function getProjectDirectoriesWithType(rootDir: string, items?: fs.Dirent[]): { 
                 }
 
                 // Recursively check subdirectories
-                traverse(fullPath);
+                await traverse(fullPath);
             }
         }
     }
 
-    traverse(rootDir);
+    await traverse(rootDir);
     logInfo(`Project directory scan finished, detected project count=${results.length}`);
     return results;
 }
@@ -808,7 +820,6 @@ function generateArtifactIdToFileInfoMap(
     projectDirsWithType: { projectDir: string, projectType: Nature }[]
 ): Map<string, FileInfo> {
     const artifactIdToFileInfoMap = new Map<string, FileInfo>();
-    let artifactXmlEntryCount = 0;
 
     projectDirsWithType.forEach(({ projectDir, projectType }) => {
         const projectId = getPomIdentifier(projectDir, projectDirToResolvedPom);
@@ -831,7 +842,6 @@ function generateArtifactIdToFileInfoMap(
                     const fileInfo = getFileInfoForArtifact(artifact, projectDir, projectType);
                     if (fileInfo) {
                         artifactIdToFileInfoMap.set(artifactId, fileInfo);
-                        artifactXmlEntryCount++;
                     }
                 });
             }
@@ -2215,7 +2225,7 @@ function copyFile(sourcePath: string, targetPath: string) {
     }
 }
 
-function moveFiles(sourcePath: string, destinationPath: string, depth: number = 0) {
+function moveFiles(sourcePath: string, destinationPath: string) {
 
     if (!fs.existsSync(destinationPath)) {
         fs.mkdirSync(destinationPath);
@@ -2231,7 +2241,7 @@ function moveFiles(sourcePath: string, destinationPath: string, depth: number = 
         const isDirectory = fs.statSync(sourceItemPath).isDirectory();
 
         if (isDirectory) {
-            moveFiles(sourceItemPath, destinationItemPath, depth + 1);
+            moveFiles(sourceItemPath, destinationItemPath);
             if (item !== ".vscode") {
                 fs.rmSync(sourceItemPath, { recursive: true });
             }
