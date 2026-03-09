@@ -39,6 +39,56 @@ interface InputCodeProps {
     onRequestChange?: (request: ApiRequest) => void;
 }
 
+const MIN_EDITOR_LINES = 3;
+
+/** Pads `value` with empty lines at the bottom so the editor always shows at least MIN_EDITOR_LINES lines. */
+const padToMinLines = (value: string): string => {
+    if (!value) return '\n'.repeat(MIN_EDITOR_LINES - 1);
+    const lineCount = value.split('\n').length;
+    if (lineCount >= MIN_EDITOR_LINES) return value;
+    return value + '\n'.repeat(MIN_EDITOR_LINES - lineCount);
+};
+
+/**
+ * Inserts `newEntry` right after the last non-empty line in `currentValue`,
+ * trims any trailing empty lines, then re-pads to MIN_EDITOR_LINES.
+ * Returns the resulting string and the 1-based line number of the inserted entry.
+ */
+const insertAfterLastContent = (currentValue: string, newEntry: string): { value: string; lineNumber: number } => {
+    const lines = currentValue.split('\n');
+    let lastContentIndex = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].trim().length > 0) {
+            lastContentIndex = i;
+            break;
+        }
+    }
+
+    let newLines: string[];
+    if (lastContentIndex < 0) {
+        newLines = [newEntry];
+    } else {
+        newLines = [
+            ...lines.slice(0, lastContentIndex + 1),
+            newEntry,
+            ...lines.slice(lastContentIndex + 1),
+        ];
+    }
+
+    // Trim trailing empty lines, then re-pad to minimum
+    while (newLines.length > 0 && newLines[newLines.length - 1].trim() === '') {
+        newLines.pop();
+    }
+    while (newLines.length < MIN_EDITOR_LINES) {
+        newLines.push('');
+    }
+
+    return {
+        value: newLines.join('\n'),
+        lineNumber: lastContentIndex < 0 ? 1 : lastContentIndex + 2,
+    };
+};
+
 const NoBodyMessage = styled.div`
     padding-left: 4px;
     background-color: var(--vscode-editor-background);
@@ -327,25 +377,9 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             shouldShow: (model: any) => true,
             getLineNumber: (model: any) => 1,
             onExecute: (editor: any, model: any) => {
-                const lineCount = model.getLineCount();
-                const lastLineLength = model.getLineLength(lineCount);
-                const textToInsert = model.getValue() ? '\nkey: value' : 'key: value';
-
-                editor.executeEdits('add-query-param', [{
-                    range: {
-                        startLineNumber: lineCount,
-                        startColumn: lastLineLength + 1,
-                        endLineNumber: lineCount,
-                        endColumn: lastLineLength + 1
-                    },
-                    text: textToInsert
-                }]);
-
-                // Move cursor to the new line
-                setTimeout(() => {
-                    editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
-                    editor.focus();
-                }, 0);
+                const { value: newValue, lineNumber } = insertAfterLastContent(model.getValue(), 'key: value');
+                editor.executeEdits('add-query-param', [{ range: model.getFullModelRange(), text: newValue }]);
+                setTimeout(() => { editor.setPosition({ lineNumber, column: 1 }); editor.focus(); }, 0);
             }
         },
         // TODO: Add AI generation for query parameters
@@ -368,25 +402,9 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             shouldShow: (model: any) => true,
             getLineNumber: (model: any) => 1,
             onExecute: (editor: any, model: any) => {
-                const lineCount = model.getLineCount();
-                const lastLineLength = model.getLineLength(lineCount);
-                const textToInsert = model.getValue() ? '\nContent-Type: application/json' : 'Content-Type: application/json';
-
-                editor.executeEdits('add-header', [{
-                    range: {
-                        startLineNumber: lineCount,
-                        startColumn: lastLineLength + 1,
-                        endLineNumber: lineCount,
-                        endColumn: lastLineLength + 1
-                    },
-                    text: textToInsert
-                }]);
-
-                // Move cursor to the new line
-                setTimeout(() => {
-                    editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
-                    editor.focus();
-                }, 0);
+                const { value: newValue, lineNumber } = insertAfterLastContent(model.getValue(), 'Content-Type: application/json');
+                editor.executeEdits('add-header', [{ range: model.getFullModelRange(), text: newValue }]);
+                setTimeout(() => { editor.setPosition({ lineNumber, column: 1 }); editor.focus(); }, 0);
             }
         },
         // TODO: Add AI generation for headers
@@ -419,33 +437,13 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 getLineNumber: (model: any) => 1,
                 onExecute: (editor: any, model: any) => {
                     if (bodyFormat === 'form-urlencoded') {
-                        const currentValue = model.getValue();
-                        const newValue = currentValue ? currentValue + '\nkey: value: application/json' : 'key: value: application/json';
-
-                        editor.executeEdits('add-parameter', [{
-                            range: model.getFullModelRange(),
-                            text: newValue
-                        }]);
-
-                        // Move cursor to the new line
-                        setTimeout(() => {
-                            editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
-                            editor.focus();
-                        }, 0);
+                        const { value: newValue, lineNumber } = insertAfterLastContent(model.getValue(), 'key: value: application/json');
+                        editor.executeEdits('add-parameter', [{ range: model.getFullModelRange(), text: newValue }]);
+                        setTimeout(() => { editor.setPosition({ lineNumber, column: 1 }); editor.focus(); }, 0);
                     } else if (bodyFormat === 'form-data') {
-                        const currentValue = model.getValue();
-                        const newValue = currentValue ? currentValue + '\nkey: value' : 'key: value';
-
-                        editor.executeEdits('add-parameter', [{
-                            range: model.getFullModelRange(),
-                            text: newValue
-                        }]);
-
-                        // Move cursor to the new line
-                        setTimeout(() => {
-                            editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
-                            editor.focus();
-                        }, 0);
+                        const { value: newValue, lineNumber } = insertAfterLastContent(model.getValue(), 'key: value');
+                        editor.executeEdits('add-parameter', [{ range: model.getFullModelRange(), text: newValue }]);
+                        setTimeout(() => { editor.setPosition({ lineNumber, column: 1 }); editor.focus(); }, 0);
                     } else {
                         const sampleBody = '{\n  "key": "value"\n}';
 
@@ -472,29 +470,15 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 getLineNumber: (model: any) => 1,
                 onExecute: (editor: any, model: any) => {
                     if (bodyFormat === 'binary') {
-                        // For binary format, add as a new line (allows multiple files)
-                        const currentValue = model.getValue();
-                        const newValue = currentValue ? currentValue + '\n@file: application/octet-stream' : '@file: application/octet-stream';
-                        editor.executeEdits('add-file', [{
-                            range: model.getFullModelRange(),
-                            text: newValue
-                        }]);
+                        const { value: newValue, lineNumber } = insertAfterLastContent(model.getValue(), '@file: application/octet-stream');
+                        editor.executeEdits('add-file', [{ range: model.getFullModelRange(), text: newValue }]);
+                        setTimeout(() => { editor.setPosition({ lineNumber, column: 1 }); editor.focus(); }, 0);
                     } else {
                         // For form-data, add as a new parameter line
-                        const currentValue = model.getValue();
-                        const newValue = currentValue ? currentValue + '\nkey: @file: application/octet-stream' : 'key: @file: application/octet-stream';
-
-                        editor.executeEdits('add-file', [{
-                            range: model.getFullModelRange(),
-                            text: newValue
-                        }]);
+                        const { value: newValue, lineNumber } = insertAfterLastContent(model.getValue(), 'key: @file: application/octet-stream');
+                        editor.executeEdits('add-file', [{ range: model.getFullModelRange(), text: newValue }]);
+                        setTimeout(() => { editor.setPosition({ lineNumber, column: 1 }); editor.focus(); }, 0);
                     }
-
-                    // Move cursor to the new line
-                    setTimeout(() => {
-                        editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
-                        editor.focus();
-                    }, 0);
                 }
             });
         }
@@ -554,7 +538,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             <InputEditor
                 minHeight='calc((100vh - 420px) / 3)'
                 onChange={handleQueryParametersChange}
-                value={formatQueryParameters(request.queryParameters)}
+                value={padToMinLines(formatQueryParameters(request.queryParameters))}
                 codeLenses={queryParamsCodeLenses}
                 suggestions={{ queryKeys: COMMON_QUERY_KEYS }}
             />
@@ -563,7 +547,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             <InputEditor
                 minHeight='calc((100vh - 420px) / 3)'
                 onChange={handleHeadersChange}
-                value={formatHeaders(request.headers)}
+                value={padToMinLines(formatHeaders(request.headers))}
                 codeLenses={headersCodeLenses}
                 suggestions={{ headers: COMMON_HEADERS }}
             />
@@ -599,7 +583,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                         key={`body-editor-${bodyFormat}`}
                         minHeight='calc((100vh - 420px) / 3)'
                         onChange={handleBodyChange}
-                        value={getBodyEditorValue()}
+                        value={padToMinLines(getBodyEditorValue())}
                         codeLenses={bodyCodeLenses}
                         suggestions={{ bodySnippets: COMMON_BODY_SNIPPETS }}
                         bodyFormat={bodyFormat}
