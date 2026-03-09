@@ -389,8 +389,8 @@ const TabsBar = styled.div`
 const TabButton = styled.button<{ active?: boolean }>`
     background: transparent;
     border: none;
-    border-bottom: ${({ active }) => active ? '2px solid var(--vscode-textLink-activeForeground)' : '1px solid transparent'};
-    color: ${({ active }) => active ? 'var(--vscode-textLink-activeForeground)' : 'var(--vscode-foreground)'};
+    border-bottom: ${({ active }) => active ? '2px solid var(--vscode-tab-activeForeground)' : '1px solid transparent'};
+    color: ${({ active }) => active ? 'var(--vscode-tab-activeForeground)' : 'var(--vscode-tab-inactiveForeground)'};
     padding: 10px 0 8px;
     cursor: pointer;
     font-weight: 600;

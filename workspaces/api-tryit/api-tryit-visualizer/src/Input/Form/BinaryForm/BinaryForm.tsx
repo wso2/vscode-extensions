@@ -70,7 +70,7 @@ export const BinaryForm: React.FC<BinaryFormProps> = ({
                 );
             })}
             <AddButtonWrapper>
-                <LinkButton onClick={onAddFile}>
+                <LinkButton sx={{ color: 'inherit', '&:hover': { color: 'var(--vscode-button-hoverBackground)' } }} onClick={onAddFile}>
                     <Codicon name="add" />
                     Add File
                 </LinkButton>
