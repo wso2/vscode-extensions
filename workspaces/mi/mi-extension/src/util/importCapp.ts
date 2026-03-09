@@ -114,7 +114,12 @@ export async function importCapp(params: ImportProjectRequest): Promise<ImportPr
         let projectDir;
         if (createNewFolder) {
             projectDir = path.join(directory, projectName);
-            fs.mkdirSync(projectDir);
+            if (fs.existsSync(projectDir)) {
+                window.showErrorMessage(`Directory "${projectDir}" already exists. Please choose a different location.`);
+                return { filePath: "" };
+            } else {
+                fs.mkdirSync(projectDir);
+            }
         } else {
             projectDir = directory;
         }

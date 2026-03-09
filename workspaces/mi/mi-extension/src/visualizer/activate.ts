@@ -69,7 +69,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                         'Continue'
                     );
                     if (confirmation === 'Continue') {
-                        window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: 'Select the location to extract the CAPP', openLabel: 'Select Folder' })
+                        window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: 'Select the location to extract the CApp', openLabel: 'Select Folder' })
                             .then(async extractUri => {
                                 if (extractUri && extractUri[0]) {
                                     try {

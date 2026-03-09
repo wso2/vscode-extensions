@@ -739,9 +739,9 @@
           "when": "false"
         },
         {
-        "command": "MI.importProjectFromCapp",
-        "when": "false"
-      }
+          "command": "MI.importProjectFromCapp",
+          "when": "false"
+        }
       ],
       "view/title": [
         {
