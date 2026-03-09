@@ -199,6 +199,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     const suggestionsRef = useRef<SuggestionsConfig | undefined>(suggestions);
     const cursorListenerDisposableRef = useRef<monaco.IDisposable | null>(null);
     const focusListenerDisposableRef = useRef<monaco.IDisposable | null>(null);
+    const mouseDownListenerDisposableRef = useRef<monaco.IDisposable | null>(null);
     const lastSuggestionContextRef = useRef<{ line: number; section: SectionType | null } | null>(null);
     // Generate a unique language ID for this editor instance to avoid conflicts
     const languageIdRef = useRef(`${LANGUAGE_ID}-${Math.random().toString(36).substring(7)}`);
@@ -737,7 +738,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                             suggestionsList.push({
                                 label: key,
                                 kind: monaco.languages.CompletionItemKind.Property,
-                                insertText: key,
+                                insertText: `${key}: `,
                                 range: range,
                                 documentation: `Query parameter: ${key}`
                             });
@@ -1147,9 +1148,27 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         if (newValue !== undefined && !isProgrammaticUpdateRef.current) {
             isTypingRef.current = true;
             onChange(newValue);
-            // Reset typing flag after a short delay
+            // Reset typing flag after a short delay, then sync editor to prop value
+            // (e.g. to apply trailing empty-line padding that the parent adds)
             setTimeout(() => {
                 isTypingRef.current = false;
+                if (editorRef.current) {
+                    const propValue = lastPropValueRef.current;
+                    const currentEditorValue = editorRef.current.getValue();
+                    if (propValue !== undefined && currentEditorValue !== propValue) {
+                        const position = editorRef.current.getPosition();
+                        isProgrammaticUpdateRef.current = true;
+                        editorRef.current.setValue(propValue);
+                        isProgrammaticUpdateRef.current = false;
+                        // Restore cursor so typing continues from the same position
+                        if (position) {
+                            const model = editorRef.current.getModel();
+                            if (model && position.lineNumber <= model.getLineCount()) {
+                                editorRef.current.setPosition(position);
+                            }
+                        }
+                    }
+                }
             }, 100);
         }
     };
@@ -1172,6 +1191,9 @@ export const InputEditor: React.FC<InputEditorProps> = ({
             }
             if (focusListenerDisposableRef.current) {
                 focusListenerDisposableRef.current.dispose();
+            }
+            if (mouseDownListenerDisposableRef.current) {
+                mouseDownListenerDisposableRef.current.dispose();
             }
         };
     }, []);
@@ -1249,7 +1271,19 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                         lastSuggestionContextRef.current = null;
                         triggerInitialSuggestionsIfNeeded();
                     });
-                    
+
+                    if (mouseDownListenerDisposableRef.current) {
+                        mouseDownListenerDisposableRef.current.dispose();
+                    }
+                    mouseDownListenerDisposableRef.current = editor.onMouseDown(() => {
+                        // Reset so the same empty line can re-trigger suggestions after dismissal,
+                        // then wait one animation frame for the cursor position to settle.
+                        lastSuggestionContextRef.current = null;
+                        requestAnimationFrame(() => {
+                            triggerInitialSuggestionsIfNeeded();
+                        });
+                    });
+
                     // Override Monaco's default copy-paste actions
                     console.log('[InputEditor] Overriding default Monaco copy-paste actions');
                     

@@ -23,6 +23,29 @@ import styled from '@emotion/styled';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
 
 type BodyFormat = 'json' | 'xml' | 'text' | 'html' | 'javascript' | 'form-data' | 'form-urlencoded' | 'binary' | 'no-body';
+type InlineSeparator = ':' | '=';
+
+const SEPARATOR_META_MARKER = '__sep__';
+
+const withSeparatorMeta = (baseId: string, separator?: InlineSeparator): string => {
+    if (!separator) {
+        return baseId;
+    }
+    return `${baseId}${SEPARATOR_META_MARKER}${separator === ':' ? 'colon' : 'equals'}`;
+};
+
+const getSeparatorFromMeta = (id: string | undefined, fallback?: InlineSeparator): InlineSeparator | undefined => {
+    if (!id) {
+        return fallback;
+    }
+    if (id.includes(`${SEPARATOR_META_MARKER}equals`)) {
+        return '=';
+    }
+    if (id.includes(`${SEPARATOR_META_MARKER}colon`)) {
+        return ':';
+    }
+    return fallback;
+};
 
 const BodyHeaderContainer = styled.div`display:flex;align-items:center;justify-content:space-between;margin:8px 0;gap:12px;`;
 const BodyTitleWrapper = styled.div`display:flex;align-items:center;gap:8px;flex:1;`;
@@ -39,6 +62,107 @@ interface InputCodeProps {
     onRequestChange?: (request: ApiRequest) => void;
 }
 
+const MIN_EDITOR_LINES = 3;
+const PARSE_DEBOUNCE_MS = 220;
+
+/** Pads `value` with empty lines at the bottom so the editor always shows at least MIN_EDITOR_LINES lines. */
+const padToMinLines = (value: string): string => {
+    if (!value) return '\n'.repeat(MIN_EDITOR_LINES - 1);
+    const lineCount = value.split('\n').length;
+    if (lineCount >= MIN_EDITOR_LINES) return value;
+    return value + '\n'.repeat(MIN_EDITOR_LINES - lineCount);
+};
+
+/**
+ * Inserts `newEntry` right after the last non-empty line in `currentValue`.
+ * Always inserts a real new line (the editor grows by 1) and re-pads to
+ * MIN_EDITOR_LINES if needed.
+ * Returns the resulting string and the 1-based line number of the inserted entry.
+ */
+const insertAfterLastContent = (currentValue: string, newEntry: string): { value: string; lineNumber: number } => {
+    const lines = currentValue.split('\n');
+    let lastContentIndex = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].trim().length > 0) {
+            lastContentIndex = i;
+            break;
+        }
+    }
+
+    if (lastContentIndex < 0) {
+        // Editor is empty: insert a new entry line at the top, then MIN padding below
+        const newLines = [newEntry, ...Array(MIN_EDITOR_LINES).fill('')];
+        return { value: newLines.join('\n'), lineNumber: 1 };
+    }
+
+    // Has content: insert new entry right after last content line
+    const newEntryIndex = lastContentIndex + 1;
+    const newLines: string[] = [
+        ...lines.slice(0, newEntryIndex),
+        newEntry,
+        ...lines.slice(newEntryIndex),
+    ];
+
+    // Trim trailing empty lines that come AFTER the newly inserted slot,
+    // preserving the slot itself so it's a visible new line
+    while (newLines.length > newEntryIndex + 1 && newLines[newLines.length - 1].trim() === '') {
+        newLines.pop();
+    }
+    while (newLines.length < MIN_EDITOR_LINES) {
+        newLines.push('');
+    }
+
+    return {
+        value: newLines.join('\n'),
+        lineNumber: newEntryIndex + 1,
+    };
+};
+
+/**
+ * Shows `ghostText` as a faded italic overlay at the start of `lineNumber`.
+ * Uses a Monaco content widget so it renders reliably across all Monaco versions.
+ * Automatically removed when the user types on that line or moves to another.
+ */
+const addGhostTextDecoration = (editor: any, model: any, lineNumber: number, ghostText: string): void => {
+    const widgetId = `ghost-text-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+    const domNode = document.createElement('span');
+    domNode.textContent = ghostText;
+    domNode.style.cssText = [
+        'opacity:0.38',
+        'font-style:italic',
+        'pointer-events:none',
+        'user-select:none',
+        'white-space:nowrap',
+        'font-family:inherit',
+        'font-size:inherit',
+        'letter-spacing:inherit',
+        'line-height:inherit',
+    ].join(';');
+
+    const widget = {
+        getId: () => widgetId,
+        getDomNode: () => domNode,
+        getPosition: () => ({
+            position: { lineNumber, column: 1 },
+            preference: [0], // ContentWidgetPositionPreference.EXACT
+        }),
+    };
+
+    editor.addContentWidget(widget);
+
+    const remove = () => {
+        editor.removeContentWidget(widget);
+        contentListener.dispose();
+        cursorListener.dispose();
+    };
+
+    const contentListener = model.onDidChangeContent(() => remove());
+    const cursorListener = editor.onDidChangeCursorPosition((e: any) => {
+        if (e.position.lineNumber !== lineNumber) remove();
+    });
+};
+
 const NoBodyMessage = styled.div`
     padding-left: 4px;
     background-color: var(--vscode-editor-background);
@@ -50,6 +174,14 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
     const [bodyFormatOpen, setBodyFormatOpen] = React.useState(false);
     const formatMenuRef = React.useRef<HTMLDivElement>(null);
     const methodSupportsBody = !['GET', 'HEAD', 'OPTIONS', 'DELETE'].includes((request.method || '').toUpperCase());
+    const requestRef = React.useRef(request);
+    const queryDebounceRef = React.useRef<number | null>(null);
+    const headersDebounceRef = React.useRef<number | null>(null);
+    const bodyDebounceRef = React.useRef<number | null>(null);
+
+    React.useEffect(() => {
+        requestRef.current = request;
+    }, [request]);
 
     React.useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -63,56 +195,151 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
 
     const formatQueryParameters = (params: QueryParameter[] | undefined): string => {
         if (!Array.isArray(params)) return '';
-        return params.filter(p => p.key || p.value).map(p => p.value ? `${p.key}: ${p.value}` : p.key).join('\n');
+        return params
+            .filter(p => p.key || p.value)
+            .map(p => {
+                const key = (p.key || '').trim();
+                const value = p.value ?? '';
+                const separator = getSeparatorFromMeta(p.id, value.length > 0 ? ':' : undefined);
+
+                if (!key) {
+                    return value;
+                }
+
+                if (value.length > 0) {
+                    return separator === '=' ? `${key}=${value}` : `${key}: ${value}`;
+                }
+
+                return separator ? `${key}${separator}` : key;
+            })
+            .join('\n');
     };
 
     const formatHeaders = (headers: HeaderParameter[] | undefined): string => {
         if (!Array.isArray(headers)) return '';
-        return headers.filter(h => h.key || h.value).map(h => h.value ? `${h.key}: ${h.value}` : h.key).join('\n');
+        return headers
+            .filter(h => h.key || h.value)
+            .map(h => {
+                const key = (h.key || '').trim();
+                const value = h.value ?? '';
+                const hasExplicitSeparator = getSeparatorFromMeta(h.id, undefined) === ':';
+                if (!key) {
+                    return value;
+                }
+                if (value.length > 0) {
+                    return `${key}: ${value}`;
+                }
+                return hasExplicitSeparator ? `${key}:` : key;
+            })
+            .join('\n');
     };
 
+    const [queryEditorValue, setQueryEditorValue] = React.useState(() =>
+        padToMinLines(formatQueryParameters(request.queryParameters))
+    );
+    const [headersEditorValue, setHeadersEditorValue] = React.useState(() =>
+        padToMinLines(formatHeaders(request.headers))
+    );
+    const [bodyEditorValue, setBodyEditorValue] = React.useState(() =>
+        padToMinLines(request.body || '')
+    );
+
+    const clearPendingCommits = React.useCallback(() => {
+        if (queryDebounceRef.current) {
+            window.clearTimeout(queryDebounceRef.current);
+            queryDebounceRef.current = null;
+        }
+        if (headersDebounceRef.current) {
+            window.clearTimeout(headersDebounceRef.current);
+            headersDebounceRef.current = null;
+        }
+        if (bodyDebounceRef.current) {
+            window.clearTimeout(bodyDebounceRef.current);
+            bodyDebounceRef.current = null;
+        }
+    }, []);
+
+    React.useEffect(() => {
+        return () => clearPendingCommits();
+    }, [clearPendingCommits]);
+
+    const requestIdentity = `${request.id}|${request.method}|${request.url}|${request.name}`;
+
+    const parseQueryParameters = React.useCallback((text: string): QueryParameter[] => {
+        if (!text.trim()) return [];
+        return text.split('\n').filter(line => line.trim()).map((line, index) => {
+            const colonIndex = line.indexOf(':');
+            const equalsIndex = line.indexOf('=');
+            const hasColon = colonIndex >= 0;
+            const hasEquals = equalsIndex >= 0;
+
+            let separatorIndex = -1;
+            if (hasColon && hasEquals) {
+                separatorIndex = Math.min(colonIndex, equalsIndex);
+            } else if (hasColon) {
+                separatorIndex = colonIndex;
+            } else if (hasEquals) {
+                separatorIndex = equalsIndex;
+            }
+
+            if (separatorIndex < 0) {
+                return { id: Date.now().toString() + index, key: line.trim(), value: '' };
+            }
+            const key = line.slice(0, separatorIndex).trim();
+            const paramValue = line.slice(separatorIndex + 1).trim();
+            const separator: InlineSeparator = line[separatorIndex] === '=' ? '=' : ':';
+            return {
+                id: withSeparatorMeta(Date.now().toString() + index, separator),
+                key: key || '',
+                value: paramValue || ''
+            };
+        });
+    }, []);
+
+    const parseHeaders = React.useCallback((text: string): HeaderParameter[] => {
+        if (!text.trim()) return [];
+        return text.split('\n').filter(line => line.trim()).map((line, index) => {
+            const separatorIndex = line.indexOf(':');
+            if (separatorIndex < 0) {
+                return { id: Date.now().toString() + index, key: line.trim(), value: '' };
+            }
+            const key = line.slice(0, separatorIndex).trim();
+            const headerValue = line.slice(separatorIndex + 1).trim();
+            return {
+                id: withSeparatorMeta(Date.now().toString() + index, ':'),
+                key: key || '',
+                value: headerValue || ''
+            };
+        });
+    }, []);
+
     const handleQueryParametersChange = (value: string | undefined) => {
-        const parseQueryParameters = (text: string) => {
-            if (!text.trim()) return [] as QueryParameter[];
-            return text.split('\n').filter(line => line.trim()).map((line, index) => {
-                const colonIndex = line.indexOf(':');
-                const equalsIndex = line.indexOf('=');
-                const hasColon = colonIndex >= 0;
-                const hasEquals = equalsIndex >= 0;
+        const nextText = value || '';
+        setQueryEditorValue(nextText);
 
-                let separatorIndex = -1;
-                if (hasColon && hasEquals) {
-                    separatorIndex = Math.min(colonIndex, equalsIndex);
-                } else if (hasColon) {
-                    separatorIndex = colonIndex;
-                } else if (hasEquals) {
-                    separatorIndex = equalsIndex;
-                }
-
-                if (separatorIndex < 0) {
-                    return { id: Date.now().toString() + index, key: line.trim(), value: '' };
-                }
-                const key = line.slice(0, separatorIndex).trim();
-                const paramValue = line.slice(separatorIndex + 1).trim();
-                return { id: Date.now().toString() + index, key: key || '', value: paramValue || '' };
-            });
-        };
-        onRequestChange?.({ ...request, queryParameters: parseQueryParameters(value || '') });
+        if (queryDebounceRef.current) {
+            window.clearTimeout(queryDebounceRef.current);
+        }
+        queryDebounceRef.current = window.setTimeout(() => {
+            onRequestChange?.({ ...requestRef.current, queryParameters: parseQueryParameters(nextText) });
+        }, PARSE_DEBOUNCE_MS);
     };
 
     const handleHeadersChange = (value: string | undefined) => {
-        const parseHeaders = (text: string) => {
-            if (!text.trim()) return [] as HeaderParameter[];
-            return text.split('\n').filter(line => line.trim()).map((line, index) => {
-                const [key, value] = line.split(':').map(s => s.trim());
-                return { id: Date.now().toString() + index, key: key || '', value: value || '' };
-            });
-        };
-        onRequestChange?.({ ...request, headers: parseHeaders(value || '') });
+        const nextText = value || '';
+        setHeadersEditorValue(nextText);
+
+        if (headersDebounceRef.current) {
+            window.clearTimeout(headersDebounceRef.current);
+        }
+        headersDebounceRef.current = window.setTimeout(() => {
+            onRequestChange?.({ ...requestRef.current, headers: parseHeaders(nextText) });
+        }, PARSE_DEBOUNCE_MS);
     };
 
     const handleBodyChange = (value: string | undefined) => {
         const text = value || '';
+        setBodyEditorValue(text);
 
         // Helper to parse simple editor-format form-data lines into structured params
         const parseFormDataFromText = (txt: string) => {
@@ -245,41 +472,61 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
 
         if (bodyFormat === 'form-data') {
             const parsed = parseFormDataFromText(text);
-            onRequestChange?.({
-                ...request,
-                body: text,
-                bodyFormData: parsed,
-                bodyFormUrlEncoded: [],
-                bodyBinaryFiles: []
-            });
+            if (bodyDebounceRef.current) {
+                window.clearTimeout(bodyDebounceRef.current);
+            }
+            bodyDebounceRef.current = window.setTimeout(() => {
+                onRequestChange?.({
+                    ...requestRef.current,
+                    body: text,
+                    bodyFormData: parsed,
+                    bodyFormUrlEncoded: [],
+                    bodyBinaryFiles: []
+                });
+            }, PARSE_DEBOUNCE_MS);
             return;
         }
 
         if (bodyFormat === 'form-urlencoded') {
             const parsed = parseFormUrlEncodedFromText(text);
-            onRequestChange?.({
-                ...request,
-                body: text,
-                bodyFormUrlEncoded: parsed,
-                bodyFormData: [],
-                bodyBinaryFiles: []
-            });
+            if (bodyDebounceRef.current) {
+                window.clearTimeout(bodyDebounceRef.current);
+            }
+            bodyDebounceRef.current = window.setTimeout(() => {
+                onRequestChange?.({
+                    ...requestRef.current,
+                    body: text,
+                    bodyFormUrlEncoded: parsed,
+                    bodyFormData: [],
+                    bodyBinaryFiles: []
+                });
+            }, PARSE_DEBOUNCE_MS);
             return;
         }
 
         if (bodyFormat === 'binary') {
             const parsed = parseBinaryFromText(text);
-            onRequestChange?.({
-                ...request,
-                body: text,
-                bodyBinaryFiles: parsed,
-                bodyFormData: [],
-                bodyFormUrlEncoded: []
-            });
+            if (bodyDebounceRef.current) {
+                window.clearTimeout(bodyDebounceRef.current);
+            }
+            bodyDebounceRef.current = window.setTimeout(() => {
+                onRequestChange?.({
+                    ...requestRef.current,
+                    body: text,
+                    bodyBinaryFiles: parsed,
+                    bodyFormData: [],
+                    bodyFormUrlEncoded: []
+                });
+            }, PARSE_DEBOUNCE_MS);
             return;
         }
 
-        onRequestChange?.({ ...request, body: text });
+        if (bodyDebounceRef.current) {
+            window.clearTimeout(bodyDebounceRef.current);
+        }
+        bodyDebounceRef.current = window.setTimeout(() => {
+            onRequestChange?.({ ...requestRef.current, body: text });
+        }, PARSE_DEBOUNCE_MS);
     };
 
     const handleFormatChange = (format: BodyFormat) => {
@@ -287,16 +534,16 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
         setBodyFormatOpen(false);
     };
 
-    const getBodyEditorValue = () => {
-        const body = request.body || '';
+    const getBodyEditorValue = (targetRequest: ApiRequest): string => {
+        const body = targetRequest.body || '';
         if (bodyFormat === 'form-data') {
             const filtered = body
                 .split('\n')
                 .filter(line => !/^\s*\[(?:FormData|Multipart|MultipartFormData)\]\s*$/i.test(line))
                 .join('\n');
             // If body text is empty but structured entries exist, reconstruct from bodyFormData
-            if (!filtered.trim() && request.bodyFormData && request.bodyFormData.length > 0) {
-                return request.bodyFormData.map(param => {
+            if (!filtered.trim() && targetRequest.bodyFormData && targetRequest.bodyFormData.length > 0) {
+                return targetRequest.bodyFormData.map(param => {
                     if (param.filePath) {
                         return `${param.key}: file,${param.filePath};${param.contentType ? ' ' + param.contentType : ''}`;
                     }
@@ -311,13 +558,59 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 .filter(line => !/^\s*\[(?:FormUrlEncoded|Form|FormParams)\]\s*$/i.test(line))
                 .join('\n');
             // If body text is empty but structured entries exist, reconstruct from bodyFormUrlEncoded
-            if (!filtered.trim() && request.bodyFormUrlEncoded && request.bodyFormUrlEncoded.length > 0) {
-                return request.bodyFormUrlEncoded.map(param => `${param.key}: ${param.value || ''}`).join('\n');
+            if (!filtered.trim() && targetRequest.bodyFormUrlEncoded && targetRequest.bodyFormUrlEncoded.length > 0) {
+                return targetRequest.bodyFormUrlEncoded.map(param => `${param.key}: ${param.value || ''}`).join('\n');
             }
             return filtered;
         }
         return body;
     };
+
+    React.useEffect(() => {
+        clearPendingCommits();
+        setQueryEditorValue(padToMinLines(formatQueryParameters(request.queryParameters)));
+        setHeadersEditorValue(padToMinLines(formatHeaders(request.headers)));
+        setBodyEditorValue(padToMinLines(getBodyEditorValue(request)));
+        // We only resync editor text when changing the active request.
+        // Per-keystroke request updates are handled by local state + debounce.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [requestIdentity, clearPendingCommits]);
+
+    React.useEffect(() => {
+        if (queryDebounceRef.current) {
+            return;
+        }
+        const next = padToMinLines(formatQueryParameters(request.queryParameters));
+        setQueryEditorValue(prev => (prev === next ? prev : next));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [request.queryParameters]);
+
+    React.useEffect(() => {
+        if (headersDebounceRef.current) {
+            return;
+        }
+        const next = padToMinLines(formatHeaders(request.headers));
+        setHeadersEditorValue(prev => (prev === next ? prev : next));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [request.headers]);
+
+    React.useEffect(() => {
+        if (bodyDebounceRef.current) {
+            return;
+        }
+        const next = padToMinLines(getBodyEditorValue(request));
+        setBodyEditorValue(prev => (prev === next ? prev : next));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [request.body, request.bodyFormData, request.bodyFormUrlEncoded, request.bodyBinaryFiles, bodyFormat]);
+
+    React.useEffect(() => {
+        if (bodyDebounceRef.current) {
+            window.clearTimeout(bodyDebounceRef.current);
+            bodyDebounceRef.current = null;
+        }
+        setBodyEditorValue(padToMinLines(getBodyEditorValue(requestRef.current)));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bodyFormat]);
 
     // Code lenses (ported from `Input.tsx`)
     const queryParamsCodeLenses = React.useMemo(() => [
@@ -327,24 +620,12 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             shouldShow: (model: any) => true,
             getLineNumber: (model: any) => 1,
             onExecute: (editor: any, model: any) => {
-                const lineCount = model.getLineCount();
-                const lastLineLength = model.getLineLength(lineCount);
-                const textToInsert = model.getValue() ? '\nkey: value' : 'key: value';
-
-                editor.executeEdits('add-query-param', [{
-                    range: {
-                        startLineNumber: lineCount,
-                        startColumn: lastLineLength + 1,
-                        endLineNumber: lineCount,
-                        endColumn: lastLineLength + 1
-                    },
-                    text: textToInsert
-                }]);
-
-                // Move cursor to the new line
+                const { value: newValue, lineNumber } = insertAfterLastContent(model.getValue(), '');
+                editor.executeEdits('add-query-param', [{ range: model.getFullModelRange(), text: newValue }]);
                 setTimeout(() => {
-                    editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+                    editor.setPosition({ lineNumber, column: 1 });
                     editor.focus();
+                    addGhostTextDecoration(editor, model, lineNumber, 'key: value');
                 }, 0);
             }
         },
@@ -368,24 +649,12 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             shouldShow: (model: any) => true,
             getLineNumber: (model: any) => 1,
             onExecute: (editor: any, model: any) => {
-                const lineCount = model.getLineCount();
-                const lastLineLength = model.getLineLength(lineCount);
-                const textToInsert = model.getValue() ? '\nContent-Type: application/json' : 'Content-Type: application/json';
-
-                editor.executeEdits('add-header', [{
-                    range: {
-                        startLineNumber: lineCount,
-                        startColumn: lastLineLength + 1,
-                        endLineNumber: lineCount,
-                        endColumn: lastLineLength + 1
-                    },
-                    text: textToInsert
-                }]);
-
-                // Move cursor to the new line
+                const { value: newValue, lineNumber } = insertAfterLastContent(model.getValue(), '');
+                editor.executeEdits('add-header', [{ range: model.getFullModelRange(), text: newValue }]);
                 setTimeout(() => {
-                    editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+                    editor.setPosition({ lineNumber, column: 1 });
                     editor.focus();
+                    addGhostTextDecoration(editor, model, lineNumber, 'Content-Type: application/json');
                 }, 0);
             }
         },
@@ -419,32 +688,20 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 getLineNumber: (model: any) => 1,
                 onExecute: (editor: any, model: any) => {
                     if (bodyFormat === 'form-urlencoded') {
-                        const currentValue = model.getValue();
-                        const newValue = currentValue ? currentValue + '\nkey: value: application/json' : 'key: value: application/json';
-
-                        editor.executeEdits('add-parameter', [{
-                            range: model.getFullModelRange(),
-                            text: newValue
-                        }]);
-
-                        // Move cursor to the new line
+                        const { value: newValue, lineNumber } = insertAfterLastContent(model.getValue(), '');
+                        editor.executeEdits('add-parameter', [{ range: model.getFullModelRange(), text: newValue }]);
                         setTimeout(() => {
-                            editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+                            editor.setPosition({ lineNumber, column: 1 });
                             editor.focus();
+                            addGhostTextDecoration(editor, model, lineNumber, 'key: value');
                         }, 0);
                     } else if (bodyFormat === 'form-data') {
-                        const currentValue = model.getValue();
-                        const newValue = currentValue ? currentValue + '\nkey: value' : 'key: value';
-
-                        editor.executeEdits('add-parameter', [{
-                            range: model.getFullModelRange(),
-                            text: newValue
-                        }]);
-
-                        // Move cursor to the new line
+                        const { value: newValue, lineNumber } = insertAfterLastContent(model.getValue(), '');
+                        editor.executeEdits('add-parameter', [{ range: model.getFullModelRange(), text: newValue }]);
                         setTimeout(() => {
-                            editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+                            editor.setPosition({ lineNumber, column: 1 });
                             editor.focus();
+                            addGhostTextDecoration(editor, model, lineNumber, 'key: value');
                         }, 0);
                     } else {
                         const sampleBody = '{\n  "key": "value"\n}';
@@ -472,29 +729,23 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 getLineNumber: (model: any) => 1,
                 onExecute: (editor: any, model: any) => {
                     if (bodyFormat === 'binary') {
-                        // For binary format, add as a new line (allows multiple files)
-                        const currentValue = model.getValue();
-                        const newValue = currentValue ? currentValue + '\n@file: application/octet-stream' : '@file: application/octet-stream';
-                        editor.executeEdits('add-file', [{
-                            range: model.getFullModelRange(),
-                            text: newValue
-                        }]);
+                        const { value: newValue, lineNumber } = insertAfterLastContent(model.getValue(), '');
+                        editor.executeEdits('add-file', [{ range: model.getFullModelRange(), text: newValue }]);
+                        setTimeout(() => {
+                            editor.setPosition({ lineNumber, column: 1 });
+                            editor.focus();
+                            addGhostTextDecoration(editor, model, lineNumber, '@file: application/octet-stream');
+                        }, 0);
                     } else {
                         // For form-data, add as a new parameter line
-                        const currentValue = model.getValue();
-                        const newValue = currentValue ? currentValue + '\nkey: @file: application/octet-stream' : 'key: @file: application/octet-stream';
-
-                        editor.executeEdits('add-file', [{
-                            range: model.getFullModelRange(),
-                            text: newValue
-                        }]);
+                        const { value: newValue, lineNumber } = insertAfterLastContent(model.getValue(), '');
+                        editor.executeEdits('add-file', [{ range: model.getFullModelRange(), text: newValue }]);
+                        setTimeout(() => {
+                            editor.setPosition({ lineNumber, column: 1 });
+                            editor.focus();
+                            addGhostTextDecoration(editor, model, lineNumber, 'key: @file: application/octet-stream');
+                        }, 0);
                     }
-
-                    // Move cursor to the new line
-                    setTimeout(() => {
-                        editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
-                        editor.focus();
-                    }, 0);
                 }
             });
         }
@@ -550,20 +801,20 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
 
     return (
         <>
-            <Typography variant="subtitle2" sx={{ margin: '4px 0 10px 0' }}> Query Parameters  </Typography>
+            <Typography variant="h3" sx={{ margin: '4px 0 10px 0', fontWeight: 'lighter' }}> Query Parameters  </Typography>
             <InputEditor
                 minHeight='calc((100vh - 420px) / 3)'
                 onChange={handleQueryParametersChange}
-                value={formatQueryParameters(request.queryParameters)}
+                value={queryEditorValue}
                 codeLenses={queryParamsCodeLenses}
                 suggestions={{ queryKeys: COMMON_QUERY_KEYS }}
             />
 
-            <Typography variant="subtitle2" sx={{ margin: '10px 0' }}> Headers </Typography>
+            <Typography variant="h3" sx={{ margin: '10px 0', fontWeight: 'lighter' }}> Headers </Typography>
             <InputEditor
                 minHeight='calc((100vh - 420px) / 3)'
                 onChange={handleHeadersChange}
-                value={formatHeaders(request.headers)}
+                value={headersEditorValue}
                 codeLenses={headersCodeLenses}
                 suggestions={{ headers: COMMON_HEADERS }}
             />
@@ -572,7 +823,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 <>
                     <BodyHeaderContainer>
                         <BodyTitleWrapper>
-                            <Typography variant="subtitle2" sx={{ margin: 0 }}> Body </Typography>
+                            <Typography variant="h3" sx={{ margin: 0, fontWeight: 'lighter' }}> Body </Typography>
                         </BodyTitleWrapper>
                         <FormatSelectorWrapper ref={formatMenuRef}>
                             <FormatButton onClick={() => setBodyFormatOpen(!bodyFormatOpen)}>
@@ -599,7 +850,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                         key={`body-editor-${bodyFormat}`}
                         minHeight='calc((100vh - 420px) / 3)'
                         onChange={handleBodyChange}
-                        value={getBodyEditorValue()}
+                        value={bodyEditorValue}
                         codeLenses={bodyCodeLenses}
                         suggestions={{ bodySnippets: COMMON_BODY_SNIPPETS }}
                         bodyFormat={bodyFormat}
@@ -610,7 +861,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
             {methodSupportsBody && bodyFormat === 'no-body' && (
                 <BodyHeaderContainer>
                     <BodyTitleWrapper>
-                        <Typography variant="h3">Body</Typography>
+                        <Typography variant="h3" sx={{ fontWeight: 'lighter' }}>Body</Typography>
                     </BodyTitleWrapper>
                     <FormatSelectorWrapper ref={formatMenuRef}>
                         <FormatButton onClick={() => setBodyFormatOpen(!bodyFormatOpen)}>

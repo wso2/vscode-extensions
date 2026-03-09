@@ -95,6 +95,18 @@ export class ApiTryItRpcManager {
             return bySignature;
         }
 
+        // URL may have been changed by the user — fall back to matching by name + method
+        // so the existing block is updated in place rather than creating a duplicate.
+        const byNameAndMethod = items
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) =>
+                item.name === request.name &&
+                item.request.method === request.method
+            );
+        if (byNameAndMethod.length === 1) {
+            return byNameAndMethod[0].index;
+        }
+
         const byMethodAndUrl = items
             .map((item, index) => ({ item, index }))
             .filter(({ item }) =>

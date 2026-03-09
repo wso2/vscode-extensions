@@ -220,6 +220,8 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
                 return `\nContent-Type: ${contentType}\n\n${body}`;
             };
             const normalizeResourcePath = (rawPath: string): string => {
+                // Ballerina '.' means the root of the service base path
+                if (rawPath.trim() === '.') { return '/'; }
                 const pathWithSlash = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
                 const segments = pathWithSlash
                     .split('/')
@@ -426,6 +428,14 @@ async function findServiceForResource(services: ServiceInfo[], resourceMetadata:
             return undefined;
         }
 
+        // Ballerina '.' means the root of the service base path — normalise before comparison.
+        const normalizedTarget = targetPath === '.' ? '/' : targetPath;
+
+        // Track the first service whose basePath+listener matches serviceMetadata.
+        // Used as a fallback when OpenAPI path matching fails (e.g. language server
+        // is temporarily unavailable after a file save, or the path format differs).
+        let metadataMatchedService: ServiceInfo | undefined;
+
         // check all services' OpenAPI specs to see which one contains the path
         // TODO: Optimize this by checking only the relevant service once we have the lang server support for that
         for (const service of services) {
@@ -434,10 +444,15 @@ async function findServiceForResource(services: ServiceInfo[], resourceMetadata:
                     continue;
                 }
 
+                // Remember the first service that matches by metadata alone so we
+                // can fall back to it if no service passes the full path check.
+                if (serviceMetadata && !metadataMatchedService) {
+                    metadataMatchedService = service;
+                }
+
                 const openapiSpec: OAISpec = await getOpenAPIDefinition(service);
                 const matchingPaths = Object.keys(openapiSpec.paths || {}).filter((specPath) => {
-                    return comparePathPatterns(specPath, targetPath);
-
+                    return comparePathPatterns(specPath, normalizedTarget);
                 });
 
                 if (matchingPaths.length > 0) {
@@ -448,7 +463,10 @@ async function findServiceForResource(services: ServiceInfo[], resourceMetadata:
             }
         }
 
-        return undefined;
+        // Fallback: if the service was identified by metadata but the path was not
+        // found in the OpenAPI spec (transient LS failure or saved collection race),
+        // return the metadata-matched service so TryIt can still proceed.
+        return metadataMatchedService;
     } catch (error) {
         handleError(error, "Finding service for resource", false);
         return undefined;
@@ -625,18 +643,27 @@ async function getOpenAPIDefinition(service: ServiceInfo): Promise<OAISpec> {
 
         if (openapiDefinitions === 'NOT_SUPPORTED_TYPE') {
             throw new Error(`OpenAPI spec generation failed for the service with base path: '${service.basePath}'`);
-        } else if (openapiDefinitions.error) {
-            throw new Error(openapiDefinitions.error);
         }
 
-        const matchingDefinition = (openapiDefinitions as OpenAPISpec).content?.filter(content =>
+        const spec = openapiDefinitions as OpenAPISpec;
+
+        // Only throw immediately on LS error if there is no content to try — the LS can
+        // return a partial result (content + error) for files with multiple services.
+        if (!spec.content || spec.content.length === 0) {
+            throw new Error(spec.error || `No OpenAPI definitions returned for base path '${service.basePath}'`);
+        }
+
+        const matchingDefinition = spec.content.filter(content =>
             content.serviceName.toLowerCase() === service?.name.toLowerCase()
             || (service.basePath !== "" && service?.name === '' && content.spec?.servers[0]?.url?.endsWith(service.basePath))
             || (service?.name === '' && content.spec?.servers[0]?.url == undefined) // TODO: Update the condition after fixing the issue in the OpenAPI tool
             || extractPath(content.spec?.servers[0]?.url) === extractPath(service.basePath));
 
         if (matchingDefinition.length === 0) {
-            throw new Error(`Failed to find matching OpenAPI definition: No service matches the base path '${service.basePath}' ${service.name !== '' ? `and service name '${service.name}'` : ''}`);
+            // Re-surface the LS error (if any) alongside our own message so the user
+            // can see what the language server actually reported.
+            const lsNote = spec.error ? ` Language server reported: ${spec.error}` : '';
+            throw new Error(`Failed to find matching OpenAPI definition: No service matches the base path '${service.basePath}' ${service.name !== '' ? `and service name '${service.name}'` : ''}.${lsNote}`);
         }
 
         if (matchingDefinition.length > 1) {
@@ -1109,7 +1136,8 @@ function sanitizeBallerinaPathSegment(pathSegment: string): string {
     return sanitized;
 }
 
-function extractPath(url) {
+function extractPath(url: string | undefined | null): string {
+    if (!url) { return ''; }
     let match;
 
     // Remove escaping backslashes

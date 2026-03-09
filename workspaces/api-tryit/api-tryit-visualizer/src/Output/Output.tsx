@@ -251,7 +251,7 @@ export const Output: React.FC<OutputProps> = ({ response }) => {
         <Container>
             {/* Status Code Section */}
             <StatusCodeContainer>
-                <Typography variant="subtitle2" sx={{ margin: '0 0 4px 0' }}>
+                <Typography variant="h3" sx={{ margin: '0 0 4px 0', fontWeight: 'lighter' }}>
                     Status Code
                 </Typography>
                 <StatusCode statusCode={response.statusCode}>
@@ -261,7 +261,7 @@ export const Output: React.FC<OutputProps> = ({ response }) => {
 
             {/* Response Headers Section */}
             <Section>
-                <Typography variant="subtitle2" sx={{ margin: '10px 0' }}>
+                <Typography variant="h3" sx={{ margin: '10px 0', fontWeight: 'lighter' }}>
                     Response Headers ({response.headers.length})
                 </Typography>
                 {response.headers.length > 0 ? (
@@ -293,7 +293,7 @@ export const Output: React.FC<OutputProps> = ({ response }) => {
 
             {/* Response Body Section */}
             <Section>
-                <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
+                <Typography variant="h3" sx={{ margin: '0 0 12px 0', fontWeight: 'lighter' }}>
                     Response Body
                 </Typography>
                 {response.body ? (

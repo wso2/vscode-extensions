@@ -79,13 +79,13 @@ export const MultipartForm: React.FC<MultipartFormProps> = ({
                 );
             })}
             <AddButtonWrapper>
-                <LinkButton onClick={onAddParam}>
+                <LinkButton sx={{ color: 'inherit', '&:hover': { color: 'var(--vscode-button-hoverBackground)' } }}  onClick={onAddParam}>
                     <Codicon name="add" />
                     Add Param
                 </LinkButton>
             </AddButtonWrapper>
             <AddButtonWrapper>
-                <LinkButton onClick={onAddFile}>
+                <LinkButton sx={{ color: 'inherit', '&:hover': { color: 'var(--vscode-button-hoverBackground)' } }}  onClick={onAddFile}>
                     <Codicon name="add" />
                     Add File
                 </LinkButton>

@@ -112,7 +112,6 @@ const AddButtonWrapper = styled.div`
 const ParamList = styled.div`
     display: flex;
     flex-direction: column;
-    margin-bottom: 8px;
     width: 600px;
 `;
 
@@ -267,20 +266,20 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
         <>
             {/* Query Parameters Section */}
             <Section>
-                <Typography variant="subtitle2" sx={{ margin: '4px 0px 10px 0px' }}>Query Parameters</Typography>
+                <Typography variant="h3" sx={{ margin: '4px 0px 4px 0px', fontWeight: 'lighter' }}>Query Parameters</Typography>
                 <ParamList>
                     {(request.queryParameters || []).map((param, id) => (
                         <ParamItem id={`${id}`} key={param.id} keyValue={param.key} value={param.value} onKeyChange={(key) => updateQueryParam(param.id, key, param.value)} onValueChange={(value) => updateQueryParam(param.id, param.key, value)} onDelete={() => deleteQueryParam(param.id)} />
                     ))}
                 </ParamList>
                 <AddButtonWrapper>
-                    <LinkButton onClick={addQueryParam}><Codicon name="add" />Query Parameter</LinkButton>
+                    <LinkButton sx={{ color: 'inherit', '&:hover': { color: 'var(--vscode-button-hoverBackground)' } }} onClick={addQueryParam}><Codicon name="add" />Query Parameter</LinkButton>
                 </AddButtonWrapper>
             </Section>
 
             {/* Headers Section */}
             <Section>
-                <Typography variant="subtitle2" sx={{ margin: '10px 0' }}>Headers</Typography>
+                <Typography variant="h3" sx={{ margin: '12px 0px 2px 0px', fontWeight: 'lighter' }}>Headers</Typography>
                 <ParamList>
                     {(request.headers || []).map((header, id) => (
                         <ParamItem
@@ -297,7 +296,7 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
                     ))}
                 </ParamList>
                 <AddButtonWrapper>
-                    <LinkButton onClick={addHeader}><Codicon name="add" />Header</LinkButton>
+                    <LinkButton sx={{ color: 'inherit', '&:hover': { color: 'var(--vscode-button-hoverBackground)' } }} onClick={addHeader}><Codicon name="add" />Header</LinkButton>
                 </AddButtonWrapper>
             </Section>
 
@@ -306,7 +305,7 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
                 <>
                     <BodyHeaderContainer>
                         <BodyTitleWrapper>
-                            <Typography variant="subtitle2" sx={{ margin: 0 }}>Body</Typography>
+                            <Typography variant="h3" sx={{ margin: 0, fontWeight: 'lighter' }}>Body</Typography>
                         </BodyTitleWrapper>
                         <FormatSelectorWrapper ref={formatRef}>
                             <FormatButton onClick={() => setFormatOpen(!formatOpen)}>
@@ -363,7 +362,7 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
                                 />
                             ))}
                             <AddButtonWrapper>
-                                <LinkButton onClick={addFormUrlEncodedParam}><Codicon name="add" />Add Param</LinkButton>
+                                <LinkButton sx={{ color: 'inherit', '&:hover': { color: 'var(--vscode-button-hoverBackground)' } }} onClick={addFormUrlEncodedParam}><Codicon name="add" />Add Param</LinkButton>
                             </AddButtonWrapper>
                         </>
                     )}
