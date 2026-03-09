@@ -128,6 +128,8 @@ const DATA_SERVICES = 'data-services';
 const CONNECTORS = 'connectors';
 const MAX_PROJECTS_TO_OPEN = 5;
 let migrationLogFilePath: string | undefined;
+const logQueue: string[] = [];
+let isFlushing = false;
 
 const SYNAPSE_TO_MI_ARTIFACT_FOLDER_MAP: Record<string, string> = {
     'api': 'apis',
@@ -169,6 +171,38 @@ function stringifyForLog(value: unknown): string {
 }
 
 /**
+ * Flushes queued migration log messages to the log file asynchronously.
+ *
+ * Writes all messages in `logQueue` to `migrationLogFilePath` in one batch.
+ * If new logs arrive during writing, flushes again to ensure nothing is lost.
+ *
+ * @async
+ * @returns {Promise<void>}
+ */
+async function flushLogs() {
+    if (isFlushing || logQueue.length === 0 || !migrationLogFilePath) {
+        return;
+    }
+
+    isFlushing = true;
+
+    try {
+        // Take all queued logs
+        const logsToWrite = logQueue.splice(0, logQueue.length).join('\n') + '\n';
+        await fs.promises.appendFile(migrationLogFilePath, logsToWrite, 'utf-8');
+    } catch (error) {
+        console.error(`Failed to write migration log to ${migrationLogFilePath}:`, error);
+    } finally {
+        isFlushing = false;
+
+        // If new logs arrived while writing, flush again
+        if (logQueue.length > 0) {
+            flushLogs();
+        }
+    }
+}
+
+/**
  * Appends a formatted log entry to the migration log file, if available.
  *
  * @param level Log severity level.
@@ -187,7 +221,9 @@ function appendLogToMigrationLogFile(level: 'log' | 'warn' | 'error', args: unkn
         if (!fs.existsSync(logDirectory)) {
             fs.mkdirSync(logDirectory, { recursive: true });
         }
-        fs.appendFileSync(migrationLogFilePath, `${logLine}\n`, 'utf-8');
+        // Add to queue
+        logQueue.push(logLine);
+        flushLogs()
     } catch (error) {
         console.error(`Failed to write migration log to ${migrationLogFilePath}:`, error);
     }
@@ -343,6 +379,7 @@ export async function importProjects(params: ImportProjectRequest[]): Promise<Im
         await handleWorkspaceAfterMigration(params[0].directory, allCreatedFolderUris);
     }
     logInfo("Project migration finished.");
+    await flushLogs();
     return responses;
 }
 
