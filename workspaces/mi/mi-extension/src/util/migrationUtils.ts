@@ -753,7 +753,7 @@ async function updateWorkspaceWithNewFolders(projectUri: string, createdFolderUr
     const urisToAdd = createdFolderUris.filter(folderUri =>
         !workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)
     );
-    logInfo(`Updating current workspace with multiple created projects. existingCount=${workspaceFolders.length}, requestedCount=${createdFolderUris.length}, toAddCount=${urisToAdd.length}`);
+    logInfo(`Updating current workspace with multiple created projects. existingCount=${workspaceFolders.length}, toAddCount=${urisToAdd.length}`);
 
     if (urisToAdd.length > 0) {
         // Remove the current project folder from workspaceFolders
