@@ -202,11 +202,14 @@ async function runSubagent(
  * @param projectPath - The project root path
  * @param sessionId - Current session ID (for JSONL storage path)
  * @param getAnthropicClient - Function to get the Anthropic client (takes AnthropicModel)
+ * @param mainAbortSignal - Abort signal from the main agent, propagated to foreground subagents
+ *                          and linked to background subagent AbortControllers
  */
 export function createSubagentExecute(
     projectPath: string,
     sessionId: string,
-    getAnthropicClient: (model: AnthropicModel) => Promise<any>
+    getAnthropicClient: (model: AnthropicModel) => Promise<any>,
+    mainAbortSignal?: AbortSignal
 ): SubagentToolExecuteFn {
     return async (args): Promise<SubagentToolResult> => {
         const { description, prompt, subagent_type, model = 'haiku', run_in_background = false, resume } = args;
@@ -264,6 +267,20 @@ export function createSubagentExecute(
             const subagentId = isResume ? resume! : generateSubagentId();
             const subagentDir = getSubagentsDir(projectPath, sessionId, subagentId);
             const abortController = new AbortController();
+
+            // Link main agent's abort signal to background subagent's controller
+            // so user abort terminates background subagents too
+            if (mainAbortSignal) {
+                if (mainAbortSignal.aborted) {
+                    abortController.abort(mainAbortSignal.reason);
+                } else {
+                    const onMainAbort = () => abortController.abort(mainAbortSignal.reason);
+                    mainAbortSignal.addEventListener('abort', onMainAbort, { once: true });
+                    // Clean up listener when background subagent completes
+                    const origComplete = () => mainAbortSignal.removeEventListener('abort', onMainAbort);
+                    abortController.signal.addEventListener('abort', origComplete, { once: true });
+                }
+            }
 
             // Create directory
             await fs.mkdir(subagentDir, { recursive: true });
@@ -338,7 +355,7 @@ export function createSubagentExecute(
             // Foreground Execution (existing synchronous behavior)
             // ================================================================
             try {
-                const result = await runSubagent(subagent_type, prompt, projectPath, model, getAnthropicClient, previousMessages);
+                const result = await runSubagent(subagent_type, prompt, projectPath, model, getAnthropicClient, previousMessages, mainAbortSignal);
 
                 logInfo(`[SubagentTool] ${subagent_type} subagent completed successfully${isResume ? ' (resumed)' : ''}`);
                 logDebug(`[SubagentTool] Response length: ${result.text.length} chars`);

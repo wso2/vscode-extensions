@@ -330,6 +330,7 @@ export async function executeAgent(
             webAccessPreapproved: request.webAccessPreapproved === true,
             shellApprovalRuleStore: request.shellApprovalRuleStore,
             undoCheckpointManager: request.undoCheckpointManager,
+            abortSignal: request.abortSignal,
         });
 
         // Track step number for logging

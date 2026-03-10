@@ -182,7 +182,8 @@ export function createBashExecute(
     eventHandler?: AgentEventHandler,
     pendingApprovals?: Map<string, PendingPlanApproval>,
     shellApprovalRuleStore?: ShellApprovalRuleStore,
-    sessionId: string = ''
+    sessionId: string = '',
+    mainAbortSignal?: AbortSignal
 ): BashExecuteFn {
     return async (args: {
         command: string;
@@ -308,6 +309,23 @@ export function createBashExecute(
                 shell.output += `\nError: ${error.message}`;
                 logError(`[ShellTool] Background shell ${taskId} error: ${error.message}`);
             });
+
+            // Kill background shell if main agent is aborted
+            if (mainAbortSignal && proc.pid) {
+                const onMainAbort = () => {
+                    if (!shell.completed && proc.pid) {
+                        logInfo(`[ShellTool] Main agent aborted, killing background shell: ${taskId}`);
+                        treeKill(proc.pid, 'SIGKILL');
+                    }
+                };
+                if (mainAbortSignal.aborted) {
+                    onMainAbort();
+                } else {
+                    mainAbortSignal.addEventListener('abort', onMainAbort, { once: true });
+                    // Clean up listener when shell completes naturally
+                    proc.on('close', () => mainAbortSignal.removeEventListener('abort', onMainAbort));
+                }
+            }
 
             logInfo(`[ShellTool] Started background shell: ${taskId}`);
 
