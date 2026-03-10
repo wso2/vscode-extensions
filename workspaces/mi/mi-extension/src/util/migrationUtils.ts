@@ -374,12 +374,10 @@ export async function importProjects(params: ImportProjectRequest[]): Promise<Im
             responses.push({ filePath: '' });
         }
     }
-    if (allCreatedFolderUris.length > 0) {
-        logInfo("Updating workspace after migration.");
-        await handleWorkspaceAfterMigration(params[0].directory, allCreatedFolderUris);
-    }
+    const closeWindow = await handleWorkspaceAfterMigration(params[0].directory, allCreatedFolderUris);
     logInfo("Project migration finished.");
     await flushLogs();
+    await closeWindowIfRequired(closeWindow);
     return responses;
 }
 
@@ -715,16 +713,20 @@ export async function migrateConfigs(
  *
  * @param projectUri - The URI of the original project being migrated.
  * @param createdFolderUris - An array of URIs representing the folders created during migration.
- * @returns A promise that resolves when the workspace has been updated accordingly.
+ * @returns A promise resolving to `true` if the current window should be closed after this operation, otherwise `false`.
  */
-async function handleWorkspaceAfterMigration(projectUri: string, createdFolderUris: Uri[]) {
+async function handleWorkspaceAfterMigration(projectUri: string, createdFolderUris: Uri[]): Promise<boolean> {
+    if (createdFolderUris.length <= 0) {
+        return false;
+    }
+    logInfo("Updating workspace after migration.");
     const createdProjectCount = createdFolderUris.length;
     logInfo(`Handling workspace after migration started. projectUri=${projectUri}, createdProjectCount=${createdProjectCount}, workspaceFolderCount=${workspace.workspaceFolders?.length ?? 0}`);
     if (!workspace.workspaceFolders || workspace.workspaceFolders.length <= 1) {
         if (createdProjectCount === 1) {
             logInfo(`Opening single created project in new window. uri=${createdFolderUris[0].fsPath}`);
-            await commands.executeCommand('workbench.action.closeWindow');
             await commands.executeCommand('vscode.openFolder', createdFolderUris[0], true);
+            return true;
         } else {
             await commands.executeCommand('workbench.action.closeActiveEditor');
             await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
@@ -733,6 +735,18 @@ async function handleWorkspaceAfterMigration(projectUri: string, createdFolderUr
         // If in a workspace with multiple folders, close the current open tab
         await commands.executeCommand('workbench.action.closeActiveEditor');
         await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
+    }
+    return false;
+}
+
+/**
+ * Closes the current VS Code window if required.
+ *
+ * @param shouldCloseWindow Indicates whether the window should be closed.
+ */
+async function closeWindowIfRequired(shouldCloseWindow: boolean): Promise<void> {
+    if (shouldCloseWindow) {
+        await commands.executeCommand('workbench.action.closeWindow');
     }
 }
 
