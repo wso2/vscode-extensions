@@ -16,6 +16,8 @@
  * under the License.
  */
 
+import { logDebug } from '../../../copilot/logger';
+
 // Explore Subagent
 export { EXPLORE_SUBAGENT_SYSTEM } from './explore/system';
 export { executeExploreSubagent } from './explore/agent';
@@ -23,3 +25,34 @@ export { executeExploreSubagent } from './explore/agent';
 // SynapseContext Subagent
 export { SYNAPSE_CONTEXT_SUBAGENT_SYSTEM } from './synapse-context/system';
 export { executeSynapseContextSubagent } from './synapse-context/agent';
+
+/**
+ * Extract response messages from Vercel AI SDK generateText result steps.
+ * Safely handles missing or malformed step data with fallback to final text.
+ */
+export function extractStepMessages(
+    steps: any[] | undefined,
+    finalText: string,
+    label: string
+): any[] {
+    if (!steps || steps.length === 0) {
+        logDebug(`[${label}] No steps found, using final text as response`);
+        return [{ role: 'assistant', content: finalText }];
+    }
+
+    const extracted: any[] = [];
+    for (const step of steps) {
+        const msgs = step?.response?.messages;
+        if (Array.isArray(msgs)) {
+            extracted.push(...msgs);
+        }
+    }
+
+    if (extracted.length === 0) {
+        logDebug(`[${label}] Steps found but no response messages extracted, using final text`);
+        return [{ role: 'assistant', content: finalText }];
+    }
+
+    logDebug(`[${label}] Extracted ${extracted.length} messages from ${steps.length} steps`);
+    return extracted;
+}
