@@ -394,7 +394,7 @@ function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResul
  * This ensures consistent tool definitions across main agent and compact agent.
  *
  * @param params - Tool creation parameters
- * @returns Tools object with all 20+ tools
+ * @returns Tools object with all 23 tools
  */
 export function createAgentTools(params: CreateToolsParams) {
     const {

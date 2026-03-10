@@ -102,34 +102,22 @@ export async function executeSynapseContextSubagent(
         } else {
             messages.push({
                 role: 'user',
-                content: `
-                ## Question
+                content: `${prompt}
 
-                ${prompt}
-
-                ## Instructions
-
-                1. Identify which reference contexts are relevant
-                2. Load targeted sections using load_context_reference
-                3. Cross-reference multiple contexts if the question spans domains
-                4. Optionally check project files for additional context
-                5. Synthesize a concise, actionable answer with XML examples
-
-                Return your answer in the specified markdown format.
-                `
+                Load the relevant reference section(s) and return what you find. If the answer is not in the docs, say so clearly.`
             });
         }
 
         // Execute the subagent with tool access
-        // stepCountIs(20): typical flow is 2-6 context loads + reasoning
+        // stepCountIs(6): answer from knowledge first, load 1-2 contexts only if needed
         const result = await generateText({
             model: anthropicModel,
             system: SYNAPSE_CONTEXT_SUBAGENT_SYSTEM,
             messages,
             tools,
-            stopWhen: stepCountIs(20),
+            stopWhen: stepCountIs(6),
             temperature: 0.2,
-            maxOutputTokens: 8000,
+            maxOutputTokens: 4000,
             abortSignal,
         });
 
