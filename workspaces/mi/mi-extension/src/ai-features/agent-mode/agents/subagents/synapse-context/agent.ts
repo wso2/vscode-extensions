@@ -21,6 +21,7 @@ import { SYNAPSE_CONTEXT_SUBAGENT_SYSTEM } from './system';
 import { logInfo, logDebug, logError } from '../../../../copilot/logger';
 import { ANTHROPIC_HAIKU_4_5, ANTHROPIC_SONNET_4_6, AnthropicModel } from '../../../../connection';
 import { SubagentResult } from '../../../tools/types';
+import { extractStepMessages } from '../index';
 
 // Import tools for subagent (read-only tools + context tool)
 import {
@@ -125,23 +126,8 @@ export async function executeSynapseContextSubagent(
         logDebug(`[SynapseContextSubagent] Response length: ${result.text.length} chars`);
 
         // Build the full conversation history for saving
-        const fullMessages = [...messages];
-
-        if (result.steps && result.steps.length > 0) {
-            for (const step of result.steps) {
-                if ((step as any).response?.messages) {
-                    fullMessages.push(...(step as any).response.messages);
-                }
-            }
-            logDebug(`[SynapseContextSubagent] Extracted messages from ${result.steps.length} steps`);
-        } else {
-            logDebug(`[SynapseContextSubagent] No steps found, using final text as response`);
-            fullMessages.push({
-                role: 'assistant',
-                content: result.text
-            });
-        }
-
+        const stepMessages = extractStepMessages(result.steps, result.text, 'SynapseContextSubagent');
+        const fullMessages = [...messages, ...stepMessages];
         logDebug(`[SynapseContextSubagent] Total messages in history: ${fullMessages.length}`);
 
         return {

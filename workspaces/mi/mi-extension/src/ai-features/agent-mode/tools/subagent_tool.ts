@@ -51,6 +51,14 @@ function generateSubagentId(): string {
 }
 
 /**
+ * Subagent metadata persisted alongside history for resume validation
+ */
+interface SubagentMetadata {
+    subagentType: string;
+    createdAt: string;
+}
+
+/**
  * Load subagent history from JSONL file
  * Returns the messages array that was saved during previous execution
  * Same format as ChatHistoryManager - each line is a message
@@ -78,6 +86,33 @@ async function loadSubagentHistory(projectPath: string, sessionId: string, subag
         }
         throw error;
     }
+}
+
+/**
+ * Load subagent metadata for resume validation
+ */
+async function loadSubagentMetadata(projectPath: string, sessionId: string, subagentId: string): Promise<SubagentMetadata | null> {
+    const subagentDir = getSubagentsDir(projectPath, sessionId, subagentId);
+    const metadataPath = path.join(subagentDir, 'metadata.json');
+
+    try {
+        const content = await fs.readFile(metadataPath, 'utf8');
+        return JSON.parse(content) as SubagentMetadata;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Save subagent metadata alongside history
+ */
+async function saveSubagentMetadata(historyDir: string, subagentType: string): Promise<void> {
+    const metadataPath = path.join(historyDir, 'metadata.json');
+    const metadata: SubagentMetadata = {
+        subagentType,
+        createdAt: new Date().toISOString(),
+    };
+    await fs.writeFile(metadataPath, JSON.stringify(metadata), 'utf8');
 }
 
 // ============================================================================
@@ -189,6 +224,26 @@ export function createSubagentExecute(
         // Load previous history if resuming
         let previousMessages: any[] | undefined;
         if (isResume) {
+            // Block resume of still-running background subagent
+            const running = backgroundSubagents.get(resume);
+            if (running && !running.completed) {
+                return {
+                    success: false,
+                    message: `Subagent ${resume} is still running. Wait for it to complete (use ${TASK_OUTPUT_TOOL_NAME}) or terminate it (use ${KILL_TASK_TOOL_NAME}) before resuming.`,
+                    error: 'SUBAGENT_STILL_RUNNING',
+                };
+            }
+
+            // Validate subagent type matches the original
+            const metadata = await loadSubagentMetadata(projectPath, sessionId, resume);
+            if (metadata && metadata.subagentType !== subagent_type) {
+                return {
+                    success: false,
+                    message: `Cannot resume: subagent ${resume} is a ${metadata.subagentType} subagent, but subagent_type=${subagent_type} was requested. Use subagent_type=${metadata.subagentType} to resume it.`,
+                    error: 'SUBAGENT_TYPE_MISMATCH',
+                };
+            }
+
             try {
                 previousMessages = await loadSubagentHistory(projectPath, sessionId, resume);
                 logInfo(`[SubagentTool] Loaded ${previousMessages.length} previous messages`);
@@ -248,9 +303,10 @@ export function createSubagentExecute(
                     logInfo(`[SubagentTool] Background ${subagent_type} subagent completed: ${subagentId}`);
                     logDebug(`[SubagentTool] Response length: ${result.text.length} chars`);
 
-                    // Save history (non-blocking)
+                    // Save history and metadata (non-blocking)
                     try {
                         await saveSubagentHistory(subagentDir, result.messages);
+                        await saveSubagentMetadata(subagentDir, subagent_type);
                     } catch (writeError: any) {
                         logError(`[SubagentTool] Failed to write history for ${subagentId}`, writeError);
                     }
@@ -290,10 +346,13 @@ export function createSubagentExecute(
                 // Use existing subagent ID when resuming, otherwise generate new one
                 const subagentId = isResume ? resume! : generateSubagentId();
 
-                // Save history (non-blocking, fire-and-forget)
+                // Save history and metadata (non-blocking, fire-and-forget)
                 const subagentDir = getSubagentsDir(projectPath, sessionId, subagentId);
                 fs.mkdir(subagentDir, { recursive: true })
-                    .then(() => saveSubagentHistory(subagentDir, result.messages))
+                    .then(async () => {
+                        await saveSubagentHistory(subagentDir, result.messages);
+                        await saveSubagentMetadata(subagentDir, subagent_type);
+                    })
                     .catch((err: any) => logError('[SubagentTool] Failed to save foreground subagent history', err));
 
                 return {

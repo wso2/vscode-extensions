@@ -21,6 +21,7 @@ import { EXPLORE_SUBAGENT_SYSTEM } from './system';
 import { logInfo, logDebug, logError } from '../../../../copilot/logger';
 import { ANTHROPIC_HAIKU_4_5, ANTHROPIC_SONNET_4_6, AnthropicModel } from '../../../../connection';
 import { SubagentResult } from '../../../tools/types';
+import { extractStepMessages } from '../index';
 
 // Import tools for subagent (read-only tools only)
 import {
@@ -133,26 +134,8 @@ export async function executeExploreSubagent(
         logDebug(`[ExploreSubagent] Response length: ${result.text.length} chars`);
 
         // Build the full conversation history for saving
-        // Same pattern as main agent: extract messages from steps
-        const fullMessages = [...messages];
-
-        // Extract messages from each step (following main agent pattern)
-        if (result.steps && result.steps.length > 0) {
-            for (const step of result.steps) {
-                if ((step as any).response?.messages) {
-                    fullMessages.push(...(step as any).response.messages);
-                }
-            }
-            logDebug(`[ExploreSubagent] Extracted messages from ${result.steps.length} steps`);
-        } else {
-            // Fallback: add final response as assistant message
-            logDebug(`[ExploreSubagent] No steps found, using final text as response`);
-            fullMessages.push({
-                role: 'assistant',
-                content: result.text
-            });
-        }
-
+        const stepMessages = extractStepMessages(result.steps, result.text, 'ExploreSubagent');
+        const fullMessages = [...messages, ...stepMessages];
         logDebug(`[ExploreSubagent] Total messages in history: ${fullMessages.length}`);
 
         return {
