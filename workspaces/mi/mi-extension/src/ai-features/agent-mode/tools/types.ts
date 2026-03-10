@@ -136,7 +136,7 @@ export const WEB_FETCH_TOOL_NAME = 'web_fetch';
 // Subagent Types
 // ============================================================================
 
-export type SubagentType = 'Explore';
+export type SubagentType = 'Explore' | 'SynapseContext';
 
 /**
  * Return type from subagent execution (captures messages for JSONL persistence)

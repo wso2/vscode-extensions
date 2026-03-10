@@ -19,3 +19,7 @@
 // Explore Subagent
 export { EXPLORE_SUBAGENT_SYSTEM } from './explore/system';
 export { executeExploreSubagent } from './explore/agent';
+
+// SynapseContext Subagent
+export { SYNAPSE_CONTEXT_SUBAGENT_SYSTEM } from './synapse-context/system';
+export { executeSynapseContextSubagent } from './synapse-context/agent';

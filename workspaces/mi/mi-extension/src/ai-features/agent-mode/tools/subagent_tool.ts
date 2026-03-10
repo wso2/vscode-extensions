@@ -35,7 +35,7 @@ import { AnthropicModel } from '../../connection';
 import { getCopilotSessionDir } from '../storage-paths';
 
 // Import subagent executors
-import { executeExploreSubagent } from '../agents/subagents';
+import { executeExploreSubagent, executeSynapseContextSubagent } from '../agents/subagents';
 
 // ============================================================================
 // Utility Functions
@@ -151,8 +151,10 @@ async function runSubagent(
     switch (subagentType) {
         case 'Explore':
             return await executeExploreSubagent(prompt, projectPath, model, getAnthropicClient, previousMessages, abortSignal);
+        case 'SynapseContext':
+            return await executeSynapseContextSubagent(prompt, projectPath, model, getAnthropicClient, previousMessages, abortSignal);
         default:
-            throw new Error(`Unknown subagent type: ${subagentType}. Available types: Explore. (Note: DataMapper is accessible via generate_data_mapping tool)`);
+            throw new Error(`Unknown subagent type: ${subagentType}. Available types: Explore, SynapseContext. (Note: DataMapper is accessible via generate_data_mapping tool)`);
     }
 }
 
@@ -322,9 +324,10 @@ const subagentInputSchema = z.object({
     prompt: z.string().describe(
         'The detailed task for the subagent to perform. Include all necessary context.'
     ),
-    subagent_type: z.enum(['Explore']).describe(
+    subagent_type: z.enum(['Explore', 'SynapseContext']).describe(
         `The type of subagent to spawn:
-        - Explore: Fast codebase explorer. Use when you need to find and understand existing code.`
+        - Explore: Fast codebase explorer. Use when you need to find and understand existing code.
+        - SynapseContext: Synapse XML expert. Use when you need deep answers about Synapse expressions, mediators, endpoints, properties, SOAP, payload patterns, or edge cases. It loads and cross-references deep reference documentation to provide accurate, actionable answers with XML examples.`
     ),
     model: z.enum(['sonnet', 'haiku']).optional().describe(
         'Optional model selection. Defaults to haiku for cost efficiency. Use sonnet for complex design tasks.'
@@ -343,8 +346,10 @@ const subagentInputSchema = z.object({
  */
 export function createSubagentTool(execute: SubagentToolExecuteFn) {
     return (tool as any)({
-        description: `Spawn an Explore subagent for codebase exploration without filling your context window.
-            The subagent uses grep/glob/file_read to search and understand code, then returns a summary.
+        description: `Spawn a specialized subagent without filling your context window.
+            Available types:
+            - Explore: Uses grep/glob/file_read to search and understand code, then returns a summary.
+            - SynapseContext: Loads deep Synapse reference documentation (expressions, mediators, endpoints, properties, SOAP, payload patterns, edge cases) via load_context_reference and cross-references them to answer technical questions with XML examples.
             Supports background execution (run_in_background=true) and resuming previous subagents (resume=subagentId).
             Background executions return task IDs compatible with ${TASK_OUTPUT_TOOL_NAME} and ${KILL_TASK_TOOL_NAME} (same pattern as background shell tasks).`,
         inputSchema: subagentInputSchema,
