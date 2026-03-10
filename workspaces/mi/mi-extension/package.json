@@ -231,7 +231,7 @@
         {
           "id": "MI.project-explorer",
           "name": "Project Explorer",
-          "when": "!config.integrator.defaultIntegrator"
+          "when": "!wso2-integrator.explorer.visible"
         }
       ],
       "test": [
