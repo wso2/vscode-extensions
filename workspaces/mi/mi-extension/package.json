@@ -231,7 +231,7 @@
         {
           "id": "MI.project-explorer",
           "name": "Project Explorer",
-          "when": "!config.integrator.defaultIntegrator"
+          "when": "!wso2-integrator.explorer.visible"
         }
       ],
       "test": [
@@ -246,7 +246,7 @@
       {
         "view": "MI.project-explorer",
         "contents": "Loading...",
-        "when": "!config.integrator.defaultIntegrator && (MI.status != 'unknownProject' && MI.status != 'projectLoaded' && MI.status != 'disabled' && MI.status != 'notSetUp')"
+        "when": "!wso2-integrator.explorer.visible && (MI.status != 'unknownProject' && MI.status != 'projectLoaded' && MI.status != 'disabled' && MI.status != 'notSetUp')"
       },
       {
         "view": "MI.project-explorer",
@@ -262,11 +262,6 @@
         "view": "MI.project-explorer",
         "contents": "WSO2 Integrator: MI is not set up. Please set up the MI server and Java home to continue.",
         "when": "!config.integrator.defaultIntegrator && MI.status == 'notSetUp'"
-      },
-      {
-        "view": "wso2-integrator.explorer",
-        "contents": "Loading...",
-        "when": "config.integrator.defaultIntegrator != '' && (MI.status != 'unknownProject' && MI.status != 'projectLoaded' && MI.status != 'disabled' && MI.status != 'notSetUp')"
       },
       {
         "view": "wso2-integrator.explorer",
