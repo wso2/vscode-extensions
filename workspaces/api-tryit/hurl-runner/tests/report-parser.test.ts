@@ -59,8 +59,12 @@ describe('parseFileResult', () => {
 							name: 'Create user',
 							success: false,
 							time: 12,
-							request: { method: 'POST', url: 'https://example.com/users' },
-							response: { status: 500 },
+							calls: [
+								{
+									request: { method: 'POST', url: 'https://example.com/users' },
+									response: { status: 500 }
+								}
+							],
 							asserts: [
 								{
 									entryName: 'Create user',

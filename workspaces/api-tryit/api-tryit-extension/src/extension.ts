@@ -27,6 +27,7 @@ import type { HurlCollectionPayload } from '@wso2/api-tryit-hurl-parser';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
+import RunHurlTest from './tools/run-hurl-test';
 import { getHurlBinaryManager, initializeHurlBinaryManager } from './hurl/hurl-binary-manager';
 import { setPendingBiSavePath, getActiveCollectionFilePath, setActiveCollectionFilePath } from './bi-save-context';
 
@@ -1537,6 +1538,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage(`API TryIt collections path set to: ${selected.fsPath}`);
 		await apiExplorerProvider.reloadCollections();
 	});
+	// Register run hurl test tool
+	const hurlTool = vscode.lm.registerTool('run-hurl-test', new RunHurlTest());
 
 	const installHurlCommand = vscode.commands.registerCommand('api-tryit.installHurl', async () => {
 		try {
@@ -1561,14 +1564,15 @@ export async function activate(context: vscode.ExtensionContext) {
 		openFromHurlCommand,
 		openFromHurlCollectionCommand,
 		newCollectionCommand,
-			importCollectionCommand,
-			importCollectionPayloadCommand,
-			openCollectionCommand,
-			plusMenuCommand,
-			settingsCommand,
-			clearSelectionCommand,
-			installHurlCommand,
-		);
+		importCollectionCommand,
+		importCollectionPayloadCommand,
+		openCollectionCommand,
+		plusMenuCommand,
+		settingsCommand,
+		clearSelectionCommand,
+		installHurlCommand,
+		hurlTool,
+	);
 }
 
 export function deactivate() {
