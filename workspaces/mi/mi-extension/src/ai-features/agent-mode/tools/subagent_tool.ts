@@ -331,7 +331,7 @@ const subagentInputSchema = z.object({
     ),
     run_in_background: z.boolean().optional().describe(
         `Set to true to run the subagent in the background.
-        Returns a task_id (subagentId). Use ${TASK_OUTPUT_TOOL_NAME} later to check results using that task_id, or ${KILL_TASK_TOOL_NAME} to terminate it.`
+        Returns a task_id (subagentId). Use ${TASK_OUTPUT_TOOL_NAME} to check results or ${KILL_TASK_TOOL_NAME} to terminate it (same task workflow used by background shell commands).`
     ),
     resume: z.string().optional().describe(
         'Optional subagent ID to resume from (format: task-subagent-xxxxxxxx). If provided, the subagent will continue from its previous execution. Use this to continue a previously started exploration.'
@@ -346,7 +346,7 @@ export function createSubagentTool(execute: SubagentToolExecuteFn) {
         description: `Spawn an Explore subagent for codebase exploration without filling your context window.
             The subagent uses grep/glob/file_read to search and understand code, then returns a summary.
             Supports background execution (run_in_background=true) and resuming previous subagents (resume=subagentId).
-            Use ${TASK_OUTPUT_TOOL_NAME} to check background subagent results and ${KILL_TASK_TOOL_NAME} to terminate a running one.`,
+            Background executions return task IDs compatible with ${TASK_OUTPUT_TOOL_NAME} and ${KILL_TASK_TOOL_NAME} (same pattern as background shell tasks).`,
         inputSchema: subagentInputSchema,
         execute
     });

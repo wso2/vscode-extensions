@@ -18,7 +18,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { FileObject, ImageObject, TodoItem, Question } from "@wso2/mi-core";
+import { FileObject, ImageObject, TodoItem, Question, PlanApprovalKind } from "@wso2/mi-core";
 import { LoaderWrapper, ProgressRing } from "../styles";
 import {
     ChatMessage,
@@ -37,11 +37,12 @@ export interface PendingUserQuestion {
 // Pending plan approval type (for UI)
 export interface PendingPlanApproval {
     approvalId: string;
-    approvalKind?: 'enter_plan_mode' | 'exit_plan_mode' | 'exit_plan_mode_without_plan' | 'web_search' | 'web_fetch';
+    approvalKind?: PlanApprovalKind;
     approvalTitle?: string;
     approveLabel?: string;
     rejectLabel?: string;
     allowFeedback?: boolean;
+    suggestedPrefixRule?: string[];
     planFilePath?: string;
     content?: string;  // Summary or plan content to display
 }

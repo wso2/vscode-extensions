@@ -291,11 +291,6 @@
         "category": "MI"
       },
       {
-        "command": "MI.importCAPP",
-        "title": "Import project from car file(CAPP)",
-        "category": "MI"
-      },
-      {
         "command": "MI.openWelcome",
         "title": "Open MI Welcome",
         "category": "MI"
@@ -361,13 +356,6 @@
         "title": "Open Project Overview",
         "icon": "$(list-unordered)",
         "when": "false"
-      },
-      {
-        "command": "MI.project-explorer.import-project",
-        "title": "Import Project",
-        "icon": "$(add)",
-        "group": "navigation",
-        "category": "MI"
       },
       {
         "command": "MI.project-explorer.open-service-designer",
@@ -616,10 +604,6 @@
     ],
     "menus": {
       "commandPalette": [
-        {
-          "command": "MI.importCAPP",
-          "when": "!projectOpened"
-        },
         {
           "command": "MI.project-explorer.add-api",
           "when": "false"
@@ -1057,7 +1041,7 @@
     "@wso2/wso2-platform-core": "workspace:*",
     "await-notify": "1.0.1",
     "eslint": "9.27.0",
-    "glob": "11.0.2",
+    "glob": "11.1.0",
     "mocha": "11.4.0",
     "playwright-core": "1.55.1",
     "rimraf": "6.0.1",
@@ -1069,6 +1053,7 @@
     "yaml": "2.8.0"
   },
   "dependencies": {
+    "@ai-sdk/amazon-bedrock": "4.0.4",
     "@ai-sdk/anthropic": "3.0.46",
     "@anthropic-ai/tokenizer": "0.0.4",
     "@apidevtools/json-schema-ref-parser": "12.0.2",

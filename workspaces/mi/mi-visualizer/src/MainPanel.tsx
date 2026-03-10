@@ -9,7 +9,6 @@ import { EndpointWizard } from './views/Forms/EndpointForm';
 import { SequenceWizard } from './views/Forms/SequenceForm';
 import { NavigationBar } from './components/NavigationBar';
 import { ProjectWizard } from './views/Forms/ProjectForm';
-import { ImportProjectWizard } from './views/Forms/ImportProjectForm';
 import { TaskForm } from './views/Forms/TaskForm';
 import { MessageStoreWizard } from './views/Forms/MessageStoreForm/index';
 import { MessageProcessorWizard } from "./views/Forms/MessageProcessorForm";
@@ -319,9 +318,6 @@ const MainPanel = (props: MainPanelProps) => {
                 break;
             case MACHINE_VIEW.LocalEntryForm:
                 setViewComponent(<LocalEntryWizard path={visualizerState.documentUri} />);
-                break;
-            case MACHINE_VIEW.ImportProjectForm:
-                setViewComponent(<ImportProjectWizard />);
                 break;
             case MACHINE_VIEW.MessageStoreForm:
                 setViewComponent(<MessageStoreWizard path={visualizerState.documentUri} />);

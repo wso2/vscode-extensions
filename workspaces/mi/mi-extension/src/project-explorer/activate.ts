@@ -179,11 +179,6 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 		console.log('Add Template');
 	});
 
-	commands.registerCommand(COMMANDS.IMPORT_PROJECT_COMMAND, () => {
-		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ImportProjectForm });
-		console.log('Import a Project');
-	});
-
 	commands.registerCommand(COMMANDS.ADD_LOCAL_ENTRY_COMMAND, (entry: ProjectExplorerEntry) => {
 		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.LocalEntryForm, documentUri: entry.info?.path });
 		console.log('Add Local Entry');

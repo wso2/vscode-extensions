@@ -109,7 +109,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                             directory: path.dirname(args.path),
                             name: path.basename(args.path),
                             open: args.open ?? false,
-                            miVersion: "4.4.0"
+                            miVersion: args.miVersion ?? "4.6.0"
                         }
                     );
                     await createSettingsFile(args);
@@ -139,11 +139,6 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ProjectCreationForm, projectUri });
                 log('Create New Project');
             }
-        })
-    );
-    context.subscriptions.push(
-        vscode.commands.registerCommand(COMMANDS.IMPORT_CAPP, () => {
-            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ImportProjectForm });
         })
     );
     context.subscriptions.push(

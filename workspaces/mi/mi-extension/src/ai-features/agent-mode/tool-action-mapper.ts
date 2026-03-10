@@ -68,8 +68,20 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
         case FILE_GLOB_TOOL_NAME:
             return { loading: 'finding files', completed: 'found files', failed: 'failed to find files' };
 
-        case CONNECTOR_TOOL_NAME:
-            return { loading: 'fetching connectors', completed: 'fetched connectors', failed: 'failed to fetch connectors' };
+        case CONNECTOR_TOOL_NAME: {
+            const targetName = toolInput?.name;
+            if (typeof targetName === 'string') {
+                const trimmedName = targetName.trim();
+                if (trimmedName.length > 0) {
+                    return {
+                        loading: `fetching ${trimmedName}`,
+                        completed: `fetched ${trimmedName}`,
+                        failed: `failed to fetch ${trimmedName}`
+                    };
+                }
+            }
+            return { loading: 'fetching connector details', completed: 'fetched connector details', failed: 'failed to fetch connector details' };
+        }
 
         case SKILL_TOOL_NAME:
             return { loading: 'loading skill context', completed: 'loaded skill context', failed: 'failed to load skill context' };

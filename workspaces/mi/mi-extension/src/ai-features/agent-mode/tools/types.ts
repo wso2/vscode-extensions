@@ -48,6 +48,14 @@ export interface ToolResult {
     validation?: ValidationDiagnostics;
 }
 
+export interface FileEditHunk {
+    old_text: string;
+    new_text: string;
+    context_before?: string;
+    context_after?: string;
+    line_hint?: number;
+}
+
 // ============================================================================
 // Constants
 // ============================================================================
@@ -179,9 +187,11 @@ export const ErrorMessages = {
     INVALID_FILE_PATH: 'Invalid file path',
     INVALID_EXTENSION: 'Invalid file extension',
     EMPTY_CONTENT: 'Content cannot be empty',
-    NO_MATCH_FOUND: 'No match found for old_string',
-    MULTIPLE_MATCHES: 'Multiple matches found - old_string must be unique',
-    IDENTICAL_STRINGS: 'old_string and new_string are identical',
+    INVALID_HUNK: 'Invalid hunk',
+    HUNK_NOT_FOUND: 'Hunk not found in target file',
+    HUNK_AMBIGUOUS: 'Hunk match is ambiguous',
+    HUNK_OVERLAP: 'Hunks overlap',
+    PATCH_APPLY_FAILED: 'Failed to apply patch',
     INVALID_LINE_RANGE: 'Invalid line range',
     INVALID_READ_OPTIONS: 'Invalid read options',
     EDIT_FAILED: 'Edit operation failed',
@@ -206,9 +216,7 @@ export type ReadExecuteFn = (args: {
 
 export type EditExecuteFn = (args: {
     file_path: string;
-    old_string: string;
-    new_string: string;
-    replace_all?: boolean;
+    hunks: FileEditHunk[];
 }) => Promise<ToolResult>;
 
 export type GrepExecuteFn = (args: {
@@ -338,6 +346,11 @@ export interface BashResult extends ToolResult {
     stderr?: string;
     exitCode?: number;
     taskId?: string;
+}
+
+export interface ShellApprovalRuleStore {
+    getRules: () => string[][];
+    addRule: (rule: string[]) => Promise<void>;
 }
 
 export type BashExecuteFn = (args: {

@@ -292,7 +292,15 @@ import {
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
     UpdateRegistryPropertyRequest,
-    LoginMethod
+    LoginMethod,
+    LoadDriverAndTestConnectionRequest,
+    GetDynamicFieldsRequest,
+    GetDynamicFieldsResponse,
+    GetStoredProceduresResponse,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse
 } from "@wso2/mi-core";
 import axios from 'axios';
 import { error } from "console";
@@ -305,7 +313,7 @@ import { Transform } from 'stream';
 import * as tmp from 'tmp';
 import { v4 as uuidv4 } from 'uuid';
 import * as vscode from 'vscode';
-import { Position, Range, Selection, TextEdit, Uri, ViewColumn, WorkspaceEdit, commands, extensions, window, workspace } from "vscode";
+import { Position, Range, Selection, TextEdit, Uri, ViewColumn, WorkspaceEdit, commands, window, workspace } from "vscode";
 import { parse, stringify } from "yaml";
 import { DiagramService, APIResource, NamedSequence, UnitTest, Proxy } from "../../../../syntax-tree/lib/src";
 import { extension } from '../../MIExtensionContext';
@@ -313,6 +321,7 @@ import { RPCLayer } from "../../RPCLayer";
 import { StateMachineAI } from '../../ai-features/aiMachine';
 import {
     getAccessToken as getCopilotAccessToken,
+    getPlatformExtensionAPI,
     getCopilotLlmApiBaseUrl,
     getLoginMethod as getCopilotLoginMethod,
     getRefreshedAccessToken as refreshCopilotAccessToken,
@@ -344,7 +353,7 @@ import { compareVersions, filterConnectorVersion, generateInitialDependencies, g
 import { Range as STRange } from '@wso2/mi-syntax-tree/lib/src';
 import { checkForDevantExt } from "../../extension";
 import { getAPIMetadata } from "../../util/template-engine/mustach-templates/API";
-import { DevantScopes, IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-core";
+import { DevantScopes } from "@wso2/wso2-platform-core";
 import { ICreateComponentCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { DebuggerConfig } from "../../debugger/config";
@@ -4939,11 +4948,10 @@ ${keyValuesXML}`;
                 }
             }
 
-            const platformExt = extensions.getExtension("wso2.wso2-platform");
-            if (!platformExt) {
-                return { hasComponent: hasContextYaml, isLoggedIn: false };
+            const platformExtAPI = await getPlatformExtensionAPI();
+            if (!platformExtAPI) {
+                return { hasComponent: hasContextYaml, isLoggedIn: false, hasLocalChanges: false };
             }
-            const platformExtAPI: IWso2PlatformExtensionAPI = await platformExt.activate();
             hasLocalChanges = await platformExtAPI.localRepoHasChanges(this.projectUri);
             isLoggedIn = platformExtAPI.isLoggedIn();
             if (isLoggedIn) {
@@ -6085,6 +6093,68 @@ ${keyValuesXML}`;
             }
         }
         return updatedXml;
+    }
+
+    async getDynamicFields(params: GetDynamicFieldsRequest): Promise<GetDynamicFieldsResponse> {
+        return new Promise(async (resolve) => {
+            try {
+                const langClient = await MILanguageClient.getInstance(this.projectUri);
+                const response = await langClient.getDynamicFields({
+                    connectorName: params.connectorName,
+                    operationName: params.operationName,
+                    fieldName: params.fieldName,
+                    selectedValue: params.selectedValue,
+                    connection: params.connection
+                });
+
+                if (!response || !response.columns || !response.columns.length) {
+                    resolve({ columns: [] });
+                    return;
+                }
+
+                resolve(response);
+            } catch (error) {
+                console.error(`Error getting dynamic fields: ${error}`);
+                resolve({ columns: [] });
+            }
+        });
+    }
+
+    async getStoredProcedures(params: DSSFetchTablesRequest): Promise<GetStoredProceduresResponse> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.getStoredProcedures({
+                ...params, tableData: "", datasourceName: ""
+            });
+            resolve(res);
+        });
+    }
+
+    async downloadDriverForConnector(params: DriverDownloadRequest): Promise<DriverDownloadResponse> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.downloadDriverForConnector(params);
+            resolve(res);
+        });
+    }
+
+    async loadDriverAndTestConnection(req: LoadDriverAndTestConnectionRequest): Promise<TestDbConnectionResponse> {
+
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const response = await langClient?.loadDriverAndTestConnection(req);
+            resolve({ success: response ? response.success : false });
+        });
+    }
+
+    async getDriverMavenCoordinates(params: DriverMavenCoordinatesRequest): Promise<DriverMavenCoordinatesResponse> {
+        return new Promise(async (resolve) => {
+
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.getDriverMavenCoordinates(params);
+            resolve(res);
+
+        });
     }
 
     async getPropertiesFromArtifactXML(targetFile: string): Promise<Property[] | undefined> {
