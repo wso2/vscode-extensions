@@ -337,6 +337,8 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
             return;
         }
 
+        onManualInteraction?.();
+
     };
 
     const handleRefSetCursor = (value: string, cursorPosition: number) => {
@@ -416,7 +418,6 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
                 onKeyDown={handleInputKeyDown}
                 onFocus={handleTextAreaFocus}
                 onBlur={handleTextFieldBlur}
-                onInput={onManualInteraction}
                 onClick={onManualInteraction}
                 sx={{ width: '100%', ...sx }}
                 disabled={disabled || isSavingExpression}
