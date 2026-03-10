@@ -261,27 +261,24 @@ You can do the following operations with Synapse Expressions
 
 #### XPath in Synapse Expressions — Rules
 
-1. **No \\\`\\\\'\\\` escaping**: \\\`\\\\'\\\` is invalid XML. Single quotes inside a
-   double-quoted XML attribute don't need escaping.
+1. **Do not escape single quotes as \`\\'\`** in XML attributes. In a double-quoted XML attribute, plain single quotes are valid.
 
-2. **Quote nesting in xpath()**: The xpath() function parameter uses either
-   single OR double quotes as outer delimiter. String literals inside the
-   XPath must use the opposite quote type. Since the XML attribute is
-   double-quoted, use &quot; to embed double-quote delimiters:  
-     CORRECT: \\\`expression="\\\${xpath(&quot;string(\\$body//*[local-name()='El'])&quot;)}"\\\`  
-     WRONG:   \\\`expression="\\\${xpath('//*[local-name()=\\\\'El\\\\']/text()')}"\\\`
+2. **Use opposite quote types in \`xpath()\`**:
+   - Use \`&quot;...&quot;\` as the outer xpath string and single quotes inside XPath literals.
+   - Correct example:
+   \`\`\`xml
+   <variable name="customerId" expression="\${xpath(&quot;string($body//*[local-name()='CustomerId'])&quot;)}" type="STRING"/>
+   \`\`\`
 
-3. **No nested function calls with xpath()**: trim(xpath(...)) silently
-   returns empty. Always extract to a variable first, then apply functions:  
-     \\\`<variable name="raw" expression="\\\${xpath(...)}" type="STRING"/>\\\`  
-     ... then use \\\`\\\${trim(vars.raw)}\\\` in payloadFactory.
+3. **Avoid nested function calls around \`xpath()\`**. Extract first, then transform:
+   \`\`\`xml
+   <variable name="rawValue" expression="\${xpath(&quot;string($body//*[local-name()='Element'])&quot;)}" type="STRING"/>
+   <variable name="cleanValue" expression="\${trim(vars.rawValue)}" type="STRING"/>
+   \`\`\`
 
-4. **SOAP response XPath**: Always use \\$body context and string() to
-   reliably extract text from SOAP responses:  
-     \\\`\\\${xpath(&quot;string(\\$body//*[local-name()='ElementName'])&quot;)}\\\`
+4. **SOAP response XPath**: use \`$body\` context with \`string()\` for reliable text extraction.
 
-5. **Null variable checks in filter**: \\\`\\\${vars.x == null or vars.x == ''}\\\`
-   can throw WARN when the variable is truly null. Prefer \\\`\\\${not(exists(vars.x))}\\\`.
+5. **Null checks in filter**: prefer \`\${not(exists(vars.x))}\` over \`\${vars.x == null or vars.x == ''}\` to avoid WARNs on truly null values.
 
 #### Where can you use Synapse Expressions?
 - You can use synapse expressions literally anywhere in the synapse configuration to provide dynamic inputs.

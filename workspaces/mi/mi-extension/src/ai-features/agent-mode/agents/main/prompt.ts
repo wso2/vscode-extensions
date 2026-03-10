@@ -28,6 +28,7 @@ import { getRuntimeVersionFromPom } from '../../tools/connector_store_cache';
 import { getServerPathFromConfig } from '../../../../util/onboardingUtils';
 import { AgentMode } from '@wso2/mi-core';
 import { getModeReminder } from './mode';
+import { buildSystemReminder } from './prompt_system_reminder';
 
 const MAX_PROJECT_STRUCTURE_FILES = 50;
 const MAX_PROJECT_STRUCTURE_CHARS = 10000;
@@ -85,14 +86,13 @@ MI Runtime carbon log path: {{env_mi_runtime_carbon_log_path}}
 </env>
 
 <system_reminder>
-{{system_remainder}}
+{{system_reminder}}
 </system_reminder>
 
-**DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task.**
 <user_query>
 {{question}}
 </user_query>
-**DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task.**
+**DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task unless explicitly requested by the user.**
 `;
 
 // ============================================================================
@@ -245,8 +245,8 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     const currentlyOpenedFile = await getCurrentlyOpenedFile(params.projectPath);
 
     // Get available connectors and inbound endpoints
-    const { connectors: availableConnectors, inboundEndpoints: availableInboundEndpoints } =
-        await getAvailableConnectorCatalog(params.projectPath);
+    const connectorCatalog = await getAvailableConnectorCatalog(params.projectPath);
+    const { connectors: availableConnectors, inboundEndpoints: availableInboundEndpoints } = connectorCatalog;
     const availableSkills = getAvailableSkills();
 
     const mode = params.mode || 'edit';
@@ -256,9 +256,12 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     const planFileReminder = mode === 'plan'
         ? await getPlanModeSessionReminder(params.projectPath, params.sessionId || 'default')
         : '';
-    const modeReminder = planFileReminder
-        ? `${modePolicyReminder}\n\n${planFileReminder}`
-        : modePolicyReminder;
+    const connectorStoreReminder = connectorCatalog.warnings.length > 0
+        ? `Connector store status: ${connectorCatalog.storeStatus}. ${connectorCatalog.warnings.join(' ')}`
+        : '';
+    const modeReminderSections = [modePolicyReminder, planFileReminder, connectorStoreReminder]
+        .filter((section) => section.trim().length > 0);
+    const modeReminder = modeReminderSections.join('\n\n');
 
     // Prepare template context
     const isGitRepo = fs.existsSync(path.join(params.projectPath, '.git'));
@@ -282,11 +285,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         env_mi_runtime_version: runtimeVersion || 'unknown',
         env_mi_runtime_home_path: runtimePaths.runtimeHomePath,
         env_mi_runtime_carbon_log_path: runtimePaths.carbonLogPath,
-        system_remainder: `.
-        <mode>
-        ${mode.toUpperCase()}
-        </mode>
-        ${modeReminder}`
+        system_reminder: buildSystemReminder(mode, modeReminder),
     };
 
     // Render the template

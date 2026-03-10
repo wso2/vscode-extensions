@@ -19,12 +19,20 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import * as childProcess from 'child_process';
-import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { BashResult, ToolResult, BashExecuteFn, KillTaskExecuteFn, TaskOutputExecuteFn, TaskOutputResult, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './types';
-import { logDebug, logError, logInfo } from '../../copilot/logger';
+import { AgentEvent } from '@wso2/mi-core';
+import { BashResult, ToolResult, BashExecuteFn, KillTaskExecuteFn, TaskOutputExecuteFn, TaskOutputResult, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, ShellApprovalRuleStore } from './types';
+import { logError, logInfo } from '../../copilot/logger';
 import { getBackgroundSubagents } from './subagent_tool';
 import { setJavaHomeInEnvironmentAndPath } from '../../../debugger/debugHelper';
+import { PendingPlanApproval } from './plan_mode_tools';
+import {
+    analyzeShellCommand,
+    buildShellCommandDeniedResult,
+    buildShellSandboxBlockedResult,
+    isAnalysisCoveredByRules,
+    normalizePrefixRule,
+} from './shell_sandbox';
 import treeKill = require('tree-kill');
 
 // ============================================================================
@@ -83,6 +91,85 @@ function generateShellTaskId(): string {
     return `task-shell-${uuidv4().split('-')[0]}`;
 }
 
+type AgentEventHandler = (event: AgentEvent) => void;
+
+function formatApprovalReasons(reasons: string[]): string {
+    if (reasons.length === 0) {
+        return '- Shell policy requires explicit user approval for this command.';
+    }
+
+    return reasons.map((reason) => `- ${reason}`).join('\n');
+}
+
+function summarizeCommandForLog(command: string): string {
+    const trimmed = command.trim();
+    if (!trimmed) {
+        return '<empty>';
+    }
+
+    const tokens = trimmed.split(/\s+/);
+    const commandName = tokens[0].replace(/^['"`]+|['"`]+$/g, '');
+    const argCount = Math.max(tokens.length - 1, 0);
+    return `${commandName || '<unknown>'} (args=${argCount})`;
+}
+
+function buildShellApprovalContent(command: string, reasons: string[], suggestedPrefixRule: string[]): string {
+    const lines: string[] = [
+        'Agent wants to run this shell command:',
+        `\`${command}\``,
+        '',
+        'Why approval is required:',
+        formatApprovalReasons(reasons),
+    ];
+
+    if (suggestedPrefixRule.length > 0) {
+        lines.push('', `Suggested session rule prefix: \`${suggestedPrefixRule.join(' ')}\``);
+    }
+
+    return lines.join('\n');
+}
+
+async function requestShellApproval(
+    eventHandler: AgentEventHandler,
+    pendingApprovals: Map<string, PendingPlanApproval>,
+    request: {
+        sessionId: string;
+        command: string;
+        reasons: string[];
+        suggestedPrefixRule: string[];
+    }
+): Promise<{ approved: boolean; feedback?: string; rememberForSession?: boolean; suggestedPrefixRule?: string[] }> {
+    const approvalId = uuidv4();
+
+    eventHandler({
+        type: 'plan_approval_requested',
+        approvalId,
+        approvalKind: 'shell_command',
+        approvalTitle: 'Allow Shell Command?',
+        approveLabel: 'Allow',
+        rejectLabel: 'Deny',
+        allowFeedback: false,
+        content: buildShellApprovalContent(request.command, request.reasons, request.suggestedPrefixRule),
+        suggestedPrefixRule: request.suggestedPrefixRule,
+    });
+
+    return new Promise((resolve, reject) => {
+        pendingApprovals.set(approvalId, {
+            approvalId,
+            approvalKind: 'shell_command',
+            sessionId: request.sessionId,
+            resolve: (result) => {
+                pendingApprovals.delete(approvalId);
+                resolve(result);
+            },
+            reject: (error: Error) => {
+                pendingApprovals.delete(approvalId);
+                reject(error);
+            }
+        });
+    });
+}
+
 // ============================================================================
 // Shell Tool
 // ============================================================================
@@ -90,7 +177,13 @@ function generateShellTaskId(): string {
 /**
  * Creates the execute function for the shell tool
  */
-export function createBashExecute(projectPath: string): BashExecuteFn {
+export function createBashExecute(
+    projectPath: string,
+    eventHandler?: AgentEventHandler,
+    pendingApprovals?: Map<string, PendingPlanApproval>,
+    shellApprovalRuleStore?: ShellApprovalRuleStore,
+    sessionId: string = ''
+): BashExecuteFn {
     return async (args: {
         command: string;
         description?: string;
@@ -103,6 +196,55 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
             timeout = DEFAULT_TIMEOUT,
             run_in_background = false
         } = args;
+
+        const analysis = analyzeShellCommand(command, process.platform, projectPath, run_in_background);
+        if (analysis.blocked) {
+            return buildShellSandboxBlockedResult(analysis.reasons);
+        }
+
+        const sessionRules = shellApprovalRuleStore?.getRules() ?? [];
+        const approvalBypassedByRule = analysis.requiresApproval
+            && !analysis.isDestructive
+            && isAnalysisCoveredByRules(analysis, sessionRules);
+
+        if (analysis.requiresApproval && !approvalBypassedByRule) {
+            if (!eventHandler || !pendingApprovals) {
+                return {
+                    success: false,
+                    message: 'Shell command requires user approval, but approval flow is unavailable in this context.',
+                    error: 'SHELL_APPROVAL_UNAVAILABLE',
+                };
+            }
+
+            const approvalResult = await requestShellApproval(eventHandler, pendingApprovals, {
+                sessionId,
+                command,
+                reasons: analysis.reasons,
+                suggestedPrefixRule: analysis.suggestedPrefixRule,
+            });
+
+            if (!approvalResult.approved) {
+                return buildShellCommandDeniedResult();
+            }
+
+            const rememberForSession = approvalResult.rememberForSession === true;
+            if (rememberForSession && shellApprovalRuleStore && !analysis.isDestructive) {
+                const selectedRule = normalizePrefixRule(
+                    (approvalResult.suggestedPrefixRule && approvalResult.suggestedPrefixRule.length > 0)
+                        ? approvalResult.suggestedPrefixRule
+                        : analysis.suggestedPrefixRule
+                );
+                if (selectedRule.length > 0) {
+                    try {
+                        await shellApprovalRuleStore.addRule(selectedRule);
+                    } catch (error) {
+                        logError('[ShellTool] Failed to persist shell approval rule', error);
+                    }
+                }
+            }
+        } else if (approvalBypassedByRule) {
+            logInfo(`[ShellTool] Approval bypassed by session rule for command summary: ${summarizeCommandForLog(command)}`);
+        }
 
         logInfo(`[ShellTool] Executing: ${command}${description ? ` (${description})` : ''}`);
 
@@ -269,7 +411,7 @@ const bashInputSchema = z.object({
         `Optional timeout in milliseconds (default: ${DEFAULT_TIMEOUT}ms, max: ${MAX_TIMEOUT}ms)`
     ),
     run_in_background: z.boolean().optional().default(false).describe(
-        'Set to true to run the command in the background. Returns a task_id that can be used with kill_task tool.'
+        `Set to true to run the command in the background. Returns a task_id that can be checked with ${TASK_OUTPUT_TOOL_NAME} and terminated with ${KILL_TASK_TOOL_NAME}.`
     ),
 });
 
@@ -280,7 +422,7 @@ export function createBashTool(execute: BashExecuteFn) {
     return (tool as any)({
         description: `Execute shell commands in the MI project directory (JAVA_HOME pre-configured).
             Always provide platform-specific commands according to <env> (Windows: PowerShell syntax, macOS/Linux: bash syntax).
-            Use run_in_background=true for long-running commands; use ${KILL_TASK_TOOL_NAME} to terminate.
+            Use run_in_background=true for long-running commands; this returns a task_id usable with ${TASK_OUTPUT_TOOL_NAME} and ${KILL_TASK_TOOL_NAME}.
             Do NOT use shell for file reading (use file_read), content search (use grep), or file search (use glob).
             No interactive commands (vim, nano, etc.).`,
         inputSchema: bashInputSchema,
