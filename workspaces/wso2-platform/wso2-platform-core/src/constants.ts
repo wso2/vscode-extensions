@@ -52,6 +52,7 @@ export const WICommandIds = {
 	CreateDirectoryContext: "wso2.integrator.cloud.project.createContext",
 	ManageDirectoryContext: "wso2.integrator.cloud.project.manageContext",
 	RefreshDirectoryContext: "wso2.integrator.cloud.project.refresh",
+	OpenCompSrcDir: "wso2.integrator.cloud.integration.open.src",
 	CommitAndPushToGit: "wso2.integrator.cloud.integration.push-to-git",
 };
 

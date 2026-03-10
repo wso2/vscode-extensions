@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -16,14 +16,19 @@
  * under the License.
  */
 
-export * from "./types/store.types";
-export * from "./types/webview-prop.types";
-export * from "./types/common.types";
-export * from "./types/config-file.types";
-export * from "./types/messenger-rpc.types";
-export * from "./types/cli-rpc.types";
-export * from "./types/cmd-params";
-export * from "./types/wi-cmd-params";
-export * from "./constants";
-export * from "./enums";
-export * from "./utils";
+/**
+ * A single component entry for the component creation form.
+ * Contains only the data the webview needs — platform-core types stay in wi-extension.
+ */
+export interface ICreateNewIntegrationCmdIntegrations {
+	fsPath: string;
+	supportedIntegrationTypes?: string[];
+    name?: string;
+}
+
+
+export interface ICreateNewIntegrationCmdParams {
+    buildPackLang?: "ballerina" | "microintegrator";
+    workspaceDir?: string;
+    integrations?: ICreateNewIntegrationCmdIntegrations[];
+}
