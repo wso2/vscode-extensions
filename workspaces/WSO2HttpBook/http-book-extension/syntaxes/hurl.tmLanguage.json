@@ -1,0 +1,70 @@
+{
+  "name": "Hurl",
+  "scopeName": "source.hurl",
+  "fileTypes": ["hurl"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#request-line" },
+    { "include": "#response-line" },
+    { "include": "#section-header" },
+    { "include": "#key-value" },
+    { "include": "#template" },
+    { "include": "#quoted-string" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "^(#.*)$",
+      "captures": {
+        "1": { "name": "comment.line.number-sign.hurl" }
+      }
+    },
+    "request-line": {
+      "match": "^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|CONNECT|TRACE)\\s+(\\S+)",
+      "captures": {
+        "1": { "name": "keyword.other.http-method.hurl" },
+        "2": { "name": "markup.underline.link.hurl" }
+      }
+    },
+    "response-line": {
+      "match": "^(HTTP(?:/[0-9\\.]+)?)\\s+([0-9]{3})(?:\\s+(.*))?$",
+      "captures": {
+        "1": { "name": "keyword.control.http-version.hurl" },
+        "2": { "name": "constant.numeric.http-status-code.hurl" },
+        "3": { "name": "string.unquoted.http-reason.hurl" }
+      }
+    },
+    "section-header": {
+      "match": "^(\\[[A-Za-z]+\\])\\s*$",
+      "captures": {
+        "1": { "name": "entity.name.section.hurl" }
+      }
+    },
+    "key-value": {
+      "match": "^([A-Za-z0-9_][A-Za-z0-9_-]*)\\s*(:)\\s*(.*)$",
+      "captures": {
+        "1": { "name": "support.type.property-name.hurl" },
+        "2": { "name": "punctuation.separator.key-value.hurl" },
+        "3": { "name": "string.unquoted.value.hurl" }
+      }
+    },
+    "template": {
+      "match": "\\{\\{([^}]+)\\}\\}",
+      "captures": {
+        "0": { "name": "variable.other.template.hurl" },
+        "1": { "name": "variable.other.template.inner.hurl" }
+      }
+    },
+    "quoted-string": {
+      "begin": "\"",
+      "end": "\"",
+      "name": "string.quoted.double.hurl",
+      "patterns": [
+        { "include": "#template" },
+        {
+          "match": "\\\\.",
+          "name": "constant.character.escape.hurl"
+        }
+      ]
+    }
+  }
+}

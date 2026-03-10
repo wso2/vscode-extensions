@@ -323,5 +323,21 @@
             ],
             "preLaunchTask": "npm: watch-apk"
         },
+        {
+            "name": "WSO2 HttpBook Extension",
+            "type": "extensionHost",
+            "request": "launch",
+            "debugWebviews": true,
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/WSO2HttpBook/http-book-extension"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/workspaces/WSO2HttpBook/http-book-extension/dist/**/*.js"
+            ],
+            "skipFiles": [
+                "**/node_modules/**"
+            ],
+            "preLaunchTask": "npm: watch-http-book"
+        }
     ]
 }
