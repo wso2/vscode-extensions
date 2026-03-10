@@ -137,12 +137,24 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
 
         // Plan Mode Tools
         case SUBAGENT_TOOL_NAME: {
-            // Extract subagent type and background mode for dynamic messages
+            // Map subagent types to user-friendly display names
+            const subagentDisplayNames: Record<string, { loading: string; loadingBg: string; completed: string; failed: string }> = {
+                'Explore': { loading: 'exploring codebase', loadingBg: 'exploring codebase (background)', completed: 'exploration completed', failed: 'exploration failed' },
+                'SynapseContext': { loading: 'referencing Synapse docs', loadingBg: 'referencing Synapse docs (background)', completed: 'Synapse docs lookup completed', failed: 'Synapse docs lookup failed' },
+            };
             const subagentType = toolInput?.subagent_type || 'subagent';
+            const display = subagentDisplayNames[subagentType];
             const isBackgroundTask = toolInput?.run_in_background;
+            if (display) {
+                return {
+                    loading: isBackgroundTask ? display.loadingBg : display.loading,
+                    completed: display.completed,
+                    failed: display.failed
+                };
+            }
             return {
                 loading: isBackgroundTask ? `launching ${subagentType} agent` : `running ${subagentType} agent`,
-                completed: isBackgroundTask ? `launched ${subagentType} agent` : `${subagentType} agent completed`,
+                completed: `${subagentType} agent completed`,
                 failed: `${subagentType} agent failed`
             };
         }
