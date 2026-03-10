@@ -4823,9 +4823,9 @@ ${keyValuesXML}`;
         return new Promise(async (resolve) => {
             let selection = params?.buildType?.toString();
             if (!selection) {
-                selection = await window.showQuickPick(["Build CAPP", "Create Docker Image"]);
+                selection = await window.showQuickPick(["Build CApp", "Create Docker Image"]);
             }
-            if (selection === "Build CAPP" || selection === "capp") {
+            if (selection === "Build CApp" || selection === "capp") {
                 await commands.executeCommand(COMMANDS.BUILD_PROJECT, this.projectUri, false);
             } else if (selection === "Create Docker Image" || selection === "docker") {
                 await commands.executeCommand(COMMANDS.CREATE_DOCKER_IMAGE, this.projectUri);

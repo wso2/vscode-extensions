@@ -370,6 +370,7 @@ export interface ImportProjectRequest {
     source: string;
     directory: string;
     open: boolean;
+    createNewFolder?: boolean;
 }
 
 export interface MigrateProjectRequest {
