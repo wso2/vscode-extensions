@@ -178,6 +178,8 @@ export interface CreateToolsParams {
     shellApprovalRuleStore?: ShellApprovalRuleStore;
     /** Optional undo checkpoint manager for capturing pre-change states */
     undoCheckpointManager?: AgentUndoCheckpointManager;
+    /** Abort signal from the main agent — propagated to subagents and background tasks */
+    abortSignal?: AbortSignal;
 }
 
 const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
@@ -410,6 +412,7 @@ export function createAgentTools(params: CreateToolsParams) {
         webAccessPreapproved,
         shellApprovalRuleStore,
         undoCheckpointManager,
+        abortSignal,
     } = params;
 
     const getWrappedExecute = <T extends (...args: any[]) => Promise<ToolResult>>(
@@ -476,7 +479,7 @@ export function createAgentTools(params: CreateToolsParams) {
 
         // Plan Mode Tools (5 tools)
         [SUBAGENT_TOOL_NAME]: createSubagentTool(
-            getWrappedExecute(SUBAGENT_TOOL_NAME, createSubagentExecute(projectPath, sessionId, getAnthropicClient))
+            getWrappedExecute(SUBAGENT_TOOL_NAME, createSubagentExecute(projectPath, sessionId, getAnthropicClient, abortSignal))
         ),
         [ASK_USER_TOOL_NAME]: createAskUserTool(
             getWrappedExecute(ASK_USER_TOOL_NAME, createAskUserExecute(eventHandler, pendingQuestions, sessionId))
@@ -518,7 +521,8 @@ export function createAgentTools(params: CreateToolsParams) {
                 eventHandler,
                 pendingApprovals,
                 shellApprovalRuleStore,
-                sessionId
+                sessionId,
+                abortSignal
             ))
         ),
         [KILL_TASK_TOOL_NAME]: createKillTaskTool(
