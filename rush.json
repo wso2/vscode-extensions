@@ -628,6 +628,10 @@
       "projectFolder": "workspaces/api-tryit/hurl-runner"
     },
     {
+      "packageName": "@wso2/api-tryit-core",
+      "projectFolder": "workspaces/api-tryit/api-tryit-core"
+    },
+    {
       "packageName": "@wso2/http-book-core",
       "projectFolder": "workspaces/WSO2HttpBook/http-book-core"
     },
