@@ -1,0 +1,123 @@
+{
+  "name": "wso2-http-book",
+  "displayName": "WSO2 HttpBook",
+  "description": "Open and run .hurl files as interactive notebooks",
+  "version": "1.0.0",
+  "publisher": "wso2",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wso2/ballerina-plugin-vscode.git"
+  },
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Notebooks",
+    "Other"
+  ],
+  "activationEvents": [
+    "onNotebook:wso2-http-book",
+    "onCommand:wso2-http-book.openHurlNotebook"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "grammars": [
+      {
+        "language": "hurl",
+        "scopeName": "source.hurl",
+        "path": "./syntaxes/hurl.tmLanguage.json"
+      }
+    ],
+    "notebooks": [
+      {
+        "type": "wso2-http-book",
+        "displayName": "WSO2 HttpBook",
+        "selector": [
+          {
+            "filenamePattern": "*.hurl"
+          }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "wso2-http-book.openHurlNotebook",
+        "title": "WSO2 HttpBook: Open Hurl Notebook",
+        "icon": "$(notebook)"
+      },
+      {
+        "command": "wso2-http-book.installHurl",
+        "title": "WSO2 HttpBook: Install Hurl",
+        "icon": "$(cloud-download)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "wso2-http-book.openHurlNotebook"
+        },
+        {
+          "command": "wso2-http-book.installHurl"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "wso2-http-book.openHurlNotebook",
+          "when": "resourceExtname == .hurl",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "WSO2 HttpBook",
+      "properties": {
+        "wso2-http-book.hurl.path": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the hurl executable. If empty, WSO2 HttpBook uses managed install or PATH."
+        },
+        "wso2-http-book.hurl.autoInstall": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically download and install a managed hurl binary when needed."
+        },
+        "wso2-http-book.hurl.version": {
+          "type": "string",
+          "default": "7.1.0",
+          "description": "Managed hurl version to install."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "clean": "rimraf ./dist",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "node ../../common-libs/scripts/package-vsix.js",
+    "lint": "eslint src --ext ts",
+    "build": "pnpm clean && webpack --mode production --devtool hidden-source-map && pnpm run package",
+    "copyVSIX": "copyfiles *.vsix ./vsix",
+    "copyVSIXToRoot": "copyfiles -u 0 \"vsix/*.vsix\" ../../../"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "3.7.0",
+    "rimraf": "5.0.5",
+    "@types/vscode": "1.100.0",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "8.32.1",
+    "@typescript-eslint/parser": "8.32.1",
+    "eslint": "9.27.0",
+    "typescript": "5.8.3",
+    "ts-loader": "9.5.1",
+    "webpack": "5.104.1",
+    "webpack-cli": "6.0.1",
+    "copyfiles": "2.4.1",
+    "@wso2/http-book-visualizer": "workspace:*"
+  },
+  "dependencies": {
+    "@wso2/http-book-core": "workspace:*",
+    "@wso2/api-tryit-hurl-runner": "workspace:*",
+    "@wso2/api-tryit-hurl-parser": "workspace:*",
+    "vscode-webview-network-bridge": "1.1.1"
+  }
+}

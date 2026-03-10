@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2020",
+    "outDir": "dist",
+    "lib": ["ES2020"],
+    "sourceMap": true,
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"],
+    "paths": {
+      "vscode-webview-network-bridge/extension": ["./node_modules/vscode-webview-network-bridge/dist/extension"],
+      "vscode-webview-network-bridge/router": ["./node_modules/vscode-webview-network-bridge/dist/router"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", ".vscode-test", "dist"]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@wso2/http-book-core",
+  "version": "1.0.0",
+  "description": "Shared types for WSO2 HttpBook",
+  "main": "src/index.ts",
+  "license": "Apache-2.0",
+  "scripts": {
+    "build": "tsc --pretty",
+    "build:tsc": "tsc --pretty"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
+  },
+  "dependencies": {
+    "@wso2/api-tryit-hurl-runner": "workspace:*"
+  }
+}
