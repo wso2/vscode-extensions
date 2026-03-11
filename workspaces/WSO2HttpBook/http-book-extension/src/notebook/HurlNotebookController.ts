@@ -35,6 +35,7 @@ const CONTROLLER_LABEL = 'Hurl Runner';
  */
 export class HurlNotebookController {
     private readonly controller: vscode.NotebookController;
+    private readonly affinityListener: vscode.Disposable;
 
     constructor() {
         this.controller = vscode.notebooks.createNotebookController(
@@ -45,9 +46,20 @@ export class HurlNotebookController {
         this.controller.supportedLanguages = ['plaintext', 'hurl'];
         this.controller.supportsExecutionOrder = true;
         this.controller.executeHandler = this.executeHandler.bind(this);
+
+        // Auto-select this controller as the preferred kernel for every notebook of our type,
+        // so VS Code never shows the "Select Kernel" prompt.
+        const setPreferred = (notebook: vscode.NotebookDocument) => {
+            if (notebook.notebookType === NOTEBOOK_TYPE) {
+                this.controller.updateNotebookAffinity(notebook, vscode.NotebookControllerAffinity.Preferred);
+            }
+        };
+        vscode.workspace.notebookDocuments.forEach(setPreferred);
+        this.affinityListener = vscode.workspace.onDidOpenNotebookDocument(setPreferred);
     }
 
     dispose(): void {
+        this.affinityListener.dispose();
         this.controller.dispose();
     }
 
