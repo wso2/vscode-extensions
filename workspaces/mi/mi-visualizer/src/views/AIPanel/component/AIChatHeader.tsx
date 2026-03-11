@@ -23,6 +23,30 @@ import { Badge, Header, HeaderButtons, ResetsInBadge } from '../styles';
 import { useMICopilotContext } from "./MICopilotContext";
 import SessionSwitcher from "./SessionSwitcher";
 
+function formatResetTime(seconds: number): string {
+  const totalSeconds = Math.max(0, Math.floor(seconds || 0));
+
+  if (totalSeconds < 60) {
+    return "< 1 min";
+  }
+
+  if (totalSeconds < 60 * 60) {
+    const minutes = Math.ceil(totalSeconds / 60);
+    return `${minutes} min`;
+  }
+
+  if (totalSeconds < 60 * 60 * 24) {
+    const hours = Math.floor(totalSeconds / (60 * 60));
+    const remainingMinutes = Math.ceil((totalSeconds % (60 * 60)) / 60);
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  }
+
+  const days = Math.floor(totalSeconds / (60 * 60 * 24));
+  const remainingHours = Math.floor((totalSeconds % (60 * 60 * 24)) / (60 * 60));
+  const dayLabel = days === 1 ? "day" : "days";
+  return remainingHours > 0 ? `${days} ${dayLabel} ${remainingHours}h` : `${days} ${dayLabel}`;
+}
+
 /**
  * Header component for the chat interface
  * Shows session switcher, token information, and action buttons
@@ -86,9 +110,7 @@ const AIChatHeader: React.FC = () => {
                       <br />
                       <ResetsInBadge>
                           {tokenInfo.remainingPercentage !== -1 &&
-                              `Resets in: ${
-                                  tokenInfo.timeToReset < 1 ? "< 1 day" : `${Math.round(tokenInfo.timeToReset)} days`
-                              }`}
+                              `Resets in: ${formatResetTime(tokenInfo.timeToReset)}`}
                       </ResetsInBadge>
                   </>
               )}

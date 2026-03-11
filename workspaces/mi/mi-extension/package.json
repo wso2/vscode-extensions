@@ -231,7 +231,7 @@
         {
           "id": "MI.project-explorer",
           "name": "Project Explorer",
-          "when": "!config.integrator.defaultIntegrator"
+          "when": "!wso2-integrator.explorer.visible"
         }
       ],
       "test": [
@@ -246,11 +246,11 @@
       {
         "view": "MI.project-explorer",
         "contents": "Loading...",
-        "when": "!config.integrator.defaultIntegrator && (MI.status != 'unknownProject' && MI.status != 'projectLoaded' && MI.status != 'disabled' && MI.status != 'notSetUp')"
+        "when": "!wso2-integrator.explorer.visible && (MI.status != 'unknownProject' && MI.status != 'projectLoaded' && MI.status != 'disabled' && MI.status != 'notSetUp')"
       },
       {
         "view": "MI.project-explorer",
-        "contents": "Welcome to WSO2 Integrator: MI. You can open a folder containing a MI project or create a new project.\n[Open MI Project](command:MI.openProject)\n[Create New Project](command:MI.project-explorer.create-project)\nTo learn more about how to use WSO2 Integrator: MI in VS Code, [read our docs](https://mi.docs.wso2.com/en/4.3.0/develop/mi-for-vscode/mi-for-vscode-overview/).",
+        "contents": "Welcome to WSO2 Integrator: MI. You can open a folder containing a MI project or create a new project.\n[Create New Project](command:MI.project-explorer.create-project)\n[Open MI Project](command:MI.openProject)\n[Import from CApp](command:MI.importProjectFromCapp)\nTo learn more about how to use WSO2 Integrator: MI in VS Code, [read our docs](https://mi.docs.wso2.com/en/4.3.0/develop/mi-for-vscode/mi-for-vscode-overview/).",
         "when": "!config.integrator.defaultIntegrator && MI.status == 'unknownProject'"
       },
       {
@@ -262,11 +262,6 @@
         "view": "MI.project-explorer",
         "contents": "WSO2 Integrator: MI is not set up. Please set up the MI server and Java home to continue.",
         "when": "!config.integrator.defaultIntegrator && MI.status == 'notSetUp'"
-      },
-      {
-        "view": "wso2-integrator.explorer",
-        "contents": "Loading...",
-        "when": "config.integrator.defaultIntegrator != '' && (MI.status != 'unknownProject' && MI.status != 'projectLoaded' && MI.status != 'disabled' && MI.status != 'notSetUp')"
       },
       {
         "view": "wso2-integrator.explorer",
@@ -288,6 +283,11 @@
       {
         "command": "MI.openProject",
         "title": "Open Project",
+        "category": "MI"
+      },
+      {
+        "command": "MI.importProjectFromCapp",
+        "title": "Import from CApp",
         "category": "MI"
       },
       {
@@ -756,6 +756,10 @@
         {
           "command": "MI.test.delete.suite",
           "when": "false"
+        },
+        {
+          "command": "MI.importProjectFromCapp",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -1046,7 +1050,7 @@
     "@wso2/wso2-platform-core": "workspace:*",
     "await-notify": "1.0.1",
     "eslint": "9.27.0",
-    "glob": "11.0.2",
+    "glob": "11.1.0",
     "mocha": "11.4.0",
     "playwright-core": "1.55.1",
     "rimraf": "6.0.1",

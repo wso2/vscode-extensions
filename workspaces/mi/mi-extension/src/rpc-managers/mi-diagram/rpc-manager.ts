@@ -313,7 +313,7 @@ import { Transform } from 'stream';
 import * as tmp from 'tmp';
 import { v4 as uuidv4 } from 'uuid';
 import * as vscode from 'vscode';
-import { Position, Range, Selection, TextEdit, Uri, ViewColumn, WorkspaceEdit, commands, extensions, window, workspace } from "vscode";
+import { Position, Range, Selection, TextEdit, Uri, ViewColumn, WorkspaceEdit, commands, window, workspace } from "vscode";
 import { parse, stringify } from "yaml";
 import { DiagramService, APIResource, NamedSequence, UnitTest, Proxy } from "../../../../syntax-tree/lib/src";
 import { extension } from '../../MIExtensionContext';
@@ -321,6 +321,7 @@ import { RPCLayer } from "../../RPCLayer";
 import { StateMachineAI } from '../../ai-features/aiMachine';
 import {
     getAccessToken as getCopilotAccessToken,
+    getPlatformExtensionAPI,
     getCopilotLlmApiBaseUrl,
     getLoginMethod as getCopilotLoginMethod,
     getRefreshedAccessToken as refreshCopilotAccessToken,
@@ -352,7 +353,7 @@ import { compareVersions, filterConnectorVersion, generateInitialDependencies, g
 import { Range as STRange } from '@wso2/mi-syntax-tree/lib/src';
 import { checkForDevantExt } from "../../extension";
 import { getAPIMetadata } from "../../util/template-engine/mustach-templates/API";
-import { DevantScopes, IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-core";
+import { DevantScopes } from "@wso2/wso2-platform-core";
 import { ICreateComponentCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { DebuggerConfig } from "../../debugger/config";
@@ -4833,9 +4834,9 @@ ${keyValuesXML}`;
         return new Promise(async (resolve) => {
             let selection = params?.buildType?.toString();
             if (!selection) {
-                selection = await window.showQuickPick(["Build CAPP", "Create Docker Image"]);
+                selection = await window.showQuickPick(["Build CApp", "Create Docker Image"]);
             }
-            if (selection === "Build CAPP" || selection === "capp") {
+            if (selection === "Build CApp" || selection === "capp") {
                 await commands.executeCommand(COMMANDS.BUILD_PROJECT, this.projectUri, false);
             } else if (selection === "Create Docker Image" || selection === "docker") {
                 await commands.executeCommand(COMMANDS.CREATE_DOCKER_IMAGE, this.projectUri);
@@ -4958,11 +4959,10 @@ ${keyValuesXML}`;
                 }
             }
 
-            const platformExt = extensions.getExtension("wso2.wso2-platform");
-            if (!platformExt) {
-                return { hasComponent: hasContextYaml, isLoggedIn: false };
+            const platformExtAPI = await getPlatformExtensionAPI();
+            if (!platformExtAPI) {
+                return { hasComponent: hasContextYaml, isLoggedIn: false, hasLocalChanges: false };
             }
-            const platformExtAPI: IWso2PlatformExtensionAPI = await platformExt.activate();
             hasLocalChanges = await platformExtAPI.localRepoHasChanges(this.projectUri);
             isLoggedIn = platformExtAPI.isLoggedIn();
             if (isLoggedIn) {

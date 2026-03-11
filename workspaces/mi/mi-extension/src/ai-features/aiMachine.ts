@@ -24,6 +24,7 @@ import { AiPanelWebview } from './webview';
 import { extension } from '../MIExtensionContext';
 import {
     getAuthCredentials,
+    getPlatformExtensionAPI,
     initiateInbuiltAuth,
     logout,
     validateApiKey,
@@ -32,12 +33,56 @@ import {
     isDevantUserLoggedIn,
     getPlatformStsToken,
     exchangeStsToCopilotToken,
-    storeAuthCredentials,
-    PLATFORM_EXTENSION_ID
+    storeAuthCredentials
 } from './auth';
 import { PromptObject } from '@wso2/mi-core';
-import { IWso2PlatformExtensionAPI } from '@wso2/wso2-platform-core';
-import { logError } from './copilot/logger';
+import { logError, logWarn } from './copilot/logger';
+
+let silentPlatformBootstrapInFlight = false;
+const LOGIN_STS_RETRY_COUNT = 10;
+const LOGIN_STS_RETRY_DELAY_MS = 500;
+
+const trySilentPlatformBootstrap = async (): Promise<void> => {
+    if (silentPlatformBootstrapInFlight) {
+        return;
+    }
+
+    // Only bootstrap when the machine is currently unauthenticated.
+    if (aiStateService.getSnapshot().value !== 'Unauthenticated') {
+        return;
+    }
+
+    silentPlatformBootstrapInFlight = true;
+    try {
+        const isLoggedIn = await isDevantUserLoggedIn();
+        if (!isLoggedIn) {
+            return;
+        }
+
+        const stsToken = await getPlatformStsToken({
+            retries: LOGIN_STS_RETRY_COUNT,
+            retryDelayMs: LOGIN_STS_RETRY_DELAY_MS,
+        });
+        if (!stsToken) {
+            return;
+        }
+
+        const secrets = await exchangeStsToCopilotToken(stsToken);
+        await storeAuthCredentials({
+            loginMethod: LoginMethod.MI_INTEL,
+            secrets
+        });
+
+        // Transition to authenticated only if state is still unauthenticated.
+        if (aiStateService.getSnapshot().value === 'Unauthenticated') {
+            aiStateService.send({ type: AI_EVENT_TYPE.SIGN_IN_SUCCESS });
+        }
+    } catch (error) {
+        logError('Silent platform auth bootstrap failed', error);
+    } finally {
+        silentPlatformBootstrapInFlight = false;
+    }
+};
 
 export const openAIWebview = (initialPrompt?: PromptObject) => {
     extension.initialPrompt = initialPrompt;
@@ -46,6 +91,9 @@ export const openAIWebview = (initialPrompt?: PromptObject) => {
     } else {
         AiPanelWebview.currentPanel!.getWebview()?.reveal();
     }
+
+    // If platform session is already active, silently bootstrap auth for the AI panel.
+    void trySilentPlatformBootstrap();
 };
 
 export const closeAIWebview = () => {
@@ -54,6 +102,13 @@ export const closeAIWebview = () => {
         AiPanelWebview.currentPanel = undefined;
     }
 };
+
+const createAuthSuccessTransition = (target: string) => ({
+    target,
+    actions: assign({
+        errorMessage: (_ctx: AIMachineContext) => undefined,
+    }),
+});
 
 const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
     id: 'mi-ai',
@@ -157,7 +212,9 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                     actions: assign({
                         loginMethod: (_ctx) => LoginMethod.AWS_BEDROCK
                     })
-                }
+                },
+                [AI_EVENT_TYPE.COMPLETE_AUTH]: createAuthSuccessTransition('Authenticated'),
+                [AI_EVENT_TYPE.SIGN_IN_SUCCESS]: createAuthSuccessTransition('Authenticated'),
             }
         },
         Authenticating: {
@@ -195,18 +252,8 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                         }
                     },
                     on: {
-                        [AI_EVENT_TYPE.COMPLETE_AUTH]: {
-                            target: '#mi-ai.Authenticated',
-                            actions: assign({
-                                errorMessage: (_ctx) => undefined,
-                            })
-                        },
-                        [AI_EVENT_TYPE.SIGN_IN_SUCCESS]: {
-                            target: '#mi-ai.Authenticated',
-                            actions: assign({
-                                errorMessage: (_ctx) => undefined,
-                            })
-                        },
+                        [AI_EVENT_TYPE.COMPLETE_AUTH]: createAuthSuccessTransition('#mi-ai.Authenticated'),
+                        [AI_EVENT_TYPE.SIGN_IN_SUCCESS]: createAuthSuccessTransition('#mi-ai.Authenticated'),
                         [AI_EVENT_TYPE.CANCEL_LOGIN]: {
                             target: '#mi-ai.Unauthenticated',
                             actions: assign({
@@ -482,12 +529,13 @@ const checkWorkspaceAndToken = async (): Promise<{ workspaceSupported: boolean; 
 const openLogin = async () => {
     await setupPlatformExtensionListener();
 
-    // If platform extension already has an authenticated session, complete auth immediately.
-    const isLoggedIn = await isDevantUserLoggedIn();
-    if (isLoggedIn) {
-        const stsToken = await getPlatformStsToken();
+    const tryCompleteAuthFromSts = async (): Promise<boolean> => {
+        const stsToken = await getPlatformStsToken({
+            retries: LOGIN_STS_RETRY_COUNT,
+            retryDelayMs: LOGIN_STS_RETRY_DELAY_MS,
+        });
         if (!stsToken) {
-            throw new Error('Failed to get STS token from platform extension');
+            return false;
         }
 
         const secrets = await exchangeStsToCopilotToken(stsToken);
@@ -497,13 +545,24 @@ const openLogin = async () => {
         });
         aiStateService.send({ type: AI_EVENT_TYPE.COMPLETE_AUTH });
         return true;
+    };
+
+    // If platform extension already has an authenticated session, complete auth immediately.
+    const isLoggedIn = await isDevantUserLoggedIn();
+    if (isLoggedIn) {
+        if (await tryCompleteAuthFromSts()) {
+            return true;
+        }
+        logWarn('Platform reports logged in but STS token is not available yet; continuing with interactive sign-in.');
     }
 
     // Otherwise trigger platform login; completion is handled by the platform login listener.
     const status = await initiateInbuiltAuth();
     if (!status) {
         aiStateService.send({ type: AI_EVENT_TYPE.CANCEL_LOGIN });
+        return status;
     }
+    // Keep waiting in ssoFlow; platform login callback will complete token exchange.
     return status;
 };
 
@@ -583,19 +642,14 @@ const isExtendedEvent = <K extends AI_EVENT_TYPE>(
 let platformLoginListenerSetup = false;
 
 const setupPlatformExtensionListener = async () => {
-    if (platformLoginListenerSetup || !isPlatformExtensionAvailable()) {
+    if (platformLoginListenerSetup) {
         return;
     }
     platformLoginListenerSetup = true;
 
-    const platformExt = vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
-    if (!platformExt) {
-        return;
-    }
-
     try {
-        const api = await platformExt.activate() as IWso2PlatformExtensionAPI;
-        if (!api.subscribeIsLoggedIn) {
+        const api = await getPlatformExtensionAPI();
+        if (!api || !api.subscribeIsLoggedIn) {
             return;
         }
 
@@ -611,7 +665,10 @@ const setupPlatformExtensionListener = async () => {
             }
 
             try {
-                const stsToken = await getPlatformStsToken();
+                const stsToken = await getPlatformStsToken({
+                    retries: LOGIN_STS_RETRY_COUNT,
+                    retryDelayMs: LOGIN_STS_RETRY_DELAY_MS,
+                });
                 if (!stsToken) {
                     throw new Error('Failed to get STS token after platform login');
                 }

@@ -17,7 +17,14 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import * as vscode from "vscode";
-import { getAccessToken, getCopilotLlmApiBaseUrl, getLoginMethod, getRefreshedAccessToken, getAwsBedrockCredentials } from "./auth";
+import {
+    getAccessToken,
+    getCopilotLlmApiBaseUrl,
+    getLoginMethod,
+    getRefreshedAccessToken,
+    getAwsBedrockCredentials,
+    isStsTokenUnavailableError
+} from "./auth";
 import { StateMachineAI, openAIWebview } from "./aiMachine";
 import { AI_EVENT_TYPE, LoginMethod } from "@wso2/mi-core";
 import { logInfo, logDebug, logError } from "./copilot/logger";
@@ -211,6 +218,9 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
                 } catch (refreshError) {
                     StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
                     promptReLogin();
+                    if (isStsTokenUnavailableError(refreshError)) {
+                        throw new Error("Authentication failed: Please sign in again.");
+                    }
                     throw new Error(`Authentication failed: ${refreshError instanceof Error ? refreshError.message : 'Unable to refresh token'}`);
                 }
             } else if (loginMethod === LoginMethod.ANTHROPIC_KEY) {
@@ -227,6 +237,12 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
         if (error?.message === "TOKEN_EXPIRED") {
             StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
             throw new Error("Authentication failed: Token expired");
+        }
+
+        if (isStsTokenUnavailableError(error)) {
+            StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
+            promptReLogin();
+            throw new Error("Authentication failed: Please sign in again.");
         } else {
             throw error;
         }
