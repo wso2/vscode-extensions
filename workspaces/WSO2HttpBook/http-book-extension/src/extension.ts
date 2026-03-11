@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { activateHurlNotebook } from './notebook';
+import { activateHurlNotebook, HURL_NOTEBOOK_TYPE, hurlTextToNotebookData } from './notebook';
 import { initializeHurlBinaryManager } from './hurl/hurl-binary-manager';
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -70,7 +70,36 @@ export function activate(context: vscode.ExtensionContext): void {
         }
     );
 
-    context.subscriptions.push(openHurlNotebookCommand, installHurlCommand);
+    // Command: import a Hurl string as a notebook
+    const importHurlStringCommand = vscode.commands.registerCommand(
+        'wso2-http-book.importHurlString',
+        async () => {
+            const input = await vscode.window.showInputBox({
+                prompt: 'Paste Hurl string (use \\n for new lines)',
+                placeHolder: 'GET http://example.com\\nAccept: application/json'
+            });
+
+            if (input === undefined) {
+                return;
+            }
+
+            const hurlContent = input.replace(/\\n/g, '\n');
+            const notebookData = hurlTextToNotebookData(hurlContent);
+
+            try {
+                const doc = await vscode.workspace.openNotebookDocument(
+                    HURL_NOTEBOOK_TYPE,
+                    notebookData
+                );
+                await vscode.window.showNotebookDocument(doc);
+            } catch (error) {
+                const msg = error instanceof Error ? error.message : String(error);
+                vscode.window.showErrorMessage(`WSO2 HttpBook: Failed to create notebook — ${msg}`);
+            }
+        }
+    );
+
+    context.subscriptions.push(openHurlNotebookCommand, installHurlCommand, importHurlStringCommand);
 }
 
 export function deactivate(): void {

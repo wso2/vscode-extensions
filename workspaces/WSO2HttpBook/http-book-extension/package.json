@@ -16,8 +16,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onNotebook:wso2-http-book",
-    "onCommand:wso2-http-book.openHurlNotebook"
+    "onNotebook:wso2-http-book"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -49,6 +48,11 @@
         "command": "wso2-http-book.installHurl",
         "title": "WSO2 HttpBook: Install Hurl",
         "icon": "$(cloud-download)"
+      },
+      {
+        "command": "wso2-http-book.importHurlString",
+        "title": "WSO2 HttpBook: Import Hurl String",
+        "icon": "$(edit)"
       }
     ],
     "menus": {
@@ -58,6 +62,9 @@
         },
         {
           "command": "wso2-http-book.installHurl"
+        },
+        {
+          "command": "wso2-http-book.importHurlString"
         }
       ],
       "explorer/context": [
