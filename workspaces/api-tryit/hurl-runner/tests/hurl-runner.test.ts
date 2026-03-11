@@ -270,7 +270,9 @@ describe('HurlRunnerImpl', () => {
 
 		const hurlCall = adapter.calls.find(call => call.args.includes('--report-json'));
 		expect(hurlCall).toBeDefined();
-		expect(hurlCall?.args).toEqual(expect.arrayContaining(['--test', '--continue-on-error', '-i']));
+		// --test is omitted when includeResponseOutput is true so stdout is not suppressed
+		expect(hurlCall?.args).toEqual(expect.arrayContaining(['--continue-on-error', '-i']));
+		expect(hurlCall?.args).not.toContain('--test');
 	});
 
 	it('allows disabling continue-on-error per run', async () => {
