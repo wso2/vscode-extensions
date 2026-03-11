@@ -43,9 +43,13 @@ export class HurlNotebookSerializer implements vscode.NotebookSerializer {
         data: vscode.NotebookData,
         _token: vscode.CancellationToken
     ): Promise<Uint8Array> {
-        const blocks = data.cells.map(cell => cell.value.trim());
-        const text = composeHurlDocument('', blocks);
-        return new TextEncoder().encode(text);
+        const parts = data.cells.map(cell => {
+            if (cell.kind === vscode.NotebookCellKind.Markup) {
+                return encodeMdCell(cell.value.trim());
+            }
+            return cell.value.trim();
+        });
+        return new TextEncoder().encode(parts.join('\n\n'));
     }
 }
 
@@ -72,26 +76,70 @@ export function notebookCellsToNotebookData(cells: NotebookCellInput[]): vscode.
     );
 }
 
+// Markdown cells are encoded as `# md: <line>` (or bare `# md:` for empty lines)
+// so they survive round-trips through .hurl files and the virtual FS.
+const MD_PREFIX = '# md: ';
+const MD_MARKER = '# md:';
+
+function encodeMdCell(content: string): string {
+    return content.split('\n')
+        .map(line => line ? `${MD_PREFIX}${line}` : MD_MARKER)
+        .join('\n');
+}
+
+/**
+ * Serialize a list of mixed markdown/hurl cells to text, encoding markdown
+ * cells as `# md:` comment blocks so they can be stored in .hurl files or
+ * the virtual FS and decoded back by `hurlTextToNotebookData`.
+ */
+export function cellsToHurlText(cells: NotebookCellInput[]): string {
+    return cells.map(c =>
+        c.kind === 'markdown' ? encodeMdCell(c.content.trim()) : c.content.trim()
+    ).join('\n\n');
+}
+
 /**
  * Convert raw Hurl text to a `vscode.NotebookData` object.
- * Each request block becomes one code cell.
+ * `# md:` comment blocks are decoded as markdown cells; everything else is
+ * parsed as hurl and becomes one code cell per request block.
  */
 export function hurlTextToNotebookData(hurlContent: string): vscode.NotebookData {
-    const { blocks } = parseHurlDocument(hurlContent);
+    const lines = hurlContent.split('\n');
+    const cells: vscode.NotebookCellData[] = [];
+    let i = 0;
 
-    const cells: vscode.NotebookCellData[] = blocks.map(block => {
-        const cell = new vscode.NotebookCellData(
-            vscode.NotebookCellKind.Code,
-            block.text,
-            CELL_LANGUAGE_ID
-        );
-        cell.metadata = {
-            name: block.name,
-            method: block.method,
-            url: block.url
-        };
-        return cell;
-    });
+    while (i < lines.length) {
+        if (lines[i].startsWith(MD_MARKER)) {
+            // Decode a markdown block
+            const mdLines: string[] = [];
+            while (i < lines.length && lines[i].startsWith(MD_MARKER)) {
+                mdLines.push(lines[i] === MD_MARKER ? '' : lines[i].slice(MD_PREFIX.length));
+                i++;
+            }
+            const content = mdLines.join('\n').trim();
+            if (content) {
+                cells.push(new vscode.NotebookCellData(vscode.NotebookCellKind.Markup, content, 'markdown'));
+            }
+            // Skip blank separator lines
+            while (i < lines.length && lines[i].trim() === '') { i++; }
+        } else {
+            // Collect hurl content until the next markdown block
+            const hurlLines: string[] = [];
+            while (i < lines.length && !lines[i].startsWith(MD_MARKER)) {
+                hurlLines.push(lines[i]);
+                i++;
+            }
+            const hurlText = hurlLines.join('\n').trim();
+            if (hurlText) {
+                const { blocks } = parseHurlDocument(hurlText);
+                for (const block of blocks) {
+                    const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, block.text, CELL_LANGUAGE_ID);
+                    cell.metadata = { name: block.name, method: block.method, url: block.url };
+                    cells.push(cell);
+                }
+            }
+        }
+    }
 
     if (cells.length === 0) {
         cells.push(new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', CELL_LANGUAGE_ID));

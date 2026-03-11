@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 import { HurlNotebookSerializer } from './HurlNotebookSerializer';
 import { HurlNotebookController } from './HurlNotebookController';
 
-export { hurlTextToNotebookData, notebookCellsToNotebookData } from './HurlNotebookSerializer';
+export { hurlTextToNotebookData, notebookCellsToNotebookData, cellsToHurlText } from './HurlNotebookSerializer';
 export type { NotebookCellInput } from './HurlNotebookSerializer';
 
 export const HURL_NOTEBOOK_TYPE = 'wso2-http-book';
