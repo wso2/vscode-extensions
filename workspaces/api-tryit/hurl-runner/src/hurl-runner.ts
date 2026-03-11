@@ -383,7 +383,11 @@ export class HurlRunnerImpl implements HurlRunner {
 	}
 
 	private buildHurlArgs(filePath: string, reportPath: string, options: HurlRunOptions): string[] {
-		const args = [filePath, '--test', '--report-json', reportPath];
+		const args = [filePath, '--report-json', reportPath];
+		// --test suppresses all response output; omit it when the caller wants the response body
+		if (!options.includeResponseOutput) {
+			args.push('--test');
+		}
 		if (options.continueOnError !== false) {
 			args.push('--continue-on-error');
 		}

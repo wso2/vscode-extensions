@@ -214,17 +214,41 @@ export class HurlNotebookController {
             }
         }
 
-        if (stdout) {
+        const responseBody = extractResponseBody(stdout);
+        if (responseBody) {
             lines.push('');
-            lines.push('<details><summary>Response Output</summary>');
+            lines.push('**Response Body:**');
             lines.push('');
+            const { lang, text } = formatBody(responseBody);
+            lines.push('```' + lang);
+            lines.push(text);
             lines.push('```');
-            lines.push(stdout.trim());
-            lines.push('```');
-            lines.push('</details>');
         }
 
         return lines.join('\n');
+    }
+}
+
+/**
+ * Extract the response body from hurl's `-i` stdout output.
+ * The output format is: status line + headers + blank line + body.
+ * Returns undefined if there is no body or the stdout is empty.
+ */
+function extractResponseBody(stdout: string | undefined): string | undefined {
+    if (!stdout) { return undefined; }
+    // Find the first blank line (separates HTTP headers from body)
+    const match = stdout.match(/\r?\n\r?\n([\s\S]*)/);
+    const body = match ? match[1].trim() : stdout.trim();
+    return body || undefined;
+}
+
+/** Detect content type and pretty-print body if JSON. */
+function formatBody(body: string): { lang: string; text: string } {
+    try {
+        const parsed = JSON.parse(body);
+        return { lang: 'json', text: JSON.stringify(parsed, null, 2) };
+    } catch {
+        return { lang: '', text: body };
     }
 }
 
