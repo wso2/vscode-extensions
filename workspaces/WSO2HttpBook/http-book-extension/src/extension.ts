@@ -110,10 +110,10 @@ export function activate(context: vscode.ExtensionContext): void {
             const savable = options?.savable ?? true;
 
             try {
+                let doc: vscode.NotebookDocument;
                 if (savable) {
                     // In-memory notebook — Ctrl+S shows Save As dialog so the user can persist it
-                    const doc = await vscode.workspace.openNotebookDocument(HURL_NOTEBOOK_TYPE, notebookData);
-                    await vscode.window.showNotebookDocument(doc, { viewColumn: vscode.ViewColumn.Beside });
+                    doc = await vscode.workspace.openNotebookDocument(HURL_NOTEBOOK_TYPE, notebookData);
                 } else {
                     // Virtual FS notebook — writeFile is a silent no-op, so Cmd+S silently succeeds and
                     // VS Code never marks the document dirty → no save prompt on close
@@ -122,9 +122,15 @@ export function activate(context: vscode.ExtensionContext): void {
                         : (contentOrCells ?? '');
                     const uri = vscode.Uri.parse(`${READONLY_HURL_SCHEME}:///notebook-${Date.now()}.hurl`);
                     readonlyProvider.set(uri, new TextEncoder().encode(rawContent));
-                    const doc = await vscode.workspace.openNotebookDocument(uri);
-                    await vscode.window.showNotebookDocument(doc, { viewColumn: vscode.ViewColumn.Beside });
+                    doc = await vscode.workspace.openNotebookDocument(uri);
                 }
+                await vscode.window.showNotebookDocument(doc, { viewColumn: vscode.ViewColumn.Beside });
+                // Programmatically select the Hurl Runner kernel so the user is never prompted
+                await vscode.commands.executeCommand('notebook.selectKernel', {
+                    notebook: doc,
+                    id: 'wso2-http-book-controller',
+                    extension: 'wso2.wso2-http-book'
+                });
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
                 vscode.window.showErrorMessage(`WSO2 HttpBook: Failed to create notebook — ${msg}`);
