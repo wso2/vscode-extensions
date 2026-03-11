@@ -17,7 +17,9 @@
  */
 
 import * as vscode from 'vscode';
-import { activateHurlNotebook, HURL_NOTEBOOK_TYPE, hurlTextToNotebookData, notebookCellsToNotebookData, NotebookCellInput } from './notebook';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { activateHurlNotebook, HURL_NOTEBOOK_TYPE, hurlTextToNotebookData, notebookCellsToNotebookData, cellsToHurlText, NotebookCellInput } from './notebook';
 import { initializeHurlBinaryManager } from './hurl/hurl-binary-manager';
 import { ReadonlyHurlFSProvider, READONLY_HURL_SCHEME } from './readonly-fs-provider';
 
@@ -112,13 +114,22 @@ export function activate(context: vscode.ExtensionContext): void {
             try {
                 let doc: vscode.NotebookDocument;
                 if (savable) {
-                    // In-memory notebook — Ctrl+S shows Save As dialog so the user can persist it
-                    doc = await vscode.workspace.openNotebookDocument(HURL_NOTEBOOK_TYPE, notebookData);
+                    // Write to a real file named TryIt.hurl in extension storage so the tab shows a proper name.
+                    // Markdown cells are encoded as `# md:` comments so they survive the round-trip.
+                    const storageDir = context.globalStorageUri.fsPath;
+                    await fs.mkdir(storageDir, { recursive: true });
+                    const tryItPath = path.join(storageDir, 'TryIt.hurl');
+                    const hurlText = Array.isArray(contentOrCells)
+                        ? cellsToHurlText(contentOrCells)
+                        : (typeof contentOrCells === 'string' ? contentOrCells : '');
+                    await fs.writeFile(tryItPath, hurlText, 'utf-8');
+                    doc = await vscode.workspace.openNotebookDocument(vscode.Uri.file(tryItPath));
                 } else {
                     // Virtual FS notebook — writeFile is a silent no-op, so Cmd+S silently succeeds and
-                    // VS Code never marks the document dirty → no save prompt on close
+                    // VS Code never marks the document dirty → no save prompt on close.
+                    // Markdown cells are encoded as `# md:` comments so they survive the round-trip.
                     const rawContent = Array.isArray(contentOrCells)
-                        ? contentOrCells.filter(c => c.kind === 'hurl').map(c => c.content).join('\n\n')
+                        ? cellsToHurlText(contentOrCells)
                         : (contentOrCells ?? '');
                     const uri = vscode.Uri.parse(`${READONLY_HURL_SCHEME}:///notebook-${Date.now()}.hurl`);
                     readonlyProvider.set(uri, new TextEncoder().encode(rawContent));
