@@ -19,10 +19,8 @@
 import React, { useEffect, useState } from "react";
 import { SampleDownloadRequest, VisualizerLocation, MACHINE_VIEW, EVENT_TYPE } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { SamplesView } from "../SamplesView";
 import styled from "@emotion/styled";
 import { Button, Codicon, ComponentCard } from "@wso2/ui-toolkit";
-import { ProjectWizard } from "../Forms/ProjectForm";
 import { VSCodeButton, VSCodeLink } from "@vscode/webview-ui-toolkit/react";
 import { COMMANDS } from "../../constants";
 

@@ -223,6 +223,8 @@ import {
     GetMediatorsResponse,
     GetMediatorRequest,
     GetMediatorResponse,
+    McpToolsRequest,
+    McpToolsResponse,
     UpdateMediatorRequest,
     ExpressionCompletionsRequest,
     ExpressionCompletionsResponse,
@@ -266,6 +268,14 @@ import {
     GetMockServicesResponse,
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
+    LoadDriverAndTestConnectionRequest,
+    GetDynamicFieldsRequest,
+    GetDynamicFieldsResponse,
+    GetStoredProceduresResponse,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse,
     Property,
     UpdateRegistryPropertyRequest,
     GenerateMappingsParamsRequest
@@ -434,6 +444,7 @@ export const getAllInputDefaultPayloads: RequestType<void, Record<string, unknow
 export const getMediators: RequestType<GetMediatorsRequest, GetMediatorsResponse> = { method: `${_preFix}/getMediators` };
 export const getMediator: RequestType<GetMediatorRequest, GetMediatorResponse> = { method: `${_preFix}/getMediator` };
 export const updateMediator: RequestType<UpdateMediatorRequest, UpdateMediatorResponse> = { method: `${_preFix}/updateMediator` };
+export const getMcpTools: RequestType<McpToolsRequest, McpToolsResponse> = { method: `${_preFix}/getMcpTools` };
 export const getLocalInboundConnectors: RequestType<void, LocalInboundConnectorsResponse> = { method: `${_preFix}/getLocalInboundConnectors` };
 export const getConnectionSchema: RequestType<GetConnectionSchemaRequest, GetConnectionSchemaResponse> = { method: `${_preFix}/getConnectionSchema` };
 export const getExpressionCompletions: RequestType<ExpressionCompletionsRequest, ExpressionCompletionsResponse> = { method: `${_preFix}/getExpressionCompletions` };
@@ -455,3 +466,8 @@ export const isKubernetesConfigured: RequestType<void, boolean> = { method: `${_
 export const updatePropertiesInArtifactXML: RequestType<UpdateRegistryPropertyRequest, string> = { method: `${_preFix}/updatePropertiesInArtifactXML` };
 export const getPropertiesFromArtifactXML: RequestType<string, Property[] | undefined> = { method: `${_preFix}/getPropertiesFromArtifactXML` };
 export const getInputOutputMappings: RequestType<GenerateMappingsParamsRequest, string[]> = { method: `${_preFix}/getInputOutputMappings` };
+export const loadDriverAndTestConnection: RequestType<LoadDriverAndTestConnectionRequest, TestDbConnectionResponse> = { method: `${_preFix}/loadDriverAndTestConnection` };
+export const getDynamicFields: RequestType<GetDynamicFieldsRequest, GetDynamicFieldsResponse> = { method: `${_preFix}/getDynamicFields` };
+export const getStoredProcedures: RequestType<DSSFetchTablesRequest, GetStoredProceduresResponse> = { method: `${_preFix}/getStoredProcedures` };
+export const downloadDriverForConnector: RequestType<DriverDownloadRequest, DriverDownloadResponse> = { method: `${_preFix}/downloadDriverForConnector` };
+export const getDriverMavenCoordinates: RequestType<DriverMavenCoordinatesRequest, DriverMavenCoordinatesResponse> = { method: `${_preFix}/getDriverMavenCoordinates` };
