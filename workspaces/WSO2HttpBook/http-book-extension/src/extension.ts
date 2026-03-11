@@ -110,13 +110,16 @@ export function activate(context: vscode.ExtensionContext): void {
             const savable = options?.savable ?? true;
 
             try {
-                if (savable || Array.isArray(contentOrCells)) {
-                    // In-memory notebook — Ctrl+S shows Save As dialog (savable) or is silently ignored (cells-based)
+                if (savable) {
+                    // In-memory notebook — Ctrl+S shows Save As dialog so the user can persist it
                     const doc = await vscode.workspace.openNotebookDocument(HURL_NOTEBOOK_TYPE, notebookData);
                     await vscode.window.showNotebookDocument(doc, { viewColumn: vscode.ViewColumn.Beside });
                 } else {
-                    // Read-only virtual FS — writeFile is a silent no-op so saves are discarded without error
-                    const rawContent = typeof contentOrCells === 'string' ? contentOrCells : '';
+                    // Virtual FS notebook — writeFile is a silent no-op, so Cmd+S silently succeeds and
+                    // VS Code never marks the document dirty → no save prompt on close
+                    const rawContent = Array.isArray(contentOrCells)
+                        ? contentOrCells.filter(c => c.kind === 'hurl').map(c => c.content).join('\n\n')
+                        : (contentOrCells ?? '');
                     const uri = vscode.Uri.parse(`${READONLY_HURL_SCHEME}:///notebook-${Date.now()}.hurl`);
                     readonlyProvider.set(uri, new TextEncoder().encode(rawContent));
                     const doc = await vscode.workspace.openNotebookDocument(uri);
