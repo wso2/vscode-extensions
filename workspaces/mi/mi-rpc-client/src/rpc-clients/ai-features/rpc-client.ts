@@ -27,6 +27,7 @@ import {
     AbortCodeGenerationResponse,
     abortCodeGeneration,
     hasAnthropicApiKey,
+    isMiCopilotLoggedIn,
     fetchUsage,
     GenerateUnitTestRequest,
     GenerateUnitTestResponse,
@@ -77,6 +78,13 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
     // ==================================
     hasAnthropicApiKey(): Promise<boolean | undefined> {
         return this._messenger.sendRequest(hasAnthropicApiKey, HOST_EXTENSION);
+    }
+
+    // ==================================
+    // MI Copilot Login Status
+    // ==================================
+    isMiCopilotLoggedIn(): Promise<boolean> {
+        return this._messenger.sendRequest(isMiCopilotLoggedIn, HOST_EXTENSION);
     }
 
     // ==================================
