@@ -17,7 +17,7 @@ module.exports = {
     readPackage(pkg, context) {
       function applyOverrides(deps) {
         if (!deps) return;
-        if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '^5.3.8';
+        if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.3.8';
         if (deps['minimatch']) {
           const currentVersion = deps['minimatch'];
           let newVersion;
