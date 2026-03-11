@@ -16,7 +16,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onNotebook:wso2-http-book"
+    "onNotebook:wso2-http-book",
+    "onCommand:wso2-http-book.importHurlString"
   ],
   "main": "./dist/extension.js",
   "contributes": {
