@@ -49,6 +49,29 @@ export class HurlNotebookSerializer implements vscode.NotebookSerializer {
     }
 }
 
+export interface NotebookCellInput {
+    kind: "markdown" | "hurl";
+    content: string;
+}
+
+/**
+ * Build `vscode.NotebookData` from an explicit list of cells (markdown + hurl).
+ * Used when the caller pre-builds rich documentation cells alongside request cells.
+ */
+export function notebookCellsToNotebookData(cells: NotebookCellInput[]): vscode.NotebookData {
+    const notebookCells: vscode.NotebookCellData[] = cells.map(c => {
+        if (c.kind === "markdown") {
+            return new vscode.NotebookCellData(vscode.NotebookCellKind.Markup, c.content, "markdown");
+        }
+        const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, c.content, CELL_LANGUAGE_ID);
+        return cell;
+    });
+    return new vscode.NotebookData(notebookCells.length > 0
+        ? notebookCells
+        : [new vscode.NotebookCellData(vscode.NotebookCellKind.Code, "", CELL_LANGUAGE_ID)]
+    );
+}
+
 /**
  * Convert raw Hurl text to a `vscode.NotebookData` object.
  * Each request block becomes one code cell.
