@@ -23,6 +23,18 @@ import { TextDecoder, TextEncoder } from 'util';
 const CELL_LANGUAGE_ID = 'hurl';
 
 /**
+ * Queue of hurl text to inject into the next untitled notebook opened via
+ * `openNotebookDocument(untitled:TryIt.hurl)`.  VS Code calls
+ * `deserializeNotebook` with empty bytes for untitled URIs, so we intercept
+ * that and return pre-built content instead.
+ */
+const pendingUntitledContent: string[] = [];
+
+export function enqueuePendingUntitledContent(hurlText: string): void {
+    pendingUntitledContent.push(hurlText);
+}
+
+/**
  * Serializer for the `wso2-http-book` notebook type.
  *
  * Deserialization: reads raw Hurl text and splits it into one cell per request
@@ -36,6 +48,11 @@ export class HurlNotebookSerializer implements vscode.NotebookSerializer {
         _token: vscode.CancellationToken
     ): Promise<vscode.NotebookData> {
         const text = new TextDecoder().decode(content);
+        // Untitled notebooks (opened via `untitled:TryIt.hurl`) arrive with empty
+        // bytes.  Consume any queued content that was registered before the open call.
+        if (!text.trim() && pendingUntitledContent.length > 0) {
+            return hurlTextToNotebookData(pendingUntitledContent.shift()!);
+        }
         return hurlTextToNotebookData(text);
     }
 
