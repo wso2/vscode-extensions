@@ -19,7 +19,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { activateHurlNotebook, HURL_NOTEBOOK_TYPE, hurlTextToNotebookData, notebookCellsToNotebookData, cellsToHurlText, NotebookCellInput } from './notebook';
+import { activateHurlNotebook, hurlTextToNotebookData, notebookCellsToNotebookData, cellsToHurlText, enqueuePendingUntitledContent, NotebookCellInput } from './notebook';
 import { initializeHurlBinaryManager } from './hurl/hurl-binary-manager';
 import { ReadonlyHurlFSProvider, READONLY_HURL_SCHEME } from './readonly-fs-provider';
 
@@ -93,8 +93,10 @@ export function activate(context: vscode.ExtensionContext): void {
         'wso2-http-book.importHurlString',
         async (contentOrCells?: string | NotebookCellInput[], options?: { savable?: boolean }) => {
             let notebookData: vscode.NotebookData;
+            let resolvedHurlText: string;
 
             if (Array.isArray(contentOrCells)) {
+                resolvedHurlText = cellsToHurlText(contentOrCells);
                 notebookData = notebookCellsToNotebookData(contentOrCells);
             } else {
                 let content = contentOrCells;
@@ -106,6 +108,7 @@ export function activate(context: vscode.ExtensionContext): void {
                     if (input === undefined) { return; }
                     content = input.replace(/\\n/g, '\n');
                 }
+                resolvedHurlText = content;
                 notebookData = hurlTextToNotebookData(content);
             }
 
@@ -114,25 +117,25 @@ export function activate(context: vscode.ExtensionContext): void {
             try {
                 let doc: vscode.NotebookDocument;
                 if (savable) {
-                    // Write to a real file named TryIt.hurl in extension storage so the tab shows a proper name.
-                    // Markdown cells are encoded as `# md:` comments so they survive the round-trip.
-                    const storageDir = context.globalStorageUri.fsPath;
-                    await fs.mkdir(storageDir, { recursive: true });
-                    const tryItPath = path.join(storageDir, 'TryIt.hurl');
-                    const hurlText = Array.isArray(contentOrCells)
-                        ? cellsToHurlText(contentOrCells)
-                        : (typeof contentOrCells === 'string' ? contentOrCells : '');
-                    await fs.writeFile(tryItPath, hurlText, 'utf-8');
-                    doc = await vscode.workspace.openNotebookDocument(vscode.Uri.file(tryItPath));
+                    // Untitled notebook via `untitled:TryIt.hurl` URI — VS Code treats this as an
+                    // untitled document so Cmd+S shows a Save As dialog and closing with unsaved
+                    // changes prompts the user.  The serializer detects empty bytes (untitled) and
+                    // consumes the queued content instead.
+                    enqueuePendingUntitledContent(resolvedHurlText);
+                    const untitledUri = vscode.Uri.parse('untitled:TryIt.hurl');
+                    doc = await vscode.workspace.openNotebookDocument(untitledUri);
+                    // Mark the notebook dirty immediately so VS Code prompts to save on close even
+                    // if the user makes no edits.  Notebook metadata is not written by serializeNotebook
+                    // so this has no effect on the saved .hurl file content.
+                    const dirtyEdit = new vscode.WorkspaceEdit();
+                    dirtyEdit.set(doc.uri, [vscode.NotebookEdit.updateNotebookMetadata({ generated: true })]);
+                    await vscode.workspace.applyEdit(dirtyEdit);
                 } else {
                     // Virtual FS notebook — writeFile is a silent no-op, so Cmd+S silently succeeds and
                     // VS Code never marks the document dirty → no save prompt on close.
                     // Markdown cells are encoded as `# md:` comments so they survive the round-trip.
-                    const rawContent = Array.isArray(contentOrCells)
-                        ? cellsToHurlText(contentOrCells)
-                        : (contentOrCells ?? '');
                     const uri = vscode.Uri.parse(`${READONLY_HURL_SCHEME}:///notebook-${Date.now()}.hurl`);
-                    readonlyProvider.set(uri, new TextEncoder().encode(rawContent));
+                    readonlyProvider.set(uri, new TextEncoder().encode(resolvedHurlText));
                     doc = await vscode.workspace.openNotebookDocument(uri);
                 }
                 await vscode.window.showNotebookDocument(doc, { viewColumn: vscode.ViewColumn.Beside });
