@@ -8,6 +8,8 @@ overrides:
   fast-xml-parser: 5.3.8
   minimatch: 3.1.4
 
+pnpmfileChecksum: sha256-XDjD56KFtTY8n9Fh2TYvx6EcYWLRfkUO7wCVvMUAF/4=
+
 importers:
 
   .:
