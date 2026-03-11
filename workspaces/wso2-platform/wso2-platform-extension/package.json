@@ -1,9 +1,9 @@
 {
   "name": "wso2-platform",
   "displayName": "WSO2 Platform",
-  "description": "Manage WSO2 Choreo and Devant projects in VS Code.",
+  "description": "Manage WSO2 Developer & Integration platform projects in VS Code.",
   "license": "Apache-2.0",
-  "version": "1.0.24",
+  "version": "1.0.25",
   "cliVersion": "v1.2.212603061900",
   "publisher": "wso2",
   "bugs": {
