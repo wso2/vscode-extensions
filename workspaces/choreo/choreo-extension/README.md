@@ -1,17 +1,17 @@
-# Choreo Extension for Visual Studio Code
+# WSO2 Developer Platform Extension for Visual Studio Code
 
-The Choreo VS Code extension enhances your local development experience with [Choreo](https://wso2.com/choreo/) projects, providing comprehensive project and component management capabilities in VS Code. For more details, visit the [Choreo documentation](https://wso2.com/choreo/docs/).
+The WSO2 Developer Platform VS Code extension enhances your local development experience with [WSO2 Developer Platform](https://wso2.com/choreo/) projects, providing comprehensive project and component management capabilities in VS Code. For more details, visit the [WSO2 Developer Platform documentation](https://wso2.com/choreo/docs/).
 
 ## Getting Started
 
-1. [Create an account on Choreo](https://console.choreo.dev/).
-2. Install the [Choreo VS Code extension](https://marketplace.visualstudio.com/items?itemName=WSO2.choreo).
-3. Sign in to Choreo via VS Code (see screenshot below).
+1. [Create an account on WSO2 Developer Platform](https://console.choreo.dev/).
+2. Install the [WSO2 Developer Platform VS Code extension](https://marketplace.visualstudio.com/items?itemName=WSO2.choreo).
+3. Sign in to WSO2 Developer Platform via VS Code (see screenshot below).
 4. Refer to this [guide](https://wso2.com/choreo/docs/develop-components/develop-components-using-vs-code/#create-a-new-component) for instructions on creating a new component.
 
 ## Feature List
 
-- **Manage Projects**: Work with Choreo [projects](https://wso2.com/choreo/docs/choreo-concepts/project/) directly in your VS Code workspace.
+- **Manage Projects**: Work with WSO2 Developer Platform [projects](https://wso2.com/choreo/docs/choreo-concepts/project/) directly in your VS Code workspace.
 - **Create Components**: Generate [components](https://wso2.com/choreo/docs/choreo-concepts/component/) linked to your application source.
 - **Trigger Builds**: Initiate builds for your components in the cloud and view the build logs.
 - **Deploy Builds**: Deploy your component builds to any chosen [environments](https://wso2.com/choreo/docs/choreo-concepts/environments/).
@@ -23,7 +23,7 @@ The Choreo VS Code extension enhances your local development experience with [Ch
 
 | ![sign-in.png](./docs/choreo-extension/images/v2/sign-in.png) |
 | :-----------------------------------------------------------: |
-|                _Sign in to Choreo via VS Code_                |
+|                _Sign in to WSO2 Developer Platform via VS Code_                |
 
 <br>
 
@@ -45,7 +45,7 @@ The Choreo VS Code extension enhances your local development experience with [Ch
 
 ## Documentation
 
-Refer to the [Choreo documentation](https://wso2.com/choreo/docs/develop-components/develop-components-using-vs-code/) for detailed guides and information regarding the Choreo VS Code extension.
+Refer to the [WSO2 Developer Platform documentation](https://wso2.com/choreo/docs/develop-components/develop-components-using-vs-code/) for detailed guides and information regarding the WSO2 Developer Platform VS Code extension.
 
 ## Get Help
 

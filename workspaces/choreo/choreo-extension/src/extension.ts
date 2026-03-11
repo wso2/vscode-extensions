@@ -29,7 +29,7 @@ import { activateActivityWebViews } from "./webviews/utils";
 
 export async function activate(context: vscode.ExtensionContext) {
 	await initLogger(context);
-	getLogger().debug("Activating Choreo Extension");
+	getLogger().debug("Activating WSO2 Developer Platform Extension");
 	ext.context = context;
 	ext.api = new ChoreoExtensionApi();
 
@@ -49,7 +49,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	activateActivityWebViews(context);
 	activateURIHandlers();
 
-	getLogger().debug("Choreo Extension activated");
+	getLogger().debug("WSO2 Developer Platform Extension activated");
 
 	commands.registerCommand(CommandIds.OpenWalkthrough, () => {
 		commands.executeCommand("workbench.action.openWalkthrough", "wso2.choreo#choreo.getStarted", false);
