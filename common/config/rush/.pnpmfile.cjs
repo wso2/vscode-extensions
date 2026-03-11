@@ -33,7 +33,7 @@ module.exports = {
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
         if (deps['dompurify']) deps['dompurify'] = '3.3.2';
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2';
-        if (deps['hono']) deps['hono'] = '4.12.4';
+        if (deps['hono']) deps['hono'] = '4.12.7';
         if (deps['immutable']) deps['immutable'] = '3.8.3';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
