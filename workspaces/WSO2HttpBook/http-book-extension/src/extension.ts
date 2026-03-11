@@ -19,6 +19,7 @@
 import * as vscode from 'vscode';
 import { activateHurlNotebook, HURL_NOTEBOOK_TYPE, hurlTextToNotebookData } from './notebook';
 import { initializeHurlBinaryManager } from './hurl/hurl-binary-manager';
+import { ReadonlyHurlFSProvider, READONLY_HURL_SCHEME } from './readonly-fs-provider';
 
 export function activate(context: vscode.ExtensionContext): void {
     // Initialize the Hurl binary manager (singleton)
@@ -26,6 +27,15 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Register VS Code Notebook API support for `.hurl` files
     activateHurlNotebook(context);
+
+    // Register read-only virtual filesystem for non-savable notebooks (Resource Try It)
+    const readonlyProvider = new ReadonlyHurlFSProvider();
+    context.subscriptions.push(
+        vscode.workspace.registerFileSystemProvider(READONLY_HURL_SCHEME, readonlyProvider, {
+            isCaseSensitive: true,
+            isReadonly: false  // false so cells remain editable; writeFile is a silent no-op to avoid error notifications
+        })
+    );
 
     // Command: open a .hurl file as a native notebook
     const openHurlNotebookCommand = vscode.commands.registerCommand(
@@ -71,27 +81,39 @@ export function activate(context: vscode.ExtensionContext): void {
     );
 
     // Command: import a Hurl string as a notebook
+    // When called programmatically: importHurlString(hurlContent: string, options?: { savable?: boolean })
+    //   savable: true  → in-memory notebook, Ctrl+S opens Save As dialog (Service Try It)
+    //   savable: false → read-only virtual FS, saves are blocked (Resource Try It)
+    // When called from command palette (no args): prompts user to paste a hurl string
     const importHurlStringCommand = vscode.commands.registerCommand(
         'wso2-http-book.importHurlString',
-        async () => {
-            const input = await vscode.window.showInputBox({
-                prompt: 'Paste Hurl string (use \\n for new lines)',
-                placeHolder: 'GET http://example.com\\nAccept: application/json'
-            });
+        async (hurlContent?: string, options?: { savable?: boolean }) => {
+            let content = hurlContent;
 
-            if (input === undefined) {
-                return;
+            if (!content) {
+                const input = await vscode.window.showInputBox({
+                    prompt: 'Paste Hurl string (use \\n for new lines)',
+                    placeHolder: 'GET http://example.com\\nAccept: application/json'
+                });
+                if (input === undefined) { return; }
+                content = input.replace(/\\n/g, '\n');
             }
 
-            const hurlContent = input.replace(/\\n/g, '\n');
-            const notebookData = hurlTextToNotebookData(hurlContent);
+            const savable = options?.savable ?? true;
+            const notebookData = hurlTextToNotebookData(content);
 
             try {
-                const doc = await vscode.workspace.openNotebookDocument(
-                    HURL_NOTEBOOK_TYPE,
-                    notebookData
-                );
-                await vscode.window.showNotebookDocument(doc);
+                if (savable) {
+                    // In-memory notebook — Ctrl+S shows Save As dialog defaulting to workspace root
+                    const doc = await vscode.workspace.openNotebookDocument(HURL_NOTEBOOK_TYPE, notebookData);
+                    await vscode.window.showNotebookDocument(doc);
+                } else {
+                    // Read-only virtual FS — writeFile throws NoPermissions, blocking all saves
+                    const uri = vscode.Uri.parse(`${READONLY_HURL_SCHEME}:///notebook-${Date.now()}.hurl`);
+                    readonlyProvider.set(uri, new TextEncoder().encode(content));
+                    const doc = await vscode.workspace.openNotebookDocument(uri);
+                    await vscode.window.showNotebookDocument(doc);
+                }
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
                 vscode.window.showErrorMessage(`WSO2 HttpBook: Failed to create notebook — ${msg}`);
