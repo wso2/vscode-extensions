@@ -23,8 +23,14 @@
             "diff": "^8.0.3",
             "undici": "^7.18.2",
             "lodash": "4.17.23",
-            "hono": "^4.11.7",
-            "fast-xml-parser": "5.3.7"
+            "hono": "^4.12.4",
+            "@hono/node-server": "^1.19.10",
+            "fast-xml-parser": "5.3.8",
+            "@tootallnate/once": "^3.0.1",
+            "dompurify": "^3.3.2",
+            "express-rate-limit": "^8.2.2",
+            "immutable": "^3.8.3",
+            "serialize-javascript": "^7.0.3"
         }
     },
     "scripts": {
