@@ -103,3 +103,4 @@ export * from './components/ExpressionEditor/components/Common/SlidingPane';
 export * from './components/ScrollableList/ScrollableList';
 export * from './components/ExpressionEditor/components/Form';
 export * from './components/BrowserComponents';
+export * from './components/LlmIcons';
