@@ -38,7 +38,7 @@ module.exports = {
         if (deps['underscore']) deps['underscore'] = '1.13.8';
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.10';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
-        if (deps['ajv']) deps['ajv'] = '8.18.0';
+        if (deps['ajv']) deps['ajv'] = '8.17.1';
         if (deps['file-type']) deps['file-type'] = '21.3.1';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
