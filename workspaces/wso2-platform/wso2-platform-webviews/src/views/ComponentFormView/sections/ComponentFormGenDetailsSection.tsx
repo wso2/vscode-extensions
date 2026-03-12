@@ -449,11 +449,11 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 	if (!invalidRepoMsg && repoUrl && !isRepoAuthorizedResp?.isAccessible && provider) {
 		if (provider === GitProvider.GITHUB) {
 			if (isRepoAuthorizedResp?.retrievedRepos) {
-				invalidRepoMsg = <span>{extensionName} lacks access to the selected repository.</span>;
+				invalidRepoMsg = <span>{terminologies.cloudName} lacks access to the selected repository.</span>;
 				invalidRepoAction = "Grant Access";
 				onInvalidRepoActionClick = () => ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString());
 			} else {
-				invalidRepoMsg = `Please authorize ${extensionName} to access your GitHub repositories.`;
+				invalidRepoMsg = `Please authorize ${terminologies.cloudName} to access your GitHub repositories.`;
 				invalidRepoAction = "Authorize";
 				onInvalidRepoActionClick = () => ChoreoWebViewAPI.getInstance().triggerGithubAuthFlow(organization.id?.toString());
 				invalidRepoBannerType = "info";
