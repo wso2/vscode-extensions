@@ -3,7 +3,7 @@
   "displayName": "WSO2 Platform",
   "description": "Manage WSO2 Developer & Integration platform projects in VS Code.",
   "license": "Apache-2.0",
-  "version": "1.0.25",
+  "version": "1.0.26",
   "cliVersion": "v1.2.212603061900",
   "publisher": "wso2",
   "bugs": {
