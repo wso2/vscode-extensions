@@ -16,12 +16,11 @@
  * under the License.
  */
 
-import { ChoreoBuildPackNames, CommandIds, type IOpenCompSrcCmdParams, type Organization, type Project } from "@wso2/wso2-platform-core";
+import { CommandIds, type IOpenCompSrcCmdParams, type Organization, type Project } from "@wso2/wso2-platform-core";
 import { type ExtensionContext, ProgressLocation, commands, window } from "vscode";
 import { ext } from "../extensionVariables";
 import { waitForContextStoreToLoad } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
-import { webviewStateStore } from "../stores/webview-state-store";
 import { cloneOrOpenDir } from "../uri-handlers";
 import { getUserInfoForCmd, isRpcActive, selectOrg, selectProject, setExtensionName } from "./cmd-utils";
 
@@ -29,7 +28,6 @@ export function openCompSrcCommand(context: ExtensionContext) {
 	context.subscriptions.push(
 		commands.registerCommand(CommandIds.OpenCompSrcDir, async (params: IOpenCompSrcCmdParams) => {
 			setExtensionName(params?.extName);
-			const extName = webviewStateStore.getState().state.extensionName;
 			try {
 				isRpcActive(ext);
 				const userInfo = await getUserInfoForCmd("clone project repository");
@@ -97,8 +95,8 @@ export function openCompSrcCommand(context: ExtensionContext) {
 					);
 				}
 			} catch (err: any) {
-				console.error(`Failed to open project/${extName === "Devant" ? "integration" : "component"}`, err);
-				window.showErrorMessage(err?.message || `Failed to open project/${extName === "Devant" ? "integration" : "component"}`);
+				console.error(`Failed to open project/${ext.terminologies?.componentTerm}`, err);
+				window.showErrorMessage(err?.message || `Failed to open project/${ext.terminologies?.componentTerm}`);
 			}
 		}),
 	);

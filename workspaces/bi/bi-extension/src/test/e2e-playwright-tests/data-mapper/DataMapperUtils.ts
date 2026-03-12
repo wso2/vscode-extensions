@@ -374,7 +374,7 @@ export namespace TestScenarios {
         console.log(' - Goto focused view again');
         await dmWebView.getByTestId('expand-array-fn-output.oArr1D').click();
         await dmWebView.getByTestId('link-from-input.iArr1D.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-        await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-queryOutput.oArr1D.#.IN').waitFor({ state: 'attached' });
+        await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-queryOutput.oArr1D.Q#.IN').waitFor({ state: 'attached' });
 
         console.log(' - Delete within focused view');
         await loc1.click({ force: true });
@@ -483,7 +483,7 @@ export namespace TestScenarios {
 
         await dm.mapFields('input', 'arrayOutput.output', 'a2a-inner');
         await dmWebView.getByTestId('link-from-input.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-        await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-queryOutput.output.#.IN').waitFor({ state: 'attached' });
+        await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-queryOutput.output.Q#.IN').waitFor({ state: 'attached' });
 
 
         console.log(' - Map using query expression within focused view');
@@ -514,7 +514,7 @@ export namespace TestScenarios {
         console.log(' - Goto inner focused view again');
         await dmWebView.getByTestId('expand-array-fn-output.oArr1D').click();
         await dmWebView.getByTestId('link-from-inputItem.iArr1D.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-        await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-queryOutput.oArr1D.#.IN').waitFor({ state: 'attached' });
+        await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-queryOutput.oArr1D.Q#.IN').waitFor({ state: 'attached' });
 
         console.log(' - Delete within inner focused view');
         await loc1.click({ force: true });

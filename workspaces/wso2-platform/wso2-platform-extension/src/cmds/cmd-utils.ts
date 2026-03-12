@@ -29,7 +29,6 @@ export const selectComponent = async (
 	loadingTitle = "Loading Components/Integrations...",
 	selectTitle = "Select Component/Integrations",
 ): Promise<ComponentKind> => {
-	const extName = webviewStateStore.getState().state?.extensionName;
 	const selectedComponent = await quickPickWithLoader({
 		cacheQuickPicks: dataCacheStore
 			.getState()
@@ -46,7 +45,7 @@ export const selectComponent = async (
 
 			if (!components || components.length === 0) {
 				throw new Error(
-					`You do not have any existing ${extName === "Devant" ? "integrations" : "components"} in your project. Please retry after creating one.`,
+					`You do not have any existing ${ext.terminologies?.componentTermPlural} in your project. Please retry after creating one.`,
 				);
 			}
 
@@ -54,18 +53,17 @@ export const selectComponent = async (
 		},
 		loadingTitle,
 		selectTitle,
-		placeholder: `${extName === "Devant" ? "Integration" : "Component"} Name`,
+		placeholder: `${ext.terminologies?.componentTermCapitalized} Name`,
 	});
 
 	if (!selectedComponent) {
-		throw new Error(`Failed to select ${extName === "Devant" ? "integration" : "component"}`);
+		throw new Error(`Failed to select ${ext.terminologies?.componentTerm}`);
 	}
 
 	return selectedComponent;
 };
 
 export const selectProject = async (org: Organization, loadingTitle = "Loading projects...", selectTitle = "Select project"): Promise<Project> => {
-	const extName = webviewStateStore.getState().state?.extensionName;
 	const selectedProject = await quickPickWithLoader({
 		cacheQuickPicks: dataCacheStore
 			.getState()
@@ -76,7 +74,7 @@ export const selectProject = async (org: Organization, loadingTitle = "Loading p
 			dataCacheStore.getState().setProjects(org.handle, projects);
 
 			if (!projects || projects.length === 0) {
-				throw new Error(`You do not have any existing ${extName === "Devant" ? "integrations" : "components"} or projects. Please try creating one.`);
+				throw new Error(`You do not have any existing ${ext.terminologies?.componentTermPlural} or projects. Please try creating one.`);
 			}
 
 			return projects.map((item) => ({ label: item.name, detail: `Handle: ${item.handler}`, item }));
@@ -193,9 +191,9 @@ export const createNewProject = async (
 		value: projectName || "",
 		placeHolder: "project-name",
 		prompt: isWorkspaceMapping 
-			? "Your BI workspace will be mapped to a Devant project. Project name is auto-picked from workspace name, you can edit if needed.\n" 
+			? "Your BI workspace will be mapped to a WSO2 cloud project. Project name is auto-picked from workspace name, you can edit if needed.\n" 
 			: "Enter a name for your new project",
-		title: isWorkspaceMapping ? "Create Devant Project for Workspace" : "New Project Name",
+		title: isWorkspaceMapping ? "Create WSO2 cloud Project for Workspace" : "New Project Name",
 		validateInput: (val) => {
 			if (!val) {
 				return "Project name is required";

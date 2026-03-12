@@ -17,9 +17,9 @@
  */
 import React from "react";
 
-export const MistralAIIcon = () => {
+export const MistralAIIcon = ({ size = 24 }: { size?: number }) => {
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="26.37" height="24" viewBox="0 0 256 233">
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 256 233">
             <path d="M186.182 0h46.545v46.545h-46.545z" />
             <path fill="#f7d046" d="M209.455 0H256v46.545h-46.545z" />
             <path d="M0 0h46.545v46.545H0zm0 46.545h46.545V93.09H0zm0 46.546h46.545v46.545H0zm0 46.545h46.545v46.545H0zm0 46.546h46.545v46.545H0z" />

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import type { ComponentKind, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq, DeleteConnectionReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, GetConnectionItemReq, StartProxyServerReq, StopProxyServerReq, AuthState, ContextStoreComponentState, ContextItemEnriched, GetProjectEnvsReq, CreateThirdPartyConnectionReq, RegisterMarketplaceConnectionReq, GetComponentsReq } from "@wso2/wso2-platform-core";
+import type { ComponentKind, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq, DeleteConnectionReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, GetConnectionItemReq, StartProxyServerReq, StopProxyServerReq, AuthState, ContextStoreComponentState, ContextItemEnriched, GetProjectEnvsReq, CreateThirdPartyConnectionReq, RegisterMarketplaceConnectionReq, GetComponentsReq, GetDatabaseServerReq, CreateDatabaseConnectionReq, GetDatabaseItemReq, ResolveConnectionSecretsReq } from "@wso2/wso2-platform-core";
 import { ext } from "./extensionVariables";
 import { hasDirtyRepo } from "./git/util";
 import { contextStore } from "./stores/context-store";
@@ -40,11 +40,17 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public openClonedDir = (params: openClonedDirReq) => openClonedDir(params);
 	public getStsToken = () => ext.clients.rpcClient.getStsToken();
 	public getMarketplaceItems = (params: GetMarketplaceListReq) => ext.clients.rpcClient.getMarketplaceItems(params);
+	public getMarketplaceDatabases = (params: { orgId: string }) => ext.clients.rpcClient.getMarketplaceDatabases(params);
+	public getMarketplaceDatabaseItem = (params: GetDatabaseItemReq) => ext.clients.rpcClient.getMarketplaceDatabaseItem(params);
+	public getDatabaseServer = (params: GetDatabaseServerReq) => ext.clients.rpcClient.getDatabaseServer(params);
+	public getDatabaseAdminCredential = (params: GetDatabaseServerReq) => ext.clients.rpcClient.getDatabaseAdminCredential(params);
+	public getDatabaseCredentials = (params: GetDatabaseServerReq) => ext.clients.rpcClient.getDatabaseCredentials(params);
 	public getMarketplaceItem = (params: GetMarketplaceItemReq) => ext.clients.rpcClient.getMarketplaceItem(params);
 	public getSelectedContext = () => contextStore.getState().state?.selected || null;
 	public getMarketplaceIdl = (params: GetMarketplaceIdlReq) => ext.clients.rpcClient.getMarketplaceIdl(params);
 	public createComponentConnection = (params: CreateComponentConnectionReq) => ext.clients.rpcClient.createComponentConnection(params);
 	public createThirdPartyConnection = (params: CreateThirdPartyConnectionReq) => ext.clients.rpcClient.createThirdPartyConnection(params);
+	public createDatabaseConnection = (params: CreateDatabaseConnectionReq) => ext.clients.rpcClient.createDatabaseConnection(params);
 	public createConnectionConfig = (params: CreateLocalConnectionsConfigReq) => createConnectionConfig(params);
 	public registerMarketplaceConnection = (params: RegisterMarketplaceConnectionReq) => ext.clients.rpcClient.registerMarketplaceConnection(params);
 	public getConnections = (params: GetConnectionsReq) => ext.clients.rpcClient.getConnections(params);
@@ -56,6 +62,7 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public startProxyServer = async(params: StartProxyServerReq) => ext.clients.rpcClient.startProxyServer(params);
 	public stopProxyServer = async(params: StopProxyServerReq) => ext.clients.rpcClient.stopProxyServer(params);
 	public getComponentList = async(params: GetComponentsReq) => ext.clients.rpcClient.getComponentList(params);
+	public resolveConnectionSecrets = async(params: ResolveConnectionSecretsReq) => ext.clients.rpcClient.resolveConnectionSecrets(params);
 
 	// Auth state subscriptions
 	public subscribeAuthState = (callback: (state: AuthState)=>void) => ext.authProvider?.subscribe((state)=>callback(state.state)) ?? (() => {});

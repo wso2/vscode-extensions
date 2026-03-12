@@ -113,6 +113,11 @@ export type FormSubmitOptions = {
     postUpdateCallBack?: () => void;
 };
 
+type NodePromptLaunchOptions = {
+    autoSubmit?: boolean;
+    planMode?: boolean;
+};
+
 export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const { projectPath, breakpointState, syntaxTree, onUpdate, onReady, onSave } = props;
     const { rpcClient } = useRpcContext();
@@ -883,24 +888,31 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         fetchNodesAndAISuggestions(parent, target);
     };
 
-    const handleOnAddNodePrompt = (parent: FlowNode | Branch, target: LineRange, prompt: string) => {
+    const handleOnAddNodePrompt = (
+        parent: FlowNode | Branch,
+        target: LineRange,
+        prompt: string,
+        options?: NodePromptLaunchOptions
+    ) => {
         // Create CodeContext from the target position
         // TODO: Offset seem to be wrong. Investigate further
+        const filePath = target.fileName || model.fileName;
         const codeContext: CodeContext = {
             type: 'addition',
             position: {
                 line: target.startLine.line,
                 offset: target.startLine.offset
             },
-            filePath: model.fileName
+            filePath
         };
 
         // Create AIPanelPrompt with CodeContext - agent mode is the default
         const aiPrompt: AIPanelPrompt = {
             type: 'text',
             text: prompt || '',
-            planMode: true,
-            codeContext
+            planMode: options?.planMode ?? true,
+            codeContext,
+            autoSubmit: options?.autoSubmit ?? false,
         };
 
         // Use the standard pattern - import from utils/commands
@@ -2595,7 +2607,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 onNavigateToPanel={handleOnNavigateToPanel}
                 // Devant specific callbacks
                 onImportDevantConn={handleClickImportDevantConn}
-                onLinkDevantProject={!platformExtState?.selectedContext?.project ? onLinkDevantProject : undefined}
+                onLinkDevantProject={(platformExtState?.isExtInstalled && !platformExtState?.selectedContext?.project) ? onLinkDevantProject : undefined}
                 onRefreshDevantConnections={
                     platformExtState?.selectedContext?.project && !platformExtState?.devantConns?.loading
                         ? () => platformRpcClient?.refreshConnectionList()
