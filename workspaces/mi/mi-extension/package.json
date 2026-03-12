@@ -3,7 +3,7 @@
   "displayName": "WSO2 Integrator: MI",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
   "icon": "resources/images/wso2-micro-integrator-image.png",
-  "version": "3.1.4",
+  "version": "3.1.5",
   "publisher": "wso2",
   "engines": {
     "vscode": "^1.100.0"
@@ -251,27 +251,27 @@
       {
         "view": "MI.project-explorer",
         "contents": "Welcome to WSO2 Integrator: MI. You can open a folder containing a MI project or create a new project.\n[Create New Project](command:MI.project-explorer.create-project)\n[Open MI Project](command:MI.openProject)\n[Import from CApp](command:MI.importProjectFromCapp)\nTo learn more about how to use WSO2 Integrator: MI in VS Code, [read our docs](https://mi.docs.wso2.com/en/4.3.0/develop/mi-for-vscode/mi-for-vscode-overview/).",
-        "when": "!config.integrator.defaultIntegrator && MI.status == 'unknownProject'"
+        "when": "!wso2-integrator.explorer.visible && MI.status == 'unknownProject'"
       },
       {
         "view": "MI.project-explorer",
         "contents": "Some errors occurred while activating the extension. Please check the output channel for more information.",
-        "when": "!config.integrator.defaultIntegrator && MI.status == 'disabled'"
+        "when": "!wso2-integrator.explorer.visible && MI.status == 'disabled'"
       },
       {
         "view": "MI.project-explorer",
         "contents": "WSO2 Integrator: MI is not set up. Please set up the MI server and Java home to continue.",
-        "when": "!config.integrator.defaultIntegrator && MI.status == 'notSetUp'"
+        "when": "!wso2-integrator.explorer.visible && MI.status == 'notSetUp'"
       },
       {
         "view": "wso2-integrator.explorer",
         "contents": "Some errors occurred while activating the extension. Please check the output channel for more information.",
-        "when": "config.integrator.defaultIntegrator != '' && MI.status == 'disabled'"
+        "when": "wso2-integrator.explorer.visible != '' && MI.status == 'disabled'"
       },
       {
         "view": "wso2-integrator.explorer",
         "contents": "WSO2 Integrator: MI is not set up. Please set up the MI server and Java home to continue.",
-        "when": "config.integrator.defaultIntegrator != '' && MI.status == 'notSetUp'"
+        "when": "wso2-integrator.explorer.visible != '' && MI.status == 'notSetUp'"
       },
       {
         "view": "testing",
