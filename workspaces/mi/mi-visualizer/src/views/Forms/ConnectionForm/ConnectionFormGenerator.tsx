@@ -273,7 +273,8 @@ export function AddConnection(props: AddConnectionProps) {
             connectionName: connectionName,
             keyValuesXML: modifiedXml,
             directory: localEntryPath,
-            filePath: props.connectionName ? props.path : ""
+            filePath: props.connectionName ? props.path : "",
+            connectionType: connectionType
         });
 
         if (props.isPopup) {
@@ -312,7 +313,8 @@ export function AddConnection(props: AddConnectionProps) {
             connectionName: name,
             keyValuesXML: modifiedXml,
             directory: localEntryPath,
-            filePath: props.connectionName ? props.path : ""
+            filePath: props.connectionName ? props.path : "",
+            connectionType: connectionType
         });
 
         if (props.isPopup) {
