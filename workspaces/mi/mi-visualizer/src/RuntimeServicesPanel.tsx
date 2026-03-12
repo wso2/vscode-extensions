@@ -165,7 +165,7 @@ export function RuntimeServicePanel() {
     const [serverRunStatus, setServerRunStatus] = useState<MiServerRunStatus>('Running' as MiServerRunStatus);
 
     useEffect(() => {
-        if (rpcClient) {
+        if (rpcClient && serverRunStatus === "Running") {
 
             rpcClient.getMiVisualizerRpcClient().getAvailableRuntimeServices().then((services) => {
                 setAvailableServices(services);
