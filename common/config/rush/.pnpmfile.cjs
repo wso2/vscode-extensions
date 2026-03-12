@@ -76,10 +76,40 @@ module.exports = {
           pkg.dependencies['eslint'] = '^9.27.0';
         }
         if (pkg.dependencies['fast-xml-parser']) {
-          pkg.dependencies['fast-xml-parser'] = '5.3.7';
+          pkg.dependencies['fast-xml-parser'] = '5.3.8';
         }
         if (pkg.dependencies['hono']) {
-          pkg.dependencies['hono'] = '^4.11.7';
+          pkg.dependencies['hono'] = '^4.12.4';
+        }
+        if (pkg.dependencies['@hono/node-server']) {
+          pkg.dependencies['@hono/node-server'] = '^1.19.10';
+        }
+        if (pkg.dependencies['dompurify']) {
+          pkg.dependencies['dompurify'] = '^3.3.2';
+        }
+        if (pkg.dependencies['express-rate-limit']) {
+          pkg.dependencies['express-rate-limit'] = '^8.2.2';
+        }
+        if (pkg.dependencies['@tootallnate/once']) {
+          pkg.dependencies['@tootallnate/once'] = '^3.0.1';
+        }
+        if (pkg.dependencies['immutable']) {
+          pkg.dependencies['immutable'] = '^3.8.3';
+        }
+        if (pkg.dependencies['serialize-javascript']) {
+          pkg.dependencies['serialize-javascript'] = '^7.0.3';
+        }
+        if (pkg.dependencies['minimatch']) {
+          const ver = pkg.dependencies['minimatch'];
+          if (/^[\^~]?3\./.test(ver)) {
+            pkg.dependencies['minimatch'] = '^3.1.4';
+          } else if (/^[\^~]?5\./.test(ver)) {
+            pkg.dependencies['minimatch'] = '^5.1.8';
+          } else if (/^[\^~]?9\./.test(ver)) {
+            pkg.dependencies['minimatch'] = '^9.0.7';
+          } else if (/^[\^~]?10\./.test(ver)) {
+            pkg.dependencies['minimatch'] = '^10.2.3';
+          }
         }
         if (pkg.dependencies['lodash']) {
           pkg.dependencies['lodash'] = '4.17.23';
@@ -143,10 +173,40 @@ module.exports = {
           pkg.devDependencies['eslint'] = '^9.27.0';
         }
         if (pkg.devDependencies['fast-xml-parser']) {
-          pkg.devDependencies['fast-xml-parser'] = '5.3.7';
+          pkg.devDependencies['fast-xml-parser'] = '5.3.8';
         }
         if (pkg.devDependencies['hono']) {
-          pkg.devDependencies['hono'] = '^4.11.7';
+          pkg.devDependencies['hono'] = '^4.12.4';
+        }
+        if (pkg.devDependencies['@hono/node-server']) {
+          pkg.devDependencies['@hono/node-server'] = '^1.19.10';
+        }
+        if (pkg.devDependencies['dompurify']) {
+          pkg.devDependencies['dompurify'] = '^3.3.2';
+        }
+        if (pkg.devDependencies['express-rate-limit']) {
+          pkg.devDependencies['express-rate-limit'] = '^8.2.2';
+        }
+        if (pkg.devDependencies['@tootallnate/once']) {
+          pkg.devDependencies['@tootallnate/once'] = '^3.0.1';
+        }
+        if (pkg.devDependencies['immutable']) {
+          pkg.devDependencies['immutable'] = '^3.8.3';
+        }
+        if (pkg.devDependencies['serialize-javascript']) {
+          pkg.devDependencies['serialize-javascript'] = '^7.0.3';
+        }
+        if (pkg.devDependencies['minimatch']) {
+          const ver = pkg.devDependencies['minimatch'];
+          if (/^[\^~]?3\./.test(ver)) {
+            pkg.devDependencies['minimatch'] = '^3.1.4';
+          } else if (/^[\^~]?5\./.test(ver)) {
+            pkg.devDependencies['minimatch'] = '^5.1.8';
+          } else if (/^[\^~]?9\./.test(ver)) {
+            pkg.devDependencies['minimatch'] = '^9.0.7';
+          } else if (/^[\^~]?10\./.test(ver)) {
+            pkg.devDependencies['minimatch'] = '^10.2.3';
+          }
         }
         if (pkg.devDependencies['lodash']) {
           pkg.devDependencies['lodash'] = '4.17.23';
