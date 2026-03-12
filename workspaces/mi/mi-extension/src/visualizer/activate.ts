@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { commands, window, workspace } from 'vscode';
+import { commands, Uri, window, workspace } from 'vscode';
 import { getStateMachine, navigate, openView, refreshUI } from '../stateMachine';
 import { COMMANDS, REFRESH_ENABLED_DOCUMENTS, SWAGGER_LANG_ID, SWAGGER_REL_DIR } from '../constants';
 import { EVENT_TYPE, MACHINE_VIEW, onDocumentSave } from '@wso2/mi-core';
@@ -31,7 +31,7 @@ import { RPCLayer } from '../RPCLayer';
 import { deleteSwagger, generateSwagger } from '../util/swagger';
 import { VisualizerWebview, webviews } from './webview';
 import * as fs from 'fs';
-import { AiPanelWebview } from '../ai-panel/webview';
+import { AiPanelWebview } from '../ai-features/webview';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log } from '../util/logger';
 import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR } from '../util/onboardingUtils';
@@ -43,60 +43,61 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
         vscode.commands.registerCommand(COMMANDS.OPEN_PROJECT, (providedUri?: vscode.Uri) => {
             const processUri = (uri: vscode.Uri[] | undefined) => {
                 if (uri && uri[0]) {
-                    const handleOpenProject = (folderUri: vscode.Uri) => {
-                        window.showInformationMessage('Where would you like to open the project?',
-                            { modal: true },
-                            'Current Window',
-                            'New Window'
-                        ).then(selection => {
-                            if (selection === "Current Window") {
-                                const workspaceFolders = workspace.workspaceFolders || [];
-                                if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
-                                    workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
-                                }
-                            } else if (selection === "New Window") {
-                                commands.executeCommand('vscode.openFolder', folderUri);
-                            }
-                        });
-                    };
-                    if (uri[0].fsPath.endsWith('.car') || uri[0].fsPath.endsWith('.zip')) {
-                        window.showInformationMessage('A car file (CAPP) is selected.\n Do you want to extract it?', { modal: true }, 'Extract')
-                            .then(option => {
-                                if (option === 'Extract') {
-                                    window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: 'Select the location to extract the CAPP', openLabel: 'Select Folder' })
-                                        .then(async extractUri => {
-                                            if (extractUri && extractUri[0]) {
-                                                try {
-                                                    const result = await importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false });
-                                                    if (result.filePath) {
-                                                        handleOpenProject(extractUri[0]);
-                                                    } else {
-                                                        window.showErrorMessage('Failed to import CAPP. Please check the file and try again.');
-                                                    }
-                                                } catch (error: any) {
-                                                    window.showErrorMessage(`CAPP import failed: ${error.message}`);
-                                                }
-                                            }
-                                        });
-                                }
-                            });
+                    const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+                    const projectUri = webview ? webview.getProjectUri() : firstProject;
+                    const projectOpened = getStateMachine(projectUri).context().projectOpened;
+                    if (projectOpened) {
+                        handleOpenProject(uri[0]);
                     } else {
-                        const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
-                        const projectUri = webview ? webview.getProjectUri() : firstProject;
-                        const projectOpened = getStateMachine(projectUri).context().projectOpened;
-                        if (projectOpened) {
-                            handleOpenProject(uri[0]);
-                        } else {
-                            commands.executeCommand('vscode.openFolder', uri[0]);
-                        }
+                        commands.executeCommand('vscode.openFolder', uri[0]);
                     }
                 }
             };
-
             if (providedUri) {
                 processUri([providedUri]);
             } else {
-                window.showOpenDialog({ canSelectFolders: true, canSelectFiles: true, filters: { 'CAPP': ['car', 'zip'] }, openLabel: 'Open MI Project' })
+                window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, openLabel: 'Open MI Project' })
+                    .then(processUri);
+            }
+        }),
+        vscode.commands.registerCommand(COMMANDS.IMPORT_FROM_CAPP, (providedUri?: vscode.Uri) => {
+            const processUri = async (uri: vscode.Uri[] | undefined) => {
+                if (uri && uri[0]) {
+                    const confirmation = await vscode.window.showInformationMessage(
+                        'Select the location where the CApp should be extracted.',
+                        { modal: true },
+                        'Continue'
+                    );
+                    if (confirmation === 'Continue') {
+                        window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: 'Select the location to extract the CApp', openLabel: 'Select Folder' })
+                            .then(async extractUri => {
+                                if (extractUri && extractUri[0]) {
+                                    try {
+                                        const result = await importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false, createNewFolder: true });
+                                        if (result.filePath) {
+                                            const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+                                            const projectUri = webview ? webview.getProjectUri() : firstProject;
+                                            const projectOpened = getStateMachine(projectUri).context().projectOpened;
+                                            if (projectOpened) {
+                                                handleOpenProject(Uri.file(result.filePath));
+                                            } else {
+                                                commands.executeCommand('vscode.openFolder', Uri.file(result.filePath));
+                                            }
+                                        } else {
+                                            window.showErrorMessage('Failed to import CApp. Please check the file and try again.');
+                                        }
+                                    } catch (error: any) {
+                                        window.showErrorMessage(`CApp import failed: ${error.message}`);
+                                    }
+                                }
+                            });
+                    }
+                }
+            };
+            if (providedUri) {
+                processUri([providedUri]);
+            } else {
+                window.showOpenDialog({ canSelectFolders: false, canSelectFiles: true, filters: { 'CApp': ['car', 'zip'] }, openLabel: 'Import CApp file' })
                     .then(processUri);
             }
         }),
@@ -109,7 +110,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                             directory: path.dirname(args.path),
                             name: path.basename(args.path),
                             open: args.open ?? false,
-                            miVersion: "4.4.0"
+                            miVersion: args.miVersion ?? "4.6.0"
                         }
                     );
                     await createSettingsFile(args);
@@ -139,11 +140,6 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ProjectCreationForm, projectUri });
                 log('Create New Project');
             }
-        })
-    );
-    context.subscriptions.push(
-        vscode.commands.registerCommand(COMMANDS.IMPORT_CAPP, () => {
-            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ImportProjectForm });
         })
     );
     context.subscriptions.push(
@@ -485,4 +481,21 @@ const getResources = (st: any): any[] => {
         },
         expandable: false
     }));
+};
+
+const handleOpenProject = (folderUri: vscode.Uri) => {
+    window.showInformationMessage('Where would you like to open the project?',
+        { modal: true },
+        'Current Window',
+        'New Window'
+    ).then(selection => {
+        if (selection === "Current Window") {
+            const workspaceFolders = workspace.workspaceFolders || [];
+            if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
+                workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
+            }
+        } else if (selection === "New Window") {
+            commands.executeCommand('vscode.openFolder', folderUri);
+        }
+    });
 };

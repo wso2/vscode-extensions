@@ -23,7 +23,7 @@ export interface FormFillProps {
     values: {
         [key: string]: {
             value: string,
-            type: 'input' | 'dropdown' | 'checkbox' | 'combo' | 'expression' | 'file' | 'directory' | 'inlineExpression' | 'radio' | 'textarea',
+            type: 'input' | 'dropdown' | 'checkbox' | 'combo' | 'expression' | 'file' | 'directory' | 'inlineExpression' | 'radio' | 'textarea' | 'cmEditor',
             additionalProps?: {
                 [key: string]: any
             }
@@ -37,7 +37,7 @@ export interface ParamManagerValues {
 }
 
 export class Form {
-    private container!: Locator|Frame;
+    private container!: Locator | Frame;
     private webview!: Frame;
 
     constructor(private _page?: Page, private _name?: string, container?: Locator | Frame) {
@@ -105,6 +105,9 @@ export class Form {
                         if (data.additionalProps?.clickLabel) {
                             await this.container.locator(`label:text("${key}")`).click();
                         }
+                        if (data.additionalProps?.clickItem) {
+                            await this.container.locator(`[data-testid="type-helper-item-${data.value}"]`).click();
+                        }
                         break;
                     }
                     case 'dropdown': {
@@ -157,6 +160,53 @@ export class Form {
                         await container.waitFor();
                         const textInput = container.locator('textarea');
                         await textInput.fill(data.value);
+                        break;
+                    }
+                    case 'cmEditor': {
+                        // Handles fields rendered as CodeMirror cm-editor
+                        // Try to directly find the ex-editor-{key} container, then interact with its .cm-editor
+                        const exEditorTestId = `ex-editor-${key}`;
+                        const containerDiv = this.container.locator(`div[data-testid="${exEditorTestId}"]`);
+                        let found = await containerDiv.count();
+                        let cmEditor;
+                        if (found) {
+                            // Check if user has given to switch between Expression and Text mode
+                            if (data.additionalProps?.switchMode) {
+                                switch (data.additionalProps?.switchMode) {
+                                    case 'primary-mode':
+                                        if (await this._detectInputMode(containerDiv, data.additionalProps?.window) === 'expression') {
+                                            const primaryModeButton = containerDiv.locator('[data-testid="primary-mode"]');
+                                            await primaryModeButton.waitFor({ state: 'visible', timeout: 5000 });
+                                            await primaryModeButton.click();
+                                            // Handle warning dialog if it appears (when switching from Expression to Text mode)
+                                            const continueButton = this.container.locator('vscode-button:has-text("Continue")');
+                                            if (await continueButton.count() > 0) {
+                                                await continueButton.waitFor({ state: 'visible', timeout: 2000 });
+                                                await continueButton.click();
+                                            }
+                                            // Wait a bit for the mode switch to complete
+                                            await this._page?.waitForTimeout(500);
+                                        }
+                                        break;
+                                    case 'expression-mode':
+                                        if (await this._detectInputMode(containerDiv, data.additionalProps?.window) === 'text') {
+                                            const expressionModeButton = containerDiv.locator('[data-testid="expression-mode"]');
+                                            await expressionModeButton.waitFor({ state: 'visible', timeout: 5000 });
+                                            await expressionModeButton.click();
+                                            // Wait a bit for the mode switch to complete
+                                            await this._page?.waitForTimeout(500);
+                                        }
+                                        break;
+                                }
+                            }
+
+                            cmEditor = containerDiv.locator('.cm-editor');
+                            await cmEditor.waitFor();
+                            const editorInput = cmEditor.locator('div[contenteditable="true"]');
+                            await editorInput.waitFor();
+                            await editorInput.click({ clickCount: 3 }); // Focus and select for replacement
+                            await editorInput.fill(data.value);
+                        }
                         break;
                     }
                     case 'inlineExpression': {
@@ -264,4 +314,39 @@ export class Form {
     public async getWebview() {
         return this.webview;
     }
+
+
+    private async _detectInputMode(containerDiv: Locator, window: any): Promise<'text' | 'expression' | 'unknown'> {
+        // Method 1: Use mode switcher (most reliable - checks the actual UI state)
+        // Hover to show the mode switcher and check which button is active
+        try {
+            await containerDiv.hover();
+            const primaryModeButton = containerDiv.locator('[data-testid="primary-mode"]');
+            const expressionModeButton = containerDiv.locator('[data-testid="expression-mode"]');
+
+            if (await primaryModeButton.count() > 0 && await expressionModeButton.count() > 0) {
+                await primaryModeButton.waitFor({ state: 'visible', timeout: 2000 });
+                await expressionModeButton.waitFor({ state: 'visible', timeout: 2000 });
+
+                // Check font-weight: active mode has font-weight: 600, inactive has 500
+                const primaryFontWeight = await primaryModeButton.evaluate((el) =>
+                    parseInt(window.getComputedStyle(el).fontWeight)
+                );
+                const expressionFontWeight = await expressionModeButton.evaluate((el) =>
+                    parseInt(window.getComputedStyle(el).fontWeight)
+                );
+
+                if (primaryFontWeight >= 600) {
+                    return 'text';
+                } else if (expressionFontWeight >= 600) {
+                    return 'expression';
+                }
+            }
+        } catch (error) {
+            // If mode switcher detection fails, fall back to input type detection
+            console.log('Mode switcher detection failed, falling back to input type detection:', error);
+        }
+        return 'unknown';
+    }
+
 }

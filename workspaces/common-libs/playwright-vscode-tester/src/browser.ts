@@ -90,12 +90,17 @@ export class VSBrowser {
             "security.workspace.trust.enabled": false,
             "files.simpleDialog.enable": true,
             "terminal.integrated.copyOnSelection": true,
+            "terminal.integrated.gpuAcceleration": "off",
             "extensions.ignoreRecommendations": true,
             "extensions.autoUpdate": false,
             "chat.disableAIFeatures": true,
             "github.copilot.enable": false,
             "github.copilot.chat.enable": false,
-            "workbench.secondarySideBar.defaultVisibility": "hidden"
+            "workbench.secondarySideBar.defaultVisibility": "hidden",
+            "ballerina.traceLog": true,
+            "ballerina.enableTelemetry": true,
+            "ballerina.debugLog": true,
+            "ballerina-vscode.trace.server": "verbose"
         };
         if (Object.keys(this.customSettings).length > 0) {
             console.log('Detected user defined code settings');

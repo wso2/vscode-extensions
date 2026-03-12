@@ -22,7 +22,7 @@ import { switchToIFrame } from '@wso2/playwright-vscode-tester';
 export class Diagram {
     private diagramWebView!: Frame;
 
-    constructor(private _page: Page) {}
+    constructor(private _page: Page) { }
 
     public async init() {
         const webview = await switchToIFrame('WSO2 Integrator: BI', this._page);
@@ -42,11 +42,29 @@ export class Diagram {
      */
     public async clickHoverAddButtonByIndex(index: number): Promise<void> {
         const link = (await this.getDiagramContainer()).getByTestId(`diagram-link-${index}`);
+        await link.waitFor();
         await link.hover();
+
         const addButton = link.getByTestId(`link-add-button-${index}`);
-        await addButton.waitFor();
-        await this._page.pause();
-        await addButton.click();
+
+        // Wait for the add button to become visible and stable
+        await addButton.waitFor({
+            state: 'visible',
+            timeout: 5000
+        });
+
+        // Try clicking with retries if needed, to handle instability
+        for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+                await addButton.click({ trial: false, force: true, timeout: 2000 });
+                return;
+            } catch (err) {
+                // Wait a bit and retry as element may not be stable/visible yet
+                await this._page.waitForTimeout(500);
+            }
+        }
+        // Last attempt: throw for diagnostic
+        await addButton.click({ trial: false, force: true, timeout: 2000 });
     }
 
     /**

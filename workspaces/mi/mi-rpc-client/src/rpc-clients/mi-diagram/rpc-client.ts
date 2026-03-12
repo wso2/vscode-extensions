@@ -390,6 +390,9 @@ import {
     GetMediatorsResponse,
     UpdateMediatorRequest,
     getMediator,
+    getMcpTools,
+    McpToolsRequest,
+    McpToolsResponse,
     getMediators,
     updateMediator,
     GetConnectionSchemaRequest,
@@ -449,7 +452,22 @@ import {
     Property,
     updatePropertiesInArtifactXML,
     getPropertiesFromArtifactXML,
-    formatPomFile
+    formatPomFile,
+    GenerateMappingsParamsRequest,
+    getInputOutputMappings,
+    GetDynamicFieldsRequest,
+    GetDynamicFieldsResponse,
+    getDynamicFields,
+    GetStoredProceduresResponse,
+    getStoredProcedures,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse,
+    downloadDriverForConnector,
+    getDriverMavenCoordinates,
+    LoadDriverAndTestConnectionRequest,
+    loadDriverAndTestConnection
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -1105,6 +1123,10 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
         return this._messenger.sendRequest(getMediator, HOST_EXTENSION, params);
     }
 
+    getMcpTools(params: McpToolsRequest): Promise<McpToolsResponse> {
+        return this._messenger.sendRequest(getMcpTools, HOST_EXTENSION, params);
+    }
+
     updateMediator(params: UpdateMediatorRequest): Promise<UpdateMediatorResponse> {
         return this._messenger.sendRequest(updateMediator, HOST_EXTENSION, params);
     }
@@ -1183,5 +1205,27 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getPropertiesFromArtifactXML(params: string): Promise<Property[] | undefined> {
         return this._messenger.sendRequest(getPropertiesFromArtifactXML, HOST_EXTENSION, params);
+    }
+
+    getInputOutputMappings(params: GenerateMappingsParamsRequest): Promise<string[]> {
+        return this._messenger.sendRequest(getInputOutputMappings, HOST_EXTENSION, params);
+    }
+    getDynamicFields(params: GetDynamicFieldsRequest): Promise<GetDynamicFieldsResponse> {
+        return this._messenger.sendRequest(getDynamicFields, HOST_EXTENSION, params);
+    }
+
+    getStoredProcedures(params: DSSFetchTablesRequest): Promise<GetStoredProceduresResponse> {
+        return this._messenger.sendRequest(getStoredProcedures, HOST_EXTENSION, params);
+    }
+
+    downloadDriverForConnector(params: DriverDownloadRequest): Promise<DriverDownloadResponse> {
+        return this._messenger.sendRequest(downloadDriverForConnector, HOST_EXTENSION, params);
+    }
+    getDriverMavenCoordinates(params: DriverMavenCoordinatesRequest): Promise<DriverMavenCoordinatesResponse> {
+        return this._messenger.sendRequest(getDriverMavenCoordinates, HOST_EXTENSION, params);
+    }
+
+    loadDriverAndTestConnection(params: LoadDriverAndTestConnectionRequest): Promise<TestDbConnectionResponse> {
+        return this._messenger.sendRequest(loadDriverAndTestConnection, HOST_EXTENSION, params);
     }
 }

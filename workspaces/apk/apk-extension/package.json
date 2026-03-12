@@ -57,19 +57,20 @@
       "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../.."
     },
     "devDependencies": {
-      "@types/glob": "^8.0.0",
-      "@types/mocha": "^10.0.1",
-      "@types/node": "^18.11.19",
-      "@types/vscode": "^1.63.0",
+      "@types/glob": "8.0.0",
+      "@types/minimatch": "5.1.2",
+      "@types/mocha": "10.0.1",
+      "@types/node": "18.11.19",
+      "@types/vscode": "1.63.0",
       "@typescript-eslint/eslint-plugin": "8.32.1",
       "@typescript-eslint/parser": "8.32.1",
-      "@vscode/test-electron": "^2.3.2",
+      "@vscode/test-electron": "2.3.2",
       "eslint": "9.27.0",
-      "glob": "^11.1.0",
-      "mocha": "^10.2.0",
+      "glob": "11.1.0",
+      "mocha": "10.2.0",
       "typescript": "5.8.3",
-      "copyfiles": "^2.4.1",
-      "@vscode/vsce": "^3.7.0"
+      "copyfiles": "2.4.1",
+      "@vscode/vsce": "3.7.0"
     }
   }
   

@@ -35,7 +35,7 @@ export const rootPomXmlContent = (projectName: string, groupID: string, artifact
   const indent = addDeploymentType ? "      " : "  ";
   let properties = `${indent}<projectType>integration-project</projectType>
       <uuid>${projectUuid}</uuid>
-      <!-- <archiveLocation>configure a custom target directory for CAPP</archiveLocation> -->
+      <!-- <archiveLocation>configure a custom target directory for CApp</archiveLocation> -->
       <keystore.type>JKS</keystore.type>
       <keystore.name>wso2carbon.jks</keystore.name>
       <keystore.password>wso2carbon</keystore.password>
@@ -47,6 +47,7 @@ export const rootPomXmlContent = (projectName: string, groupID: string, artifact
       <project.scm.id>integration-project</project.scm.id>
       <project.runtime.version>${miVersion}</project.runtime.version>
       <dockerfile.base.image>wso2/wso2mi:\${project.runtime.version}</dockerfile.base.image>
+      <dockerfile.name>${artifactID.toLowerCase() + ':' + version}</dockerfile.name>
       <car.plugin.version>${LATEST_CAR_PLUGIN_VERSION}</car.plugin.version>
       <test.server.type>local</test.server.type>
       <test.server.host>localhost</test.server.host>
@@ -379,7 +380,7 @@ export const rootPomXmlContent = (projectName: string, groupID: string, artifact
                   <configuration>
                     <images>
                       <image>
-                        <name>\${project.artifactId}:\${project.version}</name>
+                        <name>\${dockerfile.name}</name>
                         <build>
                           <from>\${dockerfile.base.image}</from>
                           <dockerFile>\${basedir}/target/tmp_docker/Dockerfile</dockerFile>
@@ -417,7 +418,7 @@ export const rootPomXmlContent = (projectName: string, groupID: string, artifact
         <plugin>
           <groupId>org.wso2.maven</groupId>
           <artifactId>synapse-unit-test-maven-plugin</artifactId>
-          <version>5.4.13</version>
+          <version>5.4.15</version>
           <executions>
             <execution>
               <id>synapse-unit-test</id>

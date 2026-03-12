@@ -19,12 +19,9 @@
 import React, { useEffect, useState } from "react";
 import { SampleDownloadRequest, VisualizerLocation, MACHINE_VIEW, EVENT_TYPE } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { SamplesView } from "../SamplesView";
 import styled from "@emotion/styled";
 import { Button, Codicon, ComponentCard } from "@wso2/ui-toolkit";
-import { ProjectWizard } from "../Forms/ProjectForm";
 import { VSCodeButton, VSCodeLink } from "@vscode/webview-ui-toolkit/react";
-import { ImportProjectWizard } from "../Forms/ImportProjectForm";
 import { COMMANDS } from "../../constants";
 
 const TextWrapper = styled.div`
@@ -147,6 +144,10 @@ export function WelcomeView() {
         await rpcClient.getMiDiagramRpcClient().executeCommand({ commands: [COMMANDS.OPEN_PROJECT] });
     }
 
+    const goToImportFromCApp = async () => {
+        await rpcClient.getMiDiagramRpcClient().executeCommand({ commands: [COMMANDS.IMPORT_FROM_CAPP] });
+    }
+
     const handleMoreSamples = () => {
         rpcClient.getMiVisualizerRpcClient().openView({
             type: EVENT_TYPE.OPEN_VIEW,
@@ -209,6 +210,18 @@ export function WelcomeView() {
                                         <Codicon name="go-to-file" iconSx={{ fontSize: 20 }} />
                                     </IconWrapper>
                                     <TextWrapper>Open Project</TextWrapper>
+                                </div>
+                            </Button>
+                        </Tab>
+                        <Tab>
+                            <SubTitle>Import from CApp</SubTitle>
+                            <span>Import project from a CApp file.</span>
+                            <Button appearance="primary" onClick={() => goToImportFromCApp()}>
+                                <div style={CreateBtnStyles}>
+                                    <IconWrapper>
+                                        <Codicon name="go-to-file" iconSx={{ fontSize: 20 }} />
+                                    </IconWrapper>
+                                    <TextWrapper>Import from CApp</TextWrapper>
                                 </div>
                             </Button>
                         </Tab>

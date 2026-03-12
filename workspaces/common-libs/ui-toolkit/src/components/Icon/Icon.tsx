@@ -45,7 +45,9 @@ export interface IconProps {
 export const Icon: React.FC<IconProps> = (props: IconProps) => {
     const { name, iconSx, isCodicon, tooltip, ...rest } = props;
     
-    const icon = isCodicon ? <i style= {iconSx} className={`codicon codicon-${name}`} /> : <i style={iconSx} className={`fw-${name}`} />;
+    const icon = isCodicon
+        ? <i style={iconSx} className={`codicon codicon-${name}`} title={tooltip} />
+        : <i style={iconSx} className={`fw-${name}`} title={tooltip} />;
     return (
         <IconContainer title={tooltip} {...rest} >
             {icon}

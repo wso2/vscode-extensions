@@ -61,6 +61,7 @@ const extensionConfig = {
 	},
 	resolve: {
 		extensions: [".ts", ".js"],
+		conditionNames: ["module-sync", "import", "require", "node", "default"],
 	},
 	module: {
 		rules: [

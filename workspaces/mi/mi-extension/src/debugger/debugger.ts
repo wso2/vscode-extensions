@@ -28,6 +28,7 @@ import { extension } from '../MIExtensionContext';
 import { reject } from 'lodash';
 import { LogLevel, logDebug } from '../util/logger';
 import { MILanguageClient } from '../lang-client/activator';
+import { DebuggerConfig } from './config';
 
 export interface RuntimeBreakpoint {
     id: number;
@@ -393,7 +394,7 @@ export class Debugger extends EventEmitter {
                         resolve();
                     }).catch((error) => {
                         logDebug(`Error while sending the resume command: ${error}`, LogLevel.ERROR);
-                        reject(`Error while resuming the debugger server: ${error}`);
+                        reject(`Error while resuming the debugger server. ${error}`);
                     });
 
                 }).catch((error) => {
@@ -595,8 +596,13 @@ export class Debugger extends EventEmitter {
             logDebug(`Command: ${request}`, LogLevel.INFO);
             this.commandClient?.write(request);
 
+            const timeout = setTimeout(() => {
+                reject("Server did not respond within the timeout period. Please restart the server in debug mode and try again.");
+            }, DebuggerConfig.getConnectionTimeout());
+
             // Listen for response from the command port
             this.commandClient?.once('data', (data) => {
+                clearTimeout(timeout);
                 // Convert buffer to string
                 const receivedData = data.toString();
 
@@ -616,6 +622,11 @@ export class Debugger extends EventEmitter {
                     // Remove the processed message from incompleteMessage
                     incompleteMessage = incompleteMessage.slice(newlineIndex + 1);
                 }
+            });
+
+            this.commandClient?.once('error', (err) => {
+                clearTimeout(timeout);
+                reject(err);
             });
         });
     }

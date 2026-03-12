@@ -9,6 +9,6 @@
     }
   },
   "dependencies": {
-    "@gigara/rush-github-action-build-cache-plugin": "^1.1.4"
+    "@gigara/rush-github-action-build-cache-plugin": "1.1.8"
   }
 }
