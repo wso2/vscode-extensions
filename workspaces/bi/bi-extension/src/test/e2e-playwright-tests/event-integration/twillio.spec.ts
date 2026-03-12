@@ -16,10 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
+import { DEFAULT_PROJECT_NAME } from '../utils/helpers/setup';
 
 export default function createTests() {
     test.describe('Twillio Integration Tests', {
@@ -36,26 +37,11 @@ export default function createTests() {
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-            // Create a new listener
-            listenerName = `listenerTwillio${testAttempt}`;
+
+            listenerName = `twilioListener`;
+
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
-            await form.fill({
-                values: {
-                    'Name*The name of the listener': {
-                        type: 'input',
-                        value: listenerName
-                    }
-                }
-            });
-            await form.submit('Next');
-
-            // Check for title
-            const configTitle = artifactWebView.locator('h3', { hasText: 'Twilio Event Handler Configuration' });
-            await configTitle.waitFor();
-
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
 
             await form.fill({
                 values: {
@@ -92,10 +78,8 @@ export default function createTests() {
             const projectExplorer = new ProjectExplorer(page.page);
             await projectExplorer.findItem(['sample', `twilio:CallStatusService`], true);
 
-            const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
-            if (!updateArtifactWebView) {
-                throw new Error('WSO2 Integrator: BI webview not found');
-            }
+            const context = artifactWebView.locator(`text=${listenerName}`);
+            await context.waitFor();
         });
 
         test('Editing Twillio Service', async ({ }, testInfo) => {
@@ -113,16 +97,28 @@ export default function createTests() {
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
 
-            const configTitle = artifactWebView.locator('h3', { hasText: 'Twilio Event Handler Configuration' });
-            await configTitle.waitFor();
+            await form.fill({
+                values: {
+                    'listenOn': {
+                        type: 'cmEditor',
+                        value: `9090`,
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
+                    }
+                }
+            });
 
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
+            await form.submit('Save Changes');
 
-            const selectedEventChannel = artifactWebView.locator(`[current-value="CallStatusService"]`);
-            await selectedEventChannel.waitFor();
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
 
-            await form.submit('Save');
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
+
+            await editBtn.waitFor();
 
             const onQueued = artifactWebView.locator(`text="onQueued"`);
             await onQueued.waitFor();
@@ -144,6 +140,27 @@ export default function createTests() {
 
             const onCanceled = artifactWebView.locator(`text="onCanceled"`);
             await onCanceled.waitFor();
+
+            const context = artifactWebView.locator(`text=${listenerName}`);
+            await context.waitFor();
+        });
+
+        test('Delete Twillio Integration', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            console.log('Deleting Twillio integration in test attempt: ', testAttempt);
+
+            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!artifactWebView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+            const projectExplorer = new ProjectExplorer(page.page);
+            const serviceTreeItem = await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `twilio:CallStatusService`], true);
+            await serviceTreeItem.click({ button: 'right' });
+            const deleteButton = page.page.getByRole('button', { name: 'Delete' }).first();
+            await deleteButton.waitFor({ timeout: 5000 });
+            await deleteButton.click();
+            await page.page.waitForTimeout(500);
+            await expect(serviceTreeItem).not.toBeVisible({ timeout: 10000 });
         });
     });
 }

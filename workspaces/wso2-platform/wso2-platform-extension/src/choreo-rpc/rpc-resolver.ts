@@ -51,6 +51,7 @@ import {
 	ChoreoRpcGetEndpointsRequest,
 	ChoreoRpcGetEnvsRequest,
 	ChoreoRpcGetGitRepoMetadata,
+	ChoreoRpcGetGitRepoMetadataBatch,
 	ChoreoRpcGetGitTokenForRepository,
 	ChoreoRpcGetMarketplaceItemIdl,
 	ChoreoRpcGetMarketplaceItems,
@@ -80,6 +81,7 @@ import {
 	type GetDeploymentStatusReq,
 	type GetDeploymentTracksReq,
 	type GetGitMetadataReq,
+	type GetGitMetadataResp,
 	type GetGitTokenForRepositoryReq,
 	type GetMarketplaceIdlReq,
 	type GetMarketplaceListReq,
@@ -95,6 +97,7 @@ import {
 import { ProgressLocation, window } from "vscode";
 import type { Messenger } from "vscode-messenger";
 import { webviewStateStore } from "../stores/webview-state-store";
+import { ext } from "../extensionVariables";
 
 export function registerChoreoRpcResolver(messenger: Messenger, rpcClient: IChoreoRPCClient) {
 	messenger.onRequest(ChoreoRpcGetProjectsRequest, (orgID: string) => rpcClient.getProjects(orgID));
@@ -106,9 +109,8 @@ export function registerChoreoRpcResolver(messenger: Messenger, rpcClient: IChor
 		);
 	});
 	messenger.onRequest(ChoreoRpcCreateComponentRequest, async (params: Parameters<IChoreoRPCClient["createComponent"]>[0]) => {
-		const extName = webviewStateStore.getState().state.extensionName;
 		return window.withProgress(
-			{ title: `Creating ${extName === "Devant" ? "integration" : "component"} ${params.name}...`, location: ProgressLocation.Notification },
+			{ title: `Creating ${ext.terminologies?.componentTerm} ${params.name}...`, location: ProgressLocation.Notification },
 			() => rpcClient.createComponent(params),
 		);
 	});
@@ -119,9 +121,8 @@ export function registerChoreoRpcResolver(messenger: Messenger, rpcClient: IChor
 	messenger.onRequest(ChoreoRpcGetCredentialsRequest, (params: GetCredentialsReq) => rpcClient.getCredentials(params));
 	messenger.onRequest(ChoreoRpcGetCredentialDetailsRequest, (params: GetCredentialDetailsReq) => rpcClient.getCredentialDetails(params));
 	messenger.onRequest(ChoreoRpcDeleteComponentRequest, async (params: Parameters<IChoreoRPCClient["deleteComponent"]>[0]) => {
-		const extName = webviewStateStore.getState().state.extensionName;
 		return window.withProgress(
-			{ title: `Deleting ${extName === "Devant" ? "integration" : "component"} ${params.componentName}...`, location: ProgressLocation.Notification },
+			{ title: `Deleting ${ext.terminologies?.componentTerm} ${params.componentName}...`, location: ProgressLocation.Notification },
 			() => rpcClient.deleteComponent(params),
 		);
 	});
@@ -141,7 +142,7 @@ export function registerChoreoRpcResolver(messenger: Messenger, rpcClient: IChor
 		const extName = webviewStateStore.getState().state.extensionName;
 		return window.withProgress(
 			{
-				title: `Deploying ${extName === "Devant" ? "integration" : "component"} ${params.componentName} in ${params.envName} environment...`,
+				title: `Deploying ${ext.terminologies?.componentTerm} ${params.componentName} in ${params.envName} environment...`,
 				location: ProgressLocation.Notification,
 			},
 			() => rpcClient.createDeployment(params),
@@ -191,6 +192,12 @@ export function registerChoreoRpcResolver(messenger: Messenger, rpcClient: IChor
 	messenger.onRequest(ChoreoRpcGetGitRepoMetadata, async (params: GetGitMetadataReq) => {
 		return window.withProgress({ title: "Fetching repo metadata...", location: ProgressLocation.Notification }, () =>
 			rpcClient.getGitRepoMetadata(params),
+		);
+	});
+	messenger.onRequest(ChoreoRpcGetGitRepoMetadataBatch, async (params: GetGitMetadataReq[]) => {
+		return window.withProgress(
+			{ title: "Fetching repo metadata...", location: ProgressLocation.Notification },
+			() => rpcClient.getGitRepoMetadataBatch(params)
 		);
 	});
 }

@@ -16,16 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
+import { DEFAULT_PROJECT_NAME } from '../utils/helpers/setup';
 
 export default function createTests() {
     test.describe('RabbitMQ Integration Tests', {
         tag: '@group1',
     }, async () => {
         let listenerName: string;
+        let queueName: string;
         initTest();
         test('Create RabbitMQ Integration', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
@@ -37,65 +39,125 @@ export default function createTests() {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
             // Create a new listener
-            listenerName = `listenerRabbitmq${testAttempt}`;
+            listenerName = `rabbitmqListener`;
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
+
+            queueName = `myQueueName`;
             await form.fill({
                 values: {
-                    'Name*The name of the listener': {
-                        type: 'input',
-                        value: listenerName,
-                    },
-                    'host': {
-                        type: 'textarea',
-                        value: `"localhost"`,
-                        additionalProps: { clickLabel: true }
-                    },
-                    'port': {
-                        type: 'textarea',
-                        value: '5676',
-                        additionalProps: { clickLabel: true }
+                    'basePath': {
+                        type: 'cmEditor',
+                        value: `"${queueName}"`,
+                        additionalProps: { clickLabel: true, switchMode: 'expression-mode', window: global.window }
                     }
                 }
             });
-            await form.submit('Next', true);
+            await form.submit('Create');
 
-            // Check for title
-            const configTitle = artifactWebView.locator('h3', { hasText: 'RabbitMQ Event Handler Configuration' });
-            await configTitle.waitFor();
-
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
+            const selectedListener = artifactWebView.locator(`text=${listenerName}`);
             await selectedListener.waitFor();
 
-            await form.fill({
-                values: {
-                    'Queue Name*The name of the queue': {
-                        type: 'input',
-                        value: '"testQueue"',
-                    }
-                }
-            });
-
-            await form.submit('Create', true);
-
-            const onMessage = artifactWebView.locator(`text="onMessage"`);
-            await onMessage.waitFor();
-
-            const onError = artifactWebView.locator(`text="onError"`);
-            await onError.waitFor();
-
+            // Verify integration appears in project tree
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem(['sample', `RabbitMQ Event Handler`], true);
+            await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `RabbitMQ Event Integration - "${queueName}"`], true);
+        });
 
-            const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
-            if (!updateArtifactWebView) {
+        test('Add onMessage Handler', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            console.log('Adding onMessage handler in test attempt: ', testAttempt);
+
+            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
+
+            // Step 1-2: Verify integration is open in service designer
+            const context = artifactWebView.locator(`text=${listenerName}`);
+            await context.waitFor();
+
+            // Step 4: Click Add Handler button
+            const addHandlerBtn = artifactWebView.locator('button:has-text("Add Handler")').or(
+                artifactWebView.locator('button:has-text("Handler")')
+            ).or(
+                artifactWebView.locator('vscode-button').filter({ hasText: /Add Handler|Handler/i })
+            ).or(
+                artifactWebView.locator('[data-testid*="add-handler"], [data-testid*="handler"]')
+            );
+
+            if (await addHandlerBtn.count() > 0) {
+                await addHandlerBtn.first().waitFor();
+                await addHandlerBtn.first().click({ force: true });
+                await page.page.waitForTimeout(1000);
+
+                // Step 5-6: Verify handler selection dialog
+                // Click on the card with data-testid="function-card-onMessage" (onMessage handler)
+                const onMessageCard = artifactWebView.locator('[data-testid="function-card-onMessage"]');
+                await onMessageCard.waitFor({ state: 'visible' });
+                await onMessageCard.click();
+
+                // From the side panel, click the "Define Content" button, then click the "Save" button.
+                // Wait for the side panel containing "Message Handler Configuration" to appear
+                const handlerConfigPanel = artifactWebView.locator('[data-testid="side-panel"]');
+                await handlerConfigPanel.getByText('Message Handler Configuration').waitFor({ timeout: 10000 });
+
+                // Step 7: Click on the Define Content button (by text only, no CSS classes)
+                // Search for a button, div, or span with exact text "Define Content"
+                let defineContentBtn = handlerConfigPanel.getByText('Define Content', { exact: true });
+                if (await defineContentBtn.count() === 0) {
+                    // fallback: find visible element with that text
+                    defineContentBtn = handlerConfigPanel.locator(':text("Define Content")');
+                }
+                await defineContentBtn.first().waitFor({ state: 'visible', timeout: 5000 });
+                await defineContentBtn.first().click();
+
+                // Select the Default JSON Type from the model box
+                // Click the "Continue with JSON Type" button shown in the center of the modal
+                const continueWithJsonBtn = artifactWebView.getByText('Continue with JSON Type', { exact: true });
+                await continueWithJsonBtn.waitFor({ state: 'visible', timeout: 5000 });
+                await continueWithJsonBtn.click();
+
+                // Click the "Save" button at the bottom of the panel
+                const saveBtn = handlerConfigPanel.locator('vscode-button[appearance="primary"]').filter({ hasText: 'Save' });
+                await saveBtn.first().waitFor({ state: 'visible', timeout: 5000 });
+                await saveBtn.first().click();
+
+                // Wait for the panel to disappear after save
+                await handlerConfigPanel.getByText('Message Handler Configuration').waitFor({ state: 'detached', timeout: 10000 });
+            }
+
+            // Try to detect if user got redirected to diagram view, otherwise click new resource under agent view
+            const diagramCanvas = artifactWebView.locator('[data-testid="bi-diagram-canvas"]');
+            const visualizerContainer = artifactWebView.locator('#visualizer-container');
+            let didRedirect = true;
+            try {
+                await diagramCanvas.waitFor({ timeout: 10000 });
+            } catch (e) {
+                // Not redirected to diagram view, try clicking the new resource under agent view
+                didRedirect = false;
+            }
+
+            if (!didRedirect) {
+                // Find the new resource element in service agent view and click it to go to the diagram view
+                const resourceRow = artifactWebView.locator(`[data-testid="service-agent-view-resource"]`).getByText("onMessage", { exact: true });
+                await resourceRow.first().waitFor({ timeout: 10000 });
+                await resourceRow.first().click({ force: true });
+                // Now wait for the diagram canvas to appear
+                await diagramCanvas.waitFor({ timeout: 10000 });
+            }
+            // Verify the resource is added in the diagram view
+            const resourceElement = visualizerContainer.getByText("onMessage", { exact: true });
+            await resourceElement.waitFor({ timeout: 30000 });
         });
 
         test('Editing RabbitMQ Integration', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
             console.log('Editing a service in test attempt: ', testAttempt);
+
+            const projectExplorer = new ProjectExplorer(page.page);
+            const serviceTreeItem = await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `RabbitMQ Event Integration - "${queueName}"`], true);
+            await serviceTreeItem.click({ force: true });
+
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
@@ -105,31 +167,54 @@ export default function createTests() {
             await editBtn.waitFor();
             await editBtn.click({ force: true });
 
+            queueName = `updated-queue-name`;
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
-
-            const configTitle = artifactWebView.locator('h3', { hasText: 'RabbitMQ Event Handler Configuration' });
-            await configTitle.waitFor();
-
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
-
             await form.fill({
                 values: {
                     'Queue Name*The name of the queue': {
                         type: 'input',
-                        value: '"editedTestQueue"',
+                        value: `"${queueName}"`
                     }
                 }
             });
+            await form.submit('Save Changes');
 
-            await form.submit('Save');
+            // Wait for the save changes button inside the container with id "save-changes-btn",
+            // ensuring the disabled attribute is present and the button text is "Save Changes"
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
 
-            const onMessage = artifactWebView.locator(`text="onMessage"`);
-            await onMessage.waitFor();
+            // Click back button
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
 
-            const onError = artifactWebView.locator(`text="onError"`);
-            await onError.waitFor();
+            await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `RabbitMQ Event Integration - "${queueName}"`], true);
+
+            const updatedQueueNameElement = artifactWebView.locator(`text=${queueName}`);
+            await updatedQueueNameElement.waitFor({ state: 'visible' });
+        });
+
+        test('Delete RabbitMQ Integration', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            console.log('Deleting RabbitMQ integration in test attempt: ', testAttempt);
+
+            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!artifactWebView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+
+            const projectExplorer = new ProjectExplorer(page.page);
+            const serviceTreeItem = await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `RabbitMQ Event Integration - "${queueName}"`], true);
+            await serviceTreeItem.click({ button: 'right' });
+            const deleteButton = page.page.getByRole('button', { name: 'Delete' }).first();
+            await deleteButton.waitFor({ timeout: 5000 });
+            await deleteButton.click();
+            await page.page.waitForTimeout(500);
+            await expect(serviceTreeItem).not.toBeVisible({ timeout: 10000 });
         });
     });
 }

@@ -26,6 +26,6 @@
         "out",
         "dist",
         "**/*.d.ts",
-        "src/test/test-resources/**"
+        "src/test/test-resources"
     ]
 }

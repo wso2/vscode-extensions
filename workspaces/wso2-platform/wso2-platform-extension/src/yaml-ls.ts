@@ -32,7 +32,7 @@ export async function registerYamlLanguageServer(): Promise<void> {
 			return;
 		}
 		const yamlExtensionAPI = await yamlExtension.activate();
-		const schemaBasePath = path.join(ext.context.extensionPath, "yaml-schemas");
+		const schemaBasePath = path.join(ext.context.extensionPath, "schemas");
 		const schemas2 = {
 			endpointsYaml: `${SCHEMA}://schema/endpoints`,
 			componentConfigYaml: `${SCHEMA}://schema/component-config`,

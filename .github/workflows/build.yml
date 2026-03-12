@@ -209,6 +209,9 @@ jobs:
           BALLERINA_DEV_COPLIOT_AUTH_ORG: ${{ secrets.BALLERINA_DEV_COPLIOT_AUTH_ORG }}
           BALLERINA_DEV_COPLIOT_AUTH_CLIENT_ID: ${{ secrets.BALLERINA_DEV_COPLIOT_AUTH_CLIENT_ID }}
           BALLERINA_DEV_COPLIOT_AUTH_REDIRECT_URL: ${{ secrets.BALLERINA_DEV_COPLIOT_AUTH_REDIRECT_URL }}
+          COPILOT_ROOT_URL: ${{ secrets.COPILOT_ROOT_URL }}
+          COPILOT_DEV_ROOT_URL: ${{ secrets.COPILOT_DEV_ROOT_URL }}
+          APPINSIGHTS_INSTRUMENTATION_KEY: ${{ secrets.APPINSIGHTS_INSTRUMENTATION_KEY }}
           MI_AUTH_ORG: ${{ secrets.MI_AUTH_ORG }}
           MI_AUTH_CLIENT_ID: ${{ secrets.MI_AUTH_CLIENT_ID }}
           PLATFORM_DEFAULT_GHAPP_CLIENT_ID: ${{ secrets.PLATFORM_DEFAULT_GHAPP_CLIENT_ID }}
@@ -233,7 +236,7 @@ jobs:
     name: Run Ballerina extension tests
     needs: Build_Stage
     if: false
-    # if: ${{ inputs.runTests || (inputs.isReleaseBuild && (inputs.ballerina || inputs.bi)) || needs.Build_Stage.outputs.runBalExtTests == 'true' || github.base_ref == 'release-ballerina' }}
+    # if: ${{ inputs.runTests || (inputs.isReleaseBuild && (inputs.ballerina || inputs.bi)) || needs.Build_Stage.outputs.runBalExtTests == 'true' || github.base_ref == 'stable/ballerina' }}
     timeout-minutes: 45
     runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     steps:
@@ -278,10 +281,55 @@ jobs:
           balVersion: ${{ steps.set-version.outputs.balVersion }}
           balHome: ${{ steps.set-version.outputs.balHome }}
 
+  ExtTest_Ballerina_Diagrams:
+    name: Run Ballerina diagram snapshot tests
+    needs: Build_Stage
+    if: ${{ inputs.runTests || (inputs.isReleaseBuild && (inputs.ballerina || inputs.bi)) || needs.Build_Stage.outputs.runBalExtTests == 'true' || github.base_ref == 'release-ballerina' || github.base_ref == 'release-bi' }}
+    timeout-minutes: 30
+    runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
+    steps:
+      - name: Restore build
+        uses: actions/download-artifact@v4
+        with:
+          name: ExtBuild
+          path: ./
+
+      - name: Set up workspace
+        run: |
+          unzip build.zip
+          rm build.zip
+
+      - name: Setup Rush
+        uses: gigara/setup-rush@v1.2.0
+        with:
+          pnpm: 10.10.0
+          node: 22.x
+          rush-install: true
+
+      - name: Run BI diagram snapshot tests
+        run: |
+          cd workspaces/ballerina/bi-diagram
+          xvfb-run --auto-servernum pnpm run test
+
+      - name: Run component diagram snapshot tests
+        run: |
+          cd workspaces/ballerina/component-diagram
+          xvfb-run --auto-servernum pnpm run test
+
+      - name: Run type diagram snapshot tests
+        run: |
+          cd workspaces/ballerina/type-diagram
+          xvfb-run --auto-servernum pnpm run test
+
+      - name: Run sequence diagram snapshot tests
+        run: |
+          cd workspaces/ballerina/sequence-diagram
+          xvfb-run --auto-servernum pnpm run test
+
   ExtTest_MI:
     name: Run MI diagram tests
     needs: Build_Stage
-    if: ${{ inputs.runTests || (inputs.isReleaseBuild && inputs.mi) || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'release-mi' }}
+    if: ${{ inputs.runTests || (inputs.isReleaseBuild && inputs.mi) || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'stable/mi' }}
     timeout-minutes: 30
     runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     steps:

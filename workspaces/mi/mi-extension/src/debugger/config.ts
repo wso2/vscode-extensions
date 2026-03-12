@@ -19,6 +19,7 @@
 
 import * as vscode from 'vscode';
 import * as path from "path";
+import { LOCALHOST, ADMIN } from './constants';
 
 const toml = require('@iarna/toml');
 const fs = require('fs');
@@ -29,20 +30,22 @@ export class DebuggerConfig {
     private static baseServerPort: number = vscode.workspace.getConfiguration().get<number>('MI.serverPort', 8290);
     private static serverReadinessPort: number = 9201;
     private static managementPort: number = 9164;
-    private static host: string = 'localhost';
+    private static host: string = LOCALHOST;
     private static internalOffset = 10;
     private static envVariables: { [key: string]: string } = {};
     private static vmArgs: string[] = [];
     private static vmArgsPortOffset: number | null = null;
     private static configPortOffset: number | null = null;
+    private static remoteDebuggingEnabled: boolean = false;
+    private static connectionTimeout: number = 10000;
 
     //Capps and Libs copied to the MI server
     private static copiedCappUri: string[] = [];
     private static copiedLibs: string[] = [];
 
     // Management API username and password
-    private static managementUserName: string = "admin";
-    private static managementPassword: string = "admin";
+    private static managementUserName: string = ADMIN;
+    private static managementPassword: string = ADMIN;
 
     private static portOffset: number | undefined;
 
@@ -96,6 +99,10 @@ export class DebuggerConfig {
         this.copiedLibs = [];
     }
 
+    public static setServerPort(port: number): void {
+        this.baseServerPort = port;
+    }
+
     public static getServerPort(): number {
         if (this.vmArgsPortOffset !== null) {
             return this.baseServerPort + this.vmArgsPortOffset - this.internalOffset;
@@ -106,6 +113,10 @@ export class DebuggerConfig {
         return this.baseServerPort;
     }
 
+    public static setServerReadinessPort(port: number): void {
+        this.serverReadinessPort = port;
+    }
+
     public static getServerReadinessPort(): number {
         if (this.vmArgsPortOffset !== null) {
             return this.serverReadinessPort + this.vmArgsPortOffset - this.internalOffset;
@@ -114,6 +125,10 @@ export class DebuggerConfig {
             return this.serverReadinessPort + this.configPortOffset - this.internalOffset;
         }
         return this.serverReadinessPort;
+    }
+
+    public static setManagementPort(port: number): void {
+        this.managementPort = port;
     }
 
     public static getManagementPort(): number {
@@ -128,6 +143,10 @@ export class DebuggerConfig {
 
     public static getHost(): string {
         return this.host;
+    }
+
+    public static setHost(host: string): void {
+        this.host = host;
     }
 
     public static getManagementUserName(): string {
@@ -163,5 +182,24 @@ export class DebuggerConfig {
         const deploymentConfig = path.join(projectUri, "deployment", "deployment.toml");
         const configs = toml.parse(fs.readFileSync(deploymentConfig, 'utf8'));
         this.configPortOffset = configs.server?.offset ?? null;
+    }
+
+    public static setRemoteDebuggingEnabled(enabled: boolean): void {
+        this.remoteDebuggingEnabled = enabled;
+    }
+
+    public static isRemoteDebuggingEnabled(): boolean {
+        return this.remoteDebuggingEnabled;
+    }
+
+    public static getDefaultServerPort(): number {
+        return vscode.workspace.getConfiguration().get<number>('MI.serverPort', 8290);
+    }
+
+    public static getConnectionTimeout(): number {
+        return this.connectionTimeout;
+    }
+    public static setConnectionTimeout(timeout: number): void {
+        this.connectionTimeout = timeout * 1000;
     }
 }

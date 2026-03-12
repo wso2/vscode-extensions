@@ -46,7 +46,7 @@ export const Codicon: React.FC<CodiconProps> = (props: CodiconProps) => {
     const handleComponentClick = (event?: React.MouseEvent<HTMLElement, MouseEvent>) => {
         onClick && onClick(event);
     }
-    const icon = (<i style= {iconSx} className={`codicon codicon-${name}`} />);
+    const icon = (<i style={iconSx} className={`codicon codicon-${name}`} title={tooltip} />);
     
     return (
         <CodiconContainer id={id} className={className} sx={sx} onClick={handleComponentClick} title={tooltip}>

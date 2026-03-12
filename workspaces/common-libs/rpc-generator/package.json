@@ -20,10 +20,10 @@
     "minimatch": "^10.2.3"
   },
   "devDependencies": {
-    "@types/node": "^22.15.24"
+    "@types/node": "22.15.24"
   },
   "dependencies": {
-    "@ts-morph/common": "^0.27.0",
-    "ts-morph": "^26.0.0"
+    "@ts-morph/common": "0.27.0",
+    "ts-morph": "26.0.0"
   }
 }
