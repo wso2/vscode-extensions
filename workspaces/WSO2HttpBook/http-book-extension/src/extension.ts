@@ -91,7 +91,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // When called from command palette (no args): prompts user to paste a hurl string
     const importHurlStringCommand = vscode.commands.registerCommand(
         'wso2-http-book.importHurlString',
-        async (contentOrCells?: string | NotebookCellInput[], options?: { savable?: boolean }) => {
+        async (contentOrCells?: string | NotebookCellInput[], options?: { savable?: boolean; savePath?: string }) => {
             let notebookData: vscode.NotebookData;
             let resolvedHurlText: string;
 
@@ -113,10 +113,17 @@ export function activate(context: vscode.ExtensionContext): void {
             }
 
             const savable = options?.savable ?? true;
+            const savePath = options?.savePath;
 
             try {
                 let doc: vscode.NotebookDocument;
-                if (savable) {
+                if (savePath) {
+                    // Write content to the given path (e.g. <project>/target/TryIt.hurl) and open
+                    // the real file as a notebook so Cmd+S saves in-place without a Save As dialog.
+                    await fs.mkdir(path.dirname(savePath), { recursive: true });
+                    await fs.writeFile(savePath, resolvedHurlText, 'utf8');
+                    doc = await vscode.workspace.openNotebookDocument(vscode.Uri.file(savePath));
+                } else if (savable) {
                     // Untitled notebook via `untitled:TryIt.hurl` URI — VS Code treats this as an
                     // untitled document so Cmd+S shows a Save As dialog and closing with unsaved
                     // changes prompts the user.  The serializer detects empty bytes (untitled) and
