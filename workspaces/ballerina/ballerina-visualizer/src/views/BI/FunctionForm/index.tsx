@@ -122,6 +122,29 @@ export function FunctionForm(props: FunctionFormProps) {
         });
 
         setFunctionFields(fields);
+
+        rpcClient.onIdentifierUpdated(async (response) => {
+            console.log("Identifier Updated: ", response);
+            let artifact;
+            if (response.length > 1) {
+                artifact = response.find(res => res.name === functionName || res.context === functionName);
+            } else {
+                artifact = response[0];
+            }
+            const changedFunctionNode = await rpcClient
+                .getBIDiagramRpcClient()
+                .getFunctionNode({
+                    functionName: artifact.name,
+                    fileName,
+                    projectPath
+                });
+            let flowNode = changedFunctionNode.functionDefinition;
+            const updatedFunctionNode = { ...functionNode };
+            updatedFunctionNode.codedata.lineRange = {
+                ...flowNode.codedata.lineRange
+            };
+            setFunctionNode(updatedFunctionNode);
+        });
     }, [functionNode]);
 
     const getFunctionNode = async (kind: NodeKind) => {
