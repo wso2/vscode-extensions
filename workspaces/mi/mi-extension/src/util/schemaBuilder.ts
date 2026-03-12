@@ -19,6 +19,7 @@
 import { JSONSchema3or4 } from "to-json-schema";
 import { getStateMachine } from "../stateMachine";
 import { IOType } from "@wso2/mi-core";
+import { MILanguageClient } from "../lang-client/activator";
 
 export function convertToJSONSchema(fileContent: JSONSchema3or4): JSONSchema3or4 {
     let schema = JSON.parse(fileContent);
@@ -26,7 +27,7 @@ export function convertToJSONSchema(fileContent: JSONSchema3or4): JSONSchema3or4
 }
 
 export async function generateSchema(ioType: IOType, schemaType: string, filePath: string, projectUri: string): Promise<JSONSchema3or4> {
-  const langClient = getStateMachine(projectUri).context().langClient!;
+  const langClient = await MILanguageClient.getInstance(projectUri);
   const response = await langClient.generateSchema({
     filePath: filePath,
     delimiter: "",
@@ -41,7 +42,7 @@ export async function generateSchema(ioType: IOType, schemaType: string, filePat
 }
 
 export async function generateSchemaFromContent(projectUri: string, ioType: IOType, content: string, fileType: string, csvDelimiter?: string): Promise<JSONSchema3or4> {
-  const langClient =  getStateMachine(projectUri).context().langClient!;
+  const langClient = await MILanguageClient.getInstance(projectUri);
   const response = await langClient.generateSchemaFromContent({
     fileContent: content,
     delimiter: csvDelimiter ?? "",

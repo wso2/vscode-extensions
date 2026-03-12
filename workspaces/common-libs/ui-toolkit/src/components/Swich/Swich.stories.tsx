@@ -16,7 +16,7 @@
  * under the License.
  */
 import React from "react";
-import { Meta, StoryObj } from "@storybook/react-vite";
+import { Meta, StoryObj } from "@storybook/react";
 import { Switch } from "./Swich";
 import { Codicon } from "../Codicon/Codicon";
 

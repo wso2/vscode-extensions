@@ -60,6 +60,19 @@ const FormActions = styled.div`
     border-top: 1px solid var(--vscode-editorWidget-border);
 `;
 
+const ErrorMessage = styled.div`
+    padding: 12px;
+    margin-bottom: 16px;
+    background-color: var(--vscode-inputValidation-errorBackground);
+    border: 1px solid var(--vscode-inputValidation-errorBorder);
+    border-radius: 4px;
+    color: var(--vscode-inputValidation-errorForeground);
+    font-size: 13px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+`;
+
 const LoaderContainer = styled.div`
     position: absolute;
     display: flex;
@@ -85,11 +98,12 @@ interface DependencyFormProps {
     title: string;
     onClose: () => void;
     showLoader?: boolean;
+    duplicateError?: string;
     onUpdate?: (updatedDependency: { groupId: string; artifact: string; version: string }) => void;
 }
 
 export function DependencyForm(props: DependencyFormProps) {
-    const { groupId, artifact, version, title, onClose, onUpdate, showLoader } = props;
+    const { groupId, artifact, version, title, onClose, onUpdate, showLoader, duplicateError } = props;
 
     const { register, handleSubmit, formState: { errors } } = useForm<DependencyFormData>({
         defaultValues: {
@@ -119,6 +133,13 @@ export function DependencyForm(props: DependencyFormProps) {
                             <Codicon name='close' />
                         </Button>
                     </FormHeader>
+
+                    {duplicateError && (
+                        <ErrorMessage>
+                            <Codicon name="error" />
+                            <span>{duplicateError}</span>
+                        </ErrorMessage>
+                    )}
 
                     <FormFieldsContainer>
                         <TextField

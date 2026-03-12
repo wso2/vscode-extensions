@@ -78,8 +78,8 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
         "buildDetails-dockerDetails-keyStoreAlias": yup.string(),
         "buildDetails-dockerDetails-keyStoreType": yup.string(),
         "buildDetails-dockerDetails-keyStorePassword": yup.string(),
-        "buildDetails-advanceDetails-projectArtifactId": yup.string(),
-        "buildDetails-advanceDetails-projectGroupId": yup.string(),
+        "buildDetails-advanceDetails-projectArtifactId": yup.string().required("Artifact ID is required"),
+        "buildDetails-advanceDetails-projectGroupId": yup.string().required("Group ID is required"),
         "buildDetails-advanceDetails-pluginDetails-projectBuildPluginVersion": yup.string(),
         "buildDetails-advanceDetails-pluginDetails-unitTestPluginVersion": yup.string(),
         "buildDetails-advanceDetails-pluginDetails-miContainerPluginVersion": yup.string(),
@@ -178,6 +178,8 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                     "primaryDetails-projectDescription": response.primaryDetails?.projectDescription?.value,
                     "primaryDetails-projectVersion": response.primaryDetails?.projectVersion?.value,
                     "primaryDetails-runtimeVersion": response.primaryDetails?.runtimeVersion?.value,
+                    "buildDetails-advanceDetails-projectGroupId": response.buildDetails?.advanceDetails?.projectGroupId?.value,
+                    "buildDetails-advanceDetails-projectArtifactId": response.buildDetails?.advanceDetails?.projectArtifactId?.value,
                     "buildDetails-dockerDetails-dockerFileBaseImage": response.buildDetails?.dockerDetails?.dockerFileBaseImage?.value,
                     "buildDetails-dockerDetails-dockerName": response.buildDetails?.dockerDetails?.dockerName.value,
                     "buildDetails-enableFatCar": response.buildDetails?.enableFatCar?.value === 'true',
@@ -187,8 +189,6 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                     "buildDetails-dockerDetails-keyStoreAlias": response.buildDetails?.dockerDetails?.keyStoreAlias?.value,
                     "buildDetails-dockerDetails-keyStoreType": response.buildDetails?.dockerDetails?.keyStoreType?.value,
                     "buildDetails-dockerDetails-keyStorePassword": response.buildDetails?.dockerDetails?.keyStorePassword?.value,
-                    "buildDetails-advanceDetails-projectArtifactId": response.buildDetails?.advanceDetails?.projectArtifactId?.value,
-                    "buildDetails-advanceDetails-projectGroupId": response.buildDetails?.advanceDetails?.projectGroupId?.value,
                     "buildDetails-advanceDetails-pluginDetails-projectBuildPluginVersion": response.buildDetails?.advanceDetails?.pluginDetails?.projectBuildPluginVersion?.value,
                     "buildDetails-advanceDetails-pluginDetails-unitTestPluginVersion": response.buildDetails?.advanceDetails?.pluginDetails?.unitTestPluginVersion?.value,
                     "buildDetails-advanceDetails-pluginDetails-miContainerPluginVersion": response.buildDetails?.advanceDetails?.pluginDetails?.miContainerPluginVersion?.value,
@@ -451,11 +451,22 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                 )}
                             />
                             <TextField
-                                label="Description"
-                                description="The description of the project"
+                                label="Group ID"
+                                required
+                                description="The group ID of the project"
                                 descriptionSx={{ margin: "8px 0" }}
                                 sx={fieldStyle}
-                                {...register("primaryDetails-projectDescription")}
+                                errorMsg={errors["buildDetails-advanceDetails-projectGroupId"]?.message?.toString()}
+                                {...register("buildDetails-advanceDetails-projectGroupId")}
+                            />
+                            <TextField
+                                label="Artifact ID"
+                                required
+                                description="The artifact ID of the project"
+                                descriptionSx={{ margin: "8px 0" }}
+                                sx={fieldStyle}
+                                errorMsg={errors["buildDetails-advanceDetails-projectArtifactId"]?.message?.toString()}
+                                {...register("buildDetails-advanceDetails-projectArtifactId")}
                             />
                             <TextField
                                 label="Version"
@@ -467,6 +478,13 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                 {...register("primaryDetails-projectVersion")}
                             />
 
+                            <TextField
+                                label="Description"
+                                description="The description of the project"
+                                descriptionSx={{ margin: "8px 0" }}
+                                sx={fieldStyle}
+                                {...register("primaryDetails-projectDescription")}
+                            />
                             <Dropdown
                                 id='runtimeVersion'
                                 label="Runtime Version"
@@ -557,20 +575,6 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                 descriptionSx={{ margin: "8px 0" }}
                                 sx={fieldStyle}
                                 {...register("buildDetails-dockerDetails-keyStorePassword")}
-                            />
-                            <TextField
-                                label="Maven Artifact Id"
-                                description="The artifact id of the maven"
-                                descriptionSx={{ margin: "8px 0" }}
-                                sx={fieldStyle}
-                                {...register("buildDetails-advanceDetails-projectArtifactId")}
-                            />
-                            <TextField
-                                label="Maven Group Id"
-                                description="The group id of the maven"
-                                descriptionSx={{ margin: "8px 0" }}
-                                sx={fieldStyle}
-                                {...register("buildDetails-advanceDetails-projectGroupId")}
                             />
                             <TextField
                                 label="CAR Plugin Version"
@@ -692,13 +696,6 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                         descriptionSx={{ margin: "8px 0" }}
                                         sx={fieldStyle}
                                         {...register("deployment-password")}
-                                    />
-                                    <TextField
-                                        label="Server Type"
-                                        description="Type of the WSO2 server"
-                                        descriptionSx={{ margin: "8px 0" }}
-                                        sx={fieldStyle}
-                                        {...register("deployment-serverType")}
                                     />
                                 </>
                             )}

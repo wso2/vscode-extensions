@@ -18,7 +18,7 @@
  */
 
 import { NodePosition } from "@wso2/syntax-tree";
-import { CodeData, FlowNode, Metadata } from "../../interfaces/bi";
+import { CodeData, FlowNode, InputType, Metadata } from "../../interfaces/bi";
 
 export interface AgentTool {
     toolName: string;
@@ -47,6 +47,22 @@ export interface ToolParameterFormValues {
 }
 
 export interface ToolParameterItem {
+    id: number;
+    icon: string;
+    key: string;
+    value: string;
+    identifierEditable: boolean;
+    identifierRange?: {
+        fileName: string;
+        startLine: {
+            line: number;
+            offset: number;
+        };
+        endLine: {
+            line: number;
+            offset: number;
+        };
+    };
     formValues: ToolParameterFormValues;
 }
 
@@ -79,19 +95,13 @@ export interface AIAgentResponse {
 
 export interface McpToolUpdateRequest {
     agentFlowNode: FlowNode;
-    serviceUrl: string;
-    serverName: string;
     selectedTools: string[];
-    formValues?: FlowNode; // Optional: form values from AddMcpServer
-    updatedNode?: FlowNode; // Optional: updated node for toolkit edits
-    mcpTools?: any[]; // Optional: list of MCP tools
-    codedata?: CodeData; // Optional: code data for MCP toolkit
+    updatedNode?: FlowNode;
 }
 
 export interface ToolParameters {
     metadata: Metadata;
-    valueType: string;
-    valueTypeConstraint: ValueTypeConstraint;
+    types: InputType[];
     value: ToolParametersValue;
     optional: boolean;
     editable: boolean;

@@ -68,8 +68,8 @@ const QueryForm = (props: AddMediatorProps) => {
             returnGeneratedKeys: sidePanelContext?.formValues?.returnGeneratedKeys || false,
             keyColumns: sidePanelContext?.formValues?.keyColumns || "",
             returnUpdatedRowCount: sidePanelContext?.formValues?.returnUpdatedRowCount || false,
-            forceStoredProc: sidePanelContext?.formValues?.forceStoredProc || false,
-            forceJdbcBatchRequests: sidePanelContext?.formValues?.forceJdbcBatchRequests || false,
+            forceStoredProc: sidePanelContext?.formValues?.forceStoredProc === "true" || false,
+            forceJDBCBatchRequests: sidePanelContext?.formValues?.forceJDBCBatchRequests === "true" || false,
         });
         setIsLoading(false);
     }, []);
@@ -89,7 +89,7 @@ const QueryForm = (props: AddMediatorProps) => {
         queryProperties.maxFieldSize = values.maxFieldSize;
         queryProperties.maxRows = values.maxRows;
         queryProperties.forceStoredProc = values.forceStoredProc;
-        queryProperties.forceJDBCBatchRequests = values.forceJdbcBatchRequests;
+        queryProperties.forceJDBCBatchRequests = values.forceJDBCBatchRequests;
         queryProperties = Object.entries(queryProperties)
             .filter(([_, value]) => value !== "").map(([key, value]) => ({ key, value }));
         const updatedQuery = sidePanelContext?.formValues?.queryObject;
@@ -120,44 +120,47 @@ const QueryForm = (props: AddMediatorProps) => {
 
         let xml = getDssQueryXml({ ...updatedQuery, queryType }).replace(/^\s*[\r\n]/gm, '');
         const range = sidePanelContext?.formValues?.queryObject.range;
-        await rpcClient.getMiDiagramRpcClient().applyEdit({
+        const edits = await rpcClient.getMiDiagramRpcClient().applyEdit({
             text: xml, documentUri: props.documentUri,
-            range: { start: range.startTagRange.start, end: range.endTagRange.end }
+            range: { start: range.startTagRange.start, end: range.endTagRange.end },
+            waitForEdits: true
         });
 
         let isInResource = false;
-        const st = await rpcClient.getMiDiagramRpcClient().getSyntaxTree({ documentUri: props.documentUri });
-        let resourceData: any = {};
-        if (st.syntaxTree.data.resources) {
-            st.syntaxTree.data.resources.forEach((resource: any) => {
-                if (resource.callQuery.href === initialQueryName) {
-                    resourceData.resourceRange = resource.callQuery.range;
-                    resourceData.selfClosed = resource.callQuery.selfClosed;
-                    isInResource = true;
-                }
-            });
-        }
-        if (!isInResource && st.syntaxTree.data.operations) {
-            st.syntaxTree.data.operations.forEach((operation: any) => {
-                if (operation.callQuery.href === initialQueryName) {
-                    resourceData.resourceRange = operation.callQuery.range;
-                    resourceData.selfClosed = operation.callQuery.selfClosed;
-                }
-            });
-        }
-
-        if (Object.keys(resourceData).length !== 0) {
-            if (resourceData.selfClosed) {
-                xml = getDssResourceSelfClosingXml({ query: values.queryId });
-            } else {
-                xml = getDssResourceXml({ query: values.queryId });
+        if (edits.status) {
+            const st = await rpcClient.getMiDiagramRpcClient().getSyntaxTree({ documentUri: props.documentUri });
+            let resourceData: any = {};
+            if (st.syntaxTree.data.resources) {
+                st.syntaxTree.data.resources.forEach((resource: any) => {
+                    if (resource.callQuery.href === initialQueryName) {
+                        resourceData.resourceRange = resource.callQuery.range;
+                        resourceData.selfClosed = resource.callQuery.selfClosed;
+                        isInResource = true;
+                    }
+                });
             }
-            await rpcClient.getMiDiagramRpcClient().applyEdit({
-                text: xml, documentUri: props.documentUri,
-                range: { start: resourceData.resourceRange.startTagRange.start, end: resourceData.resourceRange.startTagRange.end }
-            });
-        }
+            if (!isInResource && st.syntaxTree.data.operations) {
+                st.syntaxTree.data.operations.forEach((operation: any) => {
+                    if (operation.callQuery.href === initialQueryName) {
+                        resourceData.resourceRange = operation.callQuery.range;
+                        resourceData.selfClosed = operation.callQuery.selfClosed;
+                    }
+                });
+            }
 
+            if (Object.keys(resourceData).length !== 0) {
+                if (resourceData.selfClosed) {
+                    xml = getDssResourceSelfClosingXml({ query: values.queryId });
+                } else {
+                    xml = getDssResourceXml({ query: values.queryId });
+                }
+                await rpcClient.getMiDiagramRpcClient().applyEdit({
+                    text: xml, documentUri: props.documentUri,
+                    range: { start: resourceData.resourceRange.startTagRange.start, end: resourceData.resourceRange.startTagRange.end },
+                    waitForEdits: true
+                });
+            }
+        }
         sidePanelContext.setSidePanelState({
             ...sidePanelContext,
             isOpen: false,
@@ -184,18 +187,6 @@ const QueryForm = (props: AddMediatorProps) => {
         <>
             <Typography sx={{ padding: "10px 20px", borderBottom: "1px solid var(--vscode-editorWidget-border)" }} variant="body3"></Typography>
             <div style={{ padding: "20px" }}>
-
-                <Field>
-                    <Controller
-                        name="queryId"
-                        control={control}
-                        render={({ field }) => (
-                            <TextField {...field} label="Query ID" size={50} placeholder="" />
-                        )}
-                    />
-                    {errors.queryId && <Error>{errors.queryId.message.toString()}</Error>}
-                </Field>
-
                 <Field>
                     <Controller
                         name="datasource"
@@ -335,13 +326,13 @@ const QueryForm = (props: AddMediatorProps) => {
 
                     <Field>
                         <Controller
-                            name="forceJdbcBatchRequests"
+                            name="forceJDBCBatchRequests"
                             control={control}
                             render={({ field }) => (
                                 <VSCodeCheckbox {...field} type="checkbox" checked={field.value} onChange={(e: any) => { field.onChange(e.target.checked) }}>Force JDBC Batch Requests</VSCodeCheckbox>
                             )}
                         />
-                        {errors.forceJdbcBatchRequests && <Error>{errors.forceJdbcBatchRequests.message.toString()}</Error>}
+                        {errors.forceJDBCBatchRequests && <Error>{errors.forceJDBCBatchRequests.message.toString()}</Error>}
                     </Field>
 
                 </ComponentCard>

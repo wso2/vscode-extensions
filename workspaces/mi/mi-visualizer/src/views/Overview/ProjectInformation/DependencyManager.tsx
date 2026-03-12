@@ -19,7 +19,7 @@
 import React, { useEffect, useState } from "react";
 import { DependencyDetails } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { Button, FormActions, FormView, Typography, Codicon, LinkButton, ProgressRing, Overlay } from "@wso2/ui-toolkit";
+import { Button, FormActions, FormView, Typography, Codicon, LinkButton, ProgressRing, Overlay, Dialog } from "@wso2/ui-toolkit";
 import { DependencyItem } from "./DependencyItem";
 import { DependencyForm } from "./DependencyForm";
 import { Range } from "../../../../../syntax-tree/lib/src";
@@ -45,6 +45,19 @@ const LoaderContainer = styled.div`
     margin-top: 200px;
 `;
 
+const DialogMessage = styled.div`
+    margin-bottom: 24px;
+    text-align: center;
+    line-height: 1.5;
+    color: var(--vscode-foreground);
+`;
+
+const DialogActions = styled.div`
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+`;
+
 interface ManageDependenciesProps {
     title: string;
     type: string;
@@ -60,6 +73,11 @@ export function DependencyManager(props: ManageDependenciesProps) {
     const [inboundConnectors, setInboundConnectors] = React.useState([] as any[]);
     const [isUpdating, setIsUpdating] = useState(false);
     const [isAddingDependency, setIsAddingDependency] = useState(false);
+    const [duplicateError, setDuplicateError] = useState<string>('');
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [confirmDialogMessage, setConfirmDialogMessage] = useState('');
+    const [pendingDependency, setPendingDependency] = useState<{ groupId: string; artifact: string; version: string } | null>(null);
+    const [existingDependencyToReplace, setExistingDependencyToReplace] = useState<DependencyDetails | null>(null);
 
     useEffect(() => {
         fetchDependencies();
@@ -137,8 +155,45 @@ export function DependencyManager(props: ManageDependenciesProps) {
     const handleAddDependency = async (
         newDependency: { groupId: string; artifact: string; version: string }
     ) => {
+        setDuplicateError('');
+        
+        // Check for dependency duplicates (same groupId, artifactId, and version)
+        const exactDuplicate = dependencies.some(
+            dep => dep.groupId === newDependency.groupId && 
+                   dep.artifact === newDependency.artifact && 
+                   dep.version === newDependency.version
+        );
 
+        if (exactDuplicate) {
+            setDuplicateError(`A dependency with Group ID "${newDependency.groupId}", Artifact ID "${newDependency.artifact}", and Version "${newDependency.version}" already exists.`);
+            return;
+        }
+
+        // Check for same groupId and artifactId but different version
+        const existingDependency = dependencies.find(
+            dep => dep.groupId === newDependency.groupId && 
+                   dep.artifact === newDependency.artifact && 
+                   dep.version !== newDependency.version
+        );
+
+        if (existingDependency) {
+            const message = `A dependency with Group ID "${existingDependency.groupId}" and Artifact ID "${existingDependency.artifact}" already exists with version "${existingDependency.version}".\n\nDo you want to overwrite it with version "${newDependency.version}"?`;
+            
+            setConfirmDialogMessage(message);
+            setPendingDependency(newDependency);
+            setExistingDependencyToReplace(existingDependency);
+            setShowConfirmDialog(true);
+            return;
+        }
+
+        await addDependencyToProject(newDependency);
+    };
+
+    const addDependencyToProject = async (
+        newDependency: { groupId: string; artifact: string; version: string }
+    ) => {
         setIsAddingDependency(true);
+        setDuplicateError('');
 
         const addedDependency = {
             groupId: newDependency.groupId,
@@ -151,13 +206,41 @@ export function DependencyManager(props: ManageDependenciesProps) {
             dependencies: [addedDependency]
         });
 
-        await rpcClient.getMiVisualizerRpcClient().reloadDependencies();
+        const reloadDependenciesResult = await rpcClient.getMiVisualizerRpcClient().reloadDependencies({ newDependencies: [addedDependency] });
         await rpcClient.getMiDiagramRpcClient().formatPomFile();
 
         await fetchDependencies();
 
         setIsAddingDependency(false);
-        setIsAddFormOpen(false);
+        if (reloadDependenciesResult) {
+            setIsAddFormOpen(false);
+        }
+    };
+
+    const handleConfirmOverwrite = async (confirmed: boolean) => {
+        setShowConfirmDialog(false);
+        
+        if (confirmed && pendingDependency && existingDependencyToReplace) {
+            // Deleting the existing dependency
+            setIsUpdating(true);
+            
+            await rpcClient.getMiVisualizerRpcClient().updatePomValues({
+                pomValues: [{ range: existingDependencyToReplace.range, value: '' }]
+            });
+
+            await rpcClient.getMiVisualizerRpcClient().reloadDependencies();
+            await rpcClient.getMiDiagramRpcClient().formatPomFile();
+            await fetchDependencies();
+
+            setIsUpdating(false);
+
+            // Adding the new dependency
+            await addDependencyToProject(pendingDependency);
+        }
+
+        // Reset state
+        setPendingDependency(null);
+        setExistingDependencyToReplace(null);
     };
 
     return (
@@ -169,7 +252,11 @@ export function DependencyManager(props: ManageDependenciesProps) {
                     version=""
                     title="Add Dependency"
                     showLoader={isAddingDependency}
-                    onClose={() => setIsAddFormOpen(false)}
+                    duplicateError={duplicateError}
+                    onClose={() => {
+                        setIsAddFormOpen(false);
+                        setDuplicateError('');
+                    }}
                     onUpdate={(updatedDependency) => {
                         handleAddDependency(updatedDependency);
                     }}
@@ -215,6 +302,28 @@ export function DependencyManager(props: ManageDependenciesProps) {
                     )}
                 </>
             )}
+
+            <Dialog
+                isOpen={showConfirmDialog}
+                onClose={() => handleConfirmOverwrite(false)}
+                sx={{ width: '400px', padding: '24px' }}
+            >
+                <DialogMessage>{confirmDialogMessage}</DialogMessage>
+                <DialogActions>
+                    <Button
+                        appearance="secondary"
+                        onClick={() => handleConfirmOverwrite(false)}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        appearance="primary"
+                        onClick={() => handleConfirmOverwrite(true)}
+                    >
+                        Overwrite
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </FormView >
     );
 }

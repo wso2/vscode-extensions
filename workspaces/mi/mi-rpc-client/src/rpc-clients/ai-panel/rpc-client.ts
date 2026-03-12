@@ -18,8 +18,6 @@
 
 import {
     MIAIPanelAPI,
-    GetBackendRootUrlResponse,
-    getBackendRootUrl,
     GenerateSuggestionsRequest,
     GenerateSuggestionsResponse,
     generateSuggestions,
@@ -28,8 +26,26 @@ import {
     generateCode,
     AbortCodeGenerationResponse,
     abortCodeGeneration,
-    setAnthropicApiKey,
-    hasAnthropicApiKey
+    hasAnthropicApiKey,
+    fetchUsage,
+    GenerateUnitTestRequest,
+    GenerateUnitTestResponse,
+    generateUnitTest,
+    GenerateUnitTestCaseRequest,
+    GenerateUnitTestCaseResponse,
+    generateUnitTestCase,
+    ProcessIdpRequest,
+    ProcessIdpResponse,
+    processIdp,
+    FillIdpSchemaRequest,
+    FillIdpSchemaResponse,
+    fillIdpSchema,
+    DmcToTsRequest,
+    DmcToTsResponse,
+    dmcToTs,
+    AutoFillFormRequest,
+    AutoFillFormResponse,
+    autoFillForm
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -39,13 +55,6 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
 
     constructor(messenger: Messenger) {
         this._messenger = messenger;
-    }
-
-    // ==================================
-    // General Functions
-    // ==================================
-    getBackendRootUrl(): Promise<GetBackendRootUrlResponse> {
-        return this._messenger.sendRequest(getBackendRootUrl, HOST_EXTENSION);
     }
 
     // ==================================
@@ -66,11 +75,50 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
     // ==================================
     // API Key Management
     // ==================================
-    setAnthropicApiKey(): Promise<void> {
-        return this._messenger.sendRequest(setAnthropicApiKey, HOST_EXTENSION);
-    }
-
     hasAnthropicApiKey(): Promise<boolean | undefined> {
         return this._messenger.sendRequest(hasAnthropicApiKey, HOST_EXTENSION);
+    }
+
+    // ==================================
+    // Usage Management
+    // ==================================
+    fetchUsage(): Promise<{ max_usage: number; remaining_tokens: number; time_to_reset: number } | undefined> {
+        return this._messenger.sendRequest(fetchUsage, HOST_EXTENSION);
+    }
+
+    // ==================================
+    // Unit Test Generation
+    // ==================================
+    generateUnitTest(request: GenerateUnitTestRequest): Promise<GenerateUnitTestResponse> {
+        return this._messenger.sendRequest(generateUnitTest, HOST_EXTENSION, request);
+    }
+
+    generateUnitTestCase(request: GenerateUnitTestCaseRequest): Promise<GenerateUnitTestCaseResponse> {
+        return this._messenger.sendRequest(generateUnitTestCase, HOST_EXTENSION, request);
+    }
+
+    // ==================================
+    // IDP (Intelligent Document Processor)
+    // ==================================
+    processIdp(request: ProcessIdpRequest): Promise<ProcessIdpResponse> {
+        return this._messenger.sendRequest(processIdp, HOST_EXTENSION, request);
+    }
+
+    fillIdpSchema(request: FillIdpSchemaRequest): Promise<FillIdpSchemaResponse> {
+        return this._messenger.sendRequest(fillIdpSchema, HOST_EXTENSION, request);
+    }
+
+    // ==================================
+    // DMC to TypeScript Conversion
+    // ==================================
+    dmcToTs(request: DmcToTsRequest): Promise<DmcToTsResponse> {
+        return this._messenger.sendRequest(dmcToTs, HOST_EXTENSION, request);
+    }
+
+    // ==================================
+    // Auto-Fill Form
+    // ==================================
+    autoFillForm(request: AutoFillFormRequest): Promise<AutoFillFormResponse> {
+        return this._messenger.sendRequest(autoFillForm, HOST_EXTENSION, request);
     }
 }

@@ -14,48 +14,47 @@ import {
     VisualizerLocation,
     webviewReady
 } from '@wso2/mi-core';
-import { ExtendedLanguageClient } from './lang-client/ExtendedLanguageClient';
 import { VisualizerWebview, webviews } from './visualizer/webview';
 import { RPCLayer } from './RPCLayer';
 import { history } from './history/activator';
-import { COMMANDS } from './constants';
+import { COMMANDS, MI_PROJECT_EXPLORER_VIEW_ID, WI_EXTENSION_ID, WI_PROJECT_EXPLORER_VIEW_ID, RUNTIME_VERSION_440 } from './constants';
 import { activateProjectExplorer } from './project-explorer/activate';
 import { MockService, STNode, UnitTest, Task, InboundEndpoint } from '../../syntax-tree/lib/src';
-import { log } from './util/logger';
+import { log, logDebug } from './util/logger';
 import { deriveConfigName, getSources } from './util/dataMapper';
 import { fileURLToPath } from 'url';
 import path = require('path');
 import { activateTestExplorer } from './test-explorer/activator';
 import { DMProject } from './datamapper/DMProject';
-import { setupEnvironment } from './util/onboardingUtils';
+import { setupEnvironment, getMIVersionFromPom, compareVersions } from './util/onboardingUtils';
 import { getPopupStateMachine } from './stateMachinePopup';
 import { askForProject } from './util/workspace';
 import { containsMultiModuleNatureInProjectFile, containsMultiModuleNatureInPomFile, findMultiModuleProjectsInWorkspaceDir } from './util/migrationUtils';
 const fs = require('fs');
 
 interface MachineContext extends VisualizerLocation {
-    langClient: ExtendedLanguageClient | null;
     dependenciesResolved?: boolean;
+    isInWI: boolean;
+    isLegacyRuntime?: boolean;
 }
 
 const stateMachine = createMachine<MachineContext>({
-    /** @xstate-layout N4IgpgJg5mDOIC5QFsCWA6VA7VAXVAhgDaoBeYAxBAPZZiZYBu1A1vQMYAWY7LACgCdqAKx64A2gAYAuolAAHarDypackAA9EAJm0A2dJICs2yQE49k7QEYT1vXoA0IAJ469ADnTWPAdiOSDkY+gX4AvmHOaAwqxGSUNHQMzGzoXDz8QqLsEtaySCCKyvhqBVoINgbGphZWtpVOrojW-uhGetomehYWHtpmRhFRGNixJORUtPTYKRzcvIIiYuLa+QpKKqWg5aZVJuaWNnYOzm4IfehmAMy+ACz+vleS1mbaV9pDINGj+HETidMmKw5hlFtkJFc1oUNiUsOodlc9jVDvV7I0zlcBug7k9btdfHpbHjPt8cL9xgkpslgWl5pkljlxLcoUVNnCyjpbkiDnVjujEITtOgPCKRf1Xo9jCSRmTCBSKGABEIBOh5EQCLgAGbUATIWmgrLLGTqVmw+GIEynZoedroLmPW67PoEjzStK0Og5HUASTJkySMxp0XYHrEPrJCED7A1qiwUmk8ZNMNj5oQvjMt0Mt3svg8xl8L35FSMV28RjMjxMHgs7w8ejd8kNOQAImBcGJIP7AbN0NFGwzcK32zlIJGgdHYfHEwVTSmOQgOlaEPYWpc9I8M9ZbpJbqK3dQiBAwWIhx2IF3qalogej03B22z2PmBPY1PjTPk1tNIhfNol7ZfEkO112zHcrm3FpfDdIhYF9PAL0DK8MBguDcCfagX1oN8WU-dltkQe4jGxQCPExDxbluTEzGsf8iXQJ4jBLSwAj0K4Xmg2C-QBS96GiFCIyjGMsJkcQ8iTYo53whAuSI3wSLIiiqJoppl0Cax0E8Yx2kRG1JFdSIvmQzj4MVZVVXVLUdT1PjjLQwTJxE991gkr9ykI4i9IUyizGo-9CQMbo9BLEtAiMPo3QEMACAgFx0AIHJUEYDUwAAeVwbgBAAMSi3AAFdItgBCgSQ9BIui2L4vwJL2zSjLso1fK4HQzC40cnCXLw79VOubxbjCm4rhFDpJF8f9fy8UijD68jrCsfRBgM6Iypi9BGFQMAAHcABlqGi7AoCKnslqila1s2na9qwKBmqE1qEyc6EOtTWwOmFPRpu0G08QGUaVPsIxfHQbRfwzbcnjzFoIpO2Kzo2zLsAgfbDqDDBlph9a4YR-aboc+72rZZ6My8V5uhuEUKxuIw-PA7FZsdDxbERK4rgW4ZSuh1aMYAZVweKWCR7jEN41GOdhnm+ex+zXza8SCfnN4bDtewKLkl5Qb8gGgZBijJHB54oMWkXys5zaAFV5AgZLz0F4rhfZ43YfNy32wgHHpbx2WzXnFpWOFZmXkkQOt06P8-sU4DdfA9MOlJqGHYxgA5Ag1qgK3kZKtGTY2pOU6tt3hI9j8nvl951Ozd77gLHyKP-d4hW8rkgjCkw49OjGACVoYoFK+AAUQTgB9AA1b1e4AdWnZy5ak2aeq3frHiG0xfrOexmaB2abgeaj3tZwz7bbzbO-Kih297vgtoAQQAYV74fR4nh7Z1c5pzFLefSMXutl--EtAeb-oIEGZWH0mzTOsNj4xQoAnS+I8ADil8AAqvdJ6PWnl1We79poDSXiNf8FF1K1BZiHIK5Y97HXjkfLumVvRbTvr3Zs3pEGoOfp1comDeoL0Gt-PBf1TBAR8BmQk9xtykWsK3dGm1e6I3wFdCgDCmED2bClBOKCn64Wei8UsZhqxBXXBWOs1hQ6ry3GYDS1ZsxvApgDchGA6AbWPDkLOF1EZyJtkdOxm1HG4GcbtVx10pYFxYRo+cDN1KWEdC0AYg0WYrx-FYei9wbAZmop9DMbp7HeKzpAlw3c+6DxHuPYJxcpLfzaGxYGgR9C2GuEuSwBhfy6FmjYfwoMIgGSwNQCAcB1BoE9pJLqABaIswzDCB3GRMoOW43Q-DlPEfpL9pLGJ-LoNo1hMSfReFNVitw3QhiwJ6XA4Y8ALLYRaN4Gl54+WIdYZWS5OjqW4dROm2ZfwswbHeU8I4ICnOejueu9xqIUUdGFe5wR6Lk1uTuV5bxbHoBvN4r5LtfnzmCKWYR5Zrh2DuSpBm3gHDrlmoHLemIOKoRRVJYGQpej+CsISNeyzlzlnReBYwEFczMQkRSrqjwDCYjCv0Fo-RcweH-FUtougGb9CmuBBwEi4oJWqqldKip6p5QKty8ouZMz8r6NREGIqxo7jaHUHwn1WmgP3uAjGLj9qauaMzMxfgAgMyjqYq41NqWYksJiPSLR3jythvDLA-j7XLgJKWUibEzDjODpaP6rEvVEJjQzR4HxDYH0kRtcWvA7VF3QTsW5hCfLkXAv1KanrLjet1im-16awGiwxk7K2YaXpeCeKYIxu5tzbPwdmcxAxZqMT0npS1FDD7Z2TqgVOyL81e0pcEPlFcTA2EpoyrcFFvDVmCFpEdIpA0d2hmG6sgNA79D6l29ZBJaKvTrHmZ4LNmZsQPVImReap7zowY64UtLXX3HdbRMKWtgYlmos8PqbpEawAIAAIyIJAMNu8N5+FzKYci5Fbj-lImYhwfguRckCCCjJXi7xhuCpcvqjx-adFBSpYIZjGKMQ2UK+wY7PEOLvL4y6UAyOkQowDJ9RjGKipUoSJ1Qm2U7OBsRjjA5slHrnQM9hzwhQAzSc8Ewry6k3DenmKa5YCwvANhEIAA */
     id: 'mi',
     initial: 'initialize',
     predictableActionArguments: true,
     context: {
         projectUri: "",
-        langClient: null,
         errors: [],
         view: MACHINE_VIEW.Welcome,
-        dependenciesResolved: false
+        dependenciesResolved: false,
+        isInWI: false
     },
     states: {
         initialize: {
-            entry: () => log("State Machine: Entering 'initialize' state"),
+            entry: () => logDebug("State Machine: Entering 'initialize' state"),
             invoke: {
                 id: 'checkProject',
-                src: (context) => checkIfMiProject(context.projectUri!),
+                src: (context) => checkIfMiProject(context.projectUri!, context.view ?? undefined),
                 onDone: [
                     {
                         target: 'environmentSetup',
@@ -73,7 +72,7 @@ const stateMachine = createMachine<MachineContext>({
                             view: (context, event) => MACHINE_VIEW.UnsupportedProject,
                             projectUri: (context, event) => event.data.projectUri,
                             isOldProject: (context, event) => true,
-                            displayOverview: (context, event) => true,
+                            displayOverview: (context, event) => true
                         })
                     },
                     {
@@ -84,7 +83,7 @@ const stateMachine = createMachine<MachineContext>({
                         actions: assign({
                             view: (context, event) => MACHINE_VIEW.UnsupportedWorkspace,
                             projectUri: (context, event) => event.data.projectUri,
-                            displayOverview: (context, event) => true,
+                            displayOverview: (context, event) => true
                         })
                     },
                     {
@@ -96,13 +95,15 @@ const stateMachine = createMachine<MachineContext>({
                             customProps: (context, event) => event.data.customProps,
                             projectUri: (context, event) => event.data.projectUri,
                             isOldProject: (context, event) => event.data.isOldProject,
-                            displayOverview: (context, event) => event.data.displayOverview
+                            displayOverview: (context, event) => event.data.displayOverview,
+                            isLegacyRuntime: (context, event) => event.data.isLegacyRuntime
+
                         })
                     },
                     {
                         target: 'newProject',
                         // Assuming false means new project
-                        cond: (context, event) => event.data.isProject === false && event.data.isOldProject === false,
+                        cond: (context, event) => !context.isInWI && event.data.isProject === false && event.data.isOldProject === false,
                         actions: assign({
                             view: (context, event) => MACHINE_VIEW.Welcome
                         })
@@ -113,13 +114,13 @@ const stateMachine = createMachine<MachineContext>({
                     target: 'disabled',
                     actions: assign({
                         view: (context, event) => MACHINE_VIEW.Disabled,
-                        errors: (context, event) => event.data
+                        errors: (context, event) => event.data,
                     })
                 }
             }
         },
         projectDetected: {
-            entry: () => log("State Machine: Entering 'projectDetected' state"),
+            entry: () => logDebug("State Machine: Entering 'projectDetected' state"),
             invoke: {
                 src: 'openWebPanel',
                 onDone: {
@@ -128,7 +129,7 @@ const stateMachine = createMachine<MachineContext>({
             }
         },
         oldProjectDetected: {
-            entry: () => log("State Machine: Entering 'oldProjectDetected' state"),
+            entry: () => logDebug("State Machine: Entering 'oldProjectDetected' state"),
             invoke: {
                 src: 'openWebPanel',
                 onDone: {
@@ -137,11 +138,11 @@ const stateMachine = createMachine<MachineContext>({
             }
         },
         oldWorkspaceDetected: {
-            entry: () => log("State Machine: Entering 'oldWorkspaceDetected' state"),
+            entry: () => logDebug("State Machine: Entering 'oldWorkspaceDetected' state"),
             initial: "viewLoading",
             states: {
                 viewLoading: {
-                    entry: () => log("State Machine: Entering 'oldWorkspaceDetected.viewLoading' state"),
+                    entry: () => logDebug("State Machine: Entering 'oldWorkspaceDetected.viewLoading' state"),
                     invoke: [
                         {
                             src: 'openWebPanel',
@@ -152,7 +153,7 @@ const stateMachine = createMachine<MachineContext>({
                     ]
                 },
                 viewReady: {
-                    entry: () => log("State Machine: Entering 'oldWorkspaceDetected.viewReady' state"),
+                    entry: () => logDebug("State Machine: Entering 'oldWorkspaceDetected.viewReady' state"),
                     on: {
                         REFRESH_ENVIRONMENT: {
                             target: '#mi.initialize'
@@ -162,7 +163,7 @@ const stateMachine = createMachine<MachineContext>({
             }
         },
         lsInit: {
-            entry: () => log("State Machine: Entering 'lsInit' state"),
+            entry: () => logDebug("State Machine: Entering 'lsInit' state"),
             invoke: {
                 src: 'waitForLS',
                 onDone: [
@@ -170,14 +171,13 @@ const stateMachine = createMachine<MachineContext>({
                         target: 'ready',
                         cond: (context, event) => context.displayOverview === true,
                         actions: assign({
-                            langClient: (context, event) => event.data
                         })
                     },
                     {
                         target: 'ready.viewReady',
                         cond: (context, event) => context.displayOverview === false,
                         actions: assign({
-                            langClient: (context, event) => event.data
+                            isLoading: (context, event) => false
                         })
                     }
                 ],
@@ -191,11 +191,11 @@ const stateMachine = createMachine<MachineContext>({
             }
         },
         ready: {
-            entry: () => log("State Machine: Entering 'ready' state"),
+            entry: () => logDebug("State Machine: Entering 'ready' state"),
             initial: 'activateOtherFeatures',
             states: {
                 activateOtherFeatures: {
-                    entry: () => log("State Machine: Entering 'ready.activateOtherFeatures' state"),
+                    entry: () => logDebug("State Machine: Entering 'ready.activateOtherFeatures' state"),
                     invoke: {
                         src: 'activateOtherFeatures',
                         onDone: {
@@ -204,7 +204,7 @@ const stateMachine = createMachine<MachineContext>({
                     }
                 },
                 viewLoading: {
-                    entry: () => log("State Machine: Entering 'ready.viewLoading' state"),
+                    entry: () => logDebug("State Machine: Entering 'ready.viewLoading' state"),
                     invoke: {
                         src: 'openWebPanel',
                         onDone: [
@@ -220,7 +220,7 @@ const stateMachine = createMachine<MachineContext>({
                     }
                 },
                 resolveMissingDependencies: {
-                    entry: () => log("State Machine: Entering 'ready.resolveMissingDependencies' state"),
+                    entry: () => logDebug("State Machine: Entering 'ready.resolveMissingDependencies' state"),
                     invoke: {
                         src: 'resolveMissingDependencies',
                         onDone: {
@@ -232,31 +232,23 @@ const stateMachine = createMachine<MachineContext>({
                     }
                 },
                 viewFinding: {
-                    entry: () => log("State Machine: Entering 'ready.viewFinding' state"),
+                    entry: () => logDebug("State Machine: Entering 'ready.viewFinding' state"),
                     invoke: {
                         src: 'findView',
                         onDone: {
-                            target: 'viewStacking',
+                            target: 'viewReady',
                             actions: assign({
                                 view: (context, event) => event.data.view,
                                 stNode: (context, event) => event.data.stNode,
                                 diagnostics: (context, event) => event.data.diagnostics,
-                                dataMapperProps: (context, event) => event.data?.dataMapperProps
+                                dataMapperProps: (context, event) => event.data?.dataMapperProps,
+                                isLoading: (context, event) => false
                             })
                         }
                     }
                 },
-                viewStacking: {
-                    entry: () => log("State Machine: Entering 'ready.viewStacking' state"),
-                    invoke: {
-                        src: 'updateStack',
-                        onDone: {
-                            target: "viewReady"
-                        }
-                    }
-                },
                 viewUpdated: {
-                    entry: () => log("State Machine: Entering 'ready.viewUpdated' state"),
+                    entry: () => logDebug("State Machine: Entering 'ready.viewUpdated' state"),
                     invoke: {
                         src: 'findView',
                         onDone: {
@@ -264,13 +256,14 @@ const stateMachine = createMachine<MachineContext>({
                             actions: assign({
                                 stNode: (context, event) => event.data.stNode,
                                 diagnostics: (context, event) => event.data.diagnostics,
-                                dataMapperProps: (context, event) => event.data?.dataMapperProps
+                                dataMapperProps: (context, event) => event.data?.dataMapperProps,
+                                isLoading: (context, event) => false
                             })
                         }
                     }
                 },
                 viewReady: {
-                    entry: () => log("State Machine: Entering 'ready.viewReady' state"),
+                    entry: () => logDebug("State Machine: Entering 'ready.viewReady' state"),
                     on: {
                         OPEN_VIEW: {
                             target: "viewLoading",
@@ -286,7 +279,8 @@ const stateMachine = createMachine<MachineContext>({
                                 stNode: (context, event) => undefined,
                                 diagnostics: (context, event) => undefined,
                                 type: (context, event) => event.type,
-                                previousContext: (context, event) => context
+                                previousContext: (context, event) => context,
+                                isLoading: (context, event) => true
                             })
                         },
                         REPLACE_VIEW: {
@@ -322,17 +316,17 @@ const stateMachine = createMachine<MachineContext>({
             }
         },
         disabled: {
-            entry: () => log("State Machine: Entering 'disabled' state"),
+            entry: () => logDebug("State Machine: Entering 'disabled' state"),
             invoke: {
                 src: 'disableExtension',
             },
         },
         newProject: {
-            entry: () => log("State Machine: Entering 'newProject' state"),
+            entry: () => logDebug("State Machine: Entering 'newProject' state"),
             initial: "viewLoading",
             states: {
                 viewLoading: {
-                    entry: () => log("State Machine: Entering 'newProject.viewLoading' state"),
+                    entry: () => logDebug("State Machine: Entering 'newProject.viewLoading' state"),
                     invoke: {
                         src: 'openWebPanel',
                         data: (context, event) => ({ context, event, setTitle: true }),
@@ -342,7 +336,7 @@ const stateMachine = createMachine<MachineContext>({
                     }
                 },
                 viewReady: {
-                    entry: () => log("State Machine: Entering 'newProject.viewReady' state"),
+                    entry: () => logDebug("State Machine: Entering 'newProject.viewReady' state"),
                     on: {
                         OPEN_VIEW: {
                             target: "viewLoading",
@@ -355,11 +349,11 @@ const stateMachine = createMachine<MachineContext>({
             }
         },
         environmentSetup: {
-            entry: () => log("State Machine: Entering 'environmentSetup' state"),
+            entry: () => logDebug("State Machine: Entering 'environmentSetup' state"),
             initial: "viewLoading",
             states: {
                 viewLoading: {
-                    entry: () => log("State Machine: Entering 'environmentSetup.viewLoading' state"),
+                    entry: () => logDebug("State Machine: Entering 'environmentSetup.viewLoading' state"),
                     invoke: [
                         {
                             src: 'openWebPanel',
@@ -376,7 +370,7 @@ const stateMachine = createMachine<MachineContext>({
                     ]
                 },
                 viewReady: {
-                    entry: () => log("State Machine: Entering 'environmentSetup.viewReady' state"),
+                    entry: () => logDebug("State Machine: Entering 'environmentSetup.viewReady' state"),
                     on: {
                         REFRESH_ENVIRONMENT: {
                             target: '#mi.initialize'
@@ -394,21 +388,17 @@ const stateMachine = createMachine<MachineContext>({
         waitForLS: (context, event) => {
             // replace this with actual promise that waits for LS to be ready
             return new Promise(async (resolve, reject) => {
-                log("Waiting for LS to be ready " + new Date().toLocaleTimeString());
+                console.log("Waiting for LS to be ready " + new Date().toLocaleTimeString());
                 try {
-                    vscode.commands.executeCommand(COMMANDS.FOCUS_PROJECT_EXPLORER);
-                    const instance = await MILanguageClient.getInstance(context.projectUri!);
-                    const errors = instance.getErrors();
-                    if (errors.length) {
-                        return reject(errors);
-                    }
-                    const ls = instance.languageClient;
+                    const treeViewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
+                    vscode.commands.executeCommand(`${treeViewId}.focus`);
+                    const ls = await MILanguageClient.getInstance(context.projectUri!);
                     vscode.commands.executeCommand('setContext', 'MI.status', 'projectLoaded');
 
                     resolve(ls);
-                    log("LS is ready " + new Date().toLocaleTimeString());
+                    console.log("LS is ready " + new Date().toLocaleTimeString());
                 } catch (error) {
-                    log("Error occured while waiting for LS to be ready " + new Date().toLocaleTimeString());
+                    console.log("Error occured while waiting for LS to be ready " + new Date().toLocaleTimeString());
                     reject(error);
                 }
             });
@@ -419,6 +409,7 @@ const stateMachine = createMachine<MachineContext>({
                 if (!context?.projectUri) {
                     return reject(new Error("Project URI is not defined"));
                 }
+
                 if (!webviews.has(context.projectUri)) {
                     const panel = new VisualizerWebview(context.view!, context.projectUri, extension.webviewReveal);
                     webviews.set(context.projectUri!, panel);
@@ -465,7 +456,7 @@ const stateMachine = createMachine<MachineContext>({
         },
         findView: (context, event): Promise<VisualizerLocation> => {
             return new Promise(async (resolve, reject) => {
-                const langClient = context.langClient!;
+                const langClient = await MILanguageClient.getInstance(context.projectUri!);
                 const viewLocation = context;
 
                 if (context.view === MACHINE_VIEW.IdpConnectorSchemaGeneratorForm) {
@@ -605,7 +596,7 @@ const stateMachine = createMachine<MachineContext>({
                     }
                 }
                 if (viewLocation.view === MACHINE_VIEW.ResourceView) {
-                    const res = await langClient!.getDiagnostics({ documentUri: context.documentUri! });
+                    const res = await langClient.getDiagnostics({ documentUri: context.documentUri! });
                     if (res.diagnostics && res.diagnostics.length > 0) {
                         viewLocation.diagnostics = res.diagnostics;
                     }
@@ -657,8 +648,8 @@ const stateMachine = createMachine<MachineContext>({
         },
         activateOtherFeatures: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                const ls = await MILanguageClient.getInstance(context.projectUri!);
-                await activateProjectExplorer(extension.context, ls.languageClient!);
+                const treeviewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
+                await activateProjectExplorer(treeviewId, extension.context, context.projectUri!, context.isInWI);
                 await activateTestExplorer(extension.context);
                 resolve(true);
             });
@@ -672,7 +663,8 @@ const stateMachine = createMachine<MachineContext>({
         },
         focusProjectExplorer: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                vscode.commands.executeCommand(COMMANDS.FOCUS_PROJECT_EXPLORER);
+                const treeViewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
+                vscode.commands.executeCommand(`${treeViewId}.focus`);
                 resolve(true);
             });
         }
@@ -683,7 +675,7 @@ const stateMachine = createMachine<MachineContext>({
 // Create a service to interpret the machine
 const stateMachines: Map<string, any> = new Map();
 
-export const getStateMachine = (projectUri: string): {
+export const getStateMachine = (projectUri: string, context?: VisualizerLocation): {
     service: () => any;
     context: () => MachineContext;
     state: () => MachineStateValue;
@@ -696,11 +688,13 @@ export const getStateMachine = (projectUri: string): {
         if (!workspaces) {
             console.warn('No workspace folder is open.');
         }
+
         stateService = interpret(stateMachine.withContext({
             projectUri: projectUri,
-            langClient: null,
             errors: [],
-            view: MACHINE_VIEW.Welcome
+            view: MACHINE_VIEW.Overview,
+            isInWI: vscode.extensions.getExtension(WI_EXTENSION_ID) ? true : false,
+            ...context
         })).start();
         stateMachines.set(projectUri, stateService);
     }
@@ -820,17 +814,17 @@ function updateProjectExplorer(location: VisualizerLocation | undefined) {
             vscode.commands.executeCommand(COMMANDS.REVEAL_TEST_PANE);
         } else if (projectRoot && !extension.preserveActivity) {
             location.projectUri = projectRoot;
-            if (!getStateMachine(projectRoot).context().isOldProject) {
+            if (!getStateMachine(projectRoot, location).context().isOldProject) {
                 vscode.commands.executeCommand(COMMANDS.REVEAL_ITEM_COMMAND, location);
             }
         }
     }
 }
 
-async function checkIfMiProject(projectUri: string) {
-    log(`Detecting project in ${projectUri} - ${new Date().toLocaleTimeString()}`);
+async function checkIfMiProject(projectUri: string, view: MACHINE_VIEW = MACHINE_VIEW.Overview) {
+    console.log(`Detecting project in ${projectUri} - ${new Date().toLocaleTimeString()}`);
 
-    let isProject = false, isOldProject = false, isOldWorkspace = false, displayOverview = true, view = MACHINE_VIEW.Overview, isEnvironmentSetUp = false;
+    let isProject = false, isOldProject = false, isOldWorkspace = false, displayOverview = true, isEnvironmentSetUp = false, isLegacyRuntime = true;
     const customProps: any = {};
     try {
         // Check for pom.xml files excluding node_modules directory
@@ -839,7 +833,7 @@ async function checkIfMiProject(projectUri: string) {
             const pomContent = await fs.promises.readFile(pomFilePath, 'utf-8');
             isProject = pomContent.includes('<projectType>integration-project</projectType>');
             if (isProject) {
-                log("MI project detected in " + projectUri);
+                console.log("MI project detected in " + projectUri);
             }
         }
 
@@ -877,6 +871,9 @@ async function checkIfMiProject(projectUri: string) {
             }
         }
 
+        const runtimeVersion = await getMIVersionFromPom(projectUri);
+        isLegacyRuntime = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0 : true;
+
         vscode.commands.executeCommand('setContext', 'MI.status', 'projectDetected');
         vscode.commands.executeCommand('setContext', 'MI.projectType', 'miProject'); // for command enablements
         await extension.context.workspaceState.update('projectType', 'miProject');
@@ -901,11 +898,11 @@ async function checkIfMiProject(projectUri: string) {
         if (!isEnvironmentSetUp) {
             vscode.commands.executeCommand('setContext', 'MI.status', 'notSetUp');
         }
-        // Log project path
-        log(`Current workspace path: ${projectUri}`);
+        // console.log project path
+        console.log(`Current workspace path: ${projectUri}`);
     }
 
-    log(`Project detection completed for path: ${projectUri} at ${new Date().toLocaleTimeString()}`);
+    console.log(`Project detection completed for path: ${projectUri} at ${new Date().toLocaleTimeString()}`);
     return {
         isProject,
         isOldProject,
@@ -914,7 +911,8 @@ async function checkIfMiProject(projectUri: string) {
         projectUri, // Return the path of the detected project
         view,
         customProps,
-        isEnvironmentSetUp
+        isEnvironmentSetUp,
+        isLegacyRuntime
     };
 }
 
@@ -926,18 +924,18 @@ export async function isOldProjectOrWorkspace(projectUri: any) {
     if (projectFiles.length > 0) {
         if (await containsMultiModuleNatureInProjectFile(projectFiles[0].fsPath)) {
             isOldProject = true;
-            log("Integration Studio project detected");
+            console.log("Integration Studio project detected");
         }
     } else if (fs.existsSync(pomFilePath)) {
         if (await containsMultiModuleNatureInPomFile(pomFilePath)) {
             isOldProject = true;
-            log("Integration Studio project detected");
+            console.log("Integration Studio project detected");
         }
     } else if (fs.existsSync(projectUri)) {
         const foundOldProjects = await findMultiModuleProjectsInWorkspaceDir(projectUri);
         if (foundOldProjects.length > 0) {
             isOldWorkspace = true;
-            log("Integration Studio workspace detected");
+            console.log("Integration Studio workspace detected");
         }
     }
     return isOldProject || isOldWorkspace ? { isOldProject, isOldWorkspace } : false;

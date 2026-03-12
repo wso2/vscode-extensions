@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`Diagram component renders correctly with valid XML files Diagram work correctly for data service - DataService1.xml 1`] = `
 "<div>
@@ -78477,10 +78477,10 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
             </g>
           </g>
           <g
-            data-linkid="undefined-19,28,undefined-22,28"
+            data-linkid="22,28"
           >
             <g
-              data-testid="link-undefined-19,28,undefined-22,28"
+              data-testid="link-22,28"
               pointer-events="auto"
             >
               <path
@@ -78497,27 +78497,30 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
                 stroke-width="2"
               />
               <foreignobject
-                height="100"
-                width="100"
-                x="-275"
+                data-testid="add-mediator-button"
+                height="30"
+                width="20"
+                x="-235"
                 y="-15"
               >
                 <div
-                  style="display: flex; justify-content: center; align-items: center;"
+                  class="css-104axga"
                 >
-                  <div
-                    class="css-1t1qebt"
+                  <svg
+                    height="24"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
                   >
-                    <div
-                      style="display: flex; justify-content: center; align-items: center; border-radius: 20px; padding: 2px 10px; box-sizing: border-box; font-family: var(--font-family);"
-                    >
-                      <span
-                        style="font-size: 14px;"
-                      >
-                        GET
-                      </span>
-                    </div>
-                  </div>
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                      fill="var(--vscode-editor-background)"
+                    />
+                    <path
+                      d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8 8 0 0 1-8 8m4-9h-3V8a1 1 0 0 0-2 0v3H8a1 1 0 0 0 0 2h3v3a1 1 0 0 0 2 0v-3h3a1 1 0 0 0 0-2"
+                      fill="var(--vscode-progressBar-background)"
+                    />
+                  </svg>
                 </div>
               </foreignobject>
               <defs>
@@ -78626,10 +78629,10 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
             </g>
           </g>
           <g
-            data-linkid="undefined-27,28,undefined-31,28"
+            data-linkid="30,28"
           >
             <g
-              data-testid="link-undefined-27,28,undefined-31,28"
+              data-testid="link-30,28"
               pointer-events="auto"
             >
               <path
@@ -78646,27 +78649,30 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
                 stroke-width="2"
               />
               <foreignobject
-                height="100"
-                width="100"
-                x="-275"
+                data-testid="add-mediator-button"
+                height="30"
+                width="20"
+                x="-235"
                 y="-15"
               >
                 <div
-                  style="display: flex; justify-content: center; align-items: center;"
+                  class="css-104axga"
                 >
-                  <div
-                    class="css-1t1qebt"
+                  <svg
+                    height="24"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
                   >
-                    <div
-                      style="display: flex; justify-content: center; align-items: center; border-radius: 20px; padding: 2px 10px; box-sizing: border-box; font-family: var(--font-family);"
-                    >
-                      <span
-                        style="font-size: 14px;"
-                      >
-                        POST
-                      </span>
-                    </div>
-                  </div>
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                      fill="var(--vscode-editor-background)"
+                    />
+                    <path
+                      d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8 8 0 0 1-8 8m4-9h-3V8a1 1 0 0 0-2 0v3H8a1 1 0 0 0 0 2h3v3a1 1 0 0 0 2 0v-3h3a1 1 0 0 0 0-2"
+                      fill="var(--vscode-progressBar-background)"
+                    />
+                  </svg>
                 </div>
               </foreignobject>
               <defs>
@@ -78863,10 +78869,10 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
             </g>
           </g>
           <g
-            data-linkid="undefined-36,36,undefined-37,36"
+            data-linkid="37,36"
           >
             <g
-              data-testid="link-undefined-36,36,undefined-37,36"
+              data-testid="link-37,36"
               pointer-events="auto"
             >
               <path
@@ -78883,27 +78889,30 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
                 stroke-width="2"
               />
               <foreignobject
-                height="100"
-                width="100"
-                x="-275"
+                data-testid="add-mediator-button"
+                height="30"
+                width="20"
+                x="-235"
                 y="-15"
               >
                 <div
-                  style="display: flex; justify-content: center; align-items: center;"
+                  class="css-104axga"
                 >
-                  <div
-                    class="css-1t1qebt"
+                  <svg
+                    height="24"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
                   >
-                    <div
-                      style="display: flex; justify-content: center; align-items: center; border-radius: 20px; padding: 2px 10px; box-sizing: border-box; font-family: var(--font-family);"
-                    >
-                      <span
-                        style="font-size: 14px;"
-                      >
-                        Else
-                      </span>
-                    </div>
-                  </div>
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                      fill="var(--vscode-editor-background)"
+                    />
+                    <path
+                      d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8 8 0 0 1-8 8m4-9h-3V8a1 1 0 0 0-2 0v3H8a1 1 0 0 0 0 2h3v3a1 1 0 0 0 2 0v-3h3a1 1 0 0 0 0-2"
+                      fill="var(--vscode-progressBar-background)"
+                    />
+                  </svg>
                 </div>
               </foreignobject>
               <defs>
@@ -78924,10 +78933,10 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
             </g>
           </g>
           <g
-            data-linkid="undefined-37,36,undefined-38,36"
+            data-linkid="38,36"
           >
             <g
-              data-testid="link-undefined-37,36,undefined-38,36"
+              data-testid="link-38,36"
               pointer-events="auto"
             >
               <path
@@ -78944,27 +78953,30 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
                 stroke-width="2"
               />
               <foreignobject
-                height="100"
-                width="100"
-                x="-275"
+                data-testid="add-mediator-button"
+                height="30"
+                width="20"
+                x="-235"
                 y="-15"
               >
                 <div
-                  style="display: flex; justify-content: center; align-items: center;"
+                  class="css-104axga"
                 >
-                  <div
-                    class="css-1t1qebt"
+                  <svg
+                    height="24"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
                   >
-                    <div
-                      style="display: flex; justify-content: center; align-items: center; border-radius: 20px; padding: 2px 10px; box-sizing: border-box; font-family: var(--font-family);"
-                    >
-                      <span
-                        style="font-size: 14px;"
-                      >
-                        Else
-                      </span>
-                    </div>
-                  </div>
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                      fill="var(--vscode-editor-background)"
+                    />
+                    <path
+                      d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8 8 0 0 1-8 8m4-9h-3V8a1 1 0 0 0-2 0v3H8a1 1 0 0 0 0 2h3v3a1 1 0 0 0 2 0v-3h3a1 1 0 0 0 0-2"
+                      fill="var(--vscode-progressBar-background)"
+                    />
+                  </svg>
                 </div>
               </foreignobject>
               <defs>
@@ -78985,10 +78997,10 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
             </g>
           </g>
           <g
-            data-linkid="undefined-38,36,undefined-39,36"
+            data-linkid="39,36"
           >
             <g
-              data-testid="link-undefined-38,36,undefined-39,36"
+              data-testid="link-39,36"
               pointer-events="auto"
             >
               <path
@@ -79005,27 +79017,30 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
                 stroke-width="2"
               />
               <foreignobject
-                height="100"
-                width="100"
-                x="-275"
+                data-testid="add-mediator-button"
+                height="30"
+                width="20"
+                x="-235"
                 y="-15"
               >
                 <div
-                  style="display: flex; justify-content: center; align-items: center;"
+                  class="css-104axga"
                 >
-                  <div
-                    class="css-1t1qebt"
+                  <svg
+                    height="24"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
                   >
-                    <div
-                      style="display: flex; justify-content: center; align-items: center; border-radius: 20px; padding: 2px 10px; box-sizing: border-box; font-family: var(--font-family);"
-                    >
-                      <span
-                        style="font-size: 14px;"
-                      >
-                        Else
-                      </span>
-                    </div>
-                  </div>
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                      fill="var(--vscode-editor-background)"
+                    />
+                    <path
+                      d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8 8 0 0 1-8 8m4-9h-3V8a1 1 0 0 0-2 0v3H8a1 1 0 0 0 0 2h3v3a1 1 0 0 0 2 0v-3h3a1 1 0 0 0 0-2"
+                      fill="var(--vscode-progressBar-background)"
+                    />
+                  </svg>
                 </div>
               </foreignobject>
               <defs>
@@ -79235,10 +79250,10 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
             </g>
           </g>
           <g
-            data-linkid="undefined-46,28,undefined-49,28"
+            data-linkid="49,28"
           >
             <g
-              data-testid="link-undefined-46,28,undefined-49,28"
+              data-testid="link-49,28"
               pointer-events="auto"
             >
               <path
@@ -79255,27 +79270,30 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
                 stroke-width="2"
               />
               <foreignobject
-                height="100"
-                width="100"
-                x="-275"
+                data-testid="add-mediator-button"
+                height="30"
+                width="20"
+                x="-235"
                 y="-15"
               >
                 <div
-                  style="display: flex; justify-content: center; align-items: center;"
+                  class="css-104axga"
                 >
-                  <div
-                    class="css-1t1qebt"
+                  <svg
+                    height="24"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
                   >
-                    <div
-                      style="display: flex; justify-content: center; align-items: center; border-radius: 20px; padding: 2px 10px; box-sizing: border-box; font-family: var(--font-family);"
-                    >
-                      <span
-                        style="font-size: 14px;"
-                      >
-                        DELETE
-                      </span>
-                    </div>
-                  </div>
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                      fill="var(--vscode-editor-background)"
+                    />
+                    <path
+                      d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8 8 0 0 1-8 8m4-9h-3V8a1 1 0 0 0-2 0v3H8a1 1 0 0 0 0 2h3v3a1 1 0 0 0 2 0v-3h3a1 1 0 0 0 0-2"
+                      fill="var(--vscode-progressBar-background)"
+                    />
+                  </svg>
                 </div>
               </foreignobject>
               <defs>
@@ -79384,10 +79402,10 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
             </g>
           </g>
           <g
-            data-linkid="undefined-54,28,undefined-58,28"
+            data-linkid="58,28"
           >
             <g
-              data-testid="link-undefined-54,28,undefined-58,28"
+              data-testid="link-58,28"
               pointer-events="auto"
             >
               <path
@@ -79404,27 +79422,30 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
                 stroke-width="2"
               />
               <foreignobject
-                height="100"
-                width="100"
-                x="-275"
+                data-testid="add-mediator-button"
+                height="30"
+                width="20"
+                x="-235"
                 y="-15"
               >
                 <div
-                  style="display: flex; justify-content: center; align-items: center;"
+                  class="css-104axga"
                 >
-                  <div
-                    class="css-1t1qebt"
+                  <svg
+                    height="24"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
                   >
-                    <div
-                      style="display: flex; justify-content: center; align-items: center; border-radius: 20px; padding: 2px 10px; box-sizing: border-box; font-family: var(--font-family);"
-                    >
-                      <span
-                        style="font-size: 14px;"
-                      >
-                        default
-                      </span>
-                    </div>
-                  </div>
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                      fill="var(--vscode-editor-background)"
+                    />
+                    <path
+                      d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8 8 0 0 1-8 8m4-9h-3V8a1 1 0 0 0-2 0v3H8a1 1 0 0 0 0 2h3v3a1 1 0 0 0 2 0v-3h3a1 1 0 0 0 0-2"
+                      fill="var(--vscode-progressBar-background)"
+                    />
+                  </svg>
                 </div>
               </foreignobject>
               <defs>
@@ -80059,10 +80080,10 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
             </g>
           </g>
           <g
-            data-linkid="undefined-66,20,undefined-67,20"
+            data-linkid="67,20"
           >
             <g
-              data-testid="link-undefined-66,20,undefined-67,20"
+              data-testid="link-67,20"
               pointer-events="auto"
             >
               <path
@@ -80079,27 +80100,30 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
                 stroke-width="2"
               />
               <foreignobject
-                height="100"
-                width="100"
-                x="-275"
+                data-testid="add-mediator-button"
+                height="30"
+                width="20"
+                x="-235"
                 y="-15"
               >
                 <div
-                  style="display: flex; justify-content: center; align-items: center;"
+                  class="css-104axga"
                 >
-                  <div
-                    class="css-1t1qebt"
+                  <svg
+                    height="24"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
                   >
-                    <div
-                      style="display: flex; justify-content: center; align-items: center; border-radius: 20px; padding: 2px 10px; box-sizing: border-box; font-family: var(--font-family);"
-                    >
-                      <span
-                        style="font-size: 14px;"
-                      >
-                        Else
-                      </span>
-                    </div>
-                  </div>
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                      fill="var(--vscode-editor-background)"
+                    />
+                    <path
+                      d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8 8 0 0 1-8 8m4-9h-3V8a1 1 0 0 0-2 0v3H8a1 1 0 0 0 0 2h3v3a1 1 0 0 0 2 0v-3h3a1 1 0 0 0 0-2"
+                      fill="var(--vscode-progressBar-background)"
+                    />
+                  </svg>
                 </div>
               </foreignobject>
               <defs>
@@ -80120,10 +80144,10 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
             </g>
           </g>
           <g
-            data-linkid="undefined-67,20,undefined-68,20"
+            data-linkid="68,20"
           >
             <g
-              data-testid="link-undefined-67,20,undefined-68,20"
+              data-testid="link-68,20"
               pointer-events="auto"
             >
               <path
@@ -80140,27 +80164,30 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
                 stroke-width="2"
               />
               <foreignobject
-                height="100"
-                width="100"
-                x="-275"
+                data-testid="add-mediator-button"
+                height="30"
+                width="20"
+                x="-235"
                 y="-15"
               >
                 <div
-                  style="display: flex; justify-content: center; align-items: center;"
+                  class="css-104axga"
                 >
-                  <div
-                    class="css-1t1qebt"
+                  <svg
+                    height="24"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
                   >
-                    <div
-                      style="display: flex; justify-content: center; align-items: center; border-radius: 20px; padding: 2px 10px; box-sizing: border-box; font-family: var(--font-family);"
-                    >
-                      <span
-                        style="font-size: 14px;"
-                      >
-                        Else
-                      </span>
-                    </div>
-                  </div>
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                      fill="var(--vscode-editor-background)"
+                    />
+                    <path
+                      d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8 8 0 0 1-8 8m4-9h-3V8a1 1 0 0 0-2 0v3H8a1 1 0 0 0 0 2h3v3a1 1 0 0 0 2 0v-3h3a1 1 0 0 0 0-2"
+                      fill="var(--vscode-progressBar-background)"
+                    />
+                  </svg>
                 </div>
               </foreignobject>
               <defs>
@@ -80181,10 +80208,10 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
             </g>
           </g>
           <g
-            data-linkid="undefined-68,20,undefined-69,20"
+            data-linkid="69,20"
           >
             <g
-              data-testid="link-undefined-68,20,undefined-69,20"
+              data-testid="link-69,20"
               pointer-events="auto"
             >
               <path
@@ -80201,27 +80228,30 @@ exports[`Diagram component renders correctly with valid XML files Diagram work c
                 stroke-width="2"
               />
               <foreignobject
-                height="100"
-                width="100"
-                x="-275"
+                data-testid="add-mediator-button"
+                height="30"
+                width="20"
+                x="-235"
                 y="-15"
               >
                 <div
-                  style="display: flex; justify-content: center; align-items: center;"
+                  class="css-104axga"
                 >
-                  <div
-                    class="css-1t1qebt"
+                  <svg
+                    height="24"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
                   >
-                    <div
-                      style="display: flex; justify-content: center; align-items: center; border-radius: 20px; padding: 2px 10px; box-sizing: border-box; font-family: var(--font-family);"
-                    >
-                      <span
-                        style="font-size: 14px;"
-                      >
-                        Else
-                      </span>
-                    </div>
-                  </div>
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                      fill="var(--vscode-editor-background)"
+                    />
+                    <path
+                      d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8 8 0 0 1-8 8m4-9h-3V8a1 1 0 0 0-2 0v3H8a1 1 0 0 0 0 2h3v3a1 1 0 0 0 2 0v-3h3a1 1 0 0 0 0-2"
+                      fill="var(--vscode-progressBar-background)"
+                    />
+                  </svg>
                 </div>
               </foreignobject>
               <defs>

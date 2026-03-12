@@ -2,7 +2,13 @@
   "name": "rush-plugins",
   "version": "1.0.0",
   "private": true,
+  "pnpm": {
+    "overrides": {
+      "fast-xml-parser": "5.3.8",
+      "minimatch": "3.1.4"
+    }
+  },
   "dependencies": {
-    "@gigara/rush-github-action-build-cache-plugin": "^1.1.1"
+    "@gigara/rush-github-action-build-cache-plugin": "1.1.8"
   }
 }

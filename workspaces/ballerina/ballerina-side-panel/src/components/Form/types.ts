@@ -20,9 +20,19 @@ import { RefObject } from "react";
 import { DiagnosticMessage, FormDiagnostics, TextEdit, PropertyModel, LinePosition, LineRange, ExpressionProperty, Metadata, RecordTypeField, Imports, ConfigProperties } from "@wso2/ballerina-core";
 import { ParamConfig } from "../ParamManager/ParamManager";
 import { CompletionItem, FormExpressionEditorRef, HelperPaneHeight, HelperPaneOrigin, OptionProps } from "@wso2/ui-toolkit";
+import { InputMode } from "../editors/MultiModeExpressionEditor/ChipExpressionEditor/types";
+import { InputType } from "@wso2/ballerina-core/lib/interfaces/bi";
+
 
 export type FormValues = {
     [key: string]: any;
+};
+
+export type FieldDerivation = {
+    sourceField: string;
+    targetField: string;
+    deriveFn: (sourceValue: any) => any;
+    breakOnManualEdit?: boolean;
 };
 
 export type FormField = {
@@ -38,14 +48,13 @@ export type FormField = {
     documentation: string;
     value: string | any[];
     advanceProps?: FormField[];
-    valueType?: string;
     diagnostics?: DiagnosticMessage[];
     items?: string[];
     itemOptions?: OptionProps[]
     choices?: PropertyModel[];
     dynamicFormFields?: { [key: string]: FormField[] }
     paramManagerProps?: ParamConfig;
-    valueTypeConstraint: string | string[];
+    types: InputType[];
     groupNo?: number;
     groupName?: string;
     addNewButton?: boolean;
@@ -53,12 +62,22 @@ export type FormField = {
     enabled: boolean;
     lineRange?: LineRange;
     metadata?: Metadata;
+    isContextTypeSupported?: boolean;
     codedata?: { [key: string]: any };
     imports?: { [key: string]: string };
     actionLabel?: string | JSX.Element;
     properties?: ConfigProperties;
     actionCallback?: () => void;
-    onValueChange?: (value: string) => void;
+    onValueChange?: (value: string | boolean) => void;
+    isGraphqlId?: boolean;
+    sliderProps?: {
+        min?: number;
+        max?: number;
+        step?: number;
+        showValue?: boolean;
+        showMarkers?: boolean;
+        valueFormatter?: (value: number) => string;
+    };
 };
 
 export type ParameterValue = {
@@ -87,6 +106,12 @@ export type HelperPaneCompletionItem = {
 export type HelperPaneCompletionCategory = {
     label: string;
     items: HelperPaneCompletionItem[];
+}
+
+
+export type HelperpaneOnChangeOptions = {
+    closeHelperPane?: boolean;
+    replaceFullText?: boolean;
 }
 
 export type HelperPaneVariableInfo = {
@@ -137,11 +162,12 @@ type FormTypeConditionalProps = {
         value: string,
         cursorPosition: number,
         fetchReferenceTypes: boolean,
-        valueTypeConstraint: string
+        types: InputType[],
+        fieldKey?: string
     ) => Promise<void>;
     getTypeHelper: (
         fieldKey: string,
-        valueTypeConstraint: string,
+        types: InputType[],
         typeBrowserRef: RefObject<HTMLDivElement>,
         currentType: string,
         currentCursorPosition: number,
@@ -170,12 +196,13 @@ type FormHelperPaneConditionalProps = {
         anchorRef: RefObject<HTMLDivElement>,
         defaultValue: string,
         value: string,
-        onChange: (value: string, updatedCursorPosition: number) => void,
+        onChange: (value: string, options?: HelperpaneOnChangeOptions) => void,
         changeHelperPaneState: (isOpen: boolean) => void,
         helperPaneHeight: HelperPaneHeight,
         recordTypeField?: RecordTypeField,
         isAssignIdentifier?: boolean,
-        valueTypeConstraint?: string | string[]
+        inputTypes?: InputType[],
+        inputMode?: InputMode
     ) => JSX.Element;
     helperPaneOrigin?: HelperPaneOrigin;
     helperPaneHeight: HelperPaneHeight;
@@ -209,6 +236,19 @@ type FormExpressionEditorBaseProps = {
     onSave?: (value: string) => void | Promise<void>;
     onRemove?: () => void;
     onSaveConfigurables?: (values: any) => void;
+    onOpenRecordConfigPage?: (fieldKey: string, currentValue: string, recordTypeField: any, onChange: (value: string) => void) => void;
+}
+
+type ExpressionEditorRPCManager = {
+    getExpressionTokens: (
+        expression: string,
+        filePath: string,
+        position: LinePosition
+    ) => Promise<number[]>;
+}
+
+type ExpressionEditorFormProps = {
+    rpcManager: ExpressionEditorRPCManager;
 }
 
 type SanitizedExpressionEditorProps = {
@@ -216,12 +256,19 @@ type SanitizedExpressionEditorProps = {
     sanitizedExpression?: (expression: string) => string; // sanitized expression that will be rendered in the editor
 }
 
+export type ExpressionEditorDevantProps = {
+    devantConfigs?: string[];
+    onAddDevantConfig?: (name: string, value: string, isSecret: boolean) => Promise<void>;
+}
+
 export type FormExpressionEditorProps =
     FormCompletionConditionalProps &
     FormTypeConditionalProps &
     FormHelperPaneConditionalProps &
     FormExpressionEditorBaseProps &
-    SanitizedExpressionEditorProps;
+    ExpressionEditorFormProps &
+    SanitizedExpressionEditorProps &
+    ExpressionEditorDevantProps;
 
 export type FormImports = {
     [fieldKey: string]: Imports;

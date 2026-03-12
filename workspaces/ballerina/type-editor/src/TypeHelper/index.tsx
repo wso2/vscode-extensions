@@ -39,7 +39,7 @@ export type TypeHelperItem = {
     name: string;
     insertText: string;
     sortText?: string;
-    type: CompletionItemKind;
+    type?: CompletionItemKind;
     codedata?: CodeData;
     kind?: FunctionKind;
     labelDetails?: {
@@ -97,6 +97,7 @@ type TypeHelperProps = {
     referenceTypes: TypeHelperCategory[];
     basicTypes: TypeHelperCategory[];
     importedTypes: TypeHelperCategory[];
+    workspaceTypes: TypeHelperCategory[];
     operators: TypeHelperOperator[];
     typeBrowserTypes: TypeHelperCategory[];
     onSearchTypeHelper: (searchText: string, isType: boolean) => void;

@@ -36,68 +36,84 @@ import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log } from '../util/logger';
 import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR } from '../util/onboardingUtils';
 import { getHash } from '../util/fileOperations';
+import { MILanguageClient } from '../lang-client/activator';
 
 export function activateVisualizer(context: vscode.ExtensionContext, firstProject: string) {
     context.subscriptions.push(
-        vscode.commands.registerCommand(COMMANDS.OPEN_PROJECT, () => {
-            window.showOpenDialog({ canSelectFolders: true, canSelectFiles: true, filters: { 'CAPP': ['car', 'zip'] }, openLabel: 'Open MI Project' })
-                .then(uri => {
-                    if (uri && uri[0]) {
-                        const handleOpenProject = (folderUri: vscode.Uri) => {
-                            window.showInformationMessage('Where would you like to open the project?',
-                                { modal: true },
-                                'Current Window',
-                                'New Window'
-                            ).then(selection => {
-                                if (selection === "Current Window") {
-                                    const workspaceFolders = workspace.workspaceFolders || [];
-                                    if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
-                                        workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
-                                    }
-                                } else if (selection === "New Window") {
-                                    commands.executeCommand('vscode.openFolder', folderUri);
+        vscode.commands.registerCommand(COMMANDS.OPEN_PROJECT, (providedUri?: vscode.Uri) => {
+            const processUri = (uri: vscode.Uri[] | undefined) => {
+                if (uri && uri[0]) {
+                    const handleOpenProject = (folderUri: vscode.Uri) => {
+                        window.showInformationMessage('Where would you like to open the project?',
+                            { modal: true },
+                            'Current Window',
+                            'New Window'
+                        ).then(selection => {
+                            if (selection === "Current Window") {
+                                const workspaceFolders = workspace.workspaceFolders || [];
+                                if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
+                                    workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
+                                }
+                            } else if (selection === "New Window") {
+                                commands.executeCommand('vscode.openFolder', folderUri);
+                            }
+                        });
+                    };
+                    if (uri[0].fsPath.endsWith('.car') || uri[0].fsPath.endsWith('.zip')) {
+                        window.showInformationMessage('A car file (CAPP) is selected.\n Do you want to extract it?', { modal: true }, 'Extract')
+                            .then(option => {
+                                if (option === 'Extract') {
+                                    window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: 'Select the location to extract the CAPP', openLabel: 'Select Folder' })
+                                        .then(async extractUri => {
+                                            if (extractUri && extractUri[0]) {
+                                                try {
+                                                    const result = await importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false });
+                                                    if (result.filePath) {
+                                                        handleOpenProject(extractUri[0]);
+                                                    } else {
+                                                        window.showErrorMessage('Failed to import CAPP. Please check the file and try again.');
+                                                    }
+                                                } catch (error: any) {
+                                                    window.showErrorMessage(`CAPP import failed: ${error.message}`);
+                                                }
+                                            }
+                                        });
                                 }
                             });
-                        };
-                        if (uri[0].fsPath.endsWith('.car') || uri[0].fsPath.endsWith('.zip')) {
-                            window.showInformationMessage('A car file (CAPP) is selected.\n Do you want to extract it?', { modal: true }, 'Extract')
-                                .then(option => {
-                                    if (option === 'Extract') {
-                                        window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: 'Select the location to extract the CAPP', openLabel: 'Select Folder' })
-                                            .then(extractUri => {
-                                                if (extractUri && extractUri[0]) {
-                                                    importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false });
-                                                    handleOpenProject(extractUri[0]);
-                                                }
-                                            });
-                                    }
-                                });
+                    } else {
+                        const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+                        const projectUri = webview ? webview.getProjectUri() : firstProject;
+                        const projectOpened = getStateMachine(projectUri).context().projectOpened;
+                        if (projectOpened) {
+                            handleOpenProject(uri[0]);
                         } else {
-                            const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
-                            const projectUri = webview ? webview.getProjectUri() : firstProject;
-                            const projectOpened = getStateMachine(projectUri).context().projectOpened;
-                            if (projectOpened) {
-                                handleOpenProject(uri[0]);
-                            } else {
-                                commands.executeCommand('vscode.openFolder', uri[0]);
-                            }
+                            commands.executeCommand('vscode.openFolder', uri[0]);
                         }
                     }
-                });
+                }
+            };
+
+            if (providedUri) {
+                processUri([providedUri]);
+            } else {
+                window.showOpenDialog({ canSelectFolders: true, canSelectFiles: true, filters: { 'CAPP': ['car', 'zip'] }, openLabel: 'Open MI Project' })
+                    .then(processUri);
+            }
         }),
         commands.registerCommand(COMMANDS.CREATE_PROJECT_COMMAND, async (args) => {
             if (args && args.name && args.path && args.scope) {
                 const rpcManager = new MiDiagramRpcManager("");
                 if (rpcManager) {
-                    await rpcManager.createProject(
+                    const result = await rpcManager.createProject(
                         {
                             directory: path.dirname(args.path),
                             name: path.basename(args.path),
-                            open: false,
+                            open: args.open ?? false,
                             miVersion: "4.4.0"
                         }
                     );
                     await createSettingsFile(args);
+                    return result;
                 }
 
                 async function createSettingsFile(args) {
@@ -193,9 +209,8 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
     // Listen for pom changes and update dependencies
     context.subscriptions.push(
         // Handle the text change and diagram update with rpc notification
-        vscode.workspace.onDidChangeTextDocument(async function (document) {
-            const projectUri = vscode.workspace.getWorkspaceFolder(document.document.uri)?.uri.fsPath;
-
+        vscode.workspace.onDidChangeTextDocument(async function (e : vscode.TextDocumentChangeEvent) {
+            const projectUri = vscode.workspace.getWorkspaceFolder(e.document.uri)?.uri.fsPath;
             if (!projectUri) {
                 return;
             }
@@ -206,20 +221,20 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 return;
             }
 
-            if (!REFRESH_ENABLED_DOCUMENTS.includes(document.document.languageId) || !projectUri) {
+            if (!REFRESH_ENABLED_DOCUMENTS.includes(e.document.languageId) || !projectUri) {
                 return;
             }
 
             if (webview?.getWebview()?.active || AiPanelWebview.currentPanel?.getWebview()?.active) {
-                await document.document.save();
-                if (!getStateMachine(projectUri).context().view?.endsWith('Form') && document?.document?.uri?.fsPath?.includes(artifactsDir)) {
+                await e.document.save();
+                if (!getStateMachine(projectUri).context().view?.endsWith('Form') && e?.document?.uri?.fsPath?.includes(artifactsDir)) {
                     refreshDiagram(projectUri);
                 }
             }
 
-            if (document.document.uri.fsPath.endsWith('pom.xml')) {
-                const projectUri = vscode.workspace.getWorkspaceFolder(document.document.uri)?.uri.fsPath;
-                const langClient = getStateMachine(projectUri!).context().langClient;
+            if (e.document.uri.fsPath.endsWith('pom.xml')) {
+                const projectUri = vscode.workspace.getWorkspaceFolder(e.document.uri)?.uri.fsPath;
+                const langClient = await MILanguageClient.getInstance(projectUri!);
                 
                 const confirmUpdate = await vscode.window.showInformationMessage(
                     'The pom.xml file has been modified. Do you want to update the dependencies?',
@@ -328,6 +343,62 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 generateSwagger(document.uri.fsPath);
             }
 
+            const swaggerDir = path.join(projectUri!, "src", "main", "wso2mi", "resources", "api-definitions");
+            if (document?.uri.fsPath.includes(swaggerDir)) {
+                const rpcManager = new MiDiagramRpcManager(projectUri!);
+                const langClient = await MILanguageClient.getInstance(projectUri!);
+                const apiPath = path.join(apiDir, path.basename(document?.uri.fsPath, path.extname(document?.uri.fsPath)) + '.xml');
+                const apiName = path.basename(document?.uri.fsPath).split("_v")[0];
+                langClient?.getSyntaxTree({
+                    documentIdentifier: {
+                        uri: apiPath
+                    }
+                }).then(st => {
+                    rpcManager.compareSwaggerAndAPI({
+                        apiName: apiName,
+                        apiPath: apiPath
+                    }).then(async response => {
+                        if (response.swaggerExists && !response.isEqual) {
+                            const confirmUpdate = await vscode.window.showInformationMessage(
+                                'The OpenAPI definition is different from the Synapse API.',
+                                { modal: true },
+                                "Update API", "Update Swagger"
+                            );
+                            switch (confirmUpdate) {
+                                case "Update Swagger":
+                                    rpcManager.updateSwaggerFromAPI({
+                                        apiName: apiName,
+                                        apiPath: apiPath,
+                                        existingSwagger: response.existingSwagger,
+                                        generatedSwagger: response.generatedSwagger
+                                    });
+                                    break;
+                                case "Update API":
+                                    const resources = getResources(st);
+                                    rpcManager.updateAPIFromSwagger({
+                                        apiName: apiName,
+                                        apiPath: apiPath,
+                                        existingSwagger: response.existingSwagger,
+                                        generatedSwagger: response.generatedSwagger,
+                                        resources: resources.map(r => ({
+                                            path: r.path,
+                                            methods: r.methods,
+                                            position: r.position
+                                        })),
+                                        insertPosition: {
+                                            line: st.syntaxTree.api.range.endTagRange.start.line,
+                                            character: st.syntaxTree.api.range.endTagRange.start.character
+                                        }
+                                    });
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                    })
+                });
+            }
+
             if (currentView !== 'Connector Store Form' && document?.uri?.fsPath?.includes(artifactsDir) || currentView === MACHINE_VIEW.IdpConnectorSchemaGeneratorForm) {
                 refreshDiagram(projectUri!);
             }
@@ -400,3 +471,18 @@ export const refreshDiagram = debounce(async (projectUri: string, refreshDiagram
         refreshUI(projectUri);
     }
 }, 500);
+
+const getResources = (st: any): any[] => {
+    const resources: any[] = st?.syntaxTree?.api?.resource ?? [];
+    return resources.map((resource) => ({
+        methods: resource.methods,
+        path: resource.uriTemplate || resource.urlMapping,
+        position: {
+            startLine: resource.range.startTagRange.start.line,
+            startColumn: resource.range.startTagRange.start.character,
+            endLine: resource.range.endTagRange.end.line,
+            endColumn: resource.range.endTagRange.end.character,
+        },
+        expandable: false
+    }));
+};

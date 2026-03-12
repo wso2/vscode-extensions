@@ -17,9 +17,9 @@
  * under the License.
  */
 import { test } from '@playwright/test';
-import { addArtifact, initTest, page } from '../utils';
+import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
-import { ProjectExplorer } from '../ProjectExplorer';
+import { ProjectExplorer } from '../utils/pages';
 
 export default function createTests() {
     test.describe('Natural Function Artifact Tests', {

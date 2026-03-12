@@ -66,6 +66,7 @@ const stateMachinePopup = createMachine<PopupMachineContext>({
                         identifier: (context, event) => event.viewLocation.identifier,
                         documentUri: (context, event) => event.viewLocation.documentUri,
                         metadata: (context, event) => event.viewLocation.metadata,
+                        agentMetadata: (context, event) => event.viewLocation?.agentMetadata,
                         dataMapperMetadata: (context, event) => event.viewLocation?.dataMapperMetadata
                     })
                 },
@@ -85,6 +86,7 @@ const stateMachinePopup = createMachine<PopupMachineContext>({
                                 identifier: (context, event) => event.viewLocation.identifier,
                                 documentUri: (context, event) => event.viewLocation.documentUri,
                                 metadata: (context, event) => event.viewLocation.metadata,
+                                agentMetadata: (context, event) => event.viewLocation?.agentMetadata,
                                 dataMapperMetadata: (context, event) => event.viewLocation?.dataMapperMetadata
                             })
                         },
@@ -96,6 +98,7 @@ const stateMachinePopup = createMachine<PopupMachineContext>({
                                 identifier: (context, event) => event.viewLocation.identifier,
                                 documentUri: (context, event) => event.viewLocation.documentUri,
                                 metadata: (context, event) => event.viewLocation.metadata,
+                                agentMetadata: (context, event) => event.viewLocation?.agentMetadata,
                                 dataMapperMetadata: (context, event) => event.viewLocation?.dataMapperMetadata
                             })
                         },
@@ -146,7 +149,7 @@ const stateMachinePopup = createMachine<PopupMachineContext>({
         initializeData: (context, event) => {
             // Get context values from the project storage so that we can restore the earlier state when user reopens vscode
             return new Promise((resolve, reject) => {
-                const documentUri = StateMachine.context().projectUri;
+                const documentUri = StateMachine.context().projectPath;
                 resolve({ documentUri });
             });
         },

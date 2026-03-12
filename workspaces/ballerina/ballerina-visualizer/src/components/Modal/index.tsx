@@ -19,7 +19,7 @@
 import React, { cloneElement, isValidElement, ReactNode, ReactElement, useEffect } from "react";
 import { createPortal } from "react-dom";
 import styled from "@emotion/styled";
-import { Codicon, Divider, ThemeColors, Typography } from "@wso2/ui-toolkit";
+import { Icon, Divider, ThemeColors, Typography, Tooltip, Button } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "../../Context";
 
 export type DynamicModalProps = {
@@ -31,34 +31,39 @@ export type DynamicModalProps = {
     height?: number;
     openState: boolean;
     setOpenState: (state: boolean) => void;
+    sx?: any;
+    closeOnBackdropClick?: boolean;
+    closeButtonIcon?: "close" | "minimize";
 };
 
-const ModalContainer = styled.div`
+const ModalContainer = styled.div<{ sx?: any }>`
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 30000;
+    z-index: 2001; 
     display: flex;
     justify-content: center;
     align-items: center;
+    ${(props: { sx?: any }) => props.sx};
 `;
 
+
 const ModalBox = styled.div<{ width?: number; height?: number }>`
-  width: ${({width}:{width:number}) => (width ? `${width}px` : 'auto')};
-  height: ${({height}:{height:number}) => (height ? `${height}px` : 'auto')};
+  width: ${({ width }: { width: number }) => (width ? `${width}px` : 'auto')};
+  height: ${({ height }: { height: number }) => (height ? `${height}px` : 'auto')};
   max-width: 90vw;
   max-height: 90vh;
   position: relative;
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  overflow: hidden;
   padding: 16px;
   border-radius: 3px;
   background-color: ${ThemeColors.SURFACE_DIM};
   box-shadow: 0 3px 8px rgb(0 0 0 / 0.2);
-  z-index: 30001;
+  z-index: 2001;
 `;
 
 const InvisibleButton = styled.button`
@@ -82,7 +87,10 @@ const ModalHeaderSection = styled.header`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-inline: 16px;
+`;
+
+export const CloseButton = styled(Button)`
+    border-radius: 5px;
 `;
 
 type TriggerProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { children: ReactNode };
@@ -97,6 +105,9 @@ const DynamicModal: React.FC<DynamicModalProps> & { Trigger: typeof Trigger } = 
     height,
     openState,
     setOpenState,
+    sx,
+    closeOnBackdropClick = false,
+    closeButtonIcon = "close",
 }) => {
     const { setShowOverlay } = useVisualizerContext();
     let trigger: ReactElement | null = null;
@@ -117,7 +128,14 @@ const DynamicModal: React.FC<DynamicModalProps> & { Trigger: typeof Trigger } = 
         setShowOverlay(false);
         onClose && onClose();
     };
-    
+
+    const handleBackdropClick = (e: React.MouseEvent) => {
+        // Only close if closeOnBackdropClick is true and the click was on the backdrop itself
+        if (closeOnBackdropClick && e.target === e.currentTarget) {
+            handleClose();
+        }
+    };
+
     useEffect(() => {
         setShowOverlay(openState === true);
     });
@@ -128,23 +146,40 @@ const DynamicModal: React.FC<DynamicModalProps> & { Trigger: typeof Trigger } = 
         };
     }, []);
 
+    const targetEl = document.getElementById("visualizer-container");
+
+    // Map closeButtonIcon prop to actual icon names and tooltip text
+    const iconName = closeButtonIcon === "minimize" ? "bi-minimize-modal" : "bi-close";
+    const tooltipText = closeButtonIcon === "minimize" 
+        ? "Minimize to return to the form" 
+        : "Close";
+
     return (
         <>
             {trigger}
-            {openState && createPortal(
-                <ModalContainer ref={anchorRef} className="unq-modal-overlay">
+            {openState && targetEl && createPortal(
+                <ModalContainer 
+                    ref={anchorRef} 
+                    className="unq-modal-overlay" 
+                    sx={sx}
+                    onClick={handleBackdropClick}
+                >
                     <ModalBox width={width} height={height}>
                         <ModalHeaderSection>
                             <Typography variant="h2" sx={{ margin: 0 }}>
                                 {title}
                             </Typography>
-                            <Codicon name="close" onClick={handleClose} />
+                            <Tooltip content={tooltipText} position="bottom">
+                                <CloseButton appearance="icon" onClick={handleClose}>
+                                    <Icon name={iconName} sx={{fontSize: "16px", width: "16px"}}/>
+                                </CloseButton>
+                            </Tooltip>
                         </ModalHeaderSection>
                         <Divider />
-                        <div>{content}</div>
+                        {content}
                     </ModalBox>
                 </ModalContainer>,
-                document.body
+                targetEl
             )}
         </>
     );

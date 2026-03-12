@@ -19,7 +19,7 @@ import { test } from '@playwright/test';
 import { Form } from '@wso2/playwright-vscode-tester';
 import fs from 'fs';
 import path from 'path';
-import { getWebview, initMigrationTest, page } from '../utils';
+import { getWebview, initMigrationTest, page } from '../utils/helpers';
 
 export default function createTests() {
     test.describe('Import Integration Tests', {
@@ -52,8 +52,8 @@ export default function createTests() {
             const testAttempt = testInfo.retry + 1;
             console.log('Testing Import Integration navigation in test attempt: ', testAttempt);
 
-            // Look for the Import External Integration button on the welcome page
-            const importButton = webview.getByRole('button', { name: ' Import External Integration' });
+            // Locate the "Import External Integration" vscode button and click it
+            const importButton = webview.locator('vscode-button', { hasText: 'Import External Integration' });
             await importButton.waitFor({ timeout: 30000 });
             await importButton.click({ force: true });
 

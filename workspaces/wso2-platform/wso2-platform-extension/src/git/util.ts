@@ -596,7 +596,7 @@ export const getGitRoot = async (context: ExtensionContext, directoryPath: strin
 	}
 };
 
-export const hasDirtyRepo = async (directoryPath: string, context: ExtensionContext, ignoredFileNames: string[] = []): Promise<boolean> => {
+export const hasDirtyRepo = async (directoryPath: string = "", context: ExtensionContext, ignoredFileNames: string[] = []): Promise<boolean> => {
 	try{
 		const git = await initGit(context);
 		const repoRoot = await git?.getRepositoryRoot(directoryPath)

@@ -20,7 +20,6 @@ import type { CommitHistory, ComponentKind, DataCacheState, Environment, Organiz
 import { createStore } from "zustand";
 import { persist } from "zustand/middleware";
 import { ext } from "../extensionVariables";
-import { authStore } from "./auth-store";
 import { getGlobalStateStore } from "./store-utils";
 
 interface DataCacheStore {
@@ -161,7 +160,7 @@ export const dataCacheStore = createStore(
 );
 
 const getRootKey = (orgHandle: string) => {
-	const region = authStore.getState().state.region;
+	const region = ext.authProvider?.getState().state.region;
 	const env = ext.choreoEnv;
 	let orgRegionHandle = `${region}-${orgHandle}`;
 	if (env !== "prod") {

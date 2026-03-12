@@ -207,6 +207,13 @@ export function readUnquoted(content: string, pos: number, offset: number) {
     while (pos < content.length) {
         const c = content[pos];
         if (/\s/.test(c) || c === ']' || c === '[') break;
+        if (c === '/') {
+            return {
+                value: null,
+                newPos: pos + 1,
+                error: { position: pos + offset, message: 'Slash (/) is not allowed in segment' }
+            };
+        }
         if (isValidFollowing(c)) {
             value += c;
             pos++;
@@ -244,22 +251,18 @@ function isValidInitial(c: string): boolean {
 }
 
 function isValidFollowing(c: string): boolean {
-    // Allow ASCII letters, digits, underscores, and Unicode identifier characters
-    return /^[a-zA-Z0-9_]$/.test(c) || isUnicodeIdentifierChar(c);
+    // Allow ASCII letters, digits, underscores, dashes, and dots
+    return /^[a-zA-Z0-9_.-]$/.test(c) || isUnicodeIdentifierChar(c);
 }
 
 function isValidIdentifier(value: string): boolean {
-    // Check for unquoted identifiers
-    if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) {
+    // Check for unquoted identifiers with letters, digits, underscores, dashes, and dots
+    if (/^[a-zA-Z_][a-zA-Z0-9_.-]*$/.test(value)) {
         return true;
     }
     // Check for quoted identifiers
     if (/^'[^']*'$/.test(value)) {
         return true;
-    }
-    // Check for escaped hyphens
-    if (value.includes('-') && !value.includes('\\-')) {
-        return false; // Hyphen is not escaped
     }
     return false;
 }
@@ -308,6 +311,11 @@ export function parseBasePath(input: string): ParseResult {
         return result;
     }
 
+    if (input.length > 1 && input.endsWith('/')) {
+        result.errors.push({ position: input.length - 1, message: 'base path cannot end with a slash (/)' });
+        return result;
+    }
+
     const segments = splitSegments(input);
     for (const segment of segments) {
         processSegment(segment, result);
@@ -342,6 +350,11 @@ export function parseResourceActionPath(input: string): ParseResult {
 
     if (input.includes('//')) {
         result.errors.push({ position: 0, message: 'cannot have two consecutive slashes (//)' });
+        return result;
+    }
+
+    if (input.length > 1 && input.endsWith('/')) {
+        result.errors.push({ position: input.length - 1, message: 'path cannot end with a slash (/)' });
         return result;
     }
 

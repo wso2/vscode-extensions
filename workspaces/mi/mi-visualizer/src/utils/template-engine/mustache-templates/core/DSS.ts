@@ -40,10 +40,32 @@ export function getAddQuery() {
 </query>`
 }
 
+export function getAddFullQuery() {
+    return `<query id="{{name}}" useConfig="{{datasource}}">
+{{#isExpression}}<expression>{{query}}</expression>{{/isExpression}}{{^isExpression}}<sql>{{query}}</sql>{{/isExpression}}
+</query>`
+}
+
+export function getQueryConfig() {
+    return `<query id="{{name}}" useConfig="{{datasource}}">`
+}
+
+export function getSQLQuery() {
+    return `<sql>{{query}}</sql>`
+}
+
+export function getExpressionQuery() {
+    return `<expression>{{query}}</expression>`
+}
+
 export function getEditOperationTemplate() {
     return `<operation name="{{name}}"{{#enableStreaming}} disableStreaming="true"{{/enableStreaming}}>`
 }
 
 export function getEditDescriptionTemplate() {
     return `<description>{{description}}</description>`
+}
+
+export function getEditQueryReferenceTemplate() {
+    return `<call-query href="{{queryId}}"{{#isSelfClosed}} /{{/isSelfClosed}}>`
 }

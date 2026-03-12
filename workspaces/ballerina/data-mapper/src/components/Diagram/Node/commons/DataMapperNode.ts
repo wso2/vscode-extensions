@@ -113,8 +113,9 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 
 		const fieldName = field?.name;
 		const isArray = this.isArrayTypedField(field);
-		const fieldFQN = this.getInputFieldFQN(field?.isFocused ? "" : parentId, fieldName, isOptional);
-		const unsafeFieldFQN = this.getUnsafeFieldFQN(field?.isFocused ? "" : unsafeParentId, fieldName);
+		const skipParentId = field?.isFocused || field?.category;
+		const fieldFQN = this.getInputFieldFQN(skipParentId ? "" : parentId, fieldName, isOptional);
+		const unsafeFieldFQN = this.getUnsafeFieldFQN(skipParentId ? "" : unsafeParentId, fieldName);
 		const portName = this.getPortName(portPrefix, unsafeFieldFQN);
 		const isFocused = this.isFocusedField(focusedFieldFQNs, portName);
 		const isPreview = parent.attributes.isPreview || this.isPreviewPort(focusedFieldFQNs, parent.attributes.field);
@@ -381,24 +382,13 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 	}
 
 	private async createInputPortsForArrayField(attributes: InputPortAttributes, isHidden: boolean): Promise<number> {
-		const memberField = this.resolveArrayMemberField(attributes);
+		const memberField = attributes.field?.member;
 		return await this.addPortsForInputField({
 			...attributes,
 			hidden: isHidden,
 			field: memberField,
 			isOptional: memberField?.optional || attributes.isOptional
 		});
-	}
-
-	private resolveArrayMemberField(attributes: InputPortAttributes): IOType | undefined {
-		const focusedMemberId = attributes.field?.focusedMemberId;
-		if (focusedMemberId) {
-			const focusedMemberField = this.context.model.inputs.find(input => input.id === focusedMemberId);
-			if (focusedMemberField) {
-				return focusedMemberField;
-			}
-		}
-		return attributes.field?.member;
 	}
 
 	private async processRecordField(attributes: OutputPortAttributes) {

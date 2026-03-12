@@ -23,6 +23,7 @@ import { POPUP_EVENT_TYPE, PopupVisualizerLocation, PopupMachineStateValue, onPa
 import { VisualizerWebview } from './visualizer/webview';
 import { RPCLayer } from './RPCLayer';
 import { getStateMachine } from './stateMachine';
+import { logDebug } from './util/logger';
 
 interface PopupMachineContext extends PopupVisualizerLocation {
     errorCode: string | null;
@@ -41,6 +42,7 @@ const stateMachinePopup = createMachine<PopupMachineContext>({
     },
     states: {
         initialize: {
+            entry: () => logDebug('Popup State Machine: Entering initialize state'),
             invoke: {
                 src: 'initializeData',
                 onDone: {
@@ -58,6 +60,7 @@ const stateMachinePopup = createMachine<PopupMachineContext>({
             }
         },
         ready: {
+            entry: () => logDebug('Popup State Machine: Entering ready state'),
             on: {
                 OPEN_VIEW: {
                     target: "open",
@@ -74,6 +77,7 @@ const stateMachinePopup = createMachine<PopupMachineContext>({
             initial: "active",
             states: {
                 active: {
+                    entry: () => logDebug('Popup State Machine: Entering active state'),
                     on: {
                         OPEN_VIEW: {
                             target: "reopen",
@@ -94,6 +98,7 @@ const stateMachinePopup = createMachine<PopupMachineContext>({
                     }
                 },
                 reopen: {
+                    entry: () => logDebug('Popup State Machine: Entering reopen state'),
                     invoke: {
                         src: 'initializeData',
                         onDone: {
@@ -105,6 +110,7 @@ const stateMachinePopup = createMachine<PopupMachineContext>({
                     }
                 },
                 notify: {
+                    entry: () => logDebug('Popup State Machine: Entering notify state'),
                     invoke: {
                         src: 'notifyChange',
                         onDone: {
@@ -115,6 +121,7 @@ const stateMachinePopup = createMachine<PopupMachineContext>({
             },
         },
         disabled: {
+            entry: () => logDebug('Popup State Machine: Entering disabled state'),
             invoke: {
                 src: 'disableExtension'
             },
@@ -214,5 +221,17 @@ export const deletePopupStateMachine = (projectUri: string) => {
 };
 
 export function openPopupView(projectUri: string, type: POPUP_EVENT_TYPE, viewLocation?: PopupVisualizerLocation) {
-    getPopupStateMachine(projectUri).service().send({ type: type, viewLocation: viewLocation });
+    const stateMachine = getPopupStateMachine(projectUri);
+    const state = stateMachine.state();
+    if (state === 'initialize') {
+        const listener = (state: { value: string; }) => {
+            if (state?.value === "ready") {
+                stateMachine.service().send({ type: type, viewLocation: viewLocation });
+                stateMachine.service().off(listener);
+            }
+        };
+        stateMachine.service().onTransition(listener);
+    } else {
+        stateMachine.service().send({ type: type, viewLocation: viewLocation });
+    }
 }

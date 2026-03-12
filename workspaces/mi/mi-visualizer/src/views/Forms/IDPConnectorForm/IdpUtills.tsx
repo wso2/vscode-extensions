@@ -16,7 +16,6 @@
  * under the License.
  */
 
-import { RpcClient } from "@wso2/mi-rpc-client";
 export interface FieldItem {
     name: string;
     type: string;
@@ -83,63 +82,6 @@ function getStatusText(status: number) {
         default: return '';
     }
 }
-
-export const fetchWithCopilot = async ({
-    rpcClient,
-    body,
-    controllerRef,
-    retryCount = 0,
-    maxRetries = 2,
-}: {
-    rpcClient: RpcClient
-    body: any;
-    controllerRef: React.MutableRefObject<AbortController | null>;
-    retryCount?: number;
-    maxRetries?: number;
-}) => {
-    let token: any;
-    try {
-        token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-    } catch (error) {
-        rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ["MI.openAiPanel"] }).catch(console.error);
-        throw new Error("No access token.");
-    }
-    const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
-    const endpoint = `${backendRootUri}/idp-connector/generate`;
-    controllerRef.current = new AbortController();
-    const fetchWithRetry = async (): Promise<Response> => {
-        let response = await fetch(endpoint, {
-            signal: controllerRef.current?.signal,
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token.token}`,
-            },
-            body: JSON.stringify(body),
-        });
-        if (response.status === 401) {
-            await rpcClient.getMiDiagramRpcClient().refreshAccessToken();
-            token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-            response = await fetch(endpoint, {
-                signal: controllerRef.current?.signal,
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token.token}`,
-                },
-                body: JSON.stringify(body),
-            });
-        } else if (response.status === 404 && retryCount < maxRetries) {
-            retryCount++;
-            const delay = Math.pow(2, retryCount) * 1000;
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            return fetchWithRetry();
-        }
-        if (!response.ok) throw response;
-        return response;
-    };
-    return fetchWithRetry();
-};
 
 export function handleFetchError(response: Response) {
     const statusText = getStatusText(response.status);

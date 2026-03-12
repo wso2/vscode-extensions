@@ -22,4 +22,53 @@ export interface ChatReqMessage {
 
 export interface ChatRespMessage {
     message: string;
+    traceId?: string;
+    executionSteps?: ExecutionStep[];
+}
+
+export interface ExecutionStep {
+    spanId: string;
+    operationType: 'invoke' | 'chat' | 'tool' | 'other';
+    name: string;
+    fullName: string;
+    duration: number;
+    startTime?: string;
+    endTime?: string;
+    hasError?: boolean;
+}
+
+export interface TraceStatus {
+    enabled: boolean;
+}
+
+export interface TraceInput {
+    message?: string;
+    traceId?: string;
+    focusSpanId?: string;
+    sessionId?: string;
+}
+
+export interface ChatHistoryMessage {
+    type: 'message' | 'error';
+    text: string;
+    isUser: boolean;
+    traceId?: string;
+    executionSteps?: ExecutionStep[];
+}
+
+export interface ChatHistoryResponse {
+    messages: ChatHistoryMessage[];
+    isAgentRunning: boolean;
+}
+
+export interface AgentStatusResponse {
+    isRunning: boolean;
+}
+
+export interface ClearChatResponse {
+    newSessionId: string;
+}
+
+export interface SessionInput {
+    sessionId?: string;
 }

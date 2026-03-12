@@ -26,6 +26,7 @@ import classnames from "classnames";
 import { useIONodesStyles } from "../../../styles";
 import { useDMCollapsedFieldsStore, useDMExpandedFieldsStore, useDMExpressionBarStore } from '../../../../store/store';
 import { useDMSearchStore } from "../../../../store/store";
+import { useShallow } from "zustand/react/shallow";
 import { IDataMapperContext } from "../../../../utils/DataMapperContext/DataMapperContext";
 import { DataMapperPortWidget, PortState, InputOutputPortModel } from "../../Port";
 import { OutputSearchHighlight } from "../commons/Search";
@@ -40,6 +41,7 @@ import FieldActionWrapper from "../commons/FieldActionWrapper";
 import { addValue, removeMapping } from "../../utils/modification-utils";
 import { PrimitiveOutputElementWidget } from "../PrimitiveOutput/PrimitiveOutputElementWidget";
 import { OutputFieldPreviewWidget } from "./OutputFieldPreviewWidget";
+import { DataMapperLinkModel } from "../../Link";
 
 export interface ArrayOutputFieldWidgetProps {
     parentId: string;
@@ -75,7 +77,12 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
     const [isAddingElement, setIsAddingElement] = useState(false);
     const collapsedFieldsStore = useDMCollapsedFieldsStore();
     const expandedFieldsStore = useDMExpandedFieldsStore();
-    const setExprBarFocusedPort = useDMExpressionBarStore(state => state.setFocusedPort);
+    const { exprBarFocusedPort, setExprBarFocusedPort } = useDMExpressionBarStore(
+        useShallow(state => ({
+            exprBarFocusedPort: state.focusedPort,
+            setExprBarFocusedPort: state.setFocusedPort
+        }))
+    );
 
     const arrayField = field?.member;
     const typeName = getTypeName(field);
@@ -87,6 +94,7 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
     const fieldName = field?.displayName || field?.name || '';
 
     const portIn = getPort(`${portName}.IN`);
+    const isExprBarFocused = exprBarFocusedPort?.getName() === portIn?.getName();
     const mapping = portIn && portIn.attributes.value;
     const { expression, elements, diagnostics } = mapping || {};
     const searchValue = useDMSearchStore.getState().outputSearch;
@@ -111,9 +119,12 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
             portIn.setDescendantHasValue();
             isDisabled = true;
         }
-        if (portIn.attributes.parentModel && (
-            Object.entries(portIn.attributes.parentModel.links).length > 0
-                || portIn.attributes.parentModel.attributes.ancestorHasValue)
+        if (portIn?.attributes.parentModel && (
+            Object.values(portIn?.attributes.parentModel.links)
+                .filter((link) =>
+                    !((link as DataMapperLinkModel).isDashLink || (link as DataMapperLinkModel).pendingMappingType)
+                ).length > 0 ||
+            portIn?.attributes.parentModel.attributes.ancestorHasValue)
         ) {
             portIn.attributes.ancestorHasValue = true;
             isDisabled = true;
@@ -137,7 +148,6 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
         <TruncatedLabelGroup style={{ marginRight: "auto", alignItems: "baseline" }}>
             <TruncatedLabel
                 className={classnames(classes.valueLabel, isDisabled ? classes.labelDisabled : "")}
-                style={{ marginLeft: !connectedViaLink ? 0 : indentation + 24 }}
             >
                 <OutputSearchHighlight>{fieldName}</OutputSearchHighlight>
                 {!field?.optional && <span className={classes.requiredMark}>*</span>}
@@ -348,7 +358,8 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
                     className={classnames(classes.ArrayFieldRow,
                         isDisabled ? classes.ArrayFieldRowDisabled : "",
                         (portState !== PortState.Unselected) ? classes.treeLabelPortSelected : "",
-                        hasHoveredParent ? classes.treeLabelParentHovered : ""
+                        hasHoveredParent ? classes.treeLabelParentHovered : "",
+                        isExprBarFocused ? classes.treeLabelPortExprFocused : ""
                     )}
                     onMouseEnter={onMouseEnter}
                     onMouseLeave={onMouseLeave}
@@ -365,19 +376,17 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
                         )}
                     </span>
                     <span className={classes.label}>
-                        {(!connectedViaLink) && (
-                            <FieldActionWrapper>
-                                <Button
-                                    id={`expand-or-collapse-${portName}`}
-                                    appearance="icon"
-                                    sx={{ marginLeft: indentation }}
-                                    onClick={handleExpand}
-                                    data-testid={`${portIn?.getName()}-expand-icon-array-field`}
-                                >
-                                    {expanded ? <Codicon name="chevron-down" /> : <Codicon name="chevron-right" />}
-                                </Button>
-                            </FieldActionWrapper>
-                        )}
+                        <FieldActionWrapper>
+                            <Button
+                                id={`expand-or-collapse-${portName}`}
+                                appearance="icon"
+                                sx={{ marginLeft: indentation }}
+                                onClick={handleExpand}
+                                data-testid={`${portIn?.getName()}-expand-icon-array-field`}
+                            >
+                                {expanded ? <Codicon name="chevron-down" /> : <Codicon name="chevron-right" />}
+                            </Button>
+                        </FieldActionWrapper>
                         {label}
                     </span>
                     {(isLoading) ? (
@@ -402,7 +411,7 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
                     </div>
                 </div>
             )}
-            {(expanded && !connectedViaLink && !elements?.length && arrayField) && (
+            {(expanded && !elements?.length && arrayField) && (
                 <OutputFieldPreviewWidget
                     key={`arr-output--preview-field-${portName}`}
                     engine={engine}

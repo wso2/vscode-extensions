@@ -18,6 +18,7 @@
 import { create } from "zustand";
 
 import { InputOutputPortModel } from "../components/Diagram/Port";
+import { IntermediateClause, IntermediateClauseType } from "@wso2/ballerina-core";
 
 interface SubMappingConfig {
     isSMConfigPanelOpen: boolean;
@@ -69,11 +70,13 @@ export interface DataMapperExpressionBarState {
     lastFocusedPort: InputOutputPortModel;
     lastFocusedFilter: Node;
     inputPort: InputOutputPortModel;
+    allowInputs: boolean;
     setFocusedPort: (port: InputOutputPortModel) => void;
     setFocusedFilter: (port: Node) => void;
     setLastFocusedPort: (port: InputOutputPortModel) => void;
     setLastFocusedFilter: (port: Node) => void;
     setInputPort: (port: InputOutputPortModel) => void;
+    setAllowInputs: (allowInputs: boolean) => void;
     resetFocus: () => void;
     resetInputPort: () => void;
     resetExpressionBarStore: () => void;  // Complete cleanup for component unmounting
@@ -136,17 +139,20 @@ export const useDMExpressionBarStore = create<DataMapperExpressionBarState>((set
     focusedFilter: undefined,
     lastFocusedPort: undefined,
     lastFocusedFilter: undefined,
+    inputPort: undefined,
+    allowInputs: false,
     setFocusedPort: (focusedPort: InputOutputPortModel) => set((state) => ({ lastFocusedPort: state.focusedPort, focusedPort })),
     setFocusedFilter: (focusedFilter: Node) => set({ focusedFilter }),
     setLastFocusedPort: (lastFocusedPort: InputOutputPortModel) => set({ lastFocusedPort }),
     setLastFocusedFilter: (lastFocusedFilter: Node) => set({ lastFocusedFilter }),
-    inputPort: undefined,
     setInputPort: (inputPort: InputOutputPortModel) => set({ inputPort }),
+    setAllowInputs: (allowInputs: boolean) => set({ allowInputs }),
     resetFocus: () => set((state) => ({
         lastFocusedPort: state.focusedPort,
         lastFocusedFilter: state.focusedFilter,
         focusedPort: undefined,
-        focusedFilter: undefined
+        focusedFilter: undefined,
+        allowInputs: false
     })),
     resetInputPort: () => set({ inputPort: undefined }),
     // Complete state cleanup for component unmounting to prevent stale references
@@ -155,20 +161,36 @@ export const useDMExpressionBarStore = create<DataMapperExpressionBarState>((set
         focusedFilter: undefined,
         lastFocusedPort: undefined,
         lastFocusedFilter: undefined,
-        inputPort: undefined
+        inputPort: undefined,
+        allowInputs: false
     })
 }));
 
-export interface DataMapperQueryClausesPanelState {
+export interface DataMapperQueryClausesState {
     isQueryClausesPanelOpen: boolean;
+    isQueryClauseFormOpen: boolean;
+    clauseToAdd: IntermediateClause;
+    clauseTypes: IntermediateClauseType[];
     setIsQueryClausesPanelOpen: (isQueryClausesPanelOpen: boolean) => void;
+    setIsQueryClauseFormOpen: (isQueryClauseFormOpen: boolean) => void;
+    setClauseToAdd: (clauseToAdd: IntermediateClause) => void;
+    setClauseTypes: (clauseTypes: IntermediateClauseType[]) => void;
     resetQueryClausesPanelStore: () => void;
 }
 
-export const useDMQueryClausesPanelStore = create<DataMapperQueryClausesPanelState>((set) => ({
+export const useDMQueryClausesStore = create<DataMapperQueryClausesState>((set) => ({
     isQueryClausesPanelOpen: false,
+    isQueryClauseFormOpen: false,
+    clauseToAdd: undefined,
+    clauseTypes: undefined,
     setIsQueryClausesPanelOpen: (isQueryClausesPanelOpen: boolean) => set({ isQueryClausesPanelOpen }),
+    setIsQueryClauseFormOpen: (isQueryClauseFormOpen: boolean) => set({ isQueryClauseFormOpen }),
+    setClauseToAdd: (clauseToAdd: IntermediateClause) => set({ clauseToAdd }),
+    setClauseTypes: (clauseTypes: IntermediateClauseType[]) => set({ clauseTypes }),
     resetQueryClausesPanelStore: () => set({
-        isQueryClausesPanelOpen: false
+        isQueryClausesPanelOpen: false,
+        isQueryClauseFormOpen: false,
+        clauseToAdd: undefined,
+        clauseTypes: undefined
     })
 }));

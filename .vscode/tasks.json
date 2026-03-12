@@ -2,8 +2,22 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "watch-all",
+            "label": "ballerina-extension: test-compile",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/workspaces/ballerina/ballerina-extension"
+            },
+            "command": "pnpm",
+            "args": ["run", "test-compile"],
+            "problemMatcher": ["$tsc"]
+        },
+        {
+            "label": "watch-ballerina-bi",
             "dependsOn": ["watch-ballerina", "watch-bi"]
+        },
+        {
+            "label": "watch-ballerina-bi-platform",
+            "dependsOn": ["watch-ballerina", "watch-bi", "npm: watch-wso2-platform"]
         },
         {
             "label": "watch-ballerina",
@@ -186,10 +200,34 @@
 			}
 		},
         {
+            "label": "clean:ballerina-test-output",
+            "type": "shell",
+            "command": "rm",
+            "args": ["-rf", "out"],
+            "options": {
+                "cwd": "${workspaceFolder}/workspaces/ballerina/ballerina-extension"
+            }
+        },
+        {
             "label": "compile:ballerina-tests",
             "type": "npm",
             "path": "workspaces/ballerina/ballerina-extension",
             "script": "test-compile",
+        },
+        {
+            "label": "build:ballerina-extension",
+            "type": "npm",
+            "path": "workspaces/ballerina/ballerina-extension",
+            "script": "compile"
+        },
+        {
+            "label": "clean-and-compile:ballerina-tests",
+            "dependsOn": [
+                "clean:ballerina-test-output",
+                "build:ballerina-extension",
+                "compile:ballerina-tests"
+            ],
+            "dependsOrder": "sequence"
         },
         {
             "label": "compile:wso2-platform-tests",

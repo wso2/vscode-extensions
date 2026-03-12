@@ -29,7 +29,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { DataMapperNodeModel } from '../../Diagram/Node/commons/DataMapperNode';
 import { InputOutputPortModel } from '../../Diagram/Port';
 
-const useStyles = () => ({
+const useStyles = (isFocused: boolean) => ({
     exprBarContainer: css({
         display: 'flex',
         gap: '8px',
@@ -38,7 +38,11 @@ const useStyles = () => ({
         height: '100%',
         backgroundColor: 'var(--vscode-input-background)',
         marginBottom: '16px',
-        borderBottom: '1px solid var(--dropdown-border)'
+        border: '1px solid transparent',
+        borderBottom: '1px solid var(--dropdown-border)',
+        ...(isFocused && {
+            borderColor: 'var(--vscode-list-focusAndSelectionOutline, var(--vscode-contrastActiveBorder, var(--vscode-editorLink-activeForeground, var(--vscode-list-focusOutline))))'
+        })
     }),
     field: css({
         display: 'flex',
@@ -74,7 +78,6 @@ export interface ExpressionBarProps {
 }
 
 export default function ExpressionBarWrapper({ views }: ExpressionBarProps) {
-    const classes = useStyles();
     const {
         completions,
         isUpdatingSource,
@@ -89,18 +92,21 @@ export default function ExpressionBarWrapper({ views }: ExpressionBarProps) {
     const [textFieldValue, setTextFieldValue] = useState<string>('');
     const [placeholder, setPlaceholder] = useState<string>();
 
-    const { focusedPort, focusedFilter, lastFocusedPort, inputPort, resetInputPort, setLastFocusedPort, resetExprBarFocus } =
+    const { focusedPort, focusedFilter, lastFocusedPort, inputPort, setLastFocusedPort, setAllowInputs, resetInputPort, resetExprBarFocus } =
         useDMExpressionBarStore(
             useShallow((state) => ({
                 focusedPort: state.focusedPort,
                 focusedFilter: state.focusedFilter,
                 lastFocusedPort: state.lastFocusedPort,
                 inputPort: state.inputPort,
-                resetInputPort: state.resetInputPort,
                 setLastFocusedPort: state.setLastFocusedPort,
+                setAllowInputs: state.setAllowInputs,
+                resetInputPort: state.resetInputPort,
                 resetExprBarFocus: state.resetFocus
             }))
         );
+
+    const classes = useStyles(!!(focusedPort || focusedFilter));
 
     const portChanged = !!(focusedPort || lastFocusedPort)
         && lastFocusedPort?.attributes.optionalOmittedFieldFQN !== focusedPort?.attributes.optionalOmittedFieldFQN;
@@ -110,21 +116,26 @@ export default function ExpressionBarWrapper({ views }: ExpressionBarProps) {
             if (inputPort) {
                 // Keep the text field focused when an input port is selected
                 if (textFieldRef.current) {
+
                     if (focusedPort || focusedFilter) {
-                        textFieldRef.current.focus(true);
+                        // Update the expression text when an input port is selected
+                        const cursorPosition = textFieldRef.current.inputElement.selectionStart;
+                        
+                        const inputAccessExpr = buildInputAccessExpr(inputPort.attributes.fieldFQN);
+                        const updatedText =
+                            textFieldValue.substring(0, cursorPosition) +
+                            inputAccessExpr +
+                            textFieldValue.substring(cursorPosition);
+                        await handleChange(updatedText);
+
+                        textFieldRef.current.setCursor(updatedText, cursorPosition + inputAccessExpr.length);
+                       
                     } else {
                         textFieldRef.current.blur();
                     }
-
-                    // Update the expression text when an input port is selected
-                    const cursorPosition = textFieldRef.current.shadowRoot.querySelector('input').selectionStart;
-                    const inputAccessExpr = buildInputAccessExpr(inputPort.attributes.fieldFQN);
-                    const updatedText =
-                        textFieldValue.substring(0, cursorPosition) +
-                        inputAccessExpr +
-                        textFieldValue.substring(cursorPosition);
-                    await handleChange(updatedText);
+                    
                     resetInputPort();
+
                 }
             }
         })();
@@ -149,19 +160,13 @@ export default function ExpressionBarWrapper({ views }: ExpressionBarProps) {
 
             disabled = false;
         } else if (textFieldRef.current) {
-            // If displaying a focused view
-            if (views.length > 1) {
-                setPlaceholder('Click on an output field or a filter to add/edit expressions.');
-            } else {
-                setPlaceholder('Click on an output field to add/edit expressions.');
-            }
-
+            setPlaceholder('Click on an output field to add/edit expressions.');
             textFieldRef.current.blur();
         }
 
         return disabled;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [textFieldRef.current, focusedPort, focusedFilter, views]);
+    }, [focusedPort, focusedFilter]);
 
     const handleChange = async (text: string, cursorPosition?: number) => {
         if (textFieldValue === text) {
@@ -211,7 +216,11 @@ export default function ExpressionBarWrapper({ views }: ExpressionBarProps) {
         triggerCompletions(outputId, viewId, textFieldValue, cursorPosition);
     };
 
-    
+    const handleManualInteraction = () => {
+        if (focusedPort) {
+            setAllowInputs(true);
+        }
+    };
 
     const handleCancel = () => {
         setTextFieldValue('');
@@ -275,7 +284,7 @@ export default function ExpressionBarWrapper({ views }: ExpressionBarProps) {
 
     const partialFieldTitle = useMemo(() => {
         if (fieldTitle) {
-            return focusedPort?.attributes.optionalOmittedFieldFQN.split('.').pop();
+            return focusedPort?.attributes.field.displayName;
         }
         return 'No field selected';
     }, [fieldTitle]);
@@ -306,6 +315,7 @@ export default function ExpressionBarWrapper({ views }: ExpressionBarProps) {
                 onBlur={handleBlur}
                 useTransaction={useDisableOnChange}
                 onManualCompletionRequest={handleManualCompletionRequest}
+                onManualInteraction={handleManualInteraction}
                 sx={{ display: 'flex', alignItems: 'center' }}
             />
         </div>

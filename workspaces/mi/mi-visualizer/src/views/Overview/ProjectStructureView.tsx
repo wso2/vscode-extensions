@@ -130,7 +130,7 @@ const artifactTypeMap: Record<string, ArtifactType> = {
     dataServices: {
         title: "Data Services",
         command: "MI.project-explorer.open-dss-service-designer",
-        view: MACHINE_VIEW.DSSServiceDesigner,
+        view: MACHINE_VIEW.DSSResourceServiceDesigner,
         icon: "data-service",
         description: (entry: any) => "Data Service",
         path: (entry: any) => entry.path,

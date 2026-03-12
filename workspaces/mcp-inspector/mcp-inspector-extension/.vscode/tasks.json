@@ -1,0 +1,49 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build",
+			"type": "npm",
+			"script": "build",
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "never"
+			},
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"label": "watch",
+			"type": "npm",
+			"script": "watch",
+			"problemMatcher": {
+				"base": "$tsc-watch",
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^\\s*\\[webpack-cli\\] Compiler starting",
+					"endsPattern": "^\\s*webpack \\d+\\.\\d+\\.\\d+ compiled"
+				}
+			},
+			"isBackground": true,
+			"presentation": {
+				"reveal": "never",
+				"group": "watchers"
+			},
+			"group": "build"
+		},
+		{
+			"label": "watch-tests",
+			"type": "npm",
+			"script": "watch-tests",
+			"problemMatcher": "$tsc-watch",
+			"isBackground": true,
+			"presentation": {
+				"reveal": "never",
+				"group": "watchers"
+			},
+			"group": "build"
+		}
+	]
+}

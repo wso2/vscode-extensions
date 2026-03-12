@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import vscode from 'vscode';
+import vscode, { window } from 'vscode';
 import { ENABLE_BACKGROUND_DRIFT_CHECK } from "../../core/preferences";
 import { debounce } from 'lodash';
 import { StateMachine } from "../../stateMachine";
@@ -28,11 +28,13 @@ import {
     MONITERED_EXTENSIONS,
     COMMAND_SHOW_TEXT
 } from './constants';
-import { isSupportedSLVersion } from "../../utils";
+import { isSupportedSLVersion, createVersionNumber } from "../../utils";
 import { CustomDiagnostic } from './custom-diagnostics';
+import { resolveProjectPath } from '../../utils/project-utils';
+import { MESSAGES } from '../project';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
-const BALLERINA_UPDATE_13 = 2201130;
+const BALLERINA_UPDATE_13 = createVersionNumber(2201, 13, 0); // Version 2201.13.0
 
 export function activate(ballerinaExtInstance: BallerinaExtension) {
     const backgroundDriftCheckConfig = vscode.workspace.getConfiguration().get<boolean>(ENABLE_BACKGROUND_DRIFT_CHECK);
@@ -41,7 +43,7 @@ export function activate(ballerinaExtInstance: BallerinaExtension) {
     diagnosticCollection = vscode.languages.createDiagnosticCollection('ballerina');
     ballerinaExtInstance.context.subscriptions.push(diagnosticCollection);
 
-    const projectPath = StateMachine.context().projectUri;
+    const projectPath = StateMachine.context().projectPath;
     if (backgroundDriftCheckConfig) {
         if (!ballerinaExtInstance.context || projectPath == null || projectPath == "") {
             return;
@@ -139,7 +141,13 @@ export function activate(ballerinaExtInstance: BallerinaExtension) {
     });
 
     vscode.commands.registerCommand("ballerina.configureDefaultModelForNaturalFunctions", async (...args: any[]) => {
-        const configPath = await getConfigFilePath(ballerinaExtInstance, projectPath);
+        const targetPath = await resolveProjectPath("Select an integration to configure default model for natural functions");
+        if (!targetPath) {
+            window.showErrorMessage(MESSAGES.NO_PROJECT_FOUND);
+            return;
+        }
+
+        const configPath = await getConfigFilePath(ballerinaExtInstance, targetPath);
         if (configPath != null) {
             const isNaturalFunctionsAvailableInBallerinaOrg =
                 isSupportedSLVersion(ballerinaExtInstance, BALLERINA_UPDATE_13);

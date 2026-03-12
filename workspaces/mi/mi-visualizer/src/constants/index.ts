@@ -18,14 +18,6 @@
 
 //add the rpc client to the context
 
-export const MI_COPILOT_BACKEND_URL = `/chat/copilot`;
-export const MI_ARTIFACT_GENERATION_BACKEND_URL = `/chat/artifact-generation`;
-export const MI_ARTIFACT_EDIT_BACKEND_URL = `/chat/artifact-editing`;
-export const MI_SUGGESTIVE_QUESTIONS_INITIAL_BACKEND_URL = `/suggestions/initial`;
-export const MI_SUGGESTIVE_QUESTIONS_BACKEND_URL = `/suggestions`;
-export const MI_UNIT_TEST_GENERATION_BACKEND_URL = `/unit-test/generate`;
-export const MI_UNIT_TEST_CASE_GENERATE_BACKEND_URL = `/unit-test/generate-case`;
-
 // MI Copilot Error Messages
 export const COPILOT_ERROR_MESSAGES = {
     BAD_REQUEST: 'Bad Request',
@@ -77,6 +69,10 @@ export const DSS_TEMPLATES = {
     EDIT_OPERATION: "edit-dss-operation",
     EDIT_DESCRIPTION: "edit-dss-description",
     ADD_QUERY: "add-dss-query",
+    ADD_FULL_QUERY: "add-full-dss-query",
+    UPDATE_QUERY_CONFIG: "update-query-config",
+    UPDATE_QUERY: "update-query",
+    EDIT_QUERY_REFERENCE: "edit-query-reference"
 } as const;
 
 export enum EndpointTypes {

@@ -1,0 +1,24 @@
+# Test files
+.vscode-test/**
+out/test/**
+
+# Source files (compiled to out/)
+src/**
+**/tsconfig.json
+**/*.ts
+
+# Build configuration
+webpack.config.js
+**/eslint.config.mjs
+.gitignore
+.eslintrc.*
+
+# Build artifacts
+**/*.map
+
+# Development dependencies (all excluded, inspector bundled by webpack)
+node_modules/**
+
+# Development files
+.npmrc
+.DS_Store

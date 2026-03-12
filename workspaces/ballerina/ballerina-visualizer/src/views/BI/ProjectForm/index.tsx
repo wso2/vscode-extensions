@@ -17,47 +17,20 @@
  */
 
 import { useState } from "react";
-import {
-    Button,
-    Icon,
-    Typography,
-} from "@wso2/ui-toolkit";
-import styled from "@emotion/styled";
+import { Button, Icon, Typography } from "@wso2/ui-toolkit";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
-import { EVENT_TYPE, MACHINE_VIEW } from "@wso2/ballerina-core";
-import { ProjectFormFields, ProjectFormData } from "./ProjectFormFields";
-import { isFormValid } from "./utils";
-
-const FormContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    margin: 80px 120px;
-    max-width: 600px;
-`;
-
-const TitleContainer = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 32px;
-`;
-
-const ButtonWrapper = styled.div`
-    margin-top: 20px;
-    display: flex;
-    justify-content: flex-end;
-`;
-
-const IconButton = styled.div`
-    cursor: pointer;
-    border-radius: 4px;
-    width: 20px;
-    height: 20px;
-    font-size: 20px;
-    &:hover {
-        background-color: var(--vscode-toolbar-hoverBackground);
-    }
-`;
+import { EVENT_TYPE, MACHINE_VIEW, ValidateProjectFormErrorField } from "@wso2/ballerina-core";
+import {
+    PageWrapper,
+    FormContainer,
+    TitleContainer,
+    ScrollableContent,
+    ButtonWrapper,
+    IconButton,
+} from "./styles";
+import { ProjectFormFields } from "./ProjectFormFields";
+import { ProjectFormData } from "./types";
+import { validatePackageName } from "./utils";
 
 export function ProjectForm() {
     const { rpcClient } = useRpcContext();
@@ -66,26 +39,127 @@ export function ProjectForm() {
         packageName: "",
         path: "",
         createDirectory: true,
+        createAsWorkspace: false,
+        workspaceName: "",
         orgName: "",
         version: "",
+        isLibrary: false,
     });
+    const [isValidating, setIsValidating] = useState(false);
+    const [integrationNameError, setIntegrationNameError] = useState<string | null>(null);
+    const [pathError, setPathError] = useState<string | null>(null);
+    const [packageNameValidationError, setPackageNameValidationError] = useState<string | null>(null);
+    const [projectNameError, setProjectNameError] = useState<string | null>(null);
+    const resourceTypeLabel = formData.isLibrary ? "Library" : "Integration";
+    const createActionLabel = formData.createAsWorkspace ? "Create Project" : `Create ${resourceTypeLabel}`;
+
 
     const handleFormDataChange = (data: Partial<ProjectFormData>) => {
         setFormData(prev => ({ ...prev, ...data }));
+        // Clear validation errors when form data changes
+        if (integrationNameError) {
+            setIntegrationNameError(null);
+        }
+        if (pathError) {
+            setPathError(null);
+        }
+        if (packageNameValidationError) {
+            setPackageNameValidationError(null);
+        }
+        if (projectNameError) {
+            setProjectNameError(null);
+        }
     };
 
-    const handleCreateProject = () => {
-        rpcClient.getBIDiagramRpcClient().createProject({
-            projectName: formData.integrationName,
-            packageName: formData.packageName,
-            projectPath: formData.path,
-            createDirectory: formData.createDirectory,
-            orgName: formData.orgName || undefined,
-            version: formData.version || undefined,
-        });
+    const handleCreateProject = async () => {
+        setIsValidating(true);
+        setIntegrationNameError(null);
+        setPathError(null);
+        setPackageNameValidationError(null);
+        setProjectNameError(null);
+
+        let hasError = false;
+
+        if (formData.integrationName.length < 2) {
+            setIntegrationNameError(`${resourceTypeLabel} name must be at least 2 characters`);
+            hasError = true;
+        }
+
+        if (formData.packageName.length < 2) {
+            setPackageNameValidationError("Package name must be at least 2 characters");
+            hasError = true;
+        } else {
+            const packageNameError = validatePackageName(formData.packageName, formData.integrationName);
+            if (packageNameError) {
+                setPackageNameValidationError(packageNameError);
+                hasError = true;
+            }
+        }
+
+        if (formData.path.length < 2) {
+            setPathError(
+                formData.createAsWorkspace
+                    ? "Please select a path for your project"
+                    : `Please select a path for your ${resourceTypeLabel.toLowerCase()}`
+            );
+            hasError = true;
+        }
+
+        if (hasError) {
+            setIsValidating(false);
+            return;
+        }
+
+        try {
+            const targetNameForValidation = formData.createAsWorkspace ? formData.workspaceName : formData.packageName;
+            const validationResult = await rpcClient.getBIDiagramRpcClient().validateProjectPath({
+                projectPath: formData.path,
+                projectName: targetNameForValidation,
+                createDirectory: formData.createDirectory,
+                createAsWorkspace: formData.createAsWorkspace,
+            });
+
+            if (!validationResult.isValid) {
+                if (validationResult.errorField === ValidateProjectFormErrorField.PATH) {
+                    if (formData.createAsWorkspace) {
+                        setPathError(validationResult.errorMessage || "Invalid project path");
+                    } else {
+                        setPathError(
+                            validationResult.errorMessage || `Invalid ${resourceTypeLabel.toLowerCase()} path`
+                        );
+                    }
+                } else if (validationResult.errorField === ValidateProjectFormErrorField.NAME) {
+                    // For workspace projects, route name errors to workspace name field
+                    if (formData.createAsWorkspace) {
+                        setProjectNameError(validationResult.errorMessage || "Invalid project name");
+                    } else {
+                        setPackageNameValidationError(
+                            validationResult.errorMessage || `Invalid ${resourceTypeLabel.toLowerCase()} name`
+                        );
+                    }
+                }
+                setIsValidating(false);
+                return;
+            }
+
+            rpcClient.getBIDiagramRpcClient().createProject({
+                projectName: formData.integrationName,
+                packageName: formData.packageName,
+                projectPath: formData.path,
+                createDirectory: formData.createDirectory,
+                createAsWorkspace: formData.createAsWorkspace,
+                workspaceName: formData.workspaceName,
+                orgName: formData.orgName || undefined,
+                version: formData.version || undefined,
+                isLibrary: formData.isLibrary,
+            });
+        } catch (error) {
+            setPathError("An error occurred during validation");
+            setIsValidating(false);
+        }
     };
 
-    const gotToWelcome = () => {
+    const goToWelcome = () => {
         rpcClient.getVisualizerRpcClient().openView({
             type: EVENT_TYPE.OPEN_VIEW,
             location: {
@@ -94,29 +168,50 @@ export function ProjectForm() {
         });
     };
 
+    const goBack = () => {
+        rpcClient.getVisualizerLocation().then((location) => {
+            const projectPath = location.projectPath;
+            if (projectPath) {
+                rpcClient.getVisualizerRpcClient().goBack();
+            } else {
+                goToWelcome();
+            }
+        });
+    };
+
     return (
-        <FormContainer>
-            <TitleContainer>
-                <IconButton onClick={gotToWelcome}>
-                    <Icon name="bi-arrow-back" iconSx={{ color: "var(--vscode-foreground)" }} />
-                </IconButton>
-                <Typography variant="h2">Create Your Integration</Typography>
-            </TitleContainer>
+        <PageWrapper>
+            <FormContainer>
+                <TitleContainer>
+                    <IconButton onClick={goBack}>
+                        <Icon name="bi-arrow-back" iconSx={{ color: "var(--vscode-foreground)" }} />
+                    </IconButton>
+                    <Typography variant="h2">
+                        {formData.createAsWorkspace ? "Create Your Project" : `Create Your ${resourceTypeLabel}`}
+                    </Typography>
+                </TitleContainer>
 
-            <ProjectFormFields
-                formData={formData}
-                onFormDataChange={handleFormDataChange}
-            />
+                <ScrollableContent>
+                    <ProjectFormFields
+                        formData={formData}
+                        onFormDataChange={handleFormDataChange}
+                        integrationNameError={integrationNameError || undefined}
+                        pathError={pathError || undefined}
+                        packageNameValidationError={packageNameValidationError || undefined}
+                        projectNameError={projectNameError || undefined}
+                    />
+                </ScrollableContent>
 
-            <ButtonWrapper>
-                <Button
-                    disabled={!isFormValid(formData)}
-                    onClick={handleCreateProject}
-                    appearance="primary"
-                >
-                    Create Integration
-                </Button>
-            </ButtonWrapper>
-        </FormContainer>
+                <ButtonWrapper>
+                    <Button
+                        disabled={isValidating}
+                        onClick={handleCreateProject}
+                        appearance="primary"
+                    >
+                        {isValidating ? "Validating..." : createActionLabel}
+                    </Button>
+                </ButtonWrapper>
+            </FormContainer>
+        </PageWrapper>
     );
 }

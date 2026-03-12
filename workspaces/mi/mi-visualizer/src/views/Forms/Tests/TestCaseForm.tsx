@@ -29,7 +29,6 @@ import { ParameterManager } from "@wso2/mi-diagram";
 import { compareVersions } from "@wso2/mi-diagram/lib/utils/commons";
 import { getProjectRuntimeVersion } from "../../AIPanel/utils";
 import { AuthenticationDialog, useAuthentication } from "../../../components/AuthenticationDialog";
-import { MI_UNIT_TEST_CASE_GENERATE_BACKEND_URL } from "../../../constants";
 
 export enum TestSuiteType {
     API = "API",
@@ -445,27 +444,21 @@ export function TestCaseForm(props: TestCaseFormProps) {
                 return;
             }
 
-            const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-            const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
-            const url = backendRootUri + MI_UNIT_TEST_CASE_GENERATE_BACKEND_URL;
-
             // Read the current test suite file directly
-            const testSuiteContent = await rpcClient.getMiDiagramRpcClient().handleFileWithFS({ 
-                filePath: props.filePath!, 
+            const testSuiteContent = await rpcClient.getMiDiagramRpcClient().handleFileWithFS({
+                filePath: props.filePath!,
                 fileName: path.basename(props.filePath!),
-                operation: 'read' 
+                operation: 'read'
             });
-            
+
             // Extract test suite name from the file path
             const testSuiteFileName = path.basename(props.filePath!, '.xml') || 'test-suite';
-            
+
             // Use the artifact path for getting context
             const artifactPath = props.artifactPath || props.filePath!;
             const contextResponse = await rpcClient.getMiDiagramRpcClient().getSelectiveArtifacts({ path: artifactPath });
-            const context = [contextResponse];
 
             const fullContextResponse = await rpcClient.getMiDiagramRpcClient().getWorkspaceContext();
-            const full_context = [fullContextResponse];
 
             const pom_file_content = await rpcClient.getMiDiagramRpcClient().getPomFileContent();
 
@@ -473,113 +466,69 @@ export function TestCaseForm(props: TestCaseFormProps) {
 
             const mock_service_details = await rpcClient.getMiDiagramRpcClient().getMockServices();
 
-            let retryCount = 0;
-            const maxRetries = 2;
-            const fetchTestCaseGeneration = async (): Promise<Response> => {
-                const requestBody = JSON.stringify({
-                    context: context[0]?.artifacts || [],
-                    test_file_name: testSuiteFileName,
-                    test_suite_file: testSuiteContent?.content || '',
-                    test_case_description: currentPrompt,
-                    existing_mock_services: mock_service_details?.mockServices || [],
-                    existing_mock_service_names: mock_service_details?.mockServiceNames || [],
-                    num_suggestions: 1,
-                    full_context: full_context[0]?.context || [],
-                    pom_file: pom_file_content?.content || '',
-                    external_connectors: external_connector_details?.connectors || []
-                });
+            // Call the new RPC method for test case generation
+            const response = await rpcClient.getMiAiPanelRpcClient().generateUnitTestCase({
+                context: contextResponse?.artifacts || [],
+                testFileName: testSuiteFileName,
+                testSuiteFile: testSuiteContent?.content || '',
+                testCaseDescription: currentPrompt,
+                existingMockServices: mock_service_details?.mockServices || [],
+                existingMockServiceNames: mock_service_details?.mockServiceNames || [],
+                fullContext: fullContextResponse?.context || [],
+                pomFile: pom_file_content?.content || '',
+                externalConnectors: external_connector_details?.connectors || []
+            });
 
-                let response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token.token}`
-                    },
-                    body: requestBody,
-                });
+            // Parse the markdown response
+            const markdownResponse = response.response;
 
-                if (response.status === 401) {
-                    // Retrieve a new token
-                    await rpcClient.getMiDiagramRpcClient().refreshAccessToken();
-                    const newToken = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-
-                    // Make the request again with the new token
-                    response = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${newToken.token}`
-                        },
-                        body: requestBody,
-                    });
-                } else if (response.status === 403) {
-                    openSignInView({ aiPrompt: currentPrompt });
-                    return response;
-                } else if (response.status === 404) {
-                    if (retryCount < maxRetries) {
-                        retryCount++;
-                        const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                        return fetchTestCaseGeneration(); // Retry the request
-                    } else {
-                        openUpdateExtensionView();
-                        return response; // Exit the function if maximum retries reached
-                    }
-                }
-
-                if (!response.ok) {
-                    throw new Error('Failed to generate test case');
-                }
-                return response;
-            };
-
-            const response = await fetchTestCaseGeneration();
-            const responseBody = await response.clone().json();
-            const data = await response.json() as UnitTestCaseApiResponse;
-            
-            if (data.event === "test_generation_success") {
-                // Update the test suite with the new content
-                if (data.updated_test_file) {
-                    // Extract XML from the response (remove markdown code blocks if present)
-                    let xmlContent = data.updated_test_file;
-                    const xmlMatch = xmlContent.match(/```xml\n([\s\S]*?)\n```/);
-                    if (xmlMatch) {
-                        xmlContent = xmlMatch[1];
-                    }
-                    
-                    const artifact = props.artifactPath || props.filePath!;
-                    rpcClient.getMiDiagramRpcClient().updateTestSuite({ 
-                        path: props.filePath, 
-                        content: xmlContent, 
-                        name: testSuiteFileName, 
-                        artifact 
-                    }).then(() => {
-                        // Close the dialog and open the updated test suite file
-                        setShowAIDialog(false);
-                        setAiPrompt("");
-                        
-                        // Open the updated test suite file instead of going back to overview
-                        rpcClient.getMiVisualizerRpcClient().openView({ 
-                            type: EVENT_TYPE.OPEN_VIEW, 
-                            location: { 
-                                view: MACHINE_VIEW.TestSuite, 
-                                documentUri: props.filePath 
-                            } 
-                        });
-                    });
-                }
-
-                // Handle mock services if they are provided
-                if (data.mock_services && data.mock_services.length > 0) {
-                    rpcClient.getMiDiagramRpcClient().writeMockServices({ 
-                        content: data.mock_services, 
-                        fileNames: data.mock_service_names || []
-                    });
-                }
-            } else {
-                throw new Error("Failed to generate test case: " + (data.error || "Unknown error"));
+            // Extract main unit test XML (first code block is the complete updated test file)
+            const mainXmlMatch = markdownResponse.match(/```xml\s*([\s\S]*?)```/);
+            if (!mainXmlMatch) {
+                throw new Error('No updated unit test XML found in response');
             }
-            
+            const updatedUnitTestXml = mainXmlMatch[1].trim();
+
+            // Extract new mock services (if any)
+            const mockServicePattern = /###\s+([^\n]+\.xml)\s*```xml\s*([\s\S]*?)```/g;
+            const newMockServices: string[] = [];
+            const newMockServiceNames: string[] = [];
+            let mockMatch;
+            while ((mockMatch = mockServicePattern.exec(markdownResponse)) !== null) {
+                newMockServiceNames.push(mockMatch[1].trim());
+                newMockServices.push(mockMatch[2].trim());
+            }
+
+            // Update the test suite file with the complete updated content
+            const artifact = props.artifactPath || props.filePath!;
+            await rpcClient.getMiDiagramRpcClient().updateTestSuite({
+                path: props.filePath,
+                content: updatedUnitTestXml,
+                name: testSuiteFileName,
+                artifact
+            });
+
+            // Write new mock services if any were generated
+            if (newMockServices.length > 0) {
+                await rpcClient.getMiDiagramRpcClient().writeMockServices({
+                    content: newMockServices,
+                    fileNames: newMockServiceNames
+                });
+            }
+
+            // Close the dialog
+            setShowAIDialog(false);
+            setAiPrompt("");
+
+            // Open the updated test suite file
+            rpcClient.getMiVisualizerRpcClient().openView({
+                type: EVENT_TYPE.OPEN_VIEW,
+                location: {
+                    view: MACHINE_VIEW.TestSuite,
+                    documentUri: props.filePath
+                }
+            });
+
             setIsLoaded(true);
 
         } catch (error) {

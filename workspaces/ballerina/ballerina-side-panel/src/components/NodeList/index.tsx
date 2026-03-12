@@ -17,6 +17,7 @@
  */
 
 import React, { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import {
     Button,
     Codicon,
@@ -36,7 +37,9 @@ import { GroupListSkeleton } from "../Skeletons";
 import GroupList from "../GroupList";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { getExpandedCategories, setExpandedCategories, getDefaultExpandedState } from "../../utils/localStorage";
-import { getCategoryConfig, shouldShowEmptyCategory, shouldUseConnectionContainer, getCategoryActions, CategoryAction } from "./categoryConfig";
+import { ConnectionListItem } from "@wso2/wso2-platform-core";
+import { shouldShowEmptyCategory, shouldUseConnectionContainer, getCategoryActions, isCategoryFixed } from "./categoryConfig";
+import { stripHtmlTags } from "../Form/utils";
 
 namespace S {
     export const Container = styled.div<{}>`
@@ -54,6 +57,7 @@ namespace S {
     export const PanelBody = styled(SidePanelBody)`
         height: calc(100vh - 100px);
         padding-top: 0;
+        overflow-y: auto;
     `;
 
     export const StyledSearchInput = styled(SearchBox)`
@@ -113,6 +117,38 @@ namespace S {
     export const BodyText = styled.div<{}>`
         font-size: 11px;
         opacity: 0.5;
+    `;
+
+    export const TooltipMarkdown = styled.div`
+        font-size: 12px;
+        line-height: 1.4;
+        font-family: var(--vscode-font-family);
+
+        p {
+            margin: 0 0 6px 0;
+        }
+
+        p:last-of-type {
+            margin-bottom: 0;
+        }
+
+        pre {
+            display: none;
+        }
+
+        code {
+            display: inline;
+        }
+
+        ul,
+        ol {
+            margin: 6px 0;
+            padding-left: 18px;
+        }
+
+        li {
+            margin: 2px 0;
+        }
     `;
 
     export const Component = styled.div<{ enabled?: boolean }>`
@@ -237,6 +273,7 @@ namespace S {
         }
     `;
 
+
     export const AdvancedSubTitle = styled.div`
         font-size: 12px;
         opacity: 0.7;
@@ -259,6 +296,18 @@ namespace S {
         &:hover {
             background-color: ${ThemeColors.PRIMARY_CONTAINER};
         }
+    `;
+
+    export const CategoryHeaderFixed = styled.div<{ fullWidth?: boolean }>`
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        width: -webkit-fill-available;
+        padding: 12px;
+        cursor: default;
+        border-radius: 5px;
+        margin: ${({ fullWidth }) => fullWidth ? '0 -12px' : '0'};
     `;
 
     export const CategoryCard = styled.div<{ hasBackground?: boolean }>`
@@ -305,6 +354,9 @@ interface NodeListProps {
     onBack?: () => void;
     onClose?: () => void;
     searchPlaceholder?: string;
+    onImportDevantConn?: (devantConn: ConnectionListItem) => void;
+    onLinkDevantProject?: () => void;
+    onRefreshDevantConnections?: () => void;
 }
 
 export function NodeList(props: NodeListProps) {
@@ -321,6 +373,9 @@ export function NodeList(props: NodeListProps) {
         onBack,
         onClose,
         searchPlaceholder,
+        onImportDevantConn,
+        onLinkDevantProject,
+        onRefreshDevantConnections,
     } = props;
 
     const [searchText, setSearchText] = useState<string>("");
@@ -420,6 +475,31 @@ export function NodeList(props: NodeListProps) {
         }
     };
 
+    const handleOnLinkDevantProject = () => {
+        if (onLinkDevantProject){
+            onLinkDevantProject();
+        }
+    }
+
+    const handleOnRefreshDevantConnections = () => {
+        if (onRefreshDevantConnections){
+            onRefreshDevantConnections();
+        }
+    }
+    
+    const renderTooltipContent = (description?: string): React.ReactNode | undefined => {
+        const cleaned = stripHtmlTags(description || "").trim();
+        if (!cleaned) {
+            return undefined;
+        }
+
+        return (
+            <S.TooltipMarkdown>
+                <ReactMarkdown>{cleaned}</ReactMarkdown>
+            </S.TooltipMarkdown>
+        );
+    };
+
     const getNodesContainer = (items: (Node | Category)[], parentCategoryTitle?: string) => {
         const safeItems = items.filter((item) => item != null);
         const nodes = safeItems.filter((item): item is Node => "id" in item && !("title" in item));
@@ -436,7 +516,7 @@ export function NodeList(props: NodeListProps) {
                         return (
                             <Tooltip 
                                 key={node.id + index}
-                                content={node.description} 
+                                content={renderTooltipContent(node.description)}
                                 sx={{ 
                                     maxWidth: "280px",
                                     whiteSpace: "normal",
@@ -510,7 +590,7 @@ export function NodeList(props: NodeListProps) {
         );
     };
 
-    const getConnectionContainer = (categories: Category[]) => (
+    const getConnectionContainer = (categories: Category[], enableSingleNodeDirectNav?: boolean) => (
         <S.Grid columns={1}>
             {categories.map((category, index) =>
                 category.isLoading ? (
@@ -521,6 +601,8 @@ export function NodeList(props: NodeListProps) {
                         category={category}
                         expand={searchText?.length > 0}
                         onSelect={handleAddNode}
+                        onImportDevantConn={onImportDevantConn}
+                        enableSingleNodeDirectNav={enableSingleNodeDirectNav}
                     />
                 ))
             }
@@ -528,11 +610,6 @@ export function NodeList(props: NodeListProps) {
     );
 
     const getCategoryContainer = (groups: Category[], isSubCategory = false, parentCategoryTitle?: string) => {
-        const callFunctionNode = groups
-            .flatMap((group) => group?.items || [])
-            .filter((item) => item != null)
-            .find((item) => "id" in item && item.id === "FUNCTION");
-        
         // Configuration for special categories
         const categoryConfig = {
             "Connections": { hasBackground: false },
@@ -544,7 +621,7 @@ export function NodeList(props: NodeListProps) {
             "Logging": { hasBackground: true },
             "Model Providers": { hasBackground: false },
             "Embedding Providers": { hasBackground: false },
-            "Vector Knowledge Bases": { hasBackground: false },
+            "Knowledge Bases": { hasBackground: false },
             "Vector Stores": { hasBackground: false },
             "Data Loaders": { hasBackground: false },
             "Chunkers": { hasBackground: false },
@@ -561,15 +638,19 @@ export function NodeList(props: NodeListProps) {
         const content = (
             <>
                 {reorderedGroups.map((group, index) => {
-                    const categoryActions = getCategoryActions(group.title, title);
+                    // If subcategory is inside "Current Project" (or legacy "Current Workspace"),
+                    // show "Current Integration" actions when the subcategory refers to the current integration.
+                    const categoryActions = (parentCategoryTitle === "Current Project" || parentCategoryTitle === "Current Workspace") ?
+                       ( group.title?.includes("(current)") ? getCategoryActions("Current Integration", title) : getCategoryActions(group.title, title)) 
+                    : 
+                    getCategoryActions(group.title, title);
                     const config = categoryConfig[group.title] || { hasBackground: true };
                     const shouldShowSeparator = config.showSeparatorBefore;
-                    const isLoggingCategory = group.title === "Logging";
-                    
+
                     // Hide categories that don't have items, except for special categories that can add items
                     if (!group || !group.items || group.items.length === 0) {
                         // Only show empty categories if they have add functionality
-                        if (!shouldShowEmptyCategory(group.title)) {
+                        if (!shouldShowEmptyCategory(group.title, isSubCategory) && categoryActions.length === 0) {
                             return null;
                         }
                     }
@@ -589,15 +670,25 @@ export function NodeList(props: NodeListProps) {
                             <S.CategoryCard hasBackground={config.hasBackground && !isSubCategory}>
                                 <S.CategoryRow showBorder={false}>
                                     {!isSubCategory ? (
-                                        <S.CategoryHeader fullWidth={config.hasBackground && !isSubCategory} onClick={() => toggleCategory(group.title)}>
-                                            <S.Row style={{ margin: 0, cursor: 'pointer' }}>
-                                                <S.Title>{group.title}</S.Title>
+                                        (() => {
+                                            const isFixed = isCategoryFixed(group.title);
+                                            const HeaderComponent = isFixed ? S.CategoryHeaderFixed : S.CategoryHeader;
+                                            const headerProps = isFixed ? 
+                                                { fullWidth: config.hasBackground && !isSubCategory } : 
+                                                { fullWidth: config.hasBackground && !isSubCategory, onClick: () => toggleCategory(group.title) };
+                                            
+                                            return (
+                                                <HeaderComponent {...headerProps}>
+                                                    <S.Row style={{ margin: 0, cursor: isFixed ? 'default' : 'pointer' }}>
+                                                        <S.Title>{group.title}</S.Title>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     {categoryActions.map((action, actionIndex) => {
                                                         const handlers = {
                                                             onAddConnection: handleAddConnection,
                                                             onAddFunction: handleAddFunction,
-                                                            onAdd: handleAdd
+                                                            onAdd: handleAdd,
+                                                            onLinkDevantProject: handleOnLinkDevantProject,
+                                                            onRefreshDevantConnections: handleOnRefreshDevantConnections
                                                         };
                                                         
                                                         const handler = handlers[action.handlerKey];
@@ -617,19 +708,23 @@ export function NodeList(props: NodeListProps) {
                                                                         handler();
                                                                     }}
                                                                 >
-                                                                    <Codicon name="add" />
+                                                                    <Codicon name={action?.codeIcon || "add"} />
                                                                 </Button>
                                                             </Tooltip>
                                                         );
                                                     })}
-                                                    <Tooltip content={isCategoryExpanded ? "Collapse" : "Expand"}>
-                                                        <S.ChevronIcon isExpanded={isCategoryExpanded}>
-                                                            <Codicon name="chevron-right" />
-                                                        </S.ChevronIcon>
-                                                    </Tooltip>
+                                                    {!isFixed && (
+                                                        <Tooltip content={isCategoryExpanded ? "Collapse" : "Expand"}>
+                                                            <S.ChevronIcon isExpanded={isCategoryExpanded}>
+                                                                <Codicon name="chevron-right" />
+                                                            </S.ChevronIcon>
+                                                        </Tooltip>
+                                                    )}
                                                 </div>
                                             </S.Row>
-                                        </S.CategoryHeader>
+                                        </HeaderComponent>
+                                            );
+                                        })()
                                     ) : (
                                         <S.Row>
                                             <Tooltip content={group.description}>
@@ -637,32 +732,35 @@ export function NodeList(props: NodeListProps) {
                                             </Tooltip>
                                         </S.Row>
                                     )}
-                                    {isCategoryExpanded && (
+                                    {(isSubCategory || isCategoryExpanded || isCategoryFixed(group.title)) && (
                                         <>
-                                            {(!group.items || group.items.length === 0) &&
+                                            {(isSubCategory || (!group.items || group.items.length === 0)) &&
                                                 !searchText &&
                                                 !isSearching &&
                                                 categoryActions.map((action, actionIndex) => {
                                                     const handlers = {
                                                         onAddConnection: handleAddConnection,
                                                         onAddFunction: handleAddFunction,
-                                                        onAdd: handleAdd
+                                                        onAdd: handleAdd,
+                                                        onLinkDevantProject: handleOnLinkDevantProject,
+                                                        onRefreshDevantConnections: handleOnRefreshDevantConnections
                                                     };
                                                     
                                                     const handler = handlers[action.handlerKey];
                                                     const propsHandler = props[action.handlerKey];
                                                     
                                                     // Only render if the handler exists in props
-                                                    if (!propsHandler || !handler) return null;
+                                                    if (!propsHandler || !handler || action.hideOnEmptyState) return null;
                                                     
                                                     const buttonLabel = action.emptyStateLabel || addButtonLabel || "Add";
                                                     
                                                     return (
                                                         <S.HighlightedButton 
                                                             key={`empty-${group.title}-${actionIndex}`}
+                                                            style={{padding: '5px 10px', width: isSubCategory ? '160px' : '100%'}}
                                                             onClick={handler}
                                                         >
-                                                            <Codicon name="add" iconSx={{ fontSize: 12 }} />
+                                                            <Codicon name={action?.codeIcon || "add"} iconSx={{ fontSize: 12 }} />
                                                             {buttonLabel}
                                                         </S.HighlightedButton>
                                                     );
@@ -672,7 +770,7 @@ export function NodeList(props: NodeListProps) {
                                             // 1. If parent group uses connection container and ALL items don't have id, use getConnectionContainer
                                             shouldUseConnectionContainer(group.title) &&
                                             group.items.filter((item) => item != null).every((item) => !("id" in item))
-                                                ? getConnectionContainer(group.items as Category[])
+                                                ? getConnectionContainer(group.items as Category[], group.title === "Agent")
                                                 : // 2. If ALL items don't have id (all are categories), use getCategoryContainer
                                                 group.items.filter((item) => item != null).every((item) => !("id" in item))
                                                 ? getCategoryContainer(
@@ -685,25 +783,6 @@ export function NodeList(props: NodeListProps) {
                                                       group.items as (Node | Category)[],
                                                       !isSubCategory ? group.title : parentCategoryTitle
                                                   )}
-                                            {/* Add Show More Functions under Logging category */}
-                                            {isLoggingCategory && callFunctionNode && isCategoryExpanded && (
-                                                <S.AdvancedSubcategoryContainer key={"showMoreFunctions"} style={{ marginBottom: "12px" }}>
-                                                    <S.AdvancedSubcategoryHeader onClick={() => handleAddNode(callFunctionNode as Node)}>
-                                                        <S.AdvancedSubTitle>Show More Functions</S.AdvancedSubTitle>
-                                                        <Button
-                                                            appearance="icon"
-                                                            sx={{
-                                                                transition: "all 0.2s ease",
-                                                                "&:hover": {
-                                                                    backgroundColor: "transparent !important",
-                                                                },
-                                                            }}
-                                                        >
-                                                            <Codicon name="chevron-right" />
-                                                        </Button>
-                                                    </S.AdvancedSubcategoryHeader>
-                                                </S.AdvancedSubcategoryContainer>
-                                            )}
                                         </>
                                     )}
                                 </S.CategoryRow>
@@ -766,6 +845,12 @@ export function NodeList(props: NodeListProps) {
         return category;
     });
 
+    // Find the call function node across all categories
+    const callFunctionNode = filteredCategories
+        .flatMap((group) => group?.items || [])
+        .filter((item) => item != null)
+        .find((item) => "id" in item && item.id === "FUNCTION");
+
     // When searching, expand all categories
     const shouldExpandAll = searchText && searchText.length > 0;
 
@@ -825,7 +910,28 @@ export function NodeList(props: NodeListProps) {
                 </S.PanelBody>
             )}
             {!showGeneratePanel && !isSearching && (
-                <S.PanelBody>{getCategoryContainer(filteredCategories)}</S.PanelBody>
+                <S.PanelBody>
+                    {getCategoryContainer(filteredCategories)}
+                    {/* Show More Functions button - moved outside Logging category */}
+                    {callFunctionNode && !searchText && (
+                        <S.AdvancedSubcategoryContainer key={"showMoreFunctions"} style={{ marginBottom: "12px" }}>
+                            <S.AdvancedSubcategoryHeader onClick={() => handleAddNode(callFunctionNode as Node)}>
+                                <S.AdvancedSubTitle>Show More Functions</S.AdvancedSubTitle>
+                                <Button
+                                    appearance="icon"
+                                    sx={{
+                                        transition: "all 0.2s ease",
+                                        "&:hover": {
+                                            backgroundColor: "transparent !important",
+                                        },
+                                    }}
+                                >
+                                    <Codicon name="chevron-right" />
+                                </Button>
+                            </S.AdvancedSubcategoryHeader>
+                        </S.AdvancedSubcategoryContainer>
+                    )}
+                </S.PanelBody>
             )}
             {showAiPanel && showGeneratePanel && (
                 <S.PanelBody>

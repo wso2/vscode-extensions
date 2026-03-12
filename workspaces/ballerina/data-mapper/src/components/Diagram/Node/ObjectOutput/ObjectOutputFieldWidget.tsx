@@ -28,6 +28,7 @@ import { DataMapperPortWidget, PortState, InputOutputPortModel } from "../../Por
 import { OutputSearchHighlight } from "../commons/Search";
 import { useIONodesStyles } from "../../../styles";
 import { useDMCollapsedFieldsStore, useDMExpandedFieldsStore, useDMExpressionBarStore } from '../../../../store/store';
+import { useShallow } from "zustand/react/shallow";
 import { getTypeName } from "../../utils/type-utils";
 import { ArrayOutputFieldWidget } from "../ArrayOutput/ArrayOuptutFieldWidget";
 import { fieldFQNFromPortName, getDefaultValue } from "../../utils/common-utils";
@@ -70,7 +71,12 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
     const collapsedFieldsStore = useDMCollapsedFieldsStore();
     const expandedFieldsStore = useDMExpandedFieldsStore();
 
-    const setExprBarFocusedPort = useDMExpressionBarStore(state => state.setFocusedPort);
+    const { exprBarFocusedPort, setExprBarFocusedPort } = useDMExpressionBarStore(
+        useShallow(state => ({
+            exprBarFocusedPort: state.focusedPort,
+            setExprBarFocusedPort: state.setFocusedPort
+        }))
+    );
 
     let indentation = treeDepth * 16;
     let expanded = true;
@@ -100,6 +106,7 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
             : fieldName;
 
     const portIn = getPort(portName + ".IN");
+    const isExprBarFocused = exprBarFocusedPort?.getName() === portIn?.getName();
     const isUnknownType = field?.kind === TypeKind.Unknown;
     const mapping = portIn && portIn.attributes.value;
     const { expression, diagnostics } = mapping || {};
@@ -173,8 +180,10 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
     if (!isDisabled) {
         if (portIn?.attributes.parentModel && (
             Object.values(portIn?.attributes.parentModel.links)
-            .filter((link)=> !(link as DataMapperLinkModel).isDashLink).length > 0 ||
-                portIn?.attributes.parentModel.attributes.ancestorHasValue)
+                .filter((link) =>
+                    !((link as DataMapperLinkModel).isDashLink || (link as DataMapperLinkModel).pendingMappingType)
+                ).length > 0 ||
+            portIn?.attributes.parentModel.attributes.ancestorHasValue)
         ) {
             portIn.attributes.ancestorHasValue = true;
             isDisabled = true;
@@ -219,7 +228,7 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
                         {diagnostics?.length > 0 ? (
                             <DiagnosticTooltip
                                 placement="right"
-                                diagnostic={diagnostics[0] as any}
+                                diagnostic={diagnostics[0].message}
                                 value={expression}
                                 onClick={handleEditValue}
                             >
@@ -283,7 +292,8 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
                         isDisabled && !hasHoveredParent && !isHovered ? classes.treeLabelDisabled : "",
                         isDisabled && isHovered ? classes.treeLabelDisableHover : "",
                         portState !== PortState.Unselected ? classes.treeLabelPortSelected : "",
-                        hasHoveredParent ? classes.treeLabelParentHovered : ""
+                        hasHoveredParent ? classes.treeLabelParentHovered : "",
+                        isExprBarFocused ? classes.treeLabelPortExprFocused : ""
                     )}
                     onMouseEnter={onMouseEnter}
                     onMouseLeave={onMouseLeave}

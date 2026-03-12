@@ -30,6 +30,8 @@ export function signInCommand(context: ExtensionContext) {
 			setExtensionName(params?.extName);
 			try {
 				isRpcActive(ext);
+				// Cancel any pending session creation from accounts menu
+				ext.authProvider?.cancelPendingSessionCreation();
 				getLogger().debug("Signing in to WSO2 Platform");
 				const callbackUrl = await vscode.env.asExternalUri(vscode.Uri.parse(`${vscode.env.uriScheme}://wso2.wso2-platform/signin`));
 
@@ -54,5 +56,10 @@ export function signInCommand(context: ExtensionContext) {
 				}
 			}
 		}),
+				// Register cancellation command
+		commands.registerCommand(CommandIds.CancelSignIn, () => {
+			console.log("Cancelling pending session creation via command");
+			ext.authProvider?.cancelPendingSessionCreation();
+		})
 	);
 }

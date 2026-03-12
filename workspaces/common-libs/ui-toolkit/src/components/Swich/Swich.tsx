@@ -22,6 +22,7 @@ interface SwichContainerProps {
     sx?: any;
     active?: boolean;
     color?: string;
+    border?: string;
     enableTransition?: boolean;
     disabled?: boolean;
 }
@@ -71,6 +72,7 @@ const InnerContainer = styled.div<SwichContainerProps>`
     font-weight: bold;
     color: ${(props: SwichContainerProps) => props.active ? (props.color ? props.color : "var(--vscode-editorOverviewRuler-warningForeground)") : "var(--vscode-editor-foreground)"};
     background-color: ${(props: SwichContainerProps) => props.active ? "var(--vscode-editor-background)" : "var(--vscode-tab-unfocusedInactiveBackground)"};
+    border: ${(props: SwichContainerProps) => props.active && props.border ? props.border : "none"};
     margin: 4px;
     border-radius: ${(props: SwichContainerProps) => props.active ? "4px" : 0};
     transition: ${(props: SwichContainerProps) => props.enableTransition ? "all 0.3s ease-in-out" : "none"};
@@ -100,15 +102,16 @@ export interface SwitchProps {
     checkedIcon?: ReactNode;
     uncheckedIcon?: ReactNode;
     checkedColor?: string;
+    checkedBorder?: string;
     enableTransition?: boolean;
     disabled?: boolean;
     readonly?: boolean;
     onChange: () => void;
 }
 
-const getCheckedComponent = (text: string|ReactNode, icon: ReactNode, color: string, transitionEnabled: boolean) => {
+const getCheckedComponent = (text: string|ReactNode, icon: ReactNode, color: string, transitionEnabled: boolean, border?: string) => {
     return (
-        <InnerContainer active={true} color={color} enableTransition={transitionEnabled} >
+        <InnerContainer active={true} color={color} border={border} enableTransition={transitionEnabled} >
             <Content>
                 {icon && (
                     <IconContainer>
@@ -142,7 +145,7 @@ const getUncheckedComponent = (text: string|ReactNode, icon: ReactNode) => {
 
 export const Switch: React.FC<SwitchProps> = (props: SwitchProps) => {
     const { id, className, sx, checked, leftLabel, rightLabel, checkedIcon,
-        uncheckedIcon, checkedColor, enableTransition, disabled, readonly, onChange 
+        uncheckedIcon, checkedColor, checkedBorder, enableTransition, disabled, readonly, onChange
     } = props;
     const handleLeftComponentClick = () => {
         if (checked && !readonly && !disabled) {
@@ -159,12 +162,12 @@ export const Switch: React.FC<SwitchProps> = (props: SwitchProps) => {
             <LeftInnerContainer onClick={handleLeftComponentClick}>
                 {checked ?
                     getUncheckedComponent(leftLabel, uncheckedIcon) :
-                    getCheckedComponent(leftLabel, checkedIcon, checkedColor, enableTransition)
+                    getCheckedComponent(leftLabel, checkedIcon, checkedColor, enableTransition, checkedBorder)
                 }
             </LeftInnerContainer >
             <RightInnerContainer onClick={handleRightComponentClick}>
                 {checked ?
-                    getCheckedComponent(rightLabel, checkedIcon, checkedColor, enableTransition) : 
+                    getCheckedComponent(rightLabel, checkedIcon, checkedColor, enableTransition, checkedBorder) :
                     getUncheckedComponent(rightLabel, uncheckedIcon)
                 }
             </RightInnerContainer>

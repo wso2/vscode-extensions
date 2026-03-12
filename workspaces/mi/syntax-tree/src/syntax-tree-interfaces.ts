@@ -1159,6 +1159,7 @@ export interface APIResource extends STNode {
 export interface DSSResource extends STNode {
     path: string;
     method: string;
+    queryId: string;
     description: string;
     enableStreaming: boolean;
     returnRequestStatus: boolean;
@@ -1166,8 +1167,15 @@ export interface DSSResource extends STNode {
 
 export interface DSSOperation extends STNode {
     name: string;
+    queryId: string;
     description: string;
     enableStreaming: boolean;
+}
+
+export interface DSSQuery extends STNode {
+    name: string;
+    datasource: string;
+    query: string;
 }
 
 export interface DataServiceCallOperationsOperation extends STNode {

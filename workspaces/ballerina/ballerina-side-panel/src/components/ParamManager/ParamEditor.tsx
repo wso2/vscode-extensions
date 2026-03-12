@@ -22,9 +22,9 @@ import React, { RefObject, useEffect, useState } from 'react';
 import { EditorContainer } from './styles';
 import { Parameter } from './ParamManager';
 import Form from '../Form';
-import { FormField, FormValues } from '../Form/types';
+import { FormField, FormValues, HelperpaneOnChangeOptions } from '../Form/types';
 import { useFormContext } from '../../context';
-import { RecordTypeField, TextEdit } from '@wso2/ballerina-core';
+import { InputType, RecordTypeField, TextEdit } from '@wso2/ballerina-core';
 import { HelperPaneHeight } from '@wso2/ui-toolkit';
 import { FormExpressionEditorRef } from '@wso2/ui-toolkit';
 
@@ -32,7 +32,7 @@ export interface ParamProps {
     propertyKey: string;
     parameter: Parameter;
     paramFields: FormField[];
-    onSave: (param: Parameter) => void;
+    onSave: (param: Parameter) => void | Promise<void>;
     onCancelEdit: (param?: Parameter) => void;
     openRecordEditor?: (open: boolean) => void;
 }
@@ -51,7 +51,7 @@ export function ParamEditor(props: ParamProps) {
         anchorRef: RefObject<HTMLDivElement>,
         defaultValue: string,
         value: string,
-        onChange: (value: string, updatedCursorPosition: number) => void,
+        onChange: (value: string, options?: HelperpaneOnChangeOptions) => void,
         changeHelperPaneState: (isOpen: boolean) => void,
         helperPaneHeight: HelperPaneHeight,
         recordTypeField?: RecordTypeField
@@ -71,7 +71,7 @@ export function ParamEditor(props: ParamProps) {
 
     const getTypeHelper = (
         fieldKey: string,
-        valueTypeConstraint: string,
+        types: InputType[],
         typeBrowserRef: RefObject<HTMLDivElement>,
         currentType: string,
         currentCursorPosition: number,
@@ -84,7 +84,7 @@ export function ParamEditor(props: ParamProps) {
     ) => {
         return expressionEditor?.getTypeHelper(
             propertyKey,
-            valueTypeConstraint,
+            types,
             typeBrowserRef,
             currentType,
             currentCursorPosition,
@@ -98,15 +98,21 @@ export function ParamEditor(props: ParamProps) {
     };
 
     const [fields, setFields] = useState<FormField[]>(paramFields);
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         setFields(paramFields);
     }, [paramFields]);
 
-    const handleOnSave = (data: FormValues) => {
-        setFields([]);
+    const handleOnSave = async (data: FormValues) => {
         parameter.formValues = data;
-        onSave(parameter);
+        setIsSaving(true);
+        try {
+            await onSave(parameter);
+            setFields([]);
+        } finally {
+            setIsSaving(false);
+        }
     }
 
     return (
@@ -129,6 +135,7 @@ export function ParamEditor(props: ParamProps) {
                 submitText={parameter.key ? 'Save' : 'Add'}
                 nestedForm={true}
                 preserveOrder={true}
+                isSaving={isSaving}
             />
         </EditorContainer >
     );

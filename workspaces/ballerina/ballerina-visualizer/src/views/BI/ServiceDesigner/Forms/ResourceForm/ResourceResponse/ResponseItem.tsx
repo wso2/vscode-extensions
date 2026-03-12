@@ -34,22 +34,19 @@ interface ParamItemProps {
 
 export function ResponseItem(props: ParamItemProps) {
     const { response, readonly, hideCode, onDelete, onEditClick, method } = props;
+    const isReadonly = readonly || response.editable === false;
 
     const handleDelete = () => {
         onDelete();
     };
     const handleEdit = () => {
-        if (!readonly && !hideCode) {
+        if (!isReadonly && !hideCode) {
             onEditClick(response);
         }
     };
 
     const getFormattedResponse = (response: StatusCodeResponse, method: HTTP_METHOD) => {
-        if (response.statusCode.value && (Number(response.statusCode.value) === 200 || Number(response.statusCode.value) === 201)) {
-            return getDefaultResponse(method);
-        } else {
-            return response.statusCode.value || getDefaultResponse(method);
-        }
+        return response.statusCode.value || getDefaultResponse(method);
     };
 
     return (
@@ -67,12 +64,12 @@ export function ResponseItem(props: ParamItemProps) {
             <ContentSection justifyEnd={hideCode}>
                 <div
                     data-test-id={`${response.body.value}-resp`}
-                    className={readonly ? disabledHeaderLabel : headerLabelStyles}
-                    onClick={handleEdit}
+                    className={isReadonly ? disabledHeaderLabel : headerLabelStyles}
+                    onClick={!isReadonly ? handleEdit : undefined}
                 >
                     {response.name.value || response.body.value || response.type.value || "anydata"}
                 </div>
-                {!readonly && (
+                {!isReadonly && (
                     <ActionIconWrapper>
                         {!hideCode &&
                             <EditIconWrapper>

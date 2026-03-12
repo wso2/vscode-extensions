@@ -16,26 +16,37 @@
  * under the License.
  */
 
-import { TextField } from "@wso2/ui-toolkit";
-import React, { useState, useCallback } from "react";
+import { ErrorBanner, TextField } from "@wso2/ui-toolkit";
+import React, { useState, useCallback, useEffect } from "react";
 import { debounce } from "lodash";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { useFormContext } from "../../context";
-import { capitalize, getPropertyFromFormField } from "./utils";
+import { buildRequiredRule, capitalize, getPropertyFromFormField } from "./utils";
 import { FormField } from "../Form/types";
 export interface IdentifierFieldProps {
     field: FormField;
     handleOnFieldFocus?: (key: string) => void;
     autoFocus?: boolean;
+    onBlur?: () => void | Promise<void>;
 }
 
 export function IdentifierField(props: IdentifierFieldProps) {
-    const { field, handleOnFieldFocus, autoFocus } = props;
+    const { field, handleOnFieldFocus, autoFocus, onBlur } = props;
     const { rpcClient } = useRpcContext();
     const { expressionEditor, form } = useFormContext();
     const { getExpressionEditorDiagnostics } = expressionEditor;
-    const { watch, formState, register } = form;
+    const [formDiagnostics, setFormDiagnostics] = useState(field.diagnostics);
+    const { watch, formState, register, setValue } = form;
     const { errors } = formState;
+
+    useEffect(() => {
+        setFormDiagnostics(field.diagnostics);
+    }, [field.diagnostics]);
+
+    // Sync external field value changes to the form (e.g., when a sibling field's onValueChange updates the value)
+    useEffect(() => {
+        setValue(field.key, field.value ?? '');
+    }, [field.key, field.value, setValue]);
 
     const validateIdentifierName = useCallback(debounce(async (value: string) => {
         const fieldValue = watch(field.key);
@@ -48,6 +59,7 @@ export function IdentifierField(props: IdentifierFieldProps) {
 
     const handleOnBlur = (e: React.ChangeEvent<HTMLInputElement>) => {
         validateIdentifierName(e.target.value);
+        onBlur?.();
     }
 
     const handleOnFocus = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,30 +67,40 @@ export function IdentifierField(props: IdentifierFieldProps) {
         handleOnFieldFocus?.(field.key);
     }
 
-    const registerField = register(field.key, { required: !field.optional && !field.placeholder, value: field.value })
+    const registerField = register(field.key, {
+        required: buildRequiredRule({ isRequired: !field.optional, label: field.label }),
+        value: field.value
+    })
     const { onChange } = registerField;
 
 
     const handleOnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormDiagnostics([]);
         onChange(e);
         validateIdentifierName(e.target.value);
+        field.onValueChange?.(e.target.value as string);
     }
 
     return (
-        <TextField
-            id={field.key}
-            label={capitalize(field.label)}
-            {...registerField}
-            onChange={(e) => handleOnChange(e)}
-            required={!field.optional}
-            description={field.documentation}
-            placeholder={field.placeholder}
-            readOnly={!field.editable}
-            errorMsg={errors[field.key]?.message.toString()}
-            onBlur={(e) => handleOnBlur(e)}
-            onFocus={(e) => handleOnFocus(e)}
-            autoFocus={autoFocus}
-            sx={{ width: "100%" }}
-        />
+        <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+            <TextField
+                id={field.key}
+                label={capitalize(field.label)}
+                {...registerField}
+                onChange={(e) => handleOnChange(e)}
+                required={!field.optional}
+                description={field.documentation}
+                placeholder={field.placeholder}
+                readOnly={!field.editable}
+                errorMsg={errors[field.key]?.message.toString()}
+                onBlur={(e) => handleOnBlur(e)}
+                onFocus={(e) => handleOnFocus(e)}
+                autoFocus={autoFocus}
+                sx={{ width: "100%" }}
+            />
+            {(!errors[field.key]?.message) && formDiagnostics && formDiagnostics.length > 0 && (
+                <ErrorBanner errorMsg={formDiagnostics.map(d => d.message).join('\n')} />
+            )}
+        </div>
     );
 }

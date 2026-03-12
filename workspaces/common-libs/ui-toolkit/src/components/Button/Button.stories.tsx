@@ -16,7 +16,7 @@
  * under the License.
  */
 import React from "react";
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { Button, ButtonProps } from "./Button";
 import { colors } from "../Commons/Colors";
 import { Icon } from "../Icon/Icon";

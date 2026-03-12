@@ -17,17 +17,18 @@
  * under the License.
  */
 
-import { NodePosition } from "@wso2/syntax-tree";
+import { FunctionDefinition } from "@wso2/syntax-tree";
 import { AIMachineContext, AIMachineStateValue } from "../../state-machine-types";
 import { Command, TemplateId } from "../../interfaces/ai-panel";
-import { DataMapperSourceResponse, ExtendedDataMapperMetadata } from "../../interfaces/extended-lang-client";
+import { AllDataMapperSourceRequest, ExtendedDataMapperMetadata } from "../../interfaces/extended-lang-client";
+import { ComponentInfo, DataMapperMetadata, Diagnostics, DMModel, ImportStatements, LinePosition, LineRange, OperationType } from "../..";
 
 // ==================================
 // General Interfaces
 // ==================================
 export type AIPanelPrompt =
-    | { type: 'command-template'; command: Command; templateId: TemplateId; text?: string; params?: Map<string, string>; metadata?: Record<string, any> }
-    | { type: 'text'; text: string }
+    | { type: 'command-template'; command: Command; templateId: TemplateId; text?: string; params?: Record<string, string>; metadata?: Record<string, any> }
+    | { type: 'text'; text: string; planMode: boolean; codeContext?: CodeContext; autoSubmit?: boolean }
     | undefined;
 
 export interface AIMachineSnapshot {
@@ -35,25 +36,13 @@ export interface AIMachineSnapshot {
     context: AIMachineContext;
 }
 
-export type ErrorCode = {
-    code: number;
-    message: string;
-}
-
-export interface FetchDataRequest {
-    url: string;
-    options: RequestInit;
-}
-
-export interface FetchDataResponse {
-    response: Response
-}
-
 export interface ProjectSource {
     projectModules?: ProjectModule[];
     projectTests?: SourceFile[];
     sourceFiles: SourceFile[];
-    projectName: string;
+    projectName: string; // Actual package name from package's Ballerina.toml (e.g., "mypackage")
+    packagePath: string; // Relative path from workspace root (e.g., "package1", "packages/foo"), empty string for non-workspace
+    isActive: boolean; // True if this is the currently active package in the workspace
 }
 
 export interface ProjectModule {
@@ -72,7 +61,8 @@ export interface GetModuleDirParams {
     moduleName: string;
 }
 
-export interface ProjectDiagnostics {
+export interface MappingDiagnostics {
+    uri: string;
     diagnostics: DiagnosticEntry[];
 }
 
@@ -80,12 +70,6 @@ export interface DiagnosticEntry {
     line?: number;
     message: string;
     code?: string;
-}
-
-export interface AddToProjectRequest {
-    filePath: string;
-    content: string;
-    isTestCode: boolean;
 }
 
 export interface AddFilesToProjectRequest {
@@ -97,38 +81,53 @@ export interface FileChanges {
     content: string;
 }
 
-export interface GetFromFileRequest {
-    filePath: string;
-}
-
-export interface DeleteFromProjectRequest {
-    filePath: string;
+export interface ProjectImports {
+    projectPath: string;
+    imports: ImportStatements[];
 }
 
 // Data-mapper related interfaces
-export interface GenerateMappingsRequest {
-    position: NodePosition;
-    filePath: string;
-    file?: Attachment;
+export interface MetadataWithAttachments {
+    metadata: ExtendedDataMapperMetadata;
+    attachments: Attachment[];
 }
 
-export interface GenerateMappingsResponse {
-    newFnPosition?: NodePosition;
-    error?: ErrorCode;
-    userAborted?: boolean;
+export interface InlineMappingsSourceResult {
+    allMappingsRequest: AllDataMapperSourceRequest;
+    tempFileMetadata: ExtendedDataMapperMetadata;
+    tempDir: string;
 }
 
-export interface NotifyAIMappingsRequest {
-    newFnPosition: NodePosition;
-    prevFnSource: string;
-    filePath: string;
+export interface ProcessContextTypeCreationRequest {
+    attachments: Attachment[];
 }
 
-export interface CodeSegment {
-    segmentText: string;
-    filePath: string;
+export interface ProcessMappingParametersRequest {
+    parameters: MappingParameters;
     metadata?: ExtendedDataMapperMetadata;
-    textEdit?: DataMapperSourceResponse;
+    attachments?: Attachment[];
+}
+
+export interface CreateTempFileRequest {
+    tempDir: string;
+    filePath: string;
+    metadata: ExtendedDataMapperMetadata;
+    inputs?: DataMappingRecord[];
+    output?: DataMappingRecord;
+    functionName?: string;
+    inputNames?: string[];
+    imports?: ImportInfo[];
+    hasMatchingFunction?: boolean;
+}
+
+export interface DatamapperModelContext {
+    documentUri?: string;
+    identifier?: string;
+    dataMapperMetadata?: DataMapperMetadata;
+}
+
+export interface DiagnosticList {
+    diagnosticsList: Diagnostics[];
 }
 
 export interface DataMappingRecord {
@@ -138,7 +137,7 @@ export interface DataMappingRecord {
 }
 
 export interface GenerateTypesFromRecordRequest {
-    attachment?: Attachment[]
+    attachment: Attachment[]
 }
 
 export interface GenerateTypesFromRecordResponse {
@@ -157,39 +156,58 @@ export interface ImportInfo {
     recordName?: string;
 }
 
-// Test-generator related interfaces
-export enum TestGenerationTarget {
-    Service = "service",
-    Function = "function"
+export interface TempDirectoryPath {
+    filePaths: string[];
+    tempDir?: string;
 }
 
-export interface TestGenerationRequest {
-    targetType: TestGenerationTarget;
-    targetIdentifier: string;
-    testPlan?: string;
-    diagnostics?: ProjectDiagnostics;
-    existingTests?: string;
+export interface ExtractMappingDetailsRequest {
+    parameters: MappingParameters;                
+    recordMap: Record<string, DataMappingRecord>;  
+    allImports: ImportInfo[];  
+    existingFunctions: ComponentInfo[];    
+    functionContents: Record<string, string>;        
 }
 
-export interface TestGenerationResponse {
-    testSource: string;
-    testConfig?: string;
+export interface ExistingFunctionMatchResult {
+    match: boolean;
+    matchingFunctionFile: string | null;
+    functionDefNode: FunctionDefinition | null;
 }
 
-export interface TestPlanGenerationRequest {
-    targetType: TestGenerationTarget;
-    targetSource: string;
-    target : string;
+export interface ExtractMappingDetailsResponse {
+    inputs: DataMappingRecord[];    
+    output: DataMappingRecord; 
+    inputParams: string[];
+    outputParam: string;   
+    imports: ImportInfo[];
+    inputNames: string[];
+    existingFunctionMatch: ExistingFunctionMatchResult;       
+}
+
+export interface RepairCodeParams {
+    tempFileMetadata: ExtendedDataMapperMetadata;
+    customFunctionsFilePath?: string;
+    imports?: ImportInfo[];
+    tempDir?: string;
+}
+
+export interface RepairedMapping {
+    output: string;       
+    expression: string; 
+}
+
+export interface repairCodeRequest {
+    dmModel: DMModel;
+    imports: ImportInfo[];
+}
+
+export interface RepairCodeResponse {
+    repairedMappings: RepairedMapping[];
 }
 
 export interface TestGenerationMentions {
     mentions: string[];
-}
-
-export interface TestGeneratorIntermediaryState {
-    // content: [string, Attachment[]];
-    resourceFunction: string;
-    testPlan: string;
 }
 
 export interface DocumentationGeneratorIntermediaryState {
@@ -199,27 +217,7 @@ export interface DocumentationGeneratorIntermediaryState {
     openApiSpec?: string;
 }
 
-export interface PostProcessRequest {
-    assistant_response: string;
-}
-
-export interface PostProcessResponse {
-    assistant_response: string;
-    diagnostics: ProjectDiagnostics;
-}
-
-export interface AIChatSummary {
-    filepath: string;
-    summary: string;
-}
-
-export interface DeveloperDocument {
-    filepath: string;
-    content: string;
-}
-
 export interface RequirementSpecification {
-    filepath: string;
     content: string;
 }
 
@@ -273,14 +271,6 @@ export interface FeedbackMessage {
     role : string;
 }
 
-export interface RelevantLibrariesAndFunctionsRequest {
-    query: string;
-}
-
-export interface RelevantLibrariesAndFunctionsResponse {
-    libraries: any[];
-}
-
 export interface ChatEntry {
     actor: string;
     message: string;
@@ -303,31 +293,20 @@ export interface FileAttatchment {
     content: string;
 }
 
-export type OperationType = "CODE_GENERATION" | "CODE_FOR_USER_REQUIREMENT" | "TESTS_FOR_USER_REQUIREMENT";
-export interface GenerateCodeRequest {
+export type CodeContext =
+    | { type: 'addition'; position: LinePosition, filePath: string }
+    | { type: 'selection'; startPosition: LinePosition; endPosition: LinePosition, filePath: string };
+
+export interface GenerateAgentCodeRequest {
     usecase: string;
-    chatHistory: ChatEntry[];
-    operationType: OperationType;
+    operationType?: OperationType;
     fileAttachmentContents: FileAttatchment[];
+    threadId?: string; //TODO: Make this required once we support threads in UI
+    isPlanMode: boolean;
+    codeContext?: CodeContext;
 }
 
-export interface SourceFiles {
-    filePath: string;
-    content: string;
-}
-
-export interface RepairParams {
-    previousMessages: any[];
-    assistantResponse: string;
-    diagnostics: DiagnosticEntry[];
-}
-
-export interface RepairResponse {
-    repairResponse: string;
-    diagnostics: DiagnosticEntry[];
-}
-
-export type LibraryMode = "CORE" | "HEALTHCARE";
+export type LibraryMode = "CORE" | "HEALTHCARE" | "ALL";
 
 export interface CopilotAllLibrariesRequest {
     mode: LibraryMode;
@@ -342,11 +321,18 @@ export interface CopilotCompactLibrariesResponse {
 
 export interface CopilotFilterLibrariesRequest {
     libNames: string[];
-    mode: LibraryMode;
 }
 
 export interface CopilotFilterLibrariesResponse {
     libraries: any[];
+}
+
+export interface CopilotSearchLibrariesBySearchRequest {
+    keywords: string[];
+}
+
+export interface CopilotSearchLibrariesBySearchResponse {
+    libraries: MinifiedLibrary[];
 }
 
 // ==================================
@@ -363,3 +349,145 @@ export interface DocGenerationRequest {
 
 export const GENERATE_TEST_AGAINST_THE_REQUIREMENT = "Generate tests against the requirements";
 export const GENERATE_CODE_AGAINST_THE_REQUIREMENT = "Generate code based on the requirements";
+
+// ==================================
+// Execution Context
+// ==================================
+
+/**
+ * Execution context for AI code generation operations.
+ *
+ * Contains project path information needed for code generation without
+ * depending on global StateMachine state. This enables:
+ * - Parallel test execution with isolated contexts
+ * - Explicit path dependencies
+ * - Better testability and code clarity
+ *
+ * @property projectPath - Absolute path to the active Ballerina project/package
+ * @property workspacePath - Optional absolute path to workspace root (for multi-package workspaces)
+ */
+export interface ExecutionContext {
+    /** Absolute path to the current Ballerina project */
+    readonly projectPath: string;
+
+    /** Optional absolute path to workspace root (if multi-package workspace) */
+    readonly workspacePath?: string;
+
+    /** Temporary project path (set by AICommandExecutor.initialize()) */
+    tempProjectPath?: string;
+}
+
+export interface SemanticDiffRequest {
+    projectPath: string;
+}
+
+// Numeric enum values from the API
+export enum ChangeTypeEnum {
+    ADDITION = 0,
+    DELETION = 1,
+    MODIFICATION = 2,
+
+}
+
+export type ChangeType = "ADDITION" | "MODIFICATION" | "DELETION";
+
+export interface SemanticDiff {
+    changeType: number; // API returns numeric value
+    nodeKind: number;   // API returns numeric value
+    uri: string;
+    lineRange: LineRange;
+}
+
+export interface SemanticDiffResponse {
+    loadDesignDiagrams: boolean;
+    semanticDiffs: SemanticDiff[];
+}
+
+export interface RestoreCheckpointRequest {
+    checkpointId: string;
+}
+
+export interface UpdateChatMessageRequest {
+    messageId: string;
+    content: string;
+}
+
+export interface PlanApprovalRequest {
+    requestId: string;
+    comment?: string;
+}
+
+export interface ApproveTaskRequest {
+    requestId: string;
+    approvedTaskDescription?: string;
+}
+
+export interface TaskDeclineRequest {
+    requestId: string;
+    comment?: string;
+}
+
+export interface ConnectorSpecRequest {
+    requestId: string;
+    spec: any;
+}
+
+export interface ConnectorSpecCancelRequest {
+    requestId: string;
+    comment?: string;
+}
+
+export interface ConfigurationProvideRequest {
+    requestId: string;
+    configValues: Record<string, string>;
+}
+
+export interface ConfigurationCancelRequest {
+    requestId: string;
+    comment?: string;
+}
+
+export type ErrorCode = {
+    code: number;
+    message: string;
+}
+
+// ==================================
+// Chat State Interfaces (for RPC)
+// ==================================
+
+/**
+ * UI-formatted chat message for display
+ */
+export interface UIChatMessage {
+    role: "user" | "assistant";
+    content: string;
+    checkpointId?: string;
+    messageId?: string;
+}
+
+/**
+ * Checkpoint metadata for time-travel functionality
+ */
+export interface CheckpointInfo {
+    id: string;
+    messageId: string;
+    timestamp: number;
+    snapshotSize: number;
+}
+
+/**
+ * Request to abort AI generation
+ * Optional params default to current workspace and 'default' thread
+ */
+export interface AbortAIGenerationRequest {
+    /** Workspace identifier (defaults to current workspace) */
+    workspaceId?: string;
+    /** Thread identifier (defaults to 'default') */
+    threadId?: string;
+}
+
+export interface UsageResponse {
+    remainingUsagePercentage: number;
+    resetsIn: number; // in seconds
+}

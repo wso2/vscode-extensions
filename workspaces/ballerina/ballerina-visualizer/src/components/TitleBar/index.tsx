@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import styled from "@emotion/styled";
 import { Icon } from "@wso2/ui-toolkit";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
@@ -105,15 +105,26 @@ interface TitleBarProps {
     subtitleElement?: ReactNode;
     actions?: ReactNode;
     hideBack?: boolean;
+    hideUndoRedo?: boolean;
     onBack?: () => void; // Override back functionality
     isBetaFeature?: boolean;
 }
 
 export function TitleBar(props: TitleBarProps) {
-    const { title, subtitle, subtitleElement, actions, hideBack, onBack, isBetaFeature } = props;
+    const { title, subtitle, subtitleElement, actions, hideBack, hideUndoRedo, onBack, isBetaFeature } = props;
     const { rpcClient } = useRpcContext();
 
-    const isDiagramView = rpcClient.getVisualizerLocation().then((res) => res.view === MACHINE_VIEW.BIDiagram);
+    const [isDiagramView, setIsDiagramView] = useState(false);
+
+    useEffect(() => {
+        rpcClient.getVisualizerLocation().then((res) => {
+            if (res.view === MACHINE_VIEW.BIDiagram) {
+                setIsDiagramView(true);
+            } else {
+                setIsDiagramView(false);
+            }
+        });
+    }, [title]);
 
     const handleBackButtonClick = () => {
         if (onBack) {
@@ -131,7 +142,6 @@ export function TitleBar(props: TitleBarProps) {
                         <Icon name="bi-arrow-back" iconSx={{ fontSize: "20px", color: "var(--vscode-foreground)" }} />
                     </IconButton>
                 )}
-                {(actions || isDiagramView) && <UndoRedoGroup key={Date.now()} />}
                 <TitleSection>
                     <Title>{title}</Title>
                     {subtitle && <SubTitle>{subtitle}</SubTitle>}
@@ -144,6 +154,7 @@ export function TitleBar(props: TitleBarProps) {
                 )}
             </LeftContainer>
             <RightContainer>
+                {(!hideUndoRedo && (actions || isDiagramView)) && <UndoRedoGroup key={Date.now()} />}
                 {actions && <ActionsContainer>{actions}</ActionsContainer>}
             </RightContainer>
         </TitleBarContainer>

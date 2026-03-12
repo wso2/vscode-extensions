@@ -43,14 +43,23 @@ export async function attemptRepairProject(langClient: ExtendedLangClient, tempD
     return projectDiags;
 }
 
-export async function checkProjectDiagnostics(langClient: ExtendedLangClient, tempDir: string): Promise<Diagnostics[]> {
+export async function checkProjectDiagnostics(langClient: ExtendedLangClient, tempDir: string, isAISchema: boolean = false): Promise<Diagnostics[]> {
     const allDiags: Diagnostics[] = [];
+    let projectUri = Uri.file(tempDir).toString();
+    if (isAISchema) {
+        projectUri = Uri.file(tempDir).with({ scheme: 'ai' }).toString();
+    }
+    console.log("Getting project diagnostics for URI:", projectUri);
     let response: ProjectDiagnosticsResponse = await langClient.getProjectDiagnostics({
         projectRootIdentifier: {
-            uri: Uri.file(tempDir).toString()
+            uri: projectUri
         }
     });
-    if (!response.errorDiagnosticMap || Object.keys(response.errorDiagnosticMap).length === 0) {
+    if (!response.errorDiagnosticMap) {
+        throw new Error("Internal error while getting diagnostics from language server");
+    }
+    
+    if (Object.keys(response.errorDiagnosticMap).length === 0) {
         return [];
     }
     for (const [filePath, diagnostics] of Object.entries(response.errorDiagnosticMap)) {
@@ -62,7 +71,7 @@ export async function checkProjectDiagnostics(langClient: ExtendedLangClient, te
 export async function isModuleNotFoundDiagsExist(diagnosticsResult: Diagnostics[], langClient): Promise<boolean> {
     // Create a Map to store unique diagnostic messages and their corresponding diagnostic information
     const uniqueDiagnosticMap = new Map<string, { diagnostic: any, uri: string }>();
-    
+
     // First pass: collect unique diagnostic messages across all files
     for (const diagResult of diagnosticsResult) {
         for (const diag of diagResult.diagnostics) {
@@ -74,42 +83,33 @@ export async function isModuleNotFoundDiagsExist(diagnosticsResult: Diagnostics[
             }
         }
     }
-    
+
     // If no BCE2003 diagnostics found, return false
     if (uniqueDiagnosticMap.size === 0) {
         return false;
     }
-    
+
     // Process each unique diagnostic only once
     let projectModified = false;
-    for (const [_, { uri }] of uniqueDiagnosticMap.entries()) {
-        const dependenciesResponse = await langClient.resolveMissingDependencies({
+    for (const [message, { uri }] of uniqueDiagnosticMap.entries()) {
+        // Skip resolving dependencies for the invalid config import pattern
+        if (message.includes("ballerinax/.config as config")) {
+            continue;
+        }
+
+        const dependenciesResponse = await langClient.resolveModuleDependencies({
             documentIdentifier: {
                 uri: uri
             }
         });
-        
-        const response = dependenciesResponse as SyntaxTree;
-        if (response.parseSuccess) {
-            // Read and save content to a string
-            const sourceFile = await workspace.openTextDocument(Uri.parse(uri));
-            const content = sourceFile.getText();
 
-            langClient.didOpen({
-                textDocument: {
-                    uri: uri,
-                    languageId: 'ballerina',
-                    version: 1,
-                    text: content
-                }
-            });
-            projectModified = true;
-        } else {
-            console.log("Module resolving failed for uri: " + uri + " with response: " + JSON.stringify(response) + "\n" + uniqueDiagnosticMap + "\n");
-            throw Error("Module resolving failed");
+        const response = dependenciesResponse;
+        if (!response.success) {
+            throw new Error("Module resolving failed");
         }
+        projectModified = true;
     }
-    
+
     return projectModified;
 }
 
@@ -185,35 +185,135 @@ export async function removeUnusedImports(diagnosticsResult: Diagnostics[], lang
     for (const diag of diagnosticsResult) {
         const fielUri = diag.uri;
         const diagnostics = diag.diagnostics;
-            // Filter the unused import diagnostics
-            const diagnostic = diagnostics.find(d => d.code === "BCE2002");
-            if (!diagnostic) { continue; }
-            const codeActions = await langClient.codeAction({
-                textDocument: { uri: fielUri },
-                range: {
-                    start: diagnostic.range.start,
-                    end: diagnostic.range.end
-                },
-                context: { diagnostics: [diagnostic] }
-            });
+        // Filter the unused import diagnostics
+        const diagnostic = diagnostics.find(d => d.code === "BCE2002");
+        if (!diagnostic) { continue; }
+        const codeActions = await langClient.codeAction({
+            textDocument: { uri: fielUri },
+            range: {
+                start: diagnostic.range.start,
+                end: diagnostic.range.end
+            },
+            context: { diagnostics: [diagnostic] }
+        });
 
-            // Find and apply the appropriate code action
-            const action = codeActions.find(action => action.title === "Remove all unused imports");
-            if (!action?.edit?.documentChanges?.length) { continue; }
-            const docEdit = action.edit.documentChanges[0] as TextDocumentEdit;
+        // Find and apply the appropriate code action
+        const action = codeActions.find(action => action.title === "Remove all unused imports");
+        if (!action?.edit?.documentChanges?.length) { continue; }
+        const docEdit = action.edit.documentChanges[0] as TextDocumentEdit;
 
-            // Apply modifications to syntax tree
-            const syntaxTree = await langClient.stModify({
-                documentIdentifier: { uri: docEdit.textDocument.uri },
-                astModifications: docEdit.edits.map(edit => ({
+        // Apply modifications to syntax tree
+        const syntaxTree = await langClient.stModify({
+            documentIdentifier: { uri: docEdit.textDocument.uri },
+            astModifications: docEdit.edits.map(edit => ({
+                startLine: edit.range.start.line,
+                startColumn: edit.range.start.character,
+                endLine: edit.range.end.line,
+                endColumn: edit.range.end.character,
+                type: "INSERT",
+                isImport: true,
+                config: { STATEMENT: edit.newText }
+            }))
+        });
+
+        // Update file content
+        const { source } = syntaxTree as SyntaxTree;
+        if (!source) {
+            // Handle the case where source is undefined, when compiler issue occurs
+            return false;
+        }
+        const absolutePath = fileURLToPath(fielUri);
+        writeBallerinaFileDidOpenTemp(absolutePath, source);
+        projectModified = true;
+    }
+    return projectModified;
+}
+
+export async function addMissingRequiredFields(
+    diagnosticsResult: Diagnostics[],
+    langClient: ExtendedLangClient
+): Promise<boolean> {
+    let projectModified = false;
+
+    for (const diag of diagnosticsResult) {
+        const fileUri = diag.uri;
+        const diagnostics = diag.diagnostics;
+
+        // Filter BCE2520 diagnostics (missing required record fields)
+        const bce2520Diagnostics = diagnostics.filter(d => d.code === "BCE2520");
+        if (!bce2520Diagnostics.length) {
+            continue;
+        }
+
+        // Group diagnostics by their range (same location = same record literal)
+        const diagnosticsByRange = new Map<string, typeof bce2520Diagnostics>();
+        
+        for (const d of bce2520Diagnostics) {
+            const rangeKey = `${d.range.start.line}:${d.range.start.character}-${d.range.end.line}:${d.range.end.character}`;
+            if (!diagnosticsByRange.has(rangeKey)) {
+                diagnosticsByRange.set(rangeKey, []);
+            }
+            diagnosticsByRange.get(rangeKey)!.push(d);
+        }
+
+        const astModifications: STModification[] = [];
+
+        // Process each group of diagnostics (one group per record literal)
+        for (const [rangeKey, groupedDiagnostics] of diagnosticsByRange) {
+            try {
+                // Use the first diagnostic's range, but pass ALL diagnostics in the group
+                const firstDiag = groupedDiagnostics[0];
+                
+                // Get code actions with ALL diagnostics for this location
+                const codeActions = await langClient.codeAction({
+                    textDocument: { uri: fileUri },
+                    range: {
+                        start: firstDiag.range.start,
+                        end: firstDiag.range.end
+                    },
+                    context: { 
+                        diagnostics: groupedDiagnostics, 
+                        only: ['quickfix'],
+                        triggerKind: 1
+                    }
+                });
+
+                if (!codeActions?.length) {
+                    console.warn(`No code actions returned for ${fileUri} at ${rangeKey}`);
+                    continue;
+                }
+
+                // Find the action that fills required fields
+                const action = codeActions.find(
+                    action => action.title && action.title.includes("required fields")
+                );
+
+                if (!action?.edit?.documentChanges?.length) {
+                    continue;
+                }
+
+                const docEdit = action.edit.documentChanges[0] as TextDocumentEdit;
+                const edit = docEdit.edits[0];
+
+                astModifications.push({
                     startLine: edit.range.start.line,
                     startColumn: edit.range.start.character,
                     endLine: edit.range.end.line,
                     endColumn: edit.range.end.character,
                     type: "INSERT",
-                    isImport: true,
+                    isImport: false,
                     config: { STATEMENT: edit.newText }
-                }))
+                });
+            } catch (err) {
+                console.warn(`Could not apply code action for ${fileUri} at ${rangeKey}:`, err);
+            }
+        }
+
+        // Apply modifications to syntax tree
+        if (astModifications.length > 0) {
+            const syntaxTree = await langClient.stModify({
+                documentIdentifier: { uri: fileUri },
+                astModifications: astModifications
             });
 
             // Update file content
@@ -222,9 +322,95 @@ export async function removeUnusedImports(diagnosticsResult: Diagnostics[], lang
                 // Handle the case where source is undefined, when compiler issue occurs
                 return false;
             }
-            const absolutePath = fileURLToPath(fielUri);
+            const absolutePath = fileURLToPath(fileUri);
             writeBallerinaFileDidOpenTemp(absolutePath, source);
             projectModified = true;
+        }
+    }
+
+    return projectModified;
+}
+
+export async function addCheckExpressionErrors(
+    diagnosticsResult: Diagnostics[],
+    langClient: ExtendedLangClient
+): Promise<boolean> {
+    let projectModified = false;
+
+    for (const diag of diagnosticsResult) {
+        const fileUri = diag.uri;
+        const diagnostics = diag.diagnostics;
+
+        // Filter BCE3032 diagnostics (check expression errors)
+        const checkExprDiagnostics = diagnostics.filter(d => d.code === "BCE3032");
+        if (!checkExprDiagnostics.length) {
+            continue;
+        }
+
+        // Process each diagnostic individually
+        for (const diagnostic of checkExprDiagnostics) {
+            try {
+                // Get code actions for the diagnostic
+                const codeActions = await langClient.codeAction({
+                    textDocument: { uri: fileUri },
+                    range: {
+                        start: diagnostic.range.start,
+                        end: diagnostic.range.end
+                    },
+                    context: {
+                        diagnostics: [diagnostic],
+                        only: ['quickfix'],
+                        triggerKind: 1
+                    }
+                });
+
+                if (!codeActions?.length) {
+                    console.warn(`No code actions returned for ${fileUri} at line ${diagnostic.range.start.line}`);
+                    continue;
+                }
+
+                // Find the action that adds error to return type
+                const action = codeActions.find(
+                    action => action.title && (
+                        action.title.toLowerCase().includes("change") &&
+                        action.title.toLowerCase().includes("return") &&
+                        action.title.toLowerCase().includes("error")
+                    )
+                );
+
+                if (!action?.edit?.documentChanges?.length) {
+                    continue;
+                }
+
+                const docEdit = action.edit.documentChanges[0] as TextDocumentEdit;
+
+                // Apply modifications to syntax tree
+                const syntaxTree = await langClient.stModify({
+                    documentIdentifier: { uri: docEdit.textDocument.uri },
+                    astModifications: docEdit.edits.map(edit => ({
+                        startLine: edit.range.start.line,
+                        startColumn: edit.range.start.character,
+                        endLine: edit.range.end.line,
+                        endColumn: edit.range.end.character,
+                        type: "INSERT",
+                        isImport: false,
+                        config: { STATEMENT: edit.newText }
+                    }))
+                });
+
+                // Update file content
+                const { source } = syntaxTree as SyntaxTree;
+                if (!source) {
+                    // Handle the case where source is undefined, when compiler issue occurs
+                    return false;
+                }
+                const absolutePath = fileURLToPath(fileUri);
+                writeBallerinaFileDidOpenTemp(absolutePath, source);
+                projectModified = true;
+            } catch (err) {
+                console.warn(`Could not apply code action for ${fileUri} at line ${diagnostic.range.start.line}:`, err);
+            }
+        }
     }
     return projectModified;
 }

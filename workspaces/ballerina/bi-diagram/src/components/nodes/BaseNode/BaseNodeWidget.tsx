@@ -26,7 +26,7 @@ import {
     NODE_PADDING,
     NODE_WIDTH,
 } from "../../../resources/constants";
-import { Button, Item, Menu, MenuItem, Popover, ThemeColors } from "@wso2/ui-toolkit";
+import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
 import { MoreVertIcon } from "../../../resources";
 import NodeIcon from "../../NodeIcon";
 import { useDiagramContext } from "../../DiagramContext";
@@ -63,10 +63,10 @@ export namespace NodeStyles {
             props.hasError
                 ? ThemeColors.ERROR
                 : props.isSelected && !props.disabled
-                ? ThemeColors.SECONDARY
-                : props.hovered && !props.disabled && !props.readOnly
-                ? ThemeColors.SECONDARY
-                : ThemeColors.OUTLINE_VARIANT};
+                    ? ThemeColors.SECONDARY
+                    : props.hovered && !props.disabled && !props.readOnly
+                        ? ThemeColors.SECONDARY
+                        : ThemeColors.OUTLINE_VARIANT};
         border-radius: 10px;
         cursor: ${(props: NodeStyleProp) => (props.readOnly ? "default" : "pointer")};
     `;
@@ -171,7 +171,7 @@ export interface BaseNodeWidgetProps {
     onClick?: (node: FlowNode) => void;
 }
 
-export interface NodeWidgetProps extends Omit<BaseNodeWidgetProps, "children"> {}
+export interface NodeWidgetProps extends Omit<BaseNodeWidgetProps, "children"> { }
 
 export function BaseNodeWidget(props: BaseNodeWidgetProps) {
     const { model, engine, onClick } = props;
@@ -195,6 +195,10 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
     const isMenuOpen = Boolean(menuAnchorEl);
     const hasBreakpoint = model.hasBreakpoint();
     const isActiveBreakpoint = model.isActiveBreakpoint();
+    const canViewFunction =
+        model.node.codedata.node === "FUNCTION_CALL" &&
+        model.node.codedata.org === project?.org &&
+        Boolean(model.node.properties?.view?.value);
 
     const handleOnClick = async (event: React.MouseEvent<HTMLDivElement>) => {
         if (readOnly) {
@@ -257,18 +261,29 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
         setIsHovered(false);
     };
 
+    const handleOnViewFunctionClick = () => {
+        if (readOnly) {
+            return;
+        }
+        viewFunction();
+    };
+
     const openDataMapper = async () => {
         if (!model.node.properties?.view?.value) {
             return;
         }
         const { fileName, startLine, endLine } = model.node.properties.view.value as ELineRange;
-        const filePath = await project?.getProjectPath?.(fileName);
+        const response = await project?.getProjectPath?.({ segments: [fileName], codeData: model.node.codedata });
         openView &&
-            openView(filePath, {
-                startLine: startLine.line,
-                startColumn: startLine.offset,
-                endLine: endLine.line,
-                endColumn: endLine.offset,
+            openView({
+                documentUri: response.filePath,
+                position: {
+                    startLine: startLine.line,
+                    startColumn: startLine.offset,
+                    endLine: endLine.line,
+                    endColumn: endLine.offset,
+                },
+                projectPath: response.projectPath,
             });
     };
 
@@ -277,13 +292,17 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
             return;
         }
         const { fileName, startLine, endLine } = model.node.properties.view.value as ELineRange;
-        const filePath = await project?.getProjectPath?.(fileName);
+        const response = await project?.getProjectPath?.({ segments: [fileName], codeData: model.node.codedata });
         openView &&
-            openView(filePath, {
-                startLine: startLine.line,
-                startColumn: startLine.offset,
-                endLine: endLine.line,
-                endColumn: endLine.offset,
+            openView({
+                documentUri: response.filePath,
+                position: {
+                    startLine: startLine.line,
+                    startColumn: startLine.offset,
+                    endLine: endLine.line,
+                    endColumn: endLine.offset,
+                },
+                projectPath: response.projectPath,
             });
     };
 
@@ -307,7 +326,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
         });
     }
 
-    if (model.node.codedata.node === "FUNCTION_CALL" && model.node.codedata.org === project?.org) {
+    if (canViewFunction) {
         menuItems.splice(1, 0, {
             id: "viewFunction",
             label: "View",
@@ -375,6 +394,21 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
                     </NodeStyles.Header>
                     <NodeStyles.ActionButtonGroup>
                         {hasError && <DiagnosticsPopUp node={model.node} />}
+                        {canViewFunction && (
+                            <Tooltip content="View function flow">
+                                <NodeStyles.MenuButton
+                                    buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
+                                    appearance="icon"
+                                    onClick={handleOnViewFunctionClick}
+                                >
+                                    <Icon
+                                        name="bi-function-flow"
+                                        sx={{ width: 16, height: 16 }}
+                                        iconSx={{ fontSize: 16 }}
+                                    />
+                                </NodeStyles.MenuButton>
+                            </Tooltip>
+                        )}
                         <NodeStyles.MenuButton
                             ref={setMenuButtonElement}
                             buttonSx={readOnly ? { cursor: "not-allowed" } : {}}

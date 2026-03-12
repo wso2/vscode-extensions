@@ -36,7 +36,7 @@ import { EventIntegration } from '../components/ArtifactTest/EventIntegration';
 import { ImportArtifact } from '../components/ImportArtifact';
 import path from 'path';
 import { ProjectExplorer } from '../components/ProjectExplorer';
-const filePath = path.join( __dirname, '..', 'components', 'ArtifactTest', 'data', 'importApi_v1.0.0.xml');
+const filePath = path.join(__dirname, '..', 'components', 'ArtifactTest', 'data', 'importApi_v1.0.0.xml');
 
 export default function createTests() {
   test.describe('Artifact Tests', {
@@ -128,7 +128,14 @@ export default function createTests() {
       await test.step('Open Diagram View for API', async () => {
         console.log('Opening Diagram View for API');
         await api.openDiagramView("NewOpenAPI" + testAttempt + ":v1.0.27-SNAPSHOT", "/pet/findByStatus");
-        // Collapese APIs section
+
+        await page.page.waitForTimeout(2000);
+        await page.executePaletteCommand('View: Close All Editors');
+        console.log("Closed editor groups");
+        console.log('Opening Diagram View for API again without existing webview');
+        await api.openDiagramView("NewOpenAPI" + testAttempt + ":v1.0.27-SNAPSHOT", "/pet/findByStatus");
+
+        // Collapse APIs section
         const projectExplorer = new ProjectExplorer(page.page);
         await projectExplorer.findItem(['Project testProject', 'APIs', "NewOpenAPI" + testAttempt + ":v1.0.27-SNAPSHOT"], true);
         await projectExplorer.findItem(['Project testProject', 'APIs'], true);
@@ -248,7 +255,7 @@ export default function createTests() {
       console.log('Collapsing Class Mediators section');
       await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Class Mediators'], true);
     });
-
+    
     test('Ballerina Module Tests', async () => {
       await toggleNotifications(false);
       const testAttempt = test.info().retry + 1;
@@ -364,9 +371,9 @@ export default function createTests() {
         await ms.createMessageStoreFromProjectExplorer(msName);
         // Close Message Stores
         const projectExplorer = new ProjectExplorer(page.page);
-        await projectExplorer.findItem(['Project testProject',  'Other Artifacts', 'Message Stores'], true);
+        await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Message Stores'], true);
       });
-      
+
     });
 
     test('Message Processor Tests', async () => {
@@ -489,7 +496,7 @@ export default function createTests() {
       await test.step('Add Carbon Data source', async () => {
         console.log('Adding Carbon Data Service');
         const dataService = new DataService(page.page);
-        await dataService.addCarbonDs("testCarbonDs" + testAttempt);
+        await dataService.addCarbonDs("testCarbonDs", testAttempt);
       });
       await test.step('Edit Carbon Data source', async () => {
         console.log('Editing Carbon Data Service');
@@ -612,7 +619,7 @@ export default function createTests() {
       await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Proxy Services'], true);
     });
 
-    test ('Import Artifact', async () => {
+    test('Import Artifact', async () => {
       await test.step('Import API Artifact', async () => {
         const importArtifact = new ImportArtifact(page.page);
         await importArtifact.init();

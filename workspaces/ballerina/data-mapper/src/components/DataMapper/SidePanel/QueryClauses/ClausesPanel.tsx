@@ -16,26 +16,28 @@
  * under the License.
  */
 
-import React from "react";
+import React, { useEffect } from "react";
 
 import { Button, Codicon, SidePanel, SidePanelBody, SidePanelTitleContainer, ThemeColors } from "@wso2/ui-toolkit";
-import { useDMQueryClausesPanelStore } from "../../../../store/store";
+import { useDMQueryClausesStore } from "../../../../store/store";
 import { AddButton, ClauseItem } from "./ClauseItem";
 import { ClauseEditor } from "./ClauseEditor";
 import { ClauseItemListContainer } from "./styles";
-import { DMFormProps, IntermediateClause, Query } from "@wso2/ballerina-core";
+import { DMFormProps, IntermediateClause, IntermediateClauseType, LinePosition, Query } from "@wso2/ballerina-core";
 
 export interface ClausesPanelProps {
     query: Query;
     targetField: string;
     addClauses: (clause: IntermediateClause, targetField: string, isNew: boolean, index:number) => Promise<void>;
     deleteClause: (targetField: string, index: number) => Promise<void>;
+    getClausePosition: (targetField: string, index: number) => Promise<LinePosition>;
     generateForm: (formProps: DMFormProps) => JSX.Element;
+    genUniqueName: (name: string, viewId: string) => Promise<string>;
 }
 
 export function ClausesPanel(props: ClausesPanelProps) {
-    const { isQueryClausesPanelOpen, setIsQueryClausesPanelOpen } = useDMQueryClausesPanelStore();
-    const { query, targetField, addClauses, deleteClause, generateForm } = props;
+    const { isQueryClausesPanelOpen, setIsQueryClausesPanelOpen, clauseToAdd, setClauseToAdd, setClauseTypes } = useDMQueryClausesStore.getState();
+    const { query, targetField, addClauses, deleteClause, getClausePosition, generateForm , genUniqueName} = props;
 
     const [adding, setAdding] = React.useState<number>();
     const [editing, setEditing] = React.useState<number>();
@@ -44,8 +46,24 @@ export function ClausesPanel(props: ClausesPanelProps) {
 
     const clauses = query?.intermediateClauses || [];
 
+    const fillDefaults = async (clause: IntermediateClause) => {
+        const clauseType = clause.type;
+        if (clauseType === IntermediateClauseType.JOIN) {
+            clause.properties.type = "var";
+            clause.properties.isOuter = false;
+        } else if (clauseType === IntermediateClauseType.GROUP_BY) {
+            clause.properties.type = "var";
+            clause.properties.name = await genUniqueName(clause.properties.expression.split('.').pop(), targetField);
+        } else if (clauseType === IntermediateClauseType.FROM) {
+            clause.properties.type = "var";
+        } else if (clauseType === IntermediateClauseType.LET && !clause.properties.type) {
+            clause.properties.type = "var";
+        }
+    };
+
     const setClauses = async (clause: IntermediateClause, isNew: boolean, index: number) => {
         setSaving(index);
+        await fillDefaults(clause);
         await addClauses(clause, targetField, isNew, index);
         setSaving(undefined);
     }
@@ -67,12 +85,22 @@ export function ClausesPanel(props: ClausesPanelProps) {
         setEditing(undefined);
     }
 
+    useEffect(() => {
+        if (clauseToAdd) {
+            setAdding(clauses.length - 1);
+        }
+        return () => {
+            setClauseToAdd(undefined);
+            setClauseTypes(undefined);
+        }
+    }, [clauseToAdd, clauses.length]);
+
     return (
         <SidePanel
             isOpen={isQueryClausesPanelOpen}
             alignment="right"
-            width={312}
-            overlay={false}
+            width={400}
+            overlay={true}
             sx={{
                 fontFamily: "GilmerRegular",
                 backgroundColor: ThemeColors.SURFACE_DIM,
@@ -94,9 +122,12 @@ export function ClausesPanel(props: ClausesPanelProps) {
 
                 {adding === -1 ? (
                     <ClauseEditor
+                        index={0}
+                        targetField={targetField}
                         isSaving={saving === -1}
                         onCancel={() => setAdding(undefined)}
                         onSubmit={onAdd}
+                        getClausePosition={getClausePosition}
                         generateForm={generateForm}
                     />
                 ) : (
@@ -108,6 +139,7 @@ export function ClausesPanel(props: ClausesPanelProps) {
                         <ClauseItem
                             key={index}
                             index={index}
+                            targetField={targetField}
                             clause={clause}
                             isSaving={index === saving}
                             isAdding={index === adding}
@@ -118,11 +150,11 @@ export function ClausesPanel(props: ClausesPanelProps) {
                             onAdd={onAdd}
                             onEdit={onEdit}
                             onDelete={onDelete}
+                            getClausePosition={getClausePosition}
                             generateForm={generateForm} />
                     ))}
                 </ClauseItemListContainer>
 
-                
             </SidePanelBody>
         </SidePanel>
     );

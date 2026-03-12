@@ -2,7 +2,8 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { POPUP_EVENT_TYPE, PopupMachineStateValue, MACHINE_VIEW, Platform, VisualizerLocation } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { ServiceDesignerView } from './views/ServiceDesigner';
-import { DSSServiceDesignerView } from './views/Forms/DataServiceForm/ServiceDesigner';
+import { DSSResourceServiceDesignerView } from './views/Forms/DataServiceForm/ResourceServiceDesigner';
+import { DSSQueryServiceDesignerView } from './views/Forms/DataServiceForm/QueryServiceDesigner';
 import { APIWizard, APIWizardProps } from './views/Forms/APIform';
 import { EndpointWizard } from './views/Forms/EndpointForm';
 import { SequenceWizard } from './views/Forms/SequenceForm';
@@ -376,8 +377,11 @@ const MainPanel = (props: MainPanelProps) => {
             case MACHINE_VIEW.MockService:
                 setViewComponent(<MockServiceForm filePath={visualizerState.documentUri} stNode={visualizerState.stNode as MockService} isWindows={isWindows} />);
                 break;
-            case MACHINE_VIEW.DSSServiceDesigner:
-                setViewComponent(<DSSServiceDesignerView syntaxTree={visualizerState.stNode} documentUri={visualizerState.documentUri} />);
+            case MACHINE_VIEW.DSSResourceServiceDesigner:
+                setViewComponent(<DSSResourceServiceDesignerView syntaxTree={visualizerState.stNode} documentUri={visualizerState.documentUri} />);
+                break;
+            case MACHINE_VIEW.DSSQueryServiceDesigner:
+                setViewComponent(<DSSQueryServiceDesignerView syntaxTree={visualizerState.stNode} documentUri={visualizerState.documentUri} />);
                 break;
             case MACHINE_VIEW.Welcome:
                 setViewComponent(<WelcomeView />);

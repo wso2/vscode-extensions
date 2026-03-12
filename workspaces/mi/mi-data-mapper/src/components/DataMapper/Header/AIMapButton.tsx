@@ -24,6 +24,7 @@ import { useVisualizerContext } from '@wso2/mi-rpc-client';
 interface AIMapButtonProps {
   onClick: () => void;
   isLoading: boolean;
+  disabled?: boolean;
 }
 
 const ButtonContainer = styled.div`
@@ -47,8 +48,8 @@ const StyledButton = styled(Button) <{ isLoading: boolean }>`
   min-width: 80px;
 `;
 
-const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading }) => {
-  var [remaingTokenLessThanOne, setRemainingTokenLessThanOne] = useState(false);
+const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading, disabled = false }) => {
+  var [remainingTokenLessThanOne, setRemainingTokenLessThanOne] = useState(false);
   var [remainingTokenPercentage, setRemainingTokenPercentage] = useState<string | number>("");
 
   const { rpcClient } = useVisualizerContext();
@@ -82,7 +83,7 @@ const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading }) => {
       });
   }, []);
 
-  var tokenUsageText = remainingTokenPercentage === 'Unlimited' ? remainingTokenPercentage : (remaingTokenLessThanOne ? '<1%' : `${remainingTokenPercentage}%`);
+  var tokenUsageText = remainingTokenPercentage === 'Unlimited' ? remainingTokenPercentage : (remainingTokenLessThanOne ? '<1%' : `${remainingTokenPercentage}%`);
 
   return (
     <ButtonContainer>
@@ -90,11 +91,11 @@ const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading }) => {
         appearance="secondary"
         tooltip={`Generate Mapping using AI.\nRemaining Free Usage: ${tokenUsageText}`}
         onClick={async () => {
-          if (!isLoading) {
+          if (!isLoading && !disabled) {
             await onClick();
           }
         }}
-        disabled={isLoading}
+        disabled={isLoading || disabled}
         isLoading={isLoading}
       >
         <div style={{ display: "flex", alignItems: "center" }}>

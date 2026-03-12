@@ -20,8 +20,16 @@
 import {
     ConnectorRequest,
     ConnectorsRequest,
+    generateWSDLApiClient,
     getConnector,
-    getConnectors
+    getConnectors,
+    introspectCredentials,
+    IntrospectCredentialsRequest,
+    introspectDatabase,
+    IntrospectDatabaseRequest,
+    persistClientGenerate,
+    PersistClientGenerateRequest,
+    WSDLApiClientGenerationRequest
 } from "@wso2/ballerina-core";
 import { Messenger } from "vscode-messenger";
 import { ConnectorWizardRpcManager } from "./rpc-manager";
@@ -30,4 +38,8 @@ export function registerConnectorWizardRpcHandlers(messenger: Messenger) {
     const rpcManger = new ConnectorWizardRpcManager();
     messenger.onRequest(getConnector, (args: ConnectorRequest) => rpcManger.getConnector(args));
     messenger.onRequest(getConnectors, (args: ConnectorsRequest) => rpcManger.getConnectors(args));
+    messenger.onRequest(introspectDatabase, (args: IntrospectDatabaseRequest) => rpcManger.introspectDatabase(args));
+    messenger.onRequest(persistClientGenerate, (args: PersistClientGenerateRequest) => rpcManger.persistClientGenerate(args));
+    messenger.onRequest(generateWSDLApiClient, (args: WSDLApiClientGenerationRequest) => rpcManger.generateWSDLApiClient(args));
+    messenger.onRequest(introspectCredentials, (args: IntrospectCredentialsRequest) => rpcManger.introspectCredentials(args));
 }

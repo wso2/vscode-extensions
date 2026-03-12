@@ -20,11 +20,23 @@
 import {
     ConnectorRequest,
     ConnectorResponse,
-    ConnectorWizardAPI,
     ConnectorsRequest,
     ConnectorsResponse,
+    ConnectorWizardAPI,
+    generateWSDLApiClient,
     getConnector,
-    getConnectors
+    getConnectors,
+    introspectCredentials,
+    IntrospectCredentialsRequest,
+    IntrospectCredentialsResponse,
+    introspectDatabase,
+    IntrospectDatabaseRequest,
+    IntrospectDatabaseResponse,
+    persistClientGenerate,
+    PersistClientGenerateRequest,
+    PersistClientGenerateResponse,
+    WSDLApiClientGenerationRequest,
+    WSDLApiClientGenerationResponse
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -42,5 +54,21 @@ export class ConnectorWizardRpcClient implements ConnectorWizardAPI {
 
     getConnectors(params: ConnectorsRequest): Promise<ConnectorsResponse> {
         return this._messenger.sendRequest(getConnectors, HOST_EXTENSION, params);
+    }
+
+    introspectDatabase(params: IntrospectDatabaseRequest): Promise<IntrospectDatabaseResponse> {
+        return this._messenger.sendRequest(introspectDatabase, HOST_EXTENSION, params);
+    }
+
+    persistClientGenerate(params: PersistClientGenerateRequest): Promise<PersistClientGenerateResponse> {
+        return this._messenger.sendRequest(persistClientGenerate, HOST_EXTENSION, params);
+    }
+
+    generateWSDLApiClient(params: WSDLApiClientGenerationRequest): Promise<WSDLApiClientGenerationResponse> {
+        return this._messenger.sendRequest(generateWSDLApiClient, HOST_EXTENSION, params);
+    }
+
+    introspectCredentials(params: IntrospectCredentialsRequest): Promise<IntrospectCredentialsResponse> {
+        return this._messenger.sendRequest(introspectCredentials, HOST_EXTENSION, params);
     }
 }

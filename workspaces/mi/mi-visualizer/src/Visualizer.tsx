@@ -93,7 +93,7 @@ export function Visualizer({ mode, swaggerData }: { mode: string, swaggerData?: 
             rpcClient.getVisualizerState().then((initialState) => {
                 setState(newState);
                 process.env = initialState.env || {};
-                if (Object.values(newState)?.[0] === 'viewReady') {
+                if (Object.values(newState)?.[0] === 'viewReady' && !initialState.isLoading) {
                     setVisualizerState(initialState);
                 }
             });

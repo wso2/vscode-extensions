@@ -21,7 +21,6 @@ import { ResponseError } from "vscode-jsonrpc";
 import { ErrorCode } from "./choreo-rpc/constants";
 import { ext } from "./extensionVariables";
 import { getLogger } from "./logger/logger";
-import { authStore } from "./stores/auth-store";
 import { webviewStateStore } from "./stores/webview-state-store";
 
 export function handlerError(err: any) {
@@ -44,20 +43,20 @@ export function handlerError(err: any) {
 				getLogger().error("InternalError", err);
 				break;
 			case ErrorCode.UnauthorizedError:
-				if (authStore.getState().state?.userInfo) {
-					authStore.getState().logout();
+				if (ext.authProvider?.getState().state?.userInfo) {
+					ext.authProvider?.getState().logout();
 					w.showErrorMessage("Unauthorized. Please sign in again.");
 				}
 				break;
 			case ErrorCode.TokenNotFoundError:
-				if (authStore.getState().state?.userInfo) {
-					authStore.getState().logout();
+				if (ext.authProvider?.getState().state?.userInfo) {
+					ext.authProvider?.getState().logout();
 					w.showErrorMessage("Token not found. Please sign in again.");
 				}
 				break;
 			case ErrorCode.InvalidTokenError:
-				if (authStore.getState().state?.userInfo) {
-					authStore.getState().logout();
+				if (ext.authProvider?.getState().state?.userInfo) {
+					ext.authProvider?.getState().logout();
 					w.showErrorMessage("Invalid token. Please sign in again.");
 				}
 				break;
@@ -65,13 +64,13 @@ export function handlerError(err: any) {
 				getLogger().error("ForbiddenError", err);
 				break;
 			case ErrorCode.RefreshTokenError:
-				if (authStore.getState().state?.userInfo) {
-					authStore.getState().logout();
+				if (ext.authProvider?.getState().state?.userInfo) {
+					ext.authProvider?.getState().logout();
 					w.showErrorMessage("Failed to refresh user session. Please sign in again.");
 				}
 				break;
 			case ErrorCode.ComponentNotFound:
-				w.showErrorMessage(`${extensionName === "Devant" ? "Integration" : "Component"} not found`);
+				w.showErrorMessage(`${ext.terminologies?.componentTermCapitalized} not found`);
 				break;
 			case ErrorCode.ProjectNotFound:
 				w.showErrorMessage("Project not found");
@@ -93,7 +92,7 @@ export function handlerError(err: any) {
 				break;
 			case ErrorCode.MaxComponentCountError:
 				w.showErrorMessage(
-					`Failed to create ${extensionName === "Devant" ? "integration" : "component"} due to reaching maximum number of ${extensionName === "Devant" ? "integrations" : "components"} allowed within the free tier.`,
+					`Failed to create ${ext.terminologies?.componentTerm} due to reaching maximum number of ${ext.terminologies?.componentTermPlural} allowed within the free tier.`,
 					"Upgrade",
 				).then((res) => {
 					if (res === "Upgrade") {
@@ -116,7 +115,7 @@ export function handlerError(err: any) {
 				break;
 			case ErrorCode.InvalidSubPath:
 				w.showErrorMessage(
-					`Failed to create ${extensionName === "Devant" ? "integration" : "component"}. Please try again after synching your local repo directory changes with your remote directory.`,
+					`Failed to create ${ext.terminologies?.componentTerm}. Please try again after synching your local repo directory changes with your remote directory.`,
 				);
 				break;
 			case ErrorCode.NoAccountAvailable:

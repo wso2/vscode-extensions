@@ -33,15 +33,20 @@ export const useDataMapperModel = (
 
     const getDMModel = async () => {
         try {
+
+            const codeDataPosition = {
+                    line: codedata.lineRange.startLine.line,
+                    offset: codedata.lineRange.startLine.offset
+                };
+
             const modelParams = {
                 filePath,
                 codedata,
                 targetField: viewId,
-                position: position ?? {
-                    line: codedata.lineRange.startLine.line,
-                    offset: codedata.lineRange.startLine.offset
-                }
+                position: viewState.subMappingName ? codeDataPosition : (position ??  codeDataPosition)
             };
+            console.log('>>> [Data Mapper] Model Parameters:', modelParams);
+
             const res = await rpcClient
                 .getDataMapperRpcClient()
                 .getDataMapperModel(modelParams);
@@ -75,5 +80,9 @@ export const useDataMapperModel = (
         await refetch();
     };
 
-    return { model, isFetching, isError, refreshDMModel };
+    const requestRefreshDMModel = () => {
+        triggerRefresh.current = true;
+    };
+
+    return { model, isFetching, isError, refreshDMModel, requestRefreshDMModel };
 };

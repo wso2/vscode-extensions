@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { Button, Codicon, ThemeColors } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
@@ -87,7 +87,7 @@ interface ArrayEditorProps {
     recordTypeField?: RecordTypeField;
 }
 
-export function ArrayEditor(props: ArrayEditorProps) {
+function ArrayEditor(props: ArrayEditorProps) {
     const { field, label, ...rest } = props;
     const { form } = useFormContext();
     const { unregister, setValue, watch } = form;
@@ -102,18 +102,31 @@ export function ArrayEditor(props: ArrayEditorProps) {
             const value = watch(`${field.key}-${index}`);
 
             let updatedValue = value;
+            
             if (updatedValue === undefined) {
                 // Use the initial array value if available
                 updatedValue = Array.isArray(field.value) ? field.value[index] : "";
                 setValue(`${field.key}-${index}`, updatedValue ?? "");
             }
+            // HACK: When using expression editor and if the user deletes whole text then the value becomes
+            // an empty value. 
+            if (updatedValue === "") {
+                setValue(`${field.key}-${index}`, " ");
+            }
 
             return updatedValue;
         })
-        .filter(Boolean);
 
     // Update the main field.value array whenever individual fields change
+    const previousValuesRef = useRef<string>();
     useEffect(() => {
+        const serializedValues = JSON.stringify(values);
+        if (previousValuesRef.current === serializedValues) {
+            return;
+        }
+
+        // Prevent redundant form updates which would otherwise trigger endless rerenders.
+        previousValuesRef.current = serializedValues;
         setValue(field.key, values);
     }, [values, field.key, setValue]);
 
@@ -146,14 +159,14 @@ export function ArrayEditor(props: ArrayEditorProps) {
             <S.Description>{field.documentation}</S.Description>
             {[...Array(editorCount)].map((_, index) => (
                 <S.EditorContainer key={`${field.key}-${index}`}>
-                    <ContextAwareExpressionEditor
+                    {/* <ContextAwareExpressionEditor
                         {...rest}
                         field={field}
                         id={`${field.key}-${index}`}
                         fieldKey={`${field.key}-${index}`}
                         required={!field.optional && index === 0}
                         showHeader={false}
-                    />
+                    /> */}
                     <S.DeleteButton
                         appearance="icon"
                         onClick={() => onDelete(index)}

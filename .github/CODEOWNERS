@@ -2,8 +2,19 @@
 *.css @hevayo @gigara @tharindulak
 *.scss @hevayo @gigara @tharindulak
 .trivyignore @hevayo @gigara
+/.github/ @hevayo @gigara @kanushka
+**/package.json @hevayo @gigara @kanushka
+**/package-lock.json @hevayo @gigara @kanushka
+**/pnpm-lock.yaml @hevayo @gigara @kanushka
+pnpm-workspace.yaml @hevayo @gigara @kanushka
+rush.json @hevayo @gigara @kanushka
+/common/ @hevayo @gigara @kanushka
 /workspaces/common-libs/ @hevayo @gigara @tharindulak
 /workspaces/mi/ @hevayo @gigara @kaumini
+workspaces/ballerina/bi-diagram/src/test/__snapshots__ @hevayo @kanushka
+workspaces/ballerina/component-diagram/src/test/__snapshots__ @hevayo @kanushka
+workspaces/ballerina/sequence-diagram/src/test/__snapshots__ @hevayo @kanushka
+workspaces/ballerina/type-diagram/src/test/__snapshots__ @hevayo @kanushka
 /workspaces/ballerina/ballerina-core/src/interfaces/extended-lang-client.ts @hevayo @axewilledge @kanushka
 /workspaces/ballerina/ballerina-rpc-client @hevayo @axewilledge @kanushka
 /workspaces/choreo/ @kaje94

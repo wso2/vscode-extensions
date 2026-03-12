@@ -74,6 +74,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
         onCompletionSelect,
         onDefaultCompletionSelect,
         onManualCompletionRequest,
+        onManualInteraction,
         extractArgsFromFunction,
         onFunctionEdit,
         useTransaction,
@@ -171,6 +172,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
         onCompletionSelect && await onCompletionSelect(newTextValue, item);
         setCursor(inputRef, 'input', newTextValue, newCursorPosition, manualFocusTrigger);
         handleClose();
+        onManualInteraction?.();
     };
 
     const handleExpressionSave = async (value: string, ref?: React.MutableRefObject<string>) => {
@@ -335,7 +337,13 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
             return;
         }
 
+        onManualInteraction?.();
+
     };
+
+    const handleRefSetCursor = (value: string, cursorPosition: number) => {
+        setCursor(inputRef, 'input', value, cursorPosition, manualFocusTrigger);
+    };  
 
     const handleRefFocus = (manualTrigger?: boolean) => {
         if (document.activeElement !== elementRef.current) {
@@ -375,6 +383,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
         inputElement: inputRef.current?.shadowRoot?.querySelector('input'),
         focus: handleRefFocus,
         blur: handleRefBlur,
+        setCursor: handleRefSetCursor,
         saveExpression: async (value?: string, ref?: React.MutableRefObject<string>) => {
             await handleExpressionSaveMutation(value, ref);
         }
@@ -409,6 +418,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
                 onKeyDown={handleInputKeyDown}
                 onFocus={handleTextAreaFocus}
                 onBlur={handleTextFieldBlur}
+                onClick={onManualInteraction}
                 sx={{ width: '100%', ...sx }}
                 disabled={disabled || isSavingExpression}
             />
@@ -419,22 +429,24 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
                 createPortal(
                     <DropdownContainer ref={dropdownContainerRef} sx={{ ...dropdownElPosition }}>
                         <Transition show={showCompletions} {...ANIMATION}>
-                            <Codicon
-                                id='expression-editor-close'
-                                sx={{
-                                    position: 'absolute',
-                                    top: '0',
-                                    right: '0',
-                                    width: '16px',
-                                    margin: '-4px',
-                                    borderRadius: '50%',
-                                    backgroundColor: 'var(--vscode-activityBar-background)',
-                                    zIndex: '5',
-                                }}
-                                iconSx={{ color: 'var(--vscode-activityBar-foreground)' }}
-                                name="close"
-                                onClick={handleClose}
-                            />
+                            <div onMouseDown={e => { e.preventDefault(); }}>
+                                <Codicon
+                                    id='expression-editor-close'
+                                    sx={{
+                                        position: 'absolute',
+                                        top: '0',
+                                        right: '0',
+                                        width: '16px',
+                                        margin: '-4px',
+                                        borderRadius: '50%',
+                                        backgroundColor: 'var(--vscode-activityBar-background)',
+                                        zIndex: '5',
+                                    }}
+                                    iconSx={{ color: 'var(--vscode-activityBar-foreground)' }}
+                                    name="close"
+                                    onClick={handleClose}
+                                />
+                            </div>
                             <Dropdown
                                 ref={dropdownRef}
                                 isSavable={!!onSave}

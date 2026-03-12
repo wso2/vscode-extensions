@@ -27,13 +27,12 @@ import DataMapperDiagram from "../Diagram/Diagram";
 import { DataMapperHeader } from "./Header/DataMapperHeader";
 import { DataMapperNodeModel } from "../Diagram/Node/commons/DataMapperNode";
 import { IONodeInitVisitor } from "../../visitors/IONodeInitVisitor";
-import { DataMapperErrorBoundary } from "./ErrorBoundary";
 import { traverseNode } from "../../utils/model-utils";
 import { View } from "./Views/DataMapperView";
 import {
     useDMCollapsedFieldsStore,
     useDMExpandedFieldsStore,
-    useDMQueryClausesPanelStore,
+    useDMQueryClausesStore,
     useDMSearchStore,
     useDMSubMappingConfigPanelStore,
     useDMExpressionBarStore
@@ -41,7 +40,6 @@ import {
 import { KeyboardNavigationManager } from "../../utils/keyboard-navigation-manager";
 import { DataMapperEditorProps } from "../../index";
 import { ErrorNodeKind } from "./Error/RenderingError";
-import { IOErrorComponent } from "./Error/DataMapperError";
 import { IntermediateNodeInitVisitor } from "../../visitors/IntermediateNodeInitVisitor";
 import {
     LinkConnectorNode,
@@ -51,6 +49,7 @@ import {
 import { SubMappingNodeInitVisitor } from "../../visitors/SubMappingNodeInitVisitor";
 import { SubMappingConfigForm } from "./SidePanel/SubMappingConfig/SubMappingConfigForm";
 import { ClausesPanel } from "./SidePanel/QueryClauses/ClausesPanel";
+import { ClauseForm } from "./SidePanel/QueryClauses/ClauseForm";
 
 const fadeIn = keyframes`
     from { opacity: 0.5; }
@@ -124,10 +123,10 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
     const {
         modelState,
         name,
+        reusable,
         applyModifications,
         onClose,
         onRefresh,
-        onReset,
         onEdit,
         addArrayElement,
         handleView,
@@ -138,10 +137,14 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
         generateForm,
         addClauses,
         deleteClause,
+        getClausePosition,
         mapWithCustomFn,
         mapWithTransformFn,
         goToFunction,
         enrichChildFields,
+        genUniqueName,
+        getConvertedExpression,
+        createConvertedVariable,
         undoRedoGroup
     } = props;
     const {
@@ -149,15 +152,13 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
         hasInputsOutputsChanged = false
     } = modelState;
 
-    const initialView = [{
+    const initialView: View[] = [{
         label: model.output.name,
         targetField: name
     }];
 
     const [views, dispatch] = useReducer(viewsReducer, initialView);
     const [nodes, setNodes] = useState<DataMapperNodeModel[]>([]);
-    const [errorKind, setErrorKind] = useState<ErrorNodeKind>();
-    const [hasInternalError, setHasInternalError] = useState(false);
 
     const { isSMConfigPanelOpen, resetSubMappingConfig } = useDMSubMappingConfigPanelStore(
         useShallow(state => ({
@@ -165,8 +166,7 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
             resetSubMappingConfig: state.resetSubMappingConfig
         }))
     );
-    const { isQueryClausesPanelOpen} = useDMQueryClausesPanelStore();
-
+    const { isQueryClausesPanelOpen, isQueryClauseFormOpen } = useDMQueryClausesStore();
     const { resetSearchStore } = useDMSearchStore();
     const { rpcClient } = useRpcContext();
 
@@ -188,6 +188,19 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
     const resetView = useCallback((newData: View) => {
         dispatch({ type: ActionType.RESET_VIEW, payload: { view: newData } });
     }, [resetSearchStore]);
+
+    const handleOnReset = useCallback(async () => {
+        const targetField = views[views.length - 1].targetField;
+        const outputIds = targetField.split('.');
+
+        let output: string;
+        while ((output = outputIds.pop()) === '0');
+        
+        await deleteMapping(
+            { output, expression: undefined },
+            targetField
+        );
+    }, [views, deleteMapping]);
 
     useEffect(() => {
         const lastView = views[views.length - 1];
@@ -227,17 +240,22 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
             const context = new DataMapperContext(
                 model, 
                 views, 
+                hasInputsOutputsChanged,
+                reusable,
                 addView, 
                 applyModifications, 
                 addArrayElement,
-                hasInputsOutputsChanged,
                 convertToQuery,
                 deleteMapping,
                 deleteSubMapping,
+                addClauses,
                 mapWithCustomFn,
                 mapWithTransformFn,
                 goToFunction,
-                enrichChildFields
+                enrichChildFields,
+                genUniqueName,
+                getConvertedExpression,
+                createConvertedVariable
             );
 
             const ioNodeInitVisitor = new IONodeInitVisitor(context);
@@ -267,7 +285,7 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
             ]);
         } catch (error) {
             console.error("Error generating nodes:", error);
-            setHasInternalError(true);
+            throw error;
         }
     };
 
@@ -282,7 +300,7 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
         useDMCollapsedFieldsStore.getState().resetFields();
         useDMExpandedFieldsStore.getState().resetFields();
         useDMExpressionBarStore.getState().resetExpressionBarStore();
-        useDMQueryClausesPanelStore.getState().resetQueryClausesPanelStore();
+        useDMQueryClausesStore.getState().resetQueryClausesPanelStore();
     }
 
     const handleOnClose = () => {
@@ -303,13 +321,11 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
     };
 
     const handleErrors = (kind: ErrorNodeKind) => {
-        setErrorKind(kind);
+        throw new Error("Diagram rendering error:" + kind);
     };
 
     const autoMapWithAI = async () => {
-        const datamapperModel = await rpcClient.getAiPanelRpcClient().generateDataMapperModel({});
-        rpcClient.getAiPanelRpcClient()
-            .openAIMappingChatWindow(datamapperModel);
+        await rpcClient.getAiPanelRpcClient().openChatWindowWithCommand();
     };
 
     const addNewSubMapping = async (
@@ -324,50 +340,57 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
     }
 
     return (
-        <DataMapperErrorBoundary hasError={hasInternalError} onClose={onClose}>
-            <div className={classes.root}>
-                {model && (
-                    <DataMapperHeader
-                        views={views}
-                        switchView={switchView}
-                        hasEditDisabled={!!errorKind}
-                        onClose={handleOnClose}
-                        onBack={handleOnBack}
-                        onRefresh={onRefresh}
-                        onReset={onReset}
-                        onEdit={onEdit}
-                        autoMapWithAI={autoMapWithAI}
-                        undoRedoGroup={undoRedoGroup}
+        <div className={classes.root}>
+            {model && (
+                <DataMapperHeader
+                    views={views}
+                    reusable={reusable}
+                    switchView={switchView}
+                    onClose={handleOnClose}
+                    onBack={handleOnBack}
+                    onRefresh={onRefresh}
+                    onReset={handleOnReset}
+                    onEdit={onEdit}
+                    autoMapWithAI={autoMapWithAI}
+                    undoRedoGroup={undoRedoGroup}
+                />
+            )}
+            {nodes.length > 0 && (
+                <>
+                    <DataMapperDiagram
+                        nodes={nodes}
+                        onError={handleErrors}
                     />
-                )}
-                {errorKind && <IOErrorComponent errorKind={errorKind} classes={classes} />}
-                {nodes.length > 0 && !errorKind && (
-                    <>
-                        <DataMapperDiagram
-                            nodes={nodes}
-                            onError={handleErrors}
+                    {isSMConfigPanelOpen && (
+                        <SubMappingConfigForm
+                            views={views}
+                            updateView={editView}
+                            addSubMapping={addNewSubMapping}
+                            generateForm={generateForm}
                         />
-                        {isSMConfigPanelOpen && (
-                            <SubMappingConfigForm
-                                views={views}
-                                updateView={editView}
-                                addSubMapping={addNewSubMapping}
-                                generateForm={generateForm}
-                            />
-                        )}
-                        {isQueryClausesPanelOpen && (
-                            <ClausesPanel
-                                query={model.query}
-                                targetField={views[views.length - 1].targetField}
-                                addClauses={addClauses}
-                                deleteClause={deleteClause}
-                                generateForm={generateForm}
-                            />
-                        )}
-                    </>
-                )}
-                
-            </div>
-        </DataMapperErrorBoundary>
-    )
+                    )}
+                    {isQueryClausesPanelOpen && (
+                        <ClausesPanel
+                            query={model.query}
+                            targetField={views[views.length - 1].targetField}
+                            addClauses={addClauses}
+                            deleteClause={deleteClause}
+                            getClausePosition={getClausePosition}
+                            generateForm={generateForm}
+                            genUniqueName={genUniqueName}
+                        />
+                    )}
+                    {isQueryClauseFormOpen && (
+                        <ClauseForm
+                            query={model.query}
+                            targetField={views[views.length - 1].targetField}
+                            addClauses={addClauses}
+                            getClausePosition={getClausePosition}
+                            generateForm={generateForm}
+                        />
+                    )}
+                </>
+            )}
+        </div>
+    );
 }

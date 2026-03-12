@@ -20,14 +20,20 @@ import { CompletionInsertText, ConfigVariable, FlowNode, LineRange, TomlPackage 
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { ReactNode, useEffect, useState } from "react";
 import ExpandableList from "../Components/ExpandableList";
-import { SlidingPaneNavContainer } from "@wso2/ui-toolkit/lib/components/ExpressionEditor/components/Common/SlidingPane";
-import { COMPLETION_ITEM_KIND, Divider, getIcon, ThemeColors } from "@wso2/ui-toolkit";
+import { Button, CheckBox, Divider, SearchBox, TextField, Typography } from "@wso2/ui-toolkit";
 import { ScrollableContainer } from "../Components/ScrollableContainer";
-import DynamicModal from "../../../../components/Modal";
 import FooterButtons from "../Components/FooterButtons";
 import FormGenerator from "../../Forms/FormGenerator";
 import { URI, Utils } from "vscode-uri";
 import { POPUP_IDS, useModalStack } from "../../../../Context";
+import { HelperPaneIconType, getHelperPaneIcon } from "../utils/iconUtils";
+import { HelperPaneListItem } from "../Components/HelperPaneListItem";
+import { TypeIndicator } from "../Components/TypeIndicator";
+import { EmptyItemsPlaceHolder } from "../Components/EmptyItemsPlaceHolder";
+import { HelperPaneCustom } from "@wso2/ui-toolkit";
+import { useHelperPaneNavigation } from "../hooks/useHelperPaneNavigation";
+import { BreadcrumbNavigation } from "../Components/BreadcrumbNavigation";
+import { InputMode } from "@wso2/ballerina-side-panel";
 
 type ConfigVariablesState = {
     [category: string]: {
@@ -40,31 +46,35 @@ type ListItem = {
     items: any[]
 }
 
-type ConfigurablesPageProps = {
+export type ConfigurablesPageProps = {
     onChange: (insertText: string | CompletionInsertText, isRecordConfigureChange?: boolean) => void;
     isInModal?: boolean;
     anchorRef: React.RefObject<HTMLDivElement>;
     fileName: string;
     targetLineRange: LineRange;
     onClose?: () => void;
+    inputMode?: InputMode;
+    excludedConfigs?: string[];
+    onAddNewConfigurable?: (refreshConfigVariables: () => Promise<void>) => void;
+    showAddNew?: boolean;
 }
 
-type AddNewConfigFormProps = {
-    isImportEnv: boolean;
-    title: string;
-}
 
 export const Configurables = (props: ConfigurablesPageProps) => {
-    const { onChange, onClose, fileName, targetLineRange } = props;
+    const { onChange, onClose, fileName, targetLineRange, excludedConfigs = [], onAddNewConfigurable, showAddNew = true } = props;
 
     const { rpcClient } = useRpcContext();
-    const [configVariables, setConfigVariables] = useState<ConfigVariablesState>({});
+    const { breadCrumbSteps, navigateToNext, navigateToBreadcrumb, isAtRoot } = useHelperPaneNavigation("Configurables");
+    const [configVariables, setConfigVariables] = useState<ListItem[]>([]);
     const [errorMessage, setErrorMessage] = useState<string>('');
     const [configVarNode, setCofigVarNode] = useState<FlowNode>();
     const [isSaving, setIsSaving] = useState(false);
     const [packageInfo, setPackageInfo] = useState<TomlPackage>();
     const [isImportEnv, setIsImportEnv] = useState<boolean>(false);
     const [projectPathUri, setProjectPathUri] = useState<string>();
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [showContent, setShowContent] = useState<boolean>(false);
+    const [searchValue, setSearchValue] = useState<string>("");
 
     const { addModal, closeModal } = useModalStack();
 
@@ -74,6 +84,12 @@ export const Configurables = (props: ConfigurablesPageProps) => {
                 isNew: true,
                 isEnvVariable: isImportEnv
             });
+            if (fileName.includes("/tests/")) {
+                if (!node.flowNode.codedata.data) {
+                    node.flowNode.codedata.data = {};
+                }
+                node.flowNode.codedata.data["filePath"] = fileName;
+            }
             setCofigVarNode(node.flowNode);
         };
 
@@ -81,6 +97,7 @@ export const Configurables = (props: ConfigurablesPageProps) => {
     }, [isImportEnv]);
 
     useEffect(() => {
+        setConfigVariables([]);
         getConfigVariables()
         getProjectInfo()
         const fetchTomlValues = async () => {
@@ -99,29 +116,58 @@ export const Configurables = (props: ConfigurablesPageProps) => {
         };
 
         fetchTomlValues();
-    }, [])
+    }, [excludedConfigs])
 
     const getProjectInfo = async () => {
-        const projectPath = await rpcClient.getVisualizerLocation();
-        setProjectPathUri(URI.file(projectPath.projectUri).fsPath);
+        const visualizerContext = await rpcClient.getVisualizerLocation();
+        setProjectPathUri(URI.file(visualizerContext.projectPath).fsPath);
     }
 
     const getConfigVariables = async () => {
         let data: ConfigVariablesState = {};
         let errorMsg: string = '';
 
-        await rpcClient
-            .getBIDiagramRpcClient()
-            .getConfigVariablesV2({
-                includeLibraries: false,
-                projectPath: projectPathUri
-            })
-            .then((variables) => {
-                data = (variables as any).configVariables;
-                errorMsg = (variables as any).errorMsg;
-            });
+        setIsLoading(true);
 
-        setConfigVariables(data);
+        // Only apply minimum loading time if we don't have any config variables yet
+        const shouldShowMinLoader = Object.keys(configVariables).length === 0 && !showContent;
+        const minLoadingTime = shouldShowMinLoader ? new Promise(resolve => setTimeout(resolve, 500)) : Promise.resolve();
+
+        await Promise.all([
+            rpcClient
+                .getBIDiagramRpcClient()
+                .getConfigVariablesV2({
+                    includeLibraries: false,
+                    projectPath: projectPathUri
+                })
+                .then((variables) => {
+                    data = (variables as any).configVariables;
+                    errorMsg = (variables as any).errorMsg;
+                }),
+            minLoadingTime
+        ]).finally(() => {
+            setIsLoading(false);
+            setShowContent(true);
+        });
+
+        let configVariablesArr = translateToArrayFormat(data).filter(data =>
+            Array.isArray(data.items) &&
+            data.items.some(sub => Array.isArray(sub.items) && sub.items.length > 0)
+        );
+
+        configVariablesArr =  configVariablesArr.map(category => ({
+            ...category,
+            items: category.items.map(subCategory => ({
+                ...subCategory,
+                items: subCategory.items.filter((item: ConfigVariable) => {
+                    const value = item?.properties?.variable?.value as string;
+                    return !excludedConfigs.includes(value);
+                })
+            })).filter(subCategory => subCategory.items.length > 0)
+        })).filter(category => category.items.length > 0);
+
+
+        setConfigVariables(configVariablesArr);
         setErrorMessage(errorMsg);
     };
 
@@ -129,6 +175,7 @@ export const Configurables = (props: ConfigurablesPageProps) => {
         closeModal(POPUP_IDS.CONFIGURABLES);
         //TODO: Need to disable the form before saving and move form close to finally block
         setIsSaving(true);
+        node.properties.defaultValue.modified = true;
         await rpcClient.getBIDiagramRpcClient().updateConfigVariablesV2({
             configFilePath: Utils.joinPath(URI.file(projectPathUri), 'config.bal').fsPath,
             configVariable: node,
@@ -137,6 +184,7 @@ export const Configurables = (props: ConfigurablesPageProps) => {
         }).finally(() => {
             setIsSaving(false);
             getConfigVariables();
+            onChange(node.properties.variable.value as string, false);
         });
     };
 
@@ -152,11 +200,21 @@ export const Configurables = (props: ConfigurablesPageProps) => {
     }
 
     const handleItemClicked = (name: string) => {
-        onChange(name, true)
+        onChange(name, false)
         onClose && onClose();
     }
 
+    const handleSearch = (searchText: string) => {
+        setSearchValue(searchText);
+    };
+
     const handleAddNewConfigurable = () => {
+        // Use override if provided
+        if (onAddNewConfigurable) {
+            onAddNewConfigurable(getConfigVariables);
+            return;
+        }
+
         addModal(
             <FormGenerator
                 fileName={fileName}
@@ -181,61 +239,127 @@ export const Configurables = (props: ConfigurablesPageProps) => {
             height: "100%",
             overflow: "hidden"
         }}>
-            <ScrollableContainer style={{ margin: '8px 0px' }}>
-                {translateToArrayFormat(configVariables)
+            <BreadcrumbNavigation
+                breadCrumbSteps={breadCrumbSteps}
+                onNavigateToBreadcrumb={(step) => navigateToBreadcrumb(step)}
+            />
+            {(() => {
+                const filteredCategories = translateToArrayFormat(configVariables)
                     .filter(category =>
                         Array.isArray(category.items) &&
                         category.items.some(sub => Array.isArray(sub.items) && sub.items.length > 0)
-                    )
-                    .map(category => (
-                        <div >
-                            {category.items
-                                .filter(subCategory => subCategory.items && subCategory.items.length > 0)
-                                .map(subCategory => (
-                                    <div key={subCategory.name}>
-                                        {subCategory.name !== '' ? (
-                                            <ExpandableList.Section
-                                                key={subCategory.name}
-                                                title={subCategory.name}
-                                                level={0}
-                                            >
-                                                <div style={{ marginTop: '10px' }}>
-                                                    {subCategory.items.map((item: ConfigVariable) => (
-                                                        <SlidingPaneNavContainer
-                                                            key={item.id}
-                                                            onClick={() => { handleItemClicked(item?.properties?.variable?.value as string) }}
-                                                        >
-                                                            <ExpandableList.Item
+                    );
+
+                // Count total items across all categories
+                const totalItemsCount = filteredCategories.reduce((total, category) => {
+                    return total + category.items.reduce((subTotal, subCategory) => {
+                        return subTotal + (subCategory.items?.length || 0);
+                    }, 0);
+                }, 0);
+
+                return (
+                    <>
+                        {totalItemsCount >= 6 && (
+                            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", margin: "3px 8px", gap: '5px' }}>
+                                <SearchBox sx={{ width: "100%" }} placeholder='Search' value={searchValue} onChange={handleSearch} />
+                            </div>
+                        )}
+                    </>
+                );
+            })()}
+
+            <ScrollableContainer style={{ margin: '8px 0px' }}>
+                {isLoading || !showContent ? (
+                    <HelperPaneCustom.Loader />
+                ) : (
+                    <>
+                        {(() => {
+                            let filteredCategories = configVariables;
+                            // Apply search filter if search value exists
+                            if (searchValue && searchValue.trim()) {
+                                filteredCategories = filteredCategories.map(category => ({
+                                    ...category,
+                                    items: category.items.map(subCategory => ({
+                                        ...subCategory,
+                                        items: subCategory.items.filter((item: ConfigVariable) =>
+                                            (item?.properties?.variable?.value as string)?.toLowerCase().includes(searchValue.toLowerCase())
+                                        )
+                                    })).filter(subCategory => subCategory.items.length > 0)
+                                })).filter(category => category.items.length > 0);
+                            }
+
+                            if (filteredCategories.length === 0) {
+                                return <EmptyItemsPlaceHolder message={searchValue ? "No configurables found for your search" : "No configurables found"} />;
+                            }
+
+                            return (
+                                <>
+                                    {filteredCategories.map(category => (
+                                        <div >
+                                            {category.items
+                                                .filter(subCategory => subCategory.items && subCategory.items.length > 0)
+                                                .map(subCategory => (
+                                                    <div key={subCategory.name}>
+                                                        {subCategory.name !== '' ? (
+                                                            <ExpandableList.Section
+                                                                key={subCategory.name}
+                                                                title={subCategory.name}
+                                                                level={0}
                                                             >
-                                                                {getIcon(COMPLETION_ITEM_KIND.Constant)}
-                                                                {item?.properties?.variable?.value as ReactNode}
-                                                            </ExpandableList.Item>
-                                                        </SlidingPaneNavContainer>
-                                                    ))}
-                                                </div>
-                                            </ExpandableList.Section>
-                                        ) : (
-                                            <div>
-                                                {subCategory.items.map((item: ConfigVariable) => (
-                                                    <SlidingPaneNavContainer key={item.id}
-                                                        onClick={() => { handleItemClicked(item?.properties?.variable?.value as string) }}>
-                                                        <ExpandableList.Item
-                                                        >
-                                                            {getIcon(COMPLETION_ITEM_KIND.Constant)}
-                                                            {item?.properties?.variable?.value as ReactNode}
-                                                        </ExpandableList.Item>
-                                                    </SlidingPaneNavContainer>
+                                                                <div style={{ marginTop: '10px' }}>
+                                                                    {subCategory.items.map((item: ConfigVariable) => (
+                                                                        <HelperPaneListItem
+                                                                            key={item.id}
+                                                                            onClick={() => { handleItemClicked(item?.properties?.variable?.value as string) }}
+                                                                        >
+                                                                            {getHelperPaneIcon(HelperPaneIconType.CONFIGURABLE)}
+                                                                            <Typography variant="body3" sx={{ flex: 1, mr: 1 }}>
+                                                                                {item?.properties?.variable?.value as ReactNode}
+                                                                            </Typography>
+                                                                            <TypeIndicator>
+                                                                                {item?.properties?.type?.value as ReactNode}
+                                                                            </TypeIndicator>
+                                                                        </HelperPaneListItem>
+                                                                    ))}
+                                                                </div>
+                                                            </ExpandableList.Section>
+                                                        ) : (
+                                                            <div>
+                                                                {subCategory.items.map((item: ConfigVariable) => (
+                                                                    <HelperPaneListItem
+                                                                        key={item.id}
+                                                                        onClick={() => { handleItemClicked(item?.properties?.variable?.value as string) }}
+                                                                    >
+                                                                        {getHelperPaneIcon(HelperPaneIconType.CONFIGURABLE)}
+                                                                        <Typography variant="body3" sx={{ flex: 1, mr: 1 }}>
+                                                                            {item?.properties?.variable?.value as ReactNode}
+                                                                        </Typography>
+                                                                        <TypeIndicator>
+                                                                            {item?.properties?.type?.value as ReactNode}
+                                                                        </TypeIndicator>
+                                                                    </HelperPaneListItem>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                        </div>
-                    ))}
+                                        </div>
+                                    ))}
+                                </>
+                            );
+                        })()}
+                    </>
+                )}
             </ScrollableContainer>
 
-            <Divider sx={{ margin: "0px" }} />
-            <FooterButtons onClick={handleAddNewConfigurable} startIcon='add' title="New Configurable" />
+            {showAddNew && (
+                <>
+                    <Divider sx={{ margin: "0px" }} />
+                    <div style={{ margin: '4px 0' }}>
+                        <FooterButtons onClick={handleAddNewConfigurable} title="New Configurable" />
+                    </div>
+                </>
+            )}
         </div>
     )
 }

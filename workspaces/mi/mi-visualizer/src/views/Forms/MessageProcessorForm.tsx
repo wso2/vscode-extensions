@@ -120,7 +120,8 @@ export function MessageProcessorWizard(props: MessageProcessorWizardProps) {
         cron: yup.string().notRequired().default(""),
         forwardingInterval: yup.number().typeError('Forwarding Interval must be a number').min(1, "Forwarding Interval must be greater than 0").notRequired().default(1000),
         retryInterval: yup.number().typeError('Retry interval must be a number').min(1, "Retry interval must be greater than 0").notRequired().default(1000),
-        maxRedeliveryAttempts: yup.number().typeError('Max Redelivery Attempts must be a number').min(1, "Max Redelivery Attempts must be greater than 0").notRequired().default(4),
+        maxRedeliveryAttempts: yup.number().typeError('Max Redelivery Attempts must be a number').notRequired().default(4)
+            .test('valid-value','Max Redelivery Attempts must be greater than 0 or -1',(value) => value === -1 || value === undefined || value > 0),
         maxConnectionAttempts: yup.number().typeError('Max Connection Attempts must be a number').min(-1, "Max Connection Attempts must be greater than -1").notRequired().default(-1),
         connectionAttemptInterval: yup.number().typeError('Connection Attempt Interval must be a number').min(1, "Connection Attempt Interval must be greater than 0").notRequired().default(1000),
         taskCount: yup.number().typeError('Task count must be a number').min(1, "Task Count must be greater than 0").notRequired().default(1),

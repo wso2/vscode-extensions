@@ -20,7 +20,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { TextField, Dropdown } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
 import { BallerinaRpcClient, useRpcContext } from "@wso2/ballerina-rpc-client";
-import { Type } from "@wso2/ballerina-core";
+import { FormFieldInputType, Type } from "@wso2/ballerina-core";
 import { RecordFromJson } from "../../RecordFromJson/RecordFromJson";
 import { RecordFromXml } from "../../RecordFromXml/RecordFromXml";
 import { debounce } from "lodash";
@@ -88,10 +88,10 @@ export function ImportTab(props: ImportTabProps) {
     }
 
     const validateTypeName = useCallback(debounce(async (value: string) => {
-        const projectUri = await rpcClient.getVisualizerLocation().then((res) => res.projectUri);
+        const projectPath = await rpcClient.getVisualizerLocation().then((res) => res.projectPath);
 
         const endPosition = await rpcClient.getBIDiagramRpcClient().getEndOfFile({
-            filePath: Utils.joinPath(URI.file(projectUri), 'types.bal').fsPath
+            filePath: Utils.joinPath(URI.file(projectPath), 'types.bal').fsPath
         });
 
         const response = await rpcClient.getBIDiagramRpcClient().getExpressionDiagnostics({
@@ -121,16 +121,15 @@ export function ImportTab(props: ImportTabProps) {
                 property: type?.properties["name"] ?
                     {
                         ...type.properties["name"],
-                        valueTypeConstraint: "Global"
+                        types: [{ fieldType:  type.properties["name"].valueType as FormFieldInputType, scope: "Global", selected: false }]
                     } :
                     {
                         metadata: {
                             label: "",
                             description: "",
                         },
-                        valueType: "IDENTIFIER",
                         value: "",
-                        valueTypeConstraint: "Global",
+                        types: [{ fieldType: "IDENTIFIER", scope: "Global", selected: false }],
                         optional: false,
                         editable: true
                     }

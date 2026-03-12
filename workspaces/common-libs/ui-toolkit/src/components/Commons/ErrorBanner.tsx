@@ -20,12 +20,13 @@ import { css, cx } from "@emotion/css";
 import styled from "@emotion/styled";
 import React from "react";
 
-const Container = styled.div`
+const Container = styled.div<{ sx?: React.CSSProperties }>`
     align-items: center;
     display: flex;
     flex-direction: row;
     background-color: var(--vscode-toolbar-activeBackground);
     padding: 6px;
+    ${(props: { sx?: React.CSSProperties }) => props.sx && { ...props.sx }}   
 `;
 
 const ErrorMsg = styled.div`
@@ -42,11 +43,11 @@ export const ErrorIcon = cx(css`
     color: var(--vscode-errorForeground);
 `);
 
-export function ErrorBanner(props: { id?: string, className?: string, errorMsg: string }) {
-    const { id, className, errorMsg } = props;
+export function ErrorBanner(props: { id?: string, className?: string, errorMsg: string, sx?: React.CSSProperties }) {
+    const { id, className, errorMsg, sx } = props;
 
     return (
-        <Container id={id} className={className}>
+        <Container id={id} className={className} sx={sx}>
             <i className={`codicon codicon-warning ${cx(codiconStyles)}`} />
             <ErrorMsg>{errorMsg}</ErrorMsg>
         </Container>

@@ -33,16 +33,16 @@ export const BreadCrumb: FC<Props> = ({ items }) => {
 	for (const [index, item] of items.entries()) {
 		if (item.onClick) {
 			nodes.push(
-				<VSCodeLink className="text-sm text-vsc-foreground opacity-70" onClick={item.onClick}>
+				<VSCodeLink key={item.label} className="text-sm text-vsc-foreground opacity-70" onClick={item.onClick}>
 					{item.label}
 				</VSCodeLink>,
 			);
 		} else {
-			nodes.push(<span className={classNames("text-sm", index + 1 < items.length && "opacity-70")}>{item.label}</span>);
+			nodes.push(<span key={item.label} className={classNames("text-sm", index + 1 < items.length && "opacity-70")}>{item.label}</span>);
 		}
 
 		if (index + 1 < items.length) {
-			nodes.push(<span className="text-sm opacity-70">/</span>);
+			nodes.push(<span key={item.label}  className="text-sm opacity-70">/</span>);
 		}
 	}
 	return <div className="flex flex-wrap items-center gap-1">{nodes}</div>;

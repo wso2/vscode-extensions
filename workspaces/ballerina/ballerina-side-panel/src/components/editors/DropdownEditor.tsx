@@ -21,7 +21,7 @@ import React, { useEffect } from "react";
 import { Dropdown } from "@wso2/ui-toolkit";
 
 import { FormField } from "../Form/types";
-import { capitalize, getValueForDropdown } from "./utils";
+import { buildRequiredRule, capitalize, getValueForDropdown } from "./utils";
 import { useFormContext } from "../../context";
 import { SubPanel, SubPanelView } from "@wso2/ballerina-core";
 
@@ -47,13 +47,32 @@ export function DropdownEditor(props: DropdownEditorProps) {
         field.items = ["Global", "Local"];
     }
 
+    // Handle items: string[] or { label, value }[]
+    let dropdownItems;
+    if (field.itemOptions) {
+        dropdownItems = field.itemOptions;
+    } else if (Array.isArray(field.items) && field.items.length > 0) {
+        if (typeof field.items[0] === "string") {
+            dropdownItems = field.items.map((item) => ({ id: item, content: item, value: item }));
+        } else if (typeof field.items[0] === "object" && field.items[0] !== null && "label" in field.items[0] && "value" in field.items[0]) {
+            dropdownItems = field.items.map((item: any) => ({ id: item.value, content: item.label, value: item.value }));
+        } else {
+            dropdownItems = [];
+        }
+    } else {
+        dropdownItems = [];
+    }
+
     return (
         <Dropdown
             id={field.key}
             description={field.documentation}
-            {...register(field.key, { required: !field.optional, value: getValueForDropdown(field) })}
+            {...register(field.key, {
+                required: buildRequiredRule({ isRequired: !field.optional, label: field.label }),
+                value: getValueForDropdown(field)
+            })}
             label={capitalize(field.label)}
-            items={field.itemOptions ? field.itemOptions : field.items?.map((item) => ({ id: item, content: item, value: item }))}
+            items={dropdownItems}
             required={!field.optional}
             disabled={!field.editable}
             onChange={(e) => {

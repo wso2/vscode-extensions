@@ -16,14 +16,12 @@
  * under the License.
  */
 
-import { execSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import axios from "axios";
-import { ProgressLocation, window, workspace } from "vscode";
-import { choreoEnvConfig } from "../config";
+import { workspace } from "vscode";
 import { ext } from "../extensionVariables";
+import { getLogger } from "../logger/logger";
 
 export const getCliVersion = (): string => {
 	const packageJson = JSON.parse(fs.readFileSync(path.join(ext.context.extensionPath, "package.json"), "utf8"));
@@ -53,115 +51,42 @@ export const getChoreoEnv = (): string => {
 };
 
 const getChoreoBinPath = () => {
-	return path.join(ext.context.globalStorageUri.fsPath, "choreo-cli-rpc", getCliVersion(), "bin");
-};
-
-export const downloadCLI = async () => {
 	const OS = os.platform();
 	const ARCH = getArchitecture();
-	const CHOREO_BIN_DIR = getChoreoBinPath();
+	return path.join(ext.context.extensionPath, "resources", "choreo-cli", getCliVersion(), OS, ARCH);
+};
+
+export const installCLI = async () => {
+	const OS = os.platform();
 	const CHOREO_CLI_EXEC = getChoreoExecPath();
-	const CLI_VERSION = getCliVersion();
-	const CHOREO_TMP_DIR = await fs.promises.mkdtemp(path.join(os.tmpdir(), `choreo-cli-rpc-${CLI_VERSION}`));
 
-	fs.mkdirSync(CHOREO_BIN_DIR, { recursive: true });
-
-	const FILE_NAME = `choreo-cli-${CLI_VERSION}-${OS === "win32" ? "windows" : OS}-${ARCH}`;
-	let FILE_TYPE = "";
-
-	if (OS === "linux") {
-		FILE_TYPE = ".tar.gz";
-	} else if (OS === "darwin") {
-		FILE_TYPE = ".zip";
-	} else if (OS === "win32") {
-		FILE_TYPE = ".zip";
-	} else {
-		throw new Error(`Unsupported OS: ${OS}`);
+	if (!fs.existsSync(CHOREO_CLI_EXEC)) {
+		throw new Error(`Choreo CLI binary not found at: ${CHOREO_CLI_EXEC}`);
 	}
-	const CHOREO_TMP_FILE_DEST = path.join(CHOREO_TMP_DIR, `${FILE_NAME}${FILE_TYPE}`);
 
-	const INSTALLER_URL = `${choreoEnvConfig.getCliInstallUrl()}${CLI_VERSION}/${FILE_NAME}${FILE_TYPE}`;
-
-	console.log(`WSO2 Platform RPC download URL: ${INSTALLER_URL}`);
-
-	await downloadFile(INSTALLER_URL, CHOREO_TMP_FILE_DEST);
-
-	console.log(`Extracting archive into temp dir: ${CHOREO_TMP_DIR}`);
-	if (FILE_TYPE === ".tar.gz") {
-		execSync(`tar -xzf ${CHOREO_TMP_FILE_DEST} -C ${CHOREO_TMP_DIR}`);
-	} else if (FILE_TYPE === ".zip") {
-		if (OS === "darwin") {
-			execSync(`unzip -q ${CHOREO_TMP_FILE_DEST} -d ${CHOREO_TMP_DIR}`);
-		} else if (OS === "win32") {
-			execSync(`powershell.exe -Command "Expand-Archive '${CHOREO_TMP_FILE_DEST}' -DestinationPath '${CHOREO_TMP_DIR}' -Force"`);
+	// Ensure executable permissions on Unix systems (may be lost after git checkout or copy)
+	if (OS !== "win32") {
+		try {
+			await fs.promises.chmod(CHOREO_CLI_EXEC, 0o755);
+		} catch (error) {
+			throw new Error(`Failed to set executable permissions on ${CHOREO_CLI_EXEC}: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 
-	console.log(`Moving executable to ${CHOREO_BIN_DIR}`);
-	await fs.promises.copyFile(`${CHOREO_TMP_DIR}/${OS === "win32" ? "choreo.exe" : "choreo"}`, CHOREO_CLI_EXEC);
-	await fs.promises.rm(`${CHOREO_TMP_DIR}/${OS === "win32" ? "choreo.exe" : "choreo"}`);
-
-	console.log("Cleaning up...");
-	await fs.promises.rm(CHOREO_TMP_DIR, { recursive: true });
-
-	process.chdir(CHOREO_BIN_DIR);
-	if (OS !== "win32") {
-		await fs.promises.chmod(CHOREO_CLI_EXEC, 0o755);
-	}
-
-	console.log("WSO2 Platform RPC server was installed successfully 🎉");
+	getLogger().trace("WSO2 Platform RPC server is ready 🎉");
 };
 
-async function downloadFile(url: string, dest: string) {
-	const controller = new AbortController();
-	const response = await axios({ url, method: "GET", responseType: "stream", signal: controller.signal });
-	await window.withProgress(
-		{
-			title: "Initializing WSO2 Platform extension",
-			location: ProgressLocation.Notification,
-			cancellable: true,
-		},
-		async (progress, cancellationToken) => {
-			return new Promise<void>((resolve, reject) => {
-				const writer = fs.createWriteStream(dest);
-				const totalSize = Number.parseInt(response.headers["content-length"], 10);
-				let downloadedSize = 0;
-				let previousPercentage = 0;
-
-				response.data.on("data", (chunk: string) => {
-					downloadedSize += chunk.length;
-
-					const progressPercentage = Math.round((downloadedSize / totalSize) * 100);
-					if (progressPercentage !== previousPercentage) {
-						progress.report({
-							increment: progressPercentage - previousPercentage,
-							message: `${progressPercentage}%`,
-						});
-						previousPercentage = progressPercentage;
-					}
-				});
-
-				response.data.pipe(writer);
-
-				cancellationToken.onCancellationRequested(() => {
-					controller.abort();
-					reject();
-				});
-
-				writer.on("finish", resolve);
-				writer.on("error", reject);
-			});
-		},
-	);
-}
-
 function getArchitecture() {
+	const arch = workspace.getConfiguration().get<string>("WSO2.WSO2-Platform.Advanced.RpcArchitecture");
+	if (arch) {
+		return arch;
+	}
 	const ARCH = os.arch();
 	switch (ARCH) {
 		case "x64":
 			return "amd64";
-		case "x32":
-			return "386";
+		// case "x32":
+		// 	return "386";
 		case "arm64":
 		case "aarch64":
 			return "arm64";

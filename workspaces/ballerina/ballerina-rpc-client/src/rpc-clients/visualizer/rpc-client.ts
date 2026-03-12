@@ -20,10 +20,17 @@
 import {
     AddToUndoStackRequest,
     ColorThemeKind,
+    HandleApprovalPopupCloseRequest,
     HistoryEntry,
+    JoinProjectPathRequest,
+    JoinProjectPathResponse,
     OpenViewRequest,
+    ReopenApprovalViewRequest,
+    ProjectStructureArtifactResponse,
+    SaveEvalThreadRequest,
+    SaveEvalThreadResponse,
     UndoRedoStateResponse,
-    UpdateUndoRedoMangerRequest,
+    UpdatedArtifactsResponse,
     VisualizerAPI,
     addToHistory,
     addToUndoStack,
@@ -32,11 +39,18 @@ import {
     goBack,
     goHome,
     goSelected,
+    handleApprovalPopupClose,
     joinProjectPath,
     openView,
     redo,
+    reopenApprovalView,
+    resetUndoRedoStack,
+    saveEvalThread,
     undo,
-    undoRedoState
+    undoRedoState,
+    updateCurrentArtifactLocation,
+    reviewAccepted,
+    GoBackRequest
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -60,8 +74,8 @@ export class VisualizerRpcClient implements VisualizerAPI {
         return this._messenger.sendNotification(addToHistory, HOST_EXTENSION, entry);
     }
 
-    goBack(): void {
-        return this._messenger.sendNotification(goBack, HOST_EXTENSION);
+    goBack(params?: GoBackRequest): void {
+        return this._messenger.sendNotification(goBack, HOST_EXTENSION, params);
     }
 
     goHome(): void {
@@ -88,11 +102,34 @@ export class VisualizerRpcClient implements VisualizerAPI {
         return this._messenger.sendRequest(undoRedoState, HOST_EXTENSION);
     }
 
-    joinProjectPath(segments: string | string[]): Promise<string> {
-        return this._messenger.sendRequest(joinProjectPath, HOST_EXTENSION, segments);
+    resetUndoRedoStack(): void {
+        return this._messenger.sendNotification(resetUndoRedoStack, HOST_EXTENSION);
+    }
+
+    joinProjectPath(params: JoinProjectPathRequest): Promise<JoinProjectPathResponse> {
+        return this._messenger.sendRequest(joinProjectPath, HOST_EXTENSION, params);
     }
 
     getThemeKind(): Promise<ColorThemeKind> {
         return this._messenger.sendRequest(getThemeKind, HOST_EXTENSION);
+    }
+
+    updateCurrentArtifactLocation(params: UpdatedArtifactsResponse): Promise<ProjectStructureArtifactResponse> {
+        return this._messenger.sendRequest(updateCurrentArtifactLocation, HOST_EXTENSION, params);
+    }
+
+    reviewAccepted(): void {
+        return this._messenger.sendNotification(reviewAccepted, HOST_EXTENSION);
+    }
+
+    handleApprovalPopupClose(params: HandleApprovalPopupCloseRequest): void {
+        return this._messenger.sendNotification(handleApprovalPopupClose, HOST_EXTENSION, params);
+    }
+
+    reopenApprovalView(params: ReopenApprovalViewRequest): void {
+        return this._messenger.sendNotification(reopenApprovalView, HOST_EXTENSION, params);
+    }
+    saveEvalThread(params: SaveEvalThreadRequest): Promise<SaveEvalThreadResponse> {
+        return this._messenger.sendRequest(saveEvalThread, HOST_EXTENSION, params);
     }
 }

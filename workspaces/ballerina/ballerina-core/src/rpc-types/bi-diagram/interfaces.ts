@@ -20,14 +20,29 @@ import { LineRange } from "../../interfaces/common";
 import { DIRECTORY_MAP, Flow, OverviewFlow } from "../../interfaces/bi";
 import { BallerinaProjectComponents } from "../../interfaces/extended-lang-client";
 import { RemoteFunction, ServiceType } from "../../interfaces/ballerina";
+import { ImportInfo } from "../ai-panel/interfaces";
 
 export interface ProjectRequest {
     projectName: string;
     packageName: string;
     projectPath: string;
     createDirectory: boolean;
+    createAsWorkspace?: boolean;
+    workspaceName?: string;
     orgName?: string;
     version?: string;
+    isLibrary?: boolean;
+}
+
+export interface AddProjectToWorkspaceRequest {
+    projectName: string;
+    packageName: string;
+    path: string;
+    convertToWorkspace?: boolean;
+    workspaceName?: string;
+    orgName?: string;
+    version?: string;
+    isLibrary?: boolean;
 }
 
 export interface WorkspacesResponse {
@@ -87,8 +102,14 @@ export interface RecordsInWorkspaceMentions {
 }
 
 export interface ReadmeContentRequest {
-    read: boolean
+    projectPath: string;
+    read?: boolean
     content?: string;
+}
+
+export interface OpenReadmeRequest {
+    projectPath: string;
+    isWorkspaceReadme?: boolean;
 }
 
 export interface ReadmeContentResponse {
@@ -140,20 +161,13 @@ export interface CurrentBreakpointsResponse {
 }
 
 export interface AIChatRequest {
-    scafold: boolean;
     readme: boolean;
+    planMode: boolean;
 }
-export interface ImportStatement {
-    moduleName: string;
-    alias?: string;
-}
+
 export interface ImportStatements {
     filePath: string;
-    statements: ImportStatement[];
-}
-export interface ProjectImports {
-    projectPath: string;
-    imports: ImportStatements[];
+    statements: ImportInfo[];
 }
 
 export interface FormDidOpenParams {
@@ -178,6 +192,42 @@ export interface DevantMetadata {
     hasLocalChanges?: boolean;
 }
 
+export interface WorkspaceDevantMetadata {
+    isLoggedIn?: boolean;
+    hasAnyComponent?: boolean;
+    hasLocalChanges?: boolean;
+    projectsMetadata?: ProjectDevantMetadata[];
+}
+
+export interface ProjectDevantMetadata {
+    projectPath: string;
+    projectName?: string;
+    hasComponent?: boolean;
+    hasLocalChanges?: boolean;
+}
+
 export interface GeneratedClientSaveResponse {
     errorMessage?: string;
+}
+
+export interface DeleteProjectRequest {
+    projectPath: string;
+}
+
+export interface ValidateProjectFormRequest {
+    projectPath: string;
+    projectName: string;
+    createDirectory: boolean;
+    createAsWorkspace?: boolean;
+}
+
+export interface ValidateProjectFormResponse {
+    isValid: boolean;
+    errorMessage?: string;
+    errorField?: ValidateProjectFormErrorField;
+}
+
+export enum ValidateProjectFormErrorField {
+    PATH = 'path',
+    NAME = 'name'
 }

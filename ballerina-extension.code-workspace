@@ -13,7 +13,7 @@
 			"path": "workspaces/common-libs/ui-toolkit"
 		},
 		{
-			"path": "workspaces/ballerina/data-mapper-view"
+			"path": "workspaces/ballerina/data-mapper"
 		},
 		{
 			"path": "workspaces/ballerina/statement-editor"

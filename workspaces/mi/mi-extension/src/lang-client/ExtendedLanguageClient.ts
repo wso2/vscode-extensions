@@ -75,13 +75,12 @@ import {
     CheckDBDriverResponse,
     RemoveDBDriverResponse,
     LocalInboundConnectorsResponse,
-    GetCodeDiagnosticsReqeust,
-    GetCodeDiagnosticsResponse,
     XmlCode,
     UpdateAiDependenciesResponse,
     UpdateAiDependenciesRequest,
     MavenDeployPluginDetails,
-    DependencyStatusResponse
+    DependencyStatusResponse,
+    GenerateMappingsParamsRequest
 } from "@wso2/mi-core";
 import { readFileSync } from "fs";
 import { CancellationToken, FormattingOptions, Position, Uri, workspace } from "vscode";
@@ -470,7 +469,12 @@ export class ExtendedLanguageClient extends LanguageClient {
     async getConfigurableList(): Promise<any[]> {
         return this.sendRequest('synapse/getConfigurableList');
     }
+
     async getDependencyStatusList(): Promise<DependencyStatusResponse> {
         return this.sendRequest('synapse/getDependencyStatusList');
-    }    
+    }
+
+    async getInputOutputMappings(req: GenerateMappingsParamsRequest): Promise<string[]> {
+        return this.sendRequest('synapse/getInputOutputMappings', req);
+    }
 }

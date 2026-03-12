@@ -17,6 +17,9 @@
  */
 
 import { BallerinaConnectorInfo, BallerinaConnectorsRequest, BallerinaConnector } from "../../interfaces/ballerina";
+import { Metadata } from "../../interfaces/bi";
+import { TextEdit } from "../../interfaces/extended-lang-client";
+import { PropertyModel } from "../../interfaces/service";
 
 export interface ConnectorRequest {
     id?: string
@@ -40,4 +43,78 @@ export interface ConnectorsResponse {
     central: BallerinaConnector[];
     local?: BallerinaConnector[];
     error?: string;
+}
+
+export interface IntrospectCredentialsRequest {
+    connection?: string;
+    projectPath: string;
+}
+
+export interface IntrospectCredentialsResponse {
+    data: {
+        metadata: Metadata;
+        properties: { [key: string]: PropertyModel };
+        targetModule?: string;
+        modelFilePath?: string;
+    };
+}
+
+export interface IntrospectDatabaseRequest {
+    projectPath: string;
+    metadata: Metadata;
+    properties?: { [key: string]: PropertyModel };
+    targetModule?: string;
+    modelFilePath?: string;
+}
+
+export interface IntrospectDatabaseResponse {
+    tables?: TableInfo[];
+    targetModule?: string;
+    modelFilePath?: string;
+    errorMsg?: string;
+}
+export interface TableInfo {
+    table: string;
+    selected: boolean;
+    existing: boolean;
+}
+export interface PersistClientGenerateRequest {
+    projectPath: string;
+    targetModule?: string;
+    modelFilePath?: string;
+    connection?: string;
+    properties?: { [key: string]: PropertyModel };
+    tables: TableInfo[];
+}
+
+export interface PersistSource {
+    isModuleExists?: boolean;
+    textEditsMap?: {
+        [key: string]: TextEdit[];
+    };
+}
+export interface PersistClientGenerateResponse {
+    source?: PersistSource;
+    errorMsg?: string;
+    stackTrace?: string;
+}
+
+export interface WSDLApiClientGenerationRequest {
+    projectPath: string;
+    module: string;
+    wsdlFilePath: string;
+    portName?: string;
+    operations?: string[];
+}
+
+export interface WSDLApiClientGenerationResponse {
+    source?: WSDLApiClientSource;
+    errorMsg?: string;
+    stackTrace?: string;
+} 
+
+export interface WSDLApiClientSource {
+    textEditsMap: {
+        [key: string]: TextEdit[];
+    };
 }

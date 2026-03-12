@@ -1,6 +1,7 @@
 .nyc_output
 resources/jslibs/main.js
 resources/font-wso2-vscode
+resources/choreo-cli/
 !src/test/lib
 .vscode-test
 test-resources

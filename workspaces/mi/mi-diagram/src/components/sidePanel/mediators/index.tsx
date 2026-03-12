@@ -101,7 +101,7 @@ export function HomePage(props: MediatorPageProps) {
                     autoFocus={true}
                 />
                 {/*  Categories */}
-                <ButtonContainer style={{ marginBottom: "10px", width: "calc(100% - 15px)", justifyContent: "space-evenly" }}>
+                <ButtonContainer style={{ marginBottom: "10px", width: "calc(100% - 15px)", justifyContent: "space-between", flexWrap: "wrap" }}>
                     <Button buttonSx={{ width: '195px' }} onClick={handleAllMediatorsClicked} appearance={isAllMediators ? 'primary' : 'secondary'} >
                         <Icon sx={{ marginTop: 2, marginRight: 5 }} name="module-icon" />
                         Mediators

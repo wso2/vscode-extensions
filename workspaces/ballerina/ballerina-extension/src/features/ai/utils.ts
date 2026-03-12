@@ -21,24 +21,29 @@ import path from "path";
 import vscode, { Uri, workspace } from 'vscode';
 
 import { StateMachine } from "../../stateMachine";
-import { getRefreshedAccessToken, REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE } from '../../../src/utils/ai/auth';
-import { AIStateMachine } from '../../../src/views/ai-panel/aiMachine';
+import {
+    getRefreshedAccessToken,
+    TOKEN_NOT_AVAILABLE_ERROR_MESSAGE,
+    getAuthCredentials,
+    isPlatformExtensionAvailable,
+    isDevantUserLoggedIn,
+    getPlatformStsToken,
+    exchangeStsToCopilotToken,
+    storeAuthCredentials, 
+    NO_AUTH_CREDENTIALS_FOUND
+} from '../../utils/ai/auth';
+import { AIStateMachine } from '../../views/ai-panel/aiMachine';
 import { AIMachineEventType } from '@wso2/ballerina-core/lib/state-machine-types';
-import { CONFIG_FILE_NAME, ERROR_NO_BALLERINA_SOURCES, PROGRESS_BAR_MESSAGE_FROM_WSO2_DEFAULT_MODEL } from './constants';
+import { CONFIG_FILE_NAME, ERROR_NO_BALLERINA_SOURCES, LLM_API_BASE_PATH, PROGRESS_BAR_MESSAGE_FROM_WSO2_DEFAULT_MODEL } from './constants';
 import { getCurrentBallerinaProjectFromContext } from '../config-generator/configGenerator';
-import { BallerinaProject } from '@wso2/ballerina-core';
+import { BallerinaProject, LoginMethod, AuthCredentials } from '@wso2/ballerina-core';
 import { BallerinaExtension } from 'src/core';
 
 const config = workspace.getConfiguration('ballerina');
 const isDevantDev = process.env.CLOUD_ENV === "dev";
-export const BACKEND_URL: string = config.get('rootUrl') || isDevantDev ? process.env.BALLERINA_DEV_COPLIOT_ROOT_URL : process.env.BALLERINA_DEFAULT_COPLIOT_ROOT_URL;
-export const AUTH_ORG: string = config.get('authOrg') || isDevantDev ? process.env.BALLERINA_DEV_COPLIOT_AUTH_ORG : process.env.BALLERINA_DEFAULT_COPLIOT_AUTH_ORG;
-export const AUTH_CLIENT_ID: string = config.get('authClientID') || isDevantDev ? process.env.BALLERINA_DEV_COPLIOT_AUTH_CLIENT_ID : process.env.BALLERINA_DEFAULT_COPLIOT_AUTH_CLIENT_ID;
-export const AUTH_REDIRECT_URL: string = config.get('authRedirectURL') || isDevantDev ? process.env.BALLERINA_DEV_COPLIOT_AUTH_REDIRECT_URL : process.env.BALLERINA_DEFAULT_COPLIOT_AUTH_REDIRECT_URL;
+export const BACKEND_URL: string = config.get('rootUrl') || (isDevantDev ? process.env.COPILOT_DEV_ROOT_URL : process.env.COPILOT_ROOT_URL);
 
-export const DEVANT_API_KEY: string = config.get('devantApiKey') || isDevantDev ? process.env.BALLERINA_DEV_COPLIOT_CODE_API_KEY : process.env.BALLERINA_DEFAULT_COPLIOT_CODE_API_KEY;
-export const DEVANT_API_KEY_FOR_ASK: string = config.get('devantApiKeyForAsk') || isDevantDev ? process.env.BALLERINA_DEV_COPLIOT_ASK_API_KEY : process.env.BALLERINA_DEFAULT_COPLIOT_ASK_API_KEY;
-export const DEVANT_STS_TOKEN_CONFIG: string = config.get('cloudStsToken');
+export const DEVANT_TOKEN_EXCHANGE_URL: string = BACKEND_URL + "/auth-api/v1.0/auth/token-exchange";
 
 // This refers to old backend before FE Migration. We need to eventually remove this.
 export const OLD_BACKEND_URL: string = BACKEND_URL + "/v2.0";
@@ -134,18 +139,44 @@ export async function getConfigFilePath(ballerinaExtInstance: BallerinaExtension
 }
 
 export async function getTokenForDefaultModel() {
-    try {
-        const token = await getRefreshedAccessToken();
-        return token;
-    } catch (error) {
-        throw error;
-    }
-}
+    // Priority 1: Check stored credentials
+    const credentials = await getAuthCredentials();
 
-export async function getBackendURL(): Promise<string> {
-    return new Promise(async (resolve) => {
-        resolve(OLD_BACKEND_URL);
-    });
+    if (credentials) {
+        if (!credentials) {
+            throw new Error(NO_AUTH_CREDENTIALS_FOUND);
+        }
+
+        // Check login method and handle accordingly
+        if (credentials.loginMethod === LoginMethod.BI_INTEL) {
+            // Re-exchange STS token to get a fresh token
+            const token = await getRefreshedAccessToken();
+            return token;
+        } else {
+            const errorMessage = 'This feature is only available for BI Intelligence users.';
+            vscode.window.showErrorMessage(errorMessage);
+            throw new Error(errorMessage);
+        }
+    }
+
+    // Priority 2: No stored credentials — check Devant Platform extension
+    if (isPlatformExtensionAvailable()) {
+        const isLoggedIn = await isDevantUserLoggedIn();
+        if (isLoggedIn) {
+            const stsToken = await getPlatformStsToken();
+            if (stsToken) {
+                const secrets = await exchangeStsToCopilotToken(stsToken);
+                const newCredentials: AuthCredentials = {
+                    loginMethod: LoginMethod.BI_INTEL,
+                    secrets
+                };
+                await storeAuthCredentials(newCredentials);
+                return secrets.accessToken;
+            }
+        }
+    }
+
+    throw new Error(TOKEN_NOT_AVAILABLE_ERROR_MESSAGE);
 }
 
 // Function to find a file in a case-insensitive way
@@ -243,9 +274,17 @@ export async function addConfigFile(configPath: string): Promise<boolean> {
                 const token: string | null = await getTokenForDefaultModel();
                 if (token === null) {
                     AIStateMachine.service().send(AIMachineEventType.LOGOUT);
-                    throw new Error(REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE);
+                    throw new Error(TOKEN_NOT_AVAILABLE_ERROR_MESSAGE);
                 }
-                const success = addDefaultModelConfig(configPath, token, await getBackendURL());
+                const openAiEpUrl = BACKEND_URL + LLM_API_BASE_PATH + "/openai";
+                const success = addDefaultModelConfig(configPath, token, openAiEpUrl);
+
+                // Also update tests/Config.toml if a tests folder exists
+                const testsDir = path.join(configPath, 'tests');
+                if (fs.existsSync(testsDir) && fs.statSync(testsDir).isDirectory()) {
+                    addDefaultModelConfig(testsDir, token, openAiEpUrl);
+                }
+
                 if (success) {
                     return true;
                 }
@@ -285,52 +324,17 @@ import { ProjectSource, ProjectModule, OpenAPISpec } from '@wso2/ballerina-core'
 import { langClient } from './activator';
 
 /**
- * Finds the root directory of a Ballerina project by searching for Ballerina.toml
- */
-export async function findBallerinaProjectRoot(dirPath: string): Promise<string | null> {
-    if (dirPath === null) {
-        return null;
-    }
-
-    const workspaceFolders = workspace.workspaceFolders;
-    if (!workspaceFolders) {
-        return null;
-    }
-
-    // Check if the directory is within any of the workspace folders
-    const workspaceFolder = workspaceFolders.find(folder => dirPath.startsWith(folder.uri.fsPath));
-    if (!workspaceFolder) {
-        return null;
-    }
-
-    let currentDir = dirPath;
-
-    while (currentDir.startsWith(workspaceFolder.uri.fsPath)) {
-        const ballerinaTomlPath = path.join(currentDir, 'Ballerina.toml');
-        if (fs.existsSync(ballerinaTomlPath)) {
-            return currentDir;
-        }
-        currentDir = path.dirname(currentDir);
-    }
-
-    return null;
-}
-
-/**
  * Gets the project source including all .bal files and modules
  */
-export async function getProjectSource(dirPath: string): Promise<ProjectSource | null> {
-    const projectRoot = await findBallerinaProjectRoot(dirPath);
-
-    if (!projectRoot) {
-        return null;
-    }
+export async function getProjectSource(projectRoot: string): Promise<ProjectSource | null> {
 
     const projectSource: ProjectSource = {
         sourceFiles: [],
         projectTests: [],
         projectModules: [],
-        projectName: ""
+        projectName: "",
+        packagePath: projectRoot,
+        isActive: true
     };
 
     // Read root-level .bal files
@@ -375,14 +379,9 @@ export async function getProjectSource(dirPath: string): Promise<ProjectSource |
 /**
  * Gets the project source including test files
  */
-export async function getProjectSourceWithTests(dirPath: string): Promise<ProjectSource | null> {
-    const projectRoot = await findBallerinaProjectRoot(dirPath);
+export async function getProjectSourceWithTests(projectRoot: string): Promise<ProjectSource | null> {
 
-    if (!projectRoot) {
-        return null;
-    }
-
-    const projectSourceWithTests: ProjectSource = await getProjectSource(dirPath);
+    const projectSourceWithTests: ProjectSource = await getProjectSource(projectRoot);
 
     // Read tests
     const testsDir = path.join(projectRoot, 'tests');

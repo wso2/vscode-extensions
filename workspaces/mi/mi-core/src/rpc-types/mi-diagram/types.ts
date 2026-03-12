@@ -33,6 +33,7 @@ export interface ApplyEditRequest {
     disableFormatting?: boolean;
     disableUndoRedo?: boolean;
     addNewLine?: boolean;
+    waitForEdits?: boolean;
 }
 
 export interface ApplyEditsRequest {
@@ -41,6 +42,7 @@ export interface ApplyEditsRequest {
     disableFormatting?: boolean;
     disableUndoRedo?: boolean;
     addNewLine?: boolean;
+    waitForEdits?: boolean;
 }
 
 export interface ApplyEditResponse {
@@ -1502,7 +1504,8 @@ export interface RegistryArtifact {
 }
 export interface RangeFormatRequest {
     uri: string;
-    range?: Range
+    range?: Range;
+    waitForEdits?: boolean;
 }
 
 export interface DownloadConnectorRequest {
@@ -1776,6 +1779,7 @@ export interface SwaggerFromAPIRequest {
     swaggerPath?: string;
     isJsonIn?: boolean;
     isJsonOut?: boolean;
+    host?: string;
     port?: number;
     projectPath?: string;
 }
@@ -2198,14 +2202,6 @@ export interface GetArtifactTypeResponse {
     artifactFolder: string;
 }
 
-export interface GetCodeDiagnosticsReqeust {
-    xmlCodes: XmlCode[];
-}
-
-export interface GetCodeDiagnosticsResponse {
-    diagnostics: {fileName: string, diagnostics: Diagnostic[]}[];
-}
-
 export interface XmlCode{
     fileName: string;
     code: string;
@@ -2257,4 +2253,13 @@ export interface GetMockServicesResponse{
 export interface UpdateRegistryPropertyRequest {
     targetFile: string;
     properties: Property[];
+}
+
+export interface GenerateMappingsParamsRequest {
+    query: string;
+    className?: string;
+    url?: string;
+    username?: string;
+    password?: string;
+    type: 'input' | 'output'
 }

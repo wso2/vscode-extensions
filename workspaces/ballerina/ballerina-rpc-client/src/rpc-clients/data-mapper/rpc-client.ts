@@ -21,9 +21,13 @@ import {
     AddArrayElementRequest,
     AddClausesRequest,
     AddSubMappingRequest,
-    AllDataMapperSourceRequest,
+    ClausePositionRequest,
+    ClausePositionResponse,
     ClearTypeCacheResponse,
+    ConvertExpressionRequest,
+    ConvertExpressionResponse,
     ConvertToQueryRequest,
+    CreateConvertedVariableRequest,
     DMModelRequest,
     DataMapperAPI,
     DataMapperModelRequest,
@@ -34,6 +38,7 @@ import {
     DeleteMappingRequest,
     DeleteSubMappingRequest,
     ExpandedDMModelResponse,
+    FieldPropertyRequest,
     GetDataMapperCodedataRequest,
     GetDataMapperCodedataResponse,
     GetSubMappingCodedataRequest,
@@ -51,14 +56,17 @@ import {
     addSubMapping,
     clearTypeCache,
     convertToQuery,
+    createConvertedVariable,
     deleteClause,
     deleteMapping,
     deleteSubMapping,
-    getAllDataMapperSource,
+    getClausePosition,
+    getConvertedExpression,
     getDataMapperCodedata,
     getDataMapperModel,
     getDataMapperSource,
     getExpandedDMFromDMModel,
+    getFieldProperty,
     getInitialIDMSource,
     getProcessTypeReference,
     getProperty,
@@ -137,12 +145,16 @@ export class DataMapperRpcClient implements DataMapperAPI {
         return this._messenger.sendRequest(getSubMappingCodedata, HOST_EXTENSION, params);
     }
 
-    getAllDataMapperSource(params: AllDataMapperSourceRequest): Promise<DataMapperSourceResponse> {
-        return this._messenger.sendRequest(getAllDataMapperSource, HOST_EXTENSION, params);
-    }
-
     getProperty(params: PropertyRequest): Promise<PropertyResponse> {
         return this._messenger.sendRequest(getProperty, HOST_EXTENSION, params);
+    }
+
+    getFieldProperty(params: FieldPropertyRequest): Promise<PropertyResponse> {
+        return this._messenger.sendRequest(getFieldProperty, HOST_EXTENSION, params);
+    }
+
+    getClausePosition(params: ClausePositionRequest): Promise<ClausePositionResponse> {
+        return this._messenger.sendRequest(getClausePosition, HOST_EXTENSION, params);
     }
 
     getExpandedDMFromDMModel(params: DMModelRequest): Promise<ExpandedDMModelResponse> {
@@ -151,6 +163,14 @@ export class DataMapperRpcClient implements DataMapperAPI {
 
     getProcessTypeReference(params: ProcessTypeReferenceRequest): Promise<ProcessTypeReferenceResponse> {
         return this._messenger.sendRequest(getProcessTypeReference, HOST_EXTENSION, params);
+    }
+
+    getConvertedExpression(params: ConvertExpressionRequest): Promise<ConvertExpressionResponse> {
+        return this._messenger.sendRequest(getConvertedExpression, HOST_EXTENSION, params);
+    }
+
+    createConvertedVariable(params: CreateConvertedVariableRequest): Promise<DataMapperSourceResponse> {
+        return this._messenger.sendRequest(createConvertedVariable, HOST_EXTENSION, params);
     }
 
     clearTypeCache(): Promise<ClearTypeCacheResponse> {

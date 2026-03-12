@@ -51,7 +51,17 @@ import {
     currentThemeChanged,
     ChatNotify,
     onChatNotify,
-    AIMachineSendableEvent
+    checkpointCaptured,
+    CheckpointCapturedPayload,
+    promptUpdated,
+    AIMachineSendableEvent,
+    dependencyPullProgress,
+    ProjectMigrationResult,
+    onMigratedProject,
+    refreshReviewMode,
+    onHideReviewActions,
+    approvalOverlayState,
+    ApprovalOverlayState
 } from "@wso2/ballerina-core";
 import { LangClientRpcClient } from "./rpc-clients/lang-client/rpc-client";
 import { LibraryBrowserRpcClient } from "./rpc-clients/library-browser/rpc-client";
@@ -65,6 +75,7 @@ import { TestManagerServiceRpcClient } from "./rpc-clients";
 import { AiAgentRpcClient } from "./rpc-clients/ai-agent/rpc-client";
 import { ICPServiceRpcClient } from "./rpc-clients/icp-service/rpc-client";
 import { AgentChatRpcClient } from "./rpc-clients/agent-chat/rpc-client";
+import { PlatformExtRpcClient } from "./rpc-clients/platform-ext/platform-ext-client";
 
 export class BallerinaRpcClient {
 
@@ -87,6 +98,7 @@ export class BallerinaRpcClient {
     private _aiAgent: AiAgentRpcClient;
     private _icpManager: ICPServiceRpcClient;
     private _agentChat: AgentChatRpcClient;
+    private _platformExt: PlatformExtRpcClient;
 
     constructor() {
         this.messenger = new Messenger(vscode);
@@ -109,6 +121,7 @@ export class BallerinaRpcClient {
         this._aiAgent = new AiAgentRpcClient(this.messenger);
         this._icpManager = new ICPServiceRpcClient(this.messenger);
         this._agentChat = new AgentChatRpcClient(this.messenger);
+        this._platformExt = new PlatformExtRpcClient(this.messenger);
     }
 
     getAIAgentRpcClient(): AiAgentRpcClient {
@@ -179,6 +192,10 @@ export class BallerinaRpcClient {
         return this._migrateIntegration;
     }
 
+    getPlatformRpcClient(): PlatformExtRpcClient {
+        return this._platformExt;
+    }
+
     getVisualizerLocation(): Promise<VisualizerLocation> {
         return this.messenger.sendRequest(getVisualizerLocation, HOST_EXTENSION);
     }
@@ -193,6 +210,14 @@ export class BallerinaRpcClient {
 
     sendAIStateEvent(event: AIMachineEventType | AIMachineSendableEvent) {
         this.messenger.sendRequest(sendAIStateEvent, HOST_EXTENSION, event);
+    }
+
+    onCheckpointCaptured(callback: (payload: CheckpointCapturedPayload) => void) {
+        this.messenger.onNotification(checkpointCaptured, callback);
+    }
+
+    onPromptUpdated(callback: () => void) {
+        this.messenger.onNotification(promptUpdated, callback);
     }
 
     onProjectContentUpdated(callback: (state: boolean) => void) {
@@ -237,6 +262,14 @@ export class BallerinaRpcClient {
         this.messenger.onNotification(onMigrationToolStateChanged, callback);
     }
 
+    onDependencyPullProgress(callback: (message: string) => void) {
+        this.messenger.onNotification(dependencyPullProgress, callback);
+    }
+
+    onMigratedProject(callback: (result: ProjectMigrationResult) => void) {
+        this.messenger.onNotification(onMigratedProject, callback);
+    }
+
     getPopupVisualizerState(): Promise<PopupVisualizerLocation> {
         return this.messenger.sendRequest(getPopupVisualizerState, HOST_EXTENSION);
     }
@@ -247,5 +280,17 @@ export class BallerinaRpcClient {
 
     onThemeChanged(callback: (kind: ColorThemeKind) => void) {
         this.messenger.onNotification(currentThemeChanged, callback);
+    }
+
+    onRefreshReviewMode(callback: () => void) {
+        this.messenger.onNotification(refreshReviewMode, callback);
+    }
+
+    onHideReviewActions(callback: () => void) {
+        this.messenger.onNotification(onHideReviewActions, callback);
+    }
+
+    onApprovalOverlayState(callback: (data: ApprovalOverlayState) => void) {
+        this.messenger.onNotification(approvalOverlayState, callback);
     }
 }

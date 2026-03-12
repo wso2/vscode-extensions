@@ -17,52 +17,44 @@
  */
 
 import React, { useEffect, useRef, useState } from "react";
+import styled from "@emotion/styled";
 import {
-    GetWorkspaceContextResponse,
-    ProjectSource,
     SourceFile,
     MappingParameters,
-    DataMappingRecord,
-    TestGenerationTarget,
     LLMDiagnostics,
-    ImportStatement,
     DiagnosticEntry,
-    ExistingFunction,
     AIPanelPrompt,
     Command,
     TemplateId,
     ChatNotify,
-    GenerateCodeRequest,
-    TestPlanGenerationRequest,
-    TestGeneratorIntermediaryState,
     DocumentationGeneratorIntermediaryState,
-    SourceFiles,
-    ChatEntry,
     OperationType,
-    GENERATE_TEST_AGAINST_THE_REQUIREMENT,
-    GENERATE_CODE_AGAINST_THE_REQUIREMENT,
-    ComponentInfo,
-    ImportInfo,
-    MetadataWithAttachments,
     ExtendedDataMapperMetadata,
     DocGenerationRequest,
     DocGenerationType,
     FileChanges,
+    CodeContext,
+    ApprovalOverlayState,
 } from "@wso2/ballerina-core";
 
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
-import { Button, Icon, Codicon, Typography } from "@wso2/ui-toolkit";
+import { Button, Codicon } from "@wso2/ui-toolkit";
 
 import { AIChatInputRef } from "../AIChatInput";
 import ProgressTextSegment from "../ProgressTextSegment";
 import ToolCallSegment from "../ToolCallSegment";
-import RoleContainer from "../RoleContainter";
-import { Attachment, AttachmentStatus } from "@wso2/ballerina-core";
-import { formatWithProperIndentation } from "../../../../utils/utils";
+import ToolCallGroupSegment, { ToolCallItem } from "../ToolCallGroupSegment";
+import TryItScenariosSegment from "../TryItScenariosSegment";
+import TodoSection from "../TodoSection";
+import AgentStreamView from "../AgentStreamView";
+import { StreamEntry, StreamItem } from "../AgentStreamView/types";
+import { ConnectorGeneratorSegment } from "../ConnectorGeneratorSegment";
+import { ConfigurationCollectorSegment, ConfigurationCollectionData } from "../ConfigurationCollectorSegment";
+import CheckpointSeparator from "../CheckpointSeparator";
+import { Attachment, AttachmentStatus, TaskApprovalRequest } from "@wso2/ballerina-core";
 
-import { AIChatView, Header, HeaderButtons, ChatMessage, Badge } from "../../styles";
+import { AIChatView, Header, HeaderButtons, ChatMessage, Badge, ResetsInBadge, ApprovalOverlay, OverlayMessage } from "../../styles";
 import ReferenceDropdown from "../ReferenceDropdown";
-import AccordionItem from "../TestScenarioSegment";
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react";
 import MarkdownRenderer from "../MarkdownRenderer";
 import { CodeSection } from "../CodeSection";
@@ -77,81 +69,127 @@ import {
     upsertTemplate,
 } from "../../commandTemplates/utils/utils";
 import { acceptResolver, handleAttachmentSelection } from "../../utils/attachment/attachmentManager";
-import { abortFetchWithAuth, fetchWithAuth } from "../../utils/networkUtils";
 import { SYSTEM_ERROR_SECRET } from "../AIChatInput/constants";
 import { CodeSegment } from "../CodeSegment";
 import AttachmentBox, { AttachmentsContainer } from "../AttachmentBox";
 import Footer from "./Footer";
+import { AgentMode } from "../AIChatInput/ModeToggle";
+import ApprovalFooter from "./Footer/ApprovalFooter";
 import { useFooterLogic } from "./Footer/useFooterLogic";
 import { SettingsPanel } from "../../SettingsPanel";
 import WelcomeMessage from "./Welcome";
-import { getOnboardingOpens, incrementOnboardingOpens } from "./utils/utils";
+import { getOnboardingOpens, incrementOnboardingOpens, convertToUIMessages, isContainsSyntaxError } from "./utils/utils";
 
 import FeedbackBar from "./../FeedbackBar";
 import { useFeedback } from "./utils/useFeedback";
+import { SegmentType, splitContent } from "./segment";
+import ReviewActions from "../ReviewActions";
 
-interface ChatIndexes {
-    integratedChatIndex: number;
-    previouslyIntegratedChatIndex: number;
-}
-
-enum CodeGenerationType {
-    CODE_FOR_USER_REQUIREMENT = "CODE_FOR_USER_REQUIREMENT",
-    TESTS_FOR_USER_REQUIREMENT = "TESTS_FOR_USER_REQUIREMENT",
-    CODE_GENERATION = "CODE_GENERATION",
-}
-
-var chatArray: ChatEntry[] = [];
-var integratedChatIndex = 0;
-var previouslyIntegratedChatIndex = 0;
-var previousDevelopmentDocumentContent = "";
-
-// A string array to store all code blocks
-const codeBlocks: string[] = [];
-var projectUuid = "";
-var backendRootUri = "";
-var chatLocation = "";
-
-var remainingTokenPercentage: string | number;
-var remaingTokenLessThanOne: boolean = false;
-
-var timeToReset: number;
-const INVALID_RECORD_REFERENCE: Error = new Error(
-    "Invalid record reference. Follow <org-name>/<package-name>:<record-name> format when referencing to record in another package."
-);
 const NO_DRIFT_FOUND = "No drift identified between the code and the documentation.";
 const DRIFT_CHECK_ERROR = "Failed to check drift between the code and the documentation. Please try again.";
-const RATE_LIMIT_ERROR = ` Cause: Your usage limit has been exceeded. This should reset in the beggining of the next month.`;
-const UPDATE_CHAT_SUMMARY_FAILED = `Failed to update the chat summary.`;
 
-const CHECK_DRIFT_BETWEEN_CODE_AND_DOCUMENTATION = "Check drift between code and documentation";
-const GENERATE_CODE_AGAINST_THE_PROVIDED_REQUIREMENTS = "Generate code based on the following requirements: ";
-const GENERATE_CODE_AGAINST_THE_PROVIDED_REQUIREMENTS_TRIMMED = GENERATE_CODE_AGAINST_THE_PROVIDED_REQUIREMENTS.trim();
+const USAGE_EXCEEDED_THRESHOLD_PERCENT = 3;
 
 //TODO: Add better error handling from backend. stream error type and non 200 status codes
 
+const MessageBody = styled.div<{ isUserMessage: boolean }>(({ isUserMessage }: { isUserMessage: boolean }) => ({
+    display: "flex",
+    flexDirection: "column",
+    width: isUserMessage ? "fit-content" : "100%",
+    maxWidth: isUserMessage ? "85%" : "100%",
+    marginLeft: isUserMessage ? "auto" : "0",
+    padding: isUserMessage ? "12px 14px" : "0",
+    border: isUserMessage ? "1px solid var(--vscode-panel-border)" : "none",
+    borderRadius: isUserMessage ? "12px" : "0",
+    background: isUserMessage ? "var(--vscode-editor-inactiveSelectionBackground)" : "transparent",
+    overflowWrap: "anywhere",
+}));
+
+// ── Agent stream serialization ────────────────────────────────────────────────
+
+function serializeStream(entries: StreamEntry[], existingContent: string): string {
+    const blob = `<agentstream>${JSON.stringify({ entries })}</agentstream>`;
+    if (existingContent.includes("<agentstream>")) {
+        return existingContent.replace(/<agentstream>[\s\S]*?<\/agentstream>/, blob);
+    }
+    return existingContent + blob;
+}
+
+function parseStream(content: string): StreamEntry[] {
+    const match = content.match(/<agentstream>([\s\S]*?)<\/agentstream>/);
+    if (!match) return [];
+    try { return JSON.parse(match[1]).entries ?? []; } catch { return []; }
+}
+
+function appendToLastEntry(entries: StreamEntry[], item: StreamItem): StreamEntry[] {
+    if (entries.length === 0) return [{ description: "", items: [item] }];
+    const last = entries[entries.length - 1];
+    return [...entries.slice(0, -1), { ...last, items: [...last.items, item] }];
+}
+
 const AIChat: React.FC = () => {
     const { rpcClient } = useRpcContext();
-    const [messages, setMessages] = useState<Array<{ role: string; content: string; type: string }>>([]);
+    const [messages, setMessages] = useState<Array<{ role: string; content: string; type: string; checkpointId?: string; messageId?: string }>>([]);
+
+    const getLatestAssistantMessageIndex = (chatMessages: Array<{ role: string }>): number => {
+        for (let i = chatMessages.length - 1; i >= 0; i--) {
+            const role = chatMessages[i]?.role;
+            if (role === "Copilot" || role === "assistant") {
+                return i;
+            }
+        }
+        return -1;
+    };
+
+    const ensureAssistantMessage = (
+        chatMessages: Array<{ role: string; content: string; type: string; checkpointId?: string; messageId?: string }>
+    ): number => {
+        let targetIndex = getLatestAssistantMessageIndex(chatMessages);
+        if (targetIndex === -1) {
+            chatMessages.push({ role: "Copilot", content: "", type: "assistant_message" });
+            targetIndex = chatMessages.length - 1;
+        }
+        return targetIndex;
+    };
+
+    const updateLastMessage = (updater: (content: string) => string) => {
+        setMessages((prevMessages) => {
+            const newMessages = [...prevMessages];
+            const targetIndex = ensureAssistantMessage(newMessages);
+            newMessages[targetIndex].content = updater(newMessages[targetIndex].content);
+            return newMessages;
+        });
+    };
+
     const [isLoading, setIsLoading] = useState(false);
     const [lastQuestionIndex, setLastQuestionIndex] = useState(-1);
-    const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
     const [isCodeLoading, setIsCodeLoading] = useState(false);
     const [currentGeneratingPromptIndex, setCurrentGeneratingPromptIndex] = useState(-1);
-    const [isSyntaxError, setIsSyntaxError] = useState(false);
     const [isReqFileExists, setIsReqFileExists] = useState(false);
     const [isPromptExecutedInCurrentWindow, setIsPromptExecutedInCurrentWindow] = useState(false);
-    const [testGenIntermediaryState, setTestGenIntermediaryState] = useState<TestGeneratorIntermediaryState | null>(
-        null
-    );
+
     const [docGenIntermediaryState, setDocGenIntermediaryState] =
         useState<DocumentationGeneratorIntermediaryState | null>(null);
     const [isAddingToWorkspace, setIsAddingToWorkspace] = useState(false);
 
     const [showSettings, setShowSettings] = useState(false);
+    const [isAutoApproveEnabled, setIsAutoApproveEnabled] = useState(false);
+    const [agentMode, setAgentMode] = useState<AgentMode>(AgentMode.Edit);
+    const [showReviewActions, setShowReviewActions] = useState(false);
+    const [availableCheckpointIds, setAvailableCheckpointIds] = useState<Set<string>>(new Set());
+
+    const [approvalRequest, setApprovalRequest] = useState<TaskApprovalRequest | null>(null);
+    const [approvalOverlay, setApprovalOverlay] = useState<ApprovalOverlayState>({ show: false });
+
+    const [currentFileArray, setCurrentFileArray] = useState<SourceFile[]>([]);
+    const [codeContext, setCodeContext] = useState<CodeContext | undefined>(undefined);
+
+    const [usage, setUsage] = useState<{ remainingUsagePercentage: number; resetsIn: number } | null>(null);
+    const [isUsageExceeded, setIsUsageExceeded] = useState(false);
 
     //TODO: Need a better way of storing data related to last generation to be in the repair state.
     const currentDiagnosticsRef = useRef<DiagnosticEntry[]>([]);
+    const codeContextRef = useRef<CodeContext | undefined>(undefined);
     const functionsRef = useRef<any>([]);
     const lastAttatchmentsRef = useRef<any>([]);
     const aiChatInputRef = useRef<AIChatInputRef>(null);
@@ -172,18 +210,55 @@ const AIChat: React.FC = () => {
         currentDiagnosticsRef,
     });
 
+    const updateCodeContext = (context?: CodeContext) => {
+        codeContextRef.current = context;
+        setCodeContext(context);
+    };
+
     /**
      * Effect: Initialize the component with initial prompts
      */
     useEffect(function initializeWithInitialPrompts() {
-        rpcClient
-            .getAiPanelRpcClient()
-            .getDefaultPrompt()
-            .then((defaultPrompt: AIPanelPrompt) => {
-                if (defaultPrompt) {
-                    aiChatInputRef.current?.setInputContent(defaultPrompt);
-                }
-            });
+        const fetchPrompt = () => {
+            rpcClient
+                .getAiPanelRpcClient()
+                .getDefaultPrompt()
+                .then((defaultPrompt: AIPanelPrompt) => {
+                    if (defaultPrompt) {
+                        // Extract CodeContext from both command-template metadata and text-type direct param
+                        const codeCtx = defaultPrompt.type === 'command-template'
+                            ? defaultPrompt.metadata?.codeContext
+                            : defaultPrompt.type === 'text'
+                                ? defaultPrompt.codeContext
+                                : undefined;
+
+                        updateCodeContext(codeCtx);
+
+                        // Handle plan mode for text-type prompts
+                        if (defaultPrompt.type === 'text') {
+                            setAgentMode(defaultPrompt.planMode ? AgentMode.Plan : AgentMode.Edit);
+
+                            if (defaultPrompt.autoSubmit && defaultPrompt.text.trim().length > 0) {
+                                void handleSend({
+                                    input: [{ content: defaultPrompt.text }],
+                                    attachments: [],
+                                });
+                                return;
+                            }
+                        }
+
+                        aiChatInputRef.current?.setInputContent(defaultPrompt);
+                    }
+                });
+        };
+
+        // Fetch prompt on mount
+        fetchPrompt();
+
+        // Listen for prompt updates when panel is already open
+        rpcClient.onPromptUpdated(() => {
+            fetchPrompt();
+        });
     }, []);
 
     /**
@@ -194,169 +269,397 @@ const AIChat: React.FC = () => {
     }, []);
     /* REFACTORED CODE END [2] */
 
-    let codeSegmentRendered = false;
-    const [tempStorage, setTempStorage] = useState<{ [filePath: string]: string }>({});
-    const [initialFiles, setInitialFiles] = useState<Set<string>>(new Set<string>());
-    const [emptyFiles, setEmptyFiles] = useState<Set<string>>(new Set<string>());
+    const formatResetsIn = (seconds: number): string => {
+        const days = Math.floor(seconds / 86400);
+        if (days >= 1) return `${days} day${days > 1 ? 's' : ''}`;
+        const hours = Math.floor(seconds / 3600);
+        if (hours >= 1) return `${hours} hour${hours > 1 ? 's' : ''}`;
+        const mins = Math.floor(seconds / 60);
+        return `${mins} min${mins > 1 ? 's' : ''}`;
+    };
 
-    async function fetchBackendUrl() {
+    const formatResetsInExact = (seconds: number): string => {
+        const days = Math.floor(seconds / 86400);
+        const hours = Math.floor((seconds % 86400) / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const parts: string[] = [];
+        if (days > 0) parts.push(`${days} day${days > 1 ? 's' : ''}`);
+        if (hours > 0) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
+        if (mins > 0) parts.push(`${mins} minute${mins > 1 ? 's' : ''}`);
+        return parts.length > 0 ? parts.join(', ') : 'less than a minute';
+    };
+
+    const fetchUsage = async () => {
         try {
-            backendRootUri = await rpcClient.getAiPanelRpcClient().getBackendUrl();
-            chatLocation = (await rpcClient.getVisualizerLocation()).projectUri;
-            setIsReqFileExists(
-                chatLocation != null &&
-                    chatLocation != undefined &&
-                    (await rpcClient.getAiPanelRpcClient().isRequirementsSpecificationFileExist(chatLocation))
-            );
-
-            generateNaturalProgrammingTemplate(isReqFileExists);
-            // Do something with backendRootUri
-        } catch (error) {
-            console.error("Failed to fetch backend URL:", error);
+            const result = await rpcClient.getAiPanelRpcClient().getUsage();
+            if (result) {
+                setUsage(result);
+                setIsUsageExceeded(result.resetsIn !== -1 && result.remainingUsagePercentage < USAGE_EXCEEDED_THRESHOLD_PERCENT);
+            } else {
+                setUsage(null);
+                setIsUsageExceeded(false);
+            }
+        } catch (e) {
+            console.error("Failed to fetch usage:", e);
+            // Reset on error to avoid permanently blocking the user on transient failures
+            setUsage(null);
+            setIsUsageExceeded(false);
         }
-    }
-    useEffect(() => {
-        fetchBackendUrl();
-    }, []);
+    };
+
+    useEffect(() => { fetchUsage(); }, []);
+
+    const handleCheckpointRestore = async (checkpointId: string) => {
+        try {
+            // Call backend to restore checkpoint (files + chat history)
+            await rpcClient.getAiPanelRpcClient().restoreCheckpoint({ checkpointId });
+
+            // Fetch updated messages from backend
+            const updatedMessages = await rpcClient.getAiPanelRpcClient().getChatMessages();
+            const uiMessages = convertToUIMessages(updatedMessages);
+            setMessages(uiMessages);
+
+            // Update available checkpoint IDs after restore (checkpoints are trimmed during restore)
+            const checkpoints = await rpcClient.getAiPanelRpcClient().getCheckpoints();
+            const checkpointIds = checkpoints.map(cp => cp.id);
+            setAvailableCheckpointIds(new Set(checkpointIds));
+
+            // Reset UI state
+            setIsLoading(false);
+            setIsCodeLoading(false);
+            setDocGenIntermediaryState(null);
+            setIsAddingToWorkspace(false);
+            setCurrentFileArray([]);
+            setLastQuestionIndex(-1);
+            setCurrentGeneratingPromptIndex(-1);
+            setShowReviewActions(false);
+        } catch (error) {
+            console.error("Failed to restore checkpoint:", error);
+        }
+    };
 
     useEffect(() => {
-        rpcClient
-            ?.getAiPanelRpcClient()
-            .getProjectUuid()
-            .then((response) => {
-                projectUuid = response;
+        const initializeCheckpoints = async () => {
+            try {
+                // Fetch available checkpoints
+                const checkpoints = await rpcClient.getAiPanelRpcClient().getCheckpoints();
+                const checkpointIds = checkpoints.map(cp => cp.id);
+                setAvailableCheckpointIds(new Set(checkpointIds));
+            } catch (error) {
+                console.error("[AIChat] Failed to initialize checkpoints:", error);
+            }
+        };
 
-                const localStorageIndexFile = `chatArray-AIGenerationChat-${projectUuid}-developer-index`;
-                const storedIndexes = localStorage.getItem(localStorageIndexFile);
-                if (storedIndexes) {
-                    const indexes: ChatIndexes = JSON.parse(storedIndexes);
-                    integratedChatIndex = indexes.integratedChatIndex;
-                    previouslyIntegratedChatIndex = indexes.previouslyIntegratedChatIndex;
+        initializeCheckpoints();
+    }, [rpcClient]);
+
+
+    useEffect(() => {
+        const handleHideReviewActions = () => {
+            console.log("[AIChat] Received hideReviewActions notification from extension");
+            setShowReviewActions(false);
+        };
+
+        rpcClient.onHideReviewActions(handleHideReviewActions);
+    }, [rpcClient]);
+
+    useEffect(() => {
+        const handleApprovalOverlay = (data: ApprovalOverlayState) => {
+            console.log("[AIChat] Approval overlay notification:", data);
+            setApprovalOverlay(data);
+        };
+
+        rpcClient.onApprovalOverlayState(handleApprovalOverlay);
+    }, [rpcClient]);
+
+    /**
+     * Effect: Load initial chat history from aiChatMachine context
+     */
+    useEffect(function loadInitialChatHistory() {
+        const loadHistory = async () => {
+            try {
+                const historyMessages = await rpcClient.getAiPanelRpcClient().getChatMessages();
+                if (historyMessages && historyMessages.length > 0) {
+                    const uiMessages = convertToUIMessages(historyMessages);
+                    setMessages((prevMessages) => (prevMessages.length > 0 ? prevMessages : uiMessages));
                 }
+            } catch (error) {
+                console.error('[AIChat] Failed to load initial chat history:', error);
+                // Continue with empty messages - don't block the UI
+            }
+        };
 
-                const localStorageFile = `chatArray-AIGenerationChat-${projectUuid}`;
-                const storedChatArray = localStorage.getItem(localStorageFile);
-                rpcClient
-                    .getAiPanelRpcClient()
-                    .getAIMachineSnapshot()
-                    .then((snapshot) => {
-                        if (storedChatArray) {
-                            const chatArrayFromStorage = JSON.parse(storedChatArray);
-                            chatArray = chatArrayFromStorage;
-                            // Add the messages from the chat array to the view
-                            setMessages((prevMessages) => [
-                                ...prevMessages,
-                                ...chatArray.map((entry: ChatEntry) => {
-                                    let role, type;
-                                    if (entry.actor === "user") {
-                                        role = "User";
-                                        type = "user_message";
-                                    } else if (entry.actor === "assistant") {
-                                        role = "Copilot";
-                                        type = "assistant_message";
-                                    }
-                                    return {
-                                        role: role,
-                                        type: type,
-                                        content: entry.message,
-                                    };
-                                }),
-                            ]);
+        loadHistory();
+    }, [rpcClient]);
 
-                            // Set initial messages only if chatArray's length is 0
-                        } else {
-                            if (chatArray.length === 0) {
-                                setMessages((prevMessages) => [...prevMessages]);
-                            }
-                        }
-                        // }
-                    });
-            });
-    }, []);
+    rpcClient?.onCheckpointCaptured(async (payload: { messageId: string; checkpointId: string }) => {
+        setMessages((prevMessages) => {
+            const updatedMessages = [...prevMessages];
+            for (let i = updatedMessages.length - 1; i >= 0; i--) {
+                if (updatedMessages[i].type === "user_message" && !updatedMessages[i].checkpointId) {
+                    updatedMessages[i] = {
+                        ...updatedMessages[i],
+                        checkpointId: payload.checkpointId,
+                        messageId: payload.messageId
+                    };
+                    break;
+                }
+            }
+            return updatedMessages;
+        });
 
-    rpcClient?.onChatNotify((response: ChatNotify) => {
-        // TODO: Need to handle the content as step blocks
+        // Update available checkpoint IDs after a new checkpoint is captured
+        // This ensures the set reflects any cleanup of old checkpoints (maxCount enforcement)
+        try {
+            const checkpoints = await rpcClient.getAiPanelRpcClient().getCheckpoints();
+            const checkpointIds = checkpoints.map(cp => cp.id);
+            setAvailableCheckpointIds(new Set(checkpointIds));
+        } catch (error) {
+            console.error("[AIChat] Failed to update available checkpoint IDs:", error);
+        }
+    });
+
+    rpcClient?.onChatNotify(async (response: ChatNotify) => {
         const type = response.type;
+
         if (type === "content_block") {
             const content = response.content;
-            setMessages((prevMessages) => {
-                const newMessages = [...prevMessages];
-                newMessages[newMessages.length - 1].content += content;
-                return newMessages;
-            });
-        } else if (type === "content_replace") {
-            const content = response.content;
-            setMessages((prevMessages) => {
-                const newMessages = [...prevMessages];
-                newMessages[newMessages.length - 1].content = content;
-                return newMessages;
-            });
-        } else if (type === "tool_call") {
-            if (response.toolName == "LibraryProviderTool") {
-                setMessages((prevMessages) => {
-                    const newMessages = [...prevMessages];
-                    if (newMessages.length > 0) {
-                        newMessages[newMessages.length - 1].content += `\n\n<toolcall>Analyzing request & selecting libraries...</toolcall>`;
+            if (content === "") return;
+            setMessages(prevMessages => {
+                const msgs = [...prevMessages];
+                const targetIndex = ensureAssistantMessage(msgs);
+                const last = msgs[targetIndex];
+                const entries = parseStream(last.content);
+                // Merge into trailing text item of the last entry if possible, otherwise append
+                if (entries.length > 0) {
+                    const lastEntry = entries[entries.length - 1];
+                    const lastItem = lastEntry.items[lastEntry.items.length - 1];
+                    if (lastItem?.kind === "text") {
+                        const updatedItems = [...lastEntry.items.slice(0, -1), { ...lastItem, text: lastItem.text + content }];
+                        const updated = [...entries.slice(0, -1), { ...lastEntry, items: updatedItems }];
+                        msgs[targetIndex] = { ...last, content: serializeStream(updated, last.content) };
+                        return msgs;
                     }
-                    return newMessages;
-                });
-            }
+                }
+                const updated = appendToLastEntry(entries, { kind: "text", text: content });
+                msgs[targetIndex] = { ...last, content: serializeStream(updated, last.content) };
+                return msgs;
+            });
+
+        } else if (type === "tool_call") {
+            const newItem: StreamItem = { kind: "tool_call", toolCallId: response.toolCallId, toolName: response.toolName, toolInput: response.toolInput };
+            setMessages(prevMessages => {
+                const msgs = [...prevMessages];
+                const targetIndex = ensureAssistantMessage(msgs);
+                const last = msgs[targetIndex];
+                const entries = parseStream(last.content);
+                const updated = appendToLastEntry(entries, newItem);
+                msgs[targetIndex] = { ...last, content: serializeStream(updated, last.content) };
+                return msgs;
+            });
+
         } else if (type === "tool_result") {
-            if (response.toolName == "LibraryProviderTool") {
-                const libraryNames = response.toolOutput;
-                setMessages((prevMessages) => {
-                    const newMessages = [...prevMessages];
-                    if (newMessages.length > 0) {
-                        if (libraryNames.length === 0) {
-                            newMessages[newMessages.length - 1].content = newMessages[
-                                newMessages.length - 1
-                            ].content.replace(
-                                `<toolcall>Analyzing request & selecting libraries...</toolcall>`,
-                                `<toolcall>No relevant libraries found.</toolcall>`
-                            );
-                        } else {
-                            newMessages[newMessages.length - 1].content = newMessages[
-                                newMessages.length - 1
-                            ].content.replace(
-                                `<toolcall>Analyzing request & selecting libraries...</toolcall>`,
-                                `<toolcall>Fetched libraries: [${libraryNames.join(", ")}]</toolcall>`
+            if (response.toolName === "TaskWrite") {
+                const tasks: Array<{ status: string; description: string }> = response.toolOutput?.tasks ?? [];
+                const inProgressTask = tasks.find(t => t.status === "in_progress");
+                const lastCompletedTask = [...tasks].reverse().find(t => t.status === "completed");
+                setMessages(prevMessages => {
+                    const msgs = [...prevMessages];
+                    const targetIndex = ensureAssistantMessage(msgs);
+                    const last = msgs[targetIndex];
+                    let entries = parseStream(last.content);
+                    if (inProgressTask) {
+                        // Push a named entry for this task (skip if already present)
+                        if (entries.some(e => e.description === inProgressTask.description)) return prevMessages;
+                        entries = [...entries, { description: inProgressTask.description, items: [], status: "in_progress" as const }];
+                    } else {
+                        // Mark the just-completed named entry as done
+                        if (lastCompletedTask) {
+                            entries = entries.map(e =>
+                                e.description === lastCompletedTask.description
+                                    ? { ...e, status: "completed" as const }
+                                    : e
                             );
                         }
+                        // Push a floating entry for subsequent content (if not already present)
+                        const lastEntry = entries[entries.length - 1];
+                        if (!lastEntry || lastEntry.description !== "") {
+                            entries = [...entries, { description: "", items: [] }];
+                        }
                     }
-                    return newMessages;
+                    msgs[targetIndex] = { ...last, content: serializeStream(entries, last.content) };
+                    return msgs;
+                });
+            } else {
+                // Replace the matching tool_call item with tool_result
+                setMessages(prevMessages => {
+                    const msgs = [...prevMessages];
+                    const targetIndex = ensureAssistantMessage(msgs);
+                    const last = msgs[targetIndex];
+                    const entries = parseStream(last.content);
+                    const resultItem: StreamItem = { kind: "tool_result", toolCallId: response.toolCallId, toolName: response.toolName, toolOutput: response.toolOutput, failed: (response as any).failed };
+                    let matched = false;
+                    const updated = entries.map(entry => {
+                        if (matched) return entry;
+                        const idx = entry.items.findIndex(i => i.kind === "tool_call" && i.toolCallId === response.toolCallId);
+                        if (idx === -1) return entry;
+                        matched = true;
+                        const updatedItems = entry.items.map((item, i) => i === idx ? resultItem : item);
+                        return { ...entry, items: updatedItems };
+                    });
+                    if (!matched) {
+                        // No matching call found — append as new item to last entry
+                        msgs[targetIndex] = { ...last, content: serializeStream(appendToLastEntry(entries, resultItem), last.content) };
+                    } else {
+                        msgs[targetIndex] = { ...last, content: serializeStream(updated, last.content) };
+                    }
+                    return msgs;
                 });
             }
+
+        } else if (type === "task_approval_request") {
+            if (response.approvalType === "plan") {
+                setMessages(prevMessages => {
+                    const msgs = [...prevMessages];
+                    const targetIndex = ensureAssistantMessage(msgs);
+                    const last = msgs[targetIndex];
+                    const entries = parseStream(last.content);
+                    const planItem: StreamItem = { kind: "plan", tasks: response.tasks, message: response.message };
+                    const updated = appendToLastEntry(entries, planItem);
+                    msgs[targetIndex] = { ...last, content: serializeStream(updated, last.content) };
+                    return msgs;
+                });
+            }
+
+            if (isAutoApproveEnabled && response.approvalType === "completion") {
+                await rpcClient.getAiPanelRpcClient().approveTask({ requestId: response.requestId });
+                return;
+            }
+
+            setApprovalRequest({
+                type: "task_approval_request",
+                requestId: response.requestId,
+                approvalType: response.approvalType,
+                tasks: response.tasks,
+                taskDescription: response.taskDescription,
+                message: response.message,
+            });
+
         } else if (type === "intermediary_state") {
             const state = response.state;
-            // Check if it's a documentation state by looking for specific properties
             if ("serviceName" in state && "documentation" in state) {
                 setDocGenIntermediaryState(state as DocumentationGeneratorIntermediaryState);
-            } else {
-                setTestGenIntermediaryState(state as TestGeneratorIntermediaryState);
             }
+
+        } else if (type === "generated_sources") {
+            setCurrentFileArray(response.fileArray);
+
+        } else if (type === "connector_generation_notification") {
+            const connectorNotification = response as any;
+            const connectorData = {
+                requestId: connectorNotification.requestId,
+                stage: connectorNotification.stage,
+                serviceName: connectorNotification.serviceName,
+                serviceDescription: connectorNotification.serviceDescription,
+                spec: connectorNotification.spec,
+                connector: connectorNotification.connector,
+                error: connectorNotification.error,
+                message: connectorNotification.message,
+                inputMethod: connectorNotification.inputMethod,
+                sourceIdentifier: connectorNotification.sourceIdentifier
+            };
+            setMessages(prevMessages => {
+                const msgs = [...prevMessages];
+                const targetIndex = ensureAssistantMessage(msgs);
+                const last = msgs[targetIndex];
+                const entries = parseStream(last.content);
+                let found = false;
+                let updated = entries.map(entry => {
+                    const idx = entry.items.findIndex(item => item.kind === "connector" && (item.data as any)?.requestId === connectorData.requestId);
+                    if (idx === -1) return entry;
+                    found = true;
+                    return { ...entry, items: entry.items.map((item, i) => i === idx ? { kind: "connector" as const, data: connectorData } : item) };
+                });
+                if (!found) updated = appendToLastEntry(entries, { kind: "connector", data: connectorData });
+                msgs[targetIndex] = { ...last, content: serializeStream(updated, last.content) };
+                return msgs;
+            });
+
+        } else if (type === "configuration_collection_event") {
+            const configurationNotification = response as any;
+            const configurationData: ConfigurationCollectionData = {
+                requestId: configurationNotification.requestId,
+                stage: configurationNotification.stage,
+                variables: configurationNotification.variables,
+                existingValues: configurationNotification.existingValues,
+                message: configurationNotification.message,
+                isTestConfig: configurationNotification.isTestConfig,
+                error: configurationNotification.error
+            };
+            setMessages(prevMessages => {
+                const msgs = [...prevMessages];
+                const targetIndex = ensureAssistantMessage(msgs);
+                const last = msgs[targetIndex];
+                const entries = parseStream(last.content);
+                let found = false;
+                let updated = entries.map(entry => {
+                    const idx = entry.items.findIndex(item => item.kind === "config" && (item.data as any)?.requestId === configurationData.requestId);
+                    if (idx === -1) return entry;
+                    found = true;
+                    return { ...entry, items: entry.items.map((item, i) => i === idx ? { kind: "config" as const, data: configurationData } : item) };
+                });
+                if (!found) updated = appendToLastEntry(entries, { kind: "config", data: configurationData });
+                msgs[targetIndex] = { ...last, content: serializeStream(updated, last.content) };
+                return msgs;
+            });
+
         } else if (type === "diagnostics") {
-            const content = response.diagnostics;
-            currentDiagnosticsRef.current = content;
+            currentDiagnosticsRef.current = response.diagnostics;
+
+        } else if ((response as any).type === "review_actions") {
+            setShowReviewActions(true);
+
         } else if (type === "messages") {
-            const messages = response.messages;
-            messagesRef.current = messages;
+            messagesRef.current = response.messages;
+
         } else if (type === "stop") {
             console.log("Received stop signal");
             setIsCodeLoading(false);
             setIsLoading(false);
-            const command = response.command;
-            addChatEntry(
-                "user",
-                messages[messages.length - 2].content,
-                command != undefined && command == Command.Code
-            ); // Handle this in input layer?
-            addChatEntry("assistant", messages[messages.length - 1].content);
+            fetchUsage();
+
+        } else if (type === "abort") {
+            console.log("Received abort signal");
+            const abortItem: StreamItem = { kind: "text", text: "*[Request interrupted by user]*" };
+            setMessages(prevMessages => {
+                const msgs = [...prevMessages];
+                const targetIndex = ensureAssistantMessage(msgs);
+                const last = msgs[targetIndex];
+                const entries = parseStream(last.content);
+                const updated = appendToLastEntry(entries, abortItem);
+                msgs[targetIndex] = { ...last, content: serializeStream(updated, last.content) };
+                return msgs;
+            });
+            setIsCodeLoading(false);
+            setIsLoading(false);
+
+        } else if (type === "save_chat") {
+            console.log("Received save_chat signal");
+            const assistantIndex = getLatestAssistantMessageIndex(messages);
+            const contentToSave = assistantIndex >= 0 ? messages[assistantIndex]?.content : messages[messages.length - 1]?.content;
+            await rpcClient.getAiPanelRpcClient().updateChatMessage({
+                messageId: response.messageId,
+                content: contentToSave || "",
+            });
+
         } else if (type === "error") {
             console.log("Received error signal");
-            const errorTemplate = `\n\n<error data-system="true" data-auth="${SYSTEM_ERROR_SECRET}">${response.content}</error>`;
+            const errorContent = response.content;
+            const errorTemplate = `\n\n<error data-system="true" data-auth="${SYSTEM_ERROR_SECRET}">${errorContent}</error>`;
             setMessages((prevMessages) => {
                 const newMessages = [...prevMessages];
-                let content = newMessages[newMessages.length - 1].content;
+                const targetIndex = ensureAssistantMessage(newMessages);
+                let content = newMessages[targetIndex].content;
 
                 // Check if there's an unclosed code block and close it properly
                 const codeBlockPattern = /<code filename="[^"]+">[\s]*```\w+/g;
@@ -364,30 +667,24 @@ const AIChat: React.FC = () => {
                 const closedCodeBlocks = (content.match(/<\/code>/g) || []).length;
 
                 if (openCodeBlocks > closedCodeBlocks) {
-                    // Check what's missing at the end
                     const endsWithPartialClose = /```\s*<\/cod?e?$/.test(content.trim());
                     const endsWithBackticks = /```\s*$/.test(content.trim());
                     const endsWithPartialBackticks = /`{1,2}$/.test(content.trim());
 
                     if (endsWithPartialClose) {
-                        // Remove partial closing and add complete one
                         content = content.replace(/```\s*<\/cod?e?$/, "");
                         content += "\n```\n</code>";
                     } else if (endsWithBackticks) {
-                        // Already has ```, just need </code>
                         content += "\n</code>";
                     } else if (endsWithPartialBackticks) {
-                        // Remove partial backticks and add complete closing
                         content = content.replace(/`{1,2}$/, "");
                         content += "\n```\n</code>";
                     } else {
-                        // No closing elements, add both
                         content += "\n```\n</code>";
                     }
                 }
 
-                newMessages[newMessages.length - 1].content = content + errorTemplate;
-                console.log(newMessages);
+                newMessages[targetIndex].content = content + errorTemplate;
                 return newMessages;
             });
             setIsCodeLoading(false);
@@ -434,25 +731,6 @@ const AIChat: React.FC = () => {
         }
     }
 
-    function addChatEntry(role: string, content: string, isCodeGeneration: boolean = false): void {
-        chatArray.push({
-            actor: role,
-            message: content,
-            isCodeGeneration,
-        });
-
-        localStorage.setItem(`chatArray-AIGenerationChat-${projectUuid}`, JSON.stringify(chatArray));
-    }
-
-    function updateChatEntry(chatIdx: number, newEntry: ChatEntry): void {
-        if (chatIdx >= 0 && chatIdx < chatArray.length) {
-            newEntry.isCodeGeneration = chatArray[chatIdx].isCodeGeneration;
-            chatArray[chatIdx] = newEntry;
-
-            localStorage.setItem(`chatArray-AIGenerationChat-${projectUuid}`, JSON.stringify(chatArray));
-        }
-    }
-
     useEffect(() => {
         generateNaturalProgrammingTemplate(isReqFileExists);
     }, [isReqFileExists]);
@@ -469,10 +747,16 @@ const AIChat: React.FC = () => {
         attachments: Attachment[];
         metadata?: Record<string, any>;
     }) {
+        // Hide review actions when a new prompt is submitted
+        if (showReviewActions) {
+            setShowReviewActions(false);
+        }
+        
         // Clear previous generation refs
         currentDiagnosticsRef.current = [];
         functionsRef.current = [];
         lastAttatchmentsRef.current = null;
+        setCurrentFileArray([]);
 
         try {
             await processContent(content);
@@ -480,26 +764,15 @@ const AIChat: React.FC = () => {
             setIsLoading(false);
             setIsCodeLoading(false);
             if (error.name === "AbortError") {
-                setMessages((prevMessages) => {
-                    const newMessages = [...prevMessages];
-                    newMessages[
-                        newMessages.length - 1
-                    ].content += `\n\n<error data-system="true" data-auth="${SYSTEM_ERROR_SECRET}">Generation stopped by the user</error>`;
-                    return newMessages;
-                });
+                updateLastMessage((lastContent) =>
+                    lastContent + `\n\n<error data-system="true" data-auth="${SYSTEM_ERROR_SECRET}">Generation stopped by the user</error>`
+                );
             } else {
-                setMessages((prevMessages) => {
-                    const newMessages = [...prevMessages];
+                updateLastMessage((lastContent) => {
                     if (error && "message" in error) {
-                        newMessages[
-                            newMessages.length - 1
-                        ].content += `\n\n<error data-system="true" data-auth="${SYSTEM_ERROR_SECRET}">${error.message}</error>`;
-                    } else {
-                        newMessages[
-                            newMessages.length - 1
-                        ].content += `\n\n<error data-system="true" data-auth="${SYSTEM_ERROR_SECRET}">${error}</error>`;
+                        return lastContent + `\n\n<error data-system="true" data-auth="${SYSTEM_ERROR_SECRET}">${error.message}</error>`;
                     }
-                    return newMessages;
+                    return lastContent + `\n\n<error data-system="true" data-auth="${SYSTEM_ERROR_SECRET}">${error}</error>`;
                 });
             }
         }
@@ -514,9 +787,8 @@ const AIChat: React.FC = () => {
             return;
         }
         rpcClient.getAiPanelRpcClient().clearInitialPrompt();
-        var context: GetWorkspaceContextResponse[] = [];
-        setMessages((prevMessages) => prevMessages.filter((message, index) => message.type !== "label"));
-        setMessages((prevMessages) => prevMessages.filter((message, index) => message.type !== "question"));
+        setMessages((prevMessages) => prevMessages.filter((message) => message.type !== "label"));
+        setMessages((prevMessages) => prevMessages.filter((message) => message.type !== "question"));
         setIsLoading(true);
         isErrorChunkReceivedRef.current = false;
         setMessages((prevMessages) =>
@@ -555,39 +827,36 @@ const AIChat: React.FC = () => {
         if (parsedInput && "type" in parsedInput && parsedInput.type === "error") {
             throw new Error(parsedInput.message);
         } else if ("text" in parsedInput && !("command" in parsedInput)) {
-            await processCodeGeneration([parsedInput.text, attachments, CodeGenerationType.CODE_GENERATION], inputText);
+            await processAgentGeneration(parsedInput.text, attachments);
         } else if ("command" in parsedInput) {
             switch (parsedInput.command) {
                 case Command.NaturalProgramming: {
                     let useCase = "";
                     switch (parsedInput.templateId) {
                         case "code-doc-drift-check":
-                            await processLLMDiagnostics(attachments, inputText);
+                            await processLLMDiagnostics();
                             break;
                         case "generate-code-from-following-requirements":
                             await rpcClient.getAiPanelRpcClient().updateRequirementSpecification({
-                                filepath: chatLocation,
-                                content: parsedInput.placeholderValues.requirements,
+                                content: parsedInput.placeholderValues.requirements
                             });
                             setIsReqFileExists(true);
 
                             useCase = parsedInput.placeholderValues.requirements;
-                            await processCodeGeneration(
-                                [useCase, attachments, CodeGenerationType.CODE_FOR_USER_REQUIREMENT],
-                                inputText
+                            await processAgentGeneration(
+                                useCase, attachments, "CODE_FOR_USER_REQUIREMENT"
                             );
                             break;
                         case "generate-test-from-requirements":
-                            rpcClient.getAiPanelRpcClient().createTestDirecoryIfNotExists(chatLocation);
+                            rpcClient.getAiPanelRpcClient().createTestDirecoryIfNotExists();
 
                             useCase = getTemplateTextById(
                                 commandTemplates,
                                 Command.NaturalProgramming,
                                 "generate-test-from-requirements"
                             );
-                            await processCodeGeneration(
-                                [useCase, attachments, CodeGenerationType.TESTS_FOR_USER_REQUIREMENT],
-                                inputText
+                            await processAgentGeneration(
+                                useCase, attachments, "TESTS_FOR_USER_REQUIREMENT"
                             );
                             break;
                         case "generate-code-from-requirements":
@@ -596,48 +865,8 @@ const AIChat: React.FC = () => {
                                 Command.NaturalProgramming,
                                 "generate-code-from-requirements"
                             );
-                            await processCodeGeneration(
-                                [useCase, attachments, CodeGenerationType.CODE_FOR_USER_REQUIREMENT],
-                                inputText
-                            );
-                            break;
-                    }
-                    break;
-                }
-                case Command.Code: {
-                    let useCase = "";
-                    switch (parsedInput.templateId) {
-                        case TemplateId.Wildcard:
-                            useCase = parsedInput.text;
-                            break;
-                        case "generate-code":
-                            useCase = parsedInput.placeholderValues.usecase;
-                            break;
-                        case "generate-from-readme":
-                            useCase = getTemplateTextById(
-                                commandTemplates,
-                                parsedInput.command,
-                                "generate-from-readme"
-                            );
-                            break;
-                    }
-                    await processCodeGeneration([useCase, attachments, CodeGenerationType.CODE_GENERATION], inputText);
-                    break;
-                }
-                case Command.Tests: {
-                    switch (parsedInput.templateId) {
-                        case "tests-for-service":
-                            await processTestGeneration(
-                                [inputText, attachments],
-                                "service",
-                                parsedInput.placeholderValues.servicename
-                            );
-                            break;
-                        case "tests-for-function":
-                            await processTestGeneration(
-                                [inputText, attachments],
-                                "function",
-                                parsedInput.placeholderValues.methodPath
+                            await processAgentGeneration(
+                                useCase, attachments, "CODE_FOR_USER_REQUIREMENT"
                             );
                             break;
                     }
@@ -653,7 +882,6 @@ const AIChat: React.FC = () => {
                             }
 
                             await processMappingParameters(
-                                inputText,
                                 {
                                     inputRecord: parsedInput.placeholderValues.inputRecords
                                         .split(",")
@@ -667,7 +895,6 @@ const AIChat: React.FC = () => {
                             break;
                         case "mappings-for-function":
                             await processMappingParameters(
-                                inputText,
                                 {
                                     inputRecord: [],
                                     outputRecord: "",
@@ -679,7 +906,6 @@ const AIChat: React.FC = () => {
                             break;
                         case "inline-mappings":
                             await processInlineMappingParameters(
-                                inputText,
                                 metadata as ExtendedDataMapperMetadata,
                                 attachments
                             );
@@ -691,7 +917,7 @@ const AIChat: React.FC = () => {
                     switch (parsedInput.templateId) {
                         case "types-for-attached":
                             if (attachments) {
-                                await processContextTypeCreation(inputText, attachments);
+                                await processContextTypeCreation(attachments);
                                 break;
                             } else {
                                 throw new Error("Error: Missing Attach context");
@@ -699,14 +925,14 @@ const AIChat: React.FC = () => {
                     }
                     break;
                 }
-                case Command.Healthcare: {
-                    switch (parsedInput.templateId) {
-                        case TemplateId.Wildcard:
-                            await processHealthcareCodeGeneration(parsedInput.text, inputText);
-                            break;
-                    }
-                    break;
-                }
+                // case Command.Healthcare: {
+                //     switch (parsedInput.templateId) {
+                //         case TemplateId.Wildcard:
+                //             await processHealthcareCodeGeneration(parsedInput.text, inputText);
+                //             break;
+                //     }
+                //     break;
+                // }
                 case Command.Ask: {
                     switch (parsedInput.templateId) {
                         case TemplateId.Wildcard:
@@ -735,317 +961,23 @@ const AIChat: React.FC = () => {
         }
     }
 
-    async function processLLMDiagnostics(attachments: Attachment[], message: string) {
-        let response: LLMDiagnostics =
-            rpcClient == null
-                ? { statusCode: 500, diags: DRIFT_CHECK_ERROR }
-                : await rpcClient.getAiPanelRpcClient().getDriftDiagnosticContents(chatLocation);
-
-        const responseStatus = response.statusCode;
-        const invalidResponse = response == null || response.statusCode == null;
-
-        if (invalidResponse) {
-            throw new Error(DRIFT_CHECK_ERROR);
-        }
-
-        if (!(responseStatus >= 200 && responseStatus < 300)) {
-            throw new Error(DRIFT_CHECK_ERROR);
-        }
-
-        if (response.diags == null || response.diags == "") {
-            response.diags = NO_DRIFT_FOUND;
-        }
-
-        setIsLoading(false);
-
-        const userMessage = getUserMessage([message, attachments]);
-        setMessages((prevMessages) => {
-            const newMessage = [...prevMessages];
-            newMessage[newMessage.length - 1].content = response.diags;
-            return newMessage;
-        });
-        addChatEntry("user", userMessage);
-        addChatEntry("assistant", response.diags);
-        setIsSyntaxError(false);
-    }
-
-    async function processCodeGeneration(content: [string, Attachment[], OperationType], message: string) {
-        const [useCase, attachments, operationType] = content;
-        const fileAttatchments = attachments.map((file) => ({
-            fileName: file.name,
-            content: file.content,
-        }));
-
-        const requestBody: GenerateCodeRequest = {
-            usecase: useCase,
-            chatHistory: chatArray,
-            operationType,
-            fileAttachmentContents: fileAttatchments,
-        };
-
-        await rpcClient.getAiPanelRpcClient().generateCode(requestBody);
-    }
-
-    // Helper function to escape regex special characters in a string
-    function escapeRegexString(str: string): string {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    }
-
-    // Function to create regex for finding a function without error type
-    function createFunctionWithoutErrorTypeRegex(functionName: string, returnType: string): RegExp {
-        const escapedReturnType = escapeRegexString(returnType);
-        return new RegExp(
-            `function\\s+${functionName}\\s*\\([^)]+\\)\\s*returns\\s+${escapedReturnType}(?!\\|error)\\s*(?:=>|\\{)`,
-            "s"
-        );
-    }
-
-    // Function to create regex for adding error type to a function signature
-    function createAddErrorTypeRegex(functionName: string, returnType: string): RegExp {
-        const escapedReturnType = escapeRegexString(returnType);
-        return new RegExp(
-            `(function\\s+${functionName}\\s*\\([^)]+\\)\\s*returns\\s+${escapedReturnType})\\s*(=>|\\{)`,
-            "s"
-        );
-    }
-
-    // Function to create regex for arrow function signatures
-    function createArrowFunctionSignatureRegex(functionName: string, returnType: string): RegExp {
-        const escapedReturnType = escapeRegexString(returnType);
-        return new RegExp(
-            `(function\\s+${functionName}\\s*\\([^)]+\\)\\s*returns\\s+${escapedReturnType}(?:\\|error)?)\\s*=>\\s*\\{[^}]*\\}`,
-            "s"
-        );
-    }
-
-    // Function to create regex for regular function signatures
-    function createRegularFunctionSignatureRegex(functionName: string, returnType: string): RegExp {
-        const escapedReturnType = escapeRegexString(returnType);
-        return new RegExp(
-            `(function\\s+${functionName}\\s*\\([^)]+\\)\\s*returns\\s+${escapedReturnType}(?:\\|error)?)\\s*\\{[^}]*\\}`,
-            "s"
-        );
-    }
-
-    // Fucntion to create regex to match function signatures without capturing the function body.
-    function createExistingFunctionSignatureRegex(functionName: string) {
-        return new RegExp(`function\\s+${functionName}\\s*\\([^)]*\\)\\s*returns\\s+[^=]+\\s*=>\\s*(?:\\{|)`, "s");
-    }
-
-    // Function to remove the body of a specified function while keeping the rest of the code unchanged.
-    function removeFunctionBody(content: string, functionName: string) {
-        // Regular expression to match the function signature and body
-        const functionRegex = new RegExp(
-            `(function\\s+${functionName}\\s*\\([^)]*\\)\\s*returns\\s+[^=]+\\s*=>)\\s*(?:\\{[^]*?\\}|[^;]*);`,
-            "s"
-        );
-
-        // Replace the matched function body with an empty function body `{}` while keeping the signature
-        return content.replace(functionRegex, `$1 {};`);
-    }
-
     const handleAddAllCodeSegmentsToWorkspace = async (
         codeSegments: any,
         setIsCodeAdded: React.Dispatch<React.SetStateAction<boolean>>,
-        command: string
-    ) => {
+        command: string    ) => {
         console.log("Add to integration called. Command: ", command);
+        const fileChanges: FileChanges[] = [];
+        for (let { segmentText, filePath } of codeSegments) {
+            fileChanges.push({
+                filePath: filePath,
+                content: segmentText,
+            });
+        }
+        await rpcClient.getAiPanelRpcClient().addFilesToProject({
+            fileChanges: fileChanges,
+        })
         setIsAddingToWorkspace(true);
-
-        try {
-            const fileChanges: FileChanges[] = [];
-            for (let { segmentText, filePath } of codeSegments) {
-                let originalContent = "";
-                if (!tempStorage[filePath]) {
-                    try {
-                        originalContent = await rpcClient.getAiPanelRpcClient().getFromFile({ filePath: filePath });
-                        setTempStorage((prev) => ({ ...prev, [filePath]: originalContent }));
-                        if (originalContent === "") {
-                            setEmptyFiles((prev) => new Set([...prev, filePath]));
-                        } else {
-                            setInitialFiles((prev) => new Set([...prev, filePath]));
-                        }
-                    } catch (error) {
-                        setTempStorage((prev) => ({ ...prev, [filePath]: "" }));
-                    }
-                }
-
-                if (command === "ai_map") {
-                    const importRegex = /import\s+[^;]+;/g;
-                    const commentRegex = /^(?:(\/\/.*|#.*)\n)+/; // Matches both `//` and `#` comment blocks at the top
-                    const functionRegex =
-                        /function\s+(\w+)\s*\(([^)]*)\)\s*returns\s+([^={|]+)(?:\|error)?\s*=>\s*(?:\{([\s\S]*?)\}|([\s\S]*?));/;
-
-                    let existingFunctionRegex;
-
-                    // Check if we're dealing with a function that should be merged
-                    const functionMatch = segmentText.match(functionRegex);
-                    let shouldMergeFunction = false;
-                    let functionName = "";
-                    let functionBody = "";
-                    let returnType = "";
-                    let hasErrorType = false;
-                    let updatedContent = "";
-
-                    if (functionMatch) {
-                        functionName = functionMatch[1];
-                        const params = functionMatch[2];
-                        returnType = functionMatch[3].trim();
-                        functionBody = functionMatch[4] ? functionMatch[4].trim() : functionMatch[5]?.trim();
-
-                        // Check if new function has error return type
-                        hasErrorType = segmentText.includes(`returns ${returnType}|error`);
-                        existingFunctionRegex = createExistingFunctionSignatureRegex(functionName);
-                        const existingFunctionMatch = originalContent.match(existingFunctionRegex);
-
-                        if (existingFunctionMatch) {
-                            shouldMergeFunction = true;
-                        }
-                    }
-
-                    const imports = segmentText.match(importRegex) || [];
-                    const codeWithoutImports = segmentText.replace(importRegex, "").trim();
-
-                    updatedContent = removeFunctionBody(originalContent, functionName);
-
-                    // Extract existing comments at the top
-                    const commentMatch = updatedContent.match(commentRegex);
-                    const existingComments = commentMatch ? commentMatch[0].trim() + "\n\n" : "";
-                    updatedContent = updatedContent.replace(commentRegex, "").trim();
-
-                    // Find any additional `#` comments that may exist before imports
-                    const additionalCommentMatch = updatedContent.match(commentRegex);
-                    const additionalComments = additionalCommentMatch ? additionalCommentMatch[0].trim() + "\n\n" : "";
-                    updatedContent = updatedContent.replace(commentRegex, "").trim();
-
-                    // Ensure new imports are added after all comments
-                    let updatedImports = "";
-                    imports.forEach((imp: string) => {
-                        if (!updatedContent.includes(imp)) {
-                            updatedImports += `${imp}\n`;
-                        }
-                    });
-
-                    if (shouldMergeFunction) {
-                        const existingFunctionWithoutErrorRegex = createFunctionWithoutErrorTypeRegex(
-                            functionName,
-                            returnType
-                        );
-                        const missingErrorType = existingFunctionWithoutErrorRegex.test(updatedContent) && hasErrorType;
-
-                        if (missingErrorType) {
-                            const addErrorTypeRegex = createAddErrorTypeRegex(functionName, returnType);
-                            updatedContent = updatedContent.replace(addErrorTypeRegex, `$1|error $2`);
-                        }
-
-                        const arrowFunctionSignatureRegex = createArrowFunctionSignatureRegex(functionName, returnType);
-                        const regularFunctionSignatureRegex = createRegularFunctionSignatureRegex(
-                            functionName,
-                            returnType
-                        );
-                        const isExpressionBody = /^\s*from\b/.test(functionBody);
-
-                        if (arrowFunctionSignatureRegex.test(updatedContent)) {
-                            updatedContent = updatedContent.replace(arrowFunctionSignatureRegex, (match, signature) => {
-                                return isExpressionBody
-                                    ? `${signature} => ${functionBody}`
-                                    : `${signature} => {\n    ${functionBody}\n}`;
-                            });
-                        } else if (regularFunctionSignatureRegex.test(updatedContent)) {
-                            updatedContent = updatedContent.replace(
-                                regularFunctionSignatureRegex,
-                                (match, signature) => {
-                                    return `${signature} {\n    ${functionBody}\n}`;
-                                }
-                            );
-                        }
-
-                        updatedContent = `${existingComments}${additionalComments}${updatedImports}${updatedContent}`;
-                    } else {
-                        updatedContent = `${existingComments}${additionalComments}${updatedImports}${updatedContent}\n${codeWithoutImports}`;
-                    }
-
-                    segmentText = updatedContent.trim();
-                } else if (command === "ai_map_inline") {
-                    rpcClient.getAiPanelRpcClient().addInlineCodeSegmentToWorkspace({
-                        segmentText,
-                        filePath,
-                    });
-                    continue;
-                } else if (command === "test") {
-                    segmentText = `${originalContent}\n\n${segmentText}`;
-                } else {
-                    segmentText = `${segmentText}`;
-                }
-
-                let isTestCode = false;
-                if (command === "test") {
-                    isTestCode = true;
-                }
-
-                fileChanges.push({ filePath, content: segmentText });
-            }
-
-            if (fileChanges.length > 0) {
-                await rpcClient.getAiPanelRpcClient().addFilesToProject({ fileChanges });
-            }
-
-            const developerMdContent = await rpcClient.getAiPanelRpcClient().readDeveloperMdFile(chatLocation);
-            const updatedChatHistory = generateChatHistoryForSummarize(chatArray);
-            setIsCodeAdded(true);
-            setIsAddingToWorkspace(false);
-
-            if (await rpcClient.getAiPanelRpcClient().isNaturalProgrammingDirectoryExists(chatLocation)) {
-                fetchWithAuth({
-                    url: backendRootUri + "/prompt/summarize",
-                    method: "POST",
-                    body: { chats: updatedChatHistory, existingChatSummary: developerMdContent },
-                    rpcClient: rpcClient,
-                })
-                    .then(async (response) => {
-                        const chatSummaryResponseStr = await streamToString(response.body);
-                        await rpcClient
-                            .getAiPanelRpcClient()
-                            .addChatSummary({ summary: chatSummaryResponseStr, filepath: chatLocation })
-                            .then(() => {
-                                previouslyIntegratedChatIndex = integratedChatIndex;
-                                integratedChatIndex = chatArray.length;
-                                localStorage.setItem(
-                                    `chatArray-AIGenerationChat-${projectUuid}-developer-index`,
-                                    JSON.stringify({ integratedChatIndex, previouslyIntegratedChatIndex })
-                                );
-                                previousDevelopmentDocumentContent = developerMdContent;
-                            })
-                            .catch((error: any) => {
-                                rpcClient.getAiPanelRpcClient().handleChatSummaryError(UPDATE_CHAT_SUMMARY_FAILED);
-                            });
-                    })
-                    .catch((error: any) => {
-                        rpcClient.getAiPanelRpcClient().handleChatSummaryError(UPDATE_CHAT_SUMMARY_FAILED);
-                    });
-            }
-        } catch (error) {
-            console.error("Error in handleAddAllCodeSegmentsToWorkspace:", error);
-            setIsAddingToWorkspace(false);
-            throw error;
-        }
     };
-
-    async function streamToString(stream: ReadableStream<Uint8Array>): Promise<string> {
-        const reader = stream.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let result = "";
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-                break;
-            }
-            result += decoder.decode(value, { stream: true });
-        }
-
-        return result;
-    }
 
     const handleRevertChanges = async (
         codeSegments: any,
@@ -1054,81 +986,7 @@ const AIChat: React.FC = () => {
     ) => {
         console.log("Revert gration called. Command: ", command);
         setIsAddingToWorkspace(true);
-
-        try {
-            const fileChanges: FileChanges[] = [];
-            for (const { filePath } of codeSegments) {
-                let originalContent = tempStorage[filePath];
-                if (originalContent === "" && !initialFiles.has(filePath) && !emptyFiles.has(filePath)) {
-                    // Delete the file if it didn't initially exist in the workspace
-                    try {
-                        await rpcClient.getAiPanelRpcClient().deleteFromProject({ filePath: filePath });
-                    } catch (error) {
-                        console.error(`Error deleting file ${filePath}:`, error);
-                    }
-                } else {
-                    let isTestCode = false;
-                    if (command === "test") {
-                        isTestCode = true;
-                    }
-                    const revertContent = emptyFiles.has(filePath) ? "" : originalContent;
-                    fileChanges.push({ filePath, content: revertContent });
-                }
-            }
-            if (fileChanges.length > 0) {
-                await rpcClient.getAiPanelRpcClient().addFilesToProject({ fileChanges });
-            }
-            rpcClient.getAiPanelRpcClient().updateDevelopmentDocument({
-                content: previousDevelopmentDocumentContent,
-                filepath: chatLocation,
-            });
-            integratedChatIndex = previouslyIntegratedChatIndex;
-            localStorage.setItem(
-                `chatArray-AIGenerationChat-${projectUuid}-developer-index`,
-                JSON.stringify({ integratedChatIndex, previouslyIntegratedChatIndex })
-            );
-            setTempStorage({});
-            setInitialFiles(new Set<string>());
-            setEmptyFiles(new Set<string>());
-            setIsCodeAdded(false);
-            setIsAddingToWorkspace(false);
-        } catch (error) {
-            console.error("Error in handleRevertChanges:", error);
-            setIsAddingToWorkspace(false);
-            throw error;
-        }
     };
-
-    async function processTestGeneration(
-        content: [string, Attachment[]],
-        targetType: string, // service or function
-        target: string // <servicename> or <resourcemethod resourcepath>
-    ) {
-        let assistantResponse = "";
-        try {
-            const targetSource =
-                targetType === "service"
-                    ? await rpcClient.getAiPanelRpcClient().getServiceSourceForName(target)
-                    : await rpcClient.getAiPanelRpcClient().getResourceSourceForMethodAndPath(target);
-            const requestBody: TestPlanGenerationRequest = {
-                targetType: targetType === "service" ? TestGenerationTarget.Service : TestGenerationTarget.Function,
-                targetSource: targetSource,
-                target: target,
-            };
-
-            await rpcClient.getAiPanelRpcClient().generateTestPlan(requestBody);
-        } catch (error: any) {
-            setIsLoading(false);
-            const errorName = error instanceof Error ? error.name : "Unknown error";
-            const errorMessage = "message" in error ? error.message : "Unknown error";
-
-            if (errorName === "AbortError") {
-                throw new Error("Failed: The user cancelled the request.");
-            } else {
-                throw new Error(errorMessage);
-            }
-        }
-    }
 
     async function processUserDocGeneration(serviceName: string) {
         try {
@@ -1151,461 +1009,36 @@ const AIChat: React.FC = () => {
         }
     }
 
-    // Process records from another package
-    function processRecordReference(
-        recordName: string,
-        recordMap: Map<string, any>,
-        allImports: Array<ImportInfo>,
-        importsMap: Map<string, ImportInfo>
-    ): DataMappingRecord | Error {
-        const isArray = recordName.endsWith("[]");
-        const cleanedRecordName = recordName.replace(/\[\]$/, "");
-
-        // Check for primitive types
-        const primitiveTypes = ["string", "int", "boolean", "float", "decimal"];
-        if (primitiveTypes.includes(cleanedRecordName)) {
-            return { type: `${cleanedRecordName}`, isArray, filePath: null };
-        }
-        const rec = recordMap.get(cleanedRecordName);
-
-        if (!rec) {
-            if (cleanedRecordName.includes(":")) {
-                if (!cleanedRecordName.includes("/")) {
-                    const [moduleName, recordName] = cleanedRecordName.split(":");
-                    const matchedImport = allImports.find((imp) => {
-                        if (imp.alias) {
-                            return cleanedRecordName.startsWith(imp.alias);
-                        }
-                        const moduleNameParts = imp.moduleName.split(/[./]/);
-                        const inferredAlias = moduleNameParts[moduleNameParts.length - 1];
-                        return cleanedRecordName.startsWith(inferredAlias);
-                    });
-
-                    if (!matchedImport) {
-                        return INVALID_RECORD_REFERENCE;
-                    }
-                    importsMap.set(cleanedRecordName, {
-                        moduleName: matchedImport.moduleName,
-                        alias: matchedImport.alias,
-                        recordName: recordName,
-                    });
-                } else {
-                    const [moduleName, recordName] = cleanedRecordName.split(":");
-                    importsMap.set(cleanedRecordName, {
-                        moduleName: moduleName,
-                        recordName: recordName,
-                    });
-                }
-                return { type: `${cleanedRecordName}`, isArray, filePath: null };
-            } else {
-                throw new Error(`${cleanedRecordName} is not defined.`);
-            }
-        }
-        return { ...rec, isArray };
-    }
-
-    // Processes existing functions to find a matching function by name
-    async function processExistingFunctions(
-        existingFunctions: ExistingFunction[],
-        functionName: string
-    ): Promise<{
-        match: RegExpMatchArray | null;
-        functionNameMatch: boolean;
-        matchingFunctionFile: string | null;
-    }> {
-        for (const func of existingFunctions) {
-            const functionContent = await rpcClient.getAiPanelRpcClient().getContentFromFile({
-                filePath: func.filePath,
-            });
-
-            const fileName = func.filePath.split("/").pop();
-            const contentLines = functionContent.split("\n");
-            // Filter out commented lines (both // and # style comments)
-            const nonCommentedLines = contentLines.filter((line) => {
-                const trimmedLine = line.trim();
-                return !(trimmedLine.startsWith("//") || trimmedLine.startsWith("#"));
-            });
-            const cleanContent = nonCommentedLines.join("\n");
-
-            const signatureRegex = /function\s+(\w+)\s*\(([^)]*)\)\s*returns\s+([^{=]+)(?:\s*=>\s*)?/g;
-
-            // Use matchAll to find all function signatures in the content
-            const matches = [...cleanContent.matchAll(signatureRegex)];
-
-            // Check if any of the function signatures match the target function name
-            for (const match of matches) {
-                const funcName = match[1];
-                if (funcName === functionName) {
-                    return {
-                        match,
-                        functionNameMatch: true,
-                        matchingFunctionFile: fileName,
-                    };
-                }
-            }
-        }
-
-        // If no match is found
-        return {
-            match: null,
-            functionNameMatch: false,
-            matchingFunctionFile: null,
-        };
-    }
-
-    // Process input parameters
-    function processInputs(
-        inputParams: string[],
-        recordMap: Map<any, any>,
-        allImports: ImportStatement[],
-        importsMap: Map<any, any>
-    ) {
-        let results = inputParams.map((param: string) =>
-            processRecordReference(param, recordMap, allImports, importsMap)
-        );
-        return results.filter((result): result is DataMappingRecord => {
-            if (result instanceof Error) {
-                throw INVALID_RECORD_REFERENCE;
-            }
-            return true;
-        });
-    }
-
-    // Process Output parameters
-    function processOutput(
-        outputParam: string,
-        recordMap: Map<any, any>,
-        allImports: ImportInfo[],
-        importsMap: Map<any, any>
-    ) {
-        const parts = outputParam.split("|");
-        const validParts = parts.filter((name: string) => name !== "error");
-        if (validParts.length > 1) {
-            throw new Error(
-                `Invalid output parameter: "${outputParam}". Union types are not supported. Please provide a single valid record name.`
-            );
-        }
-        const cleanedOutputRecordName = validParts.length > 0 ? validParts[0] : "error";
-        const outputResult = processRecordReference(cleanedOutputRecordName, recordMap, allImports, importsMap);
-        if (outputResult instanceof Error) {
-            throw INVALID_RECORD_REFERENCE;
-        }
-        return outputResult;
-    }
-
     async function processMappingParameters(
-        message: string,
         parameters: MappingParameters,
         metadata?: ExtendedDataMapperMetadata,
         attachments?: Attachment[]
     ) {
-        let assistant_response = "";
-        let newImports;
-        const recordMap = new Map();
-        const importsMap = new Map();
-        let inputs: DataMappingRecord[];
-        let output;
-        let inputParams;
-        let outputParam;
-        let inputNames: string[] = [];
-        let result;
-        let finalContent: string = "";
-        setIsLoading(true);
-
-        const functionName = parameters.functionName;
-
-        const projectImports = await rpcClient.getBIDiagramRpcClient().getAllImports();
-        const activeFile = await rpcClient.getAiPanelRpcClient().getActiveFile();
-        const projectComponents = await rpcClient.getBIDiagramRpcClient().getProjectComponents();
-
-        const allImports: ImportStatement[] = [];
-        projectImports.imports.forEach((file) => {
-            if (file.statements && file.statements.length > 0) {
-                file.statements.forEach((statement) => {
-                    allImports.push(statement);
-                });
-            }
+        await rpcClient.getAiPanelRpcClient().generateMappingCode({
+            parameters,
+            metadata,
+            attachments
         });
-
-        const existingFunctions: ComponentInfo[] = [];
-
-        for (const pkg of projectComponents.components.packages || []) {
-            for (const mod of pkg.modules || []) {
-                let filepath = pkg.filePath;
-                if (mod.name !== undefined) {
-                    const modDir = await rpcClient.getAiPanelRpcClient().getModuleDirectory({
-                        moduleName: mod.name,
-                        filePath: filepath,
-                    });
-                    filepath += `${modDir}/${mod.name}/`;
-                }
-                mod.records.forEach((rec) => {
-                    const recFilePath = filepath + rec.filePath;
-                    recordMap.set(rec.name, { type: rec.name, isArray: false, filePath: recFilePath });
-                });
-
-                // Collect functions
-                mod.functions?.forEach((func) => {
-                    existingFunctions.push({
-                        name: func.name,
-                        filePath: filepath + func.filePath,
-                        startLine: func.startLine,
-                        startColumn: func.startColumn,
-                        endLine: func.endLine,
-                        endColumn: func.endColumn,
-                    });
-                });
-            }
-        }
-
-        if (parameters.inputRecord.length > 0 || parameters.outputRecord !== "") {
-            result = await processExistingFunctions(existingFunctions, functionName);
-            if (result.functionNameMatch) {
-                throw new Error(
-                    `A function named "${functionName}" exists in '${result.matchingFunctionFile}'. Please provide a valid function name.`
-                );
-            }
-            inputParams = parameters.inputRecord;
-            outputParam = parameters.outputRecord;
-        } else {
-            if (existingFunctions.length === 0) {
-                throw new Error(
-                    `A function named "${functionName}" was not found in the project. Please provide a valid function name.`
-                );
-            }
-            result = await processExistingFunctions(existingFunctions, functionName);
-            if (!result.functionNameMatch) {
-                throw new Error(
-                    `A function named "${functionName}" was not found in the project. Please provide a valid function name.`
-                );
-            }
-
-            if (result.match[2] === "") {
-                throw new Error(
-                    `A function named "${functionName}" is not a valid datamapper function.`
-                );
-            }
-            const params = result.match[2].split(/,\s*/).map((param) => param.trim().split(/\s+/));
-            inputParams = params.map((parts) => parts[0]);
-            inputNames = params.map((parts) => parts[1]);
-            outputParam = result.match[3].trim();
-        }
-
-        inputs = processInputs(inputParams, recordMap, allImports, importsMap);
-        output = processOutput(outputParam, recordMap, allImports, importsMap);
-
-        const requestPayload: any = {
-            inputRecordTypes: inputs,
-            outputRecordType: output,
-            functionName,
-            imports: Array.from(importsMap.values()),
-            inputNames: inputNames,
-            model: metadata,
-        };
-        if (attachments && attachments.length > 0) {
-            requestPayload.attachment = attachments;
-        }
-
-        let allMappingsRequest;
-        const tempFileMetadata = await rpcClient.getAiPanelRpcClient().createTempFileAndGenerateMetadata({
-            inputs,
-            output,
-            functionName,
-            inputNames,
-            imports: Array.from(importsMap.values()),
-        });
-        allMappingsRequest = await rpcClient.getAiPanelRpcClient().generateMappings({
-            metadata: tempFileMetadata,
-            attachments,
-            useTemporaryFile: true,
-        });
-
-        const response = await rpcClient.getDataMapperRpcClient().getAllDataMapperSource(allMappingsRequest);
-        finalContent = response.textEdits[allMappingsRequest.filePath]?.[0]?.newText;
-
-        await rpcClient.getAiPanelRpcClient().addCodeSegmentToWorkspace({
-            segmentText: finalContent,
-            filePath: tempFileMetadata.codeData.lineRange.fileName,
-            metadata: tempFileMetadata,
-            textEdit: response,
-        });
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        finalContent = await rpcClient.getAiPanelRpcClient().getContentFromFile({
-            filePath: tempFileMetadata.codeData.lineRange.fileName,
-        });
-
-        setIsLoading(false);
-
-        let filePath;
-        if (result.functionNameMatch) {
-            filePath = result.matchingFunctionFile;
-        } else if (activeFile && activeFile.endsWith(".bal")) {
-            filePath = activeFile;
-        } else {
-            filePath = "data_mappings.bal";
-        }
-        const needsImports = Array.from(importsMap.values()).length > 0;
-
-        if (needsImports) {
-            let fileContent = await rpcClient.getAiPanelRpcClient().getFromFile({ filePath: filePath });
-            const existingImports = new Set(
-                fileContent.match(/import\s+([a-zA-Z0-9._]+)/g)?.map((imp) => imp.split(" ")[1]) || []
-            );
-
-            newImports = Array.from(importsMap.values())
-                .filter((imp) => !existingImports.has(imp.moduleName))
-                .map((imp) => {
-                    const moduleName = imp.moduleName.trim();
-                    return imp.alias ? `import ${moduleName} as ${imp.alias};` : `import ${moduleName};`;
-                })
-                .join("\n");
-
-            finalContent = `${newImports}\n${finalContent}`;
-        }
-
-        assistant_response = `Mappings consist of the following:\n`;
-        if (inputParams.length === 1) {
-            assistant_response += `- **Input Record**: ${inputParams[0]}\n`;
-        } else {
-            assistant_response += `- **Input Records**: ${inputParams.join(", ")}\n`;
-        }
-        assistant_response += `- **Output Record**: ${outputParam}\n`;
-        assistant_response += `- **Function Name**: ${functionName}\n`;
-
-        if (result.functionNameMatch) {
-            assistant_response += `\n**Note**: When you click **Add to Integration**, it will override your existing mappings.\n`;
-        }
-        assistant_response += `<code filename="${filePath}" type="ai_map">\n\`\`\`ballerina\n${finalContent}\n\`\`\`\n</code>`;
-
-        setMessages((prevMessages) => {
-            const newMessages = [...prevMessages];
-            newMessages[newMessages.length - 1].content = assistant_response;
-            return newMessages;
-        });
-        addChatEntry("user", message);
-        addChatEntry("assistant", assistant_response);
     }
 
     async function processInlineMappingParameters(
-        message: string,
-        metadata?: ExtendedDataMapperMetadata,
+        metadata: ExtendedDataMapperMetadata,
         attachments?: Attachment[]
     ) {
-        let assistant_response = "";
-        let finalContent = "";
-
-        if (!metadata || Object.keys(metadata).length === 0) {
-            throw new Error(`Please make sure variables are initialized, and then try again.`);
-        }
-
-        let fileName = metadata.codeData.lineRange.fileName;
-        const variableName = metadata.name;
-        const typeName = metadata.mappingsModel.output.typeName;
-
-        setIsLoading(true);
-
-        try {
-            const requestPayload: MetadataWithAttachments = {
-                metadata,
-                useTemporaryFile: false,
-            };
-            if (attachments && attachments.length > 0) {
-                requestPayload.attachments = attachments;
-            }
-            const allMappingsRequest = await rpcClient.getAiPanelRpcClient().generateMappings(requestPayload);
-            const sourceResponse = await rpcClient.getDataMapperRpcClient().getAllDataMapperSource(allMappingsRequest);
-
-            setIsLoading(false);
-
-            finalContent = sourceResponse.textEdits[allMappingsRequest.filePath]?.[0]?.newText;
-
-            assistant_response = `Here are the data mappings:\n\n`;
-            assistant_response += `\n**Note**: When you click **Add to Integration**, it will override your existing mappings.\n`;
-
-            const moduleInfo = metadata.mappingsModel.output.typeInfo;
-            const hasModuleInfo = moduleInfo && moduleInfo.moduleName;
-
-            const typePrefix = hasModuleInfo ? `${moduleInfo.moduleName.split(".").pop()}:${typeName}` : typeName;
-
-            const formattedContent = `${typePrefix} ${variableName} = {\n${formatWithProperIndentation(
-                finalContent
-            )}\n};`;
-
-            assistant_response += `<code filename="${fileName}" type="ai_map_inline">\n\`\`\`ballerina\n${formattedContent}\n\`\`\`\n</code>`;
-
-            setMessages((prevMessages) => {
-                const newMessages = [...prevMessages];
-                newMessages[newMessages.length - 1].content = assistant_response;
-                return newMessages;
-            });
-            addChatEntry("user", message);
-            addChatEntry("assistant", assistant_response);
-
-            return { success: true, response: assistant_response };
-        } catch (error) {
-            setIsLoading(false);
-            return { error: error instanceof Error ? error.message : "An unexpected error occurred" };
-        }
+        await rpcClient.getAiPanelRpcClient().generateInlineMappingCode({
+            metadata,
+            attachments
+        });
     }
 
-    async function processContextTypeCreation(message: string, attachments: Attachment[]) {
-        let assistant_response = "";
-        const recordMap = new Map();
-        setIsLoading(true);
-        let filePath = "types.bal";
-
-        const projectComponents = await rpcClient.getBIDiagramRpcClient().getProjectComponents();
-
-        projectComponents.components.packages?.forEach((pkg) => {
-            pkg.modules?.forEach((mod) => {
-                let filepath = pkg.filePath;
-                if (mod.name !== undefined) {
-                    filepath += `modules/${mod.name}/`;
-                }
-                mod.records.forEach((rec) => {
-                    const recFilePath = filepath + rec.filePath;
-                    recordMap.set(rec.name, { type: rec.name, isArray: false, filePath: recFilePath });
-                });
-            });
-        });
-
+    async function processContextTypeCreation(attachments: Attachment[]) {
         if (!attachments || attachments.length === 0) {
             throw new Error(`Missing attachment`);
         }
 
-        const requestPayload: any = {
-            backendUri: "",
-            attachment: attachments,
-        };
-
-        const response = await rpcClient.getAiPanelRpcClient().getTypesFromRecord(requestPayload);
-        let typeContent = response.typesCode;
-        const newRecords = extractRecordTypes(typeContent);
-
-        let fileContent = "";
-        let fileExists = await rpcClient.getAiPanelRpcClient().getFileExists({ filePath: filePath });
-        if (fileExists) {
-            fileContent = await rpcClient.getAiPanelRpcClient().getFromFile({ filePath: filePath });
-            typeContent = `${fileContent}\n${response.typesCode}`;
-        }
-
-        for (const record of newRecords) {
-            if (recordMap.has(record.name)) {
-                throw new Error(`Record "${record.name}" already exists in the workspace.`);
-            }
-        }
-
-        assistant_response = `Record types generated from the ${attachments[0].name} file shown below.\n`;
-        assistant_response += `<code filename="${filePath}" type="ai_map">\n\`\`\`ballerina\n${response.typesCode}\n\`\`\`\n</code>`;
-
-        setMessages((prevMessages) => {
-            const newMessages = [...prevMessages];
-            newMessages[newMessages.length - 1].content = assistant_response;
-            return newMessages;
+        await rpcClient.getAiPanelRpcClient().generateContextTypes({
+            attachments
         });
-        setIsLoading(false);
-        addChatEntry("user", message);
-        addChatEntry("assistant", assistant_response);
     }
 
     async function findInDocumentation(messageBody: string, message: string) {
@@ -1636,44 +1069,39 @@ const AIChat: React.FC = () => {
                 formatted_response = formatted_response.replace(referenceRegex, referencesTag);
             }
 
-            setMessages((prevMessages) => {
-                const newMessages = [...prevMessages];
-                newMessages[newMessages.length - 1].content = formatted_response;
-                return newMessages;
-            });
+            updateLastMessage(() => formatted_response);
             setIsLoading(false);
         } catch (error) {
             setIsLoading(false);
             throw error;
         }
-        addChatEntry("user", message);
-        addChatEntry("assistant", formatted_response);
-    }
-
-    async function processHealthcareCodeGeneration(useCase: string, message: string) {
-        const requestBody: GenerateCodeRequest = {
-            usecase: useCase,
-            chatHistory: chatArray,
-            fileAttachmentContents: [],
-            operationType: CodeGenerationType.CODE_GENERATION,
-        };
-        await rpcClient.getAiPanelRpcClient().generateHealthcareCode(requestBody);
     }
 
     async function processOpenAPICodeGeneration(useCase: string, message: string) {
         const requestBody: any = {
             query: useCase,
-            chatHistory: chatArray,
+            chatHistory: [],
         };
 
         await rpcClient.getAiPanelRpcClient().generateOpenAPI(requestBody);
     }
 
+    async function processAgentGeneration(useCase: string, attachments: Attachment[], operationType?: OperationType) {
+        const fileAttatchments = attachments.map((file) => ({
+            fileName: file.name,
+            content: file.content,
+        }));
+
+        const currentCodeContext = codeContextRef.current;
+        console.log("Submitting agent prompt:", { useCase, agentMode, codeContext: currentCodeContext, operationType, fileAttatchments });
+        rpcClient.getAiPanelRpcClient().generateAgent({
+            usecase: useCase, isPlanMode: agentMode === AgentMode.Plan, codeContext: currentCodeContext, operationType, fileAttachmentContents: fileAttatchments
+        })
+    }
+
     async function handleStop() {
-        // Abort any ongoing requests
-        // abortFetchWithAuth();
-        // Abort test generation if running
-        rpcClient.getAiPanelRpcClient().abortAIGeneration();
+        // Call RPC with empty params (defaults to current workspace + 'default' thread)
+        rpcClient.getAiPanelRpcClient().abortAIGeneration({});
 
         setIsLoading(false);
         setIsCodeLoading(false);
@@ -1683,27 +1111,29 @@ const AIChat: React.FC = () => {
         setShowSettings(true);
     }
 
-    function handleClearChat(): void {
-        codeBlocks.length = 0;
-        chatArray.length = 0;
-        integratedChatIndex = 0;
-        previouslyIntegratedChatIndex = 0;
-        localStorage.setItem(
-            `chatArray-AIGenerationChat-${projectUuid}-developer-index`,
-            JSON.stringify({ integratedChatIndex, previouslyIntegratedChatIndex })
-        );
-
-        setMessages((prevMessages) => []);
-
-        localStorage.removeItem(`chatArray-AIGenerationChat-${projectUuid}`);
+    async function handleClearChat(): Promise<void> {
+        setMessages([]);
+        setApprovalRequest(null);
+        setShowReviewActions(false);
+        await rpcClient.getAiPanelRpcClient().clearChat();
     }
+
+    const handleToggleAutoApprove = () => {
+        const newValue = !isAutoApproveEnabled;
+        setIsAutoApproveEnabled(newValue);
+    };
+
+    const handleChangeAgentMode = (mode: AgentMode) => {
+        // message.content is already up-to-date with the serialized agent stream — nothing to persist here
+        setAgentMode(mode);
+    };
 
     const questionMessages = messages.filter((message) => message.type === "question");
     if (questionMessages.length > 0) {
-        localStorage.setItem(
-            `Question-AIGenerationChat-${projectUuid}`,
-            questionMessages[questionMessages.length - 1].content
-        );
+        // localStorage.setItem(
+        //     `Question-AIGenerationChat-${projectUuid}`,
+        //     questionMessages[questionMessages.length - 1].content
+        // );
     }
     const otherMessages = messages.filter((message) => message.type !== "question");
     useEffect(() => {
@@ -1713,126 +1143,6 @@ const AIChat: React.FC = () => {
         }
     }, [otherMessages.length]);
 
-    function onTestScenarioDelete(content: string) {
-        setMessages((prevMessages) => {
-            const newMessages = [...prevMessages];
-            const lastMessageContent = newMessages[newMessages.length - 1].content;
-
-            const escapedContent = content.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            const regex = new RegExp(`<scenario>\\s*${escapedContent}\\s*<\\/scenario>`, "g");
-
-            const newContent = lastMessageContent.replace(regex, "");
-            newMessages[newMessages.length - 1].content = newContent;
-
-            // Update intermediary state
-            setTestGenIntermediaryState((prevState) => ({
-                ...prevState,
-                testPlan: newContent,
-            }));
-
-            // Update the memory as well
-            updateChatEntry(chatArray.length - 1, {
-                actor: "assistant",
-                message: newMessages[newMessages.length - 1].content,
-            });
-
-            return newMessages;
-        });
-    }
-
-    function onTestScenarioAdd() {
-        setMessages((prevMessages) => {
-            const newMessages = [...prevMessages];
-            const lastMessageContent = newMessages[newMessages.length - 1].content;
-
-            const regex = /<button type="add_scenario">(.*?)<\/button>/;
-            const match = lastMessageContent.match(regex);
-
-            if (match) {
-                const buttonText = match[1];
-
-                const scenarioText = `
-<scenario>
-    <title>(Edit This) Scenario Title</title>
-    <description>(Edit This) Scenario Description</description>
-</scenario>
-
-<button type="add_scenario">${buttonText}</button>
-`;
-
-                const newContent = lastMessageContent.replace(regex, scenarioText);
-                newMessages[newMessages.length - 1].content = newContent;
-
-                // Update intermediary state
-                setTestGenIntermediaryState((prevState) => ({
-                    ...prevState,
-                    testPlan: newContent,
-                }));
-
-                updateChatEntry(chatArray.length - 1, {
-                    actor: "assistant",
-                    message: newContent,
-                });
-            }
-
-            updateChatEntry(chatArray.length - 1, {
-                actor: "assistant",
-                message: newMessages[newMessages.length - 1].content,
-            });
-
-            return newMessages;
-        });
-    }
-
-    const handleEdit = (oldContent: string, newContent: string) => {
-        setMessages((prevMessages) => {
-            const newMessages = [...prevMessages];
-            const lastMessageContent = newMessages[newMessages.length - 1].content;
-
-            const escapedContent = oldContent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            const regex = new RegExp(`<scenario>\\s*${escapedContent}\\s*<\\/scenario>`, "g");
-
-            const scenarioText = `
-<scenario>
-    ${newContent}
-</scenario>
-`;
-            const updatedContent = lastMessageContent.replace(regex, scenarioText);
-            newMessages[newMessages.length - 1].content = updatedContent;
-
-            // Update intermediary state
-            setTestGenIntermediaryState((prevState) => ({
-                ...prevState,
-                testPlan: updatedContent,
-            }));
-
-            // Update the memory as well
-            updateChatEntry(chatArray.length - 1, {
-                actor: "assistant",
-                message: newMessages[newMessages.length - 1].content,
-            });
-
-            return newMessages;
-        });
-    };
-
-    const regenerateScenarios = async () => {
-        setMessages((prevMessages) => {
-            const newMessages = [...prevMessages];
-            newMessages[newMessages.length - 1].content = "";
-            return newMessages;
-        });
-
-        // await handleSendQuery(testGenIntermediaryState.content);
-    };
-
-    const generateFunctionTests = async () => {
-        setIsCodeLoading(true);
-        await rpcClient.getAiPanelRpcClient().generateFunctionTests({
-            testPlan: testGenIntermediaryState.testPlan,
-            resourceFunction: testGenIntermediaryState.resourceFunction,
-        });
-    };
 
     const saveDocumentation = async () => {
         if (!docGenIntermediaryState) return;
@@ -1851,13 +1161,13 @@ const AIChat: React.FC = () => {
             // Update the message content to show "Saved" state
             setMessages((prevMessages) => {
                 const newMessages = [...prevMessages];
-                const lastMessage = newMessages[newMessages.length - 1];
+                const targetIndex = ensureAssistantMessage(newMessages);
+                const lastMessage = newMessages[targetIndex];
                 if (lastMessage && lastMessage.content) {
                     lastMessage.content = lastMessage.content.replace(
                         /<button type="save_documentation">Save Documentation<\/button>/g,
                         '<button type="documentation_saved">Saved</button>'
                     );
-                    addChatEntry("assistant", messages[messages.length - 1].content);
                 }
                 return newMessages;
             });
@@ -1873,7 +1183,8 @@ const AIChat: React.FC = () => {
 
         setMessages((prevMessages) => {
             const newMessages = [...prevMessages];
-            newMessages[newMessages.length - 1].content = "";
+            const targetIndex = ensureAssistantMessage(newMessages);
+            newMessages[targetIndex].content = "";
             return newMessages;
         });
 
@@ -1885,28 +1196,137 @@ const AIChat: React.FC = () => {
     };
 
     const handleRetryRepair = async () => {
-        const currentDiagnostics = currentDiagnosticsRef.current;
-        if (currentDiagnostics.length === 0) return;
-
-        setIsCodeLoading(true);
-        setIsLoading(true);
-
-        await rpcClient.getAiPanelRpcClient().repairGeneratedCode({
-            diagnostics: currentDiagnostics,
-            assistantResponse: messages[messages.length - 1].content,
-            previousMessages: messagesRef.current,
-        });
+        //TODO: Remove this and implement retry UX with agent.
     };
 
+    const handleApprovalApprove = async (enableAutoApprove: boolean) => {
+        if (!approvalRequest) return;
+
+        // Update auto-approve setting (managed locally in visualizer)
+        if (enableAutoApprove !== isAutoApproveEnabled) {
+            setIsAutoApproveEnabled(enableAutoApprove);
+        }
+
+        // Approve plan or task
+        if (approvalRequest.approvalType === "plan") {
+            await rpcClient.getAiPanelRpcClient().approvePlan({
+                requestId: approvalRequest.requestId,
+                comment: undefined
+            });
+            // Collapse TodoSection into approval summary — mark plan items as approved
+            setMessages(prevMessages => {
+                const msgs = [...prevMessages];
+                const lastIdx = [...msgs].map(m => m.role).lastIndexOf("Copilot");
+                if (lastIdx === -1) return prevMessages;
+                const last = msgs[lastIdx];
+                const entries = parseStream(last.content);
+                const updated = entries.map(entry => ({
+                    ...entry,
+                    items: entry.items.map(item =>
+                        item.kind === "plan" ? { ...item, approvalStatus: "approved" as const } : item
+                    )
+                }));
+                msgs[lastIdx] = { ...last, content: serializeStream(updated, last.content) };
+                return msgs;
+            });
+        } else if (approvalRequest.approvalType === "completion") {
+            const reviewTasks = approvalRequest.tasks.filter(t => t.status === "review");
+            const lastReviewTask = reviewTasks[reviewTasks.length - 1];
+
+            await rpcClient.getAiPanelRpcClient().approveTask({
+                requestId: approvalRequest.requestId,
+                approvedTaskDescription: lastReviewTask?.description
+            });
+        }
+
+        setApprovalRequest(null);
+    };
+
+    const handleApprovalReject = async (comment: string) => {
+        if (!approvalRequest) return;
+
+        if (approvalRequest.approvalType === "plan") {
+            await rpcClient.getAiPanelRpcClient().declinePlan({
+                requestId: approvalRequest.requestId,
+                comment
+            });
+            // Collapse TodoSection into revision summary — mark plan items as revised
+            setMessages(prevMessages => {
+                const msgs = [...prevMessages];
+                const lastIdx = [...msgs].map(m => m.role).lastIndexOf("Copilot");
+                if (lastIdx === -1) return prevMessages;
+                const last = msgs[lastIdx];
+                const entries = parseStream(last.content);
+                const updated = entries.map(entry => ({
+                    ...entry,
+                    items: entry.items.map(item =>
+                        item.kind === "plan" ? { ...item, approvalStatus: "revised" as const, approvalComment: comment } : item
+                    )
+                }));
+                msgs[lastIdx] = { ...last, content: serializeStream(updated, last.content) };
+                return msgs;
+            });
+        } else if (approvalRequest.approvalType === "completion") {
+            await rpcClient.getAiPanelRpcClient().declineTask({
+                requestId: approvalRequest.requestId,
+                comment
+            });
+        }
+
+        setApprovalRequest(null);
+    };
+
+    async function processLLMDiagnostics() {
+        let response: LLMDiagnostics = await rpcClient.getAiPanelRpcClient().getDriftDiagnosticContents();
+
+        const responseStatus = response.statusCode;
+        const invalidResponse = response == null || response.statusCode == null;
+
+        if (invalidResponse) {
+            throw new Error(DRIFT_CHECK_ERROR);
+        }
+
+        if (!(responseStatus >= 200 && responseStatus < 300)) {
+            throw new Error(DRIFT_CHECK_ERROR);
+        }
+
+        if (response.diags == null || response.diags == "") {
+            response.diags = NO_DRIFT_FOUND;
+        }
+
+        setIsLoading(false);
+
+        setMessages((prevMessages) => {
+            const newMessage = [...prevMessages];
+            const targetIndex = ensureAssistantMessage(newMessage);
+            newMessage[targetIndex].content = response.diags;
+            return newMessage;
+        });
+    }
     return (
         <>
             {!showSettings && (
-                <AIChatView>
+                <AIChatView style={{ position: "relative" }}>
+                    {approvalOverlay.show && (
+                        <ApprovalOverlay>
+                            <OverlayMessage>{approvalOverlay.message || 'Processing...'}</OverlayMessage>
+                        </ApprovalOverlay>
+                    )}
                     <Header>
                         <Badge>
-                            Remaining Free Usage: {"Unlimited"}
-                            <br />
-                            {/* <ResetsInBadge>{`Resets in: 30 days`}</ResetsInBadge> */}
+                            {usage ? (
+                                <>
+                                    Remaining Usage: {usage.resetsIn === -1 ? "Unlimited" : (isUsageExceeded ? "Exceeded" : `${Math.round(usage.remainingUsagePercentage)}%`)}
+                                    {usage.resetsIn !== -1 && (
+                                        <>
+                                            <br />
+                                            <ResetsInBadge title={formatResetsInExact(usage.resetsIn)}>{`Resets in: ${formatResetsIn(usage.resetsIn)}`}</ResetsInBadge>
+                                        </>
+                                    )}
+                                </>
+                            ) : (
+                                "Remaining Usage: N/A"
+                            )}
                         </Badge>
                         <HeaderButtons>
                             <Button
@@ -1929,53 +1349,165 @@ const AIChat: React.FC = () => {
                             <WelcomeMessage isOnboarding={getOnboardingOpens() <= 3.0} />
                         )}
                         {otherMessages.map((message, index) => {
-                            const showGeneratingFiles = !codeSegmentRendered && index === currentGeneratingPromptIndex;
                             const isLastResponse = index === currentGeneratingPromptIndex;
+                            const isUserMessage = message.role === "User";
                             const isAssistantMessage = message.role === "Copilot";
                             const lastAssistantIndex = otherMessages.map((m) => m.role).lastIndexOf("Copilot");
                             const isLatestAssistantMessage = isAssistantMessage && index === lastAssistantIndex;
-                            codeSegmentRendered = false;
 
+                            // Note: Cannot use useMemo here as it's inside map() callback
+                            // The stateless regex implementation in splitContent() ensures no corruption during streaming
                             const segmentedContent = splitContent(message.content);
-                            const areTestsGenerated = segmentedContent.some(
-                                (segment) => segment.type === SegmentType.Progress
+                            const hasReviewActions = segmentedContent.some(
+                                (segment) => segment.type === SegmentType.ReviewActions
                             );
                             return (
                                 <ChatMessage key={index}>
-                                    {message.type !== "question" && message.type !== "label" && (
-                                        <RoleContainer
-                                            icon={message.role === "User" ? "bi-user" : "bi-ai-chat"}
-                                            title={message.role}
-                                            showPreview={false}
-                                            isLoading={
-                                                isLoading && !isSuggestionLoading && index === otherMessages.length - 1
+                                    {/* Checkpoint separator before user messages */}
+                                    {message.role === "User" && (() => {
+                                        // Show "Creating checkpoints..." while loading for the latest user message
+                                        // Once done loading, show the restore button
+                                        const isLatestUserMessage = index === otherMessages.length - 2;
+                                        const shouldShowCreating = isLoading && isLatestUserMessage;
+                                        const shouldShowRestore = !isLoading && message.checkpointId;
+
+                                        return (
+                                            <>
+                                                {/* Show "Creating checkpoints..." while generating for latest message */}
+                                                {shouldShowCreating && (
+                                                    <CheckpointSeparator
+                                                        checkpointId={message.checkpointId}
+                                                        isAvailable={false}
+                                                        isDisabled={true}
+                                                        isCreating={true}
+                                                        onRestore={handleCheckpointRestore}
+                                                    />
+                                                )}
+                                                {/* Show restore button when done loading */}
+                                                {shouldShowRestore && (
+                                                    <CheckpointSeparator
+                                                        checkpointId={message.checkpointId}
+                                                        isAvailable={availableCheckpointIds.has(message.checkpointId)}
+                                                        isDisabled={isLoading}
+                                                        isCreating={false}
+                                                        onRestore={handleCheckpointRestore}
+                                                    />
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+
+                                    <MessageBody isUserMessage={isUserMessage}>
+                                        {segmentedContent.map((segment, i) => {
+                                            if (segment.type === SegmentType.AgentStream) {
+                                                return (
+                                                    <AgentStreamView
+                                                        key={`agent-stream-${i}`}
+                                                        stream={segment.stream ?? []}
+                                                        isLoading={isLoading && isLatestAssistantMessage}
+                                                        rpcClient={isLatestAssistantMessage ? rpcClient : undefined}
+                                                    />
+                                                );
                                             }
-                                        />
-                                    )}
-                                    {segmentedContent.map((segment, i) => {
-                                        if (segment.type === SegmentType.Code) {
-                                            const nextSegment = segmentedContent[i + 1];
-                                            if (
-                                                nextSegment &&
-                                                (nextSegment.type === SegmentType.Code ||
-                                                    (nextSegment.type === SegmentType.Text &&
-                                                        (nextSegment.text != "\n" && nextSegment.text.trim() === "")))
-                                            ) {
-                                                return;
-                                            } else {
-                                                const codeSegments = [];
+
+                                            if (segment.type === SegmentType.Code) {
+                                                const nextSegment = segmentedContent[i + 1];
+                                                if (
+                                                    nextSegment &&
+                                                    (nextSegment.type === SegmentType.Code ||
+                                                        (nextSegment.type === SegmentType.Text &&
+                                                            (nextSegment.text != "\n" && nextSegment.text.trim() === "")))
+                                                ) {
+                                                    return;
+                                                } else {
+                                                    const codeSegments = [];
+                                                    let j = i;
+                                                    while (j >= 0) {
+                                                        const prevSegment = segmentedContent[j];
+                                                        if (prevSegment.type === SegmentType.Code) {
+                                                            codeSegments.unshift({
+                                                                source: prevSegment.text.trim(),
+                                                                fileName: prevSegment.fileName,
+                                                                language: prevSegment.language,
+                                                            });
+                                                        } else if (
+                                                            prevSegment.type === SegmentType.Text &&
+                                                            prevSegment.text.trim() === ""
+                                                        ) {
+                                                            j--;
+                                                            continue;
+                                                        } else {
+                                                            break;
+                                                        }
+                                                        j--;
+                                                    }
+                                                    return (
+                                                        <CodeSection
+                                                            key={`code-${i}`}
+                                                            codeSegments={codeSegments}
+                                                            loading={isLoading}
+                                                            handleAddAllCodeSegmentsToWorkspace={handleAddAllCodeSegmentsToWorkspace}
+                                                            handleRevertChanges={handleRevertChanges}
+                                                            isReady={!isCodeLoading}
+                                                            message={message}
+                                                            buttonsActive={true}
+                                                            isSyntaxError={isContainsSyntaxError(currentDiagnosticsRef.current)}
+                                                            command={segment.command}
+                                                            diagnostics={currentDiagnosticsRef.current}
+                                                            onRetryRepair={handleRetryRepair}
+                                                            isPromptExecutedInCurrentWindow={isPromptExecutedInCurrentWindow}
+                                                            isErrorChunkReceived={isErrorChunkReceivedRef.current}
+                                                            isAddingToWorkspace={isAddingToWorkspace}
+                                                            fileArray={currentFileArray}
+                                                        />
+                                                    );
+                                                }
+                                            } else if (segment.type === SegmentType.Progress) {
+                                                return (
+                                                    <ProgressTextSegment
+                                                        key={`progress-${i}`}
+                                                        text={segment.text}
+                                                        loading={segment.loading}
+                                                        failed={segment.failed}
+                                                    />
+                                                );
+                                            } else if (segment.type === SegmentType.ToolCall) {
+                                                const currentToolName = segment.toolName;
+
+                                                let nextIdx = i + 1;
+                                                while (
+                                                    nextIdx < segmentedContent.length &&
+                                                    segmentedContent[nextIdx].type === SegmentType.Text &&
+                                                    segmentedContent[nextIdx].text.trim() === ""
+                                                ) {
+                                                    nextIdx++;
+                                                }
+                                                const nextSeg = segmentedContent[nextIdx];
+                                                if (
+                                                    nextSeg &&
+                                                    nextSeg.type === SegmentType.ToolCall &&
+                                                    nextSeg.toolName === currentToolName
+                                                ) {
+                                                    return null;
+                                                }
+
+                                                const groupItems: ToolCallItem[] = [];
                                                 let j = i;
                                                 while (j >= 0) {
-                                                    const prevSegment = splitContent(message.content)[j];
-                                                    if (prevSegment.type === SegmentType.Code) {
-                                                        codeSegments.unshift({
-                                                            source: prevSegment.text.trim(),
-                                                            fileName: prevSegment.fileName,
-                                                            language: prevSegment.language,
+                                                    const seg = segmentedContent[j];
+                                                    if (
+                                                        seg.type === SegmentType.ToolCall &&
+                                                        seg.toolName === currentToolName
+                                                    ) {
+                                                        groupItems.unshift({
+                                                            text: seg.text,
+                                                            loading: seg.loading,
+                                                            failed: seg.failed,
+                                                            toolName: seg.toolName,
                                                         });
                                                     } else if (
-                                                        prevSegment.type === SegmentType.Text &&
-                                                        prevSegment.text.trim() === ""
+                                                        seg.type === SegmentType.Text &&
+                                                        seg.text.trim() === ""
                                                     ) {
                                                         j--;
                                                         continue;
@@ -1984,176 +1516,134 @@ const AIChat: React.FC = () => {
                                                     }
                                                     j--;
                                                 }
+
+                                                if (groupItems.length === 1) {
+                                                    return (
+                                                        <ToolCallSegment
+                                                            key={`tool-call-${i}`}
+                                                            text={segment.text}
+                                                            loading={segment.loading}
+                                                            failed={segment.failed}
+                                                        />
+                                                    );
+                                                }
+
                                                 return (
-                                                    <CodeSection
-                                                        key={i}
-                                                        codeSegments={codeSegments}
-                                                        loading={isLoading && showGeneratingFiles}
-                                                        handleAddAllCodeSegmentsToWorkspace={
-                                                            handleAddAllCodeSegmentsToWorkspace
-                                                        }
-                                                        handleRevertChanges={handleRevertChanges}
-                                                        isReady={!isCodeLoading}
-                                                        message={message}
-                                                        buttonsActive={showGeneratingFiles}
-                                                        isSyntaxError={isContainsSyntaxError(
-                                                            currentDiagnosticsRef.current
-                                                        )}
-                                                        command={segment.command}
-                                                        diagnostics={currentDiagnosticsRef.current}
-                                                        onRetryRepair={handleRetryRepair}
-                                                        isPromptExecutedInCurrentWindow={
-                                                            isPromptExecutedInCurrentWindow
-                                                        }
-                                                        isErrorChunkReceived={isErrorChunkReceivedRef.current}
-                                                        isAddingToWorkspace={isAddingToWorkspace}
+                                                    <ToolCallGroupSegment
+                                                        key={`tool-call-group-${i}`}
+                                                        segments={groupItems}
                                                     />
                                                 );
+                                            } else if (segment.type === SegmentType.TryItScenarios) {
+                                                return (
+                                                    <TryItScenariosSegment
+                                                        key={`try-it-scenarios-${i}`}
+                                                        text={segment.text}
+                                                        loading={segment.loading}
+                                                    />
+                                                );
+                                            } else if (segment.type === SegmentType.Todo) {
+                                                return (
+                                                    <TodoSection
+                                                        key={`todo-${i}`}
+                                                        tasks={segment.tasks || []}
+                                                        message={segment.message}
+                                                    />
+                                                );
+                                            } else if (segment.type === SegmentType.SpecFetcher) {
+                                                return (
+                                                    <ConnectorGeneratorSegment
+                                                        key={`connector-generator-${i}`}
+                                                        data={segment.specData}
+                                                        rpcClient={rpcClient}
+                                                    />
+                                                );
+                                            } else if (segment.type === SegmentType.ConfigurationCollector) {
+                                                return (
+                                                    <ConfigurationCollectorSegment
+                                                        key={`configuration-collector-${i}`}
+                                                        data={segment.configurationData}
+                                                        rpcClient={rpcClient}
+                                                    />
+                                                );
+                                            } else if (segment.type === SegmentType.ReviewActions) {
+                                                return (
+                                                    <ReviewActions
+                                                        key={`review-actions-${i}`}
+                                                        rpcClient={rpcClient}
+                                                        onReviewActionsChange={setShowReviewActions}
+                                                    />
+                                                );
+                                            } else if (segment.type === SegmentType.Attachment) {
+                                                return (
+                                                    <AttachmentsContainer>
+                                                        {segment.text.split(",").map((fileName: string, attachmentIndex: number) => (
+                                                            <AttachmentBox
+                                                                key={`attachment-${i}-${attachmentIndex}`}
+                                                                status={AttachmentStatus.Success}
+                                                                fileName={fileName.trim()}
+                                                                index={attachmentIndex}
+                                                                removeAttachment={null}
+                                                                readOnly={true}
+                                                            />
+                                                        ))}
+                                                    </AttachmentsContainer>
+                                                );
+                                            } else if (segment.type === SegmentType.InlineCode) {
+                                                return (
+                                                    <CodeSegment
+                                                        key={`code-segment-${i}`}
+                                                        source={segment.text}
+                                                        fileName={"Ballerina"}
+                                                        language={"ballerina"}
+                                                        collapsible={false}
+                                                        showCopyButton={true}
+                                                    />
+                                                );
+                                            } else if (segment.type === SegmentType.References) {
+                                                return <ReferenceDropdown key={`references-${i}`} links={JSON.parse(segment.text)} />;
+                                            } else if (segment.type === SegmentType.Button) {
+                                                if (
+                                                    "buttonType" in segment &&
+                                                    segment.buttonType === "save_documentation" &&
+                                                    !isCodeLoading &&
+                                                    isLastResponse &&
+                                                    !isLoading
+                                                ) {
+                                                    return (
+                                                        <div key={`btn-save-${i}`} style={{ display: "flex", gap: "10px" }}>
+                                                            <VSCodeButton title="Save Documentation" onClick={saveDocumentation}>
+                                                                {"Save Documentation"}
+                                                            </VSCodeButton>
+                                                            <VSCodeButton
+                                                                title="Regenerate documentation"
+                                                                appearance="secondary"
+                                                                onClick={regenerateDocumentation}
+                                                            >
+                                                                <Codicon name="refresh" />
+                                                            </VSCodeButton>
+                                                        </div>
+                                                    );
+                                                } else if (
+                                                    "buttonType" in segment &&
+                                                    segment.buttonType === "documentation_saved"
+                                                ) {
+                                                    return (
+                                                        <VSCodeButton key={`btn-saved-${i}`} title="Documentation has been saved" disabled>
+                                                            {"Saved"}
+                                                        </VSCodeButton>
+                                                    );
+                                                }
+                                            } else {
+                                                if (message.type === "Error") {
+                                                    return <ErrorBox key={`error-${i}`}>{segment.text}</ErrorBox>;
+                                                }
+                                                return <MarkdownRenderer key={`markdown-${i}`} markdownContent={segment.text} />;
                                             }
-                                        } else if (segment.type === SegmentType.Progress) {
-                                            return (
-                                                <ProgressTextSegment
-                                                    text={segment.text}
-                                                    loading={segment.loading}
-                                                    failed={segment.failed}
-                                                />
-                                            );
-                                        } else if (segment.type === SegmentType.ToolCall) {
-                                            return (
-                                                <ToolCallSegment
-                                                    text={segment.text}
-                                                    loading={segment.loading}
-                                                    failed={segment.failed}
-                                                />
-                                            );
-                                        } else if (segment.type === SegmentType.Attachment) {
-                                            return (
-                                                <AttachmentsContainer>
-                                                    {segment.text.split(",").map((fileName, index) => (
-                                                        <AttachmentBox
-                                                            key={index}
-                                                            status={AttachmentStatus.Success}
-                                                            fileName={fileName.trim()}
-                                                            index={index}
-                                                            removeAttachment={null}
-                                                            readOnly={true}
-                                                        />
-                                                    ))}
-                                                </AttachmentsContainer>
-                                            );
-                                        } else if (segment.type === SegmentType.InlineCode) {
-                                            // return <BallerinaCodeBlock key={i} code={segment.text} />;
-                                            return (
-                                                <CodeSegment
-                                                    source={segment.text}
-                                                    fileName={"Ballerina"}
-                                                    language={"ballerina"}
-                                                    collapsible={false}
-                                                    showCopyButton={true}
-                                                />
-                                            );
-                                        } else if (segment.type === SegmentType.References) {
-                                            return <ReferenceDropdown key={i} links={JSON.parse(segment.text)} />;
-                                        } else if (segment.type === SegmentType.TestScenario) {
-                                            return (
-                                                <AccordionItem
-                                                    content={segment.text}
-                                                    onDelete={onTestScenarioDelete}
-                                                    isEnabled={
-                                                        isLastResponse &&
-                                                        !isCodeLoading &&
-                                                        !areTestsGenerated &&
-                                                        isLoading
-                                                    }
-                                                    onEdit={handleEdit}
-                                                />
-                                            );
-                                        } else if (segment.type === SegmentType.Button) {
-                                            if (
-                                                "buttonType" in segment &&
-                                                segment.buttonType === "add_scenario" &&
-                                                !isCodeLoading &&
-                                                isLastResponse &&
-                                                !areTestsGenerated &&
-                                                isLoading
-                                            ) {
-                                                return (
-                                                    <VSCodeButton
-                                                        title="Add a new test scenario"
-                                                        appearance="secondary"
-                                                        onClick={onTestScenarioAdd}
-                                                    >
-                                                        <span className={`codicon codicon-add`}></span>
-                                                    </VSCodeButton>
-                                                );
-                                            } else if (
-                                                "buttonType" in segment &&
-                                                segment.buttonType === "generate_test_group" &&
-                                                !isCodeLoading &&
-                                                isLastResponse &&
-                                                !areTestsGenerated &&
-                                                isLoading
-                                            ) {
-                                                return (
-                                                    <div style={{ display: "flex", gap: "10px" }}>
-                                                        <VSCodeButton
-                                                            title="Generate Tests"
-                                                            onClick={generateFunctionTests}
-                                                        >
-                                                            {"Generate Tests"}
-                                                        </VSCodeButton>
-                                                        <VSCodeButton
-                                                            title="Regenerate test scenarios"
-                                                            appearance="secondary"
-                                                            onClick={regenerateScenarios}
-                                                        >
-                                                            <Codicon name="refresh" />
-                                                        </VSCodeButton>
-                                                    </div>
-                                                );
-                                            } else if (
-                                                "buttonType" in segment &&
-                                                segment.buttonType === "save_documentation" &&
-                                                !isCodeLoading &&
-                                                isLastResponse &&
-                                                !isLoading
-                                            ) {
-                                                return (
-                                                    <div style={{ display: "flex", gap: "10px" }}>
-                                                        <VSCodeButton
-                                                            title="Save Documentation"
-                                                            onClick={saveDocumentation}
-                                                        >
-                                                            {"Save Documentation"}
-                                                        </VSCodeButton>
-                                                        <VSCodeButton
-                                                            title="Regenerate documentation"
-                                                            appearance="secondary"
-                                                            onClick={regenerateDocumentation}
-                                                        >
-                                                            <Codicon name="refresh" />
-                                                        </VSCodeButton>
-                                                    </div>
-                                                );
-                                            } else if (
-                                                "buttonType" in segment &&
-                                                segment.buttonType === "documentation_saved"
-                                            ) {
-                                                return (
-                                                    <VSCodeButton title="Documentation has been saved" disabled>
-                                                        {"Saved"}
-                                                    </VSCodeButton>
-                                                );
-                                            }
-                                        } else {
-                                            if (message.type === "Error") {
-                                                return <ErrorBox key={i}>{segment.text}</ErrorBox>;
-                                            }
-                                            return <MarkdownRenderer key={i} markdownContent={segment.text} />;
-                                        }
-                                    })}
-                                    {/* Show feedback bar only for the latest assistant message and when loading is complete */}
-                                    {isAssistantMessage && isLatestAssistantMessage && !isLoading && !isCodeLoading && (
+                                        })}
+                                    </MessageBody>
+                                    {/* Show feedback bar only for the latest assistant message and when loading is complete, but not if review actions are present */}
+                                    {isAssistantMessage && isLatestAssistantMessage && !isLoading && !isCodeLoading && !hasReviewActions && (
                                         <FeedbackBar
                                             messageIndex={index}
                                             onFeedback={handleFeedback}
@@ -2165,24 +1655,49 @@ const AIChat: React.FC = () => {
                         })}
                         <div ref={messagesEndRef} />
                     </main>
-                    <Footer
-                        aiChatInputRef={aiChatInputRef}
-                        tagOptions={{
-                            placeholderTags: placeholderTags,
-                            loadGeneralTags: loadGeneralTags,
-                            injectPlaceholderTags: injectPlaceholderTags,
-                        }}
-                        attachmentOptions={{
-                            multiple: true,
-                            acceptResolver: acceptResolver,
-                            handleAttachmentSelection: handleAttachmentSelection,
-                        }}
-                        inputPlaceholder="Describe your integration..."
-                        onSend={handleSend}
-                        onStop={handleStop}
-                        isLoading={isLoading}
-                        showSuggestedCommands={Array.isArray(otherMessages) && otherMessages.length === 0}
-                    />
+                    {/* Review Actions Component - positioned at bottom above input */}
+                    {showReviewActions && (
+                        <div style={{ padding: "10px 20px 0", borderTop: "1px solid var(--vscode-panel-border)" }}>
+                            <ReviewActions
+                                rpcClient={rpcClient}
+                                onReviewActionsChange={setShowReviewActions}
+                            />
+                        </div>
+                    )}
+                    {approvalRequest ? (
+                        <ApprovalFooter
+                            approvalType={approvalRequest.approvalType}
+                            onApprove={handleApprovalApprove}
+                            onReject={handleApprovalReject}
+                            isSubmitting={false}
+                        />
+                    ) : (
+                        <Footer
+                            aiChatInputRef={aiChatInputRef}
+                            tagOptions={{
+                                placeholderTags: placeholderTags,
+                                loadGeneralTags: loadGeneralTags,
+                                injectPlaceholderTags: injectPlaceholderTags,
+                            }}
+                            attachmentOptions={{
+                                multiple: true,
+                                acceptResolver: acceptResolver,
+                                handleAttachmentSelection: handleAttachmentSelection,
+                            }}
+                            inputPlaceholder="Describe your integration..."
+                            onSend={handleSend}
+                            onStop={handleStop}
+                            isLoading={isLoading}
+                            showSuggestedCommands={Array.isArray(otherMessages) && otherMessages.length === 0}
+                            codeContext={codeContext}
+                            onRemoveCodeContext={() => updateCodeContext(undefined)}
+                            agentMode={agentMode}
+                            onChangeAgentMode={handleChangeAgentMode}
+                            isAutoApproveEnabled={isAutoApproveEnabled}
+                            onDisableAutoApprove={handleToggleAutoApprove}
+                            disabled={isUsageExceeded}
+                        />
+                    )}
                 </AIChatView>
             )}
             {showSettings && <SettingsPanel onClose={() => setShowSettings(false)}></SettingsPanel>}
@@ -2191,373 +1706,3 @@ const AIChat: React.FC = () => {
 };
 
 export default AIChat;
-
-export function replaceCodeBlocks(originalResp: string, newResp: string): string {
-    // Create a map to store new code blocks by filename
-    const newCodeBlocks = new Map<string, string>();
-
-    // Extract code blocks from newResp
-    const newCodeRegex = /<code filename="(.+?)">\s*```ballerina\s*([\s\S]*?)```\s*<\/code>/g;
-    let match;
-    while ((match = newCodeRegex.exec(newResp)) !== null) {
-        newCodeBlocks.set(match[1], match[2].trim());
-    }
-
-    // Replace code blocks in originalResp
-    const updatedResp = originalResp.replace(
-        /<code filename="(.+?)">\s*```ballerina\s*([\s\S]*?)```\s*<\/code>/g,
-        (match, filename, content) => {
-            const newContent = newCodeBlocks.get(filename);
-            if (newContent !== undefined) {
-                return `<code filename="${filename}">\n\`\`\`ballerina\n${newContent}\n\`\`\`\n</code>`;
-            }
-            return match; // If no new content, keep the original
-        }
-    );
-
-    // Remove replaced code blocks from newCodeBlocks
-    const originalCodeRegex = /<code filename="(.+?)">/g;
-    while ((match = originalCodeRegex.exec(originalResp)) !== null) {
-        newCodeBlocks.delete(match[1]);
-    }
-
-    // Append any remaining new code blocks
-    let finalResp = updatedResp;
-    newCodeBlocks.forEach((content, filename) => {
-        finalResp += `\n\n<code filename="${filename}">\n\`\`\`ballerina\n${content}\n\`\`\`\n</code>`;
-    });
-
-    return finalResp;
-}
-
-function extractRecordTypes(typesCode: string): { name: string; code: string }[] {
-    const recordPattern = /\b(?:public|private)?\s*type\s+(\w+)\s+record\s+(?:{[|]?|[|]?{)[\s\S]*?;?\s*[}|]?;/g;
-    const matches = [...typesCode.matchAll(recordPattern)];
-    return matches.map((match) => ({
-        name: match[1],
-        code: match[0].trim(),
-    }));
-}
-interface ContentBlock {
-    delta: ContentBlockDeltaBody;
-}
-
-// Define the different event body types
-interface ContentBlockDeltaBody {
-    text: string;
-}
-
-interface OtherEventBody {
-    // Define properties for other event types as needed
-    [key: string]: any;
-}
-
-// Define the SSEEvent type with a discriminated union for the body
-type SSEEvent = { event: "content_block_delta"; body: ContentBlock } | { event: string; body: OtherEventBody };
-
-/**
- * Parses a chunk of text to extract the SSE event and body.
- * @param chunk - The chunk of text from the SSE stream.
- * @returns The parsed SSE event containing the event name and body (if present).
- * @throws Will throw an error if the data field is not valid JSON.
- */
-export function parseSSEEvent(chunk: string): SSEEvent {
-    let event: string | undefined;
-    let body: any;
-
-    chunk.split("\n").forEach((line) => {
-        if (line.startsWith("event: ")) {
-            event = line.slice(7);
-        } else if (line.startsWith("data: ")) {
-            try {
-                body = JSON.parse(line.slice(6));
-            } catch (e) {
-                throw new Error("Invalid JSON data in SSE event");
-            }
-        }
-    });
-
-    if (!event) {
-        throw new Error("Event field is missing in SSE event");
-    }
-
-    if (event === "content_block_delta") {
-        return { event, body: body as ContentBlockDeltaBody };
-    } else if (event === "functions") {
-        return { event, body: body };
-    } else {
-        return { event, body: body as OtherEventBody };
-    }
-}
-
-export function getProjectFromResponse(req: string): ProjectSource {
-    const sourceFiles: SourceFile[] = [];
-    const regex = /<code filename="([^"]+)">\s*```ballerina([\s\S]*?)```\s*<\/code>/g;
-    let match;
-
-    while ((match = regex.exec(req)) !== null) {
-        const filePath = match[1];
-        const fileContent = match[2].trim();
-        sourceFiles.push({ filePath, content: fileContent });
-    }
-
-    return { sourceFiles, projectName: "" };
-}
-
-export enum SegmentType {
-    Code = "Code",
-    Text = "Text",
-    Progress = "Progress",
-    ToolCall = "ToolCall",
-    Attachment = "Attachment",
-    InlineCode = "InlineCode",
-    References = "References",
-    TestScenario = "TestScenario",
-    Button = "Button",
-}
-
-interface Segment {
-    type: SegmentType;
-    language?: string;
-    loading: boolean;
-    text: string;
-    fileName?: string;
-    command?: string;
-    failed?: boolean;
-    [key: string]: any;
-}
-
-function getCommand(command: string) {
-    if (!command) {
-        return "code";
-    } else {
-        return command.replaceAll(/"/g, "");
-    }
-}
-
-function splitHalfGeneratedCode(content: string): Segment[] {
-    const segments: Segment[] = [];
-    // Regex to capture filename and optional test attribute
-    const regex = /<code\s+filename="([^"]+)"(?:\s+type=("test"|"ai_map"|"ai_map_inline"))?>\s*```(\w+)\s*([\s\S]*?)$/g;
-    let match;
-    let lastIndex = 0;
-
-    while ((match = regex.exec(content)) !== null) {
-        const [fullMatch, fileName, type, language, code] = match;
-        if (match.index > lastIndex) {
-            // Non-code segment before the current code block
-            segments.push({
-                type: SegmentType.Text,
-                loading: false,
-                text: content.slice(lastIndex, match.index),
-                command: getCommand(type),
-            });
-        }
-
-        // Code segment
-        segments.push({
-            type: SegmentType.Code,
-            language: language,
-            loading: true,
-            text: code,
-            fileName: fileName,
-            command: getCommand(type),
-        });
-
-        lastIndex = regex.lastIndex;
-    }
-
-    if (lastIndex < content.length) {
-        // Remaining non-code segment after the last code block
-        segments.push({
-            type: SegmentType.Text,
-            loading: false,
-            text: content.slice(lastIndex),
-        });
-    }
-
-    return segments;
-}
-
-export function splitContent(content: string): Segment[] {
-    const segments: Segment[] = [];
-
-    // Combined regex to capture either <code ...>```<language> code ```</code> or <progress>Text</progress>
-    const regex =
-        /<code\s+filename="([^"]+)"(?:\s+type=("test"|"ai_map"|"ai_map_inline"))?>\s*```(\w+)\s*([\s\S]*?)```\s*<\/code>|<progress>([\s\S]*?)<\/progress>|<toolcall>([\s\S]*?)<\/toolcall>|<attachment>([\s\S]*?)<\/attachment>|<scenario>([\s\S]*?)<\/scenario>|<button\s+type="([^"]+)">([\s\S]*?)<\/button>|<inlineCode>([\s\S]*?)<inlineCode>|<references>([\s\S]*?)<references>/g;
-    let match;
-    let lastIndex = 0;
-
-    function updateLastProgressSegmentLoading(failed: boolean = false) {
-        const lastSegment = segments[segments.length - 1];
-        if (lastSegment && (lastSegment.type === SegmentType.Progress || lastSegment.type === SegmentType.ToolCall)) {
-            lastSegment.loading = false;
-            lastSegment.failed = failed;
-        }
-    }
-
-    while ((match = regex.exec(content)) !== null) {
-        // Handle text before the current match
-        if (match.index > lastIndex) {
-            updateLastProgressSegmentLoading();
-
-            const textSegment = content.slice(lastIndex, match.index);
-            segments.push(...splitHalfGeneratedCode(textSegment));
-        }
-
-        if (match[1]) {
-            // <code> block matched
-            const fileName = match[1];
-            const type = match[2];
-            const language = match[3];
-            const code = match[4];
-            updateLastProgressSegmentLoading();
-            segments.push({
-                type: SegmentType.Code,
-                loading: false,
-                text: code,
-                fileName: fileName,
-                language: language,
-                command: getCommand(type),
-            });
-        } else if (match[5]) {
-            // <progress> block matched
-            const progressText = match[5];
-
-            updateLastProgressSegmentLoading();
-            segments.push({
-                type: SegmentType.Progress,
-                loading: true,
-                text: progressText,
-            });
-        } else if (match[6]) {
-            // <toolcall> block matched
-            const toolcallText = match[6];
-
-            updateLastProgressSegmentLoading();
-            segments.push({
-                type: SegmentType.ToolCall,
-                loading: true,
-                text: toolcallText,
-            });
-        } else if (match[7]) {
-            // <attachment> block matched
-            const attachmentName = match[7].trim();
-
-            updateLastProgressSegmentLoading();
-
-            const existingAttachmentSegment = segments.find((segment) => segment.type === SegmentType.Attachment);
-
-            if (existingAttachmentSegment) {
-                existingAttachmentSegment.text += `, ${attachmentName}`;
-            } else {
-                segments.push({
-                    type: SegmentType.Attachment,
-                    loading: false,
-                    text: attachmentName,
-                });
-            }
-        } else if (match[8]) {
-            // <scenario> block matched
-            const scenarioContent = match[8].trim();
-
-            updateLastProgressSegmentLoading(true);
-            segments.push({
-                type: SegmentType.TestScenario,
-                loading: false,
-                text: scenarioContent,
-            });
-        } else if (match[9]) {
-            // <button> block matched
-            const buttonType = match[9].trim();
-            const buttonContent = match[10].trim();
-
-            updateLastProgressSegmentLoading(true);
-            segments.push({
-                type: SegmentType.Button,
-                loading: false,
-                text: buttonContent,
-                buttonType: buttonType,
-            });
-        } else if (match[11]) {
-            segments.push({
-                type: SegmentType.InlineCode,
-                text: match[11].trim(),
-                loading: false,
-            });
-        } else if (match[12]) {
-            segments.push({
-                type: SegmentType.References,
-                text: match[12].trim(),
-                loading: false,
-            });
-        }
-
-        // Update lastIndex to the end of the current match
-        lastIndex = regex.lastIndex;
-    }
-
-    // Handle any remaining text after the last match
-    if (lastIndex < content.length) {
-        updateLastProgressSegmentLoading();
-
-        const remainingText = content.slice(lastIndex);
-        segments.push(...splitHalfGeneratedCode(remainingText));
-    }
-
-    return segments;
-}
-function generateChatHistoryForSummarize(chatArray: ChatEntry[]): ChatEntry[] {
-    return chatArray
-        .slice(integratedChatIndex)
-        .filter(
-            (chatEntry) =>
-                chatEntry.actor.toLowerCase() == "user" &&
-                chatEntry.isCodeGeneration &&
-                !chatEntry.message.includes(GENERATE_TEST_AGAINST_THE_REQUIREMENT) &&
-                !chatEntry.message.includes(GENERATE_CODE_AGAINST_THE_REQUIREMENT) &&
-                !chatEntry.message.includes(GENERATE_CODE_AGAINST_THE_PROVIDED_REQUIREMENTS_TRIMMED)
-        );
-}
-
-function transformProjectSource(project: ProjectSource): SourceFiles[] {
-    const sourceFiles: SourceFiles[] = [];
-    project.sourceFiles.forEach((file) => {
-        sourceFiles.push({
-            filePath: file.filePath,
-            content: file.content,
-        });
-    });
-    project.projectModules?.forEach((module) => {
-        let basePath = "";
-        if (!module.isGenerated) {
-            basePath += "modules/";
-        } else {
-            basePath += "generated/";
-        }
-
-        basePath += module.moduleName + "/";
-        // const path =
-        module.sourceFiles.forEach((file) => {
-            sourceFiles.push({
-                filePath: basePath + file.filePath,
-                content: file.content,
-            });
-        });
-    });
-    return sourceFiles;
-}
-
-function isContainsSyntaxError(diagnostics: DiagnosticEntry[]): boolean {
-    return diagnostics.some((diag) => {
-        if (typeof diag.code === "string" && diag.code.startsWith("BCE")) {
-            const match = diag.code.match(/^BCE(\d+)$/);
-            if (match) {
-                const codeNumber = Number(match[1]);
-                if (codeNumber < 2000) {
-                    return true;
-                }
-            }
-        }
-    });
-}

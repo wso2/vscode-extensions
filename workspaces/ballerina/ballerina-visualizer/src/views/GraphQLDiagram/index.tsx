@@ -25,7 +25,8 @@ import {
     EVENT_TYPE,
     MACHINE_VIEW,
     TypeNodeKind,
-    Member
+    Member,
+    Protocol
 } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { TypeDiagram as TypeDesignDiagram } from "@wso2/type-diagram";
@@ -50,6 +51,7 @@ import { EditorContext, StackItem } from "@wso2/type-editor";
 import DynamicModal from "../../components/Modal";
 import { BreadcrumbContainer, BreadcrumbItem, BreadcrumbSeparator } from "../BI/Forms/FormGenerator";
 import React from "react";
+import { removeForwardSlashes } from "../BI/ServiceDesigner/utils";
 
 const SpinnerContainer = styled.div`
     display: flex;
@@ -78,14 +80,14 @@ const Path = styled.span`
 `;
 
 interface GraphQLDiagramProps {
+    projectPath: string;
     filePath: string;
     position: NodePosition;
-    projectUri?: string;
     serviceIdentifier: string;
 }
 
 export function GraphQLDiagram(props: GraphQLDiagramProps) {
-    const { filePath, position, projectUri, serviceIdentifier } = props;
+    const { projectPath, filePath, position, serviceIdentifier } = props;
     const { rpcClient } = useRpcContext();
     const queryClient = useQueryClient();
     const [isServiceEditorOpen, setIsServiceEditorOpen] = useState<boolean>(false);
@@ -135,6 +137,10 @@ export function GraphQLDiagram(props: GraphQLDiagramProps) {
         if (stack.length <= 1) return;
         setStack((prev) => {
             const newStack = [...prev];
+            //preserve fieldIndex if exists
+            if (newStack[newStack.length - 1].fieldIndex) {
+                item.fieldIndex = newStack[newStack.length - 1].fieldIndex;
+            }
             newStack[newStack.length - 1] = item;
             return newStack;
         });
@@ -360,16 +366,25 @@ export function GraphQLDiagram(props: GraphQLDiagramProps) {
 
     const onSaveType = () => {
         if (stack.length > 0) {
+            if (stack.length > 1) {
+                const newStack = [...stack]
+                const currentTop = newStack[newStack.length - 1];
+                const newTop = newStack[newStack.length - 2];
+                newTop.type.members[newTop.fieldIndex!].type = currentTop!.type.name;
+                newStack[newStack.length - 2] = newTop;
+                newStack.pop();
+                setStack(newStack);
+            }
             setRefetchForCurrentModal(true);
-            popTypeStack();
         }
         setIsTypeEditorOpen(stack.length !== 1);
     }
 
-    const getNewTypeCreateForm = () => {
+    const getNewTypeCreateForm = (fieldIndex?: number, typeName?: string) => {
         pushTypeStack({
             type: createNewType(),
-            isDirty: false
+            isDirty: false,
+            fieldIndex: fieldIndex
         });
         setIsTypeEditorOpen(true);
     }
@@ -388,19 +403,25 @@ export function GraphQLDiagram(props: GraphQLDiagramProps) {
     return (
         <>
             <View>
-                <TopNavigationBar />
+                <TopNavigationBar projectPath={projectPath} />
                 {!focusedNodeId && (
                     <TitleBar
                         title="GraphQL"
                         subtitleElement={
                             <SubTitleWrapper>
-                                <Path>{graphqlTypeModel?.type.name}</Path>
+                                <Path>{removeForwardSlashes(graphqlTypeModel?.type.name)}</Path>
                             </SubTitleWrapper>
                         }
                         actions={
                             <ActionButton appearance="secondary" onClick={handleServiceEdit} data-testid="edit-service-btn">
-                                <Icon name="bi-edit" sx={{ marginRight: 5, width: 16, height: 16, fontSize: 14 }} />
-                                Edit
+                                <Icon
+                                    name="bi-settings"
+                                    sx={{
+                                        marginRight: 5,
+                                        fontSize: "16px",
+                                        width: "16px",
+                                    }}
+                                /> Configure
                             </ActionButton>
                         }
                     />
@@ -486,24 +507,24 @@ export function GraphQLDiagram(props: GraphQLDiagramProps) {
                             title="Create New Type"
                             openState={isTypeEditorOpen}
                             setOpenState={handleTypeEditorStateChange}>
-                            <div style={{ padding: '0px 20px' }}>
-                                <BreadcrumbContainer>
-                                    {stack.slice(1, i + 2).map((stackItem, index) => (
-                                        <React.Fragment key={index}>
-                                            {index > 0 && <BreadcrumbSeparator>/</BreadcrumbSeparator>}
-                                            <BreadcrumbItem>
-                                                {stackItem?.type?.name || "NewType"}
-                                            </BreadcrumbItem>
-                                        </React.Fragment>
-                                    ))}
-                                </BreadcrumbContainer>
+                            <BreadcrumbContainer>
+                                {stack.slice(1, i + 2).map((stackItem, index) => (
+                                    <React.Fragment key={index}>
+                                        {index > 0 && <BreadcrumbSeparator>/</BreadcrumbSeparator>}
+                                        <BreadcrumbItem>
+                                            {stackItem?.type?.name || "NewType"}
+                                        </BreadcrumbItem>
+                                    </React.Fragment>
+                                ))}
+                            </BreadcrumbContainer>
+                            <div style={{ height: '560px', overflow: 'auto' }}>
                                 <FormTypeEditor
                                     key={editingType?.name ?? 'new-type'}
                                     type={peekTypeStack()?.type}
                                     newType={peekTypeStack() ? peekTypeStack().isDirty : false}
                                     newTypeValue={peekTypeStack()?.type?.name ?? ''}
-                                    isGraphql={true}
                                     isPopupTypeForm={true}
+                                    isGraphql={true}
                                     onTypeChange={onTypeChange}
                                     onTypeCreate={() => { }}
                                     onSaveType={onSaveType}
@@ -520,7 +541,6 @@ export function GraphQLDiagram(props: GraphQLDiagramProps) {
                     serviceIdentifier={serviceIdentifier}
                     onClose={onTypeEditorClosed}
                     type={editingType}
-                    projectUri={projectUri}
                     onImplementation={handleOnImplementation}
                 />
             )}

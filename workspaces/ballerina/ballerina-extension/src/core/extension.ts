@@ -33,7 +33,21 @@ import { exec, spawnSync, execSync } from 'child_process';
 import { LanguageClientOptions, State as LS_STATE, RevealOutputChannelOn, ServerOptions } from "vscode-languageclient/node";
 import { getServerOptions } from '../utils/server/server';
 import { ExtendedLangClient } from './extended-language-client';
-import { debug, log, getOutputChannel, outputChannel, isWindows, isWSL, isSupportedVersion, VERSION, isSupportedSLVersion } from '../utils';
+import {
+    debug,
+    log,
+    getOutputChannel,
+    outputChannel,
+    isWindows,
+    isWSL,
+    quoteShellPath,
+    isSupportedVersion,
+    VERSION,
+    isSupportedSLVersion,
+    createVersionNumber,
+    checkIsBallerinaWorkspace,
+    isInWI
+} from '../utils';
 import { AssertionError } from "assert";
 import {
     BALLERINA_HOME, ENABLE_ALL_CODELENS, ENABLE_TELEMETRY, ENABLE_SEMANTIC_HIGHLIGHTING, OVERRIDE_BALLERINA_HOME,
@@ -142,6 +156,7 @@ export class BallerinaExtension {
     public ballerinaVersion: string;
     public biSupported: boolean;
     public isNPSupported: boolean;
+    public isWorkspaceSupported: boolean;
     public extension: Extension<any>;
     private clientOptions: LanguageClientOptions;
     public langClient?: ExtendedLangClient;
@@ -172,6 +187,7 @@ export class BallerinaExtension {
             this.ballerinaVersion = '';
             this.biSupported = false;
             this.isNPSupported = false;
+            this.isWorkspaceSupported = false;
             this.isPersist = false;
             this.ballerinaUserHomeName = '.ballerina';
 
@@ -442,9 +458,26 @@ export class BallerinaExtension {
                 }
 
                 try {
-                    this.biSupported = isSupportedSLVersion(this, 2201123); // Minimum supported version for BI
-                    this.isNPSupported = isSupportedSLVersion(this, 2201130) && this.enabledExperimentalFeatures(); // Minimum supported requirements for NP
-                    debug(`[INIT] Feature support calculated - BI: ${this.biSupported}, NP: ${this.isNPSupported}`);
+                    this.biSupported = isSupportedSLVersion(this, createVersionNumber(2201, 12, 3)); // Minimum supported version for BI: 2201.12.3
+                    this.isNPSupported = isSupportedSLVersion(this, createVersionNumber(2201, 13, 0)) && this.enabledExperimentalFeatures(); // Minimum supported requirements for NP: 2201.13.0
+
+                    this.isWorkspaceSupported = isSupportedSLVersion(this, createVersionNumber(2201, 13, 0)); // Minimum supported requirements for Workspace: 2201.13.0
+                    const workspaceFolders = workspace.workspaceFolders;
+
+                    if (workspaceFolders && workspaceFolders.length === 1) {
+                        const isBalWorkspace = await checkIsBallerinaWorkspace(workspaceFolders[0].uri);
+                        if (isBalWorkspace && !this.isWorkspaceSupported) {
+                            window.showInformationMessage(
+                                'Your current ballerina distribution is not supported for workspaces. Please update to version 2201.13.0 or above to use workspaces. You will need to reload VS Code after updating.',
+                                'Update'
+                            ).then(selection => {
+                                if (selection === 'Update') {
+                                    commands.executeCommand('ballerina.update-ballerina-visually');
+                                }
+                            });
+                        }
+                    }
+                    debug(`[INIT] Feature support calculated - BI: ${this.biSupported}, NP: ${this.isNPSupported}, Workspace: ${this.isWorkspaceSupported}`);
                 } catch (error) {
                     debug(`[INIT] Error calculating feature support: ${error}`);
                     // Don't throw here, we can continue without these features
@@ -456,6 +489,9 @@ export class BallerinaExtension {
                     debug(`[INIT] Auto-detected Ballerina Home: ${this.ballerinaHome}`);
                     debug(`[INIT] Is old Ballerina distribution: ${isOldBallerinaDist}`);
                     debug(`[INIT] Is Ballerina not found: ${isBallerinaNotFound}`);
+
+                    // Check for multiple Ballerina installations in PATH
+                    this.checkMultipleBallerinaInstallations();
                 } catch (error) {
                     debug(`[INIT] Error auto-detecting Ballerina home: ${error}`);
                     throw error;
@@ -464,7 +500,7 @@ export class BallerinaExtension {
                 debug(`[INIT] Final Ballerina Home: ${this.ballerinaHome}`);
                 debug(`[INIT] Plugin Dev Mode: ${this.overrideBallerinaHome()}`);
                 debug(`[INIT] Debug Mode: ${this.enableLSDebug()}`);
-                debug(`[INIT] Feature flags - Experimental: ${this.enabledExperimentalFeatures()}, BI: ${this.biSupported}, NP: ${this.isNPSupported}`);
+                debug(`[INIT] Feature flags - Experimental: ${this.enabledExperimentalFeatures()}, BI: ${this.biSupported}, NP: ${this.isNPSupported}, Workspace: ${this.isWorkspaceSupported}`);
 
                 // Check version compatibility
                 try {
@@ -1659,14 +1695,21 @@ export class BallerinaExtension {
         debug("[VERSION] Starting Ballerina version detection...");
         debug(`[VERSION] Input parameters - ballerinaHome: '${ballerinaHome}', overrideBallerinaHome: ${overrideBallerinaHome}`);
 
-        try {
-            // Initialize with fresh environment
-            debug("[VERSION] Syncing environment variables...");
-            await this.syncEnvironment();
-            debug("[VERSION] Environment sync completed");
-        } catch (error) {
-            debug(`[VERSION] Warning: Failed to sync environment: ${error}`);
-            // Continue anyway, don't fail the whole process
+        // Use BALLERINA_HOME in WSO2 Integrator if set, otherwise fallback to system PATH
+        if (process.env.WSO2_INTEGRATOR_RUNTIME && process.env.BALLERINA_HOME) {
+            debug(`[VERSION] Detected WSO2 Integrator environment with BALLERINA_HOME: ${process.env.BALLERINA_HOME}`);
+            ballerinaHome = process.env.BALLERINA_HOME;
+            overrideBallerinaHome = true;
+        } else {
+            try {
+                // Initialize with fresh environment
+                debug("[VERSION] Syncing environment variables...");
+                await this.syncEnvironment();
+                debug("[VERSION] Environment sync completed");
+            } catch (error) {
+                debug(`[VERSION] Warning: Failed to sync environment: ${error}`);
+                // Continue anyway, don't fail the whole process
+            }
         }
 
         // Log current environment for debugging
@@ -1757,6 +1800,18 @@ export class BallerinaExtension {
                     if (distPath) { break; }
                 }
             }
+        } else if (isWindows() && !ballerinaHome) {
+            // On Windows, if syncEnvironment() already merged the User+Machine PATH the
+            // 'bal.bat version' call below will just work via PATH lookup (distPath stays
+            // empty).  But for restricted environments (where even User
+            // PATH is locked, or where VSCode's inherited PATH is still stale), we run a
+            // proactive directory search here so that we can use an absolute path instead
+            // of relying on PATH resolution.
+            const detectedBinPath = findWindowsBallerinaPath();
+            if (detectedBinPath) {
+                distPath = detectedBinPath;
+                debug(`[VERSION] Windows fallback search found Ballerina bin: ${distPath}`);
+            }
         }
 
         let exeExtension = "";
@@ -1778,7 +1833,8 @@ export class BallerinaExtension {
             debug("[VERSION] Non-Windows platform detected, no extension needed");
         }
 
-        let ballerinaCommand = distPath + 'bal' + exeExtension + ' version';
+        // Build the executable path separately so we can quote it for shell execution
+        let balExecutablePath = distPath + 'bal' + exeExtension;
 
         // Handle WSL environment - prefer native Linux installation over Windows .bat files
         if (isWSL()) {
@@ -1788,25 +1844,27 @@ export class BallerinaExtension {
                     // Check if 'bal' command is available in PATH
                     execSync('which bal', { encoding: 'utf8', timeout: 5000 });
                     // If we get here, 'bal' is available, use it instead of .bat
-                    ballerinaCommand = 'bal version';
+                    balExecutablePath = 'bal';
                     debug("[VERSION] WSL detected native 'bal' command, using it instead of .bat file");
                 } catch (error) {
                     debug("[VERSION] No native 'bal' command found in WSL, will try .bat file");
                     // If the path contains Windows-style paths, we need to handle them properly
-                    if (ballerinaCommand.includes('\\') || ballerinaCommand.match(/^[A-Za-z]:/)) {
+                    if (balExecutablePath.includes('\\') || balExecutablePath.match(/^[A-Za-z]:/)) {
                         debug("[VERSION] WSL detected with Windows path, attempting to convert to WSL path");
                         // Try to convert Windows path to WSL path
-                        const wslPath = ballerinaCommand.replace(/^([A-Za-z]):/, '/mnt/$1').replace(/\\/g, '/').toLowerCase();
-                        debug(`[VERSION] Converted Windows path to WSL path: ${wslPath}`);
-                        ballerinaCommand = wslPath;
+                        balExecutablePath = balExecutablePath.replace(/^([A-Za-z]):/, '/mnt/$1').replace(/\\/g, '/').toLowerCase();
+                        debug(`[VERSION] Converted Windows path to WSL path: ${balExecutablePath}`);
                     }
                 }
             } else {
                 // We have a native Linux installation, use it directly
-                ballerinaCommand = 'bal version';
+                balExecutablePath = 'bal';
                 debug("[VERSION] WSL detected with native Linux installation, using 'bal version'");
             }
         }
+
+        // Quote the executable path to handle spaces in directory names
+        let ballerinaCommand = `${quoteShellPath(balExecutablePath)} version`;
 
         debug(`[VERSION] Executing command: '${ballerinaCommand}'`);
 
@@ -2250,6 +2308,89 @@ export class BallerinaExtension {
         return result;
     }
 
+    /**
+     * Check if multiple Ballerina installations exist in the system PATH.
+     * Logs a warning if different installations are detected, as this can cause
+     * unpredictable behavior when different versions are used for different actions.
+     */
+    private checkMultipleBallerinaInstallations(): void {
+        debug("[MULTI_BAL_CHECK] Checking for multiple Ballerina installations in PATH...");
+
+        if (isInWI()) {
+            debug("[MULTI_BAL_CHECK] Skipping multiple installation warning in WSO2 Integrator environment");
+            return;
+        }
+
+        const MULTIPLE_INSTALLATIONS_WARNING = 'Multiple Ballerina installations detected. This may cause unpredictable behavior.';
+        const RESOLUTION_ADVICE = 'Consider removing duplicate installations or adjusting your PATH to avoid version conflicts.';
+
+        try {
+            let ballerinaPathsOutput = '';
+            const execOptions = {
+                encoding: 'utf8' as const,
+                timeout: 10000,
+                env: { ...process.env },
+                shell: isWindows() ? undefined : '/bin/sh'
+            };
+
+            const command = isWindows()
+                ? 'where bal'
+                : 'which -a bal 2>/dev/null || command -v bal 2>/dev/null || type -ap bal 2>/dev/null';
+
+            try {
+                ballerinaPathsOutput = execSync(command, execOptions).toString();
+                debug(`[MULTI_BAL_CHECK] '${command}' output: ${ballerinaPathsOutput}`);
+            } catch (error) {
+                debug(`[MULTI_BAL_CHECK] Command to find bal executables failed: ${error}`);
+                return;
+            }
+
+            // Parse the output to get unique paths
+            const paths = ballerinaPathsOutput
+                .split(/\r?\n/)
+                .map(p => p.trim())
+                .filter(p => p.length > 0);
+
+            debug(`[MULTI_BAL_CHECK] Found ${paths.length} Ballerina path(s): ${JSON.stringify(paths)}`);
+
+            if (paths.length >= 2) {
+                // Get unique parent directories to identify different installations
+                const installationDirs = new Set<string>();
+                for (const balPath of paths) {
+                    installationDirs.add(path.dirname(path.resolve(balPath)));
+                }
+
+                if (installationDirs.size >= 2) {
+                    const pathsList = Array.from(installationDirs).map((p, i) => `${i + 1}. ${p}`);
+
+                    // Log warnings
+                    log(`[WARNING] ${MULTIPLE_INSTALLATIONS_WARNING}`);
+                    log(`[WARNING] Detected Ballerina paths:`);
+                    pathsList.forEach(p => log(`[WARNING] ${p}`));
+                    log(`[WARNING] ${RESOLUTION_ADVICE}`);
+
+                    // Show popup notification to user
+                    const viewDetails = 'View Details';
+                    window.showWarningMessage(MULTIPLE_INSTALLATIONS_WARNING, viewDetails).then((selection) => {
+                        if (selection === viewDetails) {
+                            const detailMessage = `Detected Ballerina installations:\n${pathsList.join('\n')}\n\n${RESOLUTION_ADVICE}`;
+                            window.showWarningMessage(detailMessage, { modal: true });
+                        }
+                    });
+                } else {
+                    debug(`[MULTI_BAL_CHECK] Multiple paths found but they point to the same installation directory`);
+                }
+            } else if (paths.length === 1) {
+                debug(`[MULTI_BAL_CHECK] Single Ballerina installation found: ${paths[0]}`);
+            } else {
+                debug(`[MULTI_BAL_CHECK] No Ballerina paths found in PATH`);
+            }
+        } catch (error) {
+            // No need to throw. This is a non-critical check.
+            debug(`[MULTI_BAL_CHECK] Error checking for multiple installations: ${error}`);
+        }
+    }
+
     public overrideBallerinaHome(): boolean {
         return <boolean>workspace.getConfiguration().get(OVERRIDE_BALLERINA_HOME);
     }
@@ -2283,7 +2424,7 @@ export class BallerinaExtension {
     }
 
     public enabledLiveReload(): boolean {
-        return isSupportedSLVersion(this, 2201100) && workspace.getConfiguration().get(ENABLE_LIVE_RELOAD);
+        return isSupportedSLVersion(this, createVersionNumber(2201, 10, 0)) && workspace.getConfiguration().get(ENABLE_LIVE_RELOAD);
     }
 
     public enabledPerformanceForecasting(): boolean {
@@ -2346,13 +2487,11 @@ export class BallerinaExtension {
     public setPersistStatusContext(textEditor: TextEditor) {
         if (textEditor?.document) {
             const fileUri: Uri = textEditor.document.uri;
-            if (checkIsPersistModelFile(fileUri)) {
-                this.isPersist = true;
-                commands.executeCommand('setContext', 'isPersistModelActive', true);
-                return;
-            } else {
-                this.isPersist = false;
-            }
+            checkIsPersistModelFile(fileUri).then(isPersistModelFile => {
+                this.isPersist = isPersistModelFile;
+                commands.executeCommand('setContext', 'isPersistModelActive', isPersistModelFile);
+            });
+            return;
         }
         commands.executeCommand('setContext', 'isPersistModelActive', false);
     }
@@ -2569,6 +2708,83 @@ function updateProcessEnv(newEnv: NodeJS.ProcessEnv): void {
     debug("[UPDATE_ENV] Process environment update completed");
 }
 
+/**
+ * Searches for the Ballerina bin directory on Windows using two strategies:
+ *   1. Read the User-scope and Machine-scope PATH entries from the registry and look
+ *      for a directory that contains bal.bat.
+ *   2. Check well-known installation directories (LOCALAPPDATA, ProgramFiles, etc.).
+ *
+ * Returns the bin directory path (with trailing separator) or an empty string when
+ * nothing is found. This is used as a last-resort fallback for environments where the
+ * process PATH was not updated (e.g. company laptops with restricted System PATH, or
+ * VS Code opened before the installer ran).
+ */
+function findWindowsBallerinaPath(): string {
+    debug('[WIN_BAL_FIND] Searching for Ballerina installation on Windows...');
+
+    // --- Strategy 1: scan PATH entries from User + Machine registry scopes ---
+    try {
+        const psCommand =
+            '[Environment]::GetEnvironmentVariable(\'Path\',\'Machine\') + \';\' + ' +
+            '[Environment]::GetEnvironmentVariable(\'Path\',\'User\')';
+        const rawPaths = execSync(
+            `powershell.exe -NoProfile -Command "${psCommand}"`,
+            { encoding: 'utf8', timeout: 10000 }
+        ).trim();
+
+        debug(`[WIN_BAL_FIND] Registry PATH (Machine+User) length: ${rawPaths.length} chars`);
+
+        const pathEntries = rawPaths.split(';').map(p => p.trim()).filter(Boolean);
+        for (const entry of pathEntries) {
+            const candidate = path.join(entry, 'bal.bat');
+            if (fs.existsSync(candidate)) {
+                debug(`[WIN_BAL_FIND] Found bal.bat in registry PATH entry: ${entry}`);
+                return entry + path.sep;
+            }
+        }
+        debug('[WIN_BAL_FIND] bal.bat not found in registry PATH entries');
+    } catch (err) {
+        debug(`[WIN_BAL_FIND] Failed to read registry PATH: ${err}`);
+    }
+
+    // --- Strategy 2: check well-known Ballerina installation directories ---
+    const localAppData = process.env.LOCALAPPDATA || '';
+    const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
+    const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+
+    const searchRoots = [
+        localAppData ? path.join(localAppData, 'Programs', 'Ballerina') : '',
+        path.join(programFiles, 'Ballerina'),
+        path.join(programFilesX86, 'Ballerina'),
+        'C:\\Ballerina',
+    ].filter(Boolean);
+
+    for (const root of searchRoots) {
+        const directBin = path.join(root, 'bin');
+        if (fs.existsSync(path.join(directBin, 'bal.bat'))) {
+            debug(`[WIN_BAL_FIND] Found bal.bat in common directory: ${directBin}`);
+            return directBin + path.sep;
+        }
+        // Handle versioned subdirectory layout, e.g. Ballerina\ballerina-2.x.x\bin
+        try {
+            const children = fs.readdirSync(root);
+            for (const child of children) {
+                const versionedBin = path.join(root, child, 'bin');
+                if (fs.existsSync(path.join(versionedBin, 'bal.bat'))) {
+                    debug(`[WIN_BAL_FIND] Found bal.bat in versioned directory: ${versionedBin}`);
+                    return versionedBin + path.sep;
+                }
+            }
+        } catch (err) {
+            // Directory doesn't exist or isn't readable — skip
+            debug(`[WIN_BAL_FIND] Failed to read directory "${root}" for versioned Ballerina installations: ${err}`);
+        }
+    }
+
+    debug('[WIN_BAL_FIND] Ballerina installation not found via fallback search');
+    return '';
+}
+
 function getShellEnvironment(): Promise<NodeJS.ProcessEnv> {
     return new Promise((resolve, reject) => {
         debug('[SHELL_ENV] Starting shell environment retrieval...');
@@ -2578,8 +2794,19 @@ function getShellEnvironment(): Promise<NodeJS.ProcessEnv> {
 
         if (isWindowsPlatform) {
             debug('[SHELL_ENV] Windows platform detected');
-            // Windows: use PowerShell to get environment
-            command = 'powershell.exe -Command "[Environment]::GetEnvironmentVariables(\'Process\') | ConvertTo-Json"';
+            // Windows: read from registry (Machine + User scopes) so that paths added by
+            // a fresh Ballerina install (which goes to the User PATH registry key) are
+            // picked up even when VS Code's process was launched before the installation.
+            // We start with the current Process environment so that VS Code-internal
+            // variables are preserved, but we override Path with the merged registry value.
+            command = 'powershell.exe -NoProfile -Command "' +
+                '$e=[Environment]::GetEnvironmentVariables(\'Process\');' +
+                '$mp=[Environment]::GetEnvironmentVariable(\'Path\',\'Machine\');' +
+                '$up=[Environment]::GetEnvironmentVariable(\'Path\',\'User\');' +
+                'if($mp -and $up){$e[\'Path\']=$mp+\';\'+$up}' +
+                'elseif($mp){$e[\'Path\']=$mp}' +
+                'elseif($up){$e[\'Path\']=$up};' +
+                '$e | ConvertTo-Json"';
             debug(`[SHELL_ENV] Windows command: ${command}`);
         } else if (isWSL()) {
             debug("[SHELL_ENV] Windows WSL platform, using non-interactive shell");

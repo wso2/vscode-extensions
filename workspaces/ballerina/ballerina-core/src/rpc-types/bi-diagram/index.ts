@@ -29,8 +29,6 @@ import {
     ExpressionCompletionsRequest,
     ExpressionCompletionsResponse,
     ConfigVariableResponse,
-    UpdateConfigVariableRequest,
-    UpdateConfigVariableResponse,
     SignatureHelpRequest,
     SignatureHelpResponse,
     BIGetVisibleVariableTypesRequest,
@@ -75,6 +73,7 @@ import {
     UpdateTypesRequest,
     UpdateTypesResponse,
     DeploymentRequest,
+    WorkspaceDeploymentRequest,
     DeploymentResponse,
     OpenAPIClientGenerationRequest,
     OpenAPIGeneratedModulesRequest,
@@ -93,7 +92,15 @@ import {
     DeleteTypeRequest,
     DeleteTypeResponse,
     VerifyTypeDeleteRequest,
-    VerifyTypeDeleteResponse
+    VerifyTypeDeleteResponse,
+    FormDiagnosticsRequest,
+    FormDiagnosticsResponse,
+    BISearchNodesRequest,
+    BISearchNodesResponse,
+    BIDesignModelRequest,
+    BIFlowModelRequest,
+    GetSimpleTypeOfExpressionRequest,
+    GetSimpleTypeOfExpressionResponse
 } from "../../interfaces/extended-lang-client";
 import {
     ProjectRequest,
@@ -106,7 +113,6 @@ import {
     BIAiSuggestionsRequest,
     BIAiSuggestionsResponse,
     AIChatRequest,
-    ProjectImports,
     BreakpointRequest,
     CurrentBreakpointsResponse,
     FormDidOpenParams,
@@ -115,15 +121,22 @@ import {
     RecordsInWorkspaceMentions,
     BuildMode,
     DevantMetadata,
-    GeneratedClientSaveResponse
+    WorkspaceDevantMetadata,
+    GeneratedClientSaveResponse,
+    AddProjectToWorkspaceRequest,
+    DeleteProjectRequest,
+    OpenReadmeRequest,
+    ValidateProjectFormRequest,
+    ValidateProjectFormResponse
 } from "./interfaces";
 
 export interface BIDiagramAPI {
-    getFlowModel: () => Promise<BIFlowModelResponse>;
+    getFlowModel: (params: BIFlowModelRequest) => Promise<BIFlowModelResponse>;
     getSourceCode: (params: BISourceCodeRequest) => Promise<UpdatedArtifactsResponse>;
     deleteFlowNode: (params: BISourceCodeRequest) => Promise<UpdatedArtifactsResponse>;
     deleteByComponentInfo: (params: BIDeleteByComponentInfoRequest) => Promise<BIDeleteByComponentInfoResponse>;
     getAvailableNodes: (params: BIAvailableNodesRequest) => Promise<BIAvailableNodesResponse>;
+    getAvailableAgents: (params: BIAvailableNodesRequest) => Promise<BIAvailableNodesResponse>;
     getAvailableModelProviders: (params: BIAvailableNodesRequest) => Promise<BIAvailableNodesResponse>;
     getAvailableVectorStores: (params: BIAvailableNodesRequest) => Promise<BIAvailableNodesResponse>;
     getAvailableEmbeddingProviders: (params: BIAvailableNodesRequest) => Promise<BIAvailableNodesResponse>;
@@ -134,6 +147,9 @@ export interface BIDiagramAPI {
     getNodeTemplate: (params: BINodeTemplateRequest) => Promise<BINodeTemplateResponse>;
     getAiSuggestions: (params: BIAiSuggestionsRequest) => Promise<BIAiSuggestionsResponse>;
     createProject: (params: ProjectRequest) => void;
+    validateProjectPath: (params: ValidateProjectFormRequest) => Promise<ValidateProjectFormResponse>;
+    deleteProject: (params: DeleteProjectRequest) => void;
+    addProjectToWorkspace: (params: AddProjectToWorkspaceRequest) => void;
     getWorkspaces: () => Promise<WorkspacesResponse>;
     getProjectStructure: () => Promise<ProjectStructureResponse>;
     getProjectComponents: () => Promise<ProjectComponentsResponse>;
@@ -141,17 +157,17 @@ export interface BIDiagramAPI {
     handleReadmeContent: (params: ReadmeContentRequest) => Promise<ReadmeContentResponse>;
     getVisibleVariableTypes: (params: BIGetVisibleVariableTypesRequest) => Promise<BIGetVisibleVariableTypesResponse>;
     getExpressionCompletions: (params: ExpressionCompletionsRequest) => Promise<ExpressionCompletionsResponse>;
-    getConfigVariables: () => Promise<ConfigVariableResponse>;
-    updateConfigVariables: (params: UpdateConfigVariableRequest) => Promise<UpdateConfigVariableResponse>;
+    getDataMapperCompletions: (params: ExpressionCompletionsRequest) => Promise<ExpressionCompletionsResponse>;
     getConfigVariablesV2: (params: ConfigVariableRequest) => Promise<ConfigVariableResponse>;
     updateConfigVariablesV2: (params: UpdateConfigVariableRequestV2) => Promise<UpdateConfigVariableResponseV2>;
     deleteConfigVariableV2: (params: DeleteConfigVariableRequestV2) => Promise<DeleteConfigVariableResponseV2>;
     getConfigVariableNodeTemplate: (params: GetConfigVariableNodeTemplateRequest) => Promise<BINodeTemplateResponse>;
     getModuleNodes: () => Promise<BIModuleNodesResponse>;
-    getReadmeContent: () => Promise<ReadmeContentResponse>;
-    openReadme: () => void;
+    getReadmeContent: (params: ReadmeContentRequest) => Promise<ReadmeContentResponse>;
+    openReadme: (params: OpenReadmeRequest) => void;
     renameIdentifier: (params: RenameIdentifierRequest) => Promise<void>;
     deployProject: (params: DeploymentRequest) => Promise<DeploymentResponse>;
+    deployWorkspace: (params: WorkspaceDeploymentRequest) => Promise<DeploymentResponse>;
     openAIChat: (params: AIChatRequest) => void;
     getSignatureHelp: (params: SignatureHelpRequest) => Promise<SignatureHelpResponse>;
     buildProject: (mode: BuildMode) => void;
@@ -160,13 +176,14 @@ export interface BIDiagramAPI {
     addBreakpointToSource: (params: BreakpointRequest) => void;
     removeBreakpointFromSource: (params: BreakpointRequest) => void;
     getBreakpointInfo: () => Promise<CurrentBreakpointsResponse>;
+    getFormDiagnostics: (params: FormDiagnosticsRequest) => Promise<FormDiagnosticsResponse>;
     getExpressionDiagnostics: (params: ExpressionDiagnosticsRequest) => Promise<ExpressionDiagnosticsResponse>;
-    getAllImports: () => Promise<ProjectImports>;
     formDidOpen: (params: FormDidOpenParams) => Promise<void>;
     formDidClose: (params: FormDidCloseParams) => Promise<void>;
-    getDesignModel: () => Promise<BIDesignModelResponse>;
+    getDesignModel: (params: BIDesignModelRequest) => Promise<BIDesignModelResponse>;
     getTypes: (params: GetTypesRequest) => Promise<GetTypesResponse>;
     getType: (params: GetTypeRequest) => Promise<GetTypeResponse>;
+    getSimpleTypeOfExpression: (params: GetSimpleTypeOfExpressionRequest) => Promise<GetSimpleTypeOfExpressionResponse>;
     updateType: (params: UpdateTypeRequest) => Promise<UpdateTypeResponse>;
     updateTypes: (params: UpdateTypesRequest) => Promise<UpdateTypesResponse>;
     deleteType: (params: DeleteTypeRequest) => Promise<DeleteTypeResponse>;
@@ -186,9 +203,11 @@ export interface BIDiagramAPI {
     getFunctionNode: (params: FunctionNodeRequest) => Promise<FunctionNodeResponse>;
     getEndOfFile: (params: EndOfFileRequest) => Promise<LinePosition>;
     search: (params: BISearchRequest) => Promise<BISearchResponse>;
+    searchNodes: (params: BISearchNodesRequest) => Promise<BISearchNodesResponse>;
     getRecordNames: () => Promise<RecordsInWorkspaceMentions>;
     getFunctionNames: () => Promise<RecordsInWorkspaceMentions>;
     getDevantMetadata: () => Promise<DevantMetadata | undefined>;
+    getWorkspaceDevantMetadata: () => Promise<WorkspaceDevantMetadata | undefined>;
     generateOpenApiClient: (params: OpenAPIClientGenerationRequest) => Promise<GeneratedClientSaveResponse>;
     getOpenApiGeneratedModules: (params: OpenAPIGeneratedModulesRequest) => Promise<OpenAPIGeneratedModulesResponse>;
     deleteOpenApiGeneratedModules: (params: OpenAPIClientDeleteRequest) => Promise<OpenAPIClientDeleteResponse>;

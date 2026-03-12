@@ -90,6 +90,7 @@ import {
     ProjectDetailsResponse,
     importOpenAPISpec,
     UpdatePropertiesRequest,
+    ReloadDependenciesRequest,
     UpdateDependenciesRequest,
     UpdatePomValuesRequest,
     UpdateConfigValuesRequest,
@@ -263,8 +264,8 @@ export class MiVisualizerRpcClient implements MIVisualizerAPI {
     updateProperties(params: UpdatePropertiesRequest): Promise<boolean> {
         return this._messenger.sendRequest(updateProperties, HOST_EXTENSION, params);
     }
-    reloadDependencies(): Promise<boolean> {
-        return this._messenger.sendRequest(reloadDependencies, HOST_EXTENSION);
+    reloadDependencies(params?: ReloadDependenciesRequest): Promise<boolean> {
+        return this._messenger.sendRequest(reloadDependencies, HOST_EXTENSION, params);
     }
     updateDependencies(params: UpdateDependenciesRequest): Promise<boolean> {
         return this._messenger.sendRequest(updateDependencies, HOST_EXTENSION, params);

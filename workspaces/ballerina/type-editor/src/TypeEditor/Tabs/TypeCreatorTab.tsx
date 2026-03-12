@@ -20,7 +20,7 @@ import React, { useCallback, useContext, useEffect, useRef, useState } from "rea
 import { TextField, Dropdown, Button, ProgressRing, Icon, Typography, ThemeColors } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
-import { Member, Type, TypeNodeKind } from "@wso2/ballerina-core";
+import { FormFieldInputType, Member, Type, TypeNodeKind } from "@wso2/ballerina-core";
 import { RecordEditor } from "../RecordEditor";
 import { EnumEditor } from "../EnumEditor";
 import { UnionEditor } from "../UnionEditor";
@@ -193,6 +193,9 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
                 default:
                     setSelectedTypeKind(TypeKind.RECORD);
             }
+
+            // Ensure tempName is initialized when editing a new type (prevents focus loss due to replacing the main type on each keystroke)
+            setTempName(editingType.name);
         }
 
         setIsNewType(newType);
@@ -338,15 +341,16 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
         await validateTypeName(e.target.value);
     }
 
-    const validateTypeName = useCallback(debounce(async (value: string) => {
+    // Core validation logic - shared between debounced and immediate validation
+    const performValidation = async (value: string): Promise<{ isValid: boolean; error: string }> => {
         if (saveButtonClicked.current) {
-            return;
+            return { isValid: isTypeNameValid, error: nameError };
         }
 
-        const projectUri = await rpcClient.getVisualizerLocation().then((res) => res.projectUri);
+        const projectPath = await rpcClient.getVisualizerLocation().then((res) => res.projectPath);
 
         const endPosition = await rpcClient.getBIDiagramRpcClient().getEndOfFile({
-            filePath: Utils.joinPath(URI.file(projectUri), 'types.bal').fsPath
+            filePath: Utils.joinPath(URI.file(projectPath), 'types.bal').fsPath
         });
 
         const response = await rpcClient.getBIDiagramRpcClient().getExpressionDiagnostics({
@@ -376,31 +380,41 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
                 property: type?.properties["name"] ?
                     {
                         ...type.properties["name"],
-                        valueTypeConstraint: "Global"
+                        types: [{ fieldType:  type.properties["name"].valueType, scope: "Global", selected: false}]
                     } :
                     {
                         metadata: {
                             label: "",
                             description: "",
                         },
-                        valueType: "IDENTIFIER",
                         value: "",
-                        valueTypeConstraint: "Global",
+                        types: [{ fieldType: "IDENTIFIER", scope: "Global" , selected: false}],
                         optional: false,
                         editable: true
                     }
             }
         });
 
+        const hasErrors = response && response.diagnostics && response.diagnostics.length > 0;
+        const errorMessage = hasErrors ? response.diagnostics[0].message : "";
 
-        if (response && response.diagnostics && response.diagnostics.length > 0) {
-            setNameError(response.diagnostics[0].message);
-            setIsTypeNameValid(false);
-        } else {
-            setNameError("");
-            setIsTypeNameValid(true);
-        }
-    }, 250), [rpcClient, type]);
+        return {
+            isValid: !hasErrors,
+            error: errorMessage
+        };
+    };
+
+    // Debounced version for real-time validation (updates UI state)
+    const validateTypeName = useCallback(debounce(async (value: string) => {
+        const result = await performValidation(value);
+        setNameError(result.error);
+        setIsTypeNameValid(result.isValid);
+    }, 250), [performValidation]);
+
+    // Immediate version for save validation (returns result without updating UI)
+    const validateTypeNameSync = async (value: string): Promise<{ isValid: boolean; error: string }> => {
+        return await performValidation(value);
+    };
 
     const handleOnTypeNameUpdate = (value: string) => {
         setTempName(value);
@@ -408,9 +422,54 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
     }
 
     const handleOnTypeNameChange = (value: string) => {
+        if (isNewType) {
+            setTempName(value);
+            validateTypeName(value);
+            return;
+        }
         handleSetType({ ...type, name: value });
         validateTypeName(value);
     }
+
+    const commitNewTypeName = () => {
+        if (!isNewType) {
+            return;
+        }
+        if (tempName && tempName !== type.name) {
+            handleSetType({ ...type, name: tempName } as Type);
+        }
+    };
+
+    // Function to validate before saving to verify names created in nested forms
+    const handleSaveWithValidation = async (typeToSave: Type) => {
+
+        try {
+            setIsSaving(true);
+
+            // Perform immediate validation
+            const validationResult = await validateTypeNameSync(typeToSave.name);
+
+            // Update the UI state with validation results
+            if (validationResult.isValid) {
+                setNameError("");
+                setIsTypeNameValid(true);
+                // Proceed with save
+                await onTypeSave(typeToSave);
+            } else {
+                setNameError(validationResult.error);
+                setIsTypeNameValid(false);
+                // Don't save if validation fails
+            }
+        } catch (error) {
+            console.error('Error during validation', error);
+            // If the previous validation was successful, attempt to save
+            if (isTypeNameValid && !onValidationError) {
+                await onTypeSave(typeToSave);
+            }
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const renderEditor = () => {
         if (!type) {
@@ -442,13 +501,13 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
             case TypeKind.UNION:
                 return (
                     <>
-                    <UnionEditor
-                        type={type}
-                        onChange={handleSetType}
-                        rpcClient={rpcClient}
-                        onValidationError={handleValidationError}
-                    />
-                    <AdvancedOptions type={type} onChange={handleSetType} />
+                        <UnionEditor
+                            type={type}
+                            onChange={handleSetType}
+                            rpcClient={rpcClient}
+                            onValidationError={handleValidationError}
+                        />
+                        <AdvancedOptions type={type} onChange={handleSetType} />
                     </>
                 );
             case TypeKind.CLASS:
@@ -463,12 +522,12 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
             case TypeKind.ARRAY:
                 return (
                     <>
-                    <ArrayEditor
-                        type={type}
-                        onChange={handleSetType}
-                        onValidationError={handleValidationError}
-                    />
-                    <AdvancedOptions type={type} onChange={handleSetType} />
+                        <ArrayEditor
+                            type={type}
+                            onChange={handleSetType}
+                            onValidationError={handleValidationError}
+                        />
+                        <AdvancedOptions type={type} onChange={handleSetType} />
                     </>
                 );
             default:
@@ -557,13 +616,18 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
                     <TextFieldWrapper>
                         <TextField
                             label="Name"
-                            value={type.name}
+                            value={tempName}
                             errorMsg={nameError}
-                            onBlur={handleOnBlur}
+                            onBlur={(e) => {
+                                // commit local name into type on blur and validate
+                                commitNewTypeName();
+                                handleOnBlur(e);
+                            }}
                             onChange={(e) => handleOnTypeNameChange(e.target.value)}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
-                                    handleOnTypeNameChange((e.target as HTMLInputElement).value);
+                                    // commit on Enter
+                                    commitNewTypeName();
                                 }
                             }}
                             onFocus={(e) => { e.target.select(); validateTypeName(e.target.value) }}
@@ -573,13 +637,17 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
                 )}
             </CategoryRow>
 
-           <div style={{overflow: 'auto', maxHeight: '70vh'}}>
-             {renderEditor()}
-           </div>
+            <div style={{ overflow: 'auto', maxHeight: '70vh' }}>
+                {renderEditor()}
+            </div>
             <Footer>
                 <Button
                     data-testid="type-create-save"
-                    onClick={() => onTypeSave(type)}
+                    onClick={() => {
+                        // Ensure Save uses the latest tempName for new types without causing extra re-renders
+                        const typeToSave = isNewType ? { ...type, name: tempName } : type;
+                        handleSaveWithValidation(typeToSave);
+                    }}
                     disabled={onValidationError || !isTypeNameValid || isEditing || isSaving}>
                     {isSaving ? <Typography variant="progress">Saving...</Typography> : "Save"}
                 </Button>

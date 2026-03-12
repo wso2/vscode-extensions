@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React from "react";
+import React, { useEffect } from "react";
 import { FormField } from "../Form/types";
 import { CheckBoxGroup, FormCheckBox } from "@wso2/ui-toolkit";
 import { useFormContext } from "../../context";
@@ -53,7 +53,15 @@ interface TextEditorProps {
 export function CheckBoxEditor(props: TextEditorProps) {
     const { field } = props;
     const { form } = useFormContext();
-    const { register, control } = form;
+    const { register, control, setValue } = form;
+
+    useEffect(() => {
+        if (field.value) {
+            setValue(field.key, true);
+        } else {
+            setValue(field.key, false);
+        }
+    }, [field.value]);
 
     const getBooleanValue = (value: any) => {
         if (field.type === "FLAG") {
@@ -62,13 +70,22 @@ export function CheckBoxEditor(props: TextEditorProps) {
         return value;
     };
 
+    const handleChange = (e: any) => {
+        const checked = e.target.value;
+        setValue(field.key, checked);
+        field.onValueChange?.(checked);
+    };
+
     return (
         <CheckBoxGroup containerSx={{ width: "100%" }}>
             <BoxGroup>
-                <FormCheckBox 
-                    name={field.key} 
-                    {...register(field.key, { value: getBooleanValue(field.value) })} 
-                    control={control as any} 
+                <FormCheckBox
+                    name={field.key}
+                    {...register(field.key, {
+                        value: getBooleanValue(field.value),
+                        onChange: handleChange
+                    })}
+                    control={control as any}
                 />
                 <LabelGroup>
                     <Label>{field.label}</Label>

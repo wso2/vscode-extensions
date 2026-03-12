@@ -139,11 +139,13 @@ export const getParamManagerFromValues = (values: any[], keyIndex?: number, valu
 
         if (typeof value === 'object' && value !== null) {
             const paramValues = getParamValues(value);
+            const key = keyIndex != undefined && keyIndex >= 0 ? typeof value[keyIndex] === 'object' ? value[keyIndex].value : value[keyIndex] : index + 1;
             return {
                 id: index,
-                key: keyIndex != undefined && keyIndex >= 0 ? typeof value[keyIndex] === 'object' ? value[keyIndex].value : value[keyIndex] : index + 1,
-                value: typeof value[valueIndex] === 'object' ? value[valueIndex].value : value[valueIndex],
-                icon: 'query', paramValues
+                key: key,
+                value: (key === "Query" && valueIndex == 4) ? (typeof value[1] === 'object' ? value[1].value : value[1]) : 
+                (typeof value[valueIndex] === 'object' ? value[valueIndex].value : value[valueIndex]),
+                paramValues
             };
         } else {
             return { value };

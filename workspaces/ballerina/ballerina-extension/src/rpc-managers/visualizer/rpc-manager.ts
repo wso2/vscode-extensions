@@ -19,25 +19,34 @@ import {
     AddToUndoStackRequest,
     ColorThemeKind,
     EVENT_TYPE,
+    GoBackRequest,
+    HandleApprovalPopupCloseRequest,
     HistoryEntry,
+    JoinProjectPathRequest,
+    JoinProjectPathResponse,
     MACHINE_VIEW,
     OpenViewRequest,
     PopupVisualizerLocation,
+    ProjectStructureArtifactResponse,
+    ReopenApprovalViewRequest,
+    SaveEvalThreadRequest,
+    SaveEvalThreadResponse,
     SHARED_COMMANDS,
+    undo,
     UndoRedoStateResponse,
-    UpdateUndoRedoMangerRequest,
+    UpdatedArtifactsResponse,
     VisualizerAPI,
-    VisualizerLocation,
-    vscode,
+    VisualizerLocation
 } from "@wso2/ballerina-core";
+import fs from "fs";
+import path from "path";
 import { commands, Range, Uri, window, workspace, WorkspaceEdit } from "vscode";
 import { URI, Utils } from "vscode-uri";
-import fs from "fs";
+import { notifyCurrentWebview } from "../../RPCLayer";
+import { approvalViewManager } from "../../features/ai/state/ApprovalViewManager";
 import { history, openView, StateMachine, undoRedoManager, updateView } from "../../stateMachine";
 import { openPopupView } from "../../stateMachinePopup";
 import { ArtifactNotificationHandler, ArtifactsUpdated } from "../../utils/project-artifacts-handler";
-import { notifyCurrentWebview } from "../../RPCLayer";
-import { updateCurrentArtifactLocation } from "../../utils/state-machine-utils";
 import { refreshDataMapper } from "../data-mapper/utils";
 
 export class VisualizerRpcManager implements VisualizerAPI {
@@ -46,7 +55,7 @@ export class VisualizerRpcManager implements VisualizerAPI {
         return new Promise(async (resolve) => {
             if (params.isPopup) {
                 const view = params.location.view;
-                if (view && view === MACHINE_VIEW.Overview) {
+                if (view && view === MACHINE_VIEW.PackageOverview) {
                     openPopupView(EVENT_TYPE.CLOSE_VIEW, params.location as PopupVisualizerLocation);
                 } else {
                     openPopupView(params.type, params.location as PopupVisualizerLocation);
@@ -57,9 +66,9 @@ export class VisualizerRpcManager implements VisualizerAPI {
         });
     }
 
-    goBack(): void {
+    goBack(params: GoBackRequest): void {
         history.pop();
-        updateView();
+        updateView(false, params?.identifier);
     }
 
     async getHistory(): Promise<HistoryEntry[]> {
@@ -68,8 +77,17 @@ export class VisualizerRpcManager implements VisualizerAPI {
 
     goHome(): void {
         history.clear();
+        const isWithinBallerinaWorkspace = !!StateMachine.context().workspacePath;
         commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS).then(() => {
-            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.Overview }, true);
+            openView(
+                EVENT_TYPE.OPEN_VIEW,
+                {
+                    view: isWithinBallerinaWorkspace
+                        ? MACHINE_VIEW.WorkspaceOverview
+                        : MACHINE_VIEW.PackageOverview
+                },
+                true
+            );
         });
     }
 
@@ -109,9 +127,13 @@ export class VisualizerRpcManager implements VisualizerAPI {
             // Subscribe to artifact updated notifications
             let unsubscribe = notificationHandler.subscribe(ArtifactsUpdated.method, undefined, async (payload) => {
                 console.log("Received notification:", payload);
-                updateCurrentArtifactLocation({ artifacts: payload.data });
+                const currentArtifact = await this.updateCurrentArtifactLocation({ artifacts: payload.data });
                 clearTimeout(timeoutId);
                 StateMachine.setReadyMode();
+                if (!currentArtifact && StateMachine.context().view !== MACHINE_VIEW.InlineDataMapper) {
+                    openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.PackageOverview });
+                    resolve("Undo successful"); // resolve the undo string
+                }
                 notifyCurrentWebview();
                 await this.refreshDataMapperView();
                 unsubscribe();
@@ -123,7 +145,7 @@ export class VisualizerRpcManager implements VisualizerAPI {
                 console.log("No artifact update notification received within 10 seconds");
                 unsubscribe();
                 StateMachine.setReadyMode();
-                openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.Overview });
+                openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.PackageOverview });
                 reject(new Error("Operation timed out. Please try again."));
             }, 10000);
 
@@ -154,7 +176,7 @@ export class VisualizerRpcManager implements VisualizerAPI {
             // Subscribe to artifact updated notifications
             let unsubscribe = notificationHandler.subscribe(ArtifactsUpdated.method, undefined, async (payload) => {
                 console.log("Received notification:", payload);
-                updateCurrentArtifactLocation({ artifacts: payload.data });
+                await this.updateCurrentArtifactLocation({ artifacts: payload.data });
                 clearTimeout(timeoutId);
                 StateMachine.setReadyMode();
                 notifyCurrentWebview();
@@ -168,7 +190,7 @@ export class VisualizerRpcManager implements VisualizerAPI {
                 console.log("No artifact update notification received within 10 seconds");
                 unsubscribe();
                 StateMachine.setReadyMode();
-                openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.Overview });
+                openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.PackageOverview });
                 reject(new Error("Operation timed out. Please try again."));
             }, 10000);
 
@@ -189,20 +211,191 @@ export class VisualizerRpcManager implements VisualizerAPI {
         undoRedoManager.commitBatchOperation(params.description);
     }
 
+    resetUndoRedoStack(): void {
+        undoRedoManager.reset();
+    }
+
     async getThemeKind(): Promise<ColorThemeKind> {
         return new Promise((resolve) => {
             resolve(window.activeColorTheme.kind);
         });
     }
 
-    async joinProjectPath(segments: string | string[]): Promise<string> {
+    async joinProjectPath(params: JoinProjectPathRequest): Promise<JoinProjectPathResponse> {
         return new Promise((resolve) => {
-            const projectPath = StateMachine.context().projectUri;
-            const filePath = Array.isArray(segments) ? Utils.joinPath(URI.file(projectPath), ...segments) : Utils.joinPath(URI.file(projectPath), segments);
-            resolve(filePath.fsPath);
+            let projectPath = StateMachine.context().projectPath;
+            // If code data is provided, try to find the project path from the project structure
+            if (params.codeData && params.codeData.packageName) {
+                const packageInfo = StateMachine.context().projectStructure.projects.find(project => {
+                    console.log(">>> project", project);
+                    return project.projectName === params.codeData.packageName;
+                });
+                if (packageInfo) {
+                    projectPath = packageInfo.projectPath;
+                }
+            }
+            if (!projectPath) {
+                resolve({ filePath: "", projectPath: "" });
+                return;
+            }
+            const filePath = Array.isArray(params.segments) ? Utils.joinPath(URI.file(projectPath), ...params.segments) : Utils.joinPath(URI.file(projectPath), params.segments);
+            resolve({ filePath: filePath.fsPath, projectPath: projectPath, exists: params.checkExists ? fs.existsSync(filePath.fsPath) : undefined });
         });
     }
     async undoRedoState(): Promise<UndoRedoStateResponse> {
         return undoRedoManager.getUIState();
+    }
+
+    async updateCurrentArtifactLocation(params: UpdatedArtifactsResponse): Promise<ProjectStructureArtifactResponse> {
+        return new Promise((resolve) => {
+            if (params.artifacts.length === 0) {
+                resolve(undefined);
+                return;
+            }
+            console.log(">>> Updating current artifact location", { artifacts: params.artifacts });
+            // Get the updated component and update the location
+            const currentIdentifier = StateMachine.context().identifier;
+            const currentType = StateMachine.context().type;
+            const parentIdentifier = StateMachine.context().parentIdentifier;
+
+            // Find the correct artifact by currentIdentifier (id)
+            let currentArtifact = undefined;
+            for (const artifact of params.artifacts) {
+                if (currentType && currentType.codedata.node === "CLASS" && currentType.name === artifact.name) {
+                    currentArtifact = artifact;
+                    if (artifact.resources && artifact.resources.length > 0) {
+                        const resource = artifact.resources.find(
+                            (resource) => resource.id === currentIdentifier || resource.name === currentIdentifier
+                        );
+                        if (resource) {
+                            currentArtifact = resource;
+                            break;
+                        }
+                    }
+
+                } else if (artifact.id === currentIdentifier || artifact.name === currentIdentifier) {
+                    currentArtifact = artifact;
+                }
+
+                // Check if parent artifact is matched and has resources and find within those
+                if (parentIdentifier && artifact.name === parentIdentifier && artifact.resources && artifact.resources.length > 0) {
+                    const resource = artifact.resources.find(
+                        (resource) => resource.id === currentIdentifier || resource.name === currentIdentifier
+                    );
+                    if (resource) {
+                        currentArtifact = resource;
+                    }
+                }
+            }
+
+            if (currentArtifact) {
+                openView(EVENT_TYPE.UPDATE_PROJECT_LOCATION, {
+                    documentUri: currentArtifact.path,
+                    position: currentArtifact.position,
+                    identifier: currentIdentifier,
+                });
+            }
+            resolve(currentArtifact);
+        });
+    }
+
+    reviewAccepted(): void {
+        console.log("Review accepted - changes will be kept");
+
+        const currentHistory = history.get();
+        const currentEntry = currentHistory[currentHistory.length - 1];
+
+        // If currently in review mode, drop it and restore the last non-review entry.
+        if (currentEntry?.location.view === MACHINE_VIEW.ReviewMode) {
+            history.pop();
+        }
+
+        // Restore the latest history entry when available.
+        if (history.get().length > 0) {
+            updateView();
+            return;
+        }
+
+        // If history is empty, fallback to the default overview.
+        const isWithinBallerinaWorkspace = !!StateMachine.context().workspacePath;
+        openView(EVENT_TYPE.OPEN_VIEW, {
+            view: isWithinBallerinaWorkspace
+                ? MACHINE_VIEW.WorkspaceOverview
+                : MACHINE_VIEW.PackageOverview
+        });
+    }
+
+    handleApprovalPopupClose(params: HandleApprovalPopupCloseRequest): void {
+        approvalViewManager.handlePopupClosed(params.requestId);
+    }
+
+    reopenApprovalView(params: ReopenApprovalViewRequest): void {
+        approvalViewManager.reopenApprovalViewPopup(params.requestId);
+    }
+
+    async saveEvalThread(params: SaveEvalThreadRequest): Promise<SaveEvalThreadResponse> {
+        try {
+            const { filePath, updatedEvalSet } = params;
+
+            // Validate and canonicalize the file path to prevent path traversal attacks
+            const normalizedPath = path.normalize(filePath);
+            const resolvedPath = path.resolve(normalizedPath);
+
+            // Get workspace folders to validate the path is within an allowed workspace
+            const workspaceFolders = workspace.workspaceFolders;
+            if (!workspaceFolders || workspaceFolders.length === 0) {
+                const errorMsg = 'No workspace folder is open';
+                console.error('saveEvalThread error:', errorMsg);
+                window.showErrorMessage(`Failed to save evalset: ${errorMsg}`);
+                return { success: false, error: errorMsg };
+            }
+
+            // Check if the resolved path starts with any of the workspace roots
+            const isPathInWorkspace = workspaceFolders.some(folder => {
+                const workspaceRoot = folder.uri.fsPath;
+                const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
+                return resolvedPath.startsWith(resolvedWorkspaceRoot + path.sep) ||
+                    resolvedPath === resolvedWorkspaceRoot;
+            });
+
+            if (!isPathInWorkspace) {
+                const errorMsg = `Path is outside workspace: ${resolvedPath}`;
+                console.error('saveEvalThread error:', errorMsg);
+                window.showErrorMessage(`Failed to save evalset: Path must be within workspace`);
+                return { success: false, error: errorMsg };
+            }
+
+            // Write the updated evalset back to the file using the validated path
+            await fs.promises.writeFile(
+                resolvedPath,
+                JSON.stringify(updatedEvalSet, null, 2),
+                'utf-8'
+            );
+
+            // Read back the file to get fresh data
+            const savedContent = await fs.promises.readFile(resolvedPath, 'utf-8');
+            const savedEvalSet = JSON.parse(savedContent);
+
+            // Get the current threadId from context
+            const currentContext = StateMachine.context();
+            const threadId = currentContext.evalsetData?.threadId;
+
+            // Reload the view with fresh data from disk using the validated path
+            openView(EVENT_TYPE.OPEN_VIEW, {
+                view: MACHINE_VIEW.EvalsetViewer,
+                evalsetData: {
+                    filePath: resolvedPath,
+                    content: savedEvalSet,
+                    threadId
+                }
+            });
+
+            window.showInformationMessage('Evalset saved successfully');
+            return { success: true };
+        } catch (error) {
+            console.error('Error saving evalset:', error);
+            window.showErrorMessage(`Failed to save evalset: ${error}`);
+            return { success: false, error: String(error) };
+        }
     }
 }

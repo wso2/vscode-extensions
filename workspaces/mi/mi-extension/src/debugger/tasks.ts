@@ -20,7 +20,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { createTempDebugBatchFile, setJavaHomeInEnvironmentAndPath } from './debugHelper';
-import { ERROR_LOG, logDebug } from '../util/logger';
+import { LogLevel, logDebug } from '../util/logger';
 import { Uri, workspace } from "vscode";
 import { MVN_COMMANDS } from "../constants";
 
@@ -151,7 +151,7 @@ export function getStopTask(serverPath: string): vscode.Task | undefined {
     const command = `${binPath} stop`;
 
     if (!fs.existsSync(binPath)) {
-        logDebug(`${binPath} does not exist`, ERROR_LOG);
+        logDebug(`${binPath} does not exist`, LogLevel.ERROR);
         return;
     }
 
@@ -177,7 +177,7 @@ export function getStopCommand(serverPath: string): string | undefined {
     const command = `"${binPath}" stop`;
 
     if (!fs.existsSync(binPath)) {
-        logDebug(`${binPath} does not exist`, ERROR_LOG);
+        logDebug(`${binPath} does not exist`, LogLevel.ERROR);
         return;
     }
 

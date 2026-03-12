@@ -20,7 +20,6 @@ import { useEffect, useState } from "react";
 import {
     EVENT_TYPE,
     MACHINE_VIEW,
-    ProjectStructureResponse,
     CDModel,
     CDService,
     NodePosition,
@@ -29,6 +28,7 @@ import {
     CDListener,
     CDResourceFunction,
     CDFunction,
+    ProjectStructure,
 } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { Diagram } from "@wso2/component-diagram";
@@ -48,7 +48,7 @@ const DiagramContainer = styled.div`
 `;
 
 interface ComponentDiagramProps {
-    projectStructure: ProjectStructureResponse;
+    projectStructure: ProjectStructure;
 }
 
 export function ComponentDiagram(props: ComponentDiagramProps) {
@@ -65,7 +65,7 @@ export function ComponentDiagram(props: ComponentDiagramProps) {
     const fetchProject = () => {
         rpcClient
             .getBIDiagramRpcClient()
-            .getDesignModel()
+            .getDesignModel({})
             .then((response) => {
                 console.log(">>> design model", response);
                 if (response?.designModel) {
@@ -139,7 +139,7 @@ export function ComponentDiagram(props: ComponentDiagramProps) {
         });
     };
 
-    const handleDeleteComponent = async (component: CDListener | CDService | CDAutomation | CDConnection) => {
+    const handleDeleteComponent = async (component: CDListener | CDService | CDAutomation | CDConnection, nodeType?: string) => {
         console.log(">>> delete component", component);
         setIsDeleting(true);
         rpcClient
@@ -154,6 +154,7 @@ export function ComponentDiagram(props: ComponentDiagramProps) {
                     endLine: component.location.endLine.line,
                     endColumn: component.location.endLine.offset,
                 },
+                nodeType
             })
             .then((response) => {
                 console.log(">>> Updated source code after delete", response);

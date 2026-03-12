@@ -107,8 +107,8 @@ const ActionCard = styled.div<ActionCardProps>`
 
     &:hover {
         ${(props: ActionCardProps) =>
-            !props.disabled &&
-            `
+        !props.disabled &&
+        `
             border-color: ${ThemeColors.PRIMARY};
             box-shadow: 0 0 0 2px ${ThemeColors.PRIMARY_CONTAINER};
         `}
@@ -255,8 +255,11 @@ export function WelcomeView(props: WelcomeViewProps) {
     };
 
     const openSamples = () => {
-        rpcClient.getCommonRpcClient().openExternalUrl({
-            url: "https://bi.docs.wso2.com/integration-guides/integration-as-api/message-transformation/",
+        rpcClient.getVisualizerRpcClient().openView({
+            type: EVENT_TYPE.OPEN_VIEW,
+            location: {
+                view: MACHINE_VIEW.BISamplesView,
+            },
         });
     };
 
@@ -358,7 +361,7 @@ export function WelcomeView(props: WelcomeViewProps) {
                     <CardContent>
                         <CardTitle>Create New Integration</CardTitle>
                         <CardDescription>
-                            Ready to build? Start a new integration project using our intuitive graphical designer.
+                            Ready to build? Start a new integration using our intuitive graphical designer.
                         </CardDescription>
                         <StyledButton
                             appearance="primary"
@@ -389,7 +392,7 @@ export function WelcomeView(props: WelcomeViewProps) {
                     <CardContent>
                         <CardTitle>Import External Integration</CardTitle>
                         <CardDescription>
-                            Have an integration from another platform? Import your MuleSoft or TIBCO integration project
+                            Have an integration from another platform? Import your MuleSoft or TIBCO integration
                             and continue building.
                         </CardDescription>
                         <StyledButton
@@ -418,7 +421,7 @@ export function WelcomeView(props: WelcomeViewProps) {
                     <CardContent>
                         <CardTitle>Explore Pre-Built Samples</CardTitle>
                         <CardDescription>
-                            Need inspiration? Browse through sample projects to see how WSO2 Integrator: BI handles
+                            Need inspiration? Browse through sample integrations to see how WSO2 Integrator: BI handles
                             real-world integrations.
                         </CardDescription>
                         <StyledButton

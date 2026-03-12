@@ -78,6 +78,34 @@ const PostLoginSection = styled.div`
     margin-bottom: 16px;
 `;
 
+const Divider = styled.div`
+    display: flex;
+    align-items: center;
+    color: var(--vscode-widget-border);
+    font-size: 12px;
+    width: 100%;
+    &::before,
+    &::after {
+        content: "";
+        flex: 1;
+        border-bottom: 1px solid var(--vscode-widget-border);
+        margin: 0 8px;
+    }
+`;
+
+const TextButton = styled.button`
+    background: none;
+    border: none;
+    color: var(--vscode-textLink-foreground);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0;
+    margin-top: -6px;
+    &:hover {
+        text-decoration: underline;
+    }
+`;
+
 const LegalNotice: React.FC = () => {
     return (
         <PostLoginSection>
@@ -108,6 +136,10 @@ export const SignInToCopilotMessage = (props: { showProjectHeader?: boolean }) =
         rpcClient.sendAIStateEvent(AI_EVENT_TYPE.LOGIN);
     };
 
+    const handleAnthropicKeyClick = () => {
+        rpcClient.sendAIStateEvent(AI_EVENT_TYPE.AUTH_WITH_API_KEY);
+    };
+
     return (
         <PanelWrapper>
             <TopSpacer />
@@ -134,6 +166,8 @@ export const SignInToCopilotMessage = (props: { showProjectHeader?: boolean }) =
             <FooterContent>
                 <LegalNotice />
                 <StyledButton onClick={signInToMIAI}>Login to MI Copilot</StyledButton>
+                <Divider>or</Divider>
+                <TextButton onClick={handleAnthropicKeyClick}>Enter your Anthropic API key</TextButton>
             </FooterContent>
         </PanelWrapper>
     );

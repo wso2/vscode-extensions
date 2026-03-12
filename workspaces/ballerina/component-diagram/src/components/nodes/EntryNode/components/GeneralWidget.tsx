@@ -26,6 +26,7 @@ import { MoreVertIcon } from "../../../../resources/icons/nodes/MoreVertIcon";
 import { getEntryNodeFunctionPortName } from "../../../../utils/diagram";
 import { PREVIEW_COUNT, SHOW_ALL_THRESHOLD } from "../../../Diagram";
 import { VIEW_ALL_RESOURCES_PORT_NAME, BaseNodeWidgetProps, EntryNodeModel } from "../EntryNodeModel";
+import { useClickWithDragTolerance } from "../../../../hooks/useClickWithDragTolerance";
 import {
     Node,
     Box,
@@ -50,7 +51,7 @@ const getNodeTitle = (model: EntryNodeModel) => {
         return model.node.displayName;
     }
     if ((model.node as CDService).absolutePath) {
-        return (model.node as CDService).absolutePath;
+        return (model.node as CDService).absolutePath.replace(/\\/g, "");
     }
     return "";
 };
@@ -115,13 +116,25 @@ function getCustomEntryNodeIcon(type: string) {
             return <Icon name="bi-github" />;
         case "http":
             return <Icon name="bi-globe" />;
+        case "mcp":
+            return <Icon name="bi-mcp" />;
+        case "solace":
+            return <Icon name="bi-solace" sx={{ color: "#00C895" }}/>;
+        case "ftp":
+            return <Icon name="bi-ftp" />;
+        case "file":
+            return <Icon name="bi-file" />;
+        case "mssql":
+            return <Icon name="bi-mssql" sx={{ color: "#b61d1c" }}/>;
+        case "postgresql":
+            return <Icon name="bi-postgresql" sx={{ color: "#336791" }}/>;
         default:
             return null;
     }
 }
 
-function FunctionBox(props: { func: any; model: EntryNodeModel; engine: any }) {
-    const { func, model, engine } = props;
+function FunctionBox(props: { func: any; model: EntryNodeModel; engine: any; readonly?: boolean }) {
+    const { func, model, engine, readonly } = props;
     const [isHovered, setIsHovered] = useState(false);
     const { onFunctionSelect } = useDiagramContext();
 
@@ -133,9 +146,10 @@ function FunctionBox(props: { func: any; model: EntryNodeModel; engine: any }) {
         <FunctionBoxWrapper>
             <StyledServiceBox
                 hovered={isHovered}
-                onClick={() => handleOnClick()}
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
+                onClick={() => !readonly ? handleOnClick() : undefined}
+                onMouseEnter={() => !readonly && setIsHovered(true)}
+                onMouseLeave={() => !readonly && setIsHovered(false)}
+                readonly={readonly}
             >
                 {func.accessor && (
                     <ResourceAccessor color={getColorByMethod(func.accessor)}>
@@ -144,7 +158,7 @@ function FunctionBox(props: { func: any; model: EntryNodeModel; engine: any }) {
                 )}
                 {func.path && (
                     <Title hovered={isHovered}>
-                        {`/${func.path}`}
+                        {`/${func.path.replace(/\\/g, "")}`}
                     </Title>
                 )}
                 {func.name && <Title hovered={isHovered}>{func.name}</Title>}
@@ -157,6 +171,7 @@ function FunctionBox(props: { func: any; model: EntryNodeModel; engine: any }) {
 export function GeneralServiceWidget({ model, engine }: BaseNodeWidgetProps) {
     const [isHovered, setIsHovered] = useState(false);
     const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
+    const { readonly } = useDiagramContext();
 
     const {
         onServiceSelect,
@@ -176,6 +191,8 @@ export function GeneralServiceWidget({ model, engine }: BaseNodeWidgetProps) {
         }
     };
 
+    const { handleMouseDown, handleMouseUp } = useClickWithDragTolerance(handleOnClick);
+
     const handleToggleExpansion = (event: React.MouseEvent) => {
         event.stopPropagation();
         onToggleNodeExpansion(model.node.uuid);
@@ -188,6 +205,14 @@ export function GeneralServiceWidget({ model, engine }: BaseNodeWidgetProps) {
 
     const handleOnMenuClose = () => {
         setMenuAnchorEl(null);
+    };
+
+    const handleMenuMouseDown = (event: React.MouseEvent) => {
+        event.stopPropagation();
+    };
+
+    const handleMenuMouseUp = (event: React.MouseEvent) => {
+        event.stopPropagation();
     };
 
     const menuItems: Item[] = [
@@ -232,18 +257,26 @@ export function GeneralServiceWidget({ model, engine }: BaseNodeWidgetProps) {
     return (
         <Node>
             <TopPortWidget port={model.getPort("in")!} engine={engine} />
-            <Box hovered={isHovered}>
+            <Box hovered={!readonly && isHovered}>
                 <ServiceBox
-                    onMouseEnter={() => setIsHovered(true)}
-                    onMouseLeave={() => setIsHovered(false)}
-                    onClick={handleOnClick}
+                    onMouseEnter={() => !readonly && setIsHovered(true)}
+                    onMouseLeave={() => !readonly && setIsHovered(false)}
+                    onMouseDown={!readonly ? handleMouseDown : undefined}
+                    onMouseUp={!readonly ? handleMouseUp : undefined}
+                    readonly={readonly}
                 >
                     <IconWrapper>{nodeIcon}</IconWrapper>
-                    <Header hovered={isHovered}>
-                        <Title hovered={isHovered}>{getNodeTitle(model)}</Title>
+                    <Header hovered={!readonly && isHovered}>
+                        <Title hovered={!readonly && isHovered}>{getNodeTitle(model)}</Title>
                         <Description>{getNodeDescription(model)}</Description>
                     </Header>
-                    <MenuButton appearance="icon" onClick={handleOnMenuClick}>
+                    <MenuButton 
+                        disabled={readonly}
+                        appearance="icon" 
+                        onClick={!readonly ? handleOnMenuClick : undefined}
+                        onMouseDown={!readonly ? handleMenuMouseDown : undefined}
+                        onMouseUp={!readonly ? handleMenuMouseUp : undefined}
+                    >
                         <MoreVertIcon />
                     </MenuButton>
                 </ServiceBox>
@@ -253,6 +286,7 @@ export function GeneralServiceWidget({ model, engine }: BaseNodeWidgetProps) {
                         func={serviceFunction}
                         model={model}
                         engine={engine}
+                        readonly={readonly}
                     />
                 ))}
 

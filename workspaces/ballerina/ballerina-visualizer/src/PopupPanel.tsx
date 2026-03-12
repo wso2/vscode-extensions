@@ -25,6 +25,9 @@ import { ThemeColors, Overlay } from "@wso2/ui-toolkit";
 import EditConnectionWizard from "./views/BI/Connection/EditConnectionWizard";
 import { FunctionForm } from "./views/BI";
 import { DataMapper } from "./views/DataMapper";
+import AddConnectionPopup from "./views/BI/Connection/AddConnectionPopup";
+import EditConnectionPopup from "./views/BI/Connection/EditConnectionPopup";
+import { ConfigurationCollector } from "./views/BI/ConfigurationCollector";
 
 const ViewContainer = styled.div<{ isFullScreen?: boolean }>`
     position: fixed;
@@ -46,10 +49,11 @@ const TopBar = styled.div`
 interface PopupPanelProps {
     formState: PopupMachineStateValue;
     onClose: (parent?: ParentPopupData) => void;
+    handleNavigateToOverview: () => void;
 }
 
 const PopupPanel = (props: PopupPanelProps) => {
-    const { formState, onClose } = props;
+    const { formState, onClose, handleNavigateToOverview } = props;
     const { rpcClient } = useRpcContext();
     const [viewComponent, setViewComponent] = useState<React.ReactNode>();
     const [isFullScreen, setIsFullScreen] = useState(false);
@@ -64,17 +68,30 @@ const PopupPanel = (props: PopupPanelProps) => {
         fetchContext();
     }, []);
 
+    const handleApprovalClose = (approvalData: any | undefined) => {
+        const requestId = approvalData?.requestId;
+
+        if (requestId) {
+            console.log('[PopupPanel] Approval view closed, notifying backend:', requestId);
+            rpcClient.getVisualizerRpcClient().handleApprovalPopupClose({ requestId });
+        }
+
+        onClose();
+    };
+
     const fetchContext = () => {
         rpcClient.getPopupVisualizerState().then((machineState: PopupVisualizerLocation) => {
             switch (machineState?.view) {
                 case MACHINE_VIEW.AddConnectionWizard:
                     rpcClient.getVisualizerLocation().then((location) => {
                         setViewComponent(
-                            <AddConnectionWizard
-                                fileName={location.documentUri || location.projectUri}
+                            <AddConnectionPopup
+                                projectPath={location.projectPath}
+                                fileName={location.documentUri || location.projectPath}
                                 target={machineState.metadata?.target || undefined}
                                 onClose={onClose}
-                                isPopupScreen={true}
+                                onNavigateToOverview={handleNavigateToOverview}
+                                isPopup={true}
                             />
                         );
                     });
@@ -83,12 +100,10 @@ const PopupPanel = (props: PopupPanelProps) => {
                     rpcClient.getVisualizerLocation().then((location) => {
                         setViewComponent(
                             <>
-                                <EditConnectionWizard
-                                    projectUri={location.projectUri}
+                                <EditConnectionPopup
                                     connectionName={machineState?.identifier}
                                     onClose={onClose}
                                 />
-                                <Overlay sx={{ background: `${ThemeColors.SURFACE_CONTAINER}`, opacity: `0.3`, zIndex: 1000 }} />
                             </>
                         );
                     });
@@ -96,9 +111,9 @@ const PopupPanel = (props: PopupPanelProps) => {
                 case MACHINE_VIEW.BIFunctionForm:
                     setIsFullScreen(true);
                     rpcClient.getVisualizerLocation().then(async (location) => {
-                        const defaultFunctionsFile = await rpcClient.getVisualizerRpcClient().joinProjectPath('functions.bal');
+                        const defaultFunctionsFile = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: ['functions.bal'] })).filePath;
                         setViewComponent(<FunctionForm
-                            projectPath={location.projectUri}
+                            projectPath={location.projectPath}
                             filePath={defaultFunctionsFile}
                             functionName={undefined}
                             isPopup={true} />
@@ -108,10 +123,10 @@ const PopupPanel = (props: PopupPanelProps) => {
                 case MACHINE_VIEW.BIDataMapperForm:
                     setIsFullScreen(true);
                     rpcClient.getVisualizerLocation().then(async (location) => {
-                        const defaultFunctionsFile = await rpcClient.getVisualizerRpcClient().joinProjectPath('data_mappings.bal');
+                        const defaultFunctionsFile = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: ['data_mappings.bal'] })).filePath;
                         setViewComponent(
                             <FunctionForm
-                                projectPath={location.projectUri}
+                                projectPath={location.projectPath}
                                 filePath={defaultFunctionsFile}
                                 functionName={undefined}
                                 isDataMapper={true}
@@ -123,10 +138,10 @@ const PopupPanel = (props: PopupPanelProps) => {
                 case MACHINE_VIEW.BINPFunctionForm:
                     setIsFullScreen(true);
                     rpcClient.getVisualizerLocation().then(async (location) => {
-                        const defaultFunctionsFile = await rpcClient.getVisualizerRpcClient().joinProjectPath('functions.bal');
+                        const defaultFunctionsFile = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: ['functions.bal'] })).filePath;
                         setViewComponent(
                             <FunctionForm
-                                projectPath={location.projectUri}
+                                projectPath={location.projectPath}
                                 filePath={defaultFunctionsFile}
                                 functionName={undefined}
                                 isDataMapper={false}
@@ -144,6 +159,14 @@ const PopupPanel = (props: PopupPanelProps) => {
                             codedata={machineState?.dataMapperMetadata?.codeData}
                             name={machineState?.dataMapperMetadata?.name}
                             onClose={onClose}
+                        />
+                    );
+                    break;
+                case MACHINE_VIEW.ConfigurationCollector:
+                    setViewComponent(
+                        <ConfigurationCollector
+                            data={machineState.agentMetadata?.configurationCollector}
+                            onClose={() => handleApprovalClose(machineState.agentMetadata?.configurationCollector)}
                         />
                     );
                     break;

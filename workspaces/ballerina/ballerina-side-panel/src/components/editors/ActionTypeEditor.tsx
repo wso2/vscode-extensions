@@ -33,16 +33,64 @@ import {
     Typography,
     CompletionItem,
     Button,
+    CheckBox,
 } from "@wso2/ui-toolkit";
 import { FormField } from "../Form/types";
 import { useFormContext } from "../../context";
 import { Controller } from "react-hook-form";
 import { S } from "./ExpressionEditor";
-import { getPropertyFromFormField, sanitizeType } from "./utils";
+import { buildRequiredRule, getPropertyFromFormField, sanitizeType } from "./utils";
 import { debounce } from "lodash";
 import styled from "@emotion/styled";
 import ReactMarkdown from "react-markdown";
-import { NodeProperties, PropertyModel } from "@wso2/ballerina-core";
+import { getPrimaryInputType, NodeProperties, PropertyModel } from "@wso2/ballerina-core";
+
+const isGraphQLScalarType = (type: string): boolean => {
+    const scalarTypes = [
+        'string',
+        'int',
+        'float',
+        'decimal'
+    ];
+
+    const isScalarOrArrayOfScalar = (t: string): boolean => {
+        let cleanType = t.trim().replace(/\?$/, '');
+
+        if (cleanType.endsWith('[]')) {
+            const baseType = cleanType.slice(0, -2).trim();
+            return isScalarOrArrayOfScalar(baseType);
+        }
+
+        if (cleanType.startsWith('(') && cleanType.endsWith(')')) {
+            cleanType = cleanType.slice(1, -1).trim();
+            if (cleanType.includes('|')) {
+                const unionParts = cleanType.split('|').map(part => part.trim());
+                return unionParts.every(part => isScalarOrArrayOfScalar(part));
+            }
+        }
+
+        return scalarTypes.includes(cleanType.toLowerCase());
+    };
+
+    let cleanType = type.trim().replace(/\?$/, '');
+
+    if (cleanType.endsWith('[]') && cleanType.includes('(') && cleanType.includes('|')) {
+        const baseType = cleanType.slice(0, -2).trim();
+        return isScalarOrArrayOfScalar(baseType);
+    }
+
+    if (cleanType.includes('|')) {
+        const unionParts = cleanType.split('|').map(part => part.trim());
+        return unionParts.every(part => isScalarOrArrayOfScalar(part));
+    }
+
+    if (cleanType.endsWith('[]')) {
+        const baseType = cleanType.slice(0, -2).trim();
+        return isScalarOrArrayOfScalar(baseType);
+    }
+
+    return isScalarOrArrayOfScalar(cleanType);
+};
 
 interface ActionTypeEditorProps {
     field: FormField;
@@ -73,6 +121,31 @@ const codiconStyles = {
     color: 'var(--vscode-editorLightBulb-foreground)',
     marginRight: '2px'
 }
+
+const CheckBoxLabel = styled.div`
+    font-family: var(--font-family);
+    color: var(--vscode-editor-foreground);
+    text-align: left;
+`;
+
+const CheckBoxDescription = styled.div`
+    font-family: var(--font-family);
+    color: var(--vscode-list-deemphasizedForeground);
+    text-align: left;
+`;
+
+const CheckBoxLabelGroup = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+`;
+
+const CheckBoxBoxGroup = styled.div`
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    align-items: flex-start;
+`;
 
 const EditorRibbon = ({ onClick }: { onClick: () => void }) => {
     return (
@@ -129,6 +202,8 @@ export function ActionTypeEditor(props: ActionTypeEditorProps) {
     const [focused, setFocused] = useState<boolean>(false);
     const [isTypeOptional, setIsTypeOptional] = useState<boolean>(false);
     const [isCodeActionMenuOpen, setIsCodeActionMenuOpen] = useState<boolean>(false);
+    const [isGraphqlId, setIsGraphqlId] = useState<boolean>(field.isGraphqlId || false);
+    const [showGraphqlCheckbox, setShowGraphqlCheckbox] = useState<boolean>(false);
 
     const [isTypeHelperOpen, setIsTypeHelperOpen] = useState<boolean>(false);
 
@@ -248,7 +323,7 @@ export function ActionTypeEditor(props: ActionTypeEditorProps) {
         setFocused(true);
         // Trigger actions on focus
         await onFocus?.();
-        await retrieveVisibleTypes(value, value.length, true, field.valueTypeConstraint as string);
+        await retrieveVisibleTypes(value, value.length, true, field.types, field.key);
         handleOnFieldFocus?.(field.key);
     };
 
@@ -307,7 +382,7 @@ export function ActionTypeEditor(props: ActionTypeEditorProps) {
     ) => {
         return getTypeHelper(
             field.key,
-            field.valueTypeConstraint as string,
+            field.types,
             typeBrowserRef,
             value,
             cursorPositionRef.current,
@@ -336,11 +411,34 @@ export function ActionTypeEditor(props: ActionTypeEditorProps) {
 
     // Initialize optional type state based on field value
     useEffect(() => {
-        if (field.value) {
-            const isOptional = checkTypeOptional(field.value);
+        const typeValue = typeof field.value === 'string' ? field.value : '';
+
+        if (typeValue) {
+            const isOptional = checkTypeOptional(typeValue);
             setIsTypeOptional(isOptional);
+
+            // Check if the type is a GraphQL scalar type to show/hide checkbox
+            const isScalar = isGraphQLScalarType(typeValue);
+            setShowGraphqlCheckbox(isScalar);
+        } else {
+            // If no value, hide the checkbox
+            setShowGraphqlCheckbox(false);
         }
     }, [field.value]);
+
+    // Initialize GraphQL ID state from field
+    useEffect(() => {
+        if (field.isGraphqlId !== undefined) {
+            setIsGraphqlId(field.isGraphqlId);
+        }
+    }, [field.isGraphqlId]);
+
+    // Update form value when checkbox changes
+    const handleGraphqlIdChange = (checked: boolean) => {
+        setIsGraphqlId(checked);
+        // Store the isGraphqlId value in a hidden form field
+        form.setValue(`isGraphqlId`, checked, { shouldValidate: false, shouldDirty: true });
+    };
 
     // Create code actions and menu items
     const createCodeActionsAndMenuItems = () => {
@@ -492,12 +590,12 @@ export function ActionTypeEditor(props: ActionTypeEditorProps) {
                     })()
                     }
                 </S.Header>
-                {field.valueTypeConstraint &&
+                {getPrimaryInputType(field.types)?.ballerinaType &&
                     <S.Type
                         isVisible={focused}
-                        title={field.valueTypeConstraint as string}
+                        title={getPrimaryInputType(field.types)?.ballerinaType}
                     >
-                        {sanitizeType(field.valueTypeConstraint as string)}
+                        {sanitizeType(getPrimaryInputType(field.types)?.ballerinaType)}
                     </S.Type>
                 }
             </S.HeaderContainer>
@@ -506,10 +604,7 @@ export function ActionTypeEditor(props: ActionTypeEditorProps) {
                 name={field.key}
                 defaultValue={field.value}
                 rules={{
-                    required: {
-                        value: !field.optional,
-                        message: `${field.label} is required`
-                    }
+                    required: buildRequiredRule({ isRequired: !field.optional, label: field.label })
                 }}
                 render={({ field: { name, value, onChange }, fieldState: { error } }) => {
                     onChangeRef.current = onChange;
@@ -540,6 +635,16 @@ export function ActionTypeEditor(props: ActionTypeEditorProps) {
                                     const isOptional = checkTypeOptional(updatedValue);
                                     setIsTypeOptional(isOptional);
 
+                                    // Check if the new type is a GraphQL scalar type
+                                    const isScalar = isGraphQLScalarType(updatedValue);
+                                    setShowGraphqlCheckbox(isScalar);
+
+                                    // If the type is not a scalar, reset the GraphQL ID checkbox
+                                    if (!isScalar) {
+                                        setIsGraphqlId(false);
+                                        form.setValue(`isGraphqlId`, false, { shouldValidate: false, shouldDirty: true });
+                                    }
+
                                     // Set show default completion
                                     const typeExists = referenceTypes.find((type) => type.label === updatedValue);
 
@@ -567,7 +672,8 @@ export function ActionTypeEditor(props: ActionTypeEditorProps) {
                                         updatedValue,
                                         updatedCursorPosition,
                                         false,
-                                        field.valueTypeConstraint as string
+                                        field.types,
+                                        field.key
                                     );
                                 }}
                                 onCompletionSelect={handleCompletionSelect}
@@ -588,6 +694,27 @@ export function ActionTypeEditor(props: ActionTypeEditorProps) {
                                 helperPaneZIndex={40001}
                             />
                             {error?.message && <ErrorBanner errorMsg={error.message.toString()} />}
+
+                            {/* GraphQL ID Checkbox - only shown for scalar types */}
+                            {showGraphqlCheckbox ? (
+                                    <div style={{ marginBottom: '8px', marginTop: '8px' }}>
+                                        <CheckBoxBoxGroup>
+                                            <CheckBox
+                                                label=""
+                                                checked={isGraphqlId}
+                                                onChange={(checked) => handleGraphqlIdChange(checked)}
+                                                data-testid="graphql-id-checkbox"
+                                            />
+                                            <CheckBoxLabelGroup>
+                                                <CheckBoxLabel>ID Type</CheckBoxLabel>
+                                                <CheckBoxDescription>
+                                                    Mark this field as a GraphQL ID type
+                                                </CheckBoxDescription>
+                                            </CheckBoxLabelGroup>
+                                        </CheckBoxBoxGroup>
+                                    </div>
+                                ) : null
+                            }
                         </div>
                     );
                 }}

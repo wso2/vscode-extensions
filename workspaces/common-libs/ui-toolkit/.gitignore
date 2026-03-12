@@ -8,4 +8,6 @@ yarn-error.log*
 lib
 lib_test
 
+storybook-static/
+.storybook/fonts/
 *storybook.log

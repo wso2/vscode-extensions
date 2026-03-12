@@ -19,27 +19,51 @@
 import React, { RefObject } from 'react';
 import {
     CompletionItem,
-    FormExpressionEditor,
+    FnSignatureDocumentation,
     FormExpressionEditorRef,
     HelperPaneHeight,
     ThemeColors,
     Tooltip
 } from '@wso2/ui-toolkit';
-import { InputMode } from './ChipExpressionEditor/types';
 import { S } from './ExpressionEditor';
-import TextModeEditor from './TextModeEditor';
+import TextModeEditor from './MultiModeExpressionEditor/TextExpressionEditor/TextModeEditor';
+import { InputMode } from './MultiModeExpressionEditor/ChipExpressionEditor/types';
+import { LineRange } from '@wso2/ballerina-core/lib/interfaces/common';
+import { FormField, HelperpaneOnChangeOptions } from '../Form/types';
+import { ChipExpressionEditorComponent } from './MultiModeExpressionEditor/ChipExpressionEditor/components/ChipExpressionEditor';
+import RecordConfigPreviewEditor from './MultiModeExpressionEditor/RecordConfigPreviewEditor/RecordConfigPreviewEditor';
+import { NumberExpressionEditorConfig, RawTemplateEditorConfig, SQLExpressionEditorConfig, StringTemplateEditorConfig } from './MultiModeExpressionEditor/Configurations';
+import NumberExpressionEditor from './MultiModeExpressionEditor/NumberExpressionEditor/NumberEditor';
+import { EnumEditor } from './MultiModeExpressionEditor/EnumEditor/EnumEditor';
+import { SQLExpressionEditor } from './MultiModeExpressionEditor/SqlExpressionEditor/SqlExpressionEditor';
+import BooleanEditor from './MultiModeExpressionEditor/BooleanEditor/BooleanEditor';
+import { getPrimaryInputType, isDropDownType } from '@wso2/ballerina-core';
+import { ChipExpressionEditorDefaultConfiguration } from './MultiModeExpressionEditor/ChipExpressionEditor/ChipExpressionDefaultConfig';
+import { DynamicArrayBuilder } from './MultiModeExpressionEditor/DynamicArrayBuilder/DynamicArrayBuilder';
+import { isRecord } from './utils';
+import { ConnectionSelectEditor } from './MultiModeExpressionEditor/ConnectionSelectEditor/ConnectionSelectEditor';
 
-export interface ExpressionField {
+export interface ExpressionFieldProps {
+    field: FormField;
     inputMode: InputMode;
+    primaryMode: InputMode;
     name: string;
-    value: string;
+    value: string | any[] | Record<string, unknown>;
+    fileName?: string;
+    targetLineRange?: LineRange;
     completions: CompletionItem[];
     autoFocus?: boolean;
     sanitizedExpression?: (value: string) => string;
+    rawExpression?: (value: string) => string;
     ariaLabel?: string;
     placeholder?: string;
-    onChange: (updatedValue: string, updatedCursorPosition: number) => void;
-    extractArgsFromFunction?: (value: string, cursorPosition: number) => Promise<any>;
+    onChange: (updatedValue: string | any[] | Record<string, unknown>, updatedCursorPosition: number) => void;
+    extractArgsFromFunction?: (value: string, cursorPosition: number) => Promise<{
+        label: string;
+        args: string[];
+        currentArgIndex: number;
+        documentation?: FnSignatureDocumentation;
+    }>;
     onCompletionSelect?: (value: string, item: CompletionItem) => void;
     onFocus?: () => void;
     onBlur?: () => void;
@@ -50,7 +74,7 @@ export interface ExpressionField {
     changeHelperPaneState: (isOpen: boolean) => void;
     getHelperPane?: (
         value: string,
-        onChange: (value: string, updatedCursorPosition: number) => void,
+        onChange: (value: string, options?: HelperpaneOnChangeOptions) => void,
         helperPaneHeight: HelperPaneHeight
     ) => React.ReactNode;
     helperPaneHeight?: HelperPaneHeight;
@@ -60,6 +84,8 @@ export interface ExpressionField {
     exprRef: RefObject<FormExpressionEditorRef>;
     anchorRef: RefObject<HTMLDivElement>;
     onToggleHelperPane: () => void;
+    onOpenExpandedMode?: () => void;
+    isInExpandedMode?: boolean;
 }
 
 const EditorRibbon = ({ onClick }: { onClick: () => void }) => {
@@ -81,37 +107,105 @@ const EditorRibbon = ({ onClick }: { onClick: () => void }) => {
     );
 };
 
-export const ExpressionField: React.FC<ExpressionField> = ({
-    inputMode,
-    name,
-    value,
-    completions,
-    autoFocus,
-    ariaLabel,
-    placeholder,
-    onChange,
-    extractArgsFromFunction,
-    onCompletionSelect,
-    onFocus,
-    onBlur,
-    onSave,
-    onCancel,
-    onRemove,
-    isHelperPaneOpen,
-    changeHelperPaneState,
-    getHelperPane,
-    helperPaneHeight,
-    helperPaneWidth,
-    growRange,
-    helperPaneZIndex,
-    exprRef,
-    anchorRef,
-    onToggleHelperPane,
-    sanitizedExpression
-}) => {
-    if (inputMode === InputMode.TEXT) {
+export const getEditorConfiguration = (inputMode: InputMode) => {
+    switch (inputMode) {
+        case InputMode.TEXT:
+            return new StringTemplateEditorConfig();
+        case InputMode.TEMPLATE:
+            return new RawTemplateEditorConfig();
+        case InputMode.NUMBER:
+            return new NumberExpressionEditorConfig();
+        case InputMode.SQL:
+            return new SQLExpressionEditorConfig();
+        default:
+            return new ChipExpressionEditorDefaultConfiguration();
+    }
+};
+
+export const ExpressionField: React.FC<ExpressionFieldProps> = (props: ExpressionFieldProps) => {
+    const {
+        inputMode,
+        field,
+        primaryMode,
+        name,
+        value,
+        completions,
+        autoFocus,
+        ariaLabel,
+        placeholder,
+        fileName,
+        targetLineRange,
+        onChange,
+        extractArgsFromFunction,
+        onFocus,
+        onBlur,
+        onSave,
+        onCancel,
+        onRemove,
+        getHelperPane,
+        growRange,
+        exprRef,
+        anchorRef,
+        sanitizedExpression,
+        rawExpression,
+        onOpenExpandedMode,
+        isInExpandedMode
+    } = props;
+
+    //below editors cannot have input value in record type
+    if (isRecord(value)) return null;
+    if (inputMode === InputMode.ARRAY || inputMode === InputMode.TEXT_ARRAY) {
         return (
-            <TextModeEditor
+            <DynamicArrayBuilder
+                label={field.label}
+                value={value}
+                onChange={(val) => onChange(val, val.length)}
+                expressionFieldProps={props}
+            />
+        );
+    }
+    //below editors cannot have input value in array type
+    if (Array.isArray(value)) return null;
+
+    const primaryInputType = getPrimaryInputType(field.types || []);
+    if (inputMode === InputMode.BOOLEAN) {
+        return (
+            <BooleanEditor
+                value={value}
+                field={field}
+                onChange={(val) => onChange(val, val?.length)}
+            />
+        );
+    }
+    if (inputMode === InputMode.SELECT) {
+        if (field.codedata?.searchNodesKind) {
+            return (
+                <ConnectionSelectEditor
+                    value={value}
+                    field={field}
+                    onChange={(val) => onChange(val, val?.length)}
+                />
+            );
+        }
+        if (isDropDownType(primaryInputType)) {
+            return (
+                <EnumEditor
+                    value={value}
+                    field={field}
+                    onChange={(val) => onChange(val, val?.length)}
+                    items={primaryInputType.options.map(option => (
+                        {
+                            id: option.value,
+                            content: option.label,
+                            value: option.value
+                        }))}
+                />
+            );
+        }
+    }
+    if (inputMode === InputMode.RECORD) {
+        return (
+            <RecordConfigPreviewEditor
                 exprRef={exprRef}
                 anchorRef={anchorRef}
                 name={name}
@@ -125,41 +219,138 @@ export const ExpressionField: React.FC<ExpressionField> = ({
                 onCancel={onCancel}
                 onRemove={onRemove}
                 growRange={growRange}
-                placeholder={placeholder}
+                placeholder={field.placeholder}
+                onOpenExpandedMode={onOpenExpandedMode}
+                isInExpandedMode={isInExpandedMode}
+            />
+        );
+    }
+    if (inputMode === InputMode.TEXT) {
+        return (
+            <TextModeEditor
+                getHelperPane={getHelperPane}
+                isExpandedVersion={false}
+                completions={completions}
+                onChange={onChange}
+                value={value}
+                sanitizedExpression={sanitizedExpression}
+                rawExpression={rawExpression}
+                fileName={fileName}
+                targetLineRange={targetLineRange}
+                extractArgsFromFunction={extractArgsFromFunction}
+                onOpenExpandedMode={onOpenExpandedMode}
+                onRemove={onRemove}
+                isInExpandedMode={isInExpandedMode}
+                configuration={getEditorConfiguration(inputMode)}
+                placeholder={field.placeholder}
             />
 
         );
     }
+    if (inputMode === InputMode.TEMPLATE) {
+        return (
+            <TextModeEditor
+                getHelperPane={getHelperPane}
+                isExpandedVersion={false}
+                completions={completions}
+                onChange={onChange}
+                value={value}
+                sanitizedExpression={sanitizedExpression}
+                rawExpression={rawExpression}
+                fileName={fileName}
+                targetLineRange={targetLineRange}
+                extractArgsFromFunction={extractArgsFromFunction}
+                onOpenExpandedMode={onOpenExpandedMode}
+                onRemove={onRemove}
+                isInExpandedMode={isInExpandedMode}
+                configuration={new RawTemplateEditorConfig()}
+                placeholder={field.placeholder}
+            />
+
+        );
+    }
+    if (inputMode === InputMode.PROMPT) {
+        return (
+            <TextModeEditor
+                getHelperPane={getHelperPane}
+                isExpandedVersion={false}
+                completions={completions}
+                onChange={onChange}
+                value={value}
+                sanitizedExpression={sanitizedExpression}
+                rawExpression={rawExpression}
+                fileName={fileName}
+                targetLineRange={targetLineRange}
+                extractArgsFromFunction={extractArgsFromFunction}
+                onOpenExpandedMode={onOpenExpandedMode}
+                onRemove={onRemove}
+                isInExpandedMode={isInExpandedMode}
+                configuration={getPrimaryInputType(field.types)?.ballerinaType === "ai:Prompt" ? new RawTemplateEditorConfig() : new StringTemplateEditorConfig()}
+                placeholder={field.placeholder}
+            />
+
+        );
+    }
+    if (inputMode === InputMode.NUMBER) {
+        return (
+            <NumberExpressionEditor
+                getHelperPane={getHelperPane}
+                isExpandedVersion={false}
+                completions={completions}
+                onChange={onChange}
+                value={value}
+                sanitizedExpression={sanitizedExpression}
+                rawExpression={rawExpression}
+                fileName={fileName}
+                targetLineRange={targetLineRange}
+                extractArgsFromFunction={extractArgsFromFunction}
+                onOpenExpandedMode={onOpenExpandedMode}
+                onRemove={onRemove}
+                isInExpandedMode={isInExpandedMode}
+                placeholder={field.placeholder}
+            />
+
+        );
+    }
+    if (inputMode === InputMode.SQL) {
+        return (
+            <SQLExpressionEditor
+                getHelperPane={getHelperPane}
+                isExpandedVersion={false}
+                completions={completions}
+                onChange={onChange}
+                value={value}
+                sanitizedExpression={sanitizedExpression}
+                rawExpression={rawExpression}
+                fileName={fileName}
+                targetLineRange={targetLineRange}
+                extractArgsFromFunction={extractArgsFromFunction}
+                onOpenExpandedMode={onOpenExpandedMode}
+                onRemove={onRemove}
+                isInExpandedMode={isInExpandedMode}
+                placeholder={field.placeholder}
+            />
+        );
+    }
 
     return (
-        <FormExpressionEditor
-            ref={exprRef}
-            anchorRef={anchorRef}
-            name={name}
-            completions={completions}
-            value={sanitizedExpression ? sanitizedExpression(value) : value}
-            autoFocus={autoFocus}
-            startAdornment={<EditorRibbon onClick={onToggleHelperPane} />}
-            ariaLabel={ariaLabel}
-            onChange={onChange}
-            extractArgsFromFunction={extractArgsFromFunction}
-            onCompletionSelect={onCompletionSelect}
-            onFocus={onFocus}
-            onBlur={onBlur}
-            onSave={onSave}
-            onCancel={onCancel}
-            onRemove={onRemove}
-            enableExIcon={false}
-            isHelperPaneOpen={isHelperPaneOpen}
-            changeHelperPaneState={changeHelperPaneState}
-            helperPaneOrigin="vertical"
+        <ChipExpressionEditorComponent
             getHelperPane={getHelperPane}
-            helperPaneHeight={helperPaneHeight}
-            helperPaneWidth={helperPaneWidth}
-            growRange={growRange}
-            sx={{ paddingInline: '0' }}
-            placeholder={placeholder}
-            helperPaneZIndex={helperPaneZIndex}
+            isExpandedVersion={false}
+            completions={completions}
+            onChange={onChange}
+            onBlur={onBlur}
+            value={value}
+            sanitizedExpression={sanitizedExpression}
+            rawExpression={rawExpression}
+            fileName={fileName}
+            targetLineRange={targetLineRange}
+            extractArgsFromFunction={extractArgsFromFunction}
+            onOpenExpandedMode={onOpenExpandedMode}
+            onRemove={onRemove}
+            isInExpandedMode={isInExpandedMode}
+            configuration={getEditorConfiguration(inputMode)}
+            placeholder={field.placeholder}
         />
     );
 };

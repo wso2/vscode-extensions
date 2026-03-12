@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { DiagnosticMessage, Imports, PropertyTypeMemberInfo } from "./bi";
+import { DiagnosticMessage, Imports, PropertyTypeMemberInfo, InputType } from "./bi";
 import { LineRange } from "./common";
 
 
@@ -104,6 +104,45 @@ export interface StatusCodeResponse extends PropertyModel {
     name: PropertyModel;
     type: PropertyModel;
     headers: PropertyModel;
+    mediaType: PropertyModel;
+}
+
+export enum Protocol {
+    HTTP = "HTTP",
+    MESSAGE_BROKER = "MESSAGE_BROKER",
+    GRAPHQL = "GRAPHQL",
+    FTP = "FTP",
+    CDC = "CDC"
+}
+
+export interface HttpPayloadContext {
+    protocol: Protocol.HTTP;
+    serviceName: string;
+    serviceBasePath: string;
+    resourceBasePath?: string;
+    resourceMethod?: string;
+    resourceDocumentation?: string;
+    paramDetails?: ParamDetails[];
+}
+
+export interface MessageQueuePayloadContext {
+    protocol: Protocol.MESSAGE_BROKER | Protocol.CDC;
+    serviceName: string;
+    queueOrTopic?: string;
+    messageDocumentation?: string;
+}
+
+export interface GeneralPayloadContext {
+    protocol: Protocol | string;
+    filterType?: string;
+}
+
+export type PayloadContext = HttpPayloadContext | MessageQueuePayloadContext | GeneralPayloadContext;
+
+export interface ParamDetails {
+    name: string;
+    type: string;
+    defaulValue?: string;
 }
 
 interface MetaData {
@@ -132,8 +171,7 @@ export interface PropertyModel {
     isHttpResponseType?: boolean;
     value?: string;
     values?: string[];
-    valueType?: string;
-    valueTypeConstraint?: string;
+    types?: InputType[];
     isType?: boolean;
     placeholder?: string;
     defaultValue?: string | PropertyModel;
@@ -143,17 +181,18 @@ export interface PropertyModel {
     choices?: PropertyModel[];
     properties?: ConfigProperties;
     addNewButton?: boolean;
-    typeMembers?: PropertyTypeMemberInfo[];
-    httpParamType?: "QUERY" | "Header" | "PAYLOAD";
+    httpParamType?: "QUERY" | "HEADER" | "PAYLOAD";
     diagnostics?: DiagnosticMessage[];
     imports?: Imports;
     hidden?: boolean;
+    isGraphqlId?: boolean;
 }
 
 export interface ParameterModel extends PropertyModel {
-    kind?: "REQUIRED" | "OPTIONAL",
+    kind?: "REQUIRED" | "OPTIONAL" | "DATA_BINDING";
     type?: PropertyModel;
     name?: PropertyModel;
+    headerName?: PropertyModel;
     documentation?: PropertyModel;
 }
 
@@ -161,3 +200,17 @@ export interface ParameterModel extends PropertyModel {
 export interface ConfigProperties {
     [key: string]: PropertyModel | ParameterModel;
 }
+
+export interface ServiceInitModel {
+    id: string;
+    displayName: string;
+    description: string;
+    orgName: string;
+    packageName: string;
+    moduleName: string;
+    version: string;
+    type: string;
+    icon: string;
+    properties: { [key: string]: PropertyModel };
+}
+

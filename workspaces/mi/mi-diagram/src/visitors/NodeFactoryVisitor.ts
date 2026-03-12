@@ -105,9 +105,11 @@ import { DataServiceNodeModel } from "../components/nodes/DataServiceNode/DataSe
 import { AiAgentNodeModel } from "../components/nodes/AIAgentNode/AiAgentNodeModel";
 
 interface BranchData {
-    name: string;
-    diagnostics: Diagnostic[];
+    name?: string;
+    diagnostics?: Diagnostic[];
     isStart?: boolean;
+    isAddNew?: boolean;
+    cantAddNodes?: boolean;
 }
 interface createNodeAndLinks {
     node: STNode;
@@ -244,12 +246,12 @@ export class NodeFactoryVisitor implements Visitor {
                         position: previousStNode.range.endTagRange?.end ?? previousStNode.range.startTagRange.end,
                         trailingSpace: previousStNode.spaces.endingTagSpace?.trailingSpace?.space ?? previousStNode.spaces.startingTagSpace.trailingSpace.space
                     };
-                } else if (!this.currentBranchData?.name && previousStNode?.spaces) {
+                } else if (!this.currentBranchData?.cantAddNodes && previousStNode?.spaces) {
                     const space = previousStNode?.spaces?.endingTagSpace?.trailingSpace?.range?.end ? previousStNode.spaces.endingTagSpace.trailingSpace : previousStNode.spaces.startingTagSpace.trailingSpace;
                     addPosition = { position: space.range.end, trailingSpace: space.space };
                 }
 
-                const showAddButton = addPosition !== undefined && !isSequnceConnect 
+                const showAddButton = addPosition !== undefined && !isSequnceConnect
                     && !isAfterReturnNode &&
                     !(previousNode instanceof EmptyNodeModel
                         && !previousNode.visible)
@@ -266,31 +268,13 @@ export class NodeFactoryVisitor implements Visitor {
                     linkId = `${previousStNode.viewState?.id}-${previousStNode?.range?.startTagRange?.start?.line},${previousStNode?.range?.startTagRange?.start?.character},${node.viewState?.id}-${node?.range?.startTagRange?.start?.line},${node?.range?.startTagRange?.start?.character}`;
                 }
 
-                const link = createNodesLink(
-                    previousNode as SourceNodeModel,
-                    diagramNode as TargetNodeModel,
-                    {
-                        id: linkId,
-                        label: this.currentBranchData?.isStart ? this.currentBranchData?.name : undefined,
-                        stRange: addPosition?.position,
-                        trailingSpace: addPosition?.trailingSpace ?? "",
-                        brokenLine: isBrokenLine ?? (type === NodeTypes.EMPTY_NODE || isSequnceConnect || isEmptyNodeConnect),
-                        previousNode: previousStNode.tag,
-                        nextNode: type !== NodeTypes.END_NODE ? node.tag : undefined,
-                        parentNode: this.parents.length > 1 ? this.parents[this.parents.length - 1].tag : undefined,
-                        showArrow: !isSequnceConnect,
-                        showAddButton: showAddButton,
-                        diagnostics: this.currentBranchData?.isStart ? this.currentBranchData?.diagnostics : [],
-                    }
-                );
-
                 if (!dontLink) {
                     const link = createNodesLink(
                         previousNode as SourceNodeModel,
                         diagramNode as TargetNodeModel,
                         {
                             id: linkId,
-                            label: this.currentBranchData?.name,
+                            label: this.currentBranchData?.isStart ? this.currentBranchData?.name : undefined,
                             stRange: addPosition?.position,
                             trailingSpace: addPosition?.trailingSpace ?? "",
                             brokenLine: isBrokenLine ?? (type === NodeTypes.EMPTY_NODE || isSequnceConnect || isEmptyNodeConnect),
@@ -299,6 +283,7 @@ export class NodeFactoryVisitor implements Visitor {
                             parentNode: this.parents.length > 1 ? this.parents[this.parents.length - 1].tag : undefined,
                             showArrow: !isSequnceConnect,
                             showAddButton: showAddButton,
+                            addBottomOffset: this.currentBranchData?.isAddNew,
                             diagnostics: this.currentBranchData?.diagnostics || [],
                         }
                     );
@@ -365,7 +350,7 @@ export class NodeFactoryVisitor implements Visitor {
                         NODE_DIMENSIONS.START.ACTIONED.WIDTH : NODE_DIMENSIONS.START.DISABLED.WIDTH) / 2);
                     this.createNodeAndLinks({ node: startNode, type: NodeTypes.START_NODE, data: StartNodeType.SUB_SEQUENCE });
                 } else {
-                    this.currentBranchData = { name: sequenceKeys[i], diagnostics: sequence.diagnostics, isStart: true };
+                    this.currentBranchData = { name: sequenceKeys[i], diagnostics: sequence.diagnostics, isStart: true, cantAddNodes: isReference };
                     this.previousSTNodes = [node];
                 }
 
@@ -422,7 +407,7 @@ export class NodeFactoryVisitor implements Visitor {
                 },
             };
 
-            this.currentBranchData = { name: "", diagnostics: [], isStart: true };
+            this.currentBranchData = { isAddNew: true };
             if (type === NodeTypes.GROUP_NODE) {
                 this.previousSTNodes = [];
             }
@@ -459,6 +444,7 @@ export class NodeFactoryVisitor implements Visitor {
             eNode.viewState.x = eNode.viewState.x + eNode.viewState.w / 2 - NODE_DIMENSIONS.EMPTY.WIDTH / 2;
             this.createNodeAndLinks({ node: eNode, type: NodeTypes.CONDITION_NODE_END });
         }
+        this.currentBranchData = undefined;
     }
 
     getNodes(): NodeModel[] {
@@ -469,7 +455,7 @@ export class NodeFactoryVisitor implements Visitor {
         return this.links;
     }
 
-    getNodeTree(): AllNodeModel[]{
+    getNodeTree(): AllNodeModel[] {
         return this.nodeTree;
     }
 

@@ -16,14 +16,6 @@
  * under the License.
  */
 
-export const MI_COPILOT_BACKEND_URL = `/chat/copilot`;
-export const MI_ARTIFACT_GENERATION_BACKEND_URL = `/chat/artifact-generation`;
-export const MI_ARTIFACT_EDIT_BACKEND_URL = `/chat/artifact-editing`;
-export const MI_SUGGESTIVE_QUESTIONS_INITIAL_BACKEND_URL = `/suggestions/initial`;
-export const MI_SUGGESTIVE_QUESTIONS_BACKEND_URL = `/suggestions`;
-export const MI_UNIT_TEST_GENERATION_BACKEND_URL = `/unit-test/generate`;
-export const MI_DIAGNOSTICS_RESPONSE_BACKEND_URL = `/synapse/bug-fix`;
-
 // MI Copilot Error Messages
 export const COPILOT_ERROR_MESSAGES = {
     BAD_REQUEST: 'Bad Request',
@@ -42,6 +34,47 @@ export const USER_INPUT_PLACEHOLDER_MESSAGE = "Ask MI Copilot";
 export const PROJECT_RUNTIME_VERSION_THRESHOLD = "4.4.0";
 
 export const VALID_FILE_TYPES = {
-    files: ["text/plain", "application/json", "application/x-yaml", "application/xml", "application/pdf", "text/xml"],
+    files: [
+        // Plain text
+        "text/plain",
+
+        // Markdown
+        "text/markdown",
+        "text/x-markdown",
+
+        // CSV
+        "text/csv",
+
+        // JSON
+        "application/json",
+
+        // XML
+        "application/xml",
+        "text/xml",
+
+        // YAML
+        "application/x-yaml",
+        "text/yaml",
+        "application/yaml",
+        "text/x-yaml",
+
+        // HTML
+        "text/html",
+
+        // JavaScript/TypeScript
+        "text/javascript",
+        "application/javascript",
+        "text/typescript",
+
+        // CSS
+        "text/css",
+
+        // RTF
+        "text/rtf",
+        "application/rtf",
+
+        // PDF (binary but supported)
+        "application/pdf"
+    ],
     images: ["image/jpeg", "image/png", "image/gif", "image/svg+xml"],
 };

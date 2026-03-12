@@ -100,6 +100,28 @@ export default function createTests() {
         });
       });
 
+      await test.step('Add a unit test by Button click', async () => {
+        const unitTest = new UnitTest(page.page);
+        await unitTest.init();
+        await unitTest.openUnitTestFormByMainBtn();
+        await unitTest.createUnitTest({
+          name: `unitTestByBtn1-${testAttempt}`,
+          artifactType: 'API',
+          artifact: 'unitTestAPI1-' + testAttempt,
+          supportiveArtifacts: ['unitTestSeq1-' + testAttempt, 'unitTestSeq2-' + testAttempt],
+          registryResources: ['xsltForUnitTest1-' + testAttempt, 'xsltForUnitTest2-' + testAttempt],
+          testCases: [
+            {
+              name: 'TestCase1-' + testAttempt,
+              resourcePath: '/testCase1',
+              resourceMethod: 'GET',
+              resourceProtocol: 'HTTP',
+              inputPayload: '{ "key": "value" }',
+            }
+          ]
+        });
+      });
+
       await test.step('Add a unit test', async () => {
         const unitTest = new UnitTest(page.page);
         await unitTest.init();

@@ -25,13 +25,22 @@ import { Codicon } from "@wso2/ui-toolkit";
 import { BallerinaRpcClient } from "@wso2/ballerina-rpc-client";
 
 export const createConnectionSelectField = (
-    selectedConnection: FlowNode,
+    value: string,
     config: ConnectionKindConfig,
-    handleActionBtnClick: () => void
+    handleActionBtnClick: () => void,
+    connectionKind?: ConnectionKind,
+    connectionNodesMap?: Map<string, FlowNode>
 ): FormField => {
     const selectLabel = `Select ${config.displayName}`;
     const description = `Choose an existing ${config.displayName} or create a new one.`;
     const createLabel = `Create New ${config.displayName}`;
+    const initialItems = connectionNodesMap ? Array.from(connectionNodesMap.entries())
+        .map(([varName, node]) => ({
+            id: varName,
+            label: varName,
+            value: varName,
+            codedata: node.codedata,
+        })) : undefined;
     return {
         "key": "connection",
         "label": selectLabel,
@@ -44,20 +53,21 @@ export const createConnectionSelectField = (
         "hidden": false,
         "documentation": description,
         "advanceProps": [],
-        "valueType": "EXPRESSION",
         "diagnostics": [],
-        "valueTypeConstraint": config.valueTypeConstraint,
+        "types": config.types,
         "metadata": {
             "label": selectLabel,
             "description": description
         },
         "codedata": {
             "kind": "REQUIRED",
-            "originalName": "connection"
+            "originalName": "connection",
+            ...(connectionKind && { searchNodesKind: connectionKind }),
+            ...(initialItems && { initialItems })
         },
         "actionCallback": handleActionBtnClick,
         "actionLabel": <><Codicon name="add" />{createLabel}</>,
-        "value": (selectedConnection.properties.variable?.value as string) || ""
+        "value": value || ""
     };
 };
 
@@ -69,12 +79,12 @@ export const updateFormFieldsWithData = (
     connectionFields.forEach((field) => {
         if (field.type === "DROPDOWN_CHOICE") {
             field.dynamicFormFields[data[field.key]].forEach((dynamicField) => {
-                if (data[dynamicField.key]) {
+                if (dynamicField.key in data) {
                     dynamicField.value = data[dynamicField.key];
                 }
             });
             field.value = data[field.key];
-        } else if (data[field.key]) {
+        } else if (field.key in data) {
             field.value = data[field.key];
         }
         if (formImports) {
@@ -104,25 +114,15 @@ const getValidPropertyKey = (node: FlowNode, nodePropertyKeys: string | string[]
     return keys.find(key => node.properties[key as keyof typeof node.properties]?.value);
 };
 
-export const fetchConnectionForNode = async (
-    rpcClient: BallerinaRpcClient,
+export const fetchConnectionValueForNode = async (
     connectionKind: ConnectionKind,
     targetNode: FlowNode,
-): Promise<FlowNode> => {
-    const moduleNodes = await rpcClient.getBIDiagramRpcClient().getModuleNodes();
-    const connections = moduleNodes.flowModel.connections;
+): Promise<string> => {
     const config = getConnectionKindConfig(connectionKind);
     const propertyKey = getValidPropertyKey(targetNode, config.nodePropertyKey);
-    const targetPropertyValue = propertyKey ? targetNode.properties?.[propertyKey as keyof typeof targetNode.properties]?.value : undefined;
-
-    const connection = connections.find((node: FlowNode) =>
-        node.properties.variable?.value === targetPropertyValue
-    );
-
-    if (!connection)
-        throw new Error(`Could not find a connection for the target node.`);
-
-    return connection;
+    const targetPropertyValue = propertyKey ? targetNode.properties?.[propertyKey as keyof typeof targetNode.properties]?.value as string : null;
+    if (targetPropertyValue === null) return "";
+    return targetPropertyValue;
 };
 
 export const updateNodeWithConnectionVariable = (connectionKind: ConnectionKind, selectedNode: FlowNode, connectionVariable: string): void => {

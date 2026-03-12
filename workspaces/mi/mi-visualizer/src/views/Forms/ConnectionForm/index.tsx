@@ -235,6 +235,7 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
         } catch (e) {
             setStoreConnectors(null);
             console.error("Error fetching connectors", e);
+            rpcClient.getMiVisualizerRpcClient().showNotification({message: "Error occurred while fetching connectors", type: "error"});
         }
         setIsFetchingStoreConnectors(false);
     };

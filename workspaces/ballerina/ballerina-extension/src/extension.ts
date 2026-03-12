@@ -17,6 +17,7 @@
  */
 
 import { ExtensionContext, commands, window, Location, Uri, TextEditor, extensions, workspace } from 'vscode';
+import * as vscode from 'vscode';
 import { BallerinaExtension } from './core';
 import { activate as activateBBE } from './views/bbe';
 import {
@@ -39,6 +40,7 @@ import { debug, handleResolveMissingDependencies, log } from './utils';
 import { activateUriHandlers } from './utils/uri-handlers';
 import { StateMachine } from './stateMachine';
 import { activateSubscriptions } from './views/visualizer/activate';
+import { VisualizerWebview } from './views/visualizer/webview';
 import { extension } from './BalExtensionContext';
 import { ExtendedClientCapabilities } from '@wso2/ballerina-core';
 import { RPCLayer } from './RPCLayer';
@@ -46,9 +48,23 @@ import { activateAIFeatures } from './features/ai/activator';
 import { activateTryItCommand } from './features/tryit/activator';
 import { activate as activateNPFeatures } from './features/natural-programming/activator';
 import { activateAgentChatPanel } from './views/agent-chat/activate';
+import { activateTracing } from './features/tracing';
 
 let langClient: ExtendedLangClient;
 export let isPluginStartup = true;
+
+/**
+ * Utility class to expose Ballerina extension state to other extensions
+ */
+export class BallerinaExtensionState {
+    /**
+     * Check if a debug session is currently active
+     * @returns true if a debug session is active, false otherwise
+     */
+    public static isDebugSessionActive(): boolean {
+        return vscode.debug.activeDebugSession !== undefined;
+    }
+}
 
 // TODO initializations should be contributions from each component
 function onBeforeInit(langClient: ExtendedLangClient) {
@@ -114,7 +130,12 @@ export async function activate(context: ExtensionContext) {
     await StateMachine.initialize();
     
     // Then return the ballerina extension context
-    return { ballerinaExtInstance: extension.ballerinaExtInstance, projectPath: StateMachine.context().projectUri };
+    return { 
+        ballerinaExtInstance: extension.ballerinaExtInstance, 
+        projectPath: StateMachine.context().projectPath,
+        VisualizerWebview,
+        BallerinaExtensionState
+    };
 }
 
 export async function activateBallerina(): Promise<BallerinaExtension> {
@@ -153,8 +174,9 @@ export async function activateBallerina(): Promise<BallerinaExtension> {
         activateEditorSupport(ballerinaExtInstance);
 
         // <------------ MAIN FEATURES ----------->
-        // Enable Ballerina by examples
-        activateBBE(ballerinaExtInstance);
+        // TODO: Enable Ballerina by examples once the samples are available
+        // https://github.com/wso2/product-ballerina-integrator/issues/1967
+        // activateBBE(ballerinaExtInstance);
 
         //Enable BI Feature
         activateBIFeatures(ballerinaExtInstance);
@@ -190,6 +212,9 @@ export async function activateBallerina(): Promise<BallerinaExtension> {
 
         // Activate Agent Chat Panel
         activateAgentChatPanel(ballerinaExtInstance);
+
+        // Activate Tracing Feature
+        activateTracing(ballerinaExtInstance);
 
         langClient = <ExtendedLangClient>ballerinaExtInstance.langClient;
         // Register showTextDocument listener
@@ -264,6 +289,7 @@ async function updateCodeServerConfig() {
 
 export function deactivate(): Thenable<void> | undefined {
     debug('Deactive the Ballerina VS Code extension.');
+
     if (!langClient) {
         return;
     }

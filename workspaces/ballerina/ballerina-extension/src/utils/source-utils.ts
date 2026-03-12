@@ -19,12 +19,12 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { workspace } from 'vscode';
-import { Uri, Position } from 'vscode';
-import { ArtifactData, EVENT_TYPE, LinePosition, MACHINE_VIEW, ProjectStructureArtifactResponse, STModification, SyntaxTree, TextEdit } from '@wso2/ballerina-core';
-import path from 'path';
+import { Uri } from 'vscode';
+import { ArtifactData, EVENT_TYPE, MACHINE_VIEW, ProjectStructureArtifactResponse, STModification, TextEdit } from '@wso2/ballerina-core';
 import { openView, StateMachine, undoRedoManager } from '../stateMachine';
 import { ArtifactsUpdated, ArtifactNotificationHandler } from './project-artifacts-handler';
-import { existsSync, writeFileSync } from 'fs';
+import { existsSync, writeFileSync, mkdirSync } from 'fs';
+import * as path from 'path';
 import { notifyCurrentWebview } from '../RPCLayer';
 import { applyBallerinaTomlEdit } from '../rpc-managers/bi-diagram/utils';
 
@@ -33,18 +33,32 @@ export interface UpdateSourceCodeRequest {
         [key: string]: TextEdit[];
     };
     resolveMissingDependencies?: boolean;
+    artifactData?: ArtifactData;
+    description?: string;
+    identifier?: string;
+    skipPayloadCheck?: boolean; // This is used to skip the payload check because the payload data might become empty as a result of a change. Example: Deleting a component.
+    isRenameOperation?: boolean; // This is used to identify if the update is a rename operation.
+    skipUpdateViewOnTomlUpdate?: boolean; // This is used to skip updating the view on toml updates in certain scenarios.
 }
 
-export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCodeRequest, artifactData?: ArtifactData, description?: string): Promise<ProjectStructureArtifactResponse[]> {
+export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCodeRequest, isChangeFromHelperPane?: boolean, skipFormatting?: boolean): Promise<ProjectStructureArtifactResponse[]> {
+    const skipUndoRedoStack = updateSourceCodeRequest.artifactData?.artifactType === "CONFIGURABLE";
     try {
         let tomlFilesUpdated = false;
         StateMachine.setEditMode();
-        undoRedoManager.startBatchOperation();
+        if (!skipUndoRedoStack) {
+            undoRedoManager?.startBatchOperation();
+        }
         const modificationRequests: Record<string, { filePath: string; modifications: STModification[] }> = {};
         for (const [key, value] of Object.entries(updateSourceCodeRequest.textEdits)) {
             const fileUri = key.startsWith("file:") ? Uri.parse(key) : Uri.file(key);
             const fileUriString = fileUri.toString();
             if (!existsSync(fileUri.fsPath)) {
+                // Ensure parent directory exists before creating the file
+                const dirPath = path.dirname(fileUri.fsPath);
+                if (!existsSync(dirPath)) {
+                    mkdirSync(dirPath, { recursive: true });
+                }
                 writeFileSync(fileUri.fsPath, '');
                 await new Promise(resolve => setTimeout(resolve, 500)); // Add small delay to ensure file is created
                 await StateMachine.langClient().didOpen({
@@ -70,7 +84,9 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
             // Get the before content of the file by using the workspace api
             const document = await workspace.openTextDocument(fileUri);
             const beforeContent = document.getText();
-            undoRedoManager.addFileToBatch(fileUri.fsPath, beforeContent, beforeContent);
+            if (!skipUndoRedoStack) {
+                undoRedoManager?.addFileToBatch(fileUri.fsPath, beforeContent, beforeContent);
+            }
 
             if (edits && edits.length > 0) {
                 const modificationList: STModification[] = [];
@@ -95,6 +111,10 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                 } else {
                     modificationRequests[fileUriString] = { filePath: fileUri.fsPath, modifications: modificationList };
                 }
+            }
+            if (edits.length === 0) {
+                StateMachine.setReadyMode();
+                return [];
             }
         }
 
@@ -140,13 +160,20 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                         ),
                         formattedSource.newText
                     );
-                    undoRedoManager.addFileToBatch(fileUri.fsPath, formattedSource.newText, formattedSource.newText);
+                    if (!skipUndoRedoStack) {
+                        undoRedoManager?.addFileToBatch(fileUri.fsPath, formattedSource.newText, formattedSource.newText);
+                    }
                 }
             }
-            undoRedoManager.commitBatchOperation(description ? description : (artifactData ? `Change in ${artifactData?.artifactType} ${artifactData?.identifier}` : "Update Source Code"));
 
-            // Apply all formatted changes at once
-            await workspace.applyEdit(formattedWorkspaceEdit);
+            if (!skipUndoRedoStack) {
+                undoRedoManager?.commitBatchOperation(updateSourceCodeRequest.description ? updateSourceCodeRequest.description : (updateSourceCodeRequest.artifactData ? `Change in ${updateSourceCodeRequest.artifactData?.artifactType} ${updateSourceCodeRequest.artifactData?.identifier}` : "Update Source Code"));
+            }
+
+            if (!skipFormatting) { //TODO: Remove the skipFormatting flag once LS APIs are updated to give already formatted text edits
+                // Apply all formatted changes at once
+                await workspace.applyEdit(formattedWorkspaceEdit);
+            }
 
             // Handle missing dependencies after all changes are applied
             if (updateSourceCodeRequest.resolveMissingDependencies) {
@@ -158,7 +185,7 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
             }
 
             return new Promise((resolve, reject) => {
-                if (tomlFilesUpdated) {
+                if (tomlFilesUpdated && !updateSourceCodeRequest?.skipUpdateViewOnTomlUpdate) {
                     StateMachine.setReadyMode();
                     resolve([]);
                     return;
@@ -166,13 +193,15 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                 // Get the artifact notification handler instance
                 const notificationHandler = ArtifactNotificationHandler.getInstance();
                 // Subscribe to artifact updated notifications
-                let unsubscribe = notificationHandler.subscribe(ArtifactsUpdated.method, artifactData, async (payload) => {
-                    console.log("Received notification:", payload);
-                    clearTimeout(timeoutId);
-                    resolve(payload.data);
-                    StateMachine.setReadyMode();
-                    checkAndNotifyWebview(payload.data);
-                    unsubscribe();
+                let unsubscribe = notificationHandler.subscribe(ArtifactsUpdated.method, updateSourceCodeRequest.artifactData, async (payload) => {
+                    if ((payload.data && payload.data.length > 0) || updateSourceCodeRequest.skipPayloadCheck) {
+                        console.log("Received notification:", payload);
+                        clearTimeout(timeoutId);
+                        resolve(payload.data);
+                        StateMachine.setReadyMode();
+                        checkAndNotifyWebview(payload.data, updateSourceCodeRequest, isChangeFromHelperPane);
+                        unsubscribe();
+                    }
                 });
 
                 // Set a timeout to reject if no notification is received within 10 seconds
@@ -180,7 +209,7 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                     console.log("No artifact update notification received within 10 seconds");
                     unsubscribe();
                     StateMachine.setReadyMode();
-                    openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.Overview });
+                    openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.PackageOverview });
                     reject(new Error("Operation timed out. Please try again."));
                 }, 10000);
 
@@ -198,7 +227,9 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
         }
     } catch (error) {
         StateMachine.setReadyMode();
-        undoRedoManager.cancelBatchOperation();
+        if (!skipUndoRedoStack) {
+            undoRedoManager?.cancelBatchOperation();
+        }
         console.log(">>> error updating source", error);
         throw error;
     }
@@ -208,12 +239,23 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
 //** 
 // Notify webview unless a new TYPE artifact is created outside the type diagram view
 // */
-function checkAndNotifyWebview(response: ProjectStructureArtifactResponse[]) {
+function checkAndNotifyWebview(
+    response: ProjectStructureArtifactResponse[],
+    request: UpdateSourceCodeRequest,
+    isChangeFromHelperPane?: boolean
+) {
     const newArtifact = response.find(artifact => artifact.isNew);
+    const selectedArtifact = response.find(artifact => artifact.id === request.identifier);
     const stateContext = StateMachine.context().view;
-    if (newArtifact?.type === "TYPE" && stateContext !== MACHINE_VIEW.TypeDiagram) {
+
+    if (request.isRenameOperation) {
+        notifyCurrentWebview();
         return;
-    } else {
+    }
+
+    if ((selectedArtifact?.type === "TYPE " || newArtifact?.type === "TYPE") && stateContext !== MACHINE_VIEW.TypeDiagram) {
+        return;
+    } else if (!isChangeFromHelperPane) {
         notifyCurrentWebview();
     }
 }

@@ -18,61 +18,285 @@
 
 import { ActionButtons, Typography } from "@wso2/ui-toolkit";
 import { useState } from "react";
+import { useRpcContext } from "@wso2/ballerina-rpc-client";
+import { ValidateProjectFormErrorField } from "@wso2/ballerina-core";
 import { BodyText } from "../../styles";
+import { ProjectFormData, ProjectFormFields } from "../ProjectForm/ProjectFormFields";
+import { validatePackageName } from "../ProjectForm/utils";
+import { MultiProjectFormData, MultiProjectFormFields } from "./components/MultiProjectFormFields";
 import { ButtonWrapper } from "./styles";
 import { ConfigureProjectFormProps } from "./types";
-import { ProjectFormFields, ProjectFormData } from "../ProjectForm/ProjectFormFields";
-import { isFormValid } from "../ProjectForm/utils";
 
-export function ConfigureProjectForm({ onNext, onBack }: ConfigureProjectFormProps) {
-    const [formData, setFormData] = useState<ProjectFormData>({
+export function ConfigureProjectForm({ isMultiProject, onNext, onBack }: ConfigureProjectFormProps) {
+    const { rpcClient } = useRpcContext();
+    const [singleIntegrationData, setSingleIntegrationData] = useState<ProjectFormData>({
         integrationName: "",
         packageName: "",
         path: "",
         createDirectory: true,
+        createAsWorkspace: false,
+        workspaceName: "",
         orgName: "",
         version: "",
+        isLibrary: false,
     });
 
-    const handleFormDataChange = (data: Partial<ProjectFormData>) => {
-        setFormData(prev => ({ ...prev, ...data }));
+    const [multiProjectData, setMultiProjectData] = useState<MultiProjectFormData>({
+        rootFolderName: "",
+        path: "",
+        createDirectory: true,
+    });
+
+    const [isValidating, setIsValidating] = useState(false);
+    const [pathError, setPathError] = useState<string | null>(null);
+    const [folderNameError, setFolderNameError] = useState<string | null>(null);
+    const [singleIntegrationNameError, setSingleIntegrationNameError] = useState<string | null>(null);
+    const [singleIntegrationPathError, setSingleIntegrationPathError] = useState<string | null>(null);
+    const [projectNameError, setProjectNameError] = useState<string | null>(null);
+    const [singleIntegrationPackageNameError, setSingleIntegrationPackageNameError] = useState<string | null>(null);
+    const selectedResourceTypeLabel = singleIntegrationData.isLibrary ? "Library" : "Integration";
+
+    const handleSingleProjectFormChange = (data: Partial<ProjectFormData>) => {
+        setSingleIntegrationData(prev => ({ ...prev, ...data }));
+        // Clear validation errors when form data changes
+        if (singleIntegrationNameError) {
+            setSingleIntegrationNameError(null);
+        }
+        if (singleIntegrationPathError) {
+            setSingleIntegrationPathError(null);
+        }
+        if (projectNameError) {
+            setProjectNameError(null);
+        }
+        if (singleIntegrationPackageNameError) {
+            setSingleIntegrationPackageNameError(null);
+        }
     };
 
-    const handleCreateProject = () => {
-        onNext({
-            projectName: formData.integrationName,
-            packageName: formData.packageName,
-            projectPath: formData.path,
-            createDirectory: formData.createDirectory,
-            orgName: formData.orgName || undefined,
-            version: formData.version || undefined,
-        });
+    const handleMultiProjectFormChange = (data: Partial<MultiProjectFormData>) => {
+        setMultiProjectData(prev => ({ ...prev, ...data }));
+        // Clear validation errors when form data changes
+        if (pathError) {
+            setPathError(null);
+        }
+        if (folderNameError) {
+            setFolderNameError(null);
+        }
+    };
+
+    const handleCreateSingleProject = async () => {
+        setIsValidating(true);
+        setSingleIntegrationNameError(null);
+        setSingleIntegrationPathError(null);
+        setProjectNameError(null);
+        setSingleIntegrationPackageNameError(null);
+
+        // Validate required fields first
+        let hasError = false;
+
+        if (singleIntegrationData.integrationName.trim().length < 2) {
+            setSingleIntegrationNameError(`${selectedResourceTypeLabel} name must be at least 2 characters`);
+            hasError = true;
+        }
+
+        if (singleIntegrationData.packageName.trim().length < 2) {
+            setSingleIntegrationPackageNameError("Package name must be at least 2 characters");
+            hasError = true;
+        } else {
+            const packageNameError = validatePackageName(singleIntegrationData.packageName, singleIntegrationData.integrationName);
+            if (packageNameError) {
+                setSingleIntegrationPackageNameError(packageNameError);
+                hasError = true;
+            }
+        }
+
+        if (singleIntegrationData.path.trim().length < 2) {
+            setSingleIntegrationPathError(`Please select a path for your ${selectedResourceTypeLabel.toLowerCase()}`);
+            hasError = true;
+        }
+
+        if (hasError) {
+            setIsValidating(false);
+            return;
+        }
+
+        try {
+            // Validate the project path
+            const targetNameForValidation = singleIntegrationData.createAsWorkspace
+                ? singleIntegrationData.workspaceName
+                : singleIntegrationData.packageName;
+            const validationResult = await rpcClient.getBIDiagramRpcClient().validateProjectPath({
+                projectPath: singleIntegrationData.path,
+                projectName: targetNameForValidation,
+                createDirectory: singleIntegrationData.createDirectory,
+            });
+
+            if (!validationResult.isValid) {
+                // Show error on the appropriate field
+                if (validationResult.errorField === ValidateProjectFormErrorField.PATH) {
+                    if (singleIntegrationData.createAsWorkspace) {
+                        setSingleIntegrationPathError(validationResult.errorMessage || "Invalid project path");
+                    } else {
+                        setSingleIntegrationPathError(
+                            validationResult.errorMessage || `Invalid ${selectedResourceTypeLabel.toLowerCase()} path`
+                        );
+                    }
+                } else if (validationResult.errorField === ValidateProjectFormErrorField.NAME) {
+                    if (singleIntegrationData.createAsWorkspace) {
+                        setProjectNameError(
+                            validationResult.errorMessage || "Invalid project name"
+                        );
+                    } else {
+                        setSingleIntegrationPackageNameError(
+                            validationResult.errorMessage || `Invalid ${selectedResourceTypeLabel.toLowerCase()} name`
+                        );
+                    }
+                }
+                setIsValidating(false);
+                return;
+            }
+
+            // If validation passes, proceed
+            const payload = {
+                projectName: singleIntegrationData.integrationName,
+                packageName: singleIntegrationData.packageName,
+                projectPath: singleIntegrationData.path,
+                createDirectory: singleIntegrationData.createDirectory,
+                createAsWorkspace: singleIntegrationData.createAsWorkspace,
+                workspaceName: singleIntegrationData.workspaceName,
+                orgName: singleIntegrationData.orgName || undefined,
+                version: singleIntegrationData.version || undefined,
+                isLibrary: singleIntegrationData.isLibrary,
+            };
+            setIsValidating(false);
+            onNext(payload);
+        } catch (error) {
+            setSingleIntegrationPathError("An error occurred during validation");
+            setIsValidating(false);
+        }
+    };
+
+    const handleCreateMultiProject = async () => {
+        setIsValidating(true);
+        setPathError(null);
+        setFolderNameError(null);
+
+        // Validate required fields first
+        let hasError = false;
+
+        if (!multiProjectData.path.trim() || multiProjectData.path.length < 2) {
+            setPathError("Please select a path for your project");
+            hasError = true;
+        }
+
+        if (multiProjectData.createDirectory && (!multiProjectData.rootFolderName.trim() || multiProjectData.rootFolderName.length < 1)) {
+            setFolderNameError("Folder name is required when creating a new directory");
+            hasError = true;
+        }
+
+        if (hasError) {
+            setIsValidating(false);
+            return;
+        }
+
+        try {
+            // Validate the project path
+            const validationResult = await rpcClient.getBIDiagramRpcClient().validateProjectPath({
+                projectPath: multiProjectData.path,
+                projectName: multiProjectData.rootFolderName,
+                createDirectory: multiProjectData.createDirectory,
+            });
+
+            if (!validationResult.isValid) {
+                // Show error on the appropriate field
+                if (validationResult.errorField === ValidateProjectFormErrorField.PATH) {
+                    setPathError(validationResult.errorMessage || "Invalid project path");
+                } else if (validationResult.errorField === ValidateProjectFormErrorField.NAME) {
+                    setFolderNameError(validationResult.errorMessage || "Invalid folder name");
+                }
+                setIsValidating(false);
+                return;
+            }
+
+            // If validation passes, proceed
+            onNext({
+                projectName: multiProjectData.rootFolderName,
+                packageName: multiProjectData.rootFolderName,
+                projectPath: multiProjectData.path,
+                createDirectory: multiProjectData.createDirectory,
+                createAsWorkspace: false,
+            });
+        } catch (error) {
+            setPathError("An error occurred during validation");
+            setIsValidating(false);
+        }
     };
 
     return (
         <>
-            <Typography variant="h2">Configure Your Integration Project</Typography>
-            <BodyText>Please provide the necessary details to create your integration project.</BodyText>
-            
-            <ProjectFormFields
-                formData={formData}
-                onFormDataChange={handleFormDataChange}
-            />
+            {isMultiProject ? (
+                <>
+                    <Typography variant="h2">Configure Multi-Project Import</Typography>
+                    <BodyText>Select the location where you want to save the migrated integrations.</BodyText>
 
-            <ButtonWrapper>
-                <ActionButtons
-                    primaryButton={{
-                        text: "Create and Open Project",
-                        onClick: handleCreateProject,
-                        disabled: !isFormValid(formData)
-                    }}
-                    secondaryButton={{
-                        text: "Back",
-                        onClick: onBack,
-                        disabled: false
-                    }}
-                />
-            </ButtonWrapper>
+                    <MultiProjectFormFields
+                        formData={multiProjectData}
+                        onFormDataChange={handleMultiProjectFormChange}
+                        pathError={pathError || undefined}
+                        folderNameError={folderNameError || undefined}
+                    />
+
+                    <ButtonWrapper>
+                        <ActionButtons
+                            primaryButton={{
+                                text: isValidating ? "Validating..." : "Create and Open Project",
+                                onClick: handleCreateMultiProject,
+                                disabled: isValidating
+                            }}
+                            secondaryButton={{
+                                text: "Back",
+                                onClick: onBack,
+                                disabled: false
+                            }}
+                        />
+                    </ButtonWrapper>
+                </>
+            ) : (
+                <>
+                    <Typography variant="h2">Configure Your {selectedResourceTypeLabel}</Typography>
+                    <BodyText>
+                        Please provide the necessary details to create your {selectedResourceTypeLabel.toLowerCase()}.
+                    </BodyText>
+
+                    <ProjectFormFields
+                        formData={singleIntegrationData}
+                        onFormDataChange={handleSingleProjectFormChange}
+                        integrationNameError={singleIntegrationNameError || undefined}
+                        pathError={singleIntegrationPathError || undefined}
+                        projectNameError={projectNameError || undefined}
+                        packageNameValidationError={singleIntegrationPackageNameError || undefined}
+                    />
+
+                    <ButtonWrapper>
+                        <ActionButtons
+                            primaryButton={{
+                                text: isValidating
+                                    ? "Validating..."
+                                    : singleIntegrationData.createAsWorkspace
+                                        ? "Create and Open Project"
+                                        : `Create and Open ${selectedResourceTypeLabel}`,
+                                onClick: handleCreateSingleProject,
+                                disabled: isValidating
+                            }}
+                            secondaryButton={{
+                                text: "Back",
+                                onClick: onBack,
+                                disabled: false
+                            }}
+                        />
+                    </ButtonWrapper>
+                </>
+            )}
         </>
     );
 }

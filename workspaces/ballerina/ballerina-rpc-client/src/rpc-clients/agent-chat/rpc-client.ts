@@ -14,14 +14,27 @@
  * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations
  * under the License.
+ * 
+ * THIS FILE INCLUDES AUTO GENERATED CODE
  */
-
 import {
+    abortChatRequest,
     AgentChatAPI,
     ChatReqMessage,
     ChatRespMessage,
-    abortChatRequest,
-    getChatMessage
+    getChatMessage,
+    getTracingStatus,
+    showTraceView,
+    showSessionOverview,
+    TraceInput,
+    SessionInput,
+    TraceStatus,
+    ChatHistoryResponse,
+    AgentStatusResponse,
+    ClearChatResponse,
+    getChatHistory,
+    clearChatHistory,
+    getAgentStatus
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -39,5 +52,29 @@ export class AgentChatRpcClient implements AgentChatAPI {
 
     abortChatRequest(): void {
         return this._messenger.sendNotification(abortChatRequest, HOST_EXTENSION);
+    }
+
+    getTracingStatus(): Promise<TraceStatus> {
+        return this._messenger.sendRequest(getTracingStatus, HOST_EXTENSION);
+    }
+
+    showTraceView(params: TraceInput): Promise<void> {
+        return this._messenger.sendRequest(showTraceView, HOST_EXTENSION, params);
+    }
+
+    showSessionOverview(params: SessionInput): Promise<void> {
+        return this._messenger.sendRequest(showSessionOverview, HOST_EXTENSION, params);
+    }
+
+    getChatHistory(): Promise<ChatHistoryResponse> {
+        return this._messenger.sendRequest(getChatHistory, HOST_EXTENSION);
+    }
+
+    clearChatHistory(): Promise<ClearChatResponse> {
+        return this._messenger.sendRequest(clearChatHistory, HOST_EXTENSION);
+    }
+
+    getAgentStatus(): Promise<AgentStatusResponse> {
+        return this._messenger.sendRequest(getAgentStatus, HOST_EXTENSION);
     }
 }

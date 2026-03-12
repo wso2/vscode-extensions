@@ -6,3 +6,4 @@ packages:
   - "workspaces/bi/*"
   - 'workspaces/common-libs/*'
   - 'workspaces/mi/*'
+  - 'workspaces/mcp-inspector/*'

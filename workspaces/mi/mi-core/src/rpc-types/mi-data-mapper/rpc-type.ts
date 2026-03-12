@@ -57,4 +57,3 @@ export const getDMDiagnostics: RequestType<GetDMDiagnosticsRequest, GetDMDiagnos
 export const getMappingFromAI: RequestType<void, void> = { method: `${_preFix}/getMappingFromAI` };
 export const writeDataMapping: NotificationType<DataMapWriteRequest> = { method: `${_preFix}/writeDataMapping` };
 export const confirmMappingAction: RequestType<void, boolean> = { method: `${_preFix}/confirmMappingAction` };
-export const authenticateUser: RequestType<void, boolean> = { method: `${_preFix}/authenticateUser` };

@@ -22,8 +22,8 @@ import { DiagramEngine } from '@projectstorm/react-diagrams';
 
 import { ExpressionLabelModel } from './ExpressionLabelModel';
 import { ExpressionLabelWidget } from './ExpressionLabelWidget';
-import { QueryExprLabelWidget } from './QueryExprLabelWidget';
 import { MappingOptionsWidget } from './MappingOptionsWidget';
+import { MappingType } from '../Link';
 
 export class ExpressionLabelFactory extends AbstractReactFactory<ExpressionLabelModel, DiagramEngine> {
 	constructor() {
@@ -35,9 +35,6 @@ export class ExpressionLabelFactory extends AbstractReactFactory<ExpressionLabel
 	}
 
 	generateReactWidget(event: GenerateWidgetEvent<ExpressionLabelModel>): JSX.Element {
-		if (event.model.isQuery) {
-			return <QueryExprLabelWidget model={event.model} />;
-		}
 		if (event.model.link?.pendingMappingType) {
 			return <MappingOptionsWidget model={event.model} />;
 		}

@@ -33,12 +33,12 @@ import {
     ProgressRingWrapper
 } from "./styles";
 import { Button, Codicon, ProgressRing } from "@wso2/ui-toolkit";
-import {  ClauseEditor } from "./ClauseEditor";
-import { DMFormProps, IntermediateClause, IntermediateClauseType } from "@wso2/ballerina-core";
-import { set } from "lodash";
+import {  ClauseEditor, clauseTypeLabels } from "./ClauseEditor";
+import { DMFormProps, IntermediateClause, IntermediateClauseType, LinePosition } from "@wso2/ballerina-core";
 
 export interface ClauseItemProps {
     index: number;
+    targetField: string;
     clause: IntermediateClause;
     isSaving: boolean;
     isAdding: boolean;
@@ -49,11 +49,12 @@ export interface ClauseItemProps {
     onAdd: (clause: IntermediateClause, index?: number) => void;
     onEdit: (clause: IntermediateClause, index: number) => void;
     onDelete: (index: number) => void;
+    getClausePosition: (targetField: string, index: number) => Promise<LinePosition>;
     generateForm: (formProps: DMFormProps) => JSX.Element;
 }
 
 export function ClauseItem(props: ClauseItemProps) {
-    const { index, clause, isSaving, isAdding, isEditing, isDeleting, setAdding, setEditing, onDelete, onEdit, onAdd, generateForm } = props;
+    const { index, targetField, clause, isSaving, isAdding, isEditing, isDeleting, setAdding, setEditing, onDelete, onEdit, onAdd, getClausePosition, generateForm } = props;
     const { type: clauseType, properties: clauseProps } = clause;
 
 
@@ -69,7 +70,9 @@ export function ClauseItem(props: ClauseItemProps) {
         onAdd(clause, index);
     }
 
-    const label = 
+    const clauseTypeLabel = clauseTypeLabels[clauseType];
+
+    const expressionLabel = 
         clauseType === IntermediateClauseType.LET ? `${clauseProps.type} ${clauseProps.name} = ${clauseProps.expression}` : 
         clauseType === IntermediateClauseType.ORDER_BY ? `${clauseProps.expression} ${clauseProps.order}` :
         clauseProps.expression;
@@ -80,9 +83,9 @@ export function ClauseItem(props: ClauseItemProps) {
                 <ContentWrapper onClick={() => setEditing(index)}>
                     <IconTextWrapper>
                         <IconWrapper> <Codicon name="filter-filled" /> </IconWrapper>
-                        <TypeWrapper title={clauseType}> {clauseType} </TypeWrapper>
+                        <TypeWrapper title={clauseTypeLabel}> {clauseTypeLabel} </TypeWrapper>
                     </IconTextWrapper>
-                    <ValueTextWrapper title={label}> {label} </ValueTextWrapper>
+                    <ValueTextWrapper title={expressionLabel}> {expressionLabel} </ValueTextWrapper>
                 </ContentWrapper>
                 <ActionWrapper>
                     <ActionIconWrapper>
@@ -104,20 +107,26 @@ export function ClauseItem(props: ClauseItemProps) {
 
             {isEditing && (
                 <ClauseEditor
+                    index={index}
+                    targetField={targetField}
                     clause={clause}
                     onSubmitText="Update"
                     isSaving={isSaving}
                     onSubmit={onHandleEdit}
                     onCancel={() => setEditing(undefined)}
+                    getClausePosition={getClausePosition}
                     generateForm={generateForm}
                 />
             )}
 
             {isAdding ? (
                 <ClauseEditor
+                    index={index + 1}
+                    targetField={targetField}
                     isSaving={isSaving}
                     onCancel={() => setAdding(undefined)}
                     onSubmit={onHandleAdd}
+                    getClausePosition={getClausePosition}
                     generateForm={generateForm} />
             ) : (
                 <AddButton onClick={() => setAdding(index)} />

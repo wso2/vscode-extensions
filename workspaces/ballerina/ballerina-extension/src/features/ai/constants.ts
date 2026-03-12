@@ -16,9 +16,11 @@
  * under the License.
  */
 
+export const WI_EXTENSION_ID = 'wso2.wso2-integrator';
+
 export const CONFIG_FILE_NAME = "Config.toml";
 export const CONFIGURE_DEFAULT_MODEL_COMMAND = "ballerina.configureWso2DefaultModelProvider";
-export const OPEN_AI_PANEL_COMMAND = "ballerina.open.ai.panel";
+
 export const CLOSE_AI_PANEL_COMMAND = "ballerina.close.ai.panel";
 export const SIGN_IN_BI_COPILOT = "Sign in to BI Copilot";
 export const PROGRESS_BAR_MESSAGE_FROM_WSO2_DEFAULT_MODEL = "Fetching and saving access token for WSO2 default model provider.";
@@ -26,3 +28,4 @@ export const ERROR_NO_BALLERINA_SOURCES = "No Ballerina sources";
 export const LOGIN_REQUIRED_WARNING = "Please sign in to BI Copilot to use this feature.";
 export const LOGIN_REQUIRED_WARNING_FOR_DEFAULT_MODEL = "Please sign in to BI Copilot to configure the WSO2 default model provider.";
 export const DEFAULT_PROVIDER_ADDED = "WSO2 default model provider configuration values were added to the Config.toml file.";
+export const LLM_API_BASE_PATH = "/llm-api/v1.0";

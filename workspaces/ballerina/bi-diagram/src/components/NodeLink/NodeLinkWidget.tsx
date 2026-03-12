@@ -25,7 +25,6 @@ import { NODE_WIDTH } from "../../resources/constants";
 import { useDiagramContext } from "../DiagramContext";
 import AddCommentPopup from "../AddCommentPopup";
 import { Popover, ThemeColors } from "@wso2/ui-toolkit";
-import AddPromptPopup from "../AddPromptPopup";
 
 interface NodeLinkWidgetProps {
     link: NodeLinkModel;
@@ -44,24 +43,22 @@ const fadeInZoomIn = keyframes`
 `;
 
 export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) => {
-    const { onAddNode, onAddNodePrompt, onAddComment, setLockCanvas, readOnly } = useDiagramContext();
+    const { onAddNode, onAddNodePrompt, onAddComment, setLockCanvas, readOnly, isUserAuthenticated } = useDiagramContext();
 
     const [isHovered, setIsHovered] = useState(false);
     const [isCommentButtonHovered, setIsCommentButtonHovered] = useState(false);
     const [isNodeButtonHovered, setIsNodeButtonHovered] = useState(false);
     const [isPromptButtonHovered, setIsPromptButtonHovered] = useState(false);
     const [commentAnchorEl, setCommentAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
-    const [promptAnchorEl, setPromptAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
     const isCommentBoxOpen = Boolean(commentAnchorEl);
-    const isPromptBoxOpen = Boolean(promptAnchorEl);
 
     useEffect(() => {
-        setLockCanvas(isCommentBoxOpen || isPromptBoxOpen);
-    }, [isCommentBoxOpen, isPromptBoxOpen, setLockCanvas]);
+        setLockCanvas(isCommentBoxOpen);
+    }, [isCommentBoxOpen, setLockCanvas]);
 
     const showAddButton = link.showAddButton && !link.disabled;
     const shouldHighlight =
-        showAddButton && (isHovered || link.showButtonAlways || isPromptBoxOpen || isCommentBoxOpen);
+        showAddButton && (isHovered || link.showButtonAlways || isCommentBoxOpen);
     const linkColor = link.disabled
         ? ThemeColors.OUTLINE_VARIANT
         : isHovered && !readOnly
@@ -85,9 +82,14 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
         onAddNode(node, { startLine: target, endLine: target });
     };
 
-    const handleAddPrompt = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
+    const handleAddPrompt = () => {
         if (!onAddNodePrompt) {
             console.error(">>> NodeLinkWidget: handleAddPrompt: onAddNodePrompt not found");
+            return;
+        }
+        let node = link.getTopNode();
+        if (!node) {
+            console.error(">>> NodeLinkWidget: handleAddPrompt: top node not found");
             return;
         }
         const target = link.getTarget();
@@ -95,13 +97,8 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
             console.error(">>> NodeLinkWidget: handleAddPrompt: target not found");
             return;
         }
-        setPromptAnchorEl(event.currentTarget);
-        setCommentAnchorEl(null);
-    };
-
-    const handleClosePromptBox = () => {
-        setPromptAnchorEl(null);
-        setIsHovered(false);
+        // Directly open AI Chat with CodeContext instead of showing prompt popup
+        onAddNodePrompt(node, { startLine: target, endLine: target }, "");
     };
 
     const handleAddComment = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
@@ -110,7 +107,6 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
             return;
         }
         setCommentAnchorEl(event.currentTarget);
-        setPromptAnchorEl(null);
     };
 
     const handleCloseCommentBox = () => {
@@ -247,20 +243,21 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
                             width="24"
                             height="24"
                             viewBox="0 0 24 24"
-                            onClick={handleAddPrompt}
+                            onClick={isUserAuthenticated ? handleAddPrompt : undefined}
                             onMouseEnter={() => setIsPromptButtonHovered(true)}
                             onMouseLeave={() => setIsPromptButtonHovered(false)}
                             css={css`
-                                cursor: pointer;
+                                cursor: ${isUserAuthenticated ? "pointer" : "not-allowed"};
                                 visibility: ${shouldHighlight ? "visible" : "hidden"};
                             `}
                         >
+                            {!isUserAuthenticated && <title>You need to be logged into BI Copilot to access AI features</title>}
                             <path
                                 fill={ThemeColors.SURFACE_BRIGHT}
                                 d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
                             />
                             <path
-                                fill={isPromptButtonHovered ? ThemeColors.SECONDARY : ThemeColors.PRIMARY}
+                                fill={!isUserAuthenticated ? ThemeColors.OUTLINE_VARIANT : (isPromptButtonHovered ? ThemeColors.SECONDARY : ThemeColors.PRIMARY)}
                                 d="M7.5 5.6L5 7l1.4-2.5L5 2l2.5 1.4L10 2L8.6 4.5L10 7zm12 9.8L22 14l-1.4 2.5L22 19l-2.5-1.4L17 19l1.4-2.5L17 14zM22 2l-1.4 2.5L22 7l-2.5-1.4L17 7l1.4-2.5L17 2l2.5 1.4zm-8.66 10.78l2.44-2.44l-2.12-2.12l-2.44 2.44zm1.03-5.49l2.34 2.34c.39.37.39 1.02 0 1.41L5.04 22.71c-.39.39-1.04.39-1.41 0l-2.34-2.34c-.39-.37-.39-1.02 0-1.41L12.96 7.29c.39-.39 1.04-.39 1.41 0"
                             />
                         </svg>
@@ -279,25 +276,6 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
                         }}
                     >
                         <AddCommentPopup target={link.getTarget()} onClose={handleCloseCommentBox} />
-                    </Popover>
-                </foreignObject>
-            )}
-            {isPromptBoxOpen && (
-                <foreignObject>
-                    <Popover
-                        open={isPromptBoxOpen}
-                        anchorEl={promptAnchorEl}
-                        sx={{
-                            padding: 0,
-                            borderRadius: 0,
-                            backgroundColor: "unset",
-                        }}
-                    >
-                        <AddPromptPopup
-                            node={link.getTopNode()}
-                            target={link.getTarget()}
-                            onClose={handleClosePromptBox}
-                        />
                     </Popover>
                 </foreignObject>
             )}

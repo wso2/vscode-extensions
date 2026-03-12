@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { CDModel, CodeData, EVENT_TYPE } from '@wso2/ballerina-core';
+import { AvailableNode, CDModel, CodeData, EVENT_TYPE } from '@wso2/ballerina-core';
 import { View, ViewContent, TextField, Button, Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { useRpcContext } from '@wso2/ballerina-rpc-client';
@@ -26,6 +26,7 @@ import { TopNavigationBar } from '../../../components/TopNavigationBar';
 import { RelativeLoader } from '../../../components/RelativeLoader';
 import { FormHeader } from '../../../components/FormHeader';
 import { getAiModuleOrg, getNodeTemplate } from './utils';
+import { AI, AI_COMPONENT_PROGRESS_MESSAGE_TIMEOUT, BALLERINA, GET_DEFAULT_MODEL_PROVIDER } from '../../../constants';
 
 const FormContainer = styled.div`
     display: flex;
@@ -58,6 +59,13 @@ const FormFields = styled.div`
 export interface AIChatAgentWizardProps {
 }
 
+const LISTENER = "Listener";
+const MODEL = "Model";
+
+const OPEN_AI_PROVIDER = "OpenAiProvider";
+const MODEL_PROVIDER = "MODEL_PROVIDER";
+const CLASS_INIT = "CLASS_INIT";
+
 export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
     // module name for ai agent
     const type = "ai";
@@ -68,7 +76,7 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
     const [currentStep, setCurrentStep] = useState<number>(0);
     const steps = [
         { label: "Creating Agent", description: "Creating the AI chat agent" },
-        { label: "Initializing", description: "Setting up the agent configuration" },
+        { label: "Creating Model Provider", description: "Creating the model provider for the AI chat agent" },
         { label: "Pulling Modules", description: "Pulling the required modules. This may take a few moments." },
         { label: "Creating Listener", description: "Configuring the service listener" },
         { label: "Creating Service", description: "Setting up the AI chat service" },
@@ -81,7 +89,7 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
     const designModelRef = useRef<CDModel>(null);
 
     const init = async () => {
-        const designModelResponse = await rpcClient.getBIDiagramRpcClient().getDesignModel();
+        const designModelResponse = await rpcClient.getBIDiagramRpcClient().getDesignModel({});
         designModelRef.current = designModelResponse.designModel;
     }
 
@@ -128,37 +136,107 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
             aiModuleOrg.current = await getAiModuleOrg(rpcClient);
 
             const visualizerLocation = await rpcClient.getVisualizerLocation();
-            projectPath.current = visualizerLocation.projectUri;
+            projectPath.current = visualizerLocation.projectPath;
 
-            const agentCallCodeData: CodeData = {
-                "node": "AGENT_CALL",
-                "org": aiModuleOrg.current,
-                "module": "ai",
-                "packageName": "ai",
-                "object": "Agent",
-                "symbol": "run"
-            };
-            const agentCallTemplate = await getNodeTemplate(rpcClient, agentCallCodeData, projectPath.current);
-            agentCallTemplate.properties["name"].value = `_${agentName}`;
+            // hack: fetching from Central to build module dependency map in LS may take time
+            progressTimeoutRef.current = setTimeout(() => {
+                setCurrentStep(2);
+                progressTimeoutRef.current = null;
+            }, AI_COMPONENT_PROGRESS_MESSAGE_TIMEOUT);
 
-            const listenerVariableName = `${agentName}Listener`;
-            const listenerResponse = await rpcClient.getServiceDesignerRpcClient().getListenerModel({
-                moduleName: type,
-                orgName: aiModuleOrg.current
+            setCurrentStep(1);
+
+            // Search for model providers
+            const modelProviderSearchResponse = await rpcClient.getBIDiagramRpcClient().search({
+                filePath: projectPath.current,
+                queryMap: { q: aiModuleOrg.current === BALLERINA ? AI : OPEN_AI_PROVIDER },
+                searchKind: aiModuleOrg.current === BALLERINA ? MODEL_PROVIDER : CLASS_INIT
             });
+            const modelNodes = modelProviderSearchResponse.categories[0].items as AvailableNode[];
+
+            // Get default model provider
+            const defaultModelNode = modelNodes.find((model) =>
+                model.codedata.object === OPEN_AI_PROVIDER || (model.codedata.org === BALLERINA && model.codedata.module === AI)
+            );
+            if (!defaultModelNode) {
+                console.log(">>> no default model found");
+                throw new Error("No default model found");
+            }
+
+            // Get model node template
+            const modelNodeTemplate = await getNodeTemplate(rpcClient, defaultModelNode.codedata, projectPath.current);
+
+            // Generate source code for model provider
+            const modelVarName = `${agentName}` + MODEL;
+            modelNodeTemplate.properties.variable.value = modelVarName;
+            await rpcClient.getBIDiagramRpcClient().getSourceCode({ filePath: projectPath.current, flowNode: modelNodeTemplate });
+
+            // hack: Generate agent at module level for Ballerina versions under 2201.13.0
+            let ballerinaVersion: string | undefined;
+            try {
+                const versionResponse = await rpcClient.getLangClientRpcClient().getBallerinaVersion();
+                ballerinaVersion = versionResponse?.version;
+            } catch (error) {
+                console.warn("Unable to resolve Ballerina version; falling back to legacy agent generation.", error);
+            }
+
+            // Search for agent node in the current file
+            const agentSearchResponse = await rpcClient.getBIDiagramRpcClient().search({
+                filePath: projectPath.current,
+                queryMap: { orgName: aiModuleOrg.current },
+                searchKind: "AGENT"
+            });
+
+            // Validate search response structure
+            if (!agentSearchResponse?.categories?.[0]?.items?.[0]) {
+                throw new Error('No agent node found in search response');
+            }
+
+            const agentNode = agentSearchResponse.categories[0].items[0] as AvailableNode;
+            console.log(">>> agentNode", agentNode);
+
+            // Generate template from agent node
+            const agentNodeTemplate = await getNodeTemplate(rpcClient, agentNode.codedata, projectPath.current);
+
+            // save the agent node
+            const systemPromptValue = `{role: string \`\`, instructions: string \`\`}`;
+            const agentVarName = `${agentName}Agent`;
+            agentNodeTemplate.properties.systemPrompt.value = systemPromptValue;
+            agentNodeTemplate.properties.model.value = modelVarName;
+            agentNodeTemplate.properties.tools.value = "[]";
+            agentNodeTemplate.properties.variable.value = agentVarName;
+
+            await rpcClient
+                .getBIDiagramRpcClient()
+                .getSourceCode({ filePath: projectPath.current, flowNode: agentNodeTemplate });
+
+            setCurrentStep(3);
+
+            const mainBalFile = `${projectPath.current}/main.bal`;
+
+            const payload = {
+                codedata: {
+                    orgName: "ballerina",
+                    packageName: "ai",
+                    moduleName: "ai",
+                    version: "1.0.0",
+                },
+                filePath: mainBalFile
+            };
+
+            const listenerVariableName = agentName + LISTENER;
+            const listenerResponse = await rpcClient.getServiceDesignerRpcClient().getListenerModel(payload);
 
             const listenerConfiguration = listenerResponse.listener;
             listenerConfiguration.properties['variableNameKey'].value = listenerVariableName;
             listenerConfiguration.properties['listenOn'].value = "check http:getDefaultListener()";
-
-            setCurrentStep(1);
 
             await rpcClient.getServiceDesignerRpcClient().addListenerSourceCode({
                 filePath: "",
                 listener: listenerConfiguration
             });
 
-            setCurrentStep(3);
+            setCurrentStep(4);
 
             const serviceResponse = await rpcClient.getServiceDesignerRpcClient().getServiceModel({
                 filePath: "",
@@ -170,84 +248,21 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
             const serviceConfiguration = serviceResponse.service;
             serviceConfiguration.properties["listener"].editable = true;
             serviceConfiguration.properties["listener"].items = [listenerVariableName];
-            serviceConfiguration.properties["listener"].values = [listenerVariableName];
+            serviceConfiguration.properties["listener"].value = listenerVariableName;
             serviceConfiguration.properties["basePath"].value = `/${agentName}`;
+            serviceConfiguration.properties["agentName"].value = agentName;
 
             const serviceSourceCodeResult = await rpcClient.getServiceDesignerRpcClient().addServiceSourceCode({
                 filePath: "",
                 service: serviceConfiguration
             });
 
-            setCurrentStep(4);
-
             const newServiceArtifact = serviceSourceCodeResult.artifacts.find(artifact => artifact.isNew);
 
-            if (!newServiceArtifact) {
-                // Handle the error gracefully. You can show a message, log, or return early.
-                // For now, we simply return early.
-                console.error("No new service artifact found.");
-                return;
+            // If the selected model is the default WSO2 model provider, configure it
+            if (defaultModelNode?.codedata?.symbol === GET_DEFAULT_MODEL_PROVIDER) {
+                await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider();
             }
-            rpcClient.getVisualizerRpcClient().openView({
-                type: EVENT_TYPE.UPDATE_PROJECT_LOCATION,
-                location: {
-                    documentUri: newServiceArtifact.path,
-                    position: newServiceArtifact.position
-                }
-            });
-
-            const currentFlowModel = await rpcClient.getBIDiagramRpcClient().getFlowModel();
-
-            const serviceEntryNode = currentFlowModel.flowModel.nodes.find(
-                (node) => node.codedata.node === "EVENT_START"
-            );
-
-            agentCallTemplate.codedata.lineRange = {
-                fileName: newServiceArtifact.path,
-                startLine: {
-                    line: serviceEntryNode.codedata.lineRange.startLine.line,
-                    offset: serviceEntryNode.codedata.lineRange.startLine.offset + 1
-                },
-                endLine: {
-                    line: serviceEntryNode.codedata.lineRange.startLine.line,
-                    offset: serviceEntryNode.codedata.lineRange.startLine.offset + 1
-                }
-            };
-
-            await rpcClient
-                .getBIDiagramRpcClient()
-                .getSourceCode({ filePath: newServiceArtifact.path, flowNode: agentCallTemplate });
-
-            const agentResponseVariable = agentCallTemplate.properties["variable"].value;
-
-            const updatedFlowModel = await rpcClient.getBIDiagramRpcClient().getFlowModel();
-            const insertedAgentCallNode = updatedFlowModel.flowModel.nodes.find(
-                (node) => node.codedata.node === "AGENT_CALL"
-            );
-
-            const returnStatementCodeData: CodeData = {
-                "node": "RETURN",
-                "isNew": true
-            };
-            const returnStatementTemplate = await getNodeTemplate(rpcClient, returnStatementCodeData, newServiceArtifact.path);
-            returnStatementTemplate.properties["expression"].value = `{message: ${agentResponseVariable}}`;
-            returnStatementTemplate.codedata.lineRange = {
-                fileName: newServiceArtifact.path,
-                startLine: {
-                    line: insertedAgentCallNode.codedata.lineRange.endLine.line,
-                    offset: insertedAgentCallNode.codedata.lineRange.endLine.offset
-                },
-                endLine: {
-                    line: insertedAgentCallNode.codedata.lineRange.endLine.line,
-                    offset: insertedAgentCallNode.codedata.lineRange.endLine.offset
-                }
-            };
-
-            await rpcClient
-                .getBIDiagramRpcClient()
-                .getSourceCode({ filePath: newServiceArtifact.path, flowNode: returnStatementTemplate });
-
-            await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider();
 
             if (newServiceArtifact) {
                 setCurrentStep(5);
@@ -270,7 +285,7 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
 
     return (
         <View>
-            <TopNavigationBar />
+            <TopNavigationBar projectPath={projectPath.current} />
             <TitleBar
                 title="AI Chat Agent"
                 subtitle="Create a chattable AI agent using an LLM, prompts and tools."

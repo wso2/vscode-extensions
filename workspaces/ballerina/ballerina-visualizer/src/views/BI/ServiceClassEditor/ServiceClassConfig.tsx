@@ -21,7 +21,7 @@ import styled from "@emotion/styled";
 import { ProgressRing, Typography, View, ViewContent } from "@wso2/ui-toolkit";
 import { FormField, FormValues } from "@wso2/ballerina-side-panel";
 import {
-    EVENT_TYPE, MACHINE_VIEW,
+    EVENT_TYPE, getPrimaryInputType, MACHINE_VIEW,
     ModelFromCodeRequest,
     NodePosition,
     PropertyModel,
@@ -59,15 +59,15 @@ const LoadingContainer = styled.div`
 `;
 
 interface ServiceClassConfigProps {
+    projectPath: string;
     fileName: string;
     position: NodePosition;
-    projectUri: string;
     type: Type;
 }
 
 // TODO: Need to support inclusion type configurable option
 export function ServiceClassConfig(props: ServiceClassConfigProps) {
-    const { fileName, position, type } = props;
+    const { projectPath, fileName, position, type } = props;
     const { rpcClient } = useRpcContext();
     const [serviceClassModel, setServiceClassModel] = useState<ServiceClassModel | null>(null);
     const [serviceClassFields, setServiceClassFields] = useState<FormField[]>([]);
@@ -78,8 +78,8 @@ export function ServiceClassConfig(props: ServiceClassConfigProps) {
 
     useEffect(() => {
         getServiceClassModel();
-        rpcClient.getVisualizerRpcClient().joinProjectPath(fileName).then((filePath) => {
-            setFilePath(filePath);
+        rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: [fileName] }).then((response) => {
+            setFilePath(response.filePath);
         });
     }, [fileName, position]);
 
@@ -87,7 +87,7 @@ export function ServiceClassConfig(props: ServiceClassConfigProps) {
     const getServiceClassModel = async () => {
         if (!fileName || !position) return;
 
-        const currentFilePath = await rpcClient.getVisualizerRpcClient().joinProjectPath(fileName);
+        const currentFilePath = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: [fileName] })).filePath;
         const serviceClassModelRequest: ModelFromCodeRequest = {
             filePath: currentFilePath,
             codedata: {
@@ -122,8 +122,7 @@ export function ServiceClassConfig(props: ServiceClassConfigProps) {
                 enabled: nameProperty.enabled,
                 documentation: nameProperty.metadata?.description,
                 value: nameProperty.value || '',
-                valueType: nameProperty?.valueType,
-                valueTypeConstraint: nameProperty?.valueTypeConstraint,
+                types: nameProperty?.types,
                 lineRange: nameProperty.codedata?.lineRange
             });
         }
@@ -134,15 +133,14 @@ export function ServiceClassConfig(props: ServiceClassConfigProps) {
             fields.push({
                 key: 'documentation',
                 label: docProperty.metadata?.label || 'Documentation',
-                type: docProperty.valueType || 'string',
+                type: getPrimaryInputType(docProperty?.types)?.fieldType || 'string',
                 optional: docProperty.optional,
                 editable: docProperty.editable,
                 advanced: docProperty.advanced,
                 enabled: docProperty.enabled,
                 documentation: docProperty.metadata?.description || '',
                 value: docProperty.value || '',
-                valueType: docProperty.valueType,
-                valueTypeConstraint: docProperty?.valueTypeConstraint,
+                types: docProperty?.types,
                 lineRange: docProperty.codedata?.lineRange
             });
         }
@@ -176,7 +174,7 @@ export function ServiceClassConfig(props: ServiceClassConfigProps) {
 
         // Only proceed with update if there are actual changes
         if (hasChanges) {
-            const currentFilePath = await rpcClient.getVisualizerRpcClient().joinProjectPath(fileName);
+            const currentFilePath = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: [fileName] })).filePath;
 
             const updateModelRequest: ServiceClassSourceRequest = {
                 filePath: currentFilePath,
@@ -200,6 +198,8 @@ export function ServiceClassConfig(props: ServiceClassConfigProps) {
                             type: type,
                         }
                     });
+            } else {
+                rpcClient.getVisualizerRpcClient()?.goBack();
             }
         } else {
             // No changes detected, just go back
@@ -210,7 +210,7 @@ export function ServiceClassConfig(props: ServiceClassConfigProps) {
 
     return (
         <View>
-            <TopNavigationBar />
+            <TopNavigationBar projectPath={projectPath} />
             <TitleBar title="Service Class" subtitle="Edit Service Class" />
             <ViewContent padding>
                 {!serviceClassModel &&

@@ -25,7 +25,9 @@ import {
     QueryExprConnectorNode,
     LinkConnectorNode,
     QueryOutputNode,
-    SubMappingNode
+    SubMappingNode,
+    ClauseConnectorNode,
+    ConvertibleOutputNode
 } from "../Node";
 import { IO_NODE_DEFAULT_WIDTH } from "../utils/constants";
 import { DataMapperLinkModel } from "../Link";
@@ -39,12 +41,14 @@ export const OUTPUT_NODES = [
     ObjectOutputNode,
     ArrayOutputNode,
     PrimitiveOutputNode,
-    QueryOutputNode
+    QueryOutputNode,
+    ConvertibleOutputNode
 ];
 
 export const INTERMEDIATE_NODES = [
     LinkConnectorNode,
-    QueryExprConnectorNode
+    QueryExprConnectorNode,
+    ClauseConnectorNode
 ];
 
 export const MIN_VISIBLE_HEIGHT = 68;

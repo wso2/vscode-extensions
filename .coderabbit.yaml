@@ -1,0 +1,12 @@
+# CodeRabbit configuration - https://docs.coderabbit.ai/getting-started/yaml-configuration
+# Repo config overrides org-level settings. Explicitly list all branches to review
+# so main stays covered while adding feature/*, release/* and hotfix/* 
+language: "en-US"
+reviews:
+  auto_review:
+    enabled: true
+    base_branches:
+      - "main"
+      - "feature/.*"
+      - "release/.*"
+      - "hotfix/.*"

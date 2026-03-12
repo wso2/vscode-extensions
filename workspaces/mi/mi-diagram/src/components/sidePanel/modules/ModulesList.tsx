@@ -161,8 +161,7 @@ export function Modules(props: ModuleProps) {
             .filter(([_, values]: [string, any]) =>
                 !localConnectors ||
                 !localConnectors.some((c: any) =>
-                    ((c.displayName ? c.displayName === values.connectorName : c.name.toLowerCase() === values.connectorName.toLowerCase())) &&
-                    (c.version === values.version.tagName)
+                    ((c.displayName ? c.displayName === values.connectorName : c.name.toLowerCase() === values.connectorName.toLowerCase()))
                 )
             )
             .sort(([, a], [, b]) => a.connectorRank - b.connectorRank);
