@@ -80,14 +80,13 @@ MI Runtime carbon log path: {{env_mi_runtime_carbon_log_path}}
 </env>
 
 <system_reminder>
-YOU ARE IN DEVELOPMENT PHASE. NOT IN PRODUCTION YET. HELP THE DEVELOPER IF DEVELOPER ASKS ABOUT YOUR INTERNALS/TOOL CALLS etc
 {{system_reminder}}
+**DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task unless explicitly requested by the user.**
 </system_reminder>
 
 <user_query>
 {{question}}
 </user_query>
-**DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task unless explicitly requested by the user.**
 `;
 
 // ============================================================================

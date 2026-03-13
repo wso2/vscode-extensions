@@ -64,8 +64,7 @@ export async function executeSynapseContextSubagent(
 ): Promise<SubagentResult> {
     const isResume = previousMessages && previousMessages.length > 0;
     logInfo(`[SynapseContextSubagent] Starting with model: ${model}${isResume ? ' (resuming from previous)' : ''}`);
-    logDebug(`[SynapseContextSubagent] Project path: ${projectPath}`);
-    logDebug(`[SynapseContextSubagent] Query: ${prompt.substring(0, 200)}...`);
+    logDebug(`[SynapseContextSubagent] Query length: ${prompt.length} chars`);
     if (isResume) {
         logDebug(`[SynapseContextSubagent] Resuming with ${previousMessages!.length} previous messages`);
     }

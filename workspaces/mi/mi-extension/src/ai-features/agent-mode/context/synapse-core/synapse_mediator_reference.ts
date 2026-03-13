@@ -150,15 +150,15 @@ Controls what payload is sent to the endpoint.
 - Clone is always \`false\` for call source
 
 ### Target Element (optional)
-Controls where the response is stored.
+Controls where the response is stored. When no target is configured, the response replaces the current message body.
 
 | Attribute | Values | Notes |
 |-----------|--------|-------|
-| \`type\` | \`body\`, \`property\`, \`variable\` | Default: \`custom\` |
+| \`type\` | \`body\`, \`property\`, \`variable\` | Default: \`body\` |
 
+- \`body\`: response replaces current body (default)
 - \`property\`: text content = property name
 - \`variable\`: text content = variable name
-- \`body\`: response replaces current body
 - Action is always \`replace\`
 
 ### Source + Target Interaction
@@ -231,8 +231,11 @@ Sets or removes HTTP transport headers or SOAP headers.
 <!-- Expression-based value -->
 <header name="X-Correlation-ID" expression="\${vars.correlationId}" scope="transport"/>
 
-<!-- Value parsed as XML (type="OM") -->
-<header name="ns:ComplexHeader" value="<data>value</data>" scope="default" type="OM"
+<!-- Value parsed as XML (type="OM") — store XML in a property, then reference it -->
+<property name="complexHeaderXml" scope="default" type="OM">
+  <data xmlns="">value</data>
+</property>
+<header name="ns:ComplexHeader" expression="\${get-property('complexHeaderXml')}" scope="default"
         xmlns:ns="http://example.com/ns"/>
 \`\`\`
 
