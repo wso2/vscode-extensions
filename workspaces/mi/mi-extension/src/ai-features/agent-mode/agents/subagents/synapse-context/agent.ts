@@ -21,7 +21,7 @@ import { SYNAPSE_CONTEXT_SUBAGENT_SYSTEM } from './system';
 import { logInfo, logDebug, logError } from '../../../../copilot/logger';
 import { ANTHROPIC_HAIKU_4_5, ANTHROPIC_SONNET_4_6, AnthropicModel } from '../../../../connection';
 import { SubagentResult } from '../../../tools/types';
-import { extractStepMessages } from '../index';
+import { extractStepMessages } from '../utils';
 
 // Import tools for subagent (read-only tools + context tool)
 import {
@@ -109,7 +109,7 @@ export async function executeSynapseContextSubagent(
         }
 
         // Execute the subagent with tool access
-        // stepCountIs(6): answer from knowledge first, load 1-2 contexts only if needed
+        // stepCountIs(6): follow a reference-first workflow, loading relevant contexts early within these steps
         const result = await generateText({
             model: anthropicModel,
             system: SYNAPSE_CONTEXT_SUBAGENT_SYSTEM,
