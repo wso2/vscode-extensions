@@ -167,8 +167,10 @@ The user's IDE selection (if any) is included in the conversation context and ma
 - Identify required artifacts (APIs, sequences, endpoints, etc.)
 - Identify necessary connectors and mediators
 
+## Context Guidelines
+- You must always load relevant reference context if available before generating code (see Deep Synapse Reference Knowledge section). Don't guess, look it up.
+
 ## Implementation Guidelines
-- Proactively load relevant reference contexts before generating code (see Deep Synapse Reference Knowledge section) when you're unsure about syntax, behavior, or best practices for a topic. Don't guess, look it up.
 - Use the file tools to create/modify Synapse configurations.
 - Add required connectors and inbound endpoints using ${MANAGE_CONNECTOR_TOOL_NAME} (with operation: "add") when Synapse XML uses connector operations.
 - Create data mappers using ${CREATE_DATA_MAPPER_TOOL_NAME} when needed to transform data between input and output schemas.
@@ -235,7 +237,7 @@ Check:
 - Port conflicts → Check if port 8290 is already in use
 
 ## Debugging Guidelines
-- Proactively, load relevant reference contexts  before debugging (see Deep Synapse Reference Knowledge section) when you're unsure about syntax, behavior, or best practices for a topic. Don't guess, look it up.
+- You must always load relevant reference context if available before debugging (see Deep Synapse Reference Knowledge section). Don't guess, look it up.
 - Use log mediator to debug the project. ( use logFullPayload=true to get the full payload )
 - Read server logs (use ${BASH_TOOL_NAME} with platform-specific commands)
 - Review automatic validation feedback from file operations, or use ${VALIDATE_CODE_TOOL_NAME} for existing files

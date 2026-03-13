@@ -378,7 +378,9 @@ export function createSubagentExecute(
                 return {
                     success: true,
                     message: result.text,
-                    subagentId, // Always return subagent ID for tracking
+                    // Note: subagentId is intentionally NOT returned for foreground subagents.
+                    // The result is already inline above. Returning the ID would mislead the
+                    // agent into calling task_output on it, which only works for background tasks.
                 };
             } catch (error: any) {
                 logError(`[SubagentTool] ${subagent_type} subagent failed`, error);
@@ -430,7 +432,8 @@ export function createSubagentTool(execute: SubagentToolExecuteFn) {
             - Explore: Uses grep/glob/file_read to search and understand code, then returns a summary.
             - SynapseContext: Loads deep Synapse reference documentation (expressions, mediators, endpoints, properties, SOAP, payload patterns, edge cases) via load_context_reference and cross-references them to answer technical questions with XML examples.
             Supports background execution (run_in_background=true) and resuming previous subagents (resume=subagentId).
-            Background executions return task IDs compatible with ${TASK_OUTPUT_TOOL_NAME} and ${KILL_TASK_TOOL_NAME} (same pattern as background shell tasks).`,
+            Foreground (default): blocks until done and returns the result directly — do NOT call ${TASK_OUTPUT_TOOL_NAME} on it.
+            Background (run_in_background=true): returns a task ID immediately. Use ${TASK_OUTPUT_TOOL_NAME} to poll results or ${KILL_TASK_TOOL_NAME} to terminate.`,
         inputSchema: subagentInputSchema,
         execute
     });
