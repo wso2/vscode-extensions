@@ -41,7 +41,8 @@ import {
     NodeKind,
     EditorConfig,
     InputType,
-    getPrimaryInputType
+    getPrimaryInputType,
+    NodeProperties
 } from "@wso2/ballerina-core";
 import {
     FieldDerivation,
@@ -269,7 +270,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         );
         const isDataMapperCreationNode = node && node.codedata.node === "DATA_MAPPER_CREATION";
         const isFunctionCreationNode = node && node.codedata.node === "FUNCTION_CREATION";
-        
+
         return isAgentNode || isDataMapperCreationNode || isFunctionCreationNode;
     }, [node]);
 
@@ -533,7 +534,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         await rpcClient.getVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: context });
     };
 
-    const handleOpenTypeEditor = (isOpen: boolean, f: FormValues, editingField?: FormField) => {
+    const handleOpenTypeEditor = (isOpen: boolean, f: FormValues, editingField?: FormField, newType?: string | NodeProperties) => {
         // Get f.value and assign that value to field value
         const updatedFields = fields.map((field) => {
             const updatedField = { ...field };
@@ -543,7 +544,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             return updatedField;
         });
         setBaseFields(updatedFields);
-        setTypeEditorState({ isOpen, fieldKey: editingField?.key, newTypeValue: f[editingField?.key] });
+        const newTypeValue = typeof newType === 'string' ? newType : f[editingField?.key];
+        setTypeEditorState({ isOpen, fieldKey: editingField?.key, newTypeValue });
     };
 
     const handleTypeEditorStateChange = (state: boolean) => {
@@ -1363,18 +1365,58 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
     // handle fork node form
     if (node?.codedata.node === "FORK") {
         return (
-            <ForkForm
-                fileName={fileName}
-                node={node}
-                targetLineRange={targetLineRange}
-                expressionEditor={expressionEditor}
-                showProgressIndicator={showProgressIndicator}
-                onSubmit={onSubmit}
-                openSubPanel={openSubPanel}
-                updatedExpressionField={updatedExpressionField}
-                resetUpdatedExpressionField={resetUpdatedExpressionField}
-                subPanelView={subPanelView}
-            />
+            <EditorContext.Provider value={{ stack, push: pushTypeStack, pop: popTypeStack, peek: peekTypeStack, replaceTop: replaceTop }}>
+                <ForkForm
+                    fileName={fileName}
+                    node={node}
+                    targetLineRange={targetLineRange}
+                    openRecordEditor={handleOpenTypeEditor}
+                    expressionEditor={expressionEditor}
+                    showProgressIndicator={showProgressIndicator}
+                    onSubmit={onSubmit}
+                    openSubPanel={openSubPanel}
+                    updatedExpressionField={updatedExpressionField}
+                    resetUpdatedExpressionField={resetUpdatedExpressionField}
+                    subPanelView={subPanelView}
+                />
+                {
+                    stack.map((item, i) => <DynamicModal
+                        key={i}
+                        width={420}
+                        height={600}
+                        anchorRef={undefined}
+                        title="Create New Type"
+                        openState={typeEditorState.isOpen}
+                        setOpenState={handleTypeEditorStateChange}>
+                        {stack.slice(0, i + 1).length > 1 && (
+                            <BreadcrumbContainer>
+                                {stack.slice(0, i + 1).map((stackItem, index) => (
+                                    <React.Fragment key={index}>
+                                        {index > 0 && <BreadcrumbSeparator>/</BreadcrumbSeparator>}
+                                        <BreadcrumbItem>
+                                            {stackItem?.type?.name || "New Type"}
+                                        </BreadcrumbItem>
+                                    </React.Fragment>
+                                ))}
+                            </BreadcrumbContainer>
+                        )}
+                        <div style={{ height: '560px', overflow: 'auto' }}>
+                            <FormTypeEditor
+                                type={peekTypeStack()?.type}
+                                newType={peekTypeStack() ? peekTypeStack().isDirty : false}
+                                newTypeValue={typeEditorState.newTypeValue}
+                                isGraphql={isGraphql}
+                                onTypeChange={onTypeChange}
+                                onSaveType={onSaveType}
+                                onTypeCreate={() => { }}
+                                isPopupTypeForm={true}
+                                getNewTypeCreateForm={getNewTypeCreateForm}
+                                refetchTypes={refetchStates[i]}
+                            />
+                        </div>
+                    </DynamicModal>)
+                }
+            </EditorContext.Provider>
         );
     }
 
