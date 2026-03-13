@@ -407,7 +407,7 @@ function calculateTodoStatus(todos: TodoItem[]): 'active' | 'completed' | 'pendi
  * Footer component containing chat input and controls
  */
 const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) => {
-    const SHOW_THINKING_TOGGLE = true;
+    const SHOW_THINKING_TOGGLE = false;
     const {
         rpcClient,
         messages,
