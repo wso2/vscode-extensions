@@ -37,14 +37,14 @@ export const NoContextView: FC<Props> = ({ loading }) => {
 		<>
 			{loading && <ProgressIndicator />}
 			<div className="flex w-full flex-col gap-[10px] px-6 py-2">
-				<p>Choreo project/component directories are not detected within the current workspace.</p>
+				<p>WSO2 Developer Platform project/component directories are not detected within the current workspace.</p>
 				<p>Create a new component.</p>
 				<Button
 					className="w-full max-w-80 self-center sm:self-start"
 					onClick={() =>
 						ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.CreateNewComponent, { extName: "Choreo" } as ICreateComponentCmdParams)
 					}
-					title="Create a Choreo component linked to your local directory. Build and deploy it to the cloud effortlessly."
+					title="Create a WSO2 Developer Platform component linked to your local directory. Build and deploy it to the cloud effortlessly."
 				>
 					Create Component
 				</Button>
