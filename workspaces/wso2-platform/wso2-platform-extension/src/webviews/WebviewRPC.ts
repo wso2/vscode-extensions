@@ -577,7 +577,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 
 		await window.withProgress({ title: "Pushing the changes to your remote repository...", location: ProgressLocation.Notification }, async () => {
 			await repo.add(["."]);
-			await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
+			await repo.commit(`Add source for new ${ext.terminologies?.cloudName} ${ext.terminologies?.componentTerm} (${params.componentName})`);
 			const headRef = await repo.getHEADRef();
 			await repo.push(headRef?.upstream?.remote || "origin", headRef?.name || params.repo.branch);
 		});

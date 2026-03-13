@@ -258,7 +258,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 	onComponentSelectionChange,
 }) => {
 	const [compDetailsSections] = useAutoAnimate();
-	const { extensionName } = useExtWebviewContext();
+	const { extensionName, terminologies } = useExtWebviewContext();
 
 	// Extract workspace name from rootDirectory path
 	const workspaceName = rootDirectory ? rootDirectory.split(/[/\\]/).filter(Boolean).pop() || "" : "";
@@ -449,11 +449,11 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 	if (!invalidRepoMsg && repoUrl && !isRepoAuthorizedResp?.isAccessible && provider) {
 		if (provider === GitProvider.GITHUB) {
 			if (isRepoAuthorizedResp?.retrievedRepos) {
-				invalidRepoMsg = <span>{extensionName} lacks access to the selected repository.</span>;
+				invalidRepoMsg = <span>{terminologies.cloudName} lacks access to the selected repository.</span>;
 				invalidRepoAction = "Grant Access";
 				onInvalidRepoActionClick = () => ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString());
 			} else {
-				invalidRepoMsg = `Please authorize ${extensionName} to access your GitHub repositories.`;
+				invalidRepoMsg = `Please authorize ${terminologies.cloudName} to access your GitHub repositories.`;
 				invalidRepoAction = "Authorize";
 				onInvalidRepoActionClick = () => ChoreoWebViewAPI.getInstance().triggerGithubAuthFlow(organization.id?.toString());
 				invalidRepoBannerType = "info";
@@ -528,7 +528,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 						key="gen-details-name"
 						required
 						name="name"
-						placeholder={extensionName === "Devant" ? "integration-name" : "component-name"}
+						placeholder={`${terminologies?.componentTerm}-name`}
 						control={form.control}
 						wrapClassName="col-span-full"
 					/>
