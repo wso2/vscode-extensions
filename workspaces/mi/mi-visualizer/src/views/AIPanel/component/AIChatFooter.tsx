@@ -38,7 +38,7 @@ function getThinkingPreferenceStorageKey(mode: AgentMode): string {
 }
 
 function getDefaultThinkingEnabled(mode: AgentMode): boolean {
-    return true;
+    return false;
 }
 
 function getThinkingPreferenceForMode(mode: AgentMode): boolean {
@@ -407,7 +407,7 @@ function calculateTodoStatus(todos: TodoItem[]): 'active' | 'completed' | 'pendi
  * Footer component containing chat input and controls
  */
 const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) => {
-    const SHOW_THINKING_TOGGLE = false;
+    const SHOW_THINKING_TOGGLE = true;
     const {
         rpcClient,
         messages,
@@ -1327,7 +1327,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 mode: agentMode,
                 files,
                 images,
-                thinking: true,
+                thinking: isThinkingEnabled,
                 webAccessPreapproved: isWebAccessEnabled,
                 chatHistory: chatHistory
             });
