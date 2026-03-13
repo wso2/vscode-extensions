@@ -161,7 +161,7 @@ export interface CreateLocalConnectionsConfigReq {
 	componentDir: string;
 	name: string;
 	visibility: string;
-	marketplaceItem: MarketplaceItem;
+	marketplaceItem?: MarketplaceItem;
 }
 
 export interface DeleteLocalConnectionsConfigReq {

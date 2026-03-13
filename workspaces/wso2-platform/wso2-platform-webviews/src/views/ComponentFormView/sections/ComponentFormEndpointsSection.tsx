@@ -113,7 +113,7 @@ const ComponentEndpointItem: FC<ComponentEndpointItemProps> = ({
 	directoryUriPath,
 }) => {
 	const [endpointListItemRef] = useAutoAnimate();
-	const { extensionName } = useExtWebviewContext();
+	const { extensionName, terminologies } = useExtWebviewContext();
 
 	const { createNewOpenApiFile } = useCreateNewOpenApiFile({
 		directoryFsPath,
@@ -150,7 +150,7 @@ const ComponentEndpointItem: FC<ComponentEndpointItemProps> = ({
 			required
 			key="ep-name"
 			name={`endpoints.${index}.name`}
-			placeholder={extensionName === "Devant" ? "integration-name" : "component-name"}
+			placeholder={`${terminologies?.componentTerm}-name`}
 			control={form.control}
 			wrapClassName="col-span-2"
 		/>,

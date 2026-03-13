@@ -17,9 +17,9 @@
  */
 import React from "react";
 
-export const AzureOpenAiIcon = () => {
+export const AzureOpenAiIcon = ({ size = 24 }: { size?: number }) => {
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 128 128">
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 128 128">
             <defs>
                 <linearGradient
                     id="deviconAzure0"
