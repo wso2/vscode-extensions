@@ -40,4 +40,19 @@ export const CommandIds = {
 	// TODO: add command & code lens to delete dependency
 };
 
+export const WICommandIds = {
+	SignIn: "wso2.integrator.cloud.auth.signIn",
+	SignOut: "wso2.integrator.cloud.auth.signOut",
+	CancelSignIn: "wso2.integrator.cloud.auth.cancelSignIn",
+	CreateNewComponent: "wso2.integrator.cloud.integration.create",
+	DeleteComponent: "wso2.integrator.cloud.integration.delete",
+	OpenInConsole: "wso2.integrator.cloud.integration.openInConsole",
+	CloneProject: "wso2.integrator.cloud.project.clone",
+	CreateDirectoryContext: "wso2.integrator.cloud.project.createContext",
+	ManageDirectoryContext: "wso2.integrator.cloud.project.manageContext",
+	RefreshDirectoryContext: "wso2.integrator.cloud.project.refresh",
+	OpenCompSrcDir: "wso2.integrator.cloud.integration.open.src",
+	CommitAndPushToGit: "wso2.integrator.cloud.integration.push-to-git",
+};
+
 export const WebAppSPATypes = [ChoreoBuildPackNames.React, ChoreoBuildPackNames.Vue, ChoreoBuildPackNames.Angular];
