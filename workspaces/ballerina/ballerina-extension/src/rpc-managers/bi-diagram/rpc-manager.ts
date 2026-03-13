@@ -171,7 +171,8 @@ import { BreakpointManager } from "../../features/debugger/breakpoint-manager";
 import { StateMachine, updateView } from "../../stateMachine";
 import { getAccessToken, getLoginMethod } from "../../utils/ai/auth";
 import { getCompleteSuggestions } from '../../utils/ai/completions';
-import { README_FILE, addProjectToExistingWorkspace, convertProjectToWorkspace, createBIAutomation, createBIFunction, createBIProjectPure, createBIWorkspace, deleteProjectFromWorkspace, openInVSCode, validateProjectPath } from "../../utils/bi";
+import { README_FILE, addProjectToExistingWorkspace, convertProjectToWorkspace, createBIAutomation, createBIFunction, createBIProjectPure, createBIWorkspaceWithProject,
+    createEmptyBIWorkspace, deleteProjectFromWorkspace, openInVSCode, validateProjectPath } from "../../utils/bi";
 import { writeBallerinaFileDidOpen } from "../../utils/modification";
 import { updateSourceCode } from "../../utils/source-utils";
 import { getView } from "../../utils/state-machine-utils";
@@ -641,8 +642,13 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
 
     async createProject(params: ProjectRequest): Promise<void> {
         if (params.createAsWorkspace) {
-            const workspaceRoot = createBIWorkspace(params);
-            openInVSCode(workspaceRoot);
+            if (params.projectName) {
+                const workspaceRoot = await createBIWorkspaceWithProject(params);
+                openInVSCode(workspaceRoot);
+            } else {
+                const workspaceRoot = await createEmptyBIWorkspace(params);
+                openInVSCode(workspaceRoot);
+            }
         } else {
             const projectRoot = createBIProjectPure(params);
             openInVSCode(projectRoot);
@@ -971,7 +977,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             const projectPath = StateMachine.context().projectPath;
             const showLibraryConfigVariables = extension.ballerinaExtInstance.showLibraryConfigVariables();
 
-            // if params includeLibraries is not set, then use settings 
+            // if params includeLibraries is not set, then use settings
             const includeLibraries = params?.includeLibraries !== undefined
                 ? params.includeLibraries
                 : showLibraryConfigVariables !== false;
