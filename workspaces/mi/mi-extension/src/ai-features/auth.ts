@@ -34,12 +34,13 @@ import * as vscode from 'vscode';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { generateText } from 'ai';
-import { CommandIds as PlatformExtCommandIds, IWso2PlatformExtensionAPI } from '@wso2/wso2-platform-core';
+import { WICommandIds, IWso2PlatformExtensionAPI } from '@wso2/wso2-platform-core';
 import { logInfo, logWarn, logError } from './copilot/logger';
+import { checkForWso2IntegratorExt } from '../extension';
 
 export const TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = 'Access token is not available.';
 export const STS_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = 'Failed to get STS token from platform extension';
-export const PLATFORM_EXTENSION_ID = 'wso2.wso2-platform';
+export const WSO2_INTEGRATOR_EXTENSION_ID = 'wso2.wso2-integrator';
 export const TOKEN_REFRESH_ONLY_SUPPORTED_FOR_MI_INTEL = 'Token refresh is only supported for MI Intelligence authentication';
 export const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5';
 
@@ -137,11 +138,11 @@ export const getCopilotTokenExchangeUrl = (): string | undefined => {
  * Check if the WSO2 Platform extension is installed.
  */
 export const isPlatformExtensionAvailable = (): boolean => {
-    return !!vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
+    return !!vscode.extensions.getExtension(WSO2_INTEGRATOR_EXTENSION_ID);
 };
 
 export const getPlatformExtensionAPI = async (): Promise<IWso2PlatformExtensionAPI | undefined> => {
-    const platformExt = vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
+    const platformExt = vscode.extensions.getExtension(WSO2_INTEGRATOR_EXTENSION_ID);
     if (!platformExt) {
         return undefined;
     }
@@ -465,11 +466,11 @@ export const checkToken = async (): Promise<{ token: string; loginMethod: LoginM
  * Initiate Devant login via platform extension command.
  */
 export async function initiateDevantAuth(): Promise<boolean> {
-    if (!isPlatformExtensionAvailable()) {
+    if (!checkForWso2IntegratorExt()) {
         throw new Error('The WSO2 Platform extension is not installed. Please install it to use MI Copilot login.');
     }
 
-    await vscode.commands.executeCommand(PlatformExtCommandIds.SignIn);
+    await vscode.commands.executeCommand(WICommandIds.SignIn);
     return true;
 }
 

@@ -18,8 +18,8 @@
 import { URLSearchParams } from "url";
 import { window, Uri, ProviderResult, commands } from "vscode";
 import { COMMANDS } from "./constants";
-import { checkForDevantExt } from "./extension";
-import { IOpenCompSrcCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
+import { checkForWso2IntegratorExt } from "./extension";
+import { IOpenCompSrcCmdParams, WICommandIds } from "@wso2/wso2-platform-core";
 
 export function activateUriHandlers() {
     window.registerUriHandler({
@@ -31,7 +31,7 @@ export function activateUriHandlers() {
                     console.log("Legacy /signin route called - MI Copilot authentication now uses Devant platform extension.");
                     break;
                 case '/open':
-                    if(!checkForDevantExt()) {
+                    if(!checkForWso2IntegratorExt()) {
                         return;
                     }
                     const org = urlParams.get("org");
@@ -42,7 +42,7 @@ export function activateUriHandlers() {
                     const integrationDisplayType = urlParams.get("integrationDisplayType");
                     window.showInformationMessage('Opening component');
                     if (org && project && component && technology && integrationType) {
-                        commands.executeCommand(PlatformExtCommandIds.OpenCompSrcDir, {
+                        commands.executeCommand(WICommandIds.OpenCompSrcDir, {
                             org, project, component, technology, integrationType, integrationDisplayType, extName: "Devant"
                         } as IOpenCompSrcCmdParams);
                     } else {

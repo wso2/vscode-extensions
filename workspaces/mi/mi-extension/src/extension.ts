@@ -36,6 +36,7 @@ import path from 'path';
 import { COMMANDS } from './constants';
 import { enableLS } from './util/workspace';
 import { disposeMIAgentPanelRpcManager } from './rpc-managers/agent-mode/rpc-handler';
+import { WSO2_INTEGRATOR_EXTENSION_ID } from './ai-features/auth';
 const os = require('os');
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -117,10 +118,14 @@ export async function deactivate(): Promise<void> {
 	}
 }
 
-export function checkForDevantExt() {
-	const wso2PlatformExtension = extensions.getExtension('wso2.wso2-platform');
+export function checkForWso2IntegratorExt() {
+	const wso2PlatformExtension = extensions.getExtension(WSO2_INTEGRATOR_EXTENSION_ID);
 	if (!wso2PlatformExtension) {
-		vscode.window.showErrorMessage('The WSO2 Platform extension is not installed. Please install it to proceed.');
+		vscode.window.showErrorMessage('The WSO2 Integrator extension is not installed. Please install it to proceed.', "Install WSO2 Integrator").then(selection => {
+			if (selection === "Install WSO2 Integrator") {
+				vscode.commands.executeCommand(COMMANDS.INSTALL_EXTENSION_COMMAND, WSO2_INTEGRATOR_EXTENSION_ID);
+			}
+		});
 		return false;
 	}
 	return true;
