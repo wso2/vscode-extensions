@@ -5,6 +5,11 @@ export interface ICmdParamsBase {
 	extName?: ExtensionName;
 }
 
+export interface ICreateDirCtxCmdParams extends ICmdParamsBase {
+	skipComponentExistCheck?: boolean;
+	fsPath?: string;
+}
+
 export interface ICloneProjectCmdParams extends ICmdParamsBase {
 	organization: Organization;
 	project: Project;
@@ -15,7 +20,7 @@ export interface ICloneProjectCmdParams extends ICmdParamsBase {
 	integrationDisplayType: string;
 }
 
-export interface ICommitAndPuhCmdParams extends ICmdParamsBase {
+export interface ICommitAndPushCmdParams extends ICmdParamsBase {
 	componentPath: string;
 }
 
@@ -31,6 +36,8 @@ export interface ICreateComponentCmdParams extends ICmdParamsBase {
 	name?: string;
 	/** Full path of the component directory */
 	componentDir?: string;
+	/** Available integration types for this component (for multi-type selection in UI) */
+	supportedIntegrationTypes?: DevantScopes[];
 }
 
 export interface IDeleteComponentCmdParams extends ICmdParamsBase {

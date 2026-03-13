@@ -47,6 +47,7 @@ export interface AuthState {
 export interface WebviewState {
 	extensionName: ExtensionName;
 	choreoEnv: string;
+	terminologies?: WSO2Terminologies;
 	openedComponentKey: string;
 	componentViews: {
 		[componentKey: string]: {
@@ -55,6 +56,14 @@ export interface WebviewState {
 			drawerParams?: any;
 		};
 	};
+}
+
+export interface WSO2Terminologies {
+	cloudName: string;
+	componentTerm: string;
+	componentTermPlural: string;
+	componentTermCapitalized: string;
+	articleComponentTerm: string;
 }
 
 export interface ContextItem {
