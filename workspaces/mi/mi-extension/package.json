@@ -365,13 +365,13 @@
       {
         "command": "MI.project-explorer.open-service-designer",
         "title": "Open Service Designer",
-        "icon": "$(distro-design-view)",
+        "icon": "$(mi-design-view)",
         "when": "false"
       },
       {
         "command": "MI.show.graphical-view",
         "title": "Open Graphical View",
-        "icon": "$(distro-design-view)"
+        "icon": "$(mi-design-view)"
       },
       {
         "command": "MI.project-explorer.add-endpoint",
@@ -481,7 +481,7 @@
       {
         "command": "MI.project-explorer.open-dss-service-designer",
         "title": "Open Service Designer",
-        "icon": "$(distro-design-view)",
+        "icon": "$(mi-design-view)",
         "when": "false"
       },
       {
@@ -543,7 +543,7 @@
       {
         "command": "MI.build-bal-module",
         "title": "Build Ballerina Module",
-        "icon": "$(distro-build-package)",
+        "icon": "$(mi-build-package)",
         "category": "MI"
       },
       {
@@ -555,7 +555,7 @@
       {
         "command": "MI.test.edit.suite",
         "title": "Edit test suite",
-        "icon": "$(distro-design-view)",
+        "icon": "$(mi-design-view)",
         "category": "MI"
       },
       {
@@ -567,7 +567,7 @@
       {
         "command": "MI.test.edit.case",
         "title": "Edit test case",
-        "icon": "$(distro-design-view)",
+        "icon": "$(mi-design-view)",
         "category": "MI"
       },
       {
@@ -579,7 +579,7 @@
       {
         "command": "MI.test.edit.mock-service",
         "title": "Edit mock service",
-        "icon": "$(distro-design-view)",
+        "icon": "$(mi-design-view)",
         "category": "MI"
       },
       {
@@ -996,14 +996,14 @@
       "testing/message/context": []
     },
     "icons": {
-      "distro-design-view": {
+      "mi-design-view": {
         "description": "design-view",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f177"
+          "fontCharacter": "\\f1bb"
         }
       },
-      "distro-build-package": {
+      "mi-build-package": {
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
