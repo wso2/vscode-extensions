@@ -16,12 +16,11 @@
  * under the License.
  */
 
-import { ChoreoBuildPackNames, CommandIds, type IOpenCompSrcCmdParams, type Organization, type Project } from "@wso2/wso2-platform-core";
+import { CommandIds, type IOpenCompSrcCmdParams, type Organization, type Project } from "@wso2/wso2-platform-core";
 import { type ExtensionContext, ProgressLocation, commands, window } from "vscode";
 import { ext } from "../extensionVariables";
 import { waitForContextStoreToLoad } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
-import { webviewStateStore } from "../stores/webview-state-store";
 import { cloneOrOpenDir } from "../uri-handlers";
 import { getUserInfoForCmd, isRpcActive, selectOrg, selectProject, setExtensionName } from "./cmd-utils";
 
