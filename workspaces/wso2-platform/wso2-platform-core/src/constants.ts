@@ -23,7 +23,6 @@ export const CommandIds = {
 	SignInWithAuthCode: "wso2.wso2-platform.sign.in.with.authCode",
 	SignOut: "wso2.wso2-platform.sign.out",
 	CancelSignIn: "wso2.wso2-platform.cancel.sign.in",
-	AddComponent: "wso2.wso2-platform.add.component",
 	CreateNewComponent: "wso2.wso2-platform.create.component",
 	CreateMultipleNewComponents: "wso2.wso2-platform.create.multiple.components",
 	DeleteComponent: "wso2.wso2-platform.delete.component",
@@ -39,6 +38,22 @@ export const CommandIds = {
 	OpenCompSrcDir: "wso2.wso2-platform.open.component.src",
 	CommitAndPushToGit: "wso2.wso2-platform.push-to-git",
 	// TODO: add command & code lens to delete dependency
+};
+
+// todo: rename as WICloudCommandIds
+export const WICommandIds = {
+	SignIn: "wso2.integrator.cloud.auth.signIn",
+	SignOut: "wso2.integrator.cloud.auth.signOut",
+	CancelSignIn: "wso2.integrator.cloud.auth.cancelSignIn",
+	CreateNewComponent: "wso2.integrator.cloud.integration.create",
+	DeleteComponent: "wso2.integrator.cloud.integration.delete",
+	OpenInConsole: "wso2.integrator.cloud.integration.openInConsole",
+	CloneProject: "wso2.integrator.cloud.project.clone",
+	CreateDirectoryContext: "wso2.integrator.cloud.project.createContext",
+	ManageDirectoryContext: "wso2.integrator.cloud.project.manageContext",
+	RefreshDirectoryContext: "wso2.integrator.cloud.project.refresh",
+	OpenCompSrcDir: "wso2.integrator.cloud.integration.open.src",
+	CommitAndPushToGit: "wso2.integrator.cloud.integration.push-to-git",
 };
 
 export const WebAppSPATypes = [ChoreoBuildPackNames.React, ChoreoBuildPackNames.Vue, ChoreoBuildPackNames.Angular];

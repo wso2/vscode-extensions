@@ -56,26 +56,6 @@ import { updateContextFile } from "./create-directory-context-cmd";
 
 let componentWizard: ComponentFormView;
 
-// ============================================================================
-// Terminology Helpers - Centralize Devant vs Choreo naming differences
-// ============================================================================
-
-interface TerminologyContext {
-	readonly isDevant: boolean;
-	readonly componentTerm: string;
-	readonly componentTermCapitalized: string;
-	readonly articleComponentTerm: string;
-}
-
-function getTerminology(extName: ExtensionName | undefined): TerminologyContext {
-	const isDevant = extName === "Devant";
-	return {
-		isDevant,
-		componentTerm: isDevant ? "integration" : "component",
-		componentTermCapitalized: isDevant ? "Integration" : "Component",
-		articleComponentTerm: isDevant ? "an integration" : "a component",
-	};
-}
 
 // ============================================================================
 // Organization & Project Selection
@@ -86,7 +66,7 @@ interface OrgProjectSelection {
 	project: Project;
 }
 
-async function selectOrgAndProject(userInfo: UserInfo, terminology: TerminologyContext): Promise<OrgProjectSelection> {
+async function selectOrgAndProject(userInfo: UserInfo): Promise<OrgProjectSelection> {
 	await waitForContextStoreToLoad();
 	const selected = contextStore.getState().state.selected;
 
@@ -98,7 +78,7 @@ async function selectOrgAndProject(userInfo: UserInfo, terminology: TerminologyC
 	const createdProjectRes = await selectProjectWithCreateNew(
 		selectedOrg,
 		`Loading projects from '${selectedOrg.name}'`,
-		`Select the project from '${selectedOrg.name}', to create the ${terminology.componentTerm} in`,
+		`Select the project from '${selectedOrg.name}', to create the ${ext.terminologies?.componentTerm} in`,
 	);
 
 	return { org: selectedOrg, project: createdProjectRes.selectedProject };
@@ -172,22 +152,22 @@ function extractTypeFromParams(
 
 async function promptForComponentType(
 	componentTypes: string[],
-	terminology: TerminologyContext,
 ): Promise<ComponentTypeSelection | undefined> {
+	const extensionName = webviewStateStore.getState().state.extensionName;
 	const typeQuickPicks: (QuickPickItem & { value: string })[] = componentTypes.map((item) => ({
-		label: terminology.isDevant ? getIntegrationScopeText(item) : getComponentTypeText(item),
+		label: extensionName === "Devant" ? getIntegrationScopeText(item) : getComponentTypeText(item),
 		value: item,
 	}));
 
 	const selectedTypePick = await window.showQuickPick(typeQuickPicks, {
-		title: `Select ${terminology.componentTermCapitalized} Type`,
+		title: `Select ${ext.terminologies?.componentTermCapitalized} Type`,
 	});
 
 	if (!selectedTypePick?.value) {
 		return undefined;
 	}
 
-	if (terminology.isDevant) {
+	if (extensionName === "Devant") {
 		const intType = getTypeOfIntegrationType(selectedTypePick.value);
 		if (intType.type) {
 			return { type: intType.type, subType: intType.subType };
@@ -200,18 +180,17 @@ async function promptForComponentType(
 
 async function resolveComponentType(
 	params: ICreateComponentCmdParams,
-	terminology: TerminologyContext,
 ): Promise<ComponentTypeSelection> {
-	const componentTypes = getAvailableComponentTypes(terminology.isDevant);
+	const componentTypes = getAvailableComponentTypes(webviewStateStore.getState().state.extensionName === "Devant");
 
-	const typeFromParams = extractTypeFromParams(params, componentTypes, terminology.isDevant);
+	const typeFromParams = extractTypeFromParams(params, componentTypes, webviewStateStore.getState().state.extensionName === "Devant");
 	if (typeFromParams) {
 		return typeFromParams;
 	}
 
-	const selectedType = await promptForComponentType(componentTypes, terminology);
+	const selectedType = await promptForComponentType(componentTypes);
 	if (!selectedType) {
-		throw new Error(`${terminology.componentTermCapitalized} type is required`);
+		throw new Error(`${ext.terminologies?.componentTermCapitalized} type is required`);
 	}
 
 	return selectedType;
@@ -233,7 +212,6 @@ function getDefaultUri(): Uri {
 
 async function selectComponentDirectory(
 	params: ICreateComponentCmdParams,
-	terminology: TerminologyContext,
 ): Promise<Uri> {
 	if (params?.componentDir && existsSync(params.componentDir)) {
 		return Uri.parse(convertFsPathToUriPath(params.componentDir));
@@ -243,12 +221,12 @@ async function selectComponentDirectory(
 		canSelectFolders: true,
 		canSelectFiles: false,
 		canSelectMany: false,
-		title: `Select ${terminology.componentTerm} directory`,
+		title: `Select ${ext.terminologies?.componentTerm} directory`,
 		defaultUri: getDefaultUri(),
 	});
 
 	if (!selectedPaths || selectedPaths.length === 0) {
-		throw new Error(`${terminology.componentTermCapitalized} directory selection is required`);
+		throw new Error(`${ext.terminologies?.componentTermCapitalized} directory selection is required`);
 	}
 
 	return selectedPaths[0];
@@ -313,11 +291,10 @@ async function handleExistingComponent(
 	project: Project,
 	org: Organization,
 	gitRoot: string,
-	terminology: TerminologyContext,
 ): Promise<boolean> {
 	const message =
-		`${terminology.isDevant ? "An integration" : "A component"} for the selected directory already exists ` +
-		`within your project(${project.name}). Do you want to proceed and create another ${terminology.componentTerm}?`;
+		`${ext.terminologies?.componentTermCapitalized} for the selected directory already exists ` +
+		`within your project(${project.name}). Do you want to proceed and create another ${ext.terminologies?.componentTerm}?`;
 
 	const response = await window.showInformationMessage(message, { modal: true }, "Proceed");
 
@@ -374,11 +351,10 @@ function generateUniqueComponentName(
 async function fetchProjectComponents(
 	org: Organization,
 	project: Project,
-	terminology: TerminologyContext,
 ): Promise<ComponentKind[]> {
 	const components = await window.withProgress(
 		{
-			title: `Fetching ${terminology.isDevant ? "integrations" : "components"} of project ${project.name}...`,
+			title: `Fetching ${ext.terminologies?.componentTermPlural} of project ${project.name}...`,
 			location: ProgressLocation.Notification,
 		},
 		() =>
@@ -425,11 +401,10 @@ async function buildComponentConfigWithoutExistenceCheck(
 	context: ExtensionContext,
 	param: ICreateComponentCmdParams,
 	components: ComponentKind[],
-	terminology: TerminologyContext,
 	reservedNames: Set<string> = new Set(),
 ): Promise<ComponentConfig | null> {
-	const typeSelection = await resolveComponentType(param, terminology);
-	const selectedUri = await selectComponentDirectory(param, terminology);
+	const typeSelection = await resolveComponentType(param);
+	const selectedUri = await selectComponentDirectory(param);
 	const gitInfo = await getGitInfo(context, selectedUri.fsPath);
 
 	const baseName = param?.name || path.basename(selectedUri.fsPath) || typeSelection.type;
@@ -451,16 +426,15 @@ async function buildComponentConfig(
 	org: Organization,
 	project: Project,
 	components: ComponentKind[],
-	terminology: TerminologyContext,
 ): Promise<ComponentConfig | null> {
-	const typeSelection = await resolveComponentType(param, terminology);
-	const selectedUri = await selectComponentDirectory(param, terminology);
+	const typeSelection = await resolveComponentType(param);
+	const selectedUri = await selectComponentDirectory(param);
 	const gitInfo = await getGitInfo(context, selectedUri.fsPath);
 
 	if (gitInfo.root) {
 		const componentExists = await checkIfComponentExistsAtPath(components, gitInfo.root, selectedUri.fsPath);
 		if (componentExists) {
-			const shouldProceed = await handleExistingComponent(project, org, gitInfo.root, terminology);
+			const shouldProceed = await handleExistingComponent(project, org, gitInfo.root);
 			if (!shouldProceed) {
 				return null;
 			}
@@ -519,10 +493,9 @@ async function prepareComponentFormParams(
 	org: Organization,
 	project: Project,
 	components: ComponentKind[],
-	terminology: TerminologyContext
 ): Promise<PreparedComponentResult | null> {
 
-	const componentConfig = await buildComponentConfig(context, params, org, project, components, terminology);
+	const componentConfig = await buildComponentConfig(context, params, org, project, components);
 	if (!componentConfig) {
 		return null;
 	}
@@ -555,7 +528,6 @@ async function prepareComponentFormParamsBatch(
 	org: Organization,
 	project: Project,
 	components: ComponentKind[],
-	terminology: TerminologyContext,
 	rootDirectory: string,
 ): Promise<PreparedComponentResult | null> {
 	if (rootDirectory === "" || params?.length === 0) {
@@ -578,7 +550,7 @@ async function prepareComponentFormParamsBatch(
 
 	if (gitInfo.root) {
 		for (const param of params) {
-			const selectedUri = await selectComponentDirectory(param, terminology);
+			const selectedUri = await selectComponentDirectory(param);
 			const componentExists = await checkIfComponentExistsAtPath(components, gitInfo.root, selectedUri.fsPath);
 			
 			if (!componentExists) {
@@ -606,7 +578,6 @@ async function prepareComponentFormParamsBatch(
 			context, 
 			param, 
 			components, 
-			terminology,
 			reservedNames
 		);
 		if (!componentConfig) {
@@ -659,20 +630,18 @@ async function executeCreateComponentCommand(
 	params: ICreateComponentCmdParams,
 ): Promise<void> {
 	setExtensionName(params?.extName);
-	const extName = webviewStateStore.getState().state.extensionName;
-	const terminology = getTerminology(extName);
 
 	isRpcActive(ext);
 
-	const userInfo = await getUserInfoForCmd(`create ${terminology.articleComponentTerm}`);
+	const userInfo = await getUserInfoForCmd(`create ${ext.terminologies?.articleComponentTerm}`);
 	if (!userInfo) {
 		return;
 	}
 
-	const { org, project } = await selectOrgAndProject(userInfo, terminology);
-	const components = await fetchProjectComponents(org, project, terminology);
+	const { org, project } = await selectOrgAndProject(userInfo);
+	const components = await fetchProjectComponents(org, project);
 
-	const prepared = await prepareComponentFormParams(context, params, org, project, components, terminology);
+	const prepared = await prepareComponentFormParams(context, params, org, project, components);
 	if (!prepared) {
 		return;
 	}
@@ -692,11 +661,10 @@ async function executeCreateMultipleNewComponentsCommand(
 	// Use the first param's extName for setup
 	setExtensionName(params[0]?.extName);
 	const extName = webviewStateStore.getState().state.extensionName;
-	const terminology = getTerminology(extName);
 
 	isRpcActive(ext);
 
-	const userInfo = await getUserInfoForCmd(`create multiple ${terminology.componentTerm}s`);
+	const userInfo = await getUserInfoForCmd(`create multiple ${ext.terminologies?.componentTerm}s`);
 	if (!userInfo) {
 		return;
 	}
@@ -704,8 +672,8 @@ async function executeCreateMultipleNewComponentsCommand(
 	// Select org and project once for all components
 	const { org, project } = extName === "Devant"
 		? await selectOrgAndProjectForBatch(userInfo, rootDirectory)
-		: await selectOrgAndProject(userInfo, terminology);
-	const components = await fetchProjectComponents(org, project, terminology);
+		: await selectOrgAndProject(userInfo);
+	const components = await fetchProjectComponents(org, project);
 
 	// Prepare all components first, collecting form params
 	const preparedComponents = await prepareComponentFormParamsBatch(
@@ -714,7 +682,6 @@ async function executeCreateMultipleNewComponentsCommand(
 		org,
 		project,
 		components,
-		terminology,
 		rootDirectory
 	);
 	if (!preparedComponents) {
@@ -727,14 +694,12 @@ async function executeCreateMultipleNewComponentsCommand(
 export function createNewComponentCommand(context: ExtensionContext) {
 	context.subscriptions.push(
 		commands.registerCommand(CommandIds.CreateNewComponent, async (params: ICreateComponentCmdParams) => {
-			const extName = webviewStateStore.getState().state.extensionName;
-			const terminology = getTerminology(extName);
 
 			try {
 				await executeCreateComponentCommand(context, params);
 			} catch (err: any) {
-				console.error(`Failed to create ${terminology.componentTerm}`, err);
-				window.showErrorMessage(err?.message || `Failed to create ${terminology.componentTerm}`);
+				console.error(`Failed to create ${ext.terminologies?.componentTerm}`, err);
+				window.showErrorMessage(err?.message || `Failed to create ${ext.terminologies?.componentTerm}`);
 			}
 		}),
 	);
@@ -745,14 +710,12 @@ export function createMultipleNewComponentsCommand(context: ExtensionContext) {
 		commands.registerCommand(
 			CommandIds.CreateMultipleNewComponents,
 			async (params: ICreateComponentCmdParams[], rootDirectory: string) => {
-				const extName = webviewStateStore.getState().state.extensionName;
-				const terminology = getTerminology(extName);
 
 				try {
 					await executeCreateMultipleNewComponentsCommand(context, params, rootDirectory);
 				} catch (err: any) {
-					console.error(`Failed to create multiple ${terminology.componentTerm}s`, err);
-					window.showErrorMessage(err?.message || `Failed to create multiple ${terminology.componentTerm}s`);
+					console.error(`Failed to create multiple ${ext.terminologies?.componentTerm}s`, err);
+					window.showErrorMessage(err?.message || `Failed to create multiple ${ext.terminologies?.componentTerm}s`);
 				}
 			}
 		),
@@ -780,7 +743,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 	const extensionName = webviewStateStore.getState().state?.extensionName;
 	const createdComponent = await window.withProgress(
 		{
-			title: `Creating new ${extensionName === "Devant" ? "integration" : "component"} ${createParams.displayName}...`,
+			title: `Creating new ${ext.terminologies?.componentTerm} ${createParams.displayName}...`,
 			location: ProgressLocation.Notification,
 		},
 		() => ext.clients.rpcClient.createComponent(createParams),
@@ -869,7 +832,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 			showComponentDetailsView(org, project, createdComponent, createParams?.componentDir, undefined, true);
 		}
 
-		const successMessage = `${extensionName === "Devant" ? "Integration" : "Component"} '${createdComponent.metadata.name}' was successfully created.`;
+		const successMessage = `${ext.terminologies?.componentTermCapitalized} '${createdComponent.metadata.name}' was successfully created.`;
 
 		const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, createParams.componentDir));
 
@@ -918,10 +881,7 @@ export const submitBatchCreateComponentsHandler = async ({
 	components,
 }: SubmitBatchComponentCreateReq): Promise<SubmitBatchComponentCreateResp> => {
 	const extensionName = webviewStateStore.getState().state?.extensionName;
-	const terminology = getTerminology(extensionName);
 	const totalCount = components.length;
-	const componentTerm = terminology.isDevant ? "integration" : "component";
-	const componentTermPlural = `${componentTerm}s`;
 
 	const result: SubmitBatchComponentCreateResp = {
 		created: [],
@@ -933,8 +893,8 @@ export const submitBatchCreateComponentsHandler = async ({
 	await window.withProgress(
 		{
 			title: totalCount === 1
-				? `Creating ${componentTerm} '${components[0].createParams.displayName || components[0].createParams.name}'... `
-				: `Creating ${totalCount} ${componentTermPlural}... `,
+				? `Creating ${ext.terminologies?.componentTerm} '${components[0].createParams.displayName || components[0].createParams.name}'... `
+				: `Creating ${totalCount} ${ext.terminologies?.componentTermPlural}... `,
 			location: ProgressLocation.Notification,
 			cancellable: false,
 		},
@@ -966,7 +926,7 @@ export const submitBatchCreateComponentsHandler = async ({
 				} catch (error) {
 					const errorMessage = error instanceof Error ? error.message : String(error);
 					result.failed.push({ name: componentName, error: errorMessage });
-					getLogger().error(`Failed to create ${terminology.componentTerm} ${componentName}:`, error);
+					getLogger().error(`Failed to create ${ext.terminologies?.componentTerm} ${componentName}:`, error);
 				}
 			}
 		},
@@ -1007,7 +967,7 @@ export const submitBatchCreateComponentsHandler = async ({
 	if (failCount === 0) {
 		// All succeeded
 		window.showInformationMessage(
-			`Successfully created ${successCount} ${successCount === 1 ? terminology.componentTerm : componentTermPlural}.`,
+			`Successfully created ${successCount} ${successCount === 1 ? ext.terminologies?.componentTerm : ext.terminologies?.componentTermPlural}.`,
 			`Open in ${extensionName}`,
 		).then((resp) => {
 			if (resp === `Open in ${extensionName}`) {
@@ -1022,17 +982,17 @@ export const submitBatchCreateComponentsHandler = async ({
 	} else if (successCount === 0) {
 		// All failed
 		window.showErrorMessage(
-			`Failed to create all ${totalCount} ${componentTermPlural}. Check the output for details.`,
+			`Failed to create all ${totalCount} ${ext.terminologies?.componentTermPlural}. Check the output for details.`,
 		);
 	} else {
 		// Partial success
 		window.showWarningMessage(
-			`Created ${successCount} of ${totalCount} ${componentTermPlural}. ${failCount} failed.`,
+			`Created ${successCount} of ${totalCount} ${ext.terminologies?.componentTermPlural}. ${failCount} failed.`,
 			"View Details",
 		).then((resp) => {
 			if (resp === "View Details") {
 				const failedNames = result.failed.map((f) => `• ${f.name}: ${f.error}`).join("\n");
-				window.showErrorMessage(`Failed ${componentTermPlural}:\n${failedNames}`, { modal: true });
+				window.showErrorMessage(`Failed ${ext.terminologies?.componentTermPlural}:\n${failedNames}`, { modal: true });
 			}
 		});
 	}

@@ -28,6 +28,7 @@ import {
 	DeleteLocalConnectionsConfigReq,
 	type Endpoint,
 	type EndpointYamlContent,
+	MarketplaceItem,
 	type ReadLocalEndpointsConfigResp,
 	type ReadLocalProxyConfigResp,
 	deepEqual,
@@ -482,19 +483,22 @@ export const createConnectionConfig = async (params: CreateLocalConnectionsConfi
 	const componentYamlPath = join(params.componentDir, ".choreo", "component.yaml");
 
 	let resourceRef =  ``;
-	if(params.marketplaceItem?.isThirdParty){
+	if(params.marketplaceItem?.resourceType === "DATABASE"){
+		resourceRef = `database:${params.marketplaceItem?.name}/${params.marketplaceItem?.name}`;
+	} else if((params.marketplaceItem as MarketplaceItem)?.isThirdParty){
 		resourceRef = `thirdparty:${params.marketplaceItem?.name}/${params.marketplaceItem?.version}`;
-	}else{
+	} else{
+		const marketplaceItem = (params.marketplaceItem as MarketplaceItem);
 		let project = dataCacheStore
 			.getState()
 			.getProjects(org.handle)
-			?.find((item) => item.id === params.marketplaceItem?.projectId);
+			?.find((item) => item.id === marketplaceItem?.projectId);
 		if (!project) {
 			const projects = await window.withProgress(
 				{ title: `Fetching projects of organization ${org.name}...`, location: ProgressLocation.Notification },
 				() => ext.clients.rpcClient.getProjects(org.id.toString()),
 			);
-			project = projects?.find((item) => item.id === params.marketplaceItem?.projectId);
+			project = projects?.find((item) => item.id === marketplaceItem?.projectId);
 			if (!project) {
 				return "";
 			}
@@ -503,12 +507,11 @@ export const createConnectionConfig = async (params: CreateLocalConnectionsConfi
 		let component = dataCacheStore
 			.getState()
 			.getComponents(org.handle, project.handler)
-			?.find((item) => item.metadata?.id === params.marketplaceItem?.component?.componentId);
+			?.find((item) => item.metadata?.id === marketplaceItem?.component?.componentId);
 		if (!component) {
-			const extName = webviewStateStore.getState().state?.extensionName;
 			const components = await window.withProgress(
 				{
-					title: `Fetching ${extName === "Devant" ? "integrations" : "components"} of project ${project.name}...`,
+					title: `Fetching ${ext.terminologies?.componentTermCapitalized} of project ${project.name}...`,
 					location: ProgressLocation.Notification,
 				},
 				() =>
@@ -519,12 +522,12 @@ export const createConnectionConfig = async (params: CreateLocalConnectionsConfi
 						projectId: project?.id!,
 					}),
 			);
-			component = components?.find((item) => item.metadata?.id === params.marketplaceItem?.component?.componentId);
+			component = components?.find((item) => item.metadata?.id === marketplaceItem?.component?.componentId);
 			if(!component){
 				return ""
 			}
 		}
-		resourceRef = `service:/${project.handler}/${component?.metadata?.handler}/v1/${params?.marketplaceItem?.component?.endpointId}/${params.visibility}`;
+		resourceRef = `service:/${project.handler}/${component?.metadata?.handler}/v1/${marketplaceItem?.component?.endpointId}/${params.visibility}`;
 	}
 	if (existsSync(componentYamlPath)) {
 		const componentYamlFileContent: ComponentYamlContent = yaml.load(readFileSync(componentYamlPath, "utf8")) as any;

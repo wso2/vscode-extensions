@@ -61,13 +61,7 @@ export const installCLI = async () => {
 	const CHOREO_CLI_EXEC = getChoreoExecPath();
 
 	if (!fs.existsSync(CHOREO_CLI_EXEC)) {
-		const CLI_VERSION = getCliVersion();
-		const ARCH = getArchitecture();
-		throw new Error(
-			`Choreo CLI binary not found at: ${CHOREO_CLI_EXEC}\n` +
-			`Expected path: resources/choreo-cli/${CLI_VERSION}/${OS}/${ARCH}/${OS === "win32" ? "choreo.exe" : "choreo"}\n` +
-			`Please run 'pnpm run download-choreo-cli' to download the CLI.`
-		);
+		throw new Error(`Choreo CLI binary not found at: ${CHOREO_CLI_EXEC}`);
 	}
 
 	// Ensure executable permissions on Unix systems (may be lost after git checkout or copy)
