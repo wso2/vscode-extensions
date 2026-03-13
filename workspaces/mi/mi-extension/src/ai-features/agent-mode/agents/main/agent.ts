@@ -367,7 +367,7 @@ export async function executeAgent(
         const anthropicOptions: AnthropicProviderOptions = request.thinking
         // NOTE: Current pinned @ai-sdk/anthropic types support enabled/disabled thinking.
         // Adaptive thinking can be enabled once the SDK is upgraded in this repo.
-        ? { thinking: { type: 'adaptive' } } 
+        ? { thinking: { type: 'adaptive' }, effort: 'low' } 
         : {};
     
     const requestHeaders = request.thinking
