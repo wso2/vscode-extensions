@@ -270,15 +270,16 @@ export function createSubagentExecute(
 
             // Link main agent's abort signal to background subagent's controller
             // so user abort terminates background subagents too
+            let removeAbortListener: (() => void) | undefined;
             if (mainAbortSignal) {
                 if (mainAbortSignal.aborted) {
                     abortController.abort(mainAbortSignal.reason);
                 } else {
                     const onMainAbort = () => abortController.abort(mainAbortSignal.reason);
                     mainAbortSignal.addEventListener('abort', onMainAbort, { once: true });
-                    // Clean up listener when background subagent completes
-                    const origComplete = () => mainAbortSignal.removeEventListener('abort', onMainAbort);
-                    abortController.signal.addEventListener('abort', origComplete, { once: true });
+                    removeAbortListener = () => mainAbortSignal.removeEventListener('abort', onMainAbort);
+                    // Also clean up if aborted (e.g. by kill_task)
+                    abortController.signal.addEventListener('abort', removeAbortListener, { once: true });
                 }
             }
 
@@ -313,6 +314,7 @@ export function createSubagentExecute(
                 abortController.signal
             )
                 .then(async (result: SubagentResult) => {
+                    removeAbortListener?.();
                     entry.output = result.text;
                     entry.completed = true;
                     entry.success = true;
@@ -329,6 +331,7 @@ export function createSubagentExecute(
                     }
                 })
                 .catch((error: any) => {
+                    removeAbortListener?.();
                     if (entry.aborted) {
                         entry.output = `Subagent ${subagentId} was terminated by user request.`;
                         entry.completed = true;

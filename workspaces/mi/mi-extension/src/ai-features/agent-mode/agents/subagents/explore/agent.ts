@@ -21,7 +21,7 @@ import { EXPLORE_SUBAGENT_SYSTEM } from './system';
 import { logInfo, logDebug, logError } from '../../../../copilot/logger';
 import { ANTHROPIC_HAIKU_4_5, ANTHROPIC_SONNET_4_6, AnthropicModel } from '../../../../connection';
 import { SubagentResult } from '../../../tools/types';
-import { extractStepMessages } from '../index';
+import { extractStepMessages } from '../utils';
 
 // Import tools for subagent (read-only tools only)
 import {

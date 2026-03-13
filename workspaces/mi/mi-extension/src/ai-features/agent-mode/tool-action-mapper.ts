@@ -154,7 +154,7 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
             }
             return {
                 loading: isBackgroundTask ? `launching ${subagentType} agent` : `running ${subagentType} agent`,
-                completed: `${subagentType} agent completed`,
+                completed: isBackgroundTask ? `launched ${subagentType} agent` : `${subagentType} agent completed`,
                 failed: `${subagentType} agent failed`
             };
         }
