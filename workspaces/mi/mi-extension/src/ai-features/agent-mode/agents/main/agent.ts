@@ -316,7 +316,29 @@ export async function executeAgent(
         // This counter tracks messages from the current turn only (not history)
         let savedMessageCount = 0;
 
-        // Create tools (cache control will be added dynamically by prepareStep)
+        // Setup stream watchdog and timeout controls (fixed constants)
+        // Created before tools so that subagents and background tasks inherit
+        // the effective abort signal (user abort + stream timeouts).
+        const idleTimeoutMs = DEFAULT_STREAM_IDLE_TIMEOUT_MS;
+        const totalTimeoutMs = DEFAULT_STREAM_TOTAL_TIMEOUT_MS;
+        finalResponseWaitTimeoutMs = DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS;
+        streamWatchdog = createStreamWatchdog({
+            requestAbortSignal: request.abortSignal,
+            idleTimeoutMs,
+            totalTimeoutMs,
+            shouldPauseIdleTimeout: () => pauseIdleTimeout || isExecutingTool,
+            onTimeout: (kind, timeoutError) => {
+                const timeoutLabel = kind === 'idle' ? 'idle' : 'total';
+                logError(`[Agent] Stream ${timeoutLabel} timeout reached`, timeoutError);
+            },
+        });
+
+        touchStreamActivity = () => {
+            streamWatchdog?.markActivity();
+        };
+
+        // Create tools with the watchdog's abort signal so subagents and
+        // background tasks are cancelled on both user abort and stream timeout.
         const tools = createAgentTools({
             projectPath: request.projectPath,
             mode: request.mode || 'edit',
@@ -330,7 +352,7 @@ export async function executeAgent(
             webAccessPreapproved: request.webAccessPreapproved === true,
             shellApprovalRuleStore: request.shellApprovalRuleStore,
             undoCheckpointManager: request.undoCheckpointManager,
-            abortSignal: request.abortSignal,
+            abortSignal: streamWatchdog.abortSignal,
         });
 
         // Track step number for logging
@@ -367,31 +389,12 @@ export async function executeAgent(
         const anthropicOptions: AnthropicProviderOptions = request.thinking
         // NOTE: Current pinned @ai-sdk/anthropic types support enabled/disabled thinking.
         // Adaptive thinking can be enabled once the SDK is upgraded in this repo.
-        ? { thinking: { type: 'adaptive' }, effort: 'low' } 
+        ? { thinking: { type: 'adaptive' }, effort: 'low' }
         : {};
-    
+
     const requestHeaders = request.thinking
         ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' }
         : undefined;
-
-        // Setup stream watchdog and timeout controls (fixed constants)
-        const idleTimeoutMs = DEFAULT_STREAM_IDLE_TIMEOUT_MS;
-        const totalTimeoutMs = DEFAULT_STREAM_TOTAL_TIMEOUT_MS;
-        finalResponseWaitTimeoutMs = DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS;
-        streamWatchdog = createStreamWatchdog({
-            requestAbortSignal: request.abortSignal,
-            idleTimeoutMs,
-            totalTimeoutMs,
-            shouldPauseIdleTimeout: () => pauseIdleTimeout || isExecutingTool,
-            onTimeout: (kind, timeoutError) => {
-                const timeoutLabel = kind === 'idle' ? 'idle' : 'total';
-                logError(`[Agent] Stream ${timeoutLabel} timeout reached`, timeoutError);
-            },
-        });
-
-        touchStreamActivity = () => {
-            streamWatchdog?.markActivity();
-        };
         cleanupStreamLifecycle = () => {
             streamWatchdog?.cleanup();
         };

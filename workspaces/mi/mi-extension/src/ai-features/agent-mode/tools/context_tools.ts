@@ -236,21 +236,32 @@ export function createContextExecute(projectPath: string): ContextExecuteFn {
         }
 
         const runtimeVersion = await getRuntimeVersionFromPom(projectPath);
-        if (
-            context.minRuntimeVersion &&
-            runtimeVersion &&
-            compareVersions(runtimeVersion, context.minRuntimeVersion) < 0
-        ) {
-            logWarn(
-                `[ContextTool] Context '${context.name}' is not supported for runtime ${runtimeVersion}. ` +
-                `Minimum required runtime is ${context.minRuntimeVersion}.`
-            );
-            return {
-                success: false,
-                message: `Context '${context.name}' is not supported for MI runtime ${runtimeVersion}. ` +
-                    `Use MI runtime ${context.minRuntimeVersion} or newer.`,
-                error: 'Error: Unsupported MI runtime',
-            };
+        if (context.minRuntimeVersion) {
+            if (!runtimeVersion) {
+                logWarn(
+                    `[ContextTool] Context '${context.name}' requires MI runtime ${context.minRuntimeVersion}+ ` +
+                    `but runtime version could not be determined.`
+                );
+                return {
+                    success: false,
+                    message: `Context '${context.name}' requires MI runtime ${context.minRuntimeVersion} or newer, ` +
+                        `but the project's MI runtime version could not be determined. ` +
+                        `Ensure pom.xml contains a valid MI runtime version.`,
+                    error: 'Error: Unable to determine MI runtime version',
+                };
+            }
+            if (compareVersions(runtimeVersion, context.minRuntimeVersion) < 0) {
+                logWarn(
+                    `[ContextTool] Context '${context.name}' is not supported for runtime ${runtimeVersion}. ` +
+                    `Minimum required runtime is ${context.minRuntimeVersion}.`
+                );
+                return {
+                    success: false,
+                    message: `Context '${context.name}' is not supported for MI runtime ${runtimeVersion}. ` +
+                        `Use MI runtime ${context.minRuntimeVersion} or newer.`,
+                    error: 'Error: Unsupported MI runtime',
+                };
+            }
         }
 
         const sectionResult = resolveContextSection(context, selector.sectionName);

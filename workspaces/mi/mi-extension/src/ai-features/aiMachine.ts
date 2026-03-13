@@ -510,8 +510,8 @@ const checkWorkspaceAndToken = async (): Promise<{ workspaceSupported: boolean; 
     if (credentials?.loginMethod === LoginMethod.MI_INTEL) {
         const secrets = credentials.secrets as { accessToken?: string; expiresAt?: number };
         if (secrets.accessToken) {
-            const isExpired = secrets.expiresAt && (secrets.expiresAt - TOKEN_EXPIRY_BUFFER_MS) < Date.now();
-            if (isExpired) {
+            const isExpiredOrUnknown = !secrets.expiresAt || (secrets.expiresAt - TOKEN_EXPIRY_BUFFER_MS) < Date.now();
+            if (isExpiredOrUnknown) {
                 // Token expired — try silent STS refresh so the user doesn't have to re-login.
                 logInfo('Stored MI_INTEL token is expired. Attempting silent STS refresh...');
                 try {

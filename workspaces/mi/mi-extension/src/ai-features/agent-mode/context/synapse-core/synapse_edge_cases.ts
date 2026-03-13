@@ -58,10 +58,13 @@ Or use inline template expressions where everything is stringified:
 \`\`\`
 
 ### Logical operators require strict boolean
-No truthy/falsy values. Both sides must be actual boolean:
+No truthy/falsy values. Both sides must be actual boolean.
+Both keyword (\`and\`/\`or\`) and symbolic (\`&&\`/\`||\`) forms are valid:
 \`\`\`
 true and true           → true   OK
+true && true            → true   OK
 false or true           → true   OK
+false || true           → true   OK
 1 and true              → THROWS ("Logical operation between non-boolean values")
 "text" or false         → THROWS
 0 and false             → THROWS
