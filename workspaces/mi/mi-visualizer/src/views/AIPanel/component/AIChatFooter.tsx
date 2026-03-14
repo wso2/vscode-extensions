@@ -38,7 +38,7 @@ function getThinkingPreferenceStorageKey(mode: AgentMode): string {
 }
 
 function getDefaultThinkingEnabled(mode: AgentMode): boolean {
-    return true;
+    return false;
 }
 
 function getThinkingPreferenceForMode(mode: AgentMode): boolean {
@@ -1327,7 +1327,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 mode: agentMode,
                 files,
                 images,
-                thinking: true,
+                thinking: isThinkingEnabled,
                 webAccessPreapproved: isWebAccessEnabled,
                 chatHistory: chatHistory
             });

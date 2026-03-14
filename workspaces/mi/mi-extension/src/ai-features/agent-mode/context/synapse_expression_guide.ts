@@ -22,12 +22,14 @@ Synapse Expressions is a powerful, **single-line expression language** designed 
 
 #### **Syntax & Basic Structure**
 - Synapse Expressions are enclosed within **\`\${}\`**.
-- By default, Synapse Expressions returns a valid **JSON** result. When working with XML payloads, we can use the XPATH function which returns an XML result.
+- In attribute-level contexts (e.g., \`expression="..."\`), Synapse Expressions return typed results (int, boolean, JsonObject, etc.). In inline template contexts (e.g., inside \`<message>\` or \`<format>\`), expressions are stringified automatically.
+- When working with XML payloads, use the \`xpath()\` function which returns an XML result.
 - Literals are supported in Synapse expressions: 
   - String literals: \`"Hello World"\`
   - Number literals: \`123.4\`
   - Boolean literals: \`true\` or \`false\`
   - Null literal: \`null\`
+  - Array literal: \`[1, 2, 3]\`, \`["a", "b"]\`, \`[]\`
 - Basic Example:
   \`\`\`xml
   <log category="INFO">
@@ -72,12 +74,12 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
       </template>
     \`\`\`
 
-4. headers : These are transport headers. Example of accessing headers using Synapse expressions.
+- headers : These are transport headers. Example of accessing headers using Synapse expressions.
   \`\`\`xml
   \${headers["Content-Type"]}
   \`\`\`
 
-5. properties: We can access synapse and axis2 properties using Synapse expressions as follows.
+- properties: We can access synapse and axis2 properties using Synapse expressions as follows.
   \`\`\`xml
   \${properties.synapse.propName}
   \${props.axis2.propName}
@@ -86,7 +88,7 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
     \`\`\`xml
     \${props.synapse.REST_METHOD}
     \`\`\`
-6. configs: We can access the configurations defined in the synapse.properties file using Synapse expressions as follows.
+- configs: We can access the configurations defined in the synapse.properties file using Synapse expressions as follows.
   \`\`\`xml
   \${configs.configName}
   \`\`\`
@@ -109,12 +111,12 @@ You can do the following operations with Synapse Expressions
 \${vars.age <= 18}
 \${vars.age != 18}
 \${vars.score == 100}
-\${not(value)}
 \`\`\`
 #### **Logical Operations**
 \`\`\`xml
 \${vars.active and vars.verified}
 \${vars.isAdmin or vars.isModerator}
+\${not(vars.isAdmin)}  <!-- Negation function. Argument MUST be boolean; throws otherwise. -->
 \`\`\`
 - When using operators, it's possible to use brackets to group expressions and enforce precedence.
 \`\`\`xml
@@ -140,7 +142,8 @@ You can do the following operations with Synapse Expressions
 ##### **String Manipulation**
 - All string operations available: length, toUpper, toLower, subString, startsWith, endsWith, contains, trim, replace, split, charAt, indexOf
 \`\`\`xml
-\${length("text")} <!-- Returns the length of the string if the input is a string. -->
+\${length("text")} <!-- Returns string length. Also works on arrays: length(payload.items) -->
+\${contains("hello world", "world")} <!-- Returns true if string contains the substring -->
 \${toUpper(payload.name)} <!-- Converts the provided string to uppercase. -->
 \${toLower("TEXT")} <!-- Converts the provided string to lowercase. -->
 \${replace("hello world", "world", "WSO2")} <!-- Replaces all occurrences of the specified old value with the new value in the string. -->
@@ -162,7 +165,7 @@ You can do the following operations with Synapse Expressions
 \${floor(3.7)} <!-- Returns the largest integer less than or equal to the input value. -->
 \${ceil(3.2)} <!-- Returns the smallest integer greater than or equal to the input value. -->
 \${sqrt(16)} <!-- Returns 4 -->
-\${log(10)} <!-- Returns the natural logarithm (base e) of the input value. -->
+\${log(10)} <!-- Returns log base 10. log(x, base) for custom base. -->
 \${pow(2, 3)} <!-- Returns the result of raising the base to the power of the exponent. -->
 \${round(2.756, 2)} <!-- Returns 2.76 -->
 \`\`\`
@@ -220,8 +223,7 @@ You can do the following operations with Synapse Expressions
 
 ##### **Accessing Secrets**
 \`\`\`xml
-\${registry("gov:/config/service")}
-\${wso2-vault("mysqlpassword")} 
+\${wso2-vault("mysqlpassword")}
 \${hashicorp-vault("pathName","fieldName")}
 \`\`\`
 
@@ -243,21 +245,21 @@ You can do the following operations with Synapse Expressions
 
 ---
 
+#### **Critical Expression Gotchas**
+These rules frequently cause runtime errors. Always apply them:
+1. **No implicit type coercion for \`+\`**: \`"Count: " + 5\` THROWS. Both sides must be the same type (both numeric or both string). Use \`string()\` to convert, or use inline template expressions (e.g., \`<message>\`) where everything is auto-stringified.
+2. **\`==\` compares string representations**: \`1 == 1.0\` → false (\`"1"\` vs \`"1.0"\`). \`true == "true"\` → true. Use \`float()\` conversion for cross-type numeric comparison.
+3. **Logical operators require strict boolean**: \`1 and true\` THROWS. \`"text" or false\` THROWS. No truthy/falsy. Both sides must evaluate to actual booleans.
+4. **Comparison operators (\`>\`, \`<\`, \`>=\`, \`<=\`) are numeric-only**: \`"abc" > "abd"\` THROWS. Convert strings to numbers first: \`integer(payload.value) > 10\`.
+5. **\`exists()\` is the ONLY safe null guard**: It catches all evaluation exceptions. Use \`\${exists(payload.field) ? payload.field : "default"}\` for safe access. \`not(exists(x))\` is safer than \`x == null\`.
+6. **Ternary condition must be boolean**: \`null ? "a" : "b"\` THROWS. \`1 ? "a" : "b"\` THROWS. The condition must be a comparison or boolean variable.
+7. **After SOAP \`call\`, payload is JSON**: \`\${payload}\` returns JSON (auto-converted). Use JSON paths, not XPath. Storing as \`type="XML"\` throws \`WstxUnexpectedCharException\`.
+8. **PayloadFactory: NEVER use \`<args>\` with Synapse Expressions**: \`<arg expression="\${...}"/>\` fails at runtime. Embed expressions directly in \`<format>\`.
+
 #### **Best Practices**
-1. **Check for Nulls**
-   \`\`\`xml
-   \${vars.num1 == null ? vars.num2 : vars.num1}
-   \`\`\`
-2. **Use Brackets for Clarity**
-   \`\`\`xml
-   \${ (vars.num1 + vars.num2) * vars.num3 }
-   \`\`\`
-3. **Validate Data Types**
-   \`\`\`xml
-   \${isNumber(vars.amount) ? vars.amount * 2 : 0}
-   \`\`\`
-4. **Handle Empty Results**
-   - Synapse Expressions fail gracefully—handle potential empty values.
+1. **Check for Nulls**: \`\${exists(vars.x) ? vars.x : "default"}\`
+2. **Use Brackets for Clarity**: \`\${(vars.num1 + vars.num2) * vars.num3}\`
+3. **Validate Data Types**: \`\${isNumber(vars.amount) ? vars.amount * 2 : 0}\`
 
 #### XPath in Synapse Expressions — Rules
 

@@ -108,7 +108,7 @@ export const FILE_EDIT_TOOL_NAME = 'file_edit';
 export const FILE_GREP_TOOL_NAME = 'grep';
 export const FILE_GLOB_TOOL_NAME = 'glob';
 export const CONNECTOR_TOOL_NAME = 'get_connector_definitions';
-export const SKILL_TOOL_NAME = 'load_skill_context';
+export const CONTEXT_TOOL_NAME = 'load_context_reference';
 export const MANAGE_CONNECTOR_TOOL_NAME = 'add_or_remove_connector';
 export const VALIDATE_CODE_TOOL_NAME = 'validate_code';
 export const CREATE_DATA_MAPPER_TOOL_NAME = 'create_data_mapper';
@@ -136,7 +136,7 @@ export const WEB_FETCH_TOOL_NAME = 'web_fetch';
 // Subagent Types
 // ============================================================================
 
-export type SubagentType = 'Explore';
+export type SubagentType = 'Explore' | 'SynapseContext';
 
 /**
  * Return type from subagent execution (captures messages for JSONL persistence)
@@ -234,8 +234,8 @@ export type GlobExecuteFn = (args: {
     path?: string;
 }) => Promise<ToolResult>;
 
-export type SkillExecuteFn = (args: {
-    skill_name: string;
+export type ContextExecuteFn = (args: {
+    context_name: string;
 }) => Promise<ToolResult>;
 
 // ============================================================================

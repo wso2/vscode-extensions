@@ -35,7 +35,7 @@ import { AnthropicModel } from '../../connection';
 import { getCopilotSessionDir } from '../storage-paths';
 
 // Import subagent executors
-import { executeExploreSubagent } from '../agents/subagents';
+import { executeExploreSubagent, executeSynapseContextSubagent } from '../agents/subagents';
 
 // ============================================================================
 // Utility Functions
@@ -48,6 +48,14 @@ function generateSubagentId(): string {
     const uuid = uuidv4();
     const shortUuid = uuid.split('-')[0]; // First 8 characters
     return `task-subagent-${shortUuid}`;
+}
+
+/**
+ * Subagent metadata persisted alongside history for resume validation
+ */
+interface SubagentMetadata {
+    subagentType: string;
+    createdAt: string;
 }
 
 /**
@@ -78,6 +86,33 @@ async function loadSubagentHistory(projectPath: string, sessionId: string, subag
         }
         throw error;
     }
+}
+
+/**
+ * Load subagent metadata for resume validation
+ */
+async function loadSubagentMetadata(projectPath: string, sessionId: string, subagentId: string): Promise<SubagentMetadata | null> {
+    const subagentDir = getSubagentsDir(projectPath, sessionId, subagentId);
+    const metadataPath = path.join(subagentDir, 'metadata.json');
+
+    try {
+        const content = await fs.readFile(metadataPath, 'utf8');
+        return JSON.parse(content) as SubagentMetadata;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Save subagent metadata alongside history
+ */
+async function saveSubagentMetadata(historyDir: string, subagentType: string): Promise<void> {
+    const metadataPath = path.join(historyDir, 'metadata.json');
+    const metadata: SubagentMetadata = {
+        subagentType,
+        createdAt: new Date().toISOString(),
+    };
+    await fs.writeFile(metadataPath, JSON.stringify(metadata), 'utf8');
 }
 
 // ============================================================================
@@ -151,8 +186,10 @@ async function runSubagent(
     switch (subagentType) {
         case 'Explore':
             return await executeExploreSubagent(prompt, projectPath, model, getAnthropicClient, previousMessages, abortSignal);
+        case 'SynapseContext':
+            return await executeSynapseContextSubagent(prompt, projectPath, model, getAnthropicClient, previousMessages, abortSignal);
         default:
-            throw new Error(`Unknown subagent type: ${subagentType}. Available types: Explore. (Note: DataMapper is accessible via generate_data_mapping tool)`);
+            throw new Error(`Unknown subagent type: ${subagentType}. Available types: Explore, SynapseContext. (Note: DataMapper is accessible via generate_data_mapping tool)`);
     }
 }
 
@@ -165,11 +202,14 @@ async function runSubagent(
  * @param projectPath - The project root path
  * @param sessionId - Current session ID (for JSONL storage path)
  * @param getAnthropicClient - Function to get the Anthropic client (takes AnthropicModel)
+ * @param mainAbortSignal - Abort signal from the main agent, propagated to foreground subagents
+ *                          and linked to background subagent AbortControllers
  */
 export function createSubagentExecute(
     projectPath: string,
     sessionId: string,
-    getAnthropicClient: (model: AnthropicModel) => Promise<any>
+    getAnthropicClient: (model: AnthropicModel) => Promise<any>,
+    mainAbortSignal?: AbortSignal
 ): SubagentToolExecuteFn {
     return async (args): Promise<SubagentToolResult> => {
         const { description, prompt, subagent_type, model = 'haiku', run_in_background = false, resume } = args;
@@ -187,6 +227,26 @@ export function createSubagentExecute(
         // Load previous history if resuming
         let previousMessages: any[] | undefined;
         if (isResume) {
+            // Block resume of still-running background subagent
+            const running = backgroundSubagents.get(resume);
+            if (running && !running.completed) {
+                return {
+                    success: false,
+                    message: `Subagent ${resume} is still running. Wait for it to complete (use ${TASK_OUTPUT_TOOL_NAME}) or terminate it (use ${KILL_TASK_TOOL_NAME}) before resuming.`,
+                    error: 'SUBAGENT_STILL_RUNNING',
+                };
+            }
+
+            // Validate subagent type matches the original
+            const metadata = await loadSubagentMetadata(projectPath, sessionId, resume);
+            if (metadata && metadata.subagentType !== subagent_type) {
+                return {
+                    success: false,
+                    message: `Cannot resume: subagent ${resume} is a ${metadata.subagentType} subagent, but subagent_type=${subagent_type} was requested. Use subagent_type=${metadata.subagentType} to resume it.`,
+                    error: 'SUBAGENT_TYPE_MISMATCH',
+                };
+            }
+
             try {
                 previousMessages = await loadSubagentHistory(projectPath, sessionId, resume);
                 logInfo(`[SubagentTool] Loaded ${previousMessages.length} previous messages`);
@@ -207,6 +267,21 @@ export function createSubagentExecute(
             const subagentId = isResume ? resume! : generateSubagentId();
             const subagentDir = getSubagentsDir(projectPath, sessionId, subagentId);
             const abortController = new AbortController();
+
+            // Link main agent's abort signal to background subagent's controller
+            // so user abort terminates background subagents too
+            let removeAbortListener: (() => void) | undefined;
+            if (mainAbortSignal) {
+                if (mainAbortSignal.aborted) {
+                    abortController.abort(mainAbortSignal.reason);
+                } else {
+                    const onMainAbort = () => abortController.abort(mainAbortSignal.reason);
+                    mainAbortSignal.addEventListener('abort', onMainAbort, { once: true });
+                    removeAbortListener = () => mainAbortSignal.removeEventListener('abort', onMainAbort);
+                    // Also clean up if aborted (e.g. by kill_task)
+                    abortController.signal.addEventListener('abort', removeAbortListener, { once: true });
+                }
+            }
 
             // Create directory
             await fs.mkdir(subagentDir, { recursive: true });
@@ -239,6 +314,7 @@ export function createSubagentExecute(
                 abortController.signal
             )
                 .then(async (result: SubagentResult) => {
+                    removeAbortListener?.();
                     entry.output = result.text;
                     entry.completed = true;
                     entry.success = true;
@@ -246,14 +322,16 @@ export function createSubagentExecute(
                     logInfo(`[SubagentTool] Background ${subagent_type} subagent completed: ${subagentId}`);
                     logDebug(`[SubagentTool] Response length: ${result.text.length} chars`);
 
-                    // Save history (non-blocking)
+                    // Save history and metadata (non-blocking)
                     try {
                         await saveSubagentHistory(subagentDir, result.messages);
+                        await saveSubagentMetadata(subagentDir, subagent_type);
                     } catch (writeError: any) {
                         logError(`[SubagentTool] Failed to write history for ${subagentId}`, writeError);
                     }
                 })
                 .catch((error: any) => {
+                    removeAbortListener?.();
                     if (entry.aborted) {
                         entry.output = `Subagent ${subagentId} was terminated by user request.`;
                         entry.completed = true;
@@ -280,7 +358,7 @@ export function createSubagentExecute(
             // Foreground Execution (existing synchronous behavior)
             // ================================================================
             try {
-                const result = await runSubagent(subagent_type, prompt, projectPath, model, getAnthropicClient, previousMessages);
+                const result = await runSubagent(subagent_type, prompt, projectPath, model, getAnthropicClient, previousMessages, mainAbortSignal);
 
                 logInfo(`[SubagentTool] ${subagent_type} subagent completed successfully${isResume ? ' (resumed)' : ''}`);
                 logDebug(`[SubagentTool] Response length: ${result.text.length} chars`);
@@ -288,16 +366,21 @@ export function createSubagentExecute(
                 // Use existing subagent ID when resuming, otherwise generate new one
                 const subagentId = isResume ? resume! : generateSubagentId();
 
-                // Save history (non-blocking, fire-and-forget)
+                // Save history and metadata (non-blocking, fire-and-forget)
                 const subagentDir = getSubagentsDir(projectPath, sessionId, subagentId);
                 fs.mkdir(subagentDir, { recursive: true })
-                    .then(() => saveSubagentHistory(subagentDir, result.messages))
+                    .then(async () => {
+                        await saveSubagentHistory(subagentDir, result.messages);
+                        await saveSubagentMetadata(subagentDir, subagent_type);
+                    })
                     .catch((err: any) => logError('[SubagentTool] Failed to save foreground subagent history', err));
 
                 return {
                     success: true,
                     message: result.text,
-                    subagentId, // Always return subagent ID for tracking
+                    // Note: subagentId is intentionally NOT returned for foreground subagents.
+                    // The result is already inline above. Returning the ID would mislead the
+                    // agent into calling task_output on it, which only works for background tasks.
                 };
             } catch (error: any) {
                 logError(`[SubagentTool] ${subagent_type} subagent failed`, error);
@@ -322,9 +405,10 @@ const subagentInputSchema = z.object({
     prompt: z.string().describe(
         'The detailed task for the subagent to perform. Include all necessary context.'
     ),
-    subagent_type: z.enum(['Explore']).describe(
+    subagent_type: z.enum(['Explore', 'SynapseContext']).describe(
         `The type of subagent to spawn:
-        - Explore: Fast codebase explorer. Use when you need to find and understand existing code.`
+        - Explore: Fast codebase explorer. Use when you need to find and understand existing code.
+        - SynapseContext: Synapse XML expert. Use when you need deep answers about Synapse expressions, mediators, endpoints, properties, SOAP, payload patterns, or edge cases. It loads and cross-references deep reference documentation to provide accurate, actionable answers with XML examples.`
     ),
     model: z.enum(['sonnet', 'haiku']).optional().describe(
         'Optional model selection. Defaults to haiku for cost efficiency. Use sonnet for complex design tasks.'
@@ -343,10 +427,13 @@ const subagentInputSchema = z.object({
  */
 export function createSubagentTool(execute: SubagentToolExecuteFn) {
     return (tool as any)({
-        description: `Spawn an Explore subagent for codebase exploration without filling your context window.
-            The subagent uses grep/glob/file_read to search and understand code, then returns a summary.
+        description: `Spawn a specialized subagent without filling your context window.
+            Available types:
+            - Explore: Uses grep/glob/file_read to search and understand code, then returns a summary.
+            - SynapseContext: Loads deep Synapse reference documentation (expressions, mediators, endpoints, properties, SOAP, payload patterns, edge cases) via load_context_reference and cross-references them to answer technical questions with XML examples.
             Supports background execution (run_in_background=true) and resuming previous subagents (resume=subagentId).
-            Background executions return task IDs compatible with ${TASK_OUTPUT_TOOL_NAME} and ${KILL_TASK_TOOL_NAME} (same pattern as background shell tasks).`,
+            Foreground (default): blocks until done and returns the result directly — do NOT call ${TASK_OUTPUT_TOOL_NAME} on it.
+            Background (run_in_background=true): returns a task ID immediately. Use ${TASK_OUTPUT_TOOL_NAME} to poll results or ${KILL_TASK_TOOL_NAME} to terminate.`,
         inputSchema: subagentInputSchema,
         execute
     });
