@@ -39,6 +39,13 @@ export async function persistUsecaseResult(
     }
     await fs.promises.mkdir(resultDir, { recursive: true });
 
+    // Save generated codemap if present
+    if (usecaseResult.generatedCodeMap) {
+        const codeMapDir = path.join(resultDir, "code_map");
+        await fs.promises.mkdir(codeMapDir, { recursive: true });
+        await fs.promises.writeFile(path.join(codeMapDir, "bal.md"), usecaseResult.generatedCodeMap);
+    }
+
     const compactResult: UsecaseCompact = {
         usecase: usecaseResult.usecase,
         compiled: usecaseResult.compiled,
@@ -46,6 +53,8 @@ export async function persistUsecaseResult(
         iteration: usecaseResult.iteration,
         toolEvents: usecaseResult.toolEvents,
         evaluationResult: usecaseResult.evaluationResult,
+        codeContextRetrievalEvaluation: usecaseResult.codeContextRetrievalEvaluation,
+        codeMapMatch: usecaseResult.codeMapMatch,
         usage: usecaseResult.usage ? {
             totalTokens: usecaseResult.usage.initial.inputTokens + usecaseResult.usage.initial.outputTokens +
                         usecaseResult.usage.repairs.reduce((sum, repair) => sum + repair.inputTokens + repair.outputTokens, 0),
@@ -83,6 +92,17 @@ export async function persistUsecaseResult(
         );
     }
 
+    // Persist code context retrieval evaluation if present
+    if (usecaseResult.codeContextRetrievalEvaluation) {
+        const { grep_calls, file_read_calls, ...evaluationOnly } = usecaseResult.codeContextRetrievalEvaluation;
+        const codeRetrievalDir = path.join(resultDir, "code_retrieval");
+        await fs.promises.mkdir(codeRetrievalDir, { recursive: true });
+        await fs.promises.writeFile(
+            path.join(codeRetrievalDir, "evaluation.json"),
+            JSON.stringify(evaluationOnly, null, 2)
+        );
+    }
+
     const codeDir = path.join(resultDir, "code");
     await fs.promises.mkdir(codeDir, { recursive: true });
 
@@ -91,6 +111,7 @@ export async function persistUsecaseResult(
 
     for (const file of usecaseResult.files) {
         const filePath = path.join(codeDir, file.fileName);
+        await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
         await fs.promises.writeFile(filePath, file.content);
     }
 
@@ -120,6 +141,35 @@ export async function persistSummary(summary: Summary, resultsDir: string): Prom
         path.join(resultsDir, "summary_detailed.json"),
         JSON.stringify(summary, null, 2)
     );
+
+    // Persist code retrieval summary across all test cases
+    const codeRetrievalEntries = summary.results
+        .filter(r => r.codeContextRetrievalEvaluation)
+        .map(r => ({
+            usecase: r.usecase,
+            is_relevant: r.codeContextRetrievalEvaluation!.is_relevant,
+            coverage_score: r.codeContextRetrievalEvaluation!.coverage_score,
+        }));
+
+    if (codeRetrievalEntries.length > 0) {
+        const scores = codeRetrievalEntries.map(e => e.coverage_score);
+        const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+        const relevantCount = codeRetrievalEntries.filter(e => e.is_relevant).length;
+
+        const codeRetrievalSummary = {
+            average_coverage_score: Math.round(avgScore * 100) / 100,
+            relevant_count: relevantCount,
+            total_count: codeRetrievalEntries.length,
+            results: codeRetrievalEntries
+        };
+
+        const codeRetrievalDir = path.join(resultsDir, "code_retrieval");
+        await fs.promises.mkdir(codeRetrievalDir, { recursive: true });
+        await fs.promises.writeFile(
+            path.join(codeRetrievalDir, "summary.json"),
+            JSON.stringify(codeRetrievalSummary, null, 2)
+        );
+    }
 
     console.log("Summary files saved");
 }

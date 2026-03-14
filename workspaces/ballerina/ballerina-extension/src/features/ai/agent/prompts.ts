@@ -18,9 +18,10 @@ import { DIAGNOSTICS_TOOL_NAME } from "./tools/diagnostics";
 import { LIBRARY_GET_TOOL } from "./tools/library-get";
 import { LIBRARY_SEARCH_TOOL } from "./tools/library-search";
 import { TASK_WRITE_TOOL_NAME } from "./tools/task-writer";
-import { FILE_BATCH_EDIT_TOOL_NAME, FILE_SINGLE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from "./tools/text-editor";
+import { FILE_BATCH_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_SINGLE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from "./tools/text-editor";
 import { CONNECTOR_GENERATOR_TOOL } from "./tools/connector-generator";
 import { CONFIG_COLLECTOR_TOOL } from "./tools/config-collector";
+import { GREP_TOOL_NAME } from "./tools/grep";
 import { getLanglibInstructions } from "../utils/libs/langlibs";
 import { formatCodebaseStructure, formatCodeContext } from "./utils";
 import { GenerateAgentCodeRequest, OperationType, ProjectSource } from "@wso2/ballerina-core";
@@ -120,10 +121,10 @@ Create a very high-level and concise design plan for the given user requirement.
 Identify the libraries required to implement the user requirement. Use ${LIBRARY_SEARCH_TOOL} to discover relevant libraries, then use ${LIBRARY_GET_TOOL} to fetch their full details.
 
 ### Step 3: Write the code
-Write/modify the Ballerina code to implement the user requirement. Use the ${FILE_BATCH_EDIT_TOOL_NAME}, ${FILE_SINGLE_EDIT_TOOL_NAME}, ${FILE_WRITE_TOOL_NAME} tools to write/modify the code. 
+Write/modify the Ballerina code to implement the user requirement. Use the ${FILE_BATCH_EDIT_TOOL_NAME}, ${FILE_SINGLE_EDIT_TOOL_NAME}, ${FILE_WRITE_TOOL_NAME} tools to write/modify the code.
 
 ### Step 4: Validate the code
-Once the task is done, Always use ${DIAGNOSTICS_TOOL_NAME} tool to check for compilation errors and fix them. 
+Once the task is done, Always use ${DIAGNOSTICS_TOOL_NAME} tool to check for compilation errors and fix them.
 You can use this tool multiple times after making changes to ensure there are no compilation errors.
 If you think you can't fix the error after multiple attempts, make sure to keep bring the code into a good state and finish off the task.
 
@@ -177,14 +178,84 @@ ${getLanglibInstructions()}
 - Mention types EXPLICITLY in variable declarations and foreach statements.
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
+## Understanding the Existing Codebase
+
+The user message may include a Code Map (also referred to as bal.md) inside a <project_codemap> tag.
+A Code Map is the outline of the entire codebase — it shows what exists (file paths, declaration names, type signatures, and line ranges) but NOT how anything is implemented.
+Think of it as a table of contents: it tells you where to look, not what the code does.
+
+The full codebase is NOT sent to you. The Code Map is your only structural overview. You must use ${FILE_READ_TOOL_NAME} and ${GREP_TOOL_NAME} to discover the actual implementation details.
+
+---
+
+### If a Code Map IS provided:
+
+**Before anything else — check if the Code Map is empty**
+- If the Code Map is empty, there is no existing codebase. Skip all steps below and write new code directly.
+
+Follow these steps in order before making any code changes:
+
+**Step 1 — Identify relevant components from the Code Map**
+- Read the user's request carefully.
+- Scan the Code Map to find declarations whose names, types, or signatures relate to the user's request.
+- Example: if the user asks about "login", look for functions, classes, or types named things like 'login', 'auth', 'authenticate', etc.
+- If the user is adding a new feature, still scan the Code Map to find existing patterns, similar features, and shared types — new code must follow the existing conventions.
+- Always also identify configuration/entry-point files (e.g., 'configurations.bal', 'main.bal', 'service.bal') — they contain critical infrastructure context and must always be read.
+
+**Step 2 — Read the relevant line ranges with a buffer**
+- Each component in the Code Map (bal.md) has a start line and end line. If you know the line range of a component you want to read, always read that specific component using those lines — if you do not know the line range, read the entire file.
+- Always add a small buffer: read a few lines before the start and a few lines after the end (e.g., if a component spans lines 15–30, read from line 10 to line 40) for surrounding context.
+- Never assume what the implementation looks like — read it before drawing any conclusions.
+
+**Step 3 — Find usages AND type definitions (do both before proceeding)**
+- For each component you read, use ${GREP_TOOL_NAME} to find:
+  - **Usages**: all places the function, class, or variable is called or referenced.
+  - **Types**: definitions of any types, records, or enums used in the component's signature or body.
+- Read all found locations using ${FILE_READ_TOOL_NAME} with the same line-range buffer from Step 2.
+- Do not skip types — misunderstanding a type leads to incorrect code.
+
+**Step 4 — Confirm full context before writing code**
+- Only begin writing or modifying code after you have read all relevant components, their usages, and their types.
+- There should be no unknowns before you start writing.
+
+**Step 5 — Pause and re-explore whenever you hit an unknown while writing**
+- If while writing you encounter an unfamiliar type, function, or pattern: **stop writing immediately**.
+- Use ${GREP_TOOL_NAME} to locate it and ${FILE_READ_TOOL_NAME} to read it (with a buffer).
+- Only resume writing once you fully understand it.
+- Repeat this pause-explore-continue cycle as many times as needed.
+
+---
+
+### If a Code Map is NOT provided:
+
+This means the Code Map could not be generated — but a codebase may still exist. Do NOT assume there is nothing to work with.
+
+**Step 1 — Search first, never read blindly**
+- Do NOT call ${FILE_READ_TOOL_NAME} on random files. Always search first using ${GREP_TOOL_NAME}.
+- Use regex patterns that capture the intent of the task (e.g., if the user asks about payments, search for 'payment', 'Payment', 'pay' etc.).
+
+**Step 2 — Read only what the search finds**
+- After ${GREP_TOOL_NAME} returns matching files, use ${FILE_READ_TOOL_NAME} to read only the relevant parts (with a line-range buffer).
+- Also search for usages and type definitions of anything relevant, same as Step 3 above.
+
+**Step 3 — Write new code only if nothing exists**
+- If ${GREP_TOOL_NAME} returns no results for any relevant term, there is no existing code for this feature — write new code directly.
+
+---
+
+### Absolute Rules (both cases):
+- NEVER assume implementation details — always read before writing.
+- NEVER write code until you have gathered all relevant context (components, usages, types).
+- Use ${GREP_TOOL_NAME} as many times as needed — searching is cheap, wrong assumptions are not.
+
 # File modifications
 - You must apply changes to the existing source code using the provided ${[
-        FILE_BATCH_EDIT_TOOL_NAME,
-        FILE_SINGLE_EDIT_TOOL_NAME,
-        FILE_WRITE_TOOL_NAME,
-    ].join(
-        ", "
-    )} tools. The complete existing source code will be provided in the <existing_code> section of the user prompt.
+            FILE_BATCH_EDIT_TOOL_NAME,
+            FILE_SINGLE_EDIT_TOOL_NAME,
+            FILE_WRITE_TOOL_NAME,
+        ].join(
+            ", "
+        )} tools.
 - When making replacements inside an existing file, provide the **exact old string** and the **exact new string** with all newlines, spaces, and indentation, being mindful to replace nearby occurrences together to minimize the number of tool calls.
 - Do NOT create a new markdown file to document each change or summarize your work unless specifically requested by the user.
 - Do not manually add/modify toml files (Ballerina.toml/Dependencies.toml). For Config.toml configuration management, use ${CONFIG_COLLECTOR_TOOL}.
@@ -199,14 +270,34 @@ ${getNPSuffix(projects, op)}
  * @param params Generation request parameters containing usecase, plan mode, code context, and file attachments
  * @param tempProjectPath Path to temp project
  * @param projects Project source information
+ * @param balMd Optional bal.md code map content. When provided, this is sent instead of the full codebase source.
  */
-export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath: string, projects: ProjectSource[]) {
+export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath: string, projects: ProjectSource[], balMd?: string) {
     const content = [];
 
-    content.push({
-        type: 'text' as const,
-        text: formatCodebaseStructure(projects)
-    });
+    // Add CodeMap (bal.md) if available,
+    if (balMd) {
+        content.push({
+            type: 'text' as const,
+            text: `<project_codemap>
+This is the Code Map (bal.md) of the existing Ballerina project. It contains high-level overview of the codebase.
+
+## How the Code Map (bal.md) is organized
+- Organized by file path (e.g. service.bal, modules/database/types.bal)
+- For each file, lists the key artifacts: Imports, Configurables, Variables, Functions, Types, Classes, Services (entry points), and Enums
+- Each artifact includes sub-properties such as: type descriptor, fields, parameters, return types, description, and a Line Range
+- Line Range format: (startLine:startCol-endLine:endCol) — use startLine as the offset and (endLine - startLine) as the limit when reading a specific component via the read tool
+${balMd}
+</project_codemap>`
+        });
+    }
+
+    // else {
+    //     content.push({
+    //         type: 'text' as const,
+    //         text: formatCodebaseStructure(projects)
+    //     });
+    // }
 
     // Add code context if available
     if (params.codeContext) {
@@ -246,7 +337,7 @@ ${params.usecase}
 }
 
 
-function getGenerationType(isPlanMode:boolean):string {
+function getGenerationType(isPlanMode: boolean): string {
     if (isPlanMode) {
         return `<system-reminder> Plan Mode is enabled. Make sure to use task management using ${TASK_WRITE_TOOL_NAME} </system-reminder>`;
     }
@@ -254,7 +345,7 @@ function getGenerationType(isPlanMode:boolean):string {
 }
 
 function getNPSuffix(projects: ProjectSource[], op?: OperationType): string {
-    let basePrompt:string = "Note: You are in a special Natural Programming mode. Follow the NP guidelines strictly in addition to what you've given. \n";
+    let basePrompt: string = "Note: You are in a special Natural Programming mode. Follow the NP guidelines strictly in addition to what you've given. \n";
     if (!op) {
         return "";
     } else if (op === "CODE_FOR_USER_REQUIREMENT") {

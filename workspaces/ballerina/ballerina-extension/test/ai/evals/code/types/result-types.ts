@@ -39,11 +39,36 @@ export interface DiagnosticMessage {
 }
 
 /**
+ * Evaluation result for code context retrieval via grep and file_read tools
+ */
+export interface GrepCallRecord {
+    readonly pattern: string;
+    readonly path?: string;
+    readonly glob?: string;
+    readonly output_mode?: string;
+    readonly result?: string;
+}
+
+export interface FileReadCallRecord {
+    readonly fileName: string;
+    readonly content?: string;
+}
+
+export interface CodeContextRetrievalEvaluation {
+    readonly is_relevant: boolean;
+    readonly coverage_score: number;
+    readonly reasoning: string;
+    readonly grep_calls: readonly GrepCallRecord[];
+    readonly file_read_calls: readonly FileReadCallRecord[];
+}
+
+/**
  * Tool call event - matches ChatNotify ToolCall from state-machine-types
  */
 export interface ToolCallEvent {
     readonly type: "tool_call";
     readonly toolName: string;
+    readonly toolInput?: any;
 }
 
 /**
@@ -85,6 +110,11 @@ export interface UsecaseResult {
     readonly toolEvents?: readonly ToolEvent[];
     readonly iteration?: number;
     readonly evaluationResult: LLMEvaluationResult;
+    readonly codeContextRetrievalEvaluation?: CodeContextRetrievalEvaluation;
+    /** Whether the generated bal.md (codemap) matches the expected one. undefined = no expected file exists. */
+    readonly codeMapMatch?: boolean;
+    /** Content of the generated bal.md (codemap) from the isolated project. */
+    readonly generatedCodeMap?: string;
     readonly usage?: {
         readonly initial: {
             readonly inputTokens: number;
@@ -210,6 +240,8 @@ export interface UsecaseCompact {
     readonly iteration?: number;
     readonly toolEvents?: readonly ToolEvent[];
     readonly evaluationResult: LLMEvaluationResult;
+    readonly codeContextRetrievalEvaluation?: CodeContextRetrievalEvaluation;
+    readonly codeMapMatch?: boolean;
     readonly usage?: {
         readonly totalTokens: number;
         readonly cacheHits: number;

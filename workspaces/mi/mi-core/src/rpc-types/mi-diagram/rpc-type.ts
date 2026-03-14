@@ -268,6 +268,14 @@ import {
     GetMockServicesResponse,
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
+    LoadDriverAndTestConnectionRequest,
+    GetDynamicFieldsRequest,
+    GetDynamicFieldsResponse,
+    GetStoredProceduresResponse,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse,
     Property,
     UpdateRegistryPropertyRequest,
     GenerateMappingsParamsRequest
@@ -458,3 +466,8 @@ export const isKubernetesConfigured: RequestType<void, boolean> = { method: `${_
 export const updatePropertiesInArtifactXML: RequestType<UpdateRegistryPropertyRequest, string> = { method: `${_preFix}/updatePropertiesInArtifactXML` };
 export const getPropertiesFromArtifactXML: RequestType<string, Property[] | undefined> = { method: `${_preFix}/getPropertiesFromArtifactXML` };
 export const getInputOutputMappings: RequestType<GenerateMappingsParamsRequest, string[]> = { method: `${_preFix}/getInputOutputMappings` };
+export const loadDriverAndTestConnection: RequestType<LoadDriverAndTestConnectionRequest, TestDbConnectionResponse> = { method: `${_preFix}/loadDriverAndTestConnection` };
+export const getDynamicFields: RequestType<GetDynamicFieldsRequest, GetDynamicFieldsResponse> = { method: `${_preFix}/getDynamicFields` };
+export const getStoredProcedures: RequestType<DSSFetchTablesRequest, GetStoredProceduresResponse> = { method: `${_preFix}/getStoredProcedures` };
+export const downloadDriverForConnector: RequestType<DriverDownloadRequest, DriverDownloadResponse> = { method: `${_preFix}/downloadDriverForConnector` };
+export const getDriverMavenCoordinates: RequestType<DriverMavenCoordinatesRequest, DriverMavenCoordinatesResponse> = { method: `${_preFix}/getDriverMavenCoordinates` };

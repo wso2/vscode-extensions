@@ -156,6 +156,16 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
 
     useEffect(() => {
         const fetchData = async () => {
+            if (isMCPTool) {
+                const connectorIcon = await rpcClient.getMiDiagramRpcClient().getConnectorIcon({
+                    connectorName: 'ai',
+                    documentUri: node.documentUri
+                });
+
+                setIconPath(connectorIcon.iconPath);
+                return;
+            }
+
             const connectorIcon = await rpcClient.getMiDiagramRpcClient().getConnectorIcon({
                 connectorName: node.stNode?.connectorName ?? (node.stNode as any).mediator.connectorName,
                 documentUri: node.documentUri
@@ -170,7 +180,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
 
             const connectionData: any = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
                 documentUri: node.documentUri,
-                connectorName: (node.stNode.tag === 'tool') ? 
+                connectorName: (node.stNode.tag === 'tool') ?
                     (node.stNode as Tool).mediator.connectorName : node.stNode.tag.split(".")[0]
             });
 
@@ -236,6 +246,36 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
         e.stopPropagation();
 
         if (node.stNode.tag === 'tool') {
+            const connectionData: any = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
+                documentUri: node.documentUri,
+                connectorName: isMCPTool ? 'ai' : (node.stNode as Tool).mediator.connectorName
+            });
+
+            const connectionName = isMCPTool ? (node.stNode as Tool).mcpConnection : (node.stNode as Tool).mediator.configKey;
+            const connection = connectionData.connections.find((item: any) => item.name === connectionName);
+
+            if (!connection) {
+                console.error(`Connection "${connectionName}" not found`);
+                return;
+            }
+
+            const connector = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({
+                documentUri: node.documentUri,
+                connectorName: isMCPTool ? 'ai' : (node.stNode as Tool).mediator.connectorName
+            });
+
+            rpcClient.getMiVisualizerRpcClient().openView({
+                type: POPUP_EVENT_TYPE.OPEN_VIEW,
+                location: {
+                    documentUri: connection.path,
+                    view: MACHINE_VIEW.ConnectionForm,
+                    customProps: {
+                        connectionName: connection.name,
+                        connector
+                    }
+                },
+                isPopup: true
+            });
             return;
         }
 
@@ -290,9 +330,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                     )}
                     <S.TopPortWidget port={node.getPort("in")!} engine={engine} />
                     <div style={{ display: "flex", flexDirection: "row", width: NODE_DIMENSIONS.DEFAULT.WIDTH }}>
-                        {isMCPTool ?
-                            <S.IconContainer>{getMediatorIconsFromFont('mcp')}</S.IconContainer>
-                            : iconPath &&
+                        {iconPath &&
                             <S.IconContainer><img src={iconPath} alt="Icon" /></S.IconContainer>
                         }
                         <div>
@@ -303,10 +341,14 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                             )}
                             <Content>
                                 <Header showBorder={true}>
-                                    <Name>{FirstCharToUpperCase((isMCPTool ? "MCP Tool" : connectorNode.method))}</Name>
+                                    <Name>{FirstCharToUpperCase((isMCPTool ? "MCP Tools" : connectorNode.method))}</Name>
                                 </Header>
                                 <Body>
-                                    <Description>{FirstCharToUpperCase(connectorNode.connectorName ?? (connectorNode as any).name)}</Description>
+                                    <Description>
+                                        {isMCPTool 
+                                            ? (node.stNode as Tool).mcpToolNames?.join(', ') || ''
+                                            : FirstCharToUpperCase(connectorNode.connectorName ?? (connectorNode as any).name)}
+                                    </Description>
                                 </Body>
                             </Content>
                         </div>

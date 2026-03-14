@@ -125,7 +125,7 @@ export class BaseNodeModel extends NodeModel {
                 }
             }
 
-            if (node.stNode.tag.includes('.')) {
+            if (node.stNode.tag.includes('.') || node.stNode.tag === "tool") {
 
                 operationName = "connector";
 
@@ -133,7 +133,7 @@ export class BaseNodeModel extends NodeModel {
 
                 const connectorData = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({
                     documentUri: node.documentUri,
-                    connectorName: connectorNode.tag.split(".")[0]
+                    connectorName: (stNode as Tool).isMcpTool ? 'ai' : connectorNode.tag.split(".")[0]
                 });
 
                 const connectorOperationName = connectorNode.tag.split(/\.(.+)/)[1];
@@ -152,7 +152,7 @@ export class BaseNodeModel extends NodeModel {
                 } else {
                     formData = {
                         form: formJSON,
-                        title: `${FirstCharToUpperCase(operationName)} Operation`,
+                        title: node.stNode.tag === "tool" ? "Tool Operation" : `${FirstCharToUpperCase(operationName)} Operation`,
                         uiSchemaPath: connectorData.uiSchemaPath,
                         parameters: connectorNode.parameters ?? [],
                         connectorName: connectorData.name,

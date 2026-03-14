@@ -49,7 +49,8 @@ export function convertTestResultToUsecaseResult(testResult: TestCaseResult, ite
             if (event.type === 'tool_call') {
                 return {
                     type: 'tool_call',
-                    toolName: event.toolName
+                    toolName: event.toolName,
+                    toolInput: event.toolInput
                 } as ToolCallEvent;
             } else if (event.type === 'tool_result') {
                 return {
@@ -75,10 +76,13 @@ export function convertTestResultToUsecaseResult(testResult: TestCaseResult, ite
         duration: testResult.result.duration,
         timestamp: testResult.result.startTime,
         evaluationResult: testResult.evaluationResult,
+        codeContextRetrievalEvaluation: testResult.codeContextRetrievalEvaluation,
         errorEvents: errorEvents.length > 0 ? errorEvents : undefined,
         toolEvents: toolEvents.length > 0 ? toolEvents : undefined,
         iteration,
-        usage: testResult.result.usageMetrics?.usage
+        usage: testResult.result.usageMetrics?.usage,
+        codeMapMatch: testResult.codeMapMatch,
+        generatedCodeMap: testResult.generatedCodeMap
     };
 }
 
@@ -331,7 +335,7 @@ function calculateAggregatedUsage(results: readonly UsecaseResult[]): Aggregated
 /**
  * Calculate comprehensive cache validation across all use cases
  */
-function calculateOverallCacheValidation(results: readonly UsecaseResult[], aggregatedUsage?: AggregatedUsageMetrics) {
+function calculateOverallCacheValidation(_results: readonly UsecaseResult[], aggregatedUsage?: AggregatedUsageMetrics) {
     if (!aggregatedUsage) {
         return undefined;
     }
