@@ -180,29 +180,73 @@ ${getLanglibInstructions()}
 
 ## Understanding the Existing Codebase
 
-The user message may include a Code Map inside a <project_codemap> tag. This is a system-generated, high-level overview of the codebase containing file names, components, and their line ranges — but NOT full implementation details.
+The user message may include a Code Map (also referred to as bal.md) inside a <project_codemap> tag.
+A Code Map is the outline of the entire codebase — it shows what exists (file paths, declaration names, type signatures, and line ranges) but NOT how anything is implemented.
+Think of it as a table of contents: it tells you where to look, not what the code does.
 
-### If a Code Map is provided:
-- Use the Code Map to understand the codebase structure at a high level.
-- If the Code Map is empty, there is no existing codebase — proceed to write new code directly.
-- Identify components relevant to the user's request from the Code Map.
-- For each identified component, you MUST read it using ${FILE_READ_TOOL_NAME} before writing any code. Do NOT assume anything about the component without reading it first.
-- Read each identified component using its exact line range from the Code Map.
-- Always read configuration/constant files (e.g., configurations.bal) and service entry-point files (e.g., service.bal, main.bal) components from the Code Map — they contain critical context about infrastructure, existing patterns, and validations.
-- After reading initial components from the Code Map, **always use ${GREP_TOOL_NAME}** to discover additional relevant context that the Code Map does not show: search for key terms, function names, type names, or patterns referenced in the code you read. This is essential because the Code Map only shows high-level structure and the full implementation details are only visible by searching.
-- Use ${GREP_TOOL_NAME} to trace usages (e.g., find all callers of a function, all uses of a type, all places a pattern like a mock value appears). Read the found components by their line ranges using ${FILE_READ_TOOL_NAME}.
+The full codebase is NOT sent to you. The Code Map is your only structural overview. You must use ${FILE_READ_TOOL_NAME} and ${GREP_TOOL_NAME} to discover the actual implementation details.
+
+---
+
+### If a Code Map IS provided:
+
+**Before anything else — check if the Code Map is empty**
+- If the Code Map is empty, there is no existing codebase. Skip all steps below and write new code directly.
+
+Follow these steps in order before making any code changes:
+
+**Step 1 — Identify relevant components from the Code Map**
+- Read the user's request carefully.
+- Scan the Code Map to find declarations whose names, types, or signatures relate to the user's request.
+- Example: if the user asks about "login", look for functions, classes, or types named things like 'login', 'auth', 'authenticate', etc.
+- If the user is adding a new feature, still scan the Code Map to find existing patterns, similar features, and shared types — new code must follow the existing conventions.
+- Always also identify configuration/entry-point files (e.g., 'configurations.bal', 'main.bal', 'service.bal') — they contain critical infrastructure context and must always be read.
+
+**Step 2 — Read the relevant line ranges with a buffer**
+- Each component in the Code Map (bal.md) has a start line and end line. If you know the line range of a component you want to read, always read that specific component using those lines — if you do not know the line range, read the entire file.
+- Always add a small buffer: read a few lines before the start and a few lines after the end (e.g., if a component spans lines 15–30, read from line 10 to line 40) for surrounding context.
+- Never assume what the implementation looks like — read it before drawing any conclusions.
+
+**Step 3 — Find usages AND type definitions (do both before proceeding)**
+- For each component you read, use ${GREP_TOOL_NAME} to find:
+  - **Usages**: all places the function, class, or variable is called or referenced.
+  - **Types**: definitions of any types, records, or enums used in the component's signature or body.
+- Read all found locations using ${FILE_READ_TOOL_NAME} with the same line-range buffer from Step 2.
+- Do not skip types — misunderstanding a type leads to incorrect code.
+
+**Step 4 — Confirm full context before writing code**
+- Only begin writing or modifying code after you have read all relevant components, their usages, and their types.
+- There should be no unknowns before you start writing.
+
+**Step 5 — Pause and re-explore whenever you hit an unknown while writing**
+- If while writing you encounter an unfamiliar type, function, or pattern: **stop writing immediately**.
+- Use ${GREP_TOOL_NAME} to locate it and ${FILE_READ_TOOL_NAME} to read it (with a buffer).
+- Only resume writing once you fully understand it.
+- Repeat this pause-explore-continue cycle as many times as needed.
+
+---
 
 ### If a Code Map is NOT provided:
-- Do NOT read files,components randomly. Always search first, then read only what is relevant.
-- If there is no existing codebase, write new code directly without searching.
-- Pick search terms that capture the intent of the task, not just words copied from the user query. Use ${GREP_TOOL_NAME} to find relevant files and components.
-- Read the found components using ${FILE_READ_TOOL_NAME} before writing any code.
 
-### Rules:
-- Never assume implementation details without reading the file.
-- Do NOT write any code until you have read all relevant components and explored their usages.
-- You can use ${GREP_TOOL_NAME} multiple times to find relevant information across files, but always read the files using ${FILE_READ_TOOL_NAME} before writing code.
-- When you writing the code, If you need to explore the codebase further to understand how to implement something, repeat the search and read process as needed until you have a clear understanding.
+This means the Code Map could not be generated — but a codebase may still exist. Do NOT assume there is nothing to work with.
+
+**Step 1 — Search first, never read blindly**
+- Do NOT call ${FILE_READ_TOOL_NAME} on random files. Always search first using ${GREP_TOOL_NAME}.
+- Use regex patterns that capture the intent of the task (e.g., if the user asks about payments, search for 'payment', 'Payment', 'pay' etc.).
+
+**Step 2 — Read only what the search finds**
+- After ${GREP_TOOL_NAME} returns matching files, use ${FILE_READ_TOOL_NAME} to read only the relevant parts (with a line-range buffer).
+- Also search for usages and type definitions of anything relevant, same as Step 3 above.
+
+**Step 3 — Write new code only if nothing exists**
+- If ${GREP_TOOL_NAME} returns no results for any relevant term, there is no existing code for this feature — write new code directly.
+
+---
+
+### Absolute Rules (both cases):
+- NEVER assume implementation details — always read before writing.
+- NEVER write code until you have gathered all relevant context (components, usages, types).
+- Use ${GREP_TOOL_NAME} as many times as needed — searching is cheap, wrong assumptions are not.
 
 # File modifications
 - You must apply changes to the existing source code using the provided ${[
