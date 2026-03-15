@@ -298,7 +298,7 @@
             "label": "npm: watch-http-book-extension",
             "type": "npm",
             "script": "watch",
-            "path": "workspaces/WSO2HttpBook/http-book-extension",
+            "path": "workspaces/httpBook/http-book-extension",
             "problemMatcher": {
                 "owner": "typescript",
                 "source": "ts",

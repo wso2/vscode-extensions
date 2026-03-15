@@ -25,7 +25,7 @@ import { spawn } from 'child_process';
 
 const DEFAULT_HURL_VERSION = '7.1.0';
 const HURL_RELEASE_BASE_URL = 'https://github.com/Orange-OpenSource/hurl/releases/download';
-const CONFIG_SECTION = 'wso2-http-book';
+const CONFIG_SECTION = 'http-book';
 
 interface ResolveCommandOptions {
 	autoInstall?: boolean;
@@ -117,7 +117,7 @@ export class HurlBinaryManager {
 			if (options.promptOnFailure) {
 				const message = error instanceof Error ? error.message : 'Failed to install managed hurl binary';
 				const action = await vscode.window.showErrorMessage(
-					`${message}. Set wso2-http-book.hurl.path or run "WSO2 HttpBook: Install Hurl".`,
+					`${message}. Set wso2-http-book.hurl.path or run "HttpBook: Install Hurl".`,
 					'Install Hurl',
 					'Open Settings'
 				);
@@ -195,7 +195,7 @@ export class HurlBinaryManager {
 			return vscode.window.withProgress(
 				{
 					location: vscode.ProgressLocation.Notification,
-					title: 'WSO2 HttpBook: Installing Hurl',
+					title: 'HttpBook: Installing Hurl',
 					cancellable: false
 				},
 				progress => install(progress)
