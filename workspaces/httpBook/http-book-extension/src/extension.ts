@@ -22,6 +22,7 @@ import * as path from 'path';
 import { activateHurlNotebook, hurlTextToNotebookData, notebookCellsToNotebookData, cellsToHurlText, enqueuePendingUntitledContent, NotebookCellInput } from './notebook';
 import { initializeHurlBinaryManager } from './hurl/hurl-binary-manager';
 import { ReadonlyHurlFSProvider, READONLY_HURL_SCHEME } from './readonly-fs-provider';
+import RunHurlTest from './tools/run-hurl-test';
 
 export function activate(context: vscode.ExtensionContext): void {
     // Initialize the Hurl binary manager (singleton)
@@ -162,8 +163,8 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         }
     );
-
-    context.subscriptions.push(openHurlNotebookCommand, installHurlCommand, importHurlStringCommand);
+    const hurlTool = vscode.lm.registerTool('run-hurl-test', new RunHurlTest());
+    context.subscriptions.push(openHurlNotebookCommand, installHurlCommand, importHurlStringCommand, hurlTool);
 }
 
 export function deactivate(): void {
