@@ -212,19 +212,24 @@ function extractContextRetrievalCalls(events: readonly ChatNotify[]): {
 
 const codeContextRetrievalSchema = z.object({
     is_relevant: z.boolean().describe(
-        'True if the agent retrieved all the relevant code from the existing codebase that is needed to fulfill the user query. ' +
-        'False if the agent missed retrieving existing code that was necessary to understand and fulfill the user query.'
-    ),
-    coverage_score: z.number().min(0).max(10).describe(
-        'Score from 0 to 10 for how well the retrieved context covers the relevant parts of the existing codebase. ' +
-        '0 = no useful existing code was retrieved, 5 = some relevant existing code retrieved but significant parts missed, ' +
-        '10 = all relevant existing code was retrieved. Base this only on what exists in the Initial Code.'
+        'STRICT boolean: true ONLY if the agent retrieved every single relevant component from the existing codebase ' +
+        'needed to fulfill the user query — including all type definitions, record types, object types, enums, ' +
+        'function signatures, method usages, imports, constants, and any code that is referenced or depended upon. ' +
+        'Return false if even one relevant component was missed. Partial retrieval is NOT acceptable — it must be complete.'
     ),
     reasoning: z.string().describe(
-        'A clear and concise explanation of your evaluation. ' +
-        'Reference specific parts of the existing codebase that were or were not retrieved. ' +
-        'Do not suggest hypothetical patterns — only judge against what exists in the Initial Code.' +
-        'If there is missing context, list each missing piece as a bullet point with the file name, line numbers, and the relevant code snippet from the Initial Code.'
+        'A structured report using exactly this format:\n\n' +
+        'Retrieved Relevant Context:\n' +
+        '- <file name>\n' +
+        '  - <component name and line number>\n' +
+        '  - <one sentence: why this component is relevant to the query>\n\n' +
+        'Missing Context:\n' +
+        '- <file name>\n' +
+        '  - <component name and line number>\n' +
+        '  - <one sentence: why this component was needed and was not retrieved>\n\n' +
+        'Do not use inline code blocks. Do not mix the two sections. ' +
+        'Only include components that exist in the Initial Code. ' +
+        'If nothing is missing, write "Missing Context: None".'
     )
 });
 
@@ -256,7 +261,6 @@ export async function evaluateCodeContextRetrieval(
         console.log("⚠️ No grep or file_read calls found — agent relied solely on CodeMap.");
         return {
             is_relevant: false,
-            coverage_score: 0,
             reasoning: "The agent made no file_read or grep calls. It relied solely on the CodeMap (high-level structure) without retrieving any implementation details from the existing codebase.",
             grep_calls: [],
             file_read_calls: []
@@ -289,19 +293,21 @@ export async function evaluateCodeContextRetrieval(
           }).join('\n\n')
         : 'No files were read.';
 
-    const systemPrompt = `You are an expert Ballerina developer evaluating whether an AI agent retrieved the relevant code from an existing codebase.
+    const systemPrompt = `You are an expert Ballerina developer performing a STRICT evaluation of whether an AI agent retrieved ALL relevant code context from an existing codebase.
 
 Your role is to:
-1. Read the Initial Code (the existing codebase before any changes).
-2. Read the user query to understand what change was requested.
-3. Evaluate whether the agent's file_read and grep calls retrieved the relevant parts of the existing code needed to fulfill the query.
+1. Carefully read the Initial Code in full — this is the ONLY source of truth for what existed before changes.
+2. Read the user query to understand exactly what change was requested.
+3. Identify every component in the Initial Code that is relevant to fulfilling the query: types, records, objects, enums, function signatures, method usages, imports, constants, configuration, and any code that is directly referenced or depended upon.
+4. For each relevant component, check whether the agent retrieved it via file_read or grep.
+5. If even one relevant component was NOT retrieved, the evaluation is FALSE — no exceptions.
 
-Important:
-- The Initial Code section is the ONLY source of truth. It represents the exact state of the codebase BEFORE the agent made any changes.
-- CRITICAL: Before penalizing the agent for not reading a file, you MUST verify that the file appears in the Initial Code section. If a file does NOT appear in the Initial Code, it was created by the agent as part of its implementation and should NOT be expected to have been read — it did not exist yet.
-- The agent has access to a CodeMap providing high-level structure, so it does not need to retrieve trivially obvious information.
-- The agent uses file_read to read files and grep to search for specific patterns within the existing codebase.
-- Only judge the agent on whether it read the files that already existed and were relevant to fulfilling the query. Never penalize for not reading files it created itself.`
+Rules:
+- Be strict. Partial retrieval is a FAILURE. The agent must have retrieved ALL relevant components.
+- The Initial Code section is the ONLY source of truth. Do not invent or assume code that is not shown.
+- CRITICAL: Before penalizing the agent for not reading a file, verify the file appears in the Initial Code. Files the agent created during implementation did not exist beforehand and should NOT be expected to have been read.
+- The agent has a CodeMap for high-level structure only. It must use file_read and grep to retrieve implementation details.
+- A component is "retrieved" only if it appears in the agent's grep results or file_read content. High-level awareness from the CodeMap does not count.`
 
     const userPrompt = `# User Query
 The user requested the following change:
@@ -324,7 +330,25 @@ ${grepSection}
 
 ---
 
-Evaluate whether the agent retrieved all relevant code from the existing codebase (shown above) that was needed to fulfill the user query.
+Carefully analyze the Initial Code and identify every component relevant to the user query (types, records, functions, usages, imports, constants, etc.).
+Then check whether each component was retrieved by the agent via file_read or grep.
+
+Be strict: if any relevant component from the existing codebase was missed, the answer is FALSE.
+Only return TRUE if the agent retrieved every single relevant component needed to fulfill the query.
+
+For the reasoning field, use exactly this format:
+
+Retrieved Relevant Context:
+- <file name>
+  - <component name and line number>
+  - <one sentence: why this component is relevant>
+
+Missing Context:
+- <file name>
+  - <component name and line number>
+  - <one sentence: why this component was needed and was not retrieved>
+
+If nothing is missing, write "Missing Context: None". Do not use inline code blocks.
 
 Use the submit_evaluation tool to provide your assessment.`;
 
@@ -357,7 +381,7 @@ Use the submit_evaluation tool to provide your assessment.`;
         const evaluation = toolCall.input as Omit<CodeContextRetrievalEvaluation, 'grep_calls' | 'file_read_calls'>;
 
 
-        console.log(`✅ Code Context Retrieval Evaluation Complete. Relevant: ${evaluation.is_relevant}. Score: ${evaluation.coverage_score}/10`);
+        console.log(`✅ Code Context Retrieval Evaluation Complete. Relevant: ${evaluation.is_relevant}. Reason: ${evaluation.reasoning}`);
         return {
             ...evaluation,
             grep_calls: grepCalls,
@@ -368,7 +392,6 @@ Use the submit_evaluation tool to provide your assessment.`;
         console.error("Error during code context retrieval evaluation:", error);
         return {
             is_relevant: false,
-            coverage_score: 0,
             reasoning: `Failed to evaluate due to an error: ${error instanceof Error ? error.message : "Unknown error"}`,
             grep_calls: grepCalls,
             file_read_calls: fileReadCalls

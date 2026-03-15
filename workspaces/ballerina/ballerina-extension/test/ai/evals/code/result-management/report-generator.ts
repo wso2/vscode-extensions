@@ -31,13 +31,10 @@ export function generateComprehensiveReport(summary: Summary): void {
     console.log(`   Overall Accuracy: ${summary.accuracy}%`);
     console.log(`   Average LLM Evaluation Rating: ${summary.evaluationSummary.toFixed(2)}/10`);
 
-    const contextScores = summary.results
-        .map(r => r.codeContextRetrievalEvaluation?.coverage_score)
-        .filter((s): s is number => s !== undefined);
-    if (contextScores.length > 0) {
-        const avgContextScore = contextScores.reduce((sum, s) => sum + s, 0) / contextScores.length;
-        const relevantCount = summary.results.filter(r => r.codeContextRetrievalEvaluation?.is_relevant).length;
-        console.log(`   Average Context Retrieval Score: ${avgContextScore.toFixed(2)}/10 (${relevantCount}/${contextScores.length} relevant)`);
+    const contextEvals = summary.results.filter(r => r.codeContextRetrievalEvaluation);
+    if (contextEvals.length > 0) {
+        const relevantCount = contextEvals.filter(r => r.codeContextRetrievalEvaluation?.is_relevant).length;
+        console.log(`   Context Retrieval: ${relevantCount}/${contextEvals.length} relevant`);
     }
 
     // Display iteration-specific summaries if multiple iterations
@@ -167,7 +164,7 @@ function logSuccessfulCompilations(results: readonly UsecaseResult[]): void {
         if (result.codeContextRetrievalEvaluation) {
             const ctx = result.codeContextRetrievalEvaluation;
             const ctxIcon = ctx.is_relevant ? '✅' : '❌';
-            console.log(`      Context Retrieval: ${ctxIcon} ${ctx.coverage_score.toFixed(1)}/10`);
+            console.log(`      Context Retrieval: ${ctxIcon} ${ctx.is_relevant ? 'Relevant' : 'Incomplete'}`);
         }
         if (result.codeMapMatch !== undefined) {
             console.log(`      Expected Code Map: ${result.codeMapMatch}`);
@@ -197,7 +194,7 @@ function logFailedCompilations(results: readonly UsecaseResult[]): void {
         if (result.codeContextRetrievalEvaluation) {
             const ctx = result.codeContextRetrievalEvaluation;
             const ctxIcon = ctx.is_relevant ? '✅' : '❌';
-            console.log(`      Context Retrieval: ${ctxIcon} ${ctx.coverage_score.toFixed(1)}/10`);
+            console.log(`      Context Retrieval: ${ctxIcon} ${ctx.is_relevant ? 'Relevant' : 'Incomplete'}`);
         }
         if (result.codeMapMatch !== undefined) {
             console.log(`      Expected Code Map: ${result.codeMapMatch}`);

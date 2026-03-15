@@ -148,16 +148,12 @@ export async function persistSummary(summary: Summary, resultsDir: string): Prom
         .map(r => ({
             usecase: r.usecase,
             is_relevant: r.codeContextRetrievalEvaluation!.is_relevant,
-            coverage_score: r.codeContextRetrievalEvaluation!.coverage_score,
         }));
 
     if (codeRetrievalEntries.length > 0) {
-        const scores = codeRetrievalEntries.map(e => e.coverage_score);
-        const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
         const relevantCount = codeRetrievalEntries.filter(e => e.is_relevant).length;
 
         const codeRetrievalSummary = {
-            average_coverage_score: Math.round(avgScore * 100) / 100,
             relevant_count: relevantCount,
             total_count: codeRetrievalEntries.length,
             results: codeRetrievalEntries

@@ -230,10 +230,10 @@ export const testCasesForExistingProject = [
   //   prompt: "Add a new REST endpoint to cancel an existing order by updating its status to 'CANCELLED' and publishing a cancellation event to Kafka.",
   //   projectPath: "simple_order_management_system"
   // },
-  {
-    prompt: "Add validation to ensure the order total amount is greater than zero before creating an order in the system.",
-    projectPath: "simple_order_management_system"
-  }
+  // {
+  //   prompt: "Add validation to ensure the order total amount is greater than zero before creating an order in the system.",
+  //   projectPath: "simple_order_management_system"
+  // }
 ];
 
 export const testCasesForExistingSemanticErrors = [

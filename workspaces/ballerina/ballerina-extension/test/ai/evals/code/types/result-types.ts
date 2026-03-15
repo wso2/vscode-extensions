@@ -56,7 +56,6 @@ export interface FileReadCallRecord {
 
 export interface CodeContextRetrievalEvaluation {
     readonly is_relevant: boolean;
-    readonly coverage_score: number;
     readonly reasoning: string;
     readonly grep_calls: readonly GrepCallRecord[];
     readonly file_read_calls: readonly FileReadCallRecord[];
