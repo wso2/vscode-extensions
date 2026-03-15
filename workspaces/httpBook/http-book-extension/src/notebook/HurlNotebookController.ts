@@ -23,8 +23,8 @@ import * as path from 'path';
 import { createHurlRunner, HurlFileResult, HurlEntryResult, HurlAssertionResult } from '@wso2/api-tryit-hurl-runner';
 import { getHurlBinaryManager } from '../hurl/hurl-binary-manager';
 
-const CONTROLLER_ID = 'wso2-http-book-controller';
-const NOTEBOOK_TYPE = 'wso2-http-book';
+const CONTROLLER_ID = 'http-book-controller';
+const NOTEBOOK_TYPE = 'http-book';
 const CONTROLLER_LABEL = 'Hurl Runner';
 
 /**

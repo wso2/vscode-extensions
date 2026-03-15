@@ -253,7 +253,7 @@
       "cd workspaces/apk/apk-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/api-designer/api-designer-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/mcp-inspector/mcp-inspector-extension && pnpm run copyVSIXToRoot",
-      "cd workspaces/WSO2HttpBook/http-book-extension && pnpm run copyVSIXToRoot"
+      "cd workspaces/httpBook/http-book-extension && pnpm run copyVSIXToRoot"
     ]
   },
   /**
@@ -633,15 +633,15 @@
     },
     {
       "packageName": "@wso2/http-book-core",
-      "projectFolder": "workspaces/WSO2HttpBook/http-book-core"
+      "projectFolder": "workspaces/httpBook/http-book-core"
     },
     {
       "packageName": "@wso2/http-book-visualizer",
-      "projectFolder": "workspaces/WSO2HttpBook/http-book-visualizer"
+      "projectFolder": "workspaces/httpBook/http-book-visualizer"
     },
     {
-      "packageName": "wso2-http-book",
-      "projectFolder": "workspaces/WSO2HttpBook/http-book-extension"
+      "packageName": "http-book",
+      "projectFolder": "workspaces/httpBook/http-book-extension"
     }
   ]
 }

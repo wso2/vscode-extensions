@@ -31,7 +31,7 @@ import type {
 } from '@wso2/http-book-core';
 import { getHurlBinaryManager } from '../hurl/hurl-binary-manager';
 
-const VIEW_TYPE = 'wso2-http-book-panel';
+const VIEW_TYPE = 'http-book-panel';
 
 export class HttpBookPanel {
     private readonly panel: vscode.WebviewPanel;
@@ -188,7 +188,7 @@ export class HttpBookPanel {
                    style-src 'unsafe-inline';
                    font-src ${webview.cspSource};
                    img-src ${webview.cspSource} data:;" />
-    <title>WSO2 HttpBook</title>
+    <title>HttpBook</title>
     <style>
         body, html {
             margin: 0; padding: 0;
