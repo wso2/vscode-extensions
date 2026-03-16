@@ -39,6 +39,7 @@ import { SidePanel, SidePanelTitleContainer, SidePanelBody, Button, Codicon, The
 import styled from "@emotion/styled";
 import * as C from '../../constants/nodeConstants';
 import { NodePropertiesPanel } from './NodePropertiesPanel';
+import { MODERN } from '../../constants';
 
 interface WorkflowViewProps {
     fileUri: string;
@@ -324,8 +325,8 @@ export function WorkflowView(props: WorkflowViewProps) {
                 height: '100vh',
                 outline: 'none',
                 position: 'relative',
-                backgroundColor: ThemeColors.SURFACE_BRIGHT,
-                backgroundImage: `radial-gradient(${ThemeColors.SURFACE_CONTAINER} ${C.DOT_SIZE}px, transparent 0px)`,
+                backgroundColor: MODERN ? ThemeColors.SURFACE_BRIGHT : 'var(--vscode-editor-background)',
+                backgroundImage: MODERN ? `radial-gradient(${ThemeColors.SURFACE_CONTAINER} ${C.DOT_SIZE}px, transparent 0px)` : 'none',
                 backgroundSize: `${C.DOT_GAP}px ${C.DOT_GAP}px`,
             }}
             tabIndex={0}
@@ -404,7 +405,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                 width={400}
                 sx={{
                     fontFamily: "var(--vscode-font-family)",
-                    backgroundColor: ThemeColors.SURFACE_DIM,
+                    backgroundColor: MODERN ? ThemeColors.SURFACE_DIM : 'var(--vscode-sideBar-background)',
                     boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)",
                 }}
                 onClose={handleClosePanel}

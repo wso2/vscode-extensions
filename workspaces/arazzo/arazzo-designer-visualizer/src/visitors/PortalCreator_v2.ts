@@ -21,6 +21,7 @@ import { Node, Edge, MarkerType } from '@xyflow/react';
 import * as C from '../constants/nodeConstants';
 import { DepthSearch } from './DepthSearch_v2';
 import { ThemeColors } from '@wso2/ui-toolkit';
+import { MODERN } from '../constants';
 import { ArazzoDefinition } from '@wso2/arazzo-designer-core';
 import { resolveReference } from '../utils/referenceUtils';
 
@@ -356,8 +357,8 @@ export class PortalCreator_v2 {
         // Determine source handle based on edge type
         const sourceHandleId = edgeType === 'failure' ? 'h-right-source' : 'h-bottom';
         const edgeStyle = edgeType === 'failure' 
-            ? { stroke: 'red', strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' } 
-            : { stroke: ThemeColors.PRIMARY, strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' };
+            ? { stroke: MODERN ? 'red' : 'var(--vscode-editor-foreground)', strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' } 
+            : { stroke: MODERN ? ThemeColors.PRIMARY : 'var(--vscode-editor-foreground)', strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' };
 
         // Edge: source → portal
         this.reactEdges.push({

@@ -23,6 +23,7 @@ import { ThemeColors } from '@wso2/ui-toolkit';
 import { RETRY_NODE_DIAMETER } from '../../../constants/nodeConstants';
 import * as C from '../../../constants/nodeConstants';
 import { RetryNodeData } from './RetryNodeModel';
+import { MODERN } from '../../../constants';
 
 const RetryNodeContainer = styled.div`
     width: ${RETRY_NODE_DIAMETER}px;
@@ -30,24 +31,24 @@ const RetryNodeContainer = styled.div`
     box-sizing: border-box;
     transform-origin: center;
     border-radius: 50%;
-    background-color: ${ThemeColors.SURFACE_DIM};
+    background-color: ${MODERN ? ThemeColors.SURFACE_DIM : 'var(--vscode-editor-background)'};
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
-    border: 2px solid ${ThemeColors.OUTLINE_VARIANT};
+    box-shadow: ${MODERN ? '0 2px 6px rgba(0,0,0,0.12)' : 'none'};
+    border: 2px solid ${MODERN ? ThemeColors.OUTLINE_VARIANT : 'var(--vscode-editor-foreground)'};
     transition: all 0.15s ease;
     cursor: pointer;
 
     &:hover {
         transform: translateY(-2px) rotate(6deg);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.16);
+        box-shadow: ${MODERN ? '0 6px 12px rgba(0,0,0,0.16)' : 'none'};
     }
 `;
 
 const RetryIcon = styled.div`
-    color: ${ThemeColors.ON_SURFACE};
+    color: ${MODERN ? ThemeColors.ON_SURFACE : 'var(--vscode-editor-foreground)'};
     font-size: 22px;
     font-weight: 700;
     user-select: none;
@@ -60,11 +61,11 @@ const RetryIcon = styled.div`
 const StyledHandle = styled(Handle)`
     opacity: 0;
     pointer-events: all;
-    background: ${ThemeColors.SECONDARY};
-    border: 2px solid ${ThemeColors.ON_SURFACE};
+    background: ${MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)'};
+    border: 2px solid ${MODERN ? ThemeColors.ON_SURFACE : 'var(--vscode-editor-background)'};
     width: 10px;
     height: 10px;
-    box-shadow: 0 0 8px rgba(0,0,0,0.08);
+    box-shadow: ${MODERN ? '0 0 8px rgba(0,0,0,0.08)' : 'none'};
 `;
 
 export const RetryNodeWidget: React.FC<NodeProps<RetryNodeData>> = ({ id, data, isConnectable }) => {
@@ -86,8 +87,8 @@ export const RetryNodeWidget: React.FC<NodeProps<RetryNodeData>> = ({ id, data, 
                     sourceHandle: 'h-left-source',
                     targetHandle: 'goto-top-target',
                     type: 'smoothstep',
-                    style: { stroke: ThemeColors.SECONDARY, strokeDasharray: '4 4' ,strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' },
-                    markerEnd: { type: MarkerType.ArrowClosed, color: ThemeColors.SECONDARY },
+                    style: { stroke: MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)', strokeDasharray: '4 4' ,strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' },
+                    markerEnd: { type: MarkerType.ArrowClosed, color: MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)' },
                     animated: false,
                 };
                 return [...eds, newEdge];

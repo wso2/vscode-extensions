@@ -5,7 +5,6 @@
  * Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License.
  * You may obtain a copy of the License at
- *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing,
@@ -21,6 +20,7 @@ import { Handle, Position, NodeProps } from '@xyflow/react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { ThemeColors } from '@wso2/ui-toolkit';
+import { MODERN } from '../../../constants';
 import {
     NODE_WIDTH,
     NODE_HEIGHT,
@@ -60,13 +60,16 @@ export namespace NodeStyles {
         width: 100%;
         min-height: ${NODE_HEIGHT}px;
         padding: 0 ${PADDING / 2}px;
-        background-color: ${ThemeColors.SURFACE_DIM};
-        color: ${ThemeColors.ON_SURFACE};
+        background-color: ${MODERN ? ThemeColors.SURFACE_DIM : 'var(--vscode-editor-background)'};
+        color: ${MODERN ? ThemeColors.ON_SURFACE : 'var(--vscode-editor-foreground)'};
         opacity: ${(props: NodeStyleProp) => (props.disabled ? 0.7 : 1)};
         border: ${(props: NodeStyleProp) => (props.disabled ? 2 : C.NODE_BORDER_WIDTH)}px;
         border-style: ${(props: NodeStyleProp) => (props.disabled ? 'dashed' : 'solid')};
-        border-color: ${(props: NodeStyleProp) =>
-            props.hasError
+        border-color: ${(props: NodeStyleProp) => {
+            if (!MODERN) {
+                return props.hasError ? 'var(--vscode-errorForeground)' : 'var(--vscode-editor-foreground)';
+            }
+            return props.hasError
                 ? ThemeColors.ERROR
                 : props.flash
                     ? ThemeColors.SECONDARY
@@ -74,16 +77,17 @@ export namespace NodeStyles {
                         ? ThemeColors.SECONDARY
                         : props.hovered && !props.disabled && !props.readOnly
                             ? ThemeColors.SECONDARY
-                            : ThemeColors.OUTLINE_VARIANT};
+                            : ThemeColors.OUTLINE_VARIANT;
+        }};
         border-radius: 10px;
         cursor: ${(props: NodeStyleProp) => (props.readOnly ? 'default' : 'pointer')};
         transition: all 0.15s ease;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+        box-shadow: ${MODERN ? '0 2px 6px rgba(0, 0, 0, 0.12)' : 'none'};
         animation: ${(props: NodeStyleProp) => (props.flash ? `${flashAnim} 0.8s ease` : 'none')};
 
         &:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+            box-shadow: ${MODERN ? '0 6px 14px rgba(0, 0, 0, 0.18)' : 'none'};
         }
     `;
 
@@ -126,7 +130,7 @@ export namespace NodeStyles {
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         word-break: break-all;
-        color: ${ThemeColors.ON_SURFACE};
+        color: ${MODERN ? ThemeColors.ON_SURFACE : 'var(--vscode-descriptionForeground)'};
         opacity: 0.7;
         white-space: normal;
         font-size: 12px;
@@ -137,7 +141,7 @@ export namespace NodeStyles {
     export const StyledHandle = styled(Handle)`
         opacity: 0;
         pointer-events: all;
-        background: ${ThemeColors.OUTLINE_VARIANT};
+        background: ${MODERN ? ThemeColors.OUTLINE_VARIANT : 'var(--vscode-editor-foreground)'};
     `;
 }
 

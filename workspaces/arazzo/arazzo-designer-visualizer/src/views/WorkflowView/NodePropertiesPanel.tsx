@@ -22,6 +22,7 @@ import styled from '@emotion/styled';
 import { Node } from '@xyflow/react';
 import { ArazzoWorkflow, ArazzoDefinition } from '@wso2/arazzo-designer-core';
 import { resolveReference, isReference, isReferenceLike, getReferencePath } from '../../utils/referenceUtils';
+import { MODERN } from '../../constants';
 
 const Container = styled.div`
     display: flex;
@@ -44,7 +45,7 @@ const SectionHeader = styled.div<{ clickable?: boolean }>`
     font-size: 14px;
     color: var(--vscode-foreground);
     padding-bottom: 8px;
-    border-bottom: 2px solid var(--vscode-focusBorder);
+    border-bottom: 2px solid ${MODERN ? 'var(--vscode-focusBorder)' : 'var(--vscode-editor-foreground)'};
     cursor: ${(props: { clickable?: boolean }) => props.clickable ? 'pointer' : 'default'};
     user-select: none;
     display: flex;
@@ -62,7 +63,7 @@ const SectionContent = styled.div`
 
 const FieldLabel = styled.div`
     font-weight: 600;
-    color: var(--vscode-textPreformat-foreground);
+    color: ${MODERN ? 'var(--vscode-textPreformat-foreground)' : 'var(--vscode-foreground)'};
     margin-bottom: 6px;
     font-size: 12px;
 `;
@@ -112,7 +113,7 @@ const PropertyRow = styled.div`
 
 const PropertyKey = styled.span`
     font-weight: 600;
-    color: var(--vscode-symbolIcon-classForeground);
+    color: ${MODERN ? 'var(--vscode-symbolIcon-classForeground)' : 'var(--vscode-foreground)'};
     margin-right: 6px;
 `;
 
@@ -148,7 +149,7 @@ const MarkdownContent = styled.div`
         border-radius: 3px;
         font-size: 11px;
     }
-    strong { color: var(--vscode-textPreformat-foreground); }
+    strong { color: ${MODERN ? 'var(--vscode-textPreformat-foreground)' : 'var(--vscode-foreground)'}; }
     em { opacity: 0.85; }
 `;
 
@@ -166,7 +167,7 @@ const MinimalSectionHeader = styled.div`
     font-size: 14px;
     color: var(--vscode-foreground);
     padding-bottom: 8px;
-    border-bottom: 2px solid var(--vscode-focusBorder);
+    border-bottom: 2px solid ${MODERN ? 'var(--vscode-focusBorder)' : 'var(--vscode-editor-foreground)'};
 `;
 
 const MinimalField = styled.div`

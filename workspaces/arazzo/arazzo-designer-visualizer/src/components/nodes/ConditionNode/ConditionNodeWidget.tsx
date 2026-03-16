@@ -24,6 +24,7 @@ import { DIAMOND_SIZE } from '../../../constants/nodeConstants';
 import { BranchIcon } from '../../../resources/icons/BranchIcon';
 import { ConditionNodeData } from './ConditionNodeModel';
 import * as C from '../../../constants/nodeConstants';
+import { MODERN } from '../../../constants';
 
 const ConditionNodeContainer = styled.div<{ selected?: boolean }>`
     width: ${DIAMOND_SIZE}px;
@@ -34,17 +35,17 @@ const ConditionNodeContainer = styled.div<{ selected?: boolean }>`
     align-items: center;
     justify-content: center;
     position: relative;
-    background-color: ${ThemeColors.SURFACE_DIM};
-    border: ${C.NODE_BORDER_WIDTH}px solid ${(props: { selected?: boolean }) => (props.selected ? ThemeColors.SECONDARY : ThemeColors.OUTLINE_VARIANT)};
+    background-color: ${MODERN ? ThemeColors.SURFACE_DIM : 'var(--vscode-editor-background)'};
+    border: ${C.NODE_BORDER_WIDTH}px solid ${(props: { selected?: boolean }) => (props.selected ? (MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)') : (MODERN ? ThemeColors.OUTLINE_VARIANT : 'var(--vscode-editor-foreground)'))};
     border-radius: ${C.CONDITION_NODE_BORDER_RADIUS}px; /* rounded ends for diamond */
-    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    box-shadow: ${MODERN ? '0 2px 6px rgba(0,0,0,0.12)' : 'none'};
     transition: all 0.2s ease;
     cursor: pointer;
 
     &:hover {
         transform: rotate(45deg) translateY(-1px);
-        border-color: ${ThemeColors.SECONDARY};
-        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+        border-color: ${MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)'};
+        box-shadow: ${MODERN ? '0 6px 14px rgba(0, 0, 0, 0.18)' : 'none'};
     }
 `;
 
@@ -53,7 +54,7 @@ const ConditionNodeContent = styled.div`
     text-align: center;
     font-size: 18px;
     font-weight: 700;
-    color: ${ThemeColors.ON_SURFACE};
+    color: ${MODERN ? ThemeColors.ON_SURFACE : 'var(--vscode-editor-foreground)'};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -66,11 +67,11 @@ const ConditionNodeContent = styled.div`
      /* keep default node icon color white for normal svgs, but allow
          '.branch-icon' to show the BI-blue */
     svg:not(.branch-icon) path {
-        fill: ${ThemeColors.ON_SURFACE};
+        fill: ${MODERN ? ThemeColors.ON_SURFACE : 'var(--vscode-editor-foreground)'};
     }
 
     svg.branch-icon {
-        color: var(--vscode-terminal-ansiBlue);
+        color: ${MODERN ? 'var(--vscode-terminal-ansiBlue)' : 'var(--vscode-editor-foreground)'};
     }
 
     svg.branch-icon path {
@@ -84,7 +85,7 @@ const ConditionNodeContent = styled.div`
 const StyledHandle = styled(Handle)`
     opacity: 0;
     pointer-events: all;
-    background: ${ThemeColors.OUTLINE_VARIANT};
+    background: ${MODERN ? ThemeColors.OUTLINE_VARIANT : 'var(--vscode-panel-border)'};
 `;
 
 export const ConditionNodeWidget: React.FC<NodeProps<ConditionNodeData>> = ({ data, isConnectable, selected }) => {
