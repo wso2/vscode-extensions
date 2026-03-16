@@ -172,6 +172,7 @@ export class HurlBinaryManager {
 			}
 
 			await fs.mkdir(path.dirname(binaryPath), { recursive: true });
+			await this.copyBinaryCompanionFiles(locatedBinary, path.dirname(binaryPath));
 			await fs.copyFile(locatedBinary, binaryPath);
 			if (process.platform !== 'win32') {
 				await fs.chmod(binaryPath, 0o755);
@@ -319,6 +320,30 @@ export class HurlBinaryManager {
 		}
 
 		return undefined;
+	}
+
+	private async copyBinaryCompanionFiles(sourceBinaryPath: string, destinationDir: string): Promise<void> {
+		const sourceDir = path.dirname(sourceBinaryPath);
+		const binaryFileName = path.basename(sourceBinaryPath);
+		const entries = await fs.readdir(sourceDir, { withFileTypes: true });
+
+		for (const entry of entries) {
+			const sourcePath = path.join(sourceDir, entry.name);
+			const destinationPath = path.join(destinationDir, entry.name);
+
+			if (entry.name === binaryFileName) {
+				continue;
+			}
+
+			if (entry.isDirectory()) {
+				await fs.cp(sourcePath, destinationPath, { recursive: true, force: true });
+				continue;
+			}
+
+			if (entry.isFile()) {
+				await fs.copyFile(sourcePath, destinationPath);
+			}
+		}
 	}
 }
 
