@@ -22,24 +22,25 @@ import styled from '@emotion/styled';
 import { ThemeColors } from '@wso2/ui-toolkit';
 import { PortalNodeData } from './PortalNodeModel';
 import * as C from '../../../constants/nodeConstants';
+import { MODERN } from '../../../constants';
 
 const PortalNodeContainer = styled.div`
-    background-color: ${ThemeColors.SURFACE_DIM};
+    background-color: ${MODERN ? ThemeColors.SURFACE_DIM : 'var(--vscode-editor-background)'};
     padding: 6px 12px;
     border-radius: 999px;
-    color: ${ThemeColors.ON_SURFACE};
+    color: ${MODERN ? ThemeColors.ON_SURFACE : 'var(--vscode-editor-foreground)'};
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
+    border: 1px solid ${MODERN ? ThemeColors.OUTLINE_VARIANT : 'var(--vscode-editor-foreground)'};
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    box-shadow: ${MODERN ? '0 2px 6px rgba(0,0,0,0.12)' : 'none'};
     transition: all 0.15s ease;
     user-select: none;
 
     &:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.16);
+        box-shadow: ${MODERN ? '0 6px 12px rgba(0,0,0,0.16)' : 'none'};
     }
 
     &:active {
@@ -80,8 +81,8 @@ export const PortalNodeWidget: React.FC<NodeProps<PortalNodeData>> = ({ id, data
                     sourceHandle: 'h-top',
                     targetHandle: 'goto-top-target',
                     type: 'smoothstep',
-                    style: { stroke: ThemeColors.SECONDARY, strokeDasharray: '4 4' ,strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' },
-                    markerEnd: { type: MarkerType.ArrowClosed, color: ThemeColors.SECONDARY },
+                    style: { stroke: MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)', strokeDasharray: '4 4' ,strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' },
+                    markerEnd: { type: MarkerType.ArrowClosed, color: MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)' },
                     animated: false,
                 };
                 return [...eds, newEdge];

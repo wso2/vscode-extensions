@@ -23,6 +23,7 @@ import { ThemeColors } from '@wso2/ui-toolkit';
 import { START_NODE_DIAMETER } from '../../../constants/nodeConstants';
 import * as C from '../../../constants/nodeConstants';
 import { StartNodeData } from './StartNodeModel';
+import { MODERN } from '../../../constants';
 
 const StartNodeContainer = styled.div<{ selected?: boolean }>`
     display: inline-flex;
@@ -32,17 +33,17 @@ const StartNodeContainer = styled.div<{ selected?: boolean }>`
     min-width: ${C.START_NODE_WIDTH}px;
     padding: 0 12px;
     border-radius: ${C.START_NODE_DIAMETER / 2}px; /* pill */
-    background-color: ${ThemeColors.SURFACE_DIM}; /* same as step nodes */
-    color: ${ThemeColors.ON_SURFACE};
+    background-color: ${MODERN ? ThemeColors.SURFACE_DIM : 'var(--vscode-editor-background)'}; /* same as step nodes */
+    color: ${MODERN ? ThemeColors.ON_SURFACE : 'var(--vscode-editor-foreground)'};
     position: relative;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-    border: ${C.NODE_BORDER_WIDTH}px solid ${(props: { selected?: boolean }) => (props.selected ? ThemeColors.SECONDARY : ThemeColors.OUTLINE_VARIANT)};
+    box-shadow: ${MODERN ? '0 2px 6px rgba(0, 0, 0, 0.12)' : 'none'};
+    border: ${C.NODE_BORDER_WIDTH}px solid ${(props: { selected?: boolean }) => (props.selected ? (MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)') : (MODERN ? ThemeColors.OUTLINE_VARIANT : 'var(--vscode-editor-foreground)'))};
     transition: all 0.15s ease;
 
     &:hover {
         transform: translateY(-2px);
-        border-color: ${ThemeColors.SECONDARY};
-        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+        border-color: ${MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)'};
+        box-shadow: ${MODERN ? '0 6px 14px rgba(0, 0, 0, 0.18)' : 'none'};
     }
 `;
 
@@ -56,7 +57,7 @@ const StartNodeRoot = styled.div`
 `;
 
 const StartNodeLabel = styled.div`
-    color: ${ThemeColors.ON_SURFACE};
+    color: ${MODERN ? ThemeColors.ON_SURFACE : 'var(--vscode-editor-foreground)'};
     font-weight: 600;
     font-size: 13px;
     font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
@@ -65,8 +66,8 @@ const StartNodeLabel = styled.div`
 
 const StyledHandle = styled(Handle)`
     opacity: 0;
-    background: ${ThemeColors.PRIMARY};
-    border: 2px solid ${ThemeColors.SURFACE_DIM};
+    background: ${MODERN ? ThemeColors.PRIMARY : 'var(--vscode-editor-foreground)'};
+    border: 2px solid ${MODERN ? ThemeColors.SURFACE_DIM : 'var(--vscode-editor-background)'};
     width: 8px;
     height: 8px;
     transition: all 0.2s ease;

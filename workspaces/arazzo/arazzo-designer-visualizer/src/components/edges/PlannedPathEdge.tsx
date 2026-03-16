@@ -21,6 +21,7 @@ import { BRIDGE_RADIUS, DEFAULT_EPS, getPointsForEdge as getEdgePoints, detectBr
 import { ThemeColors } from '@wso2/ui-toolkit';
 import { useState } from 'react';
 import * as C from '../../constants/nodeConstants';
+import { MODERN } from '../../constants';
 
 interface Waypoint {
     x: number;
@@ -222,7 +223,7 @@ export default function PlannedPathEdge({
 
     const finalStyle = {
         ...(style || {}),
-        stroke: hovered ? ThemeColors.SECONDARY : (style as any)?.stroke,
+        stroke: hovered ? (MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)') : (style as any)?.stroke,
     };
 
     // Create a custom, per-edge marker so the arrowhead color matches the edge stroke
@@ -230,7 +231,7 @@ export default function PlannedPathEdge({
     const hoverMarkerId = `pl_${id}-hover-marker`;
 
     // Determine which color to use for the static marker (fall back to primary if missing)
-    const staticStrokeColor = (finalStyle as any).stroke || ThemeColors.PRIMARY;
+    const staticStrokeColor = (finalStyle as any).stroke || (MODERN ? ThemeColors.PRIMARY : 'var(--vscode-editor-foreground)');
 
     // Select markerEnd attr: if hover -> use hover marker; else if markerEnd provided -> use custom id URL; otherwise leave as-is
     const markerEndAttr = markerEnd ? (hovered ? `url(#${hoverMarkerId})` : `url(#${edgeMarkerId})`) : undefined;
@@ -283,7 +284,7 @@ export default function PlannedPathEdge({
                             points="-5,-4 0,0 -5,4 -5,-4"
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            style={{ stroke: ThemeColors.SECONDARY, fill: ThemeColors.SECONDARY, strokeWidth: 1 }}
+                            style={{ stroke: MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)', fill: MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)', strokeWidth: 1 }}
                         />
                     </marker>
                 </defs>
@@ -315,8 +316,8 @@ export default function PlannedPathEdge({
                                 justifyContent: 'center',
                                 alignItems: 'center',
                                 borderRadius: '12px',
-                                border: `1.5px solid ${ThemeColors.PRIMARY}`,
-                                backgroundColor: ThemeColors.SURFACE_BRIGHT,
+                                border: `1.5px solid ${MODERN ? ThemeColors.PRIMARY : 'var(--vscode-editor-foreground)'}`,
+                                backgroundColor: MODERN ? ThemeColors.SURFACE_BRIGHT : 'var(--vscode-editor-background)',
                                 padding: '2px 10px',
                                 boxSizing: 'border-box',
                                 width: 'fit-content',
@@ -328,7 +329,7 @@ export default function PlannedPathEdge({
                         >
                             <span
                                 style={{
-                                    color: ThemeColors.PRIMARY,
+                                    color: MODERN ? ThemeColors.PRIMARY : 'var(--vscode-editor-foreground)',
                                     fontSize: '12px',
                                     fontFamily: 'var(--vscode-font-family, sans-serif)',
                                     userSelect: 'none',

@@ -22,6 +22,7 @@ import styled from '@emotion/styled';
 import { ThemeColors } from '@wso2/ui-toolkit';
 import { END_NODE_DIAMETER, END_NODE_INNER_DIAMETER } from '../../../constants/nodeConstants';
 import { EndNodeData } from './EndNodeModel';
+import { MODERN } from '../../../constants';
 
 const EndNodeRoot = styled.div`
     position: relative;
@@ -33,7 +34,7 @@ const EndNodeRoot = styled.div`
 `;
 
 const EndNodeInner = styled.div`
-    background: ${ThemeColors.PRIMARY};
+    background: ${MODERN ? ThemeColors.PRIMARY : 'var(--vscode-editor-foreground)'};
     width: ${END_NODE_INNER_DIAMETER}px;
     height: ${END_NODE_INNER_DIAMETER}px;
     border-radius: 50%;

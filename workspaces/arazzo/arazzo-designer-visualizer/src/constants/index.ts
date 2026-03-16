@@ -16,6 +16,8 @@
  * under the License.
  */
 
+export const MODERN = false;
+
 export const colors = {
     "GET": '#3d7eff',
     "PUT": '#fca130',

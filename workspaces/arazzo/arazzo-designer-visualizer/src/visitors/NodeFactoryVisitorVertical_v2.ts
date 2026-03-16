@@ -22,6 +22,7 @@ import * as C from '../constants/nodeConstants';
 import WaypointCreator from '../components/edges/WaypointCreator';
 import { pointInRect, segIntersectsSeg, segmentIntersectsRect } from '../components/edges/edgeUtils';
 import { ThemeColors } from '@wso2/ui-toolkit';
+import { MODERN } from '../constants';
 import { ArazzoDefinition } from '@wso2/arazzo-designer-core';
 import { resolveReference } from '../utils/referenceUtils';
 
@@ -298,11 +299,11 @@ export class NodeFactoryVisitorVertical_v2 {
             },
             markerEnd: { 
                 type: MarkerType.ArrowClosed,
-                color: edgeType === 'failure' ? 'red' : ThemeColors.PRIMARY
+                color: edgeType === 'failure' ? (MODERN ? 'red' : 'var(--vscode-editor-foreground)') : (MODERN ? ThemeColors.PRIMARY : 'var(--vscode-editor-foreground)')
             },
             style: edgeType === 'failure' 
-                ? { stroke: 'red', strokeWidth: 2 } 
-                : { stroke: ThemeColors.PRIMARY, strokeWidth: 2 }
+                ? { stroke: MODERN ? 'red' : 'var(--vscode-editor-foreground)', strokeWidth: 2 } 
+                : { stroke: MODERN ? ThemeColors.PRIMARY : 'var(--vscode-editor-foreground)', strokeWidth: 2 }
         };
 
         console.log(`[NodeFactory V2] Creating edge:`, {
