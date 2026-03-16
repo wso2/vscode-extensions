@@ -74,6 +74,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
         onCompletionSelect,
         onDefaultCompletionSelect,
         onManualCompletionRequest,
+        onManualInteraction,
         extractArgsFromFunction,
         onFunctionEdit,
         useTransaction,
@@ -171,6 +172,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
         onCompletionSelect && await onCompletionSelect(newTextValue, item);
         setCursor(inputRef, 'input', newTextValue, newCursorPosition, manualFocusTrigger);
         handleClose();
+        onManualInteraction?.();
     };
 
     const handleExpressionSave = async (value: string, ref?: React.MutableRefObject<string>) => {
@@ -335,6 +337,8 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
             return;
         }
 
+        onManualInteraction?.();
+
     };
 
     const handleRefSetCursor = (value: string, cursorPosition: number) => {
@@ -414,6 +418,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
                 onKeyDown={handleInputKeyDown}
                 onFocus={handleTextAreaFocus}
                 onBlur={handleTextFieldBlur}
+                onClick={onManualInteraction}
                 sx={{ width: '100%', ...sx }}
                 disabled={disabled || isSavingExpression}
             />

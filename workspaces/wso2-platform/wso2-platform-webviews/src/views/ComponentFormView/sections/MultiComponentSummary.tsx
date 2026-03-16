@@ -39,6 +39,7 @@ import {
 	getTypeChipStyle,
 } from "../../../utilities/integration-type-styles";
 import type { PerComponentFormData } from "../hooks";
+import { useExtWebviewContext } from "../../../providers/ext-vewview-ctx-provider";
 
 export interface MultiComponentSummaryProps {
 	selectedComponents: ComponentSelectionItem[];
@@ -71,6 +72,7 @@ export const MultiComponentSummary: FC<MultiComponentSummaryProps> = ({
 	componentDataMap,
 	organization,
 }) => {
+	const {terminologies} = useExtWebviewContext();
 	const queryClient = useQueryClient();
 	const selectedComponentsToDisplay = selectedComponents.filter((comp) => comp.selected);
 	const isDevant = extensionName === "Devant";
@@ -209,7 +211,7 @@ export const MultiComponentSummary: FC<MultiComponentSummaryProps> = ({
 
 				{/* Footer with count */}
 				<div className="border-t border-vsc-input-border px-4 py-2 text-xs text-vsc-descriptionForeground">
-					{selectedComponentsToDisplay.length} {isDevant ? "integration" : "component"}
+					{selectedComponentsToDisplay.length} {terminologies?.componentTerm}
 					{selectedComponentsToDisplay.length !== 1 ? "s" : ""} selected
 				</div>
 			</div>
