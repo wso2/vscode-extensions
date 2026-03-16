@@ -25,7 +25,11 @@ import { ReadonlyHurlFSProvider, READONLY_HURL_SCHEME } from './readonly-fs-prov
 
 export function activate(context: vscode.ExtensionContext): void {
     // Initialize the Hurl binary manager (singleton)
-    initializeHurlBinaryManager(context);
+    const binaryManager = initializeHurlBinaryManager(context);
+
+    // Proactively install hurl in the background on activation so it is ready before the user
+    // executes their first cell. Silent — no error shown if this fails (will retry on first run).
+    binaryManager.resolveCommandPath({ autoInstall: true }).catch(() => {});
 
     // Register VS Code Notebook API support for `.hurl` files
     activateHurlNotebook(context);
