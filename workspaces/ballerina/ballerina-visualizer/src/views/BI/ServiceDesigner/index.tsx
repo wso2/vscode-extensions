@@ -29,7 +29,7 @@ import {
     ServiceModel,
     Protocol
 } from "@wso2/ballerina-core";
-import { buildBaseUrl, buildHurlString, buildMarkdownDoc, buildPayloadContext } from "./buildHurlString";
+import { buildBaseUrl, buildHurlString, buildMarkdownDoc } from "./buildHurlString";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { PanelContainer } from "@wso2/ballerina-side-panel";
 import { NodePosition } from "@wso2/syntax-tree";
@@ -220,7 +220,6 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
 
     const [initFunction, setInitFunction] = useState<FunctionModel>(undefined);
     const [selectedFTPHandler, setSelectedFTPHandler] = useState<string>(undefined);
-    const [isTryItLoading, setIsTryItLoading] = useState<boolean>(false);
 
     const handleCloseInitFunction = () => {
         setInitFunction(undefined);
@@ -710,14 +709,27 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             .sort((a, b) => (a.position?.startLine ?? 0) - (b.position?.startLine ?? 0));
         if (httpResources.length === 0) { return; }
 
-        setIsTryItLoading(true);
-
         const cells: { kind: "markdown" | "hurl"; content: string }[] = [];
 
-        try {
-            for (const resource of httpResources) {
-                if (!resource.position || !resource.path) { continue; }
+        const serviceName = basePath?.replace(/^\//, "") || serviceModel.name || "Service";
+        cells.push({ kind: "markdown", content: `### Try Service: '${serviceName}' (${baseUrl})` });
 
+        // Fetch OAI spec once for schema docs + sample values; fall back gracefully if unavailable
+        let oasSpec: any | undefined;
+        try {
+            const firstPath = httpResources.find(r => r.path)?.path;
+            const oasResult = await rpcClient.getServiceDesignerRpcClient().getOASSpec({
+                documentFilePath: firstPath,
+                basePath
+            });
+            oasSpec = oasResult.spec ?? undefined;
+        } catch {
+            // spec unavailable — cells will fall back to minimal placeholders
+        }
+
+        try {
+            const resourceCells = await Promise.all(httpResources.map(async (resource) => {
+                if (!resource.position || !resource.path) { return []; }
                 try {
                     const codeData: CodeData = {
                         lineRange: {
@@ -730,25 +742,18 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                         filePath: resource.path,
                         codedata: codeData
                     });
-                    const payloadCtx = buildPayloadContext(result.function, serviceModel.name || "", basePath || "");
-                    let examplePayload: object | undefined;
-                    if (payloadCtx) {
-                        try {
-                            examplePayload = await rpcClient.getServiceDesignerRpcClient().generateExamplePayloadJson(payloadCtx);
-                        } catch {
-                            // AI unavailable — fall back to empty body
-                        }
-                    }
-                    cells.push({ kind: "markdown", content: buildMarkdownDoc(result.function) });
-                    cells.push({ kind: "hurl", content: buildHurlString(result.function, baseUrl, examplePayload) });
+                    return [
+                        { kind: "markdown" as const, content: buildMarkdownDoc(result.function) },
+                        { kind: "hurl" as const, content: buildHurlString(result.function, baseUrl, oasSpec) }
+                    ];
                 } catch {
-                    // Fallback: minimal entry from resource metadata
                     const method = resource.icon?.split("-")[0]?.toUpperCase() ?? "GET";
-                    cells.push({ kind: "hurl", content: `${method} ${baseUrl}${resource.name}` });
+                    return [{ kind: "hurl" as const, content: `${method} ${baseUrl}${resource.name}` }];
                 }
-            }
-        } finally {
-            setIsTryItLoading(false);
+            }));
+            cells.push(...resourceCells.flat());
+        } catch (error) {
+            console.error("Error generating try-it cells: ", error);
         }
 
         if (cells.length === 0) { return; }
@@ -879,11 +884,8 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                     {
                                         serviceModel && (isHttpService || isMcpService) && (
                                             <>
-                                                <Button appearance="secondary" tooltip="Try Service" onClick={handleServiceTryIt} disabled={isTryItLoading}>
-                                                    {isTryItLoading
-                                                        ? <><ProgressRing sx={{ width: 16, height: 16, marginRight: 8 }} /> <ButtonText>Preparing...</ButtonText></>
-                                                        : <><Icon name="play" isCodicon={true} sx={{ marginRight: 8, fontSize: 16 }} /> <ButtonText>Try It</ButtonText></>
-                                                    }
+                                                <Button appearance="secondary" tooltip="Try Service" onClick={handleServiceTryIt}>
+                                                    <><Icon name="play" isCodicon={true} sx={{ marginRight: 8, fontSize: 16 }} /> <ButtonText>Try It</ButtonText></>
                                                 </Button>
                                             </>
                                         )

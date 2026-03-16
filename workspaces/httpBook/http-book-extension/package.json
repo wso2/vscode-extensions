@@ -1,6 +1,6 @@
 {
-  "name": "wso2-http-book",
-  "displayName": "WSO2 HttpBook",
+  "name": "http-book",
+  "displayName": "HttpBook",
   "description": "Open and run .hurl files as interactive notebooks",
   "version": "1.0.0",
   "publisher": "wso2",
@@ -16,8 +16,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onNotebook:wso2-http-book",
-    "onCommand:wso2-http-book.importHurlString"
+    "onNotebook:http-book",
+    "onCommand:http-book.importHurlString"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -30,8 +30,8 @@
     ],
     "notebooks": [
       {
-        "type": "wso2-http-book",
-        "displayName": "WSO2 HttpBook",
+        "type": "http-book",
+        "displayName": "HttpBook",
         "selector": [
           {
             "filenamePattern": "*.hurl"
@@ -41,55 +41,55 @@
     ],
     "commands": [
       {
-        "command": "wso2-http-book.openHurlNotebook",
-        "title": "WSO2 HttpBook: Open Hurl Notebook",
+        "command": "http-book.openHurlNotebook",
+        "title": "HttpBook: Open Hurl Notebook",
         "icon": "$(notebook)"
       },
       {
-        "command": "wso2-http-book.installHurl",
-        "title": "WSO2 HttpBook: Install Hurl",
+        "command": "http-book.installHurl",
+        "title": "HttpBook: Install Hurl",
         "icon": "$(cloud-download)"
       },
       {
-        "command": "wso2-http-book.importHurlString",
-        "title": "WSO2 HttpBook: Import Hurl String",
+        "command": "http-book.importHurlString",
+        "title": "HttpBook: Import Hurl String",
         "icon": "$(edit)"
       }
     ],
     "menus": {
       "commandPalette": [
         {
-          "command": "wso2-http-book.openHurlNotebook"
+          "command": "http-book.openHurlNotebook"
         },
         {
-          "command": "wso2-http-book.installHurl"
+          "command": "http-book.installHurl"
         },
         {
-          "command": "wso2-http-book.importHurlString"
+          "command": "http-book.importHurlString"
         }
       ],
       "explorer/context": [
         {
-          "command": "wso2-http-book.openHurlNotebook",
+          "command": "http-book.openHurlNotebook",
           "when": "resourceExtname == .hurl",
           "group": "navigation"
         }
       ]
     },
     "configuration": {
-      "title": "WSO2 HttpBook",
+      "title": "HttpBook",
       "properties": {
-        "wso2-http-book.hurl.path": {
+        "http-book.hurl.path": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to the hurl executable. If empty, WSO2 HttpBook uses managed install or PATH."
+          "description": "Absolute path to the hurl executable. If empty, HttpBook uses managed install or PATH."
         },
-        "wso2-http-book.hurl.autoInstall": {
+        "http-book.hurl.autoInstall": {
           "type": "boolean",
           "default": true,
           "description": "Automatically download and install a managed hurl binary when needed."
         },
-        "wso2-http-book.hurl.version": {
+        "http-book.hurl.version": {
           "type": "string",
           "default": "7.1.0",
           "description": "Managed hurl version to install."

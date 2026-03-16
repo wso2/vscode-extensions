@@ -25,7 +25,11 @@ import { ReadonlyHurlFSProvider, READONLY_HURL_SCHEME } from './readonly-fs-prov
 
 export function activate(context: vscode.ExtensionContext): void {
     // Initialize the Hurl binary manager (singleton)
-    initializeHurlBinaryManager(context);
+    const binaryManager = initializeHurlBinaryManager(context);
+
+    // Proactively install hurl in the background on activation so it is ready before the user
+    // executes their first cell. Silent — no error shown if this fails (will retry on first run).
+    binaryManager.resolveCommandPath({ autoInstall: true }).catch(() => {});
 
     // Register VS Code Notebook API support for `.hurl` files
     activateHurlNotebook(context);
@@ -41,7 +45,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Command: open a .hurl file as a native notebook
     const openHurlNotebookCommand = vscode.commands.registerCommand(
-        'wso2-http-book.openHurlNotebook',
+        'http-book.openHurlNotebook',
         async (resourceUri?: vscode.Uri) => {
             let fileUri: vscode.Uri | undefined = resourceUri;
 
@@ -62,22 +66,22 @@ export function activate(context: vscode.ExtensionContext): void {
                 await vscode.window.showNotebookDocument(doc);
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(`WSO2 HttpBook: Failed to open notebook — ${msg}`);
+                vscode.window.showErrorMessage(`HttpBook: Failed to open notebook — ${msg}`);
             }
         }
     );
 
     // Command: install hurl binary
     const installHurlCommand = vscode.commands.registerCommand(
-        'wso2-http-book.installHurl',
+        'http-book.installHurl',
         async () => {
             const { getHurlBinaryManager } = await import('./hurl/hurl-binary-manager');
             try {
                 const binaryPath = await getHurlBinaryManager().installManagedHurl({ interactive: true });
-                vscode.window.showInformationMessage(`WSO2 HttpBook: Hurl installed at ${binaryPath}`);
+                vscode.window.showInformationMessage(`HttpBook: Hurl installed at ${binaryPath}`);
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(`WSO2 HttpBook: Failed to install Hurl — ${msg}`);
+                vscode.window.showErrorMessage(`HttpBook: Failed to install Hurl — ${msg}`);
             }
         }
     );
@@ -90,7 +94,7 @@ export function activate(context: vscode.ExtensionContext): void {
     //   savable: false → read-only virtual FS, saves are blocked (Resource Try It)
     // When called from command palette (no args): prompts user to paste a hurl string
     const importHurlStringCommand = vscode.commands.registerCommand(
-        'wso2-http-book.importHurlString',
+        'http-book.importHurlString',
         async (contentOrCells?: string | NotebookCellInput[], options?: { savable?: boolean; savePath?: string }) => {
             let notebookData: vscode.NotebookData;
             let resolvedHurlText: string;
@@ -149,12 +153,12 @@ export function activate(context: vscode.ExtensionContext): void {
                 // Programmatically select the Hurl Runner kernel so the user is never prompted
                 await vscode.commands.executeCommand('notebook.selectKernel', {
                     notebook: doc,
-                    id: 'wso2-http-book-controller',
-                    extension: 'wso2.wso2-http-book'
+                    id: 'http-book-controller',
+                    extension: 'wso2.http-book'
                 });
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(`WSO2 HttpBook: Failed to create notebook — ${msg}`);
+                vscode.window.showErrorMessage(`HttpBook: Failed to create notebook — ${msg}`);
             }
         }
     );

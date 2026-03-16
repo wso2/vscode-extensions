@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { parseHurlDocument, composeHurlDocument } from '@wso2/api-tryit-hurl-parser';
+import { parseHurlDocument } from '@wso2/api-tryit-hurl-parser';
 import { TextDecoder, TextEncoder } from 'util';
 
 const CELL_LANGUAGE_ID = 'hurl';

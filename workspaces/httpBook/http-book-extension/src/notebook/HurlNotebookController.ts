@@ -23,8 +23,8 @@ import * as path from 'path';
 import { createHurlRunner, HurlFileResult, HurlEntryResult, HurlAssertionResult } from '@wso2/api-tryit-hurl-runner';
 import { getHurlBinaryManager } from '../hurl/hurl-binary-manager';
 
-const CONTROLLER_ID = 'wso2-http-book-controller';
-const NOTEBOOK_TYPE = 'wso2-http-book';
+const CONTROLLER_ID = 'http-book-controller';
+const NOTEBOOK_TYPE = 'http-book';
 const CONTROLLER_LABEL = 'Hurl Runner';
 
 /**
@@ -185,12 +185,7 @@ export class HurlNotebookController {
 
         const statusIcon = entry.status === 'passed' ? '✅' : entry.status === 'error' ? '⚠️' : '❌';
         const duration = entry.durationMs !== undefined ? ` *(${entry.durationMs}ms)*` : '';
-        const label = entry.name || [entry.method, entry.url].filter(Boolean).join(' ') || 'Request';
-        lines.push(`### ${statusIcon} ${label}${duration}`);
-
-        if (entry.method && entry.url) {
-            lines.push(`**${entry.method}** \`${entry.url}\``);
-        }
+        const label = entry.name || 'Request';
 
         if (entry.statusCode !== undefined) {
             lines.push(`**Status:** \`${entry.statusCode} ${httpStatusText(entry.statusCode)}\``);
@@ -217,13 +212,12 @@ export class HurlNotebookController {
         const responseBody = extractResponseBody(stdout);
         if (responseBody) {
             lines.push('');
-            lines.push('**Response Body:**');
-            lines.push('');
             const { lang, text } = formatBody(responseBody);
             lines.push('```' + lang);
             lines.push(text);
             lines.push('```');
         }
+        lines.push(`##### ${statusIcon} ${label}${duration}`);
 
         return lines.join('\n');
     }
