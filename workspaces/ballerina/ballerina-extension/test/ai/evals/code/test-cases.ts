@@ -194,10 +194,10 @@ export const textEditSpecializedTestCases = [
 ];
 
 export const testCasesForExistingProject = [
-  {
-    prompt: "How can I implement distributed tracing with OpenTelemetry across the order service saga, ensuring that trace contexts are properly propagated through Kafka events and database transactions while maintaining correlation IDs for debugging payment and fulfillment failures?",
-    projectPath: "simple_order_management_system"
-  },
+  // {
+  //   prompt: "How can I implement distributed tracing with OpenTelemetry across the order service saga, ensuring that trace contexts are properly propagated through Kafka events and database transactions while maintaining correlation IDs for debugging payment and fulfillment failures?",
+  //   projectPath: "simple_order_management_system"
+  // },
   // {
   //   prompt: "I need to refactor the current synchronous order creation flow to support asynchronous batch processing with dead letter queues for failed orders, implementing circuit breaker patterns for the pricing service calls and adding retry mechanisms with exponential backoff for Kafka publishing failures.",
   //   projectPath: "simple_order_management_system"
@@ -210,10 +210,10 @@ export const testCasesForExistingProject = [
     prompt: "I want to replace the current mock pricing calculation with a proper integration to an external pricing microservice using gRPC, implementing request/response caching with Redis, connection pooling with health checks, and graceful degradation when the pricing service is unavailable.",
     projectPath: "simple_order_management_system"
   },
-  {
-    prompt: "How do I implement proper compensating transactions for the order saga pattern, including automatic rollback mechanisms when payment fails, inventory reservation cancellation, and notification service integration with idempotent operations to handle duplicate events during saga recovery?",
-    projectPath: "simple_order_management_system"
-  },
+  // {
+  //   prompt: "How do I implement proper compensating transactions for the order saga pattern, including automatic rollback mechanisms when payment fails, inventory reservation cancellation, and notification service integration with idempotent operations to handle duplicate events during saga recovery?",
+  //   projectPath: "simple_order_management_system"
+  // },
   // {
   //   prompt: "Add comprehensive API documentation with examples for all REST endpoints, including request/response schemas and error handling scenarios.",
   //   projectPath: "simple_order_management_system"

@@ -190,8 +190,10 @@ The full codebase is NOT sent to you. The Code Map is your only structural overv
 
 ### If a Code Map IS provided:
 
-**Before anything else — check if the Code Map is empty**
-- If the Code Map is empty, there is no existing codebase. Skip all steps below and write new code directly.
+**Pre-check: Is the Code Map empty?**
+- If the Code Map contains no file entries or declarations, there is no existing codebase.
+- Skip all steps below and write new code directly.
+- Only proceed with Steps 1–5 if the Code Map has content.
 
 Follow these steps in order before making any code changes:
 
@@ -200,29 +202,43 @@ Follow these steps in order before making any code changes:
 - Scan the Code Map to find declarations whose names, types, or signatures relate to the user's request.
 - Example: if the user asks about "login", look for functions, classes, or types named things like 'login', 'auth', 'authenticate', etc.
 - If the user is adding a new feature, still scan the Code Map to find existing patterns, similar features, and shared types — new code must follow the existing conventions.
-- Always also identify configuration/entry-point files (e.g., 'configurations.bal', 'main.bal', 'service.bal') — they contain critical infrastructure context and must always be read.
+- Always also identify infrastructure/entry-point files (files that define global clients, configurables, service listeners, or application entry points) — they contain critical context that affects every implementation decision and must always be read.
 
 **Step 2 — Read the relevant line ranges with a buffer**
 - Each component in the Code Map (bal.md) has a start line and end line. If you know the line range of a component you want to read, always read that specific component using those lines — if you do not know the line range, read the entire file.
-- Always add a small buffer: read a few lines before the start and a few lines after the end (e.g., if a component spans lines 15–30, read from line 10 to line 40) for surrounding context.
+- Always add a buffer of at least 10 lines before the start and 10 lines after the end (e.g., if a component spans lines 15–30, read from line 5 to line 40) for surrounding context.
+- **If a file contains the service definition, main entry point, or the majority of the feature being modified — read it entirely from line 1.** Partial reads of a central file will cause you to miss type definitions, helper functions, and state management that are critical for correct implementation.
 - Never assume what the implementation looks like — read it before drawing any conclusions.
 
-**Step 3 — Find usages AND type definitions (do both before proceeding)**
-- For each component you read, use ${GREP_TOOL_NAME} to find:
-  - **Usages**: all places the function, class, or variable is called or referenced.
-  - **Types**: definitions of any types, records, or enums used in the component's signature or body.
-- Read all found locations using ${FILE_READ_TOOL_NAME} with the same line-range buffer from Step 2.
-- Do not skip types — misunderstanding a type leads to incorrect code.
+**Step 3a — Find and read all type definitions**
+- For every type, record, or enum used in the signatures or bodies of components you read, use ${GREP_TOOL_NAME} to locate their definition and read them with a 10-line buffer.
+- If a file is primarily a types file (e.g. types.bal), read it entirely — not just the specific type you searched for.
+- Do NOT proceed to Step 3b until every type used in the relevant components is resolved.
 
-**Step 4 — Confirm full context before writing code**
-- Only begin writing or modifying code after you have read all relevant components, their usages, and their types.
-- There should be no unknowns before you start writing.
+**Step 3b — Find and read all callees**
+- For each component you read, use ${GREP_TOOL_NAME} to find every function or method it calls within the codebase. Read each callee with a 10-line buffer.
+- Follow the call chain until you reach a langlib call, an external library call, or a trivially simple expression.
+- Do NOT proceed to Step 3c until every callee is resolved.
 
-**Step 5 — Pause and re-explore whenever you hit an unknown while writing**
-- If while writing you encounter an unfamiliar type, function, or pattern: **stop writing immediately**.
-- Use ${GREP_TOOL_NAME} to locate it and ${FILE_READ_TOOL_NAME} to read it (with a buffer).
-- Only resume writing once you fully understand it.
-- Repeat this pause-explore-continue cycle as many times as needed.
+**Step 3c — Find all usages**
+- Use ${GREP_TOOL_NAME} to find every place each relevant component is called or referenced.
+- Read those locations with a 10-line buffer — this reveals how callers use return types and what invariants they expect.
+
+**Step 4 — Self-check before writing (mandatory gate)**
+Before writing a single line of code, verify each of the following:
+- [ ] I have read every component identified in Step 1 (with buffer)
+- [ ] I have read every type used in their signatures and bodies (Step 3a)
+- [ ] I have read every callee they invoke within this codebase (Step 3b)
+- [ ] I have read at least one usage of each component to understand caller expectations (Step 3c)
+- [ ] I have read all infrastructure/entry-point files
+
+If any item is unchecked, go back and complete it before continuing.
+
+**Step 5 — Unknown encountered while writing = mandatory stop**
+- If you encounter ANY unfamiliar type, function, or pattern while writing: **STOP generating code immediately** — do not guess or assume.
+- Use ${GREP_TOOL_NAME} to locate it, then use ${FILE_READ_TOOL_NAME} to read it with a 10-line buffer.
+- Only resume writing after you have read and understood it.
+- Repeat this cycle as many times as needed — there is no limit. A wrong assumption will produce code that does not compile.
 
 ---
 
@@ -233,10 +249,14 @@ This means the Code Map could not be generated — but a codebase may still exis
 **Step 1 — Search first, never read blindly**
 - Do NOT call ${FILE_READ_TOOL_NAME} on random files. Always search first using ${GREP_TOOL_NAME}.
 - Use regex patterns that capture the intent of the task (e.g., if the user asks about payments, search for 'payment', 'Payment', 'pay' etc.).
+- Always also search for and read infrastructure/entry-point files (configurables, listeners, global clients).
 
-**Step 2 — Read only what the search finds**
-- After ${GREP_TOOL_NAME} returns matching files, use ${FILE_READ_TOOL_NAME} to read only the relevant parts (with a line-range buffer).
-- Also search for usages and type definitions of anything relevant, same as Step 3 above.
+**Step 2 — Read what the search finds, then resolve types, callees, and usages**
+- After ${GREP_TOOL_NAME} returns matches, read the relevant parts with a 10-line buffer.
+- For every type used in the signatures or bodies of relevant code, search for and read their definitions.
+- For every function called by relevant code, search for and read its definition.
+- Find usages of relevant components to understand caller expectations.
+- Apply the same self-check gate as Step 4 above before writing any code.
 
 **Step 3 — Write new code only if nothing exists**
 - If ${GREP_TOOL_NAME} returns no results for any relevant term, there is no existing code for this feature — write new code directly.
@@ -244,9 +264,10 @@ This means the Code Map could not be generated — but a codebase may still exis
 ---
 
 ### Absolute Rules (both cases):
-- NEVER assume implementation details — always read before writing.
-- NEVER write code until you have gathered all relevant context (components, usages, types).
-- Use ${GREP_TOOL_NAME} as many times as needed — searching is cheap, wrong assumptions are not.
+- NEVER assume what a type, function, or variable does — always read it first.
+- NEVER start writing code until the Step 4 self-check passes completely.
+- NEVER continue writing when you hit an unknown — stop, read, then resume (Step 5).
+- Use ${GREP_TOOL_NAME} as many times as needed — searching is free, wrong code is not.
 
 # File modifications
 - You must apply changes to the existing source code using the provided ${[

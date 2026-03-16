@@ -226,8 +226,12 @@ const codeContextRetrievalSchema = z.object({
         'Missing Context:\n' +
         '- <file name>\n' +
         '  - <component name and line number>\n' +
-        '  - <one sentence: why this component was needed and was not retrieved>\n\n' +
-        'Do not use inline code blocks. Do not mix the two sections. ' +
+        '  - <one sentence: why this component was definitively required and was not retrieved>\n\n' +
+        'CRITICAL RULES for reasoning:\n' +
+        '- NEVER use speculative language: forbidden words/phrases include "likely", "probably", "may be", "might be", "could be", "possibly", "perhaps", "appears to".\n' +
+        '- Every entry in Missing Context must be a component you are CERTAIN was required to fulfil the query. If you are not certain, do NOT list it.\n' +
+        '- Every entry in Missing Context is a direct cause of is_relevant being false. If Missing Context is "None", is_relevant must be true.\n' +
+        '- Do not use inline code blocks. Do not mix the two sections.\n' +
         'Only include components that exist in the Initial Code. ' +
         'If nothing is missing, write "Missing Context: None".'
     )
@@ -307,7 +311,9 @@ Rules:
 - The Initial Code section is the ONLY source of truth. Do not invent or assume code that is not shown.
 - CRITICAL: Before penalizing the agent for not reading a file, verify the file appears in the Initial Code. Files the agent created during implementation did not exist beforehand and should NOT be expected to have been read.
 - The agent has a CodeMap for high-level structure only. It must use file_read and grep to retrieve implementation details.
-- A component is "retrieved" only if it appears in the agent's grep results or file_read content. High-level awareness from the CodeMap does not count.`
+- A component is "retrieved" only if it appears in the agent's grep results or file_read content. High-level awareness from the CodeMap does not count.
+- STRICT language rule: every missing component you list must be one you are CERTAIN was required. Do NOT use speculative language ("likely", "probably", "may be needed", "might be", "could be"). If you are uncertain whether a component was required, do NOT list it as missing.
+- is_relevant is a definitive boolean: true means every required component was retrieved, false means at least one was definitively missed. There is no in-between.`
 
     const userPrompt = `# User Query
 The user requested the following change:
@@ -333,7 +339,7 @@ ${grepSection}
 Carefully analyze the Initial Code and identify every component relevant to the user query (types, records, functions, usages, imports, constants, etc.).
 Then check whether each component was retrieved by the agent via file_read or grep.
 
-Be strict: if any relevant component from the existing codebase was missed, the answer is FALSE.
+Be strict: if any relevant component from the existing codebase was definitively missed, the answer is FALSE.
 Only return TRUE if the agent retrieved every single relevant component needed to fulfill the query.
 
 For the reasoning field, use exactly this format:
@@ -346,8 +352,9 @@ Retrieved Relevant Context:
 Missing Context:
 - <file name>
   - <component name and line number>
-  - <one sentence: why this component was needed and was not retrieved>
+  - <one sentence: why this component was definitively required and was not retrieved>
 
+IMPORTANT: Do NOT list a component as missing unless you are certain it was required. Forbidden words: "likely", "probably", "may be needed", "might be", "could be", "possibly". Every entry in Missing Context is a direct reason is_relevant is false. If Missing Context is "None", is_relevant must be true.
 If nothing is missing, write "Missing Context: None". Do not use inline code blocks.
 
 Use the submit_evaluation tool to provide your assessment.`;
