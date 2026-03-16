@@ -95,10 +95,18 @@ const CursorLabel = styled.div<{ color: string }>`
 `;
 
 function getColorForUser(userId: string): string {
-  const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const hue = hash % 360; 
+    let hash = 2166136261;
+    for (let i = 0; i < userId.length; i++) {
+        hash ^= userId.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
 
-  return `hsl(${hue}, 70%, 60%)`;
+    const normalizedHash = hash >>> 0;
+    const hue = normalizedHash % 360;
+    const saturation = 65 + (normalizedHash % 15);
+    const lightness = 50 + ((normalizedHash >>> 8) % 12);
+
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
 export function RemoteCursors() {

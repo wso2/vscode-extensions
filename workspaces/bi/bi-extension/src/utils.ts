@@ -17,7 +17,6 @@
  */
 
 import { Uri, Webview, workspace } from "vscode";
-import * as fs from 'fs';
 import * as path from 'path';
 import { extension } from "./biExtentionContext";
 import { PackageTomlValues, WorkspaceTomlValues } from "@wso2/ballerina-core";
@@ -63,7 +62,7 @@ export async function fetchProjectInfo(): Promise<ProjectInfo> {
 
     if (isBallerinaWorkspace) {
         const isBI = checkIsBI(workspaceUri);
-        const workspaceTomlValues = await getWorkspaceTomlValues(workspaceUri.fsPath);
+        const workspaceTomlValues = await getWorkspaceTomlValues(workspaceUri);
         const isEmptyWorkspace = workspaceTomlValues?.workspace?.packages?.length === 0;
 
         return {
@@ -106,15 +105,8 @@ export function checkIsBI(uri: Uri): boolean {
  * @returns true if the directory is a valid Ballerina package, false otherwise
  */
 export async function checkIsBallerinaPackage(uri: Uri): Promise<boolean> {
-    const ballerinaTomlPath = path.join(uri.fsPath, 'Ballerina.toml');
-
-    // First check if the file exists
-    if (!fs.existsSync(ballerinaTomlPath)) {
-        return false;
-    }
-
     try {
-        const tomlValues = await getProjectTomlValues(uri.fsPath);
+        const tomlValues = await getProjectTomlValues(uri);
         return tomlValues?.package !== undefined;
     } catch (error) {
         // If there's an error reading the file, it's not a valid Ballerina project
@@ -132,15 +124,8 @@ export async function checkIsBallerinaPackage(uri: Uri): Promise<boolean> {
  * @returns true if the directory is a valid Ballerina workspace, false otherwise
  */
 export async function checkIsBallerinaWorkspace(uri: Uri): Promise<boolean> {
-    const ballerinaTomlPath = path.join(uri.fsPath, 'Ballerina.toml');
-
-    // First check if the file exists
-    if (!fs.existsSync(ballerinaTomlPath)) {
-        return false;
-    }
-
     try {
-        const tomlValues = await getWorkspaceTomlValues(uri.fsPath);
+        const tomlValues = await getWorkspaceTomlValues(uri);
         return tomlValues?.workspace !== undefined && tomlValues.workspace?.packages !== undefined;
     } catch (error) {
         // If there's an error reading the file, it's not a valid Ballerina workspace
@@ -156,17 +141,14 @@ export async function checkIsBallerinaWorkspace(uri: Uri): Promise<boolean> {
  * @returns A Promise that resolves to the parsed TOML values if successful,
  *          or undefined if the file doesn't exist or parsing fails
  */
-async function getProjectTomlValues(projectPath: string): Promise<Partial<PackageTomlValues> | undefined> {
-    const ballerinaTomlPath = path.join(projectPath, 'Ballerina.toml');
-    if (fs.existsSync(ballerinaTomlPath)) {
-        const tomlContent = await fs.promises.readFile(ballerinaTomlPath, 'utf-8');
-        try {
-            return parse(tomlContent) as Partial<PackageTomlValues>;
-        } catch (error) {
-            console.error("Failed to load Ballerina.toml content for project at path: ", projectPath, error);
-            return;
-        }
-    }
+async function getProjectTomlValues(projectPath: string | Uri): Promise<Partial<PackageTomlValues> | undefined> {
+    const projectUri = toUri(projectPath);
+    const ballerinaTomlUri = Uri.joinPath(projectUri, 'Ballerina.toml');
+
+    return readAndParseToml<PackageTomlValues>(
+        ballerinaTomlUri,
+        `project at URI: ${projectUri.toString()}`
+    );
 }
 
 /**
@@ -176,17 +158,14 @@ async function getProjectTomlValues(projectPath: string): Promise<Partial<Packag
  * @returns A Promise that resolves to the parsed TOML values if successful,
  *          or undefined if the file doesn't exist or parsing fails
  */
-export async function getWorkspaceTomlValues(workspacePath: string): Promise<Partial<WorkspaceTomlValues> | undefined> {
-    const ballerinaTomlPath = path.join(workspacePath, 'Ballerina.toml');
-    if (fs.existsSync(ballerinaTomlPath)) {
-        const tomlContent = await fs.promises.readFile(ballerinaTomlPath, 'utf-8');
-        try {
-            return parse(tomlContent) as Partial<WorkspaceTomlValues>;
-        } catch (error) {
-            console.error("Failed to load Ballerina.toml content for workspace at path: ", workspacePath, error);
-            return;
-        }
-    }
+export async function getWorkspaceTomlValues(workspacePath: string | Uri): Promise<Partial<WorkspaceTomlValues> | undefined> {
+    const workspaceUri = toUri(workspacePath);
+    const ballerinaTomlUri = Uri.joinPath(workspaceUri, 'Ballerina.toml');
+
+    return readAndParseToml<WorkspaceTomlValues>(
+        ballerinaTomlUri,
+        `workspace at URI: ${workspaceUri.toString()}`
+    );
 }
 
 /**
@@ -202,25 +181,101 @@ export async function getWorkspaceTomlValues(workspacePath: string): Promise<Par
  * @param workspacePath Absolute path to the workspace root
  * @returns Filtered array of valid Ballerina package paths that exist within the workspace
  */
-export async function filterPackagePaths(packagePaths: string[], workspacePath: string): Promise<string[]> {
+export async function filterPackagePaths(packagePaths: string[], workspacePath: string | Uri): Promise<string[]> {
+    const workspaceUri = toUri(workspacePath);
+    const resolvedWorkspacePath = workspaceUri.scheme === 'file' ? path.resolve(workspaceUri.fsPath) : undefined;
+
     const results = await Promise.all(
         packagePaths.map(async pkgPath => {
-            if (path.isAbsolute(pkgPath)) {
-                const resolvedPath = path.resolve(pkgPath);
-                const resolvedWorkspacePath = path.resolve(workspacePath);
-                if (fs.existsSync(resolvedPath) && isPathInside(resolvedPath, resolvedWorkspacePath)) {
-                    return await checkIsBallerinaPackage(Uri.file(resolvedPath));
+            const resolvedUri = resolvePackageUri(pkgPath, workspaceUri);
+            if (!resolvedUri) {
+                return false;
+            }
+
+            if (workspaceUri.scheme === 'file') {
+                if (!resolvedWorkspacePath) {
+                    return false;
                 }
+
+                const resolvedPath = path.resolve(resolvedUri.fsPath);
+                if (!isPathInside(resolvedPath, resolvedWorkspacePath)) {
+                    return false;
+                }
+            } else if (!isUriPathInside(resolvedUri, workspaceUri)) {
+                return false;
             }
-            const resolvedPath = path.resolve(workspacePath, pkgPath);
-            const resolvedWorkspacePath = path.resolve(workspacePath);
-            if (fs.existsSync(resolvedPath) && isPathInside(resolvedPath, resolvedWorkspacePath)) {
-                return await checkIsBallerinaPackage(Uri.file(resolvedPath));
+
+            if (await uriExists(resolvedUri)) {
+                return await checkIsBallerinaPackage(resolvedUri);
             }
+
             return false;
         })
     );
     return packagePaths.filter((_, index) => results[index]);
+}
+
+function toUri(uriOrPath: string | Uri): Uri {
+    return typeof uriOrPath === 'string' ? Uri.file(uriOrPath) : uriOrPath;
+}
+
+async function uriExists(uri: Uri): Promise<boolean> {
+    try {
+        await workspace.fs.stat(uri);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+async function readAndParseToml<T>(tomlUri: Uri, contextLabel: string): Promise<Partial<T> | undefined> {
+    if (!(await uriExists(tomlUri))) {
+        return;
+    }
+
+    try {
+        const tomlContent = Buffer.from(await workspace.fs.readFile(tomlUri)).toString('utf-8');
+        return parse(tomlContent) as Partial<T>;
+    } catch (error) {
+        console.error(`Failed to load Ballerina.toml content for ${contextLabel}`, error);
+        return;
+    }
+}
+
+function resolvePackageUri(pkgPath: string, workspaceUri: Uri): Uri | undefined {
+    if (workspaceUri.scheme === 'file') {
+        const resolvedPath = path.isAbsolute(pkgPath)
+            ? path.resolve(pkgPath)
+            : path.resolve(workspaceUri.fsPath, pkgPath);
+        return Uri.file(resolvedPath);
+    }
+
+    if (pkgPath.includes('://')) {
+        try {
+            return Uri.parse(pkgPath);
+        } catch {
+            return undefined;
+        }
+    }
+
+    const normalizedPath = pkgPath.replace(/\\/g, '/');
+    if (normalizedPath.startsWith('/')) {
+        return workspaceUri.with({ path: path.posix.normalize(normalizedPath) });
+    }
+
+    return Uri.joinPath(workspaceUri, normalizedPath);
+}
+
+function isUriPathInside(childUri: Uri, parentUri: Uri): boolean {
+    if (childUri.scheme !== parentUri.scheme || childUri.authority !== parentUri.authority) {
+        return false;
+    }
+
+    const parentPath = path.posix.normalize(parentUri.path);
+    const childPath = path.posix.normalize(childUri.path);
+    const prefix = parentPath.endsWith('/') ? parentPath : `${parentPath}/`;
+
+    return childPath === parentPath || childPath.startsWith(prefix);
 }
 
 function isPathInside(childPath: string, parentPath: string): boolean {

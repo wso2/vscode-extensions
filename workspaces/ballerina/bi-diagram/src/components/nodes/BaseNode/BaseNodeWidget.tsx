@@ -283,7 +283,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
         setMenuAnchorEl(null);
         setIsHovered(false);
     };
-
+    
     const openDataMapper = async () => {
         if (!model.node.properties?.view?.value) {
             return;

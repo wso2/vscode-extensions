@@ -917,7 +917,7 @@
                     "command": "ballerina.open.oct.chat",
                     "group": "navigation@4",
                     "title": "OCT Chat",
-                    "when": "oct.connection && (resourceLangId == ballerina || isBallerinaDiagram)"
+                    "when": "oct.connection && (resourceLangId == ballerina || isBallerinaDiagram || (isBalVisualizerActive && isBIProject))"
                 }
             ],
             "notebook/toolbar": [

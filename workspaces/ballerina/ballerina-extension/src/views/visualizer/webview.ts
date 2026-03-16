@@ -48,7 +48,7 @@ export class VisualizerWebview {
             if (this._panel) {
                 updateView(refreshTreeView);
             }
-        }, 500);
+        }, 100);
 
         const debouncedRefreshDataMapper = debounce(async () => {
             const stateMachineContext = StateMachine.context();
@@ -70,8 +70,14 @@ export class VisualizerWebview {
             const contextDocumentPath = StateMachine.context().documentUri;
             const documentUriString = document.document.uri.toString();
             const documentPath = document.document.uri.fsPath;
-            
-            const isDocumentUnderProject = documentPath && projectPath && documentPath.includes(projectPath);
+            const { uriCache } = await import('../../extension');
+
+            const isRemoteDocument = document.document.uri.scheme !== 'file';
+            const resolvedDocumentPath = isRemoteDocument
+                ? (uriCache?.getLocalPath(document.document.uri) || documentPath)
+                : documentPath;
+
+            const isDocumentUnderProject = !!(resolvedDocumentPath && projectPath && resolvedDocumentPath.includes(projectPath));
             
             // Reset visualizer the undo-redo stack if user did changes in the editor
             if (isOpened && isDocumentUnderProject && !this._panel?.active && !undoRedoManager?.isBatchInProgress()) {
@@ -97,11 +103,10 @@ export class VisualizerWebview {
                 );
             // Check if the changed document matches the context document
             // Support both local paths and remote URIs with cached paths
-            const { uriCache } = await import('../../extension');
             const isContextDocument = contextDocumentPath && (
-                documentPath === contextDocumentPath ||
+                resolvedDocumentPath === contextDocumentPath ||
                 documentUriString === contextDocumentPath ||
-                (uriCache && uriCache.isSamePath(documentPath, contextDocumentPath)) ||
+                (uriCache && uriCache.isSamePath(resolvedDocumentPath, contextDocumentPath)) ||
                 (uriCache && uriCache.isSamePath(documentUriString, contextDocumentPath))
             );
             
@@ -111,12 +116,13 @@ export class VisualizerWebview {
                     StateMachine.context().view === MACHINE_VIEW.DataMapper
                 ) &&
                 isContextDocument;
-            const test = AiPanelWebview.currentPanel?.getWebview()?.active;
 
             if (dataMapperModified) {
                 console.log('[Webview] Refreshing data mapper');
                 debouncedRefreshDataMapper();
-            } else if ((this._panel?.active || AiPanelWebview.currentPanel?.getWebview()?.active) && balFileModified && isDocumentUnderProject) {
+            } else if (((this._panel?.active || AiPanelWebview.currentPanel?.getWebview()?.active) || isRemoteDocument) && balFileModified && isDocumentUnderProject) {
+                // isRemoteDocument: remote OCT files come from collaborators and must always
+                // trigger a diagram refresh, regardless of whether the panel is focused.
                 console.log('[Webview] Sending update notification to webview');
                 sendUpdateNotificationToWebview();
             } else if (configTomlModified) {

@@ -19,19 +19,56 @@
 import * as vscode from 'vscode';
 import { extension } from './biExtentionContext';
 import { StateMachine } from './stateMachine';
+import { activateProjectExplorer } from './project-explorer/activate';
+import { fetchProjectInfo } from './utils';
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
 	const ballerinaExt = vscode.extensions.getExtension('wso2.ballerina');
-	if (ballerinaExt) {
-		extension.context = context;
-		extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
-		extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
-		extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
-		extension.isWorkspaceSupported = ballerinaExt.exports.ballerinaExtInstance?.isWorkspaceSupported;
-		StateMachine.initialize();
+	if (!ballerinaExt) {
+		vscode.window.showErrorMessage('Ballerina extension is required to operate WSO2 Integrator: BI extension effectively. Please install it from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=wso2.ballerina).');
 		return;
 	}
-	vscode.window.showErrorMessage('Ballerina extension is required to operate WSO2 Integrator: BI extension effectively. Please install it from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=wso2.ballerina).');
+
+	extension.context = context;
+
+	const ballerinaExports = ballerinaExt.isActive ? ballerinaExt.exports : await ballerinaExt.activate();
+	extension.langClient = ballerinaExports?.ballerinaExtInstance?.langClient;
+	extension.biSupported = ballerinaExports?.ballerinaExtInstance?.biSupported;
+	extension.isNPSupported = ballerinaExports?.ballerinaExtInstance?.isNPSupported;
+	extension.isWorkspaceSupported = ballerinaExports?.ballerinaExtInstance?.isWorkspaceSupported;
+
+	let reinitializeTimer: ReturnType<typeof setTimeout> | undefined;
+	context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => {
+		if (reinitializeTimer) {
+			clearTimeout(reinitializeTimer);
+		}
+
+		reinitializeTimer = setTimeout(() => {
+			reinitializeTimer = undefined;
+			void refreshProjectExplorer();
+		}, 250);
+	}));
+	context.subscriptions.push({
+		dispose: () => {
+			if (reinitializeTimer) {
+				clearTimeout(reinitializeTimer);
+			}
+		}
+	});
+
+	StateMachine.initialize();
 }
 
 export function deactivate() { }
+
+async function refreshProjectExplorer(): Promise<void> {
+	const projectInfo = await fetchProjectInfo();
+	activateProjectExplorer({
+		context: extension.context,
+		isBI: projectInfo.isBI,
+		isBallerinaPackage: projectInfo.isBallerinaPackage,
+		isBallerinaWorkspace: projectInfo.isBallerinaWorkspace,
+		isEmptyWorkspace: projectInfo.isEmptyWorkspace,
+		isInWI: vscode.extensions.getExtension('wso2.wi') ? true : false
+	});
+}

@@ -18,9 +18,9 @@
 import { SHARED_COMMANDS, BI_COMMANDS, MACHINE_VIEW, NodePosition } from '@wso2/ballerina-core';
 
 import { ProjectExplorerEntry, ProjectExplorerEntryProvider } from './project-explorer-provider';
-import { ExtensionContext, TreeView, commands, window, workspace, extensions } from 'vscode';
+import { ExtensionContext, TreeView, Uri, commands, window, workspace, extensions } from 'vscode';
 import { extension } from '../biExtentionContext';
-import { BI_PROJECT_EXPLORER_VIEW_ID, WI_PROJECT_EXPLORER_VIEW_ID, WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND } from '../constants';
+import { BI_PROJECT_EXPLORER_VIEW_ID, WI_PROJECT_EXPLORER_VIEW_ID } from '../constants';
 
 interface ExplorerActivationConfig {
 	context: ExtensionContext;
@@ -31,38 +31,153 @@ interface ExplorerActivationConfig {
 	isInWI: boolean;
 }
 
+let projectExplorerDataProvider: ProjectExplorerEntryProvider | undefined;
+let projectTree: TreeView<ProjectExplorerEntry> | undefined;
+let coreCommandsRegistered = false;
+let explorerSubscriptionsRegistered = false;
+let currentVisibilityConfig: Pick<ExplorerActivationConfig, 'isBallerinaPackage' | 'isBallerinaWorkspace' | 'isEmptyWorkspace'> | undefined;
+let refreshDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+const PROJECT_REFRESH_DEBOUNCE_MS = 25;
+
 export function activateProjectExplorer(config: ExplorerActivationConfig) {
 	const { context, isBI, isBallerinaPackage, isBallerinaWorkspace, isEmptyWorkspace, isInWI } = config;
+	currentVisibilityConfig = getCurrentVisibilityConfig(config);
 
 	if (extension.langClient && extension.biSupported) {
 		setLoadingStatus();
 	}
 
 	const treeviewId = isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : BI_PROJECT_EXPLORER_VIEW_ID;
-	const projectExplorerDataProvider = new ProjectExplorerEntryProvider();
-	const projectTree = createProjectTree(projectExplorerDataProvider, treeviewId);
-
-	projectExplorerDataProvider.setTreeView(projectTree);
+	if (!projectExplorerDataProvider || !projectTree) {
+		projectExplorerDataProvider = new ProjectExplorerEntryProvider();
+		projectTree = createProjectTree(projectExplorerDataProvider, treeviewId);
+		projectExplorerDataProvider.setTreeView(projectTree);
+	}
 
 	// Always register core commands so they're available to the Ballerina extension
-	registerCoreCommands(projectExplorerDataProvider, isInWI);
+	if (!coreCommandsRegistered) {
+		registerCoreCommands(projectExplorerDataProvider, isInWI);
+		coreCommandsRegistered = true;
+	}
 
 	if (isBallerinaPackage || isBallerinaWorkspace) {
 		registerBallerinaCommands(projectExplorerDataProvider, isBI, isInWI, isBallerinaWorkspace, isEmptyWorkspace);
 	}
 
-	handleVisibilityChangeEvents(
-		projectTree,
-		projectExplorerDataProvider,
-		isBallerinaPackage,
-		isBallerinaWorkspace,
-		isEmptyWorkspace
-	);
-	context.subscriptions.push(workspace.onDidDeleteFiles(() => projectExplorerDataProvider.refresh()));
+	if (!explorerSubscriptionsRegistered) {
+		handleVisibilityChangeEvents(
+			projectTree,
+			projectExplorerDataProvider,
+			() => currentVisibilityConfig
+		);
+		registerAutoRefreshListeners(context);
+		explorerSubscriptionsRegistered = true;
+	}
+
+	// onDidChangeVisibility only fires on subsequent visibility transitions.
+	// If the view is already visible at activation, handle it immediately.
+	if (projectTree.visible) {
+		void handleVisibilityChange(
+			{ visible: true },
+			projectExplorerDataProvider,
+			isBallerinaPackage,
+			isBallerinaWorkspace,
+			isEmptyWorkspace
+		);
+	}
 }
 
 function setLoadingStatus() {
 	commands.executeCommand('setContext', 'BI.status', 'loading');
+}
+
+function scheduleExplorerRefresh(): void {
+	if (refreshDebounceTimer) {
+		clearTimeout(refreshDebounceTimer);
+	}
+
+	refreshDebounceTimer = setTimeout(() => {
+		refreshDebounceTimer = undefined;
+		void commands.executeCommand(BI_COMMANDS.REFRESH_COMMAND);
+	}, PROJECT_REFRESH_DEBOUNCE_MS);
+}
+
+function shouldRefreshForUri(uri: Uri): boolean {
+	const uriPath = uri.path.toLowerCase();
+	return uriPath.endsWith('.bal') || uriPath.endsWith('.toml');
+}
+
+function registerAutoRefreshListeners(context: ExtensionContext): void {
+	const triggerFromUris = (uris: readonly Uri[]) => {
+		if (uris.some(shouldRefreshForUri)) {
+			scheduleExplorerRefresh();
+		}
+	};
+
+	context.subscriptions.push(workspace.onDidCreateFiles(event => {
+		triggerFromUris(event.files);
+	}));
+
+	context.subscriptions.push(workspace.onDidDeleteFiles(event => {
+		triggerFromUris(event.files);
+	}));
+
+	context.subscriptions.push(workspace.onDidRenameFiles(event => {
+		const uris = event.files.flatMap(file => [file.oldUri, file.newUri]);
+		triggerFromUris(uris);
+	}));
+
+	context.subscriptions.push(workspace.onDidSaveTextDocument(document => {
+		if (shouldRefreshForUri(document.uri)) {
+			scheduleExplorerRefresh();
+		}
+	}));
+
+	context.subscriptions.push(workspace.onDidChangeTextDocument(event => {
+		if (event.contentChanges.length > 0 && shouldRefreshForUri(event.document.uri)) {
+			scheduleExplorerRefresh();
+		}
+	}));
+
+	const fileWatcher = workspace.createFileSystemWatcher('**/*.{bal,toml}');
+	fileWatcher.onDidChange(uri => {
+		if (shouldRefreshForUri(uri)) {
+			scheduleExplorerRefresh();
+		}
+	});
+	fileWatcher.onDidCreate(uri => {
+		if (shouldRefreshForUri(uri)) {
+			scheduleExplorerRefresh();
+		}
+	});
+	fileWatcher.onDidDelete(uri => {
+		if (shouldRefreshForUri(uri)) {
+			scheduleExplorerRefresh();
+		}
+	});
+
+	context.subscriptions.push(fileWatcher);
+	context.subscriptions.push({
+		dispose: () => {
+			if (refreshDebounceTimer) {
+				clearTimeout(refreshDebounceTimer);
+				refreshDebounceTimer = undefined;
+			}
+		}
+	});
+}
+
+function clearLoadingStatus() {
+	commands.executeCommand('setContext', 'BI.status', 'ready');
+}
+
+function getCurrentVisibilityConfig(config: ExplorerActivationConfig) {
+	return {
+		isBallerinaPackage: config.isBallerinaPackage,
+		isBallerinaWorkspace: config.isBallerinaWorkspace,
+		isEmptyWorkspace: config.isEmptyWorkspace
+	};
 }
 
 function createProjectTree(dataProvider: ProjectExplorerEntryProvider, treeviewId: string) {
@@ -119,12 +234,18 @@ function registerBallerinaCommands(
 function handleVisibilityChangeEvents(
 	tree: TreeView<ProjectExplorerEntry>,
 	dataProvider: ProjectExplorerEntryProvider,
-	isBallerinaPackage?: boolean,
-	isBallerinaWorkspace?: boolean,
-	isEmptyWorkspace?: boolean
+	getConfig?: () => {
+		isBallerinaPackage?: boolean;
+		isBallerinaWorkspace?: boolean;
+		isEmptyWorkspace?: boolean;
+	}
 ) {
 	tree.onDidChangeVisibility(async res => await handleVisibilityChange(
-		res, dataProvider, isBallerinaPackage, isBallerinaWorkspace, isEmptyWorkspace)
+		res,
+		dataProvider,
+		getConfig?.().isBallerinaPackage,
+		getConfig?.().isBallerinaWorkspace,
+		getConfig?.().isEmptyWorkspace)
 	);
 }
 
@@ -149,12 +270,23 @@ async function handleVisibilityChange(
 			if (!isEmptyWorkspace) {
 				const isDebugActive = isDebugSessionActive();
 				if (!isDebugActive) {
-					await commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
 					dataProvider.refresh();
+					try {
+						await commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
+						dataProvider.refresh();
+					} catch (error) {
+						console.error('[ProjectExplorer] FORCE_UPDATE_PROJECT_ARTIFACTS failed:', error);
+					} finally {
+						clearLoadingStatus();
+					}
+				} else {
+					clearLoadingStatus();
 				}
 				if (isBallerinaWorkspace) {
 					commands.executeCommand(BI_COMMANDS.SHOW_OVERVIEW);
 				}
+			} else {
+				clearLoadingStatus();
 			}
 		} else {
 			handleNonBallerinaVisibility();

@@ -58,6 +58,7 @@ import { activateAgentChatPanel } from './views/agent-chat/activate';
 import { activateTracing } from './features/tracing';
 import { UriCache } from './utils/remote-fs/uri-cache';
 import { registerGlobalHelpers } from './features/collaboration/oct-helper';
+import { buildProjectsStructure } from './utils/project-artifacts';
 
 let langClient: ExtendedLangClient;
 export let isPluginStartup = true;
@@ -220,26 +221,35 @@ export async function activate(context: ExtensionContext) {
                                 contentChanges: [{ text: textContent }]
                             });
                         }
-                        VisualizerWebview.currentPanel?.getWebview()?.active;
-                        // Trigger webview update if it's active and showing this file
-                        if (VisualizerWebview.currentPanel?.getWebview()?.active) {
-                            const context = StateMachine.context();                  
-                            // Check if the changed file matches the current context
-                            // The documentUri in context might be the cached local path or the original remote URI
-                            const changedRemoteUri = uri.toString();
-                            const changedLocalPath = localPath;
-                            const isMatchingDocument = context.documentUri === changedLocalPath || 
-                                                     context.documentUri === changedRemoteUri ||
-                                                     (context.projectPath && changedLocalPath.startsWith(context.projectPath));
-                            
-                            if (isMatchingDocument) {
-                                debug(`[FileSync] Match found! Triggering webview update for remote file change`);
-                                // Call updateView just like the local file change handler does
-                                const { updateView } = await import('./stateMachine');
-                                updateView(false);
-                            } else {
-                                debug(`[FileSync] No match found, skipping webview update`);
+                        // Trigger webview update whenever this file matches the current context.
+                        // Do NOT gate on panel.active — collaborators must receive updates even
+                        // when the diagram panel is visible but not focused.
+                        const smContext = StateMachine.context();
+                        const changedRemoteUri = uri.toString();
+                        const changedLocalPath = localPath;
+                        const isMatchingDocument = smContext.documentUri === changedLocalPath ||
+                                                 smContext.documentUri === changedRemoteUri ||
+                                                 (smContext.projectPath && changedLocalPath.startsWith(smContext.projectPath));
+
+                        if (isMatchingDocument) {
+                            debug(`[FileSync] Match found! Refreshing project structure and triggering webview update`);
+                            // Refresh project structure before updateView so that artifact positions
+                            // (startLine/endLine) are current. Without this, updateView() resolves
+                            // positions from a stale projectStructure, causing getFlowModel to use
+                            // an outdated endLine and the LS to return an incomplete flow model.
+                            const projectInfo = smContext.projectInfo;
+                            const lsClient = extension.ballerinaExtInstance?.langClient;
+                            if (projectInfo && lsClient) {
+                                try {
+                                    await buildProjectsStructure(projectInfo, lsClient, true);
+                                } catch (e) {
+                                    console.error('[FileSync] Failed to refresh project structure:', e);
+                                }
                             }
+                            const { updateView } = await import('./stateMachine');
+                            updateView(false);
+                        } else {
+                            debug(`[FileSync] No match found, skipping webview update`);
                         }
                     } catch (error) {
                         console.error(`[FileSync] Failed to sync changed file: ${error}`);
@@ -250,11 +260,16 @@ export async function activate(context: ExtensionContext) {
                     try {
                         debug(`[FileSync] Remote file created: ${uri.toString()}`);
                         await uriCache.cacheRemoteFile(uri);
+                        // Trigger diagram refresh — adding a new Automation/Service/Connection
+                        // in the BI diagram can create new .bal files on the host that must
+                        // be reflected in the collaborator's diagram.
+                        const { updateView } = await import('./stateMachine');
+                        updateView(false);
                     } catch (error) {
                         console.error(`[FileSync] Failed to cache new file: ${error}`);
                     }
                 });
-                
+
                 watcher.onDidDelete(async (uri) => {
                     try {
                         debug(`[FileSync] Remote file deleted: ${uri.toString()}`);
@@ -263,6 +278,10 @@ export async function activate(context: ExtensionContext) {
                         if (fs.existsSync(localPath)) {
                             await fs.promises.unlink(localPath);
                         }
+                        // Trigger diagram refresh — deleting an Automation/Service removes
+                        // its .bal file; collaborator's diagram must reflect the deletion.
+                        const { updateView } = await import('./stateMachine');
+                        updateView(false);
                     } catch (error) {
                         console.error(`[FileSync] Failed to remove cached file: ${error}`);
                     }

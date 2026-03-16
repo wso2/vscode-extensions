@@ -155,13 +155,17 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const [nodeLocks, setNodeLocks] = useState<Record<string, any>>({});
     const [isCollaborationActive, setIsCollaborationActive] = useState<boolean>(false);
     const [remoteCursors, setRemoteCursors] = useState<Map<string, any>>(new Map());
+    const CURSOR_HEARTBEAT_INTERVAL_MS = 3000;
+    const STALE_CURSOR_TIMEOUT_MS = 15000;
+    const STALE_CURSOR_SWEEP_INTERVAL_MS = 3000;
     const hasAuthoritativeLockUpdatesRef = useRef<boolean>(false);
     const octPeerLocksRef = useRef<Record<string, Record<string, any>>>({});
+    const currentUserIdRef = useRef<string>(currentUserId);
+    const currentModelFileRef = useRef<string | undefined>(undefined);
 
 
     // Navigation stack for back navigation
     const [navigationStack, setNavigationStack] = useState<NavigationStackItem[]>([]);
-
 
     const {
         addDraftNode,
@@ -203,6 +207,28 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         debouncedGetFlowModelForBreakpoints();
     }, [breakpointState]);
 
+    useEffect(() => {
+        currentUserIdRef.current = currentUserId;
+    }, [currentUserId]);
+
+    useEffect(() => {
+        currentModelFileRef.current = model?.fileName;
+    }, [model?.fileName]);
+
+        const debouncedGetFlowModel = useCallback(
+        debounce(() => {
+            getFlowModel();
+        }, 150),
+        [hasDraft]
+    );
+
+    // Shorter debounce specifically for breakpoint changes (faster feedback)
+    const debouncedGetFlowModelForBreakpoints = useCallback(
+        debounce(() => {
+            getFlowModel();
+        }, 200),
+        []
+    );
     useEffect(() => {
         rpcClient.onProjectContentUpdated(() => {
             debouncedGetFlowModel();
@@ -343,7 +369,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 }
                 
                 // Skip updating cursors for the current user
-                if (data.peerId === currentUserId) {
+                if (data.peerId === currentUserIdRef.current) {
                     console.log('[OCT Webview] Skipping own cursor update (peer ID matches current user)');
                 } else {
                     // Update remote cursors
@@ -361,7 +387,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                                     x: data.cursor.x,
                                     y: data.cursor.y,
                                     nodeId: data.cursor.nodeId,
-                                    timestamp: data.cursor.timestamp,
+                                    timestamp: data.cursor.timestamp ?? Date.now(),
                                 },
                             });
                             console.log(`[OCT Webview] Updated remote cursors map, total peers: ${updated.size}`, Array.from(updated.keys()));
@@ -384,7 +410,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 // Use OCT presence as lock source only when authoritative lock subscription is not available.
                 // Always process empty lock arrays as an explicit clear for that peer.
                 if (!hasAuthoritativeLockUpdatesRef.current && data.locks !== undefined) {
-                    const normalizedCurrentFile = model?.fileName ? normalizeFilePath(model.fileName) : undefined;
+                    const normalizedCurrentFile = currentModelFileRef.current
+                        ? normalizeFilePath(currentModelFileRef.current)
+                        : undefined;
                     const nextPeerLocks: Record<string, any> = {};
 
                     data.locks.forEach((lock) => {
@@ -438,7 +466,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 clearInterval(collaborationCheckInterval);
             }
         };
-    }, [rpcClient,currentUserId]);
+    }, [rpcClient]);
 
     // Update model with lock information when locks change
     useEffect(() => {
@@ -498,20 +526,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         setTargetLineRange(range);
     }
 
-    const debouncedGetFlowModel = useCallback(
-        debounce(() => {
-            getFlowModel();
-        }, 1000),
-        [hasDraft]
-    );
 
-    // Shorter debounce specifically for breakpoint changes (faster feedback)
-    const debouncedGetFlowModelForBreakpoints = useCallback(
-        debounce(() => {
-            getFlowModel();
-        }, 200),
-        []
-    );
 
     // Navigation stack helpers
     const pushToNavigationStack = (
@@ -984,28 +999,41 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         return undefined;
     };
 
-    // Helper to normalize file paths for cross-collaborator consistency
-    // Ensures host (local paths) and guests (collab:// URIs) use the same lock keys
+    // Normalize paths across local, oct://, collab:// and cached variants.
     const normalizeFilePath = (absolutePath: string): string => {
-        if (!absolutePath) return '';
-        
-        // Handle OCT virtual URIs: collab://session-id/path/to/file.bal
-        if (absolutePath.startsWith('collab://')) {
-            // Extract path after session ID: collab://abc123/src/main.bal -> src/main.bal
-            const parts = absolutePath.split('/');
-            // Skip 'collab:', '', session-id (first 3 parts)
-            return parts.slice(3).join('/');
+        if (!absolutePath) {
+            return '';
         }
-        
-        // Handle absolute local paths - make relative to project
-        if (absolutePath.startsWith(projectPath)) {
-            const relative = absolutePath.substring(projectPath.length);
-            // Remove leading slashes/backslashes
-            return relative.replace(/^[\/\\]+/, '');
+
+        const normalized = absolutePath.replace(/\\/g, '/');
+
+        // Handle collab:// and oct:// URIs by stripping scheme/session/workspace prefix.
+        if (normalized.startsWith('collab://') || normalized.startsWith('oct://')) {
+            const parts = normalized.split('/').filter((part) => part.length > 0);
+            // For oct://roomId/workspaceName/path/to/file -> keep path from index 3
+            // For collab://sessionId/path/to/file -> index 2 still works because workspace name is absent.
+            const candidate = parts.slice(3).join('/');
+            if (candidate) {
+                return candidate;
+            }
+
+            const fallback = parts.slice(2).join('/');
+            return fallback || parts[parts.length - 1] || normalized;
         }
-        
-        // Already relative or unknown format
-        return absolutePath;
+
+        // Handle cached oct local paths, e.g. .../oct/<room>/<workspace>/src/main.bal
+        const octCacheMatch = normalized.match(/\/oct\/[^/]+\/[^/]+\/(.+)$/);
+        if (octCacheMatch?.[1]) {
+            return octCacheMatch[1];
+        }
+
+        // Handle local paths by making them project-relative when possible.
+        const projectPathNormalized = (projectPath || '').replace(/\\/g, '/');
+        if (projectPathNormalized && normalized.startsWith(projectPathNormalized)) {
+            return normalized.substring(projectPathNormalized.length).replace(/^\/+/, '');
+        }
+
+        return normalized;
     };
 
     const resetNodeSelectionStates = async () => {
@@ -1237,6 +1265,58 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             updateCursorPosition.cancel();
         };
     }, [updateCursorPosition]);
+
+    useEffect(() => {
+        if (!isCollaborationActive) {
+            return;
+        }
+
+        const heartbeatInterval = setInterval(() => {
+            const lastCursor = lastBroadcastCursorRef.current;
+            if (!lastCursor) {
+                return;
+            }
+
+            sendPresenceUpdate(lastCursor.x, lastCursor.y, lastCursor.nodeId);
+        }, CURSOR_HEARTBEAT_INTERVAL_MS);
+
+        return () => {
+            clearInterval(heartbeatInterval);
+        };
+    }, [isCollaborationActive, sendPresenceUpdate]);
+
+    useEffect(() => {
+        if (!isCollaborationActive) {
+            setRemoteCursors((prev) => prev.size === 0 ? prev : new Map());
+            return;
+        }
+
+        const staleCursorInterval = setInterval(() => {
+            const now = Date.now();
+            setRemoteCursors((prev) => {
+                if (prev.size === 0) {
+                    return prev;
+                }
+
+                let didRemoveCursor = false;
+                const updated = new Map(prev);
+
+                for (const [peerId, presence] of prev.entries()) {
+                    const cursorTimestamp = presence?.cursor?.timestamp;
+                    if (!cursorTimestamp || now - cursorTimestamp > STALE_CURSOR_TIMEOUT_MS) {
+                        updated.delete(peerId);
+                        didRemoveCursor = true;
+                    }
+                }
+
+                return didRemoveCursor ? updated : prev;
+            });
+        }, STALE_CURSOR_SWEEP_INTERVAL_MS);
+
+        return () => {
+            clearInterval(staleCursorInterval);
+        };
+    }, [isCollaborationActive]);
     
     // Send selection updates when nodes are selected
     const sendSelectionUpdate = useCallback((selectedNodeIds: string[]) => {
@@ -1868,6 +1948,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 && options?.isChangeFromHelperPane === undefined
                 && options?.postUpdateCallBack === undefined
             );
+        const shouldCloseSidePanel = options?.closeSidePanel ?? true;
 
         if (
             options?.isChangeFromHelperPane &&
@@ -1948,7 +2029,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                         selectedNodeRef.current = undefined;
                         await updateArtifactLocation(response);
                     }
-                    if (options?.closeSidePanel) {
+                    if (shouldCloseSidePanel) {
                         selectedNodeRef.current = undefined;
                         await closeSidePanelAndFetchUpdatedFlowModel();
                     }
@@ -2004,7 +2085,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             })
             .finally(() => {
                 setShowProgressIndicator(false);
-                if (options?.closeSidePanel === true) {
+                if (shouldCloseSidePanel) {
                     setShowSidePanel(false);
                 }
             });

@@ -93,21 +93,25 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
         this._isRefreshing = true;
         this._pendingRefresh = false;
 
+        const shouldAttemptRecovery = this._data.length === 0;
+
         window.withProgress({
             location: { viewId: BI_COMMANDS.PROJECT_EXPLORER },
             title: 'Loading project structure'
         }, async () => {
             try {
-                this._data = [];
-                
-                const data = await getProjectStructureData();                
-                this._data = data;
-                // Fire the event after data is fully populated
-                this._onDidChangeTreeData.fire();
+                const data = await getProjectStructureData(shouldAttemptRecovery);
+                if (data.length > 0 || this._data.length === 0) {
+                    this._data = data;
+                    // Fire the event after data is fully populated
+                    this._onDidChangeTreeData.fire();
+                }
             } catch (err) {
                 console.error('[ProjectExplorer] Error during refresh:', err);
-                this._data = [];
-                this._onDidChangeTreeData.fire();
+                if (this._data.length === 0) {
+                    this._data = [];
+                    this._onDidChangeTreeData.fire();
+                }
             } finally {
                 this._isRefreshing = false;
                 
@@ -273,66 +277,98 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
     }
 }
 
-async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
-    if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
-        const data: ProjectExplorerEntry[] = [];
-        if (extension.langClient) {
-            const stateContext: VisualizerLocation = await commands.executeCommand(SHARED_COMMANDS.GET_STATE_CONTEXT);
-            if (!stateContext) {
-                return [];
-            }
+async function getProjectStructureData(allowRecoveryRetry: boolean): Promise<ProjectExplorerEntry[]> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0 || !extension.langClient) {
+        return [];
+    }
 
-            const ballerinaWorkspace = stateContext.workspacePath;
-            const workspaceFolderOfPackage = vscode
-                .workspace
-                .workspaceFolders
-                .find(folder => folder.uri.fsPath === stateContext.projectPath);
+    const stateContext = await getStateContextWithRetry(allowRecoveryRetry);
+    if (!stateContext) {
+        return [];
+    }
 
-            let packageName: string;
-            let packagePath: string;
+    const projectStructure = getProjectStructure(stateContext);
+    if (!projectStructure || !Array.isArray(projectStructure.projects)) {
+        return [];
+    }
 
-            if (!workspaceFolderOfPackage) {
-                if (ballerinaWorkspace) {
-                    packageName = path.basename(Uri.parse(stateContext.projectPath).path);
-                    packagePath = stateContext.projectPath;
-                } else {
-                    return [];
-                }
-            } else {
-                packageName = workspaceFolderOfPackage.name;
-                packagePath = workspaceFolderOfPackage.uri.fsPath;
-            }
+    const data: ProjectExplorerEntry[] = [];
+    const filteredProjects = dedupeProjects(projectStructure.projects);
+    const isSingleProject = filteredProjects.length === 1;
 
-            // Get the state context from ballerina extension as it maintain the event driven tree data
-            let projectStructure: ProjectStructureResponse;
-            if (typeof stateContext === 'object' && stateContext !== null && 'projectStructure' in stateContext && stateContext.projectStructure !== null) {
-                projectStructure = stateContext.projectStructure;
-
-                // Generate the tree data for the projects
-                const projects = projectStructure.projects;
-                // Filter projects to avoid duplicates - only include unique project paths
-                const uniqueProjects = new Map<string, typeof projects[0]>();
-                for (const project of projects) {
-                    if (!uniqueProjects.has(project.projectPath)) {
-                        uniqueProjects.set(project.projectPath, project);
-                    }
-                }
-                
-                const filteredProjects = Array.from(uniqueProjects.values());
-                
-                const isSingleProject = filteredProjects.length === 1;
-                for (const project of filteredProjects) {
-                    const projectTree = generateTreeData(project, isSingleProject);
-                    if (projectTree) {
-                        data.push(projectTree);
-                    }
-                }
-            }
-
-            return data;
+    for (const project of filteredProjects) {
+        const projectTree = generateTreeData(project, isSingleProject);
+        if (projectTree) {
+            data.push(projectTree);
         }
     }
-    return [];
+
+    return data;
+}
+
+async function getStateContextWithRetry(allowRecoveryRetry: boolean): Promise<VisualizerLocation | undefined> {
+    const stateContext: VisualizerLocation = await commands.executeCommand(SHARED_COMMANDS.GET_STATE_CONTEXT);
+    if (hasProjectStructure(stateContext)) {
+        return stateContext;
+    }
+
+    if (!allowRecoveryRetry) {
+        return undefined;
+    }
+
+    // Collaborator sessions may resolve state before project artifacts are built.
+    // Force one update only for initial/empty-tree recovery.
+    try {
+        await commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
+    } catch (error) {
+        console.error('[ProjectExplorer] FORCE_UPDATE_PROJECT_ARTIFACTS retry failed:', error);
+    }
+
+    const refreshedContext: VisualizerLocation = await commands.executeCommand(SHARED_COMMANDS.GET_STATE_CONTEXT);
+    return hasProjectStructure(refreshedContext) ? refreshedContext : undefined;
+}
+
+function hasProjectStructure(stateContext: VisualizerLocation | undefined): boolean {
+    return typeof stateContext === 'object'
+        && stateContext !== null
+        && 'projectStructure' in stateContext
+        && stateContext.projectStructure !== null
+        && Array.isArray(stateContext.projectStructure.projects);
+}
+
+function getProjectStructure(stateContext: VisualizerLocation): ProjectStructureResponse | undefined {
+    if (!hasProjectStructure(stateContext)) {
+        return undefined;
+    }
+    return stateContext.projectStructure;
+}
+
+function dedupeProjects(projects: ProjectStructure[]): ProjectStructure[] {
+    const uniqueProjects = new Map<string, ProjectStructure>();
+    for (const project of projects) {
+        const key = getProjectKey(project);
+        const existing = uniqueProjects.get(key);
+
+        if (!existing || getProjectScore(project) > getProjectScore(existing)) {
+            uniqueProjects.set(key, project);
+        }
+    }
+
+    return Array.from(uniqueProjects.values());
+}
+
+function getProjectKey(project: ProjectStructure): string {
+    return project.projectTitle || project.projectName || project.projectPath;
+}
+
+function getProjectScore(project: ProjectStructure): number {
+    if (!project.directoryMap) {
+        return 0;
+    }
+
+    return Object.values(project.directoryMap)
+        .reduce((count, items) => count + (Array.isArray(items) ? items.length : 0), 0);
 }
 
 function generateTreeData(project: ProjectStructure, isSingleProject: boolean): ProjectExplorerEntry | undefined {
