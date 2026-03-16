@@ -41,7 +41,7 @@ interface InstallOptions {
 interface HurlAsset {
 	archiveName: string;
 	downloadUrl: string;
-	archiveType: 'tar.gz';
+	archiveType: 'tar.gz' | 'zip';
 }
 
 interface InstallMetadata {
@@ -63,28 +63,23 @@ function getPlatformArchKey(): string {
 function resolveManagedAsset(version: string): HurlAsset | undefined {
 	const platformKey = getPlatformArchKey();
 
-	let archiveName: string | undefined;
+	let archiveName: string;
+	let archiveType: 'tar.gz' | 'zip';
+
 	switch (platformKey) {
-		case 'darwin-arm64':
-			archiveName = `hurl-${version}-aarch64-apple-darwin.tar.gz`;
-			break;
-		case 'darwin-x64':
-			archiveName = `hurl-${version}-x86_64-apple-darwin.tar.gz`;
-			break;
-		case 'linux-x64':
-			archiveName = `hurl-${version}-x86_64-unknown-linux-gnu.tar.gz`;
-			break;
-		case 'linux-arm64':
-			archiveName = `hurl-${version}-aarch64-unknown-linux-gnu.tar.gz`;
-			break;
-		default:
-			return undefined;
+		case 'darwin-arm64':  archiveName = `hurl-${version}-aarch64-apple-darwin.tar.gz`;       archiveType = 'tar.gz'; break;
+		case 'darwin-x64':   archiveName = `hurl-${version}-x86_64-apple-darwin.tar.gz`;        archiveType = 'tar.gz'; break;
+		case 'linux-x64':    archiveName = `hurl-${version}-x86_64-unknown-linux-gnu.tar.gz`;   archiveType = 'tar.gz'; break;
+		case 'linux-arm64':  archiveName = `hurl-${version}-aarch64-unknown-linux-gnu.tar.gz`;  archiveType = 'tar.gz'; break;
+		case 'win32-x64':    archiveName = `hurl-${version}-x86_64-pc-windows-msvc.zip`;        archiveType = 'zip';    break;
+		case 'win32-arm64':  archiveName = `hurl-${version}-aarch64-pc-windows-msvc.zip`;       archiveType = 'zip';    break;
+		default: return undefined;
 	}
 
 	return {
 		archiveName,
 		downloadUrl: `${HURL_RELEASE_BASE_URL}/${version}/${archiveName}`,
-		archiveType: 'tar.gz'
+		archiveType
 	};
 }
 
@@ -117,7 +112,7 @@ export class HurlBinaryManager {
 			if (options.promptOnFailure) {
 				const message = error instanceof Error ? error.message : 'Failed to install managed hurl binary';
 				const action = await vscode.window.showErrorMessage(
-					`${message}. Set wso2-http-book.hurl.path or run "HttpBook: Install Hurl".`,
+					`${message}. Set http-book.hurl.path or run "HttpBook: Install Hurl".`,
 					'Install Hurl',
 					'Open Settings'
 				);
@@ -141,7 +136,7 @@ export class HurlBinaryManager {
 		const asset = resolveManagedAsset(version);
 		if (!asset) {
 			throw new Error(
-				`Managed Hurl install is not supported on ${getPlatformArchKey()}. Set wso2-http-book.hurl.path manually.`
+				`Managed Hurl install is not supported on ${getPlatformArchKey()}. Set http-book.hurl.path manually.`
 			);
 		}
 
@@ -164,7 +159,11 @@ export class HurlBinaryManager {
 			await fs.writeFile(archivePath, new Uint8Array(archiveBuffer));
 
 			progress?.report({ message: 'Extracting archive' });
-			await this.extractTarGz(archivePath, extractRoot);
+			if (asset.archiveType === 'zip') {
+				await this.extractZip(archivePath, extractRoot);
+			} else {
+				await this.extractTarGz(archivePath, extractRoot);
+			}
 
 			progress?.report({ message: 'Finalizing installation' });
 			const locatedBinary = await this.findBinary(extractRoot, getBinaryName());
@@ -265,6 +264,13 @@ export class HurlBinaryManager {
 
 	private async extractTarGz(archivePath: string, destinationPath: string): Promise<void> {
 		await this.execProcess('tar', ['-xzf', archivePath, '-C', destinationPath]);
+	}
+
+	private async extractZip(archivePath: string, destinationPath: string): Promise<void> {
+		await this.execProcess('powershell.exe', [
+			'-NoProfile', '-NonInteractive', '-Command',
+			`Expand-Archive -LiteralPath '${archivePath}' -DestinationPath '${destinationPath}' -Force`
+		]);
 	}
 
 	private async execProcess(command: string, args: string[]): Promise<void> {
