@@ -448,7 +448,7 @@ export function createAgentTools(params: CreateToolsParams) {
             getWrappedExecute(CONNECTOR_TOOL_NAME, createConnectorExecute(projectPath))
         ),
         [CONTEXT_TOOL_NAME]: createContextTool(
-            getWrappedExecute(CONTEXT_TOOL_NAME, createContextExecute(projectPath))
+            getModeAwareExecute(mode, CONTEXT_TOOL_NAME, createContextExecute(projectPath), { projectPath, sessionId })
         ),
 
         // Project Tools (1 tool)

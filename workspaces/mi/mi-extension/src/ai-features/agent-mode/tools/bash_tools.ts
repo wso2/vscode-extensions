@@ -135,6 +135,7 @@ async function requestShellApproval(
     request: {
         sessionId: string;
         command: string;
+        description?: string;
         reasons: string[];
         suggestedPrefixRule: string[];
     }
@@ -150,6 +151,8 @@ async function requestShellApproval(
         rejectLabel: 'Deny',
         allowFeedback: false,
         content: buildShellApprovalContent(request.command, request.reasons, request.suggestedPrefixRule),
+        bashCommand: request.command,
+        bashDescription: request.description,
         suggestedPrefixRule: request.suggestedPrefixRule,
     });
 
@@ -220,6 +223,7 @@ export function createBashExecute(
             const approvalResult = await requestShellApproval(eventHandler, pendingApprovals, {
                 sessionId,
                 command,
+                description,
                 reasons: analysis.reasons,
                 suggestedPrefixRule: analysis.suggestedPrefixRule,
             });

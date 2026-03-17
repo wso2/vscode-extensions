@@ -45,6 +45,8 @@ export interface PendingPlanApproval {
     suggestedPrefixRule?: string[];
     planFilePath?: string;
     content?: string;  // Summary or plan content to display
+    shellCommand?: string;  // Raw shell command for shell_command approval display
+    shellDescription?: string;  // Shell command description from tool args
 }
 import {
     RpcClientType,
@@ -111,7 +113,10 @@ interface MICopilotContextType {
     pendingQuestion: PendingUserQuestion | null;
     setPendingQuestion: React.Dispatch<React.SetStateAction<PendingUserQuestion | null>>;
     pendingPlanApproval: PendingPlanApproval | null;
-    setPendingPlanApproval: React.Dispatch<React.SetStateAction<PendingPlanApproval | null>>;
+    pendingApprovalCount: number;
+    addPendingApproval: (approval: PendingPlanApproval) => void;
+    removePendingApproval: (approvalId: string) => void;
+    clearPendingApprovals: () => void;
     todos: TodoItem[];
     setTodos: React.Dispatch<React.SetStateAction<TodoItem[]>>;
     isPlanMode: boolean;
@@ -171,7 +176,21 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
     // Plan mode state
     const [pendingQuestion, setPendingQuestion] = useState<PendingUserQuestion | null>(null);
-    const [pendingPlanApproval, setPendingPlanApproval] = useState<PendingPlanApproval | null>(null);
+    const [pendingApprovalQueue, setPendingApprovalQueue] = useState<PendingPlanApproval[]>([]);
+    const pendingPlanApproval = pendingApprovalQueue.length > 0 ? pendingApprovalQueue[0] : null;
+    const pendingApprovalCount = pendingApprovalQueue.length;
+
+    const addPendingApproval = useCallback((approval: PendingPlanApproval) => {
+        setPendingApprovalQueue(prev => [...prev, approval]);
+    }, []);
+
+    const removePendingApproval = useCallback((approvalId: string) => {
+        setPendingApprovalQueue(prev => prev.filter(a => a.approvalId !== approvalId));
+    }, []);
+
+    const clearPendingApprovals = useCallback(() => {
+        setPendingApprovalQueue([]);
+    }, []);
     const [todos, setTodos] = useState<TodoItem[]>([]);
     const [isPlanMode, setIsPlanMode] = useState<boolean>(false);
     const [agentMode, setAgentMode] = useState<AgentMode>('edit');
@@ -239,7 +258,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 setAgentMode(responseMode ?? 'edit');
                 // Clear plan mode state when switching sessions
                 setPendingQuestion(null);
-                setPendingPlanApproval(null);
+                clearPendingApprovals();
                 setTodos([]);
                 setIsPlanMode(false);
                 // Refresh sessions with the new session ID to avoid stale closure
@@ -271,7 +290,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 setAgentMode(responseMode ?? 'edit');
                 // Clear plan mode state
                 setPendingQuestion(null);
-                setPendingPlanApproval(null);
+                clearPendingApprovals();
                 setTodos([]);
                 setIsPlanMode(false);
                 // Refresh sessions list with the new session ID
@@ -441,7 +460,10 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         pendingQuestion,
         setPendingQuestion,
         pendingPlanApproval,
-        setPendingPlanApproval,
+        pendingApprovalCount,
+        addPendingApproval,
+        removePendingApproval,
+        clearPendingApprovals,
         todos,
         setTodos,
         isPlanMode,

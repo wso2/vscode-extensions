@@ -109,7 +109,7 @@ null ? "a" : "b"                             → THROWS ("Condition is null")
 \`\`\`
 2147483647 + 1    → 2147483648 (auto-promoted to long)
 2147483647 * 2    → 4294967294 (auto-promoted to long)
-2147483647 - 1    → 2147483646 (NO overflow protection for subtraction)
+-2147483648 - 1   → -2147483649 (auto-promoted to long)
 \`\`\``,
 
 null_gotchas: `## Null-Related Gotchas
