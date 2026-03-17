@@ -266,6 +266,8 @@ Quick map:
 - Expression & Type System: expression syntax, functions, variable resolution, and edge-case behavior.
 - Mediators & Endpoints: mediator/endpoint attributes, payload-state transitions, and integration constraints.
 - SOAP, Payloads, Properties & Runtime Controls: SOAP namespaces, payload transformation patterns, and runtime-controlling transport properties.
+- AI & Connectors: AI connector app development (chat, RAG, knowledge base, agent tools). MI runtime 4.4.0+ only.
+- Testing: unit test structure, assertions, mock services, and working examples.
 
 ### Expression & Type System
 | Context | Sections | When to Load |
@@ -288,6 +290,16 @@ Quick map:
 | \`synapse-soap-namespace-guide\` | soap_basics, soap_call_pattern, soap_response, namespace_in_payload, namespace_in_xpath, soap_headers, soap_faults, wsdl_to_synapse, common_mistakes | Any SOAP integration, namespace handling, WSDL-to-Synapse conversion, SOAP fault handling, WS-Addressing |
 | \`synapse-payload-patterns\` | json_construction, xml_construction, json_to_xml, xml_to_json, enrich_patterns, freemarker_patterns, datamapper_vs_payload, array_patterns | JSON/XML payload construction, format conversion (JSON↔XML), enrich mediator patterns, FreeMarker templates, array transformation, choosing between transformation approaches |
 | \`synapse-property-reference\` | scope_guide, http_response, http_protocol, content_type, message_flow, rest_properties, error_properties, addressing, common_patterns | Whenever you need to control HTTP response codes (202, 204, etc.), change content-type or serialization format, disable chunking, force HTTP 1.0, do fire-and-forget (OUT_ONLY), manipulate REST URLs, access error details in fault sequences, or set any axis2/synapse-scope transport property. These are special runtime-controlling properties — not regular variables. |
+
+### AI & Connectors
+| Context | Sections | When to Load |
+|-------|----------|--------------|
+| \`ai-connector-app-development\` | _(no sections)_ | Developing AI-powered integrations with the AI connector (chat completions, RAG, knowledge base, agent tools). Requires MI runtime 4.4.0+ |
+
+### Testing
+| Context | Sections | When to Load |
+|-------|----------|--------------|
+| \`unit-test-reference\` | guidelines, supporting_artifacts, connector_resources, assertions, mock_services, xsd_schema, examples, best_practices | Generating unit tests, mock service configuration, assertion rules by artifact type, test structure/schema |
 
 - **Full topic**: use context name (e.g., \`synapse-expression-spec\`) to load everything about that topic.
 - **Single section**: use context name + section (e.g., \`synapse-expression-spec:type_coercion\`) for targeted loading.

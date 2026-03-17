@@ -59,6 +59,10 @@ import {
     SYNAPSE_SOAP_NAMESPACE_GUIDE_FULL,
     SYNAPSE_SOAP_NAMESPACE_GUIDE_SECTIONS,
 } from '../context/synapse-core/synapse_soap_namespace_guide';
+import {
+    UNIT_TEST_REFERENCE_FULL,
+    UNIT_TEST_REFERENCE_SECTIONS,
+} from '../context/unit-tests/unit_test_reference';
 import { logDebug, logWarn } from '../../copilot/logger';
 import { ContextExecuteFn, ToolResult } from './types';
 import { getRuntimeVersionFromPom } from './connector_store_cache';
@@ -141,6 +145,13 @@ const CONTEXT_REFERENCES: ContextDefinition[] = [
         description: 'SOAP call and namespace handling guide, including WSDL namespace rules and response extraction patterns.',
         content: SYNAPSE_SOAP_NAMESPACE_GUIDE_FULL,
         sections: SYNAPSE_SOAP_NAMESPACE_GUIDE_SECTIONS,
+    },
+    {
+        name: 'unit-test-reference',
+        description: 'MI unit test guide: XSD schema, assertions by artifact type (API vs Sequence), mock services (rules, naming, port 9090), supporting artifacts, connector resources, and working examples.',
+        content: UNIT_TEST_REFERENCE_FULL,
+        sections: UNIT_TEST_REFERENCE_SECTIONS,
+        aliases: ['unit_test_reference', 'unit-test-guide'],
     },
 ];
 
