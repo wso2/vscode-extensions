@@ -20,7 +20,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import path from "path";
 import fs from "fs";
 import { z } from 'zod';
-import { CodeContextRetrievalEvaluation, GrepCallRecord, FileReadCallRecord } from "../types/result-types";
+import { CodeContextRetrievalEvaluation, FileReadCallRecord } from "../types/result-types";
 
 export interface LLMEvaluationResult {
     is_correct: boolean;
@@ -163,34 +163,18 @@ Use the submit_evaluation tool to provide your assessment.`;
  * each call with its corresponding tool result.
  */
 function extractContextRetrievalCalls(events: readonly ChatNotify[]): {
-    grepCalls: GrepCallRecord[];
     fileReadCalls: FileReadCallRecord[];
 } {
-    const grepCalls: GrepCallRecord[] = [];
     const fileReadCalls: FileReadCallRecord[] = [];
-
-    const pendingGrepCalls: GrepCallRecord[] = [];
     const pendingFileReadCalls: FileReadCallRecord[] = [];
 
     for (const event of events) {
         if (event.type === 'tool_call') {
-            if (event.toolName === 'grep' && event.toolInput) {
-                pendingGrepCalls.push({
-                    pattern: event.toolInput.pattern ?? '',
-                    path: event.toolInput.path,
-                    glob: event.toolInput.glob,
-                    output_mode: event.toolInput.output_mode,
-                });
-            } else if (event.toolName === 'file_read' && event.toolInput) {
+            if (event.toolName === 'file_read' && event.toolInput) {
                 pendingFileReadCalls.push({ fileName: event.toolInput.fileName ?? '' });
             }
         } else if (event.type === 'tool_result') {
-            if (event.toolName === 'grep') {
-                const call = pendingGrepCalls.shift();
-                if (call) {
-                    grepCalls.push({ ...call, result: event.toolOutput?.message ?? '' });
-                }
-            } else if (event.toolName === 'file_read') {
+            if (event.toolName === 'file_read') {
                 const call = pendingFileReadCalls.shift();
                 if (call) {
                     fileReadCalls.push({ ...call, content: event.toolOutput?.message ?? '' });
@@ -200,40 +184,23 @@ function extractContextRetrievalCalls(events: readonly ChatNotify[]): {
     }
 
     // Any calls without results are added as-is
-    for (const remaining of pendingGrepCalls) {
-        grepCalls.push(remaining);
-    }
     for (const remaining of pendingFileReadCalls) {
         fileReadCalls.push(remaining);
     }
 
-    return { grepCalls, fileReadCalls };
+    return { fileReadCalls };
 }
 
 const codeContextRetrievalSchema = z.object({
     is_relevant: z.boolean().describe(
-        'STRICT boolean: true ONLY if the agent retrieved every single relevant component from the existing codebase ' +
-        'needed to fulfill the user query — including all type definitions, record types, object types, enums, ' +
-        'function signatures, method usages, imports, constants, and any code that is referenced or depended upon. ' +
-        'Return false if even one relevant component was missed. Partial retrieval is NOT acceptable — it must be complete.'
+        'True only if the agent retrieved every relevant component needed to fulfill the query. ' +
+        'False if even one required component from the existing codebase was definitively missed.'
     ),
     reasoning: z.string().describe(
-        'A structured report using exactly this format:\n\n' +
-        'Retrieved Relevant Context:\n' +
-        '- <file name>\n' +
-        '  - <component name and line number>\n' +
-        '  - <one sentence: why this component is relevant to the query>\n\n' +
-        'Missing Context:\n' +
-        '- <file name>\n' +
-        '  - <component name and line number>\n' +
-        '  - <one sentence: why this component was definitively required and was not retrieved>\n\n' +
-        'CRITICAL RULES for reasoning:\n' +
-        '- NEVER use speculative language: forbidden words/phrases include "likely", "probably", "may be", "might be", "could be", "possibly", "perhaps", "appears to".\n' +
-        '- Every entry in Missing Context must be a component you are CERTAIN was required to fulfil the query. If you are not certain, do NOT list it.\n' +
-        '- Every entry in Missing Context is a direct cause of is_relevant being false. If Missing Context is "None", is_relevant must be true.\n' +
-        '- Do not use inline code blocks. Do not mix the two sections.\n' +
-        'Only include components that exist in the Initial Code. ' +
-        'If nothing is missing, write "Missing Context: None".'
+        'Structured report with two sections: ' +
+        '"Retrieved Relevant Context" listing what was retrieved and why it matters, and ' +
+        '"Missing Context" listing what was required but not retrieved. ' +
+        'Write "Missing Context: None" if nothing is missing. No inline code blocks.'
     )
 });
 
@@ -252,7 +219,7 @@ export async function evaluateCodeContextRetrieval(
 ): Promise<CodeContextRetrievalEvaluation> {
     console.log("🔍 Starting code context retrieval evaluation...");
 
-    const { grepCalls, fileReadCalls } = extractContextRetrievalCalls(events);
+    const { fileReadCalls } = extractContextRetrievalCalls(events);
 
     const stringifySources = (sources: SourceFile[]): string => {
         if (sources.length === 0) return "No files in the project.";
@@ -261,31 +228,14 @@ export async function evaluateCodeContextRetrieval(
 
     const initialCodeString = stringifySources(initialSource);
 
-    if (grepCalls.length === 0 && fileReadCalls.length === 0) {
-        console.log("⚠️ No grep or file_read calls found — agent relied solely on CodeMap.");
+    if (fileReadCalls.length === 0) {
+        console.log("⚠️ No file_read calls found — agent relied solely on CodeMap.");
         return {
             is_relevant: false,
-            reasoning: "The agent made no file_read or grep calls. It relied solely on the CodeMap (high-level structure) without retrieving any implementation details from the existing codebase.",
-            grep_calls: [],
+            reasoning: "The agent made no file_read calls. It relied solely on the CodeMap (high-level structure) without retrieving any implementation details from the existing codebase.",
             file_read_calls: []
         };
     }
-
-    // Build the grep section of the prompt
-    const grepSection = grepCalls.length > 0
-        ? grepCalls.map((call, i) => {
-            const meta = [
-                `pattern: "${call.pattern}"`,
-                call.path ? `path: "${call.path}"` : null,
-                call.glob ? `glob: "${call.glob}"` : null,
-                call.output_mode ? `output_mode: "${call.output_mode}"` : null,
-            ].filter(Boolean).join(', ');
-            const result = call.result
-                ? `Result:\n${call.result}`
-                : 'Result: (no result captured)';
-            return `Grep #${i + 1} (${meta})\n${result}`;
-          }).join('\n\n')
-        : 'No grep searches were performed.';
 
     // Build the file_read section of the prompt
     const fileReadSection = fileReadCalls.length > 0
@@ -297,50 +247,32 @@ export async function evaluateCodeContextRetrieval(
           }).join('\n\n')
         : 'No files were read.';
 
-    const systemPrompt = `You are an expert Ballerina developer performing a STRICT evaluation of whether an AI agent retrieved ALL relevant code context from an existing codebase.
+    const systemPrompt = `You are an expert code snippets auditor. Your task is to find the missing context that was required to fulfill the user query but was not retrieved.
 
 Your role is to:
-1. Carefully read the Initial Code in full — this is the ONLY source of truth for what existed before changes.
-2. Read the user query to understand exactly what change was requested.
-3. Identify every component in the Initial Code that is relevant to fulfilling the query: types, records, objects, enums, function signatures, method usages, imports, constants, configuration, and any code that is directly referenced or depended upon.
-4. For each relevant component, check whether the agent retrieved it via file_read or grep.
-5. If even one relevant component was NOT retrieved, the evaluation is FALSE — no exceptions.
+1. Read the user query and the complete code to understand what changes are needed.
+2. Review the retrieved code snippets provided to you.
+3. Determine whether the code snippets is sufficient to fulfill the user query and perform the required code changes.
+4. Identify any missing components(Code snippets that relevant to do the code chnages for fullfilling the user query) that were required for the user query but not retrieved.
 
-Rules:
-- Be strict. Partial retrieval is a FAILURE. The agent must have retrieved ALL relevant components.
-- The Initial Code section is the ONLY source of truth. Do not invent or assume code that is not shown.
-- CRITICAL: Before penalizing the agent for not reading a file, verify the file appears in the Initial Code. Files the agent created during implementation did not exist beforehand and should NOT be expected to have been read.
-- The agent has a CodeMap for high-level structure only. It must use file_read and grep to retrieve implementation details.
-- A component is "retrieved" only if it appears in the agent's grep results or file_read content. High-level awareness from the CodeMap does not count.
-- STRICT language rule: every missing component you list must be one you are CERTAIN was required. Do NOT use speculative language ("likely", "probably", "may be needed", "might be", "could be"). If you are uncertain whether a component was required, do NOT list it as missing.
-- is_relevant is a definitive boolean: true means every required component was retrieved, false means at least one was definitively missed. There is no in-between.`
-
+Note: Be Strict in your evaluation. If any relevant component was missing, the retrieval is not relevant.
+`
     const userPrompt = `# User Query
-The user requested the following change:
 \`\`\`
 ${userQuery}
 \`\`\`
 
-# Initial Code (Before Changes)
+# Complete Codebase
 \`\`\`ballerina
 ${initialCodeString}
 \`\`\`
 
 # Context Retrieved by the LLM Agent
 
-## Files Read
+## Retrieved context from existing codebase
 ${fileReadSection}
 
-## Grep Searches
-${grepSection}
-
 ---
-
-Carefully analyze the Initial Code and identify every component relevant to the user query (types, records, functions, usages, imports, constants, etc.).
-Then check whether each component was retrieved by the agent via file_read or grep.
-
-Be strict: if any relevant component from the existing codebase was definitively missed, the answer is FALSE.
-Only return TRUE if the agent retrieved every single relevant component needed to fulfill the query.
 
 For the reasoning field, use exactly this format:
 
@@ -354,14 +286,11 @@ Missing Context:
   - <component name and line number>
   - <one sentence: why this component was definitively required and was not retrieved>
 
-IMPORTANT: Do NOT list a component as missing unless you are certain it was required. Forbidden words: "likely", "probably", "may be needed", "might be", "could be", "possibly". Every entry in Missing Context is a direct reason is_relevant is false. If Missing Context is "None", is_relevant must be true.
-If nothing is missing, write "Missing Context: None". Do not use inline code blocks.
-
 Use the submit_evaluation tool to provide your assessment.`;
 
     try {
         const result = await generateText({
-            model: anthropic('claude-sonnet-4-20250514'),
+            model: anthropic('claude-sonnet-4-5-20250929'),
             system: systemPrompt,
             prompt: userPrompt,
             temperature: 0.1,
@@ -385,13 +314,11 @@ Use the submit_evaluation tool to provide your assessment.`;
             throw new Error("Expected submit_evaluation tool call but received none");
         }
 
-        const evaluation = toolCall.input as Omit<CodeContextRetrievalEvaluation, 'grep_calls' | 'file_read_calls'>;
-
+        const evaluation = toolCall.input as Omit<CodeContextRetrievalEvaluation, 'file_read_calls'>;
 
         console.log(`✅ Code Context Retrieval Evaluation Complete. Relevant: ${evaluation.is_relevant}. Reason: ${evaluation.reasoning}`);
         return {
             ...evaluation,
-            grep_calls: grepCalls,
             file_read_calls: fileReadCalls
         };
 
@@ -400,7 +327,6 @@ Use the submit_evaluation tool to provide your assessment.`;
         return {
             is_relevant: false,
             reasoning: `Failed to evaluate due to an error: ${error instanceof Error ? error.message : "Unknown error"}`,
-            grep_calls: grepCalls,
             file_read_calls: fileReadCalls
         };
     }

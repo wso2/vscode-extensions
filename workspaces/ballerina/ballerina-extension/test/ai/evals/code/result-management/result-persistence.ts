@@ -94,7 +94,7 @@ export async function persistUsecaseResult(
 
     // Persist code context retrieval evaluation if present
     if (usecaseResult.codeContextRetrievalEvaluation) {
-        const { grep_calls, file_read_calls, ...evaluationOnly } = usecaseResult.codeContextRetrievalEvaluation;
+        const { file_read_calls, ...evaluationOnly } = usecaseResult.codeContextRetrievalEvaluation;
         const codeRetrievalDir = path.join(resultDir, "code_retrieval");
         await fs.promises.mkdir(codeRetrievalDir, { recursive: true });
         await fs.promises.writeFile(

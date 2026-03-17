@@ -38,17 +38,6 @@ export interface DiagnosticMessage {
     };
 }
 
-/**
- * Evaluation result for code context retrieval via grep and file_read tools
- */
-export interface GrepCallRecord {
-    readonly pattern: string;
-    readonly path?: string;
-    readonly glob?: string;
-    readonly output_mode?: string;
-    readonly result?: string;
-}
-
 export interface FileReadCallRecord {
     readonly fileName: string;
     readonly content?: string;
@@ -57,7 +46,6 @@ export interface FileReadCallRecord {
 export interface CodeContextRetrievalEvaluation {
     readonly is_relevant: boolean;
     readonly reasoning: string;
-    readonly grep_calls: readonly GrepCallRecord[];
     readonly file_read_calls: readonly FileReadCallRecord[];
 }
 
