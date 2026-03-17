@@ -32,7 +32,7 @@
  */
 
 import { generateText, wrapLanguageModel } from 'ai';
-import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from '../../../connection';
+import { getAnthropicClient, getAnthropicClientForCustomModel, ANTHROPIC_HAIKU_4_5, AnthropicModel } from '../../../connection';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { getSystemPrompt } from '../main/system';
 import {
@@ -56,6 +56,10 @@ export interface CompactAgentRequest {
     /** How the compact was triggered */
     trigger: 'user' | 'auto';
     projectPath: string;
+    /** Optional sub-model ID override (from model settings) */
+    subModelId?: string;
+    /** Whether the sub-model ID is a custom (arbitrary) string */
+    subModelIsCustom?: boolean;
 }
 
 export interface CompactAgentResult {
@@ -287,8 +291,12 @@ export async function executeCompactAgent(
         const tools = createCompactAgentTools();
 
         // 6. Call Haiku with the full conversation
-        logInfo('[CompactAgent] Calling Haiku for summarization...');
-        let model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
+        logInfo('[CompactAgent] Calling sub-model for summarization...');
+        let model = request.subModelId
+            ? (request.subModelIsCustom
+                ? await getAnthropicClientForCustomModel(request.subModelId)
+                : await getAnthropicClient(request.subModelId as AnthropicModel))
+            : await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
 
         if (ENABLE_DEVTOOLS) {
             const originalCwd = process.cwd();
@@ -327,8 +335,16 @@ export async function executeCompactAgent(
             summary: `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. \n ${summary}` 
         };
 
-    } catch (error) {
+    } catch (error: any) {
         const errorMsg = error instanceof Error ? error.message : String(error);
+        const isModelError = /model.*not found|invalid.*model|unknown model|model.*deprecated|model.*not available|model.*does not exist/i.test(errorMsg)
+            || (error?.status === 400 && /model/i.test(errorMsg))
+            || (error?.status === 404 && /model/i.test(errorMsg));
+        if (isModelError && !request.subModelIsCustom) {
+            const updatedMsg = `The model used by this extension may be outdated or unavailable. Please update the WSO2 MI Extension to the latest version. (Error: ${errorMsg})`;
+            logError(`[CompactAgent] Model error (preset): ${errorMsg}`, error);
+            return { success: false, error: updatedMsg };
+        }
         logError(`[CompactAgent] Error: ${errorMsg}`, error);
         return { success: false, error: errorMsg };
     }

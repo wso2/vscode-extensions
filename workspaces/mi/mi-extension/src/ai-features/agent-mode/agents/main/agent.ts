@@ -24,7 +24,7 @@ const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local d
 
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
-import { getAnthropicClient, ANTHROPIC_SONNET_4_6 } from '../../../connection';
+import { getAnthropicClient, getAnthropicClientForCustomModel, AnthropicModel, resolveMainModelId } from '../../../connection';
 import { getSystemPrompt } from '../main/system';
 import { getUserPrompt, UserPromptParams } from './prompt';
 import { addCacheControlToMessages } from '../../../cache-utils';
@@ -75,7 +75,7 @@ import {
 } from '../../stream_guard';
 
 // Import types from mi-core (shared with visualizer)
-import { AgentEvent, AgentEventType, FileObject, ImageObject, AgentMode } from '@wso2/mi-core';
+import { AgentEvent, AgentEventType, FileObject, ImageObject, AgentMode, ModelSettings } from '@wso2/mi-core';
 
 // Re-export types for other modules that import from agent.ts
 export type { AgentEvent, AgentEventType };
@@ -121,6 +121,8 @@ export interface AgentRequest {
     shellApprovalRuleStore?: ShellApprovalRuleStore;
     /** Optional checkpoint manager for undo support */
     undoCheckpointManager?: AgentUndoCheckpointManager;
+    /** Model settings for this session (main model + sub-agent model overrides) */
+    modelSettings?: ModelSettings;
 }
 
 /**
@@ -353,13 +355,17 @@ export async function executeAgent(
             shellApprovalRuleStore: request.shellApprovalRuleStore,
             undoCheckpointManager: request.undoCheckpointManager,
             abortSignal: streamWatchdog.abortSignal,
+            modelSettings: request.modelSettings,
         });
 
         // Track step number for logging
         let currentStepNumber = 0;
 
-        // Get the model for prepareStep
-        let model = await getAnthropicClient(ANTHROPIC_SONNET_4_6);
+        // Get the model for prepareStep — resolve from model settings or default to Sonnet
+        const mainModelId = resolveMainModelId(request.modelSettings || { mainModelPreset: 'sonnet' });
+        let model = request.modelSettings?.mainModelCustomId
+            ? await getAnthropicClientForCustomModel(mainModelId)
+            : await getAnthropicClient(mainModelId as AnthropicModel);
 
         // Wrap model with DevTools middleware if enabled (local development only!)
         // IMPORTANT: DevTools must be imported AFTER process.chdir() because it captures
@@ -894,6 +900,26 @@ export async function executeAgent(
                 success: false,
                 modifiedFiles,
                 error: proxyTerminatedMessage,
+                modelMessages: finalModelMessages,
+            };
+        }
+
+        // Check for model-related errors (invalid model ID, model not found, deprecated)
+        const isModelError = /model.*not found|invalid.*model|unknown model|could not resolve model|model.*deprecated|model.*not available|model.*does not exist|model.*decommissioned/i.test(errorMsg)
+            || (error?.status === 400 && /model/i.test(errorMsg))
+            || (error?.status === 404 && /model/i.test(errorMsg));
+
+        if (isModelError) {
+            const isCustomModel = !!request.modelSettings?.mainModelCustomId;
+            const modelErrorMessage = isCustomModel
+                ? `Invalid model ID '${request.modelSettings!.mainModelCustomId}'. Check your model settings and try again.`
+                : `The model used by this extension may be outdated or unavailable. Please update the WSO2 MI Extension to the latest version to get updated model support. (Error: ${errorMsg})`;
+            logError(`[Agent] Model error (custom=${isCustomModel}): ${errorMsg}`, error);
+            emitEvent({ type: 'error', error: modelErrorMessage });
+            return {
+                success: false,
+                modifiedFiles,
+                error: modelErrorMessage,
                 modelMessages: finalModelMessages,
             };
         }

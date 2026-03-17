@@ -27,6 +27,7 @@ import {
     Role,
 } from "@wso2/mi-core";
 import { GroupedSessions } from "./SessionSwitcher";
+import { ModelSettings } from "@wso2/mi-rpc-client/src/rpc-clients/agent-mode/rpc-client";
 
 // Pending user question type (using structured Question format from mi-core)
 export interface PendingUserQuestion {
@@ -137,6 +138,14 @@ interface MICopilotContextType {
     deleteSession: (sessionId: string) => Promise<void>;
     agentMode: AgentMode;
     setAgentMode: React.Dispatch<React.SetStateAction<AgentMode>>;
+
+    // Model settings
+    modelSettings: ModelSettings;
+    updateModelSettings: (settings: ModelSettings) => void;
+
+    // Thinking mode
+    isThinkingEnabled: boolean;
+    setIsThinkingEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 // Define the context for MI Copilot
@@ -194,6 +203,33 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const [todos, setTodos] = useState<TodoItem[]>([]);
     const [isPlanMode, setIsPlanMode] = useState<boolean>(false);
     const [agentMode, setAgentMode] = useState<AgentMode>('edit');
+
+    // Model settings state (persisted in localStorage)
+    const DEFAULT_MODEL_SETTINGS: ModelSettings = { mainModelPreset: 'sonnet', subModelPreset: 'haiku' };
+    const MODEL_SETTINGS_KEY = 'mi-agent-model-settings';
+    const [modelSettings, setModelSettingsState] = useState<ModelSettings>(() => {
+        try {
+            const stored = localStorage.getItem(MODEL_SETTINGS_KEY);
+            if (stored) return { ...DEFAULT_MODEL_SETTINGS, ...JSON.parse(stored) };
+        } catch { /* ignore */ }
+        return { ...DEFAULT_MODEL_SETTINGS };
+    });
+
+    // Thinking mode state (persisted in localStorage per agent mode)
+    const THINKING_KEY_PREFIX = 'mi-agent-thinking-enabled';
+    const [isThinkingEnabled, setIsThinkingEnabled] = useState<boolean>(() => {
+        try {
+            const stored = localStorage.getItem(`${THINKING_KEY_PREFIX}-${agentMode}`);
+            return stored === 'true';
+        } catch { return false; }
+    });
+
+    const updateModelSettings = useCallback((settings: ModelSettings) => {
+        setModelSettingsState(settings);
+        try {
+            localStorage.setItem(MODEL_SETTINGS_KEY, JSON.stringify(settings));
+        } catch { /* ignore */ }
+    }, []);
 
     // Session management state
     // Context usage tracking
@@ -423,6 +459,21 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         initializeContext();
     }, [rpcClient]);
 
+    // Sync thinking preference when agent mode changes
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem(`${THINKING_KEY_PREFIX}-${agentMode}`);
+            setIsThinkingEnabled(stored === 'true');
+        } catch { setIsThinkingEnabled(false); }
+    }, [agentMode]);
+
+    // Persist thinking preference to localStorage
+    useEffect(() => {
+        try {
+            localStorage.setItem(`${THINKING_KEY_PREFIX}-${agentMode}`, String(isThinkingEnabled));
+        } catch { /* ignore */ }
+    }, [agentMode, isThinkingEnabled]);
+
     useEffect(() => {
         setRemaingTokenLessThanOne(remainingTokenPercentage < 1 && remainingTokenPercentage > 0);
     }, [remainingTokenPercentage]);
@@ -482,6 +533,12 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         deleteSession,
         agentMode,
         setAgentMode,
+        // Model settings
+        modelSettings,
+        updateModelSettings,
+        // Thinking mode
+        isThinkingEnabled,
+        setIsThinkingEnabled,
     };
 
     return (

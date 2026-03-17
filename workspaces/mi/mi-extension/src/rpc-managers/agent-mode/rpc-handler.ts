@@ -102,4 +102,5 @@ export function registerMIAgentPanelRpcHandlers(messenger: MessengerAPI, project
     messenger.onRequest(searchMentionablePaths, (request: SearchMentionablePathsRequest) =>
         rpcManager.searchMentionablePaths(request)
     );
+
 }

@@ -29,7 +29,7 @@ import * as path from 'node:path';
 import { Project, QuoteKind } from 'ts-morph';
 import * as vscode from 'vscode';
 import * as Handlebars from 'handlebars';
-import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from '../../../connection';
+import { getAnthropicClient, getAnthropicClientForCustomModel, ANTHROPIC_HAIKU_4_5, AnthropicModel } from '../../../connection';
 import { DATA_MAPPER_SYSTEM_TEMPLATE } from './system';
 import { DATA_MAPPER_PROMPT } from './prompt';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
@@ -45,6 +45,10 @@ export interface DataMapperAgentRequest {
     projectPath: string;
     /** Optional additional instructions for the mapping */
     instructions?: string;
+    /** Optional sub-model ID override (from model settings) */
+    subModelId?: string;
+    /** Whether the sub-model ID is a custom (arbitrary) string */
+    subModelIsCustom?: boolean;
 }
 
 export interface DataMapperAgentResult {
@@ -145,7 +149,11 @@ export async function executeDataMapperAgent(
 
         // 3. Call AI
         logInfo(`[DataMapperAgent] Calling AI for mapping generation...`);
-        const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
+        const model = request.subModelId
+            ? (request.subModelIsCustom
+                ? await getAnthropicClientForCustomModel(request.subModelId)
+                : await getAnthropicClient(request.subModelId as AnthropicModel))
+            : await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
         const { text } = await generateText({
             model,
             system: systemPrompt,
@@ -194,8 +202,16 @@ export async function executeDataMapperAgent(
 
         return { success: true };
 
-    } catch (error) {
+    } catch (error: any) {
         const errorMsg = error instanceof Error ? error.message : String(error);
+        const isModelError = /model.*not found|invalid.*model|unknown model|model.*deprecated|model.*not available|model.*does not exist/i.test(errorMsg)
+            || (error?.status === 400 && /model/i.test(errorMsg))
+            || (error?.status === 404 && /model/i.test(errorMsg));
+        if (isModelError && !request.subModelIsCustom) {
+            const updatedMsg = `The model used by this extension may be outdated or unavailable. Please update the WSO2 MI Extension to the latest version. (Error: ${errorMsg})`;
+            logError(`[DataMapperAgent] Model error (preset): ${errorMsg}`, error);
+            return { success: false, error: updatedMsg };
+        }
         logError(`[DataMapperAgent] Error: ${errorMsg}`, error);
         return {
             success: false,

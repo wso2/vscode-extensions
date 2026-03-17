@@ -133,3 +133,4 @@ export const compactConversation: RequestType<CompactConversationRequest, Compac
 export const searchMentionablePaths: RequestType<SearchMentionablePathsRequest, SearchMentionablePathsResponse> = {
     method: `${_prefix}/searchMentionablePaths`
 };
+

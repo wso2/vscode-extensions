@@ -87,8 +87,8 @@ import {
     createWebFetchTool,
     createWebFetchExecute,
 } from '../../tools/web_tools';
-import { AnthropicModel } from '../../../connection';
-import { AgentMode } from '@wso2/mi-core';
+import { AnthropicModel, resolveMainModelId } from '../../../connection';
+import { AgentMode, ModelSettings } from '@wso2/mi-core';
 import { persistOversizedToolResult } from '../../tools/tool-result-persistence';
 import {
     BashExecuteFn,
@@ -180,6 +180,8 @@ export interface CreateToolsParams {
     undoCheckpointManager?: AgentUndoCheckpointManager;
     /** Abort signal from the main agent — propagated to subagents and background tasks */
     abortSignal?: AbortSignal;
+    /** Model settings for this session (main model + sub-agent model overrides) */
+    modelSettings?: ModelSettings;
 }
 
 const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
@@ -413,7 +415,11 @@ export function createAgentTools(params: CreateToolsParams) {
         shellApprovalRuleStore,
         undoCheckpointManager,
         abortSignal,
+        modelSettings,
     } = params;
+
+    // Resolve the main model ID for tools that need it (web search/fetch)
+    const mainModelId = modelSettings ? resolveMainModelId(modelSettings) : undefined;
 
     const getWrappedExecute = <T extends (...args: any[]) => Promise<ToolResult>>(
         toolName: string,
@@ -479,7 +485,7 @@ export function createAgentTools(params: CreateToolsParams) {
 
         // Plan Mode Tools (5 tools)
         [SUBAGENT_TOOL_NAME]: createSubagentTool(
-            getWrappedExecute(SUBAGENT_TOOL_NAME, createSubagentExecute(projectPath, sessionId, getAnthropicClient, abortSignal))
+            getWrappedExecute(SUBAGENT_TOOL_NAME, createSubagentExecute(projectPath, sessionId, getAnthropicClient, abortSignal, modelSettings))
         ),
         [ASK_USER_TOOL_NAME]: createAskUserTool(
             getWrappedExecute(ASK_USER_TOOL_NAME, createAskUserExecute(eventHandler, pendingQuestions, sessionId))
@@ -501,7 +507,8 @@ export function createAgentTools(params: CreateToolsParams) {
                 eventHandler,
                 pendingApprovals,
                 webAccessPreapproved,
-                sessionId
+                sessionId,
+                mainModelId
             ))
         ),
         [WEB_FETCH_TOOL_NAME]: createWebFetchTool(
@@ -510,7 +517,8 @@ export function createAgentTools(params: CreateToolsParams) {
                 eventHandler,
                 pendingApprovals,
                 webAccessPreapproved,
-                sessionId
+                sessionId,
+                mainModelId
             ))
         ),
 

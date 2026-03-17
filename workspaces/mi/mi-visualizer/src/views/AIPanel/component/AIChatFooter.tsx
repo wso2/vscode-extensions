@@ -30,28 +30,7 @@ import Attachments from "./Attachments";
 // Tool name constant
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
 const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
-const THINKING_PREFERENCE_KEY_PREFIX = 'mi-agent-thinking-enabled';
 const WEB_ACCESS_PREFERENCE_KEY = 'mi-agent-web-access-enabled';
-
-function getThinkingPreferenceStorageKey(mode: AgentMode): string {
-    return `${THINKING_PREFERENCE_KEY_PREFIX}-${mode}`;
-}
-
-function getDefaultThinkingEnabled(mode: AgentMode): boolean {
-    return false;
-}
-
-function getThinkingPreferenceForMode(mode: AgentMode): boolean {
-    try {
-        const storedPreference = localStorage.getItem(getThinkingPreferenceStorageKey(mode));
-        if (storedPreference === null) {
-            return getDefaultThinkingEnabled(mode);
-        }
-        return storedPreference === 'true';
-    } catch {
-        return getDefaultThinkingEnabled(mode);
-    }
-}
 
 function removeCompactingPlaceholder(content: string): string {
     return content
@@ -443,6 +422,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setLastTotalInputTokens,
         agentMode,
         setAgentMode,
+        isThinkingEnabled,
+        setIsThinkingEnabled,
+        modelSettings,
     } = useMICopilotContext();
 
     const [, setFileUploadStatus] = useState({ type: "", text: "" });
@@ -456,7 +438,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     // Mode switcher state
     const [showModeMenu, setShowModeMenu] = useState(false);
     const modeMenuRef = useRef<HTMLDivElement>(null);
-    const [isThinkingEnabled, setIsThinkingEnabled] = useState<boolean>(() => getThinkingPreferenceForMode(agentMode));
     const [isWebAccessEnabled, setIsWebAccessEnabled] = useState<boolean>(() => {
         try {
             return localStorage.getItem(WEB_ACCESS_PREFERENCE_KEY) === 'true';
@@ -1090,7 +1071,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }]);
 
         try {
-            const result = await rpcClient.getMiAgentPanelRpcClient().compactConversation({});
+            const result = await rpcClient.getMiAgentPanelRpcClient().compactConversation({ modelSettings });
             if (!result.success) {
                 console.error("Manual compact failed:", result.error);
                 // Remove the loading message and show error
@@ -1334,7 +1315,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 images,
                 thinking: isThinkingEnabled,
                 webAccessPreapproved: isWebAccessEnabled,
-                chatHistory: chatHistory
+                chatHistory: chatHistory,
+                modelSettings,
             });
 
             if (!response.success) {
@@ -1409,19 +1391,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         textAreaRef.current.setSelectionRange(pendingMentionCursorPosition, pendingMentionCursorPosition);
         setPendingMentionCursorPosition(null);
     }, [pendingMentionCursorPosition, currentUserPrompt]);
-
-    useEffect(() => {
-        setIsThinkingEnabled(getThinkingPreferenceForMode(agentMode));
-    }, [agentMode]);
-
-    // Persist thinking preference across panel reloads (per mode)
-    useEffect(() => {
-        try {
-            localStorage.setItem(getThinkingPreferenceStorageKey(agentMode), String(isThinkingEnabled));
-        } catch {
-            // Ignore localStorage errors in restricted environments
-        }
-    }, [agentMode, isThinkingEnabled]);
 
     useEffect(() => {
         try {

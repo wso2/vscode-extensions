@@ -126,7 +126,8 @@ export function createWebSearchExecute(
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
     webAccessPreapproved: boolean,
-    sessionId: string
+    sessionId: string,
+    mainModelId?: string
 ): WebSearchExecuteFn {
     return async (args): Promise<ToolResult> => {
         const allowedDomains = sanitizeDomainList(args.allowed_domains);
@@ -166,7 +167,7 @@ export function createWebSearchExecute(
             });
 
             const result = await generateText({
-                model: await getAnthropicClient(ANTHROPIC_SONNET_4_6),
+                model: await getAnthropicClient((mainModelId || ANTHROPIC_SONNET_4_6) as AnthropicModel),
                 prompt: [
                     `Search query: ${args.query}`,
                     'Use the web_search tool and return concise findings with relevant source links.'
@@ -215,7 +216,8 @@ export function createWebFetchExecute(
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
     webAccessPreapproved: boolean,
-    sessionId: string
+    sessionId: string,
+    mainModelId?: string
 ): WebFetchExecuteFn {
     return async (args): Promise<ToolResult> => {
         try {
@@ -268,7 +270,7 @@ export function createWebFetchExecute(
             });
 
             const result = await generateText({
-                model: await getAnthropicClient(ANTHROPIC_SONNET_4_6),
+                model: await getAnthropicClient((mainModelId || ANTHROPIC_SONNET_4_6) as AnthropicModel),
                 prompt: [
                     `URL: ${args.url}`,
                     `Task: ${args.prompt}`,

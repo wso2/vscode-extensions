@@ -121,9 +121,8 @@ const deleteSession: RequestType<DeleteSessionRequest, DeleteSessionResponse> = 
 };
 
 // Compact RPC method
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CompactConversationRequest {
-    // Empty - uses current session
+    modelSettings?: ModelSettings;
 }
 
 export interface CompactConversationResponse {
@@ -157,6 +156,17 @@ const compactConversation: RequestType<CompactConversationRequest, CompactConver
 const searchMentionablePaths: RequestType<SearchMentionablePathsRequest, SearchMentionablePathsResponse> = {
     method: `${_prefix}/searchMentionablePaths`
 };
+
+// Model Settings types and RPC methods
+export type MainModelPreset = 'opus' | 'sonnet';
+export type SubModelPreset = 'haiku' | 'sonnet';
+
+export interface ModelSettings {
+    mainModelPreset: MainModelPreset;
+    subModelPreset: SubModelPreset;
+    mainModelCustomId?: string;
+    subModelCustomId?: string;
+}
 
 export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
     private _messenger: Messenger;
@@ -228,4 +238,5 @@ export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
     searchMentionablePaths(request: SearchMentionablePathsRequest): Promise<SearchMentionablePathsResponse> {
         return this._messenger.sendRequest(searchMentionablePaths, HOST_EXTENSION, request);
     }
+
 }

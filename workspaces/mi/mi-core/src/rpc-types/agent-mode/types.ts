@@ -43,6 +43,8 @@ export interface SendAgentMessageRequest {
     /** Chat history for context (AI SDK format with tool calls/results) */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     chatHistory?: any[];
+    /** Model settings (main model + sub-agent model presets/overrides) */
+    modelSettings?: ModelSettings;
 }
 
 export interface ChangedFileSummary {
@@ -473,9 +475,9 @@ export interface DeleteSessionResponse {
 /**
  * Request to manually compact/summarize the current conversation
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CompactConversationRequest {
-    // Empty - uses current session
+    /** Model settings for compact agent model selection */
+    modelSettings?: ModelSettings;
 }
 
 /**
@@ -486,6 +488,22 @@ export interface CompactConversationResponse {
     /** The generated summary */
     summary?: string;
     error?: string;
+}
+
+// ============================================================================
+// Model Settings Types
+// ============================================================================
+
+export type MainModelPreset = 'opus' | 'sonnet';
+export type SubModelPreset = 'haiku' | 'sonnet';
+
+export interface ModelSettings {
+    mainModelPreset: MainModelPreset;
+    subModelPreset: SubModelPreset;
+    /** Custom model ID override for main agent (if set, overrides preset) */
+    mainModelCustomId?: string;
+    /** Custom model ID override for sub-agents (if set, overrides preset) */
+    subModelCustomId?: string;
 }
 
 // ============================================================================

@@ -59,6 +59,10 @@ export type {
     MentionablePathItem,
     SearchMentionablePathsRequest,
     SearchMentionablePathsResponse,
+    // Model settings types
+    MainModelPreset,
+    SubModelPreset,
+    ModelSettings,
 } from './types';
 
 // Export RPC type definitions

@@ -44,6 +44,7 @@ import {
     MentionablePathItem,
     SearchMentionablePathsRequest,
     SearchMentionablePathsResponse,
+    ModelSettings,
 } from '@wso2/mi-core';
 import type { Dirent } from 'fs';
 import * as fs from 'fs/promises';
@@ -70,6 +71,8 @@ import { VALID_FILE_EXTENSIONS, VALID_SPECIAL_FILE_NAMES } from '../../ai-featur
 import { AgentUndoCheckpointManager, StoredUndoCheckpoint } from '../../ai-features/agent-mode/undo/checkpoint-manager';
 import { MiDiagramRpcManager } from '../mi-diagram/rpc-manager';
 import { getCopilotSessionDir } from '../../ai-features/agent-mode/storage-paths';
+const DEFAULT_MODEL_SETTINGS: ModelSettings = { mainModelPreset: 'sonnet', subModelPreset: 'haiku' };
+import { resolveSubModelId } from '../../ai-features/connection';
 
 const AUTO_COMPACT_TOKEN_THRESHOLD = 180000;
 const AUTO_COMPACT_TOOL_NAME = 'compact_conversation';
@@ -123,6 +126,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private undoCheckpointManagerSessionId: string | null = null;
     private shellApprovalRules: string[][] = [];
     private pendingLimitContinuation: { reason: LimitContinuationReason } | null = null;
+    private currentModelSettings: ModelSettings = { ...DEFAULT_MODEL_SETTINGS };
 
     constructor(private projectUri: string) {
         this.eventHandler = new AgentEventHandler(projectUri);
@@ -428,10 +432,13 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             return false;
         }
 
+        const resolvedSubModel = resolveSubModelId(this.currentModelSettings);
         const compactResult = await executeCompactAgent({
             messages: messagesForCompact,
             trigger: 'auto',
             projectPath: this.projectUri,
+            subModelId: resolvedSubModel,
+            subModelIsCustom: !!this.currentModelSettings.subModelCustomId,
         });
 
         if (!compactResult.success || !compactResult.summary) {
@@ -825,6 +832,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                                     addRule: async (rule: string[]) => this.addShellApprovalRule(rule),
                                 },
                                 undoCheckpointManager,
+                                modelSettings: request.modelSettings || this.currentModelSettings,
                             },
                             (event: AgentEvent) => {
                                 if (event.type === 'plan_mode_entered') {
@@ -1287,6 +1295,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             await this.chatHistoryManager.initialize();
             this.currentSessionId = this.chatHistoryManager.getSessionId();
             this.currentMode = DEFAULT_AGENT_MODE;
+            this.currentModelSettings = { ...DEFAULT_MODEL_SETTINGS };
             await this.loadShellApprovalRulesForSession(this.currentSessionId);
 
             logInfo(`[AgentPanel] Created new session: ${this.currentSessionId}`);
@@ -1349,7 +1358,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      * Reads all messages from the current session, runs the summarization sub-agent,
      * saves the summary as a JSONL checkpoint, and returns it.
      */
-    async compactConversation(_request: CompactConversationRequest): Promise<CompactConversationResponse> {
+    async compactConversation(request: CompactConversationRequest): Promise<CompactConversationResponse> {
         try {
             logInfo('[AgentPanel] Manual compact requested');
 
@@ -1367,10 +1376,14 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             logInfo(`[AgentPanel] Compacting ${messages.length} messages...`);
 
             // Run compact agent (sends full conversation + system-reminder to Haiku)
+            const effectiveSettings = request.modelSettings || this.currentModelSettings;
+            const resolvedSubModel = resolveSubModelId(effectiveSettings);
             const result = await executeCompactAgent({
                 messages,
                 trigger: 'user',
                 projectPath: this.projectUri,
+                subModelId: resolvedSubModel,
+                subModelIsCustom: !!effectiveSettings.subModelCustomId,
             });
 
             if (!result.success || !result.summary) {
@@ -1676,4 +1689,5 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             };
         }
     }
+
 }

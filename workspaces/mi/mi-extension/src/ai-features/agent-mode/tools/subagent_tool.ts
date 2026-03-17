@@ -31,7 +31,8 @@ import {
     TASK_OUTPUT_TOOL_NAME,
 } from './types';
 import { logInfo, logError, logDebug } from '../../copilot/logger';
-import { AnthropicModel } from '../../connection';
+import { AnthropicModel, getAnthropicClientForCustomModel, resolveSubModelId, ANTHROPIC_HAIKU_4_5, ANTHROPIC_SONNET_4_6 } from '../../connection';
+import { ModelSettings } from '@wso2/mi-core';
 import { getCopilotSessionDir } from '../storage-paths';
 
 // Import subagent executors
@@ -212,10 +213,27 @@ export function createSubagentExecute(
     projectPath: string,
     sessionId: string,
     getAnthropicClient: (model: AnthropicModel) => Promise<any>,
-    mainAbortSignal?: AbortSignal
+    mainAbortSignal?: AbortSignal,
+    modelSettings?: ModelSettings
 ): SubagentToolExecuteFn {
     return async (args): Promise<SubagentToolResult> => {
-        const { description, prompt, subagent_type, model = 'haiku', run_in_background = false, resume } = args;
+        const { description, prompt, subagent_type, model: requestedModel = 'haiku', run_in_background = false, resume } = args;
+
+        // Resolve the effective sub-model: custom ID takes full precedence,
+        // otherwise the preset overrides the LLM's model choice.
+        let effectiveModel: 'haiku' | 'sonnet' = requestedModel;
+        let effectiveGetClient = getAnthropicClient;
+
+        if (modelSettings?.subModelCustomId) {
+            // Custom ID: always use it regardless of what the LLM requested
+            effectiveGetClient = async (_modelId: AnthropicModel) =>
+                getAnthropicClientForCustomModel(modelSettings.subModelCustomId!);
+            effectiveModel = 'sonnet'; // Doesn't matter — custom client ignores it
+        } else if (modelSettings?.subModelPreset) {
+            // Preset override: map the resolved sub-model ID back to 'haiku' | 'sonnet'
+            const resolvedId = resolveSubModelId(modelSettings);
+            effectiveModel = resolvedId === ANTHROPIC_SONNET_4_6 ? 'sonnet' : 'haiku';
+        }
 
         const isResume = !!resume;
         logInfo(`[SubagentTool] ${isResume ? 'Resuming' : 'Spawning'} ${subagent_type} subagent: ${description} (background: ${run_in_background})`);
@@ -311,8 +329,8 @@ export function createSubagentExecute(
                 subagent_type,
                 prompt,
                 projectPath,
-                model,
-                getAnthropicClient,
+                effectiveModel,
+                effectiveGetClient,
                 previousMessages,
                 abortController.signal
             )
@@ -343,11 +361,22 @@ export function createSubagentExecute(
                         return;
                     }
 
-                    entry.output = `Subagent execution failed: ${error.message}`;
+                    const errorMsg = error instanceof Error ? error.message : String(error);
+                    const isModelError = /model.*not found|invalid.*model|unknown model|model.*deprecated|model.*not available|model.*does not exist/i.test(errorMsg)
+                        || (error?.status === 400 && /model/i.test(errorMsg))
+                        || (error?.status === 404 && /model/i.test(errorMsg));
+                    if (isModelError) {
+                        const isCustomModel = !!modelSettings?.subModelCustomId;
+                        entry.output = isCustomModel
+                            ? `Invalid sub-agent model ID '${modelSettings!.subModelCustomId}'. Check your model settings and try again.`
+                            : `The model used by this extension may be outdated or unavailable. Please update the WSO2 MI Extension to the latest version. (Error: ${errorMsg})`;
+                        logError(`[SubagentTool] Background model error (custom=${isCustomModel}): ${errorMsg}`, error);
+                    } else {
+                        entry.output = `Subagent execution failed: ${errorMsg}`;
+                        logError(`[SubagentTool] Background ${subagent_type} subagent failed: ${subagentId}`, error);
+                    }
                     entry.completed = true;
                     entry.success = false;
-
-                    logError(`[SubagentTool] Background ${subagent_type} subagent failed: ${subagentId}`, error);
                 });
 
             // Return immediately with subagent ID
@@ -361,7 +390,7 @@ export function createSubagentExecute(
             // Foreground Execution (existing synchronous behavior)
             // ================================================================
             try {
-                const result = await runSubagent(subagent_type, prompt, projectPath, model, getAnthropicClient, previousMessages, mainAbortSignal);
+                const result = await runSubagent(subagent_type, prompt, projectPath, effectiveModel, effectiveGetClient, previousMessages, mainAbortSignal);
 
                 logInfo(`[SubagentTool] ${subagent_type} subagent completed successfully${isResume ? ' (resumed)' : ''}`);
                 logDebug(`[SubagentTool] Response length: ${result.text.length} chars`);
@@ -386,11 +415,23 @@ export function createSubagentExecute(
                     // agent into calling task_output on it, which only works for background tasks.
                 };
             } catch (error: any) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                const isModelError = /model.*not found|invalid.*model|unknown model|model.*deprecated|model.*not available|model.*does not exist/i.test(errorMsg)
+                    || (error?.status === 400 && /model/i.test(errorMsg))
+                    || (error?.status === 404 && /model/i.test(errorMsg));
+                if (isModelError) {
+                    const isCustomModel = !!modelSettings?.subModelCustomId;
+                    const modelErrorMessage = isCustomModel
+                        ? `Invalid sub-agent model ID '${modelSettings!.subModelCustomId}'. Check your model settings and try again.`
+                        : `The model used by this extension may be outdated or unavailable. Please update the WSO2 MI Extension to the latest version. (Error: ${errorMsg})`;
+                    logError(`[SubagentTool] Model error (custom=${isCustomModel}): ${errorMsg}`, error);
+                    return { success: false, message: modelErrorMessage, error: modelErrorMessage };
+                }
                 logError(`[SubagentTool] ${subagent_type} subagent failed`, error);
                 return {
                     success: false,
-                    message: `Subagent execution failed: ${error.message}`,
-                    error: error.message,
+                    message: `Subagent execution failed: ${errorMsg}`,
+                    error: errorMsg,
                 };
             }
         }

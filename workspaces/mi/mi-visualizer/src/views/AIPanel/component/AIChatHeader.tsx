@@ -22,6 +22,7 @@ import { LoginMethod } from "@wso2/mi-core";
 import { Badge, Header, HeaderButtons, ResetsInBadge } from '../styles';
 import { useMICopilotContext } from "./MICopilotContext";
 import SessionSwitcher from "./SessionSwitcher";
+import ModelSettingsMenu from "./ModelSettingsMenu";
 
 function formatResetTime(seconds: number): string {
   const totalSeconds = Math.max(0, Math.floor(seconds || 0));
@@ -126,6 +127,7 @@ const AIChatHeader: React.FC = () => {
                   onDeleteSession={deleteSession}
                   onRefresh={refreshSessions}
               />
+              <ModelSettingsMenu isLoading={isLoading} isBedrock={isAwsBedrock} isByok={hasApiKey} />
               <Button appearance="icon" onClick={handleLogout} tooltip="Logout" disabled={isLoading}>
                   <Codicon name="sign-out" />
                   &nbsp;&nbsp;Logout
