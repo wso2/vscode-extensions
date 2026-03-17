@@ -247,15 +247,19 @@ export async function evaluateCodeContextRetrieval(
           }).join('\n\n')
         : 'No files were read.';
 
-    const systemPrompt = `You are an expert code snippets auditor. Your task is to find the missing context that was required to fulfill the user query but was not retrieved.
+    const systemPrompt = `You are an expert code snippets auditor. Your task is to find the missing code that missed to be retrieved by the agent.
+You will be given:
+- A user query (the code modification request)
+- The complete codebase (ground truth)
+- The RETRIEVED CODE COMPONENTS (that were retrieved by the agent)
 
 Your role is to:
-1. Read the user query and the complete code to understand what changes are needed.
-2. Review the retrieved code snippets provided to you.
-3. Determine whether the code snippets is sufficient to fulfill the user query and perform the required code changes.
-4. Identify any missing components(Code snippets that relevant to do the code chnages for fullfilling the user query) that were required for the user query but not retrieved.
+1. From the complete codebase, identify every code component (imports, configurables, variables, functions, types, classes, services, and enums) that is needed to implement the user query and note those as REQUIRED CODE COMPONENTS.
+2. Critically compare the REQUIRED CODE COMPONENTS with the RETRIEVED CODE COMPONENTS .
+3. Give the reasoning behind why each missing component was definitively required.
 
-Note: Be Strict in your evaluation. If any relevant component was missing, the retrieval is not relevant.
+Note:
+- Be strict in your evaluation. If any relevant component was missing, the retrieval is not relevant.
 `
     const userPrompt = `# User Query
 \`\`\`
@@ -276,15 +280,15 @@ ${fileReadSection}
 
 For the reasoning field, use exactly this format:
 
-Retrieved Relevant Context:
+RETRIEVED CODE COMPONENTS:
 - <file name>
   - <component name and line number>
   - <one sentence: why this component is relevant>
 
-Missing Context:
+Missing Context: (Give boolean value here: None if nothing is missing, otherwise list missing components in the same format as above)
 - <file name>
   - <component name and line number>
-  - <one sentence: why this component was definitively required and was not retrieved>
+  - <one sentence: why this component was definitively required>
 
 Use the submit_evaluation tool to provide your assessment.`;
 
