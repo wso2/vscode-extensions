@@ -37,6 +37,7 @@ module.exports = {
         if (deps['immutable']) deps['immutable'] = '3.8.3';
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.3';
         if (deps['undici']) deps['undici'] = '7.24.0';
+        if (deps['yauzl']) deps['yauzl'] = '3.2.1';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
         }
