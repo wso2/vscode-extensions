@@ -89,6 +89,9 @@ import {
 	ShowTextInOutputChannel,
 	type ShowWebviewInputBoxReq,
 	type ShowWebviewQuickPickItemsReq,
+	SubmitBatchComponentCreate,
+	type SubmitBatchComponentCreateReq,
+	type SubmitBatchComponentCreateResp,
 	SubmitComponentCreate,
 	type SubmitComponentCreateReq,
 	TriggerGithubAuthFlow,
@@ -259,6 +262,10 @@ export class ChoreoWebViewAPI {
 
 	public async submitComponentCreate(params: SubmitComponentCreateReq): Promise<ComponentKind> {
 		return this._messenger.sendRequest(SubmitComponentCreate, HOST_EXTENSION, params);
+	}
+
+	public async submitBatchComponentCreate(params: SubmitBatchComponentCreateReq): Promise<SubmitBatchComponentCreateResp> {
+		return this._messenger.sendRequest(SubmitBatchComponentCreate, HOST_EXTENSION, params);
 	}
 
 	public async createLocalEndpointsConfig(params: CreateLocalEndpointsConfigReq): Promise<void> {

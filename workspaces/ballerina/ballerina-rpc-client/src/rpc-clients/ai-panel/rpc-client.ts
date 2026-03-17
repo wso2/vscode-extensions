@@ -25,16 +25,17 @@ import {
     AddFilesToProjectRequest,
     ApproveTaskRequest,
     CheckpointInfo,
-    ConnectorSpecCancelRequest,
-    ConnectorSpecRequest,
     ConfigurationCancelRequest,
     ConfigurationProvideRequest,
+    ConnectorSpecCancelRequest,
+    ConnectorSpecRequest,
     DocGenerationRequest,
     GenerateAgentCodeRequest,
     GenerateOpenAPIRequest,
     LLMDiagnostics,
     LoginMethod,
     MetadataWithAttachments,
+    OpenFileDiffRequest,
     PlanApprovalRequest,
     ProcessContextTypeCreationRequest,
     ProcessMappingParametersRequest,
@@ -47,13 +48,14 @@ import {
     TestGenerationMentions,
     UIChatMessage,
     UpdateChatMessageRequest,
+    UsageResponse,
     abortAIGeneration,
     acceptChanges,
     addFilesToProject,
     approvePlan,
     approveTask,
-    cancelConnectorSpec,
     cancelConfiguration,
+    cancelConnectorSpec,
     clearChat,
     clearInitialPrompt,
     createTestDirecoryIfNotExists,
@@ -67,6 +69,7 @@ import {
     generateOpenAPI,
     getAIMachineSnapshot,
     getActiveTempDir,
+    getAffectedPackages,
     getChatMessages,
     getCheckpoints,
     getDefaultPrompt,
@@ -75,18 +78,19 @@ import {
     getGeneratedDocumentation,
     getLoginMethod,
     getSemanticDiff,
-    getAffectedPackages,
-    isWorkspaceProject,
     getServiceNames,
+    getUsage,
     isCopilotSignedIn,
-    isPlanModeFeatureEnabled,
+    isPlatformExtensionAvailable,
     isUserAuthenticated,
+    isWorkspaceProject,
     markAlertShown,
     openAIPanel,
     openChatWindowWithCommand,
+    openFileDiff,
     promptGithubAuthorize,
-    provideConnectorSpec,
     provideConfiguration,
+    provideConnectorSpec,
     restoreCheckpoint,
     showSignInAlert,
     submitFeedback,
@@ -105,6 +109,10 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     getLoginMethod(): Promise<LoginMethod> {
         return this._messenger.sendRequest(getLoginMethod, HOST_EXTENSION);
+    }
+
+    isPlatformExtensionAvailable(): Promise<boolean> {
+        return this._messenger.sendRequest(isPlatformExtensionAvailable, HOST_EXTENSION);
     }
 
     getDefaultPrompt(): Promise<AIPanelPrompt> {
@@ -203,9 +211,6 @@ export class AiPanelRpcClient implements AIPanelAPI {
         return this._messenger.sendRequest(openAIPanel, HOST_EXTENSION, params);
     }
 
-    isPlanModeFeatureEnabled(): Promise<boolean> {
-        return this._messenger.sendRequest(isPlanModeFeatureEnabled, HOST_EXTENSION);
-    }
 
     getSemanticDiff(params: SemanticDiffRequest): Promise<SemanticDiffResponse> {
         return this._messenger.sendRequest(getSemanticDiff, HOST_EXTENSION, params);
@@ -281,5 +286,13 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     getActiveTempDir(): Promise<string> {
         return this._messenger.sendRequest(getActiveTempDir, HOST_EXTENSION);
+    }
+
+    getUsage(): Promise<UsageResponse | undefined> {
+        return this._messenger.sendRequest(getUsage, HOST_EXTENSION);
+    }
+
+    openFileDiff(params: OpenFileDiffRequest): void {
+        return this._messenger.sendNotification(openFileDiff, HOST_EXTENSION, params);
     }
 }

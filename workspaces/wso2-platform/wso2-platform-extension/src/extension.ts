@@ -21,7 +21,7 @@ import { type ConfigurationChangeEvent, authentication, commands, window, worksp
 import { WSO2AuthenticationProvider, WSO2_AUTH_PROVIDER_ID } from "./auth/wso2-auth-provider";
 import { PlatformExtensionApi } from "./PlatformExtensionApi";
 import { ChoreoRPCClient } from "./choreo-rpc";
-import { initRPCServer } from "./choreo-rpc/activate";
+import { installRPCServer } from "./choreo-rpc/activate";
 import { getCliVersion } from "./choreo-rpc/cli-install";
 import { activateCmds } from "./cmds";
 import { continueCreateComponent } from "./cmds/create-component-cmd";
@@ -68,9 +68,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 	vscode.commands.executeCommand("setContext", "notUsingWorkspaceFile", !workspace.workspaceFile);
 
-	const rpcClient = new ChoreoRPCClient();
-	ext.clients = { rpcClient: rpcClient };
-
 	// Initialize and register authentication provider
 	const authProvider = new WSO2AuthenticationProvider(context.secrets);
 	ext.authProvider = authProvider;
@@ -85,8 +82,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.executeCommand("setContext", "isLoggedIn", !!state.userInfo);
 	});
 
-	await initRPCServer();
-	await ext.clients.rpcClient.init();
+	await installRPCServer();
+	const rpcClient = new ChoreoRPCClient();
+	await rpcClient.waitUntilActive();
+	ext.clients = { rpcClient: rpcClient };
 	authProvider.getState().initAuth();
 	continueCreateComponent();
 	if (ext.isChoreoExtInstalled) {

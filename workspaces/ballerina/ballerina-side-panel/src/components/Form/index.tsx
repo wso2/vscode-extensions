@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { forwardRef, useMemo, useEffect, useState, useRef } from "react";
+import React, { forwardRef, useCallback, useMemo, useEffect, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import ReactMarkdown from "react-markdown";
 import {
@@ -32,7 +32,7 @@ import {
 import styled from "@emotion/styled";
 
 import { ExpressionFormField, FieldDerivation, FormExpressionEditorProps, FormField, FormImports, FormValues } from "./types";
-import { EditorFactory } from "../editors/EditorFactory";
+import { FieldFactory } from "../editors/FieldFactory";
 import { getValueForDropdown, isDropdownField } from "../editors/utils";
 import {
     Diagnostic,
@@ -50,6 +50,7 @@ import {
     getPrimaryInputType,
     MACHINE_VIEW,
     EditorDisplayMode,
+    Imports,
 } from "@wso2/ballerina-core";
 import { FormContext, Provider } from "../../context";
 import {
@@ -68,6 +69,7 @@ namespace S {
         display: flex;
         flex-direction: column;
         gap: ${({ compact }) => (compact ? "8px" : "20px")};
+        padding: ${({ nestedForm }) => (nestedForm ? "16px 5px" : "16px")};
         height: ${({ nestedForm, footerActionButton }) => {
             if (nestedForm) return "unset";
             if (footerActionButton) return "100%";
@@ -396,6 +398,7 @@ export interface FormProps {
     injectedComponents?: {
         component: React.ReactNode;
         index: number;
+        advanced?: boolean;
     }[];
     hideSaveButton?: boolean; // Option to hide the save button
     footerActionButton?: boolean; // Render save button as footer action button
@@ -403,6 +406,7 @@ export interface FormProps {
     changeOptionalFieldTitle?: string; // Option to change the title of optional fields
     openFormTypeEditor?: (open: boolean, newType?: string, editingField?: FormField) => void;
     derivedFields?: FieldDerivation[]; // Configuration for auto-deriving field values from other fields
+    updateImports?: (key: string, imports: Imports) => void;
 }
 
 export const Form = forwardRef((props: FormProps) => {
@@ -444,7 +448,8 @@ export const Form = forwardRef((props: FormProps) => {
         onValidityChange,
         changeOptionalFieldTitle = undefined,
         openFormTypeEditor,
-        derivedFields = []
+        derivedFields = [],
+        updateImports,
     } = props;
 
     const {
@@ -458,7 +463,7 @@ export const Form = forwardRef((props: FormProps) => {
         setValue,
         setError,
         clearErrors,
-        formState: { isValidating, errors, dirtyFields },
+        formState: { isValidating, isValid: formStateIsValid, errors, dirtyFields },
     } = useForm<FormValues>();
 
     const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
@@ -501,7 +506,7 @@ export const Form = forwardRef((props: FormProps) => {
                     } else if (isDropdownField(field)) {
                         defaultValues[field.key] = getValueForDropdown(field) ?? "";
                     } else if (field.type === "FLAG" && field.types?.length > 1) {
-                        if (field.value && typeof field.value === "boolean") {
+                        if (typeof field.value === "boolean") {
                             defaultValues[field.key] = String(field.value);
                         }
                         else {
@@ -517,7 +522,7 @@ export const Form = forwardRef((props: FormProps) => {
                     if (field.key === "variable") {
                         defaultValues[field.key] = formValues[field.key] ?? defaultValues[field.key] ?? "";
                     }
-                    if (field.key === "parameters" && field.value.length === 0) {
+                    if (field.key === "parameters" && field.value?.length && field.value.length === 0) {
                         defaultValues[field.key] = formValues[field.key] ?? [];
                     }
 
@@ -554,6 +559,18 @@ export const Form = forwardRef((props: FormProps) => {
                     }
 
                     diagnosticsMap.push({ key: field.key, diagnostics: [] });
+                }
+
+                // Handle the case where the name is updated dynamically (e.g., from a sibling field's onValueChange like headerName)
+                // Sync from field.value when it differs from form - but preserve user edits (when field was manually touched)
+                if (field.key === "name" && field.value !== undefined && field.value !== null) {
+                    const existingName = formValues[field.key];
+                    const newName = typeof field.value === "string" ? (formatJSONLikeString(field.value) ?? field.value) : String(field.value);
+                    // Only sync from field when: form is stale (external update) or user hasn't edited the name field
+                    if (existingName !== newName && !dirtyFields?.[field.key]) {
+                        setValue(field.key, newName);
+                        defaultValues[field.key] = newName;
+                    }
                 }
             });
             setDiagnosticsInfo(diagnosticsMap);
@@ -611,10 +628,12 @@ export const Form = forwardRef((props: FormProps) => {
         setActiveFormField(key);
     };
 
-    const handleSetDiagnosticsInfo = (diagnostics: FormDiagnostics) => {
-        const otherDiagnostics = diagnosticsInfo?.filter((item) => item.key !== diagnostics.key) || [];
-        setDiagnosticsInfo([...otherDiagnostics, diagnostics]);
-    };
+    const handleSetDiagnosticsInfo = useCallback((diagnostics: FormDiagnostics) => {
+        setDiagnosticsInfo(prev => {
+            const otherDiagnostics = prev?.filter((item) => item.key !== diagnostics.key) || [];
+            return [...otherDiagnostics, diagnostics];
+        });
+    }, []);
 
     const handleOpenSubPanel = (subPanel: SubPanel) => {
         let updatedSubPanel = subPanel;
@@ -732,7 +751,7 @@ export const Form = forwardRef((props: FormProps) => {
 
     const canOpenInDataMapper = (selectedNode === "VARIABLE" &&
         expressionField &&
-        visualizableField?.isDataMapped) || 
+        visualizableField?.isDataMapped) ||
         selectedNode === "DATA_MAPPER_CREATION";
 
     const canOpenInFunctionEditor = selectedNode === "FUNCTION_CREATION";
@@ -779,7 +798,11 @@ export const Form = forwardRef((props: FormProps) => {
 
                 let diagnostics: Diagnostic[] = diagnosticsInfoItem.diagnostics || [];
                 if (diagnostics.length === 0) {
-                    clearErrors(key);
+                    // Only clear errors that were set by the expression diagnostics system,
+                    // not errors set by other validators (e.g., PathEditor)
+                    if (errors[key]?.type === "expression_diagnostic") {
+                        clearErrors(key);
+                    }
                     continue;
                 } else {
                     // Filter the BCE2066 diagnostics
@@ -788,7 +811,7 @@ export const Form = forwardRef((props: FormProps) => {
                     );
 
                     const diagnosticsMessage = diagnostics.map((d) => d.message).join("\n");
-                    setError(key, { type: "validate", message: diagnosticsMessage });
+                    setError(key, { type: "expression_diagnostic", message: diagnosticsMessage });
 
                     // If the severity is not ERROR, don't invalidate
                     const hasErrorDiagnostics = diagnostics.some((d) => d.severity === 1);
@@ -814,11 +837,12 @@ export const Form = forwardRef((props: FormProps) => {
     // Call onValidityChange when form validity changes
     useEffect(() => {
         if (onValidityChange) {
-            const formIsValid = isValid && !isValidating && Object.keys(errors).length === 0 &&
+            // formStateIsValid captures errors from PathEditor and other validators (setError)
+            const formIsValid = isValid && formStateIsValid && !isValidating && Object.keys(errors).length === 0 &&
                 (!concertMessage || !concertRequired || isUserConcert) && !isIdentifierEditing && !isSubComponentEnabled;
             onValidityChange(formIsValid);
         }
-    }, [isValid, isValidating, errors, concertMessage, concertRequired, isUserConcert, isIdentifierEditing, isSubComponentEnabled, onValidityChange]);
+    }, [isValid, formStateIsValid, isValidating, errors, concertMessage, concertRequired, isUserConcert, isIdentifierEditing, isSubComponentEnabled, onValidityChange]);
 
     const handleIdentifierEditingStateChange = (isEditing: boolean) => {
         setIsIdentifierEditing(isEditing);
@@ -830,7 +854,7 @@ export const Form = forwardRef((props: FormProps) => {
 
     const disableSaveButton =
         isValidating || props.disableSaveButton || (concertMessage && concertRequired && !isUserConcert) ||
-        isIdentifierEditing || isSubComponentEnabled || isValidatingForm || Object.keys(errors).length > 0;
+        isIdentifierEditing || isSubComponentEnabled || isValidatingForm || !formStateIsValid || Object.keys(errors).length > 0;
 
     const handleShowMoreClick = () => {
         setIsMarkdownExpanded(!isMarkdownExpanded);
@@ -909,8 +933,8 @@ export const Form = forwardRef((props: FormProps) => {
             if (data.expression === '' && visualizableField?.defaultValue) {
                 data.expression = visualizableField.defaultValue;
             }
-            return handleOnSave({ 
-                ...data, 
+            return handleOnSave({
+                ...data,
                 editorConfig: {
                     view: selectedNode === "VARIABLE" ? MACHINE_VIEW.InlineDataMapper : MACHINE_VIEW.DataMapper,
                     displayMode: EditorDisplayMode.VIEW,
@@ -922,8 +946,8 @@ export const Form = forwardRef((props: FormProps) => {
     const handleOnOpenInFunctionEditor = () => {
         setSavingButton('functionEditor');
         handleSubmit((data) => {
-            return handleOnSave({ 
-                ...data, 
+            return handleOnSave({
+                ...data,
                 editorConfig: {
                     view: MACHINE_VIEW.BIDiagram,
                     displayMode: EditorDisplayMode.VIEW,
@@ -1000,10 +1024,12 @@ export const Form = forwardRef((props: FormProps) => {
                     let renderedFieldCount = 0;
                     const injectedIndices = new Set<number>(); // Track which injections have been added
 
+                    const nonAdvancedInjections = injectedComponents?.filter((ic) => !ic.advanced);
+
                     fieldsToRender.forEach((field) => {
                         // Check if we need to inject components before this field
-                        if (injectedComponents) {
-                            injectedComponents.forEach((injected) => {
+                        if (nonAdvancedInjections) {
+                            nonAdvancedInjections.forEach((injected) => {
                                 if (injected.index === renderedFieldCount && !injectedIndices.has(injected.index)) {
                                     renderedComponents.push(
                                         <React.Fragment key={`injected-${injected.index}`}>
@@ -1026,7 +1052,7 @@ export const Form = forwardRef((props: FormProps) => {
                         const updatedField = updateFormFieldWithImports(field, formImports);
                         renderedComponents.push(
                             <S.Row key={updatedField.key}>
-                                <EditorFactory
+                                <FieldFactory
                                     field={updatedField}
                                     selectedNode={selectedNode}
                                     openRecordEditor={
@@ -1035,6 +1061,7 @@ export const Form = forwardRef((props: FormProps) => {
                                     }
                                     openSubPanel={handleOpenSubPanel}
                                     subPanelView={subPanelView}
+                                    handleFormValidation={handleFormValidation}
                                     handleOnFieldFocus={handleOnFieldFocus}
                                     autoFocus={firstEditableFieldIndex === formFields.indexOf(updatedField) && !hideSaveButton}
                                     recordTypeFields={recordTypeFields}
@@ -1048,6 +1075,7 @@ export const Form = forwardRef((props: FormProps) => {
                                         openFormTypeEditor &&
                                         ((open: boolean, newType?: string) => openFormTypeEditor(open, newType, updatedField))
                                     }
+                                    updateImports={updateImports}
                                 />
                                 {updatedField.key === "scope" && scopeFieldAddon}
                             </S.Row>
@@ -1056,8 +1084,8 @@ export const Form = forwardRef((props: FormProps) => {
                     });
 
                     // Check if we need to inject components after all fields
-                    if (injectedComponents) {
-                        injectedComponents.forEach((injected) => {
+                    if (nonAdvancedInjections) {
+                        nonAdvancedInjections.forEach((injected) => {
                             if (injected.index >= renderedFieldCount && !injectedIndices.has(injected.index)) {
                                 renderedComponents.push(
                                     <React.Fragment key={`injected-${injected.index}`}>
@@ -1069,48 +1097,67 @@ export const Form = forwardRef((props: FormProps) => {
                         });
                     }
 
-                        return renderedComponents;
-                    })()}
-                    {hasAdvanceFields && (
-                        <S.Row>
-                            {optionalFieldsTitle}
-                            <S.ButtonContainer>
-                                {!showAdvancedOptions && (
-                                    <LinkButton
-                                        onClick={handleOnShowAdvancedOptions}
-                                        sx={{ fontSize: 12, padding: 8, color: ThemeColors.PRIMARY, gap: 4 }}
-                                    >
-                                        <Codicon
-                                            name={"chevron-down"}
-                                            iconSx={{ fontSize: 12 }}
-                                            sx={{ height: 12 }}
-                                        />
-                                        Expand
-                                    </LinkButton>
-                                )}
-                                {showAdvancedOptions && (
-                                    <LinkButton
-                                        onClick={handleOnHideAdvancedOptions}
-                                        sx={{ fontSize: 12, padding: 8, color: ThemeColors.PRIMARY, gap: 4 }}
-                                    >
-                                        <Codicon
-                                            name={"chevron-up"}
-                                            iconSx={{ fontSize: 12 }}
-                                            sx={{ height: 12 }}
-                                        />Collapse
-                                    </LinkButton>
-                                )}
-                            </S.ButtonContainer>
-                        </S.Row>
-                    )}
-                    {hasAdvanceFields &&
-                        showAdvancedOptions &&
-                        formFields.map((field) => {
+                    return renderedComponents;
+                })()}
+                {hasAdvanceFields && (
+                    <S.Row>
+                        {optionalFieldsTitle}
+                        <S.ButtonContainer>
+                            {!showAdvancedOptions && (
+                                <LinkButton
+                                    onClick={handleOnShowAdvancedOptions}
+                                    sx={{ fontSize: 12, padding: 8, color: ThemeColors.PRIMARY, gap: 4 }}
+                                >
+                                    <Codicon
+                                        name={"chevron-down"}
+                                        iconSx={{ fontSize: 12 }}
+                                        sx={{ height: 12 }}
+                                    />
+                                    Expand
+                                </LinkButton>
+                            )}
+                            {showAdvancedOptions && (
+                                <LinkButton
+                                    onClick={handleOnHideAdvancedOptions}
+                                    sx={{ fontSize: 12, padding: 8, color: ThemeColors.PRIMARY, gap: 4 }}
+                                >
+                                    <Codicon
+                                        name={"chevron-up"}
+                                        iconSx={{ fontSize: 12 }}
+                                        sx={{ height: 12 }}
+                                    />Collapse
+                                </LinkButton>
+                            )}
+                        </S.ButtonContainer>
+                    </S.Row>
+                )}
+                {hasAdvanceFields &&
+                    showAdvancedOptions &&
+                    (() => {
+                        const advancedComponents: React.ReactNode[] = [];
+                        let advancedFieldCount = 0;
+                        const advancedInjectedIndices = new Set<number>();
+                        const advancedInjections = injectedComponents?.filter((ic) => ic.advanced);
+
+                        formFields.forEach((field) => {
                             if (field.advanced && !field.hidden) {
+                                if (advancedInjections) {
+                                    advancedInjections.forEach((injected) => {
+                                        if (injected.index === advancedFieldCount && !advancedInjectedIndices.has(injected.index)) {
+                                            advancedComponents.push(
+                                                <React.Fragment key={`injected-advanced-${injected.index}`}>
+                                                    {injected.component}
+                                                </React.Fragment>
+                                            );
+                                            advancedInjectedIndices.add(injected.index);
+                                        }
+                                    });
+                                }
+
                                 const updatedField = updateFormFieldWithImports(field, formImports);
-                                return (
+                                advancedComponents.push(
                                     <S.Row key={updatedField.key}>
-                                        <EditorFactory
+                                        <FieldFactory
                                             field={updatedField}
                                             openRecordEditor={
                                                 openRecordEditor &&
@@ -1125,46 +1172,65 @@ export const Form = forwardRef((props: FormProps) => {
                                         />
                                     </S.Row>
                                 );
+                                advancedFieldCount++;
                             }
-                            return null;
-                        })}
-                    {hasAdvanceFields &&
-                        showAdvancedOptions &&
-                        advancedChoiceFields.map((field) => {
-                            const updatedField = updateFormFieldWithImports(field, formImports);
-                            return (
-                                <S.Row key={updatedField.key}>
-                                    <EditorFactory
-                                        field={updatedField}
-                                        openRecordEditor={
-                                            openRecordEditor &&
-                                            ((open: boolean, newType?: string | NodeProperties) => handleOpenRecordEditor(open, updatedField, newType))
-                                        }
-                                        subPanelView={subPanelView}
-                                        handleOnFieldFocus={handleOnFieldFocus}
-                                        recordTypeFields={recordTypeFields}
-                                        onIdentifierEditingStateChange={handleIdentifierEditingStateChange}
-                                        handleOnTypeChange={handleOnTypeChange}
-                                        onBlur={handleOnBlur}
-                                    />
-                                </S.Row>
-                            );
-                        })}
-                </S.CategoryRow>
+                        });
+
+                        if (advancedInjections) {
+                            advancedInjections.forEach((injected) => {
+                                if (injected.index >= advancedFieldCount && !advancedInjectedIndices.has(injected.index)) {
+                                    advancedComponents.push(
+                                        <React.Fragment key={`injected-advanced-${injected.index}`}>
+                                            {injected.component}
+                                        </React.Fragment>
+                                    );
+                                    advancedInjectedIndices.add(injected.index);
+                                }
+                            });
+                        }
+
+                        return advancedComponents;
+                    })()}
+                {hasAdvanceFields &&
+                    showAdvancedOptions &&
+                    advancedChoiceFields.map((field) => {
+                        const updatedField = updateFormFieldWithImports(field, formImports);
+                        return (
+                            <S.Row key={updatedField.key}>
+                                <FieldFactory
+                                    field={updatedField}
+                                    openRecordEditor={
+                                        openRecordEditor &&
+                                        ((open: boolean, newType?: string | NodeProperties) => handleOpenRecordEditor(open, updatedField, newType))
+                                    }
+                                    subPanelView={subPanelView}
+                                    handleOnFieldFocus={handleOnFieldFocus}
+                                    recordTypeFields={recordTypeFields}
+                                    onIdentifierEditingStateChange={handleIdentifierEditingStateChange}
+                                    handleOnTypeChange={handleOnTypeChange}
+                                    onBlur={handleOnBlur}
+                                    handleFormValidation={handleFormValidation}
+                                />
+                            </S.Row>
+                        );
+                    })}
+            </S.CategoryRow>
 
             {!preserveOrder && (variableField || typeField || targetTypeField) && (
                 <S.CategoryRow topBorder={!compact && hasParameters}>
                     {variableField && (
-                        <EditorFactory
+                        <FieldFactory
                             field={variableField}
                             handleOnFieldFocus={handleOnFieldFocus}
                             recordTypeFields={recordTypeFields}
                             onIdentifierEditingStateChange={handleIdentifierEditingStateChange}
                             onBlur={handleOnBlur}
+                            handleFormValidation={handleFormValidation}
+
                         />
                     )}
                     {typeField && !isInferredReturnType && (
-                        <EditorFactory
+                        <FieldFactory
                             field={typeField}
                             openRecordEditor={
                                 openRecordEditor &&
@@ -1176,12 +1242,12 @@ export const Form = forwardRef((props: FormProps) => {
                             onIdentifierEditingStateChange={handleIdentifierEditingStateChange}
                             handleNewTypeSelected={handleNewTypeSelected}
                             onBlur={handleOnBlur}
-
+                            handleFormValidation={handleFormValidation}
                         />
                     )}
                     {targetTypeField && !targetTypeField.advanced && (
                         <>
-                            <EditorFactory
+                            <FieldFactory
                                 field={targetTypeField}
                                 handleOnFieldFocus={handleOnFieldFocus}
                                 recordTypeFields={recordTypeFields}
@@ -1189,6 +1255,7 @@ export const Form = forwardRef((props: FormProps) => {
                                 handleNewTypeSelected={handleNewTypeSelected}
                                 handleOnTypeChange={handleOnTypeChange}
                                 onBlur={handleOnBlur}
+                                handleFormValidation={handleFormValidation}
                             />
                             {typeField && (
                                 <TypeHelperText

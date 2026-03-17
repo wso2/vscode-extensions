@@ -284,7 +284,13 @@ import {
     WSDLApiClientGenerationRequest,
     WSDLApiClientGenerationResponse,
     CopilotSearchLibrariesBySearchRequest,
-    CopilotSearchLibrariesBySearchResponse
+    CopilotSearchLibrariesBySearchResponse,
+    ResolveOutputRequest,
+    CreateConvertedVariableRequest,
+    IntrospectCredentialsRequest,
+    IntrospectCredentialsResponse,
+    GetSimpleTypeOfExpressionResponse,
+    GetSimpleTypeOfExpressionRequest
 } from "@wso2/ballerina-core";
 import { BallerinaExtension } from "./index";
 import { debug, handlePullModuleProgress } from "../utils";
@@ -381,6 +387,7 @@ enum EXTENDED_APIS {
     DATA_MAPPER_DELETE_SUB_MAPPING = 'dataMapper/deleteSubMapping',
     DATA_MAPPER_MAP_WITH_CUSTOM_FN = 'dataMapper/customFunction',
     DATA_MAPPER_MAP_WITH_TRANSFORM_FN = 'dataMapper/transformationFunction',
+    DATA_MAPPER_RESOLVE_OUTPUT = 'dataMapper/resolveOutput',
     DATA_MAPPER_CODEDATA = 'dataMapper/nodePosition',
     DATA_MAPPER_SUB_MAPPING_CODEDATA = 'dataMapper/subMapping',
     DATA_MAPPER_PROPERTY = 'dataMapper/targetFieldPosition',
@@ -388,6 +395,7 @@ enum EXTENDED_APIS {
     DATA_MAPPER_CLAUSE_POSITION = 'dataMapper/clausePosition',
     DATA_MAPPER_CLEAR_TYPE_CACHE = 'dataMapper/clearTypeCache',
     DATA_MAPPER_CONVERT_EXPRESSION = 'dataMapper/convertExpression',
+    DATA_MAPPER_CREATE_CONVERTED_VARIABLE = 'dataMapper/convertType',
     VIEW_CONFIG_VARIABLES_V2 = 'configEditorV2/getConfigVariables',
     UPDATE_CONFIG_VARIABLES_V2 = 'configEditorV2/updateConfigVariable',
     DELETE_CONFIG_VARIABLE_V2 = 'configEditorV2/deleteConfigVariable',
@@ -410,6 +418,7 @@ enum EXTENDED_APIS {
     BI_TRIGGER_UPDATE_FUNCTION = 'triggerDesignService/updateTriggerFunction',
     BI_GET_TYPES = 'typesManager/getTypes',
     BI_GET_TYPE = 'typesManager/getType',
+    BI_GET_SIMPLE_TYPE_OF_EXPRESSION = 'typesManager/getTypeOfExpression',
     BI_UPDATE_TYPE = 'typesManager/updateType',
     BI_UPDATE_TYPES = 'typesManager/updateTypes',
     BI_GET_GRAPHQL_TYPE = 'typesManager/getGraphqlType',
@@ -470,6 +479,7 @@ enum EXTENDED_APIS {
     OPEN_API_GENERATED_MODULES = 'openAPIService/getModules',
     OPEN_API_CLIENT_DELETE = 'openAPIService/deleteModule',
     PERSIST_DATABASE_INTROSPECTION = 'persistService/introspectDatabase',
+    PERSIST_CREDENTIALS_INTROSPECTION = 'persistService/introspectCredentials',
     PERSIST_CLIENT_GENERATE = 'persistService/generatePersistClient',
     WSDL_API_CLIENT_GENERATE = 'wsdlService/genClient',
     GET_PROJECT_INFO = 'designModelService/projectInfo',
@@ -720,6 +730,10 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return this.sendRequest<PersistClientGenerateResponse>(EXTENDED_APIS.PERSIST_CLIENT_GENERATE, params);
     }
 
+    async introspectCredentials(params: IntrospectCredentialsRequest): Promise<IntrospectCredentialsResponse> {
+        return this.sendRequest<IntrospectCredentialsResponse>(EXTENDED_APIS.PERSIST_CREDENTIALS_INTROSPECTION, params);
+    }
+
     async generateWSDLApiClient(params: WSDLApiClientGenerationRequest): Promise<WSDLApiClientGenerationResponse> {
         return this.sendRequest<WSDLApiClientGenerationResponse>(EXTENDED_APIS.WSDL_API_CLIENT_GENERATE, params);
     }
@@ -864,6 +878,10 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_MAP_WITH_TRANSFORM_FN, params);
     }
 
+    async resolveOutput(params: ResolveOutputRequest): Promise<DataMapperSourceResponse> {
+        return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_RESOLVE_OUTPUT, params);
+    }
+    
     async getDataMapperCodedata(params: GetDataMapperCodedataRequest): Promise<GetDataMapperCodedataResponse> {
         return this.sendRequest<GetDataMapperCodedataResponse>(EXTENDED_APIS.DATA_MAPPER_CODEDATA, params);
     }
@@ -886,6 +904,10 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
     async getConvertedExpression(params: ConvertExpressionRequest): Promise<ConvertExpressionResponse> {
         return this.sendRequest<ConvertExpressionResponse>(EXTENDED_APIS.DATA_MAPPER_CONVERT_EXPRESSION, params);
+    }
+
+    async createConvertedVariable(params: CreateConvertedVariableRequest): Promise<DataMapperSourceResponse> {
+        return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_CREATE_CONVERTED_VARIABLE, params);
     }
 
     async clearTypeCache(): Promise<ClearTypeCacheResponse> {
@@ -1331,6 +1353,10 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
     async getType(params: GetTypeRequest): Promise<GetTypeResponse> {
         return this.sendRequest<GetTypeResponse>(EXTENDED_APIS.BI_GET_TYPE, params);
+    }
+
+    async getSimpleTypeOfExpression(params: GetSimpleTypeOfExpressionRequest): Promise<GetSimpleTypeOfExpressionResponse> {
+        return this.sendRequest<GetSimpleTypeOfExpressionResponse>(EXTENDED_APIS.BI_GET_SIMPLE_TYPE_OF_EXPRESSION, params);
     }
 
     async updateType(params: UpdateTypeRequest): Promise<UpdateTypeResponse> {

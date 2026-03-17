@@ -83,6 +83,8 @@ package.json.backup
 
 pnpm-lock.yaml
 
+TODO.md
+
 # AI evaluation results
 **/results
 
@@ -90,3 +92,5 @@ workspaces/arazzo/arazzo-designer-extension/ls/arazzo-language-server
 workspaces/arazzo/arazzo-designer-lsp/arazzo-language-server.exe
 workspaces/arazzo/arazzo-designer-extension/ls/arazzo-language-server.exe
 workspaces/arazzo/arazzo-designer-lsp/arazzo-language-server
+
+cc_run_log.json

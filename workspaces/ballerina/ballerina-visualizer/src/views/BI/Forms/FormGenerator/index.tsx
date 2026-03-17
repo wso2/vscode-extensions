@@ -41,7 +41,10 @@ import {
     NodeKind,
     EditorConfig,
     InputType,
-    getPrimaryInputType
+    getPrimaryInputType,
+    functionKinds,
+    NodeProperties,
+    DiagnosticMessage
 } from "@wso2/ballerina-core";
 import {
     FieldDerivation,
@@ -54,6 +57,7 @@ import {
     FormImports,
     HelperpaneOnChangeOptions,
     InputMode,
+    ExpressionEditorDevantProps,
 } from "@wso2/ballerina-side-panel";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import {
@@ -79,6 +83,7 @@ import {
     removeDuplicateDiagnostics,
     updateLineRange,
     convertRecordTypeToCompletionItem,
+    convertItemsToCompletionItems,
 } from "../../../../utils/bi";
 import IfForm from "../IfForm";
 import { cloneDeep, debounce } from "lodash";
@@ -103,8 +108,9 @@ import DynamicModal from "../../../../components/Modal";
 import React from "react";
 import { SidePanelView } from "../../FlowDiagram/PanelManager";
 import { ConnectionKind } from "../../../../components/ConnectionSelector";
-import { getImportedTypes } from "../../TypeEditor/utils";
+import { getFilteredTypesByKind } from "../../TypeEditor/utils";
 import { useModalStack } from "../../../../Context";
+import { getArraySubFormFieldFromTypes, stringToRawArrayElements } from "@wso2/ballerina-side-panel/lib/components/editors/utils";
 
 interface TypeEditorState {
     isOpen: boolean;
@@ -142,12 +148,15 @@ interface FormProps {
     injectedComponents?: {
         component: React.ReactNode;
         index: number;
+        advanced?: boolean;
     }[];
     navigateToPanel?: (panel: SidePanelView, connectionKind?: ConnectionKind) => void;
     fieldPriority?: Record<string, number>; // Map of field keys to priority numbers (lower = rendered first)
     fieldOverrides?: Record<string, Partial<FormField>>;
     footerActionButton?: boolean; // Render save button as footer action button
     derivedFields?: FieldDerivation[]; // Configuration for auto-deriving field values from other fields
+    devantExpressionEditor?: ExpressionEditorDevantProps;
+    customValidator?: (fieldKey: string, value: any, allValues: FormValues) => string | undefined; // Custom validation function for form fields
 }
 
 // Styled component for the action button description
@@ -223,11 +232,12 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         injectedComponents,
         fieldPriority,
         footerActionButton,
+        customValidator,
     } = props;
 
     const { rpcClient } = useRpcContext();
     const [baseFields, setBaseFields] = useState<FormField[]>([]);
-    const [formImports, setFormImports] = useState<FormImports>({});
+    const formImportsRef = useRef<FormImports>({});
     const [typeEditorState, setTypeEditorState] = useState<TypeEditorState>({ isOpen: false, newTypeValue: "" });
     const [visualizableField, setVisualizableField] = useState<VisualizableField>();
     const [recordTypeFields, setRecordTypeFields] = useState<RecordTypeField[]>([]);
@@ -269,7 +279,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         );
         const isDataMapperCreationNode = node && node.codedata.node === "DATA_MAPPER_CREATION";
         const isFunctionCreationNode = node && node.codedata.node === "FUNCTION_CREATION";
-        
+
         return isAgentNode || isDataMapperCreationNode || isFunctionCreationNode;
     }, [node]);
 
@@ -284,7 +294,13 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
 
     const pushTypeStack = (item: StackItem) => {
         setStack((prev) => [...prev, item]);
-        setRefetchStates((prev) => [...prev, false]);
+        setRefetchStates((prev) => {
+            const newStates = [...prev];
+            if (newStates.length > 0) {
+                newStates[newStates.length - 1] = false;
+            }
+            return [...newStates, false];
+        });
     };
 
     const popTypeStack = () => {
@@ -468,25 +484,65 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
 
         const sortedFields = sortFieldsByPriority(fields);
         setBaseFields(sortedFields);
-        setFormImports(getImportsForFormFields(sortedFields));
+        formImportsRef.current = getImportsForFormFields(sortedFields);
     };
 
     const setDiagnosticsToFields = (data: FormValues, nodeWithDiagnostics: FlowNode) => {
         const updatedFields = fields.map((field) => {
             const updatedField = { ...field };
 
-            // Update value from current form data
+            const isRepeatableList = field.types?.length === 1 && getPrimaryInputType(field.types)?.fieldType === "REPEATABLE_LIST";
+            const selectedInputType = isRepeatableList? getPrimaryInputType(field.types) : field.types?.find(t => t.selected);
+
+            const nodeProperties = nodeWithDiagnostics?.properties as any;
+            let propertyDiagnostics: any = nodeProperties?.[field.key]?.diagnostics?.diagnostics;
+
+            // Update value from current form data and update diagnostics
             if (data[field.key] !== undefined) {
-                updatedField.value = data[field.key];
+                if (selectedInputType?.fieldType === "REPEATABLE_LIST" && typeof data[field.key] === "string") {
+                    const initialValues = stringToRawArrayElements(data[field.key]);
+                    const initialFields = initialValues.map((val, index) => {
+                        const key = crypto.randomUUID();
+                        return {
+                            ...getArraySubFormFieldFromTypes(key, (field.types[0] as any).template.types as InputType[]),
+                            value: val,
+                            diagnostics: nodeProperties?.[field.key]?.value?.[index]?.diagnostics?.diagnostics ?? []
+                        };
+                    });
+                    updatedField.value = initialFields;
+                }
+                else {
+                    updatedField.value = data[field.key];
+                }
             }
 
-            // Update diagnostics from nodeWithDiagnostics
-            const nodeProperties = nodeWithDiagnostics?.properties as any;
-            const propertyDiagnostics = nodeProperties?.[field.key]?.diagnostics?.diagnostics;
+
+            // If the field is a repeatable list, store a copy of collected diagnostics for each element in the root
+            // level so that the exp mode also can show the diagnostics. Property-level diagnostics don't have a
+            // `range`, so use a simple message-based dedupe and provide explicit typing to satisfy TypeScript.
+            if (isRepeatableList && !(Array.isArray(propertyDiagnostics) && propertyDiagnostics.length > 0)) {
+                const collectedDiagnostics = (
+                    nodeProperties?.[field.key]?.value?.map((val: any) => val?.diagnostics?.diagnostics) ?? []
+                ).flat().filter(Boolean) as Array<{ message?: string; severity?: string }>;
+
+                propertyDiagnostics = collectedDiagnostics.filter((d, i, arr) =>
+                    arr.findIndex(x => x.message === d.message) === i
+                );
+            }
+
             if (propertyDiagnostics && Array.isArray(propertyDiagnostics)) {
                 updatedField.diagnostics = propertyDiagnostics;
             } else {
                 updatedField.diagnostics = [];
+            }
+            if (customValidator) {
+                const customValidationMessage = customValidator(field.key, data[field.key], data);
+                if (customValidationMessage) {
+                    updatedField.diagnostics = [...updatedField.diagnostics, {
+                        message: customValidationMessage,
+                        severity: "ERROR"
+                    }]
+                }
             }
             return updatedField;
         });
@@ -498,7 +554,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         if (node && targetLineRange) {
             const updatedNode = mergeFormDataWithFlowNode(data, targetLineRange, dirtyFields);
             const editorConfig = data["editorConfig"];
-            onSubmit(updatedNode, editorConfig, formImports);
+            onSubmit(updatedNode, editorConfig, formImportsRef.current);
         }
     };
 
@@ -519,7 +575,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         const processedData = processFormData(data);
 
         // Update node properties
-        const nodeWithUpdatedProps = updateNodeWithProperties(clonedNode, updatedNode, processedData, formImports, dirtyFields);
+        const nodeWithUpdatedProps = updateNodeWithProperties(clonedNode, updatedNode, processedData, formImportsRef.current, dirtyFields);
 
         // check all nodes and remove empty nodes
         return removeEmptyNodes(nodeWithUpdatedProps);
@@ -533,7 +589,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         await rpcClient.getVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: context });
     };
 
-    const handleOpenTypeEditor = (isOpen: boolean, f: FormValues, editingField?: FormField) => {
+    const handleOpenTypeEditor = (isOpen: boolean, f: FormValues, editingField?: FormField, newType?: string | NodeProperties) => {
         // Get f.value and assign that value to field value
         const updatedFields = fields.map((field) => {
             const updatedField = { ...field };
@@ -543,7 +599,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             return updatedField;
         });
         setBaseFields(updatedFields);
-        setTypeEditorState({ isOpen, fieldKey: editingField?.key, newTypeValue: f[editingField?.key] });
+        const newTypeValue = typeof newType === 'string' ? newType : f[editingField?.key];
+        setTypeEditorState({ isOpen, fieldKey: editingField?.key, newTypeValue });
     };
 
     const handleTypeEditorStateChange = (state: boolean) => {
@@ -561,14 +618,13 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         importsCodedataRef.current = codedata;
         const importKey = Object.keys(imports)?.[0];
 
-        if (Object.keys(formImports).includes(key)) {
-            if (importKey && !Object.keys(formImports[key]).includes(importKey)) {
-                const updatedImports = { ...formImports, [key]: { ...formImports[key], ...imports } };
-                setFormImports(updatedImports);
+        const prevImports = formImportsRef.current;
+        if (key in prevImports) {
+            if (importKey && importKey in prevImports[key]) {
+                formImportsRef.current = { ...prevImports, [key]: { ...prevImports[key], ...imports } };
             }
         } else {
-            const updatedImports = { ...formImports, [key]: imports };
-            setFormImports(updatedImports);
+            formImportsRef.current = { ...prevImports, [key]: imports };
         }
     }
 
@@ -681,14 +737,38 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             ) => {
                 let visibleTypes: CompletionItem[] = types;
                 if (!types.length) {
-                    const types = await rpcClient.getBIDiagramRpcClient().getVisibleTypes({
+                    const searchResponse = await rpcClient.getBIDiagramRpcClient().search({
+                        filePath: fileName,
+                        position: targetLineRange,
+                        queryMap: {
+                            q: '',
+                            offset: 0,
+                            limit: 1000
+                        },
+                        searchKind: 'TYPE'
+                    });
+
+                    const allItems = searchResponse.categories.flatMap(category =>
+                        category.items.flatMap(item => {
+                            if ('codedata' in item) {
+                                return [item];
+                            } else if ('items' in item) {
+                                return item.items;
+                            }
+                            return [];
+                        })
+                    );
+
+                    const basicTypes = await rpcClient.getBIDiagramRpcClient().getVisibleTypes({
                         filePath: fileName,
                         position: updateLineRange(targetLineRange, expressionOffsetRef.current).startLine,
                         ...(valueTypeConstraint && { typeConstraint: valueTypeConstraint })
                     });
 
                     const isFetchingTypesForDM = valueTypeConstraint === "json";
-                    visibleTypes = convertToVisibleTypes(types, isFetchingTypesForDM);
+                    const visibleSearchTypes = convertItemsToCompletionItems(allItems);
+                    const visibleBasicTypes = convertToVisibleTypes(basicTypes, isFetchingTypesForDM);
+                    visibleTypes = [...visibleSearchTypes, ...visibleBasicTypes];
                     setTypes(visibleTypes);
                 }
 
@@ -757,13 +837,33 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         }
     };
 
+    const hasPropertyDiagnosticMessages = (nodeWithDiagnostics: FlowNode | null): boolean => {
+        const nodeProperties = nodeWithDiagnostics?.properties;
+        if (!nodeProperties) {
+            return false;
+        }
+
+        return Object.values(nodeProperties).some((property) => {
+            let diagnostics: DiagnosticMessage[] = [];
+            if ( property?.types?.length === 1 && getPrimaryInputType(property.types)?.fieldType === "REPEATABLE_LIST") {
+                // For repeatable list, check diagnostics for each element in the list
+                const valueDiagnostics = (property.value as any[])?.map((val) => val?.diagnostics?.diagnostics ?? []).flat() ?? [];
+                diagnostics = [...diagnostics, ...valueDiagnostics];
+            } else {
+                diagnostics = property.diagnostics?.diagnostics ?? [];
+            }
+            return Array.isArray(diagnostics) && diagnostics.some((diagnostic) => Boolean(diagnostic?.message?.trim()));
+        });
+    };
+
     const handleFormValidation = async (data: FormValues, dirtyFields?: any): Promise<boolean> => {
         if (node && targetLineRange && !skipFormValidation) {
             const updatedNode = mergeFormDataWithFlowNode(data, targetLineRange, dirtyFields);
             const nodeWithDiagnostics = await getFormWithDiagnostics(updatedNode);
             setDiagnosticsToFields(data, nodeWithDiagnostics!);
 
-            if (nodeWithDiagnostics?.diagnostics?.hasDiagnostics) {
+            // HACK: Ignore top-level hasDiagnostics when LS does not send property-level diagnostic messages.
+            if (nodeWithDiagnostics?.diagnostics?.hasDiagnostics && hasPropertyDiagnosticMessages(nodeWithDiagnostics)) {
                 return false
             }
         }
@@ -791,6 +891,16 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                     node.properties["type"].value = variableType || "any";
                 }
 
+                // Add form imports
+                const existingImports = property.imports ?? undefined;
+                const newImports = formImportsRef.current[key];
+                const mergedImports = newImports
+                    ? { ...(existingImports || {}), ...newImports }
+                    : existingImports;
+                const updatedProperty = mergedImports !== undefined
+                    ? { ...property, imports: mergedImports }
+                    : property;
+
                 try {
                     const response = await rpcClient.getBIDiagramRpcClient().getExpressionDiagnostics({
                         filePath: fileName,
@@ -800,7 +910,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                             lineOffset: 0,
                             offset: 0,
                             codedata: node.codedata,
-                            property: property,
+                            property: updatedProperty,
                         },
                     });
 
@@ -819,7 +929,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             },
             250
         ),
-        [rpcClient, fileName, targetLineRange, node]
+        [rpcClient, fileName, targetLineRange, node, formImportsRef.current]
     );
 
     const handleCompletionItemSelect = async (
@@ -949,6 +1059,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             forcedValueTypeConstraint: valueTypeConstraints,
             handleValueTypeConstChange: handleValueTypeConstChange,
             inputMode: inputMode,
+            devantExpressionEditor: props.devantExpressionEditor,
         });
     };
 
@@ -1237,13 +1348,16 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                 searchKind: 'TYPE'
             })
             .then((response) => {
-                return getImportedTypes(response.categories);
+                return getFilteredTypesByKind(response.categories, functionKinds.IMPORTED);
             })
             .finally(() => {
 
             });
 
         let type: TypeHelperItem | undefined;
+        if (!newTypes.length || !newTypes[0].subCategory) {
+            return undefined;
+        }
         for (const category of newTypes[0].subCategory) {
             const matchedType = findMatchedType(category.items, typeName);
             if (matchedType) {
@@ -1363,18 +1477,58 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
     // handle fork node form
     if (node?.codedata.node === "FORK") {
         return (
-            <ForkForm
-                fileName={fileName}
-                node={node}
-                targetLineRange={targetLineRange}
-                expressionEditor={expressionEditor}
-                showProgressIndicator={showProgressIndicator}
-                onSubmit={onSubmit}
-                openSubPanel={openSubPanel}
-                updatedExpressionField={updatedExpressionField}
-                resetUpdatedExpressionField={resetUpdatedExpressionField}
-                subPanelView={subPanelView}
-            />
+            <EditorContext.Provider value={{ stack, push: pushTypeStack, pop: popTypeStack, peek: peekTypeStack, replaceTop: replaceTop }}>
+                <ForkForm
+                    fileName={fileName}
+                    node={node}
+                    targetLineRange={targetLineRange}
+                    openRecordEditor={handleOpenTypeEditor}
+                    expressionEditor={expressionEditor}
+                    showProgressIndicator={showProgressIndicator}
+                    onSubmit={onSubmit}
+                    openSubPanel={openSubPanel}
+                    updatedExpressionField={updatedExpressionField}
+                    resetUpdatedExpressionField={resetUpdatedExpressionField}
+                    subPanelView={subPanelView}
+                />
+                {
+                    stack.map((item, i) => <DynamicModal
+                        key={i}
+                        width={420}
+                        height={600}
+                        anchorRef={undefined}
+                        title="Create New Type"
+                        openState={typeEditorState.isOpen}
+                        setOpenState={handleTypeEditorStateChange}>
+                        {stack.slice(0, i + 1).length > 1 && (
+                            <BreadcrumbContainer>
+                                {stack.slice(0, i + 1).map((stackItem, index) => (
+                                    <React.Fragment key={index}>
+                                        {index > 0 && <BreadcrumbSeparator>/</BreadcrumbSeparator>}
+                                        <BreadcrumbItem>
+                                            {stackItem?.type?.name || "New Type"}
+                                        </BreadcrumbItem>
+                                    </React.Fragment>
+                                ))}
+                            </BreadcrumbContainer>
+                        )}
+                        <div style={{ height: '560px', overflow: 'auto' }}>
+                            <FormTypeEditor
+                                type={peekTypeStack()?.type}
+                                newType={peekTypeStack() ? peekTypeStack().isDirty : false}
+                                newTypeValue={typeEditorState.newTypeValue}
+                                isGraphql={isGraphql}
+                                onTypeChange={onTypeChange}
+                                onSaveType={onSaveType}
+                                onTypeCreate={() => { }}
+                                isPopupTypeForm={true}
+                                getNewTypeCreateForm={getNewTypeCreateForm}
+                                refetchTypes={refetchStates[i]}
+                            />
+                        </div>
+                    </DynamicModal>)
+                }
+            </EditorContext.Provider>
         );
     }
 
@@ -1458,7 +1612,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                     actionButton={actionButton}
                     recordTypeFields={recordTypeFields}
                     isInferredReturnType={!!node.codedata?.inferredReturnType}
-                    formImports={formImports}
+                    formImports={formImportsRef.current}
                     handleSelectedTypeChange={handleSelectedTypeChange}
                     preserveOrder={node.codedata.node === "VARIABLE" as NodeKind || node.codedata.node === "CONFIG_VARIABLE" as NodeKind}
                 />
@@ -1514,6 +1668,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                                     closeRecordConfigPage();
                                 }
                             }}
+                            closeOnBackdropClick={true}
+                            closeButtonIcon="minimize"
                         >
                             <ConfigureRecordPage
                                 fileName={fileName}
@@ -1576,7 +1732,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                     actionButton={actionButton}
                     recordTypeFields={recordTypeFields}
                     isInferredReturnType={!!node.codedata?.inferredReturnType}
-                    formImports={formImports}
+                    formImports={formImportsRef.current}
                     handleSelectedTypeChange={handleSelectedTypeChange}
                     preserveOrder={
                         node.codedata.node === ("VARIABLE" as NodeKind) ||
@@ -1587,6 +1743,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                     onChange={onChange}
                     injectedComponents={injectedComponents}
                     derivedFields={props.derivedFields}
+                    updateImports={handleUpdateImports}
                 />
             )}
             {stack.map((item, i) => (
@@ -1640,6 +1797,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                                 closeRecordConfigPage();
                             }
                         }}
+                        closeOnBackdropClick={true}
+                        closeButtonIcon="minimize"
                     >
                         <ConfigureRecordPage
                             fileName={fileName}

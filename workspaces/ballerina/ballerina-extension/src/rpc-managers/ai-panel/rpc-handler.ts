@@ -27,14 +27,14 @@ import {
     approvePlan,
     approveTask,
     ApproveTaskRequest,
-    cancelConnectorSpec,
     cancelConfiguration,
+    cancelConnectorSpec,
     clearChat,
     clearInitialPrompt,
-    ConnectorSpecCancelRequest,
-    ConnectorSpecRequest,
     ConfigurationCancelRequest,
     ConfigurationProvideRequest,
+    ConnectorSpecCancelRequest,
+    ConnectorSpecRequest,
     createTestDirecoryIfNotExists,
     declineChanges,
     declinePlan,
@@ -48,6 +48,7 @@ import {
     generateOpenAPI,
     GenerateOpenAPIRequest,
     getActiveTempDir,
+    getAffectedPackages,
     getAIMachineSnapshot,
     getChatMessages,
     getCheckpoints,
@@ -57,22 +58,24 @@ import {
     getGeneratedDocumentation,
     getLoginMethod,
     getSemanticDiff,
-    getAffectedPackages,
-    isWorkspaceProject,
     getServiceNames,
+    getUsage,
     isCopilotSignedIn,
-    isPlanModeFeatureEnabled,
+    isPlatformExtensionAvailable,
     isUserAuthenticated,
+    isWorkspaceProject,
     markAlertShown,
     MetadataWithAttachments,
     openAIPanel,
     openChatWindowWithCommand,
+    openFileDiff,
+    OpenFileDiffRequest,
     PlanApprovalRequest,
     ProcessContextTypeCreationRequest,
     ProcessMappingParametersRequest,
     promptGithubAuthorize,
-    provideConnectorSpec,
     provideConfiguration,
+    provideConnectorSpec,
     RequirementSpecification,
     restoreCheckpoint,
     RestoreCheckpointRequest,
@@ -91,6 +94,7 @@ import { AiPanelRpcManager } from "./rpc-manager";
 export function registerAiPanelRpcHandlers(messenger: Messenger) {
     const rpcManger = new AiPanelRpcManager();
     messenger.onRequest(getLoginMethod, () => rpcManger.getLoginMethod());
+    messenger.onRequest(isPlatformExtensionAvailable, () => rpcManger.isPlatformExtensionAvailable());
     messenger.onRequest(getDefaultPrompt, () => rpcManger.getDefaultPrompt());
     messenger.onRequest(getAIMachineSnapshot, () => rpcManger.getAIMachineSnapshot());
     messenger.onNotification(clearInitialPrompt, () => rpcManger.clearInitialPrompt());
@@ -115,7 +119,6 @@ export function registerAiPanelRpcHandlers(messenger: Messenger) {
     messenger.onRequest(addFilesToProject, (args: AddFilesToProjectRequest) => rpcManger.addFilesToProject(args));
     messenger.onRequest(isUserAuthenticated, () => rpcManger.isUserAuthenticated());
     messenger.onRequest(openAIPanel, (args: AIPanelPrompt) => rpcManger.openAIPanel(args));
-    messenger.onRequest(isPlanModeFeatureEnabled, () => rpcManger.isPlanModeFeatureEnabled());
     messenger.onRequest(getSemanticDiff, (args: SemanticDiffRequest) => rpcManger.getSemanticDiff(args));
     messenger.onRequest(getAffectedPackages, () => rpcManger.getAffectedPackages());
     messenger.onRequest(isWorkspaceProject, () => rpcManger.isWorkspaceProject());
@@ -135,4 +138,6 @@ export function registerAiPanelRpcHandlers(messenger: Messenger) {
     messenger.onRequest(clearChat, () => rpcManger.clearChat());
     messenger.onRequest(updateChatMessage, (args: UpdateChatMessageRequest) => rpcManger.updateChatMessage(args));
     messenger.onRequest(getActiveTempDir, () => rpcManger.getActiveTempDir());
+    messenger.onRequest(getUsage, () => rpcManger.getUsage());
+    messenger.onNotification(openFileDiff, (args: OpenFileDiffRequest) => rpcManger.openFileDiff(args));
 }

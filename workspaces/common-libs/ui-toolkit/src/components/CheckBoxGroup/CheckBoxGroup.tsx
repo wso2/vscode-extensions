@@ -30,6 +30,7 @@ export type CheckBoxProps = {
     labelAdornment?: ReactNode;
     value?: string;
     checked: boolean;
+    indeterminate?: boolean;
     disabled?: boolean;
     sx?: any;
     onChange: (checked: boolean) => void;
@@ -66,7 +67,16 @@ const LabelContainer = styled.div`
     flex-direction: row;
     margin-bottom: 2px;
 `;
-export const CheckBox = ({ label, labelAdornment, value, sx, checked, onChange, disabled }: CheckBoxProps) => {
+export const CheckBox = ({ label, labelAdornment, value, sx, checked, indeterminate, onChange, disabled }: CheckBoxProps) => {
+    const checkboxRef = React.useRef<HTMLInputElement>(null);
+
+    // Set indeterminate property on the native input element
+    React.useEffect(() => {
+        if (checkboxRef.current) {
+            checkboxRef.current.indeterminate = indeterminate ?? false;
+        }
+    }, [indeterminate]);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         onChange(e.target.checked);
     };
@@ -79,6 +89,7 @@ export const CheckBox = ({ label, labelAdornment, value, sx, checked, onChange, 
     return (
         <div style={{ display: "flex", flexDirection: "column", width: "fit-content" }}>
             <StyledCheckBox
+                ref={checkboxRef as any}
                 key={`checkbox-${value}`}
                 sx={sx}
                 value={value}

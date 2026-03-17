@@ -87,7 +87,7 @@ import { ReviewMode } from "./views/ReviewMode";
 import AddConnectionPopup from "./views/BI/Connection/AddConnectionPopup";
 import EditConnectionPopup from "./views/BI/Connection/EditConnectionPopup";
 import { EvalsetViewer } from "./views/EvalsetViewer/EvalsetViewer";
-import { ConfigurationCollector } from "./views/BI/ConfigurationCollector";
+import { ConfigurationCollector } from "./views/AIPanel/components/ConfigurationCollector";
 
 const globalStyles = css`
     *,
@@ -285,6 +285,8 @@ const MainPanel = () => {
         setNavActive(true);
         rpcClient.getVisualizerLocation().then(async (value) => {
             const configFilePath = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: ['config.bal'] })).filePath;
+            const testsFolderResult = await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: ['tests'], checkExists: true });
+            const testsConfigTomlPath = testsFolderResult.exists ? (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: ['tests', 'Config.toml'] })).filePath : undefined;
             let defaultFunctionsFile = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: ['functions.bal'] })).filePath;
             if (value.documentUri) {
                 defaultFunctionsFile = value.documentUri
@@ -618,6 +620,7 @@ const MainPanel = () => {
                             <ViewConfigurableVariables
                                 projectPath={value?.projectPath}
                                 fileName={configFilePath}
+                                testsConfigTomlPath={testsConfigTomlPath}
                                 org={value?.org}
                             />
                         );
@@ -627,6 +630,7 @@ const MainPanel = () => {
                             <ViewConfigurableVariables
                                 projectPath={value?.projectPath}
                                 fileName={configFilePath}
+                                testsConfigTomlPath={testsConfigTomlPath}
                                 org={value?.org}
                                 addNew={true}
                             />
@@ -642,9 +646,7 @@ const MainPanel = () => {
                         );
                         break;
                     case MACHINE_VIEW.ReviewMode:
-                        setViewComponent(
-                            <ReviewMode />
-                        );
+                        setViewComponent(<ReviewMode />);
                         break;
                     case MACHINE_VIEW.EvalsetViewer:
                         setViewComponent(

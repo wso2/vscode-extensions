@@ -74,6 +74,7 @@ import {
     UpdateTypesRequest,
     UpdateTypesResponse,
     DeploymentRequest,
+    WorkspaceDeploymentRequest,
     DeploymentResponse,
     OpenAPIClientGenerationRequest,
     OpenAPIGeneratedModulesRequest,
@@ -99,7 +100,9 @@ import {
     BISearchNodesResponse,
     BIDesignModelRequest,
     BIFlowModelRequest,
-    ExpressionTokensRequest
+    ExpressionTokensRequest,
+    GetSimpleTypeOfExpressionRequest,
+    GetSimpleTypeOfExpressionResponse
 } from "../../interfaces/extended-lang-client";
 import {
     ProjectRequest,
@@ -120,6 +123,7 @@ import {
     RecordsInWorkspaceMentions,
     BuildMode,
     DevantMetadata,
+    WorkspaceDevantMetadata,
     GeneratedClientSaveResponse,
     AddProjectToWorkspaceRequest,
     DeleteProjectRequest,
@@ -166,6 +170,7 @@ export const getReadmeContent: RequestType<ReadmeContentRequest, ReadmeContentRe
 export const openReadme: NotificationType<OpenReadmeRequest> = { method: `${_preFix}/openReadme` };
 export const renameIdentifier: NotificationType<RenameIdentifierRequest> = { method: `${_preFix}/renameIdentifier` };
 export const deployProject: RequestType<DeploymentRequest, DeploymentResponse> = { method: `${_preFix}/deployProject` };
+export const deployWorkspace: RequestType<WorkspaceDeploymentRequest, DeploymentResponse> = { method: `${_preFix}/deployWorkspace` };
 export const openAIChat: NotificationType<AIChatRequest> = { method: `${_preFix}/openAIChat` };
 export const getSignatureHelp: RequestType<SignatureHelpRequest, SignatureHelpResponse> = { method: `${_preFix}/getSignatureHelp` };
 export const buildProject: NotificationType<BuildMode> = { method: `${_preFix}/buildProject` };
@@ -181,6 +186,7 @@ export const formDidClose: RequestType<FormDidCloseParams, void> = { method: `${
 export const getDesignModel: RequestType<BIDesignModelRequest, BIDesignModelResponse> = { method: `${_preFix}/getDesignModel` };
 export const getTypes: RequestType<GetTypesRequest, GetTypesResponse> = { method: `${_preFix}/getTypes` };
 export const getType: RequestType<GetTypeRequest, GetTypeResponse> = { method: `${_preFix}/getType` };
+export const getSimpleTypeOfExpression: RequestType<GetSimpleTypeOfExpressionRequest, GetSimpleTypeOfExpressionResponse> = { method: `${_preFix}/getSimpleTypeOfExpression` };
 export const updateType: RequestType<UpdateTypeRequest, UpdateTypeResponse> = { method: `${_preFix}/updateType` };
 export const updateTypes: RequestType<UpdateTypesRequest, UpdateTypesResponse> = { method: `${_preFix}/updateTypes` };
 export const deleteType: RequestType<DeleteTypeRequest, DeleteTypeResponse> = { method: `${_preFix}/deleteType` };
@@ -204,6 +210,7 @@ export const searchNodes: RequestType<BISearchNodesRequest, BISearchNodesRespons
 export const getRecordNames: RequestType<void, RecordsInWorkspaceMentions> = { method: `${_preFix}/getRecordNames` };
 export const getFunctionNames: RequestType<void, RecordsInWorkspaceMentions> = { method: `${_preFix}/getFunctionNames` };
 export const getDevantMetadata: RequestType<void, DevantMetadata> = { method: `${_preFix}/getDevantMetadata` };
+export const getWorkspaceDevantMetadata: RequestType<void, WorkspaceDevantMetadata> = { method: `${_preFix}/getWorkspaceDevantMetadata` };
 export const generateOpenApiClient: RequestType<OpenAPIClientGenerationRequest, GeneratedClientSaveResponse> = { method: `${_preFix}/generateOpenApiClient` };
 export const getOpenApiGeneratedModules: RequestType<OpenAPIGeneratedModulesRequest, OpenAPIGeneratedModulesResponse> = { method: `${_preFix}/getOpenApiGeneratedModules` };
 export const deleteOpenApiGeneratedModules: RequestType<OpenAPIClientDeleteRequest, OpenAPIClientDeleteResponse> = { method: `${_preFix}/deleteOpenApiGeneratedModules` };
