@@ -108,12 +108,6 @@ function normalizeCollaborationPath(uri: vscode.Uri): string {
         }
     }
     
-    // Check if basename-only mode is enabled
-    const lockManager = CollaborationLockManager.getInstance();
-    if (lockManager.useBasenameOnly) {
-        console.log(`[Collaboration] Basename-only mode: ${path.basename(fullPath)}`);
-        return path.basename(fullPath);
-    }
     return path.basename(fullPath);
 }
 
@@ -860,11 +854,11 @@ export class CollaborationLockManager {
                     error: `Lock owned by ${existingLock.userName}`
                 };
             }
-            
+
             // Only allow the lock owner to release it
             if (existingLock && existingLock.userId === finalUserId) {
                 delete fileLocks[nodeId];
-                
+
                 // Update Y.Map (automatically broadcasts)
                 if (Object.keys(fileLocks).length > 0) {
                     this.locksMap.set(normalizedPath, fileLocks);
@@ -872,7 +866,7 @@ export class CollaborationLockManager {
                     // Remove empty file entry
                     this.locksMap.delete(normalizedPath);
                 }
-                
+
                 this.clearAutoRelease(normalizedPath, nodeId);
             }
 
@@ -1106,7 +1100,6 @@ export class CollaborationLockManager {
             if (fileLocks.size === 0) {
                 this.localLocks.delete(fileKey);
             }
-            
             // Notify listeners so webview gets updated
             this.notifyLocalLockChange(fileKey);
         }

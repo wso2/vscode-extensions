@@ -180,6 +180,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     } = useDraftNodeManager(model);
 
     const selectedNodeRef = useRef<FlowNode>();
+    // Tracks the exact nodeId/positionKey used when acquiring each lock.
+    // Kept separate from selectedNodeRef because the model can refresh mid-edit,
+    // reassigning node IDs via findNodeByStartLine — the lock in Y.Map is still
+    // stored under the original ID, so release must use the same ID.
+    const lockedNodeIdRef = useRef<string>();
+    const lockedPositionKeyRef = useRef<string>();
     const pinnedCursorRef = useRef<{ x: number; y: number; nodeId: string }>();
     const lastBroadcastCursorRef = useRef<{ x: number; y: number; nodeId?: string }>();
     const clickedCursorAnchorNodeIdRef = useRef<string>();
@@ -372,8 +378,35 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 if (data.peerId === currentUserIdRef.current) {
                     console.log('[OCT Webview] Skipping own cursor update (peer ID matches current user)');
                 } else {
-                    // Update remote cursors
-                    if (data.cursor) {
+                    // Only show cursors from peers viewing the same flow diagram
+                    const normalizedCurrentFile = currentModelFileRef.current
+                        ? normalizeFilePath(currentModelFileRef.current)
+                        : undefined;
+                    const localDiagramId = normalizedCurrentFile
+                        ? `${normalizedCurrentFile}:${targetRef.current?.startLine?.line ?? ''}`
+                        : undefined;
+                    // Prefer diagramId comparison (exact match, handles same-file multi-function case).
+                    // Fall back to filePath suffix match for peers that haven't sent diagramId yet.
+                    const isForCurrentDiagram = !data.filePath || !normalizedCurrentFile || (() => {
+                        if (data.diagramId && localDiagramId) {
+                            return data.diagramId === localDiagramId;
+                        }
+                        const pathA = normalizeFilePath(data.filePath);
+                        const pathB = normalizedCurrentFile;
+                        return pathA === pathB || pathA.endsWith('/' + pathB) || pathB.endsWith('/' + pathA);
+                    })();
+                    console.log(`[OCT Webview] Presence data is for current diagram: ${isForCurrentDiagram}`);
+                    if (!isForCurrentDiagram) {
+                        // Peer is viewing a different diagram — remove their cursor if present
+                        setRemoteCursors((prev) => {
+                            if (!prev.has(data.peerId)) {
+                                return prev;
+                            }
+                            const updated = new Map(prev);
+                            updated.delete(data.peerId);
+                            return updated;
+                        });
+                    } else if (data.cursor) {
                         console.log(`[OCT Webview] ✅ Updating cursor for peer ${data.peerId} at position (${data.cursor.x}, ${data.cursor.y})`);
                         setRemoteCursors((prev) => {
                             const updated = new Map(prev);
@@ -479,9 +512,17 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     // Cleanup locks on unmount or when file changes
     useEffect(() => {
         return () => {
-            // Release all locks when component unmounts
-            if (selectedNodeRef.current?.id) {
-                releaseNodeLock(selectedNodeRef.current.id);
+            // Release all locks when component unmounts.
+            // Prefer the key stored at acquire time; fall back to the current ref.
+            const nodeKey = lockedNodeIdRef.current || selectedNodeRef.current?.id;
+            if (nodeKey) {
+                releaseNodeLock(nodeKey);
+                lockedNodeIdRef.current = undefined;
+            }
+            const posKey = lockedPositionKeyRef.current;
+            if (posKey) {
+                releaseNodeLock(posKey);
+                lockedPositionKeyRef.current = undefined;
             }
         };
     }, []);
@@ -489,8 +530,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     // Handle visibility changes to release locks when window loses focus
     useEffect(() => {
         const handleVisibilityChange = () => {
-            if (document.hidden && selectedNodeRef.current?.id) {
-                releaseNodeLock(selectedNodeRef.current.id);
+            if (document.hidden) {
+                const nodeKey = lockedNodeIdRef.current || selectedNodeRef.current?.id;
+                if (nodeKey) {
+                    releaseNodeLock(nodeKey);
+                    lockedNodeIdRef.current = undefined;
+                }
                 resetNodeSelectionStates();
             }
         };
@@ -1037,36 +1082,33 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     };
 
     const resetNodeSelectionStates = async () => {
-        // Release position lock when closing side panel
-        // Capture values before clearing refs to ensure lock release completes
-        const positionLockToRelease = topNodeRef.current && targetRef.current
-            ? (() => {
-                const parentId = 'id' in topNodeRef.current ? topNodeRef.current.id : 'branch';
-                return `position_${parentId}_${targetRef.current.startLine.line}_${targetRef.current.startLine.offset}`;
-            })()
-            : null;
-        
-        // Capture node lock to release
-        const nodeLockToRelease = selectedNodeRef.current?.id || null;
-        
+        // Use the exact keys captured at acquire time so release always matches the
+        // Y.Map entry even if the model refreshed and reassigned node IDs since then.
+        const positionLockToRelease = lockedPositionKeyRef.current ?? null;
+        const nodeLockToRelease = lockedNodeIdRef.current ?? selectedNodeRef.current?.id ?? null;
+
         // Release both locks in parallel and wait for completion
         const lockReleasePromises = [];
-        
+
         if (positionLockToRelease) {
             console.log('[Lock Frontend] Releasing position lock:', positionLockToRelease);
             lockReleasePromises.push(releaseNodeLock(positionLockToRelease));
         }
-        
+
         if (nodeLockToRelease) {
             console.log('[Lock Frontend] Releasing node lock:', nodeLockToRelease);
             lockReleasePromises.push(releaseNodeLock(nodeLockToRelease));
         }
-        
+
         // Wait for all lock releases to complete before clearing state
         if (lockReleasePromises.length > 0) {
             await Promise.all(lockReleasePromises);
             console.log('[Lock Frontend] All locks released successfully');
         }
+
+        // Clear locked-key refs now that release is done
+        lockedNodeIdRef.current = undefined;
+        lockedPositionKeyRef.current = undefined;
 
         if (isCollaborationActive) {
             sendSelectionUpdate([]);
@@ -1136,6 +1178,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             });
             
             if (response.success) {
+                // Remember the exact key stored in Y.Map so release always uses the
+                // same ID even if the model refreshes and reassigns node IDs.
+                lockedNodeIdRef.current = nodeId;
                 if (isCollaborationActive) {
                     sendSelectionUpdate([nodeId]);
                 }
@@ -1222,11 +1267,14 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             };
 
             try {
+                const normalizedFileName = normalizeFilePath(model.fileName);
+                const diagramId = `${normalizedFileName}:${targetRef.current?.startLine?.line ?? ''}`;
                 const presenceData: CollaborationPresenceData = {
                     peerId: currentUserId,
                     peerName: currentUserName,
                     color: "#7A00FF", // Purple - could be enhanced to assign consistent colors per user
-                    filePath: normalizeFilePath(model.fileName),
+                    filePath: normalizedFileName,
+                    diagramId,
                     cursor: {
                         x: broadcastX,
                         y: broadcastY,
@@ -1411,7 +1459,8 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 }
                 
                 console.log('[Lock Frontend] Lock acquired successfully, proceeding to add draft node');
-                
+                lockedPositionKeyRef.current = positionLockKey;
+
                 // Now that lock is acquired, add draft node and update model
                 const modelWithDraft = addDraftNode(parent, target);
                 setModel(modelWithDraft);

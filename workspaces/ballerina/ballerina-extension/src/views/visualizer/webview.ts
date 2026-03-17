@@ -109,20 +109,21 @@ export class VisualizerWebview {
                 (uriCache && uriCache.isSamePath(resolvedDocumentPath, contextDocumentPath)) ||
                 (uriCache && uriCache.isSamePath(documentUriString, contextDocumentPath))
             );
-            
+
             const dataMapperModified = balFileModified &&
                 (
                     StateMachine.context().view === MACHINE_VIEW.InlineDataMapper ||
                     StateMachine.context().view === MACHINE_VIEW.DataMapper
                 ) &&
                 isContextDocument;
-
+    
             if (dataMapperModified) {
                 console.log('[Webview] Refreshing data mapper');
                 debouncedRefreshDataMapper();
-            } else if (((this._panel?.active || AiPanelWebview.currentPanel?.getWebview()?.active) || isRemoteDocument) && balFileModified && isDocumentUnderProject) {
-                // isRemoteDocument: remote OCT files come from collaborators and must always
-                // trigger a diagram refresh, regardless of whether the panel is focused.
+            } else if ((this._panel?.active || AiPanelWebview.currentPanel?.getWebview()?.active) && balFileModified && isDocumentUnderProject && !isRemoteDocument) {
+                // Remote (OCT) documents are handled by the extension.ts file watcher which
+                // ensures cache is updated before triggering updateView. Triggering here would
+                // cause a race condition where getFlowModel runs before the cache is refreshed.
                 console.log('[Webview] Sending update notification to webview');
                 sendUpdateNotificationToWebview();
             } else if (configTomlModified) {

@@ -424,6 +424,7 @@ export interface CollaborationPresenceData {
     peerName: string;
     color?: string;
     filePath: string;
+    diagramId?: string; // "<normalizedFilePath>:<startLine>" — uniquely identifies a specific function's flow diagram
     cursor?: WebviewCursorPosition;
     selectedNodes?: string[];
     locks?: WebviewNodeLock[];
