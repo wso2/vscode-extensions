@@ -20,6 +20,10 @@
             "dependsOn": ["watch-ballerina", "watch-bi", "npm: watch-wso2-platform"]
         },
         {
+            "label": "watch-ballerina-platform",
+            "dependsOn": ["watch-ballerina", "npm: watch-wso2-platform"]
+        },
+        {
             "label": "watch-ballerina",
             "type": "npm",
             "script": "watch-ballerina",

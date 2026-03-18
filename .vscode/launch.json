@@ -27,37 +27,36 @@
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension",
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/bi/bi-extension",
+                "--disable-extension=wso2.ballerina-integrator"
             ],
             "env": {
                 "LS_EXTENSIONS_PATH": "",
                 "LSDEBUG": "false",
-                "WEB_VIEW_WATCH_MODE": "true",
+                "WEB_VIEW_WATCH_MODE": "false",
                 "WEB_VIEW_DEV_HOST": "http://localhost:9000",
                 "BALLERINA_STAGE_CENTRAL": "false",
                 "TRACE_WEB_VIEW_DEV_HOST": "http://localhost:9001"
             },
             "outFiles": [
-                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/dist/**/*.js",
-                "${workspaceFolder}/workspaces/bi/bi-extension/out/**/*.js"
+                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/dist/**/*.js"
             ],
-            "preLaunchTask": "watch-ballerina-bi",
+            "preLaunchTask": "watch-ballerina",
             "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
         },
-         {
+        {
             "name": "Ballerina, BI & Platform Extensions",
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension",
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/bi/bi-extension",
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/wso2-platform/wso2-platform-extension"
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/wso2-platform/wso2-platform-extension",
+                "--disable-extension=wso2.ballerina-integrator"
             ],
             "env": {
                 "LS_EXTENSIONS_PATH": "",
                 "LSDEBUG": "false",
-                "WEB_VIEW_WATCH_MODE": "true",
+                "WEB_VIEW_WATCH_MODE": "false",
                 "WEB_VIEW_DEV_HOST": "http://localhost:9000",
                 "BALLERINA_STAGE_CENTRAL": "false",
 
@@ -66,10 +65,9 @@
             },
             "outFiles": [
                 "${workspaceFolder}/workspaces/ballerina/ballerina-extension/dist/**/*.js",
-                "${workspaceFolder}/workspaces/bi/bi-extension/out/**/*.js",
                 "${workspaceFolder}/workspaces/wso2-platform/wso2-platform-extension/dist/**/*.js",
             ],
-            "preLaunchTask": "watch-ballerina-bi-platform",
+            "preLaunchTask": "watch-ballerina-platform",
             "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
         },
         {

@@ -30,6 +30,7 @@ import { refreshDataMapper } from "../../rpc-managers/data-mapper/utils";
 import { AiPanelWebview } from "../ai-panel/webview";
 import { approvalViewManager } from "../../features/ai/state/ApprovalViewManager";
 import { StateMachinePopup } from "../../stateMachinePopup";
+import { getBIActivityExtension } from "../../utils";
 
 export class VisualizerWebview {
     public static currentPanel: VisualizerWebview | undefined;
@@ -132,7 +133,7 @@ export class VisualizerWebview {
     }
 
     public static get webviewTitle(): string {
-        const biExtension = vscode.extensions.getExtension('wso2.ballerina-integrator');
+        const biExtension = getBIActivityExtension();
         return biExtension ? VisualizerWebview.biTitle : VisualizerWebview.ballerinaTitle;
     }
 
@@ -151,7 +152,7 @@ export class VisualizerWebview {
                 retainContextWhenHidden: true,
             }
         );
-        const biExtension = vscode.extensions.getExtension('wso2.ballerina-integrator');
+        const biExtension = getBIActivityExtension();
         panel.iconPath = {
             light: vscode.Uri.file(path.join(extension.context.extensionPath, 'resources', 'icons', biExtension ? 'light-icon.svg' : 'ballerina.svg')),
             dark: vscode.Uri.file(path.join(extension.context.extensionPath, 'resources', 'icons', biExtension ? 'dark-icon.svg' : 'ballerina-inverse.svg'))
@@ -171,7 +172,7 @@ export class VisualizerWebview {
         // Check if devant.editor extension is active
         const isDevantEditor = vscode.commands.executeCommand('getContext', 'devant.editor') !== undefined;
         
-        const biExtension = vscode.extensions.getExtension('wso2.ballerina-integrator');
+        const biExtension = getBIActivityExtension();
         const body = `<div class="container" id="webview-container">
                 <div class="loader-wrapper">
                     <div class="welcome-content">

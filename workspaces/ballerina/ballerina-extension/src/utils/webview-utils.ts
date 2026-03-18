@@ -18,6 +18,7 @@
 
 import { Uri, ExtensionContext, WebviewOptions, WebviewPanelOptions, Webview } from "vscode";
 import { join, sep } from "path";
+import { existsSync } from "fs";
 import { extension } from "../BalExtensionContext";
 
 export const RESOURCES_CDN = `https://choreo-shared-codeserver-cdne.azureedge.net/ballerina-low-code-resources@${process.env.BALLERINA_LOW_CODE_RESOURCES_VERSION}`;
@@ -131,10 +132,15 @@ function getComposerURI(webView: Webview): string {
 
 function getComposerCSSFiles(disableComDebug: boolean, devHost: string, webView: Webview): string[] {
     const filePath = join((extension.ballerinaExtInstance.context as ExtensionContext).extensionPath, 'resources', 'jslibs', 'themes', 'ballerina-default.min.css');
-    return [
-        (isDevMode && !disableComDebug) ? join(devHost, 'themes', 'ballerina-default.min.css')
-            : webView.asWebviewUri(Uri.file(filePath)).toString()
-    ];
+    if (isDevMode && !disableComDebug) {
+        return [];
+    }
+
+    if (!existsSync(filePath)) {
+        return [];
+    }
+
+    return [webView.asWebviewUri(Uri.file(filePath)).toString()];
 }
 
 function getComposerJSFiles(componentName: string, disableComDebug: boolean, devHost: string, webView: Webview): string[] {

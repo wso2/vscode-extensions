@@ -50,6 +50,7 @@ export const BI_PROJECT_FILES = [
 ];
 
 export const WI_EXTENSION_ID = 'wso2.wso2-integrator';
+export const LEGACY_BI_EXTENSION_ID = 'wso2.ballerina-integrator';
 
 interface BallerinaPluginConfig extends WorkspaceConfiguration {
     home?: string;
@@ -230,6 +231,11 @@ export function checkIsBI(uri: Uri): boolean {
 
 export function isInWI(): boolean {
     return !!extensions.getExtension(WI_EXTENSION_ID);
+}
+
+export function getBIActivityExtension() {
+    return extensions.getExtension(WI_EXTENSION_ID)
+        ?? extensions.getExtension(LEGACY_BI_EXTENSION_ID);
 }
 
 export async function checkIsBallerinaPackage(uri: Uri): Promise<boolean> {
