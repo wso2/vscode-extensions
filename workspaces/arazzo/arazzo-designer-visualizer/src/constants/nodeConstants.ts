@@ -31,7 +31,7 @@ export const CONDITION_NODE_BORDER_RADIUS = 8; // Border radius for condition no
 
 export const LABEL_HEIGHT = 20;
 export const LABEL_WIDTH = 180;
-export const NODE_BORDER_WIDTH = 3;
+export const NODE_BORDER_WIDTH = 2;
 export const NODE_PADDING = 8;
 export const DIAGRAM_CENTER_X = 0;
 export const END_NODE_INNER_DIAMETER = 15;
