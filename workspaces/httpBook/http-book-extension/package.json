@@ -19,6 +19,9 @@
     "onNotebook:http-book",
     "onCommand:http-book.importHurlString"
   ],
+  "extensionDependencies": [
+    "JacobPfeifer.pfeifer-hurl"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "grammars": [

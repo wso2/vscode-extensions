@@ -95,7 +95,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // When called from command palette (no args): prompts user to paste a hurl string
     const importHurlStringCommand = vscode.commands.registerCommand(
         'http-book.importHurlString',
-        async (contentOrCells?: string | NotebookCellInput[], options?: { savable?: boolean; savePath?: string }) => {
+        async (contentOrCells?: string | NotebookCellInput[], options?: { savable?: boolean; savePath?: string; viewColumn?: 'beside' | 'active' }) => {
             let notebookData: vscode.NotebookData;
             let resolvedHurlText: string;
 
@@ -118,6 +118,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
             const savable = options?.savable ?? true;
             const savePath = options?.savePath;
+            const viewColumn = options?.viewColumn === 'active'
+                ? vscode.ViewColumn.Active
+                : vscode.ViewColumn.Beside;
 
             try {
                 let doc: vscode.NotebookDocument;
@@ -149,7 +152,7 @@ export function activate(context: vscode.ExtensionContext): void {
                     readonlyProvider.set(uri, new TextEncoder().encode(resolvedHurlText));
                     doc = await vscode.workspace.openNotebookDocument(uri);
                 }
-                await vscode.window.showNotebookDocument(doc, { viewColumn: vscode.ViewColumn.Beside });
+                await vscode.window.showNotebookDocument(doc, { viewColumn });
                 // Programmatically select the Hurl Runner kernel so the user is never prompted
                 await vscode.commands.executeCommand('notebook.selectKernel', {
                     notebook: doc,
