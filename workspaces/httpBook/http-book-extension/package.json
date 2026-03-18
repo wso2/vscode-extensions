@@ -19,6 +19,9 @@
     "onNotebook:http-book",
     "onCommand:http-book.importHurlString"
   ],
+  "extensionDependencies": [
+    "JacobPfeifer.pfeifer-hurl"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "grammars": [
@@ -76,6 +79,26 @@
         }
       ]
     },
+    "languageModelTools": [
+      {
+        "name": "run-hurl-test",
+        "displayName": "Run Hurl Test",
+        "modelDescription": "A tool to run a Hurl test script and get the results. This tool can be used to execute a full Hurl test script containing multiple requests and assertions. You can use chained requests using captured variable. Note: This command works even if Hurl is not installed in the system.",
+        "userDescription": "Runs a Hurl test script and returns the results.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "runHurlTest",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "hurlScript": {
+              "type": "string",
+              "description": "The Hurl test script to execute."
+            }
+          },
+          "required": ["hurlScript"]
+        }
+      }
+    ],
     "configuration": {
       "title": "HttpBook",
       "properties": {
@@ -126,6 +149,7 @@
     "@wso2/http-book-core": "workspace:*",
     "@wso2/api-tryit-hurl-runner": "workspace:*",
     "@wso2/api-tryit-hurl-parser": "workspace:*",
+    "@wso2/api-tryit-core": "workspace:*",
     "vscode-webview-network-bridge": "1.1.1"
   }
 }
