@@ -153,7 +153,20 @@
                 }
             ]
         },
-        "commands": []
+        "commands": [
+            {
+                "command": "ballerina.showVisualizer",
+                "title": "Open View",
+                "category": "BI",
+                "icon": "$(preview)"
+            },
+            {
+                "command": "BI.project-explorer.overview",
+                "title": "Open Project Overview",
+                "category": "BI",
+                "icon": "$(preview)"
+            }
+        ]
     },
     "scripts": {
         "vscode:prepublish": "pnpm run compile",
