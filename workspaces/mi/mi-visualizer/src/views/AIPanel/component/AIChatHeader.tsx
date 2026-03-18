@@ -127,7 +127,7 @@ const AIChatHeader: React.FC = () => {
                   onDeleteSession={deleteSession}
                   onRefresh={refreshSessions}
               />
-              <ModelSettingsMenu isLoading={isLoading} isBedrock={isAwsBedrock} isByok={hasApiKey} />
+              <ModelSettingsMenu isLoading={isLoading} isByok={hasApiKey} />
               <Button appearance="icon" onClick={handleLogout} tooltip="Logout" disabled={isLoading}>
                   <Codicon name="sign-out" />
                   &nbsp;&nbsp;Logout
