@@ -363,6 +363,23 @@ export function createBashExecute(
                     }
                 }, effectiveTimeout);
 
+                // Kill foreground process if main agent is aborted
+                let aborted = false;
+                const onMainAbort = () => {
+                    if (!aborted && proc.pid) {
+                        aborted = true;
+                        clearTimeout(timeoutHandle);
+                        treeKill(proc.pid, 'SIGKILL');
+                    }
+                };
+                if (mainAbortSignal) {
+                    if (mainAbortSignal.aborted) {
+                        onMainAbort();
+                    } else {
+                        mainAbortSignal.addEventListener('abort', onMainAbort, { once: true });
+                    }
+                }
+
                 proc.stdout?.on('data', (data) => {
                     stdout += data.toString();
                 });
@@ -373,6 +390,19 @@ export function createBashExecute(
 
                 proc.on('close', (code) => {
                     clearTimeout(timeoutHandle);
+                    mainAbortSignal?.removeEventListener('abort', onMainAbort);
+
+                    if (aborted) {
+                        resolve({
+                            success: false,
+                            message: `Command was aborted.\n\n**Output before abort:**\n\`\`\`\n${stdout + (stderr ? `\n\nSTDERR:\n${stderr}` : '')}\n\`\`\``,
+                            stdout,
+                            stderr,
+                            exitCode: -1,
+                            error: 'Command aborted'
+                        });
+                        return;
+                    }
 
                     const combinedOutput = stdout + (stderr ? `\n\nSTDERR:\n${stderr}` : '');
 
@@ -407,6 +437,7 @@ export function createBashExecute(
 
                 proc.on('error', (error) => {
                     clearTimeout(timeoutHandle);
+                    mainAbortSignal?.removeEventListener('abort', onMainAbort);
                     resolve({
                         success: false,
                         message: `Failed to execute command: ${error.message}`,

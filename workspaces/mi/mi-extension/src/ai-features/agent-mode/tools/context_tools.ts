@@ -235,8 +235,8 @@ export function createContextExecute(projectPath: string): ContextExecuteFn {
             };
         }
 
-        const runtimeVersion = await getRuntimeVersionFromPom(projectPath);
         if (context.minRuntimeVersion) {
+            const runtimeVersion = await getRuntimeVersionFromPom(projectPath);
             if (!runtimeVersion) {
                 logWarn(
                     `[ContextTool] Context '${context.name}' requires MI runtime ${context.minRuntimeVersion}+ ` +

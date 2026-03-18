@@ -98,8 +98,11 @@ async function loadSubagentMetadata(projectPath: string, sessionId: string, suba
     try {
         const content = await fs.readFile(metadataPath, 'utf8');
         return JSON.parse(content) as SubagentMetadata;
-    } catch {
-        return null;
+    } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+            return null;
+        }
+        throw error;
     }
 }
 

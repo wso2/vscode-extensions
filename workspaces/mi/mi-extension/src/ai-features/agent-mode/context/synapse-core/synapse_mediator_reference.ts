@@ -293,7 +293,7 @@ Sets or removes HTTP transport headers or SOAP headers.
 \`\`\`
 `,
 
-payloadFactory: `## PayloadFactory Mediator — Deep Reference
+'payload-factory': `## PayloadFactory Mediator — Deep Reference
 
 Constructs a new message payload using a template with embedded expressions.
 
@@ -400,7 +400,7 @@ Validates XML payloads against XSD schemas.
 | \`<on-fail>\` | YES | Must contain at least one mediator. Executes when validation fails |
 `,
 
-forEach: `## ForEach Mediator (v2 — Collection-Based)
+'for-each': `## ForEach Mediator (v2 — Collection-Based)
 
 Iterates over a collection (JSON array or XML nodeset) and executes a sequence for each element.
 

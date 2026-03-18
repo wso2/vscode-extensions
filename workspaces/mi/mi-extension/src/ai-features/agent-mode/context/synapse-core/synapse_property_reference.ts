@@ -24,7 +24,7 @@
  * Only includes properties that developers SET or READ via the property mediator.
  * Internal-only constants (timing metrics, thread IDs, connection pool state) are excluded.
  *
- * Section-based exports for granular skill loading.
+ * Section-based exports for granular context loading.
  */
 
 export const SYNAPSE_PROPERTY_REFERENCE_SECTIONS: Record<string, string> = {

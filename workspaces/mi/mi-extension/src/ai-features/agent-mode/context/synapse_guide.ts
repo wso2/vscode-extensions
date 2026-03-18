@@ -115,7 +115,8 @@ export const SYNAPSE_GUIDE = `
     <variable name="userId" expression="\${payload.user.id}" type="INTEGER"/>
     \`\`\`
     
-    - Variables can only include name, type, and value/expression attributes.
+    - Generic variables use only name, type, and value/expression attributes.
+    - **Exception:** Synapse runtime properties (e.g., \`HTTP_SC\`, \`messageType\`, \`REST_URL_POSTFIX\`, \`ERROR_CODE\`) require \`action\` and \`scope\` attributes. See the "Synapse Runtime Properties" section below.
     - Example of an incorrect usage:
     \`\`\`xml
     <variable name="username" value="JohnDoe" type="STRING">

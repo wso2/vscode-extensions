@@ -23,7 +23,7 @@ Synapse Expressions is a powerful, **single-line expression language** designed 
 #### **Syntax & Basic Structure**
 - Synapse Expressions are enclosed within **\`\${}\`**.
 - In attribute-level contexts (e.g., \`expression="..."\`), Synapse Expressions return typed results (int, boolean, JsonObject, etc.). In inline template contexts (e.g., inside \`<message>\` or \`<format>\`), expressions are stringified automatically.
-- When working with XML payloads, use the \`xpath()\` function which returns an XML result.
+- When working with XML payloads, use the \`xpath()\` function which evaluates an XPath expression against the message context. Node selections return XML/node sets, while wrapping with \`string()\`, \`number()\`, or \`boolean()\` returns scalar values (e.g., \`xpath(string(...))\`).
 - Literals are supported in Synapse expressions: 
   - String literals: \`"Hello World"\`
   - Number literals: \`123.4\`
@@ -79,14 +79,14 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
   \${headers["Content-Type"]}
   \`\`\`
 
-- properties: We can access synapse and axis2 properties using Synapse expressions as follows.
+- properties: We can access synapse and axis2 properties using Synapse expressions. \`properties\` and \`props\` are interchangeable aliases:
   \`\`\`xml
   \${properties.synapse.propName}
-  \${props.axis2.propName}
+  \${properties.axis2.propName}
   \`\`\`
     - Example of getting REST method from synapse properties.
     \`\`\`xml
-    \${props.synapse.REST_METHOD}
+    \${properties.synapse.REST_METHOD}
     \`\`\`
 - configs: We can access the configurations defined in the synapse.properties file using Synapse expressions as follows.
   \`\`\`xml

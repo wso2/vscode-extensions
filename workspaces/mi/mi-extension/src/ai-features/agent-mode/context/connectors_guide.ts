@@ -127,7 +127,7 @@ Access patterns:
 ### 6) Error Handling with Connectors
 - On failure (e.g. HTTP 4xx/5xx, connection timeout), check the status code:
 \`\`\`xml
-<filter xpath="\${vars.myResponse.attributes.statusCode != 200}">
+<filter xpath="\${vars.myResponse.attributes.statusCode >= 400}">
   <then>
     <log category="ERROR">
       <message>Call failed with status: \${vars.myResponse.attributes.statusCode}</message>

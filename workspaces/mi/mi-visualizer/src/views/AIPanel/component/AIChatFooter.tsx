@@ -1490,14 +1490,17 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         }).then(() => {
                             removePendingApproval(pendingPlanApproval.approvalId);
                             setRememberShellApprovalForSession(false);
-                        }).catch(console.error);
+                        }).catch((err) => {
+                            console.error(err);
+                            setRememberShellApprovalForSession(false);
+                        });
                     }
                 },
             });
         }
-        options.push({ key: String(prefix.length > 0 ? 3 : 2), label: 'No', action: () => handlePlanApproval(false) });
+        options.push({ key: String(prefix.length > 0 ? 3 : 2), label: 'No', action: () => handlePlanApproval(false, shellDenyFeedback.trim() || undefined) });
         return options;
-    }, [pendingPlanApproval?.approvalId, pendingPlanApproval?.approvalKind, pendingPlanApproval?.suggestedPrefixRule]);
+    }, [pendingPlanApproval?.approvalId, pendingPlanApproval?.approvalKind, pendingPlanApproval?.suggestedPrefixRule, shellDenyFeedback]);
 
     // Handle escape key and number keys for approval dialogs
     useEffect(() => {

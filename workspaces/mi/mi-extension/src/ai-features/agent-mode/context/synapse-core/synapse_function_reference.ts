@@ -422,11 +422,13 @@ summary: `## Function Argument Count Summary
 | now | Yes | — | — | — |
 | length, toUpper, toLower, trim, abs, ceil, floor, sqrt, base64decode, urlDecode | — | Yes | — | — |
 | isString, isNumber, isArray, isObject, string, integer, float, boolean, object, array | — | Yes | — | — |
-| exists, not, registry, xpath, wso2-vault | — | Yes | Yes | — |
+| exists, not, wso2-vault | — | Yes | — | — |
+| registry, xpath | — | Yes | Yes | — |
 | round, log, base64encode, urlEncode | — | Yes | Yes | — |
-| startsWith, endsWith, contains, split, pow, indexOf, charAt, formatDateTime | — | — | Yes | — |
-| hashicorp-vault | — | — | Yes | Yes |
-| subString, replace, indexOf, formatDateTime | — | — | Yes | Yes |`,
+| startsWith, endsWith, contains, split, pow, charAt | — | — | Yes | — |
+| replace | — | — | — | Yes |
+| subString, indexOf, formatDateTime | — | — | Yes | Yes |
+| hashicorp-vault | — | — | Yes | Yes |`,
 
 };
 

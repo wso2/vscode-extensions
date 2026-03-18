@@ -121,7 +121,8 @@ Use SYNAPSE_EXPRESSIONS_DOCS as the source of truth for syntax and constraints.
 </foreach>
 \`\`\`
 - During iteration, \`\${payload}\` refers to the current array element, not the original payload.
-- Sequences inside forEach cannot contain call, send, or callout mediators.
+- **Legacy forEach (expression="..."):** Sequences inside forEach cannot contain call, send, or callout mediators.
+- **Collection-based forEach (collection="...", MI 4.6.0+):** call, send, and callout mediators ARE allowed inside the sequence.
 
 ### Error handling with fault sequence:
 \`\`\`xml
