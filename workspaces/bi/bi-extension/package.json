@@ -156,13 +156,13 @@
         "commands": [
             {
                 "command": "ballerina.showVisualizer",
-                "title": "Open View",
+                "title": "Open Overview",
                 "category": "BI",
                 "icon": "$(preview)"
             },
             {
                 "command": "BI.project-explorer.overview",
-                "title": "Open Project Overview",
+                "title": "Open Overview",
                 "category": "BI",
                 "icon": "$(preview)"
             }
