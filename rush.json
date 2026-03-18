@@ -632,16 +632,12 @@
       "projectFolder": "workspaces/api-tryit/api-tryit-core"
     },
     {
-      "packageName": "@wso2/http-book-core",
-      "projectFolder": "workspaces/httpBook/http-book-core"
+      "packageName": "@wso2/hurl-client-core",
+      "projectFolder": "workspaces/hurl-client/hurl-client-core"
     },
     {
-      "packageName": "@wso2/http-book-visualizer",
-      "projectFolder": "workspaces/httpBook/http-book-visualizer"
-    },
-    {
-      "packageName": "http-book",
-      "projectFolder": "workspaces/httpBook/http-book-extension"
+      "packageName": "hurl-client",
+      "projectFolder": "workspaces/hurl-client/hurl-client-extension"
     }
   ]
 }

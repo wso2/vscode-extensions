@@ -3438,7 +3438,7 @@ importers:
         specifier: 6.0.7
         version: 6.0.7(@types/node@22.15.24)(jiti@2.6.1)(sass@1.89.0)(terser@5.46.0)(yaml@2.8.0)
 
-  ../../workspaces/httpBook/http-book-core:
+  ../../workspaces/hurl-client/hurl-client-core:
     dependencies:
       '@wso2/api-tryit-hurl-runner':
         specifier: workspace:*
@@ -3448,7 +3448,7 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
 
-  ../../workspaces/httpBook/http-book-extension:
+  ../../workspaces/hurl-client/hurl-client-extension:
     dependencies:
       '@wso2/api-tryit-hurl-parser':
         specifier: workspace:*
@@ -3456,12 +3456,9 @@ importers:
       '@wso2/api-tryit-hurl-runner':
         specifier: workspace:*
         version: link:../../api-tryit/hurl-runner
-      '@wso2/http-book-core':
+      '@wso2/hurl-client-core':
         specifier: workspace:*
-        version: link:../http-book-core
-      vscode-webview-network-bridge:
-        specifier: 1.1.1
-        version: 1.1.1
+        version: link:../hurl-client-core
     devDependencies:
       '@types/node':
         specifier: 20.x
@@ -3478,9 +3475,6 @@ importers:
       '@vscode/vsce':
         specifier: 3.7.0
         version: 3.7.0
-      '@wso2/http-book-visualizer':
-        specifier: workspace:*
-        version: link:../http-book-visualizer
       copyfiles:
         specifier: 2.4.1
         version: 2.4.1
@@ -3502,76 +3496,6 @@ importers:
       webpack-cli:
         specifier: 6.0.1
         version: 6.0.1(webpack@5.104.1)
-
-  ../../workspaces/httpBook/http-book-visualizer:
-    dependencies:
-      '@emotion/css':
-        specifier: 11.13.5
-        version: 11.13.5
-      '@emotion/react':
-        specifier: 11.14.0
-        version: 11.14.0(@types/react@18.2.0)(react@18.2.0)
-      '@emotion/styled':
-        specifier: 11.14.0
-        version: 11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0)
-      '@types/vscode-webview':
-        specifier: 1.57.5
-        version: 1.57.5
-      '@wso2/http-book-core':
-        specifier: workspace:*
-        version: link:../http-book-core
-      '@wso2/ui-toolkit':
-        specifier: workspace:*
-        version: link:../../common-libs/ui-toolkit
-      process:
-        specifier: 0.11.10
-        version: 0.11.10
-      react:
-        specifier: 18.2.0
-        version: 18.2.0
-      react-dom:
-        specifier: 18.2.0
-        version: 18.2.0(react@18.2.0)
-      vscode-webview-network-bridge:
-        specifier: 1.1.1
-        version: 1.1.1
-    devDependencies:
-      '@types/react':
-        specifier: 18.2.0
-        version: 18.2.0
-      '@types/react-dom':
-        specifier: 18.2.0
-        version: 18.2.0
-      copyfiles:
-        specifier: 2.4.1
-        version: 2.4.1
-      css-loader:
-        specifier: 7.1.2
-        version: 7.1.2(webpack@5.104.1)
-      html-webpack-plugin:
-        specifier: 5.6.3
-        version: 5.6.3(webpack@5.104.1)
-      source-map-loader:
-        specifier: 5.0.0
-        version: 5.0.0(webpack@5.104.1)
-      style-loader:
-        specifier: 4.0.0
-        version: 4.0.0(webpack@5.104.1)
-      ts-loader:
-        specifier: 9.5.1
-        version: 9.5.1(typescript@5.8.3)(webpack@5.104.1)
-      typescript:
-        specifier: 5.8.3
-        version: 5.8.3
-      webpack:
-        specifier: 5.104.1
-        version: 5.104.1(webpack-cli@6.0.1)
-      webpack-cli:
-        specifier: 6.0.1
-        version: 6.0.1(webpack-dev-server@5.2.3)(webpack@5.104.1)
-      webpack-dev-server:
-        specifier: 5.2.3
-        version: 5.2.3(webpack-cli@6.0.1)(webpack@5.104.1)
 
   ../../workspaces/mcp-inspector/mcp-inspector-extension:
     dependencies:
@@ -25306,10 +25230,6 @@ packages:
   vscode-uri@3.1.0:
     resolution: {integrity: sha512-/BpdSx+yCQGnCvecbyXdxHDkuk55/G3xwnC0GqY4gmQ3j+A+g8kzzgB4Nk/SINjqn6+waqw3EgbVF2QKExkRxQ==}
 
-  vscode-webview-network-bridge@1.1.1:
-    resolution: {integrity: sha512-x33vsdBizABFsCcJU8sdSrLhrAJJY15A9uNk48qOmQjmuUA924KpIgzW5OGfEf+vjpbjHEiG5fiJyf7kJIYsJA==}
-    engines: {node: '>=18'}
-
   vscode-ws-jsonrpc@3.4.0:
     resolution: {integrity: sha512-jkNZvX0LdHt4skPxMw/jFePr3jRCJU6ZmO28oPoQ7RwNSkwU3uN8mgtxACYEbOY68bYmi/b/uJzhxewKCz1P4w==}
     engines: {node: '>=18.19.0', npm: '>=10.2.3'}
@@ -30329,7 +30249,10 @@ snapshots:
       jest-runner: 25.5.4
       jest-runtime: 25.5.4
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   '@jest/test-sequencer@29.7.0':
     dependencies:
@@ -47214,7 +47137,7 @@ snapshots:
 
   fork-ts-checker-webpack-plugin@4.1.6:
     dependencies:
-      '@babel/code-frame': 7.10.4
+      '@babel/code-frame': 7.29.0
       chalk: 2.4.2
       micromatch: 4.0.8
       minimatch: 3.1.4
@@ -48527,7 +48450,7 @@ snapshots:
       pretty-error: 4.0.0
       tapable: 2.3.0
     optionalDependencies:
-      webpack: 5.104.1(webpack-cli@6.0.1)
+      webpack: 5.104.1(@swc/core@1.15.18(@swc/helpers@0.5.19))(webpack-cli@6.0.1)
 
   htmlparser2@10.1.0:
     dependencies:
@@ -50247,10 +50170,7 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:
@@ -59959,13 +59879,6 @@ snapshots:
   vscode-uri@3.0.8: {}
 
   vscode-uri@3.1.0: {}
-
-  vscode-webview-network-bridge@1.1.1:
-    dependencies:
-      ws: 8.19.0
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
   vscode-ws-jsonrpc@3.4.0:
     dependencies:

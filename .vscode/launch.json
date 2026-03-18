@@ -324,15 +324,15 @@
             "preLaunchTask": "npm: watch-apk"
         },
         {
-            "name": "HttpBook Extension",
+            "name": "HTTP Client Extension",
             "type": "extensionHost",
             "request": "launch",
             "debugWebviews": true,
             "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/httpBook/http-book-extension"
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/hurl-client/hurl-client-extension"
             ],
             "outFiles": [
-                "${workspaceFolder}/workspaces/httpBook/http-book-extension/dist/**/*.js"
+                "${workspaceFolder}/workspaces/hurl-client/hurl-client-extension/dist/**/*.js"
             ],
             "skipFiles": [
                 "**/node_modules/**"

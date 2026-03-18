@@ -1,8 +1,8 @@
 {
-  "name": "http-book",
-  "displayName": "HttpBook",
+  "name": "hurl-client",
+  "displayName": "HTTP Client",
   "description": "Open and run .hurl files as interactive notebooks",
-  "version": "1.0.0",
+  "version": "1.9.0",
   "publisher": "wso2",
   "repository": {
     "type": "git",
@@ -126,13 +126,11 @@
     "ts-loader": "9.5.1",
     "webpack": "5.104.1",
     "webpack-cli": "6.0.1",
-    "copyfiles": "2.4.1",
-    "@wso2/http-book-visualizer": "workspace:*"
+    "copyfiles": "2.4.1"
   },
   "dependencies": {
-    "@wso2/http-book-core": "workspace:*",
+    "@wso2/hurl-client-core": "workspace:*",
     "@wso2/api-tryit-hurl-runner": "workspace:*",
-    "@wso2/api-tryit-hurl-parser": "workspace:*",
-    "vscode-webview-network-bridge": "1.1.1"
+    "@wso2/api-tryit-hurl-parser": "workspace:*"
   }
 }
