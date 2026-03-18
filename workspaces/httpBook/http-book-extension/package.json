@@ -19,11 +19,15 @@
     "onNotebook:http-book",
     "onCommand:http-book.importHurlString"
   ],
-  "extensionDependencies": [
-    "JacobPfeifer.pfeifer-hurl"
-  ],
   "main": "./dist/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "hurl",
+        "extensions": [".hurl"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
     "grammars": [
       {
         "language": "hurl",
