@@ -129,13 +129,32 @@ export function activate(context: vscode.ExtensionContext): void {
                     await fs.writeFile(savePath, resolvedHurlText, 'utf8');
                     doc = await vscode.workspace.openNotebookDocument(vscode.Uri.file(savePath));
                 } else if (savable) {
-                    // Untitled notebook via `untitled:TryIt.hurl` URI — VS Code treats this as an
-                    // untitled document so Cmd+S shows a Save As dialog and closing with unsaved
-                    // changes prompts the user.  The serializer detects empty bytes (untitled) and
-                    // consumes the queued content instead.
-                    enqueuePendingUntitledContent(resolvedHurlText);
                     const untitledUri = vscode.Uri.parse('untitled:TryIt.hurl');
-                    doc = await vscode.workspace.openNotebookDocument(untitledUri);
+                    const existingUntitledDoc = vscode.workspace.notebookDocuments.find(notebookDoc =>
+                        notebookDoc.uri.toString() === untitledUri.toString()
+                    );
+
+                    if (existingUntitledDoc) {
+                        // Reuse the existing untitled notebook and replace all cells so repeated
+                        // imports reflect the latest content instead of leaving stale cells.
+                        const replaceEdit = new vscode.WorkspaceEdit();
+                        replaceEdit.set(existingUntitledDoc.uri, [
+                            vscode.NotebookEdit.replaceCells(
+                                new vscode.NotebookRange(0, existingUntitledDoc.getCells().length),
+                                notebookData.cells
+                            )
+                        ]);
+                        await vscode.workspace.applyEdit(replaceEdit);
+                        doc = existingUntitledDoc;
+                    } else {
+                        // Untitled notebook via `untitled:TryIt.hurl` URI — VS Code treats this as an
+                        // untitled document so Cmd+S shows a Save As dialog and closing with unsaved
+                        // changes prompts the user.  The serializer detects empty bytes (untitled) and
+                        // consumes the queued content instead.
+                        enqueuePendingUntitledContent(resolvedHurlText);
+                        doc = await vscode.workspace.openNotebookDocument(untitledUri);
+                    }
+
                     // Mark the notebook dirty immediately so VS Code prompts to save on close even
                     // if the user makes no edits.  Notebook metadata is not written by serializeNotebook
                     // so this has no effect on the saved .hurl file content.
