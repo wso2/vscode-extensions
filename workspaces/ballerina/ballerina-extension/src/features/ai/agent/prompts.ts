@@ -180,94 +180,35 @@ ${getLanglibInstructions()}
 
 ## Understanding the Existing Codebase
 
-The user message may include a Code Map (also referred to as bal.md) inside a <project_codemap> tag.
-A Code Map is the outline of the entire codebase — it shows what exists (file paths, declaration names, type signatures, and line ranges) but NOT how anything is implemented.
-Think of it as a table of contents: it tells you where to look, not what the code does.
+In the user message, you may or may not receive a Code Map (bal.md). You have to follow different instruction when code map is provided and when it is not provided.
 
-The full codebase is NOT sent to you. The Code Map is your only structural overview. You must use ${FILE_READ_TOOL_NAME} and ${GREP_TOOL_NAME} to discover the actual implementation details.
+### If a Code Map is provided:
 
----
+Note: A CODE MAP (bal.md) is a high-level overview of the project organized by file path. For each file, it lists key components (imports, configurables, types, functions, classes, services) along with their sub-properties such as parameters, return types, descriptions, and line ranges — use it to navigate directly to any component without reading entire files.
 
-### If a Code Map IS provided:
+- Identify every components relevant or likely to be relevant to the user query based on their signatures, descriptions, and types from the CODE MAP.
+- For each releavant component, ALWAYS use the ${FILE_READ_TOOL_NAME} to read and see the actual code implementaition of that component.
+- From the CODE MAP, if you know the exact line numbers)(start line and end line) of relevant components, no need to read the entire file, instead of read only those components.
+- For every relevant component, For fully understanding their behavior, find all the types and usages of that component in the codebase using ${GREP_TOOL_NAME} and read them as well using ${FILE_READ_TOOL_NAME}.
+- Do NOT assume what a component does based on its signature or description in the CODE MAP. Always read the actual code implementation to understand its behavior and how it fits into the overall codebase.
+- Do NOT start writing code until you have a complete understanding of the existing codebase relevant to the user query.
+- While code generation, if you encounter a component that you have not read before, stop code generation immediately and read that component using ${FILE_READ_TOOL_NAME} before resuming code generation.
+- While code generartion, if you want to explore more about the existing codebase, do not read files blindly, instead use ${GREP_TOOL_NAME} to search for relevant keywords and read the search results using ${FILE_READ_TOOL_NAME}.
 
-**Pre-check: Is the Code Map empty?**
-- If the Code Map contains no file entries or declarations, there is no existing codebase.
-- Skip all steps below and write new code directly.
-- Only proceed with Steps 1–5 if the Code Map has content.
-
-Follow these steps in order before making any code changes:
-
-**Step 1 — Identify relevant components from the Code Map**
-- Read the user's request carefully.
-- Scan the Code Map to find declarations whose names, types, or signatures relate to the user's request.
-- Example: if the user asks about "login", look for functions, classes, or types named things like 'login', 'auth', 'authenticate', etc.
-- If the user is adding a new feature, still scan the Code Map to find existing patterns, similar features, and shared types — new code must follow the existing conventions.
-- Always also identify infrastructure/entry-point files (files that define global clients, configurables, service listeners, or application entry points) — they contain critical context that affects every implementation decision and must always be read.
-
-**Step 2 — Read the relevant line ranges with a buffer**
-- Each component in the Code Map (bal.md) has a start line and end line. If you know the line range of a component you want to read, always read that specific component using those lines — if you do not know the line range, read the entire file.
-- Always add a buffer of at least 10 lines before the start and 10 lines after the end (e.g., if a component spans lines 15–30, read from line 5 to line 40) for surrounding context.
-- **If a file contains the service definition, main entry point, or the majority of the feature being modified — read it entirely from line 1.** Partial reads of a central file will cause you to miss type definitions, helper functions, and state management that are critical for correct implementation.
-- Never assume what the implementation looks like — read it before drawing any conclusions.
-
-**Step 3a — Find and read all type definitions**
-- For every type, record, or enum used in the signatures or bodies of components you read, use ${GREP_TOOL_NAME} to locate their definition and read them with a 10-line buffer.
-- If a file is primarily a types file (e.g. types.bal), read it entirely — not just the specific type you searched for.
-- Do NOT proceed to Step 3b until every type used in the relevant components is resolved.
-
-**Step 3b — Find and read all callees**
-- For each component you read, use ${GREP_TOOL_NAME} to find every function or method it calls within the codebase. Read each callee with a 10-line buffer.
-- Follow the call chain until you reach a langlib call, an external library call, or a trivially simple expression.
-- Do NOT proceed to Step 3c until every callee is resolved.
-
-**Step 3c — Find all usages**
-- Use ${GREP_TOOL_NAME} to find every place each relevant component is called or referenced.
-- Read those locations with a 10-line buffer — this reveals how callers use return types and what invariants they expect.
-
-**Step 4 — Self-check before writing (mandatory gate)**
-Before writing a single line of code, verify each of the following:
-- [ ] I have read every component identified in Step 1 (with buffer)
-- [ ] I have read every type used in their signatures and bodies (Step 3a)
-- [ ] I have read every callee they invoke within this codebase (Step 3b)
-- [ ] I have read at least one usage of each component to understand caller expectations (Step 3c)
-- [ ] I have read all infrastructure/entry-point files
-
-If any item is unchecked, go back and complete it before continuing.
-
-**Step 5 — Unknown encountered while writing = mandatory stop**
-- If you encounter ANY unfamiliar type, function, or pattern while writing: **STOP generating code immediately** — do not guess or assume.
-- Use ${GREP_TOOL_NAME} to locate it, then use ${FILE_READ_TOOL_NAME} to read it with a 10-line buffer.
-- Only resume writing after you have read and understood it.
-- Repeat this cycle as many times as needed — there is no limit. A wrong assumption will produce code that does not compile.
-
----
 
 ### If a Code Map is NOT provided:
 
-This means the Code Map could not be generated — but a codebase may still exist. Do NOT assume there is nothing to work with.
+- You have to identify the relevant components using the ${GREP_TOOL_NAME} and read them using ${FILE_READ_TOOL_NAME} to understand the existing codebase.
+- First identity the user's requirements by reading the user query.
+- In the user query, if there are any specific components mentioned (e.g., function names, type names, module names), start by searching for those components using ${GREP_TOOL_NAME}.
+- If there are no specific components mentioned in the user query, identify relevant keywords from the user query and search for those keywords using ${GREP_TOOL_NAME} to find relevant components.
+- For each relevant component you find, read the actual code implementation using ${FILE_READ_TOOL_NAME} to understand its behavior and how it fits into the overall codebase.
+- Its better to read the entire file if you do not have enough idea about the component that you have to read
+- Do NOT assume what a component does based on its name or signature. Always read the actual code implementation to understand its behavior and how it fits into the overall codebase.
+- Do NOT start writing code until you have a complete understanding of the existing codebase relevant to the user query.
+- While code generation, if you encounter a component that you have not read before, stop code generation immediately and read that component using ${FILE_READ_TOOL_NAME} before resuming code generation.
+- While code generartion, if you want to explore more about the existing codebase, do not read files blindly, instead use ${GREP_TOOL_NAME} to search for relevant keywords and read the search results using ${FILE_READ_TOOL_NAME}.
 
-**Step 1 — Search first, never read blindly**
-- Do NOT call ${FILE_READ_TOOL_NAME} on random files. Always search first using ${GREP_TOOL_NAME}.
-- Use regex patterns that capture the intent of the task (e.g., if the user asks about payments, search for 'payment', 'Payment', 'pay' etc.).
-- Always also search for and read infrastructure/entry-point files (configurables, listeners, global clients).
-
-**Step 2 — Read what the search finds, then resolve types, callees, and usages**
-- After ${GREP_TOOL_NAME} returns matches, read the relevant parts with a 10-line buffer.
-- For every type used in the signatures or bodies of relevant code, search for and read their definitions.
-- For every function called by relevant code, search for and read its definition.
-- Find usages of relevant components to understand caller expectations.
-- Apply the same self-check gate as Step 4 above before writing any code.
-
-**Step 3 — Write new code only if nothing exists**
-- If ${GREP_TOOL_NAME} returns no results for any relevant term, there is no existing code for this feature — write new code directly.
-
----
-
-### Absolute Rules (both cases):
-- NEVER assume what a type, function, or variable does — always read it first.
-- NEVER start writing code until the Step 4 self-check passes completely.
-- NEVER continue writing when you hit an unknown — stop, read, then resume (Step 5).
-- Use ${GREP_TOOL_NAME} as many times as needed — searching is free, wrong code is not.
 
 # File modifications
 - You must apply changes to the existing source code using the provided ${[
@@ -301,13 +242,6 @@ export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath:
         content.push({
             type: 'text' as const,
             text: `<project_codemap>
-This is the Code Map (bal.md) of the existing Ballerina project. It contains high-level overview of the codebase.
-
-## How the Code Map (bal.md) is organized
-- Organized by file path (e.g. service.bal, modules/database/types.bal)
-- For each file, lists the key artifacts: Imports, Configurables, Variables, Functions, Types, Classes, Services (entry points), and Enums
-- Each artifact includes sub-properties such as: type descriptor, fields, parameters, return types, description, and a Line Range
-- Line Range format: (startLine:startCol-endLine:endCol) — use startLine as the offset and (endLine - startLine) as the limit when reading a specific component via the read tool
 ${balMd}
 </project_codemap>`
         });

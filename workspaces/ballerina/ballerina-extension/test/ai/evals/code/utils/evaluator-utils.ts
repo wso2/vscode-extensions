@@ -20,17 +20,18 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import path from "path";
 import fs from "fs";
 import { z } from 'zod';
-import { CodeContextRetrievalEvaluation, FileReadCallRecord } from "../types/result-types";
+import { CodeContextRetrievalEvaluation, FileReadCallRecord, LLMEvaluationResult } from "../types/result-types";
 
-export interface LLMEvaluationResult {
-    is_correct: boolean;
-    reasoning: string;
-    rating: number;
-}
+export type { LLMEvaluationResult };
 
 const anthropic = createAnthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 });
+
+function stringifySources(sources: SourceFile[]): string {
+    if (sources.length === 0) return "No files in the project.";
+    return sources.map(file => `--- File: ${file.filePath} ---\n${file.content}`).join("\n\n");
+}
 
 // Define the schema using Zod
 const evaluationSchema = z.object({
@@ -66,11 +67,6 @@ export async function evaluateCodeWithLLM(
     finalSource: SourceFile[]
 ): Promise<LLMEvaluationResult> {
     console.log("🤖 Starting LLM-based semantic evaluation...");
-
-    const stringifySources = (sources: SourceFile[]): string => {
-        if (sources.length === 0) return "No files in the project.";
-        return sources.map(file => `--- File: ${file.filePath} ---\n${file.content}`).join("\n\n");
-    };
 
     const initialCodeString = stringifySources(initialSource);
     const finalCodeString = stringifySources(finalSource);
@@ -159,7 +155,7 @@ Use the submit_evaluation tool to provide your assessment.`;
 // ============================================================================
 
 /**
- * Extracts grep and file_read tool calls from the event stream and pairs
+ * Extracts file_read tool calls from the event stream and pairs
  * each call with its corresponding tool result.
  */
 function extractContextRetrievalCalls(events: readonly ChatNotify[]): {
@@ -196,16 +192,29 @@ const codeContextRetrievalSchema = z.object({
         'True only if the agent retrieved every relevant component needed to fulfill the query. ' +
         'False if even one required component from the existing codebase was definitively missed.'
     ),
-    reasoning: z.string().describe(
-        'Structured report with two sections: ' +
-        '"Retrieved Relevant Context" listing what was retrieved and why it matters, and ' +
-        '"Missing Context" listing what was required but not retrieved. ' +
-        'Write "Missing Context: None" if nothing is missing. No inline code blocks.'
+    covered: z.string().describe(
+        'List of retrieved components and why each is relevant to the query. ' +
+        'Format: "- <file name>\\n  - <component name and line number>\\n  - <one sentence: why relevant>". ' +
+        'Write "None" if nothing relevant was retrieved.'
+    ),
+    missing: z.string().describe(
+        'List of required components that were not retrieved. ' +
+        'Format: "- <file name>\\n  - <component name and line number>\\n  - <one sentence: why required>". ' +
+        'Write "None" if nothing is missing.'
+    ),
+    critical_gaps: z.string().describe(
+        'List of components whose absence blocks a correct implementation. ' +
+        'Format: "- <file name>\\n  - <component name and line number>\\n  - <one sentence: why essential>". ' +
+        'Write "None" if there are no critical gaps. If any entry is listed here, is_relevant must be false.'
+    ),
+    recommendations: z.string().describe(
+        'Optional suggestions to complete the retrieval. ' +
+        'Write "None" if no further retrieval is needed.'
     )
 });
 
 /**
- * Uses an LLM to evaluate whether the grep and file_read tool calls retrieved
+ * Uses an LLM to evaluate whether the file_read tool calls retrieved
  * sufficiently relevant code context for the given user query.
  *
  * @param userQuery The original user request.
@@ -221,45 +230,73 @@ export async function evaluateCodeContextRetrieval(
 
     const { fileReadCalls } = extractContextRetrievalCalls(events);
 
-    const stringifySources = (sources: SourceFile[]): string => {
-        if (sources.length === 0) return "No files in the project.";
-        return sources.map(file => `--- File: ${file.filePath} ---\n${file.content}`).join("\n\n");
-    };
-
     const initialCodeString = stringifySources(initialSource);
 
     if (fileReadCalls.length === 0) {
         console.log("⚠️ No file_read calls found — agent relied solely on CodeMap.");
         return {
             is_relevant: false,
-            reasoning: "The agent made no file_read calls. It relied solely on the CodeMap (high-level structure) without retrieving any implementation details from the existing codebase.",
+            covered: "None",
+            missing: "The agent made no file_read calls. It relied solely on the CodeMap (high-level structure) without retrieving any implementation details from the existing codebase.",
+            critical_gaps: "No implementation details were retrieved at all.",
+            recommendations: "The agent should read the relevant source files before generating code.",
             file_read_calls: []
         };
     }
 
     // Build the file_read section of the prompt
-    const fileReadSection = fileReadCalls.length > 0
-        ? fileReadCalls.map((call, i) => {
-            const contentLine = call.content
-                ? `Content:\n${call.content}`
-                : '(content not captured)';
-            return `File #${i + 1}: ${call.fileName}\n${contentLine}`;
-          }).join('\n\n')
-        : 'No files were read.';
+    const fileReadSection = fileReadCalls.map((call, i) => {
+        const contentLine = call.content
+            ? `Content:\n${call.content}`
+            : '(content not captured)';
+        return `File #${i + 1}: ${call.fileName}\n${contentLine}`;
+    }).join('\n\n');
 
-    const systemPrompt = `You are an expert code snippets auditor. Your task is to find the missing code that missed to be retrieved by the agent.
+    const systemPrompt = `You are an expert code evaluator. Your task is to evaluate and compare a set of code components provided in the user input to determine whether these components are sufficient for a complete and accurate implementation of the user's query against the codebase.
+
 You will be given:
 - A user query (the code modification request)
 - The complete codebase (ground truth)
-- The RETRIEVED CODE COMPONENTS (that were retrieved by the agent)
+- The RETRIEVED CODE COMPONENTS (retrieved by the agent via file reads)
 
-Your role is to:
-1. From the complete codebase, identify every code component (imports, configurables, variables, functions, types, classes, services, and enums) that is needed to implement the user query and note those as REQUIRED CODE COMPONENTS.
-2. Critically compare the REQUIRED CODE COMPONENTS with the RETRIEVED CODE COMPONENTS .
-3. Give the reasoning behind why each missing component was definitively required.
+Steps to follow:
+
+1. **Identify Required Code Components:**
+   Search the complete codebase and identify every code component (imports, configurables, variables, functions, types, classes, services, and enums) that is needed to implement the user query. These are the REQUIRED CODE COMPONENTS.
+
+2. **Compare Against Retrieved Components:**
+   Critically compare the RETRIEVED CODE COMPONENTS with the REQUIRED CODE COMPONENTS identified above.
+
+3. **Analysis and Evaluation:**
+   - **Covered:** Components that were correctly retrieved.
+   - **Missing:** Components that are partially or completely absent from the retrieval.
+   - **Critical Gaps:** Components that are essential for a correct implementation but were not retrieved. If any critical gap exists, set is_relevant to false.
+   - **Recommendations:** Optional notes on what would complete the retrieval.
 
 Note:
-- Be strict in your evaluation. If any relevant component was missing, the retrieval is not relevant.
+- Be strict. A critical gap means the agent cannot correctly implement the query without that component.
+
+Populate the four output fields using exactly this format:
+
+covered:
+- <file name>
+  - <component name and line number>
+  - <one sentence: why this component is relevant>
+
+missing:
+- <file name> (or "None")
+  - <component name and line number>
+  - <one sentence: why this component was required>
+
+critical_gaps:
+- <file name> (or "None")
+  - <component name and line number>
+  - <one sentence: why this is essential and blocks correct implementation>
+
+recommendations:
+- <optional suggestions to complete the retrieval, or "None">
+
+Use the submit_evaluation tool to provide your assessment.
 `
     const userPrompt = `# User Query
 \`\`\`
@@ -273,24 +310,9 @@ ${initialCodeString}
 
 # Context Retrieved by the LLM Agent
 
-## Retrieved context from existing codebase
+RETRIEVED CODE COMPONENTS
 ${fileReadSection}
-
----
-
-For the reasoning field, use exactly this format:
-
-RETRIEVED CODE COMPONENTS:
-- <file name>
-  - <component name and line number>
-  - <one sentence: why this component is relevant>
-
-Missing Context: (Give boolean value here: None if nothing is missing, otherwise list missing components in the same format as above)
-- <file name>
-  - <component name and line number>
-  - <one sentence: why this component was definitively required>
-
-Use the submit_evaluation tool to provide your assessment.`;
+`;
 
     try {
         const result = await generateText({
@@ -318,9 +340,9 @@ Use the submit_evaluation tool to provide your assessment.`;
             throw new Error("Expected submit_evaluation tool call but received none");
         }
 
-        const evaluation = toolCall.input as Omit<CodeContextRetrievalEvaluation, 'file_read_calls'>;
+        const evaluation = codeContextRetrievalSchema.parse(toolCall.input);
 
-        console.log(`✅ Code Context Retrieval Evaluation Complete. Relevant: ${evaluation.is_relevant}. Reason: ${evaluation.reasoning}`);
+        console.log(`✅ Code Context Retrieval Evaluation Complete. Relevant: ${evaluation.is_relevant}. Critical Gaps: ${evaluation.critical_gaps}`);
         return {
             ...evaluation,
             file_read_calls: fileReadCalls
@@ -330,7 +352,10 @@ Use the submit_evaluation tool to provide your assessment.`;
         console.error("Error during code context retrieval evaluation:", error);
         return {
             is_relevant: false,
-            reasoning: `Failed to evaluate due to an error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            covered: "None",
+            missing: "None",
+            critical_gaps: `Failed to evaluate due to an error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            recommendations: "None",
             file_read_calls: fileReadCalls
         };
     }

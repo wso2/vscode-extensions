@@ -1,7 +1,5 @@
 // Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com/) All Rights Reserved.
 
-import { LLMEvaluationResult } from "../utils/evaluator-utils";
-
 // WSO2 LLC. licenses this file to you under the Apache License,
 // Version 2.0 (the "License"); you may not use this file except
 // in compliance with the License.
@@ -15,6 +13,12 @@ import { LLMEvaluationResult } from "../utils/evaluator-utils";
 // KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
+export interface LLMEvaluationResult {
+    is_correct: boolean;
+    reasoning: string;
+    rating: number;
+}
 
 /**
  * Source file representation
@@ -45,7 +49,10 @@ export interface FileReadCallRecord {
 
 export interface CodeContextRetrievalEvaluation {
     readonly is_relevant: boolean;
-    readonly reasoning: string;
+    readonly covered: string;
+    readonly missing: string;
+    readonly critical_gaps: string;
+    readonly recommendations: string;
     readonly file_read_calls: readonly FileReadCallRecord[];
 }
 
