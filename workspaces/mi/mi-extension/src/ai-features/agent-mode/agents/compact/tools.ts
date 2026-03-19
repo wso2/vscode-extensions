@@ -47,7 +47,7 @@ import {
     createGenerateDataMappingTool,
 } from '../../tools/data_mapper_tools';
 import {
-    createBuildProjectTool,
+    createBuildAndDeployTool,
     createServerManagementTool,
 } from '../../tools/runtime_tools';
 import {
@@ -80,7 +80,7 @@ import {
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
-    BUILD_PROJECT_TOOL_NAME,
+    BUILD_AND_DEPLOY_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
     SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
@@ -107,7 +107,7 @@ export {
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
-    BUILD_PROJECT_TOOL_NAME,
+    BUILD_AND_DEPLOY_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
     SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
@@ -174,7 +174,7 @@ export function createCompactAgentTools() {
         [GENERATE_DATA_MAPPING_TOOL_NAME]: createGenerateDataMappingTool(createBlockedExecute()),
 
         // Runtime Tools (2 tools) - execution blocked
-        [BUILD_PROJECT_TOOL_NAME]: createBuildProjectTool(createBlockedExecute()),
+        [BUILD_AND_DEPLOY_TOOL_NAME]: createBuildAndDeployTool(createBlockedExecute()),
         [SERVER_MANAGEMENT_TOOL_NAME]: createServerManagementTool(createBlockedExecute()),
 
         // Plan Mode Tools (4 tools) - execution blocked

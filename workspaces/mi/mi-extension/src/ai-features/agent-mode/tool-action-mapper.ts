@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_PROJECT_TOOL_NAME, CONNECTOR_TOOL_NAME, CONTEXT_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, WEB_SEARCH_TOOL_NAME, WEB_FETCH_TOOL_NAME } from './tools/types';
+import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_AND_DEPLOY_TOOL_NAME, CONNECTOR_TOOL_NAME, CONTEXT_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, WEB_SEARCH_TOOL_NAME, WEB_FETCH_TOOL_NAME } from './tools/types';
 /**
  * Tool action states for UI display
  */
@@ -118,8 +118,16 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
         case GENERATE_DATA_MAPPING_TOOL_NAME:
             return { loading: 'generating mappings', completed: 'generated mappings', failed: 'failed to generate mappings' };
 
-        case BUILD_PROJECT_TOOL_NAME:
+        case BUILD_AND_DEPLOY_TOOL_NAME: {
+            const mode = toolInput?.mode;
+            if (mode === 'deploy') {
+                return { loading: 'deploying to server', completed: 'deployed to server', failed: 'deploy failed' };
+            }
+            if (mode === 'build_and_deploy') {
+                return { loading: 'building and deploying', completed: 'built and deployed', failed: 'build and deploy failed' };
+            }
             return { loading: 'building project', completed: 'built project', failed: 'build failed' };
+        }
 
         case SERVER_MANAGEMENT_TOOL_NAME:
             // Extract action from tool input for dynamic messages

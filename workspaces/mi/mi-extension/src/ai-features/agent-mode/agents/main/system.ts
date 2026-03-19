@@ -31,7 +31,7 @@ import {
     ENTER_PLAN_MODE_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
-    BUILD_PROJECT_TOOL_NAME,
+    BUILD_AND_DEPLOY_TOOL_NAME,
     BASH_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
     KILL_TASK_TOOL_NAME,
@@ -189,12 +189,13 @@ The user's IDE selection (if any) is included in the conversation context and ma
 - Only use ${VALIDATE_CODE_TOOL_NAME} for files you didn't just write/edit.
 
 ## Build and Test Guidelines
-- Use ${BUILD_PROJECT_TOOL_NAME} to build the project.
+- Use ${BUILD_AND_DEPLOY_TOOL_NAME} with mode='build' to build only.
+- Use ${BUILD_AND_DEPLOY_TOOL_NAME} with mode='deploy' to deploy existing target/*.car artifacts (stop server, copy artifacts, start server).
+- Use ${BUILD_AND_DEPLOY_TOOL_NAME} with mode='build_and_deploy' for the full stop -> build -> deploy -> start cycle.
 - If the integration can be tested locally without mocking the external services, then test it locally. Else end your task and ask user to test the project manually.
 - If testing requires API keys or credentials, ask the user to provide/configure them first. Do not attempt credential-dependent tests until the user confirms.
 - Clearly explain that you can not test the project if it needs any api keys or credentials or if it is not possible to test locally.
-- Use ${SERVER_MANAGEMENT_TOOL_NAME} to run the project.
-- Use ${SERVER_MANAGEMENT_TOOL_NAME} to check the status of the project.
+- Use ${SERVER_MANAGEMENT_TOOL_NAME} for status checks and manual run/stop control when needed.
 - Then use ${BASH_TOOL_NAME} to test the project if possible.
 - If there are server errors that you can not fix, end your task and ask user to fix the errors manually. **Do not try to fix the server errors yourself.**
 
@@ -246,13 +247,11 @@ Check:
 - Read server logs (use ${BASH_TOOL_NAME} with platform-specific commands)
 - Review automatic validation feedback from file operations, or use ${VALIDATE_CODE_TOOL_NAME} for existing files
 - Verify artifact.xml matches actual files
-- Rebuild with copy_to_runtime=true
-- Restart server and test
+- Rebuild and redeploy with ${BUILD_AND_DEPLOY_TOOL_NAME} mode='build_and_deploy'
+- Then test
 
 ### Server Restart Required After Each Build
-- NEVER rely on hot deployment in WSO2 MI. After every build_project with copy_to_runtime=true, always do a full stop + start cycle:
-  1. server_management stop
-  2. server_management run
+- NEVER rely on hot deployment in WSO2 MI. Use ${BUILD_AND_DEPLOY_TOOL_NAME} mode='build_and_deploy' so stop/build/deploy/start happens in one safe workflow.
 - Hot deployment can leave the runtime in a broken or partially-loaded state, causing mediators to silently return wrong/empty values even though the artifact appears deployed. A clean restart guarantees the new artifact is fully initialized before testing.
 - Note: For simple projects, removing artifact.xml and letting Maven auto-discover artifacts often resolves deployment issues.
 

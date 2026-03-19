@@ -46,7 +46,7 @@ import {
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
-    BUILD_PROJECT_TOOL_NAME,
+    BUILD_AND_DEPLOY_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
     BASH_TOOL_NAME,
@@ -663,9 +663,9 @@ export async function executeAgent(
                         displayInput = {
                             dm_config_path: toolInput?.dm_config_path,
                         };
-                    } else if (part.toolName === BUILD_PROJECT_TOOL_NAME) {
+                    } else if (part.toolName === BUILD_AND_DEPLOY_TOOL_NAME) {
                         displayInput = {
-                            copy_to_runtime: toolInput?.copy_to_runtime,
+                            mode: toolInput?.mode,
                         };
                     } else if (part.toolName === SERVER_MANAGEMENT_TOOL_NAME) {
                         displayInput = {

@@ -113,7 +113,7 @@ export const MANAGE_CONNECTOR_TOOL_NAME = 'add_or_remove_connector';
 export const VALIDATE_CODE_TOOL_NAME = 'validate_code';
 export const CREATE_DATA_MAPPER_TOOL_NAME = 'create_data_mapper';
 export const GENERATE_DATA_MAPPING_TOOL_NAME = 'generate_data_mapping';
-export const BUILD_PROJECT_TOOL_NAME = 'build_project';
+export const BUILD_AND_DEPLOY_TOOL_NAME = 'build_and_deploy';
 export const SERVER_MANAGEMENT_TOOL_NAME = 'server_management';
 
 // Plan Mode Tool Names
@@ -263,8 +263,8 @@ export type GenerateDataMappingExecuteFn = (args: {
 // Runtime Tool Execute Function Types
 // ============================================================================
 
-export type BuildProjectExecuteFn = (args: {
-    copy_to_runtime?: boolean;
+export type BuildAndDeployExecuteFn = (args: {
+    mode: 'build' | 'deploy' | 'build_and_deploy';
 }) => Promise<ToolResult>;
 
 export type ServerManagementExecuteFn = (args: {

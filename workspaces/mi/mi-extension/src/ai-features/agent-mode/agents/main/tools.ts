@@ -51,8 +51,8 @@ import {
     createGenerateDataMappingExecute,
 } from '../../tools/data_mapper_tools';
 import {
-    createBuildProjectTool,
-    createBuildProjectExecute,
+    createBuildAndDeployTool,
+    createBuildAndDeployExecute,
     createServerManagementTool,
     createServerManagementExecute,
 } from '../../tools/runtime_tools';
@@ -103,7 +103,7 @@ import {
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
-    BUILD_PROJECT_TOOL_NAME,
+    BUILD_AND_DEPLOY_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
     SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
@@ -135,7 +135,7 @@ export {
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
-    BUILD_PROJECT_TOOL_NAME,
+    BUILD_AND_DEPLOY_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
     SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
@@ -476,8 +476,11 @@ export function createAgentTools(params: CreateToolsParams) {
         ),
 
         // Runtime Tools (2 tools)
-        [BUILD_PROJECT_TOOL_NAME]: createBuildProjectTool(
-            getWrappedExecute(BUILD_PROJECT_TOOL_NAME, createBuildProjectExecute(projectPath, sessionDir))
+        [BUILD_AND_DEPLOY_TOOL_NAME]: createBuildAndDeployTool(
+            getWrappedExecute(
+                BUILD_AND_DEPLOY_TOOL_NAME,
+                createBuildAndDeployExecute(projectPath, sessionDir, abortSignal)
+            )
         ),
         [SERVER_MANAGEMENT_TOOL_NAME]: createServerManagementTool(
             getWrappedExecute(
