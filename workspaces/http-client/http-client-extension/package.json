@@ -1,6 +1,6 @@
 {
-  "name": "hurl-client",
-  "displayName": "HTTP Client",
+  "name": "http-client",
+  "displayName": "WSO2 Hurl Client",
   "description": "Open and run .hurl files as interactive notebooks",
   "version": "1.9.0",
   "publisher": "wso2",
@@ -110,9 +110,9 @@
     "watch": "webpack --watch",
     "package": "node ../../common-libs/scripts/package-vsix.js",
     "lint": "eslint src --ext ts",
-    "build": "pnpm clean && webpack --mode production --devtool hidden-source-map && pnpm run package",
+    "build": "pnpm clean && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run copyVSIX",
     "copyVSIX": "copyfiles *.vsix ./vsix",
-    "copyVSIXToRoot": "copyfiles -u 0 \"vsix/*.vsix\" ../../../"
+    "copyVSIXToRoot": "copyfiles -f ./vsix/*.vsix ../../.."
   },
   "devDependencies": {
     "@vscode/vsce": "3.7.0",
@@ -129,7 +129,7 @@
     "copyfiles": "2.4.1"
   },
   "dependencies": {
-    "@wso2/hurl-client-core": "workspace:*",
+    "@wso2/http-client-core": "workspace:*",
     "@wso2/api-tryit-hurl-runner": "workspace:*",
     "@wso2/api-tryit-hurl-parser": "workspace:*"
   }

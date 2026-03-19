@@ -253,7 +253,7 @@
       "cd workspaces/apk/apk-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/api-designer/api-designer-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/mcp-inspector/mcp-inspector-extension && pnpm run copyVSIXToRoot",
-      "cd workspaces/httpBook/http-book-extension && pnpm run copyVSIXToRoot"
+      "cd workspaces/http-client/http-client-extension && pnpm run copyVSIXToRoot"
     ]
   },
   /**
@@ -632,12 +632,12 @@
       "projectFolder": "workspaces/api-tryit/api-tryit-core"
     },
     {
-      "packageName": "@wso2/hurl-client-core",
-      "projectFolder": "workspaces/hurl-client/hurl-client-core"
+      "packageName": "@wso2/http-client-core",
+      "projectFolder": "workspaces/http-client/http-client-core"
     },
     {
-      "packageName": "hurl-client",
-      "projectFolder": "workspaces/hurl-client/hurl-client-extension"
+      "packageName": "http-client",
+      "projectFolder": "workspaces/http-client/http-client-extension"
     }
   ]
 }

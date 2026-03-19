@@ -1,5 +1,5 @@
 {
-  "name": "@wso2/hurl-client-core",
+  "name": "@wso2/http-client-core",
   "version": "1.0.0",
   "description": "Shared types for WSO2 HttpBook",
   "main": "src/index.ts",

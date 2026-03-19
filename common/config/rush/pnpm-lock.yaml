@@ -3438,7 +3438,7 @@ importers:
         specifier: 6.0.7
         version: 6.0.7(@types/node@22.15.24)(jiti@2.6.1)(sass@1.89.0)(terser@5.46.0)(yaml@2.8.0)
 
-  ../../workspaces/hurl-client/hurl-client-core:
+  ../../workspaces/http-client/http-client-core:
     dependencies:
       '@wso2/api-tryit-hurl-runner':
         specifier: workspace:*
@@ -3448,7 +3448,7 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
 
-  ../../workspaces/hurl-client/hurl-client-extension:
+  ../../workspaces/http-client/http-client-extension:
     dependencies:
       '@wso2/api-tryit-hurl-parser':
         specifier: workspace:*
@@ -3456,9 +3456,9 @@ importers:
       '@wso2/api-tryit-hurl-runner':
         specifier: workspace:*
         version: link:../../api-tryit/hurl-runner
-      '@wso2/hurl-client-core':
+      '@wso2/http-client-core':
         specifier: workspace:*
-        version: link:../hurl-client-core
+        version: link:../http-client-core
     devDependencies:
       '@types/node':
         specifier: 20.x
@@ -50170,7 +50170,10 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:
