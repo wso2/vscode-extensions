@@ -17,21 +17,13 @@
  */
 
 import * as vscode from 'vscode';
-import { extension } from './biExtentionContext';
-import { StateMachine } from './stateMachine';
 
 export function activate(context: vscode.ExtensionContext) {
-	const ballerinaExt = vscode.extensions.getExtension('wso2.ballerina');
-	if (ballerinaExt) {
-		extension.context = context;
-		extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
-		extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
-		extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
-		extension.isWorkspaceSupported = ballerinaExt.exports.ballerinaExtInstance?.isWorkspaceSupported;
-		StateMachine.initialize();
-		return;
-	}
-	vscode.window.showErrorMessage('Ballerina extension is required to operate WSO2 Integrator: BI extension effectively. Please install it from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=wso2.ballerina).');
+	// Show deprecation warning
+	vscode.window.showWarningMessage('The Ballerina Integration extension is deprecated and will be removed in future releases. Please use the \'WSO2 Integrator\' extension for your development needs.');
+
+	// deactivate the extension immediately after showing the warning
+	deactivate();
 }
 
 export function deactivate() { }
