@@ -253,7 +253,7 @@
       "cd workspaces/apk/apk-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/api-designer/api-designer-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/mcp-inspector/mcp-inspector-extension && pnpm run copyVSIXToRoot",
-      "cd workspaces/http-client/http-client-extension && pnpm run copyVSIXToRoot"
+      "cd workspaces/hurl-client/hurl-client-extension && pnpm run copyVSIXToRoot"
     ]
   },
   /**

@@ -337,7 +337,7 @@
             "skipFiles": [
                 "**/node_modules/**"
             ],
-            "preLaunchTask": "npm: watch-http-book"
+            "preLaunchTask": "npm: watch-hurl-client",
         }
     ]
 }

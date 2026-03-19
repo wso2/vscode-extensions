@@ -37,8 +37,8 @@
     ],
     "notebooks": [
       {
-        "type": "http-book",
-        "displayName": "HttpBook",
+        "type": "http-client",
+        "displayName": "HTTP Client",
         "selector": [
           {
             "filenamePattern": "*.hurl"
@@ -49,54 +49,54 @@
     "commands": [
       {
         "command": "http-book.openHurlNotebook",
-        "title": "HttpBook: Open Hurl Notebook",
+        "title": "HTTP Client: Open Hurl Notebook",
         "icon": "$(notebook)"
       },
       {
         "command": "http-book.installHurl",
-        "title": "HttpBook: Install Hurl",
+        "title": "HTTP Client: Install Hurl",
         "icon": "$(cloud-download)"
       },
       {
         "command": "http-book.importHurlString",
-        "title": "HttpBook: Import Hurl String",
+        "title": "HTTP Client: Import Hurl String",
         "icon": "$(edit)"
       }
     ],
     "menus": {
       "commandPalette": [
         {
-          "command": "http-book.openHurlNotebook"
+          "command": "HTTPClient.openHurlNotebook"
         },
         {
-          "command": "http-book.installHurl"
+          "command": "HTTPClient.installHurl"
         },
         {
-          "command": "http-book.importHurlString"
+          "command": "HTTPClient.importHurlString"
         }
       ],
       "explorer/context": [
         {
-          "command": "http-book.openHurlNotebook",
+          "command": "HTTPClient.openHurlNotebook",
           "when": "resourceExtname == .hurl",
           "group": "navigation"
         }
       ]
     },
     "configuration": {
-      "title": "HttpBook",
+      "title": "HTTP Client",
       "properties": {
-        "http-book.hurl.path": {
+        "http-client.hurl.path": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to the hurl executable. If empty, HttpBook uses managed install or PATH."
+          "description": "Absolute path to the hurl executable. If empty, HTTP Client uses managed install or PATH."
         },
-        "http-book.hurl.autoInstall": {
+        "http-client.hurl.autoInstall": {
           "type": "boolean",
           "default": true,
           "description": "Automatically download and install a managed hurl binary when needed."
         },
-        "http-book.hurl.version": {
+        "http-client.hurl.version": {
           "type": "string",
           "default": "7.1.0",
           "description": "Managed hurl version to install."

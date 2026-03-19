@@ -287,18 +287,17 @@
 			}
 		},
         {
-            "label": "npm: watch-http-book",
+            "label": "npm: watch-hurl-client",
             "dependsOn": [
-                "npm: watch-http-book-extension",
-                "npm: watch-http-book-visualizer"
+                "npm: watch-hurl-client-extension"
             ],
             "dependsOrder": "parallel"
         },
         {
-            "label": "npm: watch-http-book-extension",
+            "label": "npm: watch-hurl-client-extension",
             "type": "npm",
             "script": "watch",
-            "path": "workspaces/httpBook/http-book-extension",
+            "path": "workspaces/hurl-client/hurl-client-extension",
             "problemMatcher": {
                 "owner": "typescript",
                 "source": "ts",
