@@ -60,6 +60,10 @@ import {
     SYNAPSE_SOAP_NAMESPACE_GUIDE_SECTIONS,
 } from '../context/synapse-core/synapse_soap_namespace_guide';
 import {
+    SYNAPSE_REGISTRY_RESOURCE_GUIDE_FULL,
+    SYNAPSE_REGISTRY_RESOURCE_GUIDE_SECTIONS,
+} from '../context/synapse-core/synapse_registry_resource_guide';
+import {
     UNIT_TEST_REFERENCE_FULL,
     UNIT_TEST_REFERENCE_SECTIONS,
 } from '../context/unit-tests/unit_test_reference';
@@ -145,6 +149,13 @@ const CONTEXT_REFERENCES: ContextDefinition[] = [
         description: 'SOAP call and namespace handling guide, including WSDL namespace rules and response extraction patterns.',
         content: SYNAPSE_SOAP_NAMESPACE_GUIDE_FULL,
         sections: SYNAPSE_SOAP_NAMESPACE_GUIDE_SECTIONS,
+    },
+    {
+        name: 'registry-resource-guide',
+        description: 'Registry resource management: artifact.xml format, naming conventions, media types, registry paths (gov:/conf:), access patterns from Synapse configs, resource properties, and common patterns (JSON, XSLT, scripts, WSDL).',
+        content: SYNAPSE_REGISTRY_RESOURCE_GUIDE_FULL,
+        sections: SYNAPSE_REGISTRY_RESOURCE_GUIDE_SECTIONS,
+        aliases: ['registry_resource_guide', 'registry-resources'],
     },
     {
         name: 'unit-test-reference',
