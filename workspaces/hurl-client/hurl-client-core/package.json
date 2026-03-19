@@ -1,7 +1,7 @@
 {
-  "name": "@wso2/http-client-core",
+  "name": "@wso2/hurl-client-core",
   "version": "1.0.0",
-  "description": "Shared types for WSO2 HttpBook",
+  "description": "Shared types for WSO2 Hurl Client",
   "main": "src/index.ts",
   "license": "Apache-2.0",
   "scripts": {

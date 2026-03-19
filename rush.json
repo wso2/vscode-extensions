@@ -632,12 +632,12 @@
       "projectFolder": "workspaces/api-tryit/api-tryit-core"
     },
     {
-      "packageName": "@wso2/http-client-core",
-      "projectFolder": "workspaces/http-client/http-client-core"
+      "packageName": "@wso2/hurl-client-core",
+      "projectFolder": "workspaces/hurl-client/hurl-client-core"
     },
     {
-      "packageName": "http-client",
-      "projectFolder": "workspaces/http-client/http-client-extension"
+      "packageName": "hurl-client",
+      "projectFolder": "workspaces/hurl-client/hurl-client-extension"
     }
   ]
 }
