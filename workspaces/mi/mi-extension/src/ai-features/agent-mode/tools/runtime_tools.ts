@@ -625,6 +625,14 @@ async function stopServer(projectPath: string, serverPath: string): Promise<Tool
     };
 }
 
+function getServerLogHint(serverPath: string): string {
+    const logDir = path.join(serverPath, 'repository', 'logs');
+    if (!fs.existsSync(logDir)) {
+        return '';
+    }
+    return `\nServer log directory: ${logDir} — use file_read or grep to inspect wso2carbon.log for details.`;
+}
+
 async function startServer(
     projectPath: string,
     serverPath: string,
@@ -882,7 +890,7 @@ async function startServer(
                 serverLog('========================================\n');
                 return {
                     success: false,
-                    message: `Server process exited with code ${processExitCode} during startup.\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the startup errors.`,
+                    message: `Server process exited with code ${processExitCode} during startup.\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the startup errors.${getServerLogHint(serverPath)}`,
                     error: `Server process exited with code ${processExitCode}`
                 };
             }
@@ -917,7 +925,7 @@ async function startServer(
         serverLog('========================================\n');
         return {
             success: false,
-            message: `Server startup timed out after ${maxTimeout / 1000} seconds. The server may still be starting or may have encountered deployment issues.\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the issue.`,
+            message: `Server startup timed out after ${maxTimeout / 1000} seconds. The server may still be starting or may have encountered deployment issues.\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the issue.${getServerLogHint(serverPath)}`,
             error: `Server startup timed out after ${maxTimeout / 1000}s`
         };
     } catch (error) {
@@ -935,7 +943,7 @@ async function startServer(
         serverLog('========================================\n');
         return {
             success: false,
-            message: `${timeoutMessage}\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the issue.`,
+            message: `${timeoutMessage}\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the issue.${getServerLogHint(serverPath)}`,
             error: timeoutMessage
         };
     } finally {
@@ -972,9 +980,27 @@ export function createServerManagementExecute(
                             outputInfo = `\nServer output saved to: ${runOutputFile}`;
                         }
                     }
+
+                    // Include server log directory path for debugging
+                    const logDir = path.join(serverPath, 'repository', 'logs');
+                    let logInfo = '';
+                    if (fs.existsSync(logDir)) {
+                        const logFiles = fs.readdirSync(logDir)
+                            .filter(f => f.endsWith('.log'))
+                            .sort((a, b) => {
+                                try {
+                                    return fs.statSync(path.join(logDir, b)).mtimeMs - fs.statSync(path.join(logDir, a)).mtimeMs;
+                                } catch { return 0; }
+                            })
+                            .slice(0, 5);
+                        if (logFiles.length > 0) {
+                            logInfo = `\nServer log directory: ${logDir}\nRecent log files: ${logFiles.join(', ')}`;
+                        }
+                    }
+
                     return {
                         success: true,
-                        message: status.message + outputInfo
+                        message: status.message + outputInfo + logInfo
                     };
                 }
                 case 'run':
