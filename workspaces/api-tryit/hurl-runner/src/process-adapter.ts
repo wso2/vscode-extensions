@@ -46,6 +46,7 @@ export class ChildProcessAdapter implements ProcessAdapter {
 			let cancelled = false;
 			let finished = false;
 			let timeoutHandle: NodeJS.Timeout | undefined;
+			let child: ReturnType<typeof spawn> | undefined;
 
 			const finalize = (result: ProcessExecResult): void => {
 				if (finished) {
@@ -63,6 +64,7 @@ export class ChildProcessAdapter implements ProcessAdapter {
 
 			const onAbort = (): void => {
 				cancelled = true;
+				child?.kill('SIGTERM');
 			};
 
 			if (options.signal?.aborted) {
@@ -76,7 +78,6 @@ export class ChildProcessAdapter implements ProcessAdapter {
 				return;
 			}
 
-			let child;
 			try {
 				child = spawn(command, args, {
 					cwd: options.cwd,
@@ -103,10 +104,7 @@ export class ChildProcessAdapter implements ProcessAdapter {
 			}
 
 			if (options.signal) {
-				options.signal.addEventListener('abort', () => {
-					cancelled = true;
-					child.kill('SIGTERM');
-				});
+				options.signal.addEventListener('abort', onAbort);
 			}
 
 			child.stdout?.on('data', chunk => {

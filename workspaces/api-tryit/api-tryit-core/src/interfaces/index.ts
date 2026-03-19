@@ -90,7 +90,7 @@ export interface HttpResponseResult {
 export interface ApiRequest {
     id: string;
     name: string;
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS' | 'TRACE';
     url: string;
     queryParameters: QueryParameter[];
     headers: HeaderParameter[];

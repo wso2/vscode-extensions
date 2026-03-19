@@ -227,7 +227,13 @@ export class HurlBinaryManager {
 		}
 	}
 
-	private async downloadFile(url: string): Promise<Buffer> {
+	private readonly MAX_REDIRECTS = 10;
+	private readonly DOWNLOAD_TIMEOUT_MS = 60000;
+
+	private async downloadFile(url: string, redirectCount = 0): Promise<Buffer> {
+		if (redirectCount > this.MAX_REDIRECTS) {
+			throw new Error(`Failed to download ${url}: too many redirects`);
+		}
 		return new Promise((resolve, reject) => {
 			const request = https.get(url, response => {
 				if (!response.statusCode) {
@@ -240,7 +246,7 @@ export class HurlBinaryManager {
 				if (redirectStatuses.has(response.statusCode) && response.headers.location) {
 					const redirectedUrl = new URL(response.headers.location, url).toString();
 					response.resume();
-					this.downloadFile(redirectedUrl).then(resolve).catch(reject);
+					this.downloadFile(redirectedUrl, redirectCount + 1).then(resolve).catch(reject);
 					return;
 				}
 
@@ -260,6 +266,9 @@ export class HurlBinaryManager {
 			});
 
 			request.on('error', reject);
+			request.setTimeout(this.DOWNLOAD_TIMEOUT_MS, () => {
+				request.destroy(new Error(`Download timed out after ${this.DOWNLOAD_TIMEOUT_MS / 1000}s: ${url}`));
+			});
 		});
 	}
 
@@ -268,9 +277,10 @@ export class HurlBinaryManager {
 	}
 
 	private async extractZip(archivePath: string, destinationPath: string): Promise<void> {
+		const escapePsPath = (p: string) => p.replace(/'/g, "''");
 		await this.execProcess('powershell.exe', [
 			'-NoProfile', '-NonInteractive', '-Command',
-			`Expand-Archive -LiteralPath '${archivePath}' -DestinationPath '${destinationPath}' -Force`
+			`Expand-Archive -LiteralPath '${escapePsPath(archivePath)}' -DestinationPath '${escapePsPath(destinationPath)}' -Force`
 		]);
 	}
 

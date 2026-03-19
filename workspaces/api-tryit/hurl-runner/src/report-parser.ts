@@ -142,7 +142,10 @@ function normalizeReport(raw: unknown, filePath: string): GenericReport | undefi
 			return path.resolve(report.filename) === targetPath;
 		});
 
-		return normalizeReportObject(matched || reports[0]);
+		if (!matched && reports.length !== 1) {
+			return undefined;
+		}
+		return normalizeReportObject(matched ?? reports[0]);
 	}
 
 	if (!isObject(raw)) {
@@ -162,7 +165,10 @@ function normalizeReport(raw: unknown, filePath: string): GenericReport | undefi
 			return path.resolve(report.filename) === targetPath;
 		});
 
-		return normalizeReportObject(matched || reports[0]);
+		if (!matched && reports.length !== 1) {
+			return undefined;
+		}
+		return normalizeReportObject(matched ?? reports[0]);
 	}
 
 	return normalizeReportObject(raw);
@@ -656,9 +662,18 @@ export async function parseFileResult(context: ParseContext): Promise<HurlFileRe
 		: [];
 
 	if (entries.length === 0 && sourceRequests.length > 0) {
+		const execFailed = context.execResult.cancelled || context.execResult.timedOut || !!context.execResult.error;
+		const execErrorMessage = context.execResult.cancelled ? 'Execution cancelled'
+			: context.execResult.timedOut ? 'Execution timed out'
+			: context.execResult.error;
 		for (const sourceRequest of sourceRequests) {
 			const lineFailure = resolveFailureForRequest(sourceRequest, sourceRequest.startLine, stderrLineFailures);
-			entries.push(toEntry({}, entries.length, sourceRequest, lineFailure));
+			const entry = toEntry({}, entries.length, sourceRequest, lineFailure);
+			if (execFailed && entry.status === 'passed') {
+				entries.push({ ...entry, status: 'error', errorMessage: execErrorMessage });
+			} else {
+				entries.push(entry);
+			}
 			entrySourceRequests.push(sourceRequest);
 		}
 	}

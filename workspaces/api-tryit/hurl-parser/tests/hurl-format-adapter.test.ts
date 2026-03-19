@@ -43,14 +43,14 @@ describe('HurlFormatAdapter serialization order', () => {
 			const contentTypeLine = lines.findIndex(l => l.includes('Content-Type:'));
 			const bodyLine = lines.findIndex(l => l.includes('{"id"'));
 			const httpLine = lines.findIndex(l => /^HTTP\s+200/.test(l));
-			const assetsLine = lines.findIndex(l => /^\[Asserts\]/.test(l));
+			const assertsLine = lines.findIndex(l => /^\[Asserts\]/.test(l));
 			const statusLine = lines.findIndex(l => /^status\s+==\s+200/.test(l));
 
 			expect(contentTypeLine).toBeGreaterThan(-1);
 			expect(bodyLine).toBeGreaterThan(contentTypeLine);
 			expect(httpLine).toBeGreaterThan(bodyLine);
-			expect(assetsLine).toBeGreaterThan(httpLine);
-			expect(statusLine).toBeGreaterThan(assetsLine);
+			expect(assertsLine).toBeGreaterThan(httpLine);
+			expect(statusLine).toBeGreaterThan(assertsLine);
 
 			// Verify HTTP does not appear before body (already checked by httpLine > bodyLine above)
 		});
@@ -134,13 +134,13 @@ describe('HurlFormatAdapter serialization order', () => {
 
 			const lines = result.split('\n');
 			const httpLine = lines.findIndex(l => /^HTTP\s+201/.test(l));
-			const assetsLine = lines.findIndex(l => /^\[Asserts\]/.test(l));
+			const assertsLine = lines.findIndex(l => /^\[Asserts\]/.test(l));
 
 			expect(httpLine).toBeGreaterThan(-1);
-			expect(assetsLine).toBeGreaterThan(httpLine);
+			expect(assertsLine).toBeGreaterThan(httpLine);
 
 			// Verify [Asserts] contains the custom assertions
-			const assertsContent = lines.slice(assetsLine + 1).join('\n');
+			const assertsContent = lines.slice(assertsLine + 1).join('\n');
 			expect(assertsContent).toContain('status == 202');
 			expect(assertsContent).toContain('header "Content-Type"');
 		});

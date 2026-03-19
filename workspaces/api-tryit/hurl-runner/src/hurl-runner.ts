@@ -68,6 +68,7 @@ export class HurlRunnerImpl implements HurlRunner {
 	private readonly makeRunId: () => string;
 	private readonly command: string;
 	private readonly previousRuns = new Map<string, HurlRunResult>();
+	private readonly MAX_PREVIOUS_RUNS = 50;
 
 	constructor(deps: RunnerDependencies = {}) {
 		this.processAdapter = deps.processAdapter || new ChildProcessAdapter();
@@ -134,7 +135,7 @@ export class HurlRunnerImpl implements HurlRunner {
 			});
 			result.diagnostics.warnings.push(message);
 			onEvent({ type: 'runFinished', runId, result });
-			this.previousRuns.set(runId, result);
+			this.recordRun(runId, result);
 			return result;
 		}
 
@@ -171,7 +172,7 @@ export class HurlRunnerImpl implements HurlRunner {
 				forcedStatus: 'cancelled'
 			});
 			onEvent({ type: 'runFinished', runId, result });
-			this.previousRuns.set(runId, result);
+			this.recordRun(runId, result);
 			return result;
 		}
 
@@ -196,7 +197,7 @@ export class HurlRunnerImpl implements HurlRunner {
 					result.diagnostics.warnings.push(envInfo.errorMessage);
 				}
 				onEvent({ type: 'runFinished', runId, result });
-				this.previousRuns.set(runId, result);
+				this.recordRun(runId, result);
 				return result;
 			}
 			hurlVersion = envInfo.version;
@@ -215,7 +216,7 @@ export class HurlRunnerImpl implements HurlRunner {
 				forcedStatus: 'error'
 			});
 			onEvent({ type: 'runFinished', runId, result });
-			this.previousRuns.set(runId, result);
+			this.recordRun(runId, result);
 			return result;
 		}
 
@@ -233,7 +234,7 @@ export class HurlRunnerImpl implements HurlRunner {
 				forcedStatus: 'error'
 			});
 			onEvent({ type: 'runFinished', runId, result });
-			this.previousRuns.set(runId, result);
+			this.recordRun(runId, result);
 			return result;
 		}
 
@@ -294,7 +295,7 @@ export class HurlRunnerImpl implements HurlRunner {
 					context.stopScheduling = true;
 				}
 
-				if (options.signal?.aborted || execution.fileResult.status === 'error' && execution.fileResult.errorMessage === 'Execution cancelled') {
+				if (options.signal?.aborted || (execution.fileResult.status === 'error' && execution.fileResult.errorMessage === 'Execution cancelled')) {
 					context.cancelled = true;
 					context.stopScheduling = true;
 				}
@@ -340,13 +341,21 @@ export class HurlRunnerImpl implements HurlRunner {
 		});
 
 		onEvent({ type: 'runFinished', runId, result });
-		this.previousRuns.set(runId, result);
+		this.recordRun(runId, result);
 
 		if (!options.reportArtifactsDir) {
 			await fs.rm(tempDir, { recursive: true, force: true });
 		}
 
 		return result;
+	}
+
+	private recordRun(runId: string, result: HurlRunResult): void {
+		this.previousRuns.set(runId, result);
+		if (this.previousRuns.size > this.MAX_PREVIOUS_RUNS) {
+			const oldestKey = this.previousRuns.keys().next().value!;
+			this.previousRuns.delete(oldestKey);
+		}
 	}
 
 	private async executeSingleFile(

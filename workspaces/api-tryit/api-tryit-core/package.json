@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Contains models related to API TryIt",
   "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "scripts": {
     "lint": "eslint .",
     "build": "pnpm run lint && tsc --pretty",

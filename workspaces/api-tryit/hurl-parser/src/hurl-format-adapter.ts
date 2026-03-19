@@ -551,7 +551,8 @@ export class HurlFormatAdapter {
 				}
 
 				if (boundary) {
-					const parts = bodyText.split(new RegExp(`--${boundary}(?:--)?\\r?\\n`));
+					const escapedBoundary = boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+					const parts = bodyText.split(new RegExp(`--${escapedBoundary}(?:--)?\\r?\\n`));
 					const parsedParts: FormDataParameter[] = [];
 					for (const rawPart of parts) {
 						if (!rawPart || /^\s*$/.test(rawPart)) continue;

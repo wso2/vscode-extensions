@@ -23,7 +23,12 @@ import { matchesPattern, normalizeForPattern } from './pattern';
 import { HurlDiscoveryResult, HurlRunInput } from './types';
 
 async function collectHurlFiles(directory: string): Promise<string[]> {
-	const entries = await fs.readdir(directory, { withFileTypes: true });
+	let entries;
+	try {
+		entries = await fs.readdir(directory, { withFileTypes: true });
+	} catch (err) {
+		throw new HurlRunnerError('discovery_error', `Failed to read directory: ${directory}: ${err instanceof Error ? err.message : String(err)}`);
+	}
 	const files: string[] = [];
 
 	for (const entry of entries) {

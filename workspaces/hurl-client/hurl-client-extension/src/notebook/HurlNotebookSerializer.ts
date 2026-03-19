@@ -27,11 +27,16 @@ const CELL_LANGUAGE_ID = 'hurl';
  * `openNotebookDocument(untitled:TryIt.hurl)`.  VS Code calls
  * `deserializeNotebook` with empty bytes for untitled URIs, so we intercept
  * that and return pre-built content instead.
+ *
+ * Each entry carries an expiry timestamp to prevent stale content from being
+ * consumed by an unrelated notebook opened after a long delay.
  */
-const pendingUntitledContent: string[] = [];
+const PENDING_TTL_MS = 5000;
+interface PendingEntry { text: string; expiresAt: number; }
+const pendingUntitledContent: PendingEntry[] = [];
 
 export function enqueuePendingUntitledContent(hurlText: string): void {
-    pendingUntitledContent.push(hurlText);
+    pendingUntitledContent.push({ text: hurlText, expiresAt: Date.now() + PENDING_TTL_MS });
 }
 
 /**
@@ -50,8 +55,16 @@ export class HurlNotebookSerializer implements vscode.NotebookSerializer {
         const text = new TextDecoder().decode(content);
         // Untitled notebooks (opened via `untitled:TryIt.hurl`) arrive with empty
         // bytes.  Consume any queued content that was registered before the open call.
+        // Expired entries are discarded to prevent stale content being used for an
+        // unrelated notebook opened after a delay.
         if (!text.trim() && pendingUntitledContent.length > 0) {
-            return hurlTextToNotebookData(pendingUntitledContent.shift()!);
+            const now = Date.now();
+            while (pendingUntitledContent.length > 0 && pendingUntitledContent[0].expiresAt < now) {
+                pendingUntitledContent.shift();
+            }
+            if (pendingUntitledContent.length > 0) {
+                return hurlTextToNotebookData(pendingUntitledContent.shift()!.text);
+            }
         }
         return hurlTextToNotebookData(text);
     }
@@ -130,7 +143,7 @@ export function hurlTextToNotebookData(hurlContent: string): vscode.NotebookData
             // Decode a markdown block
             const mdLines: string[] = [];
             while (i < lines.length && lines[i].startsWith(MD_MARKER)) {
-                mdLines.push(lines[i] === MD_MARKER ? '' : lines[i].slice(MD_PREFIX.length));
+                mdLines.push(lines[i] === MD_MARKER ? '' : lines[i].startsWith(MD_PREFIX) ? lines[i].slice(MD_PREFIX.length) : lines[i].slice(MD_MARKER.length));
                 i++;
             }
             const content = mdLines.join('\n').trim();

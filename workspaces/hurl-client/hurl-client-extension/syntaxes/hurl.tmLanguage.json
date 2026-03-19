@@ -29,7 +29,7 @@
     },
 
     "request-line": {
-      "match": "^([A-Z]+)\\s+(\\S+)",
+      "match": "^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)\\s+(\\S+)$",
       "captures": {
         "1": { "name": "keyword.other.http-method.hurl" },
         "2": { "name": "markup.underline.link.hurl" }

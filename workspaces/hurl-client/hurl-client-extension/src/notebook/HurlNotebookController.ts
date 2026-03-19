@@ -141,7 +141,7 @@ export class HurlNotebookController {
         if (fileResult.entries.length > 0) {
             for (const entry of fileResult.entries) {
                 const entryAssertions = this.assertionsForEntry(entry, fileResult);
-                const md = this.formatEntry(entry, entryAssertions, fileResult.stdout);
+                const md = this.formatEntry(entry, entryAssertions, fileResult.entries.length === 1 ? fileResult.stdout : undefined);
                 outputs.push(
                     new vscode.NotebookCellOutput([
                         vscode.NotebookCellOutputItem.text(md, 'text/markdown')
