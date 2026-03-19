@@ -16,162 +16,130 @@
  * under the License.
  */
 
+/**
+ * Mediator Expression Examples — Correct XML Patterns
+ *
+ * These examples exist because models consistently hallucinate wrong
+ * attribute names for mediators (e.g., expression= instead of xpath=
+ * for filter, expression= instead of source= for switch). These are
+ * the authoritative correct patterns.
+ */
 export const SYNAPSE_EXPRESSION_EXAMPLES = `
-These are concise usage samples that complement SYNAPSE_EXPRESSIONS_DOCS.
-Use SYNAPSE_EXPRESSIONS_DOCS as the source of truth for syntax and constraints.
+### Correct Mediator Attribute Names for Synapse Expressions
+These are the EXACT attribute names — do not substitute.
 
-### Example filter mediator configuration:
+#### log mediator — uses \`<message>\` (NOT \`<property>\` children)
 \`\`\`xml
-<!-- filter xpath must evaluate to a boolean -->
-<filter xpath="\${payload.store.book[0].price &lt; 10}">
+<log category="INFO">
+    <message>Order \${payload.orderId} from \${vars.customerName}</message>
+</log>
+\`\`\`
+
+#### filter mediator — uses \`xpath=\` attribute (must evaluate to boolean)
+\`\`\`xml
+<filter xpath="\${payload.price &lt; 10 and payload.stock &gt; 0}">
     <then>
-        <log category="INFO">
-            <message>Book price is less than 10</message>
-        </log>
+        <log category="INFO"><message>In stock and affordable</message></log>
     </then>
     <else>
-        <log category="INFO">
-            <message>Book price is greater than or equal to 10</message>
-        </log>
+        <log category="INFO"><message>Not eligible</message></log>
     </else>
-</filter>
-
-<!-- Checking if filtered results exist -->
-<filter xpath="\${length(payload.store.book[?(@.price &lt; 10)]) &gt; 0}">
-    <then>
-        <log category="INFO">
-            <message>Found cheap books</message>
-        </log>
-    </then>
 </filter>
 \`\`\`
 
-### Example switch mediator configuration:
+#### switch mediator — uses \`source=\` attribute
 \`\`\`xml
-<switch source="\${vars.store.book[0].category}">
-    <case regex="fiction">
-        <log category="INFO">
-            <message>Processing fiction book: \${vars.store.book[0].title}</message>
-        </log>
+<switch source="\${payload.category}">
+    <case regex="electronics">
+        <log category="INFO"><message>Electronics order</message></log>
+    </case>
+    <case regex="books">
+        <log category="INFO"><message>Books order</message></log>
     </case>
     <default>
-        <log category="INFO">
-            <message>Processing other category: \${vars.store.book[0].category}</message>
-        </log>
+        <log category="INFO"><message>Other: \${payload.category}</message></log>
     </default>
 </switch>
 \`\`\`
 
-### Example of complex filtering using Synapse expressions:
+#### variable mediator — uses \`expression=\` attribute
 \`\`\`xml
-<?xml version="1.0" encoding="UTF-8"?>
-<api context="/promotion" name="promotionCheck" xmlns="http://ws.apache.org/ns/synapse">
-    <resource methods="POST" uri-template="/new?minimumBillAmount={minimumBillAmount}">
-        <inSequence>
-            <variable name="customerId" type="STRING" value="CUST123"/>
-            <variable name="isEligible" type="STRING" expression="\${length($.orders[?(@.customerID==vars.customerId &amp;&amp; @.total &gt; params.queryParams.minimumBillAmount)]) &gt; configs.promo_bill_count ? 'eligible' : 'not eligible'}"/>
-            <log>
-                <message>\${vars.isEligible}</message>
-            </log>
-        </inSequence>
-        <faultSequence>
-        </faultSequence>
-    </resource>
-</api>
+<variable name="discountedPrice" type="DOUBLE" expression="\${payload.price * 0.9}"/>
+<variable name="userData" type="JSON" expression="\${payload.user}"/>
+<variable name="isEligible" type="BOOLEAN" expression="\${payload.age &gt;= 18 and exists(payload.email)}"/>
 \`\`\`
 
-### PayloadFactory with Synapse expressions:
-- If you select default as the Template Type, you can define the payload using inline synapse expressions as shown below. This example defines a JSON payload.
+#### payloadFactory — inline \`\${}\` in \`<format>\`, NO \`<args>\`
 \`\`\`xml
-<payloadFactory description="Construct payload for addition operation" media-type="json">
+<payloadFactory media-type="json">
     <format>
         {
-            "AddInteger": {
-                "Arg1": \${payload.grocery.arg1},
-                "Arg2": \${payload.grocery.arg2}
-            }
+            "greeting": "Hello \${payload.name}",
+            "total": \${vars.computedTotal},
+            "status": "processed"
         }
     </format>
 </payloadFactory>
 \`\`\`
 
-- Now the Payload mediator supports FreeMarker Templates. If you select freemarker as the Template Type, you can define the payload as a FreeMarker template. The following example defines a JSON payload.
+#### forEach (collection-based, MI 4.6.0+) — uses \`collection=\` attribute
 \`\`\`xml
-<variable name="customer_id" type="STRING" value="43672343"/>
-<payloadFactory media-type="json" template-type="freemarker">
-    <format><![CDATA[{
-        "name": "\${payload.customer_name}",
-        "customer_id" : "\${vars.customer_id}",
-        "axis2 property": "\${props.axis2.REST_URL_POSTFIX}",
-        "host": "\${headers["Host"]}"
-        }]]>
-    </format>
-</payloadFactory>
-\`\`\`
-
-### ForEach mediator (v2 — collection-based):
-\`\`\`xml
-<!-- Iterate over a JSON array in the payload -->
 <foreach collection="\${payload.items}" parallel-execution="false" counter-variable="i">
     <sequence>
-        <log category="INFO">
-            <message>Processing item \${vars.i}: \${payload}</message>
-        </log>
+        <log category="INFO"><message>Item \${vars.i}: \${payload}</message></log>
     </sequence>
 </foreach>
 \`\`\`
-- During iteration, \`\${payload}\` refers to the current array element, not the original payload.
-- **Legacy forEach (expression="..."):** Sequences inside forEach cannot contain call, send, or callout mediators.
-- **Collection-based forEach (collection="...", MI 4.6.0+):** call, send, and callout mediators ARE allowed inside the sequence.
+During iteration, \`\${payload}\` refers to the current element, not the original payload.
+**Legacy forEach** (\`expression="..."\`): call, send, callout mediators NOT allowed inside. **Collection-based forEach** (\`collection="..."\`, MI 4.6.0+): call, send, callout ARE allowed.
 
-### Error handling with fault sequence:
+#### Error handling with fault sequence
 \`\`\`xml
-<api context="/orders" name="OrderAPI" xmlns="http://ws.apache.org/ns/synapse">
-    <resource methods="POST">
-        <inSequence>
-            <filter xpath="\${not(exists(payload.orderId))}">
-                <then>
-                    <throwError type="VALIDATION_ERROR" errorMessage="orderId is required"/>
-                </then>
-            </filter>
-            <log category="INFO">
-                <message>Processing order: \${payload.orderId}</message>
-            </log>
-            <respond/>
-        </inSequence>
-        <faultSequence>
-            <payloadFactory media-type="json">
-                <format>{"error": "\${props.synapse.ERROR_MESSAGE}", "code": "\${props.synapse.ERROR_CODE}"}</format>
-            </payloadFactory>
-            <respond/>
-        </faultSequence>
-    </resource>
-</api>
+<faultSequence>
+    <payloadFactory media-type="json">
+        <format>{"error": "\${properties.synapse.ERROR_MESSAGE}", "code": "\${properties.synapse.ERROR_CODE}"}</format>
+    </payloadFactory>
+    <respond/>
+</faultSequence>
 \`\`\`
 
-### Variable with JSON type:
+#### Complex filtering with JSONPath + ternary
 \`\`\`xml
-<!-- Store a JSON object from payload into a variable -->
-<variable name="userData" expression="\${payload.user}" type="JSON"/>
-<!-- Access nested fields from the JSON variable -->
-<log category="INFO">
-    <message>User: \${vars.userData.name}, Age: \${vars.userData.age}</message>
-</log>
+<variable name="isEligible" type="STRING"
+    expression="\${length($.orders[?(@.total &gt; params.queryParams.minAmount)]) &gt; 0 ? 'eligible' : 'not eligible'}"/>
 \`\`\`
 
-### Deprecated pattern
-- NEVER use <args> with $1/$2 placeholders in payloadFactory. This is a deprecated pattern. Always embed Synapse expressions directly inside <format>. Using <arg expression="\${...}"/> will fail at runtime with an XPath parse error because <args> only accepts XPath, not Synapse expressions.
-- Wrong deprecated syntax:
+#### Sequence template with function parameters
 \`\`\`xml
-<payloadFactory media-type="xml">
-    <format><root><value>$1</value></root></format>
-    <args>
-        <arg expression="\${vars.myValue}"/>
-    </args>
+<template name="WelcomeTemplate" xmlns="http://ws.apache.org/ns/synapse">
+    <parameter isMandatory="true" name="firstName"/>
+    <parameter isMandatory="true" name="lastName"/>
+    <sequence>
+        <log><message>Welcome \${params.functionParams.firstName} \${params.functionParams.lastName}</message></log>
+    </sequence>
+</template>
+\`\`\`
+
+#### PayloadFactory with FreeMarker template
+\`\`\`xml
+<payloadFactory media-type="json" template-type="freemarker">
+    <format><![CDATA[{
+        "name": "\${payload.customer_name}",
+        "customer_id": "\${vars.customer_id}",
+        "host": "\${headers["Host"]}"
+    }]]></format>
 </payloadFactory>
 \`\`\`
-- Correct syntax:
+
+#### Deprecated pattern — NEVER do this
 \`\`\`xml
+<!-- WRONG: <args> with Synapse Expressions fails at runtime -->
+<payloadFactory media-type="xml">
+    <format><root><value>$1</value></root></format>
+    <args><arg expression="\${vars.myValue}"/></args>
+</payloadFactory>
+
+<!-- CORRECT: embed directly in <format> -->
 <payloadFactory media-type="xml">
     <format><root><value>\${vars.myValue}</value></root></format>
 </payloadFactory>
