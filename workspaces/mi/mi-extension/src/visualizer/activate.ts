@@ -155,7 +155,17 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                             .then(async extractUri => {
                                 if (extractUri && extractUri[0]) {
                                     try {
-                                        const result = extractZip(uri[0].fsPath, extractUri[0].fsPath);
+                                        const result = await vscode.window.withProgress(
+                                            {
+                                                location: vscode.ProgressLocation.Notification,
+                                                title: "Importing project from ZIP archive...",
+                                                cancellable: false,
+                                            },
+                                            async (progress) => {
+                                                progress.report({ message: "Unzipping project folder..." });
+                                                return extractZip(uri[0].fsPath, extractUri[0].fsPath);
+                                            }
+                                        );
                                         if (result) {
                                             const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
                                             const projectUri = webview ? webview.getProjectUri() : firstProject;
@@ -194,49 +204,63 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
             } else {
                 sourceProject = vscode.workspace.workspaceFolders[0].uri.fsPath;
             }
-            const lastExportedPath = extension.context.globalState.get<string>(LAST_EXPORTED_ZIP_PATH);
-            const quickPicks: vscode.QuickPickItem[] = [
-                {
-                    label: "Select Destination",
-                    description: "Select a destination folder to export the ZIP archive",
-                },
-            ];
-            if (lastExportedPath) {
-                quickPicks.push({
-                    label: "Last Exported Path: " + lastExportedPath,
-                    description: "Use the last exported path to export the ZIP archive",
-                });
-            }
-            const selection = await vscode.window.showQuickPick(
-                quickPicks,
-                {
-                    placeHolder: "Export Options",
-                }
-            );
 
-            if (selection) {
-                let destination: string | undefined;
-                if (selection.label == "Select Destination") {
-                    const rpcManager = new MiDiagramRpcManager("");
-                    const selectedLocation = await rpcManager.browseFile({
-                        canSelectFiles: false,
-                        canSelectFolders: true,
-                        canSelectMany: false,
-                        defaultUri: lastExportedPath ?? sourceProject,
-                        title: "Select a folder to export the project",
-                        openLabel: "Select Folder"
+            if (sourceProject) {
+                const lastExportedPath = extension.context.globalState.get<string>(LAST_EXPORTED_ZIP_PATH);
+                const quickPicks: vscode.QuickPickItem[] = [
+                    {
+                        label: "Select Destination",
+                        description: "Select a destination folder to export the ZIP archive",
+                    },
+                ];
+                if (lastExportedPath) {
+                    quickPicks.push({
+                        label: "Last Exported Path: " + lastExportedPath,
+                        description: "Use the last exported path to export the ZIP archive",
                     });
-                    destination = selectedLocation.filePath;
-                    await extension.context.globalState.update(LAST_EXPORTED_ZIP_PATH, destination);
-                } else {
-                    destination = lastExportedPath;
                 }
-                if (destination) {
-                    const result = zipProjectFolder(sourceProject, destination);
-                    if (result) {
-                        vscode.window.showInformationMessage("Project exported successfully to " + result);
+                const selection = await vscode.window.showQuickPick(
+                    quickPicks,
+                    {
+                        placeHolder: "Export Options",
+                    }
+                );
+                
+
+                if (selection) {
+                    let destination: string | undefined;
+                    if (selection.label == "Select Destination") {
+                        const rpcManager = new MiDiagramRpcManager("");
+                        const selectedLocation = await rpcManager.browseFile({
+                            canSelectFiles: false,
+                            canSelectFolders: true,
+                            canSelectMany: false,
+                            defaultUri: lastExportedPath ?? sourceProject,
+                            title: "Select a folder to export the project",
+                            openLabel: "Select Folder"
+                        });
+                        destination = selectedLocation.filePath;
+                        await extension.context.globalState.update(LAST_EXPORTED_ZIP_PATH, destination);
                     } else {
-                        vscode.window.showErrorMessage("Failed to export project as a ZIP archive.");
+                        destination = lastExportedPath;
+                    }
+                    if (destination) {
+                        const result = await vscode.window.withProgress(
+                            {
+                                location: vscode.ProgressLocation.Notification,
+                                title: "Exporting project as a ZIP archive...",
+                                cancellable: false,
+                            },
+                            async (progress) => {
+                                progress.report({ message: "Zipping project folder..." });
+                                return zipProjectFolder(sourceProject, destination as string);
+                            }
+                        );
+                        if (result) {
+                            vscode.window.showInformationMessage("Project exported successfully to " + result);
+                        } else {
+                            vscode.window.showErrorMessage("Failed to export project as a ZIP archive.");
+                        }
                     }
                 }
             }
