@@ -123,6 +123,8 @@ export interface AgentRequest {
     undoCheckpointManager?: AgentUndoCheckpointManager;
     /** Model settings for this session (main model + sub-agent model overrides) */
     modelSettings?: ModelSettings;
+    /** Called after a stream step is persisted to JSONL history */
+    onStepPersisted?: () => void;
 }
 
 /**
@@ -435,6 +437,7 @@ export async function executeAgent(
             onStepFinish: async (step) => {
                 touchStreamActivity();
                 currentStepNumber++;
+                let stepPersisted = true;
 
                 // Simple cache metrics logging
                 if (step.usage) {
@@ -469,9 +472,15 @@ export async function executeAgent(
                             );
                             savedMessageCount += unsavedMessages.length;
                         }
+                        stepPersisted = true;
                     } catch (error) {
                         logError('[Agent] Failed to save messages from step', error);
+                        stepPersisted = false;
                     }
+                }
+
+                if (stepPersisted) {
+                    request.onStepPersisted?.();
                 }
             },
         };

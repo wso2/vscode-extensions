@@ -44,6 +44,8 @@ import {
     MentionablePathItem,
     SearchMentionablePathsRequest,
     SearchMentionablePathsResponse,
+    GetAgentRunStatusRequest,
+    GetAgentRunStatusResponse,
     ModelSettings,
 } from '@wso2/mi-core';
 import type { Dirent } from 'fs';
@@ -735,6 +737,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      * Send a message to the agent for processing
      */
     async sendAgentMessage(request: SendAgentMessageRequest): Promise<SendAgentMessageResponse> {
+        this.eventHandler.beginRun();
         try {
             const messageLength = typeof request.message === 'string' ? request.message.length : 0;
             logInfo(
@@ -833,6 +836,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                                 },
                                 undoCheckpointManager,
                                 modelSettings: request.modelSettings || this.currentModelSettings,
+                                onStepPersisted: () => this.eventHandler.stepCompleted(),
                             },
                             (event: AgentEvent) => {
                                 if (event.type === 'plan_mode_entered') {
@@ -946,6 +950,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error'
             };
+        } finally {
+            this.eventHandler.endRun();
         }
     }
 
@@ -1180,6 +1186,14 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 error: error instanceof Error ? error.message : 'Failed to load chat history'
             };
         }
+    }
+
+    async getAgentRunStatus(_request: GetAgentRunStatusRequest = {}): Promise<GetAgentRunStatusResponse> {
+        const status = this.eventHandler.getRunStatus();
+        return {
+            ...status,
+            mode: this.currentMode,
+        };
     }
 
     // ============================================================================

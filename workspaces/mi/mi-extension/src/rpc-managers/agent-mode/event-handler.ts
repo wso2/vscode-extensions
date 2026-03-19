@@ -22,12 +22,38 @@ import { AiPanelWebview } from '../../ai-features/webview';
 import { logWarn, logError, logDebug } from "../../ai-features/copilot/logger";
 
 export class AgentEventHandler {
+    private currentStepBuffer: AgentEvent[] = [];
+    private _isRunning = false;
 
     constructor(private projectUri: string) {
         this.projectUri = projectUri;
     }
 
+    beginRun(): void {
+        this._isRunning = true;
+        this.currentStepBuffer = [];
+    }
+
+    endRun(): void {
+        this._isRunning = false;
+        this.currentStepBuffer = [];
+    }
+
+    stepCompleted(): void {
+        this.currentStepBuffer = [];
+    }
+
+    getRunStatus(): { isRunning: boolean; events: AgentEvent[] } {
+        return {
+            isRunning: this._isRunning,
+            events: [...this.currentStepBuffer],
+        };
+    }
+
     handleEvent(event: AgentEvent): void {
+        if (this._isRunning) {
+            this.currentStepBuffer.push(event);
+        }
         if (event.type === 'stop' && event.modelMessages) {
             logDebug(`[AgentEventHandler] Sending stop event with ${event.modelMessages.length} modelMessages`);
         }
@@ -35,31 +61,31 @@ export class AgentEventHandler {
     }
 
     handleStart(): void {
-        this.sendEventToVisualizer({ type: "start" });
+        this.handleEvent({ type: "start" });
     }
 
     handleContentBlock(content: string): void {
-        this.sendEventToVisualizer({ type: "content_block", content });
+        this.handleEvent({ type: "content_block", content });
     }
 
     handleToolCall(toolName: string, toolInput?: unknown): void {
-        this.sendEventToVisualizer({ type: "tool_call", toolName, toolInput });
+        this.handleEvent({ type: "tool_call", toolName, toolInput });
     }
 
     handleToolResult(toolName: string, toolOutput?: unknown): void {
-        this.sendEventToVisualizer({ type: "tool_result", toolName, toolOutput });
+        this.handleEvent({ type: "tool_result", toolName, toolOutput });
     }
 
     handleError(error: string): void {
-        this.sendEventToVisualizer({ type: "error", error });
+        this.handleEvent({ type: "error", error });
     }
 
     handleAbort(): void {
-        this.sendEventToVisualizer({ type: "abort" });
+        this.handleEvent({ type: "abort" });
     }
 
     handleStop(): void {
-        this.sendEventToVisualizer({ type: "stop" });
+        this.handleEvent({ type: "stop" });
     }
 
     private sendEventToVisualizer(event: AgentEvent): void {

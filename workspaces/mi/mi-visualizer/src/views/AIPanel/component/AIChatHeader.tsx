@@ -122,6 +122,7 @@ const AIChatHeader: React.FC = () => {
                   sessions={sessions}
                   currentSessionTitle={currentSessionTitle}
                   isLoading={isLoading}
+                  disabled={backendRequestTriggered}
                   onSessionSwitch={switchToSession}
                   onNewSession={createNewSession}
                   onDeleteSession={deleteSession}

@@ -1407,6 +1407,75 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
     }, [rpcClient, handleAgentEvent]);
 
+    // Restore in-progress/completed run state when the panel reconnects.
+    useEffect(() => {
+        if (!rpcClient) {
+            return;
+        }
+
+        let isDisposed = false;
+
+        const restoreAgentRunStatus = async () => {
+            try {
+                const runStatus = await rpcClient.getMiAgentPanelRpcClient().getAgentRunStatus({});
+                if (isDisposed) {
+                    return;
+                }
+
+                const bufferedEvents = runStatus.events || [];
+                if (!runStatus.isRunning && bufferedEvents.length === 0) {
+                    return;
+                }
+
+                if (runStatus.mode) {
+                    setAgentMode(runStatus.mode);
+                    setIsPlanMode(runStatus.mode === 'plan');
+                }
+
+                if (runStatus.isRunning) {
+                    setBackendRequestTriggered(true);
+                }
+
+                setMessages((prev) => {
+                    if (prev.length > 0 && prev[prev.length - 1].role === Role.MICopilot) {
+                        return prev;
+                    }
+                    return [
+                        ...prev,
+                        {
+                            id: generateId(),
+                            role: Role.MICopilot,
+                            content: "",
+                            type: MessageType.AssistantMessage,
+                        },
+                    ];
+                });
+
+                for (const event of bufferedEvents) {
+                    if (isDisposed) {
+                        return;
+                    }
+                    handleAgentEvent(event);
+                }
+            } catch (error) {
+                console.error("Error restoring agent run status:", error);
+            }
+        };
+
+        void restoreAgentRunStatus();
+
+        return () => {
+            isDisposed = true;
+        };
+    }, [
+        rpcClient,
+        handleAgentEvent,
+        setAgentMode,
+        setBackendRequestTriggered,
+        setIsPlanMode,
+        setMessages,
+    ]);
+
     useEffect(() => {
         return () => {
             clearWorkingOnItTimer();

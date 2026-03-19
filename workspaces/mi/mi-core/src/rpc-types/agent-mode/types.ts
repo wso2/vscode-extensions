@@ -531,6 +531,17 @@ export interface SearchMentionablePathsResponse {
     error?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface GetAgentRunStatusRequest {
+    // No parameters needed - uses current active run state
+}
+
+export interface GetAgentRunStatusResponse {
+    isRunning: boolean;
+    events: AgentEvent[];
+    mode?: AgentMode;
+}
+
 /**
  * Agent Panel API interface
  */
@@ -552,4 +563,6 @@ export interface MIAgentPanelAPI {
     compactConversation: (request: CompactConversationRequest) => Promise<CompactConversationResponse>;
     // Mention search
     searchMentionablePaths: (request: SearchMentionablePathsRequest) => Promise<SearchMentionablePathsResponse>;
+    // Agent run status for panel reconnection
+    getAgentRunStatus: (request?: GetAgentRunStatusRequest) => Promise<GetAgentRunStatusResponse>;
 }
