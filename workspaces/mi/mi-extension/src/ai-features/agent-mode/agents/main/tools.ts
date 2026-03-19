@@ -480,7 +480,10 @@ export function createAgentTools(params: CreateToolsParams) {
             getWrappedExecute(BUILD_PROJECT_TOOL_NAME, createBuildProjectExecute(projectPath, sessionDir))
         ),
         [SERVER_MANAGEMENT_TOOL_NAME]: createServerManagementTool(
-            getWrappedExecute(SERVER_MANAGEMENT_TOOL_NAME, createServerManagementExecute(projectPath, sessionDir))
+            getWrappedExecute(
+                SERVER_MANAGEMENT_TOOL_NAME,
+                createServerManagementExecute(projectPath, sessionDir, abortSignal)
+            )
         ),
 
         // Plan Mode Tools (5 tools)

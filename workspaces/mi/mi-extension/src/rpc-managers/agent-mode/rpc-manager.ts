@@ -70,6 +70,9 @@ import {
 import { cleanupPersistedToolResultsForProject } from '../../ai-features/agent-mode/tools/tool-result-persistence';
 import { validateAttachments } from '../../ai-features/agent-mode/attachment-utils';
 import { VALID_FILE_EXTENSIONS, VALID_SPECIAL_FILE_NAMES } from '../../ai-features/agent-mode/tools/types';
+import { cleanupRunningBackgroundShells } from '../../ai-features/agent-mode/tools/bash_tools';
+import { cleanupRunningBackgroundSubagents } from '../../ai-features/agent-mode/tools/subagent_tool';
+import { beginServerManagementRunTracking, cleanupServerManagementOnAgentEnd } from '../../ai-features/agent-mode/tools/runtime_tools';
 import { AgentUndoCheckpointManager, StoredUndoCheckpoint } from '../../ai-features/agent-mode/undo/checkpoint-manager';
 import { MiDiagramRpcManager } from '../mi-diagram/rpc-manager';
 import { getCopilotSessionDir } from '../../ai-features/agent-mode/storage-paths';
@@ -155,6 +158,28 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         }
         this.pendingQuestions.clear();
         this.pendingApprovals.clear();
+    }
+
+    private async cleanupOnAgentEnd(runSucceeded: boolean): Promise<void> {
+        try {
+            await cleanupRunningBackgroundShells();
+        } catch (error) {
+            logError('[AgentPanel] Failed to cleanup background shells at agent run end', error);
+        }
+
+        try {
+            cleanupRunningBackgroundSubagents();
+        } catch (error) {
+            logError('[AgentPanel] Failed to cleanup background subagents at agent run end', error);
+        }
+
+        try {
+            await cleanupServerManagementOnAgentEnd({
+                stopServerStartedByCurrentRun: !runSucceeded,
+            });
+        } catch (error) {
+            logError('[AgentPanel] Failed to cleanup runtime server state at agent run end', error);
+        }
     }
 
     /**
@@ -740,6 +765,9 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      * Send a message to the agent for processing
      */
     async sendAgentMessage(request: SendAgentMessageRequest): Promise<SendAgentMessageResponse> {
+        let runSucceeded = false;
+        let shouldRunCleanup = false;
+        beginServerManagementRunTracking();
         this.eventHandler.beginRun();
         try {
             const messageLength = typeof request.message === 'string' ? request.message.length : 0;
@@ -796,6 +824,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 this.clearPendingLimitContinuation();
             }
 
+            shouldRunCleanup = true;
             await undoCheckpointManager.beginRun('agent');
 
             const persistModeChange = (mode: AgentMode) => {
@@ -914,6 +943,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             if (result.success) {
                 this.clearPendingLimitContinuation();
+                runSucceeded = true;
 
                 const undoCheckpoint = await undoCheckpointManager.commitRun();
                 if (undoCheckpoint) {
@@ -954,6 +984,11 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 error: error instanceof Error ? error.message : 'Unknown error'
             };
         } finally {
+            if (shouldRunCleanup) {
+                await this.cleanupOnAgentEnd(runSucceeded);
+            } else {
+                await cleanupServerManagementOnAgentEnd();
+            }
             this.eventHandler.endRun();
         }
     }

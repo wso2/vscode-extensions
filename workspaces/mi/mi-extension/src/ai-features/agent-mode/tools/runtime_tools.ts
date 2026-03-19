@@ -54,6 +54,7 @@ export type {
 // ============================================================================
 
 let serverProcess: childProcess.ChildProcess | null = null;
+let serverStartedInCurrentRun = false;
 const SERVER_START_TOOL_TIMEOUT_MS = 10000; // hard timeout for the entire run action
 const SERVER_START_STEP_TIMEOUT_MS = 5000;
 
@@ -84,6 +85,55 @@ function createServerStartTimeoutError(message: string): Error {
     const error = new Error(message);
     (error as Error & { code?: string }).code = 'SERVER_START_TOOL_TIMEOUT';
     return error;
+}
+
+function killProcessTree(pid: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+        treeKill(pid, 'SIGKILL', (error?: Error) => {
+            if (error) {
+                reject(error);
+                return;
+            }
+            resolve();
+        });
+    });
+}
+
+async function forceKillServerProcess(reason: string): Promise<boolean> {
+    const pid = serverProcess?.pid;
+    if (!pid) {
+        return false;
+    }
+
+    try {
+        logInfo(`${reason} (pid=${pid})`);
+        await killProcessTree(pid);
+        return true;
+    } catch (error) {
+        logError('[ServerManagementTool] Failed to kill server process during cleanup', error);
+        return false;
+    } finally {
+        serverProcess = null;
+    }
+}
+
+/**
+ * Reset per-run tracking for server start cleanup.
+ */
+export function beginServerManagementRunTracking(): void {
+    serverStartedInCurrentRun = false;
+}
+
+/**
+ * Cleanup hook invoked at the end of an agent run.
+ * Optionally stops server instances that were started during the current run.
+ */
+export async function cleanupServerManagementOnAgentEnd(options?: { stopServerStartedByCurrentRun?: boolean }): Promise<void> {
+    const shouldStop = options?.stopServerStartedByCurrentRun === true && serverStartedInCurrentRun;
+    if (shouldStop) {
+        await forceKillServerProcess('[ServerManagementTool] Cleaning up server started during interrupted/failed run');
+    }
+    serverStartedInCurrentRun = false;
 }
 
 function isServerStartTimeoutError(error: unknown): boolean {
@@ -337,7 +387,11 @@ async function checkServerStatus(projectPath: string): Promise<{ running: boolea
 /**
  * Creates the execute function for the server_management tool
  */
-export function createServerManagementExecute(projectPath: string, sessionDir: string): ServerManagementExecuteFn {
+export function createServerManagementExecute(
+    projectPath: string,
+    sessionDir: string,
+    mainAbortSignal?: AbortSignal
+): ServerManagementExecuteFn {
     return async (args: { action: 'run' | 'stop' | 'status' }): Promise<ToolResult> => {
         const { action } = args;
 
@@ -386,8 +440,19 @@ export function createServerManagementExecute(projectPath: string, sessionDir: s
                     const getRemainingRunActionTime = () => runActionDeadline - Date.now();
                     const getRunActionTimeoutMessage = (context: string) =>
                         `Server start tool timed out after ${runActionTimeoutSeconds} seconds while ${context}.`;
+                    let removeMainAbortListener: (() => void) | undefined;
+
+                    const ensureRunNotAborted = async (context: string) => {
+                        if (!mainAbortSignal?.aborted) {
+                            return;
+                        }
+                        await forceKillServerProcess(`[ServerManagementTool] Main agent aborted while ${context}; stopping startup process`);
+                        throw new Error('AbortError: Operation aborted by user');
+                    };
 
                     try {
+                        await ensureRunNotAborted('checking current server status');
+
                         // Check if already running
                         const currentStatus = await withServerStartTimeout(
                             checkServerStatus(projectPath),
@@ -535,6 +600,23 @@ export function createServerManagementExecute(projectPath: string, sessionDir: s
                             };
                         }
 
+                        serverStartedInCurrentRun = true;
+
+                        if (mainAbortSignal && serverProcess.pid) {
+                            const onMainAbort = () => {
+                                void forceKillServerProcess('[ServerManagementTool] Main agent aborted during startup');
+                            };
+
+                            if (mainAbortSignal.aborted) {
+                                await ensureRunNotAborted('preparing startup polling');
+                            } else {
+                                mainAbortSignal.addEventListener('abort', onMainAbort, { once: true });
+                                removeMainAbortListener = () => mainAbortSignal.removeEventListener('abort', onMainAbort);
+                                serverProcess.on('close', () => removeMainAbortListener?.());
+                                serverProcess.on('error', () => removeMainAbortListener?.());
+                            }
+                        }
+
                         // Clear output buffer and start capturing
                         clearServerOutputBuffer();
                         logDebug(`[ServerManagementTool] Server process spawned with PID: ${serverProcess.pid}`);
@@ -569,6 +651,7 @@ export function createServerManagementExecute(projectPath: string, sessionDir: s
                             if (code !== 0 && code !== null) {
                                 serverLog(`\nServer process exited with code ${code}\n`);
                             }
+                            serverStartedInCurrentRun = false;
                             serverProcess = null;
                         });
 
@@ -582,8 +665,11 @@ export function createServerManagementExecute(projectPath: string, sessionDir: s
 
                         // Initial wait for process to begin starting
                         await new Promise(resolve => setTimeout(resolve, 3000));
+                        await ensureRunNotAborted('waiting for initial startup logs');
 
                         while (Date.now() - startTime < maxTimeout) {
+                            await ensureRunNotAborted('waiting for server readiness');
+
                             if (getRemainingRunActionTime() <= 0) {
                                 throw createServerStartTimeoutError(
                                     getRunActionTimeoutMessage('waiting for the server to become ready')
@@ -655,6 +741,8 @@ export function createServerManagementExecute(projectPath: string, sessionDir: s
                             message: `${timeoutMessage}\nServer output saved to: ${runOutputFile}\nRead this file using file_read to diagnose the issue.`,
                             error: timeoutMessage
                         };
+                    } finally {
+                        removeMainAbortListener?.();
                     }
                 }
 
@@ -674,6 +762,7 @@ export function createServerManagementExecute(projectPath: string, sessionDir: s
                         if (serverProcess && serverProcess.pid) {
                             treeKill(serverProcess.pid, 'SIGKILL');
                             serverProcess = null;
+                            serverStartedInCurrentRun = false;
                             return {
                                 success: true,
                                 message: 'Server stopped (force killed)'
@@ -708,12 +797,14 @@ export function createServerManagementExecute(projectPath: string, sessionDir: s
                                 logInfo('[ServerManagementTool] Server force killed after timeout');
                             }
                             serverProcess = null;
+                            serverStartedInCurrentRun = false;
                             resolve();
                         }, 8000);
 
                         stopProcess.on('close', () => {
                             clearTimeout(timeout);
                             serverProcess = null;
+                            serverStartedInCurrentRun = false;
                             resolve();
                         });
                     });

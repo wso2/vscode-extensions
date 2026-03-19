@@ -133,6 +133,36 @@ export function getBackgroundSubagents(): Map<string, BackgroundSubagent> {
 }
 
 /**
+ * Abort and remove all running background subagents.
+ * Used by RPC-level run cleanup to avoid orphaned workers when agent run ends unexpectedly.
+ */
+export function cleanupRunningBackgroundSubagents(): number {
+    let cleanedCount = 0;
+
+    for (const [id, subagent] of Array.from(backgroundSubagents.entries())) {
+        if (subagent.completed) {
+            continue;
+        }
+
+        subagent.aborted = true;
+        subagent.completed = true;
+        subagent.success = false;
+        if (!subagent.output) {
+            subagent.output = `Subagent ${id} was terminated because the main agent run ended.`;
+        }
+        subagent.abortController.abort();
+        backgroundSubagents.delete(id);
+        cleanedCount++;
+    }
+
+    if (cleanedCount > 0) {
+        logInfo(`[SubagentTool] Cleaned up ${cleanedCount} running background subagent(s) at agent run end`);
+    }
+
+    return cleanedCount;
+}
+
+/**
  * Clean up completed background subagents older than 1 hour
  */
 function cleanupOldSubagents(): void {
