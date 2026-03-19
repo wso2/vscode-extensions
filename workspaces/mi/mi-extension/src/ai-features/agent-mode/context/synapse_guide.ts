@@ -217,10 +217,10 @@ Synapse has special properties set via the \`variable\` mediator (with axis2 or 
 - **Content-type control**: \`messageType\` (controls serialization format) vs \`ContentType\` (controls HTTP Content-Type header) — both in axis2 scope
 - **Transport behavior**: Disable chunking, force HTTP 1.0, disable keep-alive, force Content-Length header
 - **Fire-and-forget**: \`OUT_ONLY\` / \`FORCE_SC_ACCEPTED\` for async one-way messages
-- **Error info in fault sequences**: \`ERROR_CODE\`, \`ERROR_MESSAGE\`, \`ERROR_DETAIL\` in synapse scope
 - **REST URL manipulation**: \`REST_URL_POSTFIX\` to dynamically append to endpoint URLs
+- **Error info in fault sequences** (read-only): \`ERROR_CODE\`, \`ERROR_MESSAGE\`, \`ERROR_DETAIL\` — these are populated by the mediation engine in synapse scope and are available for reading inside fault sequences, but are NOT set via the variable mediator
 
-These properties are set using the variable mediator with scope:
+The writable transport properties above are set using the variable mediator with scope:
 \`\`\`xml
 <variable name="HTTP_SC" type="INTEGER" value="202" action="set" scope="axis2"/>
 <variable name="messageType" type="STRING" value="application/json" action="set" scope="axis2"/>

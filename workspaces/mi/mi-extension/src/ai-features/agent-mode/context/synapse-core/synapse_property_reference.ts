@@ -87,7 +87,7 @@ http_response: `## HTTP Response Control Properties
 |---|---|
 | **Property** | \`HTTP_SC\` |
 | **Scope** | \`axis2\` |
-| **Type** | Integer |
+| **Type** | STRING |
 | **Set** | Controls the HTTP status code sent back to the client |
 | **Read** | Contains the HTTP status code received from the backend |
 

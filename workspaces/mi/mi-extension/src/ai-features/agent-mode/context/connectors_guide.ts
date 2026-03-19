@@ -125,7 +125,21 @@ Access patterns:
 \`\`\`
 
 ### 6) Error Handling with Connectors
-- On failure (e.g. HTTP 4xx/5xx, connection timeout), check the status code:
+- First check for transport errors (e.g. connection timeout, DNS failure) where no HTTP status code exists:
+\`\`\`xml
+<filter xpath="\${not(exists(vars.myResponse.attributes.statusCode))}">
+  <then>
+    <log category="ERROR">
+      <message>Transport error: no response received (timeout or connection failure)</message>
+    </log>
+    <payloadFactory media-type="json">
+      <format>{"error": "Backend unreachable"}</format>
+    </payloadFactory>
+    <respond/>
+  </then>
+</filter>
+\`\`\`
+- Then check for HTTP 4xx/5xx errors when a status code is present:
 \`\`\`xml
 <filter xpath="\${vars.myResponse.attributes.statusCode >= 400}">
   <then>
