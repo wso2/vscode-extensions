@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import type { ComponentKind, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq, DeleteConnectionReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, GetConnectionItemReq, StartProxyServerReq, StopProxyServerReq, AuthState, ContextStoreComponentState, ContextItemEnriched, GetProjectEnvsReq, CreateThirdPartyConnectionReq, RegisterMarketplaceConnectionReq, GetComponentsReq, GetDatabaseServerReq, CreateDatabaseConnectionReq, GetDatabaseItemReq } from "@wso2/wso2-platform-core";
+import type { ComponentKind, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq, DeleteConnectionReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, GetConnectionItemReq, StartProxyServerReq, StopProxyServerReq, AuthState, ContextStoreComponentState, ContextItemEnriched, GetProjectEnvsReq, CreateThirdPartyConnectionReq, RegisterMarketplaceConnectionReq, GetComponentsReq, GetDatabaseServerReq, CreateDatabaseConnectionReq, GetDatabaseItemReq, ResolveConnectionSecretsReq } from "@wso2/wso2-platform-core";
 import { ext } from "./extensionVariables";
 import { hasDirtyRepo } from "./git/util";
 import { contextStore } from "./stores/context-store";
@@ -62,6 +62,7 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public startProxyServer = async(params: StartProxyServerReq) => ext.clients.rpcClient.startProxyServer(params);
 	public stopProxyServer = async(params: StopProxyServerReq) => ext.clients.rpcClient.stopProxyServer(params);
 	public getComponentList = async(params: GetComponentsReq) => ext.clients.rpcClient.getComponentList(params);
+	public resolveConnectionSecrets = async(params: ResolveConnectionSecretsReq) => ext.clients.rpcClient.resolveConnectionSecrets(params);
 
 	// Auth state subscriptions
 	public subscribeAuthState = (callback: (state: AuthState)=>void) => ext.authProvider?.subscribe((state)=>callback(state.state)) ?? (() => {});

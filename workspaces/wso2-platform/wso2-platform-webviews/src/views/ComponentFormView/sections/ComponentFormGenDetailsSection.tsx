@@ -258,7 +258,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 	onComponentSelectionChange,
 }) => {
 	const [compDetailsSections] = useAutoAnimate();
-	const { extensionName } = useExtWebviewContext();
+	const { extensionName, terminologies } = useExtWebviewContext();
 
 	// Extract workspace name from rootDirectory path
 	const workspaceName = rootDirectory ? rootDirectory.split(/[/\\]/).filter(Boolean).pop() || "" : "";
@@ -528,7 +528,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 						key="gen-details-name"
 						required
 						name="name"
-						placeholder={extensionName === "Devant" ? "integration-name" : "component-name"}
+						placeholder={`${terminologies?.componentTerm}-name`}
 						control={form.control}
 						wrapClassName="col-span-full"
 					/>

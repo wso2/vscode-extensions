@@ -78,6 +78,17 @@ export interface GetComponentsReq {
 	projectId: string;
 	projectHandle: string;
 }
+export interface ResolveConnectionSecretsReq {
+	orgId: string;
+	groupId: string;
+	projectId: string;
+	componentId: string;
+	envTemplateId: string;
+	secrets: { key: string; valueRef: string }[]
+}
+export interface ResolveConnectionSecretsResp {
+	secrets: {key: string; valueRef: string; value: string}[]
+}
 export interface CreateProjectReq {
 	orgId: string;
 	orgHandler: string;

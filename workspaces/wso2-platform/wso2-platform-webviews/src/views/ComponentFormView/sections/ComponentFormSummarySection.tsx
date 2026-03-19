@@ -83,7 +83,7 @@ export const ComponentFormSummarySection: FC<Props> = ({
 }) => {
 	const [summaryWrapRef] = useAutoAnimate();
 	const queryClient = useQueryClient();
-	const { extensionName } = useExtWebviewContext();
+	const { extensionName, terminologies } = useExtWebviewContext();
 
 	const genDetails = genDetailsForm.getValues();
 	const buildDetails = buildDetailsForm.getValues();
@@ -205,7 +205,7 @@ export const ComponentFormSummarySection: FC<Props> = ({
 				<Banner
 					className="mb-4"
 					title="Local Changes Detected"
-					subTitle={`${extensionName} builds your ${extensionName === "Devant" ? "integration" : "component"} from the source code in the selected remote repository. Please commit and push your local changes to the remote Git repository.`}
+					subTitle={`${extensionName} builds your ${terminologies?.componentTerm} from the source code in the selected remote repository. Please commit and push your local changes to the remote Git repository.`}
 				/>
 			)}
 

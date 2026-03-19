@@ -114,7 +114,7 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 						}
 						const components = await window.withProgress(
 						{
-							title: `Fetching ${extensionName === "Devant" ? "integrations" : "components"} of project ${selectedProject.name}...`,
+							title: `Fetching ${ext.terminologies?.componentTermPlural} of project ${selectedProject.name}...`,
 							location: ProgressLocation.Notification,
 						},
 						() =>
