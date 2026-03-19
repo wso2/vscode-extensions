@@ -485,8 +485,11 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             await this.chatHistoryManager.initialize();
             this.currentSessionId = this.chatHistoryManager.getSessionId();
             this.currentMode = await this.chatHistoryManager.getLatestMode(DEFAULT_AGENT_MODE);
-            await this.loadShellApprovalRulesForSession(this.currentSessionId);
-            await cleanupPersistedToolResultsForProject(this.projectUri);
+            // Run independent post-init tasks in parallel
+            await Promise.all([
+                this.loadShellApprovalRulesForSession(this.currentSessionId),
+                cleanupPersistedToolResultsForProject(this.projectUri),
+            ]);
 
             if (sessionId) {
                 logInfo(`[AgentPanel] Continuing existing session: ${this.currentSessionId}`);

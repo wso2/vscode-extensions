@@ -401,9 +401,13 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                     setCurrentUserprompt(initialPrompt);
                     setIsInitialPromptLoaded(true);
                 } else {
-                    // Load chat history from backend via RPC
+                    // Load chat history and sessions list in parallel
                     try {
-                        const response = await rpcClient.getMiAgentPanelRpcClient().loadChatHistory({});
+                        const agentClient = rpcClient.getMiAgentPanelRpcClient();
+                        const [response, sessionsResponse] = await Promise.all([
+                            agentClient.loadChatHistory({}),
+                            agentClient.listSessions({}),
+                        ]);
 
                         if (response.success) {
                             const responseMode = (response as { mode?: AgentMode }).mode;
@@ -428,23 +432,22 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                             if (response.lastTotalInputTokens) {
                                 setLastTotalInputTokens(response.lastTotalInputTokens);
                             }
+                        }
 
-                            // Load sessions list to get current session title
-                            const sessionsResponse = await rpcClient.getMiAgentPanelRpcClient().listSessions({});
-                            if (sessionsResponse.success) {
-                                setSessions(sessionsResponse.sessions);
-                                // Find current session title
-                                if (response.sessionId && sessionsResponse.sessions) {
-                                    const allSessions = [
-                                        ...sessionsResponse.sessions.today,
-                                        ...sessionsResponse.sessions.yesterday,
-                                        ...sessionsResponse.sessions.pastWeek,
-                                        ...sessionsResponse.sessions.older
-                                    ];
-                                    const currentSession = allSessions.find(s => s.sessionId === response.sessionId);
-                                    if (currentSession) {
-                                        setCurrentSessionTitle(currentSession.title);
-                                    }
+                        if (sessionsResponse.success) {
+                            setSessions(sessionsResponse.sessions);
+                            // Find current session title
+                            const sessionId = response.success ? response.sessionId : undefined;
+                            if (sessionId && sessionsResponse.sessions) {
+                                const allSessions = [
+                                    ...sessionsResponse.sessions.today,
+                                    ...sessionsResponse.sessions.yesterday,
+                                    ...sessionsResponse.sessions.pastWeek,
+                                    ...sessionsResponse.sessions.older
+                                ];
+                                const currentSession = allSessions.find(s => s.sessionId === sessionId);
+                                if (currentSession) {
+                                    setCurrentSessionTitle(currentSession.title);
                                 }
                             }
                         }
