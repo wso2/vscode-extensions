@@ -269,7 +269,8 @@ Quick map:
 - Expression & Type System: expression syntax, functions, variable resolution, and edge-case behavior.
 - Mediators & Endpoints: mediator/endpoint attributes, payload-state transitions, and integration constraints.
 - SOAP, Payloads, Properties & Runtime Controls: SOAP namespaces, payload transformation patterns, and runtime-controlling transport properties.
-- AI & Connectors: AI connector app development (chat, RAG, knowledge base, agent tools). MI runtime 4.4.0+ only.
+- HTTP & Connectors: HTTP connector error handling, auth patterns, transport properties, payload types; AI connector development.
+- Project Resources: registry resource management (artifact.xml, naming, media types, access patterns).
 - Testing: unit test structure, assertions, mock services, and working examples.
 
 ### Expression & Type System
@@ -294,10 +295,16 @@ Quick map:
 | \`synapse-payload-patterns\` | json_construction, xml_construction, json_to_xml, xml_to_json, enrich_patterns, freemarker_patterns, datamapper_vs_payload, array_patterns | JSON/XML payload construction, format conversion (JSON↔XML), enrich mediator patterns, FreeMarker templates, array transformation, choosing between transformation approaches |
 | \`synapse-property-reference\` | scope_guide, http_response, http_protocol, content_type, message_flow, rest_properties, error_properties, addressing, common_patterns | Whenever you need to control HTTP response codes (202, 204, etc.), change content-type or serialization format, disable chunking, force HTTP 1.0, do fire-and-forget (OUT_ONLY), manipulate REST URLs, access error details in fault sequences, or set any axis2/synapse-scope transport property. These are special runtime-controlling properties — not regular variables. |
 
-### AI & Connectors
+### HTTP & Connectors
 | Context | Sections | When to Load |
 |-------|----------|--------------|
+| \`http-connector-guide\` | error_handling, authentication, transport_properties, payload_and_streaming, response_variable | HTTP connector error response handling (nonErrorHttpStatusCodes, fault sequences, HTTP_SC branching), authentication patterns (Basic, Bearer, OAuth2), transport property reference, payload types (JSON/XML/TEXT), chunking/Content-Length, responseVariable pattern |
 | \`ai-connector-app-development\` | _(no sections)_ | Developing AI-powered integrations with the AI connector (chat completions, RAG, knowledge base, agent tools). Requires MI runtime 4.4.0+ |
+
+### Project Resources
+| Context | Sections | When to Load |
+|-------|----------|--------------|
+| \`registry-resource-guide\` | overview, artifact_xml, registry_paths, media_types, properties, common_patterns | Creating registry resources (JSON, XSLT, scripts, WSDL, XSD), artifact.xml format and naming conventions, registry path mapping (gov:/conf:), media type reference, resource properties, referencing resources from Synapse configs |
 
 ### Testing
 | Context | Sections | When to Load |
