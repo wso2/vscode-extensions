@@ -16,8 +16,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onNotebook:http-book",
-    "onCommand:http-book.importHurlString"
+    "onNotebook:HTTPClient",
+    "onCommand:HTTPClient.importHurlString"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -37,7 +37,7 @@
     ],
     "notebooks": [
       {
-        "type": "http-client",
+        "type": "HTTPClient",
         "displayName": "HTTP Client",
         "selector": [
           {
@@ -48,17 +48,17 @@
     ],
     "commands": [
       {
-        "command": "http-book.openHurlNotebook",
+        "command": "HTTPClient.openHurlNotebook",
         "title": "HTTP Client: Open Hurl Notebook",
         "icon": "$(notebook)"
       },
       {
-        "command": "http-book.installHurl",
+        "command": "HTTPClient.installHurl",
         "title": "HTTP Client: Install Hurl",
         "icon": "$(cloud-download)"
       },
       {
-        "command": "http-book.importHurlString",
+        "command": "HTTPClient.importHurlString",
         "title": "HTTP Client: Import Hurl String",
         "icon": "$(edit)"
       }

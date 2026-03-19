@@ -34,6 +34,19 @@ export function activate(context: vscode.ExtensionContext): void {
     // Register VS Code Notebook API support for `.hurl` files
     activateHurlNotebook(context);
 
+    // Auto-select the Hurl Runner kernel whenever a HTTPClient notebook opens
+    context.subscriptions.push(
+        vscode.workspace.onDidOpenNotebookDocument(async (notebook) => {
+            if (notebook.notebookType === 'HTTPClient') {
+                await vscode.commands.executeCommand('notebook.selectKernel', {
+                    notebook,
+                    id: 'HTTPClient-controller',
+                    extension: 'wso2.hurl-client'
+                });
+            }
+        })
+    );
+
     // Register read-only virtual filesystem for non-savable notebooks (Resource Try It)
     const readonlyProvider = new ReadonlyHurlFSProvider();
     context.subscriptions.push(
@@ -45,7 +58,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Command: open a .hurl file as a native notebook
     const openHurlNotebookCommand = vscode.commands.registerCommand(
-        'http-book.openHurlNotebook',
+        'HTTPClient.openHurlNotebook',
         async (resourceUri?: vscode.Uri) => {
             let fileUri: vscode.Uri | undefined = resourceUri;
 
@@ -66,22 +79,22 @@ export function activate(context: vscode.ExtensionContext): void {
                 await vscode.window.showNotebookDocument(doc);
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(`HttpBook: Failed to open notebook — ${msg}`);
+                vscode.window.showErrorMessage(`HTTP Client: Failed to open notebook — ${msg}`);
             }
         }
     );
 
     // Command: install hurl binary
     const installHurlCommand = vscode.commands.registerCommand(
-        'http-book.installHurl',
+        'HTTPClient.installHurl',
         async () => {
             const { getHurlBinaryManager } = await import('./hurl/hurl-binary-manager');
             try {
                 const binaryPath = await getHurlBinaryManager().installManagedHurl({ interactive: true });
-                vscode.window.showInformationMessage(`HttpBook: Hurl installed at ${binaryPath}`);
+                vscode.window.showInformationMessage(`HTTP Client: Hurl installed at ${binaryPath}`);
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(`HttpBook: Failed to install Hurl — ${msg}`);
+                vscode.window.showErrorMessage(`HTTP Client: Failed to install Hurl — ${msg}`);
             }
         }
     );
@@ -94,7 +107,7 @@ export function activate(context: vscode.ExtensionContext): void {
     //   savable: false → read-only virtual FS, saves are blocked (Resource Try It)
     // When called from command palette (no args): prompts user to paste a hurl string
     const importHurlStringCommand = vscode.commands.registerCommand(
-        'http-book.importHurlString',
+        'HTTPClient.importHurlString',
         async (contentOrCells?: string | NotebookCellInput[], options?: { savable?: boolean; savePath?: string; viewColumn?: 'beside' | 'active' }) => {
             let notebookData: vscode.NotebookData;
             let resolvedHurlText: string;
@@ -156,12 +169,12 @@ export function activate(context: vscode.ExtensionContext): void {
                 // Programmatically select the Hurl Runner kernel so the user is never prompted
                 await vscode.commands.executeCommand('notebook.selectKernel', {
                     notebook: doc,
-                    id: 'http-book-controller',
-                    extension: 'wso2.http-book'
+                    id: 'HTTPClient-controller',
+                    extension: 'wso2.hurl-client'
                 });
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(`HttpBook: Failed to create notebook — ${msg}`);
+                vscode.window.showErrorMessage(`HTTP Client: Failed to create notebook — ${msg}`);
             }
         }
     );

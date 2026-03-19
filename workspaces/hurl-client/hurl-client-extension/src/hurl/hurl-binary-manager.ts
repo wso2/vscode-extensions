@@ -112,7 +112,7 @@ export class HurlBinaryManager {
 			if (options.promptOnFailure) {
 				const message = error instanceof Error ? error.message : 'Failed to install managed hurl binary';
 				const action = await vscode.window.showErrorMessage(
-					`${message}. Set http-book.hurl.path or run "HttpBook: Install Hurl".`,
+					`${message}. Set http-book.hurl.path or run "HTTP Client: Install Hurl".`,
 					'Install Hurl',
 					'Open Settings'
 				);
@@ -195,7 +195,7 @@ export class HurlBinaryManager {
 			return vscode.window.withProgress(
 				{
 					location: vscode.ProgressLocation.Notification,
-					title: 'HttpBook: Installing Hurl',
+					title: 'HTTP Client: Installing Hurl',
 					cancellable: false
 				},
 				progress => install(progress)

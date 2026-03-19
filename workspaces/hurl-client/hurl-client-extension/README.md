@@ -19,7 +19,7 @@ Each HTTP request in a `.hurl` file becomes a runnable notebook cell. Responses 
 
 ### 1. Open a `.hurl` file as a notebook
 
-Right-click any `.hurl` file in the Explorer and choose **HttpBook: Open Hurl Notebook**, or run the command from the Command Palette (`Cmd/Ctrl+Shift+P`).
+Right-click any `.hurl` file in the Explorer and choose **Http Client: Open Hurl Notebook**, or run the command from the Command Palette (`Cmd/Ctrl+Shift+P`).
 
 The file opens as a notebook with one code cell per HTTP request block.
 
@@ -39,23 +39,23 @@ Edit cells directly. When done, press `Cmd/Ctrl+S` to save back to the `.hurl` f
 
 | Command | Description |
 |---------|-------------|
-| `HttpBook: Open Hurl Notebook` | Open a `.hurl` file as a notebook (also available via right-click in Explorer) |
-| `HttpBook: Install Hurl` | Manually trigger the managed hurl binary download |
-| `HttpBook: Import Hurl String` | Create a notebook from a pasted hurl string (prompts for input if called from the Command Palette) |
+| `HTTP Client: Open Hurl Notebook` | Open a `.hurl` file as a notebook (also available via right-click in Explorer) |
+| `HTTP Client: Install Hurl` | Manually trigger the managed hurl binary download |
+| `HTTP Client: Import Hurl String` | Create a notebook from a pasted hurl string (prompts for input if called from the Command Palette) |
 
 ## Configuration
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `http-book.hurl.path` | `""` | Absolute path to a custom `hurl` executable. If empty, the managed install or `PATH` is used. |
-| `http-book.hurl.autoInstall` | `true` | Automatically download and install a managed hurl binary when no binary is found. |
-| `http-book.hurl.version` | `"7.1.0"` | The managed hurl version to install. |
+| `http-client.hurl.path` | `""` | Absolute path to a custom `hurl` executable. If empty, the managed install or `PATH` is used. |
+| `http-client.hurl.autoInstall` | `true` | Automatically download and install a managed hurl binary when no binary is found. |
+| `http-client.hurl.version` | `"7.1.0"` | The managed hurl version to install. |
 
 ## Managed Hurl Binary
 
-HttpBook bundles its own hurl binary manager. On first use (or on activation when `autoInstall` is enabled), it:
+HTTP Client bundles its own hurl binary manager. On first use (or on activation when `autoInstall` is enabled), it:
 
-1. Checks `http-book.hurl.path` in settings — uses it if set.
+1. Checks `http-client.hurl.path` in settings — uses it if set.
 2. Checks whether `hurl` is available on your system `PATH` — uses it if found.
 3. Downloads the correct binary from the [official Hurl GitHub releases](https://github.com/Orange-OpenSource/hurl/releases) for your platform and architecture, stores it in the extension's global storage directory, and reuses it across sessions.
 
@@ -67,11 +67,11 @@ HttpBook bundles its own hurl binary manager. On first use (or on activation whe
 | Linux | x64, ARM64 |
 | Windows | x64, ARM64 |
 
-To pin a specific hurl version, set `http-book.hurl.version` in your VS Code settings and run **HttpBook: Install Hurl** from the Command Palette.
+To pin a specific hurl version, set `http-client.hurl.version` in your VS Code settings and run **HTTP Client: Install Hurl** from the Command Palette.
 
 ## File Format
 
-HttpBook reads and writes standard `.hurl` files. Markdown cells are stored as `# md:` comment blocks so they survive round-trips through the file without loss:
+HTTP Client reads and writes standard `.hurl` files. Markdown cells are stored as `# md:` comment blocks so they survive round-trips through the file without loss:
 
 ```hurl
 # md: ### Create a User
@@ -90,7 +90,7 @@ Files with documentation cells remain valid `hurl` files and can be executed dir
 ## Requirements
 
 - VS Code 1.100.0 or later
-- Internet access for the initial hurl binary download (or point `http-book.hurl.path` to a local binary)
+- Internet access for the initial hurl binary download (or point `http-client.hurl.path` to a local binary)
 
 ## License
 

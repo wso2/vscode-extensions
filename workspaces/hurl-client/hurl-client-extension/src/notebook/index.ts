@@ -23,7 +23,7 @@ import { HurlNotebookController } from './HurlNotebookController';
 export { hurlTextToNotebookData, notebookCellsToNotebookData, cellsToHurlText, enqueuePendingUntitledContent } from './HurlNotebookSerializer';
 export type { NotebookCellInput } from './HurlNotebookSerializer';
 
-export const HURL_NOTEBOOK_TYPE = 'http-book';
+export const HURL_NOTEBOOK_TYPE = 'HTTPClient';
 
 /**
  * Register the Hurl notebook serializer and execution controller.
