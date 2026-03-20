@@ -58,9 +58,8 @@ export class ReadonlyHurlFSProvider implements vscode.FileSystemProvider {
         return content;
     }
 
-    writeFile(_uri: vscode.Uri, _content: Uint8Array, _options: { readonly create: boolean; readonly overwrite: boolean }): void {
-        // Silently discard writes — this is a virtual read-only notebook.
-        // We do NOT throw here because NoPermissions surfaces a visible error notification to the user.
+    writeFile(uri: vscode.Uri, _content: Uint8Array, _options: { readonly create: boolean; readonly overwrite: boolean }): void {
+        throw vscode.FileSystemError.NoPermissions(uri);
     }
 
     delete(_uri: vscode.Uri, _options: { readonly recursive: boolean }): void { }

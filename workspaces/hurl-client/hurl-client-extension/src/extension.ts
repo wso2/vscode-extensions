@@ -29,7 +29,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Proactively install hurl in the background on activation so it is ready before the user
     // executes their first cell. Silent — no error shown if this fails (will retry on first run).
-    binaryManager.resolveCommandPath({ autoInstall: true }).catch(() => {});
+    // Only trigger if the user has not disabled auto-install via configuration.
+    if (vscode.workspace.getConfiguration('http-client').get<boolean>('hurl.autoInstall', true)) {
+        binaryManager.resolveCommandPath({ autoInstall: true }).catch(() => {});
+    }
 
     // Register VS Code Notebook API support for `.hurl` files
     activateHurlNotebook(context);
@@ -43,7 +46,7 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.workspace.registerFileSystemProvider(READONLY_HURL_SCHEME, readonlyProvider, {
             isCaseSensitive: true,
-            isReadonly: false  // false so cells remain editable; writeFile is a silent no-op to avoid error notifications
+            isReadonly: false  // false so cells remain editable; writeFile throws NoPermissions to block saves
         })
     );
 
@@ -149,7 +152,7 @@ export function activate(context: vscode.ExtensionContext): void {
                     dirtyEdit.set(doc.uri, [vscode.NotebookEdit.updateNotebookMetadata({ generated: true })]);
                     await vscode.workspace.applyEdit(dirtyEdit);
                 } else {
-                    // Virtual FS notebook — writeFile is a silent no-op, so Cmd+S silently succeeds and
+                    // Virtual FS notebook — writeFile throws NoPermissions so Cmd+S is blocked.
                     // VS Code never marks the document dirty → no save prompt on close.
                     // Markdown cells are encoded as `# md:` comments so they survive the round-trip.
                     const uri = vscode.Uri.parse(`${READONLY_HURL_SCHEME}:///notebook-${Date.now()}.hurl`);

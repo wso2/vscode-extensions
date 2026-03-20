@@ -112,7 +112,7 @@ export class HurlFormatAdapter {
 					// key: @file: contentType
 					const fileAt = line.match(/^([^:]+):\s*@file:\s*(.+)$/i);
 					if (fileAt) {
-						parsed.push({ id: `f-${Math.random().toString(36).substring(2,9)}`, key: fileAt[1].trim(), filePath: undefined, contentType: fileAt[2].trim() });
+						parsed.push({ id: `f-${Math.random().toString(36).substring(2,9)}`, key: fileAt[1].trim(), filePath: fileAt[2].trim() });
 						continue;
 					}
 
@@ -609,7 +609,7 @@ export class HurlFormatAdapter {
 						continue;
 					}
 					if (fileAt) {
-						formData.push({ id: `form-${Math.random().toString(36).substring(2,9)}`, key: fileAt[1].trim(), contentType: fileAt[2].trim() } as unknown as FormDataParameter);
+						formData.push({ id: `form-${Math.random().toString(36).substring(2,9)}`, key: fileAt[1].trim(), filePath: fileAt[2].trim() } as unknown as FormDataParameter);
 						continue;
 					}
 					if (atFileOnly) {

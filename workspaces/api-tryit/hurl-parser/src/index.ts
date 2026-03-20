@@ -22,6 +22,7 @@ import {
 	ApiRequest,
 	ApiRequestItem,
 	ApiResponse,
+	BinaryFileParameter,
 	FormDataParameter,
 	FormUrlEncodedParameter,
 	HeaderParameter,
@@ -72,6 +73,7 @@ interface ParsedRequestPart {
 	body?: string;
 	bodyFormData?: FormDataParameter[];
 	bodyFormUrlEncoded?: FormUrlEncodedParameter[];
+	bodyBinaryFiles?: BinaryFileParameter[];
 }
 
 export * from './hurl-collection-file';
@@ -92,15 +94,34 @@ export function parseHurlCollection(hurlContent: string, options: ParseHurlColle
 		throw new Error('Could not parse Hurl content: no request entries found');
 	}
 
-	const rootItems = requestBlocks.map((block, index) => parseRequestBlock(block, index + 1));
 	const fallbackBaseName = deriveCollectionBaseName(options.sourceFilePath);
 	const collectionId = sanitizeId(options.collectionId) || sanitizeId(fallbackBaseName) || `hurl-collection-${Date.now()}`;
 	const collectionName = normalizeCollectionName(options.collectionName, fallbackBaseName);
 
+	const rootItems: ApiRequestItem[] = [];
+	const foldersMap = new Map<string, ApiRequestItem[]>();
+
+	requestBlocks.forEach((block, index) => {
+		const item = parseRequestBlock(block, index + 1);
+		const folderName = extractFolderName(block);
+		if (folderName) {
+			if (!foldersMap.has(folderName)) { foldersMap.set(folderName, []); }
+			foldersMap.get(folderName)!.push(item);
+		} else {
+			rootItems.push(item);
+		}
+	});
+
+	const folders = Array.from(foldersMap.entries()).map(([name, items]) => ({
+		id: sanitizeId(name) || name,
+		name,
+		items
+	}));
+
 	return {
 		id: collectionId,
 		name: collectionName,
-		folders: [],
+		folders,
 		rootItems
 	};
 }
@@ -221,6 +242,15 @@ function apiRequestItemToHurl(item: ApiRequestItem, options: SerializeRequestOpt
 		}
 	}
 
+	const hasBinarySection = Array.isArray(request.bodyBinaryFiles) && request.bodyBinaryFiles.length > 0;
+	if (hasBinarySection && !hasFormSection && !hasMultipartSection) {
+		lines.push('[Multipart]');
+		for (const file of request.bodyBinaryFiles || []) {
+			const suffix = file.contentType ? ` ${file.contentType}` : '';
+			lines.push(`file: file,${file.filePath || ''};${suffix}`);
+		}
+	}
+
 	const assertions = mergeAssertions(item.assertions, request.assertions);
 	const { statusLine, otherAssertions } = splitStatusAssertion(assertions);
 
@@ -323,6 +353,16 @@ function validateHurlContent(content: unknown): string {
 	return content;
 }
 
+function extractFolderName(block: string): string | undefined {
+	for (const line of block.split('\n')) {
+		const trimmed = line.trim();
+		if (trimmed.startsWith('# @folder ')) {
+			return trimmed.substring(10).trim() || undefined;
+		}
+	}
+	return undefined;
+}
+
 function parseRequestBlock(block: string, requestIndex: number): ApiRequestItem {
 	const lines = normalizeLineEndings(block).split('\n');
 	let cursor = 0;
@@ -391,6 +431,10 @@ function parseRequestBlock(block: string, requestIndex: number): ApiRequestItem 
 
 	if (parsedRequestPart.bodyFormUrlEncoded && parsedRequestPart.bodyFormUrlEncoded.length > 0) {
 		request.bodyFormUrlEncoded = parsedRequestPart.bodyFormUrlEncoded;
+	}
+
+	if (parsedRequestPart.bodyBinaryFiles && parsedRequestPart.bodyBinaryFiles.length > 0) {
+		request.bodyBinaryFiles = parsedRequestPart.bodyBinaryFiles;
 	}
 
 	if (assertions.length > 0) {
@@ -601,7 +645,25 @@ function parseRequestPart(lines: string[], requestIndex: number, initialQueryCou
 		requestPart.bodyFormData = multipartParams;
 	}
 
-	const body = trimEdgeEmptyLines(bodyLines).join('\n').trim();
+	const binaryBodyLines: string[] = [];
+	const remainingBodyLines: string[] = [];
+	for (const line of bodyLines) {
+		const binaryMatch = line.trim().match(/^file,([^;]+);(?:\s*(.+))?$/i);
+		if (binaryMatch) {
+			binaryBodyLines.push(line);
+		} else {
+			remainingBodyLines.push(line);
+		}
+	}
+
+	if (binaryBodyLines.length > 0) {
+		requestPart.bodyBinaryFiles = binaryBodyLines.map((line, i) => {
+			const m = line.trim().match(/^file,([^;]+);(?:\s*(.+))?$/i)!;
+			return { id: `binary-${i + 1}`, filePath: m[1].trim(), contentType: m[2]?.trim() ?? '' };
+		});
+	}
+
+	const body = trimEdgeEmptyLines(remainingBodyLines).join('\n').trim();
 	if (body) {
 		requestPart.body = body;
 	}

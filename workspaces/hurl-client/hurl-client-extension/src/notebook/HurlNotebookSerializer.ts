@@ -169,7 +169,10 @@ export function hurlTextToNotebookData(hurlContent: string): vscode.NotebookData
             }
             const hurlText = hurlLines.join('\n').trim();
             if (hurlText) {
-                const { blocks } = parseHurlDocument(hurlText);
+                const { header, blocks } = parseHurlDocument(hurlText);
+                if (header && header.trim()) {
+                    cells.push(new vscode.NotebookCellData(vscode.NotebookCellKind.Code, header.trim(), CELL_LANGUAGE_ID));
+                }
                 for (const block of blocks) {
                     const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, block.text, CELL_LANGUAGE_ID);
                     cell.metadata = { name: block.name, method: block.method, url: block.url };

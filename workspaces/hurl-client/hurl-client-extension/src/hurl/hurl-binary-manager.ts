@@ -218,12 +218,6 @@ export class HurlBinaryManager {
 		const version = configured || DEFAULT_HURL_VERSION;
 		// Validate to prevent path traversal via a malicious version string (e.g. "../../foo").
 		if (!/^[A-Za-z0-9._-]+$/.test(version)) {
-	private getManagedVersion(): string {
-		const configured = vscode.workspace.getConfiguration(CONFIG_SECTION)
-			.get<string>('hurl.version', DEFAULT_HURL_VERSION)
-			.trim();
-		const version = configured || DEFAULT_HURL_VERSION;
-		if (!/^[A-Za-z0-9._-]+$/.test(version)) {
 			throw new Error(`Invalid managed hurl version: ${version}`);
 		}
 		return version;
