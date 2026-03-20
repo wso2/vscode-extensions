@@ -19,7 +19,8 @@
     ],
     "main": "./out/extension",
     "extensionDependencies": [
-        "wso2.ballerina"
+        "wso2.ballerina",
+        "wso2.wso2-integrator"
     ],
     "contributes": {
         "viewsContainers": {
@@ -154,18 +155,6 @@
             ]
         },
         "commands": [
-            {
-                "command": "ballerina.showVisualizer",
-                "title": "Open Overview",
-                "category": "BI",
-                "icon": "$(preview)"
-            },
-            {
-                "command": "BI.project-explorer.overview",
-                "title": "Open Overview",
-                "category": "BI",
-                "icon": "$(preview)"
-            }
         ]
     },
     "scripts": {
