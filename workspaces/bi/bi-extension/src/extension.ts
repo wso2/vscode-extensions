@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 
 export function activate(context: vscode.ExtensionContext) {
 	// Show deprecation warning
-	vscode.window.showWarningMessage('The Ballerina Integration extension is deprecated and will be removed in future releases. Please use the \'WSO2 Integrator\' extension for your development needs.');
+	vscode.window.showWarningMessage('The \'WSO2 Integrator - BI\' extension is deprecated and will be removed in a future releases. Please use the \'WSO2 Integrator\' extension to continue receiving updates and support.');
 
 	// deactivate the extension immediately after showing the warning
 	deactivate();
