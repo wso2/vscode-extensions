@@ -295,7 +295,9 @@ export class HurlFormatAdapter {
 						if (urlMatch[2]) {
 							const queryParams = urlMatch[2].split('&');
 							for (const param of queryParams) {
-								const [key, value] = param.split('=');
+								const eqIdx = param.indexOf('=');
+								const key = eqIdx >= 0 ? param.substring(0, eqIdx) : param;
+								const value = eqIdx >= 0 ? param.substring(eqIdx + 1) : '';
 								if (key) {
 									request.queryParameters!.push({
 										id: `param-${Math.random().toString(36).substring(2, 9)}`,

@@ -84,6 +84,8 @@ function resolveManagedAsset(version: string): HurlAsset | undefined {
 }
 
 export class HurlBinaryManager {
+	private installInFlight: Promise<string> | undefined;
+
 	constructor(private readonly context: vscode.ExtensionContext) {}
 
 	async resolveCommandPath(options: ResolveCommandOptions = {}): Promise<string> {
@@ -107,12 +109,16 @@ export class HurlBinaryManager {
 		}
 
 		try {
-			return await this.installManagedHurl({ version, interactive: false });
+			if (!this.installInFlight) {
+				this.installInFlight = this.installManagedHurl({ version, interactive: false })
+					.finally(() => { this.installInFlight = undefined; });
+			}
+			return await this.installInFlight;
 		} catch (error) {
 			if (options.promptOnFailure) {
 				const message = error instanceof Error ? error.message : 'Failed to install managed hurl binary';
 				const action = await vscode.window.showErrorMessage(
-					`${message}. Set http-book.hurl.path or run "HTTP Client: Install Hurl".`,
+					`${message}. Set http-client.hurl.path or run "HTTP Client: Install Hurl".`,
 					'Install Hurl',
 					'Open Settings'
 				);

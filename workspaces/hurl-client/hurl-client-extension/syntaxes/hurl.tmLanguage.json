@@ -112,7 +112,7 @@
     },
 
     "assert-predicate": {
-      "match": "\\b(not\\s+)?(==|!=|>=|<=|>|<|contains|startsWith|endsWith|matches|exists|isString|isInteger|isFloat|isBoolean|isCollection|isDate|isEmpty|isList|isObject|isUuid|isIpv4|isIpv6|isIsoDate)\\b",
+      "match": "(not\\s+)?(==|!=|>=|<=|>|<|contains|startsWith|endsWith|matches|exists|isString|isInteger|isFloat|isBoolean|isCollection|isDate|isEmpty|isList|isObject|isUuid|isIpv4|isIpv6|isIsoDate)\\b",
       "captures": {
         "1": { "name": "keyword.operator.logical.not.hurl" },
         "2": { "name": "keyword.operator.predicate.hurl" }
