@@ -78,6 +78,7 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({ data, rpcClient }) => {
     const submit = async (spec: string) => {
         setIsProcessing(true);
         try {
+            // submiting
             await rpcClient?.getAiPanelRpcClient().provideConnectorSpec({ requestId: data.requestId, spec });
         } catch (e: any) {
             setValidationError(e.message || "Failed to submit specification");
@@ -118,6 +119,7 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({ data, rpcClient }) => {
         setShowSkipConfirm(false);
     };
 
+    // rendering ui within ai panel
     if (stage === "requesting_input") {
         return (
             <InlineCard>

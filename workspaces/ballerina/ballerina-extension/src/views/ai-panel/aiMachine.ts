@@ -407,6 +407,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
 const openLogin = async () => {
     return new Promise(async (resolve, reject) => {
         try {
+            //
             // Check if already logged into Devant
             const isLoggedIn = await isDevantUserLoggedIn();
             if (isLoggedIn) {

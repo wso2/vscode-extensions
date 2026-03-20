@@ -17,7 +17,7 @@
  */
 
 import { AICommandExecutor, AICommandConfig, AIExecutionResult } from '../executors/base/AICommandExecutor';
-import { Command, GenerateAgentCodeRequest, ProjectSource, MACHINE_VIEW, refreshReviewMode, ExecutionContext } from '@wso2/ballerina-core';
+import { Command, GenerateAgentCodeRequest, ProjectSource, MACHINE_VIEW, refreshReviewMode, ExecutionContext, LoginMethod } from '@wso2/ballerina-core';
 import { ModelMessage, stepCountIs, streamText, TextStreamPart } from 'ai';
 import { getAnthropicClient, getProviderCacheControl, ANTHROPIC_SONNET_4 } from '../utils/ai-client';
 import { populateHistoryForAgent, getErrorMessage } from '../utils/ai-utils';
@@ -25,6 +25,7 @@ import { sendAgentDidOpenForFreshProjects } from '../utils/project/ls-schema-not
 import { getSystemPrompt, getUserPrompt } from './prompts';
 import { GenerationType } from '../utils/libs/libraries';
 import { createToolRegistry } from './tool-registry';
+import { createDevantToolRegistry } from './devant-tool-registry';
 import { getProjectSource, cleanupTempProject } from '../utils/project/temp-project';
 import { StreamContext } from './stream-handlers/stream-context';
 import { checkCompilationErrors } from './tools/diagnostics-utils';
@@ -47,6 +48,7 @@ import { getProjectMetrics } from "../../telemetry/common/project-metrics";
 import { getHashedProjectId } from "../../telemetry/common/project-id";
 import { workspace } from 'vscode';
 import { runningServicesManager } from './tools/running-service-manager';
+import { AIStateMachine } from '../../../views/ai-panel/aiMachine';
 
 /**
  * Determines which packages have been affected by analyzing modified files
@@ -197,7 +199,7 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             ];
 
             // Create tools
-            const tools = createToolRegistry({
+            const ballerinaTools = createToolRegistry({
                 eventHandler: this.config.eventHandler,
                 tempProjectPath,
                 modifiedFiles,
@@ -209,6 +211,18 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 runningServices: runningServicesManager,
             });
 
+            let tools = ballerinaTools;
+            // todo: just check if wi extension is installed instead of login method
+            if (AIStateMachine.context().loginMethod === LoginMethod.BI_INTEL) {
+                const devantTools = await createDevantToolRegistry({
+                    eventHandler: this.config.eventHandler,
+                    tempProjectPath,
+                    modifiedFiles,
+                    projectName: projects[0]?.projectName,
+                });
+                tools = { ...ballerinaTools, ...devantTools };
+            }
+            
             // Stream LLM response
             const { fullStream, response, usage } = streamText({
                 model: await getAnthropicClient(ANTHROPIC_SONNET_4),

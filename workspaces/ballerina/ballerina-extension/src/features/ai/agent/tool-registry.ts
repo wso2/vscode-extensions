@@ -60,7 +60,7 @@ export interface ToolRegistryOptions {
     runningServices: RunningServicesManager;
 }
 
-export function createToolRegistry(opts: ToolRegistryOptions) {
+export function createToolRegistry(opts: ToolRegistryOptions) { //
     const { eventHandler, tempProjectPath, modifiedFiles, projects, generationType, workspaceId, generationId, threadId } = opts;
     return {
         [TASK_WRITE_TOOL_NAME]: createTaskWriteTool(

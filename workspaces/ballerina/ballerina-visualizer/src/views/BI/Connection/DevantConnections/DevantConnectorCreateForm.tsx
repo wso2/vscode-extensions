@@ -203,7 +203,7 @@ export const DevantConnectorCreateForm: FC<DevantConnectorCreateFormProps> = ({
                 orgId: platformExtState.selectedContext?.org.id?.toString(),
                 orgUuid: platformExtState.selectedContext?.org?.uuid,
                 projectId: platformExtState.selectedContext?.project.id,
-                serviceSchemaId: marketplaceItem?.connectionSchemas[0]?.id || "",
+                serviceSchemaId: data.schemaId,
                 serviceId: marketplaceItem?.serviceId,
                 serviceVisibility: getInitialVisibility(marketplaceItem, visibilities),
                 componentType: isProjectLevel

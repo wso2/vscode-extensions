@@ -23,10 +23,12 @@ import { CONNECTOR_GENERATOR_TOOL } from "./tools/connector-generator";
 import { CONFIG_COLLECTOR_TOOL } from "./tools/config-collector";
 import { TEST_RUNNER_TOOL_NAME } from "./tools/test-runner";
 import { getLanglibInstructions } from "../utils/libs/langlibs";
+import { getDevantKnowledge } from "./devant-prompts";
 import { formatCodebaseStructure, formatCodeContext } from "./utils";
-import { GenerateAgentCodeRequest, OperationType, ProjectSource } from "@wso2/ballerina-core";
+import { GenerateAgentCodeRequest, LoginMethod, OperationType, ProjectSource } from "@wso2/ballerina-core";
 import { getRequirementAnalysisCodeGenPrefix, getRequirementAnalysisTestGenPrefix } from "./np/prompts";
 import { extractResourceDocumentContent, flattenProjectToFiles } from "../utils/ai-utils";
+import { AIStateMachine } from "../../../views/ai-panel/aiMachine";
 
 /**
  * Generates the system prompt for the design agent
@@ -200,6 +202,8 @@ When running tests:
 1. Tell the user what is being tested in one line.
 2. Use ${TEST_RUNNER_TOOL_NAME} to run the test suite.
 3. Only if there are failures or errors, briefly mention what failed and fix them, then re-run.
+
+${AIStateMachine.context().loginMethod === LoginMethod.BI_INTEL ? getDevantKnowledge() : ""}
 
 ${getNPSuffix(projects, op)}
 `;
