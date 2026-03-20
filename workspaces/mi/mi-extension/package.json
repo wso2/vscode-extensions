@@ -1007,7 +1007,7 @@
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f191"
+          "fontCharacter": "\\f193"
         }
       }
     }
