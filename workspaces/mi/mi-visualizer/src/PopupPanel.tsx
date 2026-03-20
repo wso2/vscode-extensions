@@ -17,7 +17,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { MACHINE_VIEW, PopupMachineStateValue, PopupVisualizerLocation, Platform } from '@wso2/mi-core';
+import { MACHINE_VIEW, PopupMachineStateValue, PopupVisualizerLocation } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { EndpointWizard } from './views/Forms/EndpointForm';
 import styled from '@emotion/styled';
@@ -68,9 +68,8 @@ const PopupPanel = (props: { formState: PopupMachineStateValue, handleClose?: ()
     }, []);
 
     const fetchContext = () => {
-        rpcClient.getPopupVisualizerState().then(async (machineSate: PopupVisualizerLocation) => {
-            const machineView = await rpcClient.getVisualizerState();
-            const endpointPath = machineSate.documentUri ? path.join(machineSate.documentUri.split(`artifacts${machineView.platform === Platform.WINDOWS ? path.win32.sep : path.sep}`)[0], 'artifacts', 'endpoints') : "";
+        rpcClient.getPopupVisualizerState().then((machineSate: PopupVisualizerLocation) => {
+            const endpointPath = machineSate.documentUri ? [machineSate.documentUri.split(`artifacts${machineSate.pathSeparator}`)[0], 'artifacts', 'endpoints'].join(machineSate.pathSeparator) : "";
             switch (machineSate?.view) {
                 case MACHINE_VIEW.EndPointForm:
                     setViewComponent(<EndpointWizard handlePopupClose={props.handleClose} isPopup={true} path={machineSate.documentUri} />);
