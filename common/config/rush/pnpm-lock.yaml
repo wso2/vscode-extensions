@@ -2959,8 +2959,8 @@ importers:
         specifier: 16.0.3
         version: 16.0.3
       file-type:
-        specifier: 21.3.1
-        version: 21.3.1
+        specifier: 21.3.2
+        version: 21.3.2
       js-yaml:
         specifier: 4.1.1
         version: 4.1.1
@@ -3438,7 +3438,7 @@ importers:
         specifier: 6.0.7
         version: 6.0.7(@types/node@22.15.24)(jiti@2.6.1)(sass@1.89.0)(terser@5.46.0)(yaml@2.8.0)
 
-  ../../workspaces/httpBook/http-book-core:
+  ../../workspaces/hurl-client/hurl-client-core:
     dependencies:
       '@wso2/api-tryit-hurl-runner':
         specifier: workspace:*
@@ -3448,23 +3448,17 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
 
-  ../../workspaces/httpBook/http-book-extension:
+  ../../workspaces/hurl-client/hurl-client-extension:
     dependencies:
-      '@wso2/api-tryit-core':
-        specifier: workspace:*
-        version: link:../../api-tryit/api-tryit-core
       '@wso2/api-tryit-hurl-parser':
         specifier: workspace:*
         version: link:../../api-tryit/hurl-parser
       '@wso2/api-tryit-hurl-runner':
         specifier: workspace:*
         version: link:../../api-tryit/hurl-runner
-      '@wso2/http-book-core':
+      '@wso2/hurl-client-core':
         specifier: workspace:*
-        version: link:../http-book-core
-      vscode-webview-network-bridge:
-        specifier: 1.1.1
-        version: 1.1.1
+        version: link:../hurl-client-core
     devDependencies:
       '@types/node':
         specifier: 20.x
@@ -3481,9 +3475,6 @@ importers:
       '@vscode/vsce':
         specifier: 3.7.0
         version: 3.7.0
-      '@wso2/http-book-visualizer':
-        specifier: workspace:*
-        version: link:../http-book-visualizer
       copyfiles:
         specifier: 2.4.1
         version: 2.4.1
@@ -3505,76 +3496,6 @@ importers:
       webpack-cli:
         specifier: 6.0.1
         version: 6.0.1(webpack@5.104.1)
-
-  ../../workspaces/httpBook/http-book-visualizer:
-    dependencies:
-      '@emotion/css':
-        specifier: 11.13.5
-        version: 11.13.5
-      '@emotion/react':
-        specifier: 11.14.0
-        version: 11.14.0(@types/react@18.2.0)(react@18.2.0)
-      '@emotion/styled':
-        specifier: 11.14.0
-        version: 11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0)
-      '@types/vscode-webview':
-        specifier: 1.57.5
-        version: 1.57.5
-      '@wso2/http-book-core':
-        specifier: workspace:*
-        version: link:../http-book-core
-      '@wso2/ui-toolkit':
-        specifier: workspace:*
-        version: link:../../common-libs/ui-toolkit
-      process:
-        specifier: 0.11.10
-        version: 0.11.10
-      react:
-        specifier: 18.2.0
-        version: 18.2.0
-      react-dom:
-        specifier: 18.2.0
-        version: 18.2.0(react@18.2.0)
-      vscode-webview-network-bridge:
-        specifier: 1.1.1
-        version: 1.1.1
-    devDependencies:
-      '@types/react':
-        specifier: 18.2.0
-        version: 18.2.0
-      '@types/react-dom':
-        specifier: 18.2.0
-        version: 18.2.0
-      copyfiles:
-        specifier: 2.4.1
-        version: 2.4.1
-      css-loader:
-        specifier: 7.1.2
-        version: 7.1.2(webpack@5.104.1)
-      html-webpack-plugin:
-        specifier: 5.6.3
-        version: 5.6.3(webpack@5.104.1)
-      source-map-loader:
-        specifier: 5.0.0
-        version: 5.0.0(webpack@5.104.1)
-      style-loader:
-        specifier: 4.0.0
-        version: 4.0.0(webpack@5.104.1)
-      ts-loader:
-        specifier: 9.5.1
-        version: 9.5.1(typescript@5.8.3)(webpack@5.104.1)
-      typescript:
-        specifier: 5.8.3
-        version: 5.8.3
-      webpack:
-        specifier: 5.104.1
-        version: 5.104.1(webpack-cli@6.0.1)
-      webpack-cli:
-        specifier: 6.0.1
-        version: 6.0.1(webpack-dev-server@5.2.3)(webpack@5.104.1)
-      webpack-dev-server:
-        specifier: 5.2.3
-        version: 5.2.3(webpack-cli@6.0.1)(webpack@5.104.1)
 
   ../../workspaces/mcp-inspector/mcp-inspector-extension:
     dependencies:
@@ -4177,8 +4098,8 @@ importers:
         specifier: 16.5.0
         version: 16.5.0
       fast-xml-parser:
-        specifier: 5.3.8
-        version: 5.3.8
+        specifier: 5.5.6
+        version: 5.5.6
       find-process:
         specifier: 1.4.10
         version: 1.4.10
@@ -4467,8 +4388,8 @@ importers:
         specifier: 1.0.20
         version: 1.0.20
       fast-xml-parser:
-        specifier: 5.3.8
-        version: 5.3.8
+        specifier: 5.5.6
+        version: 5.5.6
       lodash:
         specifier: 4.17.23
         version: 4.17.23
@@ -4704,8 +4625,8 @@ importers:
         specifier: 16.0.3
         version: 16.0.3
       file-type:
-        specifier: 21.3.1
-        version: 21.3.1
+        specifier: 21.3.2
+        version: 21.3.2
       js-yaml:
         specifier: 4.1.1
         version: 4.1.1
@@ -16191,8 +16112,11 @@ packages:
   fast-uri@3.1.0:
     resolution: {integrity: sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA==}
 
-  fast-xml-parser@5.3.8:
-    resolution: {integrity: sha512-53jIF4N6u/pxvaL1eb/hEZts/cFLWZ92eCfLrNyCI0k38lettCG/Bs40W9pPwoPXyHQlKu2OUbQtiEIZK/J6Vw==}
+  fast-xml-builder@1.1.4:
+    resolution: {integrity: sha512-f2jhpN4Eccy0/Uz9csxh3Nu6q4ErKxf0XIsasomfOihuSUa3/xw6w8dnOtCDgEItQFJG8KyXPzQXzcODDrrbOg==}
+
+  fast-xml-parser@5.5.6:
+    resolution: {integrity: sha512-3+fdZyBRVg29n4rXP0joHthhcHdPUHaIC16cuyyd1iLsuaO6Vea36MPrxgAzbZna8lhvZeRL8Bc9GP56/J9xEw==}
     hasBin: true
 
   fastest-levenshtein@1.0.16:
@@ -16236,9 +16160,6 @@ packages:
 
   fd-package-json@1.2.0:
     resolution: {integrity: sha512-45LSPmWf+gC5tdCQMNH4s9Sr00bIkiD9aN7dc5hqkrEw1geRYyDQS1v1oMHAW3ysfxfndqGsrDREHHjNNbKUfA==}
-
-  fd-slicer@1.1.0:
-    resolution: {integrity: sha512-cE1qsB/VwyQozZ+q1dGxR8LBYNZeofhEdUNGSMbQD3Gw2lAzX9Zb3uIU6Ebc/Fmyjo9AWWfnn0AUCHqtevs/8g==}
 
   fdir@6.5.0:
     resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
@@ -16303,8 +16224,8 @@ packages:
   file-system-cache@2.3.0:
     resolution: {integrity: sha512-l4DMNdsIPsVnKrgEXbJwDJsA5mB8rGwHYERMgqQx/xAUtChPJMre1bXBzDEqqVbWv9AIbFezXMxeEkZDSrXUOQ==}
 
-  file-type@21.3.1:
-    resolution: {integrity: sha512-SrzXX46I/zsRDjTb82eucsGg0ODq2NpGDp4HcsFKApPy8P8vACjpJRDoGGMfEzhFC0ry61ajd7f72J3603anBA==}
+  file-type@21.3.2:
+    resolution: {integrity: sha512-DLkUvGwep3poOV2wpzbHCOnSKGk1LzyXTv+aHFgN2VFl96wnp8YA9YjO2qPzg5PuL8q/SW9Pdi6WTkYOIh995w==}
     engines: {node: '>=20'}
 
   file-uri-to-path@1.0.0:
@@ -20823,6 +20744,10 @@ packages:
     resolution: {integrity: sha512-RjhtfwJOxzcFmNOi6ltcbcu4Iu+FL3zEj83dk4kAS+fVpTxXLO1b38RvJgT/0QwvV/L3aY9TAnyv0EOqW4GoMQ==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
+  path-expression-matcher@1.2.0:
+    resolution: {integrity: sha512-DwmPWeFn+tq7TiyJ2CxezCAirXjFxvaiD03npak3cRjlP9+OjTmSy1EpIrEbh+l6JgUundniloMLDQ/6VTdhLQ==}
+    engines: {node: '>=14.0.0'}
+
   path-is-absolute@1.0.1:
     resolution: {integrity: sha512-AVbw3UJ2e9bq64vSaS9Am0fje1Pa8pbGqTTsmXfaIiMpnr5DlDhfJOuLj9Sf95ZPVDAUerDfEk88MPmPe7UCQg==}
     engines: {node: '>=0.10.0'}
@@ -24728,8 +24653,8 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
-  undici@7.23.0:
-    resolution: {integrity: sha512-HVMxHKZKi+eL2mrUZDzDkKW3XvCjynhbtpSq20xQp4ePDFeSFuAfnvM0GIwZIv8fiKHjXFQ5WjxhCt15KRNj+g==}
+  undici@7.24.0:
+    resolution: {integrity: sha512-jxytwMHhsbdpBXxLAcuu0fzlQeXCNnWdDyRHpvWsUl8vd98UwYdl9YTyn8/HcpcJPC3pwUveefsa3zTxyD/ERg==}
     engines: {node: '>=20.18.1'}
 
   unfetch@4.2.0:
@@ -25308,10 +25233,6 @@ packages:
 
   vscode-uri@3.1.0:
     resolution: {integrity: sha512-/BpdSx+yCQGnCvecbyXdxHDkuk55/G3xwnC0GqY4gmQ3j+A+g8kzzgB4Nk/SINjqn6+waqw3EgbVF2QKExkRxQ==}
-
-  vscode-webview-network-bridge@1.1.1:
-    resolution: {integrity: sha512-x33vsdBizABFsCcJU8sdSrLhrAJJY15A9uNk48qOmQjmuUA924KpIgzW5OGfEf+vjpbjHEiG5fiJyf7kJIYsJA==}
-    engines: {node: '>=18'}
 
   vscode-ws-jsonrpc@3.4.0:
     resolution: {integrity: sha512-jkNZvX0LdHt4skPxMw/jFePr3jRCJU6ZmO28oPoQ7RwNSkwU3uN8mgtxACYEbOY68bYmi/b/uJzhxewKCz1P4w==}
@@ -25944,8 +25865,9 @@ packages:
     engines: {node: '>=4.0.0'}
     hasBin: true
 
-  yauzl@2.10.0:
-    resolution: {integrity: sha512-p4a9I6X6nu6IhoGmBqAcbJy1mlC4j27vEPZX9F4L4/vZT3Lyq1VkFHw/V/PUcB9Buo+DG3iHkT0x3Qya58zc3g==}
+  yauzl@3.2.1:
+    resolution: {integrity: sha512-k1isifdbpNSFEHFJ1ZY4YDewv0IH9FR61lDetaRMD3j2ae3bIXGV+7c+LHCqtQGofSd8PIyV4X6+dHMAnSr60A==}
+    engines: {node: '>=12'}
 
   yazl@2.5.1:
     resolution: {integrity: sha512-phENi2PLiHnHb6QBVot+dJnaAZ0xosj7p3fWl+znIjBDlnMI2PsZCJZ306BPTFOaHf5qdDEI8x5qFrSOBN5vrw==}
@@ -26298,7 +26220,7 @@ snapshots:
       '@smithy/smithy-client': 4.12.4
       '@smithy/types': 4.13.1
       '@smithy/util-middleware': 4.2.12
-      fast-xml-parser: 5.3.8
+      fast-xml-parser: 5.5.6
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-env@3.816.0':
@@ -29827,14 +29749,14 @@ snapshots:
       '@jest/test-result': 29.7.0
       '@jest/transform': 29.7.0
       '@jest/types': 29.6.3
-      '@types/node': 22.15.24
+      '@types/node': 20.19.17
       ansi-escapes: 4.3.2
       chalk: 4.1.2
       ci-info: 3.9.0
       exit: 0.1.2
       graceful-fs: 4.2.11
       jest-changed-files: 29.7.0
-      jest-config: 29.7.0(@types/node@22.15.24)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.18(@swc/helpers@0.5.19))(@types/node@22.15.19)(typescript@5.8.3))
+      jest-config: 29.7.0(@types/node@20.19.17)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.18(@swc/helpers@0.5.19))(@types/node@22.15.19)(typescript@5.8.3))
       jest-haste-map: 29.7.0
       jest-message-util: 29.7.0
       jest-regex-util: 29.6.3
@@ -29862,14 +29784,14 @@ snapshots:
       '@jest/test-result': 29.7.0
       '@jest/transform': 29.7.0
       '@jest/types': 29.6.3
-      '@types/node': 22.15.24
+      '@types/node': 20.19.17
       ansi-escapes: 4.3.2
       chalk: 4.1.2
       ci-info: 3.9.0
       exit: 0.1.2
       graceful-fs: 4.2.11
       jest-changed-files: 29.7.0
-      jest-config: 29.7.0(@types/node@22.15.24)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.18(@swc/helpers@0.5.19))(@types/node@22.15.24)(typescript@5.8.3))
+      jest-config: 29.7.0(@types/node@20.19.17)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.18(@swc/helpers@0.5.19))(@types/node@22.15.24)(typescript@5.8.3))
       jest-haste-map: 29.7.0
       jest-message-util: 29.7.0
       jest-regex-util: 29.6.3
@@ -30332,7 +30254,10 @@ snapshots:
       jest-runner: 25.5.4
       jest-runtime: 25.5.4
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   '@jest/test-sequencer@29.7.0':
     dependencies:
@@ -40587,7 +40512,7 @@ snapshots:
 
   '@types/express-serve-static-core@4.19.8':
     dependencies:
-      '@types/node': 22.15.24
+      '@types/node': 20.19.17
       '@types/qs': 6.15.0
       '@types/range-parser': 1.2.7
       '@types/send': 1.2.1
@@ -40832,7 +40757,7 @@ snapshots:
 
   '@types/npmlog@4.1.6':
     dependencies:
-      '@types/node': 16.18.126
+      '@types/node': 20.19.17
 
   '@types/overlayscrollbars@1.12.5': {}
 
@@ -41653,7 +41578,7 @@ snapshots:
       typed-rest-client: 1.8.11
       url-join: 4.0.1
       xml2js: 0.5.0
-      yauzl: 2.10.0
+      yauzl: 3.2.1
       yazl: 2.5.1
     optionalDependencies:
       keytar: 7.9.0
@@ -41689,7 +41614,7 @@ snapshots:
       typed-rest-client: 1.8.11
       url-join: 4.0.1
       xml2js: 0.5.0
-      yauzl: 2.10.0
+      yauzl: 3.2.1
       yazl: 2.5.1
     optionalDependencies:
       keytar: 7.9.0
@@ -41725,7 +41650,7 @@ snapshots:
       typed-rest-client: 1.8.11
       url-join: 4.0.1
       xml2js: 0.5.0
-      yauzl: 2.10.0
+      yauzl: 3.2.1
       yazl: 2.5.1
     optionalDependencies:
       keytar: 7.9.0
@@ -44210,7 +44135,7 @@ snapshots:
       parse5: 7.3.0
       parse5-htmlparser2-tree-adapter: 7.1.0
       parse5-parser-stream: 7.1.2
-      undici: 7.23.0
+      undici: 7.24.0
       whatwg-mimetype: 4.0.0
 
   chokidar@1.7.0:
@@ -46823,7 +46748,7 @@ snapshots:
       concat-stream: 1.6.2
       debug: 2.6.9
       mkdirp: 0.5.6
-      yauzl: 2.10.0
+      yauzl: 3.2.1
 
   extsprintf@1.3.0: {}
 
@@ -46862,8 +46787,14 @@ snapshots:
 
   fast-uri@3.1.0: {}
 
-  fast-xml-parser@5.3.8:
+  fast-xml-builder@1.1.4:
     dependencies:
+      path-expression-matcher: 1.2.0
+
+  fast-xml-parser@5.5.6:
+    dependencies:
+      fast-xml-builder: 1.1.4
+      path-expression-matcher: 1.2.0
       strnum: 2.2.0
 
   fastest-levenshtein@1.0.16: {}
@@ -46921,10 +46852,6 @@ snapshots:
   fd-package-json@1.2.0:
     dependencies:
       walk-up-path: 3.0.1
-
-  fd-slicer@1.1.0:
-    dependencies:
-      pend: 1.2.0
 
   fdir@6.5.0(picomatch@4.0.3):
     optionalDependencies:
@@ -47007,7 +46934,7 @@ snapshots:
       fs-extra: 11.1.1
       ramda: 0.29.0
 
-  file-type@21.3.1:
+  file-type@21.3.2:
     dependencies:
       '@tokenizer/inflate': 0.4.1
       strtok3: 10.3.4
@@ -48530,7 +48457,7 @@ snapshots:
       pretty-error: 4.0.0
       tapable: 2.3.0
     optionalDependencies:
-      webpack: 5.104.1(webpack-cli@6.0.1)
+      webpack: 5.104.1(@swc/core@1.15.18(@swc/helpers@0.5.19))(webpack-cli@6.0.1)
 
   htmlparser2@10.1.0:
     dependencies:
@@ -49685,6 +49612,68 @@ snapshots:
       - supports-color
       - utf-8-validate
 
+  jest-config@29.7.0(@types/node@20.19.17)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.18(@swc/helpers@0.5.19))(@types/node@22.15.19)(typescript@5.8.3)):
+    dependencies:
+      '@babel/core': 7.27.1
+      '@jest/test-sequencer': 29.7.0
+      '@jest/types': 29.6.3
+      babel-jest: 29.7.0(@babel/core@7.27.1)
+      chalk: 4.1.2
+      ci-info: 3.9.0
+      deepmerge: 4.3.1
+      glob: 7.2.3
+      graceful-fs: 4.2.11
+      jest-circus: 29.7.0(babel-plugin-macros@3.1.0)
+      jest-environment-node: 29.7.0
+      jest-get-type: 29.6.3
+      jest-regex-util: 29.6.3
+      jest-resolve: 29.7.0
+      jest-runner: 29.7.0
+      jest-util: 29.7.0
+      jest-validate: 29.7.0
+      micromatch: 4.0.8
+      parse-json: 5.2.0
+      pretty-format: 29.7.0
+      slash: 3.0.0
+      strip-json-comments: 3.1.1
+    optionalDependencies:
+      '@types/node': 20.19.17
+      ts-node: 10.9.2(@swc/core@1.15.18(@swc/helpers@0.5.19))(@types/node@22.15.19)(typescript@5.8.3)
+    transitivePeerDependencies:
+      - babel-plugin-macros
+      - supports-color
+
+  jest-config@29.7.0(@types/node@20.19.17)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.18(@swc/helpers@0.5.19))(@types/node@22.15.24)(typescript@5.8.3)):
+    dependencies:
+      '@babel/core': 7.27.1
+      '@jest/test-sequencer': 29.7.0
+      '@jest/types': 29.6.3
+      babel-jest: 29.7.0(@babel/core@7.27.1)
+      chalk: 4.1.2
+      ci-info: 3.9.0
+      deepmerge: 4.3.1
+      glob: 7.2.3
+      graceful-fs: 4.2.11
+      jest-circus: 29.7.0(babel-plugin-macros@3.1.0)
+      jest-environment-node: 29.7.0
+      jest-get-type: 29.6.3
+      jest-regex-util: 29.6.3
+      jest-resolve: 29.7.0
+      jest-runner: 29.7.0
+      jest-util: 29.7.0
+      jest-validate: 29.7.0
+      micromatch: 4.0.8
+      parse-json: 5.2.0
+      pretty-format: 29.7.0
+      slash: 3.0.0
+      strip-json-comments: 3.1.1
+    optionalDependencies:
+      '@types/node': 20.19.17
+      ts-node: 10.9.2(@swc/core@1.15.18(@swc/helpers@0.5.19))(@types/node@22.15.24)(typescript@5.8.3)
+    transitivePeerDependencies:
+      - babel-plugin-macros
+      - supports-color
+
   jest-config@29.7.0(@types/node@22.15.19)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.18(@swc/helpers@0.5.19))(@types/node@22.15.19)(typescript@5.8.3)):
     dependencies:
       '@babel/core': 7.27.1
@@ -49711,37 +49700,6 @@ snapshots:
       strip-json-comments: 3.1.1
     optionalDependencies:
       '@types/node': 22.15.19
-      ts-node: 10.9.2(@swc/core@1.15.18(@swc/helpers@0.5.19))(@types/node@22.15.19)(typescript@5.8.3)
-    transitivePeerDependencies:
-      - babel-plugin-macros
-      - supports-color
-
-  jest-config@29.7.0(@types/node@22.15.24)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.18(@swc/helpers@0.5.19))(@types/node@22.15.19)(typescript@5.8.3)):
-    dependencies:
-      '@babel/core': 7.27.1
-      '@jest/test-sequencer': 29.7.0
-      '@jest/types': 29.6.3
-      babel-jest: 29.7.0(@babel/core@7.27.1)
-      chalk: 4.1.2
-      ci-info: 3.9.0
-      deepmerge: 4.3.1
-      glob: 7.2.3
-      graceful-fs: 4.2.11
-      jest-circus: 29.7.0(babel-plugin-macros@3.1.0)
-      jest-environment-node: 29.7.0
-      jest-get-type: 29.6.3
-      jest-regex-util: 29.6.3
-      jest-resolve: 29.7.0
-      jest-runner: 29.7.0
-      jest-util: 29.7.0
-      jest-validate: 29.7.0
-      micromatch: 4.0.8
-      parse-json: 5.2.0
-      pretty-format: 29.7.0
-      slash: 3.0.0
-      strip-json-comments: 3.1.1
-    optionalDependencies:
-      '@types/node': 22.15.24
       ts-node: 10.9.2(@swc/core@1.15.18(@swc/helpers@0.5.19))(@types/node@22.15.19)(typescript@5.8.3)
     transitivePeerDependencies:
       - babel-plugin-macros
@@ -50417,7 +50375,7 @@ snapshots:
   jest-mock@30.3.0:
     dependencies:
       '@jest/types': 30.3.0
-      '@types/node': 22.15.24
+      '@types/node': 20.19.17
       jest-util: 30.3.0
 
   jest-pnp-resolver@1.2.3(jest-resolve@25.5.1):
@@ -50976,7 +50934,7 @@ snapshots:
   jest-util@30.3.0:
     dependencies:
       '@jest/types': 30.3.0
-      '@types/node': 22.15.24
+      '@types/node': 20.19.17
       chalk: 4.1.2
       ci-info: 4.4.0
       graceful-fs: 4.2.11
@@ -53798,6 +53756,8 @@ snapshots:
   path-exists@4.0.0: {}
 
   path-exists@5.0.0: {}
+
+  path-expression-matcher@1.2.0: {}
 
   path-is-absolute@1.0.1: {}
 
@@ -59191,7 +59151,7 @@ snapshots:
 
   undici-types@6.21.0: {}
 
-  undici@7.23.0: {}
+  undici@7.24.0: {}
 
   unfetch@4.2.0: {}
 
@@ -59931,13 +59891,6 @@ snapshots:
   vscode-uri@3.0.8: {}
 
   vscode-uri@3.1.0: {}
-
-  vscode-webview-network-bridge@1.1.1:
-    dependencies:
-      ws: 8.19.0
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
   vscode-ws-jsonrpc@3.4.0:
     dependencies:
@@ -61276,10 +61229,10 @@ snapshots:
 
   yarn@1.22.19: {}
 
-  yauzl@2.10.0:
+  yauzl@3.2.1:
     dependencies:
       buffer-crc32: 0.2.13
-      fd-slicer: 1.1.0
+      pend: 1.2.0
 
   yazl@2.5.1:
     dependencies:
