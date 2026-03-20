@@ -180,35 +180,31 @@ ${getLanglibInstructions()}
 
 ## Understanding the Existing Codebase
 
-In the user message, you may or may not receive a Code Map (bal.md). You have to follow different instruction when code map is provided and when it is not provided.
+### When a CODE MAP (bal.md) is provided
 
-### If a Code Map is provided:
+A CODE MAP is a high-level overview of the project organized by file path. For each file, it lists key components (imports, configurables, types, functions, classes, services) along with their signatures, parameters, return types, descriptions, and line ranges.
 
-Note: A CODE MAP (bal.md) is a high-level overview of the project organized by file path. For each file, it lists key components (imports, configurables, types, functions, classes, services) along with their sub-properties such as parameters, return types, descriptions, and line ranges — use it to navigate directly to any component without reading entire files.
+**Use the CODE MAP to orient yourself — not to draw conclusions.**
 
-- Identify every components relevant or likely to be relevant to the user query based on their signatures, descriptions, and types from the CODE MAP.
-- For each releavant component, ALWAYS use the ${FILE_READ_TOOL_NAME} to read and see the actual code implementaition of that component.
-- From the CODE MAP, if you know the exact line numbers)(start line and end line) of relevant components, no need to read the entire file, instead of read only those components.
-- For every relevant component, For fully understanding their behavior, find all the types and usages of that component in the codebase using ${GREP_TOOL_NAME} and read them as well using ${FILE_READ_TOOL_NAME}.
-- Do NOT assume what a component does based on its signature or description in the CODE MAP. Always read the actual code implementation to understand its behavior and how it fits into the overall codebase.
-- Do NOT start writing code until you have a complete understanding of the existing codebase relevant to the user query.
-- While code generation, if you encounter a component that you have not read before, stop code generation immediately and read that component using ${FILE_READ_TOOL_NAME} before resuming code generation.
-- While code generartion, if you want to explore more about the existing codebase, do not read files blindly, instead use ${GREP_TOOL_NAME} to search for relevant keywords and read the search results using ${FILE_READ_TOOL_NAME}.
+- Identify all components relevant to the user query using their signatures, descriptions, and types from the CODE MAP.
+- Always use the ${FILE_READ_TOOL_NAME} tool to read the actual implementation of every relevant component before writing any code. Never assume what a component does based on its CODE MAP entry alone.
+- When exact line ranges are known from the CODE MAP, read only those lines — no need to read the entire file.
+- To understand a component's dependencies, associated types, and usages, use the ${GREP_TOOL_NAME} tool to search for references, then read those results using the file read tool.
+- Do not begin code generation until you have a complete understanding of all relevant parts of the codebase.
+- During code generation, if you encounter a component you have not yet read, stop immediately, read it, then continue.
+- During code generation, if you need to explore further, always ${GREP_TOOL_NAME} first — never read files blindly.
 
+### When a CODE MAP (bal.md) is NOT provided
 
-### If a Code Map is NOT provided:
+Follow the same read-before-write discipline, but use the ${GREP_TOOL_NAME} as your primary discovery tool.
 
-- You have to identify the relevant components using the ${GREP_TOOL_NAME} and read them using ${FILE_READ_TOOL_NAME} to understand the existing codebase.
-- First identity the user's requirements by reading the user query.
-- In the user query, if there are any specific components mentioned (e.g., function names, type names, module names), start by searching for those components using ${GREP_TOOL_NAME}.
-- If there are no specific components mentioned in the user query, identify relevant keywords from the user query and search for those keywords using ${GREP_TOOL_NAME} to find relevant components.
-- For each relevant component you find, read the actual code implementation using ${FILE_READ_TOOL_NAME} to understand its behavior and how it fits into the overall codebase.
-- Its better to read the entire file if you do not have enough idea about the component that you have to read
-- Do NOT assume what a component does based on its name or signature. Always read the actual code implementation to understand its behavior and how it fits into the overall codebase.
-- Do NOT start writing code until you have a complete understanding of the existing codebase relevant to the user query.
-- While code generation, if you encounter a component that you have not read before, stop code generation immediately and read that component using ${FILE_READ_TOOL_NAME} before resuming code generation.
-- While code generartion, if you want to explore more about the existing codebase, do not read files blindly, instead use ${GREP_TOOL_NAME} to search for relevant keywords and read the search results using ${FILE_READ_TOOL_NAME}.
-
+- Extract specific component names (functions, types, modules) or relevant keywords from the user query.
+- Use the ${GREP_TOOL_NAME} tool to locate matching components in the codebase, then read their implementations using the ${FILE_READ_TOOL_NAME} tool.
+- If a component's role is unclear from its name alone, read the entire file for full context.
+- To understand usages and call sites, use the ${GREP_TOOL_NAME} and file read tool combination.
+- Do not begin code generation until you have a complete understanding of all relevant parts of the codebase.
+- During code generation, if you encounter a component you have not yet read, stop immediately, read it, then continue.
+- During code generation, if you need to explore further, always ${GREP_TOOL_NAME} first — never read files blindly.
 
 # File modifications
 - You must apply changes to the existing source code using the provided ${[
@@ -242,6 +238,7 @@ export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath:
         content.push({
             type: 'text' as const,
             text: `<project_codemap>
+# Code Map (bal.md)
 ${balMd}
 </project_codemap>`
         });
