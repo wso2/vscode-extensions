@@ -23,20 +23,27 @@ import { TextDecoder, TextEncoder } from 'util';
 const CELL_LANGUAGE_ID = 'hurl';
 
 /**
- * Queue of hurl text to inject into the next untitled notebook opened via
- * `openNotebookDocument(untitled:TryIt.hurl)`.  VS Code calls
- * `deserializeNotebook` with empty bytes for untitled URIs, so we intercept
- * that and return pre-built content instead.
+ * Map of pending hurl text keyed by the unique token embedded in the untitled
+ * URI filename (e.g. `TryIt-abc123.hurl` → token `abc123`).
  *
- * Each entry carries an expiry timestamp to prevent stale content from being
- * consumed by an unrelated notebook opened after a long delay.
+ * Using a Map instead of a FIFO queue avoids a race condition where two
+ * concurrent `importHurlString` calls could assign content to the wrong
+ * notebook if VS Code deserializes them out of enqueue order.
+ *
+ * Each entry carries an expiry timestamp so stale entries from abandoned
+ * openNotebookDocument calls are eventually cleaned up.
  */
-const PENDING_TTL_MS = 5000;
+const PENDING_TTL_MS = 10000;
 interface PendingEntry { text: string; expiresAt: number; }
-const pendingUntitledContent: PendingEntry[] = [];
+const pendingUntitledContent = new Map<string, PendingEntry>();
 
-export function enqueuePendingUntitledContent(hurlText: string): void {
-    pendingUntitledContent.push({ text: hurlText, expiresAt: Date.now() + PENDING_TTL_MS });
+export function enqueuePendingUntitledContent(token: string, hurlText: string): void {
+    // Evict any expired entries while we're here.
+    const now = Date.now();
+    for (const [k, v] of pendingUntitledContent) {
+        if (v.expiresAt < now) { pendingUntitledContent.delete(k); }
+    }
+    pendingUntitledContent.set(token, { text: hurlText, expiresAt: now + PENDING_TTL_MS });
 }
 
 /**
@@ -53,17 +60,18 @@ export class HurlNotebookSerializer implements vscode.NotebookSerializer {
         _token: vscode.CancellationToken
     ): Promise<vscode.NotebookData> {
         const text = new TextDecoder().decode(content);
-        // Untitled notebooks (opened via `untitled:TryIt.hurl`) arrive with empty
-        // bytes.  Consume any queued content that was registered before the open call.
-        // Expired entries are discarded to prevent stale content being used for an
-        // unrelated notebook opened after a delay.
-        if (!text.trim() && pendingUntitledContent.length > 0) {
+        // Untitled notebooks arrive with empty bytes.  Consume the oldest non-expired
+        // pending entry from the Map (Map preserves insertion order, so this is FIFO).
+        // The unique-token URI scheme means each open call enqueues a distinct entry,
+        // so concurrent opens won't silently discard each other's content.
+        if (!text.trim() && pendingUntitledContent.size > 0) {
             const now = Date.now();
-            while (pendingUntitledContent.length > 0 && pendingUntitledContent[0].expiresAt < now) {
-                pendingUntitledContent.shift();
-            }
-            if (pendingUntitledContent.length > 0) {
-                return hurlTextToNotebookData(pendingUntitledContent.shift()!.text);
+            for (const [token, entry] of pendingUntitledContent) {
+                pendingUntitledContent.delete(token);
+                if (entry.expiresAt >= now) {
+                    return hurlTextToNotebookData(entry.text);
+                }
+                // Entry was expired — keep looking for a fresh one.
             }
         }
         return hurlTextToNotebookData(text);

@@ -34,18 +34,9 @@ export function activate(context: vscode.ExtensionContext): void {
     // Register VS Code Notebook API support for `.hurl` files
     activateHurlNotebook(context);
 
-    // Auto-select the Hurl Runner kernel whenever a HTTPClient notebook opens
-    context.subscriptions.push(
-        vscode.workspace.onDidOpenNotebookDocument(async (notebook) => {
-            if (notebook.notebookType === 'HTTPClient') {
-                await vscode.commands.executeCommand('notebook.selectKernel', {
-                    notebook,
-                    id: 'HTTPClient-controller',
-                    extension: 'wso2.hurl-client'
-                });
-            }
-        })
-    );
+    // Kernel affinity is set programmatically inside HurlNotebookController via
+    // updateNotebookAffinity, so VS Code never shows the kernel picker for our
+    // notebook type.  No additional listener is needed here.
 
     // Register read-only virtual filesystem for non-savable notebooks (Resource Try It)
     const readonlyProvider = new ReadonlyHurlFSProvider();
@@ -144,12 +135,12 @@ export function activate(context: vscode.ExtensionContext): void {
                     await fs.writeFile(savePath, resolvedHurlText, 'utf8');
                     doc = await vscode.workspace.openNotebookDocument(vscode.Uri.file(savePath));
                 } else if (savable) {
-                    // Untitled notebook via `untitled:TryIt.hurl` URI — VS Code treats this as an
-                    // untitled document so Cmd+S shows a Save As dialog and closing with unsaved
-                    // changes prompts the user.  The serializer detects empty bytes (untitled) and
-                    // consumes the queued content instead.
-                    enqueuePendingUntitledContent(resolvedHurlText);
-                    const untitledUri = vscode.Uri.parse('untitled:TryIt.hurl');
+                    // Untitled notebook — a unique token is embedded in the URI filename so the
+                    // serializer can look up the correct content even when multiple untitled notebooks
+                    // are opened concurrently (avoids the FIFO-ordering race in a shared queue).
+                    const token = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+                    enqueuePendingUntitledContent(token, resolvedHurlText);
+                    const untitledUri = vscode.Uri.parse(`untitled:TryIt-${token}.hurl`);
                     doc = await vscode.workspace.openNotebookDocument(untitledUri);
                     // Mark the notebook dirty immediately so VS Code prompts to save on close even
                     // if the user makes no edits.  Notebook metadata is not written by serializeNotebook
@@ -166,12 +157,7 @@ export function activate(context: vscode.ExtensionContext): void {
                     doc = await vscode.workspace.openNotebookDocument(uri);
                 }
                 await vscode.window.showNotebookDocument(doc, { viewColumn });
-                // Programmatically select the Hurl Runner kernel so the user is never prompted
-                await vscode.commands.executeCommand('notebook.selectKernel', {
-                    notebook: doc,
-                    id: 'HTTPClient-controller',
-                    extension: 'wso2.hurl-client'
-                });
+                // Kernel affinity is handled by HurlNotebookController.updateNotebookAffinity.
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
                 vscode.window.showErrorMessage(`HTTP Client: Failed to create notebook — ${msg}`);

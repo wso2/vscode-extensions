@@ -18,6 +18,10 @@
 
 import { ApiRequest, ApiResponse, FormDataParameter } from '@wso2/api-tryit-core';
 
+function safeDecodeURIComponent(s: string): string {
+	try { return decodeURIComponent(s); } catch { return s; }
+}
+
 /**
  * Hurl Format Adapter
  * 
@@ -44,8 +48,8 @@ export class HurlFormatAdapter {
 		let fullUrl = request.url;
 		if (request.queryParameters && request.queryParameters.length > 0 && !request.url.includes('?')) {
 			const queryString = request.queryParameters
-				.filter(p => p.key && p.value)
-				.map(p => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`)
+				.filter(p => p.key)
+				.map(p => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value ?? '')}`)
 				.join('&');
 			if (queryString) {
 				fullUrl += `?${queryString}`;
@@ -97,7 +101,10 @@ export class HurlFormatAdapter {
 			typeof request.body === 'string'
 		) {
 			const raw = request.body.trim();
-			const looksLikeFormData = /(^@file:)|(^[^\s:{[]+\s*:\s*[^\n]+)/m.test(raw) && !/^\s*\{/.test(raw) && !/^\s*\[/.test(raw) && !/^\s*</.test(raw);
+			const hasMultipartContentType = (request.headers || []).some(
+				h => /^content-type$/i.test(h.key) && /multipart\/form-data/i.test(h.value)
+			);
+			const looksLikeFormData = hasMultipartContentType && /(^@file:)|(^[^\s:{[]+\s*:\s*[^\n]+)/m.test(raw) && !/^\s*\{/.test(raw) && !/^\s*\[/.test(raw) && !/^\s*</.test(raw);
 			if (looksLikeFormData) {
 				const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
 				const parsed: Array<{id: string; key: string; value?: string; filePath?: string; contentType?: string}> = [];
@@ -250,7 +257,6 @@ export class HurlFormatAdapter {
 			const responseMetadata: Partial<ApiResponse> = {};
 			let foundRequestLine = false;
 
-			console.log(`[HurlFormatAdapter] Parsing ${filePath}, total lines: ${lines.length}`);
 
 			// Parse metadata and request line
 			for (; currentLineIdx < lines.length; currentLineIdx++) {
@@ -261,10 +267,8 @@ export class HurlFormatAdapter {
 				if (trimmed.startsWith('#')) {
 					if (trimmed.startsWith('# @id ')) {
 						metadata.id = trimmed.substring(6).trim();
-						console.log(`[HurlFormatAdapter] Found id: ${metadata.id}`);
 					} else if (trimmed.startsWith('# @name ')) {
 						metadata.name = trimmed.substring(8).trim();
-						console.log(`[HurlFormatAdapter] Found name: ${metadata.name}`);
 					} else if (trimmed.startsWith('# Status:')) {
 						responseMetadata.statusCode = parseInt(trimmed.substring(9).trim(), 10);
 					} else if (trimmed.startsWith('# - ')) {
@@ -284,7 +288,6 @@ export class HurlFormatAdapter {
 					request.method = requestLineMatch[1].toUpperCase() as ApiRequest['method'];
 					const urlPart = requestLineMatch[2];
 
-					console.log(`[HurlFormatAdapter] Found request line: ${request.method} ${urlPart}`);
 
 					// Parse URL and query parameters
 					const urlMatch = urlPart.match(/^([^?]+)(?:\?(.+))?$/);
@@ -301,8 +304,8 @@ export class HurlFormatAdapter {
 								if (key) {
 									request.queryParameters!.push({
 										id: `param-${Math.random().toString(36).substring(2, 9)}`,
-										key: decodeURIComponent(key),
-										value: value ? decodeURIComponent(value) : ''
+										key: safeDecodeURIComponent(key),
+										value: safeDecodeURIComponent(value)
 									});
 								}
 							}
@@ -316,7 +319,6 @@ export class HurlFormatAdapter {
 			}
 
 			if (!foundRequestLine) {
-				console.warn(`[HurlFormatAdapter] No valid request line found in ${filePath}`);
 				return null;
 			}
 
@@ -513,8 +515,8 @@ export class HurlFormatAdapter {
 						if (eq) {
 							urlEncoded.push({
 								id: `fue-${Math.random().toString(36).substring(2,9)}`,
-								key: decodeURIComponent(eq[1]),
-								value: decodeURIComponent(eq[2] || '')
+								key: safeDecodeURIComponent(eq[1]),
+								value: safeDecodeURIComponent(eq[2] || '')
 							});
 						}
 					}
@@ -554,7 +556,7 @@ export class HurlFormatAdapter {
 
 				if (boundary) {
 					const escapedBoundary = boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-					const parts = bodyText.split(new RegExp(`--${escapedBoundary}(?:--)?\\r?\\n`));
+					const parts = bodyText.split(new RegExp(`--${escapedBoundary}(?:--)?(?:\\r?\\n|$)`));
 					const parsedParts: FormDataParameter[] = [];
 					for (const rawPart of parts) {
 						if (!rawPart || /^\s*$/.test(rawPart)) continue;
@@ -641,7 +643,6 @@ export class HurlFormatAdapter {
 			// Use filename as ID base
 			const fileBaseName = filePath.split('/').pop()?.replace(/\.[^.]+$/, '') || 'api-request';
 			metadata.id = fileBaseName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-			console.log(`[HurlFormatAdapter] Generated id from filename: ${metadata.id}`);
 		}
 		if (!metadata.name) {
 			// Extract name from filename first, then URL path
@@ -649,7 +650,6 @@ export class HurlFormatAdapter {
 			const urlPath = request.url ? request.url.replace(/^https?:\/\/[^/]*/, '').split('?')[0] : '';
 				const nameFromUrl = urlPath.split('/').filter(p => p).pop() || '';
 				metadata.name = fileBaseName || nameFromUrl || 'api-request';
-				console.log(`[HurlFormatAdapter] Generated name: ${metadata.name}`);
 			}
 
 			// Finalize request object
@@ -667,15 +667,13 @@ export class HurlFormatAdapter {
 				...(assertions.length > 0 && { assertions })
 			};
 
-			console.log(`[HurlFormatAdapter] Successfully parsed ${filePath}: id=${finalRequest.id}, name=${finalRequest.name}, url=${finalRequest.url}`);
 
 			return {
 				request: finalRequest,
 				response: responseMetadata.statusCode ? (responseMetadata as ApiResponse) : undefined,
 				assertions: assertions.length > 0 ? assertions : undefined
 			};
-		} catch (error) {
-			console.error(`[HurlFormatAdapter] Error parsing ${filePath}:`, error);
+		} catch {
 			return null;
 		}
 	}

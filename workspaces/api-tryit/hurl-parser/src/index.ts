@@ -747,7 +747,11 @@ function splitIntoRequestBlocks(content: string): string[] {
 
 		for (let lineIndex = requestLineIndex - 1; lineIndex >= lowerBound; lineIndex--) {
 			const trimmed = lines[lineIndex].trim();
-			if (!trimmed || trimmed.startsWith('#')) {
+			if (!trimmed) {
+				// Stop at empty lines (consistent with computeRequestBlockStarts behaviour)
+				break;
+			}
+			if (trimmed.startsWith('#')) {
 				blockStart = lineIndex;
 				continue;
 			}

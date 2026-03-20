@@ -25,7 +25,7 @@ import { spawn } from 'child_process';
 
 const DEFAULT_HURL_VERSION = '7.1.0';
 const HURL_RELEASE_BASE_URL = 'https://github.com/Orange-OpenSource/hurl/releases/download';
-const CONFIG_SECTION = 'http-book';
+const CONFIG_SECTION = 'http-client';
 
 interface ResolveCommandOptions {
 	autoInstall?: boolean;
@@ -142,7 +142,7 @@ export class HurlBinaryManager {
 		const asset = resolveManagedAsset(version);
 		if (!asset) {
 			throw new Error(
-				`Managed Hurl install is not supported on ${getPlatformArchKey()}. Set http-book.hurl.path manually.`
+				`Managed Hurl install is not supported on ${getPlatformArchKey()}. Set http-client.hurl.path manually.`
 			);
 		}
 
@@ -212,8 +212,15 @@ export class HurlBinaryManager {
 	}
 
 	private getManagedVersion(): string {
-		const configured = vscode.workspace.getConfiguration(CONFIG_SECTION).get<string>('hurl.version', DEFAULT_HURL_VERSION).trim();
-		return configured || DEFAULT_HURL_VERSION;
+		const configured = vscode.workspace.getConfiguration(CONFIG_SECTION)
+			.get<string>('hurl.version', DEFAULT_HURL_VERSION)
+			.trim();
+		const version = configured || DEFAULT_HURL_VERSION;
+		// Validate to prevent path traversal via a malicious version string (e.g. "../../foo").
+		if (!/^[A-Za-z0-9._-]+$/.test(version)) {
+			throw new Error(`Invalid managed hurl version: ${version}`);
+		}
+		return version;
 	}
 
 	private getVersionRoot(version: string): string {
