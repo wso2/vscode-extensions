@@ -115,6 +115,81 @@ describe('parseFileResult', () => {
 		]);
 	});
 
+	it('normalizes string status values into numeric statusCode', async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hurl-runner-report-'));
+		const reportPath = path.join(tempDir, 'report');
+		await fs.mkdir(reportPath, { recursive: true });
+
+		await fs.writeFile(
+			path.join(reportPath, 'report.json'),
+			JSON.stringify([
+				{
+					filename: '/tmp/cases/get-user.hurl',
+					success: true,
+					entries: [
+						{
+							name: 'Get user',
+							success: true,
+							time: 7,
+							request: { method: 'GET', url: 'https://example.com/users/1' },
+							response: { status: '200 OK' }
+						}
+					]
+				}
+			]),
+			'utf8'
+		);
+
+		const parsed = await parseFileResult({
+			filePath: '/tmp/cases/get-user.hurl',
+			reportPath,
+			startedAt: new Date('2026-02-23T00:00:00.000Z'),
+			finishedAt: new Date('2026-02-23T00:00:00.010Z'),
+			execResult: makeExecResult()
+		});
+
+		expect(parsed.entries).toHaveLength(1);
+		expect(parsed.entries[0].statusCode).toBe(200);
+	});
+
+	it('extracts statusCode from calls response payload', async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hurl-runner-report-'));
+		const reportPath = path.join(tempDir, 'report');
+		await fs.mkdir(reportPath, { recursive: true });
+
+		await fs.writeFile(
+			path.join(reportPath, 'report.json'),
+			JSON.stringify([
+				{
+					filename: '/tmp/cases/get-status.hurl',
+					success: true,
+					entries: [
+						{
+							name: 'Get status',
+							success: true,
+							request: { method: 'GET', url: 'https://example.com/status' },
+							calls: [
+								{ response: { status: '200 OK' } }
+							]
+						}
+					]
+				}
+			]),
+			'utf8'
+		);
+
+		const parsed = await parseFileResult({
+			filePath: '/tmp/cases/get-status.hurl',
+			reportPath,
+			startedAt: new Date('2026-02-23T00:00:00.000Z'),
+			finishedAt: new Date('2026-02-23T00:00:00.010Z'),
+			execResult: makeExecResult()
+		});
+
+		expect(parsed.entries).toHaveLength(1);
+		expect(parsed.entries[0].statusCode).toBe(200);
+	});
+
 	it('surfaces parse errors when the report is invalid and process failed', async () => {
 		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hurl-runner-report-'));
 		const reportPath = path.join(tempDir, 'invalid');

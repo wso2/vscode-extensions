@@ -22,6 +22,7 @@ import * as path from 'path';
 import { activateHurlNotebook, hurlTextToNotebookData, notebookCellsToNotebookData, cellsToHurlText, enqueuePendingUntitledContent, NotebookCellInput } from './notebook';
 import { initializeHurlBinaryManager } from './hurl/hurl-binary-manager';
 import { ReadonlyHurlFSProvider, READONLY_HURL_SCHEME } from './readonly-fs-provider';
+import RunHurlTest from './tools/run-hurl-test';
 
 export function activate(context: vscode.ExtensionContext): void {
     // Initialize the Hurl binary manager (singleton)
@@ -145,6 +146,7 @@ export function activate(context: vscode.ExtensionContext): void {
                     enqueuePendingUntitledContent(token, resolvedHurlText);
                     const untitledUri = vscode.Uri.parse(`untitled:TryIt-${token}.hurl`);
                     doc = await vscode.workspace.openNotebookDocument(untitledUri);
+
                     // Mark the notebook dirty immediately so VS Code prompts to save on close even
                     // if the user makes no edits.  Notebook metadata is not written by serializeNotebook
                     // so this has no effect on the saved .hurl file content.
@@ -167,8 +169,8 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         }
     );
-
-    context.subscriptions.push(openHurlNotebookCommand, installHurlCommand, importHurlStringCommand);
+    const hurlTool = vscode.lm.registerTool('run-hurl-test', new RunHurlTest());
+    context.subscriptions.push(openHurlNotebookCommand, installHurlCommand, importHurlStringCommand, hurlTool);
 }
 
 export function deactivate(): void {
