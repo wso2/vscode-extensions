@@ -19,7 +19,8 @@
     ],
     "main": "./out/extension",
     "extensionDependencies": [
-        "wso2.ballerina"
+        "wso2.ballerina",
+        "wso2.wso2-integrator"
     ],
     "contributes": {
         "viewsContainers": {
@@ -153,7 +154,8 @@
                 }
             ]
         },
-        "commands": []
+        "commands": [
+        ]
     },
     "scripts": {
         "vscode:prepublish": "pnpm run compile",
