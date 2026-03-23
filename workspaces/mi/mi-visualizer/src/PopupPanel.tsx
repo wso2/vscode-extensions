@@ -69,7 +69,7 @@ const PopupPanel = (props: { formState: PopupMachineStateValue, handleClose?: ()
 
     const fetchContext = () => {
         rpcClient.getPopupVisualizerState().then((machineSate: PopupVisualizerLocation) => {
-            const endpointPath = machineSate.documentUri ? path.join(machineSate.documentUri.split(`artifacts${path.sep}`)[0], 'artifacts', 'endpoints') : "";
+            const endpointPath = machineSate.documentUri ? [machineSate.documentUri.split(`artifacts${machineSate.pathSeparator}`)[0], 'artifacts', 'endpoints'].join(machineSate.pathSeparator) : "";
             switch (machineSate?.view) {
                 case MACHINE_VIEW.EndPointForm:
                     setViewComponent(<EndpointWizard handlePopupClose={props.handleClose} isPopup={true} path={machineSate.documentUri} />);
