@@ -18,6 +18,7 @@ export interface ICloneProjectCmdParams extends ICmdParamsBase {
 	technology: string;
 	integrationType: string;
 	integrationDisplayType: string;
+	integrationOnly?: boolean;
 }
 
 export interface ICommitAndPushCmdParams extends ICmdParamsBase {
