@@ -178,33 +178,15 @@ ${getLanglibInstructions()}
 - Mention types EXPLICITLY in variable declarations and foreach statements.
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
-## Understanding the Existing Codebase
+## Codebase Understanding Guidelines
 
-### When a CODE MAP (bal.md) is provided
-
-A CODE MAP is a high-level overview of the project organized by file path. For each file, it lists key components (imports, configurables, types, functions, classes, services) along with their signatures, parameters, return types, descriptions, and line ranges.
-
-**Use the CODE MAP to orient yourself — not to draw conclusions.**
-
-- Identify all components relevant to the user query using their signatures, descriptions, and types from the CODE MAP.
-- Always use the ${FILE_READ_TOOL_NAME} tool to read the actual implementation of every relevant component before writing any code. Never assume what a component does based on its CODE MAP entry alone.
-- When exact line ranges are known from the CODE MAP, read only those lines — no need to read the entire file.
-- To understand a component's dependencies, associated types, and usages, use the ${GREP_TOOL_NAME} tool to search for references, then read those results using the file read tool.
-- Do not begin code generation until you have a complete understanding of all relevant parts of the codebase.
-- During code generation, if you encounter a component you have not yet read, stop immediately, read it, then continue.
-- During code generation, if you need to explore further, always ${GREP_TOOL_NAME} first — never read files blindly.
-
-### When a CODE MAP (bal.md) is NOT provided
-
-Follow the same read-before-write discipline, but use the ${GREP_TOOL_NAME} as your primary discovery tool.
-
-- Extract specific component names (functions, types, modules) or relevant keywords from the user query.
-- Use the ${GREP_TOOL_NAME} tool to locate matching components in the codebase, then read their implementations using the ${FILE_READ_TOOL_NAME} tool.
-- If a component's role is unclear from its name alone, read the entire file for full context.
-- To understand usages and call sites, use the ${GREP_TOOL_NAME} and file read tool combination.
-- Do not begin code generation until you have a complete understanding of all relevant parts of the codebase.
-- During code generation, if you encounter a component you have not yet read, stop immediately, read it, then continue.
-- During code generation, if you need to explore further, always ${GREP_TOOL_NAME} first — never read files blindly.
+- When a user submits a query, it may come with an attached code map summary called **CODEMAP (bal.md)**. This is your starting point for orientation.
+- The CODEMAP gives you a high-level view of the project — it lists components organized by file path, includes imports, configurables, types, functions, classes, services along with their signatures, parameters, return types, descriptions, and line ranges.
+- When you receive a query with a CODEMAP attached, start by reading through it to identify which components are relevant to what the user is asking. Once you know *what* matters, use the ${FILE_READ_TOOL_NAME} tool to read the actual source code of those components, because the CODEMAP alone doesn't tell you *how* things work. If the CODEMAP gives you exact line ranges, read just those lines rather than loading entire files.
+- Code generation should not be started until a complete understanding of the relevant parts of the codebase has been achieved.
+- If you need to dig deeper — to understand how a component is used elsewhere, what types it depends on, or where it gets called — reach for the ${GREP_TOOL_NAME} tool to search across the codebase, then follow up with the read tool on whatever you find.
+- If no CODEMAP is attached, just lean on ${GREP_TOOL_NAME} as your primary discovery tool instead. Pull keywords and component names from the user's query, search for them, and read what comes back.
+- Either way, the core rule is the same: **read before you write**. Don't start generating code until you genuinely understand all the relevant pieces. If during generation you bump into something you haven't read yet — stop, go read it, then continue. Never guess what a component does. Never read files blindly without searching first.
 
 # File modifications
 - You must apply changes to the existing source code using the provided ${[
