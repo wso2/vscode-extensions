@@ -88,7 +88,7 @@ export function OperationsList(props: OperationsListProps) {
                                 items={[
                                     connector.version.tagName,
                                     ...(Object.keys(connector.otherVersions || {}).map(version => (version)))
-                                ]}
+                                ].sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: "base" }))}
                                 value={selectedVersion}
                                 onValueChange={(e) => setVersion(e)}
                                 allowItemCreate={false}

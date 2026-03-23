@@ -108,6 +108,7 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
     const [currentTestCase, setCurrentTestCase] = useState<TestCaseEntry | undefined>(undefined);
     const [currentMockService, setCurrentMockService] = useState<MockServiceEntry | undefined>(undefined);
     const [projectUri, setProjectUri] = useState("");
+    const [currentArtifactType, setCurrentArtifactType] = useState("");
 
     const [allTestSuites, setAllTestSuites] = useState([]);
     const artifactTypes = ["API", "Sequence", "Template"];
@@ -301,7 +302,10 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
         }
     };
 
-
+    useEffect(() => {
+        updateFilteredArtifacts(watch("artifactType"), artifacts);
+    }, [watch("artifactType")]);
+    
     useEffect(() => {
         (async () => {
             // get available artifacts
@@ -351,6 +355,7 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                         const aPath = normalize(artifact.path).substring(1);
                         return path.relative(aPath, artifactPath) === ""
                     })?.type;
+                    updateFilteredArtifacts(artifactType, allArtifacts)
                 }
 
                 if (syntaxTree.unitTestArtifacts.supportiveArtifacts?.artifacts) {
@@ -468,12 +473,13 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
         await handleCreateUnitTests(formValues);
     };
 
-    useEffect(() => {
-        if (!artifacts || artifacts.length === 0) {
+    function updateFilteredArtifacts(artifactType: string, allArtifacts: any[]) {
+        
+        if (!allArtifacts || allArtifacts.length === 0 || artifactType === currentArtifactType) {
             return;
         }
 
-        const filteredArtifacts = artifacts.filter(artifact => artifact.type === getValues("artifactType")).map((artifact) => {
+        const filteredArtifacts = allArtifacts.filter(artifact => artifact.type === (artifactType ?? getValues("artifactType"))).map((artifact) => {
             return {
                 id: artifact.name,
                 value: normalize(artifact.path).substring(1),
@@ -486,7 +492,8 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
             return;
         }
         setValue("artifact", filteredArtifacts[0].value);
-    }, [artifacts, watch("artifactType")]);
+        setCurrentArtifactType(artifactType)
+    }
 
     function getConnectorResources(connectorResources: any[]): string[] {
         return connectorResources.map(item => {
