@@ -291,6 +291,16 @@
         "category": "MI"
       },
       {
+        "command": "MI.importProjectFromZip",
+        "title": "Import project from ZIP archive",
+        "category": "MI"
+      },
+      {
+        "command": "MI.exportProjectAsZip",
+        "title": "Export project as ZIP archive",
+        "category": "MI"
+      },
+      {
         "command": "MI.importProjectFromCapp",
         "title": "Import from CApp",
         "category": "MI"
