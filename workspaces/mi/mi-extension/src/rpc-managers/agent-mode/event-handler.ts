@@ -23,7 +23,11 @@ import { logWarn, logError, logDebug } from "../../ai-features/copilot/logger";
 
 export class AgentEventHandler {
     private currentStepBuffer: AgentEvent[] = [];
+    /** Full-run event buffer for polling fallback (kept across steps, cleared per run) */
+    private runBuffer: AgentEvent[] = [];
     private _isRunning = false;
+    /** Monotonic sequence counter — increments across runs within a session */
+    private _seqCounter = 0;
 
     constructor(private projectUri: string) {
         this.projectUri = projectUri;
@@ -32,27 +36,43 @@ export class AgentEventHandler {
     beginRun(): void {
         this._isRunning = true;
         this.currentStepBuffer = [];
+        this.runBuffer = [];
     }
 
     endRun(): void {
         this._isRunning = false;
         this.currentStepBuffer = [];
+        // Keep runBuffer intact so the frontend can poll final events after the run ends
+        // (e.g. the "stop" event that may have been missed). It gets cleared on next beginRun().
     }
 
     stepCompleted(): void {
         this.currentStepBuffer = [];
     }
 
-    getRunStatus(): { isRunning: boolean; events: AgentEvent[] } {
+    getRunStatus(sinceSeq?: number): { isRunning: boolean; events: AgentEvent[] } {
+        let events: AgentEvent[];
+        if (sinceSeq !== undefined && sinceSeq > 0) {
+            // Polling mode: return only events the frontend hasn't seen yet
+            events = this.runBuffer.filter(e => (e.seq ?? 0) > sinceSeq);
+        } else {
+            // Initial reconnection: return all buffered events for the current step
+            // (backward-compatible with the existing panel-reopen flow)
+            events = [...this.currentStepBuffer];
+        }
         return {
             isRunning: this._isRunning,
-            events: [...this.currentStepBuffer],
+            events,
         };
     }
 
     handleEvent(event: AgentEvent): void {
+        // Assign monotonic sequence number
+        event.seq = ++this._seqCounter;
+
         if (this._isRunning) {
             this.currentStepBuffer.push(event);
+            this.runBuffer.push(event);
         }
         if (event.type === 'stop' && event.modelMessages) {
             logDebug(`[AgentEventHandler] Sending stop event with ${event.modelMessages.length} modelMessages`);

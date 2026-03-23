@@ -72,7 +72,7 @@ export function registerMIAgentPanelRpcHandlers(messenger: MessengerAPI, project
     messenger.onRequest(sendAgentMessage, (request: SendAgentMessageRequest) => rpcManager.sendAgentMessage(request));
     messenger.onRequest(abortAgentGeneration, () => rpcManager.abortAgentGeneration());
     messenger.onRequest(loadChatHistory, (request: LoadChatHistoryRequest) => rpcManager.loadChatHistory(request));
-    messenger.onRequest(getAgentRunStatus, () => rpcManager.getAgentRunStatus());
+    messenger.onRequest(getAgentRunStatus, (request) => rpcManager.getAgentRunStatus(request));
     messenger.onRequest(undoLastCheckpoint, (request: UndoLastCheckpointRequest) => rpcManager.undoLastCheckpoint(request));
     messenger.onRequest(
         applyCodeSegmentWithCheckpoint,

@@ -502,6 +502,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const sendInProgressRef = useRef(false);
     const workingOnItTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const firstProgressEventReceivedRef = useRef(false);
+    /** Highest event sequence number received via push notifications */
+    const lastReceivedSeqRef = useRef<number>(0);
+    /** Timestamp of last received push event (for staleness detection) */
+    const lastEventTimeRef = useRef<number>(0);
 
     // Keep refs in sync with state (for use in stale closure of event handler)
     assistantResponseRef.current = assistantResponse;
@@ -552,6 +556,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         if (abortedRef.current) {
             return;
         }
+
+        // Track sequence number and timestamp for polling fallback
+        if (event.seq !== undefined && event.seq > lastReceivedSeqRef.current) {
+            lastReceivedSeqRef.current = event.seq;
+        }
+        lastEventTimeRef.current = Date.now();
 
         switch (event.type) {
             case "start":
@@ -1242,6 +1252,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         );
         setBackendRequestTriggered(true);
         isResponseReceived.current = false;
+        // Reset polling state for the new run
+        lastReceivedSeqRef.current = 0;
+        lastEventTimeRef.current = Date.now();
 
         // Add the current user prompt to the chats based on the request type
         let currentCopilotChat: CopilotChatEntry[] = [...copilotChat];
@@ -1475,6 +1488,51 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setIsPlanMode,
         setMessages,
     ]);
+
+    // Polling fallback: when the push notification channel appears broken during an
+    // active agent run (no events received for POLL_STALE_THRESHOLD_MS), periodically
+    // poll getAgentRunStatus to retrieve missed events and replay them.
+    const POLL_STALE_THRESHOLD_MS = 5_000;
+    const POLL_INTERVAL_MS = 3_000;
+
+    useEffect(() => {
+        if (!backendRequestTriggered || !rpcClient) {
+            return;
+        }
+
+        const intervalId = setInterval(async () => {
+            const elapsed = Date.now() - lastEventTimeRef.current;
+            if (elapsed < POLL_STALE_THRESHOLD_MS) {
+                // Push channel is still active — no need to poll
+                return;
+            }
+
+            try {
+                const runStatus = await rpcClient.getMiAgentPanelRpcClient().getAgentRunStatus({
+                    sinceSeq: lastReceivedSeqRef.current,
+                });
+
+                const missedEvents = runStatus.events || [];
+                for (const event of missedEvents) {
+                    // Skip events already received via push (race guard)
+                    if (event.seq !== undefined && event.seq <= lastReceivedSeqRef.current) {
+                        continue;
+                    }
+                    handleAgentEvent(event);
+                }
+
+                // If the backend says the run ended but we never got the terminal event,
+                // ensure the UI is no longer stuck in loading state.
+                if (!runStatus.isRunning && missedEvents.length === 0) {
+                    setBackendRequestTriggered(false);
+                }
+            } catch {
+                // Polling is best-effort — swallow errors silently
+            }
+        }, POLL_INTERVAL_MS);
+
+        return () => clearInterval(intervalId);
+    }, [backendRequestTriggered, rpcClient, handleAgentEvent, setBackendRequestTriggered]);
 
     useEffect(() => {
         return () => {
