@@ -196,6 +196,11 @@
           "default": true,
           "description": "Update car plugin version automatically"
         },
+        "MI.useDefaultMavenForMigration": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use built-in default Maven version for migration"
+        },
         "MI.serverTimeoutInSecs": {
           "type": "number",
           "default": 120,
@@ -283,6 +288,16 @@
       {
         "command": "MI.openProject",
         "title": "Open Project",
+        "category": "MI"
+      },
+      {
+        "command": "MI.importProjectFromZip",
+        "title": "Import project from ZIP archive",
+        "category": "MI"
+      },
+      {
+        "command": "MI.exportProjectAsZip",
+        "title": "Export project as ZIP archive",
         "category": "MI"
       },
       {
