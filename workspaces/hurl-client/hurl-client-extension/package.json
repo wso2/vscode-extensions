@@ -1,8 +1,8 @@
 {
   "name": "hurl-client",
-  "displayName": "HTTP Client",
+  "displayName": "WSO2 HTTP Client",
   "description": "Open and run .hurl files as interactive notebooks",
-  "version": "1.9.0",
+  "version": "0.9.2",
   "publisher": "wso2",
   "repository": {
     "type": "git",
@@ -19,9 +19,7 @@
     "onNotebook:HTTPClient",
     "onCommand:HTTPClient.importHurlString"
   ],
-  "extensionDependencies": [
-    "JacobPfeifer.pfeifer-hurl"
-  ],
+  "icon": "images/icon.png",
   "main": "./dist/extension.js",
   "contributes": {
     "languages": [
@@ -154,6 +152,7 @@
   "dependencies": {
     "@wso2/hurl-client-core": "workspace:*",
     "@wso2/api-tryit-hurl-runner": "workspace:*",
-    "@wso2/api-tryit-hurl-parser": "workspace:*"
+    "@wso2/api-tryit-hurl-parser": "workspace:*",
+    "@wso2/api-tryit-core": "workspace:*"
   }
 }
