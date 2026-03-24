@@ -20,6 +20,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
+import { openMcpPlayground } from './mcpPlaygroundWebview';
 
 /** Track the active MCP server terminal so we can reuse or dispose it. */
 let mcpTerminal: vscode.Terminal | undefined;
@@ -129,9 +130,10 @@ export async function runMCPServer(context: vscode.ExtensionContext): Promise<vo
         return;
     }
 
-    // 3. Determine the folder containing the Arazzo file (CLI expects -d <folder>)
+    // 3. Determine the Arazzo file path (CLI expects -f <file>)
     const filePath = document.uri.fsPath;
     const folderPath = path.dirname(filePath);
+    const fileName = path.basename(filePath);
 
     // 4. Prompt user for port
     const portInput = await vscode.window.showInputBox({
@@ -179,13 +181,13 @@ export async function runMCPServer(context: vscode.ExtensionContext): Promise<vo
     if (process.platform === 'win32') {
         // PowerShell: use & call operator for quoted paths, chain with conditional
         mcpTerminal.sendText(
-            `& ${quotedCli} mcp-server generate -d . -p ${port}; ` +
+            `& ${quotedCli} mcp-server generate -f "${fileName}" -p ${port}; ` +
             `if ($LASTEXITCODE -eq 0) { docker run --rm -p ${port}:${port} ${imageName} }`
         );
     } else {
         // Unix shells: chain with &&
         mcpTerminal.sendText(
-            `${quotedCli} mcp-server generate -d . -p ${port} && ` +
+            `${quotedCli} mcp-server generate -f "${fileName}" -p ${port} && ` +
             `docker run --rm -p ${port}:${port} ${imageName}`
         );
     }
@@ -195,7 +197,10 @@ export async function runMCPServer(context: vscode.ExtensionContext): Promise<vo
         `MCP Server starting on http://localhost:${port}/mcp — Docker image: ${imageName}`
     );
 
-    // 10. Clean up terminal reference when it's closed
+    // 10. Open the MCP Playground webview beside the editor
+    openMcpPlayground(port);
+
+    // 11. Clean up terminal reference when it's closed
     const disposable = vscode.window.onDidCloseTerminal((closedTerminal) => {
         if (closedTerminal === mcpTerminal) {
             mcpTerminal = undefined;
