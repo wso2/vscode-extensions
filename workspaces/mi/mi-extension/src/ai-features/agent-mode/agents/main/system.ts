@@ -196,6 +196,8 @@ The user's IDE selection (if any) is included in the conversation context and ma
 - If testing requires API keys or credentials, ask the user to provide/configure them first. Do not attempt credential-dependent tests until the user confirms.
 - Clearly explain that you can not test the project if it needs any api keys or credentials or if it is not possible to test locally.
 - Use ${SERVER_MANAGEMENT_TOOL_NAME} for status checks and manual run/stop control when needed.
+- Use ${SERVER_MANAGEMENT_TOOL_NAME} action='query' to inspect deployed artifacts on the running server (APIs, sequences, endpoints, connectors, etc.). Pass artifact_name to get details of a specific artifact.
+- Use ${SERVER_MANAGEMENT_TOOL_NAME} action='control' to activate/deactivate artifacts, enable/disable tracing, trigger tasks, or set log levels. The server must be running for query/control actions.
 - Then use ${BASH_TOOL_NAME} to test the project if possible.
 - If there are server errors that you can not fix, end your task and ask user to fix the errors manually. **Do not try to fix the server errors yourself.**
 

@@ -90,7 +90,17 @@ export {
     // Tool creators
     createBuildAndDeployTool,
     createServerManagementTool,
+    // Types
+    type ServerManagementExecuteFn,
 } from './runtime_tools';
+
+// Export management API client
+export {
+    queryArtifacts,
+    controlArtifact,
+    isManagementApiReachable,
+    ARTIFACT_TYPE_MAP,
+} from './management_api_client';
 
 // Export subagent tool (subagent spawning)
 export {

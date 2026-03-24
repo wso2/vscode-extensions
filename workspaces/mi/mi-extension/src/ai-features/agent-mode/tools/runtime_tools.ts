@@ -31,6 +31,7 @@ import {
     type BuildAndDeployExecuteFn,
     type ServerManagementExecuteFn,
 } from './types';
+import { queryArtifacts, controlArtifact, ARTIFACT_TYPE_MAP } from './management_api_client';
 import { logDebug, logError, logInfo } from '../../copilot/logger';
 import { getBuildCommand, getRunCommand, getStopCommand, loadEnvVariables } from '../../../debugger/tasks';
 import { setJavaHomeInEnvironmentAndPath } from '../../../debugger/debugHelper';
@@ -959,11 +960,43 @@ export function createServerManagementExecute(
     sessionDir: string,
     mainAbortSignal?: AbortSignal
 ): ServerManagementExecuteFn {
-    return async (args: { action: 'run' | 'stop' | 'status' }): Promise<ToolResult> => {
+    return async (args): Promise<ToolResult> => {
         const { action } = args;
         logInfo(`[ServerManagementTool] Action: ${action}`);
 
         try {
+            // query and control actions don't need the server path config — they use the Management API
+            if (action === 'query') {
+                const { artifact_type, artifact_name } = args;
+                if (!artifact_type) {
+                    return {
+                        success: false,
+                        message: 'artifact_type is required for query action',
+                        error: `Valid types: ${Object.keys(ARTIFACT_TYPE_MAP).join(', ')}`,
+                    };
+                }
+                return queryArtifacts(artifact_type, artifact_name);
+            }
+
+            if (action === 'control') {
+                const { artifact_type, artifact_name, control_action, body } = args;
+                if (!artifact_type || !control_action) {
+                    return {
+                        success: false,
+                        message: 'artifact_type and control_action are required for control action',
+                        error: 'Example: action="control", artifact_type="apis", control_action="enableTracing", artifact_name="MyAPI"',
+                    };
+                }
+                if (!artifact_name && !['restart', 'restartGracefully'].includes(control_action)) {
+                    return {
+                        success: false,
+                        message: 'artifact_name is required for this control action',
+                        error: `Specify the name of the ${artifact_type} to apply '${control_action}' on`,
+                    };
+                }
+                return controlArtifact(artifact_type, control_action, artifact_name || '', body);
+            }
+
             const { serverPath, errorResult } = resolveServerPath(projectPath);
             if (!serverPath) {
                 return errorResult!;
@@ -1011,7 +1044,7 @@ export function createServerManagementExecute(
                     return {
                         success: false,
                         message: 'Invalid action',
-                        error: `Unknown action: ${action}. Valid actions are: run, stop, status`
+                        error: `Unknown action: ${action}. Valid actions are: run, stop, status, query, control`
                     };
             }
         } catch (error) {
@@ -1030,11 +1063,36 @@ export function createServerManagementExecute(
  * Input schema for server_management tool
  */
 const serverManagementInputSchema = z.object({
-    action: z.enum(['run', 'stop', 'status']).describe(
-        `The server management action to perform:
-        - 'run': Start the MI runtime server (build first using build_and_deploy mode='build' if needed)
+    action: z.enum(['run', 'stop', 'status', 'query', 'control']).describe(
+        `The server management action:
+        - 'run': Start the MI runtime server
         - 'stop': Stop the running MI runtime server
-        - 'status': Check if the server is running and ready`
+        - 'status': Check if the server is running and ready
+        - 'query': Query deployed artifacts via Management API (requires artifact_type)
+        - 'control': Control runtime state via Management API (requires artifact_type + control_action)`
+    ),
+    artifact_type: z.string().optional().describe(
+        `Required for query/control actions. The artifact type to query or control:
+        apis, proxy-services, endpoints, sequences, inbound-endpoints, connectors,
+        templates, local-entries, tasks, message-stores, message-processors,
+        applications, data-services, data-sources, server, logging, registry, registry-content, configs`
+    ),
+    artifact_name: z.string().optional().describe(
+        `Optional for query (to get specific artifact details); required for most control actions.
+        The name of the specific artifact to query or control.`
+    ),
+    control_action: z.string().optional().describe(
+        `Required for action='control'. The control operation to perform:
+        - 'activate'/'deactivate': For proxy-services, endpoints, inbound-endpoints, message-processors, tasks
+        - 'enableTracing'/'disableTracing': For apis, proxy-services, endpoints, sequences, inbound-endpoints, templates
+        - 'enableStatistics'/'disableStatistics': Same artifacts as tracing
+        - 'trigger': For tasks (one-time immediate execution)
+        - 'setLogLevel': For logging (requires body with loggingLevel)
+        - 'restart'/'restartGracefully': For server`
+    ),
+    body: z.record(z.string(), z.unknown()).optional().describe(
+        `Optional JSON body for control actions that need additional data.
+        For setLogLevel: { loggerName: "org-apache-synapse", loggingLevel: "DEBUG" }`
     ),
 });
 
@@ -1043,11 +1101,13 @@ const serverManagementInputSchema = z.object({
  */
 export function createServerManagementTool(execute: ServerManagementExecuteFn) {
     return (tool as any)({
-        description: `Manage the MI runtime server (run/stop/status).
-            - run: Syncs configs, copies libs, starts server, waits until ready (health check).
+        description: `Manage the MI runtime server and query/control deployed artifacts via Management API.
+            - run: Syncs configs, copies libs, starts server, waits until ready.
             - stop: Graceful shutdown (force kill after 8s timeout).
             - status: Check if server is running and ready.
-            Server output saved to run.txt - use file_read to debug issues.`,
+            - query: List or inspect deployed artifacts (APIs, proxies, endpoints, sequences, connectors, etc.). Requires artifact_type.
+            - control: Activate/deactivate artifacts, enable/disable tracing/statistics, trigger tasks, set log levels, restart server. Requires artifact_type + control_action.
+            Server must be running for query/control actions.`,
         inputSchema: serverManagementInputSchema,
         execute
     });

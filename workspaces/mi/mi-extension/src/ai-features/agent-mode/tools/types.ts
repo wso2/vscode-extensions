@@ -268,7 +268,11 @@ export type BuildAndDeployExecuteFn = (args: {
 }) => Promise<ToolResult>;
 
 export type ServerManagementExecuteFn = (args: {
-    action: 'run' | 'stop' | 'status';
+    action: 'run' | 'stop' | 'status' | 'query' | 'control';
+    artifact_type?: string;
+    artifact_name?: string;
+    control_action?: string;
+    body?: Record<string, unknown>;
 }) => Promise<ToolResult>;
 
 // ============================================================================
