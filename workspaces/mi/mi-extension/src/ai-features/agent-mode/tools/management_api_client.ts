@@ -171,6 +171,22 @@ export async function queryArtifacts(
         };
     }
 
+    // Validate required parameters for specific artifact types
+    if (artifactType === 'configs' && !artifactName) {
+        return {
+            success: false,
+            message: "artifact_name is required for 'configs' queries (e.g. artifact_name='correlation')",
+            error: 'The configs API requires a configName parameter',
+        };
+    }
+    if ((artifactType === 'registry' || artifactType === 'registry-content') && !artifactName) {
+        return {
+            success: false,
+            message: "artifact_name is required for registry queries. Use the registry path format: 'registry/config/<path>' or 'registry/governance/<path>'",
+            error: "Example: artifact_name='registry/config/myFolder' or artifact_name='registry/governance/endpoints'",
+        };
+    }
+
     try {
         const reachable = await isManagementApiReachable();
         if (!reachable) {

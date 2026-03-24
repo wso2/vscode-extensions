@@ -1079,7 +1079,9 @@ const serverManagementInputSchema = z.object({
     ),
     artifact_name: z.string().optional().describe(
         `Optional for query (to get specific artifact details); required for most control actions.
-        The name of the specific artifact to query or control.`
+        The name of the specific artifact to query or control.
+        For configs: use the config name (e.g. 'correlation').
+        For registry/registry-content: use path format 'registry/config/<path>' or 'registry/governance/<path>'.`
     ),
     control_action: z.string().optional().describe(
         `Required for action='control'. The control operation to perform:
