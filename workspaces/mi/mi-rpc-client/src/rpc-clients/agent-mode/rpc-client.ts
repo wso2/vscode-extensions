@@ -154,9 +154,9 @@ export interface SearchMentionablePathsResponse {
     error?: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface GetAgentRunStatusRequest {
-    // No parameters needed - returns current run status and buffered events
+    /** When set, only return events with seq > sinceSeq (for polling dedup) */
+    sinceSeq?: number;
 }
 
 export interface GetAgentRunStatusResponse {
