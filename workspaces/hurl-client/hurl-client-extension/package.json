@@ -1,0 +1,158 @@
+{
+  "name": "hurl-client",
+  "displayName": "WSO2 HTTP Client",
+  "description": "Open and run .hurl files as interactive notebooks",
+  "version": "0.9.0",
+  "publisher": "wso2",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wso2/ballerina-plugin-vscode.git"
+  },
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Notebooks",
+    "Other"
+  ],
+  "activationEvents": [
+    "onNotebook:HTTPClient",
+    "onCommand:HTTPClient.importHurlString"
+  ],
+  "icon": "images/icon.png",
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "hurl",
+        "extensions": [".hurl"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "hurl",
+        "scopeName": "source.hurl",
+        "path": "./syntaxes/hurl.tmLanguage.json"
+      }
+    ],
+    "notebooks": [
+      {
+        "type": "HTTPClient",
+        "displayName": "HTTP Client",
+        "selector": [
+          {
+            "filenamePattern": "*.hurl"
+          }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "HTTPClient.openHurlNotebook",
+        "title": "HTTP Client: Open Hurl Notebook",
+        "icon": "$(notebook)"
+      },
+      {
+        "command": "HTTPClient.installHurl",
+        "title": "HTTP Client: Install Hurl",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "HTTPClient.importHurlString",
+        "title": "HTTP Client: Import Hurl String",
+        "icon": "$(edit)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "HTTPClient.openHurlNotebook"
+        },
+        {
+          "command": "HTTPClient.installHurl"
+        },
+        {
+          "command": "HTTPClient.importHurlString"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "HTTPClient.openHurlNotebook",
+          "when": "resourceExtname == .hurl",
+          "group": "navigation"
+        }
+      ]
+    },
+    "languageModelTools": [
+      {
+        "name": "run-hurl-test",
+        "displayName": "Run Hurl Test",
+        "modelDescription": "A tool to run a Hurl test script and get the results. This tool can be used to execute a full Hurl test script containing multiple requests and assertions. You can use chained requests using captured variable. Note: This command works even if Hurl is not installed in the system.",
+        "userDescription": "Runs a Hurl test script and returns the results.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "runHurlTest",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "hurlScript": {
+              "type": "string",
+              "description": "The Hurl test script to execute."
+            }
+          },
+          "required": ["hurlScript"]
+        }
+      }
+    ],
+    "configuration": {
+      "title": "HTTP Client",
+      "properties": {
+        "http-client.hurl.path": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the hurl executable. If empty, HTTP Client uses managed install or PATH."
+        },
+        "http-client.hurl.autoInstall": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically download and install a managed hurl binary when needed."
+        },
+        "http-client.hurl.version": {
+          "type": "string",
+          "default": "7.1.0",
+          "description": "Managed hurl version to install."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "clean": "rimraf ./dist",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "node ../../common-libs/scripts/package-vsix.js",
+    "lint": "eslint src --ext ts",
+    "build": "pnpm clean && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run copyVSIX",
+    "copyVSIX": "copyfiles *.vsix ./vsix",
+    "copyVSIXToRoot": "copyfiles -f ./vsix/*.vsix ../../.."
+  },
+  "devDependencies": {
+    "@vscode/vsce": "3.7.0",
+    "rimraf": "5.0.5",
+    "@types/vscode": "1.100.0",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "8.32.1",
+    "@typescript-eslint/parser": "8.32.1",
+    "eslint": "9.27.0",
+    "typescript": "5.8.3",
+    "ts-loader": "9.5.1",
+    "webpack": "5.104.1",
+    "webpack-cli": "6.0.1",
+    "copyfiles": "2.4.1"
+  },
+  "dependencies": {
+    "@wso2/hurl-client-core": "workspace:*",
+    "@wso2/api-tryit-hurl-runner": "workspace:*",
+    "@wso2/api-tryit-hurl-parser": "workspace:*",
+    "@wso2/api-tryit-core": "workspace:*"
+  }
+}
