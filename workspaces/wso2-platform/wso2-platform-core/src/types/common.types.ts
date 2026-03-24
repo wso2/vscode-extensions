@@ -161,6 +161,7 @@ export interface ComponentKindMetadata {
 	projectName: string;
 	id: string;
 	handler: string;
+	isPrebuilt?: boolean;
 }
 
 export interface ComponentKindSpec {
