@@ -60,6 +60,7 @@ interface BackgroundShell {
     output: string;
     completed: boolean;
     exitCode: number | null;
+    notified: boolean;           // true once completion notification has been injected into a tool result
 }
 
 const backgroundShells: Map<string, BackgroundShell> = new Map();
@@ -121,6 +122,39 @@ function cleanupOldShells(): void {
             backgroundShells.delete(id);
         }
     }
+}
+
+/**
+ * Drain completion notifications for background tasks (shells + subagents).
+ * Returns a system-reminder string for any tasks that completed since last drain, or empty string.
+ * Marks drained tasks as notified so they are only reported once.
+ */
+export function drainBackgroundTaskNotifications(): string {
+    const notifications: string[] = [];
+
+    // Check background shells
+    for (const [, shell] of backgroundShells) {
+        if (shell.completed && !shell.notified) {
+            shell.notified = true;
+            const status = shell.exitCode === 0 ? 'completed successfully' : `completed with exit code ${shell.exitCode}`;
+            notifications.push(`Background shell "${shell.command}" (${shell.id}) ${status}. Use task_output to retrieve the result.`);
+        }
+    }
+
+    // Check background subagents
+    for (const [, subagent] of getBackgroundSubagents()) {
+        if (subagent.completed && !subagent.notified) {
+            subagent.notified = true;
+            const status = subagent.success ? 'completed successfully' : (subagent.aborted ? 'was aborted' : 'failed');
+            notifications.push(`Background ${subagent.subagentType} subagent "${subagent.description}" (${subagent.id}) ${status}. Use task_output to retrieve the result.`);
+        }
+    }
+
+    if (notifications.length === 0) {
+        return '';
+    }
+
+    return `\n\n<system-reminder>\n${notifications.join('\n')}\n</system-reminder>`;
 }
 
 function generateShellTaskId(): string {
@@ -324,7 +358,8 @@ export function createBashExecute(
                 startTime: new Date(),
                 output: '',
                 completed: false,
-                exitCode: null
+                exitCode: null,
+                notified: false,
             };
 
             backgroundShells.set(taskId, shell);
@@ -537,6 +572,7 @@ export function createKillTaskExecute(): KillTaskExecuteFn {
 
         if (shell) {
             if (shell.completed) {
+                shell.notified = true;
                 const output = shell.output;
                 backgroundShells.delete(taskId);
                 return {
@@ -588,6 +624,7 @@ export function createKillTaskExecute(): KillTaskExecuteFn {
         }
 
         if (subagent.completed) {
+            subagent.notified = true;
             const output = subagent.output;
             getBackgroundSubagents().delete(taskId);
             return {
@@ -669,8 +706,15 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
             ? { output: shell.output, completed: shell.completed, exitCode: shell.exitCode, type: 'shell' as const }
             : { output: subagent!.output, completed: subagent!.completed, exitCode: subagent!.success === true ? 0 : subagent!.success === false ? 1 : null, type: 'subagent' as const };
 
+        // Mark as notified so drainBackgroundTaskNotifications() won't duplicate this
+        const markNotified = () => {
+            if (shell) { shell.notified = true; }
+            if (subagent) { subagent.notified = true; }
+        };
+
         // If not blocking, return current state immediately
         if (!block) {
+            if (task.completed) { markNotified(); }
             const output = task.output;
             return {
                 success: true,
@@ -686,6 +730,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
 
         // If already completed, return immediately
         if (task.completed) {
+            markNotified();
             const output = task.output;
             return {
                 success: task.exitCode === 0,
@@ -715,6 +760,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
 
                 if (currentCompleted) {
                     clearInterval(checkInterval);
+                    markNotified();
                     const output = currentOutput;
                     resolve({
                         success: currentExitCode === 0,

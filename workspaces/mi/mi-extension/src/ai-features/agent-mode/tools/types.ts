@@ -162,6 +162,7 @@ export interface BackgroundSubagent {
     historyDirPath: string;   // path to subagents/<task-id>/ directory
     aborted: boolean;
     abortController: AbortController;
+    notified: boolean;           // true once completion notification has been injected into a tool result
 }
 
 // ============================================================================

@@ -81,6 +81,7 @@ import {
     createKillTaskExecute,
     createTaskOutputTool,
     createTaskOutputExecute,
+    drainBackgroundTaskNotifications,
 } from '../../tools/bash_tools';
 import {
     createWebSearchTool,
@@ -417,7 +418,15 @@ function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResul
             toolArgs: args[0],
             result,
         });
-        return processed as ToolResult;
+
+        // Append completion notifications for any background tasks that finished
+        const notifications = drainBackgroundTaskNotifications();
+        const toolResult = processed as ToolResult;
+        if (notifications && typeof toolResult.message === 'string') {
+            toolResult.message += notifications;
+        }
+
+        return toolResult;
     }) as T;
 }
 

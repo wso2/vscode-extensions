@@ -349,6 +349,7 @@ export function createSubagentExecute(
                 historyDirPath: subagentDir,
                 aborted: false,
                 abortController,
+                notified: false,
             };
             backgroundSubagents.set(subagentId, entry);
 
