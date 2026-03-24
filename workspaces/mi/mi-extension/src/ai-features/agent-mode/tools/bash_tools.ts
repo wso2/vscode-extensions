@@ -135,6 +135,7 @@ async function requestShellApproval(
     request: {
         sessionId: string;
         command: string;
+        description?: string;
         reasons: string[];
         suggestedPrefixRule: string[];
     }
@@ -150,6 +151,8 @@ async function requestShellApproval(
         rejectLabel: 'Deny',
         allowFeedback: false,
         content: buildShellApprovalContent(request.command, request.reasons, request.suggestedPrefixRule),
+        bashCommand: request.command,
+        bashDescription: request.description,
         suggestedPrefixRule: request.suggestedPrefixRule,
     });
 
@@ -182,7 +185,8 @@ export function createBashExecute(
     eventHandler?: AgentEventHandler,
     pendingApprovals?: Map<string, PendingPlanApproval>,
     shellApprovalRuleStore?: ShellApprovalRuleStore,
-    sessionId: string = ''
+    sessionId: string = '',
+    mainAbortSignal?: AbortSignal
 ): BashExecuteFn {
     return async (args: {
         command: string;
@@ -219,6 +223,7 @@ export function createBashExecute(
             const approvalResult = await requestShellApproval(eventHandler, pendingApprovals, {
                 sessionId,
                 command,
+                description,
                 reasons: analysis.reasons,
                 suggestedPrefixRule: analysis.suggestedPrefixRule,
             });
@@ -309,6 +314,23 @@ export function createBashExecute(
                 logError(`[ShellTool] Background shell ${taskId} error: ${error.message}`);
             });
 
+            // Kill background shell if main agent is aborted
+            if (mainAbortSignal && proc.pid) {
+                const onMainAbort = () => {
+                    if (!shell.completed && proc.pid) {
+                        logInfo(`[ShellTool] Main agent aborted, killing background shell: ${taskId}`);
+                        treeKill(proc.pid, 'SIGKILL');
+                    }
+                };
+                if (mainAbortSignal.aborted) {
+                    onMainAbort();
+                } else {
+                    mainAbortSignal.addEventListener('abort', onMainAbort, { once: true });
+                    // Clean up listener when shell completes naturally
+                    proc.on('close', () => mainAbortSignal.removeEventListener('abort', onMainAbort));
+                }
+            }
+
             logInfo(`[ShellTool] Started background shell: ${taskId}`);
 
             return {
@@ -341,6 +363,23 @@ export function createBashExecute(
                     }
                 }, effectiveTimeout);
 
+                // Kill foreground process if main agent is aborted
+                let aborted = false;
+                const onMainAbort = () => {
+                    if (!aborted && proc.pid) {
+                        aborted = true;
+                        clearTimeout(timeoutHandle);
+                        treeKill(proc.pid, 'SIGKILL');
+                    }
+                };
+                if (mainAbortSignal) {
+                    if (mainAbortSignal.aborted) {
+                        onMainAbort();
+                    } else {
+                        mainAbortSignal.addEventListener('abort', onMainAbort, { once: true });
+                    }
+                }
+
                 proc.stdout?.on('data', (data) => {
                     stdout += data.toString();
                 });
@@ -351,6 +390,19 @@ export function createBashExecute(
 
                 proc.on('close', (code) => {
                     clearTimeout(timeoutHandle);
+                    mainAbortSignal?.removeEventListener('abort', onMainAbort);
+
+                    if (aborted) {
+                        resolve({
+                            success: false,
+                            message: `Command was aborted.\n\n**Output before abort:**\n\`\`\`\n${stdout + (stderr ? `\n\nSTDERR:\n${stderr}` : '')}\n\`\`\``,
+                            stdout,
+                            stderr,
+                            exitCode: -1,
+                            error: 'Command aborted'
+                        });
+                        return;
+                    }
 
                     const combinedOutput = stdout + (stderr ? `\n\nSTDERR:\n${stderr}` : '');
 
@@ -385,6 +437,7 @@ export function createBashExecute(
 
                 proc.on('error', (error) => {
                     clearTimeout(timeoutHandle);
+                    mainAbortSignal?.removeEventListener('abort', onMainAbort);
                     resolve({
                         success: false,
                         message: `Failed to execute command: ${error.message}`,

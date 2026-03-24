@@ -17,13 +17,13 @@
  */
 
 import { generateText, stepCountIs } from 'ai';
-import { EXPLORE_SUBAGENT_SYSTEM } from './system';
+import { SYNAPSE_CONTEXT_SUBAGENT_SYSTEM } from './system';
 import { logInfo, logDebug, logError } from '../../../../copilot/logger';
 import { ANTHROPIC_HAIKU_4_5, ANTHROPIC_SONNET_4_6, AnthropicModel } from '../../../../connection';
 import { SubagentResult } from '../../../tools/types';
 import { extractStepMessages } from '../utils';
 
-// Import tools for subagent (read-only tools only)
+// Import tools for subagent (read-only tools + context tool)
 import {
     createReadTool,
     createReadExecute,
@@ -33,22 +33,28 @@ import {
     createGlobExecute,
 } from '../../../tools/file_tools';
 import {
+    createContextTool,
+    createContextExecute,
+} from '../../../tools/context_tools';
+import {
     FILE_READ_TOOL_NAME,
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
 } from '../../../tools/types';
 
 /**
- * Execute the Explore subagent
+ * Execute the SynapseContext subagent
  *
- * @param prompt - The search query or exploration task
+ * @param prompt - The Synapse-related question to answer
  * @param projectPath - The project root path
  * @param model - The model to use ('haiku' or 'sonnet')
  * @param getAnthropicClient - Function to get the Anthropic client
  * @param previousMessages - Optional previous conversation history for resuming
+ * @param abortSignal - Optional abort signal for cancellation
  * @returns SubagentResult with text response and steps for JSONL persistence
  */
-export async function executeExploreSubagent(
+export async function executeSynapseContextSubagent(
     prompt: string,
     projectPath: string,
     model: 'haiku' | 'sonnet',
@@ -57,11 +63,10 @@ export async function executeExploreSubagent(
     abortSignal?: AbortSignal
 ): Promise<SubagentResult> {
     const isResume = previousMessages && previousMessages.length > 0;
-    logInfo(`[ExploreSubagent] Starting with model: ${model}${isResume ? ' (resuming from previous)' : ''}`);
-    logDebug(`[ExploreSubagent] Project path: ${projectPath}`);
-    logDebug(`[ExploreSubagent] Query: ${prompt.substring(0, 200)}...`);
+    logInfo(`[SynapseContextSubagent] Starting with model: ${model}${isResume ? ' (resuming from previous)' : ''}`);
+    logDebug(`[SynapseContextSubagent] Query length: ${prompt.length} chars`);
     if (isResume) {
-        logDebug(`[ExploreSubagent] Resuming with ${previousMessages!.length} previous messages`);
+        logDebug(`[SynapseContextSubagent] Resuming with ${previousMessages!.length} previous messages`);
     }
 
     try {
@@ -69,81 +74,67 @@ export async function executeExploreSubagent(
         const modelId = model === 'sonnet' ? ANTHROPIC_SONNET_4_6 : ANTHROPIC_HAIKU_4_5;
         const anthropicModel = await getAnthropicClient(modelId);
 
-        // Create read-only tools for the subagent
+        // Create tools: read-only file tools + context reference tool
         const tools = {
             [FILE_READ_TOOL_NAME]: createReadTool(createReadExecute(projectPath), projectPath),
             [FILE_GREP_TOOL_NAME]: createGrepTool(createGrepExecute(projectPath)),
             [FILE_GLOB_TOOL_NAME]: createGlobTool(createGlobExecute(projectPath)),
+            [CONTEXT_TOOL_NAME]: createContextTool(createContextExecute(projectPath)),
         };
 
-        logDebug(`[ExploreSubagent] Tools available: ${Object.keys(tools).join(', ')}`);
+        logDebug(`[SynapseContextSubagent] Tools available: ${Object.keys(tools).join(', ')}`);
 
         // Build messages array for continuation
-        // If resuming, include previous messages and add new prompt as continuation
-        // If starting fresh, just use the prompt
         const messages: any[] = [];
 
         if (isResume && previousMessages) {
-            // Add all previous messages
             messages.push(...previousMessages);
-            // Add new continuation prompt
             messages.push({
                 role: 'user',
                 content: `
-                ## Continue Exploration
+                ## Follow-up Question
 
                 ${prompt}
 
-                Continue from where you left off. Use the tools to explore further.
+                Continue from where you left off. Load additional reference contexts if needed.
                 `
             });
         } else {
-            // Fresh start
             messages.push({
                 role: 'user',
-                content: `
-                ## Exploration Query
+                content: `${prompt}
 
-                ${prompt}
-
-                ## Instructions
-
-                1. Use glob and grep to efficiently find relevant files
-                2. Read files that are likely to contain the answer
-                3. Summarize your findings concisely
-
-                Return your findings in the specified markdown format.
-                `
+                Load the relevant reference section(s) and return what you find. If the answer is not in the docs, say so clearly.`
             });
         }
 
         // Execute the subagent with tool access
-        // stopWhen: stepCountIs(30) allows up to 30 tool calling steps
+        // stepCountIs(6): follow a reference-first workflow, loading relevant contexts early within these steps
         const result = await generateText({
             model: anthropicModel,
-            system: EXPLORE_SUBAGENT_SYSTEM,
+            system: SYNAPSE_CONTEXT_SUBAGENT_SYSTEM,
             messages,
             tools,
-            stopWhen: stepCountIs(30), // Allow up to 30 tool calls for thorough exploration
-            temperature: 0.2, // Lower temperature for more focused exploration
-            maxOutputTokens: 8000, // Allow more output for comprehensive findings
+            stopWhen: stepCountIs(6),
+            temperature: 0.2,
+            maxOutputTokens: 4000,
             abortSignal,
         });
 
-        logInfo(`[ExploreSubagent] Completed successfully`);
-        logDebug(`[ExploreSubagent] Response length: ${result.text.length} chars`);
+        logInfo(`[SynapseContextSubagent] Completed successfully`);
+        logDebug(`[SynapseContextSubagent] Response length: ${result.text.length} chars`);
 
         // Build the full conversation history for saving
-        const stepMessages = extractStepMessages(result.steps, result.text, 'ExploreSubagent');
+        const stepMessages = extractStepMessages(result.steps, result.text, 'SynapseContextSubagent');
         const fullMessages = [...messages, ...stepMessages];
-        logDebug(`[ExploreSubagent] Total messages in history: ${fullMessages.length}`);
+        logDebug(`[SynapseContextSubagent] Total messages in history: ${fullMessages.length}`);
 
         return {
             text: result.text,
             messages: fullMessages,
         };
     } catch (error: any) {
-        logError(`[ExploreSubagent] Failed`, error);
+        logError(`[SynapseContextSubagent] Failed`, error);
         throw error;
     }
 }

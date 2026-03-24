@@ -346,7 +346,7 @@ export const getAccessToken = async (): Promise<string | undefined> => {
                 throw new Error(TOKEN_NOT_AVAILABLE_ERROR_MESSAGE);
             }
 
-            if (secrets.expiresAt && (secrets.expiresAt - TOKEN_EXPIRY_BUFFER_MS) < Date.now()) {
+            if (!secrets.expiresAt || (secrets.expiresAt - TOKEN_EXPIRY_BUFFER_MS) < Date.now()) {
                 return await getRefreshedAccessToken();
             }
 

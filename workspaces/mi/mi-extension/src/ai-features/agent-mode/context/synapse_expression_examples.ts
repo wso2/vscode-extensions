@@ -22,7 +22,8 @@ Use SYNAPSE_EXPRESSIONS_DOCS as the source of truth for syntax and constraints.
 
 ### Example filter mediator configuration:
 \`\`\`xml
-<filter xpath="\${payload.store.book[?(@.price < 10)]}">
+<!-- filter xpath must evaluate to a boolean -->
+<filter xpath="\${payload.store.book[0].price &lt; 10}">
     <then>
         <log category="INFO">
             <message>Book price is less than 10</message>
@@ -30,9 +31,18 @@ Use SYNAPSE_EXPRESSIONS_DOCS as the source of truth for syntax and constraints.
     </then>
     <else>
         <log category="INFO">
-            <message>Book price is greater than 10</message>
+            <message>Book price is greater than or equal to 10</message>
         </log>
     </else>
+</filter>
+
+<!-- Checking if filtered results exist -->
+<filter xpath="\${length(payload.store.book[?(@.price &lt; 10)]) &gt; 0}">
+    <then>
+        <log category="INFO">
+            <message>Found cheap books</message>
+        </log>
+    </then>
 </filter>
 \`\`\`
 
@@ -93,10 +103,60 @@ Use SYNAPSE_EXPRESSIONS_DOCS as the source of truth for syntax and constraints.
         "name": "\${payload.customer_name}",
         "customer_id" : "\${vars.customer_id}",
         "axis2 property": "\${props.axis2.REST_URL_POSTFIX}",
-        "trp property": "\${props.trp.Host}"
+        "host": "\${headers["Host"]}"
         }]]>
     </format>
 </payloadFactory>
+\`\`\`
+
+### ForEach mediator (v2 — collection-based):
+\`\`\`xml
+<!-- Iterate over a JSON array in the payload -->
+<foreach collection="\${payload.items}" parallel-execution="false" counter-variable="i">
+    <sequence>
+        <log category="INFO">
+            <message>Processing item \${vars.i}: \${payload}</message>
+        </log>
+    </sequence>
+</foreach>
+\`\`\`
+- During iteration, \`\${payload}\` refers to the current array element, not the original payload.
+- **Legacy forEach (expression="..."):** Sequences inside forEach cannot contain call, send, or callout mediators.
+- **Collection-based forEach (collection="...", MI 4.6.0+):** call, send, and callout mediators ARE allowed inside the sequence.
+
+### Error handling with fault sequence:
+\`\`\`xml
+<api context="/orders" name="OrderAPI" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="POST">
+        <inSequence>
+            <filter xpath="\${not(exists(payload.orderId))}">
+                <then>
+                    <throwError type="VALIDATION_ERROR" errorMessage="orderId is required"/>
+                </then>
+            </filter>
+            <log category="INFO">
+                <message>Processing order: \${payload.orderId}</message>
+            </log>
+            <respond/>
+        </inSequence>
+        <faultSequence>
+            <payloadFactory media-type="json">
+                <format>{"error": "\${props.synapse.ERROR_MESSAGE}", "code": "\${props.synapse.ERROR_CODE}"}</format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+</api>
+\`\`\`
+
+### Variable with JSON type:
+\`\`\`xml
+<!-- Store a JSON object from payload into a variable -->
+<variable name="userData" expression="\${payload.user}" type="JSON"/>
+<!-- Access nested fields from the JSON variable -->
+<log category="INFO">
+    <message>User: \${vars.userData.name}, Age: \${vars.userData.age}</message>
+</log>
 \`\`\`
 
 ### Deprecated pattern

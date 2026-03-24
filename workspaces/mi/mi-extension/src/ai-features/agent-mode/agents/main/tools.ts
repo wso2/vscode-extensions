@@ -33,9 +33,9 @@ import {
     createConnectorExecute,
 } from '../../tools/connector_tools';
 import {
-    createSkillTool,
-    createSkillExecute,
-} from '../../tools/skill_tools';
+    createContextTool,
+    createContextExecute,
+} from '../../tools/context_tools';
 import {
     createManageConnectorTool,
     createManageConnectorExecute,
@@ -98,7 +98,7 @@ import {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
@@ -130,7 +130,7 @@ export {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
@@ -178,6 +178,8 @@ export interface CreateToolsParams {
     shellApprovalRuleStore?: ShellApprovalRuleStore;
     /** Optional undo checkpoint manager for capturing pre-change states */
     undoCheckpointManager?: AgentUndoCheckpointManager;
+    /** Abort signal from the main agent — propagated to subagents and background tasks */
+    abortSignal?: AbortSignal;
 }
 
 const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
@@ -185,7 +187,7 @@ const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
@@ -394,7 +396,7 @@ function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResul
  * This ensures consistent tool definitions across main agent and compact agent.
  *
  * @param params - Tool creation parameters
- * @returns Tools object with all 20+ tools
+ * @returns Tools object with all 23 tools
  */
 export function createAgentTools(params: CreateToolsParams) {
     const {
@@ -410,6 +412,7 @@ export function createAgentTools(params: CreateToolsParams) {
         webAccessPreapproved,
         shellApprovalRuleStore,
         undoCheckpointManager,
+        abortSignal,
     } = params;
 
     const getWrappedExecute = <T extends (...args: any[]) => Promise<ToolResult>>(
@@ -444,8 +447,8 @@ export function createAgentTools(params: CreateToolsParams) {
         [CONNECTOR_TOOL_NAME]: createConnectorTool(
             getWrappedExecute(CONNECTOR_TOOL_NAME, createConnectorExecute(projectPath))
         ),
-        [SKILL_TOOL_NAME]: createSkillTool(
-            getWrappedExecute(SKILL_TOOL_NAME, createSkillExecute(projectPath))
+        [CONTEXT_TOOL_NAME]: createContextTool(
+            getModeAwareExecute(mode, CONTEXT_TOOL_NAME, createContextExecute(projectPath), { projectPath, sessionId })
         ),
 
         // Project Tools (1 tool)
@@ -476,7 +479,7 @@ export function createAgentTools(params: CreateToolsParams) {
 
         // Plan Mode Tools (5 tools)
         [SUBAGENT_TOOL_NAME]: createSubagentTool(
-            getWrappedExecute(SUBAGENT_TOOL_NAME, createSubagentExecute(projectPath, sessionId, getAnthropicClient))
+            getWrappedExecute(SUBAGENT_TOOL_NAME, createSubagentExecute(projectPath, sessionId, getAnthropicClient, abortSignal))
         ),
         [ASK_USER_TOOL_NAME]: createAskUserTool(
             getWrappedExecute(ASK_USER_TOOL_NAME, createAskUserExecute(eventHandler, pendingQuestions, sessionId))
@@ -518,7 +521,8 @@ export function createAgentTools(params: CreateToolsParams) {
                 eventHandler,
                 pendingApprovals,
                 shellApprovalRuleStore,
-                sessionId
+                sessionId,
+                abortSignal
             ))
         ),
         [KILL_TASK_TOOL_NAME]: createKillTaskTool(

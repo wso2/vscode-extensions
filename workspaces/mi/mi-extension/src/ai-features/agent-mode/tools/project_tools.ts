@@ -24,8 +24,8 @@ import { MILanguageClient } from '../../../lang-client/activator';
 import { DependencyDetails } from '@wso2/mi-core';
 import { logDebug, logError } from '../../copilot/logger';
 import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
-import { CONNECTOR_DB } from '../context/connector_db';
-import { INBOUND_DB } from '../context/inbound_db';
+import { CONNECTOR_DB } from '../context/connectors/connector_db';
+import { INBOUND_DB } from '../context/connectors/inbound_db';
 import {
     getConnectorDefinitions,
     getInboundDefinitions,

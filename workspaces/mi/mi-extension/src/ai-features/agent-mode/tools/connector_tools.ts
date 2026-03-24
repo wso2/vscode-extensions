@@ -18,8 +18,8 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { CONNECTOR_DB } from '../context/connector_db';
-import { INBOUND_DB } from '../context/inbound_db';
+import { CONNECTOR_DB } from '../context/connectors/connector_db';
+import { INBOUND_DB } from '../context/connectors/inbound_db';
 import { ToolResult } from './types';
 import { logInfo, logDebug } from '../../copilot/logger';
 import {

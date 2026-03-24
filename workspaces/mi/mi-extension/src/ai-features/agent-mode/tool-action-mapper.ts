@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_PROJECT_TOOL_NAME, CONNECTOR_TOOL_NAME, SKILL_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, WEB_SEARCH_TOOL_NAME, WEB_FETCH_TOOL_NAME } from './tools/types';
+import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_PROJECT_TOOL_NAME, CONNECTOR_TOOL_NAME, CONTEXT_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, WEB_SEARCH_TOOL_NAME, WEB_FETCH_TOOL_NAME } from './tools/types';
 /**
  * Tool action states for UI display
  */
@@ -83,8 +83,8 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
             return { loading: 'fetching connector details', completed: 'fetched connector details', failed: 'failed to fetch connector details' };
         }
 
-        case SKILL_TOOL_NAME:
-            return { loading: 'loading skill context', completed: 'loaded skill context', failed: 'failed to load skill context' };
+        case CONTEXT_TOOL_NAME:
+            return { loading: 'loading deep context', completed: 'loaded deep context', failed: 'failed to load deep context' };
 
         case MANAGE_CONNECTOR_TOOL_NAME: {
             // Extract operation, connector names, and inbound endpoint names from tool input
@@ -137,9 +137,21 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
 
         // Plan Mode Tools
         case SUBAGENT_TOOL_NAME: {
-            // Extract subagent type and background mode for dynamic messages
+            // Map subagent types to user-friendly display names
+            const subagentDisplayNames: Record<string, { loading: string; loadingBg: string; completed: string; failed: string }> = {
+                'Explore': { loading: 'exploring codebase', loadingBg: 'exploring codebase (background)', completed: 'exploration completed', failed: 'exploration failed' },
+                'SynapseContext': { loading: 'referencing Synapse docs', loadingBg: 'referencing Synapse docs (background)', completed: 'Synapse docs lookup completed', failed: 'Synapse docs lookup failed' },
+            };
             const subagentType = toolInput?.subagent_type || 'subagent';
+            const display = subagentDisplayNames[subagentType];
             const isBackgroundTask = toolInput?.run_in_background;
+            if (display) {
+                return {
+                    loading: isBackgroundTask ? display.loadingBg : display.loading,
+                    completed: display.completed,
+                    failed: display.failed
+                };
+            }
             return {
                 loading: isBackgroundTask ? `launching ${subagentType} agent` : `running ${subagentType} agent`,
                 completed: isBackgroundTask ? `launched ${subagentType} agent` : `${subagentType} agent completed`,

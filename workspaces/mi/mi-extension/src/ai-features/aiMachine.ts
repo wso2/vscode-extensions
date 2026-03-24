@@ -36,7 +36,9 @@ import {
     storeAuthCredentials
 } from './auth';
 import { PromptObject } from '@wso2/mi-core';
-import { logError, logWarn } from './copilot/logger';
+import { logError, logInfo, logWarn } from './copilot/logger';
+
+const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
 
 let silentPlatformBootstrapInFlight = false;
 const LOGIN_STS_RETRY_COUNT = 10;
@@ -503,13 +505,31 @@ const checkWorkspaceAndToken = async (): Promise<{ workspaceSupported: boolean; 
         return { workspaceSupported: false };
     }
 
-    // Startup must stay local-only: do not trigger platform/proxy calls before AI panel is used.
     const credentials = await getAuthCredentials();
     let tokenData: { token: string; loginMethod: LoginMethod } | undefined;
     if (credentials?.loginMethod === LoginMethod.MI_INTEL) {
-        const accessToken = (credentials.secrets as { accessToken?: string })?.accessToken;
-        if (accessToken) {
-            tokenData = { token: accessToken, loginMethod: LoginMethod.MI_INTEL };
+        const secrets = credentials.secrets as { accessToken?: string; expiresAt?: number };
+        if (secrets.accessToken) {
+            const isExpiredOrUnknown = !secrets.expiresAt || (secrets.expiresAt - TOKEN_EXPIRY_BUFFER_MS) < Date.now();
+            if (isExpiredOrUnknown) {
+                // Token expired — try silent STS refresh so the user doesn't have to re-login.
+                logInfo('Stored MI_INTEL token is expired. Attempting silent STS refresh...');
+                try {
+                    const stsToken = await getPlatformStsToken({ retries: 3, retryDelayMs: 500 });
+                    if (stsToken) {
+                        const newSecrets = await exchangeStsToCopilotToken(stsToken);
+                        await storeAuthCredentials({ loginMethod: LoginMethod.MI_INTEL, secrets: newSecrets });
+                        tokenData = { token: newSecrets.accessToken, loginMethod: LoginMethod.MI_INTEL };
+                        logInfo('Silent STS refresh succeeded. Token refreshed.');
+                    } else {
+                        logWarn('Silent STS refresh skipped: platform STS token unavailable. User will need to re-login.');
+                    }
+                } catch (error) {
+                    logWarn(`Silent STS refresh failed during initialization. User will need to re-login. ${error instanceof Error ? error.message : String(error)}`);
+                }
+            } else {
+                tokenData = { token: secrets.accessToken, loginMethod: LoginMethod.MI_INTEL };
+            }
         }
     } else if (credentials?.loginMethod === LoginMethod.ANTHROPIC_KEY) {
         const apiKey = (credentials.secrets as { apiKey?: string })?.apiKey;
