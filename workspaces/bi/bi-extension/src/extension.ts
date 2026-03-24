@@ -28,12 +28,16 @@ export function activate(context: vscode.ExtensionContext) {
             'WSO2 Integrator: BI has been deprecated. ' +
             'WSO2 Integrator (WI) has been installed and provides all the same functionality with continued updates.',
             'Open WSO2 Integrator'
-        ).then(action => {
+        ).then(async action => {
             if (action === 'Open WSO2 Integrator') {
-                vscode.commands.executeCommand(`${WI_EXPLORER_VIEW_ID}.focus`);
+                try {
+                    await vscode.commands.executeCommand(`${WI_EXPLORER_VIEW_ID}.focus`);
+                    await context.globalState.update(DEPRECATION_SHOWN_KEY, true);
+                } catch (error) {
+                    console.error('Failed to focus WSO2 Integrator explorer:', error);
+                }
             }
         });
-        context.globalState.update(DEPRECATION_SHOWN_KEY, true);
     }
 }
 
