@@ -19,9 +19,6 @@
     "onNotebook:HTTPClient",
     "onCommand:HTTPClient.importHurlString"
   ],
-  "extensionDependencies": [
-    "JacobPfeifer.pfeifer-hurl"
-  ],
   "icon": "images/icon.png",
   "main": "./dist/extension.js",
   "contributes": {
