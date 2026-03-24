@@ -34,6 +34,7 @@ import { checkCompilationErrors } from './tools/diagnostics-utils';
 import { updateAndSaveChat, calculateTotalCost } from '../utils/events';
 import { chatStateStorage } from '../../../views/ai-panel/chatStateStorage';
 import * as path from 'path';
+import * as fs from 'fs';
 import { approvalViewManager } from '../state/ApprovalViewManager';
 import {
     buildContextManagementOptions,
@@ -293,10 +294,48 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             const chatHistory = this.getChatHistory();
             console.log(`[AgentExecutor] Using ${chatHistory.length} chat history messages`);
 
-            // 5. Build LLM messages with history
+            // 5. Fetch code map markdown from Language Server
+            let codeMapMarkdown: string | undefined;
+            const projectRoot = this.config.executionContext.workspacePath || this.config.executionContext.projectPath || tempProjectPath;
+            try {
+                const langClient = StateMachine.context().langClient;
+                if (!langClient) {
+                    console.warn('[AgentExecutor] langClient is null, skipping code map fetch');
+                } else {
+                    const codeMapRequest = {
+                        projectPath: tempProjectPath,
+                        changesOnly: false,
+                        artifacts: false,
+                    };
+                    console.log(`[AgentExecutor] Fetching code map with request: ${JSON.stringify(codeMapRequest)}`);
+                    const codeMapResponse = await langClient.getCodeMap(codeMapRequest);
+
+                    // Save full API response for debugging
+                    const debugPath = path.join(projectRoot, 'codemap-response.json');
+                    fs.writeFileSync(debugPath, JSON.stringify({ request: codeMapRequest, response: codeMapResponse }, null, 2), 'utf-8');
+                    console.log(`[AgentExecutor] Saved code map debug info to ${debugPath}`);
+
+                    codeMapMarkdown = codeMapResponse?.markdown;
+                    console.log(`[AgentExecutor] Received code map markdown (${codeMapMarkdown ? 'present' : 'missing'})`);
+                    if (codeMapMarkdown) {
+                        const balMdPath = path.join(projectRoot, 'bal.md');
+                        fs.writeFileSync(balMdPath, codeMapMarkdown, 'utf-8');
+                        console.log(`[AgentExecutor] Saved code map markdown to ${balMdPath}`);
+                    } else {
+                        console.warn('[AgentExecutor] Code map response has no markdown field');
+                    }
+                }
+            } catch (err) {
+                // Save error details for debugging
+                const errorPath = path.join(projectRoot, 'codemap-error.json');
+                fs.writeFileSync(errorPath, JSON.stringify({ error: String(err), stack: (err as Error)?.stack }, null, 2), 'utf-8');
+                console.warn('[AgentExecutor] Failed to fetch code map markdown:', err);
+            }
+
+            // 6. Build LLM messages with history
             const historyMessages = populateHistoryForAgent(chatHistory);
             const cacheOptions = await getProviderCacheControl();
-            
+
             const allMessages: ModelMessage[] = [
                 {
                     role: "system",

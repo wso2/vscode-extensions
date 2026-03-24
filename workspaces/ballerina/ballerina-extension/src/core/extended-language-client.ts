@@ -275,6 +275,8 @@ import {
     ClausePositionRequest,
     SemanticDiffRequest,
     SemanticDiffResponse,
+    CodeMapRequest,
+    CodeMapResponse,
     ConvertExpressionRequest,
     ConvertExpressionResponse,
     IntrospectDatabaseRequest,
@@ -473,6 +475,7 @@ enum EXTENDED_APIS {
     BI_AI_GEN_TOOLS = 'agentManager/genTool',
     BI_AI_GET_PACKAGE_VERSION = 'agentManager/getPackageVersion',
     BI_GET_SEMANTIC_DIFF = 'copilotAgentService/getSemanticDiff',
+    BI_GET_CODE_MAP = 'designModelService/codemap',
     BI_IS_ICP_ENABLED = 'icpService/isIcpEnabled',
     BI_ADD_ICP = 'icpService/addICP',
     BI_DISABLE_ICP = 'icpService/disableICP',
@@ -1500,6 +1503,10 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
     async getSemanticDiff(params: SemanticDiffRequest): Promise<SemanticDiffResponse> {
         return this.sendRequest<SemanticDiffResponse>(EXTENDED_APIS.BI_GET_SEMANTIC_DIFF, params);
+    }
+
+    async getCodeMap(params: CodeMapRequest): Promise<CodeMapResponse> {
+        return this.sendRequest<CodeMapResponse>(EXTENDED_APIS.BI_GET_CODE_MAP, params);
     }
 
     // <------------ BI APIS END --------------->
