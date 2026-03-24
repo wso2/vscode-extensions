@@ -91,7 +91,3 @@ Files with documentation cells remain valid `hurl` files and can be executed dir
 
 - VS Code 1.100.0 or later
 - Internet access for the initial hurl binary download (or point `http-client.hurl.path` to a local binary)
-
-## License
-
-Apache License 2.0 — see [LICENSE](https://www.apache.org/licenses/LICENSE-2.0) for details.
