@@ -1,6 +1,6 @@
 {
   "name": "hurl-client",
-  "displayName": "HTTP Client",
+  "displayName": "WSO2 HTTP Client",
   "description": "Open and run .hurl files as interactive notebooks",
   "version": "0.9.0",
   "publisher": "wso2",
