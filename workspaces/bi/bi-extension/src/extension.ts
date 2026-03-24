@@ -18,12 +18,23 @@
 
 import * as vscode from 'vscode';
 
-export function activate(context: vscode.ExtensionContext) {
-	// Show deprecation warning
-	vscode.window.showWarningMessage('The \'WSO2 Integrator - BI\' extension is deprecated and will be removed in a future release. Please use the \'WSO2 Integrator\' extension to continue receiving updates and support.');
+const DEPRECATION_SHOWN_KEY = 'bi.deprecation.noticeShown';
+const WI_EXPLORER_VIEW_ID = 'wso2-integrator.explorer';
 
-	// deactivate the extension immediately after showing the warning
-	deactivate();
+export function activate(context: vscode.ExtensionContext) {
+    const alreadyShown = context.globalState.get<boolean>(DEPRECATION_SHOWN_KEY);
+    if (!alreadyShown) {
+        vscode.window.showWarningMessage(
+            'WSO2 Integrator: BI has been deprecated. ' +
+            'WSO2 Integrator (WI) has been installed and provides all the same functionality with continued updates.',
+            'Open WSO2 Integrator'
+        ).then(action => {
+            if (action === 'Open WSO2 Integrator') {
+                vscode.commands.executeCommand(`${WI_EXPLORER_VIEW_ID}.focus`);
+            }
+        });
+        context.globalState.update(DEPRECATION_SHOWN_KEY, true);
+    }
 }
 
 export function deactivate() { }
