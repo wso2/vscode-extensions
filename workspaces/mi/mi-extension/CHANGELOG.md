@@ -2,6 +2,16 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
+## [3.1.6] - 2026-03-24
+
+### Fixed
+
+Fixed: Editing Switch Mediator Cases Loses Statements and Appends New Case Incorrectly ([#1424](https://github.com/wso2/mi-vscode/issues/1424))   
+Fixed: Add an option to import and export projects as ZIP archives ([#1425](https://github.com/wso2/mi-vscode/issues/1425))   
+Fixed: Unable to Create Endpoint via Call Mediator “Add New” endpoint on Windows ([#1426](https://github.com/wso2/mi-vscode/issues/1426))   
+Fixed: Partially migrating the old project when using the project migration feature in VS Code ([#1427](https://github.com/wso2/mi-vscode/issues/1427))   
+
+
 ## [3.1.5] - 2026-03-11
 
 ### Fixed

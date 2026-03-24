@@ -519,7 +519,7 @@ export async function generateProjectDirToResolvedPomMap(multiModuleProjectDir: 
     const projectDirToResolvedPomMap = new Map<string, string>();
     logInfo(`Generating resolved POM map.`);
 
-    await copyMavenWrapper(extension.context.asAbsolutePath(path.join('resources', 'maven-wrapper')), multiModuleProjectDir);
+    await copyMavenWrapper(extension.context.asAbsolutePath(path.join('resources', 'maven-wrapper')), multiModuleProjectDir, true);
     const pomResolvedResult = await getResolvedPomXmlContent(path.join(multiModuleProjectDir, 'pom.xml'));
     if (!pomResolvedResult.success) {
         logWarn(`Failed to resolve root pom.xml in ${multiModuleProjectDir}, error=${pomResolvedResult.error ?? ''}`);
@@ -559,7 +559,6 @@ export async function generateProjectDirToResolvedPomMap(multiModuleProjectDir: 
         }
     }
 
-    removeMavenWrapper(multiModuleProjectDir);
     logInfo(`Resolved POM map generation completed, entryCount=${projectDirToResolvedPomMap.size}`);
     return projectDirToResolvedPomMap;
 }
