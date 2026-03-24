@@ -420,6 +420,7 @@ export function createAgentTools(params: CreateToolsParams) {
 
     // Resolve the main model ID for tools that need it (web search/fetch)
     const mainModelId = modelSettings ? resolveMainModelId(modelSettings) : undefined;
+    const mainModelIsCustom = !!modelSettings?.mainModelCustomId;
 
     const getWrappedExecute = <T extends (...args: any[]) => Promise<ToolResult>>(
         toolName: string,
@@ -514,7 +515,8 @@ export function createAgentTools(params: CreateToolsParams) {
                 pendingApprovals,
                 webAccessPreapproved,
                 sessionId,
-                mainModelId
+                mainModelId,
+                mainModelIsCustom
             ))
         ),
         [WEB_FETCH_TOOL_NAME]: createWebFetchTool(
@@ -524,7 +526,8 @@ export function createAgentTools(params: CreateToolsParams) {
                 pendingApprovals,
                 webAccessPreapproved,
                 sessionId,
-                mainModelId
+                mainModelId,
+                mainModelIsCustom
             ))
         ),
 

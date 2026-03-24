@@ -76,8 +76,9 @@ import { beginServerManagementRunTracking, cleanupServerManagementOnAgentEnd } f
 import { AgentUndoCheckpointManager, StoredUndoCheckpoint } from '../../ai-features/agent-mode/undo/checkpoint-manager';
 import { MiDiagramRpcManager } from '../mi-diagram/rpc-manager';
 import { getCopilotSessionDir } from '../../ai-features/agent-mode/storage-paths';
-const DEFAULT_MODEL_SETTINGS: ModelSettings = { mainModelPreset: 'sonnet', subModelPreset: 'haiku' };
 import { resolveSubModelId } from '../../ai-features/connection';
+
+const DEFAULT_MODEL_SETTINGS: ModelSettings = { mainModelPreset: 'sonnet', subModelPreset: 'haiku' };
 
 const AUTO_COMPACT_TOKEN_THRESHOLD = 180000;
 const AUTO_COMPACT_TOOL_NAME = 'compact_conversation';
@@ -786,6 +787,12 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 };
             }
 
+            // Persist latest model settings so auto-compaction and other server-side
+            // behaviors use the same settings the UI selected.
+            if (request.modelSettings) {
+                this.currentModelSettings = { ...request.modelSettings };
+            }
+
             // Get or create chat history manager
             const historyManager = await this.getChatHistoryManager();
             const undoCheckpointManager = await this.getUndoCheckpointManager();
@@ -867,7 +874,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                                     addRule: async (rule: string[]) => this.addShellApprovalRule(rule),
                                 },
                                 undoCheckpointManager,
-                                modelSettings: request.modelSettings || this.currentModelSettings,
+                                modelSettings: this.currentModelSettings,
                                 onStepPersisted: () => this.eventHandler.stepCompleted(),
                             },
                             (event: AgentEvent) => {

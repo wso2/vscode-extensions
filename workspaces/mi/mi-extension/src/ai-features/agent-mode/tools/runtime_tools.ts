@@ -586,7 +586,7 @@ async function stopServer(projectPath: string, serverPath: string): Promise<Tool
     }
 
     // Execute stop command
-    const env = setJavaHomeInEnvironmentAndPath(projectPath);
+    const env = { ...process.env, ...setJavaHomeInEnvironmentAndPath(projectPath) };
     const stopProcess = childProcess.spawn(stopCommand, [], { shell: true, env });
 
     showServerOutputChannel();

@@ -325,22 +325,8 @@ const ModelSettingsMenu: React.FC<ModelSettingsMenuProps> = ({ isLoading, isByok
     const mainSelection: MainSelection = modelSettings.mainModelPreset;
     const subSelection: SubSelection = modelSettings.subModelPreset;
 
-    useEffect(() => {
-        if (modelSettings.mainModelCustomId || modelSettings.subModelCustomId) {
-            updateModelSettings({
-                mainModelPreset: modelSettings.mainModelPreset,
-                subModelPreset: modelSettings.subModelPreset,
-                mainModelCustomId: undefined,
-                subModelCustomId: undefined,
-            });
-        }
-    }, [
-        modelSettings.mainModelCustomId,
-        modelSettings.subModelCustomId,
-        modelSettings.mainModelPreset,
-        modelSettings.subModelPreset,
-        updateModelSettings
-    ]);
+    // Note: custom model IDs are set programmatically (e.g. via API key flow).
+    // This component only controls presets — it does not clear custom IDs on mount.
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {

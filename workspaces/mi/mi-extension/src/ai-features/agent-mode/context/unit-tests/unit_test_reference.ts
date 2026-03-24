@@ -589,8 +589,11 @@ Strictly follow the below XSD when writing the unit tests:
 
 	<xs:complexType name="Properties">
 		<xs:sequence>
-			<xs:element name="property" minOccurs='0' maxOccurs='unbounded' />
+			<xs:element name="property" type="Property" minOccurs='0' maxOccurs='unbounded' />
 		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="Property">
 		<xs:attribute name='name' type='xs:string' />
 		<xs:attribute name='value' type='xs:string' />
 		<xs:attribute name='scope' type='xs:string' />

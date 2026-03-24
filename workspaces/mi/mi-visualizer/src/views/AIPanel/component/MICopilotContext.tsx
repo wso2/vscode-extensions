@@ -27,7 +27,7 @@ import {
     Role,
 } from "@wso2/mi-core";
 import { GroupedSessions } from "./SessionSwitcher";
-import { ModelSettings } from "@wso2/mi-rpc-client/src/rpc-clients/agent-mode/rpc-client";
+import { ModelSettings } from "@wso2/mi-core";
 
 // Pending user question type (using structured Question format from mi-core)
 export interface PendingUserQuestion {
@@ -207,10 +207,20 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     // Model settings state (persisted in localStorage)
     const DEFAULT_MODEL_SETTINGS: ModelSettings = { mainModelPreset: 'sonnet', subModelPreset: 'haiku' };
     const MODEL_SETTINGS_KEY = 'mi-agent-model-settings';
+    const VALID_MAIN_PRESETS = ['opus', 'sonnet'];
+    const VALID_SUB_PRESETS = ['haiku', 'sonnet'];
     const [modelSettings, setModelSettingsState] = useState<ModelSettings>(() => {
         try {
             const stored = localStorage.getItem(MODEL_SETTINGS_KEY);
-            if (stored) return { ...DEFAULT_MODEL_SETTINGS, ...JSON.parse(stored) };
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                return {
+                    ...DEFAULT_MODEL_SETTINGS,
+                    ...parsed,
+                    mainModelPreset: VALID_MAIN_PRESETS.includes(parsed.mainModelPreset) ? parsed.mainModelPreset : DEFAULT_MODEL_SETTINGS.mainModelPreset,
+                    subModelPreset: VALID_SUB_PRESETS.includes(parsed.subModelPreset) ? parsed.subModelPreset : DEFAULT_MODEL_SETTINGS.subModelPreset,
+                };
+            }
         } catch { /* ignore */ }
         return { ...DEFAULT_MODEL_SETTINGS };
     });

@@ -38,6 +38,9 @@ import {
     applyCodeSegmentWithCheckpoint,
     respondToQuestion,
     respondToPlanApproval,
+    ModelSettings,
+    MainModelPreset,
+    SubModelPreset,
 } from "@wso2/mi-core";
 import { HOST_EXTENSION, RequestType } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -174,16 +177,8 @@ const getAgentRunStatus: RequestType<GetAgentRunStatusRequest, GetAgentRunStatus
     method: `${_prefix}/getAgentRunStatus`
 };
 
-// Model Settings types and RPC methods
-export type MainModelPreset = 'opus' | 'sonnet';
-export type SubModelPreset = 'haiku' | 'sonnet';
-
-export interface ModelSettings {
-    mainModelPreset: MainModelPreset;
-    subModelPreset: SubModelPreset;
-    mainModelCustomId?: string;
-    subModelCustomId?: string;
-}
+// Re-export model settings types from @wso2/mi-core
+export type { MainModelPreset, SubModelPreset, ModelSettings };
 
 export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
     private _messenger: Messenger;
