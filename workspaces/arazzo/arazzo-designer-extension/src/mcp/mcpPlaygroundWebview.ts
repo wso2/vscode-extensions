@@ -274,6 +274,19 @@ button.secondary { background: var(--vscode-button-secondaryBackground); color: 
 .output-box .timestamp { color: var(--vscode-descriptionForeground); font-size: 11px; }
 .output-box .error-text { color: var(--vscode-errorForeground); }
 .output-box .success-text { color: var(--vscode-terminal-ansiGreen, #4caf50); }
+.json-block {
+    background: var(--vscode-textCodeBlock-background, rgba(30,30,30,0.4));
+    border: 1px solid var(--vscode-panel-border); border-radius: 4px;
+    padding: 10px 12px; margin: 4px 0 2px; overflow-x: auto;
+    font-family: var(--vscode-editor-font-family, 'Cascadia Code', 'Fira Code', Consolas, monospace);
+    font-size: var(--vscode-editor-font-size, 12px); line-height: 1.5;
+}
+.json-key { color: var(--vscode-terminal-ansiCyan, #9cdcfe); }
+.json-string { color: var(--vscode-terminal-ansiGreen, #ce9178); }
+.json-number { color: var(--vscode-terminal-ansiYellow, #b5cea8); }
+.json-bool { color: var(--vscode-terminal-ansiBlue, #569cd6); }
+.json-null { color: var(--vscode-terminal-ansiMagenta, #c586c0); }
+.json-bracket { color: var(--vscode-descriptionForeground); }
 .spinner {
     display: inline-block; width: 14px; height: 14px;
     border: 2px solid var(--vscode-descriptionForeground); border-top-color: transparent;
@@ -284,6 +297,17 @@ button.secondary { background: var(--vscode-button-secondaryBackground); color: 
 .mt-8 { margin-top: 8px; }
 .mt-12 { margin-top: 12px; }
 .flex-row { display: flex; align-items: center; gap: 8px; }
+.section-title-row {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+}
+.btn-icon {
+    background: none; border: none; padding: 4px 6px; cursor: pointer;
+    color: var(--vscode-descriptionForeground); font-size: 15px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center; transition: color 0.15s, background 0.15s;
+}
+.btn-icon:hover {
+    color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground, rgba(90,93,94,0.31));
+}
 </style>
 </head>
 <body>
@@ -313,8 +337,11 @@ button.secondary { background: var(--vscode-button-secondaryBackground); color: 
     <div class="tools-list mt-12" id="toolsList"></div>
 </div>
 
-<div class="section">
-    <div class="section-title">Output</div>
+<div class="section" id="outputSection">
+    <div class="section-title-row">
+        <div class="section-title" style="margin-bottom:0">Output</div>
+        <button class="btn-icon" id="btnClearOutput" title="Clear output"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10 12.6l.7.7 1.6-1.6 1.6 1.6.8-.7L13 11l1.7-1.6-.8-.8-1.6 1.7-1.6-1.7-.7.8 1.6 1.6-1.6 1.6zM1 4h14V3H1v1zm0 3h14V6H1v1zm8 2.5V9H1v1h8v-.5zM9 13v-1H1v1h8z"/></svg></button>
+    </div>
     <div class="output-box" id="output"><span class="timestamp">Ready \\u2014 connect to an MCP server to begin.</span></div>
 </div>
 
@@ -329,8 +356,14 @@ button.secondary { background: var(--vscode-button-secondaryBackground); color: 
     const toolsSpinner = document.getElementById('toolsSpinner');
     const toolsList = document.getElementById('toolsList');
     const output = document.getElementById('output');
+    const outputSection = document.getElementById('outputSection');
+    const btnClearOutput = document.getElementById('btnClearOutput');
     let connected = false;
     let tools = [];
+
+    btnClearOutput.addEventListener('click', function () {
+        output.innerHTML = '<span class="timestamp">Output cleared.</span>';
+    });
 
     function now() { return new Date().toLocaleTimeString(); }
     function appendOutput(html) { output.innerHTML += '\\n' + html; output.scrollTop = output.scrollHeight; }
@@ -395,7 +428,7 @@ button.secondary { background: var(--vscode-button-secondaryBackground); color: 
                 if (msg.error) {
                     appendOutput('<span class="error-text">[' + now() + '] Error calling ' + escapeHtml(msg.toolName) + ': ' + escapeHtml(msg.error) + '</span>');
                 } else {
-                    appendOutput('<span class="success-text">[' + now() + '] Result from ' + escapeHtml(msg.toolName) + ':</span>\\n' + escapeHtml(formatJson(msg.result)));
+                    appendOutput('<span class="success-text">[' + now() + '] Result from ' + escapeHtml(msg.toolName) + ':</span>' + renderJsonBlock(msg.result));
                 }
                 break;
         }
@@ -466,6 +499,7 @@ button.secondary { background: var(--vscode-button-secondaryBackground); color: 
                 card.querySelector('.btn-execute').disabled = true;
                 card.querySelector('.exec-spinner').classList.remove('hidden');
                 appendOutput('<span class="timestamp">[' + now() + ']</span> Calling tool <b>' + escapeHtml(tool.name) + '</b> with args: ' + escapeHtml(JSON.stringify(args)));
+                outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 vscode.postMessage({ command: 'callTool', url: urlInput.value.trim(), toolName: tool.name, args: args });
             });
             toolsList.appendChild(card);
@@ -481,6 +515,33 @@ button.secondary { background: var(--vscode-button-secondaryBackground); color: 
     function formatJson(obj) {
         try { return JSON.stringify(obj, null, 2); }
         catch (e) { return String(obj); }
+    }
+    function renderJsonBlock(obj) {
+        try {
+            var json = JSON.stringify(obj, null, 2);
+            var highlighted = json.replace(
+                /("(?:\\\\.|[^"])*")\\s*:/g,
+                '<span class="json-key">$1</span>:'
+            ).replace(
+                /:\\s*("(?:\\\\.|[^"])*")/g,
+                ': <span class="json-string">$1</span>'
+            ).replace(
+                /:\\s*(-?\\d+\\.?\\d*(?:[eE][+-]?\\d+)?)/g,
+                ': <span class="json-number">$1</span>'
+            ).replace(
+                /:\\s*(true|false)/g,
+                ': <span class="json-bool">$1</span>'
+            ).replace(
+                /:\\s*(null)/g,
+                ': <span class="json-null">$1</span>'
+            ).replace(
+                /([\\[\\]{}])/g,
+                '<span class="json-bracket">$1</span>'
+            );
+            return '<div class="json-block">' + highlighted + '</div>';
+        } catch (e) {
+            return '<div class="json-block">' + escapeHtml(String(obj)) + '</div>';
+        }
     }
 })();
 </script>
