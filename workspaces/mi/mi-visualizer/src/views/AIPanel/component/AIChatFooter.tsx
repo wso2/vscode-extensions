@@ -21,7 +21,7 @@ import { FlexRow, Footer, FloatingInputContainer } from "../styles";
 import { Codicon } from "@wso2/ui-toolkit";
 import { useMICopilotContext, AgentMode } from "./MICopilotContext";
 import { handleFileAttach, convertChatHistoryToModelMessages } from "../utils";
-import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
+import { VALID_FILE_TYPES } from "../constants";
 import { generateId, updateTokenInfo } from "../utils";
 import { BackendRequestType } from "../types";
 import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem, Question, UndoCheckpointSummary, PlanApprovalKind } from "@wso2/mi-core";
@@ -118,8 +118,6 @@ function upsertLoadingBashOutputTag(
 }
 
 const WORKING_ON_IT_TOOL_MESSAGE = 'copilot is working on it...';
-const WORKING_ON_IT_DELAY_MS = 2000;
-const RUNNING_PLACEHOLDER_DOT_FRAMES = ['.  ', '.. ', '...', ' ..', '  .', ' ..'];
 // Stream safeguards for reconnect + polling fallback recovery.
 const ENABLE_STREAM_SAFEGUARDS = true;
 
@@ -440,7 +438,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
     });
 
-    const [runningPlaceholderFrameIndex, setRunningPlaceholderFrameIndex] = useState(0);
+    // Manual compact state
+    const [isCompacting, setIsCompacting] = useState(false);
+    // Placeholder frame animation removed — replaced by "Generating.." indicator
     const [mentionContext, setMentionContext] = useState<MentionContext | null>(null);
     const [mentionSuggestions, setMentionSuggestions] = useState<MentionablePathItem[]>([]);
     const [activeMentionIndex, setActiveMentionIndex] = useState(0);
@@ -458,13 +458,14 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     );
     const remainingContextPercent = Math.max(0, 100 - contextUsagePercent);
 
-    const placeholderString = USER_INPUT_PLACEHOLDER_MESSAGE;
-    const runningPlaceholder = `Please wait${RUNNING_PLACEHOLDER_DOT_FRAMES[runningPlaceholderFrameIndex]}`;
+    const modePlaceholder = agentMode === 'ask'
+        ? "Ask a question..."
+        : agentMode === 'plan'
+            ? "Describe what to plan..."
+            : "Describe what to build...";
     const inputPlaceholder = isUsageExceeded
         ? "Usage quota exceeded..."
-        : backendRequestTriggered
-            ? runningPlaceholder
-            : placeholderString;
+        : modePlaceholder;
 
     // State for streaming agent response
     const [currentChatId, setCurrentChatId] = useState<number | null>(null);
@@ -1233,19 +1234,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
         firstProgressEventReceivedRef.current = false;
         clearWorkingOnItTimer();
-        workingOnItTimerRef.current = setTimeout(() => {
-            if (
-                firstProgressEventReceivedRef.current
-                || abortedRef.current
-                || !backendRequestTriggeredRef.current
-            ) {
-                return;
-            }
-
-            setMessages((prev) => updateLastMessage(prev, (c) =>
-                upsertLoadingToolCallTag(c, "", WORKING_ON_IT_TOOL_MESSAGE)
-            ));
-        }, WORKING_ON_IT_DELAY_MS);
 
         try {
             // Convert chat history to model messages format (with tool calls preserved)
@@ -1600,19 +1588,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             setActiveMentionIndex(0);
             setIsMentionLoading(false);
         }
-    }, [backendRequestTriggered]);
-
-    useEffect(() => {
-        if (!backendRequestTriggered) {
-            setRunningPlaceholderFrameIndex(0);
-            return;
-        }
-
-        const interval = setInterval(() => {
-            setRunningPlaceholderFrameIndex((prev) => (prev + 1) % RUNNING_PLACEHOLDER_DOT_FRAMES.length);
-        }, 240);
-
-        return () => clearInterval(interval);
     }, [backendRequestTriggered]);
 
     useEffect(() => {
@@ -2613,6 +2588,21 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 </div>
             )}
 
+            {/* Generating indicator */}
+            {backendRequestTriggered && (
+                <div
+                    className="flex items-center gap-1.5 ml-2 mb-2"
+                    style={{ color: "var(--vscode-descriptionForeground)", fontSize: "13px" }}
+                >
+                    <span className="flex gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: "var(--vscode-descriptionForeground)", animationDelay: "0ms" }} />
+                        <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: "var(--vscode-descriptionForeground)", animationDelay: "150ms" }} />
+                        <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: "var(--vscode-descriptionForeground)", animationDelay: "300ms" }} />
+                    </span>
+                    <span className="ml-0.5">Generating..</span>
+                </div>
+            )}
+
             <FloatingInputContainer
                 style={{
                     border: isFocused ? "1px solid var(--vscode-focusBorder)" : "1px solid var(--vscode-widget-border)",
@@ -2880,12 +2870,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 />
             </FloatingInputContainer>
 
-            {/* AI disclaimer - only shown after first message */}
-            {messages.length > 0 && (
-                <p className="text-center mt-1.5" style={{ fontSize: "10px", color: "var(--vscode-descriptionForeground)", opacity: 0.7 }}>
-                    AI-generated output may contain mistakes. Review before adding to your integration.
-                </p>
-            )}
+            <p style={{ fontSize: "10px", color: "var(--vscode-descriptionForeground)", opacity: 0.6, margin: "2px 0 0 0", lineHeight: 1.2, textAlign: "center" }}>
+                AI-generated output may contain mistakes. Review before adding to your integration.
+            </p>
         </Footer>
     );
 };
