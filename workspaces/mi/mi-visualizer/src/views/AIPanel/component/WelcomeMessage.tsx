@@ -17,64 +17,31 @@
  */
 
 import React from 'react';
-import { Welcome } from '../styles';
-import { Icon, Typography } from "@wso2/ui-toolkit";
-import { WelcomeStyles } from "../styles";
-
-// CSS Toggle Icon Component
-const ToggleIcon: React.FC = () => {
-    return (
-        <div style={{
-            width: '24px',
-            height: '12px',
-            backgroundColor: 'var(--vscode-input-background)',
-            border: '1px solid var(--vscode-input-border)',
-            borderRadius: '6px',
-            position: 'relative',
-            display: 'inline-block'
-        }}>
-            <div style={{
-                width: '10px',
-                height: '10px',
-                backgroundColor: 'var(--vscode-foreground)',
-                borderRadius: '50%',
-                position: 'absolute',
-                top: '1px',
-                left: '1px',
-                transition: 'left 0.2s'
-            }} />
-        </div>
-    );
-};
+import { Icon, Codicon } from "@wso2/ui-toolkit";
 
 export const WelcomeMessage: React.FC = () => {
-    const SHOW_THINKING_HINT = false;
     return (
-        <Welcome>
-            <div style={WelcomeStyles.container}>
+        <div className="flex flex-col items-center justify-center h-full px-8 text-center">
+            <div className="flex flex-col items-center gap-4">
                 <Icon
                     name="bi-ai-agent"
                     sx={{ width: 60, height: 50 }}
-                    iconSx={{ fontSize: "60px", color: "var(--vscode-foreground)", cursor: "default" }}
+                    iconSx={{ fontSize: "52px", color: "var(--vscode-foreground)", cursor: "default" }}
                 />
-                <div style={WelcomeStyles.title}>
-                    <h2>WSO2 Integrator Copilot</h2>
-                </div>
-                <Typography variant="body1" sx={WelcomeStyles.description}>
-                    The AI Integration Engineer is at your service!
-                    <br />
-                    Please review the generated code before adding it to your integration.
-                </Typography>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...WelcomeStyles.attachContext }}>
-                    <Icon isCodicon={true} name="new-file" iconSx={{ cursor: "default" }} />
-                    <span>to attach context</span>
-                </div>
-                {SHOW_THINKING_HINT && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...WelcomeStyles.attachContext }}>
-                        <ToggleIcon />
-                        <span>to toggle thinking mode</span>
-                    </div>
-                )}
+                <h2 className="text-lg font-bold" style={{ color: "var(--vscode-foreground)" }}>
+                    WSO2 MI Copilot
+                </h2>
+                <p className="text-[13px] leading-relaxed max-w-[340px]" style={{ color: "var(--vscode-descriptionForeground)" }}>
+                    Build integrations faster with AI.
+                    Describe your requirements in plain language and get working implementations instantly.
+                </p>
             </div>
-        </Welcome>
-    );};
+            <div className="flex flex-col items-center gap-2 mt-5 text-[13px]" style={{ color: "var(--vscode-descriptionForeground)" }}>
+                <p className="flex items-center gap-1.5">
+                    <Codicon name="attach" />
+                    <span>to attach context</span>
+                </p>
+            </div>
+        </div>
+    );
+};

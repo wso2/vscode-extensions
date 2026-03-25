@@ -16,87 +16,7 @@
  * under the License.
  */
 
-import React, { useState } from "react";
-import styled from "@emotion/styled";
-import { keyframes } from "@emotion/css";
-
-const spin = keyframes`
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-`;
-
-const dotWave = keyframes`
-    0%, 60%, 100% {
-        opacity: 0.25;
-        transform: translateY(0);
-    }
-    30% {
-        opacity: 1;
-        transform: translateY(-1px);
-    }
-`;
-
-const ThinkingContainer = styled.div`
-    margin: 6px 0;
-`;
-
-const ThinkingHeader = styled.button`
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0;
-    border: none;
-    cursor: pointer;
-    background: transparent;
-    color: var(--vscode-descriptionForeground);
-    font-size: 12px;
-    font-weight: 500;
-    font-family: var(--vscode-editor-font-family);
-`;
-
-const ThinkingBody = styled.div`
-    margin-top: 4px;
-    padding-left: 16px;
-    white-space: pre-wrap;
-    word-break: break-word;
-    color: var(--vscode-descriptionForeground);
-    font-size: 12px;
-    line-height: 1.45;
-`;
-
-const Spinner = styled.span`
-    width: 10px;
-    height: 10px;
-    border: 1.4px solid var(--vscode-descriptionForeground);
-    border-top-color: var(--vscode-focusBorder);
-    border-radius: 50%;
-    display: inline-block;
-    animation: ${spin} 0.8s linear infinite;
-`;
-
-const LoadingDots = styled.span`
-    display: inline-flex;
-    gap: 1px;
-    margin-left: 2px;
-    color: var(--vscode-descriptionForeground);
-
-    span {
-        display: inline-block;
-        animation: ${dotWave} 1.1s ease-in-out infinite;
-    }
-
-    span:nth-of-type(1) {
-        animation-delay: 0s;
-    }
-
-    span:nth-of-type(2) {
-        animation-delay: 0.15s;
-    }
-
-    span:nth-of-type(3) {
-        animation-delay: 0.3s;
-    }
-`;
+import React, { useState, useRef, useEffect } from "react";
 
 interface ThinkingSegmentProps {
     text: string;
@@ -106,38 +26,65 @@ interface ThinkingSegmentProps {
 const ThinkingSegment: React.FC<ThinkingSegmentProps> = ({ text, loading = false }) => {
     const [expanded, setExpanded] = useState(false);
     const hasText = text.trim().length > 0;
+    const startTimeRef = useRef<number>(Date.now());
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
+    // Track elapsed time while thinking
+    useEffect(() => {
+        if (loading) {
+            startTimeRef.current = Date.now();
+            const interval = setInterval(() => {
+                setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+            }, 1000);
+            return () => clearInterval(interval);
+        }
+    }, [loading]);
+
+    // Active thinking state
+    if (loading) {
+        return (
+            <div className="flex items-center gap-2 my-1.5" style={{ fontSize: "12.5px", color: "var(--vscode-descriptionForeground)" }}>
+                <span className={`codicon codicon-chevron-right`} style={{ fontSize: "13px" }} />
+                <span>
+                    Thinking
+                    <span className="inline-flex w-4 ml-0.5">
+                        <span className="animate-fade-dot">.</span>
+                        <span className="animate-fade-dot" style={{ animationDelay: "0.2s" }}>.</span>
+                        <span className="animate-fade-dot" style={{ animationDelay: "0.4s" }}>.</span>
+                    </span>
+                </span>
+            </div>
+        );
+    }
+
+    // Completed thinking state - collapsible
     return (
-        <ThinkingContainer>
-            <ThinkingHeader onClick={() => setExpanded(!expanded)}>
-                <span className={`codicon codicon-chevron-${expanded ? "down" : "right"}`} />
-                {loading && <Spinner />}
-                {loading ? (
-                    <>
-                        <span>Thinking</span>
-                        <LoadingDots aria-hidden="true">
-                            <span>.</span>
-                            <span>.</span>
-                            <span>.</span>
-                        </LoadingDots>
-                    </>
-                ) : "Thinking"}
-            </ThinkingHeader>
+        <div className="my-1.5">
+            <button
+                onClick={() => setExpanded(!expanded)}
+                className="flex items-center gap-2 border-none bg-transparent cursor-pointer transition-colors"
+                style={{ fontSize: "12.5px", color: "var(--vscode-descriptionForeground)", padding: 0 }}
+            >
+                <span className={`codicon codicon-chevron-${expanded ? "down" : "right"}`} style={{ fontSize: "13px" }} />
+                <span>Thought for {elapsedSeconds || 3}s</span>
+            </button>
             {expanded && (
-                <ThinkingBody>
-                    {hasText ? text.trim() : (loading ? (
-                        <>
-                            <span>Thinking</span>
-                            <LoadingDots aria-hidden="true">
-                                <span>.</span>
-                                <span>.</span>
-                                <span>.</span>
-                            </LoadingDots>
-                        </>
-                    ) : "No reasoning details.")}
-                </ThinkingBody>
+                <div
+                    className="ml-6 mt-2 pl-3 space-y-2 leading-relaxed"
+                    style={{
+                        fontSize: "12.5px",
+                        color: "var(--vscode-descriptionForeground)",
+                        borderLeft: "2px solid var(--vscode-panel-border)",
+                    }}
+                >
+                    {hasText ? (
+                        <p style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0 }}>{text.trim()}</p>
+                    ) : (
+                        <p style={{ fontStyle: "italic", margin: 0 }}>No reasoning details.</p>
+                    )}
+                </div>
             )}
-        </ThinkingContainer>
+        </div>
     );
 };
 
