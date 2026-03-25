@@ -1,12 +1,12 @@
 {
   "name": "hurl-client",
-  "displayName": "WSO2 HTTP Client",
+  "displayName": "Hurl Client",
   "description": "Open and run .hurl files as interactive notebooks",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "publisher": "wso2",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wso2/ballerina-plugin-vscode.git"
+    "url": "git+https://github.com/wso2/vscode-extensions.git"
   },
   "engines": {
     "vscode": "^1.100.0"
