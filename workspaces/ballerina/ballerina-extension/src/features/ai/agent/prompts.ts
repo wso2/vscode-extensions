@@ -253,10 +253,10 @@ System context:
 export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath: string, projects: ProjectSource[], codeMapMarkdown?: string) {
     const content = [];
 
-    content.push({
-        type: 'text' as const,
-        text: formatCodebaseStructure(projects, tempProjectPath)
-    });
+    // content.push({
+    //     type: 'text' as const,
+    //     text: formatCodebaseStructure(projects, tempProjectPath)
+    // });
 
     // Add code map markdown if available
     if (codeMapMarkdown) {

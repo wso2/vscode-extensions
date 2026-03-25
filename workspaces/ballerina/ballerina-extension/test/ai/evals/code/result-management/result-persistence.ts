@@ -46,6 +46,7 @@ export async function persistUsecaseResult(
         iteration: usecaseResult.iteration,
         toolEvents: usecaseResult.toolEvents,
         evaluationResult: usecaseResult.evaluationResult,
+        contextRetrievalEvaluation: usecaseResult.contextRetrievalEvaluation,
         usage: usecaseResult.usage ? {
             totalTokens: usecaseResult.usage.initial.inputTokens + usecaseResult.usage.initial.outputTokens +
                         usecaseResult.usage.repairs.reduce((sum, repair) => sum + repair.inputTokens + repair.outputTokens, 0),

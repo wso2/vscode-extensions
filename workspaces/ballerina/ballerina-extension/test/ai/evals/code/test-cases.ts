@@ -194,10 +194,10 @@ export const textEditSpecializedTestCases = [
 ];
 
 export const testCasesForExistingProject = [
-  {
-    prompt: "How can I implement distributed tracing with OpenTelemetry across the order service saga, ensuring that trace contexts are properly propagated through Kafka events and database transactions while maintaining correlation IDs for debugging payment and fulfillment failures?",
-    projectPath: "simple_order_management_system"
-  },
+  // {
+  //   prompt: "How can I implement distributed tracing with OpenTelemetry across the order service saga, ensuring that trace contexts are properly propagated through Kafka events and database transactions while maintaining correlation IDs for debugging payment and fulfillment failures?",
+  //   projectPath: "simple_order_management_system"
+  // },
   // {
   //   prompt: "I need to refactor the current synchronous order creation flow to support asynchronous batch processing with dead letter queues for failed orders, implementing circuit breaker patterns for the pricing service calls and adding retry mechanisms with exponential backoff for Kafka publishing failures.",
   //   projectPath: "simple_order_management_system"
@@ -218,10 +218,10 @@ export const testCasesForExistingProject = [
   //   prompt: "Add comprehensive API documentation with examples for all REST endpoints, including request/response schemas and error handling scenarios.",
   //   projectPath: "simple_order_management_system"
   // },
-  // {
-  //   prompt: "Change the database schema to store order lines in a separate order_lines table with a foreign key relationship instead of storing them as JSON in the orders table.",
-  //   projectPath: "simple_order_management_system"
-  // },
+  {
+    prompt: "Change the database schema to store order lines in a separate order_lines table with a foreign key relationship instead of storing them as JSON in the orders table.",
+    projectPath: "simple_order_management_system"
+  },
   // {
   //   prompt: "Fix the bug where the getOrderById function returns an empty response instead of a proper error when the database connection fails.",
   //   projectPath: "simple_order_management_system"
