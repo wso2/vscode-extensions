@@ -28,6 +28,7 @@ import { GenerationType } from '../utils/libs/libraries';
 import { createToolRegistry } from './tool-registry';
 import { getProjectSource, cleanupTempProject } from '../utils/project/temp-project';
 import { integrateCodeToWorkspace } from './utils';
+import { updateBalMdWithChanges } from './codeMapUpdater';
 import { getWorkspaceTomlValues } from '../../../utils';
 import { StreamContext } from './stream-handlers/stream-context';
 import { checkCompilationErrors } from './tools/diagnostics-utils';
@@ -205,6 +206,11 @@ async function determineAffectedPackages(
     return result;
 }
 
+// Tracks whether the initial full code map has been fetched.
+// First query uses changesOnly: false, subsequent queries use changesOnly: true.
+let initialQuery = true;
+
+
 /**
  * AgentExecutor - Executes agent-based code generation with tools and streaming
  *
@@ -298,25 +304,48 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             let codeMapMarkdown: string | undefined;
             const langClient = StateMachine.context().langClient;
             const projectRoot = this.config.executionContext.projectPath;
+            const targetDir = path.join(projectRoot, 'target');
+            const balMdPath = path.join(targetDir, 'bal.md');
 
             if (!langClient) {
                 console.warn('[AgentExecutor] langClient is null, skipping code map fetch');
             } else {
                 const codeMapRequest = {
-                    projectPath: tempProjectPath, changesOnly: false, artifacts: false,
+                    projectPath: tempProjectPath, changesOnly: !initialQuery, artifacts: false,
                 };
                 const codeMapResponse = await langClient.getCodeMap(codeMapRequest);
-                codeMapMarkdown = codeMapResponse?.markdown;
-                if (codeMapMarkdown) {
-                    const targetDir = path.join(projectRoot, 'target');
-                    if (!fs.existsSync(targetDir)) {
-                        fs.mkdirSync(targetDir, { recursive: true });
+
+                if (!fs.existsSync(targetDir)) {
+                    fs.mkdirSync(targetDir, { recursive: true });
+                }
+
+                if (initialQuery) {
+                    // First call: save the full code map
+                    codeMapMarkdown = codeMapResponse?.markdown;
+                    if (codeMapMarkdown) {
+                        fs.writeFileSync(balMdPath, codeMapMarkdown, 'utf-8');
+                        initialQuery = false;
+                        console.log(`[AgentExecutor] Saved full code map markdown to ${balMdPath}`);
+                    } else {
+                        console.warn('[AgentExecutor] Code map response has no markdown field');
                     }
-                    const balMdPath = path.join(targetDir, 'bal.md');
-                    fs.writeFileSync(balMdPath, codeMapMarkdown, 'utf-8');
-                    console.log(`[AgentExecutor] Saved code map markdown to ${balMdPath}`);
                 } else {
-                    console.warn('[AgentExecutor] Code map response has no markdown field');
+                    // Subsequent calls: incrementally update bal.md with changed files
+                    const changedFiles = codeMapResponse?.files as Record<string, { markdown: string }> | undefined;
+                    if (changedFiles && Object.keys(changedFiles).length > 0) {
+                        const existingBalMd = fs.existsSync(balMdPath)
+                            ? fs.readFileSync(balMdPath, 'utf-8')
+                            : '';
+                        codeMapMarkdown = updateBalMdWithChanges(existingBalMd, changedFiles);
+                        fs.writeFileSync(balMdPath, codeMapMarkdown, 'utf-8');
+                        console.log(`[AgentExecutor] Updated code map with ${Object.keys(changedFiles).length} changed files`);
+                    } else {
+                        // No changes — read existing bal.md
+                        codeMapMarkdown = fs.existsSync(balMdPath)
+                            ? fs.readFileSync(balMdPath, 'utf-8')
+                            : undefined;
+                        console.log('[AgentExecutor] No changed files, using existing code map');
+                    }
                 }
             }
 
