@@ -71,6 +71,7 @@ These are the available WSO2 inbound endpoints from WSO2 inbound endpoint store.
 <env>
 Working directory: {{env_working_directory}}
 Is directory a git repo: {{env_is_git_repo}}
+{{#if env_git_branch}}Current git branch: {{env_git_branch}}{{/if}}
 Platform: {{env_platform}}
 OS Version: {{env_os_version}}
 Today's date: {{env_today}}
@@ -258,6 +259,18 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
 
     // Prepare template context
     const isGitRepo = fs.existsSync(path.join(params.projectPath, '.git'));
+    let gitBranch: string | null = null;
+    if (isGitRepo) {
+        try {
+            const headPath = path.join(params.projectPath, '.git', 'HEAD');
+            const headContent = fs.readFileSync(headPath, 'utf8').trim();
+            if (headContent.startsWith('ref: refs/heads/')) {
+                gitBranch = headContent.replace('ref: refs/heads/', '');
+            }
+        } catch {
+            // Silently fail
+        }
+    }
     const today = new Date().toISOString().split('T')[0];
     const runtimeVersion = params.runtimeVersion ?? await getRuntimeVersionFromPom(params.projectPath);
     const runtimePaths = getRuntimePaths(params.projectPath);
@@ -271,6 +284,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         available_inbound_endpoints: availableInboundEndpoints.join(', '), // Available inbound endpoints list
         env_working_directory: params.projectPath,
         env_is_git_repo: isGitRepo ? 'true' : 'false',
+        env_git_branch: gitBranch,
         env_platform: process.platform,
         env_os_version: `${os.type()} ${os.release()}`,
         env_today: today,
