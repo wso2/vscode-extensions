@@ -1,0 +1,64 @@
+arazzo: 1.0.1
+info:
+  title: Multi Source Workflow
+  version: 1.0.0
+  description: A workflow that queries Petstore and Toolshop API conditionally.
+sourceDescriptions:
+  - name: petstoreApi
+    url: https://petstore3.swagger.io/api/v3/openapi.json
+    type: openapi
+  - name: toolshopApi
+    url: https://api.practicesoftwaretesting.com/docs?api-docs.json
+    type: openapi
+
+workflows:
+  - workflowId: checkPetFetchToolsOrUsers
+    summary: Get pet, then get products or users depending on pet existence.
+    inputs:
+      type: object
+      properties:
+        petId: { type: integer }
+    outputs:
+      petInfo: $steps.fetchPet.outputs.pet
+      toolsList: $steps.fetchTools.outputs.tools
+      usersList: $steps.fetchUsers.outputs.users
+
+    steps:
+      - stepId: fetchPet
+        description: Fetch pet from petstore.
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: $inputs.petId
+        successCriteria:
+          - condition: $statusCode == 200
+        onSuccess:
+          - name: getTools
+            type: goto
+            stepId: fetchTools
+        onFailure:
+          - name: routeToUsers
+            type: goto
+            stepId: fetchUsers
+        outputs:
+          pet: $response.body
+
+      - stepId: fetchTools
+        description: Fetch brands from toolshop if pet exists.
+        operationId: getBrands
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          tools: $response.body
+        onSuccess:
+          - name: endWorkflow
+            type: end
+
+      - stepId: fetchUsers
+        description: Fetch users if pet is missing.
+        operationId: getUsers
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          users: $response.body

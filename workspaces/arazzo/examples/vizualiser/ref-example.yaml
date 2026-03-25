@@ -1,0 +1,277 @@
+arazzo: 1.0.0
+info:
+  title: Static Referencing Styles Test Suite
+  version: 1.0.0
+  description: >-
+    Arazzo reference patterns for testing:
+      - Inputs: JSON Schema $ref only
+      - Parameters: Reusable Object (reference: $components.parameters.<key>)
+      - Actions: Reusable Object (reference: $components.successActions|failureActions.<key>)
+      - Success criteria: Criterion Objects (inline)
+      - Outputs: runtime expressions only
+sourceDescriptions:
+  # Two OpenAPI sources to force runtime-expression operationId disambiguation
+  - name: accounts-api
+    url: https://api.test.com/accounts/openapi.json
+    type: openapi
+
+  - name: profile-api
+    url: https://api.test.com/profile/openapi.json
+    type: openapi
+
+  - name: shared-flows
+    url: https://api.test.com/shared/arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: static-ref-main
+    summary: "Covers inputs, parameters, success/failure actions, outputs"
+    description: "A workflow that calls an API, branches on success, retries on failure, and emits outputs."
+
+    # WORKFLOW INPUTS: JSON Schema ($ref allowed/expected) :contentReference[oaicite:6]{index=6}
+    inputs:
+      allOf:
+        - $ref: "#/components/inputs/AuthInput"
+        - $ref: "#/components/inputs/UserOnboardingInput"
+        - type: object
+          properties:
+            debug:
+              type: boolean
+              default: false
+
+    # WORKFLOW PARAMETERS: can be inline Parameter Objects or Reusable Objects :contentReference[oaicite:7]{index=7}
+    parameters:
+      # Reuse a header parameter from components
+      - reference: $components.parameters.RequestId
+
+      # Reuse, but override the value for this workflow
+      - reference: $components.parameters.DebugMode
+        value: true
+
+      # Inline parameter object (no reference)
+      - name: x-workflow-tag
+        in: header
+        value: "static-ref-main"
+
+    # WORKFLOW-LEVEL ACTIONS (apply to all steps unless overridden; cannot be removed at step level)
+    successActions:
+      - reference: $components.successActions.AuditSuccess
+
+    failureActions:
+      - reference: $components.failureActions.EndOnFatal
+
+    steps:
+      # ------------------------------------------------------------------------
+      # STEP A: Register user (operationId uses runtime expression because multiple OpenAPI sources)
+      # ------------------------------------------------------------------------
+      - stepId: register-user
+        description: "Register a user; demonstrates referenced parameters + requestBody payload from $inputs."
+        operationId: $sourceDescriptions.accounts-api.registerUser
+
+        # STEP PARAMETERS: mix of reference + override + inline :contentReference[oaicite:8]{index=8}
+        parameters:
+          - reference: $components.parameters.RequestId
+          - reference: $components.parameters.DebugMode
+            value: $inputs.debug
+          - name: x-client
+            in: header
+            value: "test-suite"
+
+        requestBody:
+          contentType: application/json
+          payload:
+            username: $inputs.username
+            profile: $inputs.profile
+
+        # STEP SUCCESS CRITERIA: MUST be Criterion Objects (inline) :contentReference[oaicite:9]{index=9}
+        successCriteria:
+          - condition: $statusCode == 201
+
+        # STEP onSuccess: Success Action Objects OR Reusable Objects (reference) :contentReference[oaicite:10]{index=10}
+        onSuccess:
+          # If response indicates "needs_profile_completion", jump to complete-profile step
+          - reference: $components.successActions.GotoCompleteProfileIfNeeded
+          # Otherwise end successfully
+          - reference: $components.successActions.EndWorkflowOk
+
+        # STEP onFailure: Failure Action Objects OR Reusable Objects (reference)
+        onFailure:
+          # Retry on transient errors (e.g., 503)
+          - reference: $components.failureActions.RetryOn503
+          # If auth fails, go run an external workflow (Arazzo source) then retry (tests external workflowId expression usage)
+          - reference: $components.failureActions.RetryAfterExternalRefreshOn401
+          # Default fatal end (this also exists at workflow-level; included here to test override ordering)
+          - reference: $components.failureActions.EndOnFatal
+
+        # STEP OUTPUTS: runtime expressions only :contentReference[oaicite:11]{index=11}
+        outputs:
+          user_id: $response.body#/id
+          needs_profile_completion: $response.body#/needs_profile_completion
+          access_token: $response.body#/access_token
+
+      # ------------------------------------------------------------------------
+      # STEP B: Complete profile (operationPath example)
+      # ------------------------------------------------------------------------
+      - stepId: complete-profile
+        description: "Complete the user profile; demonstrates operationPath and referencing prior step outputs."
+        operationPath: "{$sourceDescriptions.profile-api.url}#/paths/~1profile~1complete/post"
+
+        parameters:
+          - reference: $components.parameters.RequestId
+          - name: Authorization
+            in: header
+            value: $steps.register-user.outputs.access_token
+
+        requestBody:
+          contentType: application/json
+          payload:
+            userId: $steps.register-user.outputs.user_id
+            profile: $inputs.profile
+
+        successCriteria:
+          - condition: $statusCode == 200
+
+        onSuccess:
+          - reference: $components.successActions.EndWorkflowOk
+
+        onFailure:
+          #- reference: $components.failureActions.RetryOn503
+          #- reference: $components.failureActions.EndOnFatal
+
+        outputs:
+          profile_status: $response.body#/status
+
+    # WORKFLOW OUTPUTS: runtime expressions, often referencing step outputs :contentReference[oaicite:12]{index=12}
+    outputs:
+      created_user_id: $steps.register-user.outputs.user_id
+      profile_status: $steps.complete-profile.outputs.profile_status
+
+  # ----------------------------------------------------------------------------
+  # 2) SECOND WORKFLOW: shows a workflow step that calls ANOTHER WORKFLOW (workflowId)
+  # ----------------------------------------------------------------------------
+  - workflowId: static-ref-subflow
+    summary: "Demonstrates workflow-to-workflow step invocation + parameter mapping"
+    inputs:
+      $ref: "#/components/inputs/AuthInput"
+
+    steps:
+      - stepId: call-main
+        description: "Invoke another workflow as a step; parameters map to workflow inputs in this context."
+        workflowId: static-ref-main
+
+        # When a step uses workflowId, parameters map to workflow inputs (in still allowed but not required). :contentReference[oaicite:13]{index=13}
+        parameters:
+          - name: apiKey
+            value: $inputs.apiKey
+          - name: username
+            value: "testuser"
+          - name: profile
+            value:
+              firstName: "Test"
+              lastName: "User"
+              preferences:
+                newsletter: true
+
+        successCriteria:
+          - condition: $statusCode == 200
+
+        outputs:
+          created_user_id: $response.body#/created_user_id
+
+    outputs:
+      created_user_id: $steps.call-main.outputs.created_user_id
+
+# ------------------------------------------------------------------------------
+# COMPONENTS: reusable objects (NO components.outputs; outputs are runtime expr only)
+# ------------------------------------------------------------------------------
+components:
+  # INPUTS: JSON Schema only; referenced via $ref from workflow inputs :contentReference[oaicite:14]{index=14}
+  inputs:
+    AuthInput:
+      type: object
+      required: [apiKey]
+      properties:
+        apiKey:
+          type: string
+
+    UserOnboardingInput:
+      type: object
+      required: [username, profile]
+      properties:
+        username:
+          type: string
+        profile:
+          $ref: "#/components/inputs/UserProfileObject"
+
+    UserProfileObject:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        preferences:
+          $ref: "#/components/inputs/UserPreferences"
+
+    UserPreferences:
+      type: object
+      properties:
+        newsletter:
+          type: boolean
+
+  # PARAMETERS: reusable Parameter Objects; referenced via Reusable Object { reference: $components.parameters.X } :contentReference[oaicite:15]{index=15}
+  parameters:
+    RequestId:
+      name: x-request-id
+      in: header
+      value: "default-request-id"
+
+    DebugMode:
+      name: x-debug
+      in: header
+      value: false
+
+  # SUCCESS ACTIONS: reusable Success Action Objects (type: end|goto) :contentReference[oaicite:16]{index=16}
+  successActions:
+    AuditSuccess:
+      name: audit-success
+      type: goto
+      stepId: complete-profile
+      criteria:
+        - condition: $statusCode == 201
+
+    GotoCompleteProfileIfNeeded:
+      name: goto-complete-profile-if-needed
+      type: goto
+      stepId: complete-profile
+      criteria:
+        - context: $response.body
+          condition: $[?(@.needs_profile_completion == true)]
+          type: jsonpath
+
+    EndWorkflowOk:
+      name: end-ok
+      type: end
+
+  # FAILURE ACTIONS: reusable Failure Action Objects (type: end|goto|retry) :contentReference[oaicite:17]{index=17}
+  failureActions:
+    RetryOn503:
+      name: retry-on-503
+      type: retry
+      retryAfter: 1
+      retryLimit: 3
+      criteria:
+        - condition: $statusCode == 503
+
+    # Tests external Arazzo workflow reference requirement using a runtime expression
+    RetryAfterExternalRefreshOn401:
+      name: retry-after-external-refresh-on-401
+      type: retry
+      retryAfter: 0.5
+      retryLimit: 2
+      workflowId: $sourceDescriptions.shared-flows.refreshTokenWorkflow
+      criteria:
+        - condition: $statusCode == 401
+
+    EndOnFatal:
+      name: end-fatal
+      type: end

@@ -1,0 +1,108 @@
+arazzo: 1.0.1
+info:
+  title: Insurance Claims Auto-Adjudication
+  version: 1.0.0
+  description: |
+    Scenario: Insurance Claims Auto-Adjudication Pipeline
+    This workflow tests a Spine-and-Branch layout strategy.
+    - Vertical Spine: claim-entry -> fraud-check -> check-policy -> auto-approve -> prepare-payout -> execute-eft -> archive
+    - Right Branch: assign-adjuster -> human-assessment (merges to prepare-payout)
+    - Step-Back Loop: notify-blurry-photo (back to claim-entry)
+sourceDescriptions:
+  - name: claims-api
+    url: https://api.insurance-corp.com/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: insurance-claims-test
+    summary: Spine-and-branch layout with manual review and recovery loops.
+    steps:
+      # --- STEP 1: Entry (The Spine Start) ---
+      - stepId: claim-entry
+        operationId: postClaim
+        description: "User submits claim data and photos"
+        onFailure:
+          - name: photo-unreadable
+            type: goto
+            stepId: notify-blurry-photo
+            criteria:
+              - condition: "$statusCode == 422"
+
+      # --- STEP 2: Fraud Check ---
+      - stepId: fraud-check-ai
+        operationId: validateClaim
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: check-policy-limit
+
+      # --- STEP 3: The Major Split (High vs Low Value) ---
+      - stepId: check-policy-limit
+        operationId: getPolicyDetails
+        onSuccess:
+          # Path 1: Low Value (< $5k) -> Continue Spine
+          - name: low-value-auto
+            type: goto
+            stepId: auto-adjudicate
+            criteria:
+              - condition: "$body.claimAmount < 5000"
+          # Path 2: High Value (>= $5k) -> Detour Right
+          - name: high-value-manual
+            type: goto
+            stepId: assign-adjuster
+            criteria:
+              - condition: "$body.claimAmount >= 5000"
+
+      # --- STEP 4: Auto-Approve (Spine) ---
+      - stepId: auto-adjudicate
+        operationId: approveClaim
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: prepare-payout
+
+      # --- BRANCH A: Manual Review (Positioned Right) ---
+      - stepId: assign-adjuster
+        operationId: notifyStaff
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: human-assessment
+
+      - stepId: human-assessment
+        operationId: getAdjusterDecision
+        onSuccess:
+          - name: approved-manually
+            type: goto
+            stepId: prepare-payout # <--- MERGE POINT to Spine
+
+      # --- BRANCH B: Image Repair (The Loop) ---
+      - stepId: notify-blurry-photo
+        operationId: requestResubmission
+        onSuccess:
+          - name: retry-upload
+            type: goto
+            stepId: claim-entry # <--- STEP-BACK LOOP to Step 1
+
+      # --- STEP 5: Payout Queue (Convergence Point) ---
+      - stepId: prepare-payout
+        operationId: queueTransaction
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: execute-eft
+
+      # --- STEP 6: Transfer ---
+      - stepId: execute-eft
+        operationId: sendPayment
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: archive-claim
+
+      # --- STEP 7: Close (Final Success) ---
+      - stepId: archive-claim
+        operationId: closeFile
+        onSuccess:
+          - name: finish
+            type: end

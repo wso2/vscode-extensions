@@ -1,0 +1,26 @@
+apiVersion: gateway.api-platform.wso2.com/v1alpha1
+kind: Mcp
+metadata:
+    name: Generated-MCP-v1.0
+spec:
+    context: /generated
+    displayName: Generated-MCP
+    prompts: []
+    resources: []
+    specVersion: "2025-06-18"
+    tools:
+        - description: Look up a pet by its ID and return its details.
+          inputSchema: '{"additionalProperties":false,"properties":{"petId":{"type":"integer"}},"required":["petId"],"type":"object"}'
+          name: lookup_pet
+          outputSchema: '{"properties":{"result":{"type":"string"}},"required":["result"],"type":"object","x-fastmcp-wrap-result":true}'
+        - description: Create a new pet and then verify it was persisted.
+          inputSchema: '{"additionalProperties":false,"properties":{"petId":{"type":"integer"},"petName":{"type":"string"}},"required":["petId","petName"],"type":"object"}'
+          name: create_new_pet
+          outputSchema: '{"properties":{"result":{"type":"string"}},"required":["result"],"type":"object","x-fastmcp-wrap-result":true}'
+        - description: Check that a pet exists, then update its name.
+          inputSchema: '{"additionalProperties":false,"properties":{"newName":{"type":"string"},"petId":{"type":"integer"}},"required":["newName","petId"],"type":"object"}'
+          name: update_pet_info
+          outputSchema: '{"properties":{"result":{"type":"string"}},"required":["result"],"type":"object","x-fastmcp-wrap-result":true}'
+    upstream:
+        url: http://localhost:7000
+    version: v1.0

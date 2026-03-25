@@ -1,0 +1,71 @@
+arazzo: 1.0.1
+info:
+  title: Simplified Merge Flow
+  version: 1.0.0
+sourceDescriptions:
+  - name: data-service
+    url: https://api.data.com/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: simplified-merge-test
+    summary: A concise test for merging branches.
+    steps:
+      # ---------------------------------------------------
+      # STEP 1: The Split Point
+      # ---------------------------------------------------
+      - stepId: check-data-quality
+        operationId: validateData
+        description: "Checks if data needs cleaning"
+        onSuccess:
+          # Path 1: Good Data? Merge immediately to Processing
+          - name: data-clean
+            type: goto
+            stepId: process-data
+            criteria:
+              - condition: "$body.qualityScore > 90"
+
+          # Path 2: Dirty Data? Take the detour
+          - name: data-dirty
+            type: goto
+            stepId: scrub-pii
+            criteria:
+              - condition: "$body.qualityScore <= 90"
+
+      # ---------------------------------------------------
+      # THE DETOUR (Branch)
+      # ---------------------------------------------------
+      - stepId: scrub-pii
+        operationId: removeSensitiveData
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: enrich-metadata
+
+      - stepId: enrich-metadata
+        operationId: addTags
+        description: "Last step of detour, merges back to main flow"
+        onSuccess:
+          - name: merge-back
+            type: goto
+            stepId: process-data  # <--- Points to the Merge Step
+
+      # ---------------------------------------------------
+      # STEP: The Convergence Point (Merge)
+      # ---------------------------------------------------
+      - stepId: process-data
+        operationId: runAnalyticsAlgorithm
+        description: "Merge point for both clean and cleaned data"
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: archive-to-cold-storage
+
+      # ---------------------------------------------------
+      # FINAL STEP
+      # ---------------------------------------------------
+      - stepId: archive-to-cold-storage
+        operationId: saveToGlacier
+        onSuccess:
+          - name: finish
+            type: end

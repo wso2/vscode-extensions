@@ -1,0 +1,67 @@
+arazzo: "1.0.1"
+info:
+  title: "Arazzo Validator Torture Test"
+  version: "1.0.0"
+  description: "A purposely broken specification to test validation logic."
+
+sourceDescriptions:
+  - name: "petstore-api"
+    type: "openapi"
+    url: "https://petstore.swagger.io/v2v/swagger.json"
+
+workflows:
+  - workflowId: "duplicate-workflow-id"
+    summary: "First instance of the duplicate workflow"
+    steps:
+      - stepId: "step-1"
+        description: "A step with a bad source reference"
+        operationId: "addPet"
+        # ERROR 1: Refers to a sourceDescription name that does not exist------------------
+        source: "non-existent-api"
+
+      - stepId: "duplicate-step-id"
+        description: "First duplicate step"
+        operationId: "getPetById"
+
+      - stepId: "duplicate-step-id"
+        description: "Second duplicate step inside the same workflow"
+        operationId: "updatePet"
+        # ERROR 2: Duplicate stepId inside the same workflow(done)
+
+      - stepId: "step-4"
+        description: "Testing invalid dependency"
+        operationId: "deletePet"
+        dependsOn:
+          # ERROR 3: dependsOn references a stepId that doesn't exist in this workflow
+          - "ghost-step"
+
+      - stepId: "step-5"
+        description: "Testing invalid runtime expression in success criteria"
+        operationId: "findPetsByStatus"
+        successCriteria:
+          # ERROR 4: Runtime expression references a step that does not exist
+          - condition: "$steps.imaginary-step.outputs.status == 'available'"
+
+  - workflowId: "duplicate-workflow-id"
+    # ERROR 5: Duplicate workflowId at the root level(done)
+    summary: "Second instance of the duplicate workflow"
+    steps:
+      - stepId: "valid-step-but-in-bad-workflow"
+        operationId: "getInventory"
+
+  - workflowId: "workflow-with-bad-components"
+    summary: "Testing bad component references and missing required fields"
+    steps:
+      # ERROR 6: Invalid $ref pointing to a component that doesn't exist
+      - $ref: "#/components/steps/NonExistentComponentStep"
+
+      - stepId: "step-missing-operation"
+        description: "This step has no operationId or operationPath"
+        # ERROR 7: Schema violation. A step MUST have either operationId, operationPath, or workflowId.(done)
+
+components:
+  steps:
+    UnusedStepComponent:
+      # ERROR 8 (Warning/Linting): An unreferenced component. A good validator might flag this as dead code.
+      stepId: "unused-step"
+      operationId: "createUser"

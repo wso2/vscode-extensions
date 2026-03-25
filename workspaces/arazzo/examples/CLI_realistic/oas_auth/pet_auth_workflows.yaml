@@ -1,0 +1,117 @@
+arazzo: 1.0.1
+info:
+  title: Authenticated Pet Workflows
+  version: 1.0.0
+  description: >-
+    Pet workflows that demonstrate three authentication patterns:
+    API key auth, Bearer token (OAuth2) auth, and no auth.
+
+sourceDescriptions:
+  - name: petApi
+    url: https://petstore3.swagger.io/api/v3/openapi.json
+    type: openapi
+
+workflows:
+  # ── Workflow 1: Lookup with API key auth ───────────────────────
+  - workflowId: lookupPetWithApiKey
+    summary: Look up a pet using API key authentication.
+    inputs:
+      type: object
+      properties:
+        petId:
+          type: integer
+          description: The ID of the pet to look up
+        apiKey:
+          type: string
+          description: API key for authentication
+    outputs:
+      petDetails: $steps.fetchPet.outputs.pet
+
+    steps:
+      - stepId: fetchPet
+        description: Fetch the pet record by ID with API key header.
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: $inputs.petId
+          - name: api_key
+            in: header
+            value: $inputs.apiKey
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          pet: $response.body
+
+  # ── Workflow 2: Create pet with Bearer token (OAuth2) ──────────
+  - workflowId: createPetWithOAuth
+    summary: Create a new pet using OAuth2 bearer token.
+    inputs:
+      type: object
+      properties:
+        petId:
+          type: integer
+          description: ID for the new pet
+        petName:
+          type: string
+          description: Name of the new pet
+        accessToken:
+          type: string
+          description: OAuth2 access token for authorization
+    outputs:
+      createdPet: $steps.verifyPet.outputs.pet
+
+    steps:
+      - stepId: addPet
+        description: Add the new pet with Authorization Bearer header.
+        operationId: addPet
+        parameters:
+          - name: Authorization
+            in: header
+            value: $inputs.accessToken
+        requestBody:
+          contentType: application/json
+          payload:
+            id: $inputs.petId
+            name: $inputs.petName
+            photoUrls: ["https://example.com/pet.jpg"]
+            status: available
+        successCriteria:
+          - condition: $statusCode == 200
+
+      - stepId: verifyPet
+        description: Verify the pet was created.
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: $inputs.petId
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          pet: $response.body
+
+  # ── Workflow 3: Simple lookup (no auth) ────────────────────────
+  - workflowId: simpleLookup
+    summary: Look up a pet without any authentication (public endpoint).
+    inputs:
+      type: object
+      properties:
+        petId:
+          type: integer
+          description: The ID of the pet to look up
+    outputs:
+      petDetails: $steps.fetchPet.outputs.pet
+
+    steps:
+      - stepId: fetchPet
+        description: Fetch the pet record by ID (no auth).
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: $inputs.petId
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          pet: $response.body
