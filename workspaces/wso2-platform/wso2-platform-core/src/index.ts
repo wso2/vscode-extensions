@@ -23,6 +23,7 @@ export * from "./types/config-file.types";
 export * from "./types/messenger-rpc.types";
 export * from "./types/cli-rpc.types";
 export * from "./types/cmd-params";
+export * from "./types/wi-cmd-params";
 export * from "./constants";
 export * from "./enums";
 export * from "./utils";
