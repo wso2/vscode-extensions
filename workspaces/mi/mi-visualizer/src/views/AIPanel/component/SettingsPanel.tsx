@@ -143,6 +143,17 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok }) => {
                     </div>
                 </SettingsSection>
 
+                {/* High intelligence warning */}
+                {(modelSettings.mainModelPreset === "opus" || modelSettings.subModelPreset === "sonnet") && (
+                    <InfoNote
+                        icon="info"
+                        variant="info"
+                        text={isByok
+                            ? "High intelligence can increase API cost and latency."
+                            : "High intelligence uses free quota faster and may hit usage limits sooner."}
+                    />
+                )}
+
                 {/* Thinking Mode */}
                 <SettingsSection title="Thinking Mode">
                     <div className="flex items-center justify-between">
@@ -156,6 +167,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok }) => {
                             compact
                         />
                     </div>
+                    {isThinkingEnabled && (
+                        <InfoNote
+                            icon="warning"
+                            variant="warning"
+                            text="Copilot may overthink simple tasks, increasing latency and cost. WSO2 recommends keeping thinking off for most use cases."
+                        />
+                    )}
                 </SettingsSection>
 
                 {/* Account */}
@@ -264,6 +282,18 @@ function ToggleGroup({
                     </button>
                 );
             })}
+        </div>
+    );
+}
+
+function InfoNote({ icon, variant, text }: { icon: string; variant: "warning" | "info"; text: string }) {
+    const color = variant === "warning"
+        ? "var(--vscode-editorWarning-foreground, #cca700)"
+        : "var(--vscode-editorInfo-foreground, #3794ff)";
+    return (
+        <div className="flex items-start gap-1.5 -mt-2" style={{ fontSize: "11px", lineHeight: 1.4, color }}>
+            <span className="shrink-0 mt-px"><Codicon name={icon} /></span>
+            <span>{text}</span>
         </div>
     );
 }
