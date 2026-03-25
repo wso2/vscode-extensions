@@ -89,6 +89,11 @@
     "@types/mustache": "4.2.6",
     "vscode-languageserver-types": "3.17.5",
     "@headlessui/react": "2.2.4",
-    "yaml": "2.8.0"
+    "yaml": "2.8.0",
+    "tailwindcss": "3.4.17",
+    "postcss": "8.5.3",
+    "postcss-loader": "8.1.1",
+    "autoprefixer": "10.4.21",
+    "cssnano": "7.0.7"
   }
 }
