@@ -532,7 +532,7 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                                                     return (
                                                         <Tooltip
                                                             key={connectionType}
-                                                            content="Login to MI Copilot to use WSO2_AI connection"
+                                                            content="Login to WSO2 Integrator Copilot to use WSO2_AI connection"
                                                             position="top"
                                                             containerSx={{ display: 'flex' }}
                                                         >

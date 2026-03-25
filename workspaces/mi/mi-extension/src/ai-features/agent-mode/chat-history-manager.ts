@@ -979,14 +979,12 @@ export class ChatHistoryManager {
      */
     static async listSessionsWithMetadata(projectPath: string, currentSessionId?: string): Promise<GroupedSessions> {
         const sessionIds = await ChatHistoryManager.listSessions(projectPath);
-        const summaries: SessionSummary[] = [];
 
-        for (const sessionId of sessionIds) {
-            const summary = await ChatHistoryManager.getSessionSummary(projectPath, sessionId, currentSessionId);
-            if (summary) {
-                summaries.push(summary);
-            }
-        }
+        // Read all session metadata in parallel
+        const results = await Promise.all(
+            sessionIds.map(id => ChatHistoryManager.getSessionSummary(projectPath, id, currentSessionId))
+        );
+        const summaries = results.filter((s): s is SessionSummary => s !== null && s !== undefined);
 
         // Group by time
         return ChatHistoryManager.groupSessionsByTime(summaries);

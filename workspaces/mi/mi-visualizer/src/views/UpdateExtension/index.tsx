@@ -49,7 +49,7 @@ export const UpdateMIExtension = () => {
                     buttonTitle="Update Extension"
                     onClick={openExtensionUpdatePage} 
                     title={"You are in an older version of WSO2 Integrator: MI extension."}
-                    subTitle={"To continue using the MI Copilot Chat please update to the latest version."}
+                    subTitle={"To continue using WSO2 Integrator Copilot please update to the latest version."}
                 />
         </Container>
     );

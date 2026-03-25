@@ -1044,7 +1044,7 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                 isOpen={showSignInConfirm}
                 operationType="createUnitTests"
                 sessionStorageKey="pendingTestSuiteOperation"
-                signInMessage="You need to sign in to MI Copilot to use AI features. Would you like to sign in?"
+                signInMessage="You need to sign in to WSO2 Integrator Copilot to use AI features. Would you like to sign in?"
                 waitingMessage="Please complete the sign-in process. Your unit test generation will continue automatically after successful authentication."
                 dependencies={[isLoaded, props.filePath]}
                 onCancel={closeSignInView}

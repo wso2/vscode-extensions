@@ -53,7 +53,7 @@ export const WaitingForLoginMessage = (props: { showProjectHeader?: boolean }) =
                     buttonTitle="Cancel"
                     onClick={cancelLogin} // Define or import the signInToMIAI function
                     subTitle={
-                                "Waiting for the login credentials. Please sign in to your MI Copilot account in the browser window to continue."
+                                "Waiting for the login credentials. Please sign in to your WSO2 Integrator Copilot account in the browser window to continue."
                     }
                     title={"Waiting for Login"}
                 />

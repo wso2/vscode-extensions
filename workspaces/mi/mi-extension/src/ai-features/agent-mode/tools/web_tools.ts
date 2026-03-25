@@ -21,7 +21,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { AgentEvent } from '@wso2/mi-core';
 import { logError, logInfo } from '../../copilot/logger';
-import { ANTHROPIC_SONNET_4_6, AnthropicModel, getAnthropicProvider } from '../../connection';
+import { ANTHROPIC_SONNET_4_6, AnthropicModel, getAnthropicProvider, getAnthropicClientForCustomModel } from '../../connection';
 import { PendingPlanApproval } from './plan_mode_tools';
 import {
     ToolResult,
@@ -126,7 +126,9 @@ export function createWebSearchExecute(
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
     webAccessPreapproved: boolean,
-    sessionId: string
+    sessionId: string,
+    mainModelId?: string,
+    mainModelIsCustom?: boolean
 ): WebSearchExecuteFn {
     return async (args): Promise<ToolResult> => {
         const allowedDomains = sanitizeDomainList(args.allowed_domains);
@@ -166,7 +168,9 @@ export function createWebSearchExecute(
             });
 
             const result = await generateText({
-                model: await getAnthropicClient(ANTHROPIC_SONNET_4_6),
+                model: mainModelIsCustom && mainModelId
+                    ? await getAnthropicClientForCustomModel(mainModelId)
+                    : await getAnthropicClient((mainModelId || ANTHROPIC_SONNET_4_6) as AnthropicModel),
                 prompt: [
                     `Search query: ${args.query}`,
                     'Use the web_search tool and return concise findings with relevant source links.'
@@ -215,7 +219,9 @@ export function createWebFetchExecute(
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
     webAccessPreapproved: boolean,
-    sessionId: string
+    sessionId: string,
+    mainModelId?: string,
+    mainModelIsCustom?: boolean
 ): WebFetchExecuteFn {
     return async (args): Promise<ToolResult> => {
         try {
@@ -268,7 +274,9 @@ export function createWebFetchExecute(
             });
 
             const result = await generateText({
-                model: await getAnthropicClient(ANTHROPIC_SONNET_4_6),
+                model: mainModelIsCustom && mainModelId
+                    ? await getAnthropicClientForCustomModel(mainModelId)
+                    : await getAnthropicClient((mainModelId || ANTHROPIC_SONNET_4_6) as AnthropicModel),
                 prompt: [
                     `URL: ${args.url}`,
                     `Task: ${args.prompt}`,

@@ -258,7 +258,7 @@ export const exchangeStsToCopilotToken = async (stsToken: string): Promise<MIInt
         throw new Error(response.data?.message || response.data?.reason || `Status ${response.status}`);
     } catch (error) {
         const reason = error instanceof Error ? error.message : 'Unknown error';
-        throw new Error(`MI Copilot authentication failed: ${reason}`);
+        throw new Error(`WSO2 Integrator Copilot authentication failed: ${reason}`);
     }
 };
 
@@ -466,7 +466,7 @@ export const checkToken = async (): Promise<{ token: string; loginMethod: LoginM
  */
 export async function initiateDevantAuth(): Promise<boolean> {
     if (!isPlatformExtensionAvailable()) {
-        throw new Error('The WSO2 Platform extension is not installed. Please install it to use MI Copilot login.');
+        throw new Error('The WSO2 Platform extension is not installed. Please install it to use WSO2 Integrator Copilot.');
     }
 
     await vscode.commands.executeCommand(PlatformExtCommandIds.SignIn);

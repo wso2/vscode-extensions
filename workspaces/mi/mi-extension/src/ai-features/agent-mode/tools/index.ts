@@ -85,10 +85,10 @@ export {
 // Export runtime tools
 export {
     // Execute function creators
-    createBuildProjectExecute,
+    createBuildAndDeployExecute,
     createServerManagementExecute,
     // Tool creators
-    createBuildProjectTool,
+    createBuildAndDeployTool,
     createServerManagementTool,
 } from './runtime_tools';
 

@@ -71,6 +71,42 @@ export function getBackgroundShells(): Map<string, BackgroundShell> {
     return backgroundShells;
 }
 
+/**
+ * Kill and remove all running background shells.
+ * Used by RPC-level run cleanup to prevent orphaned shell processes on failed/aborted runs.
+ */
+export async function cleanupRunningBackgroundShells(): Promise<number> {
+    const runningShells = Array.from(backgroundShells.entries()).filter(([, shell]) => !shell.completed);
+    if (runningShells.length === 0) {
+        return 0;
+    }
+
+    await Promise.all(runningShells.map(([id, shell]) => new Promise<void>((resolve) => {
+        const pid = shell.process.pid;
+        shell.completed = true;
+        shell.exitCode = -9;
+        if (!shell.output) {
+            shell.output = `Shell task ${id} was terminated because the main agent run ended.`;
+        }
+        backgroundShells.delete(id);
+
+        if (!pid) {
+            resolve();
+            return;
+        }
+
+        treeKill(pid, 'SIGKILL', (error) => {
+            if (error) {
+                logError(`[ShellTool] Failed to kill background shell ${id} during cleanup: ${error.message}`);
+            }
+            resolve();
+        });
+    })));
+
+    logInfo(`[ShellTool] Cleaned up ${runningShells.length} running background shell(s) at agent run end`);
+    return runningShells.length;
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================

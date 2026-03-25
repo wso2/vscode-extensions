@@ -59,6 +59,12 @@ export type {
     MentionablePathItem,
     SearchMentionablePathsRequest,
     SearchMentionablePathsResponse,
+    GetAgentRunStatusRequest,
+    GetAgentRunStatusResponse,
+    // Model settings types
+    MainModelPreset,
+    SubModelPreset,
+    ModelSettings,
 } from './types';
 
 // Export RPC type definitions
@@ -81,6 +87,8 @@ export {
     compactConversation,
     // Mention search RPC
     searchMentionablePaths,
+    // Run status RPC
+    getAgentRunStatus,
 } from './rpc-type';
 
 // Export RPC request/response types

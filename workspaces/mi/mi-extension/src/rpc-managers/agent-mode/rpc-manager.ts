@@ -44,6 +44,9 @@ import {
     MentionablePathItem,
     SearchMentionablePathsRequest,
     SearchMentionablePathsResponse,
+    GetAgentRunStatusRequest,
+    GetAgentRunStatusResponse,
+    ModelSettings,
 } from '@wso2/mi-core';
 import type { Dirent } from 'fs';
 import * as fs from 'fs/promises';
@@ -67,9 +70,15 @@ import {
 import { cleanupPersistedToolResultsForProject } from '../../ai-features/agent-mode/tools/tool-result-persistence';
 import { validateAttachments } from '../../ai-features/agent-mode/attachment-utils';
 import { VALID_FILE_EXTENSIONS, VALID_SPECIAL_FILE_NAMES } from '../../ai-features/agent-mode/tools/types';
+import { cleanupRunningBackgroundShells } from '../../ai-features/agent-mode/tools/bash_tools';
+import { cleanupRunningBackgroundSubagents } from '../../ai-features/agent-mode/tools/subagent_tool';
+import { beginServerManagementRunTracking, cleanupServerManagementOnAgentEnd } from '../../ai-features/agent-mode/tools/runtime_tools';
 import { AgentUndoCheckpointManager, StoredUndoCheckpoint } from '../../ai-features/agent-mode/undo/checkpoint-manager';
 import { MiDiagramRpcManager } from '../mi-diagram/rpc-manager';
 import { getCopilotSessionDir } from '../../ai-features/agent-mode/storage-paths';
+import { resolveSubModelId } from '../../ai-features/connection';
+
+const DEFAULT_MODEL_SETTINGS: ModelSettings = { mainModelPreset: 'sonnet', subModelPreset: 'haiku' };
 
 const AUTO_COMPACT_TOKEN_THRESHOLD = 180000;
 const AUTO_COMPACT_TOOL_NAME = 'compact_conversation';
@@ -123,6 +132,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private undoCheckpointManagerSessionId: string | null = null;
     private shellApprovalRules: string[][] = [];
     private pendingLimitContinuation: { reason: LimitContinuationReason } | null = null;
+    private currentModelSettings: ModelSettings = { ...DEFAULT_MODEL_SETTINGS };
 
     constructor(private projectUri: string) {
         this.eventHandler = new AgentEventHandler(projectUri);
@@ -149,6 +159,28 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         }
         this.pendingQuestions.clear();
         this.pendingApprovals.clear();
+    }
+
+    private async cleanupOnAgentEnd(runSucceeded: boolean): Promise<void> {
+        try {
+            await cleanupRunningBackgroundShells();
+        } catch (error) {
+            logError('[AgentPanel] Failed to cleanup background shells at agent run end', error);
+        }
+
+        try {
+            cleanupRunningBackgroundSubagents();
+        } catch (error) {
+            logError('[AgentPanel] Failed to cleanup background subagents at agent run end', error);
+        }
+
+        try {
+            await cleanupServerManagementOnAgentEnd({
+                stopServerStartedByCurrentRun: !runSucceeded,
+            });
+        } catch (error) {
+            logError('[AgentPanel] Failed to cleanup runtime server state at agent run end', error);
+        }
     }
 
     /**
@@ -428,10 +460,13 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             return false;
         }
 
+        const resolvedSubModel = resolveSubModelId(this.currentModelSettings);
         const compactResult = await executeCompactAgent({
             messages: messagesForCompact,
             trigger: 'auto',
             projectPath: this.projectUri,
+            subModelId: resolvedSubModel,
+            subModelIsCustom: !!this.currentModelSettings.subModelCustomId,
         });
 
         if (!compactResult.success || !compactResult.summary) {
@@ -476,8 +511,11 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             await this.chatHistoryManager.initialize();
             this.currentSessionId = this.chatHistoryManager.getSessionId();
             this.currentMode = await this.chatHistoryManager.getLatestMode(DEFAULT_AGENT_MODE);
-            await this.loadShellApprovalRulesForSession(this.currentSessionId);
-            await cleanupPersistedToolResultsForProject(this.projectUri);
+            // Run independent post-init tasks in parallel
+            await Promise.all([
+                this.loadShellApprovalRulesForSession(this.currentSessionId),
+                cleanupPersistedToolResultsForProject(this.projectUri),
+            ]);
 
             if (sessionId) {
                 logInfo(`[AgentPanel] Continuing existing session: ${this.currentSessionId}`);
@@ -728,6 +766,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      * Send a message to the agent for processing
      */
     async sendAgentMessage(request: SendAgentMessageRequest): Promise<SendAgentMessageResponse> {
+        let runSucceeded = false;
+        let shouldRunCleanup = false;
+        beginServerManagementRunTracking();
+        this.eventHandler.beginRun();
         try {
             const messageLength = typeof request.message === 'string' ? request.message.length : 0;
             logInfo(
@@ -743,6 +785,12 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                     success: false,
                     error: errorMessage
                 };
+            }
+
+            // Persist latest model settings so auto-compaction and other server-side
+            // behaviors use the same settings the UI selected.
+            if (request.modelSettings) {
+                this.currentModelSettings = { ...request.modelSettings };
             }
 
             // Get or create chat history manager
@@ -783,6 +831,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 this.clearPendingLimitContinuation();
             }
 
+            shouldRunCleanup = true;
             await undoCheckpointManager.beginRun('agent');
 
             const persistModeChange = (mode: AgentMode) => {
@@ -825,6 +874,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                                     addRule: async (rule: string[]) => this.addShellApprovalRule(rule),
                                 },
                                 undoCheckpointManager,
+                                modelSettings: this.currentModelSettings,
+                                onStepPersisted: () => this.eventHandler.stepCompleted(),
                             },
                             (event: AgentEvent) => {
                                 if (event.type === 'plan_mode_entered') {
@@ -899,6 +950,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             if (result.success) {
                 this.clearPendingLimitContinuation();
+                runSucceeded = true;
 
                 const undoCheckpoint = await undoCheckpointManager.commitRun();
                 if (undoCheckpoint) {
@@ -938,6 +990,13 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error'
             };
+        } finally {
+            if (shouldRunCleanup) {
+                await this.cleanupOnAgentEnd(runSucceeded);
+            } else {
+                await cleanupServerManagementOnAgentEnd();
+            }
+            this.eventHandler.endRun();
         }
     }
 
@@ -1174,6 +1233,14 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         }
     }
 
+    async getAgentRunStatus(_request: GetAgentRunStatusRequest = {}): Promise<GetAgentRunStatusResponse> {
+        const status = this.eventHandler.getRunStatus();
+        return {
+            ...status,
+            mode: this.currentMode,
+        };
+    }
+
     // ============================================================================
     // Session Management
     // ============================================================================
@@ -1287,6 +1354,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             await this.chatHistoryManager.initialize();
             this.currentSessionId = this.chatHistoryManager.getSessionId();
             this.currentMode = DEFAULT_AGENT_MODE;
+            this.currentModelSettings = { ...DEFAULT_MODEL_SETTINGS };
             await this.loadShellApprovalRulesForSession(this.currentSessionId);
 
             logInfo(`[AgentPanel] Created new session: ${this.currentSessionId}`);
@@ -1349,7 +1417,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      * Reads all messages from the current session, runs the summarization sub-agent,
      * saves the summary as a JSONL checkpoint, and returns it.
      */
-    async compactConversation(_request: CompactConversationRequest): Promise<CompactConversationResponse> {
+    async compactConversation(request: CompactConversationRequest): Promise<CompactConversationResponse> {
         try {
             logInfo('[AgentPanel] Manual compact requested');
 
@@ -1367,10 +1435,14 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             logInfo(`[AgentPanel] Compacting ${messages.length} messages...`);
 
             // Run compact agent (sends full conversation + system-reminder to Haiku)
+            const effectiveSettings = request.modelSettings || this.currentModelSettings;
+            const resolvedSubModel = resolveSubModelId(effectiveSettings);
             const result = await executeCompactAgent({
                 messages,
                 trigger: 'user',
                 projectPath: this.projectUri,
+                subModelId: resolvedSubModel,
+                subModelIsCustom: !!effectiveSettings.subModelCustomId,
             });
 
             if (!result.success || !result.summary) {
@@ -1676,4 +1748,5 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             };
         }
     }
+
 }

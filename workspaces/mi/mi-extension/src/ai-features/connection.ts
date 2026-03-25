@@ -31,17 +31,20 @@ import { logInfo, logDebug, logError } from "./copilot/logger";
 
 export const ANTHROPIC_HAIKU_4_5 = "claude-haiku-4-5";
 export const ANTHROPIC_SONNET_4_6 = "claude-sonnet-4-6";
+export const ANTHROPIC_OPUS_4_6 = "claude-opus-4-6";
 // Backward-compatible alias for existing imports.
 export const ANTHROPIC_SONNET_4_5 = ANTHROPIC_SONNET_4_6;
 
 export type AnthropicModel =
     | typeof ANTHROPIC_HAIKU_4_5
-    | typeof ANTHROPIC_SONNET_4_6;
+    | typeof ANTHROPIC_SONNET_4_6
+    | typeof ANTHROPIC_OPUS_4_6;
 
 // Bedrock model ID mappings
 const BEDROCK_MODEL_MAP: Record<string, string> = {
     [ANTHROPIC_HAIKU_4_5]: "anthropic.claude-3-5-haiku-20241022-v1:0",
-    [ANTHROPIC_SONNET_4_6]: "anthropic.claude-sonnet-4-20250514-v1:0",
+    [ANTHROPIC_SONNET_4_6]: "anthropic.claude-sonnet-4-6-20250619-v1:0",
+    [ANTHROPIC_OPUS_4_6]: "anthropic.claude-opus-4-6-20250619-v1:0",
 };
 
 /**
@@ -87,7 +90,7 @@ const promptReLogin = () => {
 
     reLoginPromptInFlight = true;
     void vscode.window.showWarningMessage(
-        'Your MI Copilot session is no longer valid for the current environment. Please sign in again.',
+        'Your WSO2 Integrator Copilot session is no longer valid for the current environment. Please sign in again.',
         'Sign In'
     ).then((selection) => {
         if (selection === 'Sign In') {
@@ -178,7 +181,7 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
 
             // Notify user and prompt to use their own API key
             vscode.window.showWarningMessage(
-                "Your free usage quota has been exceeded. Set your own Anthropic API key to continue using MI Copilot with unlimited access.",
+                "Your free usage quota has been exceeded. Set your own Anthropic API key to continue using WSO2 Integrator Copilot with unlimited access.",
                 "Set API Key",
                 "Learn More"
             ).then(selection => {
@@ -334,6 +337,39 @@ export const getAnthropicClient = async (model: AnthropicModel): Promise<any> =>
     const provider = await getAnthropicProvider();
     return provider(model);
 };
+
+/**
+ * Get an Anthropic client for an arbitrary (custom) model ID string.
+ * Custom model IDs are NOT supported with AWS Bedrock — throws immediately.
+ */
+export const getAnthropicClientForCustomModel = async (modelId: string): Promise<any> => {
+    const loginMethod = await getLoginMethod();
+    if (loginMethod === LoginMethod.AWS_BEDROCK) {
+        throw new Error('Custom model IDs are not supported with AWS Bedrock. Use a standard model preset instead.');
+    }
+    const provider = await getAnthropicProvider();
+    return provider(modelId);
+};
+
+/**
+ * Resolve the main model ID from model settings.
+ */
+export function resolveMainModelId(settings: { mainModelPreset: string; mainModelCustomId?: string }): string {
+    if (settings.mainModelCustomId) {
+        return settings.mainModelCustomId;
+    }
+    return settings.mainModelPreset === 'opus' ? ANTHROPIC_OPUS_4_6 : ANTHROPIC_SONNET_4_6;
+}
+
+/**
+ * Resolve the sub-agent model ID from model settings.
+ */
+export function resolveSubModelId(settings: { subModelPreset: string; subModelCustomId?: string }): string {
+    if (settings.subModelCustomId) {
+        return settings.subModelCustomId;
+    }
+    return settings.subModelPreset === 'sonnet' ? ANTHROPIC_SONNET_4_6 : ANTHROPIC_HAIKU_4_5;
+}
 
 /**
  * Returns cache control options for prompt caching

@@ -37,7 +37,7 @@ const SUCCESS_MESSAGE = 'WSO2 default model provider configuration was added to 
 const NO_PROJECT_MESSAGE = 'No MI project found in the workspace.';
 const LOGIN_REQUIRED_MESSAGE = 'Please sign in to MI Intelligence to configure the WSO2 default model provider.';
 const MI_INTEL_ONLY_MESSAGE = 'This feature is only available for MI Intelligence users.';
-const SIGN_IN_BUTTON = 'Sign in to MI Copilot';
+const SIGN_IN_BUTTON = 'Sign in to WSO2 Integrator Copilot';
 
 /**
  * Get the refreshed access token for the default model configuration.

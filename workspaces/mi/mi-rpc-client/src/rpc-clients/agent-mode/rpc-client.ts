@@ -18,6 +18,7 @@
 
 import {
     MIAgentPanelAPI,
+    AgentMode,
     SendAgentMessageRequest,
     SendAgentMessageResponse,
     LoadChatHistoryRequest,
@@ -28,6 +29,7 @@ import {
     ApplyCodeSegmentWithCheckpointResponse,
     UserQuestionResponse,
     PlanApprovalResponse,
+    AgentEvent,
     ChatHistoryEvent,
     sendAgentMessage,
     abortAgentGeneration,
@@ -36,6 +38,9 @@ import {
     applyCodeSegmentWithCheckpoint,
     respondToQuestion,
     respondToPlanApproval,
+    ModelSettings,
+    MainModelPreset,
+    SubModelPreset,
 } from "@wso2/mi-core";
 import { HOST_EXTENSION, RequestType } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -121,9 +126,8 @@ const deleteSession: RequestType<DeleteSessionRequest, DeleteSessionResponse> = 
 };
 
 // Compact RPC method
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CompactConversationRequest {
-    // Empty - uses current session
+    modelSettings?: ModelSettings;
 }
 
 export interface CompactConversationResponse {
@@ -150,6 +154,17 @@ export interface SearchMentionablePathsResponse {
     error?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface GetAgentRunStatusRequest {
+    // No parameters needed - returns current run status and buffered events
+}
+
+export interface GetAgentRunStatusResponse {
+    isRunning: boolean;
+    events: AgentEvent[];
+    mode?: AgentMode;
+}
+
 const compactConversation: RequestType<CompactConversationRequest, CompactConversationResponse> = {
     method: `${_prefix}/compactConversation`
 };
@@ -157,6 +172,13 @@ const compactConversation: RequestType<CompactConversationRequest, CompactConver
 const searchMentionablePaths: RequestType<SearchMentionablePathsRequest, SearchMentionablePathsResponse> = {
     method: `${_prefix}/searchMentionablePaths`
 };
+
+const getAgentRunStatus: RequestType<GetAgentRunStatusRequest, GetAgentRunStatusResponse> = {
+    method: `${_prefix}/getAgentRunStatus`
+};
+
+// Re-export model settings types from @wso2/mi-core
+export type { MainModelPreset, SubModelPreset, ModelSettings };
 
 export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
     private _messenger: Messenger;
@@ -228,4 +250,9 @@ export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
     searchMentionablePaths(request: SearchMentionablePathsRequest): Promise<SearchMentionablePathsResponse> {
         return this._messenger.sendRequest(searchMentionablePaths, HOST_EXTENSION, request);
     }
+
+    getAgentRunStatus(request: GetAgentRunStatusRequest = {}): Promise<GetAgentRunStatusResponse> {
+        return this._messenger.sendRequest(getAgentRunStatus, HOST_EXTENSION, request);
+    }
+
 }

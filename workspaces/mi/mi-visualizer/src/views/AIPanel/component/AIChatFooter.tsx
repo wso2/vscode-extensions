@@ -30,28 +30,7 @@ import Attachments from "./Attachments";
 // Tool name constant
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
 const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
-const THINKING_PREFERENCE_KEY_PREFIX = 'mi-agent-thinking-enabled';
 const WEB_ACCESS_PREFERENCE_KEY = 'mi-agent-web-access-enabled';
-
-function getThinkingPreferenceStorageKey(mode: AgentMode): string {
-    return `${THINKING_PREFERENCE_KEY_PREFIX}-${mode}`;
-}
-
-function getDefaultThinkingEnabled(mode: AgentMode): boolean {
-    return false;
-}
-
-function getThinkingPreferenceForMode(mode: AgentMode): boolean {
-    try {
-        const storedPreference = localStorage.getItem(getThinkingPreferenceStorageKey(mode));
-        if (storedPreference === null) {
-            return getDefaultThinkingEnabled(mode);
-        }
-        return storedPreference === 'true';
-    } catch {
-        return getDefaultThinkingEnabled(mode);
-    }
-}
 
 function removeCompactingPlaceholder(content: string): string {
     return content
@@ -443,6 +422,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setLastTotalInputTokens,
         agentMode,
         setAgentMode,
+        isThinkingEnabled,
+        setIsThinkingEnabled,
+        modelSettings,
     } = useMICopilotContext();
 
     const [, setFileUploadStatus] = useState({ type: "", text: "" });
@@ -456,7 +438,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     // Mode switcher state
     const [showModeMenu, setShowModeMenu] = useState(false);
     const modeMenuRef = useRef<HTMLDivElement>(null);
-    const [isThinkingEnabled, setIsThinkingEnabled] = useState<boolean>(() => getThinkingPreferenceForMode(agentMode));
     const [isWebAccessEnabled, setIsWebAccessEnabled] = useState<boolean>(() => {
         try {
             return localStorage.getItem(WEB_ACCESS_PREFERENCE_KEY) === 'true';
@@ -1090,7 +1071,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }]);
 
         try {
-            const result = await rpcClient.getMiAgentPanelRpcClient().compactConversation({});
+            const result = await rpcClient.getMiAgentPanelRpcClient().compactConversation({ modelSettings });
             if (!result.success) {
                 console.error("Manual compact failed:", result.error);
                 // Remove the loading message and show error
@@ -1334,7 +1315,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 images,
                 thinking: isThinkingEnabled,
                 webAccessPreapproved: isWebAccessEnabled,
-                chatHistory: chatHistory
+                chatHistory: chatHistory,
+                modelSettings,
             });
 
             if (!response.success) {
@@ -1411,19 +1393,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     }, [pendingMentionCursorPosition, currentUserPrompt]);
 
     useEffect(() => {
-        setIsThinkingEnabled(getThinkingPreferenceForMode(agentMode));
-    }, [agentMode]);
-
-    // Persist thinking preference across panel reloads (per mode)
-    useEffect(() => {
-        try {
-            localStorage.setItem(getThinkingPreferenceStorageKey(agentMode), String(isThinkingEnabled));
-        } catch {
-            // Ignore localStorage errors in restricted environments
-        }
-    }, [agentMode, isThinkingEnabled]);
-
-    useEffect(() => {
         try {
             localStorage.setItem(WEB_ACCESS_PREFERENCE_KEY, String(isWebAccessEnabled));
         } catch {
@@ -1437,6 +1406,75 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             rpcClient.onAgentEvent(handleAgentEvent);
         }
     }, [rpcClient, handleAgentEvent]);
+
+    // Restore in-progress/completed run state when the panel reconnects.
+    useEffect(() => {
+        if (!rpcClient) {
+            return;
+        }
+
+        let isDisposed = false;
+
+        const restoreAgentRunStatus = async () => {
+            try {
+                const runStatus = await rpcClient.getMiAgentPanelRpcClient().getAgentRunStatus({});
+                if (isDisposed) {
+                    return;
+                }
+
+                const bufferedEvents = runStatus.events || [];
+                if (!runStatus.isRunning && bufferedEvents.length === 0) {
+                    return;
+                }
+
+                if (runStatus.mode) {
+                    setAgentMode(runStatus.mode);
+                    setIsPlanMode(runStatus.mode === 'plan');
+                }
+
+                if (runStatus.isRunning) {
+                    setBackendRequestTriggered(true);
+                }
+
+                setMessages((prev) => {
+                    if (prev.length > 0 && prev[prev.length - 1].role === Role.MICopilot) {
+                        return prev;
+                    }
+                    return [
+                        ...prev,
+                        {
+                            id: generateId(),
+                            role: Role.MICopilot,
+                            content: "",
+                            type: MessageType.AssistantMessage,
+                        },
+                    ];
+                });
+
+                for (const event of bufferedEvents) {
+                    if (isDisposed) {
+                        return;
+                    }
+                    handleAgentEvent(event);
+                }
+            } catch (error) {
+                console.error("Error restoring agent run status:", error);
+            }
+        };
+
+        void restoreAgentRunStatus();
+
+        return () => {
+            isDisposed = true;
+        };
+    }, [
+        rpcClient,
+        handleAgentEvent,
+        setAgentMode,
+        setBackendRequestTriggered,
+        setIsPlanMode,
+        setMessages,
+    ]);
 
     useEffect(() => {
         return () => {

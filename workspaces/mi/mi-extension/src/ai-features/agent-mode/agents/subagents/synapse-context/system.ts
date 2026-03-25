@@ -64,6 +64,11 @@ Use context_name to load the full document (recommended).
 |---------|-------------|
 | \`ai-connector-app-development\` | AI connector: chat, RAG, knowledge base, agent tools |
 
+### Testing
+| Context | Description |
+|---------|-------------|
+| \`unit-test-reference\` | Unit test guide: XSD schema, assertions (API vs Sequence), mock services, supporting artifacts, connector resources, examples |
+
 ## Available Tools
 
 - **load_context_reference**: Load Synapse reference documentation (primary tool — always use this)

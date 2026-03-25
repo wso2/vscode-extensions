@@ -59,6 +59,18 @@ import {
     SYNAPSE_SOAP_NAMESPACE_GUIDE_FULL,
     SYNAPSE_SOAP_NAMESPACE_GUIDE_SECTIONS,
 } from '../context/synapse-core/synapse_soap_namespace_guide';
+import {
+    SYNAPSE_REGISTRY_RESOURCE_GUIDE_FULL,
+    SYNAPSE_REGISTRY_RESOURCE_GUIDE_SECTIONS,
+} from '../context/synapse-core/synapse_registry_resource_guide';
+import {
+    SYNAPSE_HTTP_CONNECTOR_GUIDE_FULL,
+    SYNAPSE_HTTP_CONNECTOR_GUIDE_SECTIONS,
+} from '../context/synapse-core/synapse_http_connector_guide';
+import {
+    UNIT_TEST_REFERENCE_FULL,
+    UNIT_TEST_REFERENCE_SECTIONS,
+} from '../context/unit-tests/unit_test_reference';
 import { logDebug, logWarn } from '../../copilot/logger';
 import { ContextExecuteFn, ToolResult } from './types';
 import { getRuntimeVersionFromPom } from './connector_store_cache';
@@ -141,6 +153,27 @@ const CONTEXT_REFERENCES: ContextDefinition[] = [
         description: 'SOAP call and namespace handling guide, including WSDL namespace rules and response extraction patterns.',
         content: SYNAPSE_SOAP_NAMESPACE_GUIDE_FULL,
         sections: SYNAPSE_SOAP_NAMESPACE_GUIDE_SECTIONS,
+    },
+    {
+        name: 'http-connector-guide',
+        description: 'HTTP connector deep reference: error response handling (nonErrorHttpStatusCodes, fault sequences, HTTP_SC branching), authentication patterns (Basic, Bearer, OAuth2 client credentials), transport properties, payload types (JSON/XML/TEXT), chunking/Content-Length control, and responseVariable pattern.',
+        content: SYNAPSE_HTTP_CONNECTOR_GUIDE_FULL,
+        sections: SYNAPSE_HTTP_CONNECTOR_GUIDE_SECTIONS,
+        aliases: ['http_connector_guide', 'http-error-handling'],
+    },
+    {
+        name: 'registry-resource-guide',
+        description: 'Registry resource management: artifact.xml format, naming conventions, media types, registry paths (gov:/conf:), access patterns from Synapse configs, resource properties, and common patterns (JSON, XSLT, scripts, WSDL).',
+        content: SYNAPSE_REGISTRY_RESOURCE_GUIDE_FULL,
+        sections: SYNAPSE_REGISTRY_RESOURCE_GUIDE_SECTIONS,
+        aliases: ['registry_resource_guide', 'registry-resources'],
+    },
+    {
+        name: 'unit-test-reference',
+        description: 'MI unit test guide: XSD schema, assertions by artifact type (API vs Sequence), mock services (rules, naming, port 9090), supporting artifacts, connector resources, and working examples.',
+        content: UNIT_TEST_REFERENCE_FULL,
+        sections: UNIT_TEST_REFERENCE_SECTIONS,
+        aliases: ['unit_test_reference', 'unit-test-guide'],
     },
 ];
 
