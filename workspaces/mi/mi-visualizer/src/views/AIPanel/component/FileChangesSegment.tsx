@@ -25,10 +25,18 @@ interface FileChangesSegmentProps {
     summaryText: string;
 }
 
+/**
+ * File changes card with accept/discard pattern.
+ *
+ * - Review state (undoable): "Changes ready to review" + file list + Discard / Keep
+ * - Accepted state (after Keep or already non-undoable): collapsible "Changes accepted"
+ */
 const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) => {
     const { rpcClient, setMessages } = useMICopilotContext();
     const [isUndoing, setIsUndoing] = useState(false);
-    const [isUndone, setIsUndone] = useState(false);
+    const [isAccepted, setIsAccepted] = useState(false);
+    const [isDiscarded, setIsDiscarded] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(true);
     const [error, setError] = useState<string>("");
 
     const summary = useMemo<UndoCheckpointSummary | null>(() => {
@@ -40,17 +48,13 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) 
     }, [summaryText]);
 
     if (!summary) {
-        return (
-            <div style={{ color: "var(--vscode-errorForeground)", marginTop: "8px" }}>
-                Unable to render changed files.
-            </div>
-        );
+        return null;
     }
 
-    const handleUndo = async () => {
-        if (isUndoing || isUndone || !summary.undoable) {
-            return;
-        }
+    const canReview = summary.undoable && !isAccepted && !isDiscarded;
+
+    const handleDiscard = async () => {
+        if (isUndoing || !summary.undoable) return;
 
         setIsUndoing(true);
         setError("");
@@ -59,12 +63,13 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) 
                 force: false,
                 checkpointId: summary.checkpointId,
             } as any);
+
             if (response.requiresConfirmation) {
                 const conflicts = response.conflicts || [];
-                const shouldForceUndo = window.confirm(
-                    `These files changed after the checkpoint and will be overwritten:\n\n${conflicts.join('\n')}\n\nContinue with undo?`
+                const shouldForce = window.confirm(
+                    `These files changed after the checkpoint and will be overwritten:\n\n${conflicts.join('\n')}\n\nContinue with discard?`
                 );
-                if (!shouldForceUndo) {
+                if (!shouldForce) {
                     setIsUndoing(false);
                     return;
                 }
@@ -75,130 +80,174 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) 
             }
 
             if (!response.success) {
-                throw new Error(response.error || "Undo failed");
+                throw new Error(response.error || "Discard failed");
             }
 
+            // Update all filechanges tags to reflect new undoable state
             setMessages((prevMessages) => {
-                const markSummaryUndoable = (summaryJson: string): string => {
+                const updateUndoable = (json: string): string => {
                     try {
-                        const parsedSummary = JSON.parse(summaryJson) as UndoCheckpointSummary;
-                        if (!parsedSummary || typeof parsedSummary !== "object") {
-                            return summaryJson;
-                        }
-
-                        const latestCheckpointId = (response as any).latestUndoCheckpoint?.checkpointId as string | undefined;
-                        const isLatest = latestCheckpointId !== undefined
-                            && parsedSummary.checkpointId === latestCheckpointId;
-
-                        return JSON.stringify({
-                            ...parsedSummary,
-                            undoable: isLatest,
-                        });
+                        const parsed = JSON.parse(json) as UndoCheckpointSummary;
+                        if (!parsed || typeof parsed !== "object") return json;
+                        const latestId = (response as any).latestUndoCheckpoint?.checkpointId as string | undefined;
+                        const isLatest = latestId !== undefined && parsed.checkpointId === latestId;
+                        return JSON.stringify({ ...parsed, undoable: isLatest });
                     } catch {
-                        return summaryJson;
+                        return json;
                     }
                 };
-
-                return prevMessages.map((message) => ({
-                    ...message,
-                    content: (message.content || "").replace(
+                return prevMessages.map((msg) => ({
+                    ...msg,
+                    content: (msg.content || "").replace(
                         /<filechanges>([\s\S]*?)<\/filechanges>/g,
-                        (_fullMatch, summaryJson) => `<filechanges>${markSummaryUndoable(summaryJson)}</filechanges>`
+                        (_full, json) => `<filechanges>${updateUndoable(json)}</filechanges>`
                     ),
                 }));
             });
 
-            setIsUndone(true);
-        } catch (undoError) {
-            setError(undoError instanceof Error ? undoError.message : "Undo failed");
+            setIsDiscarded(true);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Discard failed");
         } finally {
             setIsUndoing(false);
         }
     };
 
-    const totalFiles = summary.files.length;
-    const canUndo = summary.undoable && !isUndone;
+    const handleKeep = () => {
+        setIsAccepted(true);
+    };
 
-    return (
-        <div
-            style={{
-                marginTop: "10px",
-                borderRadius: "12px",
-                border: "1px solid var(--vscode-widget-border)",
-                background: "var(--vscode-editorHoverWidget-background)",
-                overflow: "hidden",
-            }}
-        >
+    // --- Discarded state ---
+    if (isDiscarded) {
+        return (
             <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "12px 14px",
-                    fontWeight: 500,
-                }}
+                className="rounded-lg overflow-hidden mt-3"
+                style={{ border: "1px solid var(--vscode-panel-border)" }}
             >
-                <div>
-                    {totalFiles} {totalFiles === 1 ? "file" : "files"} changed{" "}
-                    <span style={{ color: "var(--vscode-testing-iconPassed)" }}>+{summary.totalAdded}</span>{" "}
-                    <span style={{ color: "var(--vscode-testing-iconFailed)" }}>-{summary.totalDeleted}</span>
+                <div
+                    className="flex items-center gap-2 px-3 py-2.5"
+                    style={{ color: "var(--vscode-descriptionForeground)", fontSize: "13px" }}
+                >
+                    <Codicon name="discard" />
+                    <span className="font-medium">Changes discarded</span>
                 </div>
+            </div>
+        );
+    }
+
+    // --- Accepted / non-undoable state: collapsible ---
+    if (isAccepted || !canReview) {
+        return (
+            <div
+                className="rounded-lg overflow-hidden mt-3"
+                style={{ border: "1px solid var(--vscode-panel-border)" }}
+            >
                 <button
-                    onClick={handleUndo}
-                    disabled={!canUndo || isUndoing}
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    className="flex items-center gap-2 w-full px-3 py-2.5 transition-colors"
                     style={{
                         border: "none",
                         background: "transparent",
-                        color: canUndo ? "var(--vscode-editor-foreground)" : "var(--vscode-descriptionForeground)",
-                        cursor: canUndo ? "pointer" : "default",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        fontSize: "14px",
+                        cursor: "pointer",
+                        color: "var(--vscode-foreground)",
+                        fontSize: "13px",
+                        textAlign: "left",
                     }}
                 >
-                    <span>{isUndone ? "Undone" : isUndoing ? "Undoing..." : "Undo"}</span>
-                    <Codicon name="discard" />
+                    <Codicon name={isCollapsed ? "chevron-right" : "chevron-down"} />
+                    <span className="font-medium">Changes accepted</span>
+                </button>
+                {!isCollapsed && (
+                    <div style={{ borderTop: "1px solid var(--vscode-panel-border)" }}>
+                        <FileList files={summary.files} />
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // --- Review state: Discard / Keep ---
+    return (
+        <div
+            className="rounded-lg overflow-hidden mt-3"
+            style={{
+                border: "1px solid var(--vscode-panel-border)",
+                background: "var(--vscode-editorHoverWidget-background)",
+            }}
+        >
+            <div className="px-3 pt-3 pb-2 font-semibold" style={{ fontSize: "13px", color: "var(--vscode-foreground)" }}>
+                Changes ready to review
+            </div>
+
+            <FileList files={summary.files} />
+
+            <div className="flex justify-end gap-2 px-3 py-2.5" style={{ borderTop: "1px solid var(--vscode-panel-border)" }}>
+                <button
+                    onClick={handleDiscard}
+                    disabled={isUndoing}
+                    className="px-4 py-1.5 rounded-md text-xs font-medium transition-colors"
+                    style={{
+                        border: "1px solid var(--vscode-panel-border)",
+                        backgroundColor: "var(--vscode-button-secondaryBackground)",
+                        color: "var(--vscode-button-secondaryForeground)",
+                        cursor: isUndoing ? "not-allowed" : "pointer",
+                        opacity: isUndoing ? 0.6 : 1,
+                    }}
+                >
+                    {isUndoing ? "Discarding..." : "Discard"}
+                </button>
+                <button
+                    onClick={handleKeep}
+                    className="px-4 py-1.5 rounded-md text-xs font-medium transition-colors"
+                    style={{
+                        border: "none",
+                        backgroundColor: "var(--vscode-button-background)",
+                        color: "var(--vscode-button-foreground)",
+                        cursor: "pointer",
+                    }}
+                >
+                    Keep
                 </button>
             </div>
 
-            {summary.files.map((file) => (
-                <div
-                    key={file.path}
-                    style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "10px 14px",
-                        borderTop: "1px solid var(--vscode-widget-border)",
-                        fontFamily: "var(--vscode-editor-font-family)",
-                        fontSize: "12px",
-                    }}
-                >
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: "8px" }}>
-                        {file.path}
-                    </span>
-                    <span style={{ flexShrink: 0 }}>
-                        <span style={{ color: "var(--vscode-testing-iconPassed)" }}>+{file.addedLines}</span>{" "}
-                        <span style={{ color: "var(--vscode-testing-iconFailed)" }}>-{file.deletedLines}</span>
-                    </span>
-                </div>
-            ))}
-
             {error && (
-                <div
-                    style={{
-                        borderTop: "1px solid var(--vscode-widget-border)",
-                        padding: "10px 14px",
-                        color: "var(--vscode-errorForeground)",
-                        fontSize: "12px",
-                    }}
-                >
+                <div className="px-3 py-2 text-xs" style={{ color: "var(--vscode-errorForeground)", borderTop: "1px solid var(--vscode-panel-border)" }}>
                     {error}
                 </div>
             )}
         </div>
     );
 };
+
+/** File list showing per-file path + added/deleted line counts */
+function FileList({ files }: { files: { path: string; addedLines: number; deletedLines: number }[] }) {
+    return (
+        <div className="px-3 py-1">
+            {files.map((file) => (
+                <div
+                    key={file.path}
+                    className="flex justify-between items-center py-1.5"
+                    style={{
+                        fontFamily: "var(--vscode-editor-font-family)",
+                        fontSize: "12px",
+                    }}
+                >
+                    <span
+                        className="truncate pr-2"
+                        style={{ color: "var(--vscode-foreground)" }}
+                        title={file.path}
+                    >
+                        {file.path}
+                    </span>
+                    <span className="shrink-0 text-[11px]">
+                        <span style={{ color: "var(--vscode-testing-iconPassed)" }}>+{file.addedLines}</span>
+                        {" "}
+                        <span style={{ color: "var(--vscode-testing-iconFailed)" }}>-{file.deletedLines}</span>
+                    </span>
+                </div>
+            ))}
+        </div>
+    );
+}
 
 export default FileChangesSegment;
