@@ -1,0 +1,37 @@
+arazzo: 1.0.1
+info:
+  title: Implicit Success Flow
+  version: 1.0.0
+sourceDescriptions:
+  - name: data-api
+    url: https://api.data.com/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: implicit-success-test
+    summary: Tests fallthrough logic when onSuccess is missing.
+    steps:
+      - stepId: start-job
+        operationId: initJob
+
+      - stepId: process-chunk-1
+        operationId: processData
+        successCriteria:
+          - condition: "$statusCode == 200"
+        # No onSuccess defined -> Should auto-connect to process-chunk-2
+
+      - stepId: process-chunk-2
+        operationId: processData
+        successCriteria:
+          - condition: "$body.status == 'ok'"
+        # No onSuccess defined -> Should auto-connect to process-chunk-3
+
+      - stepId: process-chunk-3
+        operationId: processData
+        # No onSuccess defined -> Should auto-connect to save-results
+
+      - stepId: save-results
+        operationId: dbSave
+
+      - stepId: finish-job
+        operationId: closeJob

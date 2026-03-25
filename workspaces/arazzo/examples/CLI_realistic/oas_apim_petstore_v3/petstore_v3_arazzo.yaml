@@ -1,0 +1,98 @@
+arazzo: 1.0.1
+info:
+  title: APIM Petstore OpenAPI3.0 Workflows
+  version: 1.0.0
+  description: >-
+    Workflows for the Petstore v3 API deployed on WSO2 API Manager.
+    Uses the downloaded swagger.yaml directly (OpenAPI 3.0.4).
+    Authenticates via Internal-Key header.
+
+sourceDescriptions:
+  - name: petstoreV3
+    type: openapi
+    url: swagger.yaml
+
+workflows:
+  - workflowId: lookupPet
+    summary: Look up a pet by ID
+    description: Fetches a single pet from the APIM-deployed Petstore v3 API.
+    inputs:
+      type: object
+      properties:
+        petId:
+          type: integer
+          description: ID of the pet to look up
+        internalKey:
+          type: string
+          description: WSO2 APIM Internal-Key authentication token
+    steps:
+      - stepId: fetchPet
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: $inputs.petId
+          - name: Internal-Key
+            in: header
+            value: $inputs.internalKey
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          petDetails: $response.body
+
+    outputs:
+      petDetails: $steps.fetchPet.outputs.petDetails
+
+  - workflowId: compareTwoPets
+    summary: Fetch two pets and compare them
+    description: >-
+      Retrieves two pets by their IDs via GET /pet/{petId} and returns both.
+      Demonstrates a multi-step workflow where both calls are authenticated
+      with Internal-Key. Uses only GET endpoints (upstream POST is unreliable).
+    inputs:
+      type: object
+      properties:
+        firstPetId:
+          type: integer
+          description: ID of the first pet to look up
+        secondPetId:
+          type: integer
+          description: ID of the second pet to look up
+        internalKey:
+          type: string
+          description: >-
+            WSO2 APIM Internal-Key authentication token.
+            Ask the user to provide their token. They can generate one from
+            the WSO2 API Manager Developer Portal (https://localhost:9443/devportal).
+    steps:
+      - stepId: fetchFirstPet
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: $inputs.firstPetId
+          - name: Internal-Key
+            in: header
+            value: $inputs.internalKey
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          firstPet: $response.body
+
+      - stepId: fetchSecondPet
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: $inputs.secondPetId
+          - name: Internal-Key
+            in: header
+            value: $inputs.internalKey
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          secondPet: $response.body
+
+    outputs:
+      firstPet: $steps.fetchFirstPet.outputs.firstPet
+      secondPet: $steps.fetchSecondPet.outputs.secondPet

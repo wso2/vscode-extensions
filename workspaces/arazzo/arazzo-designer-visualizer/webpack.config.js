@@ -1,15 +1,11 @@
 const path = require("path");
 const webpack = require("webpack");
-module.exports = {
-    entry: "./src/index.tsx",
+
+// Shared configuration used by both bundles
+const sharedConfig = {
     target: "web",
     devtool: "source-map",
     mode: "development",
-    output: {
-        path: path.resolve(__dirname, "build"),
-        filename: "Visualizer.js",
-        library: "visualizerWebview",
-    },
     resolve: {
         extensions: [".js", ".jsx", ".json", ".ts", ".tsx"],
         alias: {
@@ -56,23 +52,46 @@ module.exports = {
         ],
         noParse: [require.resolve("@ts-morph/common/dist/typescript.js")],
     },
-    devServer: {
-        host: 'localhost',
-        allowedHosts: 'all',
-        port: 9000,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-        },
-        devMiddleware: {
-            mimeTypes: { 'text/css': ['css'] },
-        },
-        client: {
-            webSocketURL: 'ws://localhost:9000/ws',
-        },
-    },
     plugins: [
         new webpack.ProvidePlugin({
             process: "process/browser",
         }),
     ],
 };
+
+module.exports = [
+    // 1. Visualizer bundle (existing)
+    {
+        ...sharedConfig,
+        entry: "./src/index.tsx",
+        output: {
+            path: path.resolve(__dirname, "build"),
+            filename: "Visualizer.js",
+            library: "visualizerWebview",
+        },
+        devServer: {
+            host: 'localhost',
+            allowedHosts: 'all',
+            port: 9000,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
+            devMiddleware: {
+                mimeTypes: { 'text/css': ['css'] },
+            },
+            client: {
+                webSocketURL: 'ws://localhost:9000/ws',
+            },
+        },
+    },
+    // 2. MCP Playground bundle (new)
+    {
+        ...sharedConfig,
+        entry: "./src/mcpPlaygroundIndex.tsx",
+        output: {
+            path: path.resolve(__dirname, "build"),
+            filename: "MCPPlayground.js",
+            library: "mcpPlayground",
+        },
+    },
+];

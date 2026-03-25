@@ -1,0 +1,114 @@
+arazzo: 1.0.1
+info:
+  title: Data Ingestion with Cleaning Bypass
+  version: 1.0.0
+sourceDescriptions:
+  - name: data-service
+    url: https://api.data.com/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: merge-continue-test
+    summary: Tests a split that merges back to a main node which then continues linearly.
+    steps:
+      # ---------------------------------------------------
+      # STEP A: The Split Point
+      # ---------------------------------------------------
+      - stepId: check-data-quality
+        operationId: validateData
+        description: "Checks if data needs cleaning"
+        onSuccess:
+          # Path 1: Good Data? Go straight to Processing (Step B)
+          - name: data-clean
+            type: goto
+            stepId: process-data
+            criteria:
+              - condition: "$body.qualityScore > 90"
+
+          # Path 2: Dirty Data? Go to Cleaning Loop (Step C)
+          - name: data-dirty
+            type: goto
+            stepId: scrub-pii
+            criteria:
+              - condition: "$body.qualityScore <= 90"
+
+      # ---------------------------------------------------
+      # THE "DIRTY DATA" DETOUR (C -> D -> E)
+      # ---------------------------------------------------
+      # Step C
+      - stepId: scrub-pii
+        operationId: removeSensitiveData
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: enrich-metadata
+
+      # Step D
+      - stepId: enrich-metadata
+        operationId: addTags
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: normalize-format
+
+      # Step E: The Merge Source
+      - stepId: normalize-format
+        operationId: convertToJSON
+        description: "Cleaning done, merging back to main flow"
+        onSuccess:
+          - name: merge-to-process
+            type: goto
+            stepId: process-data  # <--- Points to Step B
+
+      # ---------------------------------------------------
+      # STEP B: The Convergence Point
+      # ---------------------------------------------------
+      - stepId: process-data
+        operationId: runAnalyticsAlgorithm
+        description: "Both fresh data and cleaned data arrive here"
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: archive-to-cold-storage
+
+      # ---------------------------------------------------
+      # THE LONG TAIL (5 Steps)
+      # ---------------------------------------------------
+      # Step F
+      - stepId: archive-to-cold-storage
+        operationId: saveToGlacier
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: index-for-search
+
+      # Step G
+      - stepId: index-for-search
+        operationId: updateElasticSearch
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: generate-pdf-report
+
+      # Step H
+      - stepId: generate-pdf-report
+        operationId: createPDF
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: email-stakeholders
+
+      # Step I
+      - stepId: email-stakeholders
+        operationId: sendEmail
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: cleanup-temp-files
+
+      # Step J (Final)
+      - stepId: cleanup-temp-files
+        operationId: deleteTemp
+        onSuccess:
+          - name: finish
+            type: end

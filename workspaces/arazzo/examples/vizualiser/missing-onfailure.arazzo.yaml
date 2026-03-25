@@ -1,0 +1,37 @@
+arazzo: 1.0.1
+info:
+  title: Implicit Failure Flow
+  version: 1.0.0
+sourceDescriptions:
+  - name: validation-api
+    url: https://api.val.com/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: implicit-failure-test
+    summary: Tests default failure handling.
+    steps:
+      - stepId: receive-payload
+        operationId: getPayload
+
+      - stepId: parse-json
+        operationId: parseString
+
+      - stepId: validate-schema
+        operationId: checkSchema
+        successCriteria:
+          - condition: "$body.valid == true"
+        onSuccess:
+          - name: next
+            type: goto
+            stepId: enrich-data
+        # No onFailure defined -> Visualizer should draw a default Error/End node
+
+      - stepId: enrich-data
+        operationId: addMetaData
+
+      - stepId: transform-format
+        operationId: convertXML
+
+      - stepId: send-downstream
+        operationId: postWebhook

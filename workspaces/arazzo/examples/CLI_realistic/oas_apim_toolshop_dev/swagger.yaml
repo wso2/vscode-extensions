@@ -1,0 +1,4128 @@
+openapi: 3.0.0
+info:
+  title: ToolshopAPI
+  description: Toolshop REST API technical description
+  contact:
+    name: Testsmith
+    email: info@testsmith.io
+  version: 5.0.0
+servers:
+ -
+  url: https://172.24.192.1:8244/toolshopapi/5.0.0
+  description: WSO2 APIM Gateway
+security:
+ -
+  default: []
+tags:
+ -
+  name: Brand
+  description: Brand
+ -
+  name: Cart
+  description: Cart
+ -
+  name: Category
+  description: Category
+ -
+  name: Contact
+  description: Contact
+ -
+  name: Favorite
+  description: Favorite
+ -
+  name: Image
+  description: Image
+ -
+  name: Invoice
+  description: Invoice
+ -
+  name: Payment
+  description: Payment
+ -
+  name: Product
+  description: Product
+ -
+  name: Report
+  description: Report
+ -
+  name: TOTP
+  description: TOTP
+ -
+  name: User
+  description: User
+paths:
+  /brands:
+    get:
+      tags:
+       - Brand
+      summary: Retrieve all brands
+      description: Retrieve all brands
+      operationId: getBrands
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BrandResponse"
+        "404":
+          $ref: "#/components/responses/ResourceNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    post:
+      tags:
+       - Brand
+      summary: Store new brand
+      description: Store new brand
+      operationId: storeBrand
+      requestBody:
+        description: Brand request object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrandRequest"
+        required: true
+      responses:
+        "201":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrandResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /brands/{brandId}:
+    get:
+      tags:
+       - Brand
+      summary: Retrieve specific brand
+      description: Retrieve specific brand
+      operationId: getBrand
+      parameters:
+       -
+        name: brandId
+        in: path
+        description: The brandId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrandResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    put:
+      tags:
+       - Brand
+      summary: Update specific brand
+      description: Update specific brand
+      operationId: updateBrand
+      parameters:
+       -
+        name: brandId
+        in: path
+        description: The brandId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      requestBody:
+        description: Brand request object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrandRequest"
+        required: true
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    delete:
+      tags:
+       - Brand
+      summary: Delete specific brand
+      description: Admin role is required to delete a specific brand
+      operationId: deleteBrand
+      parameters:
+       -
+        name: brandId
+        in: path
+        description: The brandId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "204":
+          description: Successful operation
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    patch:
+      tags:
+       - Brand
+      summary: Partially update specific brand
+      description: Partially update specific brand
+      operationId: patchBrand
+      parameters:
+       -
+        name: brandId
+        in: path
+        description: The brandId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      requestBody:
+        description: Partial brand request object. Only fields to be updated should be included.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrandRequest"
+        required: true
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /brands/search:
+    get:
+      tags:
+       - Brand
+      summary: Retrieve specific brands matching the search query
+      description: Search is performed on the `name` column
+      operationId: searchBrand
+      parameters:
+       -
+        name: q
+        in: query
+        description: A query phrase
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BrandResponse"
+        "404":
+          $ref: "#/components/responses/ResourceNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /carts:
+    post:
+      tags:
+       - Cart
+      summary: Create a new cart
+      description: Create a new cart
+      operationId: createCart
+      responses:
+        "201":
+          description: Create cartId
+          content:
+            application/json:
+              schema:
+                title: CartCreatedResponse
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: ""
+                    example: "1234"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /carts/{id}:
+    post:
+      tags:
+       - Cart
+      summary: Add item to cart
+      description: Add item to cart
+      operationId: addItem
+      parameters:
+       -
+        name: id
+        in: path
+        description: Cart ID
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        description: Payload to add item to cart
+        content:
+          application/json:
+            schema:
+              required:
+               - product_id
+               - quantity
+              type: object
+              properties:
+                product_id:
+                  type: string
+                  example: 01HHJC7RERZ0M3VDGS6X9HM33A
+                quantity:
+                  type: integer
+                  example: 1
+        required: true
+      responses:
+        "200":
+          description: Item added
+          content:
+            application/json:
+              schema:
+                title: CartItemAddedResponse
+                type: object
+                properties:
+                  result:
+                    type: string
+                    description: ""
+                    example: item added or updated
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /carts/{cartId}:
+    get:
+      tags:
+       - Cart
+      summary: Retrieve specific cart
+      description: Retrieve specific cart
+      operationId: getCart
+      parameters:
+       -
+        name: cartId
+        in: path
+        description: The cartId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    delete:
+      tags:
+       - Cart
+      summary: Delete Cart
+      description: Delete Cart
+      operationId: deleteCart
+      parameters:
+       -
+        name: cartId
+        in: path
+        description: The cartId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "204":
+          description: Successful operation
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ResourceNotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /carts/{cartId}/product/quantity:
+    put:
+      tags:
+       - Cart
+      summary: Update quantity of item in cart
+      description: Update quantity of item in cart
+      operationId: updateCartQuantity
+      parameters:
+       -
+        name: cartId
+        in: path
+        description: Cart ID
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        description: Payload to add item to cart
+        content:
+          application/json:
+            schema:
+              required:
+               - product_id
+               - quantity
+              type: object
+              properties:
+                product_id:
+                  type: string
+                  example: 01HHJC7RERZ0M3VDGS6X9HM33A
+                quantity:
+                  type: integer
+                  example: 1
+        required: true
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "404":
+          $ref: "#/components/responses/ResourceNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /carts/{cartId}/product/{productId}:
+    delete:
+      tags:
+       - Cart
+      summary: Delete product from cart
+      description: Delete a product from Cart
+      operationId: deleteProductFromCart
+      parameters:
+       -
+        name: cartId
+        in: path
+        description: The cartId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+       -
+        name: productId
+        in: path
+        description: The cartId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "204":
+          description: Successful operation
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ResourceNotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /categories/tree:
+    get:
+      tags:
+       - Category
+      summary: Retrieve all categories (including subcategories)
+      description: Retrieve all categories (including subcategories)
+      operationId: getCategoriesTree
+      parameters:
+       -
+        name: by_category_slug
+        in: query
+        description: Parent category slug
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryTreeResponse"
+        "404":
+          $ref: "#/components/responses/ResourceNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /categories:
+    get:
+      tags:
+       - Category
+      summary: Retrieve all categories
+      description: Retrieve all categories
+      operationId: getCategories
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryResponse"
+        "404":
+          $ref: "#/components/responses/ResourceNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    post:
+      tags:
+       - Category
+      summary: Store new category
+      description: Store new category
+      operationId: storeCategory
+      requestBody:
+        description: Category request object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryRequest"
+        required: true
+      responses:
+        "201":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /categories/tree/{categoryId}:
+    get:
+      tags:
+       - Category
+      summary: Retrieve specific category (including subcategories)
+      description: Retrieve specific category (including subcategories)
+      operationId: getCategory
+      parameters:
+       -
+        name: categoryId
+        in: path
+        description: The categoryId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryTreeResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /categories/search:
+    get:
+      tags:
+       - Category
+      summary: Retrieve specific categories matching the search query
+      description: Search is performed on the `name` column
+      operationId: searchCategory
+      parameters:
+       -
+        name: q
+        in: query
+        description: A query phrase
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryResponse"
+        "404":
+          $ref: "#/components/responses/ResourceNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /categories/{categoryId}:
+    put:
+      tags:
+       - Category
+      summary: Update specific category
+      description: Update specific category
+      operationId: updateCategory
+      parameters:
+       -
+        name: categoryId
+        in: path
+        description: The categoryId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      requestBody:
+        description: Category request object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryRequest"
+        required: true
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "404":
+          $ref: "#/components/responses/ResourceNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    delete:
+      tags:
+       - Category
+      summary: Delete specific category
+      description: Admin role is required to delete a specific category
+      operationId: deleteCategory
+      parameters:
+       -
+        name: categoryId
+        in: path
+        description: The categoryId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "204":
+          description: Successful operation
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    patch:
+      tags:
+       - Category
+      summary: Partially update specific category
+      description: Partially update specific category
+      operationId: patchCategory
+      parameters:
+       -
+        name: categoryId
+        in: path
+        description: The categoryId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      requestBody:
+        description: Partial category request object. Only fields to be updated should be included.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryRequest"
+        required: true
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "404":
+          $ref: "#/components/responses/ResourceNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /messages:
+    get:
+      tags:
+       - Contact
+      summary: Retrieve messages
+      description: "`admin` retrieves all messages, `user` retrieves only related messages"
+      operationId: getMessages
+      parameters:
+       -
+        name: page
+        in: query
+        description: pagenumber
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                title: PaginatedContactMessageResponse
+                type: object
+                properties:
+                  current_page:
+                    type: integer
+                    example: 1
+                  data:
+                    type: array
+                    items:
+                      anyOf:
+                       -
+                        $ref: "#/components/schemas/ContactResponse"
+                       -
+                        $ref: "#/components/schemas/ContactResponseAuthenticated"
+                  from:
+                    type: integer
+                    example: 1
+                  last_page:
+                    type: integer
+                    example: 1
+                  per_page:
+                    type: integer
+                    example: 1
+                  to:
+                    type: integer
+                    example: 1
+                  total:
+                    type: integer
+                    example: 1
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ResourceNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    post:
+      tags:
+       - Contact
+      summary: Send new contact message
+      description: Send new contact message by mail
+      operationId: sendMessage
+      requestBody:
+        description: Contact request object
+        content:
+          application/json:
+            schema:
+              oneOf:
+               -
+                $ref: "#/components/schemas/ContactRequest"
+               -
+                $ref: "#/components/schemas/ContactRequestAuthenticated"
+        required: true
+      responses:
+        "200":
+          description: Result of the insert
+          content:
+            application/json:
+              schema:
+                title: AddContactMessageResponse
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    description: ""
+                    example: true
+        "404":
+          $ref: "#/components/responses/ResourceNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /messages/{messageId}/attach-file:
+    post:
+      tags:
+       - Contact
+      summary: Attach file to contact message
+      description: Attach file to contact message
+      operationId: attachFile
+      parameters:
+       -
+        name: messageId
+        in: path
+        description: The messageId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              title: AttachFileRequest
+              type: object
+              properties:
+                file:
+                  type: string
+                  description: File
+                  format: binary
+      responses:
+        "200":
+          description: Result of the file upload
+          content:
+            application/json:
+              schema:
+                title: FileUploadResponse
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    description: ""
+                    example: true
+        "404":
+          $ref: "#/components/responses/ResourceNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /messages/{messageId}:
+    get:
+      tags:
+       - Contact
+      summary: Retrieve specific message
+      description: Retrieve specific message
+      operationId: getMessage
+      parameters:
+       -
+        name: messageId
+        in: path
+        description: The messageId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                oneOf:
+                 -
+                  $ref: "#/components/schemas/ContactResponse"
+                 -
+                  $ref: "#/components/schemas/ContactResponseAuthenticated"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /messages/{messageId}/reply:
+    post:
+      tags:
+       - Contact
+      summary: Send new contact message
+      description: Send new contact message by mail
+      operationId: replyToMessage
+      parameters:
+       -
+        name: messageId
+        in: path
+        description: The messageId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      requestBody:
+        description: Contact request object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactRequest"
+        required: true
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactReplyResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /messages/{messageId}/status:
+    put:
+      tags:
+       - Contact
+      summary: Set a new message status
+      description: "Set a new message status. Possible values: `NEW`, `IN_PROGRESS`, `RESOLVED`"
+      operationId: updateMessageStatus
+      parameters:
+       -
+        name: messageId
+        in: path
+        description: The messageId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              title: ContactStatusRequest
+              type: object
+              properties:
+                status:
+                  type: string
+                  example: IN_PROGRESS
+                  enum:
+                   - NEW
+                   - ON_HOLD
+                   - IN_PROGRESS
+                   - RESOLVED
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /favorites:
+    get:
+      tags:
+       - Favorite
+      summary: Retrieve all favorites
+      description: User role is required to retrieve users favorites
+      operationId: getFavorites
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FavoriteWithProductResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    post:
+      tags:
+       - Favorite
+      summary: Store new favorite
+      description: User role is required to store new favorite
+      operationId: storeFavorite
+      requestBody:
+        description: Brand request object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FavoriteRequest"
+        required: true
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /favorites/{favoriteId}:
+    get:
+      tags:
+       - Favorite
+      summary: Retrieve specific favorite
+      description: User role is required to retrieve specific favorite
+      operationId: getFavorite
+      parameters:
+       -
+        name: favoriteId
+        in: path
+        description: The favoriteId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    delete:
+      tags:
+       - Favorite
+      summary: Delete specific favorite
+      description: User role is required to delete a specific favorite
+      operationId: deleteFavorite
+      parameters:
+       -
+        name: favoriteId
+        in: path
+        description: The favoriteId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Successful operation
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /images:
+    get:
+      tags:
+       - Image
+      summary: Retrieve all images
+      description: Retrieve all images
+      operationId: getImages
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImageResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /invoices:
+    get:
+      tags:
+       - Invoice
+      summary: Retrieve all invoices
+      description: "`admin` retrieves all invoices, `user` retrieves only related invoices"
+      operationId: getInvoices
+      parameters:
+       -
+        name: page
+        in: query
+        description: pagenumber
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                title: PaginatedInvoiceResponse
+                type: object
+                properties:
+                  current_page:
+                    type: integer
+                    example: 1
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/InvoiceResponse"
+                  from:
+                    type: integer
+                    example: 1
+                  last_page:
+                    type: integer
+                    example: 1
+                  per_page:
+                    type: integer
+                    example: 1
+                  to:
+                    type: integer
+                    example: 1
+                  total:
+                    type: integer
+                    example: 1
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    post:
+      tags:
+       - Invoice
+      summary: Store new invoice
+      description: Store new invoice
+      operationId: storeInvoice
+      requestBody:
+        description: Invoice request object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceRequest"
+        required: true
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /invoices/guest:
+    post:
+      tags:
+       - Invoice
+      summary: Store new guest invoice
+      description: Store new invoice for guest checkout
+      operationId: storeGuestInvoice
+      requestBody:
+        description: Guest invoice request object
+        content:
+          application/json:
+            schema:
+              allOf:
+               -
+                $ref: "#/components/schemas/InvoiceRequest"
+               -
+                type: object
+                properties:
+                  guest_email:
+                    type: string
+                    description: Guest email address
+                    format: email
+                  guest_first_name:
+                    type: string
+                    description: Guest first name
+                  guest_last_name:
+                    type: string
+                    description: Guest last name
+        required: true
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /invoices/{invoiceId}:
+    get:
+      tags:
+       - Invoice
+      summary: Retrieve specific invoice
+      description: Retrieve specific invoice
+      operationId: getInvoice
+      parameters:
+       -
+        name: invoiceId
+        in: path
+        description: The invoiceId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    put:
+      tags:
+       - Invoice
+      summary: Update specific invoice
+      description: Update specific invoice
+      operationId: updateInvoice
+      parameters:
+       -
+        name: invoiceId
+        in: path
+        description: The invoiceId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        description: Invoice request object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceRequest"
+        required: true
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    patch:
+      tags:
+       - Invoice
+      summary: Partially update specific invoice
+      description: Partially update specific invoice
+      operationId: patchInvoice
+      parameters:
+       -
+        name: invoiceId
+        in: path
+        description: The invoiceId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        description: Partial invoice request object. Only fields to be updated should be included.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceRequest"
+        required: true
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /invoices/{invoice_number}/download-pdf:
+    get:
+      tags:
+       - Invoice
+      summary: Download already generated PDF of a specific invoice
+      description: Download already generated PDF of a specific invoice
+      operationId: downloadPDF
+      parameters:
+       -
+        name: invoice_number
+        in: path
+        description: The invoice_number parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /invoices/{invoice_number}/download-pdf-status:
+    get:
+      tags:
+       - Invoice
+      summary: Retrieve the status of the PDF.
+      description: "Retrieve the status of the PDF. The status can be INITIATED, IN_PROGRESS, COMPLETED"
+      operationId: downloadPDFStatus
+      parameters:
+       -
+        name: invoice_number
+        in: path
+        description: The invoice_number parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /invoices/{invoiceId}/status:
+    put:
+      tags:
+       - Invoice
+      summary: Update invoice status
+      description: Update invoice status
+      operationId: updateInvoiceStatus
+      parameters:
+       -
+        name: invoiceId
+        in: path
+        description: The invoiceId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              title: InvoiceStatusRequest
+              type: object
+              properties:
+                status:
+                  type: string
+                  description: The status of the order
+                  enum:
+                   - AWAITING_FULFILLMENT
+                   - ON_HOLD
+                   - AWAITING_SHIPMENT
+                   - SHIPPED
+                   - COMPLETED
+                status_message:
+                  maxLength: 50
+                  minLength: 5
+                  type: string
+                  description: A message describing the status
+                  nullable: true
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /invoices/search:
+    get:
+      tags:
+       - Invoice
+      summary: Retrieve specific invoices matching the search query
+      description: "Search is performed on the `invoice_number`, `billing_street` and `status` column"
+      operationId: searchInvoice
+      parameters:
+       -
+        name: q
+        in: query
+        description: A query phrase
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+       -
+        name: page
+        in: query
+        description: pagenumber
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                title: PaginatedInvoiceResponse
+                type: object
+                properties:
+                  current_page:
+                    type: integer
+                    example: 1
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/InvoiceResponse"
+                  from:
+                    type: integer
+                    example: 1
+                  last_page:
+                    type: integer
+                    example: 1
+                  per_page:
+                    type: integer
+                    example: 1
+                  to:
+                    type: integer
+                    example: 1
+                  total:
+                    type: integer
+                    example: 1
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /payment/check:
+    post:
+      tags:
+       - Payment
+      summary: Check payment
+      description: Check payment
+      operationId: checkPayment
+      requestBody:
+        description: Payment request object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentRequest"
+        required: true
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                title: PaymentResponse
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Success status
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /products:
+    get:
+      tags:
+       - Product
+      summary: Retrieve all products
+      description: Retrieve all products
+      operationId: getProducts
+      parameters:
+       -
+        name: by_brand
+        in: query
+        description: Id of brand
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+       -
+        name: by_category
+        in: query
+        description: Id of category
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+       -
+        name: is_rental
+        in: query
+        description: Indication if we like to retrieve rentals products
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+       -
+        name: eco_friendly
+        in: query
+        description: Filter for eco-friendly products (CO₂ rating A or B)
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+       -
+        name: between
+        in: query
+        description: "Can be used to define a price range, like: price,10,30"
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+       -
+        name: sort
+        in: query
+        description: "Can be used to sort based on specific column value, like: name,asc OR name,desc OR price,asc OR price,desc OR co2_rating,asc OR co2_rating,desc"
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+       -
+        name: page
+        in: query
+        description: pagenumber
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                title: PaginatedProductResponse
+                type: object
+                properties:
+                  current_page:
+                    type: integer
+                    example: 1
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProductResponse"
+                  from:
+                    type: integer
+                    example: 1
+                  last_page:
+                    type: integer
+                    example: 1
+                  per_page:
+                    type: integer
+                    example: 1
+                  to:
+                    type: integer
+                    example: 1
+                  total:
+                    type: integer
+                    example: 1
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    post:
+      tags:
+       - Product
+      summary: Store new product
+      description: Store new product
+      operationId: storeProduct
+      requestBody:
+        description: Product request object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductRequest"
+        required: true
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /products/{productId}:
+    get:
+      tags:
+       - Product
+      summary: Retrieve specific product
+      description: Retrieve specific product
+      operationId: getProduct
+      parameters:
+       -
+        name: productId
+        in: path
+        description: The productId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    put:
+      tags:
+       - Product
+      summary: Update specific product
+      description: Update specific product
+      operationId: updateProduct
+      parameters:
+       -
+        name: productId
+        in: path
+        description: The productId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        description: Product request object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductRequest"
+        required: true
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    delete:
+      tags:
+       - Product
+      summary: Delete specific product
+      description: Admin role is required to delete a specific product
+      operationId: deleteProduct
+      parameters:
+       -
+        name: productId
+        in: path
+        description: The productId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Successful operation
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    patch:
+      tags:
+       - Product
+      summary: Partially update specific product
+      description: Partially update specific product
+      operationId: patchProduct
+      parameters:
+       -
+        name: productId
+        in: path
+        description: The productId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        description: Partial product request object. Only fields to be updated should be included.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductRequest"
+        required: true
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /products/{productId}/related:
+    get:
+      tags:
+       - Product
+      summary: Retrieve related products
+      description: Retrieve related products
+      operationId: getRelatedProducts
+      parameters:
+       -
+        name: productId
+        in: path
+        description: The productId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /products/search:
+    get:
+      tags:
+       - Product
+      summary: Retrieve specific products matching the search query
+      description: Search is performed on the `name` column
+      operationId: searchProduct
+      parameters:
+       -
+        name: q
+        in: query
+        description: A query phrase
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+       -
+        name: page
+        in: query
+        description: pagenumber
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                title: PaginatedProductResponse
+                type: object
+                properties:
+                  current_page:
+                    type: integer
+                    example: 1
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProductResponse"
+                  from:
+                    type: integer
+                    example: 1
+                  last_page:
+                    type: integer
+                    example: 1
+                  per_page:
+                    type: integer
+                    example: 1
+                  to:
+                    type: integer
+                    example: 1
+                  total:
+                    type: integer
+                    example: 1
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /reports/total-sales-per-country:
+    get:
+      tags:
+       - Report
+      summary: Get total sales per country
+      description: '`Admin` role is required to get total sales per country'
+      operationId: getTotalSalesPerCountry
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  title: TotalSalesPerCountryResponse
+                  type: object
+                  properties:
+                    billing_country:
+                      type: string
+                      description: The billing country
+                      example: The Netherlands
+                    total_sales:
+                      type: string
+                      description: Total sales in the country
+                      example: "1234"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /reports/top10-purchased-products:
+    get:
+      tags:
+       - Report
+      summary: Get top 10 purchased products
+      description: '`Admin` role is required to get top 10 purchased products'
+      operationId: getTopPurchasedProducts
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  title: TopPurchasedProductsResponse
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      description: Name of the product
+                      example: item
+                    count:
+                      type: integer
+                      description: Number of times the product was purchased
+                      example: 2
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /reports/top10-best-selling-categories:
+    get:
+      tags:
+       - Report
+      summary: Get top 10 best selling categories
+      description: '`Admin` role is required to get top 10 best selling categories'
+      operationId: getBestSellingCategories
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  title: TopSellingCategoriesResponse
+                  type: object
+                  properties:
+                    category_name:
+                      type: string
+                      description: Name of the category
+                      example: item
+                    total_earned:
+                      type: string
+                      description: Total earnings from this category
+                      example: "1234"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /reports/total-sales-of-years:
+    get:
+      tags:
+       - Report
+      summary: Get total sales of years
+      description: '`Admin` role is required to get total sales of years'
+      operationId: getTotalSalesOfYears
+      parameters:
+       -
+        name: years
+        in: query
+        description: Number of years
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: integer
+          default: 1
+        example: 2
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  title: TotalSalesOfYearsResponse
+                  type: object
+                  properties:
+                    year:
+                      type: integer
+                      description: Year of the sales data
+                      example: 2022
+                    total:
+                      type: number
+                      description: Total sales for the given year
+                      example: 2
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /reports/average-sales-per-month:
+    get:
+      tags:
+       - Report
+      summary: Get average sales per month
+      description: '`Admin` role is required to get average sales per month'
+      operationId: getAverageSalesPerMonth
+      parameters:
+       -
+        name: year
+        in: query
+        description: Specific year
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: integer
+          default: 2022
+        example: 2021
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  title: AverageSalesPerMonthResponse
+                  type: object
+                  properties:
+                    month:
+                      type: integer
+                      description: "Month number (1 for January, 12 for December)"
+                      example: 1
+                    average:
+                      type: number
+                      description: Average number of sales for the month
+                      example: 2
+                    amount:
+                      type: number
+                      description: Average sales amount for the month
+                      format: float
+                      example: 9.99
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /reports/average-sales-per-week:
+    get:
+      tags:
+       - Report
+      summary: Get average sales per week
+      description: '`Admin` role is required to get average sales per week'
+      operationId: getAverageSalesPerWeek
+      parameters:
+       -
+        name: year
+        in: query
+        description: Specific year
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: integer
+          default: 2022
+        example: 2021
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  title: AverageSalesPerWeekResponse
+                  type: object
+                  properties:
+                    week:
+                      type: integer
+                      description: Week number of the year (1-52)
+                      example: 1
+                    average:
+                      type: number
+                      description: Average number of sales for the week
+                      example: 2
+                    amount:
+                      type: number
+                      description: Average sales amount for the week
+                      format: number
+                      example: 9.99
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /reports/customers-by-country:
+    get:
+      tags:
+       - Report
+      summary: Get customers by country
+      description: '`Admin` role is required to get customers by country'
+      operationId: getCustomersByCountry
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  title: CustomersByCountryResponse
+                  type: object
+                  properties:
+                    amount:
+                      type: integer
+                      description: Amount of customers
+                      example: 1
+                    country:
+                      type: string
+                      description: Country
+                      example: The Netherlands
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /totp/setup:
+    post:
+      tags:
+       - TOTP
+      summary: Setup TOTP for the authenticated user
+      description: Generates a TOTP secret and QR code URL for the user to scan and enables TOTP setup.
+      operationId: 6d47e2cfc2f1079261c4c93ce0007ae0
+      responses:
+        "200":
+          description: TOTP setup successful
+          content:
+            application/json:
+              schema:
+                title: TOTPSetupResponse
+                type: object
+                properties:
+                  secret:
+                    type: string
+                    description: The TOTP secret key
+                  qrCodeUrl:
+                    type: string
+                    description: URL for the QR code
+        "400":
+          description: TOTP already enabled or another error
+          content:
+            application/json:
+              schema:
+                title: TOTPErrorResponse
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /totp/verify:
+    post:
+      tags:
+       - TOTP
+      summary: Verify TOTP code for the authenticated user
+      description: Validates the submitted TOTP code and enables TOTP if verification is successful.
+      operationId: 0a819cdd91a22a616d7ddbb08330394a
+      requestBody:
+        content:
+          application/json:
+            schema:
+              title: TOTPVerifyRequest
+              type: object
+              properties:
+                access_token:
+                  type: string
+                  description: The user's access token
+                totp:
+                  type: string
+                  description: The 6-digit TOTP code
+                  example: "123456"
+        required: true
+      responses:
+        "200":
+          description: TOTP verified successfully
+          content:
+            application/json:
+              schema:
+                title: TOTPVerifyResponse
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Success message
+                    example: TOTP enabled successfully
+        "400":
+          description: Invalid TOTP code or another error
+          content:
+            application/json:
+              schema:
+                title: TOTPErrorResponse
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message
+                    example: Invalid TOTP
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /users:
+    get:
+      tags:
+       - User
+      summary: Retrieve all users
+      description: Retrieve all users
+      operationId: getUsers
+      parameters:
+       -
+        name: page
+        in: query
+        description: pagenumber
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                title: PaginatedUserResponse
+                type: object
+                properties:
+                  current_page:
+                    type: integer
+                    example: 1
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UserResponse"
+                  from:
+                    type: integer
+                    example: 1
+                  last_page:
+                    type: integer
+                    example: 1
+                  per_page:
+                    type: integer
+                    example: 1
+                  to:
+                    type: integer
+                    example: 1
+                  total:
+                    type: integer
+                    example: 1
+        "400":
+          description: Bad Request
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /users/register:
+    post:
+      tags:
+       - User
+      summary: Store new user
+      description: Store new user
+      operationId: storeUser
+      requestBody:
+        description: User request object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRequest"
+        required: true
+      responses:
+        "201":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          description: Bad Request
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          description: Forbidden
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /users/login:
+    post:
+      tags:
+       - User
+      summary: Login customer
+      operationId: login-customer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              title: AccountRequest
+              required:
+               - email
+               - password
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: customer@practicesoftwaretesting.com
+                password:
+                  type: string
+                  example: welcome01
+      responses:
+        "200":
+          description: A token
+          content:
+            application/json:
+              schema:
+                title: TokenResponse
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    description: ""
+                    example: super-secret-token
+                  token_type:
+                    type: string
+                    description: ""
+                    example: Bearer
+                  expires_in:
+                    type: number
+                    description: ""
+                    example: 120
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /users/forgot-password:
+    post:
+      tags:
+       - User
+      summary: Request a new password
+      description: "Request a new password, it actually sets the password to `welcome02`"
+      operationId: forgotPassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              title: ForgotPasswordRequest
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: customer@practicesoftwaretesting.com
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "400":
+          description: Bad Request
+        "403":
+          description: Forbidden
+      security:
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /users/change-password:
+    post:
+      tags:
+       - User
+      summary: Change password
+      description: Change the existing password to a new one
+      operationId: changePassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              title: ChangePasswordRequest
+              type: object
+              properties:
+                current_password:
+                  type: string
+                  example: welcome01
+                new_password:
+                  type: string
+                  example: welcome02
+                new_password_confirmation:
+                  type: string
+                  example: welcome02
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /users/me:
+    get:
+      tags:
+       - User
+      summary: Retrieve current customer info
+      operationId: get-current-customer-info
+      responses:
+        "200":
+          description: A customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /users/logout:
+    get:
+      tags:
+       - User
+      summary: Logout - invalidate the token
+      description: Logout - invalidate the token
+      operationId: logOut
+      responses:
+        "200":
+          description: Result of logout
+          content:
+            application/json:
+              schema:
+                title: LogoutResponse
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: ""
+                    example: Successfully logged out
+        "400":
+          description: Bad Request
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /users/refresh:
+    get:
+      tags:
+       - User
+      summary: Retrieve a refreshed token
+      description: Retrieve a refreshed token
+      operationId: refreshToken
+      responses:
+        "200":
+          description: A token
+          content:
+            application/json:
+              schema:
+                title: TokenResponse
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    description: ""
+                    example: super-secret-token
+                  token_type:
+                    type: string
+                    description: ""
+                    example: Bearer
+                  expires_in:
+                    type: number
+                    description: ""
+                    example: 120
+        "400":
+          description: Bad Request
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /users/{userId}:
+    get:
+      tags:
+       - User
+      summary: Retrieve specific user
+      description: Retrieve specific user
+      operationId: getUser
+      parameters:
+       -
+        name: userId
+        in: path
+        description: The userId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: 1
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    put:
+      tags:
+       - User
+      summary: Update specific user
+      description: Update specific user
+      operationId: updateUser
+      parameters:
+       -
+        name: userId
+        in: path
+        description: The userId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        description: User request object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRequest"
+        required: true
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+        "403":
+          description: Forbidden
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    delete:
+      tags:
+       - User
+      summary: Delete specific user
+      description: Admin role is required to delete a specific user
+      operationId: deleteUser
+      parameters:
+       -
+        name: userId
+        in: path
+        description: The userId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Successful operation
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "403":
+          description: Forbidden
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+    patch:
+      tags:
+       - User
+      summary: Partially update specific user
+      description: Partially update specific user
+      operationId: patchUser
+      parameters:
+       -
+        name: userId
+        in: path
+        description: The userId parameter in path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        description: Partial user request object. Only fields to be updated should be included.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRequest"
+        required: true
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowedResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntityResponse"
+        "403":
+          description: Forbidden
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+  /users/search:
+    get:
+      tags:
+       - User
+      summary: Retrieve specific users matching the search query
+      description: "Search is performed on the `first_name`, `last_name`, or `city` column"
+      operationId: searchUser
+      parameters:
+       -
+        name: q
+        in: query
+        description: A query phrase
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+       -
+        name: page
+        in: query
+        description: pagenumber
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "404":
+          $ref: "#/components/responses/ItemNotFoundResponse"
+      security:
+       -
+        apiAuth: []
+       -
+        default: []
+      x-auth-type: Application & Application User
+      x-throttling-tier: Unlimited
+      x-wso2-application-security:
+        security-types:
+         - oauth2
+        optional: false
+components:
+  schemas:
+    BrandRequest:
+      title: BrandRequest
+      type: object
+      properties:
+        name:
+          type: string
+          description: ""
+          example: new brand
+        slug:
+          type: string
+          description: "URL part, words separated by hyphen"
+          example: new-brand
+    BrandResponse:
+      title: BrandResponse
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: new brand
+        slug:
+          type: string
+          example: new-brand
+    CartItemResponse:
+      title: CartResponse
+      type: object
+      properties:
+        id:
+          type: string
+    CartResponse:
+      title: CartResponse
+      type: object
+      properties:
+        id:
+          type: string
+    CategoryRequest:
+      title: CategoryRequest
+      type: object
+      properties:
+        name:
+          type: string
+          description: ""
+          example: new category
+        slug:
+          type: string
+          description: "URL part, words separated by hyphen"
+          example: new-category
+    CategoryTreeResponse:
+      title: CategoryTreeResponse
+      type: object
+      properties:
+        id:
+          type: string
+        parent_id:
+          type: string
+        name:
+          type: string
+          example: new category
+        slug:
+          type: string
+          example: new-category
+        sub_categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryResponse"
+    CategoryResponse:
+      title: CategoryResponse
+      type: object
+      properties:
+        id:
+          type: string
+        parent_id:
+          type: string
+        name:
+          type: string
+          example: new category
+        slug:
+          type: string
+          example: new-category
+        sub_categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryResponse"
+    ContactReplyResponse:
+      title: ContactReplyResponse
+      type: object
+      properties:
+        message:
+          type: string
+          description: ""
+          example: Reply message
+        id:
+          type: string
+          description: ""
+          example: "1"
+        created_at:
+          type: string
+          example: 2022-08-01 08:24:56
+        user:
+          $ref: "#/components/schemas/UserResponse"
+    ContactRequest:
+      title: ContactRequest
+      required:
+       - name
+      type: object
+      properties:
+        name:
+          type: string
+          description: "If set, Authorization header is required"
+          example: John Doe
+        email:
+          type: string
+          description: ""
+          example: john@doe.example
+        subject:
+          type: string
+          description: ""
+          example: website
+        message:
+          type: string
+          description: ""
+          example: Something is wrong with the website.
+    ContactRequestAuthenticated:
+      title: ContactRequestAuthenticated
+      required:
+       - name
+      type: object
+      properties:
+        name:
+          type: string
+          description: "If set, Authorization header is required"
+          example: John Doe
+        subject:
+          type: string
+          description: ""
+          example: website
+        message:
+          type: string
+          description: ""
+          example: Something is wrong with the website.
+    ContactResponse:
+      title: ContactResponse
+      type: object
+      properties:
+        name:
+          type: string
+          description: ""
+          example: John Doe
+        email:
+          type: string
+          description: ""
+          example: john@doe.example
+        subject:
+          type: string
+          description: ""
+          example: website
+        message:
+          type: string
+          description: ""
+          example: Something is wrong with the website.
+        status:
+          type: string
+          description: ""
+          example: NEW
+        id:
+          type: string
+          description: ""
+          example: "1"
+        created_at:
+          type: string
+          example: 2022-08-01 08:24:56
+    ContactResponseAuthenticated:
+      title: ContactResponseAuthenticated
+      type: object
+      properties:
+        user_id:
+          type: string
+          description: ""
+          example: John Doe
+        name:
+          type: string
+          description: ""
+          example: John Doe
+        email:
+          type: string
+          description: ""
+          example: john@doe.example
+        subject:
+          type: string
+          description: ""
+          example: website
+        message:
+          type: string
+          description: ""
+          example: Something is wrong with the website.
+        status:
+          type: string
+          description: ""
+          example: NEW
+        id:
+          type: string
+          description: ""
+          example: "1"
+        created_at:
+          type: string
+          example: 2022-08-01 08:24:56
+    ContactResponseFull:
+      title: ContactResponseFull
+      type: object
+      properties:
+        id:
+          type: string
+          example: 01jnx2z1a6s8qx9z3hhqy3rdyp
+        user_id:
+          type: string
+          example: 01JNX24JV5Q3QFDB2ZPTRBMFN8
+        name:
+          type: string
+          example: null
+        email:
+          type: string
+          example: null
+        subject:
+          type: string
+          example: test-subject
+        message:
+          type: string
+          example: This is a test contact message.
+        status:
+          type: string
+          example: IN_PROGRESS
+        created_at:
+          type: string
+          example: 2025-03-09 09:14:49
+        user:
+          $ref: "#/components/schemas/UserResponse"
+        replies:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactReplyResponse"
+      description: A detailed contact message response with user and replies
+    DownloadResponse:
+      title: DownloadResponse
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        filename:
+          type: string
+    FavoriteRequest:
+      title: FavoriteRequest
+      type: object
+      properties:
+        product_id:
+          type: string
+    FavoriteResponse:
+      title: FavoriteResponse
+      type: object
+      properties:
+        product_id:
+          type: string
+          example: "1234"
+        user_id:
+          type: string
+          example: "1234"
+        id:
+          type: string
+          example: "1234"
+    FavoriteWithProductResponse:
+      title: FavoriteResponse
+      type: object
+      properties:
+        product_id:
+          type: string
+          example: "1234"
+        user_id:
+          type: string
+          example: "1234"
+        id:
+          type: string
+          example: "1234"
+        product:
+          $ref: "#/components/schemas/ProductResponse"
+    InvoiceRequest:
+      required:
+       - billing_city
+       - billing_country
+       - billing_postal_code
+       - billing_state
+       - billing_street
+       - cart_id
+       - payment_details
+       - payment_method
+      type: object
+      properties:
+        billing_street:
+          type: string
+        billing_city:
+          type: string
+        billing_state:
+          type: string
+        billing_country:
+          type: string
+        billing_postal_code:
+          type: string
+        payment_method:
+          type: string
+          enum:
+           - bank-transfer
+           - cash-on-delivery
+           - credit-card
+           - buy-now-pay-later
+           - gift-card
+        cart_id:
+          type: string
+        payment_details:
+          type: object
+          oneOf:
+           -
+            $ref: "#/components/schemas/BankTransferDetails"
+           -
+            $ref: "#/components/schemas/CreditCardDetails"
+           -
+            $ref: "#/components/schemas/GiftCardDetails"
+           -
+            $ref: "#/components/schemas/BuyNowPayLaterDetails"
+           -
+            title: CashOnDeliveryDetails
+            type: object
+    PaymentRequest:
+      title: PaymentRequest
+      type: object
+      properties:
+        payment_method:
+          type: string
+          enum:
+           - bank-transfer
+           - cash-on-delivery
+           - credit-card
+           - buy-now-pay-later
+           - gift-card
+        payment_details:
+          type: object
+          oneOf:
+           -
+            $ref: "#/components/schemas/BankTransferDetails"
+           -
+            $ref: "#/components/schemas/CreditCardDetails"
+           -
+            $ref: "#/components/schemas/GiftCardDetails"
+           -
+            $ref: "#/components/schemas/BuyNowPayLaterDetails"
+           -
+            title: CashOnDeliveryDetails
+            type: object
+    CreditCardDetails:
+      type: object
+      properties:
+        credit_card_number:
+          type: string
+          nullable: false
+        expiration_date:
+          type: string
+          nullable: false
+        cvv:
+          type: string
+          nullable: false
+        card_holder_name:
+          type: string
+          nullable: false
+    GiftCardDetails:
+      type: object
+      properties:
+        gift_card_number:
+          type: string
+          nullable: false
+        validation_code:
+          type: string
+          nullable: false
+    CashOnDeliveryDetails:
+      type: object
+      description: Placeholder for Cash on Delivery payment method
+    BankTransferDetails:
+      type: object
+      properties:
+        bank_name:
+          type: string
+          nullable: false
+        account_name:
+          type: string
+          nullable: false
+        account_number:
+          type: string
+          nullable: false
+    BuyNowPayLaterDetails:
+      type: object
+      properties:
+        monthly_installments:
+          type: string
+          nullable: false
+    InvoiceResponse:
+      title: InvoiceResponse
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        user_id:
+          type: string
+          example: "1"
+        invoice_date:
+          type: string
+          example: 2022-10-20 09:49:45
+        invoice_number:
+          type: string
+          example: INV-2022000002
+        billing_street:
+          type: string
+        billing_city:
+          type: string
+        billing_country:
+          type: string
+        billing_state:
+          type: string
+        billing_postal_code:
+          type: string
+        additional_discount_percentage:
+          type: number
+        additional_discount_amount:
+          type: number
+        subtotal:
+          type: number
+        total:
+          type: number
+        status:
+          type: string
+          example: COMPLETED
+        status_message:
+          type: string
+          example: ""
+        invoicelines:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLineResponse"
+        created_at:
+          type: string
+          example: 2022-08-01 08:24:56
+    InvoiceLineResponse:
+      title: InvoiceLineResponse
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        invoice_id:
+          type: string
+          example: "1"
+        product_id:
+          type: string
+          example: "1"
+        unit_price:
+          type: number
+        discount_percentage:
+          type: number
+        discounted_price:
+          type: number
+        quantity:
+          type: integer
+        product:
+          $ref: "#/components/schemas/ProductResponse"
+    ProductRequest:
+      title: ProductRequest
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          example: 1.99
+        category_id:
+          type: string
+          example: "1"
+        brand_id:
+          type: string
+          example: "1"
+        product_image_id:
+          type: string
+          example: "1"
+        is_location_offer:
+          type: boolean
+          example: false
+        is_rental:
+          type: boolean
+          example: false
+        co2_rating:
+          type: string
+          example: A
+    ProductResponse:
+      title: ProductResponse
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        name:
+          type: string
+          example: new brand
+        description:
+          type: string
+          example: Lorum ipsum
+        price:
+          type: number
+          example: 9.99
+        is_location_offer:
+          type: boolean
+          example: false
+        is_rental:
+          type: boolean
+          example: false
+        in_stock:
+          type: boolean
+          example: false
+        co2_rating:
+          type: string
+          example: A
+        is_eco_friendly:
+          type: boolean
+          example: false
+        brand:
+          $ref: "#/components/schemas/BrandResponse"
+        category:
+          $ref: "#/components/schemas/CategoryResponse"
+        product_image:
+          $ref: "#/components/schemas/ImageResponse"
+    ImageResponse:
+      title: ImageResponse
+      type: object
+      properties:
+        by_name:
+          type: string
+        by_url:
+          type: string
+        source_name:
+          type: string
+        source_url:
+          type: string
+        file_name:
+          type: string
+        title:
+          type: string
+        id:
+          type: string
+    UserRequest:
+      title: UserRequest
+      required:
+       - email
+       - first_name
+       - last_name
+       - password
+      type: object
+      properties:
+        first_name:
+          maxLength: 40
+          type: string
+          example: John
+        last_name:
+          maxLength: 20
+          type: string
+          example: Doe
+        address:
+          type: object
+          properties:
+            street:
+              maxLength: 70
+              type: string
+              example: Street 1
+            city:
+              maxLength: 40
+              type: string
+              example: City
+            state:
+              maxLength: 40
+              type: string
+              example: State
+            country:
+              maxLength: 40
+              type: string
+              example: Country
+            postal_code:
+              maxLength: 10
+              type: string
+              example: 1234AA
+        phone:
+          maxLength: 24
+          type: string
+          example: "0987654321"
+        dob:
+          type: string
+          description: Must be a valid date between 18 and 75 years ago
+          format: date
+          example: 1970-01-01
+        password:
+          minLength: 8
+          type: string
+          description: "Must include uppercase, lowercase, number, and symbol"
+          format: password
+          example: SuperSecure@123
+        email:
+          maxLength: 256
+          type: string
+          format: email
+          example: john@doe.example
+    UserResponse:
+      title: UserResponse
+      type: object
+      properties:
+        first_name:
+          type: string
+          example: John
+        last_name:
+          type: string
+          example: Doe
+        address:
+          type: object
+          properties:
+            street:
+              type: string
+              example: Street 1
+            city:
+              type: string
+              example: City
+            state:
+              type: string
+              example: State
+            country:
+              type: string
+              example: Country
+            postal_code:
+              type: string
+              example: 1234AA
+        phone:
+          type: string
+          example: "0987654321"
+        dob:
+          type: string
+          example: 1970-01-01
+        email:
+          type: string
+          example: john@doe.example
+        id:
+          type: string
+        provider:
+          type: string
+        totp_enabled:
+          type: boolean
+        enabled:
+          type: boolean
+        failed_login_attempts:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          example: 2022-08-01 08:24:56
+  responses:
+    UpdateResponse:
+      description: Result of the update
+      content:
+        application/json:
+          schema:
+            title: UpdateResponse
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: true
+    UnauthorizedResponse:
+      description: Returns when user is not authenticated
+      content:
+        application/json:
+          schema:
+            title: UnauthorizedResponse
+            type: object
+            properties:
+              message:
+                type: string
+                example: Unauthorized
+    ItemNotFoundResponse:
+      description: Returns when the resource is not found
+      content:
+        application/json:
+          schema:
+            title: ItemNotFoundResponse
+            type: object
+            properties:
+              message:
+                type: string
+                example: Requested item not found
+    ResourceNotFoundResponse:
+      description: Returns when the resource is not found
+      content:
+        application/json:
+          schema:
+            title: ResourceNotFoundResponse
+            type: object
+            properties:
+              message:
+                type: string
+                example: Resource not found
+    ConflictResponse:
+      description: Returns when the entity is used elsewhere
+    MethodNotAllowedResponse:
+      description: Returns when the method is not allowed for the requested route
+      content:
+        application/json:
+          schema:
+            title: MethodNotAllowedResponse
+            type: object
+            properties:
+              message:
+                type: string
+                example: Method is not allowed for the requested route
+    UnprocessableEntityResponse:
+      description: Returns when the server was not able to process the content
+  securitySchemes:
+    apiAuth:
+      type: http
+      description: Login with email and password to get the authentication token
+      scheme: bearer
+      bearerFormat: JWT
+    default:
+      type: oauth2
+      flows:
+        implicit:
+          authorizationUrl: https://test.com
+          scopes: {}
+x-wso2-auth-header: Authorization
+x-wso2-api-key-header: ApiKey
+x-wso2-cors:
+  corsConfigurationEnabled: false
+  accessControlAllowOrigins:
+   - '*'
+  accessControlAllowCredentials: false
+  accessControlAllowHeaders:
+   - authorization
+   - Access-Control-Allow-Origin
+   - Content-Type
+   - SOAPAction
+   - apikey
+   - Internal-Key
+  accessControlAllowMethods:
+   - GET
+   - PUT
+   - POST
+   - DELETE
+   - PATCH
+   - OPTIONS
+x-wso2-production-endpoints:
+  urls:
+   - https://api.practicesoftwaretesting.com
+  type: http
+x-wso2-sandbox-endpoints:
+  urls:
+   - https://api.practicesoftwaretesting.com
+  type: http
+x-wso2-basePath: /toolshopapi/5.0.0
+x-wso2-transports:
+ - http
+ - https
+x-wso2-application-security:
+  security-types:
+   - oauth2
+  optional: false
+x-wso2-response-cache:
+  enabled: false
+  cacheTimeoutInSeconds: 300

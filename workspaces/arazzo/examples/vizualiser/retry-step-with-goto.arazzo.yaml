@@ -1,0 +1,55 @@
+arazzo: 1.0.1
+info:
+  title: Deep Retry Loop
+  version: 1.0.0
+sourceDescriptions:
+  - name: inventory-api
+    url: https://api.inventory.com/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: retry-stepback-test
+    summary: Tests a retry action that jumps back multiple steps.
+    steps:
+      # Step 1
+      - stepId: validate-order
+        operationId: checkOrderFormat
+
+      # Step 2: The Target of the jump back
+      - stepId: reserve-inventory
+        operationId: lockItems
+        description: "Locks items in DB"
+
+      # Step 3
+      - stepId: calculate-tax
+        operationId: getTaxRate
+
+      # Step 4
+      - stepId: check-fraud
+        operationId: fraudScore
+
+      # Step 5: The Failure Point
+      - stepId: confirm-stock
+        operationId: finalStockCheck
+        onFailure:
+          # The Deep Step-Back Retry
+          # Logic: If 409 (Lock Error), go back to Step 2 to re-lock items.
+          - name: relock-inventory
+            type: retry
+            stepId: reserve-inventory  # <--- Jumps back to Step 2
+            retryLimit: 2
+            criteria:
+              - condition: "$statusCode == 409" 
+
+          # Fallback if retry limit reached or other error
+          - name: cancel-order
+            type: goto
+            stepId: notify-failure
+
+      # Step 6: Success Path
+      - stepId: ship-items
+        operationId: createShipment
+
+      # Step 7: Failure Target
+      - stepId: notify-failure
+        operationId: sendEmail

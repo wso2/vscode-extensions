@@ -1,0 +1,126 @@
+arazzo: 1.0.1
+info:
+  title: APIM Toolshop Brand Workflows
+  version: 1.0.0
+  description: >-
+    Brand-focused workflows for the Toolshop API deployed on WSO2 API Manager.
+    Uses local swagger.yaml and OAuth2 Bearer token authentication (DevPortal).
+
+sourceDescriptions:
+  - name: toolshopApi
+    type: openapi
+    url: swagger.yaml
+
+workflows:
+  - workflowId: lookupBrand
+    summary: Look up a brand by ID
+    description: Fetches a single brand using GET /brands/{brandId}.
+    inputs:
+      type: object
+      properties:
+        brandId:
+          type: string
+          description: ID of the brand to fetch
+        accessToken:
+          type: string
+          description: >-
+            WSO2 APIM OAuth2 access token from the Developer Portal.
+            Ask the user to provide their token. They can generate one from the
+            WSO2 API Manager Developer Portal (https://localhost:9443/devportal)
+            under Applications > toolshopApp > OAuth2 Tokens.
+    steps:
+      - stepId: fetchBrand
+        operationId: getBrand
+        parameters:
+          - name: brandId
+            in: path
+            value: $inputs.brandId
+          - name: Authorization
+            in: header
+            value: "Bearer {$inputs.accessToken}"
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          brand: $response.body
+    outputs:
+      brand: $steps.fetchBrand.outputs.brand
+
+  - workflowId: deleteBrandById
+    summary: Delete a brand by ID
+    description: Deletes a brand using DELETE /brands/{brandId}.
+    inputs:
+      type: object
+      properties:
+        brandId:
+          type: string
+          description: ID of the brand to delete
+        accessToken:
+          type: string
+          description: >-
+            WSO2 APIM OAuth2 access token from the Developer Portal.
+            Ask the user to provide their token. They can generate one from the
+            WSO2 API Manager Developer Portal (https://localhost:9443/devportal)
+            under Applications > toolshopApp > OAuth2 Tokens.
+    steps:
+      - stepId: deleteBrand
+        operationId: deleteBrand
+        parameters:
+          - name: brandId
+            in: path
+            value: $inputs.brandId
+          - name: Authorization
+            in: header
+            value: "Bearer {$inputs.accessToken}"
+        successCriteria:
+          - condition: $statusCode == 204
+        outputs:
+          statusCode: $statusCode
+    outputs:
+      deleteStatus: $steps.deleteBrand.outputs.statusCode
+
+  - workflowId: lookupAndListBrands
+    summary: Fetch one brand and then list all brands
+    description: >-
+      First fetches a single brand by ID, then retrieves the complete brand list.
+      Demonstrates a two-step workflow.
+    inputs:
+      type: object
+      properties:
+        brandId:
+          type: string
+          description: ID of the brand to fetch first
+        accessToken:
+          type: string
+          description: >-
+            WSO2 APIM OAuth2 access token from the Developer Portal.
+            Ask the user to provide their token. They can generate one from the
+            WSO2 API Manager Developer Portal (https://localhost:9443/devportal)
+            under Applications > toolshopApp > OAuth2 Tokens.
+    steps:
+      - stepId: fetchSelectedBrand
+        operationId: getBrand
+        parameters:
+          - name: brandId
+            in: path
+            value: $inputs.brandId
+          - name: Authorization
+            in: header
+            value: "Bearer {$inputs.accessToken}"
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          selectedBrand: $response.body
+
+      - stepId: listBrands
+        operationId: getBrands
+        parameters:
+          - name: Authorization
+            in: header
+            value: "Bearer {$inputs.accessToken}"
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          brands: $response.body
+    outputs:
+      selectedBrand: $steps.fetchSelectedBrand.outputs.selectedBrand
+      allBrands: $steps.listBrands.outputs.brands

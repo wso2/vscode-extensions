@@ -24,6 +24,7 @@ import { StateMachine, openView } from './stateMachine';
 import { extension } from './Context';
 import { activate as activateHistory } from './history';
 import { activateVisualizer } from './visualizer/activate';
+import { activateMCPServer } from './mcp';
 import { RPCLayer } from './RPCLayer';
 import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/arazzo-designer-core';
 
@@ -48,6 +49,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	RPCLayer.init();
 	activateHistory();
 	activateVisualizer(context);
+	activateMCPServer(context);
 	StateMachine.initialize();
 
 	// Prompt user to enable Arazzo file icon theme (one-time)
