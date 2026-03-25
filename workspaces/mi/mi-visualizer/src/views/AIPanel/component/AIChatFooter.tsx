@@ -17,7 +17,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { FlexRow, Footer, StyledTransParentButton, FloatingInputContainer } from "../styles";
+import { FlexRow, Footer, FloatingInputContainer } from "../styles";
 import { Codicon } from "@wso2/ui-toolkit";
 import { useMICopilotContext, AgentMode } from "./MICopilotContext";
 import { handleFileAttach, convertChatHistoryToModelMessages } from "../utils";
@@ -381,7 +381,7 @@ function calculateTodoStatus(todos: TodoItem[]): 'active' | 'completed' | 'pendi
  * Footer component containing chat input and controls
  */
 const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) => {
-    const SHOW_THINKING_TOGGLE = false;
+    // Thinking toggle moved to SettingsPanel
     const {
         rpcClient,
         messages,
@@ -418,7 +418,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         agentMode,
         setAgentMode,
         isThinkingEnabled,
-        setIsThinkingEnabled,
         isMemoryEnabled,
         modelSettings,
     } = useMICopilotContext();
@@ -432,8 +431,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const isDarkMode = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 
     // Mode switcher state
-    const [showModeMenu, setShowModeMenu] = useState(false);
-    const modeMenuRef = useRef<HTMLDivElement>(null);
+    // Mode switcher is now a pill group (no dropdown menu needed)
     const [isWebAccessEnabled, setIsWebAccessEnabled] = useState<boolean>(() => {
         try {
             return localStorage.getItem(WEB_ACCESS_PREFERENCE_KEY) === 'true';
@@ -453,6 +451,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     // Context usage tracking (always visible)
     const CONTEXT_TOKEN_THRESHOLD = 200000;
+    const MANUAL_COMPACT_VISIBLE_USAGE_PERCENT = 50;
     const contextUsagePercent = Math.min(
         Math.round((lastTotalInputTokens / CONTEXT_TOKEN_THRESHOLD) * 100),
         100
@@ -1594,22 +1593,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setShellFocusedOption(0);
     }, [pendingPlanApproval?.approvalId]);
 
-    // Close mode menu on click outside
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (modeMenuRef.current && !modeMenuRef.current.contains(e.target as Node)) {
-                setShowModeMenu(false);
-            }
-        };
-        if (showModeMenu) {
-            document.addEventListener("mousedown", handleClickOutside);
-        }
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [showModeMenu]);
-
     useEffect(() => {
         if (backendRequestTriggered) {
-            setShowModeMenu(false);
             setMentionContext(null);
             setMentionSuggestions([]);
             setActiveMentionIndex(0);
@@ -2707,137 +2692,44 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     </FlexRow>
                 )}
 
-                <div style={{ 
-                    display: "flex", 
-                    justifyContent: "space-between", 
-                    alignItems: "center", 
-                    padding: "4px 8px",
-                    marginTop: "4px"
-                }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <div ref={modeMenuRef} style={{ position: "relative" }}>
-                            <FooterTooltip
-                                content="Switch Ask, Plan, and Edit modes"
-                                align="start"
-                            >
-                                <button
-                                    onClick={() => setShowModeMenu(!showModeMenu)}
-                                    disabled={isUsageExceeded || backendRequestTriggered}
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "4px",
-                                        padding: "2px 6px",
-                                        fontSize: "11px",
-                                        backgroundColor: "var(--vscode-badge-background)",
-                                        color: "var(--vscode-badge-foreground)",
-                                        border: "none",
-                                        borderRadius: "4px",
-                                        cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
-                                        opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 0.8
-                                    }}
-                                >
-                                    <Codicon name={getModeIcon(agentMode)} />
-                                    {getModeLabel(agentMode)}
-                                </button>
-                            </FooterTooltip>
-                                {showModeMenu && (
-                                <div style={{
-                                    position: "absolute",
-                                    bottom: "100%",
-                                    left: 0,
-                                    marginBottom: "4px",
-                                    backgroundColor: "var(--vscode-dropdown-background)",
-                                    border: "1px solid var(--vscode-dropdown-border)",
-                                    borderRadius: "4px",
-                                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                                    zIndex: 1000,
-                                    minWidth: "100px",
-                                    overflow: "hidden",
-                                }}>
-                                    {(['ask', 'plan', 'edit'] as AgentMode[]).map((m) => (
-                                        <button
-                                            key={m}
-                                            onClick={() => { setAgentMode(m); setShowModeMenu(false); }}
-                                            disabled={backendRequestTriggered}
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "6px",
-                                                width: "100%",
-                                                padding: "6px 10px",
-                                                fontSize: "12px",
-                                                border: "none",
-                                                cursor: backendRequestTriggered ? "not-allowed" : "pointer",
-                                                backgroundColor: agentMode === m
-                                                    ? "var(--vscode-list-activeSelectionBackground)"
-                                                    : "transparent",
-                                                color: agentMode === m
-                                                    ? "var(--vscode-list-activeSelectionForeground)"
-                                                    : "var(--vscode-dropdown-foreground)",
-                                                opacity: backendRequestTriggered ? 0.5 : 1,
-                                            }}
-                                        >
-                                            <Codicon name={getModeIcon(m)} />
-                                            {getModeLabel(m)}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                        {SHOW_THINKING_TOGGLE && (
-                            <FooterTooltip content="Enable Claude thinking mode">
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "6px",
-                                        marginLeft: "4px"
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: "10px",
-                                            color: "var(--vscode-descriptionForeground)",
-                                            userSelect: "none"
-                                        }}
-                                    >
-                                        Thinking
-                                    </span>
+                {/* Toolbar: Left (behavior) | Right (composition) */}
+                <div className="flex justify-between items-center" style={{ padding: "4px 8px", marginTop: "4px" }}>
+                    {/* Left group: Mode switcher pill + Web search toggle + Compact */}
+                    <div className="flex items-center gap-1">
+                        {/* Mode switcher pill */}
+                        <div
+                            className="flex rounded-md p-0.5"
+                            style={{
+                                backgroundColor: "var(--vscode-input-background)",
+                                border: "1px solid var(--vscode-input-border)",
+                                opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1,
+                                pointerEvents: (isUsageExceeded || backendRequestTriggered) ? "none" : "auto",
+                            }}
+                        >
+                            {(['ask', 'plan', 'edit'] as AgentMode[]).map((m) => {
+                                const isActive = agentMode === m;
+                                return (
                                     <button
-                                        type="button"
-                                        onClick={() => setIsThinkingEnabled((prev) => !prev)}
+                                        key={m}
+                                        onClick={() => setAgentMode(m)}
                                         disabled={isUsageExceeded || backendRequestTriggered}
-                                        aria-pressed={isThinkingEnabled}
+                                        className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all"
                                         style={{
-                                            position: "relative",
-                                            width: "34px",
-                                            height: "18px",
-                                            borderRadius: "999px",
+                                            backgroundColor: isActive ? "var(--vscode-button-background)" : "transparent",
+                                            color: isActive ? "var(--vscode-button-foreground)" : "var(--vscode-foreground)",
                                             border: "none",
-                                            padding: 0,
                                             cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
-                                            backgroundColor: isThinkingEnabled
-                                                ? "var(--vscode-button-background)"
-                                                : "var(--vscode-input-border)",
-                                            opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1
+                                            boxShadow: isActive ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
                                         }}
                                     >
-                                        <span
-                                            style={{
-                                                position: "absolute",
-                                                top: "2px",
-                                                left: isThinkingEnabled ? "18px" : "2px",
-                                                width: "14px",
-                                                height: "14px",
-                                                borderRadius: "50%",
-                                                backgroundColor: "var(--vscode-button-foreground)"
-                                            }}
-                                        />
+                                        <Codicon name={getModeIcon(m)} />
+                                        {getModeLabel(m)}
                                     </button>
-                                </div>
-                            </FooterTooltip>
-                        )}
+                                );
+                            })}
+                        </div>
+
+                        {/* Web search toggle */}
                         <FooterTooltip
                             align="start"
                             content="Enable web search and fetch without approval prompts"
@@ -2847,13 +2739,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 onClick={() => setIsWebAccessEnabled((prev) => !prev)}
                                 disabled={isUsageExceeded || backendRequestTriggered}
                                 aria-pressed={isWebAccessEnabled}
+                                className="flex items-center justify-center rounded-md transition-colors"
                                 style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    width: "22px",
-                                    height: "22px",
-                                    borderRadius: "6px",
+                                    width: "26px",
+                                    height: "26px",
                                     border: "none",
                                     cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
                                     backgroundColor: isWebAccessEnabled
@@ -2868,7 +2757,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 <Codicon name="globe" />
                             </button>
                         </FooterTooltip>
-                        {contextUsagePercent > 0 && (
+
+                        {/* Compact button */}
+                        {contextUsagePercent >= MANUAL_COMPACT_VISIBLE_USAGE_PERCENT && (
                             <FooterTooltip
                                 variant="card"
                                 align="start"
@@ -2900,34 +2791,37 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         )}
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    {/* Right group: Attach + divider + Send/Stop */}
+                    <div className="flex items-center gap-1">
                         <FooterTooltip content="Attach files or images">
-                            <StyledTransParentButton
+                            <button
                                 onClick={() => document.getElementById("fileInput")?.click()}
-                                style={{
-                                    width: "24px",
-                                    padding: "4px",
-                                    opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1,
-                                    cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
-                                    color: "var(--vscode-descriptionForeground)"
-                                }}
                                 disabled={isUsageExceeded || backendRequestTriggered}
+                                className="flex items-center justify-center rounded-md transition-colors"
+                                style={{
+                                    width: "26px",
+                                    height: "26px",
+                                    border: "none",
+                                    background: "transparent",
+                                    cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
+                                    color: "var(--vscode-descriptionForeground)",
+                                    opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1
+                                }}
                             >
                                 <Codicon name="attach" />
-                            </StyledTransParentButton>
+                            </button>
                         </FooterTooltip>
+
+                        <div style={{ width: "1px", height: "16px", backgroundColor: "var(--vscode-panel-border)", margin: "0 2px" }} />
 
                         {backendRequestTriggered ? (
                             <FooterTooltip content="Interrupt">
                                 <button
                                     onClick={handleInterrupt}
+                                    className="flex items-center justify-center rounded-full"
                                     style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        width: "24px",
-                                        height: "24px",
-                                        borderRadius: "50%",
+                                        width: "26px",
+                                        height: "26px",
                                         backgroundColor: "var(--vscode-button-background)",
                                         color: "var(--vscode-button-foreground)",
                                         border: "none",
@@ -2952,18 +2846,15 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 <button
                                     onClick={() => currentUserPrompt.trim() !== "" && handleSend()}
                                     disabled={isUsageExceeded || currentUserPrompt.trim() === ""}
+                                    className="flex items-center justify-center rounded-full"
                                     style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        width: "24px",
-                                        height: "24px",
-                                        borderRadius: "50%",
-                                        backgroundColor: currentUserPrompt.trim() !== "" 
-                                            ? "var(--vscode-button-background)" 
+                                        width: "26px",
+                                        height: "26px",
+                                        backgroundColor: currentUserPrompt.trim() !== ""
+                                            ? "var(--vscode-button-background)"
                                             : "var(--vscode-button-secondaryBackground)",
-                                        color: currentUserPrompt.trim() !== "" 
-                                            ? "var(--vscode-button-foreground)" 
+                                        color: currentUserPrompt.trim() !== ""
+                                            ? "var(--vscode-button-foreground)"
                                             : "var(--vscode-button-secondaryForeground)",
                                         border: "none",
                                         cursor: currentUserPrompt.trim() !== "" ? "pointer" : "default"
@@ -2988,6 +2879,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     disabled={isUsageExceeded || backendRequestTriggered}
                 />
             </FloatingInputContainer>
+
+            {/* AI disclaimer - only shown after first message */}
+            {messages.length > 0 && (
+                <p className="text-center mt-1.5" style={{ fontSize: "10px", color: "var(--vscode-descriptionForeground)", opacity: 0.7 }}>
+                    AI-generated output may contain mistakes. Review before adding to your integration.
+                </p>
+            )}
         </Footer>
     );
 };
