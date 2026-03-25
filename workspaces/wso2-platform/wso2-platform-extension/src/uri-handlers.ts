@@ -61,7 +61,7 @@ export function activateURIHandlers() {
 						// It means that the login was initiated from somewhere else or an old page was opened/refreshed in the browser
 						window.withProgress(
 							{
-								title: `Verifying user details and logging into ${extName}...`,
+								title: `Verifying user details and logging into ${ext.terminologies?.cloudName}...`,
 								location: ProgressLocation.Notification,
 							},
 							async () => {
@@ -82,7 +82,7 @@ export function activateURIHandlers() {
 										}
 										const region = await ext.clients.rpcClient.getCurrentRegion();
 										await ext.authProvider?.getState().loginSuccess(userInfo, region);
-										window.showInformationMessage(`Successfully signed into ${extName}`);
+										window.showInformationMessage(`Successfully signed into ${ext.terminologies?.cloudName}`);
 									}
 								} catch (error: any) {
 									if (!(error instanceof ResponseError) || ![ErrorCode.NoOrgsAvailable, ErrorCode.NoAccountAvailable].includes(error.code)) {
@@ -188,12 +188,12 @@ export const cloneOrOpenDir = async (
 		let matchingComp = componentCache?.find((item) => item.metadata.name === componentName);
 		if (!matchingComp) {
 			matchingComp = await window.withProgress(
-				{ title: `Fetching ${extName === "Devant" ? "integration" : "component"} details...`, location: ProgressLocation.Notification },
+				{ title: `Fetching ${ext.terminologies?.componentTerm} details...`, location: ProgressLocation.Notification },
 				() => ext.clients.rpcClient.getComponentItem({ componentName, orgId: org.id.toString(), projectHandle: project.handler }),
 			);
 		}
 		if (!matchingComp) {
-			window.showErrorMessage(`Failed to find ${extName === "Devant" ? "integration" : "component"} matching ${componentName}`);
+			window.showErrorMessage(`Failed to find ${ext.terminologies?.componentTerm} matching ${componentName}`);
 			return;
 		}
 
@@ -257,7 +257,6 @@ export const cloneOrOpenDir = async (
 };
 
 const switchContextAndOpenDir = async (selectedPath: string, org: Organization, project: Project, componentName?: string | null) => {
-	const extName = webviewStateStore.getState().state.extensionName;
 	const gitRoot = await getGitRoot(ext.context, selectedPath);
 	if (!gitRoot) {
 		window.showErrorMessage(`Failed to find Git root of ${selectedPath}`);
@@ -278,7 +277,7 @@ const switchContextAndOpenDir = async (selectedPath: string, org: Organization, 
 			contextStore.getState().state?.selected?.projectHandle === project.handler
 		) {
 			window.showInformationMessage(
-				`You are already within the ${componentName ? (extName === "Devant" ? "integration" : "component") : "project"} directory`,
+				`You are already within the ${componentName ? ext.terminologies?.componentTerm : "project"} directory`,
 			);
 		} else {
 			const matching = contextStore.getState().state.items[getContextKey(org, project)];
@@ -309,18 +308,16 @@ const switchContextAndOpenDir = async (selectedPath: string, org: Organization, 
 };
 
 const openProjectDirectory = async (openingPath: string, isComponent = false) => {
-	const extName = webviewStateStore.getState().state.extensionName;
 	openDirectory(
 		openingPath,
-		`Where do you want to open the ${isComponent ? (extName === "Devant" ? "integration" : "component") : "project"} directory ${openingPath} ?`,
+		`Where do you want to open the ${isComponent ? ext.terminologies?.componentTerm : "project"} directory ${openingPath} ?`,
 	);
 };
 
 const cloneOrOpenDirectory = (organization: Organization, project: Project, componentName = "") => {
-	const extName = webviewStateStore.getState().state.extensionName;
 	window
 		.showInformationMessage(
-			`Unable to find a local clone of the ${componentName ? (extName === "Devant" ? "integration" : "component") : "project"} directory.`,
+			`Unable to find a local clone of the ${componentName ? ext.terminologies?.componentTerm : "project"} directory.`,
 			{ modal: true },
 			"Clone Repository",
 			"Open Directory",

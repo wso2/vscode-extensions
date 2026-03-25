@@ -78,6 +78,17 @@ export interface GetComponentsReq {
 	projectId: string;
 	projectHandle: string;
 }
+export interface ResolveConnectionSecretsReq {
+	orgId: string;
+	groupId: string;
+	projectId: string;
+	componentId: string;
+	envTemplateId: string;
+	secrets: { key: string; valueRef: string }[]
+}
+export interface ResolveConnectionSecretsResp {
+	secrets: {key: string; valueRef: string; value: string}[]
+}
 export interface CreateProjectReq {
 	orgId: string;
 	orgHandler: string;
@@ -215,11 +226,81 @@ export interface GetTestKeyResp {
 	validityTime: number;
 }
 
+export interface MarketplaceDatabaseListResp {
+	/** @format int64 */
+	count: number;
+	pagination: Pagination;
+	data: MarketplaceItem[];
+}
+
 export interface MarketplaceListResp {
 	/** @format int64 */
 	count: number;
 	pagination: Pagination;
 	data: MarketplaceItem[];
+}
+
+export interface DatabaseCredential {
+	applicable_environments: string[];
+	created_at: string;
+	database_name: string;
+	display_name: string;
+	id: string;
+	is_super_admin: boolean;
+	privilege_levels: string[] | null;
+	updated_at: string;
+}
+
+export interface DatabaseServer {
+	allowed_ips: {
+		mode: 'allow_all' | string;
+	};
+	cloud_provider: string;
+	cloud_region: string;
+	connection_params: {
+		database: string;
+		host: string;
+		password_reset: boolean;
+		port: string;
+		ssl_required: boolean;
+		user: string;
+	};
+	created_at: string;
+	display_on_marketplace: boolean;
+	id: string;
+	is_vector_enabled: boolean;
+	maintenance: {
+		day: string;
+		time: string;
+	};
+	name: string;
+	nodes: {
+		name: string;
+		role: string;
+		state: string;
+	}[];
+	project_id: string | null;
+	service_plan: {
+		backup_interval_hours: number;
+		backup_retention_days: number;
+		hourly_price_usd: string;
+		monthly_price_usd: string;
+		name: string;
+		node_count: number;
+		node_cpu_count: number;
+		node_ram_gb: number;
+		storage_gb: number;
+	};
+	service_plan_id: string;
+	service_version: string;
+	status: string;
+	type: string;
+}
+
+
+export interface DatabaseAdminCredential {
+	name: string;
+	password: string;
 }
 
 export interface MarketplaceIdlResp {
@@ -259,6 +340,16 @@ export interface GetMarketplaceListReq {
 	request: GetMarketplaceItemsParams;
 }
 
+export interface GetDatabaseItemReq {
+	orgId: string;
+	resourceId: string;
+}
+
+export interface GetDatabaseServerReq {
+	orgId: string;
+	databaseServerId: string;
+}
+
 export interface GetMarketplaceItemReq {
 	orgId: string;
 	serviceId: string;
@@ -278,6 +369,23 @@ export interface GetConnectionsReq {
 export interface GetConnectionItemReq {
 	orgId: string;
 	connectionGroupId: string;
+}
+
+export interface CreateDatabaseConnectionReq {
+	orgId: string;
+	orgUuid: string;
+	projectId: string;
+	componentId: string;
+	name: string;
+	serviceId: string;
+	schemaReference: string;
+	envMapping: Record<
+		string,
+		{
+			resourceId: string;
+			parameterReference: string;
+		}
+	>;
 }
 
 export interface CreateComponentConnectionReq {
@@ -471,6 +579,42 @@ export interface UpdateCodeServerReq {
 	projectId: string;
 	componentId: string;
 	sourceCommitHash: string;
+}
+
+export interface ChangePrebuiltIntegrationRepositoryReq {
+	orgId: string;
+	orgHandler: string;
+	projectId: string;
+	componentId: string;
+	srcGitRepoUrl: string;
+	repositorySubPath: string;
+	repositoryBranch: string;
+	secretRef: string;
+	originCloud: string;
+	isPublicRepo: boolean;
+}
+
+export interface GetComponentUsageReq {
+	orgId: string;
+	orgUuid: string;
+	cloudOrigin: string;
+}
+
+export interface GetComponentUsageResp {
+	success: boolean;
+	message: string;
+	data: {
+		billableComponentCount: number;
+		componentCount: number;
+		externalConsumerComponentCount: number;
+		systemComponentCount: number;
+		orgId: number;
+		isWebappConstrained: boolean;
+		distinctTypeCount: {
+			componentType: string;
+			count: number;
+		}[];
+	};
 }
 
 export interface GetGitTokenForRepositoryReq {
@@ -740,6 +884,24 @@ export const ChoreoRpcGetTestKeyRequest: RequestType<GetTestKeyReq, GetTestKeyRe
 export const ChoreoRpcGetSwaggerRequest: RequestType<GetSwaggerSpecReq, object> = { method: "rpc/apim/getSwaggerSpec" };
 export const ChoreoRpcGetMarketplaceItems: RequestType<GetMarketplaceListReq, MarketplaceListResp> = {
 	method: "rpc/connections/getMarketplaceItems",
+};
+export const ChoreoRpcGetDatabases: RequestType<GetMarketplaceListReq, MarketplaceListResp> = {
+	method: "rpc/connections/getMarketplaceDatabases",
+};
+export const ChoreoRpcGetDatabaseItem: RequestType<GetDatabaseItemReq, MarketplaceItem> = {
+	method: "rpc/connections/getMarketplaceDatabaseItem",
+};
+export const ChoreoRpcGetDatabaseServer: RequestType<GetDatabaseServerReq, DatabaseServer> = {
+	method: "rpc/connections/getDatabaseServer",
+};
+export const ChoreoRpcGetDatabaseAdminCredential: RequestType<GetDatabaseServerReq, DatabaseAdminCredential> = {
+	method: "rpc/connections/getDatabaseAdminCredential",
+};
+export const ChoreoRpcGetDatabaseCredentials: RequestType<GetDatabaseServerReq, DatabaseCredential[]> = {
+	method: "rpc/connections/getDatabaseCredentials",
+};
+export const ChoreoRpcCreateDatabaseConnection: RequestType<CreateDatabaseConnectionReq, ConnectionDetailed> = {
+	method: "rpc/connections/createDatabaseConnection",
 };
 export const ChoreoRpcGetMarketplaceItemIdl: RequestType<GetMarketplaceIdlReq, MarketplaceIdlResp> = {
 	method: "rpc/connections/getMarketplaceItemIdl",

@@ -15,13 +15,13 @@ const CLI_CACHE_DIR = path.join(REPO_ROOT, 'common', 'temp', 'choreo-cli');
 const PACKAGE_JSON_PATH = path.join(PROJECT_ROOT, 'package.json');
 const GITHUB_REPO_URL = 'https://api.github.com/repos/wso2/choreo-cli';
 
-// Platform-specific file patterns for CLI downloads
-const CLI_ASSET_PATTERNS = [
-    'choreo-cli-{version}-darwin-amd64.zip',
-    'choreo-cli-{version}-darwin-arm64.zip',
-    'choreo-cli-{version}-linux-amd64.tar.gz',
-    'choreo-cli-{version}-linux-arm64.tar.gz',
-    'choreo-cli-{version}-windows-amd64.zip'
+// Platform/arch mappings: assetSuffix -> { os, arch, ext }
+const CLI_PLATFORMS = [
+    { assetSuffix: 'darwin-amd64',   os: 'darwin',  arch: 'amd64',  ext: '.zip',    binary: 'choreo' },
+    { assetSuffix: 'darwin-arm64',   os: 'darwin',  arch: 'arm64',  ext: '.zip',    binary: 'choreo' },
+    { assetSuffix: 'linux-amd64',    os: 'linux',   arch: 'amd64',  ext: '.tar.gz', binary: 'choreo' },
+    { assetSuffix: 'linux-arm64',    os: 'linux',   arch: 'arm64',  ext: '.tar.gz', binary: 'choreo' },
+    { assetSuffix: 'windows-amd64',  os: 'win32',   arch: 'amd64',  ext: '.zip',    binary: 'choreo.exe' },
 ];
 
 // ============================================================================
@@ -40,24 +40,18 @@ function getCliVersion() {
     return cliVersion;
 }
 
-function getCombinedZipFileName(version) {
-    return `choreo-cli-${version}.zip`;
+function getAssetName(version, platform) {
+    return `choreo-cli-${version}-${platform.assetSuffix}${platform.ext}`;
 }
 
-function getCombinedZipPath(version, baseDir) {
-    return path.join(baseDir, getCombinedZipFileName(version));
+// resources/choreo-cli/{version}/{os}/{arch}/choreo
+function getResourcesBinaryPath(version, platform) {
+    return path.join(CLI_RESOURCES_DIR, version, platform.os, platform.arch, platform.binary);
 }
 
-function getResourcesZipPath(version) {
-    return getCombinedZipPath(version, CLI_RESOURCES_DIR);
-}
-
-function getCacheZipPath(version) {
-    return getCombinedZipPath(version, CLI_CACHE_DIR);
-}
-
-function getExpectedAssetNames(version) {
-    return CLI_ASSET_PATTERNS.map(pattern => pattern.replace('{version}', version));
+// common/temp/choreo-cli/{version}/{os}/{arch}/choreo
+function getCacheBinaryPath(version, platform) {
+    return path.join(CLI_CACHE_DIR, version, platform.os, platform.arch, platform.binary);
 }
 
 // ============================================================================
@@ -108,72 +102,93 @@ function deleteDirectory(dirPath) {
 // ============================================================================
 
 function checkExistingCLI(version) {
-    const resourcesZipPath = getResourcesZipPath(version);
-    const cacheZipPath = getCacheZipPath(version);
-    
-    const resourcesExists = fs.existsSync(resourcesZipPath);
-    const cacheExists = fs.existsSync(cacheZipPath);
-    
-    // Both exist - we're good
-    if (resourcesExists && cacheExists) {
-        console.log(`✓ Choreo CLI for version ${version} exists`);
+    const missingFromResources = [];
+    const missingFromCache = [];
+
+    for (const platform of CLI_PLATFORMS) {
+        const resourcesPath = getResourcesBinaryPath(version, platform);
+        const cachePath = getCacheBinaryPath(version, platform);
+
+        if (!fs.existsSync(resourcesPath)) missingFromResources.push(platform);
+        if (!fs.existsSync(cachePath)) missingFromCache.push(platform);
+    }
+
+    // All present in both locations
+    if (missingFromResources.length === 0 && missingFromCache.length === 0) {
+        console.log(`✓ Choreo CLI binaries for version ${version} exist in both resources and cache`);
         return true;
     }
-    
-    // Resources exists but cache doesn't (e.g., after rush purge)
-    if (resourcesExists && !cacheExists) {
-        console.log(`✓ CLI zip exists in resources/choreo-cli`);
-        console.log(`Restoring cache (common/temp) from resources...`);
-        ensureDirectoryExists(CLI_CACHE_DIR);
-        fs.copyFileSync(resourcesZipPath, cacheZipPath);
-        console.log(`✓ Restored cache from resources/choreo-cli`);
+
+    // Resources complete, restore missing cache entries
+    if (missingFromResources.length === 0 && missingFromCache.length > 0) {
+        console.log(`✓ CLI binaries exist in resources. Restoring ${missingFromCache.length} missing cache entries...`);
+        for (const platform of missingFromCache) {
+            const src = getResourcesBinaryPath(version, platform);
+            const dest = getCacheBinaryPath(version, platform);
+            ensureDirectoryExists(path.dirname(dest));
+            fs.copyFileSync(src, dest);
+            console.log(`  ✓ Restored cache: ${platform.os}/${platform.arch}`);
+        }
         return true;
     }
-    
-    // Cache exists but resources doesn't
-    if (!resourcesExists && cacheExists) {
-        console.log(`Found CLI zip in cache (common/temp), copying to resources/choreo-cli...`);
-        ensureDirectoryExists(CLI_RESOURCES_DIR);
-        fs.copyFileSync(cacheZipPath, resourcesZipPath);
-        console.log(`✓ Copied CLI zip to resources/choreo-cli`);
+
+    // Cache complete, restore missing resources entries
+    if (missingFromCache.length === 0 && missingFromResources.length > 0) {
+        console.log(`✓ CLI binaries exist in cache. Restoring ${missingFromResources.length} missing resources entries...`);
+        for (const platform of missingFromResources) {
+            const src = getCacheBinaryPath(version, platform);
+            const dest = getResourcesBinaryPath(version, platform);
+            ensureDirectoryExists(path.dirname(dest));
+            fs.copyFileSync(src, dest);
+            console.log(`  ✓ Restored resources: ${platform.os}/${platform.arch}`);
+        }
         return true;
     }
-    
-    // Neither exists
-    console.log(`CLI zip for version ${version} not found in resources or cache`);
+
+    // Partial: some platforms have binaries in at least one location — sync what we can
+    const syncedPlatforms = [];
+    for (const platform of CLI_PLATFORMS) {
+        const resourcesPath = getResourcesBinaryPath(version, platform);
+        const cachePath = getCacheBinaryPath(version, platform);
+        const resourcesExists = fs.existsSync(resourcesPath);
+        const cacheExists = fs.existsSync(cachePath);
+
+        if (resourcesExists && !cacheExists) {
+            ensureDirectoryExists(path.dirname(cachePath));
+            fs.copyFileSync(resourcesPath, cachePath);
+            syncedPlatforms.push(platform);
+        } else if (!resourcesExists && cacheExists) {
+            ensureDirectoryExists(path.dirname(resourcesPath));
+            fs.copyFileSync(cachePath, resourcesPath);
+            syncedPlatforms.push(platform);
+        }
+    }
+
+    // Re-check after sync
+    const stillMissing = CLI_PLATFORMS.filter(platform => {
+        return !fs.existsSync(getResourcesBinaryPath(version, platform));
+    });
+
+    if (stillMissing.length === 0) {
+        console.log(`✓ All CLI binaries synced for version ${version}`);
+        return true;
+    }
+
+    console.log(`CLI binaries for version ${version} not found for: ${stillMissing.map(p => `${p.os}/${p.arch}`).join(', ')}`);
     return false;
 }
 
-function cleanupOldFilesInDirectory(directory, currentVersion) {
-    if (!fs.existsSync(directory)) {
-        return;
-    }
-
-    const currentZipName = getCombinedZipFileName(currentVersion);
-    const entries = fs.readdirSync(directory);
-    
-    for (const entry of entries) {
-        if (entry === currentZipName) {
-            continue; // Skip the current version
-        }
-
-        const entryPath = path.join(directory, entry);
-        const stats = fs.statSync(entryPath);
-        
-        console.log(`Removing old ${stats.isDirectory() ? 'directory' : 'file'}: ${entry} from ${path.basename(directory)}`);
-        
-        if (stats.isDirectory()) {
-            fs.rmSync(entryPath, { recursive: true, force: true });
-        } else {
-            fs.unlinkSync(entryPath);
-        }
-    }
-}
-
 function cleanupOldFiles(currentVersion) {
-    // Clean up old files from both locations
-    cleanupOldFilesInDirectory(CLI_RESOURCES_DIR, currentVersion);
-    cleanupOldFilesInDirectory(CLI_CACHE_DIR, currentVersion);
+    for (const baseDir of [CLI_RESOURCES_DIR, CLI_CACHE_DIR]) {
+        if (!fs.existsSync(baseDir)) continue;
+        const entries = fs.readdirSync(baseDir);
+        for (const entry of entries) {
+            if (entry === currentVersion) continue;
+            const entryPath = path.join(baseDir, entry);
+            console.log(`Removing old entry: ${entry} from ${path.basename(baseDir)}`);
+            fs.rmSync(entryPath, { recursive: true, force: true });
+        }
+    }
 }
 
 // ============================================================================
@@ -312,83 +327,92 @@ async function downloadAsset(asset, tempDir) {
     }
 }
 
-function getZipCommand(files, outputZipPath, tempDir) {
-    const isWindows = os.platform() === 'win32';
-    
-    if (isWindows) {
-        const filesArg = files.map(f => `'${f}'`).join(',');
-        return {
-            command: `powershell.exe -Command "Compress-Archive -Path ${filesArg} -DestinationPath '${outputZipPath}' -Force"`,
-            cwd: tempDir
-        };
+// ============================================================================
+// Extraction
+// ============================================================================
+
+function extractBinary(archivePath, platform, destDir) {
+    ensureDirectoryExists(destDir);
+    const tmpExtractDir = fs.mkdtempSync(path.join(os.tmpdir(), `choreo-extract-`));
+
+    try {
+        if (platform.ext === '.tar.gz') {
+            execSync(`tar -xzf '${archivePath}' -C '${tmpExtractDir}'`, { stdio: 'inherit' });
+        } else if (platform.ext === '.zip') {
+            if (os.platform() === 'win32') {
+                execSync(`powershell.exe -Command "Expand-Archive -Path '${archivePath}' -DestinationPath '${tmpExtractDir}' -Force"`, { stdio: 'inherit' });
+            } else {
+                execSync(`unzip -q '${archivePath}' -d '${tmpExtractDir}'`);
+            }
+        }
+
+        // Find the binary recursively (it may be inside a subdirectory)
+        const binaryPath = findFile(tmpExtractDir, platform.binary);
+        if (!binaryPath) {
+            throw new Error(`Binary '${platform.binary}' not found after extracting ${archivePath}`);
+        }
+
+        const destPath = path.join(destDir, platform.binary);
+        fs.copyFileSync(binaryPath, destPath);
+        if (platform.binary !== 'choreo.exe') {
+            fs.chmodSync(destPath, 0o755);
+        }
+        console.log(`  ✓ Extracted ${platform.os}/${platform.arch} binary`);
+    } finally {
+        fs.rmSync(tmpExtractDir, { recursive: true, force: true });
     }
-    
-    // macOS/Linux
-    const filesArg = files.map(f => `'${f}'`).join(' ');
-    return {
-        command: `zip -q '${outputZipPath}' ${filesArg}`,
-        cwd: tempDir
-    };
 }
 
-function createCombinedZip(tempDir, outputZipPath) {
-    console.log('\nCreating Choreo CLI zip file...');
-    const files = fs.readdirSync(tempDir).filter(f => !f.startsWith('.'));
-    const { command, cwd } = getZipCommand(files, outputZipPath, tempDir);
-    
-    try {
-        execSync(command, { cwd, stdio: 'inherit' });
-        
-        const zipSize = getFileSize(outputZipPath);
-        const relativePath = path.relative(PROJECT_ROOT, outputZipPath);
-        console.log(`✓ Created Choreo CLI combined zip: ${relativePath} (${zipSize} bytes)`);
-    } catch (error) {
-        throw new Error(`Failed to create zip file: ${error.message}`);
+function findFile(dir, filename) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+            const found = findFile(fullPath, filename);
+            if (found) return found;
+        } else if (entry.name === filename) {
+            return fullPath;
+        }
     }
+    return null;
 }
 
 // ============================================================================
 // Main Download Logic
 // ============================================================================
 
-async function downloadAllAssets(releaseData, expectedAssetNames, tempDir) {
-    const downloadPromises = expectedAssetNames.map(assetName => {
-        const asset = releaseData.assets?.find(a => a.name === assetName);
-        
-        if (!asset) {
-            console.warn(`Warning: Choreo CLI Asset not found: ${assetName}`);
-            return Promise.resolve();
-        }
-
-        return downloadAsset(asset, tempDir);
-    });
-
-    await Promise.all(downloadPromises);
-}
-
-async function downloadAndCombineCLI(version) {
+async function downloadAndExtractCLI(version) {
     const tempDir = createTempDirectory(`choreo-cli-${version}-`);
-    
+
     try {
-        // Ensure both directories exist
-        ensureDirectoryExists(CLI_RESOURCES_DIR);
-        ensureDirectoryExists(CLI_CACHE_DIR);
-
         const releaseData = await getReleaseByTag(version);
-        const expectedAssetNames = getExpectedAssetNames(version);
 
-        await downloadAllAssets(releaseData, expectedAssetNames, tempDir);
+        for (const platform of CLI_PLATFORMS) {
+            const assetName = getAssetName(version, platform);
+            const asset = releaseData.assets?.find(a => a.name === assetName);
 
-        // Create zip in cache directory first
-        const cacheZipPath = getCacheZipPath(version);
-        createCombinedZip(tempDir, cacheZipPath);
-        
-        // Copy to resources directory
-        const resourcesZipPath = getResourcesZipPath(version);
-        console.log('Copying CLI zip to resources/choreo-cli...');
-        fs.copyFileSync(cacheZipPath, resourcesZipPath);
-        console.log('✓ Copied CLI zip to resources/choreo-cli');
-        
+            if (!asset) {
+                console.warn(`Warning: Asset not found: ${assetName}`);
+                continue;
+            }
+
+            const archivePath = path.join(tempDir, assetName);
+            await downloadAsset(asset, tempDir);
+
+            const resourcesDir = path.dirname(getResourcesBinaryPath(version, platform));
+            const cacheDir = path.dirname(getCacheBinaryPath(version, platform));
+
+            console.log(`Extracting ${platform.os}/${platform.arch}...`);
+            extractBinary(archivePath, platform, resourcesDir);
+
+            // Copy binary to cache
+            ensureDirectoryExists(cacheDir);
+            fs.copyFileSync(
+                path.join(resourcesDir, platform.binary),
+                path.join(cacheDir, platform.binary)
+            );
+            console.log(`  ✓ Cached ${platform.os}/${platform.arch} binary`);
+        }
     } finally {
         console.log('Cleaning up temporary directory...');
         deleteDirectory(tempDir);
@@ -402,22 +426,22 @@ async function downloadAndCombineCLI(version) {
 async function main() {
     try {
         const cliVersion = getCliVersion();
-        
-        // Check if combined CLI zip already exists
+
+        // Always clean up old versions first, regardless of whether we need to download
+        cleanupOldFiles(cliVersion);
+
+        // Check if binaries already exist
         if (checkExistingCLI(cliVersion)) {
-            console.log('✓ Combined CLI zip is already present');
+            console.log('✓ Choreo CLI binaries are already present');
             process.exit(0);
         }
 
         console.log(`\nDownloading Choreo CLI version ${cliVersion}...`);
 
-        // Clean up old files before downloading new one
-        cleanupOldFiles(cliVersion);
+        // Download, extract and place binaries
+        await downloadAndExtractCLI(cliVersion);
 
-        // Download all CLI assets and combine into single zip
-        await downloadAndCombineCLI(cliVersion);
-
-        console.log(`\n✓ Successfully created Choreo CLI zip for version ${cliVersion}`);
+        console.log(`\n✓ Successfully extracted Choreo CLI binaries for version ${cliVersion}`);
 
     } catch (error) {
         console.error('\n✗ Error:', error.message);

@@ -17,7 +17,7 @@
  */
 
 import type { DeploymentStatus } from "../enums";
-import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq, GetMarketplaceItemReq, GetConnectionItemReq, GetProjectEnvsReq, CreateThirdPartyConnectionReq, RegisterMarketplaceConnectionReq, GetComponentsReq } from "./cli-rpc.types";
+import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq, GetMarketplaceItemReq, GetConnectionItemReq, GetProjectEnvsReq, CreateThirdPartyConnectionReq, RegisterMarketplaceConnectionReq, GetComponentsReq, MarketplaceDatabaseListResp, DatabaseServer, GetDatabaseServerReq, DatabaseAdminCredential, DatabaseCredential, CreateDatabaseConnectionReq, GetDatabaseItemReq, ResolveConnectionSecretsReq, ResolveConnectionSecretsResp } from "./cli-rpc.types";
 import { CreateLocalConnectionsConfigReq, DeleteLocalConnectionsConfigReq } from "./messenger-rpc.types";
 import type { AuthState, ContextItemEnriched, ContextStoreState, WebviewState } from "./store.types";
 
@@ -33,6 +33,12 @@ export interface IWso2PlatformExtensionAPI {
 	openClonedDir(params: openClonedDirReq): Promise<void>;
 	getStsToken(): Promise<string>;
 	getMarketplaceItems(params: GetMarketplaceListReq): Promise<MarketplaceListResp>;
+	getMarketplaceDatabases(params: { orgId: string }): Promise<MarketplaceDatabaseListResp>;
+	getMarketplaceDatabaseItem(params: GetDatabaseItemReq): Promise<MarketplaceItem>;
+	getDatabaseServer(params: GetDatabaseServerReq): Promise<DatabaseServer>;
+	getDatabaseAdminCredential(params: GetDatabaseServerReq): Promise<DatabaseAdminCredential>;
+	getDatabaseCredentials(params: GetDatabaseServerReq): Promise<DatabaseCredential[]>;
+	createDatabaseConnection(params: CreateDatabaseConnectionReq): Promise<ConnectionDetailed>;
 	getMarketplaceItem(params: GetMarketplaceItemReq): Promise<MarketplaceItem>;
 	getSelectedContext(): ContextItemEnriched | null;
 	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>;
@@ -49,6 +55,7 @@ export interface IWso2PlatformExtensionAPI {
 	startProxyServer: (params: StartProxyServerReq) => Promise<StartProxyServerResp>;
 	stopProxyServer: (params: StopProxyServerReq) => Promise<void>;
 	getComponentList: (params: GetComponentsReq) => Promise<ComponentKind[]>;
+	resolveConnectionSecrets: (params: ResolveConnectionSecretsReq) => Promise<ResolveConnectionSecretsResp>;
 
 	// Auth Subscription
 	subscribeAuthState(callback: (state: AuthState)=>void): () => void;
@@ -154,6 +161,7 @@ export interface ComponentKindMetadata {
 	projectName: string;
 	id: string;
 	handler: string;
+	isPrebuilt?: boolean;
 }
 
 export interface ComponentKindSpec {
@@ -429,7 +437,7 @@ export interface MarketplaceItem {
 	createdTime: string;
 	name: string;
 	version: string;
-	resourceType: "SERVICE";
+	resourceType: "SERVICE" | "DATABASE";
 	organizationId: string;
 	projectId?: string;
 	/** Choreo component info of a marketplace resource. */
@@ -445,6 +453,34 @@ export interface MarketplaceItem {
 	visibility: ("PUBLIC" | "ORGANIZATION" | "PROJECT")[];
 	isThirdParty?: boolean;
 	endpointRefs?: Record<string, string>;
+	properties?: Record<string, string>;
+	/** Only applicable for database resources */
+	resourceDetails?: DatabaseResourceDetails;
+}
+
+export type PlatformSvcType = "postgres" | "mysql" | "redis" | "kafka"
+
+export const DatabaseRequestStatusEnum = {
+	Error: 'ERROR',
+	Deleted: 'DELETED',
+	Deleting: 'DELETING',
+	Resuming: 'RESUMING',
+	Creating: 'CREATING',
+	PoweredOff: 'POWERED_OFF',
+	Active: 'ACTIVE'
+} as const;
+
+export type DatabaseRequestStatus = typeof DatabaseRequestStatusEnum[keyof typeof DatabaseRequestStatusEnum];
+
+export interface DatabaseResourceDetails {
+	databaseServerId: string;
+	databaseServerName?: string;
+	databaseType: PlatformSvcType;
+	status: DatabaseRequestStatus;
+	isRestricted: boolean;
+	cloudProvider: string;
+	cloudRegion: string;
+	ca_certificate: string;
 }
 
 export interface ConnectionStatus {
@@ -485,6 +521,7 @@ export interface ConnectionConfigurations {
 				isSensitive: boolean;
 				isFile: boolean;
 				envVariableName: string;
+				valueRef: string;
 			};
 		};
 	};

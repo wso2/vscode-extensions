@@ -50,7 +50,7 @@ const addOrganization = "Add";
 
 export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organization, form, initializingRepo }) => {
 	const [compDetailsSections] = useAutoAnimate();
-	const { extensionName } = useExtWebviewContext();
+	const { extensionName, terminologies } = useExtWebviewContext();
 	const [creatingRepo, setCreatingRepo] = useState(false);
 
 	const org = form.watch("org");
@@ -258,7 +258,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 						type="info"
 						className="col-span-full"
 						key="invalid-repo-banner"
-						title={`Please authorize ${extensionName} to access your GitHub repositories.`}
+						title={`Please authorize ${terminologies.cloudName} to access your GitHub repositories.`}
 						actionLink={{
 							title: "Authorize",
 							onClick: () => ChoreoWebViewAPI.getInstance().triggerGithubAuthFlow(organization.id?.toString()),
@@ -367,11 +367,11 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 				{repo && (
 					<div className="col-span-full" key="gen-details-name-wrap">
 						<TextField
-							label={extensionName === "Devant" ? "Integration Name" : "Component Name"}
+							label={`${terminologies?.componentTerm} Name`}
 							key="gen-details-name"
 							required
 							name="name"
-							placeholder={extensionName === "Devant" ? "integration-name" : "component-name"}
+							placeholder={`${terminologies?.componentTerm}-name`}
 							control={form.control}
 						/>
 					</div>
