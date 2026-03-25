@@ -22,6 +22,7 @@ import { FILE_BATCH_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_SINGLE_EDIT_TOOL_N
 import { CONNECTOR_GENERATOR_TOOL } from "./tools/connector-generator";
 import { CONFIG_COLLECTOR_TOOL } from "./tools/config-collector";
 import { CLARIFY_TOOL } from "./tools/clarify";
+import { GREP_TOOL_NAME } from "./tools/grep";
 import { TEST_RUNNER_TOOL_NAME } from "./tools/test-runner";
 import { getLanglibInstructions } from "../utils/libs/langlibs";
 import { formatCodebaseStructure, formatCodeContext } from "./utils";
@@ -114,7 +115,7 @@ Plan the implementation approach in your reasoning. Keep output minimal — no d
 Identify the libraries required to implement the user requirement. Use ${LIBRARY_SEARCH_TOOL} to discover relevant libraries, then use ${LIBRARY_GET_TOOL} to fetch their full details.
 
 ### Step 3: Write the code
-Write/modify the Ballerina code to implement the user requirement. Use the ${FILE_BATCH_EDIT_TOOL_NAME}, ${FILE_SINGLE_EDIT_TOOL_NAME}, ${FILE_WRITE_TOOL_NAME} tools to write/modify the code. 
+Write/modify the Ballerina code to implement the user requirement. Use the ${FILE_BATCH_EDIT_TOOL_NAME}, ${FILE_SINGLE_EDIT_TOOL_NAME}, ${FILE_WRITE_TOOL_NAME} tools to write/modify the code.
 
 ### Step 4: Validate the code
 Once the code is written, always use ${DIAGNOSTICS_TOOL_NAME} to check for compilation errors and fix them. You may call it multiple times after making changes.
@@ -174,14 +175,24 @@ ${getLanglibInstructions()}
 - Mention types EXPLICITLY in variable declarations and foreach statements. (Avoid var at all costs)
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
+## Codebase Understanding Guidelines
+- When a user submits a query, it may come with an attached code map summary called **CODEMAP (bal.md)**. This is your starting point for orientation.
+- The CODEMAP gives you a high-level view of the project — it lists components organized by file path, includes imports, configurables, types, functions, classes, services along with their signatures, parameters, return types, descriptions, and line ranges.
+- When you receive a query with a CODEMAP attached, start by reading through it to identify which components are relevant to what the user is asking. Once you know *what* matters, use the ${FILE_READ_TOOL_NAME} tool to read the actual source code of those components, because the CODEMAP alone doesn't tell you *how* things work. If the CODEMAP gives you exact line ranges, read just those lines rather than loading entire files.
+- Code generation should not be started until a complete understanding of the relevant parts of the codebase has been achieved.
+- If you need to dig deeper — to understand how a component is used elsewhere, what types it depends on, or where it gets called — reach for the ${GREP_TOOL_NAME} tool to search across the codebase, then follow up with the read tool on whatever you find.
+- If no CODEMAP is attached, just lean on ${GREP_TOOL_NAME} as your primary discovery tool instead. Pull keywords and component names from the user's query, search for them, and read what comes back.
+- Either way, the core rule is the same: **read before you write**. Don't start generating code until you genuinely understand all the relevant pieces. If during generation you bump into something you haven't read yet — stop, go read it, then continue. Never guess what a component does. Never read files blindly without searching first.
+
+
 ## File modifications
 - You must apply changes to the existing source code using the provided ${[
-        FILE_BATCH_EDIT_TOOL_NAME,
-        FILE_SINGLE_EDIT_TOOL_NAME,
-        FILE_WRITE_TOOL_NAME,
-    ].join(
-        ", "
-    )} tools. The complete existing source code will be provided in the <existing_code> section of the user prompt.
+            FILE_BATCH_EDIT_TOOL_NAME,
+            FILE_SINGLE_EDIT_TOOL_NAME,
+            FILE_WRITE_TOOL_NAME,
+        ].join(
+            ", "
+        )} tools. The complete existing source code will be provided in the <existing_code> section of the user prompt.
 - When making replacements inside an existing file, provide the **exact old string** and the **exact new string** with all newlines, spaces, and indentation, being mindful to replace nearby occurrences together to minimize the number of tool calls.
 - Do NOT create a new markdown file to document each change or summarize your work unless specifically requested by the user.
 - Do not manually add/modify Dependencies.toml. For Config.toml configuration management, use ${CONFIG_COLLECTOR_TOOL}.
@@ -316,7 +327,7 @@ export function getWebToolsHint(): string {
     return `<system-reminder>The user has enabled web tools. Use web_search for live or up-to-date information. Use web_fetch when the user provides a URL. Invoke these tools proactively when the query suggests current data or external content is needed.</system-reminder>`;
 }
 
-function getGenerationType(isPlanMode:boolean):string {
+function getGenerationType(isPlanMode: boolean): string {
     if (isPlanMode) {
         return `<system-reminder> Plan Mode is enabled. Make sure to use task management using ${TASK_WRITE_TOOL_NAME} </system-reminder>`;
     }
@@ -324,7 +335,7 @@ function getGenerationType(isPlanMode:boolean):string {
 }
 
 function getNPSuffix(projects: ProjectSource[], op?: OperationType): string {
-    let basePrompt:string = "Note: You are in a special Natural Programming mode. Follow the NP guidelines strictly in addition to what you've given. \n";
+    let basePrompt: string = "Note: You are in a special Natural Programming mode. Follow the NP guidelines strictly in addition to what you've given. \n";
     if (!op) {
         return "";
     } else if (op === "CODE_FOR_USER_REQUIREMENT") {
