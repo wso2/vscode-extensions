@@ -481,8 +481,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     const getModeIcon = (mode: AgentMode): string => {
         if (mode === 'ask') return 'comment-discussion';
-        if (mode === 'plan') return 'checklist';
-        return 'edit';
+        if (mode === 'plan') return 'list-tree';
+        return 'wrench';
     };
 
     // Refs to hold latest values for the event handler (avoids stale closure)
@@ -2591,8 +2591,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             {/* Generating indicator */}
             {backendRequestTriggered && (
                 <div
-                    className="flex items-center gap-1.5 ml-2 mb-2"
-                    style={{ color: "var(--vscode-descriptionForeground)", fontSize: "13px" }}
+                    className="flex items-center gap-1.5 mb-2"
+                    style={{ color: "var(--vscode-descriptionForeground)", fontSize: "13px", marginLeft: "20px" }}
                 >
                     <span className="flex gap-1">
                         <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: "var(--vscode-descriptionForeground)", animationDelay: "0ms" }} />
@@ -2850,7 +2850,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                         cursor: currentUserPrompt.trim() !== "" ? "pointer" : "default"
                                     }}
                                 >
-                                    <Codicon name="arrow-up" />
+                                    <Codicon name="send" />
                                 </button>
                             </FooterTooltip>
                         )}
@@ -2870,7 +2870,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 />
             </FloatingInputContainer>
 
-            <p style={{ fontSize: "10px", color: "var(--vscode-descriptionForeground)", opacity: 0.6, margin: "2px 0 0 0", lineHeight: 1.2, textAlign: "center" }}>
+            <p style={{ fontSize: "10px", color: "var(--vscode-descriptionForeground)", opacity: 0.6, margin: "0", padding: "0 16px 8px 16px", lineHeight: 1.2, textAlign: "center", width: "100%" }}>
                 AI-generated output may contain mistakes. Review before adding to your integration.
             </p>
         </Footer>
