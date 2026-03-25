@@ -114,7 +114,9 @@ export namespace NodeStyles {
     `;
 
     export const Icon = styled.i`
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         font-size: 14px;
         line-height: 1;
         opacity: 0.95;
