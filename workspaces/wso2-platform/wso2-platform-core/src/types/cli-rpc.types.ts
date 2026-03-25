@@ -581,6 +581,42 @@ export interface UpdateCodeServerReq {
 	sourceCommitHash: string;
 }
 
+export interface ChangePrebuiltIntegrationRepositoryReq {
+	orgId: string;
+	orgHandler: string;
+	projectId: string;
+	componentId: string;
+	srcGitRepoUrl: string;
+	repositorySubPath: string;
+	repositoryBranch: string;
+	secretRef: string;
+	originCloud: string;
+	isPublicRepo: boolean;
+}
+
+export interface GetComponentUsageReq {
+	orgId: string;
+	orgUuid: string;
+	cloudOrigin: string;
+}
+
+export interface GetComponentUsageResp {
+	success: boolean;
+	message: string;
+	data: {
+		billableComponentCount: number;
+		componentCount: number;
+		externalConsumerComponentCount: number;
+		systemComponentCount: number;
+		orgId: number;
+		isWebappConstrained: boolean;
+		distinctTypeCount: {
+			componentType: string;
+			count: number;
+		}[];
+	};
+}
+
 export interface GetGitTokenForRepositoryReq {
 	orgId: string;
 	gitOrg: string;
