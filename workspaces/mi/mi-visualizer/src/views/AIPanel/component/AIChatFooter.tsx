@@ -118,6 +118,7 @@ function upsertLoadingBashOutputTag(
 }
 
 const WORKING_ON_IT_TOOL_MESSAGE = 'copilot is working on it...';
+const WORKING_ON_IT_DELAY_MS = 2000;
 // Stream safeguards for reconnect + polling fallback recovery.
 const ENABLE_STREAM_SAFEGUARDS = true;
 
@@ -1234,6 +1235,19 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
         firstProgressEventReceivedRef.current = false;
         clearWorkingOnItTimer();
+        workingOnItTimerRef.current = setTimeout(() => {
+            if (
+                firstProgressEventReceivedRef.current
+                || abortedRef.current
+                || !backendRequestTriggeredRef.current
+            ) {
+                return;
+            }
+
+            setMessages((prev) => updateLastMessage(prev, (c) =>
+                upsertLoadingToolCallTag(c, "", WORKING_ON_IT_TOOL_MESSAGE)
+            ));
+        }, WORKING_ON_IT_DELAY_MS);
 
         try {
             // Convert chat history to model messages format (with tool calls preserved)
@@ -2585,21 +2599,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             );
                         })
                     )}
-                </div>
-            )}
-
-            {/* Generating indicator */}
-            {backendRequestTriggered && (
-                <div
-                    className="flex items-center gap-1.5 mb-2"
-                    style={{ color: "var(--vscode-descriptionForeground)", fontSize: "13px", marginLeft: "20px" }}
-                >
-                    <span className="flex gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: "var(--vscode-descriptionForeground)", animationDelay: "0ms" }} />
-                        <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: "var(--vscode-descriptionForeground)", animationDelay: "150ms" }} />
-                        <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: "var(--vscode-descriptionForeground)", animationDelay: "300ms" }} />
-                    </span>
-                    <span className="ml-0.5">Generating..</span>
                 </div>
             )}
 
