@@ -1,0 +1,27 @@
+flowchart TD
+    %% Multi Source Workflow
+
+    subgraph wf0_sub["checkPetFetchToolsOrUsers: Get pet, then get products or users depending on pet existe…"]
+        direction TB
+        wf0_start(["▶ Start"])
+        wf0_start --> wf0_s0
+        wf0_s0["[1] fetchPet<br/>op: getPetById<br/>✓ $statusCode == 200"]
+        wf0_s0 -->|"✓ getTools"| wf0_s1
+        wf0_s0 -->|"✗ routeToUsers"| wf0_s2
+        wf0_s1["[2] fetchTools<br/>op: getBrands<br/>✓ $statusCode == 200"]
+        wf0_end0(["⏹ END"])
+        wf0_s1 -->|"✓ endWorkflow"| wf0_end0
+        wf0_s2["[3] fetchUsers<br/>op: getUsers<br/>✓ $statusCode == 200"]
+        wf0_end1(["⏹ END"])
+        wf0_s2 --> wf0_end1
+        class wf0_start startNode
+        class wf0_s0 stepNode
+        class wf0_s1 stepNode
+        class wf0_s2 stepNode
+        class wf0_end0 endNode
+        class wf0_end1 endNode
+    end
+
+    classDef startNode fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#155724
+    classDef stepNode fill:#ffffff,stroke:#495057,stroke-width:1px,color:#212529
+    classDef endNode fill:#f8d7da,stroke:#dc3545,stroke-width:2px,color:#721c24
