@@ -107,7 +107,7 @@ const ToolCallSegment: React.FC<ToolCallSegmentProps> = ({ text, loading, failed
 
     return (
         <div
-            className="flex items-center gap-2 py-0.5"
+            className="flex items-center gap-2 py-1"
             style={{
                 fontSize: "12.5px",
                 color: isCompleted ? "var(--vscode-descriptionForeground)" : "var(--vscode-foreground)",
