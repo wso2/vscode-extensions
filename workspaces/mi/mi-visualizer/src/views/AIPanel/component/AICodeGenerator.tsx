@@ -22,7 +22,10 @@ import { WelcomeMessage } from './WelcomeMessage';
 import AIChatHeader from './AIChatHeader';
 import AIChatFooter from './AIChatFooter';
 import AIChatMessage from './AIChatMessage';
+import SettingsPanel from './SettingsPanel';
+import CheckpointIndicator from './CheckpointIndicator';
 import { AIChatView } from '../styles';
+import { LoginMethod, Role } from "@wso2/mi-core";
 
 
 interface AICodeGeneratorProps {
@@ -33,10 +36,26 @@ interface AICodeGeneratorProps {
  * Main chat component with integrated MICopilot Context provider
  */
 export function AICodeGenerator({ isUsageExceeded = false }: AICodeGeneratorProps) {
-  const { messages } = useMICopilotContext();
+  const { messages, rpcClient } = useMICopilotContext();
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [isByok, setIsByok] = useState(false);
   const mainContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Check BYOK status for settings panel
+  useEffect(() => {
+      const checkByok = async () => {
+          const hasApiKey = await rpcClient?.getMiAiPanelRpcClient().hasAnthropicApiKey();
+          if (hasApiKey) {
+              setIsByok(true);
+          } else {
+              const machineView = await rpcClient?.getAIVisualizerState();
+              setIsByok(machineView?.loginMethod === LoginMethod.AWS_BEDROCK);
+          }
+      };
+      checkByok();
+  }, [rpcClient]);
 
   // Check if the chat is scrolled to the bottom
   useEffect(() => {
@@ -65,20 +84,51 @@ export function AICodeGenerator({ isUsageExceeded = false }: AICodeGeneratorProp
       }
   }, [messages, isAtBottom]);
 
+  // Full-panel settings view
+  if (showSettings) {
+      return (
+          <AIChatView>
+              <SettingsPanel onClose={() => setShowSettings(false)} isByok={isByok} />
+          </AIChatView>
+      );
+  }
+
   return (
           <AIChatView>
-              <AIChatHeader />
+              <AIChatHeader onOpenSettings={() => setShowSettings(true)} />
 
               <main style={{ flex: 1, overflowY: "auto" }} ref={mainContainerRef}>
                   {Array.isArray(messages) && messages.length === 0 && <WelcomeMessage />}
 
-                  {Array.isArray(messages) && messages.map((message, index) => (
-                      <AIChatMessage
-                          key={`${typeof message.id === "number" ? message.id : "msg"}-${message.role}-${index}`}
-                          message={message}
-                          index={index}
-                      />
-                  ))}
+                  {Array.isArray(messages) && messages.map((message, index) => {
+                      // Show checkpoint divider before user messages when previous
+                      // assistant message made file changes (has <filechanges> tag)
+                      let checkpointId: string | undefined;
+                      if (
+                          message.role === Role.MIUser &&
+                          index > 0 &&
+                          messages[index - 1]?.role === Role.MICopilot
+                      ) {
+                          const prevContent = messages[index - 1]?.content || "";
+                          const match = prevContent.match(/<filechanges>([\s\S]*?)<\/filechanges>/);
+                          if (match?.[1]) {
+                              try {
+                                  const parsed = JSON.parse(match[1]);
+                                  checkpointId = parsed?.checkpointId;
+                              } catch { /* ignore */ }
+                          }
+                      }
+
+                      return (
+                          <div key={`${typeof message.id === "number" ? message.id : "msg"}-${message.role}-${index}`} className="group/turn">
+                              {checkpointId && <CheckpointIndicator targetCheckpointId={checkpointId} />}
+                              <AIChatMessage
+                                  message={message}
+                                  index={index}
+                              />
+                          </div>
+                      );
+                  })}
 
                   <div ref={messagesEndRef} />
               </main>
