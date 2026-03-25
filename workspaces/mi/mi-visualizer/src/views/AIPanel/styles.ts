@@ -56,7 +56,7 @@ export const Footer = styled.footer({
 });
 
 export const FloatingInputContainer = styled.div({
-    margin: "0 16px 20px 16px",
+    margin: "0 16px 4px 16px",
     padding: "8px 12px",
     backgroundColor: "var(--vscode-input-background)",
     border: "1px solid var(--vscode-widget-border)",
