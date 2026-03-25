@@ -8,15 +8,15 @@ Each HTTP request in a `.hurl` file becomes a runnable notebook cell. Responses 
 
 ## Getting Started
 
-Right-click any `.hurl` file in the Explorer and choose **Http Client: Open Hurl Notebook**, or run the command from the Command Palette (`Cmd/Ctrl+Shift+P`).
+Right-click any `.hurl` file in the Explorer and choose **Hurl Client: Open Hurl Notebook**, or run the command from the Command Palette (`Cmd/Ctrl+Shift+P`).
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `HTTP Client: Open Hurl Notebook` | Open a `.hurl` file as a notebook (also available via right-click in Explorer) |
-| `HTTP Client: Install Hurl` | Manually trigger the managed hurl binary download |
-| `HTTP Client: Import Hurl String` | Create a notebook from a pasted hurl string (prompts for input if called from the Command Palette) |
+| `Hurl Client: Open Hurl Notebook` | Open a `.hurl` file as a notebook (also available via right-click in Explorer) |
+| `Hurl Client: Install Hurl` | Manually trigger the managed hurl binary download |
+| `Hurl Client: Import Hurl String` | Create a notebook from a pasted hurl string (prompts for input if called from the Command Palette) |
 
 ## File Format
 
