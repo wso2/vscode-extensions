@@ -717,7 +717,7 @@ export function TestCaseForm(props: TestCaseFormProps) {
                 isOpen={showSignInConfirm}
                 operationType="generateTestCase"
                 sessionStorageKey="pendingTestCaseOperation"
-                signInMessage="You need to sign in to MI Copilot to use AI features. Would you like to sign in?"
+                signInMessage="You need to sign in to WSO2 Integrator Copilot to use AI features. Would you like to sign in?"
                 waitingMessage="Please complete the sign-in process. Your unit test generation will continue automatically after successful authentication."
                 dependencies={[isLoaded]}
                 onCancel={closeSignInView}

@@ -90,7 +90,7 @@ const promptReLogin = () => {
 
     reLoginPromptInFlight = true;
     void vscode.window.showWarningMessage(
-        'Your MI Copilot session is no longer valid for the current environment. Please sign in again.',
+        'Your WSO2 Integrator Copilot session is no longer valid for the current environment. Please sign in again.',
         'Sign In'
     ).then((selection) => {
         if (selection === 'Sign In') {
@@ -181,7 +181,7 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
 
             // Notify user and prompt to use their own API key
             vscode.window.showWarningMessage(
-                "Your free usage quota has been exceeded. Set your own Anthropic API key to continue using MI Copilot with unlimited access.",
+                "Your free usage quota has been exceeded. Set your own Anthropic API key to continue using WSO2 Integrator Copilot with unlimited access.",
                 "Set API Key",
                 "Learn More"
             ).then(selection => {

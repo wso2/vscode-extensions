@@ -29,7 +29,7 @@ export const COPILOT_ERROR_MESSAGES = {
 // MI Copilot maximum allowed file size
 export const MAX_FILE_SIZE = 5 * 1024 * 1024; // Default to 5MB
 
-export const USER_INPUT_PLACEHOLDER_MESSAGE = "Ask MI Copilot";
+export const USER_INPUT_PLACEHOLDER_MESSAGE = "Ask WSO2 Integrator Copilot";
 
 export const PROJECT_RUNTIME_VERSION_THRESHOLD = "4.4.0";
 

@@ -137,7 +137,7 @@ function showSignedOutNotification(projectUri: string) {
  */
 function showQuotaExceededNotification(projectUri: string) {
     vscode.window.showWarningMessage(
-        "Your free usage quota has been exceeded. Set your own Anthropic API key to continue using MI Copilot with unlimited access.",
+        "Your free usage quota has been exceeded. Set your own Anthropic API key to continue using WSO2 Integrator Copilot with unlimited access.",
         "Set API Key",
         "Learn More"
     ).then(selection => {

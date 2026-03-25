@@ -296,7 +296,7 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
                 <AlertContainer variant="primary">
                     <Title>Connect with Anthropic API Key</Title>
                     <SubTitle>
-                        Enter your Anthropic API key to connect to MI Copilot. Your API key will be securely stored
+                        Enter your Anthropic API key to connect to WSO2 Integrator Copilot. Your API key will be securely stored
                         and used for authentication.
                     </SubTitle>
 
@@ -354,7 +354,7 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
                 <AlertContainer variant="primary">
                     <Title>Connect with AWS Bedrock</Title>
                     <SubTitle>
-                        Enter your AWS credentials to connect to MI Copilot via Amazon Bedrock.
+                        Enter your AWS credentials to connect to WSO2 Integrator Copilot via Amazon Bedrock.
                         Your credentials will be securely stored and used for authentication.
                     </SubTitle>
 
@@ -468,7 +468,7 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
             <WaitingMessage>
                 <Title>Waiting for Login</Title>
                 <SubTitle>
-                    Waiting for Devant sign-in. Complete your login in the WSO2 Platform extension to continue with MI Copilot.
+                    Waiting for Devant sign-in. Complete your login in the WSO2 Platform extension to continue with WSO2 Integrator Copilot.
                 </SubTitle>
                 <ButtonContainer>
                     <VSCodeButton appearance="secondary" onClick={cancelLogin}>
