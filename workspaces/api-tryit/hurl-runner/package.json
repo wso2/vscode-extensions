@@ -6,7 +6,7 @@
   "types": "lib/index.d.ts",
   "scripts": {
     "lint": "eslint .",
-    "build": "pnpm run lint && tsc --pretty && pnpm run test",
+    "build": "pnpm run lint && tsc --pretty",
     "watch": "tsc --pretty --watch",
     "test": "jest --runInBand"
   },
