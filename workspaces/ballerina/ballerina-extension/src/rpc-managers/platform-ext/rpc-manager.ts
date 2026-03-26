@@ -451,7 +451,7 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
             const platformExt = await this.getPlatformExt();
             return await platformExt?.createComponentConnection(params);
         } catch (err) {
-            log(`Failed to create Devant connection: ${err}`);
+            log(`Failed to create WSO2 Cloud connection: ${err}`);
         }
     }
 
@@ -460,7 +460,7 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
             const platformExt = await this.getPlatformExt();
             return platformExt?.stopProxyServer(params);
         } catch (err) {
-            log(`Failed to delete connection config: ${err}`);
+            log(`Failed to stop proxy server: ${err}`);
         }
     }
 
@@ -609,7 +609,7 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
                     (member) =>
                         STKindChecker.isModuleVarDecl(member) &&
                         (member.typedBindingPattern?.bindingPattern as CaptureBindingPattern)?.variableName?.value ===
-                            "devantProxyConfig",
+                            "wso2CloudProxyConfig",
                 )
             ) {
                 requiresProxy = true;
@@ -619,7 +619,7 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
                 if (!platformExtStore.getState().state?.isLoggedIn) {
                     window
                         .showErrorMessage(
-                            "You must log in before connecting to devant environment. Retry after logging in.",
+                            "You must log in before connecting to WSO2 Cloud environment. Retry after logging in.",
                             "Login",
                         )
                         .then((res) => {
@@ -633,7 +633,7 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
                 if (!platformExtStore.getState().state?.selectedContext?.project) {
                     window
                         .showErrorMessage(
-                            "Pease associate your directory with Devant project in order to connect to Devant while running or debugging",
+                            "Please associate your directory with a WSO2 Cloud project in order to connect to WSO2 Cloud while running or debugging",
                             "Manage Project",
                         )
                         .then((res) => {
@@ -731,14 +731,14 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
                         } else {
                             window
                                 .showInformationMessage(
-                                    "In-order to delete your project level Devant connection, please head over to Devant console",
-                                    "Open Devant",
+                                    "In-order to delete your project level WSO2 Cloud connection, please head over to WSO2 Cloud console",
+                                    "Open WSO2 Cloud",
                                 )
                                 .then((resp) => {
-                                    if (resp === "Open Devant") {
+                                    if (resp === "Open WSO2 Cloud") {
                                         vscode.env.openExternal(
                                             Uri.parse(
-                                                `${devantUrl}/organizations/${selected.org.handle}/projects/${selected.project.id}/admin/connections`,
+                                                `${devantUrl}/organizations/${selected.org.handle}/projects/${selected.project.handler}/admin/connections`,
                                             ),
                                         );
                                     }
@@ -752,8 +752,8 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
             StateMachine.setReadyMode();
         } catch (err) {
             StateMachine.setReadyMode();
-            window.showErrorMessage(`Failed to delete Devant connection: ${(err as Error).message}`);
-            log(`Failed to invoke deleteDevantConnection: ${err}`);
+            window.showErrorMessage(`Failed to delete WSO2 Cloud connection: ${(err as Error).message}`);
+            log(`Failed to invoke deleteBiDevantConnection: ${err}`);
         }
     }
 
@@ -801,10 +801,14 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
                     );
                 }
 
-                keys[entry.id] = {
-                    keyname: entry.name,
-                    envName: connectionKeys[entry.id].envVariableName,
-                };
+                if (connectionKeys[entry.id]){
+                    keys[entry.id] = {
+                        keyname: entry.name,
+                        envName: connectionKeys[entry.id].envVariableName,
+                    };
+                } else {
+                    log(`connectionKeys ${JSON.stringify(connectionKeys)} does not include the needed key for entry ${entry.id}`);
+                }
             }
             if (deleteTempConfigBalEdits.size > 0) {
                 await updateSourceCode({
@@ -839,8 +843,8 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
             return { connectionName: resp.connName };
         } catch (err) {
             StateMachine.setReadyMode();
-            window.showErrorMessage(`Failed to initialize Devant connection: ${(err as Error).message}`);
-            log(`Failed to initialize Devant connection: ${err}`);
+            window.showErrorMessage(`Failed to initialize WSO2 Cloud connection: ${(err as Error).message}`);
+            log(`Failed to initialize WSO2 Cloud connection: ${err}`);
         }
     }
 
@@ -1038,7 +1042,7 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
 
             return marketplaceService;
         } catch (err) {
-            window.showErrorMessage(`Failed to create Devant connection: ${(err as Error).message}`);
+            window.showErrorMessage(`Failed to create WSO2 Cloud connection: ${(err as Error).message}`);
             log(`Failed to invoke registerDevantMarketplaceService: ${err}`);
         }
     }

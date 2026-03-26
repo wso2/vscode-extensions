@@ -25,19 +25,22 @@ import {
     AddFilesToProjectRequest,
     ApproveTaskRequest,
     CheckpointInfo,
-    ConnectorSpecCancelRequest,
-    ConnectorSpecRequest,
     ConfigurationCancelRequest,
     ConfigurationProvideRequest,
+    ConnectorSpecCancelRequest,
+    ConnectorSpecRequest,
     DocGenerationRequest,
     GenerateAgentCodeRequest,
     GenerateOpenAPIRequest,
     LLMDiagnostics,
     LoginMethod,
     MetadataWithAttachments,
+    OpenFileDiffRequest,
     PlanApprovalRequest,
     ProcessContextTypeCreationRequest,
     ProcessMappingParametersRequest,
+    PromptEnhancementRequest,
+    PromptEnhancementResponse,
     RequirementSpecification,
     RestoreCheckpointRequest,
     SemanticDiffRequest,
@@ -48,19 +51,23 @@ import {
     UIChatMessage,
     UpdateChatMessageRequest,
     UsageResponse,
+    WebToolApprovalRequest,
+    approveWebTool,
+    declineWebTool,
     abortAIGeneration,
     acceptChanges,
     addFilesToProject,
     approvePlan,
     approveTask,
-    cancelConnectorSpec,
     cancelConfiguration,
+    cancelConnectorSpec,
     clearChat,
     clearInitialPrompt,
     createTestDirecoryIfNotExists,
     declineChanges,
     declinePlan,
     declineTask,
+    enhancePrompt,
     generateAgent,
     generateContextTypes,
     generateInlineMappingCode,
@@ -78,6 +85,7 @@ import {
     getLoginMethod,
     getSemanticDiff,
     getServiceNames,
+    getUsage,
     isCopilotSignedIn,
     isPlatformExtensionAvailable,
     isUserAuthenticated,
@@ -85,15 +93,16 @@ import {
     markAlertShown,
     openAIPanel,
     openChatWindowWithCommand,
+    openFileDiff,
+    promptForLogin,
     promptGithubAuthorize,
-    provideConnectorSpec,
     provideConfiguration,
+    provideConnectorSpec,
     restoreCheckpoint,
     showSignInAlert,
     submitFeedback,
     updateChatMessage,
-    updateRequirementSpecification,
-    getUsage
+    updateRequirementSpecification
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -288,5 +297,25 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     getUsage(): Promise<UsageResponse | undefined> {
         return this._messenger.sendRequest(getUsage, HOST_EXTENSION);
+    }
+
+    openFileDiff(params: OpenFileDiffRequest): void {
+        return this._messenger.sendNotification(openFileDiff, HOST_EXTENSION, params);
+    }
+
+    approveWebTool(params: WebToolApprovalRequest): Promise<void> {
+        return this._messenger.sendRequest(approveWebTool, HOST_EXTENSION, params);
+    }
+
+    declineWebTool(params: WebToolApprovalRequest): Promise<void> {
+        return this._messenger.sendRequest(declineWebTool, HOST_EXTENSION, params);
+    }
+    
+    enhancePrompt(params: PromptEnhancementRequest): Promise<PromptEnhancementResponse> {
+        return this._messenger.sendRequest(enhancePrompt, HOST_EXTENSION, params);
+    }
+
+    promptForLogin(): void {
+        return this._messenger.sendNotification(promptForLogin, HOST_EXTENSION);
     }
 }

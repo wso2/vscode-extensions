@@ -151,6 +151,7 @@ interface DevantConnectorCreateFormProps {
     devantFlow: DevantConnectionFlow;
     existingDevantConnNames?: string[];
     biConnectionNames?: string[];
+    createTempConfigsAsync: (params: {item: MarketplaceItem, schema?: MarketplaceItemSchema}) => Promise<DevantTempConfig[]>;
     onSuccess?: (data: { connectionNode?: any; connectionName?: string }) => void;
 }
 
@@ -161,6 +162,7 @@ export const DevantConnectorCreateForm: FC<DevantConnectorCreateFormProps> = ({
     projectPath,
     onSuccess,
     devantConfigs = [],
+    createTempConfigsAsync,
 }) => {
     const { platformExtState, platformRpcClient } = usePlatformExtContext();
     const [showAdvancedSection, setShowAdvancedSection] = useState(false);
@@ -205,7 +207,7 @@ export const DevantConnectorCreateForm: FC<DevantConnectorCreateFormProps> = ({
                 projectId: platformExtState.selectedContext?.project.id,
                 serviceSchemaId: data.schemaId,
                 serviceId: marketplaceItem?.serviceId,
-                serviceVisibility: getInitialVisibility(marketplaceItem, visibilities),
+                serviceVisibility: data.visibility || "PUBLIC",
                 componentType: isProjectLevel
                     ? "non-component"
                     : getTypeForDisplayType(platformExtState.selectedComponent?.spec?.type),
@@ -215,8 +217,14 @@ export const DevantConnectorCreateForm: FC<DevantConnectorCreateFormProps> = ({
 
             const securityType = createdConnection?.schemaName?.toLowerCase()?.includes("oauth") ? "oauth" : "apikey";
 
+            let tempDevantConfigs = devantConfigs
+            const matchingSchema = marketplaceItem?.connectionSchemas?.find((schema) => schema.id === createdConnection?.schemaReference);
+            if (matchingSchema) {
+                tempDevantConfigs = await createTempConfigsAsync({ item: marketplaceItem!, schema: matchingSchema });
+            }
+
             const initializeResp = await platformRpcClient?.initializeDevantOASConnection({
-                devantConfigs,
+                devantConfigs: tempDevantConfigs,
                 marketplaceItem: marketplaceItem!,
                 configurations: createdConnection.configurations,
                 name: data.name,
@@ -311,7 +319,7 @@ export const DevantConnectorCreateForm: FC<DevantConnectorCreateFormProps> = ({
         advancedConfigItems.push(
             <FormStyles.Row>
                 <CheckBox
-                    label="Connection available to all integrations within your Devant project"
+                    label="Connection available to all integrations within your WSO2 Cloud project"
                     checked={isProjectLevel}
                     onChange={(checked: boolean) => {
                         form.setValue("isProjectLevel", checked);

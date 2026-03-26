@@ -30,7 +30,7 @@ interface WebviewStateStore {
 }
 
 export const defaultTerminologies: WSO2Terminologies = {
-	cloudName: "WSO2 Cloud",
+	cloudName: "WSO2 Platform",
 	componentTerm: "component",
 	componentTermPlural: "components",
 	componentTermCapitalized: "Component",

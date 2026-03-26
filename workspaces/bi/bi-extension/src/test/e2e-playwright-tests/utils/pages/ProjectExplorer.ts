@@ -53,7 +53,7 @@ export class ProjectExplorer {
         const projectExplorerRoot = this.explorer.locator(`div[role="treeitem"][aria-label="${projectName}"]`);
         await projectExplorerRoot.waitFor();
         await projectExplorerRoot.hover();
-        const locator = this.explorer.getByLabel('Show Vizualizer');
+        const locator = this.explorer.getByLabel('Open View');
         await locator.waitFor();
         await this.page.waitForTimeout(500); // To fix intermittent issues
         await locator.click();
