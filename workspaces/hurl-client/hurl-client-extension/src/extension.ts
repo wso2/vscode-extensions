@@ -170,7 +170,7 @@ export function activate(context: vscode.ExtensionContext): void {
         }
     );
     // Deprecated aliases — kept indefinitely for backward compatibility.
-    // These delegate to the new HurlClient.* commands and show a deprecation warning.
+    // These delegate to the new HurlClient.* commands
     const deprecatedOpenHurlNotebook = vscode.commands.registerCommand(
         'HTTPClient.openHurlNotebook',
         async (...args: unknown[]) => {

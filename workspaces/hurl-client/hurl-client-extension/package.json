@@ -45,7 +45,7 @@
     "notebooks": [
       {
         "type": "HurlClient",
-        "displayName": "HTTP Client",
+        "displayName": "Hurl Client",
         "selector": [
           {
             "filenamePattern": "*.hurl"
