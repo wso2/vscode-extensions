@@ -1,8 +1,10 @@
 # Hurl Client
 
+> This extension was developed to serve as the HTTP client for the [WSO2 Integrator](https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator).
+
 Open, edit, and execute `.hurl` files as interactive notebooks in VS Code.
 
-Each HTTP request in a `.hurl` file becomes a runnable notebook cell. Responses are displayed inline as formatted Markdown — status code, response body (pretty-printed JSON), and assertion results. Markdown cells provide rich documentation between requests. This was developed to support [WSO2 Integrator](https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator) Try It feature.
+Each HTTP request in a `.hurl` file becomes a runnable notebook cell. Responses are displayed inline as formatted Markdown — status code, response body (pretty-printed JSON), and assertion results. Markdown cells provide rich documentation between requests.
 
 ![Hurl Client demo](images/hurl-client.gif)
 
