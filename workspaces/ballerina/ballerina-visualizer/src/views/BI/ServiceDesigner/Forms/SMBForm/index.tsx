@@ -68,7 +68,7 @@ export function SMBForm(props: SMBFormProps) {
 
     const payloadContext = {
         protocol: Protocol.SMB,
-        filterType: functionModel?.name.metadata.label || "JSON",
+        filterType: functionModel?.name?.metadata?.label || "JSON",
     } as GeneralPayloadContext;
 
     const [isTypeEditorOpen, setIsTypeEditorOpen] = useState<boolean>(false);
@@ -182,14 +182,15 @@ export function SMBForm(props: SMBFormProps) {
 
         let baseType = typeValue;
 
-        if (baseType.endsWith("[]") && baseType !== "string[]") {
-            baseType = baseType.slice(0, -2);
-        } else if (baseType.startsWith("stream<")) {
+        if (baseType.startsWith("stream<")) {
             if (baseType.endsWith(", error>")) {
                 baseType = baseType.slice(7, -8);
             } else if (baseType.endsWith(">")) {
                 baseType = baseType.slice(7, -1);
             }
+        }
+        if (baseType.endsWith("[]") && baseType !== "string[]") {
+            baseType = baseType.slice(0, -2);
         }
 
         return baseType;
@@ -248,6 +249,16 @@ export function SMBForm(props: SMBFormProps) {
                         ...p.type,
                         value: resetValue
                     },
+                    enabled: true
+                };
+            }
+            if (p.kind === "REQUIRED" && p.name.value === "content") {
+                const resetValue = hasStreamProperty && functionModel.properties?.stream?.enabled
+                    ? selectType(p.type.placeholder, functionModel.properties.stream.enabled)
+                    : p.type.placeholder;
+                return {
+                    ...p,
+                    type: { ...p.type, value: resetValue },
                     enabled: true
                 };
             }
@@ -346,7 +357,10 @@ export function SMBForm(props: SMBFormProps) {
                                                         if (params.length === 0) {
                                                             handleDeleteContentSchema();
                                                         } else {
-                                                            handleParamChange(params);
+                                                            const updatedParameters = functionModel.parameters.map(p =>
+                                                                p.kind === "DATA_BINDING" ? params[0] : p
+                                                            );
+                                                            handleParamChange(updatedParameters);
                                                         }
                                                     }}
                                                     onEditClick={handleEditContentSchema}

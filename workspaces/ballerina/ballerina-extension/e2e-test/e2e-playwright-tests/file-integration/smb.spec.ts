@@ -22,10 +22,11 @@ import { ProjectExplorer } from '../utils/pages';
 import { DEFAULT_PROJECT_NAME } from '../utils/helpers/setup';
 
 export default function createTests() {
+    const listenerName = 'smbListener';
     test.describe('SMB Integration Tests', {
         tag: '@group1',
     }, async () => {
-        let listenerName: string;
+        test.describe.configure({ mode: 'serial' });
         initTest();
         test('Create SMB Integration', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
@@ -35,7 +36,6 @@ export default function createTests() {
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-            listenerName = `smbListener`;
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
             await form.submit('Create');
