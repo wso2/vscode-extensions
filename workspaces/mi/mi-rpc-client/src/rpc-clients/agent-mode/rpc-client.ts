@@ -41,6 +41,10 @@ import {
     ModelSettings,
     MainModelPreset,
     SubModelPreset,
+    ClearAgentMemoryResponse,
+    OpenAgentMemoryFolderResponse,
+    clearAgentMemory as clearAgentMemoryRpcType,
+    openAgentMemoryFolder as openAgentMemoryFolderRpcType,
 } from "@wso2/mi-core";
 import { HOST_EXTENSION, RequestType } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -162,26 +166,8 @@ const getAgentRunStatus: RequestType<GetAgentRunStatusRequest, GetAgentRunStatus
     method: `${_prefix}/getAgentRunStatus`
 };
 
-export interface ClearAgentMemoryResponse {
-    success: boolean;
-    error?: string;
-}
-
-export interface OpenAgentMemoryFolderResponse {
-    success: boolean;
-    error?: string;
-}
-
-const clearAgentMemory: RequestType<void, ClearAgentMemoryResponse> = {
-    method: `${_prefix}/clearAgentMemory`
-};
-
-const openAgentMemoryFolder: RequestType<void, OpenAgentMemoryFolderResponse> = {
-    method: `${_prefix}/openAgentMemoryFolder`
-};
-
-// Re-export model settings types from @wso2/mi-core
-export type { MainModelPreset, SubModelPreset, ModelSettings };
+// Re-export types from @wso2/mi-core
+export type { MainModelPreset, SubModelPreset, ModelSettings, ClearAgentMemoryResponse, OpenAgentMemoryFolderResponse };
 
 export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
     private _messenger: Messenger;
@@ -255,11 +241,11 @@ export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
     // Memory Management Functions
     // ==================================
     clearAgentMemory(): Promise<ClearAgentMemoryResponse> {
-        return this._messenger.sendRequest(clearAgentMemory, HOST_EXTENSION);
+        return this._messenger.sendRequest(clearAgentMemoryRpcType, HOST_EXTENSION);
     }
 
     openAgentMemoryFolder(): Promise<OpenAgentMemoryFolderResponse> {
-        return this._messenger.sendRequest(openAgentMemoryFolder, HOST_EXTENSION);
+        return this._messenger.sendRequest(openAgentMemoryFolderRpcType, HOST_EXTENSION);
     }
 
 }

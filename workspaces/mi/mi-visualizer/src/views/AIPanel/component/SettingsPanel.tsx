@@ -46,6 +46,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok }) => {
         updateModelSettings,
         isThinkingEnabled,
         setIsThinkingEnabled,
+        isMemoryEnabled,
+        setIsMemoryEnabled,
     } = useMICopilotContext();
 
     const handleLogout = async () => {
@@ -61,12 +63,26 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok }) => {
             subModelCustomId: undefined,
         });
         setIsThinkingEnabled(false);
+        setIsMemoryEnabled(false);
+    };
+
+    const handleClearMemory = async () => {
+        try {
+            await rpcClient.getMiAgentPanelRpcClient().clearAgentMemory();
+        } catch { /* silent */ }
+    };
+
+    const handleOpenMemoryFolder = async () => {
+        try {
+            await rpcClient.getMiAgentPanelRpcClient().openAgentMemoryFolder();
+        } catch { /* silent */ }
     };
 
     const isDefault =
         modelSettings.mainModelPreset === DEFAULT_MAIN &&
         modelSettings.subModelPreset === DEFAULT_SUB &&
-        !isThinkingEnabled;
+        !isThinkingEnabled &&
+        !isMemoryEnabled;
 
     const currentMainOption = MAIN_AGENT_OPTIONS.find(o => o.value === modelSettings.mainModelPreset) || MAIN_AGENT_OPTIONS[0];
     const currentSubOption = SUB_AGENT_OPTIONS.find(o => o.value === modelSettings.subModelPreset) || SUB_AGENT_OPTIONS[0];
@@ -173,6 +189,64 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok }) => {
                             variant="warning"
                             text="Copilot may overthink simple tasks, increasing latency and cost. WSO2 recommends keeping thinking off for most use cases."
                         />
+                    )}
+                </SettingsSection>
+
+                {/* Persistent Memory */}
+                <SettingsSection title="Memory">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[13px]" style={{ color: "var(--vscode-foreground)" }}>
+                            Persistent Memory
+                        </span>
+                        <ToggleGroup
+                            options={["Off", "On"]}
+                            selected={isMemoryEnabled ? "On" : "Off"}
+                            onSelect={(label) => setIsMemoryEnabled(label === "On")}
+                            compact
+                        />
+                    </div>
+                    <p className="text-[11px]" style={{ color: "var(--vscode-descriptionForeground)" }}>
+                        Remembers project conventions and preferences across sessions.
+                    </p>
+                    {isMemoryEnabled && (
+                        <div className="flex items-center gap-2 mt-1">
+                            <button
+                                className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] transition-colors"
+                                style={{
+                                    color: "var(--vscode-textLink-foreground)",
+                                    border: "1px solid var(--vscode-widget-border, transparent)",
+                                }}
+                                onMouseEnter={(e) => {
+                                    (e.currentTarget as HTMLElement).style.backgroundColor = "var(--vscode-list-hoverBackground)";
+                                }}
+                                onMouseLeave={(e) => {
+                                    (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                                }}
+                                onClick={handleOpenMemoryFolder}
+                                title="Open memory folder in file explorer"
+                            >
+                                <Codicon name="folder-opened" />
+                                View Files
+                            </button>
+                            <button
+                                className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] transition-colors"
+                                style={{
+                                    color: "var(--vscode-errorForeground)",
+                                    border: "1px solid var(--vscode-widget-border, transparent)",
+                                }}
+                                onMouseEnter={(e) => {
+                                    (e.currentTarget as HTMLElement).style.backgroundColor = "var(--vscode-list-hoverBackground)";
+                                }}
+                                onMouseLeave={(e) => {
+                                    (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                                }}
+                                onClick={handleClearMemory}
+                                title="Delete all memory files for this project"
+                            >
+                                <Codicon name="trash" />
+                                Clear All
+                            </button>
+                        </div>
                     )}
                 </SettingsSection>
 
