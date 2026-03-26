@@ -76,7 +76,7 @@ export default function createTests() {
 
             const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
             await saveChangesBtn.waitFor({ state: 'visible' });
-            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveClass(/disabled/, { timeout: 5000 });
             await expect(saveChangesBtn).toHaveText('Save Changes');
 
             const backBtn = artifactWebView.locator('[data-testid="back-button"]');
