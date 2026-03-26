@@ -342,7 +342,7 @@ export function SMBForm(props: SMBFormProps) {
                                                 </Typography>
                                                 <Parameters
                                                     parameters={[contentParameter]}
-                                                    onChange={(params) => {
+                                                    onChange={(params: ParameterModel[]) => {
                                                         if (params.length === 0) {
                                                             handleDeleteContentSchema();
                                                         } else {

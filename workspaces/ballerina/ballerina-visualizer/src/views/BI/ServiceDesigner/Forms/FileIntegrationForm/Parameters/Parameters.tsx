@@ -36,6 +36,7 @@ export interface ParametersProps {
     onEditClick?: (param: ParameterModel) => void;
     showPayload: boolean;
     typeLabel?: string;
+    streamEnabled?: boolean;
 }
 
 const ParamLabelContainer = styled.div`
