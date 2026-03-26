@@ -279,6 +279,36 @@ const ResetButton = styled.button`
     }
 `;
 
+const MemoryActionRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 8px 12px;
+`;
+
+const MemoryActionButton = styled.button`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    font-size: 10px;
+    color: var(--vscode-textLink-foreground);
+    background: none;
+    border: 1px solid var(--vscode-widget-border, transparent);
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:hover {
+        background: var(--vscode-list-hoverBackground);
+        border-color: var(--vscode-focusBorder);
+    }
+
+    &.destructive {
+        color: var(--vscode-errorForeground, #f85149);
+    }
+`;
+
 const DEFAULT_MAIN_PRESET: MainModelPreset = 'sonnet';
 const DEFAULT_SUB_PRESET: SubModelPreset = 'haiku';
 
@@ -318,7 +348,7 @@ const SUB_PRESET_INFO: Record<SubModelPreset, PresetInfo> = {
 };
 
 const ModelSettingsMenu: React.FC<ModelSettingsMenuProps> = ({ isLoading, isByok }) => {
-    const { modelSettings, updateModelSettings, isThinkingEnabled, setIsThinkingEnabled } = useMICopilotContext();
+    const { rpcClient, modelSettings, updateModelSettings, isThinkingEnabled, setIsThinkingEnabled, isMemoryEnabled, setIsMemoryEnabled } = useMICopilotContext();
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -361,12 +391,32 @@ const ModelSettingsMenu: React.FC<ModelSettingsMenuProps> = ({ isLoading, isByok
             subModelCustomId: undefined,
         });
         setIsThinkingEnabled(false);
+        setIsMemoryEnabled(false);
+    };
+
+    const handleClearMemory = async () => {
+        if (!confirm('Clear all agent memory for this project? This cannot be undone.')) {
+            return;
+        }
+        try {
+            await rpcClient.getMiAgentPanelRpcClient().clearAgentMemory();
+        } catch {
+            // Silently fail — user will see memory is empty next time
+        }
+    };
+
+    const handleOpenMemoryFolder = async () => {
+        try {
+            await rpcClient.getMiAgentPanelRpcClient().openAgentMemoryFolder();
+        } catch {
+            // Silently fail
+        }
     };
 
     const mainThumbPos = mainSelection === 'sonnet' ? 0 : 1;
     const subThumbPos = subSelection === 'haiku' ? 0 : 1;
 
-    const isDefault = mainSelection === DEFAULT_MAIN_PRESET && subSelection === DEFAULT_SUB_PRESET && !isThinkingEnabled;
+    const isDefault = mainSelection === DEFAULT_MAIN_PRESET && subSelection === DEFAULT_SUB_PRESET && !isThinkingEnabled && !isMemoryEnabled;
     const mainPresetInfo = MAIN_PRESET_INFO[mainSelection];
     const subPresetInfo = SUB_PRESET_INFO[subSelection];
     const isUsingHighIntelligence = mainSelection === 'opus' || subSelection === 'sonnet';
@@ -428,6 +478,28 @@ const ModelSettingsMenu: React.FC<ModelSettingsMenuProps> = ({ isLoading, isByok
                         <span style={{ flexShrink: 0 }}><Codicon name="warning" /></span>
                         <span>Copilot may overthink simple tasks, increasing latency and cost. WSO2 recommends keeping thinking off for most use cases.</span>
                     </WarningNote>
+                )}
+
+                <SectionHeader>Memory</SectionHeader>
+                <ThinkingToggleRow>
+                    <ThinkingLabel>Persistent Memory</ThinkingLabel>
+                    <OnOffTrack isOn={isMemoryEnabled} onClick={() => setIsMemoryEnabled(prev => !prev)}>
+                        <OnOffThumb isOn={isMemoryEnabled} />
+                        <OnOffOption isActive={!isMemoryEnabled}>Off<DefaultDot title="Default" /></OnOffOption>
+                        <OnOffOption isActive={isMemoryEnabled}>On</OnOffOption>
+                    </OnOffTrack>
+                </ThinkingToggleRow>
+                {isMemoryEnabled && (
+                    <MemoryActionRow>
+                        <MemoryActionButton onClick={handleOpenMemoryFolder} title="Open memory folder in file explorer">
+                            <Codicon name="folder-opened" />
+                            View
+                        </MemoryActionButton>
+                        <MemoryActionButton className="destructive" onClick={handleClearMemory} title="Delete all memory files for this project">
+                            <Codicon name="trash" />
+                            Clear All
+                        </MemoryActionButton>
+                    </MemoryActionRow>
                 )}
 
                 {isUsingHighIntelligence && (
