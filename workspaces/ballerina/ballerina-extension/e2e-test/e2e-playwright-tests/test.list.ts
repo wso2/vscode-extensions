@@ -55,6 +55,7 @@ import twillioIntegration from './event-integration/twillio.spec';
 import githubIntegration from './event-integration/github.spec';
 
 import ftpIntegration from './file-integration/ftp.spec';
+import smbIntegration from './file-integration/smb.spec';
 import directoryIntegration from './file-integration/directory.spec';
 
 import functionArtifact from './other-artifacts/function.spec';
@@ -127,6 +128,7 @@ test.describe(githubIntegration);
 
 // <----File Integration Test---->
 test.describe(ftpIntegration);
+test.describe(smbIntegration);
 test.describe(directoryIntegration);
 
 // <----Other Artifacts Test---->
