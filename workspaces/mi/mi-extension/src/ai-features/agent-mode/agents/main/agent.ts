@@ -22,7 +22,7 @@
 const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
 const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
 const ENABLE_TOOL_SEARCH = true; // Set to false to disable Anthropic native tool search (loads all tools upfront)
-const ENABLE_MEMORY_TOOL = true; // Set to true to enable Anthropic native memory tool (persistent project-scoped memory across sessions)
+const ENABLE_MEMORY_TOOL = false; // Set to true to enable Anthropic native memory tool (persistent project-scoped memory across sessions)
 const ENABLE_NATIVE_COMPACTION = true; // Set to true to enable Anthropic native server-side compaction (auto-summarizes when context grows large)
 
 // Native compaction trigger threshold in tokens.
@@ -113,6 +113,8 @@ export interface AgentRequest {
     images?: ImageObject[];
     /** Enable Claude thinking mode (reasoning blocks) */
     thinking?: boolean;
+    /** Enable persistent cross-session memory tool */
+    memoryEnabled?: boolean;
     /** Skip per-call web approval prompts when true */
     webAccessPreapproved?: boolean;
     /** Path to the MI project */
@@ -281,6 +283,9 @@ export async function executeAgent(
         const runtimeVersion = await getRuntimeVersionFromPom(request.projectPath);
         logInfo(`[Agent] Runtime version detected: ${runtimeVersion ?? 'unknown'}`);
 
+        // Resolve memory setting early — needed for both system prompt and tool registration.
+        const memoryEnabled = request.memoryEnabled ?? ENABLE_MEMORY_TOOL;
+
         // System message (cache control will be added dynamically by prepareStep)
         // Adding a cache block here because tools + system would be same for all users who use our proxy
         const systemMessage: SystemModelMessage = {
@@ -394,7 +399,7 @@ export async function executeAgent(
         // Add Anthropic native provider tools (tool search, memory).
         // These use the provider's built-in tool factories with auto-injected beta headers.
         let finalTools: any = tools;
-        const needsProvider = ENABLE_TOOL_SEARCH || ENABLE_MEMORY_TOOL;
+        const needsProvider = ENABLE_TOOL_SEARCH || memoryEnabled;
         const anthropicProvider = needsProvider ? await getAnthropicProvider() : null;
 
         // Tool search: deferred tools (marked with deferLoading in createAgentTools)
@@ -408,7 +413,8 @@ export async function executeAgent(
 
         // Memory tool: project-scoped persistent memory across sessions.
         // Claude auto-checks /memories at the start of each turn (built-in protocol).
-        if (ENABLE_MEMORY_TOOL && anthropicProvider) {
+        // Controlled by user setting (default off) or hardcoded flag for development.
+        if (memoryEnabled && anthropicProvider) {
             const memoriesDir = getCopilotProjectMemoriesDir(request.projectPath);
             const mode = request.mode || 'edit';
             const baseExecute = createMemoryExecute(memoriesDir);

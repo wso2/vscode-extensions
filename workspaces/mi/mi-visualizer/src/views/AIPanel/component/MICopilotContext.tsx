@@ -146,6 +146,10 @@ interface MICopilotContextType {
     // Thinking mode
     isThinkingEnabled: boolean;
     setIsThinkingEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+
+    // Memory mode
+    isMemoryEnabled: boolean;
+    setIsMemoryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 // Define the context for MI Copilot
@@ -230,6 +234,15 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const [isThinkingEnabled, setIsThinkingEnabled] = useState<boolean>(() => {
         try {
             const stored = localStorage.getItem(`${THINKING_KEY_PREFIX}-${agentMode}`);
+            return stored === 'true';
+        } catch { return false; }
+    });
+
+    // Memory mode state (persisted in localStorage, default off)
+    const MEMORY_KEY = 'mi-agent-memory-enabled';
+    const [isMemoryEnabled, setIsMemoryEnabled] = useState<boolean>(() => {
+        try {
+            const stored = localStorage.getItem(MEMORY_KEY);
             return stored === 'true';
         } catch { return false; }
     });
@@ -487,6 +500,13 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         } catch { /* ignore */ }
     }, [agentMode, isThinkingEnabled]);
 
+    // Persist memory preference to localStorage
+    useEffect(() => {
+        try {
+            localStorage.setItem(MEMORY_KEY, String(isMemoryEnabled));
+        } catch { /* ignore */ }
+    }, [isMemoryEnabled]);
+
     useEffect(() => {
         setRemaingTokenLessThanOne(remainingTokenPercentage < 1 && remainingTokenPercentage > 0);
     }, [remainingTokenPercentage]);
@@ -552,6 +572,9 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         // Thinking mode
         isThinkingEnabled,
         setIsThinkingEnabled,
+        // Memory mode
+        isMemoryEnabled,
+        setIsMemoryEnabled,
     };
 
     return (

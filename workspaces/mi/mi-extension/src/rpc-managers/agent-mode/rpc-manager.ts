@@ -45,6 +45,8 @@ import {
     GetAgentRunStatusRequest,
     GetAgentRunStatusResponse,
     ModelSettings,
+    ClearAgentMemoryResponse,
+    OpenAgentMemoryFolderResponse,
 } from '@wso2/mi-core';
 import type { Dirent } from 'fs';
 import * as fs from 'fs/promises';
@@ -72,7 +74,7 @@ import { cleanupRunningBackgroundSubagents } from '../../ai-features/agent-mode/
 import { beginServerManagementRunTracking, cleanupServerManagementOnAgentEnd } from '../../ai-features/agent-mode/tools/runtime_tools';
 import { AgentUndoCheckpointManager, StoredUndoCheckpoint } from '../../ai-features/agent-mode/undo/checkpoint-manager';
 import { MiDiagramRpcManager } from '../mi-diagram/rpc-manager';
-import { getCopilotSessionDir } from '../../ai-features/agent-mode/storage-paths';
+import { getCopilotSessionDir, getCopilotProjectMemoriesDir } from '../../ai-features/agent-mode/storage-paths';
 
 const DEFAULT_MODEL_SETTINGS: ModelSettings = { mainModelPreset: 'sonnet', subModelPreset: 'haiku' };
 
@@ -761,6 +763,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                             files: request.files,
                             images: request.images,
                             thinking: request.thinking ?? true,
+                            memoryEnabled: request.memoryEnabled,
                             webAccessPreapproved: request.webAccessPreapproved,
                             projectPath: this.projectUri,
                             sessionId: this.currentSessionId || undefined,
@@ -1535,6 +1538,41 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 success: false,
                 items: [],
                 error: error instanceof Error ? error.message : 'Failed to search mentionable paths',
+            };
+        }
+    }
+
+    // ========================================================================
+    // Memory Management
+    // ========================================================================
+
+    async clearAgentMemory(): Promise<ClearAgentMemoryResponse> {
+        try {
+            const memoriesDir = getCopilotProjectMemoriesDir(this.projectUri);
+            await fs.rm(memoriesDir, { recursive: true, force: true });
+            logInfo(`[AgentPanel] Cleared agent memory: ${memoriesDir}`);
+            return { success: true };
+        } catch (error) {
+            logError('[AgentPanel] Failed to clear agent memory', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to clear agent memory',
+            };
+        }
+    }
+
+    async openAgentMemoryFolder(): Promise<OpenAgentMemoryFolderResponse> {
+        try {
+            const memoriesDir = getCopilotProjectMemoriesDir(this.projectUri);
+            // Ensure directory exists before opening
+            await fs.mkdir(memoriesDir, { recursive: true });
+            await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(memoriesDir));
+            return { success: true };
+        } catch (error) {
+            logError('[AgentPanel] Failed to open agent memory folder', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to open memory folder',
             };
         }
     }

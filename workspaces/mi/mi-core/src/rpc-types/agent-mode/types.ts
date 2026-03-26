@@ -38,6 +38,8 @@ export interface SendAgentMessageRequest {
     images?: ImageObject[];
     /** Enable Claude thinking mode (reasoning blocks) */
     thinking?: boolean;
+    /** Enable persistent cross-session memory tool */
+    memoryEnabled?: boolean;
     /** When true, web_search and web_fetch run without per-call approval prompts */
     webAccessPreapproved?: boolean;
     /** Chat history for context (AI SDK format with tool calls/results) */
@@ -520,6 +522,20 @@ export interface GetAgentRunStatusResponse {
     isRunning: boolean;
     events: AgentEvent[];
     mode?: AgentMode;
+}
+
+// ============================================================================
+// Memory Management Types
+// ============================================================================
+
+export interface ClearAgentMemoryResponse {
+    success: boolean;
+    error?: string;
+}
+
+export interface OpenAgentMemoryFolderResponse {
+    success: boolean;
+    error?: string;
 }
 
 /**
