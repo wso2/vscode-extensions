@@ -22,7 +22,8 @@
   ],
   "activationEvents": [
     "onNotebook:HurlClient",
-    "onCommand:HurlClient.importHurlString"
+    "onCommand:HurlClient.importHurlString",
+    "onCommand:HTTPClient.importHurlString"
   ],
   "icon": "images/icon.png",
   "main": "./dist/extension.js",
@@ -67,6 +68,18 @@
         "command": "HurlClient.importHurlString",
         "title": "Hurl Client: Import Hurl String",
         "icon": "$(edit)"
+      },
+      {
+        "command": "HTTPClient.openHurlNotebook",
+        "title": "HTTP Client: Open Hurl Notebook (Deprecated)"
+      },
+      {
+        "command": "HTTPClient.installHurl",
+        "title": "HTTP Client: Install Hurl (Deprecated)"
+      },
+      {
+        "command": "HTTPClient.importHurlString",
+        "title": "HTTP Client: Import Hurl String (Deprecated)"
       }
     ],
     "menus": {
@@ -79,6 +92,18 @@
         },
         {
           "command": "HurlClient.importHurlString"
+        },
+        {
+          "command": "HTTPClient.openHurlNotebook",
+          "when": "false"
+        },
+        {
+          "command": "HTTPClient.installHurl",
+          "when": "false"
+        },
+        {
+          "command": "HTTPClient.importHurlString",
+          "when": "false"
         }
       ],
       "explorer/context": [

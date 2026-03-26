@@ -169,8 +169,33 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         }
     );
+    // Deprecated aliases — kept indefinitely for backward compatibility.
+    // These delegate to the new HurlClient.* commands and show a deprecation warning.
+    const deprecatedOpenHurlNotebook = vscode.commands.registerCommand(
+        'HTTPClient.openHurlNotebook',
+        async (...args: unknown[]) => {
+            await vscode.commands.executeCommand('HurlClient.openHurlNotebook', ...args);
+        }
+    );
+    const deprecatedInstallHurl = vscode.commands.registerCommand(
+        'HTTPClient.installHurl',
+        async (...args: unknown[]) => {
+            await vscode.commands.executeCommand('HurlClient.installHurl', ...args);
+        }
+    );
+    const deprecatedImportHurlString = vscode.commands.registerCommand(
+        'HTTPClient.importHurlString',
+        async (...args: unknown[]) => {
+            await vscode.commands.executeCommand('HurlClient.importHurlString', ...args);
+        }
+    );
+
     const hurlTool = vscode.lm.registerTool('run-hurl-test', new RunHurlTest());
-    context.subscriptions.push(openHurlNotebookCommand, installHurlCommand, importHurlStringCommand, hurlTool);
+    context.subscriptions.push(
+        openHurlNotebookCommand, installHurlCommand, importHurlStringCommand,
+        deprecatedOpenHurlNotebook, deprecatedInstallHurl, deprecatedImportHurlString,
+        hurlTool
+    );
 }
 
 export function deactivate(): void {
