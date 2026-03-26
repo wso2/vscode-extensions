@@ -32,13 +32,6 @@ const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
 const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
 const WEB_ACCESS_PREFERENCE_KEY = 'mi-agent-web-access-enabled';
 
-function removeCompactingPlaceholder(content: string): string {
-    return content
-        .replace(/\n\n<toolcall(?:\s+[^>]*)?>Compacting conversation\.\.\.<\/toolcall>/g, '')
-        .replace(/<toolcall(?:\s+[^>]*)?>Compacting conversation\.\.\.<\/toolcall>/g, '')
-        .trimEnd();
-}
-
 function appendThinkingPlaceholder(content: string, thinkingId: string): string {
     return `${content}\n\n<thinking data-id="${thinkingId}" data-loading="true"></thinking>`;
 }
@@ -448,8 +441,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
     });
 
-    // Manual compact state
-    const [isCompacting, setIsCompacting] = useState(false);
     const [runningPlaceholderFrameIndex, setRunningPlaceholderFrameIndex] = useState(0);
     const [mentionContext, setMentionContext] = useState<MentionContext | null>(null);
     const [mentionSuggestions, setMentionSuggestions] = useState<MentionablePathItem[]>([]);
@@ -459,12 +450,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const mentionSearchRequestIdRef = useRef(0);
     const debouncedMentionContext = useDebouncedValue(mentionContext, MENTION_SEARCH_DEBOUNCE_MS);
 
-    // Context usage tracking (for compact button display)
+    // Context usage tracking (always visible)
     const CONTEXT_TOKEN_THRESHOLD = 200000;
-    const MANUAL_COMPACT_VISIBLE_USAGE_PERCENT = 50;
-    // Keep this aligned with backend auto-compact threshold in rpc-manager.ts.
-    // We trigger auto-compact before reaching the full context limit to avoid losing context.
-    const PRE_SEND_AUTO_COMPACT_THRESHOLD = 180000;
     const contextUsagePercent = Math.min(
         Math.round((lastTotalInputTokens / CONTEXT_TOKEN_THRESHOLD) * 100),
         100
@@ -824,31 +811,16 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 break;
 
             case "compact":
-                // Conversation was compacted (auto or manual). Insert a compact summary tag.
+                // Native compaction summary arrived (auto, mid-stream).
                 if (event.summary) {
                     setToolStatus("");
                     setMessages((prev) => {
-                        // If the last message is an in-progress assistant message during agent run, append to it
-                        // Use ref to avoid stale closure (this callback is registered once via onAgentEvent)
+                        // Append to the in-progress assistant message during agent run
                         if (prev.length > 0 && prev[prev.length - 1].role === Role.MICopilot && backendRequestTriggeredRef.current) {
-                            return updateLastMessage(prev, (c) => {
-                                const cleaned = removeCompactingPlaceholder(c);
-                                return cleaned
-                                    ? `${cleaned}\n\n<compact>${event.summary}</compact>`
-                                    : `<compact>${event.summary}</compact>`;
-                            });
-                        }
-                        // Otherwise (manual compact): replace the loading message with the summary
-                        const loadingIdx = prev.findIndex((m) =>
-                            m.content.includes('Compacting conversation...')
-                        );
-                        if (loadingIdx >= 0) {
-                            const updated = [...prev];
-                            updated[loadingIdx] = {
-                                ...updated[loadingIdx],
-                                content: `<compact>${event.summary}</compact>`,
-                            };
-                            return updated;
+                            return updateLastMessage(prev, (c) =>
+                                c ? `${c}\n\n<compact>${event.summary}</compact>`
+                                  : `<compact>${event.summary}</compact>`
+                            );
                         }
                         // Fallback: add a new standalone assistant message
                         return [...prev, {
@@ -1078,48 +1050,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
     };
 
-    // Handle manual compact button click
-    const handleManualCompact = async () => {
-        if (isCompacting || backendRequestTriggered) return;
-        setIsCompacting(true);
-
-        // Show a loading indicator in the chat panel
-        setMessages((prev) => [...prev, {
-            id: generateId(),
-            role: Role.MICopilot,
-            content: `<toolcall data-loading="true" data-file="">Compacting conversation...</toolcall>`,
-            type: MessageType.AssistantMessage,
-        }]);
-
-        try {
-            const result = await rpcClient.getMiAgentPanelRpcClient().compactConversation({ modelSettings });
-            if (!result.success) {
-                console.error("Manual compact failed:", result.error);
-                // Remove the loading message and show error
-                setMessages((prev) => {
-                    const filtered = prev.filter((m) =>
-                        !m.content.includes('Compacting conversation...')
-                    );
-                    return [...filtered, {
-                        id: generateId(),
-                        role: Role.MICopilot,
-                        content: `Failed to compact conversation: ${result.error || 'Unknown error'}`,
-                        type: MessageType.Error,
-                    }];
-                });
-            }
-            // The compact event handler in handleAgentEvent will replace the loading message
-            // with the actual compact summary
-        } catch (error) {
-            console.error("Error during manual compact:", error);
-            // Remove the loading message on error
-            setMessages((prev) =>
-                prev.filter((m) => !m.content.includes('Compacting conversation...'))
-            );
-        } finally {
-            setIsCompacting(false);
-        }
-    };
 
     // Handle completion of agent response
     // Uses currentChatIdRef to avoid stale closure (called from event handler)
@@ -1208,7 +1138,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
         if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
-            if (isCompacting || backendRequestTriggered) {
+            if (backendRequestTriggered) {
                 return;
             }
             if (currentUserPrompt.trim() !== "") {
@@ -1229,7 +1159,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     };
 
     async function handleSend(requestType: BackendRequestType = BackendRequestType.UserPrompt, prompt?: string | "") {
-        if (sendInProgressRef.current || isCompacting || backendRequestTriggered) {
+        if (sendInProgressRef.current || backendRequestTriggered) {
             return;
         }
 
@@ -1244,16 +1174,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         closeMentionSuggestions();
         // Clear input immediately so user can't send the same message again while compacting.
         setCurrentUserprompt("");
-
-        // Auto-compact first (when threshold is reached) so the compact UI appears
-        // before rendering the next user message.
-        if (
-            lastTotalInputTokens >= PRE_SEND_AUTO_COMPACT_THRESHOLD &&
-            !isCompacting &&
-            !backendRequestTriggered
-        ) {
-            await handleManualCompact();
-        }
 
         // Remove all messages marked as label or questions from history before a backend call
         setMessages((prevMessages) =>
@@ -2946,43 +2866,34 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 <Codicon name="globe" />
                             </button>
                         </FooterTooltip>
-                        {contextUsagePercent >= MANUAL_COMPACT_VISIBLE_USAGE_PERCENT && (
+                        {contextUsagePercent > 0 && (
                             <FooterTooltip
                                 variant="card"
                                 align="start"
                                 content={
                                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                                        <div style={{ fontWeight: 600 }}>Summarize context</div>
-                                        <div style={{ color: "var(--vscode-descriptionForeground)" }}>
-                                            Click to summarize earlier messages and free up context.
-                                        </div>
+                                        <div style={{ fontWeight: 600 }}>Context usage</div>
                                         <div style={{ color: "var(--vscode-descriptionForeground)" }}>
                                             {`${remainingContextPercent}% context remaining.`}
                                         </div>
                                         <div style={{ color: "var(--vscode-descriptionForeground)" }}>
-                                            Copilot also summarizes automatically near the limit.
+                                            Copilot summarizes automatically when context is running low.
                                         </div>
                                     </div>
                                 }
                             >
-                                <button
-                                    onClick={handleManualCompact}
-                                    disabled={isUsageExceeded || isCompacting || backendRequestTriggered || messages.length === 0}
+                                <span
                                     style={{
                                         fontSize: "10px",
                                         color: contextUsagePercent >= 80 ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)",
-                                        background: "transparent",
-                                        border: "none",
-                                        cursor: (isUsageExceeded || isCompacting || backendRequestTriggered || messages.length === 0) ? "not-allowed" : "pointer",
                                         display: "flex",
                                         alignItems: "center",
                                         gap: "4px",
-                                        opacity: (isUsageExceeded || isCompacting || backendRequestTriggered || messages.length === 0) ? 0.5 : 1
                                     }}
                                 >
                                     <Codicon name="history" />
                                     {contextUsagePercent}%
-                                </button>
+                                </span>
                             </FooterTooltip>
                         )}
                     </div>
@@ -3038,7 +2949,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             <FooterTooltip content="Send message">
                                 <button
                                     onClick={() => currentUserPrompt.trim() !== "" && handleSend()}
-                                    disabled={isUsageExceeded || isCompacting || currentUserPrompt.trim() === ""}
+                                    disabled={isUsageExceeded || currentUserPrompt.trim() === ""}
                                     style={{
                                         display: "flex",
                                         alignItems: "center",
@@ -3053,7 +2964,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                             ? "var(--vscode-button-foreground)" 
                                             : "var(--vscode-button-secondaryForeground)",
                                         border: "none",
-                                        cursor: (currentUserPrompt.trim() !== "" && !isCompacting) ? "pointer" : "default"
+                                        cursor: currentUserPrompt.trim() !== "" ? "pointer" : "default"
                                     }}
                                 >
                                     <Codicon name="arrow-up" />

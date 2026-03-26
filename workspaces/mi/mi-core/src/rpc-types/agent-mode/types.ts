@@ -471,28 +471,6 @@ export interface DeleteSessionResponse {
 }
 
 // ============================================================================
-// Manual Compact Types
-// ============================================================================
-
-/**
- * Request to manually compact/summarize the current conversation
- */
-export interface CompactConversationRequest {
-    /** Model settings for compact agent model selection */
-    modelSettings?: ModelSettings;
-}
-
-/**
- * Response from manual compact
- */
-export interface CompactConversationResponse {
-    success: boolean;
-    /** The generated summary */
-    summary?: string;
-    error?: string;
-}
-
-// ============================================================================
 // Model Settings Types
 // ============================================================================
 
@@ -561,8 +539,6 @@ export interface MIAgentPanelAPI {
     switchSession: (request: SwitchSessionRequest) => Promise<SwitchSessionResponse>;
     createNewSession: (request: CreateNewSessionRequest) => Promise<CreateNewSessionResponse>;
     deleteSession: (request: DeleteSessionRequest) => Promise<DeleteSessionResponse>;
-    // Compact
-    compactConversation: (request: CompactConversationRequest) => Promise<CompactConversationResponse>;
     // Mention search
     searchMentionablePaths: (request: SearchMentionablePathsRequest) => Promise<SearchMentionablePathsResponse>;
     // Agent run status for panel reconnection

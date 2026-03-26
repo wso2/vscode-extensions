@@ -36,8 +36,6 @@ import {
     CreateNewSessionResponse,
     DeleteSessionRequest,
     DeleteSessionResponse,
-    CompactConversationRequest,
-    CompactConversationResponse,
     SearchMentionablePathsRequest,
     SearchMentionablePathsResponse,
     GetAgentRunStatusRequest,
@@ -120,15 +118,6 @@ export const createNewSession: RequestType<CreateNewSessionRequest, CreateNewSes
 // Delete a session
 export const deleteSession: RequestType<DeleteSessionRequest, DeleteSessionResponse> = {
     method: `${_prefix}/deleteSession`
-};
-
-// ============================================================================
-// Compact RPC Method
-// ============================================================================
-
-// Manually compact/summarize the current conversation
-export const compactConversation: RequestType<CompactConversationRequest, CompactConversationResponse> = {
-    method: `${_prefix}/compactConversation`
 };
 
 // Search mentionable file/folder paths for @mentions in chat input

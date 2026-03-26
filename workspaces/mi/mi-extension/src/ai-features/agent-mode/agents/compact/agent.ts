@@ -17,6 +17,14 @@
  */
 
 /**
+ * @deprecated This compact agent has been replaced by Anthropic native server-side compaction
+ * (compact_20260112 beta). The native compaction is configured in agents/main/agent.ts via
+ * contextManagement.edits in providerOptions. It triggers automatically when input tokens
+ * exceed the threshold and generates an inline summary mid-stream without interrupting the
+ * agent's execution. This file is kept for reference only.
+ *
+ * ---
+ * Original description:
  * Conversation Compaction Agent
  *
  * Sends the FULL conversation history (system prompt + messages) to Haiku

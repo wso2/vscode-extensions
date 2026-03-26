@@ -51,9 +51,6 @@ export type {
     CreateNewSessionResponse,
     DeleteSessionRequest,
     DeleteSessionResponse,
-    // Compact types
-    CompactConversationRequest,
-    CompactConversationResponse,
     // Mention search types
     MentionablePathType,
     MentionablePathItem,
@@ -83,8 +80,6 @@ export {
     switchSession,
     createNewSession,
     deleteSession,
-    // Compact RPC
-    compactConversation,
     // Mention search RPC
     searchMentionablePaths,
     // Run status RPC
