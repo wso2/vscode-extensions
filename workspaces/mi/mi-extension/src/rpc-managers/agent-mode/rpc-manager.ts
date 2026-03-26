@@ -26,8 +26,6 @@ import {
     UserQuestionResponse,
     PlanApprovalResponse,
     ChatHistoryEvent,
-    CompactConversationRequest,
-    CompactConversationResponse,
     UndoLastCheckpointRequest,
     UndoLastCheckpointResponse,
     ApplyCodeSegmentWithCheckpointRequest,
@@ -54,7 +52,6 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { AgentEventHandler } from './event-handler';
 import { executeAgent, createAgentAbortController, AgentEvent } from '../../ai-features/agent-mode';
-import { executeCompactAgent } from '../../ai-features/agent-mode/agents/compact/agent';
 import { logInfo, logError, logDebug } from '../../ai-features/copilot/logger';
 import {
     ChatHistoryManager,
@@ -76,12 +73,9 @@ import { beginServerManagementRunTracking, cleanupServerManagementOnAgentEnd } f
 import { AgentUndoCheckpointManager, StoredUndoCheckpoint } from '../../ai-features/agent-mode/undo/checkpoint-manager';
 import { MiDiagramRpcManager } from '../mi-diagram/rpc-manager';
 import { getCopilotSessionDir } from '../../ai-features/agent-mode/storage-paths';
-import { resolveSubModelId } from '../../ai-features/connection';
 
 const DEFAULT_MODEL_SETTINGS: ModelSettings = { mainModelPreset: 'sonnet', subModelPreset: 'haiku' };
 
-const AUTO_COMPACT_TOKEN_THRESHOLD = 180000;
-const AUTO_COMPACT_TOOL_NAME = 'compact_conversation';
 const DEFAULT_AGENT_MODE: AgentMode = 'edit';
 const USER_CANCELLED_RESPONSE = '__USER_CANCELLED__';
 const MENTION_CACHE_TTL_MS = 15000;
@@ -415,88 +409,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     }
 
     /**
-     * Detect context-window related model errors from AI SDK / provider messages.
-     */
-    private isContextLimitError(errorMessage?: string): boolean {
-        if (!errorMessage) {
-            return false;
-        }
-
-        const normalized = errorMessage.toLowerCase();
-        return (
-            normalized.includes('context window') ||
-            normalized.includes('context length') ||
-            normalized.includes('maximum context length') ||
-            normalized.includes('prompt is too long') ||
-            normalized.includes('input is too long') ||
-            normalized.includes('too many tokens') ||
-            normalized.includes('max input tokens')
-        );
-    }
-
-    /**
-     * Run compact agent, save checkpoint, and emit compact/usage events.
-     */
-    private async runAutoCompact(
-        historyManager: ChatHistoryManager,
-        reason: 'threshold' | 'context_error'
-    ): Promise<boolean> {
-        this.eventHandler.handleEvent({
-            type: 'tool_call',
-            toolName: AUTO_COMPACT_TOOL_NAME,
-            loadingAction: 'compacting conversation',
-            toolInput: {},
-        });
-
-        const messagesForCompact = await historyManager.getMessages({ includeCompactSummaryEntry: true });
-        if (messagesForCompact.length === 0) {
-            logDebug(`[AgentPanel] Skipping auto compact (${reason}): no messages`);
-            this.eventHandler.handleEvent({
-                type: 'tool_result',
-                toolName: AUTO_COMPACT_TOOL_NAME,
-                toolOutput: { success: false },
-                completedAction: 'failed to compact conversation',
-            });
-            return false;
-        }
-
-        const resolvedSubModel = resolveSubModelId(this.currentModelSettings);
-        const compactResult = await executeCompactAgent({
-            messages: messagesForCompact,
-            trigger: 'auto',
-            projectPath: this.projectUri,
-            subModelId: resolvedSubModel,
-            subModelIsCustom: !!this.currentModelSettings.subModelCustomId,
-        });
-
-        if (!compactResult.success || !compactResult.summary) {
-            logError(`[AgentPanel] Auto compact failed (${reason}): ${compactResult.error || 'unknown error'}`);
-            this.eventHandler.handleEvent({
-                type: 'tool_result',
-                toolName: AUTO_COMPACT_TOOL_NAME,
-                toolOutput: { success: false },
-                completedAction: 'failed to compact conversation',
-            });
-            return false;
-        }
-
-        await historyManager.saveSummaryMessage(compactResult.summary);
-        this.eventHandler.handleEvent({
-            type: 'compact',
-            summary: compactResult.summary,
-            content: compactResult.summary,
-        });
-        // Reset usage indicator after checkpoint.
-        this.eventHandler.handleEvent({
-            type: 'usage',
-            totalInputTokens: 0,
-        });
-
-        logInfo(`[AgentPanel] Auto compact complete (${reason}): ${compactResult.summary.length} chars`);
-        return true;
-    }
-
-    /**
      * Initialize or get existing chat history manager
      */
     private async getChatHistoryManager(): Promise<ChatHistoryManager> {
@@ -805,15 +717,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 this.currentMode = effectiveMode;
             }
 
-            // Auto-compact before the new run when context usage exceeds threshold.
-            // We compact between runs (not mid-stream) to keep AI SDK orchestration stable.
-            const lastUsage = await historyManager.getLastUsage();
-            const shouldAutoCompact = lastUsage !== undefined && lastUsage >= AUTO_COMPACT_TOKEN_THRESHOLD;
-            if (shouldAutoCompact) {
-                logInfo(`[AgentPanel] Auto compact triggered at ${lastUsage} tokens (threshold: ${AUTO_COMPACT_TOKEN_THRESHOLD})`);
-                await this.runAutoCompact(historyManager, 'threshold');
-            }
-
             const hasPendingContinuation = this.pendingLimitContinuation !== null;
             const shouldApplyContinuationReminder = hasPendingContinuation &&
                 this.isContinuationIntent(request.message);
@@ -844,94 +747,53 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 });
             };
 
-            const executeRunWithContextRetry = async (query: string) => {
-                let suppressedContextErrorFromStream = false;
-                let retriedAfterContextCompact = false;
+            const runAgent = async (query: string) => {
+                const abortController = createAgentAbortController();
+                this.activeAbortControllers.add(abortController);
+                this.currentAbortController = abortController;
 
-                const runAgentOnce = async () => {
-                    const abortController = createAgentAbortController();
-                    this.activeAbortControllers.add(abortController);
-                    this.currentAbortController = abortController;
-
-                    try {
-                        return await executeAgent(
-                            {
-                                query,
-                                chatId: request.chatId,
-                                mode: effectiveMode,
-                                files: request.files,
-                                images: request.images,
-                                thinking: request.thinking ?? true,
-                                webAccessPreapproved: request.webAccessPreapproved,
-                                projectPath: this.projectUri,
-                                sessionId: this.currentSessionId || undefined,
-                                abortSignal: abortController.signal,
-                                chatHistoryManager: historyManager,
-                                pendingQuestions: this.pendingQuestions,
-                                pendingApprovals: this.pendingApprovals,
-                                shellApprovalRuleStore: {
-                                    getRules: () => this.getShellApprovalRulesSnapshot(),
-                                    addRule: async (rule: string[]) => this.addShellApprovalRule(rule),
-                                },
-                                undoCheckpointManager,
-                                modelSettings: this.currentModelSettings,
-                                onStepPersisted: () => this.eventHandler.stepCompleted(),
+                try {
+                    return await executeAgent(
+                        {
+                            query,
+                            chatId: request.chatId,
+                            mode: effectiveMode,
+                            files: request.files,
+                            images: request.images,
+                            thinking: request.thinking ?? true,
+                            webAccessPreapproved: request.webAccessPreapproved,
+                            projectPath: this.projectUri,
+                            sessionId: this.currentSessionId || undefined,
+                            abortSignal: abortController.signal,
+                            chatHistoryManager: historyManager,
+                            pendingQuestions: this.pendingQuestions,
+                            pendingApprovals: this.pendingApprovals,
+                            shellApprovalRuleStore: {
+                                getRules: () => this.getShellApprovalRulesSnapshot(),
+                                addRule: async (rule: string[]) => this.addShellApprovalRule(rule),
                             },
-                            (event: AgentEvent) => {
-                                if (event.type === 'plan_mode_entered') {
-                                    persistModeChange('plan');
-                                } else if (event.type === 'plan_mode_exited') {
-                                    persistModeChange('edit');
-                                }
-
-                                // When context is exceeded, suppress the immediate error event,
-                                // compact, and retry once for seamless UX.
-                                if (event.type === 'error' && this.isContextLimitError(event.error)) {
-                                    suppressedContextErrorFromStream = true;
-                                    logInfo('[AgentPanel] Suppressed context-limit error event; attempting compact-and-retry');
-                                    return;
-                                }
-                                this.eventHandler.handleEvent(event);
+                            undoCheckpointManager,
+                            modelSettings: this.currentModelSettings,
+                            onStepPersisted: () => this.eventHandler.stepCompleted(),
+                        },
+                        (event: AgentEvent) => {
+                            if (event.type === 'plan_mode_entered') {
+                                persistModeChange('plan');
+                            } else if (event.type === 'plan_mode_exited') {
+                                persistModeChange('edit');
                             }
-                        );
-                    } finally {
-                        this.activeAbortControllers.delete(abortController);
-                        if (this.currentAbortController === abortController) {
-                            this.currentAbortController = null;
+                            this.eventHandler.handleEvent(event);
                         }
-                    }
-                };
-
-                let runResult = await runAgentOnce();
-
-                const hitContextLimit = () =>
-                    suppressedContextErrorFromStream || this.isContextLimitError(runResult.error);
-
-                if (!runResult.success && hitContextLimit() && !retriedAfterContextCompact) {
-                    retriedAfterContextCompact = true;
-                    logInfo('[AgentPanel] Context limit reached mid-run. Triggering auto compact and retrying once');
-
-                    const compacted = await this.runAutoCompact(historyManager, 'context_error');
-                    if (compacted) {
-                        await undoCheckpointManager.discardPendingRun();
-                        await undoCheckpointManager.beginRun('agent');
-                        suppressedContextErrorFromStream = false;
-                        runResult = await runAgentOnce();
+                    );
+                } finally {
+                    this.activeAbortControllers.delete(abortController);
+                    if (this.currentAbortController === abortController) {
+                        this.currentAbortController = null;
                     }
                 }
-
-                // If context-limit error was suppressed but we still failed, surface it now.
-                if (!runResult.success && (suppressedContextErrorFromStream || this.isContextLimitError(runResult.error))) {
-                    this.eventHandler.handleEvent({
-                        type: 'error',
-                        error: runResult.error || 'Context window exceeded',
-                    });
-                }
-
-                return runResult;
             };
 
-            let result = await executeRunWithContextRetry(effectiveQuery);
+            let result = await runAgent(effectiveQuery);
 
             while (result.success && result.continuationSuggested && result.continuationReason) {
                 this.setPendingLimitContinuation(result.continuationReason);
@@ -945,7 +807,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 const continuationQuery = this.buildQueryWithContinuationReminder('continue');
                 logInfo('[AgentPanel] User approved automatic continuation after run limit');
                 this.clearPendingLimitContinuation();
-                result = await executeRunWithContextRetry(continuationQuery);
+                result = await runAgent(continuationQuery);
             }
 
             if (result.success) {
@@ -1410,78 +1272,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
     // ============================================================================
     // Manual Compact
-    // ============================================================================
-
-    /**
-     * Manually compact/summarize the current conversation.
-     * Reads all messages from the current session, runs the summarization sub-agent,
-     * saves the summary as a JSONL checkpoint, and returns it.
-     */
-    async compactConversation(request: CompactConversationRequest): Promise<CompactConversationResponse> {
-        try {
-            logInfo('[AgentPanel] Manual compact requested');
-
-            // Get chat history manager (must have an active session)
-            const historyManager = await this.getChatHistoryManager();
-            const messages = await historyManager.getMessages({ includeCompactSummaryEntry: true });
-
-            if (messages.length === 0) {
-                return {
-                    success: false,
-                    error: 'No conversation to compact'
-                };
-            }
-
-            logInfo(`[AgentPanel] Compacting ${messages.length} messages...`);
-
-            // Run compact agent (sends full conversation + system-reminder to Haiku)
-            const effectiveSettings = request.modelSettings || this.currentModelSettings;
-            const resolvedSubModel = resolveSubModelId(effectiveSettings);
-            const result = await executeCompactAgent({
-                messages,
-                trigger: 'user',
-                projectPath: this.projectUri,
-                subModelId: resolvedSubModel,
-                subModelIsCustom: !!effectiveSettings.subModelCustomId,
-            });
-
-            if (!result.success || !result.summary) {
-                logError(`[AgentPanel] Manual compact failed: ${result.error || 'unknown error'}`);
-                return {
-                    success: false,
-                    error: result.error || 'Summarization failed'
-                };
-            }
-
-            // Save compact summary to JSONL (checkpoint)
-            await historyManager.saveSummaryMessage(result.summary);
-
-            // Emit compact event to UI via event handler
-            this.eventHandler.handleEvent({
-                type: 'compact',
-                summary: result.summary,
-                content: result.summary,
-            });
-            this.eventHandler.handleEvent({
-                type: 'usage',
-                totalInputTokens: 0,
-            });
-
-            logInfo(`[AgentPanel] Manual compact complete: ${result.summary.length} chars`);
-
-            return {
-                success: true,
-                summary: result.summary,
-            };
-        } catch (error) {
-            logError('[AgentPanel] Failed to compact conversation', error);
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to compact conversation'
-            };
-        }
-    }
-
     // ============================================================================
     // Mention Search
     // ============================================================================

@@ -21,6 +21,14 @@
 // ============================================================================
 const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
 const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
+const ENABLE_TOOL_SEARCH = true; // Set to false to disable Anthropic native tool search (loads all tools upfront)
+const ENABLE_NATIVE_COMPACTION = true; // Set to true to enable Anthropic native server-side compaction (auto-summarizes when context grows large)
+
+// Native compaction trigger threshold in tokens.
+// When input tokens exceed this value, the API auto-compacts the conversation.
+// Must be at least 50,000. Default Anthropic value is 150,000.
+const NATIVE_COMPACTION_TRIGGER_TOKENS = 180000;
+>>>>>>> 497752423 (Remove custom compaction wiring in favor of Anthropic native compaction)
 
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';

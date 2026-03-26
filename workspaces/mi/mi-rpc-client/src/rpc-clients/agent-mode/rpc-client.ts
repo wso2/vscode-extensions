@@ -125,17 +125,6 @@ const deleteSession: RequestType<DeleteSessionRequest, DeleteSessionResponse> = 
     method: `${_prefix}/deleteSession`
 };
 
-// Compact RPC method
-export interface CompactConversationRequest {
-    modelSettings?: ModelSettings;
-}
-
-export interface CompactConversationResponse {
-    success: boolean;
-    summary?: string;
-    error?: string;
-}
-
 export type MentionablePathType = 'file' | 'folder';
 
 export interface MentionablePathItem {
@@ -164,10 +153,6 @@ export interface GetAgentRunStatusResponse {
     events: AgentEvent[];
     mode?: AgentMode;
 }
-
-const compactConversation: RequestType<CompactConversationRequest, CompactConversationResponse> = {
-    method: `${_prefix}/compactConversation`
-};
 
 const searchMentionablePaths: RequestType<SearchMentionablePathsRequest, SearchMentionablePathsResponse> = {
     method: `${_prefix}/searchMentionablePaths`
@@ -238,13 +223,6 @@ export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
 
     deleteSession(request: DeleteSessionRequest): Promise<DeleteSessionResponse> {
         return this._messenger.sendRequest(deleteSession, HOST_EXTENSION, request);
-    }
-
-    // ==================================
-    // Compact Functions
-    // ==================================
-    compactConversation(request: CompactConversationRequest): Promise<CompactConversationResponse> {
-        return this._messenger.sendRequest(compactConversation, HOST_EXTENSION, request);
     }
 
     searchMentionablePaths(request: SearchMentionablePathsRequest): Promise<SearchMentionablePathsResponse> {
