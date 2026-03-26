@@ -139,6 +139,18 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                         return { loading: 'stopping server', completed: 'stopped server', failed: 'failed to stop server' };
                     case 'status':
                         return { loading: 'checking server status', completed: 'checked server status', failed: 'failed to check status' };
+                    case 'query': {
+                        const type = toolInput.artifact_type || 'artifacts';
+                        const name = toolInput.artifact_name;
+                        return name
+                            ? { loading: `querying ${type}: ${name}`, completed: `queried ${type}: ${name}`, failed: `failed to query ${type}` }
+                            : { loading: `listing ${type}`, completed: `listed ${type}`, failed: `failed to list ${type}` };
+                    }
+                    case 'control': {
+                        const ctrl = toolInput.control_action || 'updating';
+                        const target = toolInput.artifact_name || toolInput.artifact_type || 'artifact';
+                        return { loading: `${ctrl} ${target}`, completed: `${ctrl} ${target} completed`, failed: `failed to ${ctrl} ${target}` };
+                    }
                 }
             }
             return { loading: 'managing server', completed: 'managed server', failed: 'server management failed' };

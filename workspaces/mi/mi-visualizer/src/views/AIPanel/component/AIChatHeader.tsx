@@ -24,6 +24,9 @@ import { useMICopilotContext } from "./MICopilotContext";
 import SessionSwitcher from "./SessionSwitcher";
 import ModelSettingsMenu from "./ModelSettingsMenu";
 
+// Guard session switching while an agent run is active.
+const ENABLE_SESSION_SWITCH_GUARD = true;
+
 function formatResetTime(seconds: number): string {
   const totalSeconds = Math.max(0, Math.floor(seconds || 0));
 
@@ -122,7 +125,7 @@ const AIChatHeader: React.FC = () => {
                   sessions={sessions}
                   currentSessionTitle={currentSessionTitle}
                   isLoading={isLoading}
-                  disabled={backendRequestTriggered}
+                  disabled={ENABLE_SESSION_SWITCH_GUARD ? backendRequestTriggered : false}
                   onSessionSwitch={switchToSession}
                   onNewSession={createNewSession}
                   onDeleteSession={deleteSession}

@@ -1233,8 +1233,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         }
     }
 
-    async getAgentRunStatus(_request: GetAgentRunStatusRequest = {}): Promise<GetAgentRunStatusResponse> {
-        const status = this.eventHandler.getRunStatus();
+    async getAgentRunStatus(request: GetAgentRunStatusRequest = {}): Promise<GetAgentRunStatusResponse> {
+        const status = this.eventHandler.getRunStatus(request.sinceSeq);
         return {
             ...status,
             mode: this.currentMode,

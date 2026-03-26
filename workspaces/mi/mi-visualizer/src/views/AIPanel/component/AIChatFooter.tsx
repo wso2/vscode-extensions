@@ -127,6 +127,8 @@ function upsertLoadingBashOutputTag(
 const WORKING_ON_IT_TOOL_MESSAGE = 'copilot is working on it...';
 const WORKING_ON_IT_DELAY_MS = 2000;
 const RUNNING_PLACEHOLDER_DOT_FRAMES = ['.  ', '.. ', '...', ' ..', '  .', ' ..'];
+// Stream safeguards for reconnect + polling fallback recovery.
+const ENABLE_STREAM_SAFEGUARDS = true;
 
 function removeWorkingOnItToolCallTag(content: string): string {
     const workingTag = `<toolcall data-loading="true" data-file="">${WORKING_ON_IT_TOOL_MESSAGE}</toolcall>`;
@@ -502,6 +504,14 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const sendInProgressRef = useRef(false);
     const workingOnItTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const firstProgressEventReceivedRef = useRef(false);
+    /** Highest event sequence number received via push notifications */
+    const lastReceivedSeqRef = useRef<number>(0);
+    /** Timestamp of last received push event (for staleness detection) */
+    const lastEventTimeRef = useRef<number>(0);
+    /** Whether a terminal event (stop/error/abort) has been received for the current run */
+    const terminalEventReceivedRef = useRef<boolean>(false);
+    /** Prevent overlapping fallback polling requests */
+    const pollInFlightRef = useRef<boolean>(false);
 
     // Keep refs in sync with state (for use in stale closure of event handler)
     assistantResponseRef.current = assistantResponse;
@@ -551,6 +561,17 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         // Ignore all events if generation was aborted
         if (abortedRef.current) {
             return;
+        }
+
+        // Track sequence number and timestamp for polling fallback
+        if (ENABLE_STREAM_SAFEGUARDS) {
+            if (event.seq !== undefined && event.seq > lastReceivedSeqRef.current) {
+                lastReceivedSeqRef.current = event.seq;
+            }
+            lastEventTimeRef.current = Date.now();
+            if (event.type === 'stop' || event.type === 'error' || event.type === 'abort') {
+                terminalEventReceivedRef.current = true;
+            }
         }
 
         switch (event.type) {
@@ -1242,6 +1263,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         );
         setBackendRequestTriggered(true);
         isResponseReceived.current = false;
+        // Reset polling state for the new run
+        if (ENABLE_STREAM_SAFEGUARDS) {
+            lastReceivedSeqRef.current = 0;
+            lastEventTimeRef.current = Date.now();
+            terminalEventReceivedRef.current = false;
+        }
 
         // Add the current user prompt to the chats based on the request type
         let currentCopilotChat: CopilotChatEntry[] = [...copilotChat];
@@ -1409,7 +1436,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     // Restore in-progress/completed run state when the panel reconnects.
     useEffect(() => {
-        if (!rpcClient) {
+        if (!ENABLE_STREAM_SAFEGUARDS || !rpcClient) {
             return;
         }
 
@@ -1475,6 +1502,65 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setIsPlanMode,
         setMessages,
     ]);
+
+    // Polling fallback: when the push notification channel appears broken during an
+    // active agent run (no events received for POLL_STALE_THRESHOLD_MS), periodically
+    // poll getAgentRunStatus to retrieve missed events and replay them.
+    const ENABLE_STREAM_POLLING_FALLBACK = ENABLE_STREAM_SAFEGUARDS;
+    const POLL_STALE_THRESHOLD_MS = 5_000;
+    const POLL_INTERVAL_MS = 3_000;
+
+    useEffect(() => {
+        // Guard: only activate when a run is in progress and polling is enabled.
+        // Once active, the interval keeps running until a terminal event is observed
+        // (terminalEventReceivedRef) so we don't stop before the run is fully caught up.
+        if (!ENABLE_STREAM_POLLING_FALLBACK || !backendRequestTriggered || !rpcClient) {
+            return;
+        }
+
+        const intervalId = setInterval(async () => {
+            // Stop polling once a terminal event has been received via push or a previous poll.
+            if (terminalEventReceivedRef.current || pollInFlightRef.current) {
+                return;
+            }
+            const elapsed = Date.now() - lastEventTimeRef.current;
+            if (elapsed < POLL_STALE_THRESHOLD_MS) {
+                return;
+            }
+
+            try {
+                pollInFlightRef.current = true;
+                const runStatus = await rpcClient.getMiAgentPanelRpcClient().getAgentRunStatus({
+                    sinceSeq: lastReceivedSeqRef.current,
+                });
+
+                const missedEvents = runStatus.events || [];
+                for (const event of missedEvents) {
+                    // Skip events already received via push (race guard)
+                    if (event.seq !== undefined && event.seq <= lastReceivedSeqRef.current) {
+                        continue;
+                    }
+                    handleAgentEvent(event);
+                }
+
+                // If the backend says the run ended and we have no more events to replay,
+                // ensure the UI is no longer stuck in loading state.
+                if (!runStatus.isRunning && missedEvents.length === 0 && !terminalEventReceivedRef.current) {
+                    setBackendRequestTriggered(false);
+                }
+            } catch {
+                // Polling is best-effort — swallow errors silently
+            } finally {
+                pollInFlightRef.current = false;
+            }
+        }, POLL_INTERVAL_MS);
+
+        return () => {
+            clearInterval(intervalId);
+            pollInFlightRef.current = false;
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [backendRequestTriggered, rpcClient, handleAgentEvent, setBackendRequestTriggered]);
 
     useEffect(() => {
         return () => {

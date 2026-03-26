@@ -17,7 +17,6 @@
  */
 
 import { CREATE_DATA_MAPPER_TOOL_NAME } from "../tools/types";
-import { SYNAPSE_EXPRESSION_EXAMPLES } from "./synapse_expression_examples";
 import { SYNAPSE_EXPRESSION_GUIDE } from "./synapse_expression_guide"
 
 export const SYNAPSE_GUIDE = `
@@ -87,17 +86,11 @@ export const SYNAPSE_GUIDE = `
 \`\`\`
 
 ## WSO2 has introduced Synapse Expressions, which should be used instead of JsonPath or XPath.
-    - \`SYNAPSE_EXPRESSIONS_DOCS\` is the authoritative source for syntax and rules.
-    - \`SYNAPSE_EXPRESSION_EXAMPLES\` provides short usage patterns only.
-    - For complex expression patterns, type coercion rules, function details, and edge cases, load deep reference contexts listed in the expression guide's **Deep Reference Knowledge** table.
+    - For complex expression patterns, type coercion rules, function details, and edge cases, load deep reference contexts via load_context_reference.
 
-<SYNAPSE_EXPRESSIONS_DOCS>
+<SYNAPSE_EXPRESSION_REFERENCE>
     ${SYNAPSE_EXPRESSION_GUIDE}
-</SYNAPSE_EXPRESSIONS_DOCS>
-
-<SYNAPSE_EXPRESSION_EXAMPLES>
-    ${SYNAPSE_EXPRESSION_EXAMPLES}
-</SYNAPSE_EXPRESSION_EXAMPLES>
+</SYNAPSE_EXPRESSION_REFERENCE>
 
 ## Use the new variable mediator instead of the deprecated property mediator:
     - Syntax

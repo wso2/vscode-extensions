@@ -21,43 +21,103 @@ import { RPCLayer } from "../../RPCLayer";
 import { AiPanelWebview } from '../../ai-features/webview';
 import { logWarn, logError, logDebug } from "../../ai-features/copilot/logger";
 
+// Run-status safeguards for reconnect + polling fallback recovery.
+const ENABLE_AGENT_RUN_SAFEGUARDS = true;
+
 export class AgentEventHandler {
     private currentStepBuffer: AgentEvent[] = [];
+    /** Full-run buffer for polling fallback (cleared per run). */
+    private runBuffer: AgentEvent[] = [];
     private _isRunning = false;
+    /** Monotonic sequence counter — increments across runs within a session */
+    private _seqCounter = 0;
 
     constructor(private projectUri: string) {
         this.projectUri = projectUri;
     }
 
     beginRun(): void {
+        if (!ENABLE_AGENT_RUN_SAFEGUARDS) {
+            return;
+        }
         this._isRunning = true;
         this.currentStepBuffer = [];
+        this.runBuffer = [];
     }
 
     endRun(): void {
+        if (!ENABLE_AGENT_RUN_SAFEGUARDS) {
+            return;
+        }
         this._isRunning = false;
+        // Keep runBuffer intact so the frontend can poll final events after the run ends
+        // (e.g. missed stop/error/abort). It gets cleared on next beginRun().
+        // Clear current step replay buffer to avoid stale reconnection replays after run completion.
         this.currentStepBuffer = [];
     }
 
     stepCompleted(): void {
+        if (!ENABLE_AGENT_RUN_SAFEGUARDS) {
+            return;
+        }
         this.currentStepBuffer = [];
     }
 
-    getRunStatus(): { isRunning: boolean; events: AgentEvent[] } {
+    getRunStatus(sinceSeq?: number): { isRunning: boolean; events: AgentEvent[] } {
+        if (!ENABLE_AGENT_RUN_SAFEGUARDS) {
+            return { isRunning: false, events: [] };
+        }
+
+        let events: AgentEvent[];
+        if (sinceSeq !== undefined && sinceSeq >= 0) {
+            // Polling mode: return only events the frontend has not seen yet.
+            // Use full-run buffer so events from completed steps are still recoverable.
+            const firstIndex = this.findFirstEventIndexAfterSeq(sinceSeq);
+            events = firstIndex >= 0 ? this.runBuffer.slice(firstIndex) : [];
+        } else {
+            // Initial reconnection: return all buffered events for the current step
+            // (backward-compatible with the existing panel-reopen flow)
+            events = [...this.currentStepBuffer];
+        }
         return {
             isRunning: this._isRunning,
-            events: [...this.currentStepBuffer],
+            events,
         };
     }
 
     handleEvent(event: AgentEvent): void {
-        if (this._isRunning) {
-            this.currentStepBuffer.push(event);
+        if (ENABLE_AGENT_RUN_SAFEGUARDS) {
+            // Assign monotonic sequence number
+            event.seq = ++this._seqCounter;
+
+            if (this._isRunning) {
+                this.currentStepBuffer.push(event);
+                this.runBuffer.push(event);
+            }
         }
         if (event.type === 'stop' && event.modelMessages) {
             logDebug(`[AgentEventHandler] Sending stop event with ${event.modelMessages.length} modelMessages`);
         }
         this.sendEventToVisualizer(event);
+    }
+
+    private findFirstEventIndexAfterSeq(sinceSeq: number): number {
+        let low = 0;
+        let high = this.runBuffer.length - 1;
+        let result = -1;
+
+        while (low <= high) {
+            const mid = Math.floor((low + high) / 2);
+            const seq = this.runBuffer[mid].seq ?? 0;
+            if (seq > sinceSeq) {
+                result = mid;
+                high = mid - 1;
+            } else {
+                low = mid + 1;
+            }
+        }
+
+        return result;
     }
 
     handleStart(): void {

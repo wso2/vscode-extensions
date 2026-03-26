@@ -162,6 +162,8 @@ export interface BackgroundSubagent {
     historyDirPath: string;   // path to subagents/<task-id>/ directory
     aborted: boolean;
     abortController: AbortController;
+    notified: boolean;           // true once completion notification has been injected into a tool result
+    sessionId: string;
 }
 
 // ============================================================================
@@ -268,7 +270,11 @@ export type BuildAndDeployExecuteFn = (args: {
 }) => Promise<ToolResult>;
 
 export type ServerManagementExecuteFn = (args: {
-    action: 'run' | 'stop' | 'status';
+    action: 'run' | 'stop' | 'status' | 'query' | 'control';
+    artifact_type?: string;
+    artifact_name?: string;
+    control_action?: string;
+    body?: Record<string, unknown>;
 }) => Promise<ToolResult>;
 
 // ============================================================================

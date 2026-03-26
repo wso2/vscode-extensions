@@ -60,6 +60,8 @@ interface BackgroundShell {
     output: string;
     completed: boolean;
     exitCode: number | null;
+    notified: boolean;           // true once completion notification has been injected into a tool result
+    sessionId: string;
 }
 
 const backgroundShells: Map<string, BackgroundShell> = new Map();
@@ -121,6 +123,56 @@ function cleanupOldShells(): void {
             backgroundShells.delete(id);
         }
     }
+}
+
+/**
+ * Escape a string for safe inclusion inside an internal tag boundary (e.g. <system-reminder>).
+ * Prevents crafted task text from breaking the tag structure.
+ */
+function escapeForInternalTag(value: string): string {
+    return value.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Drain completion notifications for background tasks (shells + subagents)
+ * that belong to the given session.
+ * Returns a system-reminder string for any tasks that completed since last drain, or empty string.
+ * Marks drained tasks as notified so they are only reported once.
+ */
+export function drainBackgroundTaskNotifications(sessionId: string): string {
+    const notifications: string[] = [];
+
+    // Check background shells owned by this session
+    for (const [, shell] of backgroundShells) {
+        if (shell.sessionId !== sessionId) {
+            continue;
+        }
+        if (shell.completed && !shell.notified) {
+            shell.notified = true;
+            const status = shell.exitCode === 0 ? 'completed successfully' : `completed with exit code ${shell.exitCode}`;
+            const safeCommand = escapeForInternalTag(shell.command);
+            notifications.push(`Background shell "${safeCommand}" (${shell.id}) ${status}. Use task_output to retrieve the result.`);
+        }
+    }
+
+    // Check background subagents owned by this session
+    for (const [, subagent] of getBackgroundSubagents()) {
+        if (subagent.sessionId !== sessionId) {
+            continue;
+        }
+        if (subagent.completed && !subagent.notified) {
+            subagent.notified = true;
+            const status = subagent.success ? 'completed successfully' : (subagent.aborted ? 'was aborted' : 'failed');
+            const safeDescription = escapeForInternalTag(subagent.description);
+            notifications.push(`Background ${subagent.subagentType} subagent "${safeDescription}" (${subagent.id}) ${status}. Use task_output to retrieve the result.`);
+        }
+    }
+
+    if (notifications.length === 0) {
+        return '';
+    }
+
+    return `\n\n<system-reminder>\n${notifications.join('\n')}\n</system-reminder>`;
 }
 
 function generateShellTaskId(): string {
@@ -324,7 +376,9 @@ export function createBashExecute(
                 startTime: new Date(),
                 output: '',
                 completed: false,
-                exitCode: null
+                exitCode: null,
+                notified: false,
+                sessionId,
             };
 
             backgroundShells.set(taskId, shell);
@@ -537,6 +591,7 @@ export function createKillTaskExecute(): KillTaskExecuteFn {
 
         if (shell) {
             if (shell.completed) {
+                shell.notified = true;
                 const output = shell.output;
                 backgroundShells.delete(taskId);
                 return {
@@ -588,6 +643,7 @@ export function createKillTaskExecute(): KillTaskExecuteFn {
         }
 
         if (subagent.completed) {
+            subagent.notified = true;
             const output = subagent.output;
             getBackgroundSubagents().delete(taskId);
             return {
@@ -669,8 +725,15 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
             ? { output: shell.output, completed: shell.completed, exitCode: shell.exitCode, type: 'shell' as const }
             : { output: subagent!.output, completed: subagent!.completed, exitCode: subagent!.success === true ? 0 : subagent!.success === false ? 1 : null, type: 'subagent' as const };
 
+        // Mark as notified so drainBackgroundTaskNotifications() won't duplicate this
+        const markNotified = () => {
+            if (shell) { shell.notified = true; }
+            if (subagent) { subagent.notified = true; }
+        };
+
         // If not blocking, return current state immediately
         if (!block) {
+            if (task.completed) { markNotified(); }
             const output = task.output;
             return {
                 success: true,
@@ -686,6 +749,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
 
         // If already completed, return immediately
         if (task.completed) {
+            markNotified();
             const output = task.output;
             return {
                 success: task.exitCode === 0,
@@ -715,6 +779,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
 
                 if (currentCompleted) {
                     clearInterval(checkInterval);
+                    markNotified();
                     const output = currentOutput;
                     resolve({
                         success: currentExitCode === 0,

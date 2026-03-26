@@ -191,6 +191,8 @@ export type PlanApprovalKind =
  */
 export interface AgentEvent {
     type: AgentEventType;
+    /** Monotonic sequence number assigned by the event handler (used for polling dedup) */
+    seq?: number;
     content?: string;
     /** Thinking block ID for thinking_* events */
     thinkingId?: string;
@@ -531,9 +533,9 @@ export interface SearchMentionablePathsResponse {
     error?: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface GetAgentRunStatusRequest {
-    // No parameters needed - uses current active run state
+    /** When set, only return events with seq > sinceSeq (for polling dedup) */
+    sinceSeq?: number;
 }
 
 export interface GetAgentRunStatusResponse {

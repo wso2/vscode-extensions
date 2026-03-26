@@ -55,6 +55,7 @@ import {
     createBuildAndDeployExecute,
     createServerManagementTool,
     createServerManagementExecute,
+    type ServerManagementExecuteFn,
 } from '../../tools/runtime_tools';
 import {
     createSubagentTool,
@@ -80,6 +81,7 @@ import {
     createKillTaskExecute,
     createTaskOutputTool,
     createTaskOutputExecute,
+    drainBackgroundTaskNotifications,
 } from '../../tools/bash_tools';
 import {
     createWebSearchTool,
@@ -193,6 +195,7 @@ const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
     VALIDATE_CODE_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    SERVER_MANAGEMENT_TOOL_NAME,
 ]);
 
 const PLAN_MODE_ALLOWED_TOOLS = new Set<string>([
@@ -301,6 +304,21 @@ function getPlanModeShellRestrictionReason(command: string): string | null {
     return null;
 }
 
+const SERVER_MANAGEMENT_READ_ONLY_ACTIONS = new Set(['status', 'query']);
+
+function createReadOnlyServerManagementExecute(execute: ServerManagementExecuteFn): ServerManagementExecuteFn {
+    return async (args) => {
+        if (!SERVER_MANAGEMENT_READ_ONLY_ACTIONS.has(args.action)) {
+            return {
+                success: false,
+                message: `Action '${args.action}' is not allowed in Ask/Plan mode. Only 'status' and 'query' actions are available. Switch to Edit mode to use '${args.action}'.`,
+                error: 'ASK_MODE_RESTRICTED',
+            };
+        }
+        return execute(args);
+    };
+}
+
 function createPlanModeReadOnlyBashExecute(execute: BashExecuteFn): BashExecuteFn {
     return async (args) => {
         const restrictionReason = getPlanModeShellRestrictionReason(args.command);
@@ -340,6 +358,9 @@ function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
     const planReadOnlyBashExecute = mode === 'plan' && toolName === BASH_TOOL_NAME
         ? createPlanModeReadOnlyBashExecute(execute as unknown as BashExecuteFn)
         : undefined;
+    const readOnlyServerManagementExecute = (mode === 'ask' || mode === 'plan') && toolName === SERVER_MANAGEMENT_TOOL_NAME
+        ? createReadOnlyServerManagementExecute(execute as unknown as ServerManagementExecuteFn)
+        : undefined;
 
     return (async (...args: Parameters<T>): Promise<ToolResult> => {
         if (mode === 'plan') {
@@ -361,11 +382,19 @@ function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
                 return planReadOnlyBashExecute(args[0] as Parameters<BashExecuteFn>[0]);
             }
 
+            if (readOnlyServerManagementExecute) {
+                return readOnlyServerManagementExecute(args[0] as Parameters<ServerManagementExecuteFn>[0]);
+            }
+
             if (PLAN_MODE_ALLOWED_TOOLS.has(toolName)) {
                 return execute(...args);
             }
 
             return blockedExecute(args[0]);
+        }
+
+        if (readOnlyServerManagementExecute) {
+            return readOnlyServerManagementExecute(args[0] as Parameters<ServerManagementExecuteFn>[0]);
         }
 
         if (READ_ONLY_MODE_ALLOWED_TOOLS.has(toolName)) {
@@ -379,7 +408,8 @@ function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
 function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResult>>(
     toolName: string,
     sessionDir: string,
-    execute: T
+    execute: T,
+    sessionId: string
 ): T {
     return (async (...args: Parameters<T>): Promise<ToolResult> => {
         const result = await execute(...args);
@@ -389,7 +419,17 @@ function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResul
             toolArgs: args[0],
             result,
         });
-        return processed as ToolResult;
+
+        // Append completion notifications for any background tasks that finished
+        const notifications = drainBackgroundTaskNotifications(sessionId);
+        const toolResult = processed as ToolResult;
+        if (notifications && typeof toolResult.message === 'string') {
+            toolResult.message = toolResult.message.length > 0
+                ? toolResult.message + '\n' + notifications
+                : notifications;
+        }
+
+        return toolResult;
     }) as T;
 }
 
@@ -428,7 +468,8 @@ export function createAgentTools(params: CreateToolsParams) {
     ): T => withPersistedToolResult(
         toolName,
         sessionDir,
-        getModeAwareExecute(mode, toolName, execute, { projectPath, sessionId })
+        getModeAwareExecute(mode, toolName, execute, { projectPath, sessionId }),
+        sessionId
     );
 
     const allTools = {
