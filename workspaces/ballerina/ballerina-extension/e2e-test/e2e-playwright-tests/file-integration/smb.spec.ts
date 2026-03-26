@@ -103,7 +103,6 @@ export default function createTests() {
             const deleteButton = page.page.getByRole('button', { name: 'Delete' }).first();
             await deleteButton.waitFor({ timeout: 5000 });
             await deleteButton.click();
-            await page.page.waitForTimeout(500);
             await expect(serviceTreeItem).not.toBeVisible({ timeout: 10000 });
         });
     });
