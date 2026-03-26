@@ -102,7 +102,7 @@ export function SMBForm(props: SMBFormProps) {
             setFunctionModel(initialFunction);
             setSelectedFileFormat(initialFunction.name?.metadata?.label || '');
         }
-    }, [selectedHandler]);
+    }, [selectedHandler, isNew]);
 
     const handleParamChange = (params: ParameterModel[]) => {
         if (functionModel) {
@@ -149,7 +149,7 @@ export function SMBForm(props: SMBFormProps) {
 
         if (selectedFileFormat === 'RAW') {
             if (isStreamEnabled) {
-                return `stream<byte[], error>`;
+                return `stream<byte[], error?>`;
             } else {
                 return `byte[]`;
             }
@@ -158,7 +158,9 @@ export function SMBForm(props: SMBFormProps) {
         if (baseType.endsWith("[]") && baseType !== "string[]") {
             baseType = baseType.slice(0, -2);
         } else if (baseType.startsWith("stream<")) {
-            if (baseType.endsWith(", error>")) {
+            if (baseType.endsWith(", error?>")) {
+                baseType = baseType.slice(7, -9);
+            } else if (baseType.endsWith(", error>")) {
                 baseType = baseType.slice(7, -8);
             } else if (baseType.endsWith(">")) {
                 baseType = baseType.slice(7, -1);
@@ -166,7 +168,7 @@ export function SMBForm(props: SMBFormProps) {
         }
 
         if (isStreamEnabled) {
-            return `stream<${baseType}, error>`;
+            return `stream<${baseType}, error?>`;
         } else {
             return `${baseType}[]`;
         }
@@ -183,7 +185,9 @@ export function SMBForm(props: SMBFormProps) {
         let baseType = typeValue;
 
         if (baseType.startsWith("stream<")) {
-            if (baseType.endsWith(", error>")) {
+            if (baseType.endsWith(", error?>")) {
+                baseType = baseType.slice(7, -9);
+            } else if (baseType.endsWith(", error>")) {
                 baseType = baseType.slice(7, -8);
             } else if (baseType.endsWith(">")) {
                 baseType = baseType.slice(7, -1);
