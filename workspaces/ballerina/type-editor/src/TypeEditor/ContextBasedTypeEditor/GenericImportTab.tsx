@@ -579,12 +579,14 @@ export function GenericImportTab(props: GenericImportTabProps) {
                                         <Codicon name="wand" sx={{ fontSize: '14px' }} />
                                         Generate Sample JSON
                                     </LinkButton>
-                                    <Typography
-                                        variant="body3"
-                                        sx={{ color: 'var(--vscode-input-placeholderForeground)', textAlign: 'center' }}
-                                    >
-                                        or
-                                    </Typography>
+                                    {payloadContext?.protocol !== Protocol.FTP && payloadContext?.protocol !== Protocol.SMB && (
+                                        <Typography
+                                            variant="body3"
+                                            sx={{ color: 'var(--vscode-input-placeholderForeground)', textAlign: 'center' }}
+                                        >
+                                            or
+                                        </Typography>
+                                    )}
                                 </>
                             )}
                             {payloadContext?.protocol!==Protocol.FTP && payloadContext?.protocol!==Protocol.SMB && (<LinkButton

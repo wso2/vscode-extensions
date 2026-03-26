@@ -94,7 +94,7 @@ export function SMBForm(props: SMBFormProps) {
             setFunctionModel(props.functionModel);
             setSelectedFileFormat(props.functionModel?.name?.metadata?.label || '');
         }
-    }, [model, selectedHandler]);
+    }, [model, selectedHandler, isNew]);
 
     useEffect(() => {
         if (isNew && selectedHandler && nonEnabledFunctions.length > 0) {
@@ -204,7 +204,7 @@ export function SMBForm(props: SMBFormProps) {
                 if (param.kind === "DATA_BINDING") {
                     const updatedType = {
                         ...param.type,
-                        value: selectType(typeValue, functionModel.properties.stream?.enabled)
+                        value: selectType(typeValue, functionModel.properties?.stream?.enabled)
                     };
                     if (imports) {
                         updatedType.imports = imports;
