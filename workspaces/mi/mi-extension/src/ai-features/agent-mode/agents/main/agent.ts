@@ -455,9 +455,27 @@ export async function executeAgent(
         }
 
         // prepareStep runs before each API call.
-        // 1. Strips <analysis> COT from native compaction blocks (saves tokens on subsequent steps)
-        // 2. Marks the last message for prompt caching
+        // 1. Fixes tool_use inputs cleared by context management (must be valid dicts)
+        // 2. Strips <analysis> COT from native compaction blocks (saves tokens on subsequent steps)
+        // 3. Marks the last message for prompt caching
         const prepareStep = ({ messages }: { messages: any[] }) => {
+            // Fix tool_use/tool-call blocks whose input was cleared by clear_tool_uses
+            // context management. The API requires tool_use.input to be a valid dictionary,
+            // but after clearing, the value may be a string or null, causing validation errors.
+            // Handles both AI SDK format (tool-call + args) and raw API format (tool_use + input).
+            for (const msg of messages) {
+                if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+                    for (const part of msg.content) {
+                        if (part.type === 'tool_use' && (typeof part.input !== 'object' || part.input === null || Array.isArray(part.input))) {
+                            part.input = {};
+                        }
+                        if (part.type === 'tool-call' && (typeof part.args !== 'object' || part.args === null || Array.isArray(part.args))) {
+                            part.args = {};
+                        }
+                    }
+                }
+            }
+
             // Strip analysis from compaction blocks before sending to API
             if (cleanedCompactionSummary) {
                 stripAnalysisFromCompactionBlocks(messages, cleanedCompactionSummary);
