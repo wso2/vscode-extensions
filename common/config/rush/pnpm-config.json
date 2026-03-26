@@ -91,6 +91,9 @@
     "globalOverrides": {
       // "example1": "^1.0.0",
       // "example2": "npm:@company/example2@^1.0.0"
+      "undici": "7.24.2",
+      "file-type": "21.3.2",
+      "yauzl": "^3.2.1"
     },
   
     /**

@@ -217,9 +217,9 @@ export function DeploymentOptions({ handleDockerBuild, handleConfigureKubernetes
             />
 
             <DeploymentOption
-                title="Build CAPP"
-                description="Create an Integration Application (CApp) that runs on WSO2 Integrator: MI Server."
-                buttonText="Create CAPP"
+                title="Build CApp"
+                description="Build Composite Application (CApp) that runs on WSO2 Integrator: MI Server."
+                buttonText="Build CApp"
                 isExpanded={expandedOptions.has('vm')}
                 onToggle={() => toggleOption('vm')}
                 onDeploy={handleCAPPBuild}
