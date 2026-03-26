@@ -549,6 +549,8 @@ function getCustomEntryNodeIcon(type: string) {
             return "bi-asb";
         case "ftp":
             return "bi-ftp";
+        case "smb":
+            return "bi-smb";
         case "file":
             return "bi-file";
         case "mcp":
