@@ -149,7 +149,7 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                     case 'control': {
                         const ctrl = toolInput.control_action || 'updating';
                         const target = toolInput.artifact_name || toolInput.artifact_type || 'artifact';
-                        return { loading: `${ctrl} ${target}`, completed: `${ctrl} ${target} done`, failed: `failed to ${ctrl} ${target}` };
+                        return { loading: `${ctrl} ${target}`, completed: `${ctrl} ${target} completed`, failed: `failed to ${ctrl} ${target}` };
                     }
                 }
             }

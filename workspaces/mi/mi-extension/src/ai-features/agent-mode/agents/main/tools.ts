@@ -408,7 +408,8 @@ function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
 function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResult>>(
     toolName: string,
     sessionDir: string,
-    execute: T
+    execute: T,
+    sessionId: string
 ): T {
     return (async (...args: Parameters<T>): Promise<ToolResult> => {
         const result = await execute(...args);
@@ -420,10 +421,12 @@ function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResul
         });
 
         // Append completion notifications for any background tasks that finished
-        const notifications = drainBackgroundTaskNotifications();
+        const notifications = drainBackgroundTaskNotifications(sessionId);
         const toolResult = processed as ToolResult;
         if (notifications && typeof toolResult.message === 'string') {
-            toolResult.message += notifications;
+            toolResult.message = toolResult.message.length > 0
+                ? toolResult.message + '\n' + notifications
+                : notifications;
         }
 
         return toolResult;
@@ -465,7 +468,8 @@ export function createAgentTools(params: CreateToolsParams) {
     ): T => withPersistedToolResult(
         toolName,
         sessionDir,
-        getModeAwareExecute(mode, toolName, execute, { projectPath, sessionId })
+        getModeAwareExecute(mode, toolName, execute, { projectPath, sessionId }),
+        sessionId
     );
 
     const allTools = {

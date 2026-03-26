@@ -25,20 +25,24 @@ When using connectors, follow these guidelines.
 Always fetch connector details with ${CONNECTOR_TOOL_NAME} first, then check the summary fields:
 
 \`\`\`
-connectionLocalEntryNeeded?
-├─ true  → Local entry init (most connectors: HTTP, Email, DB, etc.)
-│         1. Create <localEntry> with <connector.init> inside
-│         2. Include <name> param matching the local entry key
-│         3. Use configKey="..." in operations
-│         4. NEVER call .init again in the sequence
+noInitializationNeeded? (HIGHEST PRECEDENCE — check this first)
+├─ true  → No init at all
+│         Just call operations directly (e.g., CSV, utility connectors)
+│         NEVER call .init or create a local entry for these connectors
 │
-├─ false → Inline init (legacy connectors)
-│         1. Call <connector.init> in the sequence before operations
-│         2. No local entry needed
-│
-└─ noInitializationNeeded: true → No init at all
-          Just call operations directly (e.g., CSV, utility connectors)
+└─ false → Check connectionLocalEntryNeeded
+           ├─ true  → Local entry init (most connectors: HTTP, Email, DB, etc.)
+           │         1. Create <localEntry> with <connector.init> inside
+           │         2. Include <name> param matching the local entry key
+           │         3. Use configKey="..." in operations
+           │         4. NEVER call .init again in the sequence
+           │
+           └─ false → Inline init (legacy connectors)
+                     1. Call <connector.init> in the sequence before operations
+                     2. No local entry needed
 \`\`\`
+
+**Important**: \`noInitializationNeeded: true\` takes highest precedence. If a connector has \`noInitializationNeeded === true\`, never call \`.init\` or create a local entry regardless of other fields.
 
 **Local entry example** (\`connectionLocalEntryNeeded: true\`):
 \`\`\`xml
@@ -75,7 +79,7 @@ connectionLocalEntryNeeded?
 `;
 
 const CONNECTOR_DOCUMENTATION_REVAMPED_RESPONSE_HANDLING = `
-### 4) Revamped response handling (supported only by certain connectors)
+### 3) Revamped response handling (supported only by certain connectors)
 Now some connectors support two additional operation parameters ( ongoing connector improvement by WSO2 team ) :
 1. \`responseVariable\`
     - Stores connector response in a named variable.
@@ -90,7 +94,7 @@ Now some connectors support two additional operation parameters ( ongoing connec
 
 For other connectors, use the older response-handling approach instead.
 
-### 5) Connector Response Structure
+### 4) Connector Response Structure
 When a connector stores its response in a variable (via \`responseVariable\`), the variable is a **Map** with these keys:
 - \`payload\` — the response body (JSON, XML, or text depending on the connector)
 - \`headers\` — response headers as a map
@@ -109,7 +113,7 @@ Access patterns:
 \${vars.myResponse.headers["Content-Type"]}
 \`\`\`
 
-### 6) Error Handling with Connectors
+### 5) Error Handling with Connectors
 - First check for transport errors (e.g. connection timeout, DNS failure) where no HTTP status code exists:
 \`\`\`xml
 <filter xpath="\${not(exists(vars.myResponse.attributes.statusCode))}">

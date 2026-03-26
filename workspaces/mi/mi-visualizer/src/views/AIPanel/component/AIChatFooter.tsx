@@ -1511,12 +1511,15 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const POLL_INTERVAL_MS = 3_000;
 
     useEffect(() => {
+        // Guard: only activate when a run is in progress and polling is enabled.
+        // Once active, the interval keeps running until a terminal event is observed
+        // (terminalEventReceivedRef) so we don't stop before the run is fully caught up.
         if (!ENABLE_STREAM_POLLING_FALLBACK || !backendRequestTriggered || !rpcClient) {
             return;
         }
 
         const intervalId = setInterval(async () => {
-            // Only poll if the run hasn't ended and we haven't heard anything recently
+            // Stop polling once a terminal event has been received via push or a previous poll.
             if (terminalEventReceivedRef.current || pollInFlightRef.current) {
                 return;
             }
@@ -1540,9 +1543,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     handleAgentEvent(event);
                 }
 
-                // If the backend says the run ended but we never got the terminal event,
+                // If the backend says the run ended and we have no more events to replay,
                 // ensure the UI is no longer stuck in loading state.
-                if (!runStatus.isRunning && missedEvents.length === 0) {
+                if (!runStatus.isRunning && missedEvents.length === 0 && !terminalEventReceivedRef.current) {
                     setBackendRequestTriggered(false);
                 }
             } catch {
@@ -1556,6 +1559,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             clearInterval(intervalId);
             pollInFlightRef.current = false;
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [backendRequestTriggered, rpcClient, handleAgentEvent, setBackendRequestTriggered]);
 
     useEffect(() => {

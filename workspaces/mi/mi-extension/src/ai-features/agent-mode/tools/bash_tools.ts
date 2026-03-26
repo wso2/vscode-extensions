@@ -61,6 +61,7 @@ interface BackgroundShell {
     completed: boolean;
     exitCode: number | null;
     notified: boolean;           // true once completion notification has been injected into a tool result
+    sessionId: string;
 }
 
 const backgroundShells: Map<string, BackgroundShell> = new Map();
@@ -125,28 +126,45 @@ function cleanupOldShells(): void {
 }
 
 /**
- * Drain completion notifications for background tasks (shells + subagents).
+ * Escape a string for safe inclusion inside an internal tag boundary (e.g. <system-reminder>).
+ * Prevents crafted task text from breaking the tag structure.
+ */
+function escapeForInternalTag(value: string): string {
+    return value.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Drain completion notifications for background tasks (shells + subagents)
+ * that belong to the given session.
  * Returns a system-reminder string for any tasks that completed since last drain, or empty string.
  * Marks drained tasks as notified so they are only reported once.
  */
-export function drainBackgroundTaskNotifications(): string {
+export function drainBackgroundTaskNotifications(sessionId: string): string {
     const notifications: string[] = [];
 
-    // Check background shells
+    // Check background shells owned by this session
     for (const [, shell] of backgroundShells) {
+        if (shell.sessionId !== sessionId) {
+            continue;
+        }
         if (shell.completed && !shell.notified) {
             shell.notified = true;
             const status = shell.exitCode === 0 ? 'completed successfully' : `completed with exit code ${shell.exitCode}`;
-            notifications.push(`Background shell "${shell.command}" (${shell.id}) ${status}. Use task_output to retrieve the result.`);
+            const safeCommand = escapeForInternalTag(shell.command);
+            notifications.push(`Background shell "${safeCommand}" (${shell.id}) ${status}. Use task_output to retrieve the result.`);
         }
     }
 
-    // Check background subagents
+    // Check background subagents owned by this session
     for (const [, subagent] of getBackgroundSubagents()) {
+        if (subagent.sessionId !== sessionId) {
+            continue;
+        }
         if (subagent.completed && !subagent.notified) {
             subagent.notified = true;
             const status = subagent.success ? 'completed successfully' : (subagent.aborted ? 'was aborted' : 'failed');
-            notifications.push(`Background ${subagent.subagentType} subagent "${subagent.description}" (${subagent.id}) ${status}. Use task_output to retrieve the result.`);
+            const safeDescription = escapeForInternalTag(subagent.description);
+            notifications.push(`Background ${subagent.subagentType} subagent "${safeDescription}" (${subagent.id}) ${status}. Use task_output to retrieve the result.`);
         }
     }
 
@@ -360,6 +378,7 @@ export function createBashExecute(
                 completed: false,
                 exitCode: null,
                 notified: false,
+                sessionId,
             };
 
             backgroundShells.set(taskId, shell);

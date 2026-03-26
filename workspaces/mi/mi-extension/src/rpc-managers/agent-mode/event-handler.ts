@@ -69,7 +69,7 @@ export class AgentEventHandler {
         }
 
         let events: AgentEvent[];
-        if (sinceSeq !== undefined && sinceSeq > 0) {
+        if (sinceSeq !== undefined && sinceSeq >= 0) {
             // Polling mode: return only events the frontend has not seen yet.
             // Use full-run buffer so events from completed steps are still recoverable.
             const firstIndex = this.findFirstEventIndexAfterSeq(sinceSeq);

@@ -350,6 +350,7 @@ export function createSubagentExecute(
                 aborted: false,
                 abortController,
                 notified: false,
+                sessionId,
             };
             backgroundSubagents.set(subagentId, entry);
 

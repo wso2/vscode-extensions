@@ -58,7 +58,10 @@ export const ARTIFACT_TYPE_MAP: Record<string, ArtifactTypeInfo> = {
 // Management API HTTP Client
 // ============================================================================
 
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+// Allow insecure TLS only when explicitly opted in (e.g. self-signed certs in dev).
+// Set MI_MANAGEMENT_ALLOW_INSECURE_TLS=true to enable.
+const allowInsecureTls = process.env['MI_MANAGEMENT_ALLOW_INSECURE_TLS'] === 'true';
+const httpsAgent = new https.Agent({ rejectUnauthorized: !allowInsecureTls });
 
 function getManagementBaseUrl(): string {
     const host = DebuggerConfig.getHost();
@@ -72,14 +75,22 @@ async function getManagementAuthToken(): Promise<string> {
     const basicToken = Buffer.from(`${username}:${password}`, 'utf8').toString('base64');
     const baseUrl = getManagementBaseUrl();
 
-    const response = await fetch(`${baseUrl}/management/login`, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Basic ${basicToken}`,
-        },
-        agent: httpsAgent,
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    let response;
+    try {
+        response = await fetch(`${baseUrl}/management/login`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Basic ${basicToken}`,
+            },
+            agent: httpsAgent,
+            signal: controller.signal as any,
+        });
+    } finally {
+        clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
         throw new Error(`Management API login failed: ${response.status} ${response.statusText}`);
@@ -129,7 +140,14 @@ async function managementApiFetch(
     }
 
     logDebug(`[ManagementAPI] ${method} ${url}`);
-    const response = await fetch(url, options);
+    const fetchController = new AbortController();
+    const fetchTimeoutId = setTimeout(() => fetchController.abort(), 2000);
+    let response;
+    try {
+        response = await fetch(url, { ...options, signal: fetchController.signal as any });
+    } finally {
+        clearTimeout(fetchTimeoutId);
+    }
     const responseData = await response.json().catch(() => null);
 
     return { status: response.status, data: responseData };

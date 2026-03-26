@@ -266,6 +266,8 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
             const headContent = fs.readFileSync(headPath, 'utf8').trim();
             if (headContent.startsWith('ref: refs/heads/')) {
                 gitBranch = headContent.replace('ref: refs/heads/', '');
+            } else if (/^[0-9a-f]{40}$/i.test(headContent)) {
+                gitBranch = `DETACHED@${headContent.substring(0, 7)}`;
             }
         } catch {
             // Silently fail

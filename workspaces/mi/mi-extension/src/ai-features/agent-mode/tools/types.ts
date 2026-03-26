@@ -163,6 +163,7 @@ export interface BackgroundSubagent {
     aborted: boolean;
     abortController: AbortController;
     notified: boolean;           // true once completion notification has been injected into a tool result
+    sessionId: string;
 }
 
 // ============================================================================
