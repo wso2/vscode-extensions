@@ -29,7 +29,7 @@ export const WelcomeMessage: React.FC = () => {
                     iconSx={{ fontSize: "52px", color: "var(--vscode-foreground)", cursor: "default" }}
                 />
                 <h2 className="text-lg font-bold" style={{ color: "var(--vscode-foreground)" }}>
-                    WSO2 MI Copilot
+                    WSO2 Integrator Copilot
                 </h2>
                 <p className="text-[13px] leading-relaxed max-w-[340px]" style={{ color: "var(--vscode-descriptionForeground)" }}>
                     Build integrations faster with AI.
