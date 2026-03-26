@@ -28,7 +28,6 @@ import { GenerationType } from '../utils/libs/libraries';
 import { createToolRegistry } from './tool-registry';
 import { getProjectSource, cleanupTempProject } from '../utils/project/temp-project';
 import { integrateCodeToWorkspace } from './utils';
-import { updateBalMdWithChanges } from './codeMapUpdater';
 import { getWorkspaceTomlValues } from '../../../utils';
 import { StreamContext } from './stream-handlers/stream-context';
 import { checkCompilationErrors } from './tools/diagnostics-utils';
@@ -206,9 +205,6 @@ async function determineAffectedPackages(
     return result;
 }
 
-// Tracks whether the initial full code map has been fetched.
-// First query uses changesOnly: false, subsequent queries use changesOnly: true.
-let initialQuery = true;
 
 
 /**
@@ -310,8 +306,10 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             if (!langClient) {
                 console.warn('[AgentExecutor] langClient is null, skipping code map fetch');
             } else {
+                // TODO: Ballerina language server does not track deleted event yet.
+                // Once that is supported, use changesOnly: true to fetch only diffs.
                 const codeMapRequest = {
-                    projectPath: tempProjectPath, changesOnly: !initialQuery, artifacts: false,
+                    projectPath: tempProjectPath, changesOnly: false, artifacts: false,
                 };
                 const codeMapResponse = await langClient.getCodeMap(codeMapRequest);
 
@@ -319,37 +317,14 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                     fs.mkdirSync(targetDir, { recursive: true });
                 }
 
-                if (initialQuery) {
-                    // First call: save the full code map
-                    codeMapMarkdown = codeMapResponse?.markdown;
-                    if (codeMapMarkdown) {
-                        fs.writeFileSync(balMdPath, codeMapMarkdown, 'utf-8');
-                        initialQuery = false;
-                        console.log(`[AgentExecutor] Saved full code map markdown to ${balMdPath}`);
-                    } else {
-                        console.warn('[AgentExecutor] Code map response has no markdown field');
-                    }
+                codeMapMarkdown = codeMapResponse?.markdown;
+                if (codeMapMarkdown) {
+                    fs.writeFileSync(balMdPath, codeMapMarkdown, 'utf-8');
+                    console.log(`[AgentExecutor] Saved full code map markdown to ${balMdPath}`);
                 } else {
-                    // Subsequent calls: incrementally update bal.md with changed files
-                    const changedFiles = codeMapResponse?.files as Record<string, { markdown: string }> | undefined;
-                    if (changedFiles && Object.keys(changedFiles).length > 0) {
-                        const existingBalMd = fs.existsSync(balMdPath)
-                            ? fs.readFileSync(balMdPath, 'utf-8')
-                            : '';
-                        codeMapMarkdown = updateBalMdWithChanges(existingBalMd, changedFiles);
-                        fs.writeFileSync(balMdPath, codeMapMarkdown, 'utf-8');
-                        console.log(`[AgentExecutor] Updated code map with ${Object.keys(changedFiles).length} changed files`);
-                    } else {
-                        // No changes — read existing bal.md
-                        codeMapMarkdown = fs.existsSync(balMdPath)
-                            ? fs.readFileSync(balMdPath, 'utf-8')
-                            : undefined;
-                        console.log('[AgentExecutor] No changed files, using existing code map');
-                    }
+                    console.warn('[AgentExecutor] Code map response has no markdown field');
                 }
             }
-
-
 
             // 6. Build LLM messages with history
             const historyMessages = populateHistoryForAgent(chatHistory);
