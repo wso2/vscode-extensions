@@ -22,27 +22,31 @@
 const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
 const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
 const ENABLE_TOOL_SEARCH = true; // Set to false to disable Anthropic native tool search (loads all tools upfront)
+const ENABLE_MEMORY_TOOL = true; // Set to true to enable Anthropic native memory tool (persistent project-scoped memory across sessions)
 const ENABLE_NATIVE_COMPACTION = true; // Set to true to enable Anthropic native server-side compaction (auto-summarizes when context grows large)
 
 // Native compaction trigger threshold in tokens.
 // When input tokens exceed this value, the API auto-compacts the conversation.
 // Must be at least 50,000. Default Anthropic value is 150,000.
 const NATIVE_COMPACTION_TRIGGER_TOKENS = 180000;
->>>>>>> 497752423 (Remove custom compaction wiring in favor of Anthropic native compaction)
 
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
-import { getAnthropicClient, getAnthropicClientForCustomModel, AnthropicModel, resolveMainModelId } from '../../../connection';
+import { getAnthropicClient, getAnthropicClientForCustomModel, getAnthropicProvider, AnthropicModel, resolveMainModelId } from '../../../connection';
 import { getSystemPrompt } from '../main/system';
 import { getUserPrompt, UserPromptParams } from './prompt';
 import { addCacheControlToMessages } from '../../../cache-utils';
 import { buildMessageContent } from '../../attachment-utils';
+import { COMPACT_SYSTEM_REMINDER_AUTO_TRIGGERED } from '../compact/prompt';
 
 import {
     PendingQuestion,
     PendingPlanApproval,
 } from '../../tools/plan_mode_tools';
 import { getRuntimeVersionFromPom } from '../../tools/connector_store_cache';
+import { DEEPWIKI_MCP_TOOL_NAMES, DEEPWIKI_MCP_SERVER_CONFIG } from '../../tools/deepwiki_tools';
+import { createMemoryExecute, createReadOnlyMemoryExecute } from '../../tools/memory_tools';
+import { getCopilotProjectMemoriesDir } from '../../storage-paths';
 import {
     createAgentTools,
     FILE_WRITE_TOOL_NAME,
@@ -197,6 +201,25 @@ function getContinuationReasonFromFinish(finishReason?: string): ContinuationRea
     }
 
     return undefined;
+}
+
+/**
+ * Strip <analysis> COT from compaction blocks in a messages array.
+ * Replaces the raw compaction content (analysis + summary) with just the cleaned summary.
+ * Mutates the messages in-place and returns the same array.
+ */
+function stripAnalysisFromCompactionBlocks(messages: any[], cleanedSummary: string): any[] {
+    for (const msg of messages) {
+        if (msg.role !== 'assistant' || !Array.isArray(msg.content)) {
+            continue;
+        }
+        for (const block of msg.content) {
+            if (block.type === 'compaction' && typeof block.content === 'string') {
+                block.content = cleanedSummary;
+            }
+        }
+    }
+    return messages;
 }
 
 // ============================================================================
@@ -368,6 +391,39 @@ export async function executeAgent(
             modelSettings: request.modelSettings,
         });
 
+        // Add Anthropic native provider tools (tool search, memory).
+        // These use the provider's built-in tool factories with auto-injected beta headers.
+        let finalTools: any = tools;
+        const needsProvider = ENABLE_TOOL_SEARCH || ENABLE_MEMORY_TOOL;
+        const anthropicProvider = needsProvider ? await getAnthropicProvider() : null;
+
+        // Tool search: deferred tools (marked with deferLoading in createAgentTools)
+        // are discovered on-demand via BM25 search, reducing context window usage.
+        if (ENABLE_TOOL_SEARCH && anthropicProvider) {
+            finalTools = {
+                ...tools,
+                tool_search: anthropicProvider.tools.toolSearchBm25_20251119(),
+            };
+        }
+
+        // Memory tool: project-scoped persistent memory across sessions.
+        // Claude auto-checks /memories at the start of each turn (built-in protocol).
+        if (ENABLE_MEMORY_TOOL && anthropicProvider) {
+            const memoriesDir = getCopilotProjectMemoriesDir(request.projectPath);
+            const mode = request.mode || 'edit';
+            const baseExecute = createMemoryExecute(memoriesDir);
+            const memoryExecute = (mode === 'ask' || mode === 'plan')
+                ? createReadOnlyMemoryExecute(baseExecute)
+                : baseExecute;
+            finalTools = {
+                ...finalTools,
+                memory: anthropicProvider.tools.memory_20250818({
+                    execute: memoryExecute,
+                }),
+            };
+            logInfo(`[Agent] Memory tool enabled (mode=${mode}), dir: ${memoriesDir}`);
+        }
+
         // Track step number for logging
         let currentStepNumber = 0;
 
@@ -392,9 +448,14 @@ export async function executeAgent(
             process.chdir(originalCwd);  // Restore immediately after middleware creation
         }
 
-        // Simple prepareStep: just mark the last message for caching
-        // This tells Anthropic to cache everything up to the last message
+        // prepareStep runs before each API call.
+        // 1. Strips <analysis> COT from native compaction blocks (saves tokens on subsequent steps)
+        // 2. Marks the last message for prompt caching
         const prepareStep = ({ messages }: { messages: any[] }) => {
+            // Strip analysis from compaction blocks before sending to API
+            if (cleanedCompactionSummary) {
+                stripAnalysisFromCompactionBlocks(messages, cleanedCompactionSummary);
+            }
             return {
                 messages: addCacheControlToMessages({ messages, model })
             };
@@ -408,8 +469,34 @@ export async function executeAgent(
         ? { thinking: { type: 'adaptive' }, effort: 'low' }
         : {};
 
-    const requestHeaders = request.thinking
-        ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' }
+        // Native server-side compaction: Anthropic auto-summarizes the conversation
+        // when input tokens exceed the trigger threshold. The compaction block is
+        // emitted inline in the stream and on subsequent requests the API drops all
+        // messages before the compaction block automatically.
+        if (ENABLE_NATIVE_COMPACTION) {
+            (anthropicOptions as any).contextManagement = {
+                edits: [{
+                    type: 'compact_20260112',
+                    trigger: {
+                        type: 'input_tokens',
+                        value: NATIVE_COMPACTION_TRIGGER_TOKENS,
+                    },
+                    // Reuse the same detailed compaction prompt as our custom Compact agent.
+                    // The prompt instructs the model to output <analysis>...</analysis> then
+                    // <summary>...</summary>. We extract only the <summary> content in
+                    // flushNativeCompaction().
+                    instructions: COMPACT_SYSTEM_REMINDER_AUTO_TRIGGERED,
+                }],
+            };
+        }
+
+        // Build beta headers: include compaction beta when native compaction is enabled.
+        const betaHeaders = [
+            ...(request.thinking ? ['interleaved-thinking-2025-05-14'] : []),
+            ...(ENABLE_NATIVE_COMPACTION ? ['compact-2026-01-12'] : []),
+        ];
+    const requestHeaders = betaHeaders.length > 0
+        ? { 'anthropic-beta': betaHeaders.join(',') }
         : undefined;
         cleanupStreamLifecycle = () => {
             streamWatchdog?.cleanup();
@@ -421,11 +508,16 @@ export async function executeAgent(
             temperature: request.thinking ? undefined : 0,
             messages: allMessages,
             stopWhen: stepCountIs(50),
-            tools,
+            tools: finalTools,
             abortSignal: streamWatchdog.abortSignal,
             headers: requestHeaders,
             providerOptions: {
-                anthropic: anthropicOptions,
+                anthropic: {
+                    ...anthropicOptions,
+                    // DeepWiki MCP — Anthropic handles MCP calls server-side.
+                    // Tool calls appear in the stream as mcp_tool_use / mcp_tool_result blocks.
+                    mcpServers: [DEEPWIKI_MCP_SERVER_CONFIG],
+                },
             },
             prepareStep,
             onAbort: () => {
@@ -467,6 +559,12 @@ export async function executeAgent(
                 if (request.chatHistoryManager && step.response?.messages) {
                     try {
                         const unsavedMessages = step.response.messages.slice(savedMessageCount);
+
+                        // Strip <analysis> COT from any compaction blocks before persisting to JSONL.
+                        // This ensures reloaded sessions don't waste tokens on analysis text.
+                        if (cleanedCompactionSummary) {
+                            stripAnalysisFromCompactionBlocks(unsavedMessages, cleanedCompactionSummary);
+                        }
 
                         if (unsavedMessages.length > 0) {
                             const totalInputTokens = step.usage
@@ -523,6 +621,76 @@ export async function executeAgent(
         const preloadedToolCallIds = new Set<string>();
         // Track reasoning text by block ID and emit complete thinking blocks on end.
         const reasoningById = new Map<string, string>();
+        // Track whether the current text block is a native compaction summary.
+        let isCompactionBlock = false;
+        let compactionContent = '';
+        // Stores the cleaned summary (analysis stripped) from the most recent native compaction.
+        // Used by prepareStep and onStepFinish to patch compaction blocks before sending/saving.
+        let cleanedCompactionSummary: string | null = null;
+
+        /**
+         * Flush accumulated native compaction content: save to JSONL and emit UI event.
+         * Called when the compaction text block ends (next text-start or finish).
+         */
+        const flushNativeCompaction = async () => {
+            if (!isCompactionBlock || !compactionContent) {
+                isCompactionBlock = false;
+                compactionContent = '';
+                return;
+            }
+
+            logInfo(`[Agent] Native compaction complete (${compactionContent.length} chars raw)`);
+
+            // Extract <summary> content from the compaction output.
+            // The prompt instructs the model to output <analysis>...</analysis> (thinking)
+            // followed by <summary>...</summary> (the actual summary). We only persist
+            // the summary, matching the custom Compact agent's extraction logic.
+            const extractedSummary = compactionContent.match(/<summary>(.*?)<\/summary>/s)?.[1]?.trim();
+            const continuationPrefix = 'This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. \n ';
+            const summaryBody = extractedSummary || compactionContent.trim();
+            const summary = continuationPrefix + summaryBody;
+
+            // Store cleaned summary for prepareStep and onStepFinish to patch compaction blocks
+            cleanedCompactionSummary = summary;
+
+            if (extractedSummary) {
+                logInfo(`[Agent] Extracted <summary> from native compaction (${extractedSummary.length} chars)`);
+            } else {
+                logInfo('[Agent] No <summary> tags found in native compaction — using raw content');
+            }
+
+            // Persist as compact_summary in JSONL (same format as custom compact agent).
+            // This allows getMessages() / getLastUsage() to treat it as a checkpoint.
+            if (request.chatHistoryManager) {
+                try {
+                    await request.chatHistoryManager.saveSummaryMessage(summary);
+                    logInfo('[Agent] Native compaction summary saved to JSONL');
+                } catch (error) {
+                    logError('[Agent] Failed to save native compaction summary', error);
+                }
+            }
+
+            // Complete the "Compacting conversation..." loading indicator
+            emitEvent({
+                type: 'tool_result',
+                toolName: 'compact_conversation',
+                toolOutput: { success: true },
+                completedAction: 'compacted conversation',
+            });
+
+            // Emit compact event so the frontend shows the summary in UI
+            emitEvent({
+                type: 'compact',
+                summary,
+                content: summary,
+            });
+
+            // Reset usage to 0 in UI (compaction resets the context window)
+            emitEvent({ type: 'usage', totalInputTokens: 0 });
+
+            isCompactionBlock = false;
+            compactionContent = '';
+        };
 
         // Process stream
         for await (const part of fullStream) {
@@ -536,6 +704,13 @@ export async function executeAgent(
 
             switch (part.type) {
                 case 'text-delta': {
+                    // If this is a native compaction block, accumulate the summary
+                    // instead of emitting as regular content.
+                    if (isCompactionBlock) {
+                        compactionContent += part.text;
+                        break;
+                    }
+
                     // Accumulate content for later recording as complete message
                     accumulatedContent += part.text;
 
@@ -701,6 +876,9 @@ export async function executeAgent(
                             allowed_domains: toolInput?.allowed_domains,
                             blocked_domains: toolInput?.blocked_domains,
                         };
+                    } else if (DEEPWIKI_MCP_TOOL_NAMES.includes(part.toolName)) {
+                        // DeepWiki MCP tools — pass through all input for display
+                        displayInput = toolInput;
                     }
 
                     // Skip tool call UI for todo_write (handled by inline todo list)
@@ -778,6 +956,31 @@ export async function executeAgent(
                 }
 
                 case 'text-start': {
+                    // Check if this is a native compaction block.
+                    // The AI SDK surfaces compaction via providerMetadata on text-start events.
+                    const isCompaction = (part as any).providerMetadata?.anthropic?.type === 'compaction';
+                    if (isCompaction) {
+                        isCompactionBlock = true;
+                        compactionContent = '';
+                        logInfo('[Agent] Native compaction block started — accumulating summary');
+
+                        // Show "Compacting conversation..." loading indicator in UI
+                        // (matches the custom auto-compact path in rpc-manager)
+                        emitEvent({
+                            type: 'tool_call',
+                            toolName: 'compact_conversation',
+                            loadingAction: 'compacting conversation',
+                            toolInput: {},
+                        });
+                        break;
+                    }
+
+                    // If the previous block was a compaction, flush it now
+                    // (the compaction block is complete, and this is the start of the real response).
+                    if (isCompactionBlock) {
+                        await flushNativeCompaction();
+                    }
+
                     // Add newline for formatting
                     emitEvent({
                         type: 'content_block',
@@ -787,6 +990,11 @@ export async function executeAgent(
                 }
 
                 case 'finish': {
+                    // Flush any pending native compaction before finishing
+                    if (isCompactionBlock) {
+                        await flushNativeCompaction();
+                    }
+
                     cleanupStreamLifecycle?.();
                     logInfo(`[Agent] Execution finished. Modified files: ${modifiedFiles.length}`);
                     const finishReason = normalizeFinishReason(part);
