@@ -51,6 +51,8 @@ import { removeForwardSlashes, canDataBind, getReadableListenerName } from "./ut
 import { DatabindForm } from "./Forms/DatabindForm";
 import { FileIntegrationForm } from "./Forms/FileIntegrationForm";
 import FileIntegrationConfigForm from "./Forms/FileIntegrationForm/FileIntegrationConfigForm";
+import { SMBForm } from "./Forms/SMBForm";
+import SMBConfigForm from "./Forms/SMBForm/SMBConfigForm";
 
 const LoadingContainer = styled.div`
     display: flex;
@@ -212,6 +214,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
     const [isHttpService, setIsHttpService] = useState<boolean>(false);
     const [isMcpService, setIsMcpService] = useState<boolean>(false);
     const [isFtpService, setIsFtpService] = useState<boolean>(false);
+    const [isSmbService, setIsSmbService] = useState<boolean>(false);
     const [isCdcService, setIsCdcService] = useState<boolean>(false);
     const [objectMethods, setObjectMethods] = useState<FunctionModel[]>([]);
     const [dropdownOptions, setDropdownOptions] = useState<DropdownOptionProps[]>([]);
@@ -222,6 +225,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
 
     const [initFunction, setInitFunction] = useState<FunctionModel>(undefined);
     const [selectedFTPHandler, setSelectedFTPHandler] = useState<string>(undefined);
+    const [selectedSMBHandler, setSelectedSMBHandler] = useState<string>(undefined);
     const [addMore, setAddMore] = useState<boolean>(false);
 
     const handleCloseInitFunction = () => {
@@ -263,6 +267,21 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
 
         // Remove the add handler option if deprecated APIs present
         return (hasAvailableOnCreate || hasAvailableOnDelete || hasAvailableOnError) && !hasDeprecatedFunctions;
+    };
+
+    // Check if there are any available SMB handlers (onCreate or onDelete) that are not yet enabled
+    const hasAvailableSMBHandlers = () => {
+        if (!serviceModel?.functions) return false;
+
+        const onCreateFunctions = serviceModel.functions.filter(fn => fn.metadata?.label === 'onCreate');
+        const onDeleteFunctions = serviceModel.functions.filter(fn => fn.metadata?.label === 'onDelete');
+        const deprecatedFunctions = serviceModel.functions.filter(fn => fn.metadata?.label === 'EVENT');
+
+        const hasAvailableOnCreate = onCreateFunctions.length > 0 && onCreateFunctions.some(fn => !fn.enabled);
+        const hasAvailableOnDelete = onDeleteFunctions.length > 0 && onDeleteFunctions.some(fn => !fn.enabled);
+        const hasDeprecatedFunctions = deprecatedFunctions.length > 0 && deprecatedFunctions.some(fn => fn.enabled);
+
+        return (hasAvailableOnCreate || hasAvailableOnDelete) && !hasDeprecatedFunctions;
     };
 
     useEffect(() => {
@@ -337,6 +356,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
 
             setReadonlyProperties(readonlyProps);
             setIsFtpService(service.moduleName === "ftp");
+            setIsSmbService(service.moduleName === "smb");
             setIsHttpService(service.moduleName === "http");
             setIsMcpService(service.moduleName === "mcp");
             setIsCdcService(service.moduleName === "mssql" || service.moduleName === "postgresql");
@@ -483,6 +503,14 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
         setIsSaving(false);
     };
 
+    const handleNewSMBFunction = (selectedHandler: string) => {
+        setIsNew(true);
+        setSelectedSMBHandler(selectedHandler);
+        setShowForm(true);
+        setShowFunctionConfigForm(false);
+        setIsSaving(false);
+    };
+
     const handleNewMcpTool = () => {
         rpcClient
             .getServiceDesignerRpcClient()
@@ -573,6 +601,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
         setIsNew(false);
         setFunctionModel(undefined);
         setSelectedFTPHandler(undefined);
+        setSelectedSMBHandler(undefined);
         // If a handler was selected, also close the FunctionConfigForm
         if (selectedHandler) {
             setShowFunctionConfigForm(false);
@@ -584,6 +613,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
         setFunctionModel(value);
         setIsNew(false);
         setSelectedFTPHandler(undefined);
+        setSelectedSMBHandler(undefined);
         setShowForm(true);
     };
 
@@ -1147,8 +1177,56 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                 </>
                             )}
 
+                            {isSmbService && (
+                                <>
+                                    <SectionHeader
+                                        title="File Handlers"
+                                        subtitle={`${enabledHandlers.length === 0 ? `` : 'Implement how the integration responds to file actions'}`}
+                                    >
+                                        <ActionGroup>
+                                            {enabledHandlers.length > 10 && (
+                                                <TextField placeholder="Search..." sx={{ width: 200 }} onChange={handleSearch} value={searchValue} />
+                                            )}
+                                            {!haveServiceTypeName && enabledHandlers.length > 0 && hasAvailableSMBHandlers() && (
+                                                <Button appearance="primary" tooltip="Add Handler" onClick={onSelectAddHandler}>
+                                                    <Codicon name="add" sx={{ marginRight: 8 }} /> <ButtonText>Handler</ButtonText>
+                                                </Button>
+                                            )}
+                                        </ActionGroup>
+                                    </SectionHeader>
+                                    {enabledHandlers.length > 0 && (
+                                        <FunctionsContainer>
+                                            {enabledHandlers.map((functionModel, index) => (
+                                                <ResourceAccordion
+                                                    key={`${index}-${functionModel.name.value}`}
+                                                    method={functionModel.metadata.label}
+                                                    functionModel={functionModel}
+                                                    goToSource={() => { }}
+                                                    onEditResource={handleFunctionEdit}
+                                                    onDeleteResource={handleFunctionDelete}
+                                                    onResourceImplement={handleOpenDiagram}
+                                                />
+                                            ))}
+                                        </FunctionsContainer>
+                                    )}
+                                    {enabledHandlers.length === 0 && (
+                                        <EmptyReadmeContainer>
+                                            <Description variant="body2">
+                                                No file handlers found. Add a new file handler.
+                                            </Description>
+                                            <Button
+                                                appearance="primary"
+                                                onClick={onSelectAddHandler}>
+                                                <Codicon name="add" sx={{ marginRight: 5 }} />
+                                                Add File Handler
+                                            </Button>
+                                        </EmptyReadmeContainer>
+                                    )}
+                                </>
+                            )}
+
                             {/* Listing service type bound functions */}
-                            {!(isHttpService || isMcpService || isFtpService) && (
+                            {!(isHttpService || isMcpService || isFtpService || isSmbService) && (
                                 <>
                                     <SectionHeader
                                         title="Event Handlers"
@@ -1319,7 +1397,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding or editing functions with data binding */}
-                            {functionModel && !isHttpService && !isMcpService && !isFtpService && canDataBind(functionModel) && (
+                            {functionModel && !isHttpService && !isMcpService && !isFtpService && !isSmbService && canDataBind(functionModel) && (
                                 <PanelContainer
                                     title={"Message Handler Configuration"}
                                     show={showForm}
@@ -1345,7 +1423,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding or editing functions */}
-                            {functionModel && !isHttpService && !isMcpService && !isFtpService && !canDataBind(functionModel) && (
+                            {functionModel && !isHttpService && !isMcpService && !isFtpService && !isSmbService && !canDataBind(functionModel) && (
                                 <PanelContainer
                                     title={"Function Configuration"}
                                     show={showForm}
@@ -1361,7 +1439,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding a new handler to the service */}
-                            {serviceModel && !isHttpService && !isFtpService && (
+                            {serviceModel && !isHttpService && !isFtpService && !isSmbService && (
                                 <PanelContainer
                                     title={"Select Handler to Add"}
                                     show={showFunctionConfigForm}
@@ -1424,6 +1502,44 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                             onSave={handleFunctionSubmit}
                                             onClose={handleNewFunctionClose}
                                             selectedHandler={selectedFTPHandler}
+                                        />
+                                    )}
+                                </PanelContainer>
+                            )}
+
+                            {serviceModel && isSmbService && (
+                                <PanelContainer
+                                    title={"Select Handler to Add"}
+                                    show={showFunctionConfigForm}
+                                    onClose={handleFunctionConfigClose}
+                                >
+                                    <SMBConfigForm
+                                        isSaving={isSaving}
+                                        serviceModel={serviceModel}
+                                        onSubmit={handleNewSMBFunction}
+                                        onBack={handleFunctionConfigClose}
+                                    />
+                                </PanelContainer>
+                            )}
+
+                            {isSmbService && serviceModel && (
+                                <PanelContainer
+                                    title={`${isNew ? "New" : ""} File Handler Configuration`}
+                                    show={showForm}
+                                    onClose={handleNewFunctionClose}
+                                    width={400}
+                                >
+                                    {showForm && (
+                                        <SMBForm
+                                            key={`${isNew ? "new" : "edit"}-${selectedSMBHandler ?? functionModel?.name?.value ?? "handler"}`}
+                                            functionModel={functionModel}
+                                            isNew={isNew}
+                                            model={serviceModel}
+                                            filePath={filePath}
+                                            isSaving={isSaving}
+                                            onSave={handleFunctionSubmit}
+                                            onClose={handleNewFunctionClose}
+                                            selectedHandler={selectedSMBHandler}
                                         />
                                     )}
                                 </PanelContainer>

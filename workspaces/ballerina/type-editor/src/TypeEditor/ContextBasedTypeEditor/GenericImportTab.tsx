@@ -554,7 +554,7 @@ export function GenericImportTab(props: GenericImportTabProps) {
                             >
                                 Paste {supportedFormats.join(" or ")} here...
                             </Typography>
-                            {payloadContext?.protocol !== Protocol.FTP && (<Typography
+                            {payloadContext?.protocol !== Protocol.FTP && payloadContext?.protocol !== Protocol.SMB && (<Typography
                                 variant="body3"
                                 sx={{ color: 'var(--vscode-input-placeholderForeground)', textAlign: 'center' }}
                             >
@@ -587,7 +587,7 @@ export function GenericImportTab(props: GenericImportTabProps) {
                                     </Typography>
                                 </>
                             )}
-                            {payloadContext?.protocol!==Protocol.FTP && (<LinkButton
+                            {payloadContext?.protocol!==Protocol.FTP && payloadContext?.protocol!==Protocol.SMB && (<LinkButton
                                 onClick={() => selectJsonType()}
                                 sx={{
                                     display: 'flex',
