@@ -162,6 +162,24 @@ const getAgentRunStatus: RequestType<GetAgentRunStatusRequest, GetAgentRunStatus
     method: `${_prefix}/getAgentRunStatus`
 };
 
+export interface ClearAgentMemoryResponse {
+    success: boolean;
+    error?: string;
+}
+
+export interface OpenAgentMemoryFolderResponse {
+    success: boolean;
+    error?: string;
+}
+
+const clearAgentMemory: RequestType<void, ClearAgentMemoryResponse> = {
+    method: `${_prefix}/clearAgentMemory`
+};
+
+const openAgentMemoryFolder: RequestType<void, OpenAgentMemoryFolderResponse> = {
+    method: `${_prefix}/openAgentMemoryFolder`
+};
+
 // Re-export model settings types from @wso2/mi-core
 export type { MainModelPreset, SubModelPreset, ModelSettings };
 
@@ -231,6 +249,17 @@ export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
 
     getAgentRunStatus(request: GetAgentRunStatusRequest = {}): Promise<GetAgentRunStatusResponse> {
         return this._messenger.sendRequest(getAgentRunStatus, HOST_EXTENSION, request);
+    }
+
+    // ==================================
+    // Memory Management Functions
+    // ==================================
+    clearAgentMemory(): Promise<ClearAgentMemoryResponse> {
+        return this._messenger.sendRequest(clearAgentMemory, HOST_EXTENSION);
+    }
+
+    openAgentMemoryFolder(): Promise<OpenAgentMemoryFolderResponse> {
+        return this._messenger.sendRequest(openAgentMemoryFolder, HOST_EXTENSION);
     }
 
 }

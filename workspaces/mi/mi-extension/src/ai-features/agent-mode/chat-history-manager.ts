@@ -851,8 +851,10 @@ export class ChatHistoryManager {
             const copilotDir = getCopilotProjectStorageDir(projectPath);
 
             const entries = await fs.readdir(copilotDir, { withFileTypes: true });
+            // Exclude reserved directories that are not sessions (e.g., 'memories' used by the memory tool)
+            const RESERVED_DIRS = new Set(['memories']);
             const sessionDirs = entries
-                .filter(entry => entry.isDirectory())
+                .filter(entry => entry.isDirectory() && !RESERVED_DIRS.has(entry.name))
                 .map(entry => entry.name);
 
             // Sort by directory modification time (newest first)
