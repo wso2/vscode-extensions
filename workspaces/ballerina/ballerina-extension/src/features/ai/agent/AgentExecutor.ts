@@ -297,10 +297,13 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             console.log(`[AgentExecutor] Using ${chatHistory.length} chat history messages`);
 
             // 5. Fetch code map markdown from Language Server
+            // Bind the authenticated model to the compaction manager
+            compactionManager.bindModel(model);
+
+            // Fetch code map markdown from Language Server
             let codeMapMarkdown: string | undefined;
             const langClient = StateMachine.context().langClient;
-            const projectRoot = this.config.executionContext.projectPath;
-            const targetDir = path.join(projectRoot, 'target');
+            const targetDir = path.join(workspaceId, 'target');
             const balMdPath = path.join(targetDir, 'bal.md');
 
             if (!langClient) {
@@ -325,6 +328,31 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                     console.warn('[AgentExecutor] Code map response has no markdown field');
                 }
             }
+
+            const userMessageContent = getUserPrompt(params, tempProjectPath, projects, codeMapMarkdown);
+
+            // PRE-TURN compaction: compact if context is already above threshold
+            // failures are handled gracefully inside checkAndCompact (returns without throwing)
+            // abortSignal ensures the summarization LLM call is also cancelled on user abort
+            await compactionManager.checkAndCompact(
+                workspaceId,
+                threadId,
+                projectState,
+                this.config.abortController.signal,
+                this.config.eventHandler,
+                [ { role: "user", content: userMessageContent } ]
+            );
+
+            // 3. Add generation to chat storage (if enabled)
+            this.addGeneration(params.usecase, {
+                isPlanMode: params.isPlanMode,
+                operationType: params.operationType,
+                generationType: 'agent',
+            });
+
+            // 4. Get chat history from storage (if enabled) — AFTER pre-turn compaction
+            const chatHistory = this.getChatHistory();
+            console.log(`[AgentExecutor] Using ${chatHistory.length} chat history messages`);
 
             // 6. Build LLM messages with history
             const historyMessages = populateHistoryForAgent(chatHistory);
