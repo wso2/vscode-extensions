@@ -31,7 +31,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Proactively install hurl in the background on activation so it is ready before the user
     // executes their first cell. Silent — no error shown if this fails (will retry on first run).
     // Only trigger if the user has not disabled auto-install via configuration.
-    if (vscode.workspace.getConfiguration('http-client').get<boolean>('hurl.autoInstall', true)) {
+    if (vscode.workspace.getConfiguration('hurl-client').get<boolean>('hurl.autoInstall', true)) {
         binaryManager.resolveCommandPath({ autoInstall: true }).catch(() => {});
     }
 
@@ -53,7 +53,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Command: open a .hurl file as a native notebook
     const openHurlNotebookCommand = vscode.commands.registerCommand(
-        'HTTPClient.openHurlNotebook',
+        'HurlClient.openHurlNotebook',
         async (resourceUri?: vscode.Uri) => {
             let fileUri: vscode.Uri | undefined = resourceUri;
 
@@ -74,22 +74,22 @@ export function activate(context: vscode.ExtensionContext): void {
                 await vscode.window.showNotebookDocument(doc);
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(`HTTP Client: Failed to open notebook — ${msg}`);
+                vscode.window.showErrorMessage(`Hurl Client: Failed to open notebook — ${msg}`);
             }
         }
     );
 
     // Command: install hurl binary
     const installHurlCommand = vscode.commands.registerCommand(
-        'HTTPClient.installHurl',
+        'HurlClient.installHurl',
         async () => {
             const { getHurlBinaryManager } = await import('./hurl/hurl-binary-manager');
             try {
                 const binaryPath = await getHurlBinaryManager().installManagedHurl({ interactive: true });
-                vscode.window.showInformationMessage(`HTTP Client: Hurl installed at ${binaryPath}`);
+                vscode.window.showInformationMessage(`Hurl Client: Hurl installed at ${binaryPath}`);
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(`HTTP Client: Failed to install Hurl — ${msg}`);
+                vscode.window.showErrorMessage(`Hurl Client: Failed to install Hurl — ${msg}`);
             }
         }
     );
@@ -102,7 +102,7 @@ export function activate(context: vscode.ExtensionContext): void {
     //   savable: false → read-only virtual FS, saves are blocked (Resource Try It)
     // When called from command palette (no args): prompts user to paste a hurl string
     const importHurlStringCommand = vscode.commands.registerCommand(
-        'HTTPClient.importHurlString',
+        'HurlClient.importHurlString',
         async (contentOrCells?: string | NotebookCellInput[], options?: { savable?: boolean; savePath?: string; viewColumn?: 'beside' | 'active' }) => {
             let notebookData: vscode.NotebookData;
             let resolvedHurlText: string;
@@ -165,12 +165,37 @@ export function activate(context: vscode.ExtensionContext): void {
                 // Kernel affinity is handled by HurlNotebookController.updateNotebookAffinity.
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(`HTTP Client: Failed to create notebook — ${msg}`);
+                vscode.window.showErrorMessage(`Hurl Client: Failed to create notebook — ${msg}`);
             }
         }
     );
+    // Deprecated aliases — kept indefinitely for backward compatibility.
+    // These delegate to the new HurlClient.* commands
+    const deprecatedOpenHurlNotebook = vscode.commands.registerCommand(
+        'HTTPClient.openHurlNotebook',
+        async (...args: unknown[]) => {
+            await vscode.commands.executeCommand('HurlClient.openHurlNotebook', ...args);
+        }
+    );
+    const deprecatedInstallHurl = vscode.commands.registerCommand(
+        'HTTPClient.installHurl',
+        async (...args: unknown[]) => {
+            await vscode.commands.executeCommand('HurlClient.installHurl', ...args);
+        }
+    );
+    const deprecatedImportHurlString = vscode.commands.registerCommand(
+        'HTTPClient.importHurlString',
+        async (...args: unknown[]) => {
+            await vscode.commands.executeCommand('HurlClient.importHurlString', ...args);
+        }
+    );
+
     const hurlTool = vscode.lm.registerTool('run-hurl-test', new RunHurlTest());
-    context.subscriptions.push(openHurlNotebookCommand, installHurlCommand, importHurlStringCommand, hurlTool);
+    context.subscriptions.push(
+        openHurlNotebookCommand, installHurlCommand, importHurlStringCommand,
+        deprecatedOpenHurlNotebook, deprecatedInstallHurl, deprecatedImportHurlString,
+        hurlTool
+    );
 }
 
 export function deactivate(): void {
