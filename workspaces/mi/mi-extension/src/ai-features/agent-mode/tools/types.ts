@@ -84,7 +84,14 @@ export const VALID_FILE_EXTENSIONS = [
     '.txt',
     '.log',
     '.java',
-    '.xslt'
+    '.xslt',
+    '.sql',
+    '.xsd',
+    '.wsdl',
+    '.csv',
+    '.html',
+    '.sh',
+    '.bat'
 ];
 
 /**
