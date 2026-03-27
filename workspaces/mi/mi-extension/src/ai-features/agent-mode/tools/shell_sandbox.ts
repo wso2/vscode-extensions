@@ -125,6 +125,7 @@ const SAFE_READ_COMMANDS = new Set([
 ]);
 
 const WRAPPER_COMMANDS_REQUIRING_APPROVAL = new Set([
+    'command',
     'env',
     'xargs',
 ]);
@@ -309,6 +310,46 @@ function isPathWithin(basePath: string, targetPath: string): boolean {
 
 function normalizeToken(token: string): string {
     return token.trim().toLowerCase();
+}
+
+function isEnvironmentAssignmentToken(token: string): boolean {
+    const normalizedToken = stripWrappingQuotes(token.trim());
+    return /^[A-Za-z_][A-Za-z0-9_]*=/.test(normalizedToken);
+}
+
+function normalizeCommandToken(token: string): string {
+    const normalizedToken = normalizeToken(stripWrappingQuotes(token));
+    if (!normalizedToken) {
+        return '';
+    }
+
+    const normalizedPathToken = normalizedToken.replace(/\\/g, '/');
+    const basename = path.posix.basename(normalizedPathToken);
+    return basename.endsWith('.exe') ? basename.slice(0, -4) : basename;
+}
+
+function resolveCommandTokens(tokens: string[]): { command: string; commandIndex: number; commandTokens: string[] } {
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        if (isEnvironmentAssignmentToken(token)) {
+            continue;
+        }
+
+        const command = normalizeCommandToken(token);
+        if (command) {
+            return {
+                command,
+                commandIndex: i,
+                commandTokens: tokens.slice(i),
+            };
+        }
+    }
+
+    return {
+        command: '',
+        commandIndex: -1,
+        commandTokens: [],
+    };
 }
 
 function tokenizeSegment(segment: string): { tokens: string[]; parseFailed: boolean } {
@@ -602,11 +643,19 @@ function isLikelyFilePathValue(token: string): boolean {
         return false;
     }
 
-    if (normalizedToken.startsWith('$')) {
+    return true;
+}
+
+function hasDynamicShellExpansion(token: string): boolean {
+    const normalizedToken = stripWrappingQuotes(token.trim());
+    if (!normalizedToken) {
         return false;
     }
 
-    return true;
+    return /\$\{[^}]+\}/.test(normalizedToken)
+        || /\$[A-Za-z_][A-Za-z0-9_]*/.test(normalizedToken)
+        || normalizedToken.includes('$(')
+        || /(^|[^\\])`/.test(normalizedToken);
 }
 
 function isSensitiveTokenName(token: string): boolean {
@@ -792,7 +841,7 @@ function extractPathOptions(tokens: string[]): string[] {
 }
 
 function extractTeeWritePaths(tokens: string[]): string[] {
-    if (normalizeToken(tokens[0] || '') !== 'tee') {
+    if (normalizeCommandToken(tokens[0] || '') !== 'tee') {
         return [];
     }
 
@@ -941,6 +990,10 @@ function findDisallowedMutationPaths(
 ): string[] {
     const disallowedPaths: string[] = [];
     for (const writePathToken of writePathTokens) {
+        if (hasDynamicShellExpansion(writePathToken)) {
+            disallowedPaths.push(`dynamic path token '${writePathToken}'`);
+            continue;
+        }
         try {
             const resolvedPath = resolvePathCandidate(projectPath, writePathToken);
             const isAllowed = allowedMutationRoots.some((allowedRoot) => isPathWithin(allowedRoot, resolvedPath));
@@ -957,6 +1010,9 @@ function findDisallowedMutationPaths(
 function resolveMutationPaths(projectPath: string, writePathTokens: string[]): string[] {
     const resolvedPaths: string[] = [];
     for (const writePathToken of writePathTokens) {
+        if (hasDynamicShellExpansion(writePathToken)) {
+            continue;
+        }
         try {
             resolvedPaths.push(resolvePathCandidate(projectPath, writePathToken));
         } catch {
@@ -1004,7 +1060,7 @@ function hasOutputRedirection(segment: string): boolean {
 }
 
 function isGitMutation(tokens: string[]): boolean {
-    if (tokens.length < 2 || normalizeToken(tokens[0]) !== 'git') {
+    if (tokens.length < 2 || normalizeCommandToken(tokens[0]) !== 'git') {
         return false;
     }
 
@@ -1033,7 +1089,7 @@ function isGitMutation(tokens: string[]): boolean {
 }
 
 function isGitDestructive(tokens: string[]): boolean {
-    if (tokens.length < 2 || normalizeToken(tokens[0]) !== 'git') {
+    if (tokens.length < 2 || normalizeCommandToken(tokens[0]) !== 'git') {
         return false;
     }
 
@@ -1046,7 +1102,7 @@ function isPackageManagerMutation(tokens: string[]): boolean {
         return false;
     }
 
-    const manager = normalizeToken(tokens[0]);
+    const manager = normalizeCommandToken(tokens[0]);
     if (!['bun', 'npm', 'pip', 'pip3', 'pnpm', 'poetry', 'yarn'].includes(manager)) {
         return false;
     }
@@ -1068,7 +1124,7 @@ function isPackageManagerMutation(tokens: string[]): boolean {
 }
 
 function isSedOrPerlInPlaceMutation(tokens: string[]): boolean {
-    const command = normalizeToken(tokens[0] || '');
+    const command = normalizeCommandToken(tokens[0] || '');
     if (!['perl', 'sed'].includes(command)) {
         return false;
     }
@@ -1077,7 +1133,7 @@ function isSedOrPerlInPlaceMutation(tokens: string[]): boolean {
 }
 
 function isFindDestructive(tokens: string[], rawSegment: string): boolean {
-    if (normalizeToken(tokens[0] || '') !== 'find') {
+    if (normalizeCommandToken(tokens[0] || '') !== 'find') {
         return false;
     }
 
@@ -1116,13 +1172,14 @@ function isDestructiveCommand(command: string, tokens: string[]): boolean {
 }
 
 function buildSuggestedPrefixRule(tokens: string[]): string[] {
-    if (tokens.length === 0) {
+    const { command, commandTokens } = resolveCommandTokens(tokens);
+    if (!command) {
         return [];
     }
 
-    const prefix: string[] = [normalizeToken(tokens[0])];
-    if (tokens.length > 1) {
-        const second = normalizeToken(tokens[1]);
+    const prefix: string[] = [command];
+    if (commandTokens.length > 1) {
+        const second = normalizeToken(commandTokens[1]);
         if (
             second.length > 0 &&
             !second.startsWith('-') &&
@@ -1168,7 +1225,9 @@ function analyzeSegment(
         };
     }
 
-    const command = normalizeToken(tokens[0]);
+    const commandInfo = resolveCommandTokens(tokens);
+    const command = commandInfo.command;
+    const commandTokens = commandInfo.commandTokens;
     const reasons: string[] = [];
     let blocked = false;
 
@@ -1178,18 +1237,19 @@ function analyzeSegment(
     }
 
     const isNetwork = NETWORK_COMMANDS.has(command);
-    const findIsDestructive = isFindDestructive(tokens, rawSegment);
+    const findIsDestructive = isFindDestructive(commandTokens, rawSegment);
     const isWrapperCommand = WRAPPER_COMMANDS_REQUIRING_APPROVAL.has(command);
     const isMutation = MUTATION_COMMANDS.has(command)
         || findIsDestructive
-        || isGitMutation(tokens)
-        || isPackageManagerMutation(tokens)
-        || isSedOrPerlInPlaceMutation(tokens)
+        || isGitMutation(commandTokens)
+        || isPackageManagerMutation(commandTokens)
+        || isSedOrPerlInPlaceMutation(commandTokens)
         || hasOutputRedirection(rawSegment);
-    const isDestructive = isDestructiveCommand(command, tokens) || findIsDestructive;
-    const segmentPathTokens = extractSegmentPathTokens(command, tokens, rawSegment, isMutation);
+    const isDestructive = isDestructiveCommand(command, commandTokens) || findIsDestructive;
+    const segmentPathTokens = extractSegmentPathTokens(command, commandTokens, rawSegment, isMutation);
     const sensitivePaths = findSensitivePaths(projectPath, segmentPathTokens);
-    const writePathTokens = isMutation ? extractMutationWritePathTokens(command, tokens, rawSegment) : [];
+    const writePathTokens = isMutation ? extractMutationWritePathTokens(command, commandTokens, rawSegment) : [];
+    const dynamicMutationPathTokens = writePathTokens.filter((token) => hasDynamicShellExpansion(token));
     const disallowedMutationPaths = isMutation
         ? findDisallowedMutationPaths(projectPath, allowedMutationRoots, writePathTokens)
         : [];
@@ -1206,6 +1266,11 @@ function analyzeSegment(
         blocked = true;
         reasons.push(
             `Access to sensitive paths is blocked by shell sandbox policy. Sensitive path(s): ${sensitivePaths.join(', ')}.`
+        );
+    } else if (dynamicMutationPathTokens.length > 0) {
+        blocked = true;
+        reasons.push(
+            `Mutating commands that rely on dynamic path expansion are blocked. Dynamic token(s): ${dynamicMutationPathTokens.join(', ')}.`
         );
     } else if (disallowedMutationPaths.length > 0) {
         blocked = true;
@@ -1235,9 +1300,15 @@ function analyzeSegment(
 }
 
 export function normalizePrefixRule(rule: string[]): string[] {
-    return rule
+    const normalized = rule
         .map((token) => normalizeToken(token))
         .filter((token) => token.length > 0);
+    if (normalized.length === 0) {
+        return normalized;
+    }
+
+    normalized[0] = normalizeCommandToken(normalized[0]) || normalized[0];
+    return normalized;
 }
 
 export function matchesPrefixRule(tokens: string[], rule: string[]): boolean {

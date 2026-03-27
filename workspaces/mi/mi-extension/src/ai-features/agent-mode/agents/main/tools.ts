@@ -92,6 +92,7 @@ import {
 import { AnthropicModel, resolveMainModelId } from '../../../connection';
 import { AgentMode, ModelSettings } from '@wso2/mi-core';
 import { persistOversizedToolResult } from '../../tools/tool-result-persistence';
+import { analyzeShellCommand } from '../../tools/shell_sandbox';
 import {
     BashExecuteFn,
     FILE_WRITE_TOOL_NAME,
@@ -121,6 +122,8 @@ import {
     ShellApprovalRuleStore,
 } from '../../tools/types';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
+import { logError } from '../../../copilot/logger';
+import { z } from 'zod';
 import * as path from 'path';
 import { getCopilotSessionDir } from '../../storage-paths';
 
@@ -211,6 +214,53 @@ const PLAN_MODE_ALLOWED_TOOLS = new Set<string>([
     TODO_WRITE_TOOL_NAME,
 ]);
 
+const PLAN_MODE_READ_ONLY_SHELL_COMMANDS = new Set([
+    'basename',
+    'cat',
+    'cut',
+    'date',
+    'diff',
+    'dirname',
+    'echo',
+    'env',
+    'file',
+    'find',
+    'git',
+    'grep',
+    'head',
+    'id',
+    'ls',
+    'pwd',
+    'readlink',
+    'realpath',
+    'rg',
+    'sort',
+    'stat',
+    'tail',
+    'tree',
+    'uniq',
+    'wc',
+    'which',
+    'whoami',
+]);
+
+const PLAN_MODE_ALLOWED_GIT_ACTIONS = new Set([
+    'branch',
+    'describe',
+    'diff',
+    'log',
+    'remote',
+    'rev-parse',
+    'show',
+    'status',
+]);
+
+const ToolResultSchema = z.object({
+    success: z.boolean(),
+    message: z.string().optional(),
+    error: z.string().optional(),
+}).passthrough();
+
 function createModeBlockedExecute(toolName: string, mode: AgentMode) {
     const modeLabel = mode === 'plan' ? 'Plan' : 'Ask';
     const errorCode = mode === 'plan' ? 'PLAN_MODE_RESTRICTED' : 'ASK_MODE_RESTRICTED';
@@ -274,30 +324,42 @@ function createPlanModePlanFileOnlyExecute<T extends (...args: any[]) => Promise
     }) as T;
 }
 
-function getPlanModeShellRestrictionReason(command: string): string | null {
+function normalizePlanShellCommandName(commandToken: string): string {
+    const normalized = commandToken.trim().toLowerCase().replace(/\\/g, '/');
+    const basename = path.posix.basename(normalized);
+    return basename.endsWith('.exe') ? basename.slice(0, -4) : basename;
+}
+
+function getPlanModeShellRestrictionReason(command: string, projectPath: string): string | null {
     const normalized = command.trim();
     if (!normalized) {
         return 'Plan mode shell command cannot be empty.';
     }
 
-    // Block output redirection and stream writes.
-    if (/>>\s*\S/.test(normalized) || /(^|[^<])>\s*\S/.test(normalized) || /\|\s*tee\b/i.test(normalized)) {
-        return 'Plan mode shell is read-only and does not allow file/output redirection.';
+    const analysis = analyzeShellCommand(normalized, process.platform, projectPath, false);
+    if (analysis.blocked) {
+        return `Plan mode shell command is blocked by sandbox policy: ${analysis.reasons.join(' ')}`;
     }
 
-    // Block common write/mutation commands across bash and PowerShell.
-    const blockedPatterns: RegExp[] = [
-        /\b(rm|rmdir|mv|cp|mkdir|touch|chmod|chown|chgrp|ln|truncate|dd|install)\b/i,
-        /\b(git)\s+(add|commit|reset|checkout|switch|restore|clean|stash|rebase|merge|cherry-pick|revert|am|apply|pull|push|fetch)\b/i,
-        /\b(npm|pnpm|yarn|bun|pip|pip3|poetry|cargo|go|dotnet|mvn|gradle)\s+(install|add|remove|update|upgrade|uninstall|init|build|run|test|publish)\b/i,
-        /\b(make|cmake|meson|ninja)\b/i,
-        /\b(sed|perl)\s+-i\b/i,
-        /\b(New-Item|Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|Rename-Item|Clear-Content)\b/i,
-    ];
+    if (analysis.isComplexSyntax) {
+        return 'Plan mode shell only allows simple read-only commands without complex shell syntax.';
+    }
 
-    for (const pattern of blockedPatterns) {
-        if (pattern.test(normalized)) {
+    for (const segment of analysis.segments) {
+        const commandName = normalizePlanShellCommandName(segment.command);
+        if (!commandName || !PLAN_MODE_READ_ONLY_SHELL_COMMANDS.has(commandName)) {
+            return `Plan mode shell only allows read-only exploration commands. '${commandName || segment.raw}' is not allowed.`;
+        }
+
+        if (segment.requiresApproval || segment.isDestructive || segment.blocked) {
             return 'Plan mode shell only allows read-only exploration commands.';
+        }
+
+        if (commandName === 'git') {
+            const gitAction = (segment.tokens[1] || '').trim().toLowerCase();
+            if (!gitAction || !PLAN_MODE_ALLOWED_GIT_ACTIONS.has(gitAction)) {
+                return `Plan mode shell only allows read-only git commands (${Array.from(PLAN_MODE_ALLOWED_GIT_ACTIONS).join(', ')}).`;
+            }
         }
     }
 
@@ -319,9 +381,9 @@ function createReadOnlyServerManagementExecute(execute: ServerManagementExecuteF
     };
 }
 
-function createPlanModeReadOnlyBashExecute(execute: BashExecuteFn): BashExecuteFn {
+function createPlanModeReadOnlyBashExecute(execute: BashExecuteFn, projectPath: string): BashExecuteFn {
     return async (args) => {
-        const restrictionReason = getPlanModeShellRestrictionReason(args.command);
+        const restrictionReason = getPlanModeShellRestrictionReason(args.command, projectPath);
         if (restrictionReason) {
             return {
                 success: false,
@@ -356,22 +418,30 @@ function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
         )
         : undefined;
     const planReadOnlyBashExecute = mode === 'plan' && toolName === BASH_TOOL_NAME
-        ? createPlanModeReadOnlyBashExecute(execute as unknown as BashExecuteFn)
+        && options
+        ? createPlanModeReadOnlyBashExecute(execute as unknown as BashExecuteFn, options.projectPath)
         : undefined;
     const readOnlyServerManagementExecute = (mode === 'ask' || mode === 'plan') && toolName === SERVER_MANAGEMENT_TOOL_NAME
         ? createReadOnlyServerManagementExecute(execute as unknown as ServerManagementExecuteFn)
         : undefined;
 
     return (async (...args: Parameters<T>): Promise<ToolResult> => {
-        if (mode === 'plan') {
-            const planRestrictionsActive = options
-                ? isPlanModeSessionActive(options.sessionId)
-                : true;
+        const modeSnapshot = {
+            mode,
+            planRestrictionsActive: mode === 'plan'
+                ? (options ? isPlanModeSessionActive(options.sessionId) : true)
+                : false,
+        };
 
-            // Plan mode can transition to Edit mode mid-run after exit_plan_mode approval.
-            // Once plan session state is cleared, stop applying Plan-mode restrictions.
-            if (!planRestrictionsActive) {
-                return execute(...args);
+        if (modeSnapshot.mode === 'plan') {
+            // Fail closed: once a run starts in plan mode, do not auto-escalate tool permissions
+            // within the same run based on mutable session state.
+            if (!modeSnapshot.planRestrictionsActive) {
+                return {
+                    success: false,
+                    message: 'Plan mode state changed during this run. Send a new Edit mode message after exiting plan mode to run unrestricted tools.',
+                    error: 'PLAN_MODE_TRANSITION_PENDING',
+                };
             }
 
             if (planFileOnlyExecute) {
@@ -411,8 +481,31 @@ function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResul
     execute: T,
     sessionId: string
 ): T {
+    const normalizeToolResult = (
+        result: unknown,
+        stage: 'execute' | 'persist'
+    ): ToolResult & Record<string, unknown> => {
+        const parsed = ToolResultSchema.safeParse(result);
+        if (!parsed.success) {
+            logError(`[AgentTools] Invalid tool result shape for '${toolName}' during ${stage}: ${parsed.error.message}`, result);
+            return {
+                success: false,
+                message: `Tool '${toolName}' returned an invalid result shape.`,
+                error: 'INVALID_TOOL_RESULT_SHAPE',
+            };
+        }
+
+        const normalized = parsed.data as ToolResult & Record<string, unknown>;
+        if (typeof normalized.message !== 'string') {
+            normalized.message = normalized.success
+                ? ''
+                : `Tool '${toolName}' failed without a message.`;
+        }
+        return normalized;
+    };
+
     return (async (...args: Parameters<T>): Promise<ToolResult> => {
-        const result = await execute(...args);
+        const result = normalizeToolResult(await execute(...args), 'execute');
         const processed = await persistOversizedToolResult({
             sessionDir,
             toolName,
@@ -422,7 +515,7 @@ function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResul
 
         // Append completion notifications for any background tasks that finished
         const notifications = drainBackgroundTaskNotifications(sessionId);
-        const toolResult = processed as ToolResult;
+        const toolResult = normalizeToolResult(processed, 'persist');
         if (notifications && typeof toolResult.message === 'string') {
             toolResult.message = toolResult.message.length > 0
                 ? toolResult.message + '\n' + notifications

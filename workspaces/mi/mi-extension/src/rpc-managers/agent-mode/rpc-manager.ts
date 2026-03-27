@@ -77,6 +77,10 @@ import { MiDiagramRpcManager } from '../mi-diagram/rpc-manager';
 import { getCopilotSessionDir, getCopilotProjectMemoriesDir } from '../../ai-features/agent-mode/storage-paths';
 
 const DEFAULT_MODEL_SETTINGS: ModelSettings = { mainModelPreset: 'sonnet', subModelPreset: 'haiku' };
+const AGENT_RUN_IN_PROGRESS_ERROR = 'Another agent run is already in progress. Wait for it to finish or abort it before sending a new message.';
+const SESSION_SWITCH_BLOCKED_ERROR = 'Cannot switch sessions while an agent run is in progress. Abort the run first.';
+const NEW_SESSION_BLOCKED_ERROR = 'Cannot create a new session while an agent run is in progress. Abort the run first.';
+const TOOL_INTERRUPTION_ERROR_CODE = 'AGENT_TOOL_INTERRUPTION';
 
 const DEFAULT_AGENT_MODE: AgentMode = 'edit';
 const USER_CANCELLED_RESPONSE = '__USER_CANCELLED__';
@@ -108,10 +112,18 @@ const startupSessionInitializedProjects: Set<string> = new Set();
 
 type LimitContinuationReason = 'max_output_tokens' | 'max_tool_calls';
 
+function createToolInterruptionAbortError(): Error & { code: string } {
+    const error = new Error(`AbortError: ${TOOL_USE_INTERRUPTION_CONTEXT}`) as Error & { code: string };
+    error.name = 'ToolInterruptionError';
+    error.code = TOOL_INTERRUPTION_ERROR_CODE;
+    return error;
+}
+
 export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private eventHandler: AgentEventHandler;
     private currentAbortController: AbortController | null = null;
     private activeAbortControllers: Set<AbortController> = new Set();
+    private isAgentMessageInProgress = false;
     private chatHistoryManager: ChatHistoryManager | null = null;
     private currentSessionId: string | null = null;
     private currentMode: AgentMode = DEFAULT_AGENT_MODE;
@@ -139,22 +151,30 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      * so an abort can terminate execution immediately even when waiting for user input.
      */
     private rejectPendingInteractions(reason: Error): void {
-        for (const pending of this.pendingQuestions.values()) {
+        const pendingQuestions = Array.from(this.pendingQuestions.values());
+        const pendingApprovals = Array.from(this.pendingApprovals.values());
+
+        this.pendingQuestions.clear();
+        this.pendingApprovals.clear();
+
+        for (const pending of pendingQuestions) {
             try {
                 pending.reject(reason);
             } catch (error) {
                 logDebug(`[AgentPanel] Failed to reject pending question: ${error instanceof Error ? error.message : String(error)}`);
             }
         }
-        for (const pending of this.pendingApprovals.values()) {
+        for (const pending of pendingApprovals) {
             try {
                 pending.reject(reason);
             } catch (error) {
                 logDebug(`[AgentPanel] Failed to reject pending plan approval: ${error instanceof Error ? error.message : String(error)}`);
             }
         }
-        this.pendingQuestions.clear();
-        this.pendingApprovals.clear();
+    }
+
+    private hasActiveAgentRun(): boolean {
+        return this.isAgentMessageInProgress || this.activeAbortControllers.size > 0;
     }
 
     private async cleanupOnAgentEnd(runSucceeded: boolean): Promise<void> {
@@ -240,6 +260,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             const nodeError = error as NodeJS.ErrnoException;
             if (nodeError.code !== 'ENOENT') {
                 logError(`[AgentPanel] Failed to load shell approval rules for session ${sessionId}`, error);
+            } else {
+                logDebug(`[AgentPanel] No shell approval rules file found for session ${sessionId}`);
             }
             this.clearShellApprovalRules();
         }
@@ -457,6 +479,13 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.currentMode = DEFAULT_AGENT_MODE;
             this.clearShellApprovalRules();
             this.clearPendingLimitContinuation();
+            if (this.undoCheckpointManager) {
+                try {
+                    await this.undoCheckpointManager.discardPendingRun();
+                } catch (error) {
+                    logError(`[AgentPanel] Failed to discard pending undo checkpoint run during session close`, error);
+                }
+            }
             this.undoCheckpointManager = null;
             this.undoCheckpointManagerSessionId = null;
         }
@@ -680,11 +709,20 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      * Send a message to the agent for processing
      */
     async sendAgentMessage(request: SendAgentMessageRequest): Promise<SendAgentMessageResponse> {
+        if (this.isAgentMessageInProgress) {
+            logInfo('[AgentPanel] Rejecting sendAgentMessage because another run is already in progress');
+            return {
+                success: false,
+                error: AGENT_RUN_IN_PROGRESS_ERROR,
+            };
+        }
+
+        this.isAgentMessageInProgress = true;
         let runSucceeded = false;
         let shouldRunCleanup = false;
-        beginServerManagementRunTracking();
-        this.eventHandler.beginRun();
         try {
+            beginServerManagementRunTracking();
+            this.eventHandler.beginRun();
             const messageLength = typeof request.message === 'string' ? request.message.length : 0;
             logInfo(
                 `[AgentPanel] Received message request (chatId=${request.chatId}, mode=${request.mode || this.currentMode || DEFAULT_AGENT_MODE}, messageLength=${messageLength})`
@@ -862,6 +900,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 await cleanupServerManagementOnAgentEnd();
             }
             this.eventHandler.endRun();
+            this.isAgentMessageInProgress = false;
         }
     }
 
@@ -987,12 +1026,13 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     async abortAgentGeneration(): Promise<void> {
         // Ensure tool-wait states are also interrupted (ask_user / plan approval waits).
-        this.rejectPendingInteractions(new Error(`AbortError: ${TOOL_USE_INTERRUPTION_CONTEXT}`));
+        const interruptionError = createToolInterruptionAbortError();
+        this.rejectPendingInteractions(interruptionError);
 
         if (this.activeAbortControllers.size > 0) {
             logInfo(`[AgentPanel] Aborting ${this.activeAbortControllers.size} active agent run(s)...`);
             for (const controller of this.activeAbortControllers) {
-                controller.abort();
+                controller.abort(interruptionError);
             }
             this.activeAbortControllers.clear();
             this.currentAbortController = null;
@@ -1013,7 +1053,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         if (pending) {
             if (answer === USER_CANCELLED_RESPONSE) {
                 logDebug(`[AgentPanel] User cancelled question flow: ${questionId}`);
-                pending.reject(new Error(`AbortError: ${TOOL_USE_INTERRUPTION_CONTEXT}`));
+                pending.reject(createToolInterruptionAbortError());
                 return;
             }
 
@@ -1037,7 +1077,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         if (pending) {
             if (!approved && feedback === USER_CANCELLED_RESPONSE) {
                 logDebug(`[AgentPanel] User cancelled plan approval flow: ${approvalId}`);
-                pending.reject(new Error(`AbortError: ${TOOL_USE_INTERRUPTION_CONTEXT}`));
+                pending.reject(createToolInterruptionAbortError());
                 return;
             }
 
@@ -1147,6 +1187,16 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     async switchSession(request: SwitchSessionRequest): Promise<SwitchSessionResponse> {
         try {
             const { sessionId } = request;
+
+            if (this.hasActiveAgentRun()) {
+                return {
+                    success: false,
+                    sessionId,
+                    events: [],
+                    error: SESSION_SWITCH_BLOCKED_ERROR,
+                };
+            }
+
             logInfo(`[AgentPanel] Switching to session: ${sessionId}`);
 
             const isCompatible = await ChatHistoryManager.isSessionCompatible(this.projectUri, sessionId);
@@ -1209,6 +1259,14 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     async createNewSession(_request: CreateNewSessionRequest): Promise<CreateNewSessionResponse> {
         try {
+            if (this.hasActiveAgentRun()) {
+                return {
+                    success: false,
+                    sessionId: this.currentSessionId || '',
+                    error: NEW_SESSION_BLOCKED_ERROR,
+                };
+            }
+
             logInfo('[AgentPanel] Creating new session...');
 
             // Close current session if exists
