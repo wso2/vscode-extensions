@@ -48,6 +48,7 @@ const ToggleIcon: React.FC = () => {
 };
 
 export const WelcomeMessage: React.FC = () => {
+    const SHOW_THINKING_HINT = false;
     return (
         <Welcome>
             <div style={WelcomeStyles.container}>
@@ -57,7 +58,7 @@ export const WelcomeMessage: React.FC = () => {
                     iconSx={{ fontSize: "60px", color: "var(--vscode-foreground)", cursor: "default" }}
                 />
                 <div style={WelcomeStyles.title}>
-                    <h2>WSO2 MI Copilot</h2>
+                    <h2>WSO2 Integrator Copilot</h2>
                 </div>
                 <Typography variant="body1" sx={WelcomeStyles.description}>
                     The AI Integration Engineer is at your service!
@@ -68,10 +69,12 @@ export const WelcomeMessage: React.FC = () => {
                     <Icon isCodicon={true} name="new-file" iconSx={{ cursor: "default" }} />
                     <span>to attach context</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...WelcomeStyles.attachContext }}>
-                    <ToggleIcon />
-                    <span>to toggle thinking mode</span>
-                </div>
+                {SHOW_THINKING_HINT && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...WelcomeStyles.attachContext }}>
+                        <ToggleIcon />
+                        <span>to toggle thinking mode</span>
+                    </div>
+                )}
             </div>
         </Welcome>
     );};

@@ -32,6 +32,7 @@ import { RPCLayer } from "../RPCLayer";
 import { VisualizerWebview } from "../visualizer/webview";
 import { MiVisualizerRpcManager } from "../rpc-managers/mi-visualizer/rpc-manager";
 import { compareVersions, getMIVersionFromPom } from "./onboardingUtils";
+import AdmZip from "adm-zip";
 
 interface ProgressMessage {
     message: string;
@@ -1118,4 +1119,40 @@ export function generatePathFromRegistryPath(registryPath: string, fileName: str
         registryPath = "gov/" + registryPath.split("/governance/")[1];
     }
     return path.join(registryPath.split("/").join(path.sep), fileName);
+}
+
+export function extractZip(zipFilePath: string, destinationFolder: string): string {
+    if (!fs.existsSync(zipFilePath)) {
+        throw new Error(`ZIP file not found: ${zipFilePath}`);
+    }
+
+    const targetFolder = path.join(destinationFolder, path.basename(zipFilePath, ".zip"));
+    if (fs.existsSync(targetFolder)) {
+        throw new Error(`Target folder already exists: ${targetFolder}`);
+    }
+    fs.mkdirSync(targetFolder, { recursive: true });
+
+    const zip = new AdmZip(zipFilePath);
+    zip.extractAllTo(targetFolder, true);
+
+    return targetFolder;
+}
+
+export function zipProjectFolder(sourceFolder: string, targetFolder: string): string {
+    if (!fs.existsSync(sourceFolder)) {
+        throw new Error(`Source folder not found: ${sourceFolder}`);
+    }
+
+    if (!fs.existsSync(targetFolder)) {
+        fs.mkdirSync(targetFolder, { recursive: true });
+    }
+
+    const folderName = path.basename(sourceFolder);
+    const targetZipPath = path.join(targetFolder, `${folderName}.zip`);
+
+    const zip = new AdmZip();
+    zip.addLocalFolder(sourceFolder);
+    zip.writeZip(targetZipPath);
+
+    return targetZipPath;
 }
