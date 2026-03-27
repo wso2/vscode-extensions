@@ -162,7 +162,7 @@ export const DEFERRED_TOOLS = new Set<string>([
 ]);
 
 // DeepWiki MCP Tool (Anthropic prefixes with server name: deepwiki_ask_question)
-export const DEEPWIKI_ASK_QUESTION_TOOL_NAME = 'deepwiki_ask_question';
+export const DEEPWIKI_ASK_QUESTION_TOOL_NAME = 'ask_question';
 
 // ============================================================================
 // Subagent Types
