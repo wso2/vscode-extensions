@@ -286,6 +286,15 @@ function classifyAgentExecutionError(params: {
     return { kind: 'unknown', rawMessage };
 }
 
+function tryParseJson(str: string): Record<string, unknown> {
+    try {
+        const parsed = JSON.parse(str);
+        return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
 function normalizeToolResultForUi(toolName: string, result: unknown): NormalizedToolResultForUi {
     if (!result || typeof result !== 'object') {
         logError(`[Agent] Tool '${toolName}' returned non-object result`, result);
@@ -606,18 +615,25 @@ export async function executeAgent(
         // 2. Strips <analysis> COT from native compaction blocks (saves tokens on subsequent steps)
         // 3. Marks the last message for prompt caching
         const prepareStep = ({ messages }: { messages: any[] }) => {
-            // Fix tool_use/tool-call blocks whose input was cleared by clear_tool_uses
-            // context management. The API requires tool_use.input to be a valid dictionary,
-            // but after clearing, the value may be a string or null, causing validation errors.
-            // Handles both AI SDK format (tool-call + args) and raw API format (tool_use + input).
+            // Fix tool_use/tool-call blocks whose input is not a valid dictionary.
+            // The API requires tool_use.input to be an object, but inputs can be
+            // strings/null after context management clearing, or for MCP/provider-executed
+            // tools where the SDK stores input as JSON.stringify(part.input).
+            // Handles AI SDK format (tool-call + args/input) and raw API format (tool_use + input).
             for (const msg of messages) {
                 if (msg.role === 'assistant' && Array.isArray(msg.content)) {
                     for (const part of msg.content) {
                         if (part.type === 'tool_use' && (typeof part.input !== 'object' || part.input === null || Array.isArray(part.input))) {
-                            part.input = {};
+                            part.input = typeof part.input === 'string' ? tryParseJson(part.input) : {};
                         }
-                        if (part.type === 'tool-call' && (typeof part.args !== 'object' || part.args === null || Array.isArray(part.args))) {
-                            part.args = {};
+                        if (part.type === 'tool-call') {
+                            if (typeof part.args !== 'object' || part.args === null || Array.isArray(part.args)) {
+                                part.args = typeof part.args === 'string' ? tryParseJson(part.args) : {};
+                            }
+                            // MCP/provider-executed tools store input as JSON string
+                            if (typeof part.input === 'string') {
+                                part.input = tryParseJson(part.input);
+                            }
                         }
                     }
                 }
