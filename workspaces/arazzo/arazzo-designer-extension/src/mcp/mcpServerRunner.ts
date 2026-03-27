@@ -165,15 +165,37 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
     // Choose a port
     const port = 18080 + Math.floor(Math.random() * 1000);
 
-    // Write .vscode/mcp.json
+    // Determine the mcp.json path based on workspace
     const workspaceFolders = vscode.workspace.workspaceFolders;
+    let mcpConfigPath: string | undefined;
     if (workspaceFolders && workspaceFolders.length > 0) {
+        mcpConfigPath = path.join(workspaceFolders[0].uri.fsPath, '.vscode', 'mcp.json');
+    }
+
+    // Ask the user whether to write/update mcp.json and connect to Copilot
+    let shouldWriteConfig = false;
+    if (mcpConfigPath) {
+        const configExists = fs.existsSync(mcpConfigPath);
+        const message = configExists
+            ? 'An mcp.json already exists. Add the Arazzo MCP server config to it and connect to Copilot?'
+            : 'No mcp.json found. Create one and connect the MCP server to Copilot?';
+        const answer = await vscode.window.showInformationMessage(message, 'Yes, Connect', 'Start Server Only');
+        shouldWriteConfig = answer === 'Yes, Connect';
+    }
+
+    // Write config and open the file if the user agreed
+    if (shouldWriteConfig && mcpConfigPath && workspaceFolders) {
         try {
             await writeMcpConfig(workspaceFolders[0].uri.fsPath, port);
             output.appendLine(`Wrote .vscode/mcp.json with MCP server URL: http://localhost:${port}/mcp`);
+            // Open the updated mcp.json beside the current editor so the user can see the change
+            const mcpUri = vscode.Uri.file(mcpConfigPath);
+            await vscode.window.showTextDocument(mcpUri, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true });
         } catch (e: any) {
             output.appendLine(`Warning: Could not write .vscode/mcp.json: ${e.message}`);
         }
+    } else if (!shouldWriteConfig) {
+        output.appendLine('Skipping .vscode/mcp.json update (Start Server Only selected).');
     }
 
     // Start the server
