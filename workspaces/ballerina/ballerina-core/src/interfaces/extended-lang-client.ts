@@ -1948,6 +1948,7 @@ export interface ProjectArtifacts {
 export interface CodeMapRequest {
     projectPath: string;
     changesOnly?: boolean;
+    isJson?: boolean;
 }
 
 export interface CodeMapArtifact {
@@ -1960,6 +1961,7 @@ export interface CodeMapArtifact {
 
 export interface CodeMapResponse {
     files?: Record<string, CodeMapArtifact[]>;
+    markdown?: string;
     error?: string;
 }
 
