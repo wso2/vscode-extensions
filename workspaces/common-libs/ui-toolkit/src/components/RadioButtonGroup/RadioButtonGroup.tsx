@@ -64,7 +64,7 @@ export const RadioButtonGroup = React.forwardRef<HTMLInputElement, RadioButtonGr
                         key={index}
                         id={option.id}
                         value={option.value}
-                        disabled={option.disabled}
+                        disabled={option.disabled || undefined}
                     >
                         {option.content}
                     </VSCodeRadio>
