@@ -1341,14 +1341,17 @@ export class ChatHistoryManager {
                                 if (part.toolCallId) {
                                     toolInputMap.set(part.toolCallId, part.input);
                                 }
-                                events.push({
-                                    type: 'tool_call',
-                                    chatId: typeof msg._chatId === 'number' ? msg._chatId : undefined,
-                                    toolName: part.toolName,
-                                    toolInput: part.input,
-                                    toolCallId: part.toolCallId,
-                                    timestamp
-                                });
+                                // Skip provider-managed tools (e.g. tool_search) that have no toolName
+                                if (part.toolName) {
+                                    events.push({
+                                        type: 'tool_call',
+                                        chatId: typeof msg._chatId === 'number' ? msg._chatId : undefined,
+                                        toolName: part.toolName,
+                                        toolInput: part.input,
+                                        toolCallId: part.toolCallId,
+                                        timestamp
+                                    });
+                                }
                             }
                         }
                     }
@@ -1359,6 +1362,10 @@ export class ChatHistoryManager {
                     if (Array.isArray(msg.content)) {
                         for (const part of msg.content) {
                             if (part.type === 'tool-result') {
+                                // Skip provider-managed tools (e.g. tool_search) that have no toolName
+                                if (!part.toolName) {
+                                    continue;
+                                }
                                 const output = part.output?.value || part.output;
                                 const toolInput = toolInputMap.get(part.toolCallId);
                                 const toolActions = getToolAction(part.toolName, output, toolInput);

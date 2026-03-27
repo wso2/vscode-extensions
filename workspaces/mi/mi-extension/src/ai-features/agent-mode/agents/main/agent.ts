@@ -964,6 +964,11 @@ export async function executeAgent(
                 }
 
                 case 'tool-call': {
+                    // Provider-managed tools (e.g. tool_search) may emit tool-call
+                    // chunks without toolName. Skip UI handling for these.
+                    if (!part.toolName) {
+                        break;
+                    }
                     const toolInput = part.input as any;
                     logDebug(`[Agent] Tool call: ${part.toolName}`);
 
@@ -1065,6 +1070,12 @@ export async function executeAgent(
                 }
 
                 case 'tool-result': {
+                    // Provider-managed tools (e.g. tool_search) may emit tool-result
+                    // chunks without toolName. Skip UI handling for these.
+                    if (!part.toolName) {
+                        isExecutingTool = false;
+                        break;
+                    }
                     const result = normalizeToolResultForUi(part.toolName, part.output);
                     logDebug(`[Agent] Tool result: ${part.toolName}, success: ${result.success}`);
 
