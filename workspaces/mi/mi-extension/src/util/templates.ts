@@ -35,7 +35,7 @@ export const rootPomXmlContent = (projectName: string, groupID: string, artifact
   const indent = addDeploymentType ? "      " : "  ";
   let properties = `${indent}<projectType>integration-project</projectType>
       <uuid>${projectUuid}</uuid>
-      <!-- <archiveLocation>configure a custom target directory for CAPP</archiveLocation> -->
+      <!-- <archiveLocation>configure a custom target directory for CApp</archiveLocation> -->
       <keystore.type>JKS</keystore.type>
       <keystore.name>wso2carbon.jks</keystore.name>
       <keystore.password>wso2carbon</keystore.password>
@@ -418,7 +418,7 @@ export const rootPomXmlContent = (projectName: string, groupID: string, artifact
         <plugin>
           <groupId>org.wso2.maven</groupId>
           <artifactId>synapse-unit-test-maven-plugin</artifactId>
-          <version>5.4.13</version>
+          <version>5.4.15</version>
           <executions>
             <execution>
               <id>synapse-unit-test</id>

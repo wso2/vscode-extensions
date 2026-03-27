@@ -19,7 +19,7 @@
 import { FileStructure } from '@wso2/mi-core';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ExtensionContext, Uri, Webview } from "vscode";
+import { ExtensionContext, Uri, Webview, workspace } from "vscode";
 import { getInboundEndpointdXml, GetInboundTemplatesArgs } from './template-engine/mustach-templates/inboundEndpoints';
 import { getRegistryResource } from './template-engine/mustach-templates/registryResources';
 import { getMessageProcessorXml, MessageProcessorTemplateArgs } from './template-engine/mustach-templates/MessageProcessor';
@@ -80,24 +80,31 @@ export function copyDockerResources(resourcePath: string, targetPath: string) {
 	fs.copyFileSync(path.join(resourcePath, 'wso2carbon.jks'), path.join(dockerResourcesPath, 'wso2carbon.jks'));
 }
 
-export async function copyMavenWrapper(resourcePath: string, targetPath: string) {
+export async function copyMavenWrapper(resourcePath: string, targetPath: string, isMigration: boolean = false) {
 	const mavenWrapperPropertiesPath = path.join(targetPath, '.mvn', 'wrapper');
-
 	fs.mkdirSync(mavenWrapperPropertiesPath, { recursive: true });
-	fs.copyFileSync(path.join(resourcePath, 'maven-wrapper.properties'), path.join(mavenWrapperPropertiesPath, 'maven-wrapper.properties'));
 	const copyMavenWrapperFiles = () => {
 		fs.copyFileSync(path.join(resourcePath, 'mvnw.cmd'), path.join(targetPath, 'mvnw.cmd'));
 		fs.copyFileSync(path.join(resourcePath, 'mvnw'), path.join(targetPath, 'mvnw'));
 	};
-
-	const isMavenInstalled = await isMavenInstalledGlobally();
-	if (isMavenInstalled) {
-		const success = await runMavenWrapperCommand(targetPath);
-		if (!success) {
+	
+	const useDefaultMvnWrapperForMigration = isMigration && workspace.getConfiguration("MI").get<boolean>('useDefaultMavenForMigration');
+	fs.copyFileSync(path.join(useDefaultMvnWrapperForMigration ? 
+		path.join(resourcePath, 'migration') : resourcePath, 
+		'maven-wrapper.properties'), 
+		path.join(mavenWrapperPropertiesPath, 'maven-wrapper.properties'));
+	if (useDefaultMvnWrapperForMigration) {
+		copyMavenWrapperFiles();
+	} else {
+		const isMavenInstalled = await isMavenInstalledGlobally();
+		if (isMavenInstalled) {
+			const success = await runMavenWrapperCommand(targetPath);
+			if (!success) {
+				copyMavenWrapperFiles();
+			}
+		} else {
 			copyMavenWrapperFiles();
 		}
-	} else {
-		copyMavenWrapperFiles();
 	}
 }
 

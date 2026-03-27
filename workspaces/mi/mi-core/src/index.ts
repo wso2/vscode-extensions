@@ -44,6 +44,10 @@ export * from "./rpc-types/mi-data-mapper/index";
 export * from "./rpc-types/mi-data-mapper/rpc-type";
 export * from "./rpc-types/mi-data-mapper/types";
 
-export * from "./rpc-types/ai-panel/index";
-export * from "./rpc-types/ai-panel/rpc-type";
-export * from "./rpc-types/ai-panel/types";
+export * from "./rpc-types/ai-features/index";
+export * from "./rpc-types/ai-features/rpc-type";
+export * from "./rpc-types/ai-features/types";
+
+export * from "./rpc-types/agent-mode/index";
+export * from "./rpc-types/agent-mode/rpc-type";
+export * from "./rpc-types/agent-mode/types";

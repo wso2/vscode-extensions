@@ -84,6 +84,11 @@
                     "default": "",
                     "description": "Specify the Ballerina home directory path."
                 },
+                "ballerina.icpPath": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to the ICP binary. If empty, the extension will attempt to auto-detect from the default installation location."
+                },
                 "ballerina.isBI": {
                     "type": "boolean",
                     "default": false,
@@ -258,6 +263,11 @@
                     "type": "number",
                     "default": 52428800,
                     "description": "Maximum snapshot size in bytes (default: 50MB)."
+                },
+                "ballerina.ai.showContextUsage": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show context usage indicator in the AI chat input footer."
                 }
             }
         },
@@ -728,11 +738,28 @@
                 "enablement": "isBIProject && devant.editor"
             },
             {
+                "command": "ballerina.icp.start",
+                "title": "Start ICP",
+                "category": "Ballerina",
+                "enablement": "isSupportedProject && !ballerina.icpRunning"
+            },
+            {
+                "command": "ballerina.icp.stop",
+                "title": "Stop ICP",
+                "category": "Ballerina",
+                "enablement": "isSupportedProject && ballerina.icpRunning"
+            },
+            {
                 "command": "ballerina.showTraceWindow",
                 "title": "Show Traces",
                 "icon": "$(list-tree)",
                 "category": "Ballerina",
                 "enablement": "isSupportedProject"
+            },
+            {
+                "command": "ballerina.startTraceServer",
+                "title": "Start Trace Server",
+                "category": "Ballerina"
             },
             {
                 "command": "ballerina.enableTracing",
@@ -1388,6 +1415,7 @@
         "@vscode/test-electron": "2.5.2",
         "@vscode/vsce": "3.7.1",
         "@wso2/ballerina-core": "workspace:*",
+        "@wso2/copilot-utilities": "workspace:*",
         "@wso2/ballerina-visualizer": "workspace:*",
         "@wso2/font-wso2-vscode": "workspace:*",
         "@wso2/syntax-tree": "workspace:*",
