@@ -403,6 +403,11 @@
     //   // "tags": [ "1.0.0-release", "frontend-team" ]
     // },
     {
+      "packageName": "@wso2/copilot-utilities",
+      "projectFolder": "workspaces/common-libs/copilot-utilities",
+      "reviewCategory": "production"
+    },
+    {
       "packageName": "@wso2/font-wso2-vscode",
       "projectFolder": "workspaces/common-libs/font-wso2-vscode",
       "versionPolicyName": "font-wso2-vscode"

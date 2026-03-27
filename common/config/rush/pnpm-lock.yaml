@@ -585,6 +585,9 @@ importers:
       '@wso2/ballerina-visualizer':
         specifier: workspace:*
         version: link:../ballerina-visualizer
+      '@wso2/copilot-utilities':
+        specifier: workspace:*
+        version: link:../../common-libs/copilot-utilities
       '@wso2/font-wso2-vscode':
         specifier: workspace:*
         version: link:../../common-libs/font-wso2-vscode
@@ -3178,6 +3181,15 @@ importers:
       webpack-dev-server:
         specifier: 5.2.3
         version: 5.2.3(webpack-cli@6.0.1)(webpack@5.104.1)
+
+  ../../workspaces/common-libs/copilot-utilities:
+    devDependencies:
+      '@types/node':
+        specifier: 22.15.21
+        version: 22.15.21
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
 
   ../../workspaces/common-libs/font-wso2-vscode:
     devDependencies:
