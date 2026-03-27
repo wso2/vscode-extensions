@@ -271,7 +271,7 @@ export async function executeCompactAgent(
         logInfo(`[CompactAgent] Starting compaction (trigger: ${request.trigger}, messages: ${request.messages.length})`);
 
         // 1. Get the main agent's system prompt (same one the agent uses)
-        const systemPrompt = getSystemPrompt();
+        const systemPrompt = getSystemPrompt().prompt;
 
         // 2. Convert messages to text-based format (no tool blocks)
         const textMessages = convertMessagesForCompact(request.messages);

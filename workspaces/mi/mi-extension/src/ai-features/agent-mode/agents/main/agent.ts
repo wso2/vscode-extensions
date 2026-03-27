@@ -160,6 +160,140 @@ export interface AgentResult {
 }
 
 type ContinuationReason = 'max_output_tokens' | 'max_tool_calls';
+type AgentExecutionErrorKind =
+    | 'tool_interruption'
+    | 'user_abort'
+    | 'timeout'
+    | 'proxy_terminated'
+    | 'model_error'
+    | 'unknown';
+
+interface ClassifiedAgentExecutionError {
+    kind: AgentExecutionErrorKind;
+    rawMessage: string;
+}
+
+interface NormalizedToolResultForUi {
+    success: boolean;
+    message?: string;
+    stdout?: string;
+    stderr?: string;
+    exitCode?: number | null;
+    taskId?: string;
+    [key: string]: unknown;
+}
+
+const TOOL_INTERRUPTION_ERROR_CODE = 'AGENT_TOOL_INTERRUPTION';
+const MODEL_ERROR_PATTERN = /model.*not found|invalid.*model|unknown model|could not resolve model|model.*deprecated|model.*not available|model.*does not exist|model.*decommissioned/i;
+
+function getStructuredErrorCode(error: unknown): string | undefined {
+    if (!error || typeof error !== 'object') {
+        return undefined;
+    }
+
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string' || typeof code === 'number') {
+        return String(code);
+    }
+
+    return undefined;
+}
+
+function getStructuredErrorName(error: unknown): string | undefined {
+    if (error instanceof Error) {
+        return error.name;
+    }
+
+    if (!error || typeof error !== 'object') {
+        return undefined;
+    }
+
+    const name = (error as { name?: unknown }).name;
+    return typeof name === 'string' ? name : undefined;
+}
+
+function isToolInterruptionAbortError(error: unknown): boolean {
+    if (!error) {
+        return false;
+    }
+
+    const code = getStructuredErrorCode(error);
+    if (code === TOOL_INTERRUPTION_ERROR_CODE) {
+        return true;
+    }
+
+    const name = getStructuredErrorName(error);
+    if (name === 'ToolInterruptionError') {
+        return true;
+    }
+
+    return getErrorMessage(error).includes(TOOL_USE_INTERRUPTION_CONTEXT);
+}
+
+function isLikelyModelError(error: unknown, errorMsg: string): boolean {
+    if (MODEL_ERROR_PATTERN.test(errorMsg)) {
+        return true;
+    }
+
+    const status = (error as { status?: unknown } | undefined)?.status;
+    return (
+        status === 400 && /model/i.test(errorMsg)
+    ) || (
+        status === 404 && /model/i.test(errorMsg)
+    );
+}
+
+function classifyAgentExecutionError(params: {
+    error: unknown;
+    abortReason: unknown;
+    userAbortRequested: boolean;
+    requestAbortSignalAborted: boolean;
+}): ClassifiedAgentExecutionError {
+    const rawMessage = getErrorMessage(params.error);
+    const abortReasonMessage = getErrorMessage(params.abortReason);
+
+    if (isStreamTimeoutError(params.error) || isStreamTimeoutError(params.abortReason)) {
+        return { kind: 'timeout', rawMessage };
+    }
+
+    if (isProxyTerminatedStreamError(rawMessage) || isProxyTerminatedStreamError(abortReasonMessage)) {
+        return { kind: 'proxy_terminated', rawMessage };
+    }
+
+    if (isToolInterruptionAbortError(params.error) || isToolInterruptionAbortError(params.abortReason)) {
+        return { kind: 'tool_interruption', rawMessage };
+    }
+
+    if (params.userAbortRequested || params.requestAbortSignalAborted) {
+        return { kind: 'user_abort', rawMessage };
+    }
+
+    if (isLikelyModelError(params.error, rawMessage)) {
+        return { kind: 'model_error', rawMessage };
+    }
+
+    return { kind: 'unknown', rawMessage };
+}
+
+function normalizeToolResultForUi(toolName: string, result: unknown): NormalizedToolResultForUi {
+    if (!result || typeof result !== 'object') {
+        logError(`[Agent] Tool '${toolName}' returned non-object result`, result);
+        return {
+            success: false,
+            message: `Tool '${toolName}' returned an invalid result shape.`,
+        };
+    }
+
+    const record = result as Record<string, unknown>;
+    if (typeof record.success !== 'boolean') {
+        logError(`[Agent] Tool '${toolName}' result is missing boolean 'success'`, result);
+    }
+
+    return {
+        ...record,
+        success: typeof record.success === 'boolean' ? record.success : false,
+    };
+}
 
 function normalizeFinishReason(finishPart: unknown): string | undefined {
     const part = finishPart as Record<string, unknown> | undefined;
@@ -282,6 +416,7 @@ export async function executeAgent(
 
         const runtimeVersion = await getRuntimeVersionFromPom(request.projectPath);
         logInfo(`[Agent] Runtime version detected: ${runtimeVersion ?? 'unknown'}`);
+        const systemPromptSelection = getSystemPrompt(runtimeVersion);
 
         // Resolve memory setting early — needed for both system prompt and tool registration.
         const memoryEnabled = request.memoryEnabled ?? ENABLE_MEMORY_TOOL;
@@ -290,7 +425,7 @@ export async function executeAgent(
         // Adding a cache block here because tools + system would be same for all users who use our proxy
         const systemMessage: SystemModelMessage = {
             role: 'system',
-            content: getSystemPrompt(runtimeVersion),
+            content: systemPromptSelection.prompt,
             providerOptions: {
                 anthropic: {
                     cacheControl: { type: 'ephemeral' }
@@ -305,6 +440,7 @@ export async function executeAgent(
             projectPath: request.projectPath,
             sessionId,
             runtimeVersion,
+            runtimeVersionDetected: systemPromptSelection.runtimeVersionDetected,
             // Note: existingFiles and currentlyOpenedFile are fetched internally by getUserPrompt
         };
         const userMessageContent = await getUserPrompt(userPromptParams);
@@ -918,8 +1054,8 @@ export async function executeAgent(
                 }
 
                 case 'tool-result': {
-                    const result = part.output as any;
-                    logDebug(`[Agent] Tool result: ${part.toolName}, success: ${result?.success}`);
+                    const result = normalizeToolResultForUi(part.toolName, part.output);
+                    logDebug(`[Agent] Tool result: ${part.toolName}, success: ${result.success}`);
 
                     // Tool execution complete
                     isExecutingTool = false;
@@ -931,7 +1067,7 @@ export async function executeAgent(
                     const toolActions = getToolAction(part.toolName, result, toolInput);
 
                     // Use completed or failed action based on tool result
-                    const resultAction = result?.success === false
+                    const resultAction = result.success === false
                         ? toolActions?.failed
                         : toolActions?.completed;
 
@@ -941,7 +1077,7 @@ export async function executeAgent(
                         const toolResultEvent: any = {
                             type: 'tool_result',
                             toolName: part.toolName,
-                            toolOutput: { success: result?.success },
+                            toolOutput: { success: result.success },
                             completedAction: resultAction,
                         };
 
@@ -949,10 +1085,10 @@ export async function executeAgent(
                         if (part.toolName === BASH_TOOL_NAME) {
                             toolResultEvent.bashCommand = toolInput?.command;
                             toolResultEvent.bashDescription = toolInput?.description;
-                            toolResultEvent.bashStdout = result?.stdout || result?.message;
-                            toolResultEvent.bashStderr = result?.stderr;
-                            toolResultEvent.bashExitCode = result?.exitCode;
-                            toolResultEvent.bashRunning = !!result?.taskId;
+                            toolResultEvent.bashStdout = result.stdout || result.message;
+                            toolResultEvent.bashStderr = result.stderr;
+                            toolResultEvent.bashExitCode = result.exitCode;
+                            toolResultEvent.bashRunning = !!result.taskId;
                         }
 
                         // Send to visualizer with result action for display
@@ -1075,8 +1211,14 @@ export async function executeAgent(
 
     } catch (error: any) {
         cleanupStreamLifecycle?.();
-        const errorMsg = getErrorMessage(error);
         const abortReason = streamWatchdog?.getAbortReason();
+        const classifiedError = classifyAgentExecutionError({
+            error,
+            abortReason,
+            userAbortRequested: streamWatchdog?.isUserAbortRequested() || false,
+            requestAbortSignalAborted: request.abortSignal?.aborted || false,
+        });
+        const errorMsg = classifiedError.rawMessage;
 
         // Try to capture partial model messages even on error
         try {
@@ -1088,104 +1230,97 @@ export async function executeAgent(
             logDebug(`[Agent] Skipped capturing final model messages after error: ${getErrorMessage(captureError)}`);
         }
 
-        // Check if aborted - be thorough about detecting abort scenarios
-        // The abort could come from various sources with different error types
-        const isToolInterruptionAbort = errorMsg.includes(TOOL_USE_INTERRUPTION_CONTEXT);
-        const isUserInitiatedAbort = (streamWatchdog?.isUserAbortRequested() || false) || request.abortSignal?.aborted || isToolInterruptionAbort;
-        const isTimeoutAbort = isStreamTimeoutError(error) || isStreamTimeoutError(abortReason);
-        const isProxyTerminated = isProxyTerminatedStreamError(errorMsg) || isProxyTerminatedStreamError(getErrorMessage(abortReason));
-        const isAborted =
-            !isTimeoutAbort &&
-            !isProxyTerminated &&
-            isUserInitiatedAbort;
+        switch (classifiedError.kind) {
+            case 'tool_interruption':
+            case 'user_abort': {
+                logInfo(
+                    `[Agent] Execution aborted by user (kind: ${classifiedError.kind}, isExecutingTool: ${isExecutingTool})`
+                );
 
-        if (isAborted) {
-            logInfo(`[Agent] Execution aborted by user (isExecutingTool: ${isExecutingTool})`);
-
-            // Save interruption message to chat history (Claude Code pattern)
-            // This helps LLM understand in next session that previous request was interrupted
-            if (request.chatHistoryManager) {
-                try {
-                    await request.chatHistoryManager.saveInterruptionMessage(isExecutingTool);
-                    logInfo('[Agent] Saved interruption message to chat history');
-                } catch (saveError) {
-                    logError('[Agent] Failed to save interruption message', saveError);
+                // Save interruption message to chat history (Claude Code pattern)
+                // This helps LLM understand in next session that previous request was interrupted
+                if (request.chatHistoryManager) {
+                    try {
+                        await request.chatHistoryManager.saveInterruptionMessage(
+                            isExecutingTool || classifiedError.kind === 'tool_interruption'
+                        );
+                        logInfo('[Agent] Saved interruption message to chat history');
+                    } catch (saveError) {
+                        logError('[Agent] Failed to save interruption message', saveError);
+                    }
                 }
+
+                emitEvent({ type: 'abort' });
+                return {
+                    success: false,
+                    modifiedFiles,
+                    error: 'Aborted by user',
+                    modelMessages: finalModelMessages,
+                };
             }
 
-            emitEvent({ type: 'abort' });
-            return {
-                success: false,
-                modifiedFiles,
-                error: 'Aborted by user',
-                modelMessages: finalModelMessages,
-            };
+            case 'timeout': {
+                const timeoutMessage = 'Agent request timed out while waiting for the model proxy response. Please retry.';
+                logError(`[Agent] Execution timeout: ${errorMsg}`);
+                emitEvent({
+                    type: 'error',
+                    error: timeoutMessage,
+                });
+                return {
+                    success: false,
+                    modifiedFiles,
+                    error: timeoutMessage,
+                    modelMessages: finalModelMessages,
+                };
+            }
+
+            case 'proxy_terminated': {
+                const proxyTerminatedMessage = 'Agent stream was terminated by the proxy/network before completion. Please retry. If this keeps happening, increase proxy stream timeout limits.';
+                logError(`[Agent] Proxy/network terminated stream: ${errorMsg}`, error);
+                logDebug(`[Agent] Proxy/network termination diagnostics: error=${getErrorDiagnostics(error)} abortReason=${getErrorDiagnostics(abortReason)}`);
+                emitEvent({
+                    type: 'error',
+                    error: proxyTerminatedMessage,
+                });
+                return {
+                    success: false,
+                    modifiedFiles,
+                    error: proxyTerminatedMessage,
+                    modelMessages: finalModelMessages,
+                };
+            }
+
+            case 'model_error': {
+                const isCustomModel = !!request.modelSettings?.mainModelCustomId;
+                const modelErrorMessage = isCustomModel
+                    ? `Invalid model ID '${request.modelSettings!.mainModelCustomId}'. Check your model settings and try again.`
+                    : `The model used by this extension may be outdated or unavailable. Please update the WSO2 MI Extension to the latest version to get updated model support. (Error: ${errorMsg})`;
+                logError(`[Agent] Model error (custom=${isCustomModel}): ${errorMsg}`, error);
+                emitEvent({ type: 'error', error: modelErrorMessage });
+                return {
+                    success: false,
+                    modifiedFiles,
+                    error: modelErrorMessage,
+                    modelMessages: finalModelMessages,
+                };
+            }
+
+            case 'unknown':
+            default:
+                logError(`[Agent] Execution error: ${errorMsg}`, error);
+                logDebug(`[Agent] Execution error diagnostics: error=${getErrorDiagnostics(error)} abortReason=${getErrorDiagnostics(abortReason)}`);
+
+                emitEvent({
+                    type: 'error',
+                    error: errorMsg,
+                });
+                return {
+                    success: false,
+                    modifiedFiles,
+                    error: errorMsg,
+                    modelMessages: finalModelMessages,
+                };
         }
-
-        if (isTimeoutAbort) {
-            const timeoutMessage = 'Agent request timed out while waiting for the model proxy response. Please retry.';
-            logError(`[Agent] Execution timeout: ${errorMsg}`);
-            emitEvent({
-                type: 'error',
-                error: timeoutMessage,
-            });
-            return {
-                success: false,
-                modifiedFiles,
-                error: timeoutMessage,
-                modelMessages: finalModelMessages,
-            };
-        }
-
-        if (isProxyTerminated) {
-            const proxyTerminatedMessage = 'Agent stream was terminated by the proxy/network before completion. Please retry. If this keeps happening, increase proxy stream timeout limits.';
-            logError(`[Agent] Proxy/network terminated stream: ${errorMsg}`, error);
-            logDebug(`[Agent] Proxy/network termination diagnostics: error=${getErrorDiagnostics(error)} abortReason=${getErrorDiagnostics(abortReason)}`);
-            emitEvent({
-                type: 'error',
-                error: proxyTerminatedMessage,
-            });
-            return {
-                success: false,
-                modifiedFiles,
-                error: proxyTerminatedMessage,
-                modelMessages: finalModelMessages,
-            };
-        }
-
-        // Check for model-related errors (invalid model ID, model not found, deprecated)
-        const isModelError = /model.*not found|invalid.*model|unknown model|could not resolve model|model.*deprecated|model.*not available|model.*does not exist|model.*decommissioned/i.test(errorMsg)
-            || (error?.status === 400 && /model/i.test(errorMsg))
-            || (error?.status === 404 && /model/i.test(errorMsg));
-
-        if (isModelError) {
-            const isCustomModel = !!request.modelSettings?.mainModelCustomId;
-            const modelErrorMessage = isCustomModel
-                ? `Invalid model ID '${request.modelSettings!.mainModelCustomId}'. Check your model settings and try again.`
-                : `The model used by this extension may be outdated or unavailable. Please update the WSO2 MI Extension to the latest version to get updated model support. (Error: ${errorMsg})`;
-            logError(`[Agent] Model error (custom=${isCustomModel}): ${errorMsg}`, error);
-            emitEvent({ type: 'error', error: modelErrorMessage });
-            return {
-                success: false,
-                modifiedFiles,
-                error: modelErrorMessage,
-                modelMessages: finalModelMessages,
-            };
-        }
-
-        logError(`[Agent] Execution error: ${errorMsg}`, error);
-        logDebug(`[Agent] Execution error diagnostics: error=${getErrorDiagnostics(error)} abortReason=${getErrorDiagnostics(abortReason)}`);
-
-        emitEvent({
-            type: 'error',
-            error: errorMsg,
-        });
-        return {
-            success: false,
-            modifiedFiles,
-            error: errorMsg,
-            modelMessages: finalModelMessages,
-        };
     }
 }
 

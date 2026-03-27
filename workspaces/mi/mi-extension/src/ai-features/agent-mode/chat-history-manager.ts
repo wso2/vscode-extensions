@@ -135,15 +135,53 @@ export interface JournalEntry {
  * Metadata: ~/.wso2-mi/copilot/projects/<encoded-project>/<session-id>/metadata.json
  */
 export class ChatHistoryManager {
+    private static readonly MALFORMED_JSONL_LOG_SNIPPET_CHARS = 160;
     private projectPath: string;
     private sessionId: string;
     private sessionFile: string = '';
     private metadataFile: string = '';
     private writeStream: WriteStream | null = null;
+    private writeQueue: Promise<void> = Promise.resolve();
+    private isClosing = false;
 
     constructor(projectPath: string, sessionId?: string) {
         this.projectPath = projectPath;
         this.sessionId = sessionId || uuidv4();
+    }
+
+    private enqueueWrite<T>(operation: () => Promise<T>): Promise<T> {
+        const operationPromise = this.writeQueue.then(operation);
+        this.writeQueue = operationPromise.then(() => undefined, () => undefined);
+        return operationPromise;
+    }
+
+    private async waitForPendingWrites(): Promise<void> {
+        await this.writeQueue;
+    }
+
+    private parseJournalEntries(content: string, context: string): JournalEntry[] {
+        const entries: JournalEntry[] = [];
+        const lines = content.split('\n');
+        for (let index = 0; index < lines.length; index++) {
+            const line = lines[index];
+            if (!line.trim()) {
+                continue;
+            }
+
+            try {
+                entries.push(JSON.parse(line) as JournalEntry);
+            } catch (error) {
+                const snippet = line.length > ChatHistoryManager.MALFORMED_JSONL_LOG_SNIPPET_CHARS
+                    ? `${line.slice(0, ChatHistoryManager.MALFORMED_JSONL_LOG_SNIPPET_CHARS)}...`
+                    : line;
+                logError(
+                    `[ChatHistory] Skipping malformed JSONL entry at ${path.basename(this.sessionFile)}:${index + 1} while ${context}. ` +
+                    `Entry prefix: ${snippet}`,
+                    error
+                );
+            }
+        }
+        return entries;
     }
 
     /**
@@ -166,8 +204,12 @@ export class ChatHistoryManager {
             const content = await fs.readFile(metadataPath, 'utf8');
             const metadata = JSON.parse(content) as SessionMetadata;
             return ChatHistoryManager.isCompatibleSessionVersion(metadata.sessionVersion);
-        } catch {
+        } catch (error) {
             // Missing/invalid metadata is treated as legacy-compatible; per-entry guards still apply.
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError(`[ChatHistory] Failed to read session metadata compatibility for ${sessionId}`, error);
+            }
             return true;
         }
     }
@@ -229,10 +271,27 @@ export class ChatHistoryManager {
      * Close the write stream
      */
     async close(): Promise<void> {
-        if (this.writeStream) {
+        if (!this.writeStream) {
+            return;
+        }
+
+        if (this.isClosing) {
+            await this.waitForPendingWrites();
+            return;
+        }
+
+        this.isClosing = true;
+        try {
             await this.writeSessionEnd();
-            return new Promise((resolve, reject) => {
-                this.writeStream!.end((err: Error | null | undefined) => {
+            await this.waitForPendingWrites();
+
+            const streamToClose = this.writeStream;
+            if (!streamToClose) {
+                return;
+            }
+
+            await new Promise<void>((resolve, reject) => {
+                streamToClose.end((err: Error | null | undefined) => {
                     if (err) {
                         logError('[ChatHistory] Failed to close stream', err);
                         reject(err);
@@ -242,6 +301,11 @@ export class ChatHistoryManager {
                     }
                 });
             });
+            if (this.writeStream === streamToClose) {
+                this.writeStream = null;
+            }
+        } finally {
+            this.isClosing = false;
         }
     }
 
@@ -249,8 +313,16 @@ export class ChatHistoryManager {
      * Write a JSONL entry to the file using canonical JSON
      * Canonical JSON ensures byte-for-byte consistency for cache key matching
      */
-    private async writeEntry(message: any): Promise<void> {
-        return new Promise((resolve, reject) => {
+    private async writeEntry(message: any, options?: { allowWhileClosing?: boolean }): Promise<void> {
+        if (this.isClosing && !options?.allowWhileClosing) {
+            throw new Error('Chat history stream is closing; refusing new writes');
+        }
+
+        await this.enqueueWrite(() => this.writeEntryUnsafe(message));
+    }
+
+    private async writeEntryUnsafe(message: any): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
             if (!this.writeStream) {
                 reject(new Error('Write stream not initialized'));
                 return;
@@ -298,7 +370,7 @@ export class ChatHistoryManager {
             projectPath: this.projectPath
         };
 
-        await this.writeEntry(entry);
+        await this.writeEntry(entry, { allowWhileClosing: true });
     }
 
     // ============================================================================
@@ -349,8 +421,12 @@ export class ChatHistoryManager {
                 };
             }
             return metadata;
-        } catch {
+        } catch (error) {
             // Metadata file doesn't exist or is invalid
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError(`[ChatHistory] Failed to load metadata for session ${this.sessionId}`, error);
+            }
             return null;
         }
     }
@@ -359,11 +435,18 @@ export class ChatHistoryManager {
      * Update metadata with new values
      */
     async updateMetadata(updates: Partial<SessionMetadata>): Promise<void> {
-        const metadata = await this.loadMetadata();
-        if (metadata) {
-            const updated = { ...metadata, ...updates, lastModifiedAt: new Date().toISOString() };
-            await this.saveMetadata(updated);
+        if (this.isClosing) {
+            logDebug(`[ChatHistory] Skipping metadata update while stream is closing (session: ${this.sessionId})`);
+            return;
         }
+
+        await this.enqueueWrite(async () => {
+            const metadata = await this.loadMetadata();
+            if (metadata) {
+                const updated = { ...metadata, ...updates, lastModifiedAt: new Date().toISOString() };
+                await this.saveMetadata(updated);
+            }
+        });
     }
 
     /**
@@ -653,17 +736,20 @@ export class ChatHistoryManager {
     async getLatestMode(defaultMode: AgentMode = 'edit'): Promise<AgentMode> {
         try {
             const content = await fs.readFile(this.sessionFile, 'utf8');
-            const lines = content.trim().split('\n');
+            const entries = this.parseJournalEntries(content, 'loading latest mode');
 
-            for (let i = lines.length - 1; i >= 0; i--) {
-                if (!lines[i].trim()) continue;
-                const entry = JSON.parse(lines[i]) as JournalEntry;
+            for (let i = entries.length - 1; i >= 0; i--) {
+                const entry = entries[i];
                 if (entry.type === 'mode_change' && entry.mode) {
                     return entry.mode;
                 }
             }
-        } catch {
+        } catch (error) {
             // Ignore and return default
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError(`[ChatHistory] Failed to get latest mode for session ${this.sessionId}`, error);
+            }
         }
 
         return defaultMode;
@@ -678,11 +764,10 @@ export class ChatHistoryManager {
     async getLastUsage(): Promise<number | undefined> {
         try {
             const content = await fs.readFile(this.sessionFile, 'utf8');
-            const lines = content.trim().split('\n');
+            const entries = this.parseJournalEntries(content, 'loading last API call info');
 
-            for (let i = lines.length - 1; i >= 0; i--) {
-                if (!lines[i].trim()) continue;
-                const entry = JSON.parse(lines[i]);
+            for (let i = entries.length - 1; i >= 0; i--) {
+                const entry = entries[i];
                 if (entry.type === 'compact_summary') {
                     return undefined;
                 }
@@ -708,16 +793,7 @@ export class ChatHistoryManager {
             const includeCompactSummaryEntry = options?.includeCompactSummaryEntry === true;
             const includeUndoCheckpointEntry = options?.includeUndoCheckpointEntry === true;
             const content = await fs.readFile(this.sessionFile, 'utf8');
-            const lines = content.trim().split('\n');
-            const allEntries: JournalEntry[] = [];
-
-            // Parse all entries first
-            for (const line of lines) {
-                if (line.trim()) {
-                    const entry = JSON.parse(line) as JournalEntry;
-                    allEntries.push(entry);
-                }
-            }
+            const allEntries = this.parseJournalEntries(content, 'loading messages');
 
             // Find the index of the last compact_summary entry
             let lastCompactIndex = -1;
@@ -812,15 +888,23 @@ export class ChatHistoryManager {
      * Truncates the file and resets message count and metadata
      */
     async clearMessages(): Promise<void> {
+        const wasClosing = this.isClosing;
         try {
+            this.isClosing = true;
+            await this.waitForPendingWrites();
+
             // Close existing stream
             if (this.writeStream) {
+                const streamToClose = this.writeStream;
                 await new Promise<void>((resolve, reject) => {
-                    this.writeStream!.end((err: Error | null | undefined) => {
+                    streamToClose.end((err: Error | null | undefined) => {
                         if (err) reject(err);
                         else resolve();
                     });
                 });
+                if (this.writeStream === streamToClose) {
+                    this.writeStream = null;
+                }
             }
 
             // Truncate the file
@@ -828,6 +912,7 @@ export class ChatHistoryManager {
 
             // Reopen write stream
             this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
+            this.isClosing = false;
 
             // Write new session start
             await this.writeSessionStart();
@@ -839,6 +924,12 @@ export class ChatHistoryManager {
         } catch (error) {
             logError('[ChatHistory] Failed to clear messages', error);
             throw error;
+        } finally {
+            if (this.writeStream && !wasClosing) {
+                this.isClosing = false;
+            } else {
+                this.isClosing = wasClosing;
+            }
         }
     }
 
@@ -925,8 +1016,12 @@ export class ChatHistoryManager {
                 messageCount: metadata.messageCount,
                 isCurrentSession: sessionId === currentSessionId
             };
-        } catch {
+        } catch (metadataError) {
             // Fallback: extract from JSONL and directory stats
+            const metadataNodeError = metadataError as NodeJS.ErrnoException;
+            if (metadataNodeError.code !== 'ENOENT') {
+                logError(`[ChatHistory] Failed to load metadata for session summary ${sessionId}; falling back to history scan`, metadataError);
+            }
             try {
                 const stats = await fs.stat(sessionDir);
                 let title = 'New Chat';
@@ -934,9 +1029,10 @@ export class ChatHistoryManager {
 
                 try {
                     const content = await fs.readFile(historyPath, 'utf8');
-                    const lines = content.trim().split('\n');
+                    const lines = content.split('\n');
 
-                    for (const line of lines) {
+                    for (let index = 0; index < lines.length; index++) {
+                        const line = lines[index];
                         if (!line.trim()) continue;
                         try {
                             const entry = JSON.parse(line) as JournalEntry;
@@ -953,12 +1049,23 @@ export class ChatHistoryManager {
                             if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'tool') {
                                 messageCount++;
                             }
-                        } catch {
-                            // Skip invalid lines
+                        } catch (parseError) {
+                            const snippet = line.length > ChatHistoryManager.MALFORMED_JSONL_LOG_SNIPPET_CHARS
+                                ? `${line.slice(0, ChatHistoryManager.MALFORMED_JSONL_LOG_SNIPPET_CHARS)}...`
+                                : line;
+                            logError(
+                                `[ChatHistory] Skipping malformed JSONL entry at ${path.basename(historyPath)}:${index + 1} while building session summary ${sessionId}. ` +
+                                `Entry prefix: ${snippet}`,
+                                parseError
+                            );
                         }
                     }
-                } catch {
+                } catch (historyError) {
                     // Empty or missing history
+                    const historyNodeError = historyError as NodeJS.ErrnoException;
+                    if (historyNodeError.code !== 'ENOENT') {
+                        logError(`[ChatHistory] Failed to read history while building session summary ${sessionId}`, historyError);
+                    }
                 }
 
                 return {
@@ -969,8 +1076,12 @@ export class ChatHistoryManager {
                     messageCount,
                     isCurrentSession: sessionId === currentSessionId
                 };
-            } catch {
+            } catch (sessionError) {
                 // Session directory doesn't exist
+                const sessionNodeError = sessionError as NodeJS.ErrnoException;
+                if (sessionNodeError.code !== 'ENOENT') {
+                    logError(`[ChatHistory] Failed to stat session directory ${sessionDir}`, sessionError);
+                }
                 return null;
             }
         }
