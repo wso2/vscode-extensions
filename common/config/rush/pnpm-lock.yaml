@@ -689,6 +689,9 @@ importers:
         specifier: 5.0.5
         version: 5.0.5(@types/react@18.2.0)(react@19.1.0)(use-sync-external-store@1.6.0(react@19.1.0))
     devDependencies:
+      '@playwright/test':
+        specifier: 1.55.1
+        version: 1.55.1
       '@sentry/webpack-plugin':
         specifier: 1.20.1
         version: 1.20.1(encoding@0.1.13)
@@ -713,6 +716,9 @@ importers:
       '@types/vscode-notebook-renderer':
         specifier: 1.72.2
         version: 1.72.2
+      '@wso2/playwright-vscode-tester':
+        specifier: workspace:*
+        version: link:../../common-libs/playwright-vscode-tester
       adm-zip:
         specifier: 0.5.16
         version: 0.5.16
@@ -2846,9 +2852,6 @@ importers:
         specifier: 4.38.3
         version: 4.38.3
     devDependencies:
-      '@playwright/test':
-        specifier: 1.55.1
-        version: 1.55.1
       '@types/mocha':
         specifier: 10.0.3
         version: 10.0.3
@@ -2870,9 +2873,6 @@ importers:
       '@vscode/vsce':
         specifier: 3.7.0
         version: 3.7.0
-      '@wso2/playwright-vscode-tester':
-        specifier: workspace:*
-        version: link:../../common-libs/playwright-vscode-tester
       copy-webpack-plugin:
         specifier: 13.0.0
         version: 13.0.0(webpack@5.104.1)
@@ -41881,8 +41881,8 @@ snapshots:
 
   '@webpack-cli/configtest@3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)':
     dependencies:
-      webpack: 5.104.1(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack@5.104.1)
+      webpack: 5.104.1(@swc/core@1.15.18(@swc/helpers@0.5.19))(webpack-cli@6.0.1)
+      webpack-cli: 6.0.1(webpack-dev-server@5.2.3)(webpack@5.104.1)
 
   '@webpack-cli/info@1.5.0(webpack-cli@4.10.0)':
     dependencies:
@@ -41896,8 +41896,8 @@ snapshots:
 
   '@webpack-cli/info@3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)':
     dependencies:
-      webpack: 5.104.1(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack@5.104.1)
+      webpack: 5.104.1(@swc/core@1.15.18(@swc/helpers@0.5.19))(webpack-cli@6.0.1)
+      webpack-cli: 6.0.1(webpack-dev-server@5.2.3)(webpack@5.104.1)
 
   '@webpack-cli/serve@1.7.0(webpack-cli@4.10.0)':
     dependencies:
@@ -50192,10 +50192,7 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:

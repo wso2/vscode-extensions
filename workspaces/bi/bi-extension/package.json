@@ -36,11 +36,7 @@
         "rebuild": "pnpm run clean && pnpm run compile && pnpm run postbuild",
         "postbuild": "pnpm run copyFonts && pnpm run package && pnpm run copyVSIX",
         "copyVSIX": "copyfiles *.vsix ./vsix",
-        "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
-        "compile-tests": "tsc -p .",
-        "copy-ballerina-ext": "copyfiles -f ../../ballerina/ballerina-extension/vsix/* ./vsix",
-        "e2e-test": "pnpm run copy-ballerina-ext && pnpm run compile-tests && pnpm exec playwright test",
-        "e2e-test:download-prerelease": "pnpm run compile-tests && DOWNLOAD_PRERELEASE=true pnpm exec playwright test"
+        "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../.."
     },
     "dependencies": {
         "@wso2/ballerina-core": "workspace:*",
@@ -66,8 +62,6 @@
         "ts-loader": "9.5.2",
         "webpack": "5.104.1",
         "webpack-cli": "6.0.1",
-        "webpack-permissions-plugin": "1.0.9",
-        "@playwright/test": "1.55.1",
-        "@wso2/playwright-vscode-tester": "workspace:*"
+        "webpack-permissions-plugin": "1.0.9"
     }
 }
