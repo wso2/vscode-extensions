@@ -56,7 +56,7 @@ import { DMProject } from "../../datamapper/DMProject";
 import { DM_OPERATORS_FILE_NAME, DM_OPERATORS_IMPORT_NAME, READONLY_MAPPING_FUNCTION_NAME, RUNTIME_VERSION_440 } from "../../constants";
 import { readTSFile, removeMapFunctionEntry, showMappingEndNotification } from "../../util/ai-datamapper-utils";
 import { compareVersions } from "../../util/onboardingUtils";
-import { mapDataMapper } from "../../ai-panel/copilot/data-mapper/mapper";
+import { mapDataMapper } from "../../ai-features/copilot/data-mapper/mapper";
 import { MILanguageClient } from "../../lang-client/activator";
 
 const undoRedoManager = new UndoRedoManager();
@@ -237,7 +237,7 @@ export class MiDataMapperRpcManager implements MIDataMapperAPI {
     // Function to ask whether the user wants to replace all existing mappings with ai generated mappings
     async confirmMappingAction(): Promise<boolean> {
         // Define the message based on the action
-        let message = "MI Copilot may modify existing mappings. Do you want to proceed?";
+        let message = "WSO2 Integrator Copilot may modify existing mappings. Do you want to proceed?";
         // Show the confirmation dialog
         const response = await window.showInformationMessage(
             message,
@@ -302,7 +302,7 @@ export class MiDataMapperRpcManager implements MIDataMapperAPI {
             const mappingRet = removeMapFunctionEntry(mappingString);
 
             if (!mappingRet?.trim()) {
-                throw new Error("MI Copilot did not return a valid mapping body.");
+                throw new Error("WSO2 Integrator Copilot did not return a valid mapping body.");
             }
             
             // Create an object of type DataMapWriteRequest

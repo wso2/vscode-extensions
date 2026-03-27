@@ -603,8 +603,22 @@ export class SizingVisitor implements Visitor {
 
             if (tools) {
                 if (toolsList?.length > 0) {
-                    for (let i = 0; i < toolsList.length; i++) {
-                        const toolNode = toolsList[i];
+                    const toolsWithUniqueConnections = toolsList.filter((tool: Tool, index: number) => {
+                        const isMcpTool = tool.isMcpTool;
+                        if (!isMcpTool) {
+                            return true; // Include all non-MCP tools
+                        }
+                        // For MCP tools, only include the first one with each unique connection name
+                        const connectionName = tool.mcpConnection;
+                        if (!connectionName) {
+                            return false;
+                        }
+                        const firstIndex = toolsList.findIndex((t: Tool) => t.mcpConnection === connectionName);
+                        return index === firstIndex;
+                    });
+
+                    for (let i = 0; i < toolsWithUniqueConnections.length; i++) {
+                        const toolNode = toolsWithUniqueConnections[i];
                         const isConnector = toolNode.mediator?.connectorName !== undefined;
                         toolNode.viewState = {
                             x: 0,
@@ -615,7 +629,7 @@ export class SizingVisitor implements Visitor {
                             l: isConnector ? NODE_DIMENSIONS.CONNECTOR.WIDTH / 2 : NODE_DIMENSIONS.DEFAULT.WIDTH / 2,
                             r: isConnector ? NODE_DIMENSIONS.CONNECTOR.FULL_WIDTH - NODE_DIMENSIONS.CONNECTOR.WIDTH / 2 : NODE_DIMENSIONS.DEFAULT.WIDTH / 2
                         }
-                        const isLastChild = i === toolsList.length - 1;
+                        const isLastChild = i === toolsWithUniqueConnections.length - 1;
                         const nodeGap = isLastChild ? 0 : NODE_GAP.AI_AGENT_TOOLS_Y;
 
                         toolsHeight += toolNode.viewState.h + nodeGap;

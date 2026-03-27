@@ -32,6 +32,7 @@ import { ChildProcess } from "child_process";
 import treeKill = require("tree-kill");
 import { normalize } from "upath";
 import { MVN_COMMANDS } from "../constants";
+import { loadEnvVariables } from "../debugger/tasks";
 const fs = require('fs');
 const child_process = require('child_process');
 const readline = require('readline');
@@ -99,7 +100,7 @@ export function runHandler(request: TestRunRequest, cancellation: CancellationTo
 
                 // execute test
                 run.appendOutput(`Starting MI test server\r\n`);
-                const { cp } = await startTestServer(serverPath, printer);
+                const { cp } = await startTestServer(serverPath, projectRoot, printer);
                 stopTestServer = () => {
                     treeKill(cp.pid!, 'SIGKILL');
                 }
@@ -234,9 +235,14 @@ export function runHandler(request: TestRunRequest, cancellation: CancellationTo
  * Start test server.
  * @returns server output
  */
-async function startTestServer(serverPath: string, printToOutput?: (line: string, isError: boolean) => void): Promise<{ cp: ChildProcess }> {
+async function startTestServer(serverPath: string, projectRoot: string, printToOutput?: (line: string, isError: boolean) => void): Promise<{ cp: ChildProcess }> {
     return new Promise<{ cp: ChildProcess }>(async (resolve, reject) => {
         try {
+            const filePath = path.resolve(projectRoot, '.env');
+            if (fs.existsSync(filePath)) {
+                loadEnvVariables(filePath)
+            }
+
             const scriptFile = process.platform === "win32" ? "micro-integrator.bat" : "micro-integrator.sh";
             const server = path.join(serverPath, "bin", scriptFile);
 
@@ -250,7 +256,7 @@ async function startTestServer(serverPath: string, printToOutput?: (line: string
                 }
             }
 
-            const cp = runCommand(serverCommand, undefined, onData, onError, undefined, printer);
+            const cp = runCommand(serverCommand, projectRoot, onData, onError, undefined, printer);
 
             function onData(data: string) {
                 if (data.includes("WSO2 Micro Integrator started in")) {
