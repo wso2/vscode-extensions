@@ -419,7 +419,12 @@ export function createConnectorExecute(projectPath: string): ConnectorExecuteFn 
             message += `Initialization guidance for '${requestedName}': ${initializationGuidance}\n`;
             message += `</system-reminder>\n`;
 
+            const repoName = definition?.repoName || '';
+
             message += `\n### ${requestedName}\n`;
+            if (repoName) {
+                message += `- GitHub: wso2-extensions/${repoName}\n`;
+            }
             message += `- Maven: ${maven}\n`;
             message += `- Version: ${versionTag}\n`;
             message += `- Parameter Details: ${parameterAvailability.summary}\n`;

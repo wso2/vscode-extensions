@@ -143,6 +143,28 @@ export const WEB_FETCH_TOOL_NAME = 'web_fetch';
 export const MEMORY_TOOL_NAME = 'memory';
 
 // ============================================================================
+// Deferred Tools — loaded on-demand via Anthropic native tool search
+// ============================================================================
+
+export const DEFERRED_TOOLS = new Set<string>([
+    FILE_GLOB_TOOL_NAME,
+    CREATE_DATA_MAPPER_TOOL_NAME,
+    GENERATE_DATA_MAPPING_TOOL_NAME,
+    SERVER_MANAGEMENT_TOOL_NAME,
+    ENTER_PLAN_MODE_TOOL_NAME,
+    EXIT_PLAN_MODE_TOOL_NAME,
+    ASK_USER_TOOL_NAME,
+    SUBAGENT_TOOL_NAME,
+    KILL_TASK_TOOL_NAME,
+    TASK_OUTPUT_TOOL_NAME,
+    WEB_SEARCH_TOOL_NAME,
+    WEB_FETCH_TOOL_NAME,
+]);
+
+// DeepWiki MCP Tool (Anthropic prefixes with server name: deepwiki_ask_question)
+export const DEEPWIKI_ASK_QUESTION_TOOL_NAME = 'deepwiki_ask_question';
+
+// ============================================================================
 // Subagent Types
 // ============================================================================
 
