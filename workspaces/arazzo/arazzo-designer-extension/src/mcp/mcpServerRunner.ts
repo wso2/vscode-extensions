@@ -191,6 +191,15 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
             // Open the updated mcp.json beside the current editor so the user can see the change
             const mcpUri = vscode.Uri.file(mcpConfigPath);
             await vscode.window.showTextDocument(mcpUri, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true });
+            // Open Copilot chat with a pre-filled prompt to guide the user on what to do next
+            try {
+                await vscode.commands.executeCommand('workbench.action.chat.open', {
+                    query: 'list all tools of the mcp server',
+                    isPartialQuery: true
+                });
+            } catch {
+                // Copilot chat not available — non-fatal, silently ignore
+            }
         } catch (e: any) {
             output.appendLine(`Warning: Could not write .vscode/mcp.json: ${e.message}`);
         }
