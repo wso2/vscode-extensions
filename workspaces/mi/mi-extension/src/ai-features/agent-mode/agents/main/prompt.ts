@@ -30,6 +30,7 @@ import { getModeReminder } from './mode';
 import { buildSystemReminder } from './prompt_system_reminder';
 import { DEFERRED_TOOL_CATALOG } from './tools';
 import { logDebug } from '../../../copilot/logger';
+import { getStateMachine } from '../../../../stateMachine';
 
 const MAX_PROJECT_STRUCTURE_FILES = 50;
 const MAX_PROJECT_STRUCTURE_CHARS = 10000;
@@ -182,8 +183,6 @@ function capProjectStructureLength(projectStructure: string): string {
  */
 async function getCurrentlyOpenedFile(projectPath: string): Promise<string | null> {
     try {
-        const { getStateMachine } = await import('../../../../stateMachine');
-
         const currentFile = getStateMachine(projectPath).context().documentUri;
         if (currentFile && fs.existsSync(currentFile)) {
             // Make the path relative to project root

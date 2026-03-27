@@ -92,6 +92,17 @@ import { AgentEvent, AgentEventType, FileObject, ImageObject, AgentMode, ModelSe
 // Re-export types for other modules that import from agent.ts
 export type { AgentEvent, AgentEventType };
 
+const AGENT_EXECUTION_CONFIG = {
+    // Upper bound for tool/model iterations in a single streamText run.
+    maxSteps: 50,
+    // Prevents very large single responses while allowing continuation.
+    maxOutputTokens: 15000,
+    // Stream watchdog defaults are centralized here for easy tuning.
+    streamIdleTimeoutMs: DEFAULT_STREAM_IDLE_TIMEOUT_MS,
+    streamTotalTimeoutMs: DEFAULT_STREAM_TOTAL_TIMEOUT_MS,
+    finalResponseWaitTimeoutMs: DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS,
+} as const;
+
 /**
  * Event handler function type
  */
@@ -378,7 +389,7 @@ export async function executeAgent(
     let streamWatchdog: StreamWatchdog | undefined;
     let pauseIdleTimeout = false;
     let touchStreamActivity: () => void = () => undefined;
-    let finalResponseWaitTimeoutMs = DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS;
+    let finalResponseWaitTimeoutMs = AGENT_EXECUTION_CONFIG.finalResponseWaitTimeoutMs;
 
     const emitEvent = (event: AgentEvent) => {
         const eventType = (event as { type?: string })?.type;
@@ -495,9 +506,9 @@ export async function executeAgent(
         // Setup stream watchdog and timeout controls (fixed constants)
         // Created before tools so that subagents and background tasks inherit
         // the effective abort signal (user abort + stream timeouts).
-        const idleTimeoutMs = DEFAULT_STREAM_IDLE_TIMEOUT_MS;
-        const totalTimeoutMs = DEFAULT_STREAM_TOTAL_TIMEOUT_MS;
-        finalResponseWaitTimeoutMs = DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS;
+        const idleTimeoutMs = AGENT_EXECUTION_CONFIG.streamIdleTimeoutMs;
+        const totalTimeoutMs = AGENT_EXECUTION_CONFIG.streamTotalTimeoutMs;
+        finalResponseWaitTimeoutMs = AGENT_EXECUTION_CONFIG.finalResponseWaitTimeoutMs;
         streamWatchdog = createStreamWatchdog({
             requestAbortSignal: request.abortSignal,
             idleTimeoutMs,
@@ -664,10 +675,10 @@ export async function executeAgent(
 
         const streamConfig: any = {
             model,
-            maxOutputTokens: 15000,
+            maxOutputTokens: AGENT_EXECUTION_CONFIG.maxOutputTokens,
             temperature: request.thinking ? undefined : 0,
             messages: allMessages,
-            stopWhen: stepCountIs(50),
+            stopWhen: stepCountIs(AGENT_EXECUTION_CONFIG.maxSteps),
             tools: finalTools,
             abortSignal: streamWatchdog.abortSignal,
             headers: requestHeaders,
