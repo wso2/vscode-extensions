@@ -188,6 +188,7 @@ export interface BackgroundSubagent {
     subagentType: SubagentType;
     description: string;
     startTime: Date;
+    completedAt?: Date;
     output: string;           // accumulated text output
     completed: boolean;
     success: boolean | null;

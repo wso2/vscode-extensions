@@ -28,6 +28,8 @@ import { getServerPathFromConfig } from '../../../../util/onboardingUtils';
 import { AgentMode } from '@wso2/mi-core';
 import { getModeReminder } from './mode';
 import { buildSystemReminder } from './prompt_system_reminder';
+import { DEFERRED_TOOL_CATALOG } from './tools';
+import { logDebug } from '../../../copilot/logger';
 
 const MAX_PROJECT_STRUCTURE_FILES = 50;
 const MAX_PROJECT_STRUCTURE_CHARS = 10000;
@@ -80,6 +82,12 @@ MI Runtime home path: {{env_mi_runtime_home_path}}
 MI Runtime carbon log path: {{env_mi_runtime_carbon_log_path}}
 </env>
 
+{{#if runtime_version_detection_warning}}
+<system_reminder>
+{{runtime_version_detection_warning}}
+</system_reminder>
+{{/if}}
+
 <system_reminder>
 {{system_reminder}}
 **DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task unless explicitly requested by the user.**
@@ -110,6 +118,8 @@ export interface UserPromptParams {
     payloads?: string;
     /** MI runtime version from pom.xml (optional; avoids re-reading pom when already known) */
     runtimeVersion?: string | null;
+    /** True when runtime version was detected from project metadata */
+    runtimeVersionDetected?: boolean;
 }
 
 // ============================================================================
@@ -182,7 +192,10 @@ async function getCurrentlyOpenedFile(projectPath: string): Promise<string | nul
             return relativePath;
         }
     } catch (error) {
-        // Silently fail if state machine is not available
+        logDebug(
+            `[Prompt] Unable to resolve currently opened file for project ${projectPath}: ` +
+            `${error instanceof Error ? error.message : String(error)}`
+        );
     }
     return null;
 }
@@ -269,12 +282,19 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
             } else if (/^[0-9a-f]{40}$/i.test(headContent)) {
                 gitBranch = `DETACHED@${headContent.substring(0, 7)}`;
             }
-        } catch {
-            // Silently fail
+        } catch (error) {
+            logDebug(
+                `[Prompt] Failed to resolve git branch from HEAD for project ${params.projectPath}: ` +
+                `${error instanceof Error ? error.message : String(error)}`
+            );
         }
     }
     const today = new Date().toISOString().split('T')[0];
     const runtimeVersion = params.runtimeVersion ?? await getRuntimeVersionFromPom(params.projectPath);
+    const runtimeVersionDetected = params.runtimeVersionDetected ?? !!runtimeVersion;
+    const runtimeVersionDetectionWarning = runtimeVersionDetected
+        ? ''
+        : 'MI runtime version could not be detected. Code examples use modern syntax (MI >= 4.4.0). If your project uses an older MI runtime, specify it explicitly.';
     const runtimePaths = getRuntimePaths(params.projectPath);
     const context: Record<string, any> = {
         question: params.query,
@@ -293,7 +313,8 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         env_mi_runtime_version: runtimeVersion || 'unknown',
         env_mi_runtime_home_path: runtimePaths.runtimeHomePath,
         env_mi_runtime_carbon_log_path: runtimePaths.carbonLogPath,
-        system_reminder: buildSystemReminder(mode, modeReminder),
+        runtime_version_detection_warning: runtimeVersionDetectionWarning,
+        system_reminder: buildSystemReminder(mode, modeReminder, DEFERRED_TOOL_CATALOG),
     };
 
     // Render the template

@@ -45,6 +45,7 @@ import { SYNAPSE_GUIDE as SYNAPSE_GUIDE_OLD } from '../../context/synapse_guide_
 import { CONNECTOR_DOCUMENTATION, CONNECTOR_DOCUMENTATION_OLD } from '../../context/connectors_guide';
 import { compareVersions } from '../../../../util/onboardingUtils';
 import { RUNTIME_VERSION_440 } from '../../../../constants';
+import { logInfo, logWarn } from '../../../copilot/logger';
 
 // ============================================================================
 // System Prompt
@@ -272,7 +273,27 @@ const SYSTEM_PROMPT_OLD = SYSTEM_PROMPT
 /**
  * Generates the system prompt for the MI design agent
  */
-export function getSystemPrompt(runtimeVersion?: string | null): string {
-    const useOldGuide = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0 : false;
-    return useOldGuide ? SYSTEM_PROMPT_OLD : SYSTEM_PROMPT;
+export interface SystemPromptSelection {
+    prompt: string;
+    runtimeVersionDetected: boolean;
+}
+
+export function getSystemPrompt(runtimeVersion?: string | null): SystemPromptSelection {
+    if (!runtimeVersion) {
+        logWarn('[SystemPrompt] MI runtime version could not be detected. Defaulting to modern syntax guidance (>=4.4.0).');
+        return {
+            prompt: SYSTEM_PROMPT,
+            runtimeVersionDetected: false,
+        };
+    }
+
+    const useOldGuide = compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0;
+    if (useOldGuide) {
+        logInfo(`[SystemPrompt] Using legacy syntax guidance for MI runtime ${runtimeVersion}`);
+    }
+
+    return {
+        prompt: useOldGuide ? SYSTEM_PROMPT_OLD : SYSTEM_PROMPT,
+        runtimeVersionDetected: true,
+    };
 }

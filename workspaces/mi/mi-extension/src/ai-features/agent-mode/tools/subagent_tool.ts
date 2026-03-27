@@ -124,6 +124,11 @@ async function saveSubagentMetadata(historyDir: string, subagentType: string): P
 // ============================================================================
 
 const backgroundSubagents: Map<string, BackgroundSubagent> = new Map();
+const BACKGROUND_SUBAGENT_TTL_MS = 60 * 60 * 1000; // 1 hour
+const BACKGROUND_SUBAGENT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_BACKGROUND_SUBAGENTS = 50;
+
+let backgroundSubagentCleanupTimer: NodeJS.Timeout | null = null;
 
 /**
  * Get all background subagents (used by task_output tool in bash_tools.ts)
@@ -147,6 +152,7 @@ export function cleanupRunningBackgroundSubagents(): number {
         subagent.aborted = true;
         subagent.completed = true;
         subagent.success = false;
+        subagent.completedAt = new Date();
         if (!subagent.output) {
             subagent.output = `Subagent ${id} was terminated because the main agent run ended.`;
         }
@@ -165,13 +171,75 @@ export function cleanupRunningBackgroundSubagents(): number {
 /**
  * Clean up completed background subagents older than 1 hour
  */
-function cleanupOldSubagents(): void {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+function cleanupOldSubagents(): number {
+    const threshold = Date.now() - BACKGROUND_SUBAGENT_TTL_MS;
+    let removed = 0;
     for (const [id, subagent] of backgroundSubagents.entries()) {
-        if (subagent.completed && subagent.startTime < oneHourAgo) {
+        const completedAt = subagent.completedAt?.getTime() ?? subagent.startTime.getTime();
+        if (subagent.completed && completedAt < threshold) {
             backgroundSubagents.delete(id);
+            removed++;
         }
     }
+    return removed;
+}
+
+function startBackgroundSubagentCleanup(): void {
+    if (backgroundSubagentCleanupTimer) {
+        return;
+    }
+
+    backgroundSubagentCleanupTimer = setInterval(() => {
+        const removed = cleanupOldSubagents();
+        if (removed > 0) {
+            logDebug(`[SubagentTool] Cleanup sweep removed ${removed} stale background subagent(s)`);
+        }
+    }, BACKGROUND_SUBAGENT_CLEANUP_INTERVAL_MS);
+    backgroundSubagentCleanupTimer.unref?.();
+}
+
+function evictOldestCompletedSubagent(): boolean {
+    let oldestId: string | null = null;
+    let oldestTimestamp = Number.POSITIVE_INFINITY;
+
+    for (const [id, subagent] of backgroundSubagents.entries()) {
+        if (!subagent.completed) {
+            continue;
+        }
+
+        const completedAt = subagent.completedAt?.getTime() ?? subagent.startTime.getTime();
+        if (completedAt < oldestTimestamp) {
+            oldestTimestamp = completedAt;
+            oldestId = id;
+        }
+    }
+
+    if (!oldestId) {
+        return false;
+    }
+
+    backgroundSubagents.delete(oldestId);
+    return true;
+}
+
+function ensureBackgroundSubagentCapacity(): { ok: true } | { ok: false; reason: string } {
+    if (backgroundSubagents.size < MAX_BACKGROUND_SUBAGENTS) {
+        return { ok: true };
+    }
+
+    const cleaned = cleanupOldSubagents();
+    if (cleaned > 0 && backgroundSubagents.size < MAX_BACKGROUND_SUBAGENTS) {
+        return { ok: true };
+    }
+
+    if (evictOldestCompletedSubagent()) {
+        return { ok: true };
+    }
+
+    return {
+        ok: false,
+        reason: `Background subagent limit reached (${MAX_BACKGROUND_SUBAGENTS}). Wait for an existing task to complete or terminate one before starting a new background subagent.`,
+    };
 }
 
 // ============================================================================
@@ -246,6 +314,8 @@ export function createSubagentExecute(
     mainAbortSignal?: AbortSignal,
     modelSettings?: ModelSettings
 ): SubagentToolExecuteFn {
+    startBackgroundSubagentCleanup();
+
     return async (args): Promise<SubagentToolResult> => {
         const { description, prompt, subagent_type, model: requestedModel = 'haiku', run_in_background = false, resume } = args;
 
@@ -319,6 +389,17 @@ export function createSubagentExecute(
             const subagentDir = getSubagentsDir(projectPath, sessionId, subagentId);
             const abortController = new AbortController();
 
+            if (!backgroundSubagents.has(subagentId)) {
+                const capacityCheck = ensureBackgroundSubagentCapacity();
+                if (!capacityCheck.ok) {
+                    return {
+                        success: false,
+                        message: capacityCheck.reason,
+                        error: 'TOO_MANY_BACKGROUND_SUBAGENTS',
+                    };
+                }
+            }
+
             // Link main agent's abort signal to background subagent's controller
             // so user abort terminates background subagents too
             let removeAbortListener: (() => void) | undefined;
@@ -371,6 +452,7 @@ export function createSubagentExecute(
                     entry.output = result.text;
                     entry.completed = true;
                     entry.success = true;
+                    entry.completedAt = new Date();
 
                     logInfo(`[SubagentTool] Background ${subagent_type} subagent completed: ${subagentId}`);
                     logDebug(`[SubagentTool] Response length: ${result.text.length} chars`);
@@ -389,6 +471,7 @@ export function createSubagentExecute(
                         entry.output = `Subagent ${subagentId} was terminated by user request.`;
                         entry.completed = true;
                         entry.success = false;
+                        entry.completedAt = new Date();
                         logInfo(`[SubagentTool] Background ${subagent_type} subagent aborted: ${subagentId}`);
                         return;
                     }
@@ -409,6 +492,7 @@ export function createSubagentExecute(
                     }
                     entry.completed = true;
                     entry.success = false;
+                    entry.completedAt = new Date();
                 });
 
             // Return immediately with subagent ID
