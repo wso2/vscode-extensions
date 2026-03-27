@@ -7,13 +7,13 @@ type = "read_only_ldap"
 
 [keystore.primary]
 file_name = "repository/resources/security/wso2carbon.jks"
-password = "wso2carbon"
+password = "wso2carbon"     # secret-detector:ignore
 alias = "wso2carbon"
-key_password = "wso2carbon"
+key_password = "wso2carbon"     # secret-detector:ignore
 
 [truststore]
 file_name = "repository/resources/security/client-truststore.jks"
-password = "wso2carbon"
+password = "wso2carbon"     # secret-detector:ignore
 alias = "symmetric.key.value"
 algorithm = "AES"
 

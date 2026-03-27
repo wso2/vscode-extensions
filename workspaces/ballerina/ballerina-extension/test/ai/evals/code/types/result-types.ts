@@ -1,7 +1,5 @@
 // Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com/) All Rights Reserved.
 
-import { LLMEvaluationResult } from "../utils/evaluator-utils";
-
 // WSO2 LLC. licenses this file to you under the Apache License,
 // Version 2.0 (the "License"); you may not use this file except
 // in compliance with the License.
@@ -15,6 +13,12 @@ import { LLMEvaluationResult } from "../utils/evaluator-utils";
 // KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
+export interface LLMEvaluationResult {
+    is_correct: boolean;
+    reasoning: string;
+    rating: number;
+}
 
 /**
  * Source file representation
@@ -38,12 +42,27 @@ export interface DiagnosticMessage {
     };
 }
 
+export interface FileReadCallRecord {
+    readonly fileName: string;
+    readonly content?: string;
+}
+
+export interface CodeContextRetrievalEvaluation {
+    readonly is_relevant: boolean;
+    readonly covered: string;
+    readonly missing: string;
+    readonly critical_gaps: string;
+    readonly recommendations: string;
+    readonly file_read_calls: readonly FileReadCallRecord[];
+}
+
 /**
  * Tool call event - matches ChatNotify ToolCall from state-machine-types
  */
 export interface ToolCallEvent {
     readonly type: "tool_call";
     readonly toolName: string;
+    readonly toolInput?: any;
 }
 
 /**
@@ -85,6 +104,11 @@ export interface UsecaseResult {
     readonly toolEvents?: readonly ToolEvent[];
     readonly iteration?: number;
     readonly evaluationResult: LLMEvaluationResult;
+    readonly codeContextRetrievalEvaluation?: CodeContextRetrievalEvaluation;
+    /** Whether the generated bal.md (codemap) matches the expected one. undefined = no expected file exists. */
+    readonly codeMapMatch?: boolean;
+    /** Content of the generated bal.md (codemap) from the isolated project. */
+    readonly generatedCodeMap?: string;
     readonly usage?: {
         readonly initial: {
             readonly inputTokens: number;
@@ -210,6 +234,8 @@ export interface UsecaseCompact {
     readonly iteration?: number;
     readonly toolEvents?: readonly ToolEvent[];
     readonly evaluationResult: LLMEvaluationResult;
+    readonly codeContextRetrievalEvaluation?: CodeContextRetrievalEvaluation;
+    readonly codeMapMatch?: boolean;
     readonly usage?: {
         readonly totalTokens: number;
         readonly cacheHits: number;

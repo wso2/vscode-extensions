@@ -18,11 +18,12 @@
 
 export const COMMANDS = {
     OPEN_PROJECT: "MI.openProject",
-    IMPORT_CAPP: "MI.importCAPP",
+    IMPORT_FROM_CAPP: "MI.importProjectFromCapp",
     MIGRATE_PROJECT: "MI.migrateProject",
     SHOW_OVERVIEW: "MI.showOverview",
     DISABLE_OVERVIEW: "MI.disableOverview",
     OPEN_AI_PANEL: "MI.openAiPanel",
+    OPEN_AGENT_PANEL: "MI.openAgentPanel",
     CLEAR_AI_PROMPT: "MI.clearAIPrompt",
     OPEN_WELCOME: "MI.openWelcome",
     SHOW_GRAPHICAL_VIEW: "MI.show.graphical-view",
@@ -73,7 +74,6 @@ export const COMMANDS = {
     ADD_TEMPLATE_COMMAND: 'MI.project-explorer.add-template',
     ADD_DATA_SERVICE_COMMAND: 'MI.project-explorer.add-data-service',
     CREATE_PROJECT_COMMAND: 'MI.project-explorer.create-project',
-    IMPORT_PROJECT_COMMAND: 'MI.project-explorer.import-project',
     REVEAL_ITEM_COMMAND: 'MI.project-explorer.revealItem',
     OPEN_SERVICE_DESIGNER: 'MI.project-explorer.open-service-designer',
     OPEN_PROJECT_OVERVIEW: 'MI.project-explorer.open-project-overview',
@@ -112,6 +112,7 @@ export const COMMANDS = {
     REVEAL_TEST_PANE: 'MI.mock-services.focus',
     EDIT_K8_CONFIGURATION_COMMAND: 'MI.edit-k8-configuration',
     MANAGE_REGISTRY_PROPERTIES_COMMAND: 'MI.manage-registry-property',
+    CONFIGURE_DEFAULT_MODEL: 'MI.configureDefaultModelProvider',
 
     BI_EXTENSION: 'WSO2.ballerina-integrator',
     BI_OPEN_COMMAND: 'ballerina.open.bi.welcome',

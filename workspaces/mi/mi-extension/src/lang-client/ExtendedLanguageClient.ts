@@ -82,12 +82,20 @@ import {
     DependencyStatusResponse,
     GenerateMappingsParamsRequest,
     McpToolsRequest,
-    McpToolsResponse
+    McpToolsResponse,
+    LoadDriverAndTestConnectionRequest,
+    GetDynamicFieldsRequest,
+    GetDynamicFieldsResponse,
+    GetStoredProceduresResponse,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse
 } from "@wso2/mi-core";
 import { readFileSync } from "fs";
 import { CancellationToken, FormattingOptions, Position, Uri, workspace } from "vscode";
 import { CompletionParams, LanguageClient, LanguageClientOptions, ServerOptions, TextEdit } from "vscode-languageclient/node";
-import { TextDocumentIdentifier } from "vscode-languageserver-protocol";
+import { TextDocumentIdentifier, CodeAction, CodeActionParams } from "vscode-languageserver-protocol";
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { RPCLayer } from "../RPCLayer";
@@ -259,7 +267,10 @@ export class ExtendedLanguageClient extends LanguageClient {
         if (req.documentIdentifier) {
             uri = Uri.file(req.documentIdentifier).toString();
         }
-        return this.sendRequest("synapse/availableResources", { documentIdentifier: { uri: uri }, "resourceType": req.resourceType });
+        return this.sendRequest("synapse/availableResources", { 
+            documentIdentifier: { uri: uri }, resourceType: req.resourceType, 
+            ...(req.isDebugFlow && { customProjectUri: req.documentIdentifier }) 
+        });
     }
 
     async getDiagnostics(req: GetDiagnosticsReqeust): Promise<GetDiagnosticsResponse> {
@@ -481,6 +492,29 @@ export class ExtendedLanguageClient extends LanguageClient {
     }  
     
     async getMcpTools(req: McpToolsRequest): Promise<McpToolsResponse> {
-        return this.sendRequest("synapse/getMCPTools", { connectionName: req.connectionName });
+        return this.sendRequest("synapse/getMCPTools", { documentUri: Uri.file(req.documentUri).toString(), connectionName: req.connectionName, range: req.range });
+    }
+
+    async getCodeActions(params: CodeActionParams): Promise<CodeAction[]> {
+        return this.sendRequest("textDocument/codeAction", params);
+    }
+    async loadDriverAndTestConnection(req: LoadDriverAndTestConnectionRequest): Promise<TestDbConnectionResponse> {
+        return this.sendRequest("synapse/loadDriverAndTestConnection", req);
+    }
+
+    async getDynamicFields(req: GetDynamicFieldsRequest): Promise<GetDynamicFieldsResponse> {
+        return this.sendRequest("synapse/getDynamicFields", req);
+    }
+
+    async getStoredProcedures(req: DSSQueryGenRequest): Promise<GetStoredProceduresResponse> {
+        return this.sendRequest("synapse/getStoredProcedures", req);
+    }
+
+    async downloadDriverForConnector(params: DriverDownloadRequest): Promise<DriverDownloadResponse> {
+        return this.sendRequest("synapse/downloadDriverForConnector", params);
+    }
+
+    async getDriverMavenCoordinates(params: DriverMavenCoordinatesRequest): Promise<DriverMavenCoordinatesResponse> {
+        return this.sendRequest("synapse/getDriverMavenCoordinates", params);
     }
 }

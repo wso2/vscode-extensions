@@ -126,7 +126,7 @@ function validateFilePath(filePath: string): ValidationResult {
     };
   }
 
-  const hasValidExtension = VALID_FILE_EXTENSIONS.some(ext => 
+  const hasValidExtension = VALID_FILE_EXTENSIONS.some(ext =>
     filePath.endsWith(ext)
   );
 
@@ -224,7 +224,7 @@ function countOccurrences(text: string, searchString: string): number {
   }
 
   if (!searchString) { return 0; }
-  
+
   let count = 0;
   let position = 0;
 
@@ -682,6 +682,8 @@ export function createReadExecute(
   }): Promise<TextEditorResult> => {
     const { file_path, offset, limit } = args;
 
+    emitFileToolCall(eventHandler, FILE_READ_TOOL_NAME, file_path);
+
     // Validate file path
     const pathValidation = validateFilePath(file_path);
     if (!pathValidation.valid) {
@@ -721,6 +723,8 @@ export function createReadExecute(
     const lines = content.split('\n');
     const totalLines = lines.length;
 
+    let result: TextEditorResult;
+
     // Handle ranged read
     if (offset !== undefined && limit !== undefined) {
       const validation = validateLineRange(offset, limit, totalLines);
@@ -739,20 +743,23 @@ export function createReadExecute(
       const rangedContent = truncateLongLines(rangedLines.join('\n'));
 
       console.log(`[FileReadTool] Read lines ${offset} to ${endIndex} from file: ${file_path}`);
-      return {
+      result = {
         success: true,
         message: `Read lines ${offset} to ${endIndex} from '${file_path}' (${endIndex - startIndex} lines). \nContent:${rangedContent}`,
       };
+    } else {
+      // Return full content
+      const truncatedContent = truncateLongLines(content);
+
+      console.log(`[FileReadTool] Read entire file: ${file_path}, total lines: ${totalLines}`);
+      result = {
+        success: true,
+        message: `Read entire file '${file_path}' (${totalLines} lines).\nContent:${truncatedContent}`,
+      };
     }
 
-    // Return full content
-    const truncatedContent = truncateLongLines(content);
-
-    console.log(`[FileReadTool] Read entire file: ${file_path}, total lines: ${totalLines}`);
-    return {
-      success: true,
-      message: `Read entire file '${file_path}' (${totalLines} lines).\nContent:${truncatedContent}`,
-    };
+    eventHandler({ type: "tool_result", toolName: FILE_READ_TOOL_NAME, toolOutput: result });
+    return result;
   };
 }
 
@@ -817,15 +824,15 @@ export function createWriteTool(execute: WriteExecute) {
 // 2. Edit Tool
 export function createEditTool(execute: EditExecute) {
   return tool({
-    description: `Performs exact string replacements in files. 
+    description: `Performs exact string replacements in files.
     Usage:
-    - You must read the chat history at least once before editing, as the user’s message contains the content of the each source file. This tool will error if you attempt an edit without reading the chat history. 
+    - You must read the chat history at least once before editing, as the user’s message contains the content of the each source file. This tool will error if you attempt an edit without reading the chat history.
     - When editing text content of a file that you obtained from the chat history you read earlier, ensure you preserve the exact indentation (tabs/spaces) as it appears AFTER the line number prefix.
     - If there are multiple edits to be made to the same file, prefer using the ${FILE_BATCH_EDIT_TOOL_NAME} tool instead of this one.
     - Do not create new files using this tool. Only edit existing files. If the file does not exist, Use ${FILE_WRITE_TOOL_NAME} to create new files.
     - NEVER proactively edit documentation files (*.md) or README files. Only edit documentation files if explicitly requested by the User.
     - Only use emojis if the user explicitly requests it. Avoid adding emojis to files unless asked.
-    - The edit will FAIL if **old_string** is not unique in the file. Either provide a larger string with more surrounding context to make it unique or use **replace_all** to change every instance of **old_string**. 
+    - The edit will FAIL if **old_string** is not unique in the file. Either provide a larger string with more surrounding context to make it unique or use **replace_all** to change every instance of **old_string**.
     - Use **replace_all** for replacing and renaming strings across the file. This parameter is useful if you want to rename a variable for instance.`,
     inputSchema: z.object({
       file_path: z.string().describe(getFilePathDescription("edit")),
@@ -889,13 +896,17 @@ export function createBatchEditTool(execute: MultiEditExecute) {
 export function createReadTool(execute: ReadExecute) {
   return tool({
     description: `Reads a file from the local filesystem.
-    ALWAYS prefer reading files mentioned in the ser’s message in the chat history first. Only use this tool if you need to read a file that is not present in the chat history.
+    ALWAYS prefer reading files mentioned in the user’s message in the chat history first. Only use this tool if you need to read a file that is not present in the chat history.
     Usage:
     - The file_path parameter must be an filename only, do not include any directories unless the user specifically requests it.
     - You can optionally specify a line offset and limit (especially handy for long files).
     - Any lines longer than 2000 characters will be truncated
     - The file content will be returned as string
-    - If the file is very large, consider using the offset and limit parameters to read it in chunks.`,
+    - If you know the exact line range of a specific COMPONENT and only that isolated component is relevant, you may read just that line range to save context.
+    - However, if you need to understand the full context of a file (e.g., multiple components are related, the file is a config/entry-point file, or you need to understand existing patterns), read the entire file instead.
+    - If you dont know the line range to read, always start by reading the entire file.
+    - If the file is very large, consider using the offset and limit parameters to read it in chunks.
+    - If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents.`,
     inputSchema: z.object({
       file_path: z.string().describe(getFilePathDescription("read")),
       offset: z.number().optional().describe("The line number to start reading from. Only provide if the file is too large to read at once"),

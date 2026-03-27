@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { ComponentCard, IconLabel, FormView, TextField, Codicon, Typography, FormActions, Button, Divider, Icon, DropdownButton } from "@wso2/ui-toolkit";
+import { ComponentCard, IconLabel, FormView, TextField, Codicon, Typography, FormActions, Button, Divider, Icon, DropdownButton, Tooltip } from "@wso2/ui-toolkit";
 import { useEffect, useState } from "react";
 import styled from "@emotion/styled";
 import { VSCodeLink, VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
@@ -130,6 +130,15 @@ const connectorCardStyle = {
     fontSize: '15px'
 };
 
+const disabledConnectorCardStyle = {
+    ...connectorCardStyle,
+    cursor: 'not-allowed',
+    opacity: 0.5,
+    '&:hover': {
+        backgroundColor: 'var(--vscode-dropdown-background)'
+    }
+};
+
 const IconWrapper = styled.div`
     height: 18px;
     width: 20px;
@@ -175,6 +184,8 @@ const option2 = (
     </div>
 );
 
+const WSO2_AI_CONNECTION_TYPE = 'WSO2_AI';
+
 export function ConnectionWizard(props: ConnectionStoreProps) {
     const { rpcClient } = useVisualizerContext();
     const { allowedConnectionTypes } = props;
@@ -190,6 +201,7 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
     const [searchValue, setSearchValue] = useState<string>('');
     const [isFailedDownload, setIsFailedDownload] = useState(false);
     const [selectedItem, setSelectedItem] = useState<string>("openapi");
+    const [isMiCopilotLoggedIn, setIsMiCopilotLoggedIn] = useState<boolean>(false);
 
     const fetchLocalConnectorData = async () => {
         const connectorData = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({ documentUri: props.path, connectorName: "" });
@@ -243,6 +255,10 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
     useEffect(() => {
         fetchLocalConnectorData();
         fetchStoreConnectors();
+        // Check MI Copilot login status for WSO2_AI connection
+        rpcClient.getMiAiPanelRpcClient().isMiCopilotLoggedIn()
+            .then(setIsMiCopilotLoggedIn)
+            .catch(() => setIsMiCopilotLoggedIn(false));
     }, []);
 
     const searchConnectors = () => {
@@ -475,14 +491,23 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                                 <>
                                     {Object.entries(connector.connectionUiSchema).length > 0 && (
                                         <SampleGrid>
-                                            {Object.entries(connector.connectionUiSchema).map(([connectionType, connectionData]) => (
-                                                (allowedConnectionTypes && !allowedConnectionTypes.some(
-                                                    type => type.toLowerCase() === connectionType.toLowerCase() // Ignore case on allowedtype check
-                                                )) ? null : (
+                                            {Object.entries(connector.connectionUiSchema).map(([connectionType, connectionData]) => {
+                                                // Check if connection type is in allowed list (if specified)
+                                                if (allowedConnectionTypes && !allowedConnectionTypes.some(
+                                                    type => type.toLowerCase() === connectionType.toLowerCase()
+                                                )) {
+                                                    return null;
+                                                }
+
+                                                // Check if WSO2_AI connection requires login
+                                                const isWso2AiConnection = connectionType.toUpperCase() === WSO2_AI_CONNECTION_TYPE;
+                                                const isDisabled = isWso2AiConnection && !isMiCopilotLoggedIn;
+
+                                                const cardContent = (
                                                     <ComponentCard
                                                         key={connectionType}
-                                                        onClick={() => selectConnectionType(connector, connectionType)}
-                                                        sx={connectorCardStyle}
+                                                        onClick={isDisabled ? undefined : () => selectConnectionType(connector, connectionType)}
+                                                        sx={isDisabled ? disabledConnectorCardStyle : connectorCardStyle}
                                                     >
                                                         <CardContent>
                                                             <IconContainer>
@@ -500,7 +525,24 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                                                             </CardLabel>
                                                         </CardContent>
                                                     </ComponentCard>
-                                                )))}
+                                                );
+
+                                                // Wrap disabled WSO2_AI connection with tooltip
+                                                if (isDisabled) {
+                                                    return (
+                                                        <Tooltip
+                                                            key={connectionType}
+                                                            content="Login to MI Copilot to use WSO2_AI connection"
+                                                            position="top"
+                                                            containerSx={{ display: 'flex' }}
+                                                        >
+                                                            {cardContent}
+                                                        </Tooltip>
+                                                    );
+                                                }
+
+                                                return cardContent;
+                                            })}
                                         </SampleGrid>
                                     )}
                                 </>

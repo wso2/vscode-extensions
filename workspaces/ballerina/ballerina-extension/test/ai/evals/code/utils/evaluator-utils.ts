@@ -15,21 +15,23 @@
 // under the License.
 
 import { generateText } from "ai";
-import { ProjectModule, ProjectSource, SourceFile } from "@wso2/ballerina-core";
+import { ProjectModule, ProjectSource, SourceFile, ChatNotify } from "@wso2/ballerina-core";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import path from "path";
 import fs from "fs";
 import { z } from 'zod';
+import { CodeContextRetrievalEvaluation, FileReadCallRecord, LLMEvaluationResult } from "../types/result-types";
 
-export interface LLMEvaluationResult {
-    is_correct: boolean;
-    reasoning: string;
-    rating: number;
-}
+export type { LLMEvaluationResult };
 
 const anthropic = createAnthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 });
+
+function stringifySources(sources: SourceFile[]): string {
+    if (sources.length === 0) return "No files in the project.";
+    return sources.map(file => `--- File: ${file.filePath} ---\n${file.content}`).join("\n\n");
+}
 
 // Define the schema using Zod
 const evaluationSchema = z.object({
@@ -65,11 +67,6 @@ export async function evaluateCodeWithLLM(
     finalSource: SourceFile[]
 ): Promise<LLMEvaluationResult> {
     console.log("🤖 Starting LLM-based semantic evaluation...");
-
-    const stringifySources = (sources: SourceFile[]): string => {
-        if (sources.length === 0) return "No files in the project.";
-        return sources.map(file => `--- File: ${file.filePath} ---\n${file.content}`).join("\n\n");
-    };
 
     const initialCodeString = stringifySources(initialSource);
     const finalCodeString = stringifySources(finalSource);
@@ -113,13 +110,13 @@ Use the submit_evaluation tool to provide your assessment.`;
 
     try {
         const result = await generateText({
-            model: anthropic('claude-sonnet-4-20250514'),
+            model: anthropic('claude-sonnet-4-5-20250929'),
             system: systemPrompt,
             prompt: userPrompt,
             temperature: 0.1,
             tools: {
                 submit_evaluation: {
-                    description: 
+                    description:
                         'Submit a comprehensive evaluation of whether the final code correctly implements the user query.',
                     inputSchema: evaluationSchema,
                 }
@@ -133,13 +130,13 @@ Use the submit_evaluation tool to provide your assessment.`;
 
         // Extract the tool call result
         const toolCall = result.toolCalls[0];
-        
+
         if (!toolCall || toolCall.toolName !== 'submit_evaluation') {
             throw new Error("Expected submit_evaluation tool call but received none");
         }
 
         const evaluationResult = toolCall.input as LLMEvaluationResult;
-        
+
         console.log(`✅ LLM Evaluation Complete. Correct: ${evaluationResult.is_correct}. Reason: ${evaluationResult.reasoning}, Rating: ${evaluationResult.rating}`);
         return evaluationResult;
 
@@ -149,6 +146,217 @@ Use the submit_evaluation tool to provide your assessment.`;
             is_correct: false,
             reasoning: `Failed to evaluate due to an error: ${error instanceof Error ? error.message : "Unknown error"}`,
             rating: 0
+        };
+    }
+}
+
+// ============================================================================
+// Code Context Retrieval Evaluation
+// ============================================================================
+
+/**
+ * Extracts file_read tool calls from the event stream and pairs
+ * each call with its corresponding tool result.
+ */
+function extractContextRetrievalCalls(events: readonly ChatNotify[]): {
+    fileReadCalls: FileReadCallRecord[];
+} {
+    const fileReadCalls: FileReadCallRecord[] = [];
+    const pendingFileReadCalls: FileReadCallRecord[] = [];
+
+    for (const event of events) {
+        if (event.type === 'tool_call') {
+            if (event.toolName === 'file_read' && event.toolInput) {
+                pendingFileReadCalls.push({ fileName: event.toolInput.fileName ?? '' });
+            }
+        } else if (event.type === 'tool_result') {
+            if (event.toolName === 'file_read') {
+                const call = pendingFileReadCalls.shift();
+                if (call) {
+                    fileReadCalls.push({ ...call, content: event.toolOutput?.message ?? '' });
+                }
+            }
+        }
+    }
+
+    // Any calls without results are added as-is
+    for (const remaining of pendingFileReadCalls) {
+        fileReadCalls.push(remaining);
+    }
+
+    return { fileReadCalls };
+}
+
+const codeContextRetrievalSchema = z.object({
+    is_relevant: z.boolean().describe(
+        'True only if the agent retrieved every relevant component needed to fulfill the query. ' +
+        'False if even one required component from the existing codebase was definitively missed.'
+    ),
+    covered: z.string().describe(
+        'List of retrieved components and why each is relevant to the query. ' +
+        'Format: "- <file name>\\n  - <component name and line number>\\n  - <one sentence: why relevant>". ' +
+        'Write "None" if nothing relevant was retrieved.'
+    ),
+    missing: z.string().describe(
+        'List of required components that were not retrieved. ' +
+        'Format: "- <file name>\\n  - <component name and line number>\\n  - <one sentence: why required>". ' +
+        'Write "None" if nothing is missing.'
+    ),
+    critical_gaps: z.string().describe(
+        'List of components whose absence blocks a correct implementation. ' +
+        'Format: "- <file name>\\n  - <component name and line number>\\n  - <one sentence: why essential>". ' +
+        'Write "None" if there are no critical gaps. If any entry is listed here, is_relevant must be false.'
+    ),
+    recommendations: z.string().describe(
+        'Optional suggestions to complete the retrieval. ' +
+        'Write "None" if no further retrieval is needed.'
+    )
+});
+
+/**
+ * Uses an LLM to evaluate whether the file_read tool calls retrieved
+ * sufficiently relevant code context for the given user query.
+ *
+ * @param userQuery The original user request.
+ * @param events All ChatNotify events captured during agent execution.
+ * @returns A promise resolving to the context retrieval evaluation.
+ */
+export async function evaluateCodeContextRetrieval(
+    userQuery: string,
+    initialSource: SourceFile[],
+    events: readonly ChatNotify[]
+): Promise<CodeContextRetrievalEvaluation> {
+    console.log("🔍 Starting code context retrieval evaluation...");
+
+    const { fileReadCalls } = extractContextRetrievalCalls(events);
+
+    const initialCodeString = stringifySources(initialSource);
+
+    if (fileReadCalls.length === 0) {
+        console.log("⚠️ No file_read calls found — agent relied solely on CodeMap.");
+        return {
+            is_relevant: false,
+            covered: "None",
+            missing: "The agent made no file_read calls. It relied solely on the CodeMap (high-level structure) without retrieving any implementation details from the existing codebase.",
+            critical_gaps: "No implementation details were retrieved at all.",
+            recommendations: "The agent should read the relevant source files before generating code.",
+            file_read_calls: []
+        };
+    }
+
+    // Build the file_read section of the prompt
+    const fileReadSection = fileReadCalls.map((call, i) => {
+        const contentLine = call.content
+            ? `Content:\n${call.content}`
+            : '(content not captured)';
+        return `File #${i + 1}: ${call.fileName}\n${contentLine}`;
+    }).join('\n\n');
+
+    const systemPrompt = `You are an expert code evaluator. Your task is to evaluate and compare a set of code components provided in the user input to determine whether these components are sufficient for a complete and accurate implementation of the user's query against the codebase.
+
+You will be given:
+- A user query (the code modification request)
+- The complete codebase (ground truth)
+- The RETRIEVED CODE COMPONENTS (retrieved by the agent via file reads)
+
+Steps to follow:
+
+1. **Identify Required Code Components:**
+   Search the complete codebase and identify every code component (imports, configurables, variables, functions, types, classes, services, and enums) that is needed to implement the user query. These are the REQUIRED CODE COMPONENTS.
+
+2. **Compare Against Retrieved Components:**
+   Critically compare the RETRIEVED CODE COMPONENTS with the REQUIRED CODE COMPONENTS identified above.
+
+3. **Analysis and Evaluation:**
+   - **Covered:** Components that were correctly retrieved.
+   - **Missing:** Components that are partially or completely absent from the retrieval.
+   - **Critical Gaps:** Components that are essential for a correct implementation but were not retrieved. If any critical gap exists, set is_relevant to false.
+   - **Recommendations:** Optional notes on what would complete the retrieval.
+
+Note:
+- Be strict. A critical gap means the agent cannot correctly implement the query without that component.
+
+Populate the four output fields using exactly this format:
+
+covered:
+- <file name>
+  - <component name and line number>
+  - <one sentence: why this component is relevant>
+
+missing:
+- <file name> (or "None")
+  - <component name and line number>
+  - <one sentence: why this component was required>
+
+critical_gaps:
+- <file name> (or "None")
+  - <component name and line number>
+  - <one sentence: why this is essential and blocks correct implementation>
+
+recommendations:
+- <optional suggestions to complete the retrieval, or "None">
+
+Use the submit_evaluation tool to provide your assessment.
+`
+    const userPrompt = `# User Query
+\`\`\`
+${userQuery}
+\`\`\`
+
+# Complete Codebase
+\`\`\`ballerina
+${initialCodeString}
+\`\`\`
+
+# Context Retrieved by the LLM Agent
+
+RETRIEVED CODE COMPONENTS
+${fileReadSection}
+`;
+
+    try {
+        const result = await generateText({
+            model: anthropic('claude-sonnet-4-5-20250929'),
+            system: systemPrompt,
+            prompt: userPrompt,
+            temperature: 0.1,
+            tools: {
+                submit_evaluation: {
+                    description:
+                        'Submit the code context retrieval evaluation.',
+                    inputSchema: codeContextRetrievalSchema,
+                }
+            },
+            toolChoice: {
+                type: 'tool',
+                toolName: 'submit_evaluation'
+            },
+            maxRetries: 1,
+        });
+
+        const toolCall = result.toolCalls[0];
+
+        if (!toolCall || toolCall.toolName !== 'submit_evaluation') {
+            throw new Error("Expected submit_evaluation tool call but received none");
+        }
+
+        const evaluation = codeContextRetrievalSchema.parse(toolCall.input);
+
+        console.log(`✅ Code Context Retrieval Evaluation Complete. Relevant: ${evaluation.is_relevant}. Critical Gaps: ${evaluation.critical_gaps}`);
+        return {
+            ...evaluation,
+            file_read_calls: fileReadCalls
+        };
+
+    } catch (error) {
+        console.error("Error during code context retrieval evaluation:", error);
+        return {
+            is_relevant: false,
+            covered: "None",
+            missing: "None",
+            critical_gaps: `Failed to evaluate due to an error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            recommendations: "None",
+            file_read_calls: fileReadCalls
         };
     }
 }
@@ -211,7 +419,7 @@ export async function getProjectSource(dirPath: string): Promise<ProjectSource |
 export function getProjectFromResponse(req: string): SourceFile[] {
     const sourceFiles: SourceFile[] = [];
     const regex = /<code filename="([^"]+)">\s*```ballerina([\s\S]*?)```\s*<\/code>/g;
-    let match;
+    let match: RegExpExecArray | null;
 
     while ((match = regex.exec(req)) !== null) {
         const filePath = match[1];

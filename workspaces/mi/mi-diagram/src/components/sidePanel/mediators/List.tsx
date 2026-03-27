@@ -298,6 +298,19 @@ export function Mediators(props: MediatorProps) {
         sidepanelAddPage(sidePanelContext, modulesList, 'Add Modules', icon);
     }
 
+    const isAIMediatorVersionValid = () => {
+        if (!allMediators?.AI?.version) return false;
+        
+        const version = allMediators.AI.version.split('.').map(Number);
+        const minVersion = [0, 2, 1];
+        
+        // Compare major.minor.patch
+        if (version[0] > minVersion[0]) return true;
+        if (version[1] > minVersion[1]) return true;
+        if (version[1] < minVersion[1]) return false;
+        return version[2] >= minVersion[2];
+    };
+
     const AddMcpServer = () => {
         const mediator: Mediator = {
             tag: 'ai.mcpTools',
@@ -430,6 +443,7 @@ export function Mediators(props: MediatorProps) {
                         </div>
                         {(sidePanelContext.node as any).mediatorName === "ai.agent" &&
                             (sidePanelContext.node as any).stNode.tag === "tools" &&
+                            isAIMediatorVersionValid() &&
                             <div style={{ marginTop: '15px' }}>
                                 <ComponentCard
                                     sx={{
