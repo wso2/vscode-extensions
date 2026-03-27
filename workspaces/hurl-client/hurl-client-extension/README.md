@@ -6,7 +6,7 @@ Open, edit, and execute `.hurl` files as interactive notebooks in VS Code.
 
 Each HTTP request in a `.hurl` file becomes a runnable notebook cell. Responses are displayed inline as formatted Markdown — status code, response body (pretty-printed JSON), and assertion results. Markdown cells provide rich documentation between requests.
 
-![Hurl Client demo](images/hurl-client.gif)
+![Hurl Client demo](https://raw.githubusercontent.com/wso2/vscode-extensions/main/workspaces/hurl-client/hurl-client-extension/images/hurl-client.gif)
 
 ## Getting Started
 
