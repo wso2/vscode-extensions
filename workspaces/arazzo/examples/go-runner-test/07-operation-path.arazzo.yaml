@@ -1,0 +1,56 @@
+arazzo: "1.0.0"
+info:
+  title: "Test 07 - operationPath with JSON Pointer"
+  version: "1.0.0"
+  description: >
+    Tests using operationPath instead of operationId to reference operations.
+    Uses the {sourceDescriptionName}#{jsonPointer} format.
+
+sourceDescriptions:
+  - name: petstore
+    url: ./petstore-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: operation_path_test
+    summary: Test operationPath references
+    steps:
+      - stepId: createViaPath
+        description: "Use operationPath to reference addPet"
+        operationPath: "petstore#/paths/~1pet/post"
+        requestBody:
+          contentType: application/json
+          payload:
+            id: 44401
+            name: "OpPathTestPet"
+            photoUrls:
+              - "https://example.com/photo.jpg"
+            status: "available"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          petId: "$response.body#/id"
+
+      - stepId: getViaPath
+        description: "Use operationPath to reference getPetById"
+        operationPath: "petstore#/paths/~1pet~1{petId}/get"
+        parameters:
+          - name: petId
+            in: path
+            value: "$steps.createViaPath.outputs.petId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          verifiedName: "$response.body#/name"
+
+      - stepId: deleteViaPath
+        description: "Use operationPath to reference deletePet"
+        operationPath: "petstore#/paths/~1pet~1{petId}/delete"
+        parameters:
+          - name: petId
+            in: path
+            value: "$steps.createViaPath.outputs.petId"
+
+    outputs:
+      createdPetId: "$steps.createViaPath.outputs.petId"
+      verifiedName: "$steps.getViaPath.outputs.verifiedName"
