@@ -452,7 +452,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     // Context usage tracking (always visible)
     const CONTEXT_TOKEN_THRESHOLD = 200000;
-    const MANUAL_COMPACT_VISIBLE_USAGE_PERCENT = 50;
     const contextUsagePercent = Math.min(
         Math.round((lastTotalInputTokens / CONTEXT_TOKEN_THRESHOLD) * 100),
         100
@@ -2747,37 +2746,35 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             </button>
                         </FooterTooltip>
 
-                        {/* Compact button */}
-                        {contextUsagePercent >= MANUAL_COMPACT_VISIBLE_USAGE_PERCENT && (
-                            <FooterTooltip
-                                variant="card"
-                                align="start"
-                                content={
-                                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                                        <div style={{ fontWeight: 600 }}>Context usage</div>
-                                        <div style={{ color: "var(--vscode-descriptionForeground)" }}>
-                                            {`${remainingContextPercent}% context remaining.`}
-                                        </div>
-                                        <div style={{ color: "var(--vscode-descriptionForeground)" }}>
-                                            Copilot summarizes automatically when context is running low.
-                                        </div>
+                        {/* Context usage indicator — always visible */}
+                        <FooterTooltip
+                            variant="card"
+                            align="start"
+                            content={
+                                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                    <div style={{ fontWeight: 600 }}>Context usage</div>
+                                    <div style={{ color: "var(--vscode-descriptionForeground)" }}>
+                                        {`${remainingContextPercent}% context remaining.`}
                                     </div>
-                                }
+                                    <div style={{ color: "var(--vscode-descriptionForeground)" }}>
+                                        Copilot summarizes automatically when context is running low.
+                                    </div>
+                                </div>
+                            }
+                        >
+                            <span
+                                style={{
+                                    fontSize: "10px",
+                                    color: contextUsagePercent >= 80 ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                }}
                             >
-                                <span
-                                    style={{
-                                        fontSize: "10px",
-                                        color: contextUsagePercent >= 80 ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "4px",
-                                    }}
-                                >
-                                    <Codicon name="history" />
-                                    {contextUsagePercent}%
-                                </span>
-                            </FooterTooltip>
-                        )}
+                                <Codicon name="history" />
+                                {contextUsagePercent}%
+                            </span>
+                        </FooterTooltip>
                     </div>
 
                     {/* Right group: Attach + divider + Send/Stop */}
