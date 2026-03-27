@@ -27,6 +27,7 @@ export interface ErrorBoundaryProps {
     children?: ReactNode;
     issueUrl?: string;
     goHome?: () => void;
+    resetKeys?: any[];
 }
 
 import { ErrorBoundary as EB } from "react-error-boundary";
@@ -34,7 +35,7 @@ import { ErrorBoundary as EB } from "react-error-boundary";
 export const ErrorBoundary = forwardRef<any, ErrorBoundaryProps>((props, ref) => {
     const Fallback = () => <ErrorScreen errorMsg={props.errorMsg} issueUrl={props.issueUrl} goHome={props.goHome} />;
     return (
-        <EB FallbackComponent={Fallback} ref={ref}>
+        <EB FallbackComponent={Fallback} ref={ref} resetKeys={props.resetKeys}>
             {props.children}
         </EB>
     );

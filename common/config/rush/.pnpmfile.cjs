@@ -28,13 +28,16 @@ module.exports = {
         if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.5.6';
         if (deps['lodash']) deps['lodash'] = '4.17.23';
         if (deps['qs']) deps['qs'] = '6.14.2';
+        if (deps['hono']) deps['hono'] = '4.12.7';
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.3';
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.10';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
         if (deps['dompurify']) deps['dompurify'] = '3.3.2';
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2';
-        if (deps['hono']) deps['hono'] = '4.12.7';
+        if (deps['file-type']) deps['file-type'] = '21.3.2';
         if (deps['immutable']) deps['immutable'] = '3.8.3';
+        if (deps['undici']) deps['undici'] = '7.24.0';
+        if (deps['yauzl']) deps['yauzl'] = '3.2.1';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
         }
