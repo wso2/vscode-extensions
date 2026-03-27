@@ -420,7 +420,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
                 onBlur={handleTextFieldBlur}
                 onClick={onManualInteraction}
                 sx={{ width: '100%', ...sx }}
-                disabled={disabled || isSavingExpression}
+                disabled={(disabled || isSavingExpression) || undefined}
             />
             {(isSavingExpression || isUpdatingSource) && 
                 <ProgressIndicator barWidth={6} sx={{ top: "100%" }} duration={2} />
