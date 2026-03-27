@@ -26,6 +26,7 @@ import { activate as activateHistory } from './history';
 import { activateVisualizer } from './visualizer/activate';
 import { RPCLayer } from './RPCLayer';
 import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/arazzo-designer-core';
+import { startMCPServer, disposeMCPServer } from './mcp/mcpServerRunner';
 
 let languageClient: LanguageClient | undefined;
 
@@ -64,6 +65,16 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Register the showCode command
 	let showCodeDisposable = vscode.commands.registerCommand('ArazzoDesigner.showCode', showCode);
 	context.subscriptions.push(showCodeDisposable);
+
+	// Register the MCP Server command
+	let mcpServerDisposable = vscode.commands.registerCommand('arazzo.startMCPServer', async (args?: any) => {
+		let filePath: string | undefined;
+		if (args && args.uri) {
+			filePath = vscode.Uri.parse(args.uri).fsPath;
+		}
+		await startMCPServer(context, filePath);
+	});
+	context.subscriptions.push(mcpServerDisposable);
 
 	// Initialize Arazzo Language Server for procode features
 	initializeLanguageServer(context);
@@ -443,6 +454,7 @@ async function showCode() {
 }
 
 export function deactivate(): Thenable<void> | undefined {
+	disposeMCPServer();
 	if (!languageClient) {
 		return undefined;
 	}
