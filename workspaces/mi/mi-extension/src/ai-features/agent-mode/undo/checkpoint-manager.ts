@@ -229,7 +229,7 @@ export class AgentUndoCheckpointManager {
     }
 
     private createCheckpointId(): string {
-        return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+        return crypto.randomUUID();
     }
 
     private async readFileState(relativePath: string): Promise<FileBeforeState> {

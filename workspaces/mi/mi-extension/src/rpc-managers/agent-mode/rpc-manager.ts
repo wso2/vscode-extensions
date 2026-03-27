@@ -90,7 +90,6 @@ const DEFAULT_MENTION_SEARCH_LIMIT = 30;
 const MENTION_MAX_CACHE_DEPTH = 8;
 const MENTION_MAX_CACHE_ITEMS = 5000;
 const SHELL_APPROVAL_RULES_FILE_NAME = 'shell-approval-rules.json';
-const CONTINUATION_COMMAND_MAX_LENGTH = 120;
 const MENTION_ROOT_DIRS = ['deployment', 'src'];
 const MENTION_POM_FILE = 'pom.xml';
 const MENTION_SKIP_DIRS = new Set([
@@ -139,7 +138,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private undoCheckpointManager: AgentUndoCheckpointManager | null = null;
     private undoCheckpointManagerSessionId: string | null = null;
     private shellApprovalRules: string[][] = [];
-    private pendingLimitContinuation: { reason: LimitContinuationReason } | null = null;
     private currentModelSettings: ModelSettings = { ...DEFAULT_MODEL_SETTINGS };
 
     constructor(private projectUri: string) {
@@ -279,7 +277,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     }
 
     private async addShellApprovalRule(rule: string[]): Promise<void> {
-        if (!this.currentSessionId) {
+        const sessionId = this.currentSessionId;
+        if (!sessionId) {
             return;
         }
 
@@ -296,12 +295,18 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
         this.shellApprovalRules.push(normalizedRule);
         try {
-            await this.persistShellApprovalRulesForSession(this.currentSessionId);
-            logInfo(`[AgentPanel] Added shell approval rule for session ${this.currentSessionId}: ${normalizedRule.join(' ')}`);
+            await this.persistShellApprovalRulesForSession(sessionId);
+            logInfo(`[AgentPanel] Added shell approval rule for session ${sessionId}: ${normalizedRule.join(' ')}`);
         } catch (error) {
+            const rollbackIndex = this.shellApprovalRules.findIndex(
+                (currentRule) => currentRule.join('\u0000') === ruleKey
+            );
+            if (rollbackIndex >= 0) {
+                this.shellApprovalRules.splice(rollbackIndex, 1);
+            }
             logError(
-                `[AgentPanel] Failed to persist shell approval rule for session ${this.currentSessionId}. ` +
-                `Keeping in-memory rule: ${normalizedRule.join(' ')}`,
+                `[AgentPanel] Failed to persist shell approval rule for session ${sessionId}. ` +
+                `Rolled back in-memory rule: ${normalizedRule.join(' ')}`,
                 error
             );
         }
@@ -319,49 +324,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         }
     }
 
-    private clearPendingLimitContinuation(): void {
-        this.pendingLimitContinuation = null;
-    }
-
-    private setPendingLimitContinuation(reason: LimitContinuationReason): void {
-        this.pendingLimitContinuation = { reason };
-    }
-
-    private isContinuationIntent(message: string): boolean {
-        const normalized = message.trim().toLowerCase();
-        if (!normalized || normalized.length > CONTINUATION_COMMAND_MAX_LENGTH) {
-            return false;
-        }
-
-        if (normalized.includes('\n')) {
-            return false;
-        }
-
-        const compact = normalized
-            .replace(/[`"']/g, '')
-            .replace(/[.!?]+$/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        const continuationPatterns = [
-            /^continue$/,
-            /^continue please$/,
-            /^continue the task$/,
-            /^continue from (here|there|where you (left off|stopped))$/,
-            /^resume$/,
-            /^resume please$/,
-            /^resume the task$/,
-            /^go on$/,
-            /^go ahead$/,
-            /^proceed$/,
-            /^carry on$/,
-            /^keep going$/,
-            /^keep working$/,
-        ];
-
-        return continuationPatterns.some((pattern) => pattern.test(compact));
-    }
-
     private buildContinuationReminder(reason: LimitContinuationReason): string {
         const reasonText = reason === 'max_tool_calls'
             ? 'the previous run reached the maximum step limit'
@@ -375,15 +337,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             'Start with a brief 1-2 sentence status update (done vs remaining), then continue with the remaining work.',
             '</system_reminder>',
         ].join('\n');
-    }
-
-    private buildQueryWithContinuationReminder(message: string): string {
-        if (!this.pendingLimitContinuation) {
-            return message;
-        }
-
-        const reminder = this.buildContinuationReminder(this.pendingLimitContinuation.reason);
-        return `${reminder}\n\n${message}`;
     }
 
     private buildContinuationApprovalContent(reason: LimitContinuationReason): string {
@@ -478,7 +431,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.currentSessionId = null;
             this.currentMode = DEFAULT_AGENT_MODE;
             this.clearShellApprovalRules();
-            this.clearPendingLimitContinuation();
             if (this.undoCheckpointManager) {
                 try {
                     await this.undoCheckpointManager.discardPendingRun();
@@ -669,15 +621,25 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private async applyUndoCheckpointRestore(checkpoint: StoredUndoCheckpoint): Promise<string[]> {
         const restoredFiles: string[] = [];
         const workspaceEdit = new vscode.WorkspaceEdit();
+        const validatedEntries: Array<{ file: StoredUndoCheckpoint['files'][number]; fullPath: string }> = [];
+        const unsafePaths: string[] = [];
 
         for (const file of checkpoint.files) {
             const fullPath = path.resolve(this.projectUri, file.path);
             const relative = path.relative(this.projectUri, fullPath).replace(/\\/g, '/');
             if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-                logError(`[AgentPanel] Skipping unsafe undo path: ${file.path}`);
+                unsafePaths.push(file.path);
                 continue;
             }
+            validatedEntries.push({ file, fullPath });
+        }
 
+        if (unsafePaths.length > 0) {
+            throw new Error(`Cannot undo checkpoint because it contains unsafe path(s): ${unsafePaths.join(', ')}`);
+        }
+
+        for (const entry of validatedEntries) {
+            const { file, fullPath } = entry;
             const fileUri = vscode.Uri.file(fullPath);
             restoredFiles.push(file.path);
             if (file.before.exists) {
@@ -757,23 +719,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 this.currentMode = effectiveMode;
             }
 
-            const hasPendingContinuation = this.pendingLimitContinuation !== null;
-            const shouldApplyContinuationReminder = hasPendingContinuation &&
-                this.isContinuationIntent(request.message);
-
-            if (hasPendingContinuation && !shouldApplyContinuationReminder) {
-                this.clearPendingLimitContinuation();
-            }
-
-            const effectiveQuery = shouldApplyContinuationReminder
-                ? this.buildQueryWithContinuationReminder(request.message)
-                : request.message;
-
-            if (shouldApplyContinuationReminder) {
-                logInfo('[AgentPanel] Applying continuation reminder for resumed run');
-                this.clearPendingLimitContinuation();
-            }
-
             shouldRunCleanup = true;
             await undoCheckpointManager.beginRun('agent');
 
@@ -834,25 +779,22 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 }
             };
 
-            let result = await runAgent(effectiveQuery);
+            let result = await runAgent(request.message);
 
             while (result.success && result.continuationSuggested && result.continuationReason) {
-                this.setPendingLimitContinuation(result.continuationReason);
                 const approval = await this.requestContinuationApproval(result.continuationReason);
                 if (!approval.approved) {
                     logInfo('[AgentPanel] User denied automatic continuation after run limit');
-                    this.clearPendingLimitContinuation();
                     break;
                 }
 
-                const continuationQuery = this.buildQueryWithContinuationReminder('continue');
+                const reminder = this.buildContinuationReminder(result.continuationReason);
+                const continuationQuery = `${reminder}\n\ncontinue`;
                 logInfo('[AgentPanel] User approved automatic continuation after run limit');
-                this.clearPendingLimitContinuation();
                 result = await runAgent(continuationQuery);
             }
 
             if (result.success) {
-                this.clearPendingLimitContinuation();
                 runSucceeded = true;
 
                 const undoCheckpoint = await undoCheckpointManager.commitRun();
@@ -868,7 +810,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                     modelMessages: result.modelMessages
                 };
             } else {
-                this.clearPendingLimitContinuation();
                 await undoCheckpointManager.discardPendingRun();
                 logError(`[AgentPanel] Agent failed: ${result.error}`);
                 return {
@@ -881,7 +822,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             logError('[AgentPanel] Error executing agent', error);
             this.currentAbortController = null;
             this.activeAbortControllers.clear();
-            this.clearPendingLimitContinuation();
             if (this.undoCheckpointManager) {
                 try {
                     await this.undoCheckpointManager.discardPendingRun();
