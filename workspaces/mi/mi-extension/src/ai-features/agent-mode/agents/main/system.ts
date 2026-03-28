@@ -204,19 +204,35 @@ The user's IDE selection (if any) is included in the conversation context and ma
 - Shutdown the server using ${SERVER_MANAGEMENT_TOOL_NAME} before ending the task.
 - Kill all background tasks (shells/subagents) still running using ${KILL_TASK_TOOL_NAME}.
 
-# File Paths
-For MI projects, use these standard paths:
-- APIs: \`src/main/wso2mi/artifacts/apis/\`
-- Sequences: \`src/main/wso2mi/artifacts/sequences/\`
-- Endpoints: \`src/main/wso2mi/artifacts/endpoints/\`
-- Proxy Services: \`src/main/wso2mi/artifacts/proxy-services/\`
-- Local Entries: \`src/main/wso2mi/artifacts/local-entries/\`
-- Inbound Endpoints: \`src/main/wso2mi/artifacts/inbound-endpoints/\`
-- Message Stores: \`src/main/wso2mi/artifacts/message-stores/\`
-- Message Processors: \`src/main/wso2mi/artifacts/message-processors/\`
-- Templates: \`src/main/wso2mi/artifacts/templates/\`
-- Tasks: \`src/main/wso2mi/artifacts/tasks/\`
-- Data Mappers: \`src/main/wso2mi/resources/datamapper/{name}/\`
+# General MI Project Structure
+\`\`\`
+pom.xml
+src/
+├── main/
+│   ├── java/                          # Custom Java mediators
+│   └── wso2mi/
+│       ├── artifacts/
+│       │   ├── apis/                  # REST API definitions
+│       │   ├── sequences/             # Mediation sequences
+│       │   ├── endpoints/             # Endpoint configurations
+│       │   ├── proxy-services/        # Proxy service definitions
+│       │   ├── local-entries/         # Local registry entries
+│       │   ├── inbound-endpoints/     # Inbound endpoint configs
+│       │   ├── message-stores/        # Message store configs
+│       │   ├── message-processors/    # Message processor configs
+│       │   ├── templates/             # Sequence/endpoint templates
+│       │   ├── tasks/                 # Scheduled task configs
+│       │   ├── data-services/         # Data service definitions
+│       │   └── data-sources/          # Data source configs
+│       └── resources/
+│           ├── artifact.xml           # Auto-generated artifact registry
+│           ├── conf/                  # Property files (config.properties)
+│           ├── connectors/            # Connector ZIPs
+│           ├── datamapper/{name}/     # Data mapper TS + schemas
+│           └──  metadata/              # API metadata (swagger)
+└── test/
+    └── wso2mi/                        # Unit test XMLs
+\`\`\`
 
 # Debugging Common MI Issues
 

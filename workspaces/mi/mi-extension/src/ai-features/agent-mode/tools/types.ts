@@ -154,7 +154,6 @@ export const TOOL_LOAD_TOOL_NAME = 'load_tools';
 // ============================================================================
 
 export const DEFERRED_TOOLS = new Set<string>([
-    FILE_GLOB_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,

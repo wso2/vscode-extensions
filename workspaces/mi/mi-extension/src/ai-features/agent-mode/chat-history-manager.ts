@@ -50,7 +50,9 @@ export interface SessionMetadata {
     sessionVersion?: number;
 }
 
-export const TOOL_USE_INTERRUPTION_CONTEXT = `The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the patch hunks were NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.`;
+export const TOOL_USE_INTERRUPTION_CONTEXT = `<system-reminder>The user interrupted while a tool was running. The tool use was rejected and any pending mutations were NOT applied. Stop immediately and wait for the user's next message.</system-reminder>`;
+
+export const USER_INTERRUPTION_CONTEXT = `<system-reminder>The user interrupted your response before any tool calls were made. Your previous output was discarded. Wait for the user's next message before proceeding.</system-reminder>`;
 
 /**
  * Session summary for UI list display
@@ -602,7 +604,7 @@ export class ChatHistoryManager {
     async saveInterruptionMessage(wasToolUse: boolean = false): Promise<void> {
         const interruptionText = wasToolUse
             ? TOOL_USE_INTERRUPTION_CONTEXT
-            : '[Request interrupted by user]';
+            : USER_INTERRUPTION_CONTEXT;
 
         const message = {
             role: 'user',
@@ -1280,13 +1282,7 @@ export class ChatHistoryManager {
                     }
 
                     // Skip interruption/system-only messages from UI display (they're only for LLM context).
-                    // For multi-block messages, system-reminder blocks are already filtered above,
-                    // so userContent here contains only user-facing text.
-                    if (
-                        userContent.includes('[Request interrupted by user') ||
-                        userContent.includes("The user doesn't want to proceed with this tool use.") ||
-                        userContent.includes('<system-reminder>')
-                    ) {
+                    if (userContent.includes('<system-reminder>')) {
                         continue;
                     }
 
