@@ -48,6 +48,7 @@ export interface ToolResult {
     validation?: ValidationDiagnostics;
 }
 
+/** @deprecated Replaced by simple old_string/new_string edit. Kept for reference only. */
 export interface FileEditHunk {
     old_text: string;
     new_text: string;
@@ -255,7 +256,9 @@ export type ReadExecuteFn = (args: {
 
 export type EditExecuteFn = (args: {
     file_path: string;
-    hunks: FileEditHunk[];
+    old_string: string;
+    new_string: string;
+    replace_all?: boolean;
 }) => Promise<ToolResult>;
 
 export type GrepExecuteFn = (args: {
