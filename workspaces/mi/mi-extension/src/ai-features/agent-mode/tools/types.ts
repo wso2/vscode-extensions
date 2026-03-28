@@ -146,8 +146,11 @@ export const MEMORY_TOOL_NAME = 'memory';
 // Log Tools
 export const READ_SERVER_LOGS_TOOL_NAME = 'read_server_logs';
 
+// Tool Loading (local — replaces Anthropic native tool_search)
+export const TOOL_LOAD_TOOL_NAME = 'load_tools';
+
 // ============================================================================
-// Deferred Tools — loaded on-demand via Anthropic native tool search
+// Deferred Tools — hidden from initial prompt, loaded on-demand via tool_search
 // ============================================================================
 
 export const DEFERRED_TOOLS = new Set<string>([
