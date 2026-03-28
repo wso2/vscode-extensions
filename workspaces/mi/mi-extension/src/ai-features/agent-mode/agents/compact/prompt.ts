@@ -107,6 +107,6 @@ ${PROMPT}
 export const COMPACT_SYSTEM_REMINDER_AUTO_TRIGGERED = `
 <system-reminder>
 The conversation context window is running out. You must summarize the conversation immediately so that work can continue in a fresh context.
-${PROMPT}
 </system-reminder>
+${PROMPT}
 `;

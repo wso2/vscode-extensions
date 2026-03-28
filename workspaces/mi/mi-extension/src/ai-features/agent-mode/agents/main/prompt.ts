@@ -77,6 +77,7 @@ export interface UserPromptContentBlock {
 // {{/if}}
 
 export const PROMPT_TEMPLATE = `
+{{#if include_session_context}}
 <system-reminder>
 # Environment
 Working directory: {{env_working_directory}}
@@ -104,6 +105,7 @@ Available WSO2 connectors from the WSO2 connector store:
 Available WSO2 inbound endpoints from the WSO2 connector store:
 {{available_inbound_endpoints}}
 </system-reminder>
+{{/if}}
 
 {{#if currentlyOpenedFile}}
 <system-reminder>
@@ -177,6 +179,8 @@ export interface UserPromptParams {
     runtimeVersion?: string | null;
     /** True when runtime version was detected from project metadata */
     runtimeVersionDetected?: boolean;
+    /** Include session context (env, connectors) — true for first message or after compaction, false otherwise */
+    includeSessionContext?: boolean;
 }
 
 // ============================================================================
@@ -403,6 +407,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<UserPromp
         currentlyOpenedFile: currentlyOpenedFile, // Currently editing file (optional)
         userPreconfigured: params.payloads, // Pre-configured payloads (optional)
         payloads: params.payloads, // Backward-compatible template key
+        include_session_context: params.includeSessionContext ?? true,
         available_connectors: availableConnectors.join(', '), // Available connectors list
         available_inbound_endpoints: availableInboundEndpoints.join(', '), // Available inbound endpoints list
         env_working_directory: params.projectPath,
