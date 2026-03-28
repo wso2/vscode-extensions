@@ -20,7 +20,7 @@
 // Dev Feature Flags
 // ============================================================================
 const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
-const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
+const ENABLE_DEVTOOLS = true; // Set to true to enable AI SDK DevTools (local development only!)
 const ENABLE_MEMORY_TOOL = false; // Set to true to enable Anthropic native memory tool (persistent project-scoped memory across sessions)
 const ENABLE_NATIVE_COMPACTION = true; // Set to true to enable Anthropic native server-side compaction (auto-summarizes when context grows large)
 
@@ -33,7 +33,7 @@ import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMes
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { getAnthropicClient, getAnthropicClientForCustomModel, getAnthropicProvider, AnthropicModel, resolveMainModelId } from '../../../connection';
 import { getSystemPrompt } from '../main/system';
-import { getUserPrompt, UserPromptParams } from './prompt';
+import { getUserPrompt, UserPromptParams, UserPromptContentBlock } from './prompt';
 import { addCacheControlToMessages } from '../../../cache-utils';
 import { buildMessageContent } from '../../attachment-utils';
 import { COMPACT_SYSTEM_REMINDER_AUTO_TRIGGERED } from '../compact/prompt';
@@ -470,7 +470,7 @@ export async function executeAgent(
             runtimeVersionDetected: systemPromptSelection.runtimeVersionDetected,
             // Note: existingFiles and currentlyOpenedFile are fetched internally by getUserPrompt
         };
-        const userMessageContent = await getUserPrompt(userPromptParams);
+        const userPromptBlocks = await getUserPrompt(userPromptParams);
 
         const hasFiles = request.files && request.files.length > 0;
         const hasImages = request.images && request.images.length > 0;
@@ -479,15 +479,14 @@ export async function executeAgent(
             logInfo(`[Agent] Including ${request.files?.length || 0} files and ${request.images?.length || 0} images in user message`);
         }
 
-        // Build user message (multimodal when attachments are present)
+        // Build user message content blocks.
+        // Attachments (files/images) are prepended, then prompt blocks follow
+        // (ordered stable → volatile, user query last).
         const userMessage: UserModelMessage = {
             role: 'user',
             content: (hasFiles || hasImages)
-                ? buildMessageContent(userMessageContent, request.files, request.images)
-                : [{
-                    type: 'text',
-                    text: userMessageContent,
-                }]
+                ? buildMessageContent(userPromptBlocks, request.files, request.images)
+                : userPromptBlocks
         } as UserModelMessage;
 
         // Build messages array
@@ -597,14 +596,16 @@ export async function executeAgent(
         // process.cwd() at module load time. Dynamic import ensures it sees the correct path.
         if (ENABLE_DEVTOOLS) {
             const originalCwd = process.cwd();
+            const originalNodeEnv = process.env.NODE_ENV;
             process.chdir(request.projectPath);
+            process.env.NODE_ENV = 'development'; // DevTools throws in production
             const { devToolsMiddleware } = await import('@ai-sdk/devtools');
             model = wrapLanguageModel({
                 model,
-                // Cast to any to handle potential version mismatch between AI SDK and DevTools
                 middleware: devToolsMiddleware() as any,
             });
-            process.chdir(originalCwd);  // Restore immediately after middleware creation
+            process.env.NODE_ENV = originalNodeEnv;
+            process.chdir(originalCwd);
         }
 
         // prepareStep runs before each API call.
