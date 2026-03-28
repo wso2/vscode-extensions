@@ -19,10 +19,10 @@
 // ============================================================================
 // Dev Feature Flags
 // ============================================================================
-const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
-const ENABLE_DEVTOOLS = true; // Set to true to enable AI SDK DevTools (local development only!)
-const ENABLE_MEMORY_TOOL = false; // Set to true to enable Anthropic native memory tool (persistent project-scoped memory across sessions)
-const ENABLE_NATIVE_COMPACTION = true; // Set to true to enable Anthropic native server-side compaction (auto-summarizes when context grows large)
+export const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
+export const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
+export const ENABLE_MEMORY_TOOL = false; // Set to true to enable Anthropic native memory tool (persistent project-scoped memory across sessions)
+export const ENABLE_NATIVE_COMPACTION = true; // Set to true to enable Anthropic native server-side compaction (auto-summarizes when context grows large)
 
 // Native compaction trigger threshold in tokens.
 // When input tokens exceed this value, the API auto-compacts the conversation.
@@ -460,6 +460,12 @@ export async function executeAgent(
             }
         } as SystemModelMessage;
 
+        // Include env + connector context only on first message or after compaction
+        const isFirstMessage = chatHistory.length === 0;
+        const isPostCompaction = chatHistory.length > 0
+            && (chatHistory[0] as any)?._compactSynthetic === true;
+        const includeSessionContext = isFirstMessage || isPostCompaction;
+
         // Build user prompt
         const userPromptParams: UserPromptParams = {
             query: request.query,
@@ -468,7 +474,7 @@ export async function executeAgent(
             sessionId,
             runtimeVersion,
             runtimeVersionDetected: systemPromptSelection.runtimeVersionDetected,
-            // Note: existingFiles and currentlyOpenedFile are fetched internally by getUserPrompt
+            includeSessionContext,
         };
         const userPromptBlocks = await getUserPrompt(userPromptParams);
 
@@ -1277,9 +1283,7 @@ export async function executeAgent(
                 // This helps LLM understand in next session that previous request was interrupted
                 if (request.chatHistoryManager) {
                     try {
-                        await request.chatHistoryManager.saveInterruptionMessage(
-                            isExecutingTool || classifiedError.kind === 'tool_interruption'
-                        );
+                        await request.chatHistoryManager.saveInterruptionMessage(isExecutingTool);
                         logInfo('[Agent] Saved interruption message to chat history');
                     } catch (saveError) {
                         logError('[Agent] Failed to save interruption message', saveError);
