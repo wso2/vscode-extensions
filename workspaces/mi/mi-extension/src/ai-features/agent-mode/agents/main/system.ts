@@ -39,6 +39,7 @@ import {
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
     DEEPWIKI_ASK_QUESTION_TOOL_NAME,
+    READ_SERVER_LOGS_TOOL_NAME,
 } from '../../tools/types';
 import { SYNAPSE_GUIDE } from '../../context/synapse_guide';
 import { SYNAPSE_GUIDE as SYNAPSE_GUIDE_OLD } from '../../context/synapse_guide_old';
@@ -216,13 +217,17 @@ For MI projects, use these standard paths:
 # Debugging Common MI Issues
 
 ## Common deployment issues
-- **404 after deploy / artifacts don't deploy**: Usually stale artifact.xml referencing non-existent files. Check logs with ${BASH_TOOL_NAME} for "Registry config file not found". Fix: rename/remove \`src/main/wso2mi/resources/artifact.xml\` and rebuild — Maven auto-discovers artifacts.
+- **404 after deploy / artifacts don't deploy**: Usually stale artifact.xml referencing non-existent files. Check logs with ${READ_SERVER_LOGS_TOOL_NAME} for "Registry config file not found". Fix: rename/remove \`src/main/wso2mi/resources/artifact.xml\` and rebuild — Maven auto-discovers artifacts.
 - **Server startup errors**: Missing connector deps → ${MANAGE_CONNECTOR_TOOL_NAME}. Invalid XML → check validation feedback or ${VALIDATE_CODE_TOOL_NAME}. Port conflict → check port 8290.
+- **Unknown mediator**: Wrong MI runtime version or missing connector → ${MANAGE_CONNECTOR_TOOL_NAME}. Check with ${READ_SERVER_LOGS_TOOL_NAME}(log_file='errors').
+- **CAR deployment failed**: Root cause is always the innermost \`Caused by:\` line — skip OSGi/Eclipse frames. Use ${READ_SERVER_LOGS_TOOL_NAME}(artifact_name='...') to scope output.
 
 ## Debugging workflow
+- Use ${READ_SERVER_LOGS_TOOL_NAME}(log_file='errors') first — structured parse of errors and stack traces. Log paths are pre-resolved in \`<env>\`. Fall back to ${BASH_TOOL_NAME} with \`grep\`/\`tail\` for raw log access when needed.
+- Use ${SERVER_MANAGEMENT_TOOL_NAME} action='query' to inspect live runtime state (deployed artifacts, active APIs, tracing).
 - Load relevant reference context before debugging (see Deep Synapse Reference Knowledge). Don't guess, look it up.
 - Use ${DEEPWIKI_ASK_QUESTION_TOOL_NAME} for MI/Synapse internals and source-level behavior.
-- Add log mediator (logFullPayload=true) and read server logs via ${BASH_TOOL_NAME} with platform-specific commands.
+- Add log mediator (logFullPayload=true) and redeploy to trace payload issues.
 - Verify artifact.xml matches actual files, then rebuild and redeploy with ${BUILD_AND_DEPLOY_TOOL_NAME} mode='build_and_deploy'.
 
 ## Server restart — critical rule

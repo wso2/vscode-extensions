@@ -89,6 +89,10 @@ import {
     createWebFetchTool,
     createWebFetchExecute,
 } from '../../tools/web_tools';
+import {
+    createReadServerLogsTool,
+    createReadServerLogsExecute,
+} from '../../tools/log_tools';
 import { AnthropicModel, resolveMainModelId } from '../../../connection';
 import { AgentMode, ModelSettings } from '@wso2/mi-core';
 import { persistOversizedToolResult } from '../../tools/tool-result-persistence';
@@ -119,6 +123,7 @@ import {
     ToolResult,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    READ_SERVER_LOGS_TOOL_NAME,
     ShellApprovalRuleStore,
     DEFERRED_TOOLS,
 } from '../../tools/types';
@@ -153,6 +158,7 @@ export {
     TASK_OUTPUT_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    READ_SERVER_LOGS_TOOL_NAME,
 };
 import { AgentEventHandler } from './agent';
 
@@ -173,7 +179,8 @@ The following tools are available but deferred — search for them when needed:
 - kill_task: Terminate a background shell or subagent task
 - task_output: Get output from a background task
 - web_search: Search the web for external information
-- web_fetch: Fetch and analyze content from a specific URL`;
+- web_fetch: Fetch and analyze content from a specific URL
+- read_server_logs: Read and analyze MI server log files (errors, deployments, HTTP requests)`;
 
 /**
  * Parameters for creating the tools object
@@ -219,6 +226,7 @@ const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
+    READ_SERVER_LOGS_TOOL_NAME,
 ]);
 
 const PLAN_MODE_ALLOWED_TOOLS = new Set<string>([
@@ -688,6 +696,11 @@ export function createAgentTools(params: CreateToolsParams) {
                 mainModelId,
                 mainModelIsCustom
             ))
+        ),
+
+        // Log Tools (1 tool)
+        [READ_SERVER_LOGS_TOOL_NAME]: createReadServerLogsTool(
+            getWrappedExecute(READ_SERVER_LOGS_TOOL_NAME, createReadServerLogsExecute(projectPath))
         ),
 
         // Shell Tools (3 tools)

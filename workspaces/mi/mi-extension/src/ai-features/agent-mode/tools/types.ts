@@ -142,6 +142,9 @@ export const WEB_FETCH_TOOL_NAME = 'web_fetch';
 // Memory Tool (Anthropic native memory_20250818)
 export const MEMORY_TOOL_NAME = 'memory';
 
+// Log Tools
+export const READ_SERVER_LOGS_TOOL_NAME = 'read_server_logs';
+
 // ============================================================================
 // Deferred Tools — loaded on-demand via Anthropic native tool search
 // ============================================================================
@@ -159,6 +162,7 @@ export const DEFERRED_TOOLS = new Set<string>([
     TASK_OUTPUT_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    READ_SERVER_LOGS_TOOL_NAME,
 ]);
 
 // DeepWiki MCP Tool (Anthropic prefixes with server name: deepwiki_ask_question)
@@ -308,6 +312,15 @@ export type ServerManagementExecuteFn = (args: {
     artifact_name?: string;
     control_action?: string;
     body?: Record<string, unknown>;
+}) => Promise<ToolResult>;
+
+export type ReadServerLogsExecuteFn = (args: {
+    log_file?: 'errors' | 'main' | 'http' | 'service' | 'correlation';
+    tail_lines?: number;
+    artifact_name?: string;
+    grep_pattern?: string;
+    parse_mode?: 'summary' | 'raw';
+    max_stack_frames?: number;
 }) => Promise<ToolResult>;
 
 // ============================================================================
