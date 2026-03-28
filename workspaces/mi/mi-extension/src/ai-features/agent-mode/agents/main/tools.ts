@@ -598,13 +598,16 @@ export function createAgentTools(params: CreateToolsParams) {
         }
     );
 
+    // Shared set tracking files read in this session (for write tool's read-before-write guard)
+    const readFiles = new Set<string>();
+
     const allTools = {
         // File Operations (6 tools)
         [FILE_WRITE_TOOL_NAME]: createWriteTool(
-            getWrappedExecute(FILE_WRITE_TOOL_NAME, createWriteExecute(projectPath, modifiedFiles, undoCheckpointManager))
+            getWrappedExecute(FILE_WRITE_TOOL_NAME, createWriteExecute(projectPath, modifiedFiles, undoCheckpointManager, readFiles))
         ),
         [FILE_READ_TOOL_NAME]: createReadTool(
-            getWrappedExecute(FILE_READ_TOOL_NAME, createReadExecute(projectPath)),
+            getWrappedExecute(FILE_READ_TOOL_NAME, createReadExecute(projectPath, readFiles)),
             projectPath
         ),
         [FILE_EDIT_TOOL_NAME]: createEditTool(
