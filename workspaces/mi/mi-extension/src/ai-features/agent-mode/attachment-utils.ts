@@ -106,7 +106,16 @@ function buildTextFileSection(textFiles: FileObject[]): string {
     return `The following text files are provided for your reference:\n${sections}`.trim();
 }
 
-export function buildMessageContent(prompt: string, files?: FileObject[], images?: ImageObject[]): any[] {
+/**
+ * Builds multimodal user message content by prepending file/image attachments
+ * before the prompt content blocks.
+ *
+ * @param promptBlocks - Array of text content blocks from getUserPrompt()
+ * @param files - Optional file attachments (text, PDF)
+ * @param images - Optional image attachments
+ * @returns Combined content array: [attachments..., promptBlocks...]
+ */
+export function buildMessageContent(promptBlocks: Array<{ type: 'text'; text: string }>, files?: FileObject[], images?: ImageObject[]): any[] {
     const content: any[] = [];
 
     if (files && files.length > 0) {
@@ -143,10 +152,8 @@ export function buildMessageContent(prompt: string, files?: FileObject[], images
         }
     }
 
-    content.push({
-        type: "text",
-        text: prompt,
-    });
+    // Append all prompt content blocks (system-reminder wrapped context + user query)
+    content.push(...promptBlocks);
 
     return content;
 }

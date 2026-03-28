@@ -556,12 +556,14 @@ export class ChatHistoryManager {
             // Update metadata
             await this.incrementMessageCount();
 
-            // Update title from first user message
+            // Update title from first user message.
+            // For array content (multi-block prompts), use the LAST text block
+            // which is the user query — earlier blocks are system-reminder context.
             if (message.role === 'user') {
                 const content = typeof message.content === 'string'
                     ? message.content
                     : Array.isArray(message.content)
-                        ? message.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
+                        ? (message.content.filter((p: any) => p.type === 'text').pop()?.text ?? '')
                         : '';
                 await this.updateTitleFromMessage(content);
             }
@@ -1036,12 +1038,13 @@ export class ChatHistoryManager {
                         if (!line.trim()) continue;
                         try {
                             const entry = JSON.parse(line) as JournalEntry;
-                            // Find first user message for title
+                            // Find first user message for title.
+                            // For array content, use last text block (user query, not system-reminder context).
                             if (entry.type === 'user' && entry.message?.content && title === 'New Chat') {
                                 const msgContent = typeof entry.message.content === 'string'
                                     ? entry.message.content
                                     : Array.isArray(entry.message.content)
-                                        ? entry.message.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
+                                        ? (entry.message.content.filter((p: any) => p.type === 'text').pop()?.text ?? '')
                                         : '';
                                 title = ChatHistoryManager.extractTitle(msgContent);
                             }
@@ -1232,14 +1235,15 @@ export class ChatHistoryManager {
                     if (typeof msg.content === 'string') {
                         userContent = msg.content;
                     } else if (Array.isArray(msg.content)) {
-                        // Extract text from content parts and fallback attachment markers for older history
+                        // Extract text from content parts and fallback attachment markers for older history.
+                        // Filter out <system-reminder> blocks — they're context for the LLM, not user-facing.
                         const textParts: string[] = [];
                         let unnamedPdfCount = 0;
                         let unnamedImageCount = 0;
 
                         for (const part of msg.content) {
                             if (part.type === 'text') {
-                                if (part.text) {
+                                if (part.text && !part.text.includes('<system-reminder>')) {
                                     textParts.push(part.text);
                                 }
                                 // Fallback extraction for text file names from formatted text block
@@ -1275,8 +1279,9 @@ export class ChatHistoryManager {
                         userContent = textParts.join('');
                     }
 
-                    // Skip interruption messages from UI display (they're only for LLM context)
-                    // These are saved when user aborts a request
+                    // Skip interruption/system-only messages from UI display (they're only for LLM context).
+                    // For multi-block messages, system-reminder blocks are already filtered above,
+                    // so userContent here contains only user-facing text.
                     if (
                         userContent.includes('[Request interrupted by user') ||
                         userContent.includes("The user doesn't want to proceed with this tool use.") ||
@@ -1285,7 +1290,8 @@ export class ChatHistoryManager {
                         continue;
                     }
 
-                    // Extract content between <user_query> tags (user's actual query)
+                    // Extract content between <user_query> tags (user's actual query).
+                    // For multi-block messages this is a no-op (query is already unwrapped).
                     const queryMatch = userContent.match(/<user_query>\s*([\s\S]*?)\s*<\/user_query>/);
                     if (queryMatch && queryMatch[1]) {
                         userContent = queryMatch[1].trim();

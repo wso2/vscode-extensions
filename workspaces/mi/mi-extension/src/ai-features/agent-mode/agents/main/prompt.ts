@@ -27,7 +27,6 @@ import { getRuntimeVersionFromPom } from '../../tools/connector_store_cache';
 import { getServerPathFromConfig } from '../../../../util/onboardingUtils';
 import { AgentMode } from '@wso2/mi-core';
 import { getModeReminder } from './mode';
-import { buildSystemReminder } from './prompt_system_reminder';
 import { logDebug } from '../../../copilot/logger';
 import { getStateMachine } from '../../../../stateMachine';
 
@@ -38,39 +37,48 @@ const MAX_PROJECT_STRUCTURE_CHARS = 10000;
 // User Prompt Template
 // ============================================================================
 
+// ============================================================================
+// Content Block Type
+// ============================================================================
+
+/**
+ * A single text content block for the user message.
+ * Splitting the user prompt into multiple blocks enables better prompt caching:
+ * - Stable blocks (env, connectors) get cache hits even when volatile blocks change
+ * - Blocks are ordered from most stable to most volatile for maximum prefix reuse
+ */
+export interface UserPromptContentBlock {
+    type: 'text';
+    text: string;
+}
+
+// ============================================================================
+// User Prompt Template
+// ============================================================================
+
+/**
+ * Handlebars template for the user prompt.
+ *
+ * After rendering, the output is split into separate content blocks at
+ * <system-reminder>...</system-reminder> and <user_query>...</user_query> boundaries.
+ * Each <system-reminder> block becomes a separate API content block (for prompt caching).
+ * The <user_query> content becomes a plain text block (tags stripped).
+ *
+ * Block order: stable → volatile (for optimal prefix-based caching)
+ */
+
+// {{#if fileList}}
+// <system-reminder>
+// # Project Structure
+// {{#each fileList}}
+// {{this}}
+// {{/each}}
+// </system-reminder>
+// {{/if}}
+
 export const PROMPT_TEMPLATE = `
-{{#if fileList}}
-<project_structure>
-{{#each fileList}}
-{{this}}
-{{/each}}
-</project_structure>
-{{/if}}
-
-{{#if currentlyOpenedFile}}
-<ide_opened_file>
-The user has opened the file {{currentlyOpenedFile}} in the IDE. This may or may not be related to the current task. User may refer it as "this".
-</ide_opened_file>
-{{/if}}
-
-{{#if userPreconfigured}}
-<user_preconfigured>
-{{payloads}}
-</user_preconfigured>
-These are preconfigured values in the Low-Code IDE that should be accessed using Synapse expressions in the integration flow. Always use Synapse expressions when referring to these values.
-{{/if}}
-
-<available_connectors>
-{{available_connectors}}
-These are the available WSO2 connectors from WSO2 connector store.
-</available_connectors>
-
-<available_inbound_endpoints>
-{{available_inbound_endpoints}}
-These are the available WSO2 inbound endpoints from WSO2 inbound endpoint store.
-</available_inbound_endpoints>
-
-<env>
+<system-reminder>
+# Environment
 Working directory: {{env_working_directory}}
 Is directory a git repo: {{env_is_git_repo}}
 {{#if env_git_branch}}Current git branch: {{env_git_branch}}{{/if}}
@@ -86,19 +94,61 @@ MI Runtime logs:
   - http_access.log (HTTP requests): {{env_mi_http_access_log_path}}
   - wso2-mi-service.log (service lifecycle): {{env_mi_service_log_path}}
   - correlation.log (request tracing): {{env_mi_correlation_log_path}}
-</env>
+</system-reminder>
 
-{{#if runtime_version_detection_warning}}
-<system_reminder>
-{{runtime_version_detection_warning}}
-</system_reminder>
+<system-reminder>
+# Available Connectors & Inbound Endpoints
+Available WSO2 connectors from the WSO2 connector store:
+{{available_connectors}}
+
+Available WSO2 inbound endpoints from the WSO2 connector store:
+{{available_inbound_endpoints}}
+</system-reminder>
+
+{{#if currentlyOpenedFile}}
+<system-reminder>
+# IDE Context
+The user has opened the file {{currentlyOpenedFile}} in the IDE. This may or may not be related to the current task. User may refer to it as "this".
+</system-reminder>
 {{/if}}
 
-<system_reminder>
+{{#if userPreconfigured}}
+<system-reminder>
+# Preconfigured Values
+{{payloads}}
+These are preconfigured values in the Low-Code IDE that should be accessed using Synapse expressions in the integration flow. Always use Synapse expressions when referring to these values.
+</system-reminder>
+{{/if}}
+
+{{#if runtime_version_detection_warning}}
+<system-reminder>
+# Runtime Version Warning
+{{runtime_version_detection_warning}}
+</system-reminder>
+{{/if}}
+
+<system-reminder>
+You are in {{mode_upper}} mode.
+{{mode_policy}}
+</system-reminder>
+
+{{#if plan_file_reminder}}
+<system-reminder>
+{{plan_file_reminder}}
+</system-reminder>
+{{/if}}
+
+{{#if connector_store_reminder}}
+<system-reminder>
+# Connector Store Status
+{{connector_store_reminder}}
+</system-reminder>
+{{/if}}
+
+<system-reminder>
 YOU ARE IN DEVELOPMENT PHASE. NOT IN PRODUCTION YET. HELP THE DEVELOPER IF DEVELOPER ASKS META QUESTIONS ABOUT YOUR INTERNALS/TOOL CALLS etc
-{{system_reminder}}
 **DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task unless explicitly requested by the user.**
-</system_reminder>
+</system-reminder>
 
 <user_query>
 {{question}}
@@ -139,6 +189,37 @@ export interface UserPromptParams {
 function renderTemplate(templateContent: string, context: Record<string, any>): string {
     const template = Handlebars.compile(templateContent);
     return template(context);
+}
+
+/**
+ * Split a rendered prompt string into separate content blocks.
+ *
+ * Extracts:
+ * - Each `<system-reminder>...</system-reminder>` block → content block (tags kept)
+ * - `<user_query>...</user_query>` → plain text content block (tags stripped)
+ * - Whitespace between blocks is ignored
+ *
+ * This enables Anthropic's prefix-based prompt caching: stable blocks at the start
+ * get cache hits even when later volatile blocks change.
+ */
+export function splitPromptIntoBlocks(rendered: string): UserPromptContentBlock[] {
+    const blocks: UserPromptContentBlock[] = [];
+
+    // Match all <system-reminder> blocks and the <user_query> block
+    const blockPattern = /(<system-reminder>[\s\S]*?<\/system-reminder>)|(<user_query>\s*([\s\S]*?)\s*<\/user_query>)/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = blockPattern.exec(rendered)) !== null) {
+        if (match[1]) {
+            // <system-reminder> block — keep tags intact
+            blocks.push({ type: 'text', text: match[1].trim() });
+        } else if (match[3] !== undefined) {
+            // <user_query> block — strip tags, extract inner content
+            blocks.push({ type: 'text', text: match[3].trim() });
+        }
+    }
+
+    return blocks;
 }
 
 /**
@@ -254,15 +335,16 @@ function getRuntimePaths(projectPath: string): {
 // ============================================================================
 
 /**
- * Generates the user prompt content using Handlebars template
- * Automatically fetches:
- * 1. Project structure (all files in tree format)
- * 2. Currently opened file (if available)
- * 3. User query
+ * Generates the user prompt as an array of content blocks.
+ *
+ * Renders the Handlebars template, then splits the result into separate
+ * content blocks at <system-reminder> and <user_query> boundaries.
+ * Each <system-reminder> block becomes a separate API content block.
+ * The <user_query> content becomes a plain text block (tags stripped).
  *
  * The agent can read any file content on-demand using file_read tool.
  */
-export async function getUserPrompt(params: UserPromptParams): Promise<string> {
+export async function getUserPrompt(params: UserPromptParams): Promise<UserPromptContentBlock[]> {
     // Get all files in the project (relative paths from project root)
     const existingFiles = getExistingFiles(params.projectPath, MAX_PROJECT_STRUCTURE_FILES);
     let projectStructure = formatProjectStructure(existingFiles);
@@ -288,9 +370,6 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     const connectorStoreReminder = connectorCatalog.warnings.length > 0
         ? `Connector store status: ${connectorCatalog.storeStatus}. ${connectorCatalog.warnings.join(' ')}`
         : '';
-    const modeReminderSections = [modePolicyReminder, planFileReminder, connectorStoreReminder]
-        .filter((section) => section.trim().length > 0);
-    const modeReminder = modeReminderSections.join('\n\n');
 
     // Prepare template context
     const isGitRepo = fs.existsSync(path.join(params.projectPath, '.git'));
@@ -341,9 +420,13 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         env_mi_service_log_path: runtimePaths.serviceLogPath,
         env_mi_correlation_log_path: runtimePaths.correlationLogPath,
         runtime_version_detection_warning: runtimeVersionDetectionWarning,
-        system_reminder: buildSystemReminder(mode, modeReminder),
+        mode_upper: mode.toUpperCase(),
+        mode_policy: modePolicyReminder,
+        plan_file_reminder: planFileReminder,
+        connector_store_reminder: connectorStoreReminder,
     };
 
-    // Render the template
-    return renderTemplate(PROMPT_TEMPLATE, context);
+    // Render the template and split into content blocks
+    const rendered = renderTemplate(PROMPT_TEMPLATE, context);
+    return splitPromptIntoBlocks(rendered);
 }
