@@ -330,12 +330,12 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             : 'the previous run reached the maximum token/output limit';
 
         return [
-            '<system_reminder>',
+            '<system-reminder>',
             `Continuation request detected: ${reasonText}.`,
             'Resume from the existing conversation state in this session.',
             'Do not repeat already completed tool calls, file edits, or long explanations.',
             'Start with a brief 1-2 sentence status update (done vs remaining), then continue with the remaining work.',
-            '</system_reminder>',
+            '</system-reminder>',
         ].join('\n');
     }
 
