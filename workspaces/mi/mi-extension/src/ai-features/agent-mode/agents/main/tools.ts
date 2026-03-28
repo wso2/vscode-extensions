@@ -93,6 +93,7 @@ import {
     createReadServerLogsTool,
     createReadServerLogsExecute,
 } from '../../tools/log_tools';
+import { createToolSearchTool } from '../../tools/tool_load';
 import { AnthropicModel, resolveMainModelId } from '../../../connection';
 import { AgentMode, ModelSettings } from '@wso2/mi-core';
 import { persistOversizedToolResult } from '../../tools/tool-result-persistence';
@@ -124,6 +125,7 @@ import {
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
     READ_SERVER_LOGS_TOOL_NAME,
+    TOOL_LOAD_TOOL_NAME,
     ShellApprovalRuleStore,
     DEFERRED_TOOLS,
 } from '../../tools/types';
@@ -159,28 +161,9 @@ export {
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
     READ_SERVER_LOGS_TOOL_NAME,
+    TOOL_LOAD_TOOL_NAME,
 };
 import { AgentEventHandler } from './agent';
-
-/**
- * Deferred tool catalog — injected into the system reminder so the model
- * knows which additional tools are available via Anthropic tool search.
- */
-export const DEFERRED_TOOL_CATALOG = `# Additional Tools (available via search)
-The following tools are available but deferred — search for them when needed:
-- glob: Find files by glob pattern, sorted by modification time
-- create_data_mapper: Create a new data mapper with input/output schemas
-- generate_data_mapping: Generate TypeScript field mappings for an existing data mapper
-- server_management: Query/control MI server artifacts (status, query, activate/deactivate, log levels)
-- enter_plan_mode: Enter planning phase for complex implementation tasks
-- exit_plan_mode: Request plan approval from user
-- ask_user_question: Ask user a clarification question with options
-- create_subagent: Spawn Explore or SynapseContext subagent for deep exploration
-- kill_task: Terminate a background shell or subagent task
-- task_output: Get output from a background task
-- web_search: Search the web for external information
-- web_fetch: Fetch and analyze content from a specific URL
-- read_server_logs: Read and analyze MI server log files (errors, deployments, HTTP requests)`;
 
 /**
  * Parameters for creating the tools object
@@ -723,11 +706,13 @@ export function createAgentTools(params: CreateToolsParams) {
         [TASK_OUTPUT_TOOL_NAME]: createTaskOutputTool(
             getWrappedExecute(TASK_OUTPUT_TOOL_NAME, createTaskOutputExecute())
         ),
+
+        // Tool Search (local — returns tool-reference blocks for deferred tool discovery)
+        [TOOL_LOAD_TOOL_NAME]: createToolSearchTool(),
     };
 
-    // Mark deferred tools with providerOptions for Anthropic native tool search.
-    // Deferred tools are not loaded into context upfront — the model discovers
-    // them on-demand via the tool_search_tool_bm25 server-side tool.
+    // Mark deferred tools — schemas hidden from initial prompt, loaded on-demand
+    // via tool_search returning tool-reference content blocks.
     for (const [toolName, toolDef] of Object.entries(allTools)) {
         if (DEFERRED_TOOLS.has(toolName)) {
             (toolDef as any).providerOptions = {

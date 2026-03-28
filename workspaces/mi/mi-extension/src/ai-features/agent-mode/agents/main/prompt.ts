@@ -28,7 +28,6 @@ import { getServerPathFromConfig } from '../../../../util/onboardingUtils';
 import { AgentMode } from '@wso2/mi-core';
 import { getModeReminder } from './mode';
 import { buildSystemReminder } from './prompt_system_reminder';
-import { DEFERRED_TOOL_CATALOG } from './tools';
 import { logDebug } from '../../../copilot/logger';
 import { getStateMachine } from '../../../../stateMachine';
 
@@ -342,7 +341,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         env_mi_service_log_path: runtimePaths.serviceLogPath,
         env_mi_correlation_log_path: runtimePaths.correlationLogPath,
         runtime_version_detection_warning: runtimeVersionDetectionWarning,
-        system_reminder: buildSystemReminder(mode, modeReminder, DEFERRED_TOOL_CATALOG),
+        system_reminder: buildSystemReminder(mode, modeReminder),
     };
 
     // Render the template
