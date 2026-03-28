@@ -55,6 +55,7 @@ const PDF_MAX_PAGES_PER_REQUEST = 5;
 const MAX_GREP_PATTERN_LENGTH = 512;
 const MAX_GREP_GLOB_LENGTH = 256;
 const MAX_GREP_SEARCH_DEPTH = 12;
+const MAX_GREP_MATCH_LINE_LENGTH = 500;
 const POST_WRITE_VALIDATION_DELAY_MS = 500;
 
 const GREP_TYPE_EXTENSION_MAP: Record<string, string[]> = {
@@ -248,9 +249,15 @@ function compileGlobPattern(globPattern?: string, caseInsensitive?: boolean): { 
         };
     }
 
+    // Strip leading **/ — the tool already recurses directories, so globstar is redundant.
+    // Without this, patterns like "**/DLQ*.xml" fail because ** is not handled in regex conversion.
+    let normalizedGlob = globPattern.replace(/^\*\*\//, '');
+    // Also strip embedded **/ (e.g., "src/**/foo.xml" → match filename only)
+    normalizedGlob = normalizedGlob.replace(/.*\*\*\//, '');
+
     try {
         let hasInvalidBraceGroup = false;
-        const escapedGlob = escapeRegexCharacters(globPattern).replace(/\\\{([^{}]+)\\\}/g, (_match, group) => {
+        const escapedGlob = escapeRegexCharacters(normalizedGlob).replace(/\\\{([^{}]+)\\\}/g, (_match, group) => {
             const options = group
                 .split(',')
                 .map((option: string) => option.trim())
@@ -1190,7 +1197,8 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
                     if (entry.isDirectory()) {
                         // Skip common directories
                         if (entry.name === 'node_modules' || entry.name === '.git' ||
-                            entry.name === 'target' || entry.name === 'build') {
+                            entry.name === 'target' || entry.name === 'build' ||
+                            entry.name === '.devtools') {
                             continue;
                         }
                         searchInDirectory(fullPath, currentDepth + 1);
@@ -1222,10 +1230,13 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
                                         break; // Only need one match per file
                                     } else {
                                         if (results.length >= head_limit) break;
+                                        const trimmedLine = lines[i].trim();
                                         results.push({
                                             file: relativePath,
                                             line: i + 1,
-                                            content: lines[i].trim()
+                                            content: trimmedLine.length > MAX_GREP_MATCH_LINE_LENGTH
+                                                ? trimmedLine.substring(0, MAX_GREP_MATCH_LINE_LENGTH) + '… [truncated]'
+                                                : trimmedLine
                                         });
                                     }
                                 }
@@ -1522,7 +1533,7 @@ export function createGrepTool(execute: GrepExecuteFn) {
     return (tool as any)({
         description: `Search for regex patterns in project files. Supports glob filtering.
             Output modes: "content" (matching lines, default) or "files_with_matches" (file paths only).
-            Skips node_modules, .git, target, build. Limited to allowed file types: ${getAllowedFileTypesDescription()}.`,
+            Skips node_modules, .git, target, build, .devtools. Limited to allowed file types: ${getAllowedFileTypesDescription()}.`,
         inputSchema: grepInputSchema,
         execute
     });
