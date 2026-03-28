@@ -305,13 +305,21 @@ function normalizeToolResultForUi(toolName: string, result: unknown): Normalized
     }
 
     const record = result as Record<string, unknown>;
+
+    // Provider-managed tools (tool_search, memory) return non-standard shapes
+    // (e.g. { type: "json", value: [...] }) without a 'success' field.
+    // Treat these as successful unless they contain an explicit error.
     if (typeof record.success !== 'boolean') {
-        logError(`[Agent] Tool '${toolName}' result is missing boolean 'success'`, result);
+        const hasError = typeof record.error === 'string' || record.type === 'error';
+        return {
+            ...record,
+            success: !hasError,
+        };
     }
 
     return {
         ...record,
-        success: typeof record.success === 'boolean' ? record.success : false,
+        success: record.success,
     };
 }
 

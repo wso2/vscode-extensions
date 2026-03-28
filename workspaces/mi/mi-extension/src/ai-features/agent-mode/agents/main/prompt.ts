@@ -80,7 +80,13 @@ OS Version: {{env_os_version}}
 Today's date: {{env_today}}
 MI Runtime version: {{env_mi_runtime_version}}
 MI Runtime home path: {{env_mi_runtime_home_path}}
-MI Runtime carbon log path: {{env_mi_runtime_carbon_log_path}}
+MI Runtime log directory: {{env_mi_log_dir_path}}
+MI Runtime logs:
+  - wso2carbon.log (main): {{env_mi_runtime_carbon_log_path}}
+  - wso2error.log (errors + stack traces): {{env_mi_error_log_path}}
+  - http_access.log (HTTP requests): {{env_mi_http_access_log_path}}
+  - wso2-mi-service.log (service lifecycle): {{env_mi_service_log_path}}
+  - correlation.log (request tracing): {{env_mi_correlation_log_path}}
 </env>
 
 {{#if runtime_version_detection_warning}}
@@ -90,6 +96,7 @@ MI Runtime carbon log path: {{env_mi_runtime_carbon_log_path}}
 {{/if}}
 
 <system_reminder>
+YOU ARE IN DEVELOPMENT PHASE. NOT IN PRODUCTION YET. HELP THE DEVELOPER IF DEVELOPER ASKS META QUESTIONS ABOUT YOUR INTERNALS/TOOL CALLS etc
 {{system_reminder}}
 **DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task unless explicitly requested by the user.**
 </system_reminder>
@@ -201,28 +208,45 @@ async function getCurrentlyOpenedFile(projectPath: string): Promise<string | nul
 
 function getRuntimePaths(projectPath: string): {
     runtimeHomePath: string;
+    logDirPath: string;
     carbonLogPath: string;
+    errorLogPath: string;
+    httpAccessLogPath: string;
+    serviceLogPath: string;
+    correlationLogPath: string;
 } {
+    const NOT_CONFIGURED = 'not_configured';
     const runtimeHome = getServerPathFromConfig(projectPath);
     if (!runtimeHome || runtimeHome.trim().length === 0) {
         return {
-            runtimeHomePath: 'not_configured',
-            carbonLogPath: 'not_configured',
+            runtimeHomePath: NOT_CONFIGURED,
+            logDirPath: NOT_CONFIGURED,
+            carbonLogPath: NOT_CONFIGURED,
+            errorLogPath: NOT_CONFIGURED,
+            httpAccessLogPath: NOT_CONFIGURED,
+            serviceLogPath: NOT_CONFIGURED,
+            correlationLogPath: NOT_CONFIGURED,
         };
     }
 
     const resolvedRuntimeHome = path.resolve(runtimeHome.trim());
     const runtimeExists = fs.existsSync(resolvedRuntimeHome);
-    const resolvedCarbonLogPath = path.join(resolvedRuntimeHome, 'repository', 'logs', 'wso2carbon.log');
-    const carbonLogExists = fs.existsSync(resolvedCarbonLogPath);
+    const logDir = path.join(resolvedRuntimeHome, 'repository', 'logs');
+    const logDirExists = fs.existsSync(logDir);
+
+    const resolveLogPath = (filename: string) => {
+        const p = path.join(logDir, filename);
+        return fs.existsSync(p) ? p : `${p} (missing)`;
+    };
 
     return {
-        runtimeHomePath: runtimeExists
-            ? resolvedRuntimeHome
-            : `${resolvedRuntimeHome} (path_not_found)`,
-        carbonLogPath: carbonLogExists
-            ? resolvedCarbonLogPath
-            : `${resolvedCarbonLogPath} (missing)`,
+        runtimeHomePath: runtimeExists ? resolvedRuntimeHome : `${resolvedRuntimeHome} (path_not_found)`,
+        logDirPath: logDirExists ? logDir : `${logDir} (missing)`,
+        carbonLogPath: resolveLogPath('wso2carbon.log'),
+        errorLogPath: resolveLogPath('wso2error.log'),
+        httpAccessLogPath: resolveLogPath('http_access.log'),
+        serviceLogPath: resolveLogPath('wso2-mi-service.log'),
+        correlationLogPath: resolveLogPath('correlation.log'),
     };
 }
 
@@ -311,7 +335,12 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         env_today: today,
         env_mi_runtime_version: runtimeVersion || 'unknown',
         env_mi_runtime_home_path: runtimePaths.runtimeHomePath,
+        env_mi_log_dir_path: runtimePaths.logDirPath,
         env_mi_runtime_carbon_log_path: runtimePaths.carbonLogPath,
+        env_mi_error_log_path: runtimePaths.errorLogPath,
+        env_mi_http_access_log_path: runtimePaths.httpAccessLogPath,
+        env_mi_service_log_path: runtimePaths.serviceLogPath,
+        env_mi_correlation_log_path: runtimePaths.correlationLogPath,
         runtime_version_detection_warning: runtimeVersionDetectionWarning,
         system_reminder: buildSystemReminder(mode, modeReminder, DEFERRED_TOOL_CATALOG),
     };
