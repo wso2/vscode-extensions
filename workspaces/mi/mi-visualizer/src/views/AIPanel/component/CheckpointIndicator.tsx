@@ -58,12 +58,14 @@ const CheckpointIndicator: React.FC<CheckpointIndicatorProps> = ({ targetCheckpo
             const agentRpcClient = rpcClient.getMiAgentPanelRpcClient();
             let restoreResult = await agentRpcClient.undoLastCheckpoint({
                 checkpointId: targetCheckpointId,
+                behavior: 'hard',
             });
             // Backward compatibility with older backend confirmation handshake.
             if (!restoreResult.success && restoreResult.requiresConfirmation) {
                 restoreResult = await agentRpcClient.undoLastCheckpoint({
                     checkpointId: targetCheckpointId,
                     force: true,
+                    behavior: 'hard',
                 });
             }
 
