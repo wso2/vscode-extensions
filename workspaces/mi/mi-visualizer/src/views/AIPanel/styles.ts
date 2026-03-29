@@ -50,9 +50,7 @@ export const FadeInContainer = styled.div`
 export const Footer = styled.footer({
     padding: "0",
     backgroundColor: "var(--vscode-editor-background)",
-    position: "sticky",
-    bottom: "0",
-    zIndex: 10,
+    flexShrink: 0,
 });
 
 export const FloatingInputContainer = styled.div({

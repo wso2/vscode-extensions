@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useMemo } from "react";
+import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import styled from "@emotion/styled";
@@ -39,7 +39,6 @@ import TodoListSegment from "./TodoListSegment";
 import BashOutputSegment from "./BashOutputSegment";
 import CompactSummarySegment from "./CompactSummarySegment";
 import ThinkingSegment from "./ThinkingSegment";
-import FileChangesSegment from "./FileChangesSegment";
 
 // Styled markdown container
 const StyledMarkdown = styled.div`
@@ -275,23 +274,6 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
         return null;
     }
 
-    // Find the latest (last) checkpoint ID across all messages for isLatest prop
-    const latestCheckpointId = useMemo(() => {
-        let lastId: string | null = null;
-        for (const msg of messages) {
-            const matches = (msg.content || "").matchAll(/<filechanges>([\s\S]*?)<\/filechanges>/g);
-            for (const match of matches) {
-                try {
-                    const parsed = JSON.parse(match[1]);
-                    if (parsed?.checkpointId && parsed?.undoable) {
-                        lastId = parsed.checkpointId;
-                    }
-                } catch { /* skip */ }
-            }
-        }
-        return lastId;
-    }, [messages]);
-
     const parsedSegments = splitContent(message.content);
 
     const hasAnswerContent = parsedSegments.some((segment) => {
@@ -358,12 +340,7 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             } else if (segment.isCompactSummary) {
                 return <CompactSummarySegment key={i} text={segment.text} />;
             } else if (segment.isFileChanges) {
-                let isLatestCheckpoint = false;
-                try {
-                    const parsed = JSON.parse(segment.text);
-                    isLatestCheckpoint = parsed?.checkpointId === latestCheckpointId;
-                } catch { /* not latest */ }
-                return <FileChangesSegment key={i} summaryText={segment.text} isLatest={isLatestCheckpoint} />;
+                return null;
             } else if (segment.isPlan) {
                 return <CompactSummarySegment key={i} text={segment.text} title="Full Plan" />;
             } else if (segment.isThinking) {

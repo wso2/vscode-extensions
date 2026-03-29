@@ -24,6 +24,7 @@ import AIChatFooter from './AIChatFooter';
 import AIChatMessage from './AIChatMessage';
 import SettingsPanel from './SettingsPanel';
 import CheckpointIndicator from './CheckpointIndicator';
+import FileChangesSegment from './FileChangesSegment';
 import { AIChatView } from '../styles';
 import { LoginMethod, Role } from "@wso2/mi-core";
 
@@ -36,7 +37,7 @@ interface AICodeGeneratorProps {
  * Main chat component with integrated MICopilot Context provider
  */
 export function AICodeGenerator({ isUsageExceeded = false }: AICodeGeneratorProps) {
-  const { messages, rpcClient } = useMICopilotContext();
+  const { messages, pendingReview, rpcClient } = useMICopilotContext();
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [isByok, setIsByok] = useState(false);
@@ -82,7 +83,7 @@ export function AICodeGenerator({ isUsageExceeded = false }: AICodeGeneratorProp
       if (isAtBottom && messagesEndRef.current) {
           messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
       }
-  }, [messages, isAtBottom]);
+  }, [messages, pendingReview, isAtBottom]);
 
   // Full-panel settings view
   if (showSettings) {
@@ -116,6 +117,7 @@ export function AICodeGenerator({ isUsageExceeded = false }: AICodeGeneratorProp
                       );
                   })}
 
+                  <FileChangesSegment />
                   <div ref={messagesEndRef} />
               </main>
 

@@ -797,6 +797,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 });
             };
 
+            let latestStopModelMessages: SendAgentMessageResponse['modelMessages'];
+
             const runAgent = async (query: string) => {
                 const abortController = createAgentAbortController();
                 this.activeAbortControllers.add(abortController);
@@ -828,6 +830,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                             onStepPersisted: () => this.eventHandler.stepCompleted(),
                         },
                         (event: AgentEvent) => {
+                            if (event.type === 'stop') {
+                                latestStopModelMessages = event.modelMessages;
+                                return;
+                            }
                             if (event.type === 'plan_mode_entered') {
                                 persistModeChange('plan');
                             } else if (event.type === 'plan_mode_exited') {
@@ -863,9 +869,11 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 runSucceeded = true;
 
                 const undoCheckpoint = await undoCheckpointManager.commitRun();
-                if (undoCheckpoint) {
-                    await historyManager.saveUndoCheckpoint(undoCheckpoint, request.chatId);
-                }
+                this.eventHandler.handleEvent({
+                    type: 'stop',
+                    modelMessages: latestStopModelMessages ?? result.modelMessages,
+                    undoCheckpoint,
+                });
                 logInfo(`[AgentPanel] Agent completed successfully. Modified ${result.modifiedFiles.length} files.`);
                 return {
                     success: true,
@@ -933,15 +941,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             }
 
             const historyManager = await this.getChatHistoryManager();
-            const checkpointSummary = behavior === 'soft'
-                ? await historyManager.getUndoCheckpointSummary(requestedCheckpointId)
-                : undefined;
-            if (behavior === 'soft' && !checkpointSummary) {
-                return {
-                    success: false,
-                    error: `Checkpoint '${requestedCheckpointId}' cannot be discarded because it has no review summary`,
-                };
-            }
 
             const restorePlanToApply = behavior === 'soft'
                 ? { ...restorePlan, sessionFiles: [] }
@@ -949,18 +948,12 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             const restoredFiles = await this.applyUndoCheckpointRestore(restorePlanToApply);
 
             if (behavior === 'soft') {
-                const summary = checkpointSummary as NonNullable<typeof checkpointSummary>;
-                await historyManager.markUndoCheckpointDiscarded(requestedCheckpointId);
-                await historyManager.saveUndoReminderMessage(summary, restoredFiles);
+                await historyManager.saveUndoReminderMessage(requestedCheckpointId, restoredFiles);
 
                 return {
                     success: true,
                     restoredFiles,
                     historyTruncated: false,
-                    undoCheckpoint: {
-                        ...summary,
-                        undoable: false,
-                    },
                 };
             }
 
@@ -1039,10 +1032,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             await vscode.commands.executeCommand('MI.project-explorer.refresh');
             const undoCheckpoint = await undoCheckpointManager.commitRun();
-
-            if (undoCheckpoint) {
-                await historyManager.saveUndoCheckpoint(undoCheckpoint, targetChatId);
-            }
 
             return {
                 success: true,

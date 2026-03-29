@@ -656,14 +656,12 @@ export class ChatHistoryManager {
      * Save an undo reminder as a user message with <system-reminder> tags.
      * This is used for future model turns and should not be shown in UI replay.
      */
-    async saveUndoReminderMessage(summary: UndoCheckpointSummary, restoredFiles: string[]): Promise<void> {
-        const restored = restoredFiles.length > 0
-            ? restoredFiles.join(', ')
-            : summary.files.map((file) => file.path).join(', ');
+    async saveUndoReminderMessage(checkpointId: string, restoredFiles: string[]): Promise<void> {
+        const restored = restoredFiles.join(', ') || 'none';
         const reminderText = [
             '<system-reminder>',
-            `The user executed an undo for the latest checkpoint (${summary.checkpointId}).`,
-            `Restored files: ${restored || 'none'}.`,
+            `The user rejected the latest checkpoint (${checkpointId}).`,
+            `Restored files: ${restored}.`,
             'Treat the undone changes as reverted and use the restored file state for subsequent edits.',
             '</system-reminder>',
         ].join('\n');
@@ -685,7 +683,7 @@ export class ChatHistoryManager {
 
         try {
             await this.writeEntry(entry);
-            logDebug(`[ChatHistory] Saved undo reminder message for checkpoint: ${summary.checkpointId}`);
+            logDebug(`[ChatHistory] Saved undo reminder message for checkpoint: ${checkpointId}`);
         } catch (error) {
             logError('[ChatHistory] Failed to save undo reminder message', error);
         }
@@ -733,138 +731,6 @@ export class ChatHistoryManager {
         } catch (error) {
             logError('[ChatHistory] Failed to save mode change', error);
             throw error;
-        }
-    }
-
-    /**
-     * Save an undo checkpoint summary to history for session replay.
-     */
-    async saveUndoCheckpoint(summary: UndoCheckpointSummary, targetChatId?: number): Promise<void> {
-        const entry: JournalEntry = {
-            type: 'undo_checkpoint',
-            timestamp: new Date().toISOString(),
-            sessionId: this.sessionId,
-            undoCheckpoint: summary,
-            targetChatId,
-        };
-
-        try {
-            await this.writeEntry(entry);
-            logInfo(`[ChatHistory] Saved undo checkpoint: ${summary.checkpointId}`);
-        } catch (error) {
-            logError('[ChatHistory] Failed to save undo checkpoint', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Get undo checkpoint summary by checkpoint ID.
-     */
-    async getUndoCheckpointSummary(checkpointId: string): Promise<UndoCheckpointSummary | undefined> {
-        const normalizedCheckpointId = checkpointId?.trim();
-        if (!normalizedCheckpointId) {
-            return undefined;
-        }
-
-        try {
-            const content = await fs.readFile(this.sessionFile, 'utf8');
-            const entries = this.parseJournalEntries(content, `loading undo checkpoint ${normalizedCheckpointId}`);
-
-            for (let i = entries.length - 1; i >= 0; i--) {
-                const entry = entries[i];
-                if (entry.type !== 'undo_checkpoint' || !entry.undoCheckpoint) {
-                    continue;
-                }
-                if (entry.undoCheckpoint.checkpointId === normalizedCheckpointId) {
-                    return entry.undoCheckpoint;
-                }
-            }
-        } catch (error) {
-            const nodeError = error as NodeJS.ErrnoException;
-            if (nodeError.code !== 'ENOENT') {
-                logError(`[ChatHistory] Failed to load undo checkpoint ${normalizedCheckpointId}`, error);
-            }
-        }
-
-        return undefined;
-    }
-
-    /**
-     * Marks a checkpoint summary as discarded (undoable=false) while preserving timeline entries.
-     * Returns true if the checkpoint entry was found.
-     */
-    async markUndoCheckpointDiscarded(checkpointId: string): Promise<boolean> {
-        const normalizedCheckpointId = checkpointId?.trim();
-        if (!normalizedCheckpointId) {
-            return false;
-        }
-
-        const wasClosing = this.isClosing;
-        try {
-            this.isClosing = true;
-            await this.waitForPendingWrites();
-
-            if (this.writeStream) {
-                const streamToClose = this.writeStream;
-                await new Promise<void>((resolve, reject) => {
-                    streamToClose.end((err: Error | null | undefined) => {
-                        if (err) reject(err);
-                        else resolve();
-                    });
-                });
-                if (this.writeStream === streamToClose) {
-                    this.writeStream = null;
-                }
-            }
-
-            const content = await fs.readFile(this.sessionFile, 'utf8');
-            const entries = this.parseJournalEntries(
-                content,
-                `marking undo checkpoint ${normalizedCheckpointId} as discarded`
-            );
-
-            let foundIndex = -1;
-            for (let i = entries.length - 1; i >= 0; i--) {
-                const entry = entries[i];
-                if (
-                    entry.type === 'undo_checkpoint'
-                    && entry.undoCheckpoint?.checkpointId === normalizedCheckpointId
-                ) {
-                    foundIndex = i;
-                    break;
-                }
-            }
-
-            if (foundIndex < 0) {
-                this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
-                this.isClosing = wasClosing;
-                return false;
-            }
-
-            const existingSummary = entries[foundIndex].undoCheckpoint;
-            if (existingSummary?.undoable !== false) {
-                entries[foundIndex] = {
-                    ...entries[foundIndex],
-                    undoCheckpoint: {
-                        ...existingSummary,
-                        undoable: false,
-                    } as UndoCheckpointSummary,
-                };
-                await this.rewriteHistoryEntries(entries);
-                await this.rebuildMetadataFromEntries(entries);
-            }
-
-            this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
-            this.isClosing = wasClosing;
-            return true;
-        } catch (error) {
-            logError(`[ChatHistory] Failed to mark undo checkpoint ${normalizedCheckpointId} as discarded`, error);
-            throw error;
-        } finally {
-            if (!this.writeStream) {
-                this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
-            }
-            this.isClosing = wasClosing;
         }
     }
 
@@ -1695,7 +1561,7 @@ export class ChatHistoryManager {
                     }
 
                     // Skip interruption/system-only messages from UI display (they're only for LLM context).
-                    if (userContent.includes('<system-reminder>')) {
+                    if (userContent.includes('<system-reminder>') || !userContent.trim()) {
                         continue;
                     }
 

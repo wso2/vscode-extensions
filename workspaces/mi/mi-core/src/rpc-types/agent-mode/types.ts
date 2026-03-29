@@ -226,7 +226,7 @@ export type PlanApprovalKind =
  * - `compact`: `summary`, `content`
  * - `usage`: `totalInputTokens`
  * - `error`: `error`
- * - `stop`: `modelMessages`
+ * - `stop`: `modelMessages`, `undoCheckpoint`
  */
 export interface AgentEvent {
     type: AgentEventType;
@@ -246,6 +246,8 @@ export interface AgentEvent {
     /** Full AI SDK messages (only sent with "stop" event) */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     modelMessages?: any[];
+    /** Undo checkpoint summary emitted with final stop event for review card */
+    undoCheckpoint?: UndoCheckpointSummary;
 
     // Plan mode fields
     /** Structured questions for ask_user event */
