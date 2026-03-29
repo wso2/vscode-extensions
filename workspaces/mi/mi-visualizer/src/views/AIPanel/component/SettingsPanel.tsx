@@ -81,6 +81,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok }) => {
     const isDefault =
         modelSettings.mainModelPreset === DEFAULT_MAIN &&
         modelSettings.subModelPreset === DEFAULT_SUB &&
+        !modelSettings.mainModelCustomId &&
+        !modelSettings.subModelCustomId &&
         !isThinkingEnabled &&
         !isMemoryEnabled;
 

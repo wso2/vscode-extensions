@@ -19,6 +19,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import * as fs from 'fs';
+import { promises as fsp } from 'fs';
 import * as path from 'path';
 import { ToolResult, READ_SERVER_LOGS_TOOL_NAME } from './types';
 import { getServerPathFromConfig } from '../../../util/onboardingUtils';
@@ -120,10 +121,31 @@ function formatTimestamp(ts: string, spansMultipleDays: boolean): string {
     return spansMultipleDays ? `${dateOf(ts)} ${timeOnly(ts)}` : timeOnly(ts);
 }
 
-function readTail(filePath: string, numLines: number): string[] {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    const lines = content.split('\n');
-    return lines.slice(Math.max(0, lines.length - numLines));
+/** Max bytes to read from the end of the file (2 MB). */
+const TAIL_BYTE_CAP = 2 * 1024 * 1024;
+
+async function readTail(filePath: string, numLines: number): Promise<string[]> {
+    const stat = await fsp.stat(filePath);
+    const start = Math.max(0, stat.size - TAIL_BYTE_CAP);
+
+    return new Promise<string[]>((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        const stream = fs.createReadStream(filePath, { start, end: stat.size - 1 });
+        stream.on('data', (chunk: string | Buffer) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        stream.on('error', reject);
+        stream.on('end', () => {
+            let text = Buffer.concat(chunks).toString('utf-8');
+            // If we started mid-file, drop the first (likely partial) line
+            if (start > 0) {
+                const idx = text.indexOf('\n');
+                if (idx >= 0) {
+                    text = text.slice(idx + 1);
+                }
+            }
+            const lines = text.split('\n');
+            resolve(lines.slice(Math.max(0, lines.length - numLines)));
+        });
+    });
 }
 
 function parseStructuredLines(lines: string[]): ParsedLine[] {
@@ -431,7 +453,7 @@ export function createReadServerLogsExecute(projectPath: string): ReadServerLogs
 
         let lines: string[];
         try {
-            lines = readTail(logFilePath, tailLines);
+            lines = await readTail(logFilePath, tailLines);
         } catch (err) {
             return {
                 success: false,

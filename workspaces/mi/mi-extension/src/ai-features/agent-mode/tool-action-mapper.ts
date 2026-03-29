@@ -262,7 +262,7 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                 failed: 'DeepWiki query failed'
             };
 
-        // Memory Tool (Anthropic native)
+        // Read Server Logs Tool
         case READ_SERVER_LOGS_TOOL_NAME: {
             const logFile = toolInput?.log_file || 'errors';
             return {

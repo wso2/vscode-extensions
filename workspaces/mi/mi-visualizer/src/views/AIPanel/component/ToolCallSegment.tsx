@@ -115,7 +115,7 @@ const ToolCallSegment: React.FC<ToolCallSegmentProps> = ({ text, loading, failed
             }}
         >
             <span
-                className={`codicon codicon-${iconName}${loading ? " spin" : ""}`}
+                className={`codicon codicon-${iconName}`}
                 style={{
                     fontSize: "13px",
                     width: "14px",

@@ -70,7 +70,7 @@ export function convertEventsToMessages(
 
     for (const event of events) {
         switch (event.type) {
-            case 'user':
+            case 'user': {
                 // Flush any pending assistant message
                 if (currentAssistantMessage) {
                     messages.push(currentAssistantMessage);
@@ -100,6 +100,7 @@ export function convertEventsToMessages(
                 messages.push(currentUserMessage);
                 currentUserMessage = null;
                 break;
+            }
 
             case 'checkpoint_anchor': {
                 const checkpointAnchor = (event as ChatHistoryEvent).checkpointAnchor;
