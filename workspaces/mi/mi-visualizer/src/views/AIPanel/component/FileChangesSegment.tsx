@@ -79,12 +79,14 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText, is
             const agentRpcClient = rpcClient.getMiAgentPanelRpcClient();
             let response = await agentRpcClient.undoLastCheckpoint({
                 checkpointId: summary.checkpointId,
+                behavior: 'soft',
             });
             // Backward compatibility with older backend confirmation handshake.
             if (!response.success && response.requiresConfirmation) {
                 response = await agentRpcClient.undoLastCheckpoint({
                     checkpointId: summary.checkpointId,
                     force: true,
+                    behavior: 'soft',
                 });
             }
 
@@ -190,7 +192,7 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText, is
             {isConfirming && !isUndoing && (
                 <div className="px-3 py-2 text-xs flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--vscode-panel-border)" }}>
                     <span style={{ color: "var(--vscode-descriptionForeground)" }}>
-                        Discard these changes? Later messages/checkpoints will be removed.
+                        Discard these changes? Conversation history stays; files and model context will be reverted.
                     </span>
                     <div className="flex items-center gap-1">
                         <button

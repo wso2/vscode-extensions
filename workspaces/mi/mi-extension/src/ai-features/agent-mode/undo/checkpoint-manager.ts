@@ -42,6 +42,10 @@ interface PendingUndoCheckpoint {
     createdAt: string;
     targetChatId?: number;
     trackedFileBackups: Map<string, FileHistoryBackupReference>;
+    planFileSnapshot?: {
+        planPath: string;
+        backup: FileHistoryBackupReference;
+    };
 }
 
 export interface SnapshotRestoreFile {
@@ -58,6 +62,7 @@ export interface SnapshotRestorePlan {
     createdAt: string;
     targetChatId?: number;
     files: SnapshotRestoreFile[];
+    sessionFiles?: SnapshotRestoreFile[];
 }
 
 export interface SnapshotJournalStore {
@@ -243,8 +248,7 @@ export class AgentUndoCheckpointManager {
         return next;
     }
 
-    private createPathHash(relativePath: string): string {
-        const absolutePath = path.join(this.projectPath, relativePath);
+    private createPathHashFromAbsolutePath(absolutePath: string): string {
         return crypto
             .createHash('sha256')
             .update(normalizeAbsolutePath(absolutePath), 'utf8')
@@ -256,8 +260,7 @@ export class AgentUndoCheckpointManager {
         return path.join(this.getFileHistoryDirPath(), backupFileName);
     }
 
-    private async readFileState(relativePath: string): Promise<FileState> {
-        const fullPath = path.join(this.projectPath, relativePath);
+    private async readAbsoluteFileState(fullPath: string): Promise<FileState> {
         try {
             const content = await fs.readFile(fullPath, 'utf8');
             return {
@@ -273,13 +276,40 @@ export class AgentUndoCheckpointManager {
         }
     }
 
+    private async readFileState(relativePath: string): Promise<FileState> {
+        const fullPath = path.join(this.projectPath, relativePath);
+        return this.readAbsoluteFileState(fullPath);
+    }
+
+    private async captureAbsoluteFileBackup(absolutePath: string): Promise<FileHistoryBackupReference> {
+        await this.ensureFileHistoryDir();
+        await this.loadVersionCounters();
+
+        const fileState = await this.readAbsoluteFileState(absolutePath);
+        const backupTime = new Date().toISOString();
+        const pathHash = this.createPathHashFromAbsolutePath(absolutePath);
+        const version = this.allocateNextVersion(pathHash);
+
+        let backupFileName: string | null = null;
+        if (fileState.exists) {
+            backupFileName = `${pathHash}@v${version}`;
+            await fs.writeFile(this.getBackupFilePath(backupFileName), fileState.content || '', 'utf8');
+        }
+
+        return {
+            backupFileName,
+            version,
+            backupTime,
+        };
+    }
+
     private async captureFileBackup(relativePath: string): Promise<FileHistoryBackupReference> {
         await this.ensureFileHistoryDir();
         await this.loadVersionCounters();
 
         const fileState = await this.readFileState(relativePath);
         const backupTime = new Date().toISOString();
-        const pathHash = this.createPathHash(relativePath);
+        const pathHash = this.createPathHashFromAbsolutePath(path.join(this.projectPath, relativePath));
         const version = this.allocateNextVersion(pathHash);
 
         let backupFileName: string | null = null;
@@ -307,6 +337,7 @@ export class AgentUndoCheckpointManager {
             trackedFileBackups,
             timestamp: timestamp || new Date().toISOString(),
             targetChatId: pending.targetChatId,
+            planFileSnapshot: pending.planFileSnapshot ? { ...pending.planFileSnapshot } : undefined,
         };
     }
 
@@ -333,12 +364,28 @@ export class AgentUndoCheckpointManager {
         }
     }
 
+    private isSafeSessionPlanPath(planPath: string): boolean {
+        const resolvedPlanPath = path.resolve(planPath);
+        const planRoot = path.resolve(getCopilotSessionDir(this.projectPath, this.sessionId), 'plan');
+        const underPlanRoot = (
+            resolvedPlanPath === planRoot
+            || resolvedPlanPath.startsWith(`${planRoot}${path.sep}`)
+        );
+        if (!underPlanRoot) {
+            return false;
+        }
+
+        const statsPath = resolvedPlanPath.toLowerCase();
+        return statsPath.endsWith('.md');
+    }
+
     async beginRun(
         source: UndoCheckpointSource,
         options?: {
             checkpointId?: string;
             targetChatId?: number;
             createdAt?: string;
+            planFilePath?: string;
         }
     ): Promise<void> {
         const pendingCheckpoint: PendingUndoCheckpoint = {
@@ -348,6 +395,20 @@ export class AgentUndoCheckpointManager {
             targetChatId: options?.targetChatId,
             trackedFileBackups: new Map<string, FileHistoryBackupReference>(),
         };
+
+        const planFilePath = options?.planFilePath?.trim();
+        if (planFilePath && this.isSafeSessionPlanPath(planFilePath)) {
+            try {
+                const resolvedPlanPath = path.resolve(planFilePath);
+                pendingCheckpoint.planFileSnapshot = {
+                    planPath: resolvedPlanPath,
+                    backup: await this.captureAbsoluteFileBackup(resolvedPlanPath),
+                };
+            } catch (error) {
+                logError(`[UndoCheckpoint] Failed to capture plan-file baseline: ${planFilePath}`, error);
+            }
+        }
+
         this.pendingCheckpoint = pendingCheckpoint;
 
         const snapshot = this.buildSnapshotFromPending(pendingCheckpoint, pendingCheckpoint.createdAt);
@@ -462,12 +523,39 @@ export class AgentUndoCheckpointManager {
             })
         );
 
+        let sessionFiles: SnapshotRestoreFile[] | undefined;
+        const planSnapshot = snapshot.planFileSnapshot;
+        if (planSnapshot?.planPath) {
+            const planPath = path.resolve(planSnapshot.planPath);
+            const planBackupFileName = planSnapshot.backup?.backupFileName?.trim();
+            if (!planBackupFileName) {
+                sessionFiles = [{
+                    path: planPath,
+                    before: { exists: false },
+                }];
+            } else {
+                try {
+                    const content = await fs.readFile(this.getBackupFilePath(planBackupFileName), 'utf8');
+                    sessionFiles = [{
+                        path: planPath,
+                        before: { exists: true, content },
+                    }];
+                } catch {
+                    sessionFiles = [{
+                        path: planPath,
+                        before: { exists: false },
+                    }];
+                }
+            }
+        }
+
         return {
             checkpointId: snapshot.messageId,
             source: snapshot.source,
             createdAt: snapshot.timestamp,
             targetChatId: snapshot.targetChatId,
             files,
+            sessionFiles,
         };
     }
 

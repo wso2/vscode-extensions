@@ -615,6 +615,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         const workspaceEdit = new vscode.WorkspaceEdit();
         const validatedEntries: Array<{ file: SnapshotRestorePlan['files'][number]; fullPath: string }> = [];
         const unsafePaths: string[] = [];
+        const validatedSessionEntries: Array<{ file: NonNullable<SnapshotRestorePlan['sessionFiles']>[number]; fullPath: string }> = [];
+        const unsafeSessionPaths: string[] = [];
 
         for (const file of checkpoint.files) {
             const fullPath = path.resolve(this.projectUri, file.path);
@@ -628,6 +630,28 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
         if (unsafePaths.length > 0) {
             throw new Error(`Cannot undo checkpoint because it contains unsafe path(s): ${unsafePaths.join(', ')}`);
+        }
+
+        const sessionFiles = checkpoint.sessionFiles || [];
+        if (sessionFiles.length > 0) {
+            if (!this.currentSessionId) {
+                throw new Error('Cannot restore session artifact files because no active session is available');
+            }
+
+            const sessionRoot = path.resolve(getCopilotSessionDir(this.projectUri, this.currentSessionId));
+            for (const file of sessionFiles) {
+                const fullPath = path.resolve(file.path);
+                const relative = path.relative(sessionRoot, fullPath);
+                if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+                    unsafeSessionPaths.push(file.path);
+                    continue;
+                }
+                validatedSessionEntries.push({ file, fullPath });
+            }
+        }
+
+        if (unsafeSessionPaths.length > 0) {
+            throw new Error(`Cannot undo checkpoint because it contains unsafe session path(s): ${unsafeSessionPaths.join(', ')}`);
         }
 
         for (const entry of validatedEntries) {
@@ -649,7 +673,27 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             }
         }
 
-        if (validatedEntries.length === 0) {
+        for (const entry of validatedSessionEntries) {
+            const { file, fullPath } = entry;
+            const fileUri = vscode.Uri.file(fullPath);
+            restoredFiles.push(file.path);
+            if (file.before.exists) {
+                await fs.mkdir(path.dirname(fullPath), { recursive: true });
+                workspaceEdit.createFile(fileUri, { ignoreIfExists: true, overwrite: true });
+                workspaceEdit.replace(
+                    fileUri,
+                    new vscode.Range(
+                        new vscode.Position(0, 0),
+                        new vscode.Position(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)
+                    ),
+                    file.before.content || ''
+                );
+            } else {
+                workspaceEdit.deleteFile(fileUri, { ignoreIfNotExists: true });
+            }
+        }
+
+        if (validatedEntries.length === 0 && validatedSessionEntries.length === 0) {
             await vscode.commands.executeCommand('MI.project-explorer.refresh');
             return restoredFiles;
         }
@@ -719,6 +763,15 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             const checkpointCreatedAt = new Date().toISOString();
             activeCheckpointId = request.checkpointId?.trim() || crypto.randomUUID();
+            let planFilePathForCheckpoint: string | undefined;
+            if (this.currentSessionId) {
+                try {
+                    const planInfo = await initializePlanModeSession(this.projectUri, this.currentSessionId);
+                    planFilePathForCheckpoint = planInfo.planPath;
+                } catch (error) {
+                    logError('[AgentPanel] Failed to resolve plan file path for checkpoint baseline', error);
+                }
+            }
             await historyManager.saveCheckpointAnchor({
                 checkpointId: activeCheckpointId,
                 source: 'agent',
@@ -731,6 +784,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 checkpointId: activeCheckpointId,
                 targetChatId: request.chatId,
                 createdAt: checkpointCreatedAt,
+                planFilePath: planFilePathForCheckpoint,
             });
 
             const persistModeChange = (mode: AgentMode) => {
@@ -868,6 +922,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 };
             }
 
+            const behavior = request.behavior === 'soft' ? 'soft' : 'hard';
             const undoCheckpointManager = await this.getUndoCheckpointManager();
             const restorePlan = await undoCheckpointManager.buildRestorePlan(requestedCheckpointId);
             if (!restorePlan) {
@@ -877,10 +932,48 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 };
             }
 
-            const restoredFiles = await this.applyUndoCheckpointRestore(restorePlan);
             const historyManager = await this.getChatHistoryManager();
+            const checkpointSummary = behavior === 'soft'
+                ? await historyManager.getUndoCheckpointSummary(requestedCheckpointId)
+                : undefined;
+            if (behavior === 'soft' && !checkpointSummary) {
+                return {
+                    success: false,
+                    error: `Checkpoint '${requestedCheckpointId}' cannot be discarded because it has no review summary`,
+                };
+            }
+
+            const restorePlanToApply = behavior === 'soft'
+                ? { ...restorePlan, sessionFiles: [] }
+                : restorePlan;
+            const restoredFiles = await this.applyUndoCheckpointRestore(restorePlanToApply);
+
+            if (behavior === 'soft') {
+                const summary = checkpointSummary as NonNullable<typeof checkpointSummary>;
+                await historyManager.markUndoCheckpointDiscarded(requestedCheckpointId);
+                await historyManager.saveUndoReminderMessage(summary, restoredFiles);
+
+                return {
+                    success: true,
+                    restoredFiles,
+                    historyTruncated: false,
+                    undoCheckpoint: {
+                        ...summary,
+                        undoable: false,
+                    },
+                };
+            }
+
             const historyTruncated = await historyManager.truncateToCheckpoint(requestedCheckpointId);
             await undoCheckpointManager.cleanupOrphanSnapshotFiles();
+
+            if (this.currentSessionId) {
+                try {
+                    await initializePlanModeSession(this.projectUri, this.currentSessionId, { forceBaselineReset: true });
+                } catch (error) {
+                    logError('[AgentPanel] Failed to reset plan mode baseline after checkpoint restore', error);
+                }
+            }
 
             return {
                 success: true,
