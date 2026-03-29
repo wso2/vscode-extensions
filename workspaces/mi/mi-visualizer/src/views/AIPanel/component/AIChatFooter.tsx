@@ -24,7 +24,7 @@ import { handleFileAttach, convertChatHistoryToModelMessages } from "../utils";
 import { VALID_FILE_TYPES } from "../constants";
 import { generateId, updateTokenInfo } from "../utils";
 import { BackendRequestType } from "../types";
-import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem, Question, UndoCheckpointSummary, PlanApprovalKind } from "@wso2/mi-core";
+import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem, Question, PlanApprovalKind } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 
 // Tool name constant
@@ -202,42 +202,6 @@ function sanitizeSuggestedPrefixRule(value: unknown): string[] {
     );
 }
 
-function hasFileChangesCheckpoint(content: string, checkpointId?: string): boolean {
-    if (!checkpointId) {
-        return false;
-    }
-
-    const regex = /<filechanges>([\s\S]*?)<\/filechanges>/g;
-    for (const match of content.matchAll(regex)) {
-        try {
-            const summary = JSON.parse(match[1]) as UndoCheckpointSummary;
-            if (summary?.checkpointId === checkpointId) {
-                return true;
-            }
-        } catch {
-            // Ignore malformed checkpoint tags.
-        }
-    }
-    return false;
-}
-
-function appendFileChangesTag(content: string, checkpoint?: UndoCheckpointSummary): string {
-    if (!checkpoint) {
-        return content;
-    }
-
-    if (hasFileChangesCheckpoint(content, checkpoint.checkpointId)) {
-        return content;
-    }
-
-    const fileChangesTag = `<filechanges>${JSON.stringify(checkpoint)}</filechanges>`;
-    if (content.includes(fileChangesTag)) {
-        return content;
-    }
-
-    return content ? `${content}\n\n${fileChangesTag}` : fileChangesTag;
-}
-
 interface AIChatFooterProps {
     isUsageExceeded?: boolean;
 }
@@ -393,6 +357,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         addPendingApproval,
         removePendingApproval,
         clearPendingApprovals,
+        setPendingReview,
         todos,
         setTodos,
         isPlanMode,
@@ -552,6 +517,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 // Start of agent response
                 setAssistantResponse("");
                 setToolStatus("");
+                isResponseReceived.current = false;
                 break;
 
             case "content_block":
@@ -776,23 +742,34 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 // Agent response completed - use ref to read latest assistantResponse (avoids stale closure)
                 clearWorkingOnItTimer();
                 clearWorkingOnItPlaceholder();
-                if (assistantResponseRef.current) {
-                    handleAgentComplete(assistantResponseRef.current, event.modelMessages || []);
-                } else {
-                    // Even if no accumulated text, still mark as completed
-                    setBackendRequestTriggered(false);
+                if (event.undoCheckpoint) {
+                    setPendingReview({
+                        checkpointId: event.undoCheckpoint.checkpointId,
+                        files: event.undoCheckpoint.files,
+                        totalAdded: event.undoCheckpoint.totalAdded,
+                        totalDeleted: event.undoCheckpoint.totalDeleted,
+                    });
                 }
-                // Fetch and update usage after agent response
-                rpcClient?.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
-                    if (usage) {
-                        rpcClient?.getAIVisualizerState().then((machineView) => {
-                            const { remainingTokenPercentage } = updateTokenInfo(machineView);
-                            setRemainingTokenPercentage(remainingTokenPercentage);
-                        });
+                if (!isResponseReceived.current) {
+                    if (assistantResponseRef.current) {
+                        handleAgentComplete(assistantResponseRef.current, event.modelMessages || []);
+                    } else {
+                        // Even if no accumulated text, still mark as completed
+                        setBackendRequestTriggered(false);
                     }
-                }).catch((error) => {
-                    console.error("Error fetching usage after agent response:", error);
-                });
+                    isResponseReceived.current = true;
+                    // Fetch and update usage after agent response
+                    rpcClient?.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
+                        if (usage) {
+                            rpcClient?.getAIVisualizerState().then((machineView) => {
+                                const { remainingTokenPercentage } = updateTokenInfo(machineView);
+                                setRemainingTokenPercentage(remainingTokenPercentage);
+                            });
+                        }
+                    }).catch((error) => {
+                        console.error("Error fetching usage after agent response:", error);
+                    });
+                }
                 setToolStatus("");
                 break;
 
@@ -1167,6 +1144,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 (message) => message.type !== MessageType.Label && message.type !== MessageType.Question
             )
         );
+        setPendingReview(null);
         setBackendRequestTriggered(true);
         isResponseReceived.current = false;
         // Reset polling state for the new run
@@ -1276,15 +1254,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     }
                     return msg;
                 }));
-            }
-
-            if (response.undoCheckpoint) {
-                setMessages((prev) => {
-                    if (prev.length === 0) {
-                        return prev;
-                    }
-                    return updateLastMessage(prev, (c) => appendFileChangesTag(c, response.undoCheckpoint));
-                });
             }
 
             // Remove the user uploaded files and images after sending them to the backend
@@ -2459,7 +2428,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     </div>
                 </div>
             )}
-
 
             {mentionContext && !backendRequestTriggered && !isUsageExceeded && (
                 <div

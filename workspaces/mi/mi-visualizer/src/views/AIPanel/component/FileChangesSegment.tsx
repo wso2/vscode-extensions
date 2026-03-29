@@ -16,210 +16,170 @@
  * under the License.
  */
 
-import React, { useMemo, useState } from "react";
-import { Codicon } from "@wso2/ui-toolkit";
-import { UndoCheckpointSummary } from "@wso2/mi-core";
+import React, { useState } from "react";
 import { useMICopilotContext } from "./MICopilotContext";
 import { convertEventsToMessages } from "../utils/eventToMessageConverter";
 
-interface FileChangesSegmentProps {
-    summaryText: string;
-    /** True if this is the latest (most recent) checkpoint in the message list */
-    isLatest?: boolean;
-}
+const FileChangesSegment: React.FC = () => {
+    const {
+        pendingReview,
+        setPendingReview,
+        rpcClient,
+        setMessages,
+        setCopilotChat,
+    } = useMICopilotContext();
+    const [isRejecting, setIsRejecting] = useState(false);
+    const [error, setError] = useState("");
 
-/**
- * File changes card with discard-only pattern.
- *
- * - Latest checkpoint: full review card with Discard button + file list
- * - Older checkpoints: collapsed "Changes applied" (become latest again after discard of newer)
- * - Discarded: "Changes discarded" label
- */
-const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText, isLatest = false }) => {
-    const { rpcClient, setMessages, setCopilotChat } = useMICopilotContext();
-    const [isUndoing, setIsUndoing] = useState(false);
-    const [isCollapsed, setIsCollapsed] = useState(true);
-    const [isConfirming, setIsConfirming] = useState(false);
-    const [error, setError] = useState<string>("");
-
-    const summary = useMemo<UndoCheckpointSummary | null>(() => {
-        try {
-            return JSON.parse(summaryText) as UndoCheckpointSummary;
-        } catch {
-            return null;
-        }
-    }, [summaryText]);
-
-    if (!summary) {
+    if (!pendingReview) {
         return null;
     }
 
-    const isDiscarded = !summary.undoable;
-    const canDiscard = summary.undoable && isLatest;
-
-    const handleDiscardClick = () => {
-        if (isUndoing || !summary.undoable || !isLatest) {
+    const handleAccept = () => {
+        if (isRejecting) {
             return;
         }
         setError("");
-        setIsConfirming(true);
+        setPendingReview(null);
     };
 
-    const executeDiscard = async () => {
-        if (isUndoing || !summary.undoable || !isLatest) return;
+    const handleReject = async () => {
+        if (isRejecting) {
+            return;
+        }
         if (!rpcClient) {
             setError("Agent connection is unavailable. Please reopen the panel and try again.");
             return;
         }
 
-        setIsUndoing(true);
-        setIsConfirming(false);
+        setIsRejecting(true);
         setError("");
         try {
             const agentRpcClient = rpcClient.getMiAgentPanelRpcClient();
             let response = await agentRpcClient.undoLastCheckpoint({
-                checkpointId: summary.checkpointId,
-                behavior: 'soft',
+                checkpointId: pendingReview.checkpointId,
+                behavior: "soft",
             });
+
             // Backward compatibility with older backend confirmation handshake.
             if (!response.success && response.requiresConfirmation) {
                 response = await agentRpcClient.undoLastCheckpoint({
-                    checkpointId: summary.checkpointId,
+                    checkpointId: pendingReview.checkpointId,
                     force: true,
-                    behavior: 'soft',
+                    behavior: "soft",
                 });
             }
 
             if (!response.success) {
-                throw new Error(response.error || "Discard failed");
+                throw new Error(response.error || "Reject failed");
             }
 
             const historyResponse = await agentRpcClient.loadChatHistory({});
             if (!historyResponse.success) {
-                throw new Error(historyResponse.error || "Discard applied but failed to refresh history");
+                throw new Error(historyResponse.error || "Reject applied but failed to refresh history");
             }
 
             setMessages(convertEventsToMessages(historyResponse.events));
             setCopilotChat([]);
-
+            setPendingReview(null);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Discard failed");
+            setError(err instanceof Error ? err.message : "Reject failed");
         } finally {
-            setIsUndoing(false);
+            setIsRejecting(false);
         }
     };
 
-    // --- Discarded state ---
-    if (isDiscarded) {
-        return (
-            <div
-                className="rounded-lg overflow-hidden mt-3"
-                style={{ border: "1px solid var(--vscode-panel-border)" }}
-            >
-                <div
-                    className="flex items-center gap-2 px-3 py-2.5"
-                    style={{ color: "var(--vscode-descriptionForeground)", fontSize: "13px" }}
-                >
-                    <Codicon name="discard" />
-                    <span className="font-medium">Changes discarded</span>
-                </div>
-            </div>
-        );
-    }
-
-    // --- Collapsed state: older checkpoints or non-undoable ---
-    if (!canDiscard) {
-        return (
-            <div
-                className="rounded-lg overflow-hidden mt-3"
-                style={{ border: "1px solid var(--vscode-panel-border)" }}
-            >
-                <button
-                    onClick={() => setIsCollapsed(!isCollapsed)}
-                    className="flex items-center gap-2 w-full px-3 py-2.5 transition-colors"
-                    style={{
-                        border: "none",
-                        background: "transparent",
-                        cursor: "pointer",
-                        color: "var(--vscode-foreground)",
-                        fontSize: "13px",
-                        textAlign: "left",
-                    }}
-                >
-                    <Codicon name={isCollapsed ? "chevron-right" : "chevron-down"} />
-                    <span className="font-medium">Changes applied</span>
-                </button>
-                {!isCollapsed && (
-                    <div style={{ borderTop: "1px solid var(--vscode-panel-border)" }}>
-                        <FileList files={summary.files} />
-                    </div>
-                )}
-            </div>
-        );
-    }
-
-    // --- Review state: latest checkpoint with Discard ---
     return (
         <div
-            className="rounded-lg overflow-hidden mt-3"
             style={{
+                margin: "0 16px 10px 16px",
+                width: "calc(100% - 32px)",
+                maxWidth: "calc(100% - 32px)",
+                boxSizing: "border-box",
+                borderRadius: "10px",
+                overflow: "hidden",
                 border: "1px solid var(--vscode-panel-border)",
                 background: "var(--vscode-editorHoverWidget-background)",
             }}
         >
-            <div className="px-3 pt-3 pb-2 font-semibold" style={{ fontSize: "13px", color: "var(--vscode-foreground)" }}>
+            <div className="px-3 pt-3 pb-1 font-semibold" style={{ fontSize: "13px", color: "var(--vscode-foreground)" }}>
                 Changes ready to review
             </div>
+            <div className="px-3 pb-2" style={{ fontSize: "11px", color: "var(--vscode-descriptionForeground)" }}>
+                <span style={{ color: "var(--vscode-testing-iconPassed)" }}>+{pendingReview.totalAdded}</span>
+                {" "}
+                <span style={{ color: "var(--vscode-testing-iconFailed)" }}>-{pendingReview.totalDeleted}</span>
+                {" "}
+                across {pendingReview.files.length} file{pendingReview.files.length === 1 ? "" : "s"}
+            </div>
 
-            <FileList files={summary.files} />
+            <div className="px-3 py-1" style={{ borderTop: "1px solid var(--vscode-panel-border)" }}>
+                {pendingReview.files.map((file) => (
+                    <div
+                        key={file.path}
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "8px",
+                            padding: "6px 0",
+                            fontFamily: "var(--vscode-editor-font-family)",
+                            fontSize: "12px",
+                            minWidth: 0,
+                        }}
+                    >
+                        <span
+                            style={{
+                                color: "var(--vscode-foreground)",
+                                minWidth: 0,
+                                flex: 1,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                            }}
+                            title={file.path}
+                        >
+                            {file.path}
+                        </span>
+                        <span style={{ flexShrink: 0, fontSize: "11px" }}>
+                            <span style={{ color: "var(--vscode-testing-iconPassed)" }}>+{file.addedLines}</span>
+                            {" "}
+                            <span style={{ color: "var(--vscode-testing-iconFailed)" }}>-{file.deletedLines}</span>
+                        </span>
+                    </div>
+                ))}
+            </div>
 
             <div className="flex justify-end gap-2 px-3 py-2.5" style={{ borderTop: "1px solid var(--vscode-panel-border)" }}>
                 <button
-                    onClick={handleDiscardClick}
-                    disabled={isUndoing}
+                    onClick={handleReject}
+                    disabled={isRejecting}
                     className="px-4 py-1.5 rounded-md text-xs font-medium transition-colors"
                     style={{
                         border: "1px solid var(--vscode-panel-border)",
                         backgroundColor: "var(--vscode-button-secondaryBackground)",
                         color: "var(--vscode-button-secondaryForeground)",
-                        cursor: isUndoing ? "not-allowed" : "pointer",
-                        opacity: isUndoing ? 0.6 : 1,
+                        cursor: isRejecting ? "not-allowed" : "pointer",
+                        opacity: isRejecting ? 0.6 : 1,
                     }}
                 >
-                    {isUndoing ? "Discarding..." : isConfirming ? "Confirm Discard" : "Discard"}
+                    {isRejecting ? "Rejecting..." : "Reject"}
+                </button>
+                <button
+                    onClick={handleAccept}
+                    disabled={isRejecting}
+                    className="px-4 py-1.5 rounded-md text-xs font-medium transition-colors"
+                    style={{
+                        border: "1px solid var(--vscode-button-border)",
+                        backgroundColor: "var(--vscode-button-background)",
+                        color: "var(--vscode-button-foreground)",
+                        cursor: isRejecting ? "not-allowed" : "pointer",
+                        opacity: isRejecting ? 0.6 : 1,
+                    }}
+                >
+                    Accept
                 </button>
             </div>
-            {isConfirming && !isUndoing && (
-                <div className="px-3 py-2 text-xs flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--vscode-panel-border)" }}>
-                    <span style={{ color: "var(--vscode-descriptionForeground)" }}>
-                        Discard these changes? Conversation history stays; files and model context will be reverted.
-                    </span>
-                    <div className="flex items-center gap-1">
-                        <button
-                            onClick={() => setIsConfirming(false)}
-                            className="px-2 py-1 rounded"
-                            style={{
-                                border: "1px solid var(--vscode-panel-border)",
-                                background: "var(--vscode-button-secondaryBackground)",
-                                color: "var(--vscode-button-secondaryForeground)",
-                            }}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={executeDiscard}
-                            className="px-2 py-1 rounded"
-                            style={{
-                                border: "1px solid var(--vscode-button-border)",
-                                background: "var(--vscode-button-background)",
-                                color: "var(--vscode-button-foreground)",
-                            }}
-                        >
-                            Confirm
-                        </button>
-                    </div>
-                </div>
-            )}
 
             {error && (
                 <div className="px-3 py-2 text-xs" style={{ color: "var(--vscode-errorForeground)", borderTop: "1px solid var(--vscode-panel-border)" }}>
@@ -229,36 +189,5 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText, is
         </div>
     );
 };
-
-/** File list showing per-file path + added/deleted line counts */
-function FileList({ files }: { files: { path: string; addedLines: number; deletedLines: number }[] }) {
-    return (
-        <div className="px-3 py-1">
-            {files.map((file) => (
-                <div
-                    key={file.path}
-                    className="flex justify-between items-center py-1.5"
-                    style={{
-                        fontFamily: "var(--vscode-editor-font-family)",
-                        fontSize: "12px",
-                    }}
-                >
-                    <span
-                        className="truncate pr-2"
-                        style={{ color: "var(--vscode-foreground)" }}
-                        title={file.path}
-                    >
-                        {file.path}
-                    </span>
-                    <span className="shrink-0 text-[11px]">
-                        <span style={{ color: "var(--vscode-testing-iconPassed)" }}>+{file.addedLines}</span>
-                        {" "}
-                        <span style={{ color: "var(--vscode-testing-iconFailed)" }}>-{file.deletedLines}</span>
-                    </span>
-                </div>
-            ))}
-        </div>
-    );
-}
 
 export default FileChangesSegment;

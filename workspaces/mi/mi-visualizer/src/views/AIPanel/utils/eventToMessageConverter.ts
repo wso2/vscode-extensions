@@ -22,7 +22,6 @@ import { generateId } from "../utils";
 // Tool name constants
 const TODO_WRITE_TOOL_NAME = 'todo_write';
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
-const FILE_CHANGES_TAG_REGEX = /<filechanges>([\s\S]*?)<\/filechanges>/g;
 
 /**
  * Calculate overall status from todo items
@@ -35,68 +34,6 @@ function calculateTodoStatus(todos: TodoItem[]): 'active' | 'completed' | 'pendi
         return 'completed';
     }
     return 'pending';
-}
-
-function updateFileChangesCheckpointTag(
-    content: string,
-    checkpoint: { checkpointId?: string }
-): { content: string; updated: boolean } {
-    if (!checkpoint.checkpointId) {
-        return { content, updated: false };
-    }
-
-    let updated = false;
-    const nextContent = content.replace(FILE_CHANGES_TAG_REGEX, (fullMatch, summaryText) => {
-        try {
-            const summary = JSON.parse(summaryText) as { checkpointId?: string };
-            if (summary?.checkpointId === checkpoint.checkpointId) {
-                updated = true;
-                return `<filechanges>${JSON.stringify(checkpoint)}</filechanges>`;
-            }
-        } catch {
-            // Ignore malformed tags and continue.
-        }
-        return fullMatch;
-    });
-
-    return { content: nextContent, updated };
-}
-
-function updateFileChangesCheckpointInMessage(
-    message: ChatMessage | null | undefined,
-    checkpoint: { checkpointId?: string }
-): boolean {
-    if (!message || message.role !== Role.MICopilot) {
-        return false;
-    }
-
-    const result = updateFileChangesCheckpointTag(message.content || '', checkpoint);
-    if (!result.updated) {
-        return false;
-    }
-
-    message.content = result.content;
-    return true;
-}
-
-function appendFileChangesTagToMessage(message: ChatMessage, tag: string): void {
-    message.content = message.content ? `${message.content}\n\n${tag}` : tag;
-}
-
-function findLastAssistantMessage(
-    messages: ChatMessage[],
-    matcher?: (message: ChatMessage) => boolean
-): ChatMessage | undefined {
-    for (let i = messages.length - 1; i >= 0; i--) {
-        const candidate = messages[i];
-        if (candidate.role !== Role.MICopilot) {
-            continue;
-        }
-        if (!matcher || matcher(candidate)) {
-            return candidate;
-        }
-    }
-    return undefined;
 }
 
 function getEventChatId(event: AgentEvent | ChatHistoryEvent): number | undefined {
@@ -406,52 +343,8 @@ export function convertEventsToMessages(
                 break;
 
             case 'undo_checkpoint': {
-                const checkpoint = event.undoCheckpoint;
-                if (!checkpoint) {
-                    break;
-                }
-
-                const checkpointId = checkpoint.checkpointId;
-                if (updateFileChangesCheckpointInMessage(currentAssistantMessage, checkpoint)) {
-                    break;
-                }
-
-                let updatedInHistory = false;
-                for (let i = messages.length - 1; i >= 0; i--) {
-                    if (updateFileChangesCheckpointInMessage(messages[i], checkpoint)) {
-                        updatedInHistory = true;
-                        break;
-                    }
-                }
-                if (updatedInHistory) {
-                    break;
-                }
-
-                const targetChatId = 'targetChatId' in event && typeof event.targetChatId === 'number'
-                    ? event.targetChatId
-                    : undefined;
-                if (targetChatId === undefined) {
-                    break;
-                }
-
-                const fileChangesTag = `<filechanges>${JSON.stringify(checkpoint)}</filechanges>`;
-                if (
-                    currentAssistantMessage
-                    && currentAssistantMessage.role === Role.MICopilot
-                    && currentAssistantMessage.id === targetChatId
-                ) {
-                    appendFileChangesTagToMessage(currentAssistantMessage, fileChangesTag);
-                    break;
-                }
-
-                const targetedAssistantMessage = findLastAssistantMessage(
-                    messages,
-                    (message) => message.id === targetChatId
-                );
-                if (targetedAssistantMessage) {
-                    appendFileChangesTagToMessage(targetedAssistantMessage, fileChangesTag);
-                    break;
-                }
+                // Undo checkpoint entries from history/stream are ignored.
+                // Review card state is ephemeral and managed from live stop events only.
                 break;
             }
 
