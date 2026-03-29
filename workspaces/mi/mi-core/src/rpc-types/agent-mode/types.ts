@@ -81,6 +81,11 @@ export interface FileHistorySnapshot {
     timestamp: string;
     /** Optional assistant chat id (used for code-segment checkpoints) */
     targetChatId?: number;
+    /** Optional session plan-file baseline captured at checkpoint start (for hard time-reset restore). */
+    planFileSnapshot?: {
+        planPath: string;
+        backup: FileHistoryBackupReference;
+    };
 }
 
 export interface UndoCheckpointSummary {
@@ -111,6 +116,8 @@ export interface SendAgentMessageResponse {
 export interface UndoLastCheckpointRequest {
     force?: boolean;
     checkpointId?: string;
+    /** soft: restore files + keep timeline + add system-reminder, hard: full time-reset + truncate timeline */
+    behavior?: 'soft' | 'hard';
 }
 
 export interface UndoLastCheckpointResponse {

@@ -758,6 +758,117 @@ export class ChatHistoryManager {
     }
 
     /**
+     * Get undo checkpoint summary by checkpoint ID.
+     */
+    async getUndoCheckpointSummary(checkpointId: string): Promise<UndoCheckpointSummary | undefined> {
+        const normalizedCheckpointId = checkpointId?.trim();
+        if (!normalizedCheckpointId) {
+            return undefined;
+        }
+
+        try {
+            const content = await fs.readFile(this.sessionFile, 'utf8');
+            const entries = this.parseJournalEntries(content, `loading undo checkpoint ${normalizedCheckpointId}`);
+
+            for (let i = entries.length - 1; i >= 0; i--) {
+                const entry = entries[i];
+                if (entry.type !== 'undo_checkpoint' || !entry.undoCheckpoint) {
+                    continue;
+                }
+                if (entry.undoCheckpoint.checkpointId === normalizedCheckpointId) {
+                    return entry.undoCheckpoint;
+                }
+            }
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError(`[ChatHistory] Failed to load undo checkpoint ${normalizedCheckpointId}`, error);
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Marks a checkpoint summary as discarded (undoable=false) while preserving timeline entries.
+     * Returns true if the checkpoint entry was found.
+     */
+    async markUndoCheckpointDiscarded(checkpointId: string): Promise<boolean> {
+        const normalizedCheckpointId = checkpointId?.trim();
+        if (!normalizedCheckpointId) {
+            return false;
+        }
+
+        const wasClosing = this.isClosing;
+        try {
+            this.isClosing = true;
+            await this.waitForPendingWrites();
+
+            if (this.writeStream) {
+                const streamToClose = this.writeStream;
+                await new Promise<void>((resolve, reject) => {
+                    streamToClose.end((err: Error | null | undefined) => {
+                        if (err) reject(err);
+                        else resolve();
+                    });
+                });
+                if (this.writeStream === streamToClose) {
+                    this.writeStream = null;
+                }
+            }
+
+            const content = await fs.readFile(this.sessionFile, 'utf8');
+            const entries = this.parseJournalEntries(
+                content,
+                `marking undo checkpoint ${normalizedCheckpointId} as discarded`
+            );
+
+            let foundIndex = -1;
+            for (let i = entries.length - 1; i >= 0; i--) {
+                const entry = entries[i];
+                if (
+                    entry.type === 'undo_checkpoint'
+                    && entry.undoCheckpoint?.checkpointId === normalizedCheckpointId
+                ) {
+                    foundIndex = i;
+                    break;
+                }
+            }
+
+            if (foundIndex < 0) {
+                this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
+                this.isClosing = wasClosing;
+                return false;
+            }
+
+            const existingSummary = entries[foundIndex].undoCheckpoint;
+            if (existingSummary?.undoable !== false) {
+                entries[foundIndex] = {
+                    ...entries[foundIndex],
+                    undoCheckpoint: {
+                        ...existingSummary,
+                        undoable: false,
+                    } as UndoCheckpointSummary,
+                };
+                await this.rewriteHistoryEntries(entries);
+                await this.rebuildMetadataFromEntries(entries);
+            }
+
+            this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
+            this.isClosing = wasClosing;
+            return true;
+        } catch (error) {
+            logError(`[ChatHistory] Failed to mark undo checkpoint ${normalizedCheckpointId} as discarded`, error);
+            throw error;
+        } finally {
+            if (!this.writeStream) {
+                this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
+            }
+            this.isClosing = wasClosing;
+        }
+    }
+
+    /**
      * Save a checkpoint anchor entry before a user turn starts.
      */
     async saveCheckpointAnchor(anchor: CheckpointAnchorSummary): Promise<void> {
@@ -858,6 +969,11 @@ export class ChatHistoryManager {
                     if (backupFileName) {
                         referenced.add(backupFileName);
                     }
+                }
+
+                const planBackupFileName = entry.fileHistorySnapshot.planFileSnapshot?.backup?.backupFileName?.trim();
+                if (planBackupFileName) {
+                    referenced.add(planBackupFileName);
                 }
             }
         } catch (error) {
