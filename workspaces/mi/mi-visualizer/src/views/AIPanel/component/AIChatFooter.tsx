@@ -751,12 +751,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     });
                 }
                 if (!isResponseReceived.current) {
-                    if (assistantResponseRef.current) {
-                        handleAgentComplete(assistantResponseRef.current, event.modelMessages || []);
-                    } else {
-                        // Even if no accumulated text, still mark as completed
-                        setBackendRequestTriggered(false);
-                    }
+                    // Always call handleAgentComplete so tool-only turns persist modelMessages
+                    handleAgentComplete(assistantResponseRef.current || '', event.modelMessages || []);
                     isResponseReceived.current = true;
                     // Fetch and update usage after agent response
                     rpcClient?.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
