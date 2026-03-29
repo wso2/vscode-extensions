@@ -76,20 +76,6 @@ export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, 
     const language = propLanguage || identifyLanguage(segmentText);
     const name = getFileName(language, segmentText, loading);
 
-    const markExistingFileChangesAsNonUndoable = (content: string): string => {
-        return content.replace(/<filechanges>([\s\S]*?)<\/filechanges>/g, (_fullMatch, summaryText) => {
-            try {
-                const summary = JSON.parse(summaryText) as UndoCheckpointSummary;
-                if (!summary || typeof summary !== "object") {
-                    return _fullMatch;
-                }
-                return `<filechanges>${JSON.stringify({ ...summary, undoable: false })}</filechanges>`;
-            } catch {
-                return _fullMatch;
-            }
-        });
-    };
-
     const hasFileChangesCheckpoint = (content: string, checkpointId?: string): boolean => {
         if (!checkpointId) {
             return false;
@@ -176,10 +162,7 @@ export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, 
                         return prevMessages;
                     }
 
-                    const updated = prevMessages.map((message) => ({
-                        ...message,
-                        content: markExistingFileChangesAsNonUndoable(message.content || ""),
-                    }));
+                    const updated = [...prevMessages];
 
                     let targetMessageIndex = -1;
                     if (typeof targetChatId === "number") {

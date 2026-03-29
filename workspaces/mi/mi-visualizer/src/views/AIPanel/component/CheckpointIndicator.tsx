@@ -19,103 +19,67 @@
 import React, { useState } from "react";
 import { Codicon } from "@wso2/ui-toolkit";
 import { useMICopilotContext } from "./MICopilotContext";
-import { UndoCheckpointSummary } from "@wso2/mi-core";
+import { convertEventsToMessages } from "../utils/eventToMessageConverter";
 
 interface CheckpointIndicatorProps {
-    /** The checkpoint ID this divider corresponds to (from the previous assistant message). */
+    /** The checkpoint anchor ID for the user turn below this divider. */
     targetCheckpointId: string;
+    /** Custom action label (defaults to "Restore Checkpoint") */
+    label?: string;
 }
-
-/** Maximum cascade depth to prevent runaway loops. */
-const MAX_CASCADE_DEPTH = 25;
 
 /**
  * Divider-style checkpoint indicator with restore capability.
  *
- * When clicked, cascades undo from the latest checkpoint back to this
- * checkpoint's position (LIFO stack). Each undo in the cascade triggers
- * `saveUndoReminderMessage` on the backend so the model is informed.
+ * When clicked, restores directly to this checkpoint and truncates
+ * conversation history after the selected checkpoint anchor.
  *
  * Visible on hover over the conversation turn (parent must have `group/turn` class).
  */
-const CheckpointIndicator: React.FC<CheckpointIndicatorProps> = ({ targetCheckpointId }) => {
-    const { rpcClient, setMessages } = useMICopilotContext();
+const CheckpointIndicator: React.FC<CheckpointIndicatorProps> = ({ targetCheckpointId, label = "Restore Checkpoint" }) => {
+    const { rpcClient, setMessages, setCopilotChat } = useMICopilotContext();
     const [isRestoring, setIsRestoring] = useState(false);
+    const [isConfirming, setIsConfirming] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleRestore = async () => {
-        if (!rpcClient || isRestoring) return;
-
+    const executeRestore = async () => {
+        if (isRestoring) {
+            return;
+        }
+        if (!rpcClient) {
+            setError("Agent connection is unavailable. Please reopen the panel and try again.");
+            return;
+        }
         setIsRestoring(true);
+        setIsConfirming(false);
         setError(null);
 
         try {
-            let undoCount = 0;
-
-            // Cascade: keep undoing until we've undone the target checkpoint
-            // or until there are no more checkpoints.
-            while (undoCount < MAX_CASCADE_DEPTH) {
-                const result = await rpcClient.getMiAgentPanelRpcClient().undoLastCheckpoint({ force: false });
-
-                if (!result.success) {
-                    if (result.requiresConfirmation && result.conflicts && result.conflicts.length > 0) {
-                        const shouldForce = window.confirm(
-                            `These files changed after the checkpoint and will be overwritten:\n\n${result.conflicts.join('\n')}\n\nContinue with restore?`
-                        );
-                        if (!shouldForce) {
-                            break;
-                        }
-                        const forceResult = await rpcClient.getMiAgentPanelRpcClient().undoLastCheckpoint({ force: true });
-                        if (!forceResult.success) {
-                            setError(forceResult.error || "Failed to restore checkpoint");
-                            break;
-                        }
-                        undoCount++;
-                        // Check if we just undid our target
-                        if (forceResult.undoCheckpoint?.checkpointId === targetCheckpointId) {
-                            break;
-                        }
-                        continue;
-                    }
-                    // No more checkpoints or other error
-                    if (undoCount === 0) {
-                        setError(result.error || "Failed to restore checkpoint");
-                    }
-                    break;
-                }
-
-                undoCount++;
-
-                // Check if the checkpoint we just undid is our target
-                if (result.undoCheckpoint?.checkpointId === targetCheckpointId) {
-                    break;
-                }
-
-                // If there's no next checkpoint to undo, stop
-                if (!result.latestUndoCheckpoint) {
-                    break;
-                }
+            const agentRpcClient = rpcClient.getMiAgentPanelRpcClient();
+            let restoreResult = await agentRpcClient.undoLastCheckpoint({
+                checkpointId: targetCheckpointId,
+            });
+            // Backward compatibility with older backend confirmation handshake.
+            if (!restoreResult.success && restoreResult.requiresConfirmation) {
+                restoreResult = await agentRpcClient.undoLastCheckpoint({
+                    checkpointId: targetCheckpointId,
+                    force: true,
+                });
             }
 
-            if (undoCount > 0) {
-                // Update all filechanges tags in UI to reflect new undoable state
-                setMessages((prevMessages) =>
-                    prevMessages.map((msg) => ({
-                        ...msg,
-                        content: (msg.content || "").replace(
-                            /<filechanges>([\s\S]*?)<\/filechanges>/g,
-                            (_full, json) => {
-                                try {
-                                    const parsed = JSON.parse(json) as UndoCheckpointSummary;
-                                    return `<filechanges>${JSON.stringify({ ...parsed, undoable: false })}</filechanges>`;
-                                } catch {
-                                    return _full;
-                                }
-                            }
-                        ),
-                    }))
-                );
+            if (!restoreResult.success) {
+                setError(restoreResult.error || "Failed to restore checkpoint");
+                return;
             }
+
+            const historyResponse = await agentRpcClient.loadChatHistory({});
+            if (!historyResponse.success) {
+                setError(historyResponse.error || "Checkpoint restored, but failed to refresh history");
+                return;
+            }
+
+            setMessages(convertEventsToMessages(historyResponse.events));
+            setCopilotChat([]);
         } catch (err) {
             setError("Failed to restore checkpoint");
         } finally {
@@ -123,31 +87,82 @@ const CheckpointIndicator: React.FC<CheckpointIndicatorProps> = ({ targetCheckpo
         }
     };
 
+    const handleRestoreClick = () => {
+        if (isRestoring) {
+            return;
+        }
+        setError(null);
+        setIsConfirming(true);
+    };
+
     return (
-        <div className="flex flex-col items-center mt-1 mb-3">
+        <div className="flex flex-col mt-1 mb-2 px-1">
             <div
-                className="checkpoint-hover flex items-center justify-center relative w-full transition-opacity duration-200"
-                style={{ opacity: 0 }}
+                className={`relative flex items-center justify-center transition-opacity duration-200 ${
+                    isConfirming || isRestoring || error
+                        ? "opacity-100"
+                        : "opacity-0 group-hover/turn:opacity-100"
+                }`}
             >
                 <div className="absolute inset-0 flex items-center">
                     <div className="w-full" style={{ borderTop: "1px solid var(--vscode-panel-border)" }} />
                 </div>
                 <button
-                    onClick={handleRestore}
+                    onClick={handleRestoreClick}
                     disabled={isRestoring}
-                    className="relative flex items-center gap-1.5 px-3 py-1 text-xs transition-colors"
+                    className="relative flex items-center gap-1.5 px-3 py-1 rounded transition-colors"
                     style={{
-                        backgroundColor: "var(--vscode-sideBar-background)",
-                        color: "var(--vscode-descriptionForeground)",
                         border: "none",
+                        background: "var(--vscode-editor-background)",
+                        color: "var(--vscode-descriptionForeground)",
                         cursor: isRestoring ? "not-allowed" : "pointer",
                         opacity: isRestoring ? 0.5 : 1,
+                        fontSize: "12px",
                     }}
                 >
-                    <span>{isRestoring ? "Restoring..." : "Restore Checkpoint"}</span>
+                    <span>{isRestoring ? "Restoring..." : isConfirming ? "Confirm Restore" : label}</span>
                     <Codicon name="discard" />
                 </button>
             </div>
+            {isConfirming && !isRestoring && (
+                <div
+                    className="mt-1 px-2 py-1 rounded flex items-center justify-between gap-2"
+                    style={{
+                        border: "1px solid var(--vscode-panel-border)",
+                        background: "var(--vscode-editorHoverWidget-background)",
+                        fontSize: "11px",
+                        color: "var(--vscode-descriptionForeground)",
+                    }}
+                >
+                    <span>Restore to this checkpoint? Later messages and manual edits will be lost.</span>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setIsConfirming(false)}
+                            className="px-1.5 py-0.5 rounded"
+                            style={{
+                                border: "1px solid var(--vscode-panel-border)",
+                                background: "var(--vscode-button-secondaryBackground)",
+                                color: "var(--vscode-button-secondaryForeground)",
+                                fontSize: "11px",
+                            }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={executeRestore}
+                            className="px-1.5 py-0.5 rounded"
+                            style={{
+                                border: "1px solid var(--vscode-button-border)",
+                                background: "var(--vscode-button-background)",
+                                color: "var(--vscode-button-foreground)",
+                                fontSize: "11px",
+                            }}
+                        >
+                            Confirm
+                        </button>
+                    </div>
+                </div>
+            )}
             {error && (
                 <p className="text-[11px] mt-1" style={{ color: "var(--vscode-errorForeground)" }}>
                     {error}

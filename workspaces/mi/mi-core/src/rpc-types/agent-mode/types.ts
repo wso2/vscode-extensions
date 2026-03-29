@@ -30,6 +30,8 @@ export interface SendAgentMessageRequest {
     message: string;
     /** UI chat message id to anchor replay metadata (undo cards) to the matching assistant message */
     chatId?: number;
+    /** Checkpoint anchor ID created before this user turn */
+    checkpointId?: string;
     /** Agent mode: ask (read-only), edit (full tool access), or plan (planning-focused read-only) */
     mode?: AgentMode;
     /** Optional file attachments (text/PDF) for multimodal prompts */
@@ -55,6 +57,32 @@ export interface ChangedFileSummary {
     deletedLines: number;
 }
 
+export interface CheckpointAnchorSummary {
+    checkpointId: string;
+    source: 'agent' | 'code_segment';
+    createdAt: string;
+    /** User chat id this checkpoint is anchored to (when created before a user turn) */
+    chatId?: number;
+}
+
+export interface FileHistoryBackupReference {
+    backupFileName: string | null;
+    version: number;
+    backupTime: string;
+}
+
+export interface FileHistorySnapshot {
+    /**
+     * Anchor checkpoint ID (inner message id in Claude-style snapshot indexing)
+     */
+    messageId: string;
+    source: 'agent' | 'code_segment';
+    trackedFileBackups: Record<string, FileHistoryBackupReference>;
+    timestamp: string;
+    /** Optional assistant chat id (used for code-segment checkpoints) */
+    targetChatId?: number;
+}
+
 export interface UndoCheckpointSummary {
     checkpointId: string;
     source: 'agent' | 'code_segment';
@@ -72,6 +100,7 @@ export interface SendAgentMessageResponse {
     success: boolean;
     message?: string;
     modifiedFiles?: string[];
+    checkpointId?: string;
     undoCheckpoint?: UndoCheckpointSummary;
     error?: string;
     /** Full AI SDK messages from this turn (includes tool calls/results) */
@@ -89,6 +118,7 @@ export interface UndoLastCheckpointResponse {
     requiresConfirmation?: boolean;
     conflicts?: string[];
     restoredFiles?: string[];
+    historyTruncated?: boolean;
     undoCheckpoint?: UndoCheckpointSummary;
     latestUndoCheckpoint?: UndoCheckpointSummary;
     error?: string;
@@ -277,7 +307,7 @@ export interface PlanApprovalRequestedEvent extends AgentEvent {
  * Frontend will convert these to UI messages with inline tool call formatting
  */
 export interface ChatHistoryEvent {
-    type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint';
+    type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint' | 'checkpoint_anchor';
     /** Stable UI chat id for grouping a user turn and its assistant output */
     chatId?: number;
     content?: string;
@@ -291,6 +321,7 @@ export interface ChatHistoryEvent {
     /** User-friendly action text for tool result (e.g., "Created", "Read", "Failed to create") */
     action?: string;
     undoCheckpoint?: UndoCheckpointSummary;
+    checkpointAnchor?: CheckpointAnchorSummary;
     /** Assistant chat id this undo checkpoint should attach to during UI replay */
     targetChatId?: number;
     timestamp: string;

@@ -602,15 +602,17 @@ export async function executeAgent(
         // process.cwd() at module load time. Dynamic import ensures it sees the correct path.
         if (ENABLE_DEVTOOLS) {
             const originalCwd = process.cwd();
-            const originalNodeEnv = process.env.NODE_ENV;
+            const nodeEnvKey = 'NODE_ENV';
+            const envVars = process.env as Record<string, string | undefined>;
+            const originalNodeEnv = envVars[nodeEnvKey];
             process.chdir(request.projectPath);
-            process.env.NODE_ENV = 'development'; // DevTools throws in production
+            envVars[nodeEnvKey] = 'development'; // DevTools throws in production
             const { devToolsMiddleware } = await import('@ai-sdk/devtools');
             model = wrapLanguageModel({
                 model,
                 middleware: devToolsMiddleware() as any,
             });
-            process.env.NODE_ENV = originalNodeEnv;
+            envVars[nodeEnvKey] = originalNodeEnv;
             process.chdir(originalCwd);
         }
 
