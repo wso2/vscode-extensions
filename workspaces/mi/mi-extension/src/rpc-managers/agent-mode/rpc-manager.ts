@@ -922,6 +922,13 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
     async undoLastCheckpoint(request: UndoLastCheckpointRequest): Promise<UndoLastCheckpointResponse> {
         try {
+            if (this.hasActiveAgentRun()) {
+                return {
+                    success: false,
+                    error: 'Cannot undo while an agent run is active',
+                };
+            }
+
             const requestedCheckpointId = request.checkpointId?.trim();
             if (!requestedCheckpointId) {
                 return {
