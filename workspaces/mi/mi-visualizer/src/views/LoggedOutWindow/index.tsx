@@ -106,6 +106,16 @@ const TextButton = styled.button`
     }
 `;
 
+const DisabledTextButton = styled.button`
+    background: none;
+    border: none;
+    color: var(--vscode-disabledForeground);
+    font-size: 13px;
+    cursor: not-allowed;
+    padding: 0;
+    margin-top: -6px;
+`;
+
 const LegalNotice: React.FC = () => {
     return (
         <PostLoginSection>
@@ -140,10 +150,6 @@ export const SignInToCopilotMessage = (props: { showProjectHeader?: boolean }) =
         rpcClient.sendAIStateEvent(AI_EVENT_TYPE.AUTH_WITH_API_KEY);
     };
 
-    const handleAwsBedrockClick = () => {
-        rpcClient.sendAIStateEvent(AI_EVENT_TYPE.AUTH_WITH_AWS_BEDROCK);
-    };
-
     return (
         <PanelWrapper>
             <TopSpacer />
@@ -172,7 +178,7 @@ export const SignInToCopilotMessage = (props: { showProjectHeader?: boolean }) =
                 <StyledButton onClick={signInToMIAI}>Login to WSO2 Integrator Copilot</StyledButton>
                 <Divider>or</Divider>
                 <TextButton onClick={handleAnthropicKeyClick}>Enter your Anthropic API key</TextButton>
-                <TextButton onClick={handleAwsBedrockClick}>Enter your AWS Bedrock credentials</TextButton>
+                <DisabledTextButton title="AWS Bedrock support is coming soon">AWS Bedrock (coming soon)</DisabledTextButton>
             </FooterContent>
         </PanelWrapper>
     );
