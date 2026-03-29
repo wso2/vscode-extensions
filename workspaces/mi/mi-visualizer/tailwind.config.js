@@ -110,4 +110,9 @@ module.exports = {
 		},
 	},
 	plugins: [],
+	corePlugins: {
+		// Disable Preflight (Tailwind's CSS reset) to avoid breaking existing
+		// Emotion-styled components in Design View, Data Mapper, etc.
+		preflight: false,
+	},
 };
