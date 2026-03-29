@@ -992,6 +992,13 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     async applyCodeSegmentWithCheckpoint(
         request: ApplyCodeSegmentWithCheckpointRequest
     ): Promise<ApplyCodeSegmentWithCheckpointResponse> {
+        if (this.hasActiveAgentRun()) {
+            return {
+                success: false,
+                error: 'Cannot apply code while an agent run is active',
+            };
+        }
+
         const segmentText = request.segmentText || '';
         if (!segmentText.trim()) {
             return {
