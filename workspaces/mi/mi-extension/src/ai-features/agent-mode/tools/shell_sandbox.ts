@@ -34,6 +34,10 @@ export interface ShellSegmentAnalysis {
     raw: string;
     command: string;
     tokens: string[];
+    /** Path-like tokens that may be written/mutated by this segment. */
+    writePathTokens?: string[];
+    /** Resolved absolute mutation paths within or outside the project. */
+    resolvedMutationPaths?: string[];
     requiresApproval: boolean;
     reasons: string[];
     isDestructive: boolean;
@@ -1292,6 +1296,8 @@ function analyzeSegment(
         raw: rawSegment,
         command,
         tokens,
+        writePathTokens,
+        resolvedMutationPaths,
         requiresApproval: reasons.length > 0 || blocked,
         reasons: dedupe(reasons),
         isDestructive,

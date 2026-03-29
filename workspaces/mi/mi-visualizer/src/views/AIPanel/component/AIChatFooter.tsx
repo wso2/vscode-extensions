@@ -202,20 +202,6 @@ function sanitizeSuggestedPrefixRule(value: unknown): string[] {
     );
 }
 
-function markFileChangesTagsAsNonUndoable(content: string): string {
-    return content.replace(/<filechanges>([\s\S]*?)<\/filechanges>/g, (fullMatch, summaryText) => {
-        try {
-            const summary = JSON.parse(summaryText) as UndoCheckpointSummary;
-            if (!summary || typeof summary !== "object") {
-                return fullMatch;
-            }
-            return `<filechanges>${JSON.stringify({ ...summary, undoable: false })}</filechanges>`;
-        } catch {
-            return fullMatch;
-        }
-    });
-}
-
 function hasFileChangesCheckpoint(content: string, checkpointId?: string): boolean {
     if (!checkpointId) {
         return false;
@@ -240,17 +226,16 @@ function appendFileChangesTag(content: string, checkpoint?: UndoCheckpointSummar
         return content;
     }
 
-    const normalizedContent = markFileChangesTagsAsNonUndoable(content);
-    if (hasFileChangesCheckpoint(normalizedContent, checkpoint.checkpointId)) {
-        return normalizedContent;
+    if (hasFileChangesCheckpoint(content, checkpoint.checkpointId)) {
+        return content;
     }
 
     const fileChangesTag = `<filechanges>${JSON.stringify(checkpoint)}</filechanges>`;
-    if (normalizedContent.includes(fileChangesTag)) {
-        return normalizedContent;
+    if (content.includes(fileChangesTag)) {
+        return content;
     }
 
-    return normalizedContent ? `${normalizedContent}\n\n${fileChangesTag}` : fileChangesTag;
+    return content ? `${content}\n\n${fileChangesTag}` : fileChangesTag;
 }
 
 interface AIChatFooterProps {
@@ -1194,16 +1179,27 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         // Add the current user prompt to the chats based on the request type
         let currentCopilotChat: CopilotChatEntry[] = [...copilotChat];
         const chatId = generateId();
+        const checkpointId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+            ? crypto.randomUUID()
+            : `checkpoint-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         setCurrentChatId(chatId);
 
-        const updateChats = (userPrompt: string, userMessageType?: MessageType) => {
+        const updateChats = (userPrompt: string, userMessageType?: MessageType, checkpointAnchorId?: string) => {
             // Store the user prompt for potential abort restoration
             lastUserPromptRef.current = userPrompt;
 
             // Append labels to the user prompt
             setMessages((prevMessages) => [
                 ...prevMessages,
-                { id: chatId, role: Role.MIUser, content: userPrompt, type: userMessageType, files, images },
+                {
+                    id: chatId,
+                    role: Role.MIUser,
+                    content: userPrompt,
+                    type: userMessageType,
+                    checkpointAnchorId,
+                    files,
+                    images,
+                },
                 {
                     id: chatId,
                     role: Role.MICopilot,
@@ -1225,10 +1221,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         let messageToSend = outgoingPrompt;
         switch (requestType) {
             case BackendRequestType.InitialPrompt:
-                updateChats(outgoingPrompt, MessageType.InitialPrompt);
+                updateChats(outgoingPrompt, MessageType.InitialPrompt, checkpointId);
                 break;
             default:
-                updateChats(outgoingPrompt, MessageType.UserMessage);
+                updateChats(outgoingPrompt, MessageType.UserMessage, checkpointId);
                 break;
         }
 
@@ -1258,6 +1254,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             const response = await rpcClient.getMiAgentPanelRpcClient().sendAgentMessage({
                 message: messageToSend,
                 chatId,
+                checkpointId,
                 mode: agentMode,
                 files,
                 images,
@@ -1272,16 +1269,21 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 throw new Error(response.error || "Failed to send agent request");
             }
 
+            if (response.checkpointId && response.checkpointId !== checkpointId) {
+                setMessages((prevMessages) => prevMessages.map((msg) => {
+                    if (msg.role === Role.MIUser && msg.id === chatId) {
+                        return { ...msg, checkpointAnchorId: response.checkpointId };
+                    }
+                    return msg;
+                }));
+            }
+
             if (response.undoCheckpoint) {
                 setMessages((prev) => {
                     if (prev.length === 0) {
                         return prev;
                     }
-                    const normalized = prev.map((message) => ({
-                        ...message,
-                        content: markFileChangesTagsAsNonUndoable(message.content || ""),
-                    }));
-                    return updateLastMessage(normalized, (c) => appendFileChangesTag(c, response.undoCheckpoint));
+                    return updateLastMessage(prev, (c) => appendFileChangesTag(c, response.undoCheckpoint));
                 });
             }
 
