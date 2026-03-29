@@ -101,23 +101,9 @@ export function AICodeGenerator({ isUsageExceeded = false }: AICodeGeneratorProp
                   {Array.isArray(messages) && messages.length === 0 && <WelcomeMessage />}
 
                   {Array.isArray(messages) && messages.map((message, index) => {
-                      // Show checkpoint divider before user messages when previous
-                      // assistant message made file changes (has <filechanges> tag)
-                      let checkpointId: string | undefined;
-                      if (
-                          message.role === Role.MIUser &&
-                          index > 0 &&
-                          messages[index - 1]?.role === Role.MICopilot
-                      ) {
-                          const prevContent = messages[index - 1]?.content || "";
-                          const match = prevContent.match(/<filechanges>([\s\S]*?)<\/filechanges>/);
-                          if (match?.[1]) {
-                              try {
-                                  const parsed = JSON.parse(match[1]);
-                                  checkpointId = parsed?.checkpointId;
-                              } catch { /* ignore */ }
-                          }
-                      }
+                      const checkpointId = message.role === Role.MIUser
+                          ? message.checkpointAnchorId
+                          : undefined;
 
                       return (
                           <div key={`${typeof message.id === "number" ? message.id : "msg"}-${message.role}-${index}`} className="group/turn">

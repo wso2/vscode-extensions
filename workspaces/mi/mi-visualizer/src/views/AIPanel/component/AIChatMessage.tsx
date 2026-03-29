@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import styled from "@emotion/styled";
@@ -275,6 +275,23 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
         return null;
     }
 
+    // Find the latest (last) checkpoint ID across all messages for isLatest prop
+    const latestCheckpointId = useMemo(() => {
+        let lastId: string | null = null;
+        for (const msg of messages) {
+            const matches = (msg.content || "").matchAll(/<filechanges>([\s\S]*?)<\/filechanges>/g);
+            for (const match of matches) {
+                try {
+                    const parsed = JSON.parse(match[1]);
+                    if (parsed?.checkpointId && parsed?.undoable) {
+                        lastId = parsed.checkpointId;
+                    }
+                } catch { /* skip */ }
+            }
+        }
+        return lastId;
+    }, [messages]);
+
     const parsedSegments = splitContent(message.content);
 
     const hasAnswerContent = parsedSegments.some((segment) => {
@@ -341,7 +358,12 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             } else if (segment.isCompactSummary) {
                 return <CompactSummarySegment key={i} text={segment.text} />;
             } else if (segment.isFileChanges) {
-                return <FileChangesSegment key={i} summaryText={segment.text} />;
+                let isLatestCheckpoint = false;
+                try {
+                    const parsed = JSON.parse(segment.text);
+                    isLatestCheckpoint = parsed?.checkpointId === latestCheckpointId;
+                } catch { /* not latest */ }
+                return <FileChangesSegment key={i} summaryText={segment.text} isLatest={isLatestCheckpoint} />;
             } else if (segment.isPlan) {
                 return <CompactSummarySegment key={i} text={segment.text} title="Full Plan" />;
             } else if (segment.isThinking) {

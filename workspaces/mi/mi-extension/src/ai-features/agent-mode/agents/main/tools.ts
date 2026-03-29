@@ -697,7 +697,8 @@ export function createAgentTools(params: CreateToolsParams) {
                 pendingApprovals,
                 shellApprovalRuleStore,
                 sessionId,
-                abortSignal
+                abortSignal,
+                undoCheckpointManager
             ))
         ),
         [KILL_TASK_TOOL_NAME]: createKillTaskTool(

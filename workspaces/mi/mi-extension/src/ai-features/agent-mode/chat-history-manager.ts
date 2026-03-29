@@ -23,7 +23,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { logDebug, logError, logInfo } from '../copilot/logger';
 import { getToolAction, capitalizeAction } from './tool-action-mapper';
 import { BASH_TOOL_NAME } from './tools/types';
-import { AgentMode, UndoCheckpointSummary } from '@wso2/mi-core';
+import {
+    AgentMode,
+    CheckpointAnchorSummary,
+    FileHistorySnapshot,
+    UndoCheckpointSummary,
+} from '@wso2/mi-core';
 import { getCopilotProjectStorageDir, getCopilotSessionDir } from './storage-paths';
 
 // Storage location: ~/.wso2-mi/copilot/projects/<encoded-project>/<session_id>/history.jsonl
@@ -90,7 +95,17 @@ export const SESSION_STORAGE_VERSION = 1;
  */
 export interface JournalEntry {
     /** Entry type: message role for model messages, or a special marker */
-    type: 'user' | 'assistant' | 'tool' | 'session_start' | 'session_end' | 'compact_summary' | 'mode_change' | 'undo_checkpoint';
+    type:
+    | 'user'
+    | 'assistant'
+    | 'tool'
+    | 'session_start'
+    | 'session_end'
+    | 'compact_summary'
+    | 'mode_change'
+    | 'undo_checkpoint'
+    | 'checkpoint_anchor'
+    | 'file_history_snapshot';
     /** The model message (for user/assistant/tool entries) */
     message?: any;
     /** Stable UI chat id for grouping a user turn and assistant output */
@@ -114,6 +129,14 @@ export interface JournalEntry {
     undoCheckpoint?: UndoCheckpointSummary;
     /** Assistant chat id this undo checkpoint belongs to (undo_checkpoint) */
     targetChatId?: number;
+    /** Checkpoint anchor summary (checkpoint_anchor) */
+    checkpointAnchor?: CheckpointAnchorSummary;
+    /** Snapshot entry message id (file_history_snapshot) */
+    messageId?: string;
+    /** Snapshot payload (file_history_snapshot) */
+    fileHistorySnapshot?: FileHistorySnapshot;
+    /** Indicates if this snapshot entry is an incremental update (file_history_snapshot) */
+    isSnapshotUpdate?: boolean;
     /** Total input tokens — attached to last message entry of each agent step */
     totalInputTokens?: number;
     /** Lightweight attachment metadata for user messages (for UI replay) */
@@ -735,6 +758,119 @@ export class ChatHistoryManager {
     }
 
     /**
+     * Save a checkpoint anchor entry before a user turn starts.
+     */
+    async saveCheckpointAnchor(anchor: CheckpointAnchorSummary): Promise<void> {
+        const entry: JournalEntry = {
+            type: 'checkpoint_anchor',
+            timestamp: new Date().toISOString(),
+            sessionId: this.sessionId,
+            checkpointAnchor: anchor,
+        };
+
+        try {
+            await this.writeEntry(entry);
+            logInfo(`[ChatHistory] Saved checkpoint anchor: ${anchor.checkpointId}`);
+        } catch (error) {
+            logError('[ChatHistory] Failed to save checkpoint anchor', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Save a file-history snapshot index entry.
+     */
+    async saveFileHistorySnapshot(
+        snapshot: FileHistorySnapshot,
+        options: { isSnapshotUpdate: boolean; messageId?: string }
+    ): Promise<void> {
+        const messageId = options.messageId?.trim() || uuidv4();
+        const entry: JournalEntry = {
+            type: 'file_history_snapshot',
+            timestamp: new Date().toISOString(),
+            sessionId: this.sessionId,
+            messageId,
+            fileHistorySnapshot: snapshot,
+            isSnapshotUpdate: options.isSnapshotUpdate,
+        };
+
+        try {
+            await this.writeEntry(entry);
+        } catch (error) {
+            logError('[ChatHistory] Failed to save file-history snapshot', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get the latest snapshot index entry for a checkpoint anchor ID.
+     */
+    async getLatestFileHistorySnapshot(checkpointId: string): Promise<FileHistorySnapshot | undefined> {
+        const normalizedCheckpointId = checkpointId?.trim();
+        if (!normalizedCheckpointId) {
+            return undefined;
+        }
+
+        try {
+            const content = await fs.readFile(this.sessionFile, 'utf8');
+            const entries = this.parseJournalEntries(content, 'loading latest file-history snapshot');
+
+            for (let i = entries.length - 1; i >= 0; i--) {
+                const entry = entries[i];
+                if (entry.type !== 'file_history_snapshot' || !entry.fileHistorySnapshot) {
+                    continue;
+                }
+
+                if (entry.fileHistorySnapshot.messageId === normalizedCheckpointId) {
+                    return entry.fileHistorySnapshot;
+                }
+            }
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError(
+                    `[ChatHistory] Failed to load latest file-history snapshot for checkpoint ${normalizedCheckpointId}`,
+                    error
+                );
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Enumerate backup files currently referenced by surviving snapshot entries.
+     */
+    async listReferencedBackupFiles(): Promise<Set<string>> {
+        const referenced = new Set<string>();
+
+        try {
+            const content = await fs.readFile(this.sessionFile, 'utf8');
+            const entries = this.parseJournalEntries(content, 'listing referenced file-history backups');
+
+            for (const entry of entries) {
+                if (entry.type !== 'file_history_snapshot' || !entry.fileHistorySnapshot) {
+                    continue;
+                }
+
+                for (const backup of Object.values(entry.fileHistorySnapshot.trackedFileBackups || {})) {
+                    const backupFileName = backup?.backupFileName?.trim();
+                    if (backupFileName) {
+                        referenced.add(backupFileName);
+                    }
+                }
+            }
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError('[ChatHistory] Failed to list referenced file-history backups', error);
+            }
+        }
+
+        return referenced;
+    }
+
+    /**
      * Get the latest known mode from JSONL. Defaults to edit if no mode entry exists.
      */
     async getLatestMode(defaultMode: AgentMode = 'edit'): Promise<AgentMode> {
@@ -792,10 +928,15 @@ export class ChatHistoryManager {
      * @param options - Controls inclusion of non-ModelMessage checkpoint entries
      * @returns Array of ModelMessages (plus compact_summary entry when requested)
      */
-    async getMessages(options?: { includeCompactSummaryEntry?: boolean; includeUndoCheckpointEntry?: boolean }): Promise<any[]> {
+    async getMessages(options?: {
+        includeCompactSummaryEntry?: boolean;
+        includeUndoCheckpointEntry?: boolean;
+        includeCheckpointAnchorEntry?: boolean;
+    }): Promise<any[]> {
         try {
             const includeCompactSummaryEntry = options?.includeCompactSummaryEntry === true;
             const includeUndoCheckpointEntry = options?.includeUndoCheckpointEntry === true;
+            const includeCheckpointAnchorEntry = options?.includeCheckpointAnchorEntry === true;
             const content = await fs.readFile(this.sessionFile, 'utf8');
             const allEntries = this.parseJournalEntries(content, 'loading messages');
 
@@ -850,6 +991,8 @@ export class ChatHistoryManager {
                         messages.push(modelMessage);
                     } else if (includeUndoCheckpointEntry && entry.type === 'undo_checkpoint') {
                         messages.push(entry);
+                    } else if (includeCheckpointAnchorEntry && entry.type === 'checkpoint_anchor') {
+                        messages.push(entry);
                     }
                 }
 
@@ -876,6 +1019,8 @@ export class ChatHistoryManager {
                     }
                     messages.push(modelMessage);
                 } else if (includeUndoCheckpointEntry && entry.type === 'undo_checkpoint') {
+                    messages.push(entry);
+                } else if (includeCheckpointAnchorEntry && entry.type === 'checkpoint_anchor') {
                     messages.push(entry);
                 }
             }
@@ -934,6 +1079,143 @@ export class ChatHistoryManager {
             } else {
                 this.isClosing = wasClosing;
             }
+        }
+    }
+
+    private extractUserMessageContentFromEntry(entry: JournalEntry): string {
+        if (entry.type !== 'user' || !entry.message) {
+            return '';
+        }
+
+        const message = entry.message as { content?: unknown };
+        if (typeof message.content === 'string') {
+            return message.content;
+        }
+
+        if (Array.isArray(message.content)) {
+            const textParts = message.content.filter((part: any) => part?.type === 'text');
+            const latestTextPart = textParts.length > 0 ? textParts[textParts.length - 1] : undefined;
+            return typeof latestTextPart?.text === 'string' ? latestTextPart.text : '';
+        }
+
+        return '';
+    }
+
+    private async rewriteHistoryEntries(entries: JournalEntry[]): Promise<void> {
+        const serialized = entries.length > 0
+            ? `${entries.map((entry) => JSON.stringify(entry)).join('\n')}\n`
+            : '';
+        await fs.writeFile(this.sessionFile, serialized, 'utf8');
+    }
+
+    private async rebuildMetadataFromEntries(entries: JournalEntry[]): Promise<void> {
+        const existingMetadata = await this.loadMetadata();
+        const now = new Date().toISOString();
+
+        let title = 'New Chat';
+        for (const entry of entries) {
+            const content = this.extractUserMessageContentFromEntry(entry);
+            if (content.trim()) {
+                title = ChatHistoryManager.extractTitle(content);
+                break;
+            }
+        }
+
+        const messageCount = entries.filter((entry) =>
+            entry.type === 'user' || entry.type === 'assistant' || entry.type === 'tool'
+        ).length;
+
+        const metadata: SessionMetadata = existingMetadata
+            ? {
+                ...existingMetadata,
+                title,
+                messageCount,
+                lastModifiedAt: now,
+                sessionVersion: SESSION_STORAGE_VERSION,
+            }
+            : {
+                sessionId: this.sessionId,
+                title,
+                createdAt: now,
+                lastModifiedAt: now,
+                messageCount,
+                sessionVersion: SESSION_STORAGE_VERSION,
+            };
+
+        await this.saveMetadata(metadata);
+    }
+
+    /**
+     * Truncate history to a checkpoint anchor (inclusive), removing all later entries.
+     * Returns true if truncation happened, false if checkpoint was not found.
+     */
+    async truncateToCheckpoint(checkpointId: string): Promise<boolean> {
+        const normalizedCheckpointId = checkpointId?.trim();
+        if (!normalizedCheckpointId) {
+            return false;
+        }
+
+        const wasClosing = this.isClosing;
+        try {
+            this.isClosing = true;
+            await this.waitForPendingWrites();
+
+            if (this.writeStream) {
+                const streamToClose = this.writeStream;
+                await new Promise<void>((resolve, reject) => {
+                    streamToClose.end((err: Error | null | undefined) => {
+                        if (err) reject(err);
+                        else resolve();
+                    });
+                });
+                if (this.writeStream === streamToClose) {
+                    this.writeStream = null;
+                }
+            }
+
+            const content = await fs.readFile(this.sessionFile, 'utf8');
+            const entries = this.parseJournalEntries(
+                content,
+                `truncating history to checkpoint ${normalizedCheckpointId}`
+            );
+
+            let checkpointIndex = -1;
+            for (let i = entries.length - 1; i >= 0; i--) {
+                const entry = entries[i];
+                if (
+                    entry.type === 'checkpoint_anchor'
+                    && entry.checkpointAnchor?.checkpointId === normalizedCheckpointId
+                ) {
+                    checkpointIndex = i;
+                    break;
+                }
+            }
+
+            if (checkpointIndex < 0) {
+                this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
+                this.isClosing = wasClosing;
+                return false;
+            }
+
+            const truncatedEntries = entries.slice(0, checkpointIndex + 1);
+            await this.rewriteHistoryEntries(truncatedEntries);
+            await this.rebuildMetadataFromEntries(truncatedEntries);
+
+            this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
+            this.isClosing = wasClosing;
+            logInfo(
+                `[ChatHistory] Truncated history to checkpoint ${normalizedCheckpointId}. ` +
+                `Remaining entries: ${truncatedEntries.length}`
+            );
+            return true;
+        } catch (error) {
+            logError(`[ChatHistory] Failed to truncate history to checkpoint ${normalizedCheckpointId}`, error);
+            throw error;
+        } finally {
+            if (!this.writeStream) {
+                this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
+            }
+            this.isClosing = wasClosing;
         }
     }
 
@@ -1158,7 +1440,7 @@ export class ChatHistoryManager {
      * @returns UI events for display
      */
     static convertToEventFormat(messages: any[]): Array<{
-        type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint';
+        type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint' | 'checkpoint_anchor';
         chatId?: number;
         content?: string;
         files?: Array<{ name: string; mimetype: string; content: string }>;
@@ -1169,6 +1451,7 @@ export class ChatHistoryManager {
         toolCallId?: string;
         action?: string;
         undoCheckpoint?: UndoCheckpointSummary;
+        checkpointAnchor?: CheckpointAnchorSummary;
         targetChatId?: number;
         timestamp: string;
     }> {
@@ -1195,6 +1478,20 @@ export class ChatHistoryManager {
                         type: 'undo_checkpoint',
                         undoCheckpoint: msg.undoCheckpoint,
                         targetChatId: typeof msg.targetChatId === 'number' ? msg.targetChatId : undefined,
+                        timestamp: msg.timestamp || timestamp,
+                    });
+                }
+                continue;
+            }
+
+            if (msg.type === 'checkpoint_anchor') {
+                if (msg.checkpointAnchor) {
+                    events.push({
+                        type: 'checkpoint_anchor',
+                        checkpointAnchor: msg.checkpointAnchor,
+                        chatId: typeof msg.checkpointAnchor?.chatId === 'number'
+                            ? msg.checkpointAnchor.chatId
+                            : undefined,
                         timestamp: msg.timestamp || timestamp,
                     });
                 }

@@ -229,7 +229,7 @@ src/
 │           ├── conf/                  # Property files (config.properties)
 │           ├── connectors/            # Connector ZIPs
 │           ├── datamapper/{name}/     # Data mapper TS + schemas
-│           └──  metadata/              # API metadata (swagger)
+│           └── metadata/              # API metadata (swagger)
 └── test/
     └── wso2mi/                        # Unit test XMLs
 \`\`\`

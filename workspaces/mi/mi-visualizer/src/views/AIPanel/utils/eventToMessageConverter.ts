@@ -37,27 +37,46 @@ function calculateTodoStatus(todos: TodoItem[]): 'active' | 'completed' | 'pendi
     return 'pending';
 }
 
-function getFileChangesCheckpointIds(content: string): Set<string> {
-    const checkpointIds = new Set<string>();
-    for (const match of content.matchAll(FILE_CHANGES_TAG_REGEX)) {
-        const summaryText = match[1];
+function updateFileChangesCheckpointTag(
+    content: string,
+    checkpoint: { checkpointId?: string }
+): { content: string; updated: boolean } {
+    if (!checkpoint.checkpointId) {
+        return { content, updated: false };
+    }
+
+    let updated = false;
+    const nextContent = content.replace(FILE_CHANGES_TAG_REGEX, (fullMatch, summaryText) => {
         try {
             const summary = JSON.parse(summaryText) as { checkpointId?: string };
-            if (summary?.checkpointId) {
-                checkpointIds.add(summary.checkpointId);
+            if (summary?.checkpointId === checkpoint.checkpointId) {
+                updated = true;
+                return `<filechanges>${JSON.stringify(checkpoint)}</filechanges>`;
             }
         } catch {
             // Ignore malformed tags and continue.
         }
-    }
-    return checkpointIds;
+        return fullMatch;
+    });
+
+    return { content: nextContent, updated };
 }
 
-function hasFileChangesCheckpoint(content: string, checkpointId?: string): boolean {
-    if (!checkpointId) {
+function updateFileChangesCheckpointInMessage(
+    message: ChatMessage | null | undefined,
+    checkpoint: { checkpointId?: string }
+): boolean {
+    if (!message || message.role !== Role.MICopilot) {
         return false;
     }
-    return getFileChangesCheckpointIds(content).has(checkpointId);
+
+    const result = updateFileChangesCheckpointTag(message.content || '', checkpoint);
+    if (!result.updated) {
+        return false;
+    }
+
+    message.content = result.content;
+    return true;
 }
 
 function appendFileChangesTagToMessage(message: ChatMessage, tag: string): void {
@@ -103,6 +122,8 @@ export function convertEventsToMessages(
     let activeChatId: number | undefined = undefined;
     let nextSyntheticChatId = -1;
     const allocateSyntheticChatId = (): number => nextSyntheticChatId--;
+    const pendingCheckpointAnchorsByChatId = new Map<number, string>();
+    const pendingCheckpointAnchorsWithoutChatId: string[] = [];
     // Track pending tool calls by toolCallId for proper matching
     const pendingToolCalls = new Map<string, {
         toolName: string;
@@ -121,6 +142,13 @@ export function convertEventsToMessages(
 
                 const userChatId = getEventChatId(event) ?? allocateSyntheticChatId();
                 activeChatId = userChatId;
+                let checkpointAnchorId: string | undefined;
+                if (pendingCheckpointAnchorsByChatId.has(userChatId)) {
+                    checkpointAnchorId = pendingCheckpointAnchorsByChatId.get(userChatId);
+                    pendingCheckpointAnchorsByChatId.delete(userChatId);
+                } else if (pendingCheckpointAnchorsWithoutChatId.length > 0) {
+                    checkpointAnchorId = pendingCheckpointAnchorsWithoutChatId.shift();
+                }
 
                 // Create new user message
                 currentUserMessage = {
@@ -128,12 +156,27 @@ export function convertEventsToMessages(
                     role: Role.MIUser,
                     content: event.content || '',
                     type: MessageType.UserMessage,
+                    checkpointAnchorId,
                     files: (event as ChatHistoryEvent).files,
                     images: (event as ChatHistoryEvent).images,
                 };
                 messages.push(currentUserMessage);
                 currentUserMessage = null;
                 break;
+
+            case 'checkpoint_anchor': {
+                const checkpointAnchor = (event as ChatHistoryEvent).checkpointAnchor;
+                if (!checkpointAnchor?.checkpointId || checkpointAnchor.source !== 'agent') {
+                    break;
+                }
+
+                if (typeof checkpointAnchor.chatId === 'number') {
+                    pendingCheckpointAnchorsByChatId.set(checkpointAnchor.chatId, checkpointAnchor.checkpointId);
+                } else {
+                    pendingCheckpointAnchorsWithoutChatId.push(checkpointAnchor.checkpointId);
+                }
+                break;
+            }
 
             case 'assistant':
             case 'content_block':
@@ -367,23 +410,26 @@ export function convertEventsToMessages(
                 if (!checkpoint) {
                     break;
                 }
-                const targetChatId = 'targetChatId' in event && typeof event.targetChatId === 'number'
-                    ? event.targetChatId
-                    : undefined;
 
                 const checkpointId = checkpoint.checkpointId;
-                const alreadyExistsInCurrent = currentAssistantMessage
-                    ? hasFileChangesCheckpoint(currentAssistantMessage.content || '', checkpointId)
-                    : false;
-                const alreadyExistsInMessages = messages.some((message) =>
-                    message.role === Role.MICopilot
-                    && hasFileChangesCheckpoint(message.content || '', checkpointId)
-                );
-
-                if (alreadyExistsInCurrent || alreadyExistsInMessages) {
+                if (updateFileChangesCheckpointInMessage(currentAssistantMessage, checkpoint)) {
                     break;
                 }
 
+                let updatedInHistory = false;
+                for (let i = messages.length - 1; i >= 0; i--) {
+                    if (updateFileChangesCheckpointInMessage(messages[i], checkpoint)) {
+                        updatedInHistory = true;
+                        break;
+                    }
+                }
+                if (updatedInHistory) {
+                    break;
+                }
+
+                const targetChatId = 'targetChatId' in event && typeof event.targetChatId === 'number'
+                    ? event.targetChatId
+                    : undefined;
                 if (targetChatId === undefined) {
                     break;
                 }

@@ -20,23 +20,26 @@ import React, { useMemo, useState } from "react";
 import { Codicon } from "@wso2/ui-toolkit";
 import { UndoCheckpointSummary } from "@wso2/mi-core";
 import { useMICopilotContext } from "./MICopilotContext";
+import { convertEventsToMessages } from "../utils/eventToMessageConverter";
 
 interface FileChangesSegmentProps {
     summaryText: string;
+    /** True if this is the latest (most recent) checkpoint in the message list */
+    isLatest?: boolean;
 }
 
 /**
- * File changes card with accept/discard pattern.
+ * File changes card with discard-only pattern.
  *
- * - Review state (undoable): "Changes ready to review" + file list + Discard / Keep
- * - Accepted state (after Keep or already non-undoable): collapsible "Changes accepted"
+ * - Latest checkpoint: full review card with Discard button + file list
+ * - Older checkpoints: collapsed "Changes applied" (become latest again after discard of newer)
+ * - Discarded: "Changes discarded" label
  */
-const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) => {
-    const { rpcClient, setMessages } = useMICopilotContext();
+const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText, isLatest = false }) => {
+    const { rpcClient, setMessages, setCopilotChat } = useMICopilotContext();
     const [isUndoing, setIsUndoing] = useState(false);
-    const [isAccepted, setIsAccepted] = useState(false);
-    const [isDiscarded, setIsDiscarded] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(true);
+    const [isConfirming, setIsConfirming] = useState(false);
     const [error, setError] = useState<string>("");
 
     const summary = useMemo<UndoCheckpointSummary | null>(() => {
@@ -51,70 +54,57 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) 
         return null;
     }
 
-    const canReview = summary.undoable && !isAccepted && !isDiscarded;
+    const isDiscarded = !summary.undoable;
+    const canDiscard = summary.undoable && isLatest;
 
-    const handleDiscard = async () => {
-        if (isUndoing || !summary.undoable) return;
+    const handleDiscardClick = () => {
+        if (isUndoing || !summary.undoable || !isLatest) {
+            return;
+        }
+        setError("");
+        setIsConfirming(true);
+    };
+
+    const executeDiscard = async () => {
+        if (isUndoing || !summary.undoable || !isLatest) return;
+        if (!rpcClient) {
+            setError("Agent connection is unavailable. Please reopen the panel and try again.");
+            return;
+        }
 
         setIsUndoing(true);
+        setIsConfirming(false);
         setError("");
         try {
-            let response = await rpcClient.getMiAgentPanelRpcClient().undoLastCheckpoint({
-                force: false,
+            const agentRpcClient = rpcClient.getMiAgentPanelRpcClient();
+            let response = await agentRpcClient.undoLastCheckpoint({
                 checkpointId: summary.checkpointId,
-            } as any);
-
-            if (response.requiresConfirmation) {
-                const conflicts = response.conflicts || [];
-                const shouldForce = window.confirm(
-                    `These files changed after the checkpoint and will be overwritten:\n\n${conflicts.join('\n')}\n\nContinue with discard?`
-                );
-                if (!shouldForce) {
-                    setIsUndoing(false);
-                    return;
-                }
-                response = await rpcClient.getMiAgentPanelRpcClient().undoLastCheckpoint({
-                    force: true,
+            });
+            // Backward compatibility with older backend confirmation handshake.
+            if (!response.success && response.requiresConfirmation) {
+                response = await agentRpcClient.undoLastCheckpoint({
                     checkpointId: summary.checkpointId,
-                } as any);
+                    force: true,
+                });
             }
 
             if (!response.success) {
                 throw new Error(response.error || "Discard failed");
             }
 
-            // Update all filechanges tags to reflect new undoable state
-            setMessages((prevMessages) => {
-                const updateUndoable = (json: string): string => {
-                    try {
-                        const parsed = JSON.parse(json) as UndoCheckpointSummary;
-                        if (!parsed || typeof parsed !== "object") return json;
-                        const latestId = (response as any).latestUndoCheckpoint?.checkpointId as string | undefined;
-                        const isLatest = latestId !== undefined && parsed.checkpointId === latestId;
-                        return JSON.stringify({ ...parsed, undoable: isLatest });
-                    } catch {
-                        return json;
-                    }
-                };
-                return prevMessages.map((msg) => ({
-                    ...msg,
-                    content: (msg.content || "").replace(
-                        /<filechanges>([\s\S]*?)<\/filechanges>/g,
-                        (_full, json) => `<filechanges>${updateUndoable(json)}</filechanges>`
-                    ),
-                }));
-            });
+            const historyResponse = await agentRpcClient.loadChatHistory({});
+            if (!historyResponse.success) {
+                throw new Error(historyResponse.error || "Discard applied but failed to refresh history");
+            }
 
-            setIsDiscarded(true);
+            setMessages(convertEventsToMessages(historyResponse.events));
+            setCopilotChat([]);
+
         } catch (err) {
             setError(err instanceof Error ? err.message : "Discard failed");
         } finally {
             setIsUndoing(false);
         }
-    };
-
-    const handleKeep = () => {
-        setIsAccepted(true);
     };
 
     // --- Discarded state ---
@@ -135,8 +125,8 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) 
         );
     }
 
-    // --- Accepted / non-undoable state: collapsible ---
-    if (isAccepted || !canReview) {
+    // --- Collapsed state: older checkpoints or non-undoable ---
+    if (!canDiscard) {
         return (
             <div
                 className="rounded-lg overflow-hidden mt-3"
@@ -155,7 +145,7 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) 
                     }}
                 >
                     <Codicon name={isCollapsed ? "chevron-right" : "chevron-down"} />
-                    <span className="font-medium">Changes accepted</span>
+                    <span className="font-medium">Changes applied</span>
                 </button>
                 {!isCollapsed && (
                     <div style={{ borderTop: "1px solid var(--vscode-panel-border)" }}>
@@ -166,7 +156,7 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) 
         );
     }
 
-    // --- Review state: Discard / Keep ---
+    // --- Review state: latest checkpoint with Discard ---
     return (
         <div
             className="rounded-lg overflow-hidden mt-3"
@@ -183,7 +173,7 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) 
 
             <div className="flex justify-end gap-2 px-3 py-2.5" style={{ borderTop: "1px solid var(--vscode-panel-border)" }}>
                 <button
-                    onClick={handleDiscard}
+                    onClick={handleDiscardClick}
                     disabled={isUndoing}
                     className="px-4 py-1.5 rounded-md text-xs font-medium transition-colors"
                     style={{
@@ -194,21 +184,40 @@ const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) 
                         opacity: isUndoing ? 0.6 : 1,
                     }}
                 >
-                    {isUndoing ? "Discarding..." : "Discard"}
-                </button>
-                <button
-                    onClick={handleKeep}
-                    className="px-4 py-1.5 rounded-md text-xs font-medium transition-colors"
-                    style={{
-                        border: "none",
-                        backgroundColor: "var(--vscode-button-background)",
-                        color: "var(--vscode-button-foreground)",
-                        cursor: "pointer",
-                    }}
-                >
-                    Keep
+                    {isUndoing ? "Discarding..." : isConfirming ? "Confirm Discard" : "Discard"}
                 </button>
             </div>
+            {isConfirming && !isUndoing && (
+                <div className="px-3 py-2 text-xs flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--vscode-panel-border)" }}>
+                    <span style={{ color: "var(--vscode-descriptionForeground)" }}>
+                        Discard these changes? Later messages/checkpoints will be removed.
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setIsConfirming(false)}
+                            className="px-2 py-1 rounded"
+                            style={{
+                                border: "1px solid var(--vscode-panel-border)",
+                                background: "var(--vscode-button-secondaryBackground)",
+                                color: "var(--vscode-button-secondaryForeground)",
+                            }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={executeDiscard}
+                            className="px-2 py-1 rounded"
+                            style={{
+                                border: "1px solid var(--vscode-button-border)",
+                                background: "var(--vscode-button-background)",
+                                color: "var(--vscode-button-foreground)",
+                            }}
+                        >
+                            Confirm
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {error && (
                 <div className="px-3 py-2 text-xs" style={{ color: "var(--vscode-errorForeground)", borderTop: "1px solid var(--vscode-panel-border)" }}>

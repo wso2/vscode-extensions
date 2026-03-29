@@ -48,6 +48,7 @@ import {
     ClearAgentMemoryResponse,
     OpenAgentMemoryFolderResponse,
 } from '@wso2/mi-core';
+import * as crypto from 'crypto';
 import type { Dirent } from 'fs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -72,7 +73,7 @@ import { VALID_FILE_EXTENSIONS, VALID_SPECIAL_FILE_NAMES } from '../../ai-featur
 import { cleanupRunningBackgroundShells } from '../../ai-features/agent-mode/tools/bash_tools';
 import { cleanupRunningBackgroundSubagents } from '../../ai-features/agent-mode/tools/subagent_tool';
 import { beginServerManagementRunTracking, cleanupServerManagementOnAgentEnd } from '../../ai-features/agent-mode/tools/runtime_tools';
-import { AgentUndoCheckpointManager, StoredUndoCheckpoint } from '../../ai-features/agent-mode/undo/checkpoint-manager';
+import { AgentUndoCheckpointManager, SnapshotRestorePlan } from '../../ai-features/agent-mode/undo/checkpoint-manager';
 import { MiDiagramRpcManager } from '../mi-diagram/rpc-manager';
 import { getCopilotSessionDir, getCopilotProjectMemoriesDir } from '../../ai-features/agent-mode/storage-paths';
 
@@ -448,33 +449,25 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         const sessionId = historyManager.getSessionId();
 
         if (!this.undoCheckpointManager || this.undoCheckpointManagerSessionId !== sessionId) {
-            this.undoCheckpointManager = new AgentUndoCheckpointManager(this.projectUri, sessionId);
+            this.undoCheckpointManager = new AgentUndoCheckpointManager(
+                this.projectUri,
+                sessionId,
+                historyManager,
+            );
             this.undoCheckpointManagerSessionId = sessionId;
+            try {
+                // Startup sweep: remove crash-leftover orphan snapshot files for the session.
+                await this.undoCheckpointManager.cleanupOrphanSnapshotFiles();
+            } catch (error) {
+                logError('[AgentPanel] Failed startup sweep for snapshot file-history directory', error);
+            }
         }
 
         return this.undoCheckpointManager;
     }
 
-    private applyLatestUndoAvailabilityToEvents(
-        events: ChatHistoryEvent[],
-        latestCheckpointId?: string
-    ): ChatHistoryEvent[] {
-        return events.map((event) => {
-            if (event.type !== 'undo_checkpoint' || !event.undoCheckpoint) {
-                return event;
-            }
-
-            const isLatest = latestCheckpointId !== undefined &&
-                event.undoCheckpoint.checkpointId === latestCheckpointId;
-
-            return {
-                ...event,
-                undoCheckpoint: {
-                    ...event.undoCheckpoint,
-                    undoable: isLatest,
-                },
-            };
-        });
+    private applyLatestUndoAvailabilityToEvents(events: ChatHistoryEvent[]): ChatHistoryEvent[] {
+        return events;
     }
 
     private isSafeArtifactPathSegment(segment: string): boolean {
@@ -495,17 +488,16 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         lastTotalInputTokens?: number;
         mode: AgentMode;
     }> {
+        // Ensure startup sweep runs once per loaded session.
+        await this.getUndoCheckpointManager();
+
         const messages = await historyManager.getMessages({
             includeCompactSummaryEntry: true,
             includeUndoCheckpointEntry: true,
+            includeCheckpointAnchorEntry: true,
         });
         const events = ChatHistoryManager.convertToEventFormat(messages);
-        const undoCheckpointManager = await this.getUndoCheckpointManager();
-        const latestCheckpoint = await undoCheckpointManager.getLatestCheckpoint();
-        const normalizedEvents = this.applyLatestUndoAvailabilityToEvents(
-            events,
-            latestCheckpoint?.summary?.checkpointId
-        );
+        const normalizedEvents = this.applyLatestUndoAvailabilityToEvents(events);
         const lastTotalInputTokens = await historyManager.getLastUsage();
         const mode = await historyManager.getLatestMode(DEFAULT_AGENT_MODE);
 
@@ -618,10 +610,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         return undefined;
     }
 
-    private async applyUndoCheckpointRestore(checkpoint: StoredUndoCheckpoint): Promise<string[]> {
+    private async applyUndoCheckpointRestore(checkpoint: SnapshotRestorePlan): Promise<string[]> {
         const restoredFiles: string[] = [];
         const workspaceEdit = new vscode.WorkspaceEdit();
-        const validatedEntries: Array<{ file: StoredUndoCheckpoint['files'][number]; fullPath: string }> = [];
+        const validatedEntries: Array<{ file: SnapshotRestorePlan['files'][number]; fullPath: string }> = [];
         const unsafePaths: string[] = [];
 
         for (const file of checkpoint.files) {
@@ -657,6 +649,11 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             }
         }
 
+        if (validatedEntries.length === 0) {
+            await vscode.commands.executeCommand('MI.project-explorer.refresh');
+            return restoredFiles;
+        }
+
         const success = await vscode.workspace.applyEdit(workspaceEdit);
         if (!success) {
             throw new Error('Failed to apply undo workspace edit');
@@ -682,6 +679,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         this.isAgentMessageInProgress = true;
         let runSucceeded = false;
         let shouldRunCleanup = false;
+        let activeCheckpointId: string | undefined;
         try {
             beginServerManagementRunTracking();
             this.eventHandler.beginRun();
@@ -719,8 +717,21 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 this.currentMode = effectiveMode;
             }
 
+            const checkpointCreatedAt = new Date().toISOString();
+            activeCheckpointId = request.checkpointId?.trim() || crypto.randomUUID();
+            await historyManager.saveCheckpointAnchor({
+                checkpointId: activeCheckpointId,
+                source: 'agent',
+                createdAt: checkpointCreatedAt,
+                chatId: request.chatId,
+            });
+
             shouldRunCleanup = true;
-            await undoCheckpointManager.beginRun('agent');
+            await undoCheckpointManager.beginRun('agent', {
+                checkpointId: activeCheckpointId,
+                targetChatId: request.chatId,
+                createdAt: checkpointCreatedAt,
+            });
 
             const persistModeChange = (mode: AgentMode) => {
                 if (this.currentMode === mode) {
@@ -806,6 +817,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                     success: true,
                     message: 'Agent completed successfully',
                     modifiedFiles: result.modifiedFiles,
+                    checkpointId: activeCheckpointId,
                     undoCheckpoint,
                     modelMessages: result.modelMessages
                 };
@@ -815,6 +827,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 return {
                     success: false,
                     error: result.error,
+                    checkpointId: activeCheckpointId,
                     modelMessages: result.modelMessages // Return partial messages even on error
                 };
             }
@@ -831,6 +844,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             }
             return {
                 success: false,
+                checkpointId: activeCheckpointId,
                 error: error instanceof Error ? error.message : 'Unknown error'
             };
         } finally {
@@ -846,55 +860,33 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
     async undoLastCheckpoint(request: UndoLastCheckpointRequest): Promise<UndoLastCheckpointResponse> {
         try {
+            const requestedCheckpointId = request.checkpointId?.trim();
+            if (!requestedCheckpointId) {
+                return {
+                    success: false,
+                    error: 'Checkpoint ID is required',
+                };
+            }
+
             const undoCheckpointManager = await this.getUndoCheckpointManager();
-            const checkpoint = await undoCheckpointManager.getLatestCheckpoint();
-            if (!checkpoint || !checkpoint.summary?.undoable) {
+            const restorePlan = await undoCheckpointManager.buildRestorePlan(requestedCheckpointId);
+            if (!restorePlan) {
                 return {
                     success: false,
-                    error: 'No undo checkpoint available',
+                    error: `Checkpoint '${requestedCheckpointId}' is not available for restore`,
                 };
             }
 
-            const requestedCheckpointId = request.checkpointId;
-            if (requestedCheckpointId && requestedCheckpointId !== checkpoint.summary.checkpointId) {
-                return {
-                    success: false,
-                    undoCheckpoint: checkpoint.summary,
-                    error: 'A newer checkpoint exists. Undo the latest checkpoint first.',
-                };
-            }
-
-            const conflicts = await undoCheckpointManager.getConflictedFiles(checkpoint);
-            if (conflicts.length > 0 && !request.force) {
-                return {
-                    success: false,
-                    requiresConfirmation: true,
-                    conflicts,
-                    undoCheckpoint: checkpoint.summary,
-                    error: 'Files were modified after checkpoint creation',
-                };
-            }
-
-            const restoredFiles = await this.applyUndoCheckpointRestore(checkpoint);
-            await undoCheckpointManager.clearLatestCheckpoint();
-            const latestCheckpoint = await undoCheckpointManager.getLatestCheckpoint();
+            const restoredFiles = await this.applyUndoCheckpointRestore(restorePlan);
             const historyManager = await this.getChatHistoryManager();
-            await historyManager.saveUndoReminderMessage(checkpoint.summary, restoredFiles);
+            const historyTruncated = await historyManager.truncateToCheckpoint(requestedCheckpointId);
+            await undoCheckpointManager.cleanupOrphanSnapshotFiles();
 
             return {
                 success: true,
                 restoredFiles,
-                undoCheckpoint: {
-                    ...checkpoint.summary,
-                    undoable: false,
-                },
-                latestUndoCheckpoint: latestCheckpoint?.summary
-                    ? {
-                        ...latestCheckpoint.summary,
-                        undoable: true,
-                    }
-                    : undefined,
-            } as UndoLastCheckpointResponse;
+                historyTruncated,
+            };
         } catch (error) {
             logError('[AgentPanel] Failed to undo checkpoint', error);
             return {
@@ -925,8 +917,21 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
         const undoCheckpointManager = await this.getUndoCheckpointManager();
         const targetChatId = request.targetChatId ?? await this.resolveLatestAssistantChatId();
+        const historyManager = await this.getChatHistoryManager();
         try {
-            await undoCheckpointManager.beginRun('code_segment');
+            const checkpointCreatedAt = new Date().toISOString();
+            const checkpointId = crypto.randomUUID();
+            await historyManager.saveCheckpointAnchor({
+                checkpointId,
+                source: 'code_segment',
+                createdAt: checkpointCreatedAt,
+            });
+
+            await undoCheckpointManager.beginRun('code_segment', {
+                checkpointId,
+                targetChatId,
+                createdAt: checkpointCreatedAt,
+            });
             await undoCheckpointManager.captureBeforeChange(targetRelativePath);
 
             const diagramRpcManager = new MiDiagramRpcManager(this.projectUri);
@@ -943,7 +948,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             const undoCheckpoint = await undoCheckpointManager.commitRun();
 
             if (undoCheckpoint) {
-                const historyManager = await this.getChatHistoryManager();
                 await historyManager.saveUndoCheckpoint(undoCheckpoint, targetChatId);
             }
 

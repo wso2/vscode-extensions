@@ -19,6 +19,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import * as childProcess from 'child_process';
+import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { AgentEvent } from '@wso2/mi-core';
 import { BashResult, ToolResult, BashExecuteFn, KillTaskExecuteFn, TaskOutputExecuteFn, TaskOutputResult, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, ShellApprovalRuleStore } from './types';
@@ -33,6 +34,7 @@ import {
     isAnalysisCoveredByRules,
     normalizePrefixRule,
 } from './shell_sandbox';
+import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
 import treeKill = require('tree-kill');
 
 // ============================================================================
@@ -248,6 +250,52 @@ function generateShellTaskId(): string {
     return `task-shell-${uuidv4().split('-')[0]}`;
 }
 
+function normalizePathForComparison(targetPath: string): string {
+    const normalized = path.resolve(targetPath).replace(/\\/g, '/').replace(/\/+$/, '');
+    return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+function isPathWithin(basePath: string, targetPath: string): boolean {
+    const normalizedBase = normalizePathForComparison(basePath);
+    const normalizedTarget = normalizePathForComparison(targetPath);
+    return normalizedTarget === normalizedBase || normalizedTarget.startsWith(`${normalizedBase}/`);
+}
+
+async function captureShellMutationCheckpointCandidates(
+    projectPath: string,
+    analysis: ReturnType<typeof analyzeShellCommand>,
+    undoCheckpointManager?: AgentUndoCheckpointManager
+): Promise<void> {
+    if (!undoCheckpointManager) {
+        return;
+    }
+
+    const projectRoot = path.resolve(projectPath);
+    const seenRelativePaths = new Set<string>();
+    for (const segment of analysis.segments) {
+        const resolvedMutationPaths = segment.resolvedMutationPaths ?? [];
+        for (const resolvedPath of resolvedMutationPaths) {
+            if (!resolvedPath || !isPathWithin(projectRoot, resolvedPath)) {
+                continue;
+            }
+
+            const relativePath = path.relative(projectRoot, resolvedPath).replace(/\\/g, '/');
+            if (
+                !relativePath
+                || relativePath === '.'
+                || relativePath.startsWith('..')
+                || path.isAbsolute(relativePath)
+                || seenRelativePaths.has(relativePath)
+            ) {
+                continue;
+            }
+
+            seenRelativePaths.add(relativePath);
+            await undoCheckpointManager.captureBeforeChange(relativePath);
+        }
+    }
+}
+
 type AgentEventHandler = (event: AgentEvent) => void;
 
 function formatApprovalReasons(reasons: string[]): string {
@@ -383,7 +431,8 @@ export function createBashExecute(
     pendingApprovals?: Map<string, PendingPlanApproval>,
     shellApprovalRuleStore?: ShellApprovalRuleStore,
     sessionId: string = '',
-    mainAbortSignal?: AbortSignal
+    mainAbortSignal?: AbortSignal,
+    undoCheckpointManager?: AgentUndoCheckpointManager
 ): BashExecuteFn {
     startBackgroundShellCleanup();
 
@@ -448,6 +497,12 @@ export function createBashExecute(
             }
         } else if (approvalBypassedByRule) {
             logInfo(`[ShellTool] Approval bypassed by session rule for command summary: ${summarizeCommandForLog(command)}`);
+        }
+
+        try {
+            await captureShellMutationCheckpointCandidates(projectPath, analysis, undoCheckpointManager);
+        } catch (error) {
+            logDebug(`[ShellTool] Failed to capture shell mutation checkpoint candidates: ${error instanceof Error ? error.message : String(error)}`);
         }
 
         logInfo(`[ShellTool] Executing: ${command}${description ? ` (${description})` : ''}`);
