@@ -359,11 +359,14 @@ export class AgentUndoCheckpointManager {
                 content,
                 hash: hashContent(content),
             };
-        } catch {
-            return {
-                exists: false,
-                hash: hashContent(undefined),
-            };
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                return {
+                    exists: false,
+                    hash: hashContent(undefined),
+                };
+            }
+            throw error;
         }
     }
 
@@ -522,8 +525,11 @@ export class AgentUndoCheckpointManager {
                 try {
                     const content = await fs.readFile(this.getBackupFilePath(backupReference.backupFileName), 'utf8');
                     return { path: relativePath, before: { exists: true, content } };
-                } catch {
-                    return { path: relativePath, before: { exists: false } };
+                } catch (error) {
+                    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                        return { path: relativePath, before: { exists: false } };
+                    }
+                    throw error;
                 }
             })
         );
@@ -545,11 +551,15 @@ export class AgentUndoCheckpointManager {
                         path: planPath,
                         before: { exists: true, content },
                     }];
-                } catch {
-                    sessionFiles = [{
-                        path: planPath,
-                        before: { exists: false },
-                    }];
+                } catch (error) {
+                    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                        sessionFiles = [{
+                            path: planPath,
+                            before: { exists: false },
+                        }];
+                    } else {
+                        throw error;
+                    }
                 }
             }
         }

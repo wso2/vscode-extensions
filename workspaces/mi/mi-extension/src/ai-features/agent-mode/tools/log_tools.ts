@@ -126,6 +126,9 @@ const TAIL_BYTE_CAP = 2 * 1024 * 1024;
 
 async function readTail(filePath: string, numLines: number): Promise<string[]> {
     const stat = await fsp.stat(filePath);
+    if (stat.size === 0) {
+        return [];
+    }
     const start = Math.max(0, stat.size - TAIL_BYTE_CAP);
 
     return new Promise<string[]>((resolve, reject) => {

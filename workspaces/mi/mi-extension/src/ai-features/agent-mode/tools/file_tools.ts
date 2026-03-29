@@ -1018,8 +1018,10 @@ export function createEditExecute(
             };
         }
 
-        // Read file content
-        const content = fs.readFileSync(fullPath, 'utf-8');
+        // Read file content and normalize CRLF → LF so old_string from the LLM (always LF) matches
+        const rawContent = fs.readFileSync(fullPath, 'utf-8');
+        const hasCRLF = rawContent.includes('\r\n');
+        const content = hasCRLF ? rawContent.replace(/\r\n/g, '\n') : rawContent;
 
         if (!content.includes(old_string)) {
             return {
@@ -1042,9 +1044,14 @@ export function createEditExecute(
 
         await undoCheckpointManager?.captureBeforeChange(file_path);
 
-        const newContent = replace_all
+        let newContent = replace_all
             ? content.split(old_string).join(new_string)
             : content.replace(old_string, new_string);
+
+        // Restore original CRLF line endings if the file had them
+        if (hasCRLF) {
+            newContent = newContent.replace(/\n/g, '\r\n');
+        }
 
         // Use WorkspaceEdit for LSP synchronization
         const uri = vscode.Uri.file(fullPath);
