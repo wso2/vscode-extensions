@@ -251,9 +251,8 @@ function compileGlobPattern(globPattern?: string, caseInsensitive?: boolean): { 
 
     // Strip leading **/ — the tool already recurses directories, so globstar is redundant.
     // Without this, patterns like "**/DLQ*.xml" fail because ** is not handled in regex conversion.
+    // Only remove a leading "**/" — embedded "**/" (e.g., "src/**/foo.xml") are meaningful and preserved.
     let normalizedGlob = globPattern.replace(/^\*\*\//, '');
-    // Also strip embedded **/ (e.g., "src/**/foo.xml" → match filename only)
-    normalizedGlob = normalizedGlob.replace(/.*\*\*\//, '');
 
     try {
         let hasInvalidBraceGroup = false;

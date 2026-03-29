@@ -52,7 +52,7 @@ const BashOutputSegment: React.FC<BashOutputSegmentProps> = ({ data }) => {
     const prevLoadingRef = useRef(data.loading);
 
     const { command, description, output, loading, exitCode } = data;
-    const isError = !loading && exitCode !== 0;
+    const isError = !loading && !data.running && exitCode !== 0;
     const iconName = getCommandIcon(command, description);
     const statusText = getStatusText(data);
 
@@ -77,6 +77,7 @@ const BashOutputSegment: React.FC<BashOutputSegmentProps> = ({ data }) => {
             {/* Compact header */}
             <button
                 onClick={() => !loading && setExpanded(!expanded)}
+                disabled={loading}
                 className="flex items-center gap-2 w-full px-3 py-2 transition-colors"
                 style={{
                     border: "none",

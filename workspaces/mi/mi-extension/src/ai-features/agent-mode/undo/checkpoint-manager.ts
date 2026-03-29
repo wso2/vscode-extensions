@@ -268,11 +268,14 @@ export class AgentUndoCheckpointManager {
                 content,
                 hash: hashContent(content),
             };
-        } catch {
-            return {
-                exists: false,
-                hash: hashContent(undefined),
-            };
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                return {
+                    exists: false,
+                    hash: hashContent(undefined),
+                };
+            }
+            throw error;
         }
     }
 
@@ -439,12 +442,14 @@ export class AgentUndoCheckpointManager {
             return;
         }
 
-        const backupReference = await this.captureFileBackup(normalizedPath);
-
         // Keep first backup reference for the checkpoint so restore returns to true checkpoint state.
-        if (!pending.trackedFileBackups.has(normalizedPath)) {
-            pending.trackedFileBackups.set(normalizedPath, backupReference);
+        // Skip if already tracked to avoid creating orphan backup files.
+        if (pending.trackedFileBackups.has(normalizedPath)) {
+            return;
         }
+
+        const backupReference = await this.captureFileBackup(normalizedPath);
+        pending.trackedFileBackups.set(normalizedPath, backupReference);
 
         const snapshot = this.buildSnapshotFromPending(pending, new Date().toISOString());
         await this.journalStore.saveFileHistorySnapshot(snapshot, { isSnapshotUpdate: true });

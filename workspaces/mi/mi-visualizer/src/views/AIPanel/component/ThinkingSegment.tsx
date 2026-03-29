@@ -66,7 +66,7 @@ const ThinkingSegment: React.FC<ThinkingSegmentProps> = ({ text, loading = false
                 style={{ fontSize: "12.5px", color: "var(--vscode-descriptionForeground)", padding: 0 }}
             >
                 <span className={`codicon codicon-chevron-${expanded ? "down" : "right"}`} style={{ fontSize: "13px" }} />
-                <span>Thought for {elapsedSeconds || 3}s</span>
+                <span>Thought for {Math.max(1, elapsedSeconds)}s</span>
             </button>
             {expanded && (
                 <div
