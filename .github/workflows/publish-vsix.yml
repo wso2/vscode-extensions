@@ -15,6 +15,7 @@ on:
           - 'wso2-platform'
           - 'apk'
           - 'micro-integrator'
+          - 'hurl-client'
       isPreRelease:
         required: true
         type: boolean 
@@ -95,6 +96,8 @@ jobs:
             echo "repo=wso2/apk-vscode" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.extension }}" == "micro-integrator" ]; then
             echo "repo=wso2/mi-vscode" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.inputs.extension }}" == "hurl-client" ]; then
+            echo "repo=wso2/vscode-extensions" >> $GITHUB_OUTPUT
           fi
 
       - name: Publish to VSCode marketplace
