@@ -258,7 +258,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 						type="info"
 						className="col-span-full"
 						key="invalid-repo-banner"
-						title={`Please authorize ${extensionName} to access your GitHub repositories.`}
+						title={`Please authorize ${terminologies.cloudName} to access your GitHub repositories.`}
 						actionLink={{
 							title: "Authorize",
 							onClick: () => ChoreoWebViewAPI.getInstance().triggerGithubAuthFlow(organization.id?.toString()),
