@@ -95,7 +95,7 @@ export const CheckBox = ({ label, labelAdornment, value, sx, checked, indetermin
                 value={value}
                 checked={checked}
                 onClick={handleChange}
-                disabled={disabled}
+                disabled={disabled || undefined}
             >
                 <LabelContainer>
                     <div style={{ color: "var(--vscode-editor-foreground)", cursor: "pointer" }} onClick={handleLabelClick}>
