@@ -1,4 +1,4 @@
-arazzo: "1.0.0"
+arazzo: 1.0.0
 info:
   title: "Test 04 - Expressions and Outputs"
   version: "1.0.0"
@@ -77,12 +77,12 @@ workflows:
           dotNotationCatName: "$response.body.category.name"
           httpStatus: "$statusCode"
 
-      - stepId: cleanupPet
-        operationId: deletePet
-        parameters:
-          - name: petId
-            in: path
-            value: "$steps.createPet.outputs.petId"
+      # - stepId: cleanupPet
+      #   operationId: deletePet
+      #   parameters:
+      #     - name: petId
+      #       in: path
+      #       value: "$steps.createPet.outputs.petId"
 
     outputs:
       # Test $steps expressions chain

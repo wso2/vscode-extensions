@@ -14,13 +14,14 @@ sourceDescriptions:
 
 workflows:
   - workflowId: create_get_delete_pet
-    summary: Create, get, and delete a pet sequentially
+    summary: Create, get, and delete a pet sequentially. if pet name is not provided, ask the user for a pet name
     inputs:
       type: object
       properties:
         petName:
           type: string
-          default: "TestDog"
+          # default: "TestDog"
+          required: true
         petStatus:
           type: string
           default: "available"

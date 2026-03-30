@@ -1,4 +1,4 @@
-arazzo: "1.0.0"
+arazzo: 1.0.0
 info:
   title: "Test 03 - onFailure Retry Action"
   version: "1.0.0"
@@ -41,15 +41,15 @@ workflows:
           inventory: "$response.body"
 
       - stepId: fallbackStep
-        operationId: findPetsByStatus
+        operationId: getPetById
         parameters:
-          - name: status
-            in: query
-            value: "available"
+          - name: petId
+            in: path
+            value: "10"
         successCriteria:
           - condition: "$statusCode == 200"
         outputs:
-          foundPets: "$statusCode"
+          foundPets: "$response.body.name"
 
     outputs:
       fallbackResult: "$steps.fallbackStep.outputs.foundPets"
