@@ -24,12 +24,11 @@ import { AiPanelWebview } from './webview';
 import { extension } from '../MIExtensionContext';
 import {
     getAuthCredentials,
-    getPlatformExtensionAPI,
+    getIntegratorExtensionAPI,
     initiateInbuiltAuth,
     logout,
     validateApiKey,
     validateAwsCredentials,
-    isPlatformExtensionAvailable,
     isDevantUserLoggedIn,
     getPlatformStsToken,
     exchangeStsToCopilotToken,
@@ -668,7 +667,7 @@ const setupPlatformExtensionListener = async () => {
     platformLoginListenerSetup = true;
 
     try {
-        const api = await getPlatformExtensionAPI();
+        const api = await getIntegratorExtensionAPI();
         if (!api || !api.subscribeIsLoggedIn) {
             return;
         }

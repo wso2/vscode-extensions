@@ -19,9 +19,6 @@
     "onDebugDynamicConfigurations:mi",
     "onUri"
   ],
-  "extensionDependencies": [
-    "wso2.wso2-platform"
-  ],
   "main": "./dist/extension.js",
   "contributes": {
     "languages": [
@@ -182,7 +179,7 @@
         "MI.Scope": {
           "type": "string",
           "default": "",
-          "description": "Devant project scope",
+          "description": "WSO2 Cloud project scope",
           "scope": "resource"
         },
         "MI.suppressServerUpdateNotification": {
