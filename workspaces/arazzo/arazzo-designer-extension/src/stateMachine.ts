@@ -170,32 +170,25 @@ const stateMachine = createMachine<MachineContext>({
                                      VisualizerWebview.workflowPanel?.getWebview()?.viewColumn ?? 
                                      ViewColumn.Beside;
 
-                // For Workflow view, use singleton pattern - reuse existing workflow panel
+                // For Workflow view, dispose any existing panel and create a fresh one
                 if (context.view === MACHINE_VIEW.Workflow) {
-                    if (!VisualizerWebview.workflowPanel) {
-                        // Open in the shared column
-                        VisualizerWebview.workflowPanel = new VisualizerWebview(sharedColumn, true);
-                        RPCLayer._messenger.onNotification(webviewReady, () => {
-                            resolve(true);
-                        });
-                    } else {
-                        // Reveal in the shared column
-                        VisualizerWebview.workflowPanel.getWebview()?.reveal(sharedColumn);
-                        resolve(true);
+                    if (VisualizerWebview.workflowPanel) {
+                        VisualizerWebview.workflowPanel.dispose();
+                        VisualizerWebview.workflowPanel = undefined;
                     }
+                    VisualizerWebview.workflowPanel = new VisualizerWebview(sharedColumn, true);
+                    RPCLayer._messenger.onNotification(webviewReady, () => {
+                        resolve(true);
+                    });
                 } else if (context.view === MACHINE_VIEW.Overview) {
-                    if (!VisualizerWebview.currentPanel) {
-                        // For Overview, create panel in the shared column
-                        VisualizerWebview.currentPanel = new VisualizerWebview(sharedColumn, false);
-                        RPCLayer._messenger.onNotification(webviewReady, () => {
-                            resolve(true);
-                        });
-                    } else {
-                        // For Overview, reuse existing panel in the shared column
-                        VisualizerWebview.currentPanel!.getWebview()?.reveal(sharedColumn);
-                        vscode.commands.executeCommand('setContext', 'isViewOpenAPI', true);
-                        resolve(true);
+                    if (VisualizerWebview.currentPanel) {
+                        VisualizerWebview.currentPanel.dispose();
+                        VisualizerWebview.currentPanel = undefined;
                     }
+                    VisualizerWebview.currentPanel = new VisualizerWebview(sharedColumn, false);
+                    RPCLayer._messenger.onNotification(webviewReady, () => {
+                        resolve(true);
+                    });
                 }
             });
         },
