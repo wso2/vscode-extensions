@@ -34,7 +34,6 @@ import { checkCompilationErrors } from './tools/diagnostics-utils';
 import { updateAndSaveChat, calculateTotalCost } from '../utils/events';
 import { chatStateStorage } from '../../../views/ai-panel/chatStateStorage';
 import * as path from 'path';
-import * as fs from 'fs';
 import { approvalViewManager } from '../state/ApprovalViewManager';
 import {
     buildContextManagementOptions,
@@ -300,39 +299,8 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             // Bind the authenticated model to the compaction manager
             compactionManager.bindModel(model);
 
-            // Fetch code map markdown from Language Server
-            let codeMapMarkdown: string | undefined;
-            const langClient = StateMachine.context().langClient;
-            const targetDir = path.join(workspaceId, 'target');
-            const balMdPath = path.join(targetDir, 'bal.md');
-
-            if (!langClient) {
-                console.warn('[AgentExecutor] langClient is null, skipping code map fetch');
-            } else {
-                // TODO: Ballerina language server does not track deleted event yet.
-                // Once that is supported, use changesOnly: true to fetch only diffs.
-                const codeMapStartTime = performance.now();
-                const codeMapRequest = {
-                    projectPath: tempProjectPath, changesOnly: false, artifacts: false,
-                };
-                const codeMapResponse = await langClient.getCodeMap(codeMapRequest);
-                const lsElapsed = ((performance.now() - codeMapStartTime) / 1000).toFixed(2);
-                console.log(`[AgentExecutor] LS code map response received in ${lsElapsed}s`);
-
-                if (!fs.existsSync(targetDir)) {
-                    fs.mkdirSync(targetDir, { recursive: true });
-                }
-
-                codeMapMarkdown = codeMapResponse?.markdown;
-                if (codeMapMarkdown) {
-                    fs.writeFileSync(balMdPath, codeMapMarkdown, 'utf-8');
-                    const totalElapsed = ((performance.now() - codeMapStartTime) / 1000).toFixed(2);
-                    console.log(`[AgentExecutor] bal.md created in ${totalElapsed}s (LS: ${lsElapsed}s, file write: ${(parseFloat(totalElapsed) - parseFloat(lsElapsed)).toFixed(2)}s)`);
-                    console.log(`[AgentExecutor] Saved full code map markdown to ${balMdPath}`);
-                } else {
-                    console.warn('[AgentExecutor] Code map response has no markdown field');
-                }
-            }
+            // Code map is fetched at query submission time in index.ts generateAgent
+            const codeMapMarkdown = this.config.codeMapMarkdown;
 
             const userMessageContent = getUserPrompt(params, tempProjectPath, projects, codeMapMarkdown);
 

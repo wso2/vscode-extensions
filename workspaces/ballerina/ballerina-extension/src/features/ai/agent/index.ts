@@ -17,6 +17,8 @@
 import { Command, ExecutionContext, GenerateAgentCodeRequest } from "@wso2/ballerina-core";
 import { StateMachine } from "../../../stateMachine";
 import { chatStateStorage } from '../../../views/ai-panel/chatStateStorage';
+import * as path from 'path';
+import * as fs from 'fs';
 import { AICommandConfig } from "../executors/base/AICommandExecutor";
 import { createWebviewEventHandler } from "../utils/events";
 import { AgentExecutor } from './AgentExecutor';
@@ -116,6 +118,37 @@ export async function generateAgent(params: GenerateAgentCodeRequest): Promise<b
                 'chat.history_length': chatHistory.length.toString(),
             }
         );
+
+        // Fetch code map at query submission time to capture the current project state.
+        // Runs against the actual workspace since temp project doesn't exist yet.
+        const langClient = StateMachine.context().langClient;
+        if (langClient) {
+            try {
+                const codeMapStartTime = performance.now();
+                const codeMapResponse = await langClient.getCodeMap({
+                    projectPath: projectRootPath, changesOnly: false, artifacts: false,
+                });
+                const lsElapsed = ((performance.now() - codeMapStartTime) / 1000).toFixed(2);
+                console.log(`[generateAgent] LS code map response received in ${lsElapsed}s`);
+
+                const codeMapMarkdown = codeMapResponse?.markdown;
+                if (codeMapMarkdown) {
+                    const targetDir = path.join(projectRootPath, 'target');
+                    if (!fs.existsSync(targetDir)) {
+                        fs.mkdirSync(targetDir, { recursive: true });
+                    }
+                    fs.writeFileSync(path.join(targetDir, 'bal.md'), codeMapMarkdown, 'utf-8');
+                    console.log(`[generateAgent] Saved code map to bal.md in ${lsElapsed}s`);
+                    config.codeMapMarkdown = codeMapMarkdown;
+                } else {
+                    console.warn('[generateAgent] Code map response has no markdown field');
+                }
+            } catch (err) {
+                console.warn('[generateAgent] Failed to fetch code map, continuing without it:', err);
+            }
+        } else {
+            console.warn('[generateAgent] langClient is null, skipping code map fetch');
+        }
 
         await new AgentExecutor(config).run();
 
