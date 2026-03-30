@@ -1,0 +1,113 @@
+arazzo: 1.0.1
+info:
+  title: Two-Workflow Pet Operations
+  version: 1.0.0
+  description: Two independent workflows demonstrating pet creation with verification and pet update with verification.
+
+sourceDescriptions:
+  - name: petApi
+    url: https://petstore3.swagger.io/api/v3/openapi.json
+    type: openapi
+
+workflows:
+  # ── Workflow 1: Create a pet, verify it, then update it ────────
+  - workflowId: createAndUpdatePet
+    summary: Create a new pet, verify it was persisted, then update its name.
+    inputs:
+      type: object
+      properties:
+        petId: { type: integer }
+        petName: { type: string }
+        updatedName: { type: string }
+    outputs:
+      updatedPet: $steps.updateStep.outputs.pet
+
+    steps:
+      - stepId: createStep
+        description: Add the new pet to the store.
+        operationId: addPet
+        requestBody:
+          contentType: application/json
+          payload:
+            id: $inputs.petId
+            name: $inputs.petName
+            photoUrls: ["https://example.com/pet.jpg"]
+            status: available
+        successCriteria:
+          - condition: $statusCode == 200
+
+      - stepId: verifyCreation
+        description: Verify the pet was created by fetching it.
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: $inputs.petId
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          pet: $response.body
+
+      - stepId: updateStep
+        description: Update the pet with a new name.
+        operationId: updatePet
+        requestBody:
+          contentType: application/json
+          payload:
+            id: $inputs.petId
+            name: $inputs.updatedName
+            photoUrls: ["https://example.com/pet.jpg"]
+            status: available
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          pet: $response.body
+
+  # ── Workflow 2: Look up a pet, update it, then verify the update ─
+  - workflowId: lookupAndUpdatePet
+    summary: Fetch an existing pet, update its details, and verify the update.
+    inputs:
+      type: object
+      properties:
+        petId: { type: integer }
+        newName: { type: string }
+    outputs:
+      verifiedPet: $steps.verifyUpdate.outputs.pet
+
+    steps:
+      - stepId: fetchPet
+        description: Fetch the pet record by ID.
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: $inputs.petId
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          pet: $response.body
+
+      - stepId: updatePet
+        description: Update the pet with the new name.
+        operationId: updatePet
+        requestBody:
+          contentType: application/json
+          payload:
+            id: $inputs.petId
+            name: $inputs.newName
+            photoUrls: ["https://example.com/pet.jpg"]
+            status: available
+        successCriteria:
+          - condition: $statusCode == 200
+
+      - stepId: verifyUpdate
+        description: Verify the update by fetching the pet again.
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: $inputs.petId
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          pet: $response.body
