@@ -468,7 +468,7 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
             <WaitingMessage>
                 <Title>Waiting for Login</Title>
                 <SubTitle>
-                    Please complete the WSO2 Integration Platform sign-in to continue using WSO2 Integrator Copilot.
+                    Waiting for Devant sign-in. Complete your login in the WSO2 Platform extension to continue with WSO2 Integrator Copilot.
                 </SubTitle>
                 <ButtonContainer>
                     <VSCodeButton appearance="secondary" onClick={cancelLogin}>
