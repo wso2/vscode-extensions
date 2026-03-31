@@ -29,6 +29,7 @@ export interface DiagnosticInfo {
     severity: 'error' | 'warning' | 'info';
     line: number;
     message: string;
+    code?: string;           // LSP error code (e.g., "cvc-complex-type.2.4.a")
     codeActions?: string[];  // Optional LSP quick fix titles
 }
 
