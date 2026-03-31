@@ -57,7 +57,7 @@ export interface ShellCommandAnalysis {
     classificationMetadata?: Record<string, unknown>;
 }
 
-export function buildShellCommandDeniedResult(): {
+export function buildShellCommandDeniedResult(feedback?: string): {
     success: false;
     message: string;
     error: 'SHELL_COMMAND_DENIED';
@@ -65,7 +65,9 @@ export function buildShellCommandDeniedResult(): {
     return {
         success: false,
         message: [
-            'User denied permission to execute shell command.',
+            feedback
+                ? `User denied permission to execute shell command. User feedback: ${feedback}`
+                : 'User denied permission to execute shell command.',
             '',
             '<system-reminder>',
             'Do not retry the same shell command. Use other tools or ask the user for an alternative approach.',
