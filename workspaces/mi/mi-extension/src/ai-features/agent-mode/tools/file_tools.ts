@@ -799,15 +799,15 @@ export function createWriteExecute(
 
         // Give language services a brief moment to settle before automatic validation.
         await delay(POST_WRITE_VALIDATION_DELAY_MS);
-        // Automatically validate the file and get structured diagnostics
-        const validation = await validateXmlFile(fullPath, projectPath, false);
+        // Automatically validate the file and get structured diagnostics (include code actions for agent)
+        const validation = await validateXmlFile(fullPath, projectPath, true);
 
         console.log(`[FileWriteTool] Successfully ${action} and synced file: ${file_path} with ${lineCount} lines`);
 
         // Build result with structured validation data
         const result: ToolResult = {
             success: true,
-            message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).${validation ? formatValidationMessage(validation) : ''}`
+            message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).${validation ? formatValidationMessage(validation, 15) : ''}`
         };
 
         if (validation) {
@@ -1084,14 +1084,14 @@ export function createEditExecute(
 
         // Give language services a brief moment to settle before automatic validation.
         await delay(POST_WRITE_VALIDATION_DELAY_MS);
-        const validation = await validateXmlFile(fullPath, projectPath, false);
+        const validation = await validateXmlFile(fullPath, projectPath, true);
 
         const replacedCount = replace_all ? occurrences : 1;
         logDebug(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) in: ${file_path}`);
 
         const result: ToolResult = {
             success: true,
-            message: `Replaced ${replacedCount} occurrence(s) in '${file_path}'.${validation ? formatValidationMessage(validation) : ''}`
+            message: `Replaced ${replacedCount} occurrence(s) in '${file_path}'.${validation ? formatValidationMessage(validation, 15) : ''}`
         };
 
         if (validation) {

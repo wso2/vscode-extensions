@@ -477,7 +477,7 @@ export function createBashExecute(
             });
 
             if (!approvalResult.approved) {
-                return buildShellCommandDeniedResult();
+                return buildShellCommandDeniedResult(approvalResult.feedback);
             }
 
             const rememberForSession = approvalResult.rememberForSession === true;
