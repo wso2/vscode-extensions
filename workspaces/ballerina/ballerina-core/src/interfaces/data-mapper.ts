@@ -257,6 +257,8 @@ export interface DMFormProps {
     onSubmit: (data: DMFormFieldValues, formImports?: DMFormFieldValues, importsCodedata?: CodeData) => void;
     onCancel?: () => void;
     isSaving?: boolean;
+    isDMClauseEditor?: boolean;
+    isDMSubMappingEditor?: boolean;
 }
 
 export interface DMFormField {

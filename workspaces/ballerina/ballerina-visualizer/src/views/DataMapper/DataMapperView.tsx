@@ -310,7 +310,6 @@ export function DataMapperView(props: DataMapperViewProps) {
                 fileName={filePath}
                 preserveFieldOrder={true}
                 helperPaneSide="left"
-                isDataMapperEditor={true}
                 {...formProps}
             />
         )

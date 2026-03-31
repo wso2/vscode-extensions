@@ -191,7 +191,8 @@ export function ClauseEditor(props: ClauseEditorProps) {
         nestedForm: true,
         onSubmit: handleSubmit,
         onCancel: handleCancel,
-        isSaving
+        isSaving,
+        isDMClauseEditor: true
     }
 
     return (

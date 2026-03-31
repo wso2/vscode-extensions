@@ -94,7 +94,8 @@ interface FormProps {
     onCancel?: () => void;
     editForm?: boolean;
     isGraphqlEditor?: boolean;
-    isDataMapperEditor?: boolean;
+    isDMClauseEditor?: boolean;
+    isDMSubMappingEditor?: boolean;
     onSubmit: (data: FormValues, formImports?: FormImports, importsCodedata?: CodeData) => void;
     isSaving?: boolean;
     isActiveSubPanel?: boolean;
@@ -137,7 +138,8 @@ export function FormGeneratorNew(props: FormProps) {
         onSubmit,
         isSaving,
         isGraphqlEditor,
-        isDataMapperEditor,
+        isDMClauseEditor,
+        isDMSubMappingEditor,
         openSubPanel,
         updatedExpressionField,
         resetUpdatedExpressionField,
@@ -531,7 +533,7 @@ export function FormGeneratorNew(props: FormProps) {
                     };
 
                     let completions: ExpressionCompletionsResponse;
-                    if (!isDataMapperEditor) {
+                    if (!isDMClauseEditor) {
                         completions = await rpcClient.getBIDiagramRpcClient().getExpressionCompletions(completionRequest);
                     } else {
                         completions = await rpcClient.getBIDiagramRpcClient().getDataMapperCompletions(completionRequest);
@@ -1069,6 +1071,12 @@ export function FormGeneratorNew(props: FormProps) {
                     onChange={handleFieldChange}
                     hideSaveButton={hideSaveButton}
                     onValidityChange={onValidityChange}
+                    handleVisualizableFields={() => {
+                        console.log(">>>[DMQ] handleVisualizableFields called");
+                    }}
+                    handleSelectedTypeChange={() => {
+                        console.log(">>>[DMQ] handleSelectedTypeChange called");
+                    }}
                 />
             )}
             {
