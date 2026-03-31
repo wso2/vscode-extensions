@@ -23,9 +23,9 @@ import * as path from 'path';
 import { createHurlRunner, HurlFileResult, HurlEntryResult, HurlAssertionResult } from '@wso2/api-tryit-hurl-runner';
 import { getHurlBinaryManager } from '../hurl/hurl-binary-manager';
 
-const CONTROLLER_ID = 'HTTPClient-controller';
-const NOTEBOOK_TYPE = 'HTTPClient';
-const CONTROLLER_LABEL = 'HTTP Client Runner';
+const CONTROLLER_ID = 'HurlClient-controller';
+const NOTEBOOK_TYPE = 'HurlClient';
+const CONTROLLER_LABEL = 'Hurl Client Runner';
 
 /**
  * Notebook controller that executes individual Hurl request cells.
