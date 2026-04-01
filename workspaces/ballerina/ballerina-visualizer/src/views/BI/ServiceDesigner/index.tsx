@@ -51,8 +51,6 @@ import { removeForwardSlashes, canDataBind, getReadableListenerName } from "./ut
 import { DatabindForm } from "./Forms/DatabindForm";
 import { FileIntegrationForm } from "./Forms/FileIntegrationForm";
 import FileIntegrationConfigForm from "./Forms/FileIntegrationForm/FileIntegrationConfigForm";
-import { SMBForm } from "./Forms/SMBForm";
-import SMBConfigForm from "./Forms/SMBForm/SMBConfigForm";
 
 const LoadingContainer = styled.div`
     display: flex;
@@ -1513,7 +1511,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                     show={showFunctionConfigForm}
                                     onClose={handleFunctionConfigClose}
                                 >
-                                    <SMBConfigForm
+                                    <FileIntegrationConfigForm
                                         isSaving={isSaving}
                                         serviceModel={serviceModel}
                                         onSubmit={handleNewSMBFunction}
@@ -1530,7 +1528,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                     width={400}
                                 >
                                     {showForm && (
-                                        <SMBForm
+                                        <FileIntegrationForm
                                             key={`${isNew ? "new" : "edit"}-${selectedSMBHandler ?? functionModel?.name?.value ?? "handler"}`}
                                             functionModel={functionModel}
                                             isNew={isNew}
