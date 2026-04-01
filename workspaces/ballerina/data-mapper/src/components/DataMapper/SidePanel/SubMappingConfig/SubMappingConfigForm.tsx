@@ -139,12 +139,25 @@ export function SubMappingConfigForm(props: SubMappingConfigFormProps) {
         enabled: true,
     };
 
+    const mappingExpressionField: DMFormField = {
+        key: "expression",
+        label: "Default Value",
+        type: "EXPRESSION",
+        optional: false,
+        editable: true,
+        documentation: "Default value for the sub mapping.",
+        value: "",
+        types: [{ fieldType: "EXPRESSION", selected: false }],
+        enabled: true,
+    }
+
     const formProps: DMFormProps = {
         targetLineRange:{ startLine: { line: 0, offset: 0 }, endLine: { line: 0, offset: 0 } },
-        fields: [mappingNameField, mappingTypeField],
+        fields: [mappingNameField, mappingTypeField, mappingExpressionField],
         submitText: isEdit ? "Save" : isAddingNewSubMapping ? "Adding" : "Add",
         isSaving: isAddingNewSubMapping,
-        onSubmit
+        onSubmit,
+        isDMSubMappingEditor: true
     }
 
     return (
