@@ -381,6 +381,10 @@ export class ExtendedLanguageClient extends LanguageClient {
         return this.sendRequest('synapse/updateConnectorDependencies');
     }
 
+    async refetchIntegrationProjectDependencies(): Promise<string> {
+        return this.sendRequest('synapse/refetchIntegrationProjectDependencies');
+    }
+
     async loadDependentCAppResources(): Promise<string> {
         return this.sendRequest('synapse/loadDependentResources');
     }

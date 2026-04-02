@@ -206,6 +206,23 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     }
 
     /**
+     * Extracts CApp dependencies as projects and loads dependent CApp resources.
+     *
+     * @param langClient - The language client instance.
+     */
+    private async _loadCAppResources(langClient: Awaited<ReturnType<typeof MILanguageClient.getInstance>>): Promise<void> {
+        try {
+            await extractCAppDependenciesAsProjects(this.projectUri);
+            const loadResult = await langClient?.loadDependentCAppResources();
+            if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
+                await window.showWarningMessage(loadResult, { modal: true });
+            }
+        } catch (error) {
+            console.error("Error extracting CApp dependencies:", error);
+        }
+    }
+
+    /**
      * Reloads the dependencies for the current integration project.
      *
      * @param params - An object containing the parameters for reloading dependencies.
@@ -307,19 +324,8 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                     }
                 }
             }
-            
-            try {
-                await extractCAppDependenciesAsProjects(this.projectUri);
-                const loadResult = await langClient?.loadDependentCAppResources();
-                if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
-                    await window.showWarningMessage(
-                        loadResult,
-                        { modal: true }
-                    );
-                }
-            } catch (error) {
-                console.error("Error extracting CApp dependencies:", error);
-            }
+
+            await this._loadCAppResources(langClient);
             const parentDir = path.dirname(this.projectUri)
             if (isConsolidatedProject(parentDir) && params?.isProjectDependenciesUpdated) {
                 await reorderModulesByBuildOrder(path.join(parentDir, 'pom.xml'));
@@ -432,6 +438,15 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.updateConnectorDependencies();
             await extractCAppDependenciesAsProjects(this.projectUri);
+            resolve(res);
+        });
+    }
+
+    async refetchIntegrationProjectDependencies(): Promise<string> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.refetchIntegrationProjectDependencies();
+            await this._loadCAppResources(langClient);
             resolve(res);
         });
     }
