@@ -36,7 +36,9 @@ import path from 'path';
 import { COMMANDS, WI_EXTENSION_ID } from './constants';
 import { enableLS } from './util/workspace';
 import { disposeMIAgentPanelRpcManager } from './rpc-managers/agent-mode/rpc-handler';
+import { isConsolidatedProject } from './util/onboardingUtils';
 const os = require('os');
+const fs = require('fs');
 
 export async function activate(context: vscode.ExtensionContext) {
 	extension.context = context;
@@ -46,6 +48,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		.flatMap((tabGroup) => tabGroup.tabs)
 		.filter((tab) => (tab.input as any)?.viewType?.includes("micro-integrator."));
 	vscode.window.tabGroups.close(orphanedTabs);
+
+	if (workspace.workspaceFolders) {
+		for (const folder of workspace.workspaceFolders) {
+			await replaceWithSubProjects(folder);
+		}
+	}
 
 	const oldProjects = workspace.workspaceFolders
 		? (await Promise.all(
@@ -134,4 +142,40 @@ export function checkForWso2IntegratorExt() {
 		return false;
 	}
 	return true;
+}
+
+async function replaceWithSubProjects(folder: vscode.WorkspaceFolder) {
+	try {
+		const folderPath = folder.uri.fsPath;
+		if (!isConsolidatedProject(folderPath)) {
+			return;
+		}
+
+		const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
+		const subUris: vscode.Uri[] = [];
+
+		for (const entry of entries) {
+			const subPath = path.join(folderPath, entry.name);
+			if (!entry.isDirectory() || entry.name.startsWith('.') || fs.existsSync(path.join(subPath, '.docker-build'))) {
+				continue;
+			}
+			const pomPath = path.join(subPath, 'pom.xml');
+
+			if (fs.existsSync(pomPath)) {
+				subUris.push(vscode.Uri.file(subPath));
+			}
+		}
+
+		if (subUris.length === 0) {
+			return;
+		}
+		vscode.workspace.updateWorkspaceFolders(
+			folder.index,   // start index
+			1,              // remove the consolidated project folder
+			...subUris.map(uri => ({ uri }))
+		);
+
+	} catch (err) {
+		console.error('Error replacing consolidated project', err);
+	}
 }

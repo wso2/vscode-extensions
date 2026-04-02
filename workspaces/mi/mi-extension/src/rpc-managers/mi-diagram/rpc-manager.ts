@@ -293,6 +293,7 @@ import {
     ConfigureKubernetesResponse,
     UpdateRegistryPropertyRequest,
     LoginMethod,
+    ProjectCreationStatusResponse,
     LoadDriverAndTestConnectionRequest,
     GetDynamicFieldsRequest,
     GetDynamicFieldsResponse,
@@ -335,7 +336,7 @@ import { testFileMatchPattern } from "../../test-explorer/discover";
 import { mockSerivesFilesMatchPattern } from "../../test-explorer/mock-services/activator";
 import { UndoRedoManager } from "../../undoRedoManager";
 import { copyDockerResources, copyMavenWrapper, createFolderStructure, getAPIResourceXmlWrapper, getAddressEndpointXmlWrapper, getDataServiceXmlWrapper, getDefaultEndpointXmlWrapper, getDssDataSourceXmlWrapper, getFailoverXmlWrapper, getHttpEndpointXmlWrapper, getInboundEndpointXmlWrapper, getLoadBalanceXmlWrapper, getMessageProcessorXmlWrapper, getMessageStoreXmlWrapper, getProxyServiceXmlWrapper, getRegistryResourceContent, getTaskXmlWrapper, getTemplateEndpointXmlWrapper, getTemplateXmlWrapper, getWsdlEndpointXmlWrapper, createGitignoreFile, getEditTemplateXmlWrapper } from "../../util";
-import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata, generatePathFromRegistryPath } from "../../util/fileOperations";
+import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata, generatePathFromRegistryPath, updatePomWithParent } from "../../util/fileOperations";
 import { log } from "../../util/logger";
 import { importProjects } from "../../util/migrationUtils";
 import { generateSwagger, getResourceInfo, isEqualSwaggers, mergeSwaggers } from "../../util/swagger";
@@ -344,12 +345,12 @@ import { getClassMediatorContent } from "../../util/template-engine/mustach-temp
 import { getBallerinaModuleContent, getBallerinaConfigContent } from "../../util/template-engine/mustach-templates/ballerinaModule";
 import { generateXmlData, writeXmlDataToFile } from "../../util/template-engine/mustach-templates/createLocalEntry";
 import { getRecipientEPXml } from "../../util/template-engine/mustach-templates/recipientEndpoint";
-import { dockerfileContent, rootPomXmlContent } from "../../util/templates";
+import { consolidatedProjectPomContent, dockerfileContent, getPomInfoFromFile, rootPomXmlContent } from "../../util/templates";
 import { replaceFullContentToFile, saveIdpSchemaToFile } from "../../util/workspace";
 import { VisualizerWebview, webviews } from "../../visualizer/webview";
 import path = require("path");
 import { importCapp } from "../../util/importCapp";
-import { compareVersions, filterConnectorVersion, generateInitialDependencies, getDefaultProjectPath, getMIVersionFromPom, buildBallerinaModule, updatePomForClassMediator } from "../../util/onboardingUtils";
+import { compareVersions, filterConnectorVersion, generateInitialDependencies, getDefaultProjectPath, getMIVersionFromPom, buildBallerinaModule, updatePomForClassMediator, isConsolidatedProject } from "../../util/onboardingUtils";
 import { Range as STRange } from '@wso2/mi-syntax-tree/lib/src';
 import { checkForWso2IntegratorExt } from "../../extension";
 import { getAPIMetadata } from "../../util/template-engine/mustach-templates/API";
@@ -360,6 +361,7 @@ import { getKubernetesConfiguration, getKubernetesDataConfiguration } from "../.
 import { parseStringPromise, Builder } from "xml2js";
 import { MILanguageClient } from "../../lang-client/activator";
 import { addWSO2AIConfigProperties } from "../../ai-features/configUtils";
+import { reorderModulesByBuildOrder, updatePomModules } from "../../debugger/pomResolver";
 const AdmZip = require('adm-zip');
 
 const { XMLParser, XMLBuilder } = require("fast-xml-parser");
@@ -3066,13 +3068,58 @@ ${endpointAttributes}
 
     async createProject(params: CreateProjectRequest): Promise<CreateProjectResponse> {
         return new Promise(async (resolve) => {
+            if (params.isConsolidatedProject && params.subProjects && params.subProjects.length > 0) {
+                const projectDir = path.join(params.directory, params.name.replace(/\./g, ''));
+                fs.mkdirSync(projectDir);
+                fs.writeFileSync(path.join(projectDir, 'pom.xml'), consolidatedProjectPomContent(
+                    params.name, params.groupID ?? "com.example", params.artifactID ?? params.name, params.version ?? DEFAULT_PROJECT_VERSION, params.miVersion, params.subProjects));
+                if (params.subProjects) {
+                    for (const subProject of params.subProjects) {
+                        const subProjectConfigs: CreateProjectRequest = {
+                            ...params,
+                            name: subProject,
+                            artifactID: subProject,
+                            isConsolidatedProject: false,
+                            subProjects: [],
+                            directory: projectDir,
+                            open: false
+                        };
+                        await this.createProject(subProjectConfigs);
+                    }
+                }
+                resolve({ filePath: projectDir });
+                this.addSubfoldersToWorkspace(projectDir);
+                return;
+            } else if (params.isConsolidatedProject && params.subProjects && params.subProjects.length === 0) {
+                const subProjectConfigs: CreateProjectRequest = {
+                    ...params,
+                    isConsolidatedProject: false,
+                    subProjects: [],
+                    directory: path.dirname(this.projectUri),
+                    open: false
+                };
+                const { filePath } = await this.createProject(subProjectConfigs);
+                const folderUri = Uri.file(filePath);
+
+                // Get the currently opened workspaces
+                const workspaceFolders = workspace.workspaceFolders || [];
+
+                // Check if the folder is not already part of the workspace
+                if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
+                    workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
+                }
+
+                updatePomModules(path.join(path.dirname(this.projectUri), "pom.xml"), params.artifactID ?? params.name, "add");
+                resolve({ filePath: path.dirname(this.projectUri) });
+                return;
+            }
             const projectUuid = uuidv4();
             const { directory, name, open, groupID, artifactID, version, miVersion } = params;
             const initialDependencies = compareVersions(miVersion, RUNTIME_VERSION_440) >= 0 ? generateInitialDependencies() : '';
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
                 [tempName]: { // Project folder
-                    'pom.xml': rootPomXmlContent(name, groupID ?? "com.example", artifactID ?? name, projectUuid, version ?? DEFAULT_PROJECT_VERSION, miVersion, initialDependencies),
+                    'pom.xml': await rootPomXmlContent(name, groupID ?? "com.example", artifactID ?? name, projectUuid, version ?? DEFAULT_PROJECT_VERSION, miVersion, initialDependencies, directory),
                     '.env': '',
                     'src': {
                         'main': {
@@ -3128,7 +3175,7 @@ ${endpointAttributes}
             const projectOpened = getStateMachine(this.projectUri).context().projectOpened;
 
             if (open) {
-                if (projectOpened) {
+                if (projectOpened && !isConsolidatedProject(path.dirname(this.projectUri))) {
                     const answer = await window.showWarningMessage(
                         "Do you want to open the created project in the current window or new window?",
                         { modal: true },
@@ -3158,6 +3205,172 @@ ${endpointAttributes}
             }
             resolve({ filePath: path.join(directory, name) });
         });
+    }
+
+    async addSubfoldersToWorkspace(parentFolderPath: string) {
+        const parentUri = vscode.Uri.file(parentFolderPath);
+        const entries = await vscode.workspace.fs.readDirectory(parentUri);
+
+        const folderEntries = entries.filter(
+            ([_, type]) => type === vscode.FileType.Directory
+        );
+
+        const foldersToAdd = (
+            await Promise.all(
+                folderEntries.map(async ([name]) => {
+                    const folderUri = vscode.Uri.joinPath(parentUri, name);
+                    const pomUri = vscode.Uri.joinPath(folderUri, 'pom.xml');
+                    if (name.startsWith('.') || fs.existsSync(path.join(folderUri.fsPath, '.docker-build'))) {
+                        return null;
+                    }
+                    try {
+                        await vscode.workspace.fs.stat(pomUri);
+                        return { uri: folderUri, name };
+                    } catch {
+                        return null;
+                    }
+                })
+            )
+        ).filter(Boolean) as { uri: vscode.Uri; name: string }[];
+
+        vscode.workspace.updateWorkspaceFolders(
+            0,
+            vscode.workspace.workspaceFolders?.length ?? 0,
+            ...foldersToAdd
+        );
+    }
+
+    async canCreateConsolidatedProject(projectUri?: string): Promise<ProjectCreationStatusResponse> {
+
+        return new Promise(async (resolve) => {
+            resolve(
+                {
+                    canCreateConsolidatedProject: !(vscode.workspace.workspaceFolders !== undefined && vscode.workspace.workspaceFolders.length > 0),
+                    isConsolidatedProject: isConsolidatedProject(projectUri ?? path.dirname(this.projectUri))
+                });
+        });
+    }
+
+    async addProjectToConsolidatedProject(projectPath: string, consolidatedProjectPath: string) {
+        const projectName = path.basename(projectPath);
+        const fullPath = path.join(consolidatedProjectPath, projectName);
+        if (fs.existsSync(fullPath) && fs.statSync(fullPath).isDirectory()) {
+            vscode.window.showErrorMessage(`A folder with the name ${projectName} already exists in the consolidated project.`);
+            return;
+        }
+        if (!fs.existsSync(path.join(projectPath, 'pom.xml'))) {
+            vscode.window.showErrorMessage(`The project at ${projectPath} does not contain a pom.xml file.`);
+            return;
+        }
+        await fs.promises.cp(projectPath, fullPath, { recursive: true });
+        updatePomModules(path.join(consolidatedProjectPath, "pom.xml"), projectName, "add");
+        const { groupId, artifactId, version } = await getPomInfoFromFile(path.join(consolidatedProjectPath, "pom.xml"));
+        updatePomWithParent(path.join(consolidatedProjectPath, projectName, "pom.xml"), {
+            groupId: groupId ?? "com.example",
+            artifactId: artifactId ?? projectName,
+            version: version ?? "1.0.0"
+        });
+        vscode.workspace.updateWorkspaceFolders(
+            vscode.workspace.workspaceFolders?.length ?? 0,
+            0,
+            { uri: vscode.Uri.file(path.join(consolidatedProjectPath, projectName)) }
+        );
+    }
+
+    async createConsolidatedProjectFromWorkspace(params: CreateProjectRequest): Promise<CreateProjectResponse> {
+
+        if (isConsolidatedProject(path.dirname(this.projectUri))) {
+            vscode.window.showErrorMessage(
+                'The current workspace is already a consolidated project.'
+            );
+            throw new Error('Already a consolidated project');
+        }
+
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            vscode.window.showErrorMessage('No workspace folders are open.');
+            throw new Error('No workspace folders');
+        }
+
+        if (workspaceFolders.length !== new Set(workspaceFolders.map(f => f.name)).size) {
+            vscode.window.showErrorMessage('Duplicate folder names found in the workspace.');
+            throw new Error('Duplicate folder names');
+        }
+
+        const hasMissingPom = (
+            await Promise.all(
+                workspaceFolders.map(async (folder) => {
+                    const pomUri = vscode.Uri.joinPath(folder.uri, 'pom.xml');
+                    try {
+                        await vscode.workspace.fs.stat(pomUri);
+                        return false;
+                    } catch {
+                        return true;
+                    }
+                })
+            )
+        ).some(Boolean);
+
+        if (hasMissingPom) {
+            vscode.window.showErrorMessage('Some workspace folders do not contain a pom.xml.');
+            throw new Error('Missing pom.xml in workspace folders');
+        }
+
+        const projectDir = path.join(
+            params.directory,
+            params.name.replace(/\./g, '')
+        );
+        fs.mkdirSync(projectDir);
+
+        const modules = (
+            await Promise.all(
+                workspaceFolders.map(async (folder) => {
+                    const pomUri = vscode.Uri.joinPath(folder.uri, 'pom.xml');
+                    try {
+                        await vscode.workspace.fs.stat(pomUri);
+                        return folder.name;
+                    } catch {
+                        return null;
+                    }
+                })
+            )
+        ).filter((name): name is string => name !== null);
+
+        fs.writeFileSync(
+            path.join(projectDir, 'pom.xml'),
+            consolidatedProjectPomContent(
+                params.name,
+                params.groupID ?? "com.example",
+                params.artifactID ?? params.name,
+                params.version ?? DEFAULT_PROJECT_VERSION,
+                params.miVersion,
+                modules
+            )
+        );
+
+        for (const folder of workspaceFolders) {
+            const sourcePath = folder.uri.fsPath;
+            const folderName = path.basename(sourcePath);
+            const destinationPath = path.join(projectDir, folderName);
+
+            await fs.promises.cp(sourcePath, destinationPath, {
+                recursive: true,
+                force: true
+            });
+
+            const pomPath = path.join(destinationPath, "pom.xml");
+            if (fs.existsSync(pomPath)) {
+                updatePomWithParent(pomPath, {
+                    groupId: params.groupID ?? "com.example",
+                    artifactId: params.artifactID ?? params.name,
+                    version: params.version ?? DEFAULT_PROJECT_VERSION
+                });
+            }
+        }
+
+        await this.addSubfoldersToWorkspace(projectDir);
+        await reorderModulesByBuildOrder(path.join(projectDir, 'pom.xml'));
+        return { filePath: projectDir };
     }
 
     async importProject(params: ImportProjectRequest): Promise<ImportProjectResponse> {
@@ -3193,8 +3406,12 @@ ${endpointAttributes}
         });
     }
 
-    async getWorkspaceRoot(): Promise<ProjectRootResponse> {
+    async getWorkspaceRoot(getDefault?: boolean): Promise<ProjectRootResponse> {
         return new Promise(async (resolve) => {
+            if (getDefault) {
+                resolve({ path: getDefaultProjectPath() });
+                return;
+            }
             const workspaceFolders = workspace.workspaceFolders;
             if (workspaceFolders && this.projectUri) {
                 const existingProject = path.basename(this.projectUri);
@@ -4139,7 +4356,12 @@ ${endpointAttributes}
             const hasEnvValues = params.envValues && params.envValues.length > 0;
             const hasPorts = params.ports && params.ports.length > 0;
             const k8Configuration = getKubernetesConfiguration({ name: params.name, replicas: params.replicas, targetImage: params.targetImage, ports: params.ports, hasEnvValues: hasEnvValues, hasPorts: hasPorts });
-            const k8Path = path.join(this.projectUri, 'deployment', 'kubernetes');
+            let k8Path;
+            if (isConsolidatedProject(path.dirname(this.projectUri))) {
+                k8Path = path.join(path.dirname(this.projectUri), 'deployment', 'kubernetes');
+            } else {
+                k8Path = path.join(this.projectUri, 'deployment', 'kubernetes');
+            }
             fs.mkdirSync(k8Path, { recursive: true });
             const configFilePath = path.join(k8Path, 'integration_k8s.yaml');
             await replaceFullContentToFile(configFilePath, k8Configuration);
@@ -4159,7 +4381,12 @@ ${endpointAttributes}
 
     isKubernetesConfigured(): Promise<boolean> {
         return new Promise(async (resolve) => {
-            const configFilePath = path.join(this.projectUri, 'deployment', 'kubernetes', 'integration_k8s.yaml');
+            let configFilePath;
+            if (isConsolidatedProject(path.dirname(this.projectUri))) {
+                configFilePath = path.join(path.dirname(this.projectUri), 'deployment', 'kubernetes', 'integration_k8s.yaml');
+            } else {
+                configFilePath = path.join(this.projectUri, 'deployment', 'kubernetes', 'integration_k8s.yaml');
+            }
             if (fs.existsSync(configFilePath)) {
                 resolve(true);
             } else {
@@ -4843,12 +5070,14 @@ ${keyValuesXML}`;
         return new Promise(async (resolve) => {
             let selection = params?.buildType?.toString();
             if (!selection) {
-                selection = await window.showQuickPick(["Build CApp", "Create Docker Image"]);
+                selection = await window.showQuickPick(["Build CApp", "Create Docker Image", ...(isConsolidatedProject(path.dirname(this.projectUri)) ? ["Build Consolidated Project"] : [])]);
             }
             if (selection === "Build CApp" || selection === "capp") {
                 await commands.executeCommand(COMMANDS.BUILD_PROJECT, this.projectUri, false);
             } else if (selection === "Create Docker Image" || selection === "docker") {
                 await commands.executeCommand(COMMANDS.CREATE_DOCKER_IMAGE, this.projectUri);
+            } else if (selection === "Build Consolidated Project" || selection === "consolidated") {
+                await commands.executeCommand(COMMANDS.BUILD_PROJECT, this.projectUri, false, undefined, true);
             }
             resolve();
         });

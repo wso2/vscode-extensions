@@ -364,6 +364,9 @@ export interface CreateProjectRequest {
     artifactID?: string;
     version?: string;
     miVersion: string;
+    isConsolidatedProject?: boolean;
+    subProjects?: string[];
+    isMigration?: boolean;
 }
 
 export interface ImportProjectRequest {
@@ -1730,7 +1733,7 @@ export interface APIContextsResponse {
 }
 
 export interface BuildProjectRequest {
-    buildType?: 'docker' | 'capp';
+    buildType?: 'docker' | 'capp' | 'consolidated';
 }
 
 export interface DevantMetadata {
@@ -2343,4 +2346,9 @@ export interface LoadDriverAndTestConnectionRequest {
     url: string;
     className: string;
     driverPath: string;
+}
+
+export interface ProjectCreationStatusResponse {
+    canCreateConsolidatedProject: boolean;
+    isConsolidatedProject: boolean;
 }

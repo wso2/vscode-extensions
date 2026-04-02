@@ -1507,3 +1507,29 @@ export async function updateCarPluginVersion(projectUri: string): Promise<void> 
         await updateRuntimeVersionsInPom(result.project.properties['project.runtime.version']);
     }
 }
+
+export function isConsolidatedProject(filePath: string): boolean {
+    try {
+        if (!filePath) {
+            return false;
+        }
+
+        const pomPath = path.join(filePath, 'pom.xml');
+        if (!fs.existsSync(pomPath)) {
+            return false;
+        }
+
+        const pomContent = fs.readFileSync(pomPath, 'utf-8');
+        const match = pomContent.match(
+            /<is\.consolidated\.project>\s*(true|false)\s*<\/is\.consolidated\.project>/i
+        );
+
+        if (!match) {
+            return false;
+        }
+        return match[1].toLowerCase() === 'true';
+
+    } catch (error) {
+        return false;
+    }
+}
