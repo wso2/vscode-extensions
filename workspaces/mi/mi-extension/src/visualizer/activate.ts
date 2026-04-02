@@ -542,17 +542,6 @@ export async function extractCAppDependenciesAsProjects(projectUri: string | und
         const extractedDir = path.join(dependenciesDir, selectedDependencyDir, 'Extracted');
         const carFiles = fs.readdirSync(downloadedDir).filter(file => file.endsWith('.car'));
 
-        // Delete any directory inside the Extracted directory
-        if (fs.existsSync(extractedDir)) {
-            const extractedSubDirs = fs.readdirSync(extractedDir, { withFileTypes: true })
-                .filter(dirent => dirent.isDirectory())
-                .map(dirent => path.join(extractedDir, dirent.name));
-
-            extractedSubDirs.forEach(subDir => {
-                fs.rmSync(subDir, { recursive: true, force: true });
-            });
-        }
-
         for (const carFile of carFiles) {
             const carFileNameWithoutExt = path.basename(carFile, path.extname(carFile));
             const carFileExtractedDir = path.join(extractedDir, carFileNameWithoutExt);
@@ -565,12 +554,6 @@ export async function extractCAppDependenciesAsProjects(projectUri: string | und
                 directory: carFileExtractedDir,
                 open: false
             });
-            // During the extraction process, the .car file is renamed to .zip
-            // Hence remove the .car file after extraction
-            const zipFilePath = path.join(downloadedDir, carFileNameWithoutExt + '.zip');
-            if (fs.existsSync(zipFilePath)) {
-                fs.rmSync(zipFilePath);
-            }
         }
     } catch (error: any) {
         vscode.window.showErrorMessage(`Failed to load integration project dependencies: ${error.message}`);
