@@ -924,6 +924,36 @@ export function FormGeneratorNew(props: FormProps) {
     }
 
 
+    const fillDefaultExpression = async (filePath: string, typeName?: string) => {
+        const codedata = importsCodedataRef.current || { symbol: typeName };
+        const res = await rpcClient
+            .getDataMapperRpcClient()
+            .getVisualizableFields({ filePath, codedata });
+        const defaultValue = res.visualizableProperties?.defaultValue ?? "";
+        const updatedFields = fieldsValuesRef.current.map(field =>
+            field.key === 'expression'
+                ? { ...field, value: defaultValue }
+                : field
+        );
+        fieldsRef.current = updatedFields;
+        fieldsValuesRef.current = updatedFields;
+        setFields(updatedFields);
+        importsCodedataRef.current = null;
+    };
+
+    const handleSelectedTypeChange = async (type: CompletionItem | string) => {
+        if (!isDMSubMappingEditor){
+            return;
+        }
+
+        try {
+            const typeName = typeof type === 'string' ? type : (type as CompletionItem).label;
+            await fillDefaultExpression(fileName, typeName);
+        } catch (error) {
+            console.error("Error handling selected type change", error);
+        }
+    };
+
     const onSaveType = (type: Type | string) => {
         handleValueTypeConstChange(typeof type === 'string' ? type : (type as Type).name);
         if (stack.length > 0) {
@@ -943,6 +973,7 @@ export function FormGeneratorNew(props: FormProps) {
             }
             setRefetchForCurrentModal(true);
         }
+        handleSelectedTypeChange(typeof type === 'string' ? type : (type as Type).name);
         setTypeEditorState({ ...typeEditorState, isOpen: stack.length !== 1 });
     }
 
@@ -1071,12 +1102,7 @@ export function FormGeneratorNew(props: FormProps) {
                     onChange={handleFieldChange}
                     hideSaveButton={hideSaveButton}
                     onValidityChange={onValidityChange}
-                    handleVisualizableFields={() => {
-                        console.log(">>>[DMQ] handleVisualizableFields called");
-                    }}
-                    handleSelectedTypeChange={() => {
-                        console.log(">>>[DMQ] handleSelectedTypeChange called");
-                    }}
+                    handleSelectedTypeChange={handleSelectedTypeChange}
                 />
             )}
             {
