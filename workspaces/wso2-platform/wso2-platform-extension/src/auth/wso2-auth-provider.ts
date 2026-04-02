@@ -100,7 +100,9 @@ export class WSO2AuthenticationProvider implements AuthenticationProvider, Dispo
 	/**
 	 * Get the existing sessions
 	 */
-	public async getSessions(scopes: readonly string[] | undefined, options: AuthenticationProviderSessionOptions): Promise<AuthenticationSession[]> {
+	public async getSessions(scopes?: readonly string[]): Promise<AuthenticationSession[]>;
+	public async getSessions(scopes: readonly string[] | undefined, options: AuthenticationProviderSessionOptions): Promise<AuthenticationSession[]>;
+	public async getSessions(scopes?: readonly string[], options?: AuthenticationProviderSessionOptions): Promise<AuthenticationSession[]> {
 		const allSessions = await this.readSessions();
 
 		if (scopes && scopes.length > 0) {
@@ -233,11 +235,13 @@ export class WSO2AuthenticationProvider implements AuthenticationProvider, Dispo
 					ext?.clients?.rpcClient?.changeOrgContext(contextStoreState.selected?.org?.id?.toString());
 				}
 			} else {
-				await this.logout(true);
+				this.resetState();
+				this.clearSessions();
 			}
 		} catch (err) {
 			getLogger().error("Error during auth initialization", err);
-			await this.logout(true);
+			this.resetState();
+			this.clearSessions();
 		}
 	}
 

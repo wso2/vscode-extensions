@@ -97,6 +97,7 @@ export class StringTemplateEditorConfig extends ChipExpressionEditorDefaultConfi
     }
 
     getIsValueCompatible(expValue: string) {
+        if (!expValue) return true;
         const suffix = this.getSerializationSuffix();
         const prefix = this.getSerializationPrefix();
         return (expValue.trim().startsWith(prefix) && expValue.trim().endsWith(suffix))
@@ -150,7 +151,7 @@ export class SQLExpressionEditorConfig extends ChipExpressionEditorDefaultConfig
         return () => null;
     }
     getSerializationPrefix(): string {
-        return "sql `";
+        return "`";
     }
     getSerializationSuffix(): string {
         return "`";
@@ -212,7 +213,32 @@ export class NumberExpressionEditorConfig extends ChipExpressionEditorDefaultCon
 
     }
 
+    getIsToggleHelperAvailable(): boolean {
+        return false;
+    }
+
     getIsValueCompatible(value: string): boolean {
+        if (!value) return true;
         return this.DECIMAL_INPUT_REGEX.test(value);
+    }
+}
+
+export class RecordConfigExpressionEditorConfig extends ChipExpressionEditorDefaultConfiguration {
+    getIsToggleHelperAvailable(): boolean {
+        return false;
+    }
+}
+
+export class BooleanEditorConfig extends ChipExpressionEditorDefaultConfiguration {
+    deserializeValue(value: string): string {
+        if (this.getIsValueCompatible(value)) {
+            return value;
+        }
+        return "";
+    }
+
+    getIsValueCompatible(expValue: string) {
+        if (!expValue) return true;
+        return expValue.toLocaleLowerCase() === "true" || expValue.toLocaleLowerCase() === "false";
     }
 }

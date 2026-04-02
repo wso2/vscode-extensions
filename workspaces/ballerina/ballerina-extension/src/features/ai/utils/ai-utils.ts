@@ -33,7 +33,8 @@ import {
     MessageQueuePayloadContext,
     FileAttatchment,
     OperationType,
-    Protocol
+    Protocol,
+    webToolToggle
 } from "@wso2/ballerina-core";
 import { ModelMessage } from "ai";
 import { MessageRole } from "./ai-types";
@@ -179,10 +180,8 @@ export function sendDiagnosticMessageNotification(diags: DiagnosticEntry[]): voi
     sendAIPanelNotification(msg);
 }
 
-export function sendReviewActionsNotification(): void {
-    const msg: ChatNotify = {
-        type: "review_actions",
-    };
+export function sendChatComponentNotification(componentType: string, data: Record<string, any>, id?: string): void {
+    const msg: ChatNotify = { type: "chat_component", id, componentType, data };
     sendAIPanelNotification(msg);
 }
 
@@ -233,20 +232,23 @@ export function sendIntermidateStateNotification(intermediaryState: Documentatio
     sendAIPanelNotification(msg);
 }
 
-export function sendToolCallNotification(toolName: string, toolInput?: any): void {
+export function sendToolCallNotification(toolName: string, toolInput?: any, toolCallId?: string): void {
     const msg: ToolCall = {
         type: "tool_call",
         toolName: toolName,
         toolInput: toolInput,
+        toolCallId: toolCallId,
     };
     sendAIPanelNotification(msg);
 }
 
-export function sendToolResultNotification(toolName: string, toolOutput?: any): void {
+export function sendToolResultNotification(toolName: string, toolOutput?: any, toolCallId?: string, failed?: boolean): void {
     const msg: ToolResult = {
         type: "tool_result",
-        toolName: toolName,
-        toolOutput: toolOutput,
+        toolName,
+        toolOutput,
+        toolCallId,
+        failed,
     };
     sendAIPanelNotification(msg);
 }
@@ -259,6 +261,16 @@ export function sendTaskApprovalRequestNotification(approvalType: "plan" | "comp
         tasks: tasks,
         taskDescription: taskDescription,
         message: message,
+    };
+    sendAIPanelNotification(msg);
+}
+
+export function sendWebToolApprovalNotification(requestId: string, toolName: "web_search" | "web_fetch", content: string): void {
+    const msg: ChatNotify = {
+        type: "web_tool_approval_request",
+        requestId,
+        toolName,
+        content,
     };
     sendAIPanelNotification(msg);
 }
@@ -292,8 +304,31 @@ export function sendConnectorGenerationNotification(event: ChatNotify & { type: 
     sendAIPanelNotification(event);
 }
 
+export function sendConfigurationCollectionNotification(event: ChatNotify & { type: "configuration_collection_event" }): void {
+    sendAIPanelNotification(event);
+}
+
+export function sendWebToolToggleNotification(active: boolean): void {
+    RPCLayer._messenger.sendNotification(
+        webToolToggle,
+        { type: "webview", webviewType: AiPanelWebview.viewType },
+        { active }
+    );
+}
+
 function sendAIPanelNotification(msg: ChatNotify): void {
     RPCLayer._messenger.sendNotification(onChatNotify, { type: "webview", webviewType: AiPanelWebview.viewType }, msg);
+}
+
+export function sendUsageMetricsNotification(
+    usage: { inputTokens: number; cacheCreationInputTokens: number; cacheReadInputTokens: number; outputTokens: number },
+    breakdown?: { systemInstructions: number; toolDefinitions: number; reservedOutput: number; messages: number; toolResults: number },
+): void {
+    sendAIPanelNotification({ type: "usage_metrics", usage, breakdown });
+}
+
+export function sendConfigChangeNotification(key: 'showContextUsage', value: boolean): void {
+    sendAIPanelNotification({ type: 'config_change', key, value });
 }
 
 export function getGenerationMode(generationType: GenerationType) {
@@ -307,7 +342,7 @@ export function getErrorMessage(error: unknown): string {
     if (error instanceof Error) {
         // Standard Error objects have a .message property
         if (error.name === "UsageLimitError") {
-            return "Usage limit exceeded. Please try again later.";
+            return "Usage limit exceeded.";
         }
         if (error.name === "AI_RetryError") {
             return "An error occured connecting with the AI service. Please try again later.";
@@ -327,7 +362,7 @@ export function getErrorMessage(error: unknown): string {
     ) {
         // Check if it has a statusCode property indicating 429
         if ("statusCode" in error && (error as any).statusCode === 429) {
-            return "Usage limit exceeded. Please try again later.";
+            return "Usage limit exceeded.";
         }
         return (error as { message: string }).message;
     }

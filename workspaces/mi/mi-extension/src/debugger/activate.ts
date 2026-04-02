@@ -31,6 +31,7 @@ import { buildBallerinaModule, setPathsInWorkSpace, verifyJavaHomePath, verifyMI
 import { MACHINE_VIEW } from '@wso2/mi-core';
 import { askForProject } from '../util/workspace';
 import { webviews } from '../visualizer/webview';
+import { getWSO2AIEnvVariables } from '../ai-features/configUtils';
 
 
 class MiConfigurationProvider implements vscode.DebugConfigurationProvider {
@@ -260,12 +261,23 @@ export function activateDebugger(context: vscode.ExtensionContext) {
                 config.internalConsoleOptions = 'neverOpen';
             }
 
+            // Inject WSO2_AI env vars first (so .env can override them)
+            try {
+                const wso2AiEnvVars = await getWSO2AIEnvVariables();
+                if (Object.keys(wso2AiEnvVars).length > 0) {
+                    config.env = { ...wso2AiEnvVars, ...config.env };
+                }
+            } catch (error) {
+                // Silently ignore - user may not be logged in
+            }
+
             if (fs.existsSync(envPath)) {
                 const envFileContent = fs.readFileSync(envPath, 'utf-8');
                 const envVariables = envFileContent.split('\n').reduce((acc, line) => {
-                    const [key, value] = line.split('=').map(part => part.trim());
+                    const [key, ...values] = line.split('=');
+                    const value = values.join('=').trim();
                     if (key && value) {
-                        acc[key] = value;
+                        acc[key.trim()] = value;
                     }
                     return acc;
                 }, {} as { [key: string]: string });
@@ -368,6 +380,6 @@ class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory 
             window.showErrorMessage(errorMessage);
             return;
         }
-        return new vscode.DebugAdapterInlineImplementation(new MiDebugAdapter(projectUri));
+        return new vscode.DebugAdapterInlineImplementation(new MiDebugAdapter(projectUri, session));
     }
 }

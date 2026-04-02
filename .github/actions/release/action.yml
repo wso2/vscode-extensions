@@ -42,7 +42,7 @@ runs:
           && id=`echo "$createResponse" | sed -n -e 's/"id":\ \([0-9]\+\),/\1/p' | head -n 1 | sed 's/[[:blank:]]//g'` && \
           uploadResponse=`curl -X POST -H "Authorization:token ${{ inputs.token }}" -H "Content-Type:application/octet-stream" \
           --data-binary @${{ steps.vsix.outputs.vsixName }} \
-          https://uploads.github.com/repos/${{ inputs.repo }}/releases/$id/assets?name=${{ steps.vsix.outputs.vsixName }}`         
+          https://uploads.github.com/repos/${{ inputs.repo }}/releases/$id/assets?name=${{ steps.vsix.outputs.vsixName }}`
 
     - name: "Release Notification"
       shell: bash

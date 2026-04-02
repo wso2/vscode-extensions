@@ -17,46 +17,28 @@
  */
 
 import * as vscode from 'vscode';
-import { extension } from './biExtentionContext';
-import { StateMachine } from './stateMachine';
-import { activateProjectExplorer } from './project-explorer/activate';
-import { fetchProjectInfo } from './utils';
 
-export async function activate(context: vscode.ExtensionContext) {
-	const ballerinaExt = vscode.extensions.getExtension('wso2.ballerina');
-	if (!ballerinaExt) {
-		vscode.window.showErrorMessage('Ballerina extension is required to operate WSO2 Integrator: BI extension effectively. Please install it from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=wso2.ballerina).');
-		return;
-	}
+const DEPRECATION_SHOWN_KEY = 'bi.deprecation.noticeShown';
+const WI_EXPLORER_VIEW_ID = 'wso2-integrator.explorer';
 
-	extension.context = context;
-
-	const ballerinaExports = ballerinaExt.isActive ? ballerinaExt.exports : await ballerinaExt.activate();
-	extension.langClient = ballerinaExports?.ballerinaExtInstance?.langClient;
-	extension.biSupported = ballerinaExports?.ballerinaExtInstance?.biSupported;
-	extension.isNPSupported = ballerinaExports?.ballerinaExtInstance?.isNPSupported;
-	extension.isWorkspaceSupported = ballerinaExports?.ballerinaExtInstance?.isWorkspaceSupported;
-
-	let reinitializeTimer: ReturnType<typeof setTimeout> | undefined;
-	context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => {
-		if (reinitializeTimer) {
-			clearTimeout(reinitializeTimer);
-		}
-
-		reinitializeTimer = setTimeout(() => {
-			reinitializeTimer = undefined;
-			void refreshProjectExplorer();
-		}, 250);
-	}));
-	context.subscriptions.push({
-		dispose: () => {
-			if (reinitializeTimer) {
-				clearTimeout(reinitializeTimer);
-			}
-		}
-	});
-
-	StateMachine.initialize();
+export function activate(context: vscode.ExtensionContext) {
+    const alreadyShown = context.globalState.get<boolean>(DEPRECATION_SHOWN_KEY);
+    if (!alreadyShown) {
+        vscode.window.showWarningMessage(
+            'WSO2 Integrator: BI has been deprecated. ' +
+            'WSO2 Integrator (WI) has been installed and provides all the same functionality with continued updates.',
+            'Open WSO2 Integrator'
+        ).then(async action => {
+            if (action === 'Open WSO2 Integrator') {
+                try {
+                    await vscode.commands.executeCommand(`${WI_EXPLORER_VIEW_ID}.focus`);
+                    await context.globalState.update(DEPRECATION_SHOWN_KEY, true);
+                } catch (error) {
+                    console.error('Failed to focus WSO2 Integrator explorer:', error);
+                }
+            }
+        });
+    }
 }
 
 export function deactivate() { }

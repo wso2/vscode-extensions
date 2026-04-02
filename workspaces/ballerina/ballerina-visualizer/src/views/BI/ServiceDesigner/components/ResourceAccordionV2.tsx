@@ -21,6 +21,7 @@ import styled from '@emotion/styled';
 import { Button, Codicon, Confirm, Icon } from '@wso2/ui-toolkit';
 import { CodeData, FunctionModel, ProjectStructureArtifactResponse } from '@wso2/ballerina-core';
 import { useRpcContext } from '@wso2/ballerina-rpc-client';
+import { ResourceAccordionSkeleton } from '../../../../components/Skeletons';
 
 type MethodProp = {
     color: string;
@@ -96,6 +97,7 @@ const MethodBox = styled.div<MethodProp>`
 
 const MethodSection = styled.div`
     display: flex;
+    align-items: center;
     gap: 4px;
 `;
 
@@ -141,7 +143,6 @@ const ActionButton = styled(Button)`
     }
 `;
 
-
 export interface ResourceAccordionPropsV2 {
     resource: ProjectStructureArtifactResponse;
     onEditResource: (resource: FunctionModel) => void;
@@ -158,6 +159,7 @@ export function ResourceAccordionV2(params: ResourceAccordionPropsV2) {
     const [isOpen, setIsOpen] = useState(false);
     const [isConfirmOpen, setConfirmOpen] = useState(false);
     const [confirmEl, setConfirmEl] = React.useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const { rpcClient } = useRpcContext();
 
 
@@ -195,8 +197,13 @@ export function ResourceAccordionV2(params: ResourceAccordionPropsV2) {
 
     const handleConfirm = async (status: boolean) => {
         if (status) {
-            const functionModel = await getFunctionModel();
-            onDeleteResource && onDeleteResource(functionModel.function);
+            setIsDeleting(true);
+            try {
+                const functionModel = await getFunctionModel();
+                onDeleteResource && onDeleteResource(functionModel.function);
+            } catch (error) {
+                setIsDeleting(false);
+            }
         }
         setConfirmOpen(false);
         setConfirmEl(null);
@@ -228,6 +235,10 @@ export function ResourceAccordionV2(params: ResourceAccordionPropsV2) {
         }
     }
 
+    if (isDeleting) {
+        return <ResourceAccordionSkeleton />;
+    }
+
     return (
         <AccordionContainer data-testid="service-agent-view-resource">
             <AccordionHeader onClick={handleResourceImplement}>
@@ -239,12 +250,12 @@ export function ResourceAccordionV2(params: ResourceAccordionPropsV2) {
                 </MethodSection>
                 <ButtonSection>
                     <>
-                        <ActionButton id="bi-edit" appearance="secondary" onClick={handleEditResource}>
+                        <ActionButton id="bi-edit" appearance="secondary" onClick={handleEditResource} disabled={!onEditResource}>
                             <Icon
                                 name="bi-settings"
                                 sx={{
-                                    cursor: "pointer",
-                                    opacity: 1,
+                                    cursor: !onEditResource ? "not-allowed" : "pointer",
+                                    opacity: !onEditResource ? 0.5 : 1,
                                     fontSize: "16px",
                                     width: "16px",
                                 }}

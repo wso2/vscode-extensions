@@ -4,6 +4,53 @@ All notable changes to the **WSO2 Integrator: BI** extension will be documented 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Persist Database Support** — Added support for persist database workflows in BI, including multiple database connections.
+- **Library Projects** — Added end-to-end support for library projects, including creation improvements, new overview page, `lib.bal` validator import, publishing to Ballerina Central, and deployment enforcement when deploying workspaces to Devant.
+- **BI Copilot** — Added new agent capabilities including library search/get tools, ConfigCollector, test-runner integration, plan-mode toggle, new/old review preview, telemetry insights, and support for agent evaluations.
+- **Data Mapper** — Added support for JSON/XML mappings, DSS query input/output mapping generation, module-level construct consolidation, and diagnostics support in clause forms.
+- **Developer Experience** — Added support for Devant connections in BI and remote server debugging improvements.
+
+### Changed
+
+- **Copilot Authentication & Config** — Migrated Copilot to the Devant auth flow, updated environment keys and pipeline inputs, and improved BI Copilot configuration handling.
+- **Editor & Forms** — Implemented new array/map editor experience, introduced dependent type editor behavior for persist forms, and improved record configuration modal UX and layout.
+- **Service Designer & Connectors** — Updated FTP service-designer flows and reordered Devant marketplace placement in connector selection views.
+
+### Fixed
+
+- **Forms & Validation** — Fixed project create-form validation regressions, if/match form behavior, response editor checkbox issues, loader styling, and form diagnostics handling edge cases.
+- **Expression & Type Editing** — Fixed SQL editor rendering for query fields, imported-type import insertion, user-defined type visibility in non-workspace projects, and function-call related create-function action visibility.
+- **Service & Resource Flows** — Fixed service designer/configurable view issues, resource header value handling, path sanitization for `.` resource paths, and XML corruption during data-service editing.
+- **Copilot & Agent Flow** — Fixed multi-turn chat state persistence, chat agent creation with listener support, config-collector placeholder handling, and login notification issues for default model provider configuration.
+- **Security** — Applied vulnerability and dependency security fixes across BI extension components.
+
+
+## [1.7.0](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.6.1...ballerina-integrator-1.7.0) - 2026-02-14
+
+### Added
+
+- **Event Integration** — Introduced CDC for PostgreSQL support.
+- **FTP Integration** — Added support for deprecated FTP functions.
+- **Expression Editor** — Added SQL support for expression editing.
+
+### Changed
+
+- **Project Creation** — Refactored form layout and validation.
+- **Service Management** — Improved Try-it flow and multiple Ballerina version detection; sorted HTTP resources in service designer and artifact views.
+- **Form Validation** — Ensured form validation runs before language server diagnostics.
+
+### Fixed
+
+- **Installation** — Added warning for conflicting Ballerina installations.
+- **UI Components** — Fixed resource configuration response reset, record config helper overflow, and Boolean/enum editor selection.
+- **Type Editor** — Fixed recursive type creation issue.
+- **Expression Editor** — Fixed completions for method access.
+- **Security** — Updated dependencies to address vulnerabilities (CVE-2026-25128, CVE-2025-50537, CVE-2025-13465, CVE-2026-25547).
+
 ## [1.6.1](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.6.0...ballerina-integrator-1.6.1) - 2026-01-22
 
 ### Fixed

@@ -23,6 +23,7 @@ import { ext } from "../extensionVariables";
 import { getLogger } from "../logger/logger";
 import { parseJwt } from "../utils";
 import { getChoreoExecPath } from "./cli-install";
+import { workspace } from "vscode";
 
 export class StdioConnection {
 	private _connection: MessageConnection;
@@ -43,10 +44,11 @@ export class StdioConnection {
 		if (!region && process.env.CLOUD_STS_TOKEN && parseJwt(process.env.CLOUD_STS_TOKEN)?.iss?.includes(".eu.")) {
 			region = "EU";
 		}
+		const skipKeyringConfig = workspace.getConfiguration().get<boolean>("WSO2.WSO2-Platform.Advanced.SkipKeyring");
 		this._serverProcess = spawn(executablePath, ["start-rpc-server"], {
 			env: {
 				...process.env,
-				SKIP_KEYRING: ext.isDevantCloudEditor ? "true" : "",
+				SKIP_KEYRING: (skipKeyringConfig || ext.isDevantCloudEditor) ? "true" : (process.env.SKIP_KEYRING || ""),
 				CHOREO_ENV: ext.choreoEnv,
 				CHOREO_REGION: region,
 			},

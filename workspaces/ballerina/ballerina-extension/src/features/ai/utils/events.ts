@@ -14,7 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { ChatNotify, Command } from "@wso2/ballerina-core";
+import { ChatNotify, Command, onChatNotify } from "@wso2/ballerina-core";
+import { RPCLayer } from "../../../RPCLayer";
+import { AiPanelWebview } from "../../../views/ai-panel/webview";
 import {
     sendContentAppendNotification,
     sendContentReplaceNotification,
@@ -27,10 +29,13 @@ import {
     sendToolCallNotification,
     sendToolResultNotification,
     sendTaskApprovalRequestNotification,
+    sendWebToolApprovalNotification,
     sendAbortNotification,
     sendSaveChatNotification,
     sendConnectorGenerationNotification,
-    sendReviewActionsNotification,
+    sendConfigurationCollectionNotification,
+    sendChatComponentNotification,
+    sendUsageMetricsNotification,
 } from "./ai-utils";
 
 export type CopilotEventHandler = (event: ChatNotify) => void;
@@ -75,10 +80,10 @@ export function createWebviewEventHandler(command: Command): CopilotEventHandler
                 sendMessagesNotification(event.messages);
                 break;
             case "tool_call":
-                sendToolCallNotification(event.toolName, event.toolInput);
+                sendToolCallNotification(event.toolName, event.toolInput, event.toolCallId);
                 break;
             case "tool_result":
-                sendToolResultNotification(event.toolName, event.toolOutput);
+                sendToolResultNotification(event.toolName, event.toolOutput, event.toolCallId, event.failed);
                 break;
             case "task_approval_request":
                 console.log("[Event Handler] Task approval request received:", event);
@@ -91,17 +96,37 @@ export function createWebviewEventHandler(command: Command): CopilotEventHandler
                 );
                 break;
             case "evals_tool_result":
-            case "usage_metrics":
                 // Ignore evals-specific events in webview
+                break;
+            case "usage_metrics":
+                sendUsageMetricsNotification(event.usage, event.breakdown);
                 break;
             case "diagnostics":
                 sendDiagnosticMessageNotification(event.diagnostics);
                 break;
-            case "review_actions":
-                sendReviewActionsNotification();
-                break;
             case "connector_generation_notification":
                 sendConnectorGenerationNotification(event);
+                break;
+            case "configuration_collection_event":
+                sendConfigurationCollectionNotification(event);
+                break;
+            case "chat_component":
+                sendChatComponentNotification(event.componentType, event.data, event.id);
+                break;
+            case "web_tool_approval_request":
+                sendWebToolApprovalNotification(event.requestId, event.toolName, event.content);
+                break;
+            case "compaction_start":
+                console.log('[Compaction] Context compaction started');
+                RPCLayer._messenger.sendNotification(onChatNotify, { type: "webview", webviewType: AiPanelWebview.viewType }, event);
+                break;
+            case "compaction_end":
+                console.log('[Compaction] Context compaction completed');
+                RPCLayer._messenger.sendNotification(onChatNotify, { type: "webview", webviewType: AiPanelWebview.viewType }, event);
+                break;
+            case "compaction_failed":
+                console.warn(`[Compaction] Context compaction failed: ${event.reason}`);
+                RPCLayer._messenger.sendNotification(onChatNotify, { type: "webview", webviewType: AiPanelWebview.viewType }, event);
                 break;
             default:
                 console.warn(`Unhandled event type: ${event}`);

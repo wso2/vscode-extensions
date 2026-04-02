@@ -29,7 +29,7 @@ export const COPILOT_ERROR_MESSAGES = {
 // MI Copilot maximum allowed file size
 export const MAX_FILE_SIZE = 5 * 1024 * 1024; // Default to 5MB
 
-export const USER_INPUT_PLACEHOLDER_MESSAGE = "Ask MI Copilot";
+export const USER_INPUT_PLACEHOLDER_MESSAGE = "Ask WSO2 Integrator Copilot";
 
 export const PROJECT_RUNTIME_VERSION_THRESHOLD = "4.4.0";
 
@@ -76,5 +76,5 @@ export const VALID_FILE_TYPES = {
         // PDF (binary but supported)
         "application/pdf"
     ],
-    images: ["image/jpeg", "image/png", "image/gif", "image/svg+xml"],
+    images: ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"],
 };

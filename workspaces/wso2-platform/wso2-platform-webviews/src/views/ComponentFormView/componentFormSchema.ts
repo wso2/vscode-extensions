@@ -36,32 +36,29 @@ import * as yaml from "js-yaml";
 import { z } from "zod/v3";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
 
+/** Reusable schema for component name validation */
+export const componentNameSchema = z
+	.string()
+	.min(1, "Required")
+	.min(3, "Needs to be at least 3 characters")
+	.max(60, "Max length exceeded")
+	.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
+	.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters");
+
 export const componentRepoInitSchema = z.object({
 	org: z.string().min(1, "Required"),
 	orgHandler: z.string(),
 	repo: z.string().min(1, "Required"),
 	branch: z.string(),
 	subPath: z.string().regex(/^(\/)?([a-zA-Z0-9_-]+(\/)?)*$/, "Invalid path"),
-	name: z
-		.string()
-		.min(1, "Required")
-		.min(3, "Needs to be at least 3 characters")
-		.max(60, "Max length exceeded")
-		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
-		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
+	name: componentNameSchema,
 	gitProvider: z.string().min(1, "Required"),
 	credential: z.string(),
 	serverUrl: z.string(),
 });
 
 export const componentGeneralDetailsSchema = z.object({
-	name: z
-		.string()
-		.min(1, "Required")
-		.min(3, "Needs to be at least 3 characters")
-		.max(60, "Max length exceeded")
-		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
-		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
+	name: componentNameSchema,
 	subPath: z.string(), // todo: add regex
 	gitRoot: z.string(),
 	repoUrl: z.string().min(1, "Required"),
@@ -69,6 +66,11 @@ export const componentGeneralDetailsSchema = z.object({
 	credential: z.string(),
 	branch: z.string().min(1, "Required"),
 });
+
+/** Schema for multi-component mode where name field is not validated */
+export const componentGeneralDetailsSchemaMultiComponent = componentGeneralDetailsSchema
+	.omit({ name: true })
+	.extend({ name: z.string() });
 
 export const componentBuildDetailsSchema = z.object({
 	buildPackLang: z.string().min(1, "Required"),
@@ -210,16 +212,23 @@ export const getComponentGitProxyFormSchema = (directoryFsPath: string) =>
 		}
 	});
 
-export const getComponentFormSchemaGenDetails = (existingComponents: ComponentKind[]) =>
-	componentGeneralDetailsSchema.partial().superRefine(async (data, ctx) => {
-		if (existingComponents.some((item) => item.metadata.name === makeURLSafe(data.name))) {
-			ctx.addIssue({ path: ["name"], code: z.ZodIssueCode.custom, message: "Name already exists" });
+export const getComponentFormSchemaGenDetails = (existingComponents: ComponentKind[], isMultiComponentMode = false) => {
+	// Use different base schema depending on multi-component mode
+	const baseSchema = isMultiComponentMode ? componentGeneralDetailsSchemaMultiComponent : componentGeneralDetailsSchema;
+
+	return baseSchema.partial().superRefine(async (data, ctx) => {
+		// Only validate name in single component mode (name field is hidden in multi-component mode)
+		if (!isMultiComponentMode && data.name) {
+			if (existingComponents.some((item) => item.metadata.name === makeURLSafe(data.name))) {
+				ctx.addIssue({ path: ["name"], code: z.ZodIssueCode.custom, message: "Name already exists" });
+			}
 		}
 		const parsed = parseGitURL(data.repoUrl);
 		if (parsed?.[2] && parsed[2] !== GitProvider.GITHUB && !data.credential) {
 			ctx.addIssue({ path: ["credential"], code: z.ZodIssueCode.custom, message: "Required" });
 		}
 	});
+};
 
 export const getRepoInitSchemaGenDetails = (existingComponents: ComponentKind[]) =>
 	componentRepoInitSchema.partial().superRefine(async (data, ctx) => {

@@ -10,6 +10,7 @@ jobs:
     with:
       bi: true
       mi: true
+      ballerina: true
       runTests: true
       runMIE2ETests: true
 

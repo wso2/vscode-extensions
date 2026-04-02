@@ -114,11 +114,14 @@ interface FormProps {
     injectedComponents?: {
         component: ReactNode;
         index: number;
+        advanced?: boolean;
     }[];
     changeOptionalFieldTitle?: string;
     onChange?: (fieldKey: string, value: any, allValues: FormValues) => void;
     hideSaveButton?: boolean;
     customDiagnosticFilter?: (diagnostics: Diagnostic[]) => Diagnostic[];
+    onValidityChange?: (isValid: boolean) => void;
+    recordsOnly?: boolean;
 }
 
 export function FormGeneratorNew(props: FormProps) {
@@ -152,10 +155,14 @@ export function FormGeneratorNew(props: FormProps) {
         changeOptionalFieldTitle,
         onChange,
         hideSaveButton,
-        customDiagnosticFilter
+        customDiagnosticFilter,
+        onValidityChange,
+        recordsOnly
     } = props;
 
     const { rpcClient } = useRpcContext();
+
+
 
     const getAdjustedStartLine = (targetLineRange: LineRange | undefined, expressionOffset: number): LinePosition | undefined => {
         return targetLineRange ? updateLineRange(targetLineRange, expressionOffset).startLine : undefined;
@@ -174,6 +181,8 @@ export function FormGeneratorNew(props: FormProps) {
     const importsCodedataRef = useRef<any>(null); // To store codeData for getVisualizableFields
 
     const [fieldsValues, setFields] = useState<FormField[]>(fields);
+    const fieldsRef = useRef<FormField[]>(fields);
+    const fieldsValuesRef = useRef<FormField[]>(fields);
     const [formImports, setFormImports] = useState<FormImports>({});
     const [selectedType, setSelectedType] = useState<CompletionItem | null>(null);
     const [refetchStates, setRefetchStates] = useState<boolean[]>([false]);
@@ -230,7 +239,13 @@ export function FormGeneratorNew(props: FormProps) {
 
     const pushTypeStack = (item: StackItem) => {
         setStack((prev) => [...prev, item]);
-        setRefetchStates((prev) => [...prev, false]);
+        setRefetchStates((prev) => {
+            const newStates = [...prev];
+            if (newStates.length > 0) {
+                newStates[newStates.length - 1] = false;
+            }
+            return [...newStates, false];
+        });
     };
 
     const resetStack = () => {
@@ -285,6 +300,10 @@ export function FormGeneratorNew(props: FormProps) {
         if (stack.length === 0) return;
         setStack((prev) => {
             const newStack = [...prev];
+            //preserve fieldIndex if exists
+            if (newStack[newStack.length - 1].fieldIndex) {
+                item.fieldIndex = newStack[newStack.length - 1].fieldIndex;
+            }
             newStack[newStack.length - 1] = item;
             return newStack;
         });
@@ -332,6 +351,28 @@ export function FormGeneratorNew(props: FormProps) {
         closePopup: closeModal
     }
 
+    const isFunctionParameterForm = () => {
+        return (
+            (selectedNode === "FUNCTION_DEFINITION" || selectedNode === "NP_FUNCTION_DEFINITION" || selectedNode === "DATA_MAPPER_DEFINITION") &&
+            typeEditorState.field?.key === "parameters" &&
+            getPrimaryInputType(typeEditorState?.field?.types)?.fieldType === "REPEATABLE_PROPERTY"
+        );
+    }
+
+    const isParamTypePublicByDefault = () => {
+        const isPublicField = fieldsValuesRef.current.find(field => field.key === "isPublic");
+        const isPublicFieldValue = typeof isPublicField?.value === "string" ? isPublicField.value.toLowerCase() === "true" : Boolean(isPublicField?.value);
+        return (
+            isFunctionParameterForm() && isPublicFieldValue
+        );
+    }
+
+    const handleFieldChange = (fieldKey: string, value: any, allValues: FormValues) => {
+        const updated = fieldsValues.map(f => f.key === fieldKey ? { ...f, value: String(value) } : f);
+        fieldsValuesRef.current = updated;
+        onChange?.(fieldKey, value, allValues);
+    };
+
     const defaultType = (typeName?: string): Type => {
         if (!isGraphqlEditor || typeEditorState.field?.type === 'PARAM_MANAGER') {
             return {
@@ -344,7 +385,19 @@ export function FormGeneratorNew(props: FormProps) {
                 codedata: {
                     node: "RECORD",
                 },
-                properties: {},
+                properties: {
+                    isPublic: {
+                        metadata: {
+                            label: "public",
+                            description: "Make visible across the workspace"
+                        },
+                        valueType: "FLAG",
+                        value: isParamTypePublicByDefault() ? "true" : "false",
+                        optional: false,
+                        editable: true,
+                        advanced: false
+                    }
+                },
                 members: [],
                 includes: [] as string[],
                 allowAdditionalFields: false
@@ -386,6 +439,8 @@ export function FormGeneratorNew(props: FormProps) {
     useEffect(() => {
         if (fields) {
             setFields(fields);
+            fieldsRef.current = fields;
+            fieldsValuesRef.current = fields;
             setFormImports(getImportsForFormFields(fields));
         }
     }, [fields]);
@@ -630,13 +685,13 @@ export function FormGeneratorNew(props: FormProps) {
                 shouldUpdateNode?: boolean,
                 variableType?: string
             ) => {
-                if (!showDiagnostics || isDataMapperEditor) {
+                if (!showDiagnostics) {
                     setDiagnosticsInfo({ key, diagnostics: [] });
                     return;
                 }
 
                 try {
-                    const field = fields.find(f => f.key === key);
+                    const field = fieldsRef.current.find(f => f.key === key);
                     if (field) {
                         const response = await rpcClient.getBIDiagramRpcClient().getExpressionDiagnostics({
                             filePath: fileName,
@@ -767,6 +822,7 @@ export function FormGeneratorNew(props: FormProps) {
             onCloseCompletions: handleCloseCompletions,
             exprRef: exprRef,
             typeHelperContext: typeHelperContext,
+            recordsOnly: recordsOnly,
         });
     }
 
@@ -853,17 +909,37 @@ export function FormGeneratorNew(props: FormProps) {
         setTypeEditorState({ ...typeEditorState, isOpen: state });
     }
 
-    const getNewTypeCreateForm = (typeName?: string) => {
+    const getNewTypeCreateForm = (fieldIndex?: number, typeName?: string) => {
+        const currentTopItem = peekTypeStack();
+        if (currentTopItem) {
+            currentTopItem.fieldIndex = fieldIndex;
+            replaceTop(currentTopItem);
+        }
         pushTypeStack({
             type: defaultType(typeName),
             isDirty: false
         })
     }
 
-    const onSaveType = () => {
+
+    const onSaveType = (type: Type | string) => {
+        handleValueTypeConstChange(typeof type === 'string' ? type : (type as Type).name);
         if (stack.length > 0) {
+            if (stack.length > 1) {
+                const newStack = [...stack]
+                const currentTop = newStack[newStack.length - 1];
+                const newTop = newStack[newStack.length - 2];
+                if (newTop.type.codedata.node === "CLASS") {
+                    newTop.type.functions[newTop.fieldIndex!].returnType = currentTop!.type.name;
+                }
+                else {
+                    newTop.type.members[newTop.fieldIndex!].type = currentTop!.type.name;
+                }
+                newStack[newStack.length - 2] = newTop;
+                newStack.pop();
+                setStack(newStack);
+            }
             setRefetchForCurrentModal(true);
-            popTypeStack();
         }
         setTypeEditorState({ ...typeEditorState, isOpen: stack.length !== 1 });
     }
@@ -990,8 +1066,9 @@ export function FormGeneratorNew(props: FormProps) {
                     preserveOrder={preserveFieldOrder}
                     injectedComponents={injectedComponents}
                     changeOptionalFieldTitle={changeOptionalFieldTitle}
-                    onChange={onChange}
+                    onChange={handleFieldChange}
                     hideSaveButton={hideSaveButton}
+                    onValidityChange={onValidityChange}
                 />
             )}
             {
@@ -1047,6 +1124,8 @@ export function FormGeneratorNew(props: FormProps) {
                                 closeRecordConfigPage();
                             }
                         }}
+                        closeOnBackdropClick={true}
+                        closeButtonIcon="minimize"
                     >
                         <ConfigureRecordPage
                             fileName={fileName}

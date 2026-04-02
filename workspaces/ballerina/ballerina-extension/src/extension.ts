@@ -59,6 +59,7 @@ import { activateTracing } from './features/tracing';
 import { UriCache } from './utils/remote-fs/uri-cache';
 import { registerGlobalHelpers } from './features/collaboration/oct-helper';
 import { buildProjectsStructure } from './utils/project-artifacts';
+import { activateICP } from './features/icp';
 
 let langClient: ExtendedLangClient;
 export let isPluginStartup = true;
@@ -400,6 +401,9 @@ debug('Starting ballerina extension initialization.');
 
         // Activate Tracing Feature
         activateTracing(ballerinaExtInstance);
+
+        // Activate ICP (Integration Control Plane)
+        activateICP(ballerinaExtInstance);
 
         langClient = <ExtendedLangClient>ballerinaExtInstance.langClient;
         // Register showTextDocument listener

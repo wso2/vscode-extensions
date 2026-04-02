@@ -42,7 +42,7 @@ const schema = yup.object({
         .matches(/^([a-zA-Z_$][a-zA-Z\d_$]*\.)*[a-zA-Z_$][a-zA-Z\d_$]*$/, "Invalid Package Name"),
     className: yup.string()
         .required("Class Name is required")
-        .matches(/^[A-Z][a-zA-Z\d_$]*$/, "Invalid Class Name")
+        .matches(/^[a-zA-Z][a-zA-Z\d_$]*$/, "Invalid Class Name")
 });
 
 export function ClassMediatorForm(props: ClassMediatorProps) {

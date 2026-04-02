@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { createRef, useCallback, useEffect, useRef, useState } from "react";
 import {
     KeyboardNavigationManager,
     MachineStateValue,
@@ -46,12 +46,13 @@ import {
     PopupMessage,
     FunctionForm,
     SetupView,
-    TestFunctionForm
+    TestFunctionForm,
+    AIEvaluationForm
 } from "./views/BI";
 import { handleRedo, handleUndo } from "./utils/utils";
 import { STKindChecker } from "@wso2/syntax-tree";
 import { URI, Utils } from "vscode-uri";
-import { ThemeColors, Typography } from "@wso2/ui-toolkit";
+import { ErrorBoundary, ThemeColors, Typography } from "@wso2/ui-toolkit";
 import { PanelType, useModalStack, useVisualizerContext } from "./Context";
 import { ConstructPanel } from "./views/ConstructPanel";
 import { EditPanel } from "./views/EditPanel";
@@ -85,6 +86,8 @@ import { SamplesView } from "./views/BI/SamplesView";
 import { ReviewMode } from "./views/ReviewMode";
 import AddConnectionPopup from "./views/BI/Connection/AddConnectionPopup";
 import EditConnectionPopup from "./views/BI/Connection/EditConnectionPopup";
+import { EvalsetViewer } from "./views/EvalsetViewer/EvalsetViewer";
+import { ConfigurationCollector } from "./views/AIPanel/components/ConfigurationCollector";
 
 const globalStyles = css`
     *,
@@ -199,12 +202,19 @@ const MainPanel = () => {
     const { rpcClient } = useRpcContext();
     const { sidePanel, setSidePanel, popupMessage, setPopupMessage, activePanel, showOverlay, setShowOverlay } = useVisualizerContext();
     const { modalStack, closeModal } = useModalStack()
+    const errorBoundaryRef = createRef<any>();
     const [viewComponent, setViewComponent] = useState<React.ReactNode>();
     const [navActive, setNavActive] = useState<boolean>(true);
     const [showHome, setShowHome] = useState<boolean>(true);
     const [popupState, setPopupState] = useState<PopupMachineStateValue>("initialize");
     const [breakpointState, setBreakpointState] = useState<number>(0);
     const breakpointStateRef = useRef<number>(0);
+    const navKeyRef = useRef<number>(0);
+    const remountKeyRef = useRef<number>(0);
+    const previousNavTargetRef = useRef<string | undefined>(undefined);
+
+
+    const gitIssueUrl = "https://github.com/wso2/product-integrator/issues";
 
     const debounceFetchContext = useCallback(
         debounce(() => {
@@ -279,13 +289,24 @@ const MainPanel = () => {
     };
 
     const fetchContext = () => {
+        navKeyRef.current += 1;
+        const navKey = navKeyRef.current;
         setNavActive(true);
         rpcClient.getVisualizerLocation().then(async (value) => {
             const configFilePath = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: ['config.bal'] })).filePath;
+            const testsFolderResult = await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: ['tests'], checkExists: true });
+            const testsConfigTomlPath = testsFolderResult.exists ? (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: ['tests', 'Config.toml'] })).filePath : undefined;
             let defaultFunctionsFile = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: ['functions.bal'] })).filePath;
             if (value.documentUri) {
                 defaultFunctionsFile = value.documentUri
             }
+            if (navKey !== navKeyRef.current) return;
+            const navTarget = `${value?.view ?? ''}-${value?.identifier ?? ''}-${value?.documentUri ?? ''}-${value?.projectPath ?? ''}`;
+            if (navTarget !== previousNavTargetRef.current) {
+                remountKeyRef.current += 1;
+                previousNavTargetRef.current = navTarget;
+            }
+            const remountKey = remountKeyRef.current;
             if (!value?.view) {
                 setViewComponent(<LoadingRing />);
             } else {
@@ -339,6 +360,7 @@ const MainPanel = () => {
                                 },
                             },
                         }).then((st) => {
+                            if (navKey !== navKeyRef.current) return;
                             setViewComponent(
                                 <DiagramWrapper
                                     key={value?.identifier}
@@ -351,6 +373,7 @@ const MainPanel = () => {
                             );
                         }).catch((error) => {
                             console.error("Error fetching ST:", error);
+                            if (navKey !== navKeyRef.current) return;
                             // Fallback to render without waiting
                             setViewComponent(
                                 <DiagramWrapper
@@ -367,25 +390,14 @@ const MainPanel = () => {
                         setViewComponent(<ERDiagram projectPath={value.projectPath} />);
                         break;
                     case MACHINE_VIEW.TypeDiagram:
-                        if (value?.identifier) {
-                            setViewComponent(
-                                <TypeDiagram
-                                    selectedTypeId={value?.identifier}
-                                    addType={value?.addType}
-                                    projectPath={value?.projectPath}
-                                />
-                            );
-                        } else {
-                            // To support rerendering when user click on view all btn from left side panel
-                            setViewComponent(
-                                <TypeDiagram
-                                    key={value?.rootDiagramId ? value.rootDiagramId : `default-diagram`}
-                                    selectedTypeId={value?.identifier}
-                                    addType={value?.addType}
-                                    projectPath={value?.projectPath}
-                                />
-                            );
-                        }
+                        setViewComponent(
+                            <TypeDiagram
+                                key={remountKey}
+                                selectedTypeId={value?.identifier}
+                                addType={value?.addType}
+                                projectPath={value?.projectPath}
+                            />
+                        );
                         break;
                     case MACHINE_VIEW.DataMapper:
                         let position: LinePosition = {
@@ -425,6 +437,7 @@ const MainPanel = () => {
                     case MACHINE_VIEW.BIDataMapperForm:
                         setViewComponent(
                             <FunctionForm
+                                key={remountKey}
                                 projectPath={value.projectPath}
                                 filePath={defaultFunctionsFile}
                                 functionName={value?.identifier}
@@ -445,6 +458,7 @@ const MainPanel = () => {
                         break;
                     case MACHINE_VIEW.GraphQLDiagram:
                         const projectStructure = await rpcClient.getBIDiagramRpcClient().getProjectStructure();
+                        if (navKey !== navKeyRef.current) return;
                         const project = projectStructure.projects.find(project => project.projectPath === value.projectPath);
                         const entryPoint = project
                             .directoryMap[DIRECTORY_MAP.SERVICE]
@@ -549,6 +563,7 @@ const MainPanel = () => {
                     case MACHINE_VIEW.AddConnectionWizard:
                         setViewComponent(
                             <AddConnectionPopup
+                                key={remountKey}
                                 projectPath={value.projectPath}
                                 fileName={value.documentUri || value.projectPath}
                                 onNavigateToOverview={handleNavigateToOverview}
@@ -558,6 +573,7 @@ const MainPanel = () => {
                     case MACHINE_VIEW.EditConnectionWizard:
                         setViewComponent(
                             <EditConnectionPopup
+                                key={remountKey}
                                 connectionName={value?.identifier}
                             />
                         );
@@ -584,6 +600,7 @@ const MainPanel = () => {
                     case MACHINE_VIEW.BIFunctionForm:
                         setViewComponent(
                             <FunctionForm
+                                key={remountKey}
                                 projectPath={value.projectPath}
                                 filePath={defaultFunctionsFile}
                                 functionName={value?.identifier}
@@ -592,17 +609,31 @@ const MainPanel = () => {
                     case MACHINE_VIEW.BITestFunctionForm:
                         setViewComponent(
                             <TestFunctionForm
+                                key={value?.identifier} // Force remount when switching between different tests
                                 projectPath={value.projectPath}
                                 functionName={value?.identifier}
                                 filePath={value?.documentUri}
                                 serviceType={value?.serviceType}
                             />);
                         break;
+                    case MACHINE_VIEW.BIAIEvaluationForm:
+                        setViewComponent(
+                            <AIEvaluationForm
+                                key={value?.identifier} // Force remount when switching between different tests
+                                projectPath={value.projectPath}
+                                functionName={value?.identifier}
+                                filePath={value?.documentUri}
+                                serviceType={value?.serviceType}
+                                isVersionSupported={value?.metadata?.featureSupport?.aiEvaluation}
+                            />);
+                        break;
                     case MACHINE_VIEW.ViewConfigVariables:
                         setViewComponent(
                             <ViewConfigurableVariables
+                                key={remountKey}
                                 projectPath={value?.projectPath}
                                 fileName={configFilePath}
+                                testsConfigTomlPath={testsConfigTomlPath}
                                 org={value?.org}
                             />
                         );
@@ -610,8 +641,10 @@ const MainPanel = () => {
                     case MACHINE_VIEW.AddConfigVariables:
                         setViewComponent(
                             <ViewConfigurableVariables
+                                key={remountKey}
                                 projectPath={value?.projectPath}
                                 fileName={configFilePath}
+                                testsConfigTomlPath={testsConfigTomlPath}
                                 org={value?.org}
                                 addNew={true}
                             />
@@ -627,10 +660,27 @@ const MainPanel = () => {
                         );
                         break;
                     case MACHINE_VIEW.ReviewMode:
+                        setViewComponent(<ReviewMode />);
+                        break;
+                    case MACHINE_VIEW.EvalsetViewer:
                         setViewComponent(
-                            <ReviewMode />
+                            <EvalsetViewer
+                                projectPath={value.projectPath}
+                                filePath={value?.evalsetData.filePath}
+                                content={value?.evalsetData.content}
+                                threadId={value?.evalsetData?.threadId}
+                            />
                         );
                         break;
+                    case MACHINE_VIEW.ConfigurationCollector:
+                        setViewComponent(
+                            <ConfigurationCollector
+                                data={value.agentMetadata?.configurationCollector}
+                                onClose={() => handleApprovalClose(value.agentMetadata?.configurationCollector)}
+                            />
+                        );
+                        break;
+
                     default:
                         setNavActive(false);
                         setViewComponent(<LoadingRing />);
@@ -668,6 +718,15 @@ const MainPanel = () => {
         rpcClient.getVisualizerRpcClient().goHome();
     };
 
+    const handleApprovalClose = (approvalData: any | undefined) => {
+        const requestId = approvalData?.requestId;
+
+        if (requestId) {
+            console.log('[MainPanel] Approval view closed, notifying backend:', requestId);
+            rpcClient.getVisualizerRpcClient().handleApprovalPopupClose({ requestId });
+        }
+    };
+
     const handlePopupClose = (id: string) => {
         closeModal(id);
     }
@@ -676,61 +735,63 @@ const MainPanel = () => {
         <>
             <Global styles={globalStyles} />
             <VisualizerContainer id="visualizer-container">
-                {/* {navActive && <NavigationBar showHome={showHome} />} */}
-                {(showOverlay || modalStack.length > 0) && <Overlay />}
-                {viewComponent && <ComponentViewWrapper>{viewComponent}</ComponentViewWrapper>}
-                {!viewComponent && (
-                    <ComponentViewWrapper>
-                        <LoadingViewContainer>
-                            <LoadingContent>
-                                <ProgressRing />
-                                <LoadingTitle>Loading Integration</LoadingTitle>
-                                <LoadingSubtitle>Setting up your integration environment</LoadingSubtitle>
-                                <LoadingText>
-                                    <span className="loading-dots">Please wait</span>
-                                </LoadingText>
-                            </LoadingContent>
-                        </LoadingViewContainer>
-                    </ComponentViewWrapper>
-                )}
-                {sidePanel !== "EMPTY" && sidePanel === "ADD_CONNECTION" && (
-                    <ConnectorList applyModifications={applyModifications} />
-                )}
+                <ErrorBoundary goHome={handleNavigateToOverview} errorMsg="An error occurred in the visualizer" issueUrl={gitIssueUrl} ref={errorBoundaryRef} resetKeys={[viewComponent]}>
+                    {/* {navActive && <NavigationBar showHome={showHome} />} */}
+                    {(showOverlay || modalStack.length > 0) && <Overlay />}
+                    {viewComponent && <ComponentViewWrapper>{viewComponent}</ComponentViewWrapper>}
+                    {!viewComponent && (
+                        <ComponentViewWrapper>
+                            <LoadingViewContainer>
+                                <LoadingContent>
+                                    <ProgressRing />
+                                    <LoadingTitle>Loading Integration</LoadingTitle>
+                                    <LoadingSubtitle>Setting up your integration environment</LoadingSubtitle>
+                                    <LoadingText>
+                                        <span className="loading-dots">Please wait</span>
+                                    </LoadingText>
+                                </LoadingContent>
+                            </LoadingViewContainer>
+                        </ComponentViewWrapper>
+                    )}
+                    {sidePanel !== "EMPTY" && sidePanel === "ADD_CONNECTION" && (
+                        <ConnectorList applyModifications={applyModifications} />
+                    )}
 
-                {popupMessage && (
-                    <PopupMessage onClose={handleOnCloseMessage}>
-                        <Typography variant="h3">This feature is coming soon!</Typography>
-                    </PopupMessage>
-                )}
-                {sidePanel === "RECORD_EDITOR" && (
-                    <RecordEditor
-                        isRecordEditorOpen={sidePanel === "RECORD_EDITOR"}
-                        onClose={() => setSidePanel("EMPTY")}
-                        rpcClient={rpcClient}
-                    />
-                )}
-                {activePanel?.isActive && activePanel.name === PanelType.CONSTRUCTPANEL && (
-                    <ConstructPanel applyModifications={applyModifications} />
-                )}
-                {activePanel?.isActive && activePanel.name === PanelType.STATEMENTEDITOR && (
-                    <EditPanel applyModifications={applyModifications} />
-                )}
-                {typeof popupState === "object" && "open" in popupState && (
-                    <PopUpContainer>
-                        <PopupPanel onClose={handleOnClose} formState={popupState} handleNavigateToOverview={handleNavigateToOverview} />
-                    </PopUpContainer>
-                )}
-                {sidePanel !== "EMPTY" && sidePanel === "ADD_ACTION" && (
-                    <EndpointList stSymbolInfo={getSymbolInfo()} applyModifications={applyModifications} />
-                )}
-                {
-                    modalStack.map((modal) => (
-                        <Popup title={modal.title} onClose={() => {
-                            modal.onClose && modal.onClose();
-                            handlePopupClose(modal.id)
-                        }} key={modal.id} width={modal.width} height={modal.height}>{modal.modal}</Popup>
-                    ))
-                }
+                    {popupMessage && (
+                        <PopupMessage onClose={handleOnCloseMessage}>
+                            <Typography variant="h3">This feature is coming soon!</Typography>
+                        </PopupMessage>
+                    )}
+                    {sidePanel === "RECORD_EDITOR" && (
+                        <RecordEditor
+                            isRecordEditorOpen={sidePanel === "RECORD_EDITOR"}
+                            onClose={() => setSidePanel("EMPTY")}
+                            rpcClient={rpcClient}
+                        />
+                    )}
+                    {activePanel?.isActive && activePanel.name === PanelType.CONSTRUCTPANEL && (
+                        <ConstructPanel applyModifications={applyModifications} />
+                    )}
+                    {activePanel?.isActive && activePanel.name === PanelType.STATEMENTEDITOR && (
+                        <EditPanel applyModifications={applyModifications} />
+                    )}
+                    {typeof popupState === "object" && "open" in popupState && (
+                        <PopUpContainer>
+                            <PopupPanel onClose={handleOnClose} formState={popupState} handleNavigateToOverview={handleNavigateToOverview} />
+                        </PopUpContainer>
+                    )}
+                    {sidePanel !== "EMPTY" && sidePanel === "ADD_ACTION" && (
+                        <EndpointList stSymbolInfo={getSymbolInfo()} applyModifications={applyModifications} />
+                    )}
+                    {
+                        modalStack.map((modal) => (
+                            <Popup title={modal.title} onClose={() => {
+                                modal.onClose && modal.onClose();
+                                handlePopupClose(modal.id)
+                            }} key={modal.id} width={modal.width} height={modal.height}>{modal.modal}</Popup>
+                        ))
+                    }
+                </ErrorBoundary>
             </VisualizerContainer>
         </>
     );

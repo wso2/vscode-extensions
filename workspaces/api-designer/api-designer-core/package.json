@@ -18,8 +18,8 @@
     "eslint": "9.27.0"
   },
   "dependencies": {
-    "@types/vscode-webview": "^1.57.3",
-    "vscode-messenger-common": "^0.4.5"
+    "@types/vscode-webview": "1.57.3",
+    "vscode-messenger-common": "0.4.5"
   },
   "repository": {
     "type": "git",

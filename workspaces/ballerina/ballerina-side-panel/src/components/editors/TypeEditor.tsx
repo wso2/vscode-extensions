@@ -34,7 +34,7 @@ import { FormField } from "../Form/types";
 import { useFormContext } from "../../context";
 import { Controller } from "react-hook-form";
 import { S } from "./ExpressionEditor";
-import { sanitizeType } from "./utils";
+import { buildRequiredRule, sanitizeType } from "./utils";
 import { debounce } from "lodash";
 import styled from "@emotion/styled";
 import ReactMarkdown from "react-markdown";
@@ -128,8 +128,13 @@ export function TypeEditor(props: TypeEditorProps) {
     const [focused, setFocused] = useState<boolean>(false);
     const [isTypeEditorHovered, setIsTypeEditorHovered] = useState<boolean>(false);
     const [typeInputMode, setTypeInputMode] = useState<TypeInputMode>(isContextTypeEditorSupported ? TypeInputMode.GUIDED : undefined);
+    const [formDiagnostics, setFormDiagnostics] = useState(field.diagnostics);
 
     const [isTypeHelperOpen, setIsTypeHelperOpen] = useState<boolean>(false);
+
+    useEffect(() => {
+        setFormDiagnostics(field.diagnostics);
+    }, [field.diagnostics]);
 
     const handleFocus = async (value: string) => {
         setFocused(true);
@@ -291,10 +296,7 @@ export function TypeEditor(props: TypeEditorProps) {
                 name={field.key}
                 defaultValue={field.value}
                 rules={{
-                    required: {
-                        value: !field.optional,
-                        message: `${field.label} is required`
-                    }
+                    required: buildRequiredRule({ isRequired: !field.optional, label: field.label })
                 }}
                 render={({ field: { name, value, onChange }, fieldState: { error } }) => (
                     <div>
@@ -319,6 +321,7 @@ export function TypeEditor(props: TypeEditorProps) {
                                     return;
                                 }
 
+                                setFormDiagnostics([]);
                                 onChange(updatedValue);
                                 debouncedTypeEdit(updatedValue);
                                 field.onValueChange?.(updatedValue);
@@ -361,6 +364,9 @@ export function TypeEditor(props: TypeEditorProps) {
                             helperPaneZIndex={40001}
                         />
                         {error?.message && <ErrorBanner errorMsg={error.message.toString()} />}
+                        {(!error?.message) && formDiagnostics && formDiagnostics.length > 0 && (
+                            <ErrorBanner errorMsg={formDiagnostics.map(d => d.message).join('\n')} />
+                        )}
                     </div>
                 )}
             />

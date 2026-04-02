@@ -34,7 +34,7 @@ import { Flow, NodeModel, FlowNode, Branch, LineRange, NodePosition, ToolData, D
 import { NodeFactoryVisitor } from "../visitors/NodeFactoryVisitor";
 import { NodeLinkModel } from "./NodeLink";
 import { OverlayLayerModel } from "./OverlayLayer";
-import { AddNodeAnchor, DiagramContextProvider, DiagramContextState, ExpressionContextProps } from "./DiagramContext";
+import { AddNodeAnchor,DiagramContextProvider, DiagramContextState, DiagramPromptOptions, ExpressionContextProps } from "./DiagramContext";
 import { SizingVisitor } from "../visitors/SizingVisitor";
 import { PositionVisitor } from "../visitors/PositionVisitor";
 import { InitVisitor } from "../visitors/InitVisitor";
@@ -55,7 +55,7 @@ export interface DiagramProps {
         clickedNodeId?: string,
         anchor?: AddNodeAnchor
     ) => void;
-    onAddNodePrompt?: (parent: FlowNode | Branch, target: LineRange, prompt: string) => void;
+    onAddNodePrompt?: (parent: FlowNode | Branch, target: LineRange, prompt: string, options?: DiagramPromptOptions) => void;
     onDeleteNode?: (node: FlowNode) => void;
     onAddComment?: (comment: string, target: LineRange) => void;
     onNodeSelect?: (node: FlowNode) => void;
@@ -109,6 +109,10 @@ export interface DiagramProps {
     nodeLocks?: Record<string, any>;
     isCollaborationActive?: boolean;
     isPositionLocked?: (parent: FlowNode | Branch, target: LineRange) => boolean;
+    entrypointContext?: {
+        serviceName?: string;
+        functionName?: string;
+    };
 }
 
 export function Diagram(props: DiagramProps) {
@@ -141,6 +145,7 @@ export function Diagram(props: DiagramProps) {
         nodeLocks,
         isCollaborationActive,
         isPositionLocked,
+        entrypointContext,
     } = props;
 
     const [showErrorFlow, setShowErrorFlow] = useState(false);
@@ -359,6 +364,7 @@ export function Diagram(props: DiagramProps) {
         nodeLocks: nodeLocks,
         isCollaborationActive: isCollaborationActive,
         isPositionLocked: isPositionLocked,
+        entrypointContext,
     };
 
     const getActiveBreakpointNode = (nodes: NodeModel[]): NodeModel => {

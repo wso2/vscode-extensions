@@ -67,6 +67,14 @@ export async function modifyFileContent(params: UpdateFileContentRequest): Promi
     return false;
 }
 
+/**
+ * Ensures content ends with a newline for POSIX compliance and version control best practices.
+ */
+function ensureTrailingNewline(content: string): string {
+    const trimmed = content.trim();
+    return trimmed.endsWith('\n') ? trimmed : trimmed + '\n';
+}
+
 export function writeBallerinaFileDidOpenTemp(filePath: string, content: string) {
     // Replace the selection with:
     const dir = dirname(filePath);
@@ -94,7 +102,7 @@ export function writeBallerinaFileDidOpenTemp(filePath: string, content: string)
         textDocument: { uri: filePath, version: 1 },
         contentChanges: [
             {
-                text: content,
+                text: contentWithNewline,
             },
         ],
     });
@@ -103,7 +111,7 @@ export function writeBallerinaFileDidOpenTemp(filePath: string, content: string)
             uri: Uri.file(filePath).toString(),
             languageId: 'ballerina',
             version: 1,
-            text: content.trim()
+            text: contentWithNewline
         }
     });
 }
@@ -193,7 +201,7 @@ export async function writeBallerinaFileDidOpen(filePath: string, content: strin
         textDocument: { uri: filePath, version: 1 },
         contentChanges: [
             {
-                text: content,
+                text: contentWithNewline,
             },
         ],
     });
@@ -202,7 +210,7 @@ export async function writeBallerinaFileDidOpen(filePath: string, content: strin
             uri: Uri.file(filePath).toString(),
             languageId: 'ballerina',
             version: 1,
-            text: content.trim()
+            text: contentWithNewline
         }
     });
 

@@ -39,7 +39,7 @@ import { FormField } from "../Form/types";
 import { useFormContext } from "../../context";
 import { Controller } from "react-hook-form";
 import { S } from "./ExpressionEditor";
-import { getPropertyFromFormField, sanitizeType } from "./utils";
+import { buildRequiredRule, getPropertyFromFormField, sanitizeType } from "./utils";
 import { debounce } from "lodash";
 import styled from "@emotion/styled";
 import ReactMarkdown from "react-markdown";
@@ -604,10 +604,7 @@ export function ActionTypeEditor(props: ActionTypeEditorProps) {
                 name={field.key}
                 defaultValue={field.value}
                 rules={{
-                    required: {
-                        value: !field.optional,
-                        message: `${field.label} is required`
-                    }
+                    required: buildRequiredRule({ isRequired: !field.optional, label: field.label })
                 }}
                 render={({ field: { name, value, onChange }, fieldState: { error } }) => {
                     onChangeRef.current = onChange;
@@ -651,16 +648,20 @@ export function ActionTypeEditor(props: ActionTypeEditorProps) {
                                     // Set show default completion
                                     const typeExists = referenceTypes.find((type) => type.label === updatedValue);
 
-                                    if (getExpressionEditorDiagnostics) {
-                                        const required = !field.optional;
+                                    // disabling expression editor diagnostics for type field 
+                                    // as the expressionEditor/diagnstics API is currently
+                                    // having a limitation on validating the type fields
+                                    
+                                    // if (getExpressionEditorDiagnostics) {
+                                    //     const required = !field.optional;
 
-                                        getExpressionEditorDiagnostics(
-                                            (required ?? !field.optional) || updatedValue !== '',
-                                            updatedValue,
-                                            field.key,
-                                            getPropertyFromFormField(field)
-                                        );
-                                    }
+                                    //     getExpressionEditorDiagnostics(
+                                    //         (required ?? !field.optional) || updatedValue !== '',
+                                    //         updatedValue,
+                                    //         field.key,
+                                    //         getPropertyFromFormField(field)
+                                    //     );
+                                    // }
 
                                     handleNewTypeSelected && handleNewTypeSelected(typeExists ? typeExists : updatedValue)
                                     const validTypeForCreation = updatedValue.match(/^[a-zA-Z_'][a-zA-Z0-9_]*$/);

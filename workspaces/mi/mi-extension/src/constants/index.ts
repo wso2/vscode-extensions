@@ -18,11 +18,14 @@
 
 export const COMMANDS = {
     OPEN_PROJECT: "MI.openProject",
-    IMPORT_CAPP: "MI.importCAPP",
+    IMPORT_FROM_CAPP: "MI.importProjectFromCapp",
+    IMPORT_FROM_ZIP: "MI.importProjectFromZip",
+    EXPORT_AS_ZIP: "MI.exportProjectAsZip",
     MIGRATE_PROJECT: "MI.migrateProject",
     SHOW_OVERVIEW: "MI.showOverview",
     DISABLE_OVERVIEW: "MI.disableOverview",
     OPEN_AI_PANEL: "MI.openAiPanel",
+    OPEN_AGENT_PANEL: "MI.openAgentPanel",
     CLEAR_AI_PROMPT: "MI.clearAIPrompt",
     OPEN_WELCOME: "MI.openWelcome",
     SHOW_GRAPHICAL_VIEW: "MI.show.graphical-view",
@@ -73,7 +76,6 @@ export const COMMANDS = {
     ADD_TEMPLATE_COMMAND: 'MI.project-explorer.add-template',
     ADD_DATA_SERVICE_COMMAND: 'MI.project-explorer.add-data-service',
     CREATE_PROJECT_COMMAND: 'MI.project-explorer.create-project',
-    IMPORT_PROJECT_COMMAND: 'MI.project-explorer.import-project',
     REVEAL_ITEM_COMMAND: 'MI.project-explorer.revealItem',
     OPEN_SERVICE_DESIGNER: 'MI.project-explorer.open-service-designer',
     OPEN_PROJECT_OVERVIEW: 'MI.project-explorer.open-project-overview',
@@ -112,10 +114,12 @@ export const COMMANDS = {
     REVEAL_TEST_PANE: 'MI.mock-services.focus',
     EDIT_K8_CONFIGURATION_COMMAND: 'MI.edit-k8-configuration',
     MANAGE_REGISTRY_PROPERTIES_COMMAND: 'MI.manage-registry-property',
+    CONFIGURE_DEFAULT_MODEL: 'MI.configureDefaultModelProvider',
 
     BI_EXTENSION: 'WSO2.ballerina-integrator',
     BI_OPEN_COMMAND: 'ballerina.open.bi.welcome',
-    INSTALL_EXTENSION_COMMAND: 'workbench.extensions.installExtension'
+    INSTALL_EXTENSION_COMMAND: 'workbench.extensions.installExtension',
+    RELOAD_WINDOW: 'workbench.action.reloadWindow'
 };
 
 export const MVN_COMMANDS = {
@@ -198,6 +202,7 @@ export const APIS = {
 export const DM_OPERATORS_FILE_NAME = "dm-utils";
 export const DM_OPERATORS_IMPORT_NAME = "dmUtils";
 export const LAST_EXPORTED_CAR_PATH = "last-exported-car-path";
+export const LAST_EXPORTED_ZIP_PATH = "last-exported-zip-path";
 export const RUNTIME_VERSION_440 = "4.4.0";
 export const RUNTIME_VERSION_450 = "4.5.0";
 export const DEFAULT_ICON = "https://mi-connectors.wso2.com/icons/wordpress.gif";
@@ -209,3 +214,4 @@ export const ERROR_MESSAGES = {
 export const WI_EXTENSION_ID = 'wso2.wso2-integrator';
 export const WI_PROJECT_EXPLORER_VIEW_ID = 'wso2-integrator.explorer';
 export const MI_PROJECT_EXPLORER_VIEW_ID = 'MI.project-explorer';
+export const MI_RUNTIME_SERVICES_PANEL_ID = 'micro-integrator.runtime-services-panel';

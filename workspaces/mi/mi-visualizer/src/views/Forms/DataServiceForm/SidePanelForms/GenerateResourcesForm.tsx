@@ -176,6 +176,7 @@ export const GenerateResourceForm = ({ isOpen, documentUri, syntaxTree, onCancel
             username: datasource.name,
             password: datasource.password,
             url: datasource.dbUrl,
+            driverPath: ""
         });
 
         const tableData = Object.keys(fetchedTables).map((tableName, index) => {
@@ -409,7 +410,7 @@ export const GenerateResourceForm = ({ isOpen, documentUri, syntaxTree, onCancel
                     </Alert>
                     <ActionContainer>
                         <Button appearance="primary" onClick={handleCancel}>
-                            Okay
+                            Cancel
                         </Button>
                     </ActionContainer>
                 </SidePanelBody>

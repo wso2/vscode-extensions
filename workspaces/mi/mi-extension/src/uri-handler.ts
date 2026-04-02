@@ -17,10 +17,9 @@
  */
 import { URLSearchParams } from "url";
 import { window, Uri, ProviderResult, commands } from "vscode";
-import { exchangeAuthCode } from "./ai-panel/auth";
 import { COMMANDS } from "./constants";
-import { checkForDevantExt } from "./extension";
-import { IOpenCompSrcCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
+import { checkForWso2IntegratorExt } from "./extension";
+import { IOpenCompSrcCmdParams, WICommandIds } from "@wso2/wso2-platform-core";
 
 export function activateUriHandlers() {
     window.registerUriHandler({
@@ -28,18 +27,11 @@ export function activateUriHandlers() {
             const urlParams = new URLSearchParams(uri.query);
             switch (uri.path) {
                 case '/signin':
-                    console.log("Signin callback hit");
-                    const query = new URLSearchParams(uri.query);
-                    const code = query.get('code');
-                    console.log("Code: " + code);
-                    if (code) {
-                        exchangeAuthCode(code);
-                    } else {
-                        window.showErrorMessage('Auth code not found');
-                    }
+                    // Legacy OAuth callback route - no longer used for MI Copilot auth.
+                    console.log("Legacy /signin route called - MI Copilot authentication now uses WSO2 integrator extension.");
                     break;
                 case '/open':
-                    if(!checkForDevantExt()) {
+                    if(!checkForWso2IntegratorExt()) {
                         return;
                     }
                     const org = urlParams.get("org");
@@ -50,7 +42,7 @@ export function activateUriHandlers() {
                     const integrationDisplayType = urlParams.get("integrationDisplayType");
                     window.showInformationMessage('Opening component');
                     if (org && project && component && technology && integrationType) {
-                        commands.executeCommand(PlatformExtCommandIds.OpenCompSrcDir, {
+                        commands.executeCommand(WICommandIds.OpenCompSrcDir, {
                             org, project, component, technology, integrationType, integrationDisplayType, extName: "Devant"
                         } as IOpenCompSrcCmdParams);
                     } else {

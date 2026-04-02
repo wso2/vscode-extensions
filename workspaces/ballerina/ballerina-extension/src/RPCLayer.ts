@@ -19,7 +19,7 @@
 import { WebviewView, WebviewPanel, window } from 'vscode';
 import { Messenger } from 'vscode-messenger';
 import { StateMachine } from './stateMachine';
-import { stateChanged, getVisualizerLocation, VisualizerLocation, projectContentUpdated, aiStateChanged, sendAIStateEvent, popupStateChanged, getPopupVisualizerState, PopupVisualizerLocation, breakpointChanged, AIMachineEventType, ArtifactData, onArtifactUpdatedNotification, onArtifactUpdatedRequest, currentThemeChanged, AIMachineSendableEvent, checkpointCaptured, CheckpointCapturedPayload, promptUpdated } from '@wso2/ballerina-core';
+import { stateChanged, getVisualizerLocation, VisualizerLocation, projectContentUpdated, aiStateChanged, sendAIStateEvent, popupStateChanged, getPopupVisualizerState, PopupVisualizerLocation, breakpointChanged, AIMachineEventType, ArtifactData, onArtifactUpdatedNotification, onArtifactUpdatedRequest, currentThemeChanged, AIMachineSendableEvent, checkpointCaptured, CheckpointCapturedPayload, promptUpdated, approvalOverlayState, ApprovalOverlayState, onIdentifierUpdated, ProjectStructureArtifactResponse } from '@wso2/ballerina-core';
 import { VisualizerWebview } from './views/visualizer/webview';
 import { registerVisualizerRpcHandlers } from './rpc-managers/visualizer/rpc-handler';
 import { registerLangClientRpcHandlers } from './rpc-managers/lang-client/rpc-handler';
@@ -43,9 +43,11 @@ import { registerTestManagerRpcHandlers } from './rpc-managers/test-manager/rpc-
 import { registerIcpServiceRpcHandlers } from './rpc-managers/icp-service/rpc-handler';
 import { extension } from './BalExtensionContext';
 import { registerAgentChatRpcHandlers } from './rpc-managers/agent-chat/rpc-handler';
+import { activeAgentChanged } from '@wso2/ballerina-core';
 import { ArtifactsUpdated, ArtifactNotificationHandler } from './utils/project-artifacts-handler';
 import { registerMigrateIntegrationRpcHandlers } from './rpc-managers/migrate-integration/rpc-handler';
 import { registerCollaborationRpcHandlers } from './rpc-managers/collaboration/rpc-handler';
+import { registerPlatformExtRpcHandlers } from './rpc-managers/platform-ext/rpc-handler';
 
 export class RPCLayer {
     static _messenger: Messenger = new Messenger();
@@ -93,6 +95,7 @@ export class RPCLayer {
         registerAiAgentRpcHandlers(RPCLayer._messenger);
         registerIcpServiceRpcHandlers(RPCLayer._messenger);
         registerAgentChatRpcHandlers(RPCLayer._messenger);
+        registerPlatformExtRpcHandlers(RPCLayer._messenger);
 
         // ----- AI Webview RPC Methods
         registerAiPanelRpcHandlers(RPCLayer._messenger);
@@ -136,6 +139,7 @@ async function getContext(): Promise<VisualizerLocation> {
             isBI: context.isBI,
             isInDevant: context.isInDevant,
             projectPath: context.projectPath,
+            workspacePath: context.workspacePath,
             serviceType: context.serviceType,
             type: context.type,
             isGraphql: context.isGraphql,
@@ -147,14 +151,17 @@ async function getContext(): Promise<VisualizerLocation> {
                 haveLS: StateMachine.langClient() && true,
                 recordFilePath: context.projectPath ? path.join(context.projectPath, "types.bal") : undefined,
                 enableSequenceDiagram: extension.ballerinaExtInstance.enableSequenceDiagramView(),
-                target: context.metadata?.target
+                target: context.metadata?.target,
+                featureSupport: context.metadata?.featureSupport
             },
             scope: context.scope,
             org: context.org,
             package: context.package,
             dataMapperMetadata: context.dataMapperMetadata,
             artifactInfo: context.artifactInfo,
-            reviewData: context.reviewData
+            reviewData: context.reviewData,
+            agentMetadata: context.agentMetadata,
+            evalsetData: context.evalsetData
         });
     });
 }
@@ -168,6 +175,7 @@ async function getPopupContext(): Promise<PopupVisualizerLocation> {
             recentIdentifier: context.recentIdentifier,
             identifier: context.identifier,
             metadata: context.metadata,
+            agentMetadata: context.agentMetadata,
             dataMapperMetadata: context.dataMapperMetadata
         });
     });
@@ -196,4 +204,16 @@ export function notifyBreakpointChange() {
 
 export function notifyCheckpointCaptured(payload: CheckpointCapturedPayload) {
     RPCLayer._messenger.sendNotification(checkpointCaptured, { type: 'webview', webviewType: AiPanelWebview.viewType }, payload);
+}
+
+export function notifyApprovalOverlayState(state: ApprovalOverlayState) {
+    RPCLayer._messenger.sendNotification(approvalOverlayState, { type: 'webview', webviewType: AiPanelWebview.viewType }, state);
+}
+
+export function notifyOnIdentifierUpdated(response: ProjectStructureArtifactResponse[]) {
+    RPCLayer._messenger.sendNotification(onIdentifierUpdated, { type: 'webview', webviewType: VisualizerWebview.viewType }, response);
+}
+
+export function sendAgentChangedNotification(agentName: string) {
+    RPCLayer._messenger.sendNotification(activeAgentChanged, { type: 'webview', webviewType: 'ballerina.agent-chat-panel' }, agentName);
 }

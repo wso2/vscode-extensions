@@ -65,7 +65,17 @@ import {
     onOctRerenderPresence,
     CollaborationTextSelection,
     CollaborationPresenceData,
-    isCollaborationActive
+    isCollaborationActive,
+    navigateReviewIndex,
+    reviewModeOpened,
+    reviewModeClosed,
+    approvalOverlayState,
+    ApprovalOverlayState,
+    onIdentifierUpdated,
+    traceAnimationChanged,
+    TraceAnimationEvent,
+    webToolToggle,
+    WebToolToggle
 } from "@wso2/ballerina-core";
 
 import { LangClientRpcClient } from "./rpc-clients/lang-client/rpc-client";
@@ -80,6 +90,7 @@ import { TestManagerServiceRpcClient } from "./rpc-clients";
 import { AiAgentRpcClient } from "./rpc-clients/ai-agent/rpc-client";
 import { ICPServiceRpcClient } from "./rpc-clients/icp-service/rpc-client";
 import { AgentChatRpcClient } from "./rpc-clients/agent-chat/rpc-client";
+import { PlatformExtRpcClient } from "./rpc-clients/platform-ext/platform-ext-client";
 
 export class BallerinaRpcClient {
 
@@ -102,6 +113,8 @@ export class BallerinaRpcClient {
     private _aiAgent: AiAgentRpcClient;
     private _icpManager: ICPServiceRpcClient;
     private _agentChat: AgentChatRpcClient;
+    private _platformExt: PlatformExtRpcClient;
+    private _identifierUpdatedCallbacks = new Set<(response: ProjectStructureArtifactResponse[]) => void>();
 
     constructor() {
         this.messenger = new Messenger(vscode);
@@ -124,6 +137,10 @@ export class BallerinaRpcClient {
         this._aiAgent = new AiAgentRpcClient(this.messenger);
         this._icpManager = new ICPServiceRpcClient(this.messenger);
         this._agentChat = new AgentChatRpcClient(this.messenger);
+        this._platformExt = new PlatformExtRpcClient(this.messenger);
+        this.messenger.onNotification(onIdentifierUpdated, (response: ProjectStructureArtifactResponse[]) => {
+            this._identifierUpdatedCallbacks.forEach((callback) => callback(response));
+        });
     }
 
     getAIAgentRpcClient(): AiAgentRpcClient {
@@ -194,6 +211,10 @@ export class BallerinaRpcClient {
         return this._migrateIntegration;
     }
 
+    getPlatformRpcClient(): PlatformExtRpcClient {
+        return this._platformExt;
+    }
+
     getVisualizerLocation(): Promise<VisualizerLocation> {
         return this.messenger.sendRequest(getVisualizerLocation, HOST_EXTENSION);
     }
@@ -220,6 +241,13 @@ export class BallerinaRpcClient {
 
     onProjectContentUpdated(callback: (state: boolean) => void) {
         this.messenger.onNotification(projectContentUpdated, callback);
+    }
+
+    onIdentifierUpdated(callback: (response: ProjectStructureArtifactResponse[]) => void) {
+        this._identifierUpdatedCallbacks.add(callback);
+        return () => {
+            this._identifierUpdatedCallbacks.delete(callback);
+        };
     }
 
     // <----- This is used to register given artifact updated callback notification ----->
@@ -280,12 +308,28 @@ export class BallerinaRpcClient {
         this.messenger.onNotification(currentThemeChanged, callback);
     }
 
-    onRefreshReviewMode(callback: () => void) {
-        this.messenger.onNotification(refreshReviewMode, callback);
+    onNavigateReviewIndex(callback: (index: number) => void) {
+        this.messenger.onNotification(navigateReviewIndex, callback);
     }
 
-    onHideReviewActions(callback: () => void) {
-        this.messenger.onNotification(onHideReviewActions, callback);
+    onReviewModeOpened(callback: () => void) {
+        this.messenger.onNotification(reviewModeOpened, callback);
+    }
+
+    onReviewModeClosed(callback: () => void) {
+        this.messenger.onNotification(reviewModeClosed, callback);
+    }
+
+    onApprovalOverlayState(callback: (data: ApprovalOverlayState) => void) {
+        this.messenger.onNotification(approvalOverlayState, callback);
+    }
+
+    onWebToolToggle(callback: (data: WebToolToggle) => void) {
+        this.messenger.onNotification(webToolToggle, callback);
+    }
+
+    onTraceAnimationChanged(callback: (event: TraceAnimationEvent) => void) {
+        this.messenger.onNotification(traceAnimationChanged, callback);
     }
 
     onNodeLockUpdated(callback: (locks: { [nodeId: string]: { userId: string; userName: string; timestamp: number } }) => void) {

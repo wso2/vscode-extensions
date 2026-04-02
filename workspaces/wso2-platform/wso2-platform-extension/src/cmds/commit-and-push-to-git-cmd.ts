@@ -21,7 +21,7 @@ import {
 	ComponentKind,
 	type ContextStoreComponentState,
 	GitProvider,
-	type ICommitAndPuhCmdParams,
+	type ICommitAndPushCmdParams,
 	type Organization,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
@@ -37,9 +37,8 @@ import { getUserInfoForCmd, isRpcActive, setExtensionName } from "./cmd-utils";
 
 export function commitAndPushToGitCommand(context: ExtensionContext) {
 	context.subscriptions.push(
-		commands.registerCommand(CommandIds.CommitAndPushToGit, async (params: ICommitAndPuhCmdParams) => {
+		commands.registerCommand(CommandIds.CommitAndPushToGit, async (params: ICommitAndPushCmdParams) => {
 			setExtensionName(params?.extName);
-			const extensionName = webviewStateStore.getState().state.extensionName;
 			try {
 				isRpcActive(ext);
 				const userInfo = await getUserInfoForCmd("commit and push changes to Git");
@@ -56,13 +55,13 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 							item: item,
 						}));
 						const selectedComp = await window.showQuickPick(componentItems, {
-							title: `Multiple ${extensionName === "Devant" ? "integrations" : "components"} detected. Please select ${extensionName === "Devant" ? "an integration" : "a component"} to push`,
+							title: `Multiple ${ext.terminologies?.componentTermPlural} detected. Please select ${ext.terminologies?.articleComponentTerm} to push`,
 						});
 						return selectedComp?.item;
 					};
 
 					if (contextStore.getState().state?.components?.length === 0) {
-						throw new Error("No components in this workspace");
+						throw new Error(`No ${ext.terminologies?.componentTermPlural} in this workspace`);
 					}
 
 					if (params?.componentPath) {
@@ -81,7 +80,7 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 					}
 
 					if (!selectedComp) {
-						throw new Error("Failed to select component fo be pushed to remote");
+						throw new Error(`Failed to select ${ext.terminologies?.componentTerm} to be pushed to remote`);
 					}
 
 					const haveChanges = await hasDirtyRepo(selectedComp.componentFsPath, ext.context, ["context.yaml"]);

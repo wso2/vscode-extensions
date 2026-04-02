@@ -2,6 +2,27 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
+## [3.1.5] - 2026-03-11
+
+### Fixed
+
+Fixed: Enforcing Java naming convention for class mediators ([#1395](https://github.com/wso2/mi-vscode/issues/1395))   
+Fixed: Cannot use a CApp to open a project in Windows OS ([#1411](https://github.com/wso2/mi-vscode/issues/1411))   
+Fixed: Update the XSD of the HTTP endpoint ([#1412](https://github.com/wso2/mi-vscode/issues/1412))   
+Fixed: Migration fails on Windows when moving .vscode directory ([#1417](https://github.com/wso2/mi-vscode/issues/1417))   
+
+## [3.1.4] - 2026-02-16
+
+### Fixed
+
+Fixed: UI issues in the data services side panel forms    
+
+## [3.1.3] - 2026-02-10
+
+### Fixed
+
+Fixed: Minor issues in the project migration flow   
+
 ## [3.1.2] - 2026-01-22
 
 ### Fixed

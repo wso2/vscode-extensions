@@ -46,7 +46,7 @@ You can provide integration requirements as:
 ## Explore Pre-Built Samples
 
 Need inspiration? Browse through sample projects to see how WSO2 Integrator: BI handles real-world integrations.
-[Explore Samples](https://bi.docs.wso2.com/learn/message-transformation/)
+[Explore Samples](https://bi.docs.wso2.com/integration-guides/usecases/datamapper/read-csv-file-and-transform-to-xml-file/)
 
 ## Documentation
 

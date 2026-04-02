@@ -43,10 +43,13 @@ export interface UpdateSourceCodeRequest {
 }
 
 export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCodeRequest, isChangeFromHelperPane?: boolean): Promise<ProjectStructureArtifactResponse[]> {
+    const skipUndoRedoStack = updateSourceCodeRequest.artifactData?.artifactType === "CONFIGURABLE";
     try {
         let tomlFilesUpdated = false;
         StateMachine.setEditMode();
-        undoRedoManager?.startBatchOperation();
+        if (!skipUndoRedoStack) {
+            undoRedoManager?.startBatchOperation();
+        }
         const modificationRequests: Record<string, { filePath: string; modifications: STModification[] }> = {};
         for (const [key, value] of Object.entries(updateSourceCodeRequest.textEdits)) {
             const fileUri = key.startsWith("file:") ? Uri.parse(key) : Uri.file(key);
@@ -82,7 +85,9 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
             // Get the before content of the file by using the workspace api
             const document = await workspace.openTextDocument(fileUri);
             const beforeContent = document.getText();
-            undoRedoManager?.addFileToBatch(fileUri.fsPath, beforeContent, beforeContent);
+            if (!skipUndoRedoStack) {
+                undoRedoManager?.addFileToBatch(fileUri.fsPath, beforeContent, beforeContent);
+            }
 
             if (edits && edits.length > 0) {
                 const modificationList: STModification[] = [];
@@ -135,10 +140,28 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                         source
                     );
                 }
-            }         
+            }
+            // Set up a listener to consume the LS notification triggered by the raw edit,
+            // so the final subscriber only sees the notification from the formatted edit.
+            // Capture IDs of newly added artifacts so we can re-apply isNew on the formatted edit notification.
+            const handler = ArtifactNotificationHandler.getInstance();
+            let newArtifactIds: Set<string> | undefined;
+            const rawEditNotification = new Promise<void>((resolve) => {
+                let timeoutId: ReturnType<typeof setTimeout>;
+                const unsub = handler.subscribe(
+                    ArtifactsUpdated.method, updateSourceCodeRequest.artifactData,
+                    (payload) => {
+                        newArtifactIds = new Set(
+                            payload.data.filter(a => a.isNew).map(a => a.id)
+                        );
+                        clearTimeout(timeoutId); unsub(); resolve();
+                    }
+                );
+                timeoutId = setTimeout(() => { unsub(); resolve(); }, 10000);
+            });
+
+            // Apply all changes at once
             await workspace.applyEdit(workspaceEdit);
-            
-            // Save remote documents to ensure changes are persisted
             for (const [fileUriString, request] of Object.entries(modificationRequests)) {
                 const remoteUri = uriCache?.getRemoteUri(request.filePath);
                 
@@ -149,7 +172,9 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                     }
                 }
             }
-            
+
+            await rawEditNotification;
+
             // <-------- Format the document after applying all changes using the native formatting API-------->
             const formattedWorkspaceEdit = new vscode.WorkspaceEdit();
             for (const [fileUriString, request] of Object.entries(modificationRequests)) {
@@ -171,12 +196,16 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                         ),
                         formattedSource.newText
                     );
-                    undoRedoManager?.addFileToBatch(fileUri.fsPath, formattedSource.newText, formattedSource.newText);
+                    if (!skipUndoRedoStack) {
+                        undoRedoManager?.addFileToBatch(fileUri.fsPath, formattedSource.newText, formattedSource.newText);
+                    }
                 }
             }
-            undoRedoManager?.commitBatchOperation(updateSourceCodeRequest.description ? updateSourceCodeRequest.description : (updateSourceCodeRequest.artifactData ? `Change in ${updateSourceCodeRequest.artifactData?.artifactType} ${updateSourceCodeRequest.artifactData?.identifier}` : "Update Source Code"));
 
-            // Apply all formatted changes at once
+            if (!skipUndoRedoStack) {
+                undoRedoManager?.commitBatchOperation(updateSourceCodeRequest.description ? updateSourceCodeRequest.description : (updateSourceCodeRequest.artifactData ? `Change in ${updateSourceCodeRequest.artifactData?.artifactType} ${updateSourceCodeRequest.artifactData?.identifier}` : "Update Source Code"));
+            }
+
             await workspace.applyEdit(formattedWorkspaceEdit);
 
             // Handle missing dependencies after all changes are applied
@@ -200,6 +229,13 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                 let unsubscribe = notificationHandler.subscribe(ArtifactsUpdated.method, updateSourceCodeRequest.artifactData, async (payload) => {
                     if ((payload.data && payload.data.length > 0) || updateSourceCodeRequest.skipPayloadCheck) {
                         console.log("Received notification:", payload);
+                        if (newArtifactIds?.size) {
+                            payload.data.forEach(entry => {
+                                if (newArtifactIds.has(entry.id)) {
+                                    entry.isNew = true;
+                                }
+                            });
+                        }
                         clearTimeout(timeoutId);
                         resolve(payload.data);
                         StateMachine.setReadyMode();
@@ -231,7 +267,9 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
         }
     } catch (error) {
         StateMachine.setReadyMode();
-        undoRedoManager?.cancelBatchOperation();
+        if (!skipUndoRedoStack) {
+            undoRedoManager?.cancelBatchOperation();
+        }
         console.log(">>> error updating source", error);
         throw error;
     }
