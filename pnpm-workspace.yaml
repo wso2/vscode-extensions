@@ -3,6 +3,7 @@ packages:
   - 'workspaces/ballerina/*'
   - 'workspaces/choreo/*'
   - 'workspaces/wso2-platform/*'
+  - 'workspaces/api-tryit/*'
   - "workspaces/bi/*"
   - 'workspaces/common-libs/*'
   - 'workspaces/mi/*'
