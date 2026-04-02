@@ -412,20 +412,12 @@ export function DataMapperView(props: DataMapperViewProps) {
     const addSubMapping = async (
         subMappingName: string,
         type: string,
+        defaultValue: string,
         index: number,
-        targetField: string,
-        importsCodedata?: CodeData
+        targetField: string
     ) => {
         try {
-            const visualizableResponse = await rpcClient
-                .getDataMapperRpcClient()
-                .getVisualizableFields({
-                    filePath,
-                    codedata: importsCodedata || { symbol: type }
-                });
-            console.log(">>> [Data Mapper] getVisualizableFields response:", visualizableResponse);
 
-            const defaultValue = visualizableResponse.visualizableProperties.defaultValue;
             const request = createAddSubMappingRequest(
                 filePath,
                 viewState.codedata,

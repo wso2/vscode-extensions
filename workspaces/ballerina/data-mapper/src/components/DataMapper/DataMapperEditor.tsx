@@ -333,11 +333,11 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
     const addNewSubMapping = async (
         subMappingName: string,
         type: string,
+        defaultValue: string,
         index: number,
-        targetField: string,
-        importsCodedata?: CodeData
+        targetField: string
     ) => {
-        await addSubMapping(subMappingName, type, index, targetField, importsCodedata);
+        await addSubMapping(subMappingName, type, defaultValue, index, targetField);
         resetSubMappingConfig();
     }
 

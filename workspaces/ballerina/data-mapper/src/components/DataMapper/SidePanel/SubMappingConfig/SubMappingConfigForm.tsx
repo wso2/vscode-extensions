@@ -36,20 +36,21 @@ const EDIT_SUB_MAPPING_HEADER = "Edit Sub Mapping";
 export type SubMappingConfigFormProps = {
     views: View[];
     updateView: (updatedView: View) => void;
-    addSubMapping: (subMappingName: string, type: string, index: number, targetField: string, importsCodedata?: CodeData) => Promise<void>;
+    addSubMapping: (subMappingName: string, type: string, defaultValue: string, index: number, targetField: string) => Promise<void>;
     generateForm: (formProps: DMFormProps) => JSX.Element;
 };
 
 interface FormValues {
     name: string;
     type: string;
+    expression: string;
 }
 
 export function SubMappingConfigForm(props: SubMappingConfigFormProps) {
     const { views, addSubMapping, generateForm } = props;
 
     const [isAddingNewSubMapping, setIsAddingNewSubMapping] = useState(false);
-    const [formValues, setFormValues] = useState<FormValues>({ name: "", type: "" });
+    const [formValues, setFormValues] = useState<FormValues>({ name: "", type: "", expression: "" });
    
     const {
         subMappingConfig: { isSMConfigPanelOpen, nextSubMappingIndex, suggestedNextSubMappingName },
@@ -69,12 +70,14 @@ export function SubMappingConfigForm(props: SubMappingConfigFormProps) {
         if (subMappingConfigFormData) {
             return {
                 name: subMappingConfigFormData.name,
-                type: subMappingConfigFormData.type
+                type: subMappingConfigFormData.type,
+                expression: subMappingConfigFormData.expression
             };
         }
         return {
             name: suggestedNextSubMappingName || "",
-            type: ""
+            type: "",
+            expression: ""
         };
     }, [subMappingConfigFormData, suggestedNextSubMappingName]);
     
@@ -87,13 +90,14 @@ export function SubMappingConfigForm(props: SubMappingConfigFormProps) {
     const onAdd = async (data: SubMappingConfigFormData, importsCodedata?: CodeData) => {
         setFormValues({
             name: data.name,
-            type: data.type
+            type: data.type,
+            expression: data.expression
         });
         setIsAddingNewSubMapping(true);
         
         try {
             const targetField = views[views.length - 1].targetField;
-            await addSubMapping(data.name, data.type, nextSubMappingIndex, targetField, importsCodedata);
+            await addSubMapping(data.name, data.type, data.expression, nextSubMappingIndex, targetField);
         } finally {
             setIsAddingNewSubMapping(false);
         }

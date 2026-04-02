@@ -29,6 +29,7 @@ interface SubMappingConfig {
 export interface SubMappingConfigFormData {
     name: string;
     type: string | undefined;
+    expression: string;
 }
 
 export interface DataMapperSearchState {
@@ -61,7 +62,7 @@ export interface DataMapperSubMappingConfigPanelState {
     setSubMappingConfig: (subMappingConfig: SubMappingConfig) => void;
     resetSubMappingConfig: () => void;
     subMappingConfigFormData: SubMappingConfigFormData;
-    setSubMappingConfigFormData: (subMappingConfigFormData: SubMappingConfigFormData) => void
+    setSubMappingConfigFormData: (subMappingConfigFormData: SubMappingConfigFormData) => void;
 }
 
 export interface DataMapperExpressionBarState {
