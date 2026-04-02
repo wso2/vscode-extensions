@@ -223,7 +223,6 @@ import * as toml from "@iarna/toml";
 import { readOrWriteReadmeContent } from "./utils";
 import { registerFormOpen, registerFormClose, setFormDirtyState } from "./form-state";
 import { chatStateStorage } from "../../views/ai-panel/chatStateStorage";
-import { getRepoRoot } from "../platform-ext/platform-utils";
 import { WI_EXTENSION_ID } from "../../utils";
 import { notifyOnIdentifierUpdated } from "../../RPCLayer";
 
@@ -232,33 +231,35 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     OpenConfigTomlRequest: (params: OpenConfigTomlRequest) => Promise<void>;
     
     // Messenger instance for broadcasting notifications
-    private messenger: Messenger;
-    
-    constructor(messenger: Messenger) {
-        this.messenger = messenger;
-        
-        // Subscribe to lock changes from OCT and broadcast to webviews
-        const lockManager = CollaborationLockManager.getInstance();
-        lockManager.onLocksChanged((filePath, locks) => {
-            console.log(`[Lock] Broadcasting lock update for ${filePath} to webviews`);
-            this.messenger.sendNotification(nodeLockUpdated, {
-                type: 'webview',
-                webviewType: 'ballerina.visualizer'
-            }, {
-                locks,
-            });
-        });
+    private messenger?: Messenger;
 
-        // Subscribe to cursor changes and broadcast to webviews
-        lockManager.onCursorsChanged((cursors) => {
-            console.log(`[Cursor] Broadcasting cursor update to webviews`);
-            this.messenger.sendNotification(diagramCursorUpdated, {
-                type: 'webview',
-                webviewType: 'ballerina.visualizer'
-            }, {
-                cursors: Array.from(cursors.values()),
+    constructor(messenger?: Messenger) {
+        this.messenger = messenger;
+
+        if (messenger) {
+            // Subscribe to lock changes from OCT and broadcast to webviews
+            const lockManager = CollaborationLockManager.getInstance();
+            lockManager.onLocksChanged((filePath, locks) => {
+                console.log(`[Lock] Broadcasting lock update for ${filePath} to webviews`);
+                this.messenger.sendNotification(nodeLockUpdated, {
+                    type: 'webview',
+                    webviewType: 'ballerina.visualizer'
+                }, {
+                    locks,
+                });
             });
-        });
+
+            // Subscribe to cursor changes and broadcast to webviews
+            lockManager.onCursorsChanged((cursors) => {
+                console.log(`[Cursor] Broadcasting cursor update to webviews`);
+                this.messenger.sendNotification(diagramCursorUpdated, {
+                    type: 'webview',
+                    webviewType: 'ballerina.visualizer'
+                }, {
+                    cursors: Array.from(cursors.values()),
+                });
+            });
+        }
     }
 
     private toRawPath(input: string): string {
@@ -2468,18 +2469,12 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     async isCollaborationActive(): Promise<IsCollaborationActiveResponse> {
         const lockManager = CollaborationLockManager.getInstance();
         const { getOctClientId } = await import('../collaboration/rpc-handler');
-        return { 
+        return {
             isActive: lockManager.isCollaborationActive(),
             clientId: getOctClientId()
         };
     }
-}
 
-export function getRepoRoot(projectRoot: string): string | undefined {
-    // traverse up the directory tree until .git directory is found
-    const gitDir = path.join(projectRoot, ".git");
-    if (fs.existsSync(gitDir)) {
-        return projectRoot;
     async getAvailableAgents(params: BIAvailableNodesRequest): Promise<BIAvailableNodesResponse> {
         console.log(">>> requesting bi available agents from ls", params);
         return new Promise((resolve) => {
@@ -2495,6 +2490,19 @@ export function getRepoRoot(projectRoot: string): string | undefined {
                 });
         });
     }
+}
+
+export function getRepoRoot(projectRoot: string): string | undefined {
+    // traverse up the directory tree until .git directory is found
+    const gitDir = path.join(projectRoot, ".git");
+    if (fs.existsSync(gitDir)) {
+        return projectRoot;
+    }
+    // path is root return undefined
+    if (projectRoot === path.parse(projectRoot).root) {
+        return undefined;
+    }
+    return getRepoRoot(path.join(projectRoot, ".."));
 }
 
 export async function getBallerinaFiles(dir: string): Promise<string[]> {

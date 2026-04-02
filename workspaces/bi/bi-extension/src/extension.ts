@@ -42,15 +42,3 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() { }
-
-async function refreshProjectExplorer(): Promise<void> {
-	const projectInfo = await fetchProjectInfo();
-	activateProjectExplorer({
-		context: extension.context,
-		isBI: projectInfo.isBI,
-		isBallerinaPackage: projectInfo.isBallerinaPackage,
-		isBallerinaWorkspace: projectInfo.isBallerinaWorkspace,
-		isEmptyWorkspace: projectInfo.isEmptyWorkspace,
-		isInWI: vscode.extensions.getExtension('wso2.wi') ? true : false
-	});
-}

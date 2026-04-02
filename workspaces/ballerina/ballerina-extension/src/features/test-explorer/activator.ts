@@ -116,6 +116,7 @@ export async function activate(ballerinaExtInstance: BallerinaExtension) {
         return;
     }
 
+    const workspaceRoot = workspaceFolder.uri.fsPath;
     const isBallerinaWorkspace = await checkIsBallerinaWorkspace(Uri.file(workspaceRoot));
     const isBallerinaProject = !isBallerinaWorkspace && await checkIsBallerinaPackage(Uri.file(workspaceRoot));
     const isMultiProjectWorkspace = !isBallerinaWorkspace && !isBallerinaProject && await hasMultipleBallerinaPackages(Uri.file(workspaceRoot));

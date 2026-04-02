@@ -58,8 +58,6 @@ import {
     dependencyPullProgress,
     ProjectMigrationResult,
     onMigratedProject,
-    refreshReviewMode,
-    onHideReviewActions,
     nodeLockUpdated,
     onOctUpdateTextSelection,
     onOctRerenderPresence,

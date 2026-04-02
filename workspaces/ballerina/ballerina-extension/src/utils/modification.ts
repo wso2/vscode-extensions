@@ -81,7 +81,8 @@ export function writeBallerinaFileDidOpenTemp(filePath: string, content: string)
     if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
     }
-    
+    const contentWithNewline = ensureTrailingNewline(content);
+
     // Check if document is open in VS Code
     const normalizedPath = normalize(filePath);
     const doc = workspace.textDocuments.find((doc) => normalize(doc.uri.fsPath) === normalizedPath);
@@ -194,25 +195,6 @@ export async function writeBallerinaFileDidOpen(filePath: string, content: strin
         }
         await new Promise(resolve => setTimeout(resolve, 100));
     }
-    
-    // Continue with the rest of the function
-    const fileUri = Uri.file(filePath).toString();
-    StateMachine.langClient().didChange({
-        textDocument: { uri: filePath, version: 1 },
-        contentChanges: [
-            {
-                text: contentWithNewline,
-            },
-        ],
-    });
-    StateMachine.langClient().didOpen({
-        textDocument: {
-            uri: Uri.file(filePath).toString(),
-            languageId: 'ballerina',
-            version: 1,
-            text: contentWithNewline
-        }
-    });
 
     return new Promise((resolve, reject) => {
         // Get the artifact notification handler instance

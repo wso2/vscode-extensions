@@ -17,6 +17,7 @@
  */
 
 import React, { useState, useSyncExternalStore, RefObject } from "react";
+import { DiagramEngine } from "@projectstorm/react-diagrams";
 import { Flow, FlowNode, Branch, LineRange, ToolData } from "../utils/types";
 import { CompletionItem, FormExpressionEditorRef, HelperPaneHeight } from "@wso2/ui-toolkit";
 import { ExpressionProperty, JoinProjectPathRequest, JoinProjectPathResponse, RecordTypeField, TextEdit, VisualizerLocation } from "@wso2/ballerina-core";
