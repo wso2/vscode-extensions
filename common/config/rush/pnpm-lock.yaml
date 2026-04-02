@@ -5,9 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  undici: 7.24.2
-  file-type: 21.3.2
-  yauzl: ^3.2.1
+  lodash: '>=4.18.0'
 
 pnpmfileChecksum: sha256-XTeZQwJtKk4dimqf7175GhJCXrnq3Yh7+kwb86Bwcdo=
 
@@ -91,8 +89,8 @@ importers:
         specifier: 3.0.0
         version: 3.0.0
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       node-fetch:
         specifier: 2.6.7
         version: 2.6.7(encoding@0.1.13)
@@ -234,8 +232,8 @@ importers:
         specifier: 4.1.1
         version: 4.1.1
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       path:
         specifier: 0.12.7
         version: 0.12.7
@@ -628,8 +626,8 @@ importers:
         specifier: 4.0.0
         version: 4.0.0
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       monaco-languageclient:
         specifier: 0.13.1-next.9
         version: 0.13.1-next.9
@@ -1153,8 +1151,8 @@ importers:
         specifier: workspace:*
         version: link:../../wso2-platform/wso2-platform-core
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       markdown-it:
         specifier: 14.1.1
         version: 14.1.1
@@ -1337,8 +1335,8 @@ importers:
         specifier: ^0.16.27
         version: 0.16.38
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       lodash.debounce:
         specifier: 4.0.8
         version: 4.0.8
@@ -1480,7 +1478,7 @@ importers:
         version: 6.7.4
       '@projectstorm/react-canvas-core':
         specifier: 6.7.4
-        version: 6.7.4(lodash@4.17.23)(react@18.2.0)
+        version: 6.7.4(lodash@4.18.1)(react@18.2.0)
       '@projectstorm/react-diagrams':
         specifier: 7.0.4
         version: 7.0.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)
@@ -1506,8 +1504,8 @@ importers:
         specifier: 0.8.5
         version: 0.8.5
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       react:
         specifier: 18.2.0
         version: 18.2.0
@@ -1630,8 +1628,8 @@ importers:
         specifier: 0.8.5
         version: 0.8.5
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       react:
         specifier: 18.2.0
         version: 18.2.0
@@ -1725,13 +1723,13 @@ importers:
         version: 6.7.4
       '@projectstorm/react-canvas-core':
         specifier: 6.7.4
-        version: 6.7.4(lodash@4.17.23)(react@18.2.0)
+        version: 6.7.4(lodash@4.18.1)(react@18.2.0)
       '@projectstorm/react-diagrams':
         specifier: 6.7.4
-        version: 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+        version: 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
       '@projectstorm/react-diagrams-core':
         specifier: 6.7.4
-        version: 6.7.4(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+        version: 6.7.4(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
       '@tanstack/query-core':
         specifier: 5.77.1
         version: 5.77.1
@@ -1757,8 +1755,8 @@ importers:
         specifier: 2.5.1
         version: 2.5.1
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       lodash.debounce:
         specifier: 4.0.8
         version: 4.0.8
@@ -1940,13 +1938,13 @@ importers:
         version: 6.7.4
       '@projectstorm/react-canvas-core':
         specifier: 6.7.4
-        version: 6.7.4(lodash@4.17.23)(react@18.2.0)
+        version: 6.7.4(lodash@4.18.1)(react@18.2.0)
       '@projectstorm/react-diagrams':
         specifier: 6.7.4
-        version: 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+        version: 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
       '@projectstorm/react-diagrams-core':
         specifier: 6.7.4
-        version: 6.7.4(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+        version: 6.7.4(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
       '@wso2/ballerina-core':
         specifier: workspace:*
         version: link:../ballerina-core
@@ -1963,8 +1961,8 @@ importers:
         specifier: 1.11.11
         version: 1.11.11
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       react:
         specifier: 18.2.0
         version: 18.2.0
@@ -2106,8 +2104,8 @@ importers:
         specifier: 1.11.11
         version: 1.11.11
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       pathfinding:
         specifier: 0.4.18
         version: 0.4.18
@@ -2294,8 +2292,8 @@ importers:
         specifier: 0.8.5
         version: 0.8.5
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       react:
         specifier: 18.2.0
         version: 18.2.0
@@ -2645,8 +2643,8 @@ importers:
         specifier: 1.11.11
         version: 1.11.11
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       pathfinding:
         specifier: 0.4.18
         version: 0.4.18
@@ -2787,8 +2785,8 @@ importers:
         specifier: workspace:*
         version: link:../../common-libs/ui-toolkit
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       lodash.debounce:
         specifier: 4.0.8
         version: 4.0.8
@@ -3356,10 +3354,10 @@ importers:
         version: 6.7.4
       '@projectstorm/react-canvas-core':
         specifier: 6.7.4
-        version: 6.7.4(lodash@4.17.23)(react@19.1.0)
+        version: 6.7.4(lodash@4.18.1)(react@19.1.0)
       '@projectstorm/react-diagrams':
         specifier: 6.7.4
-        version: 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@19.1.0)(resize-observer-polyfill@1.5.1)
+        version: 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@19.1.0)(resize-observer-polyfill@1.5.1)
       '@projectstorm/react-diagrams-core':
         specifier: 7.0.3
         version: 7.0.3(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)
@@ -3376,8 +3374,8 @@ importers:
         specifier: 2.5.1
         version: 2.5.1
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       monaco-editor:
         specifier: 0.52.2
         version: 0.52.2
@@ -3591,19 +3589,19 @@ importers:
         version: 6.7.4
       '@projectstorm/react-canvas-core':
         specifier: 6.7.4
-        version: 6.7.4(lodash@4.17.23)(react@18.2.0)
+        version: 6.7.4(lodash@4.18.1)(react@18.2.0)
       '@projectstorm/react-diagrams':
         specifier: 6.7.4
-        version: 6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+        version: 6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
       '@projectstorm/react-diagrams-core':
         specifier: 6.7.4
-        version: 6.7.4(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+        version: 6.7.4(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
       '@projectstorm/react-diagrams-defaults':
         specifier: 6.7.4
-        version: 6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+        version: 6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
       '@projectstorm/react-diagrams-routing':
         specifier: 6.7.4
-        version: 6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+        version: 6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
       '@wso2/ui-toolkit':
         specifier: workspace:*
         version: link:../../common-libs/ui-toolkit
@@ -3611,8 +3609,8 @@ importers:
         specifier: 0.8.5
         version: 0.8.5
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       react:
         specifier: 18.2.0
         version: 18.2.0
@@ -3692,13 +3690,13 @@ importers:
         version: 6.7.4
       '@projectstorm/react-canvas-core':
         specifier: 6.7.4
-        version: 6.7.4(lodash@4.17.23)(react@18.2.0)
+        version: 6.7.4(lodash@4.18.1)(react@18.2.0)
       '@projectstorm/react-diagrams':
         specifier: 6.7.4
-        version: 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+        version: 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
       '@projectstorm/react-diagrams-core':
         specifier: 6.7.4
-        version: 6.7.4(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+        version: 6.7.4(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
       '@tanstack/query-core':
         specifier: 5.76.2
         version: 5.76.2
@@ -3730,8 +3728,8 @@ importers:
         specifier: 2.5.1
         version: 2.5.1
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       lodash.debounce:
         specifier: 4.0.8
         version: 4.0.8
@@ -3895,8 +3893,8 @@ importers:
         specifier: 1.11.11
         version: 1.11.11
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       mousetrap:
         specifier: 1.6.5
         version: 1.6.5
@@ -4166,8 +4164,8 @@ importers:
         specifier: 3.38.6
         version: 3.38.6
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       mustache:
         specifier: 4.2.0
         version: 4.2.0
@@ -4441,8 +4439,8 @@ importers:
         specifier: 5.5.7
         version: 5.5.7
       lodash:
-        specifier: 4.17.23
-        version: 4.17.23
+        specifier: '>=4.18.0'
+        version: 4.18.1
       mustache:
         specifier: 4.2.0
         version: 4.2.0
@@ -8087,7 +8085,7 @@ packages:
   '@projectstorm/react-canvas-core@6.7.4':
     resolution: {integrity: sha512-sY32kT//gQe5aw6RHkmKrbzBq9iWyfwyvvfRTplGPE1ll3zOBVCjbf3tdfw6vATCden+WR0TmirtBo2j3exiBg==}
     peerDependencies:
-      lodash: 4.*
+      lodash: '>=4.18.0'
       react: 16.* || 17.*
 
   '@projectstorm/react-canvas-core@7.0.3':
@@ -8096,7 +8094,7 @@ packages:
   '@projectstorm/react-diagrams-core@6.7.4':
     resolution: {integrity: sha512-AeqH1u58Ugk8mif/GgLEUeOMmTPaWDpl1isA1OJHCPGMbvAytRfv5mrGMvG2E+pYDB29BQ4Yo2z9/TbAy6/nvA==}
     peerDependencies:
-      lodash: 4.*
+      lodash: '>=4.18.0'
       react: 18.*
       resize-observer-polyfill: ^1.5.1
 
@@ -8108,7 +8106,7 @@ packages:
     peerDependencies:
       '@emotion/react': ^11.*
       '@emotion/styled': ^11.*
-      lodash: 4.*
+      lodash: '>=4.18.0'
       react: 18.*
 
   '@projectstorm/react-diagrams-defaults@7.1.3':
@@ -8118,7 +8116,7 @@ packages:
     resolution: {integrity: sha512-mB8YaRkNF6gdTlYvL0Cxc6m6XLwh7wvmjIsiEO6kW3j1uSvH7R7Gbl/iDYOdc0zUMqH9+pD+M064tWC4oAXa9A==}
     peerDependencies:
       dagre: ^0.8.5
-      lodash: 4.*
+      lodash: '>=4.18.0'
       pathfinding: ^0.4.18
       paths-js: ^0.4.11
       react: 18.*
@@ -11854,6 +11852,7 @@ packages:
   '@xmldom/xmldom@0.8.10':
     resolution: {integrity: sha512-2WALfTl4xo2SkGCYRt6rDTFfk9R1czmBvUQy12gK2KuRKIpWEhcbbzy8EZXtz/jkRqHX8bFEc6FC1HjX4TUWYw==}
     engines: {node: '>=10.0.0'}
+    deprecated: this version has critical issues, please update to the latest version
 
   '@xtuc/ieee754@1.2.0':
     resolution: {integrity: sha512-DX8nKgqcGwsc0eJSqYt5lwP4DH5FlHnmuWWBRy7X0NcaGR0ZtuyeESgMwTYVEtxmsNGY+qit4QYT/MIYTOTPeA==}
@@ -18493,8 +18492,8 @@ packages:
   lodash.xor@4.5.0:
     resolution: {integrity: sha512-sVN2zimthq7aZ5sPGXnSz32rZPuqcparVW50chJQe+mzTYV+IsxSsl/2gnkWWE2Of7K3myBQBqtLKOUEHJKRsQ==}
 
-  lodash@4.17.23:
-    resolution: {integrity: sha512-LgVTMpQtIopCi79SJeDiP0TfWi5CNEc/L/aRdTh3yIvmZXTnheWpKjSZhnvMl8iXbC1tFg9gdHHDMLoV7CnG+w==}
+  lodash@4.18.1:
+    resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
 
   log-symbols@3.0.0:
     resolution: {integrity: sha512-dSkNGuI7iG3mfvDzUuYZyvk5dD9ocYCYzNU6CYDE6+Xqd+gwme6Z00NS3dUh8mq/73HaEtT7m6W+yUPtU6BZnQ==}
@@ -25842,7 +25841,7 @@ snapshots:
       debug: 4.4.3(supports-color@8.1.1)
       gensync: 1.0.0-beta.2
       json5: 2.2.3
-      lodash: 4.17.23
+      lodash: 4.18.1
       resolve: 1.22.11
       semver: 5.7.2
       source-map: 0.5.7
@@ -30896,18 +30895,18 @@ snapshots:
 
   '@projectstorm/geometry@7.0.3':
     dependencies:
-      lodash: 4.17.23
+      lodash: 4.18.1
 
-  '@projectstorm/react-canvas-core@6.7.4(lodash@4.17.23)(react@18.2.0)':
+  '@projectstorm/react-canvas-core@6.7.4(lodash@4.18.1)(react@18.2.0)':
     dependencies:
       '@projectstorm/geometry': 6.7.4
-      lodash: 4.17.23
+      lodash: 4.18.1
       react: 18.2.0
 
-  '@projectstorm/react-canvas-core@6.7.4(lodash@4.17.23)(react@19.1.0)':
+  '@projectstorm/react-canvas-core@6.7.4(lodash@4.18.1)(react@19.1.0)':
     dependencies:
       '@projectstorm/geometry': 6.7.4
-      lodash: 4.17.23
+      lodash: 4.18.1
       react: 19.1.0
 
   '@projectstorm/react-canvas-core@7.0.3(@types/react@18.2.0)':
@@ -30915,25 +30914,25 @@ snapshots:
       '@emotion/react': 11.14.0(@types/react@18.2.0)(react@18.2.0)
       '@emotion/styled': 11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0)
       '@projectstorm/geometry': 7.0.3
-      lodash: 4.17.23
+      lodash: 4.18.1
       react: 18.2.0
     transitivePeerDependencies:
       - '@types/react'
       - supports-color
 
-  '@projectstorm/react-diagrams-core@6.7.4(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
+  '@projectstorm/react-diagrams-core@6.7.4(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
     dependencies:
       '@projectstorm/geometry': 6.7.4
-      '@projectstorm/react-canvas-core': 6.7.4(lodash@4.17.23)(react@18.2.0)
-      lodash: 4.17.23
+      '@projectstorm/react-canvas-core': 6.7.4(lodash@4.18.1)(react@18.2.0)
+      lodash: 4.18.1
       react: 18.2.0
       resize-observer-polyfill: 1.5.1
 
-  '@projectstorm/react-diagrams-core@6.7.4(lodash@4.17.23)(react@19.1.0)(resize-observer-polyfill@1.5.1)':
+  '@projectstorm/react-diagrams-core@6.7.4(lodash@4.18.1)(react@19.1.0)(resize-observer-polyfill@1.5.1)':
     dependencies:
       '@projectstorm/geometry': 6.7.4
-      '@projectstorm/react-canvas-core': 6.7.4(lodash@4.17.23)(react@19.1.0)
-      lodash: 4.17.23
+      '@projectstorm/react-canvas-core': 6.7.4(lodash@4.18.1)(react@19.1.0)
+      lodash: 4.18.1
       react: 19.1.0
       resize-observer-polyfill: 1.5.1
 
@@ -30942,7 +30941,7 @@ snapshots:
       '@emotion/styled': 11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0)
       '@projectstorm/geometry': 7.0.3
       '@projectstorm/react-canvas-core': 7.0.3(@types/react@18.2.0)
-      lodash: 4.17.23
+      lodash: 4.18.1
       react: 18.2.0
       resize-observer-polyfill: 1.5.1
     transitivePeerDependencies:
@@ -30955,7 +30954,7 @@ snapshots:
       '@emotion/styled': 11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@18.2.0)
       '@projectstorm/geometry': 7.0.3
       '@projectstorm/react-canvas-core': 7.0.3(@types/react@18.2.0)
-      lodash: 4.17.23
+      lodash: 4.18.1
       react: 18.2.0
       resize-observer-polyfill: 1.5.1
     transitivePeerDependencies:
@@ -30963,32 +30962,32 @@ snapshots:
       - '@types/react'
       - supports-color
 
-  '@projectstorm/react-diagrams-defaults@6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
+  '@projectstorm/react-diagrams-defaults@6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
     dependencies:
       '@emotion/react': 11.14.0(@types/react@18.2.0)(react@18.2.0)
       '@emotion/styled': 11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0)
-      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
-      lodash: 4.17.23
+      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+      lodash: 4.18.1
       react: 18.2.0
     transitivePeerDependencies:
       - resize-observer-polyfill
 
-  '@projectstorm/react-diagrams-defaults@6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(lodash@4.17.23)(react@19.1.0)(resize-observer-polyfill@1.5.1)':
+  '@projectstorm/react-diagrams-defaults@6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(lodash@4.18.1)(react@19.1.0)(resize-observer-polyfill@1.5.1)':
     dependencies:
       '@emotion/react': 11.14.0(@types/react@18.2.0)(react@19.1.0)
       '@emotion/styled': 11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0)
-      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.17.23)(react@19.1.0)(resize-observer-polyfill@1.5.1)
-      lodash: 4.17.23
+      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.18.1)(react@19.1.0)(resize-observer-polyfill@1.5.1)
+      lodash: 4.18.1
       react: 19.1.0
     transitivePeerDependencies:
       - resize-observer-polyfill
 
-  '@projectstorm/react-diagrams-defaults@6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
+  '@projectstorm/react-diagrams-defaults@6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
     dependencies:
       '@emotion/react': 11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0)
       '@emotion/styled': 11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0)
-      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
-      lodash: 4.17.23
+      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+      lodash: 4.18.1
       react: 18.2.0
     transitivePeerDependencies:
       - resize-observer-polyfill
@@ -31000,19 +30999,19 @@ snapshots:
       '@projectstorm/geometry': 7.0.3
       '@projectstorm/react-canvas-core': 7.0.3(@types/react@18.2.0)
       '@projectstorm/react-diagrams-core': 7.0.3(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)
-      lodash: 4.17.23
+      lodash: 4.18.1
       react: 18.2.0
     transitivePeerDependencies:
       - '@types/react'
       - supports-color
 
-  '@projectstorm/react-diagrams-routing@6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
+  '@projectstorm/react-diagrams-routing@6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
     dependencies:
       '@projectstorm/geometry': 6.7.4
-      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
-      '@projectstorm/react-diagrams-defaults': 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-defaults': 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
       dagre: 0.8.5
-      lodash: 4.17.23
+      lodash: 4.18.1
       pathfinding: 0.4.18
       paths-js: 0.4.11
       react: 18.2.0
@@ -31021,13 +31020,13 @@ snapshots:
       - '@emotion/styled'
       - resize-observer-polyfill
 
-  '@projectstorm/react-diagrams-routing@6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@19.1.0)(resize-observer-polyfill@1.5.1)':
+  '@projectstorm/react-diagrams-routing@6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@19.1.0)(resize-observer-polyfill@1.5.1)':
     dependencies:
       '@projectstorm/geometry': 6.7.4
-      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.17.23)(react@19.1.0)(resize-observer-polyfill@1.5.1)
-      '@projectstorm/react-diagrams-defaults': 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(lodash@4.17.23)(react@19.1.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.18.1)(react@19.1.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-defaults': 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(lodash@4.18.1)(react@19.1.0)(resize-observer-polyfill@1.5.1)
       dagre: 0.8.5
-      lodash: 4.17.23
+      lodash: 4.18.1
       pathfinding: 0.4.18
       paths-js: 0.4.11
       react: 19.1.0
@@ -31036,13 +31035,13 @@ snapshots:
       - '@emotion/styled'
       - resize-observer-polyfill
 
-  '@projectstorm/react-diagrams-routing@6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
+  '@projectstorm/react-diagrams-routing@6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
     dependencies:
       '@projectstorm/geometry': 6.7.4
-      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
-      '@projectstorm/react-diagrams-defaults': 6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-defaults': 6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
       dagre: 0.8.5
-      lodash: 4.17.23
+      lodash: 4.18.1
       pathfinding: 0.4.18
       paths-js: 0.4.11
       react: 18.2.0
@@ -31058,7 +31057,7 @@ snapshots:
       '@projectstorm/react-diagrams-core': 7.0.3(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)
       '@projectstorm/react-diagrams-defaults': 7.1.3(@types/react@18.2.0)
       dagre: 0.8.5
-      lodash: 4.17.23
+      lodash: 4.18.1
       pathfinding: 0.4.18
       paths-js: 0.4.11
       react: 18.2.0
@@ -31067,11 +31066,11 @@ snapshots:
       - '@types/react'
       - supports-color
 
-  '@projectstorm/react-diagrams@6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
+  '@projectstorm/react-diagrams@6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
     dependencies:
-      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
-      '@projectstorm/react-diagrams-defaults': 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
-      '@projectstorm/react-diagrams-routing': 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-defaults': 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-routing': 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
     transitivePeerDependencies:
       - '@emotion/react'
       - '@emotion/styled'
@@ -31082,11 +31081,11 @@ snapshots:
       - react
       - resize-observer-polyfill
 
-  '@projectstorm/react-diagrams@6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@19.1.0)(resize-observer-polyfill@1.5.1)':
+  '@projectstorm/react-diagrams@6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@19.1.0)(resize-observer-polyfill@1.5.1)':
     dependencies:
-      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.17.23)(react@19.1.0)(resize-observer-polyfill@1.5.1)
-      '@projectstorm/react-diagrams-defaults': 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(lodash@4.17.23)(react@19.1.0)(resize-observer-polyfill@1.5.1)
-      '@projectstorm/react-diagrams-routing': 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@19.1.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.18.1)(react@19.1.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-defaults': 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(lodash@4.18.1)(react@19.1.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-routing': 6.7.4(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@19.1.0)(resize-observer-polyfill@1.5.1)
     transitivePeerDependencies:
       - '@emotion/react'
       - '@emotion/styled'
@@ -31097,11 +31096,11 @@ snapshots:
       - react
       - resize-observer-polyfill
 
-  '@projectstorm/react-diagrams@6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
+  '@projectstorm/react-diagrams@6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)':
     dependencies:
-      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
-      '@projectstorm/react-diagrams-defaults': 6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.17.23)(react@18.2.0)(resize-observer-polyfill@1.5.1)
-      '@projectstorm/react-diagrams-routing': 6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.17.23)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-core': 6.7.4(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-defaults': 6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(lodash@4.18.1)(react@18.2.0)(resize-observer-polyfill@1.5.1)
+      '@projectstorm/react-diagrams-routing': 6.7.4(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@emotion/styled@11.10.5(@babel/core@7.29.0)(@emotion/react@11.9.3(@babel/core@7.29.0)(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0))(dagre@0.8.5)(lodash@4.18.1)(pathfinding@0.4.18)(paths-js@0.4.11)(react@18.2.0)(resize-observer-polyfill@1.5.1)
     transitivePeerDependencies:
       - '@emotion/react'
       - '@emotion/styled'
@@ -32732,7 +32731,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       polished: 4.3.1
       prop-types: 15.8.1
       react-inspector: 5.1.1(react@18.2.0)
@@ -32757,7 +32756,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       polished: 4.3.1
       prop-types: 15.8.1
       react-inspector: 5.1.1(react@18.2.0)
@@ -32836,7 +32835,7 @@ snapshots:
       '@storybook/store': 6.5.16(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@storybook/theming': 6.5.16(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       core-js: 3.48.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       ts-dedent: 2.2.0
     optionalDependencies:
       react: 18.2.0
@@ -32861,7 +32860,7 @@ snapshots:
       '@storybook/store': 6.5.9(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@storybook/theming': 6.5.9(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       core-js: 3.48.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       ts-dedent: 2.2.0
     optionalDependencies:
       react: 18.2.0
@@ -32905,7 +32904,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       regenerator-runtime: 0.13.11
       remark-external-links: 8.0.0
       remark-slug: 6.1.0
@@ -32948,7 +32947,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       regenerator-runtime: 0.13.11
       remark-external-links: 8.0.0
       remark-slug: 6.1.0
@@ -33349,7 +33348,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
       qs: 6.14.2
       react: 18.2.0
@@ -33374,7 +33373,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -33396,7 +33395,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -33418,7 +33417,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
@@ -34102,7 +34101,7 @@ snapshots:
       '@types/webpack-env': 1.18.8
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
       qs: 6.14.2
       react: 18.2.0
@@ -34129,7 +34128,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
       qs: 6.14.2
       react: 18.2.0
@@ -34154,7 +34153,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
       qs: 6.14.2
       react: 18.2.0
@@ -34179,7 +34178,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
       qs: 6.14.2
       react: 19.1.0
@@ -34238,7 +34237,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       markdown-to-jsx: 7.7.17(react@18.2.0)
       memoizerific: 1.11.3
       overlayscrollbars: 1.13.3
@@ -34317,7 +34316,7 @@ snapshots:
       ansi-to-html: 0.6.15
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       qs: 6.14.2
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -34348,7 +34347,7 @@ snapshots:
       ansi-to-html: 0.6.15
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       qs: 6.14.2
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -34376,7 +34375,7 @@ snapshots:
       ansi-to-html: 0.6.15
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       qs: 6.14.2
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -34404,7 +34403,7 @@ snapshots:
       ansi-to-html: 0.6.15
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       qs: 6.14.2
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -34432,7 +34431,7 @@ snapshots:
       ansi-to-html: 0.6.15
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       qs: 6.14.2
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -34460,7 +34459,7 @@ snapshots:
       ansi-to-html: 0.6.15
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       qs: 6.14.2
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -34488,7 +34487,7 @@ snapshots:
       ansi-to-html: 0.6.15
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       qs: 6.14.2
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
@@ -34516,7 +34515,7 @@ snapshots:
       ansi-to-html: 0.6.15
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       qs: 6.14.2
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
@@ -35046,7 +35045,7 @@ snapshots:
       global: 4.4.0
       globby: 11.1.0
       ip: 2.0.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       node-fetch: 2.6.7(encoding@0.1.13)
       open: 8.4.2
       pretty-hrtime: 1.0.3
@@ -35110,7 +35109,7 @@ snapshots:
       global: 4.4.0
       globby: 11.1.0
       ip: 2.0.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       node-fetch: 2.6.7(encoding@0.1.13)
       open: 8.4.2
       pretty-hrtime: 1.0.3
@@ -35172,7 +35171,7 @@ snapshots:
       global: 4.4.0
       globby: 11.1.0
       ip: 2.0.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       node-fetch: 2.6.7(encoding@0.1.13)
       open: 8.4.2
       pretty-hrtime: 1.0.3
@@ -35236,7 +35235,7 @@ snapshots:
       global: 4.4.0
       globby: 11.1.0
       ip: 2.0.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       node-fetch: 2.6.7(encoding@0.1.13)
       open: 8.4.2
       pretty-hrtime: 1.0.3
@@ -35455,7 +35454,7 @@ snapshots:
       core-js: 3.48.0
       fs-extra: 9.1.0
       js-string-escape: 1.0.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       prettier: 2.2.1
       regenerator-runtime: 0.13.11
     transitivePeerDependencies:
@@ -35475,7 +35474,7 @@ snapshots:
       core-js: 3.48.0
       fs-extra: 9.1.0
       js-string-escape: 1.0.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       prettier: 2.2.1
       regenerator-runtime: 0.13.11
     transitivePeerDependencies:
@@ -35522,11 +35521,11 @@ snapshots:
 
   '@storybook/csf@0.0.1':
     dependencies:
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   '@storybook/csf@0.0.2--canary.4566f4d.1':
     dependencies:
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   '@storybook/docs-tools@6.5.16(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
@@ -35535,7 +35534,7 @@ snapshots:
       '@storybook/store': 6.5.16(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       core-js: 3.48.0
       doctrine: 3.0.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       regenerator-runtime: 0.13.11
     transitivePeerDependencies:
       - react
@@ -35549,7 +35548,7 @@ snapshots:
       '@storybook/store': 6.5.9(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       core-js: 3.48.0
       doctrine: 3.0.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       regenerator-runtime: 0.13.11
     transitivePeerDependencies:
       - react
@@ -35563,7 +35562,7 @@ snapshots:
       '@storybook/store': 6.5.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       core-js: 3.48.0
       doctrine: 3.0.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       regenerator-runtime: 0.13.11
     transitivePeerDependencies:
       - react
@@ -35950,7 +35949,7 @@ snapshots:
       '@types/lodash': 4.17.17
       js-string-escape: 1.0.1
       loader-utils: 2.0.4
-      lodash: 4.17.23
+      lodash: 4.18.1
       prettier: 2.3.0
       ts-dedent: 2.2.0
     transitivePeerDependencies:
@@ -36082,7 +36081,7 @@ snapshots:
       ansi-to-html: 0.6.15
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       qs: 6.14.2
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -36103,7 +36102,7 @@ snapshots:
       ansi-to-html: 0.6.15
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       qs: 6.14.2
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -36124,7 +36123,7 @@ snapshots:
       ansi-to-html: 0.6.15
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       qs: 6.14.2
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
@@ -36312,7 +36311,7 @@ snapshots:
       babel-plugin-react-docgen: 4.2.1
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       prop-types: 15.8.1
       react: 18.2.0
       react-dev-utils: 11.0.4
@@ -36359,7 +36358,7 @@ snapshots:
       babel-plugin-react-docgen: 4.2.1
       core-js: 3.48.0
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       prop-types: 15.8.1
       react: 18.2.0
       react-dev-utils: 11.0.4
@@ -36417,7 +36416,7 @@ snapshots:
       fs-extra: 9.1.0
       global: 4.4.0
       html-tags: 3.3.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       prop-types: 15.8.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -36482,7 +36481,7 @@ snapshots:
       fs-extra: 9.1.0
       global: 4.4.0
       html-tags: 3.3.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       prop-types: 15.8.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -36545,7 +36544,7 @@ snapshots:
       fs-extra: 9.1.0
       global: 4.4.0
       html-tags: 3.3.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       prop-types: 15.8.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -36608,7 +36607,7 @@ snapshots:
       fs-extra: 9.1.0
       global: 4.4.0
       html-tags: 3.3.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       prop-types: 15.8.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -36673,7 +36672,7 @@ snapshots:
       fs-extra: 9.1.0
       global: 4.4.0
       html-tags: 3.3.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       prop-types: 15.8.1
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
@@ -36746,7 +36745,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
       qs: 6.14.2
       react: 18.2.0
@@ -36797,7 +36796,7 @@ snapshots:
       estraverse: 5.3.0
       global: 4.4.0
       loader-utils: 2.0.4
-      lodash: 4.17.23
+      lodash: 4.18.1
       prettier: 2.3.0
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -36812,7 +36811,7 @@ snapshots:
       estraverse: 5.3.0
       global: 4.4.0
       loader-utils: 2.0.4
-      lodash: 4.17.23
+      lodash: 4.18.1
       prettier: 2.3.0
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -36827,7 +36826,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -36847,7 +36846,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -36867,7 +36866,7 @@ snapshots:
       core-js: 3.48.0
       fast-deep-equal: 3.1.3
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
@@ -37063,7 +37062,7 @@ snapshots:
       emotion-theming: 10.3.0(@emotion/core@10.3.1(react@18.2.0))(react@18.2.0)
       fuse.js: 3.6.1
       global: 4.4.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       markdown-to-jsx: 6.11.4(react@18.2.0)
       memoizerific: 1.11.3
       polished: 4.3.1
@@ -37670,7 +37669,7 @@ snapshots:
       chalk: 3.0.0
       css.escape: 1.5.1
       dom-accessibility-api: 0.6.3
-      lodash: 4.17.23
+      lodash: 4.18.1
       redent: 3.0.0
 
   '@testing-library/jest-dom@6.6.3':
@@ -37680,7 +37679,7 @@ snapshots:
       chalk: 3.0.0
       css.escape: 1.5.1
       dom-accessibility-api: 0.6.3
-      lodash: 4.17.23
+      lodash: 4.18.1
       redent: 3.0.0
 
   '@testing-library/react@16.3.0(@testing-library/dom@10.4.0)(@types/react-dom@18.2.0)(@types/react@18.2.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
@@ -37709,7 +37708,7 @@ snapshots:
       chalk: 4.1.2
       debug: 4.4.3(supports-color@8.1.1)
       js-yaml: 4.1.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       pluralize: 2.0.0
       string-width: 4.2.3
       strip-ansi: 6.0.1
@@ -38578,7 +38577,7 @@ snapshots:
       eslint-visitor-keys: 1.3.0
       glob: 7.2.3
       is-glob: 4.0.3
-      lodash: 4.17.23
+      lodash: 4.18.1
       semver: 7.7.4
       tsutils: 3.21.0(typescript@3.9.10)
     optionalDependencies:
@@ -38814,7 +38813,7 @@ snapshots:
       '@vscode-logging/types': 2.0.0
       fast-safe-stringify: 2.1.1
       fs-extra: 11.2.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       stacktrace-js: 2.0.2
       streamroller: 3.1.5
       triple-beam: 1.4.1
@@ -39801,7 +39800,7 @@ snapshots:
 
   async@2.6.4:
     dependencies:
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   async@3.2.6: {}
 
@@ -39915,7 +39914,7 @@ snapshots:
       convert-source-map: 1.9.0
       debug: 2.6.9
       json5: 0.5.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       minimatch: 3.1.4
       path-is-absolute: 1.0.1
       private: 0.1.8
@@ -39949,7 +39948,7 @@ snapshots:
       babel-types: 6.26.0
       detect-indent: 4.0.0
       jsesc: 1.3.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       source-map: 0.5.7
       trim-right: 1.0.1
 
@@ -39977,7 +39976,7 @@ snapshots:
       babel-helper-function-name: 6.24.1
       babel-runtime: 6.26.0
       babel-types: 6.26.0
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   babel-helper-explode-assignable-expression@6.24.1:
     dependencies:
@@ -40012,7 +40011,7 @@ snapshots:
     dependencies:
       babel-runtime: 6.26.0
       babel-types: 6.26.0
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   babel-helper-remap-async-to-generator@6.24.1:
     dependencies:
@@ -40359,7 +40358,7 @@ snapshots:
   babel-plugin-react-docgen@4.2.1:
     dependencies:
       ast-types: 0.14.2
-      lodash: 4.17.23
+      lodash: 4.18.1
       react-docgen: 5.4.3
     transitivePeerDependencies:
       - supports-color
@@ -40407,7 +40406,7 @@ snapshots:
       babel-template: 6.26.0
       babel-traverse: 6.26.0
       babel-types: 6.26.0
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   babel-plugin-transform-es2015-classes@6.24.1:
     dependencies:
@@ -40733,7 +40732,7 @@ snapshots:
       babel-runtime: 6.26.0
       core-js: 2.6.12
       home-or-tmp: 2.0.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       mkdirp: 0.5.6
       source-map-support: 0.4.18
 
@@ -40748,7 +40747,7 @@ snapshots:
       babel-traverse: 6.26.0
       babel-types: 6.26.0
       babylon: 6.18.0
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   babel-traverse@6.26.0:
     dependencies:
@@ -40760,13 +40759,13 @@ snapshots:
       debug: 2.6.9
       globals: 9.18.0
       invariant: 2.2.4
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   babel-types@6.26.0:
     dependencies:
       babel-runtime: 6.26.0
       esutils: 2.0.3
-      lodash: 4.17.23
+      lodash: 4.18.1
       to-fast-properties: 1.0.3
 
   babylon@6.18.0: {}
@@ -42504,7 +42503,7 @@ snapshots:
   dagre@0.8.5:
     dependencies:
       graphlib: 2.1.8
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   damerau-levenshtein@1.0.8: {}
 
@@ -43430,7 +43429,7 @@ snapshots:
   eslint-plugin-flowtype@3.13.0(eslint@9.39.4(jiti@2.6.1)):
     dependencies:
       eslint: 9.39.4(jiti@2.6.1)
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   eslint-plugin-import@2.32.0(eslint@9.39.4(jiti@2.6.1)):
     dependencies:
@@ -44164,7 +44163,7 @@ snapshots:
     dependencies:
       bluebird: 3.7.2
       file-js: 0.3.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       minimatch: 5.1.8
       moment: 2.30.1
       unit-compare: 1.0.1
@@ -45116,7 +45115,7 @@ snapshots:
 
   graphlib@2.1.8:
     dependencies:
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   graphql-language-service@5.5.0(graphql@16.11.0):
     dependencies:
@@ -45543,7 +45542,7 @@ snapshots:
       bluebird: 3.7.2
       html-minifier: 3.5.21
       loader-utils: 0.2.17
-      lodash: 4.17.23
+      lodash: 4.18.1
       pretty-error: 2.1.2
       toposort: 1.0.7
       webpack: 3.8.1
@@ -45555,7 +45554,7 @@ snapshots:
       '@types/webpack': 4.41.40
       html-minifier-terser: 5.1.1
       loader-utils: 1.4.2
-      lodash: 4.17.23
+      lodash: 4.18.1
       pretty-error: 2.1.2
       tapable: 1.1.3
       util.promisify: 1.0.0
@@ -45568,7 +45567,7 @@ snapshots:
       '@types/webpack': 4.41.40
       html-minifier-terser: 5.1.1
       loader-utils: 1.4.2
-      lodash: 4.17.23
+      lodash: 4.18.1
       pretty-error: 2.1.2
       tapable: 1.1.3
       util.promisify: 1.0.0
@@ -45581,7 +45580,7 @@ snapshots:
       '@types/webpack': 4.41.40
       html-minifier-terser: 5.1.1
       loader-utils: 1.4.2
-      lodash: 4.17.23
+      lodash: 4.18.1
       pretty-error: 2.1.2
       tapable: 1.1.3
       util.promisify: 1.0.0
@@ -45591,7 +45590,7 @@ snapshots:
     dependencies:
       '@types/html-minifier-terser': 6.1.0
       html-minifier-terser: 6.1.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       pretty-error: 4.0.0
       tapable: 2.3.0
     optionalDependencies:
@@ -45601,7 +45600,7 @@ snapshots:
     dependencies:
       '@types/html-minifier-terser': 6.1.0
       html-minifier-terser: 6.1.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       pretty-error: 4.0.0
       tapable: 2.3.0
     optionalDependencies:
@@ -45670,7 +45669,7 @@ snapshots:
     dependencies:
       http-proxy: 1.18.1(debug@3.2.7)
       is-glob: 3.1.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       micromatch: 4.0.8
     transitivePeerDependencies:
       - debug
@@ -45883,7 +45882,7 @@ snapshots:
       cli-width: 2.2.1
       external-editor: 2.2.0
       figures: 2.0.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       mute-stream: 0.0.7
       run-async: 2.4.1
       rx-lite: 4.0.8
@@ -47317,7 +47316,10 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:
@@ -48884,7 +48886,7 @@ snapshots:
 
   lodash.xor@4.5.0: {}
 
-  lodash@4.17.23: {}
+  lodash@4.18.1: {}
 
   log-symbols@3.0.0:
     dependencies:
@@ -49802,7 +49804,7 @@ snapshots:
 
   minim@0.23.8:
     dependencies:
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   minimalistic-assert@1.0.1: {}
 
@@ -51657,12 +51659,12 @@ snapshots:
 
   pretty-error@2.1.2:
     dependencies:
-      lodash: 4.17.23
+      lodash: 4.18.1
       renderkid: 2.0.7
 
   pretty-error@4.0.0:
     dependencies:
-      lodash: 4.17.23
+      lodash: 4.18.1
       renderkid: 3.0.0
 
   pretty-format@20.0.3:
@@ -53161,7 +53163,7 @@ snapshots:
       css-select: 4.3.0
       dom-converter: 0.2.0
       htmlparser2: 6.1.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       strip-ansi: 3.0.1
 
   renderkid@3.0.0:
@@ -53169,7 +53171,7 @@ snapshots:
       css-select: 4.3.0
       dom-converter: 0.2.0
       htmlparser2: 6.1.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       strip-ansi: 6.0.1
 
   repeat-string@1.6.1: {}
@@ -53180,7 +53182,7 @@ snapshots:
 
   request-promise-core@1.1.4(request@2.88.2):
     dependencies:
-      lodash: 4.17.23
+      lodash: 4.18.1
       request: 2.88.2
 
   request-promise-native@1.0.9(request@2.88.2):
@@ -54645,7 +54647,7 @@ snapshots:
     dependencies:
       argparse: 1.0.10
       cubic2quad: 1.2.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       microbuffer: 1.0.0
       svgpath: 2.6.0
       xmldom: '@xmldom/xmldom@0.8.10'
@@ -54655,7 +54657,7 @@ snapshots:
       '@xmldom/xmldom': 0.7.13
       argparse: 2.0.1
       cubic2quad: 1.2.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       microbuffer: 1.0.0
       svgpath: 2.6.0
 
@@ -54760,7 +54762,7 @@ snapshots:
       immutable: 3.8.3
       js-file-download: 0.4.12
       js-yaml: 4.1.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       prop-types: 15.8.1
       randexp: 0.5.3
       randombytes: 2.1.0
@@ -54801,7 +54803,7 @@ snapshots:
       immutable: 3.8.3
       js-file-download: 0.4.12
       js-yaml: 4.1.1
-      lodash: 4.17.23
+      lodash: 4.18.1
       prop-types: 15.8.1
       randexp: 0.5.3
       randombytes: 2.1.0
@@ -54964,7 +54966,7 @@ snapshots:
       is-regex: 1.2.1
       is-symbol: 1.1.1
       isobject: 4.0.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
 
   telejson@6.0.8:
@@ -54975,7 +54977,7 @@ snapshots:
       is-regex: 1.2.1
       is-symbol: 1.1.1
       isobject: 4.0.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       memoizerific: 1.11.3
 
   temp@0.8.4:
@@ -57267,7 +57269,7 @@ snapshots:
   webpack-manifest-plugin@1.3.2(webpack@3.8.1):
     dependencies:
       fs-extra: 0.30.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       webpack: 3.8.1
 
   webpack-merge@5.10.0:
