@@ -30,6 +30,7 @@ interface OptionProps {
     id?: string;
     content?: string | ReactNode;
     value: any;
+    disabled?: boolean;
 }
 
 const RadioButtonContainer = styled.div<RadioButtonContainerProps>`
@@ -63,6 +64,7 @@ export const RadioButtonGroup = React.forwardRef<HTMLInputElement, RadioButtonGr
                         key={index}
                         id={option.id}
                         value={option.value}
+                        disabled={option.disabled || undefined}
                     >
                         {option.content}
                     </VSCodeRadio>

@@ -583,6 +583,9 @@ importers:
       '@wso2/ballerina-visualizer':
         specifier: workspace:*
         version: link:../ballerina-visualizer
+      '@wso2/copilot-utilities':
+        specifier: workspace:*
+        version: link:../../common-libs/copilot-utilities
       '@wso2/font-wso2-vscode':
         specifier: workspace:*
         version: link:../../common-libs/font-wso2-vscode
@@ -689,6 +692,9 @@ importers:
         specifier: 5.0.5
         version: 5.0.5(@types/react@18.2.0)(react@19.1.0)(use-sync-external-store@1.6.0(react@19.1.0))
     devDependencies:
+      '@playwright/test':
+        specifier: 1.55.1
+        version: 1.55.1
       '@sentry/webpack-plugin':
         specifier: 1.20.1
         version: 1.20.1(encoding@0.1.13)
@@ -713,6 +719,9 @@ importers:
       '@types/vscode-notebook-renderer':
         specifier: 1.72.2
         version: 1.72.2
+      '@wso2/playwright-vscode-tester':
+        specifier: workspace:*
+        version: link:../../common-libs/playwright-vscode-tester
       adm-zip:
         specifier: 0.5.16
         version: 0.5.16
@@ -1180,6 +1189,9 @@ importers:
       prosemirror-state:
         specifier: 1.4.3
         version: 1.4.3
+      prosemirror-tables:
+        specifier: 1.8.5
+        version: 1.8.5
       prosemirror-view:
         specifier: 1.41.3
         version: 1.41.3
@@ -2876,9 +2888,6 @@ importers:
         specifier: 4.38.3
         version: 4.38.3
     devDependencies:
-      '@playwright/test':
-        specifier: 1.55.1
-        version: 1.55.1
       '@types/mocha':
         specifier: 10.0.3
         version: 10.0.3
@@ -2900,9 +2909,6 @@ importers:
       '@vscode/vsce':
         specifier: 3.7.0
         version: 3.7.0
-      '@wso2/playwright-vscode-tester':
-        specifier: workspace:*
-        version: link:../../common-libs/playwright-vscode-tester
       copy-webpack-plugin:
         specifier: 13.0.0
         version: 13.0.0(webpack@5.104.1)
@@ -3207,6 +3213,15 @@ importers:
         specifier: 5.2.3
         version: 5.2.3(webpack-cli@6.0.1)(webpack@5.104.1)
 
+  ../../workspaces/common-libs/copilot-utilities:
+    devDependencies:
+      '@types/node':
+        specifier: 22.15.21
+        version: 22.15.21
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+
   ../../workspaces/common-libs/font-wso2-vscode:
     devDependencies:
       '@twbs/fantasticon':
@@ -3483,6 +3498,9 @@ importers:
 
   ../../workspaces/hurl-client/hurl-client-extension:
     dependencies:
+      '@wso2/api-tryit-core':
+        specifier: workspace:*
+        version: link:../../api-tryit/api-tryit-core
       '@wso2/api-tryit-hurl-parser':
         specifier: workspace:*
         version: link:../../api-tryit/hurl-parser
@@ -20576,6 +20594,9 @@ packages:
   prosemirror-keymap@1.2.2:
     resolution: {integrity: sha512-EAlXoksqC6Vbocqc0GtzCruZEzYgrn+iiGnNjsJsH4mrnIGex4qbLdWWNza3AW5W36ZRrlBID0eM6bdKH4OStQ==}
 
+  prosemirror-keymap@1.2.3:
+    resolution: {integrity: sha512-4HucRlpiLd1IPQQXNqeo81BGtkY8Ai5smHhKW9jjPKRc2wQIxksg7Hl1tTI2IfT2B/LgX6bfYvXxEpJl7aKYKw==}
+
   prosemirror-markdown@1.13.2:
     resolution: {integrity: sha512-FPD9rHPdA9fqzNmIIDhhnYQ6WgNoSWX9StUZ8LEKapaXU9i6XgykaHKhp6XMyXlOWetmaFgGDS/nu/w9/vUc5g==}
 
@@ -20596,6 +20617,9 @@ packages:
 
   prosemirror-view@1.41.3:
     resolution: {integrity: sha512-SqMiYMUQNNBP9kfPhLO8WXEk/fon47vc52FQsUiJzTBuyjKgEcoAwMyF04eQ4WZ2ArMn7+ReypYL60aKngbACQ==}
+
+  prosemirror-view@1.41.7:
+    resolution: {integrity: sha512-jUwKNCEIGiqdvhlS91/2QAg21e4dfU5bH2iwmSDQeosXJgKF7smG0YSplOWK0cjSNgIqXe7VXqo7EIfUFJdt3w==}
 
   protobufjs@7.2.5:
     resolution: {integrity: sha512-gGXRSXvxQ7UiPgfw8gevrfRWcTlSbOFg+p/N+JVJEK5VhueL2miT6qTymqAmjr1Q5WbOCyJbyrk6JfWKwlFn6A==}
@@ -38633,8 +38657,8 @@ snapshots:
 
   '@webpack-cli/configtest@3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)':
     dependencies:
-      webpack: 5.104.1(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack@5.104.1)
+      webpack: 5.104.1(@swc/core@1.15.18(@swc/helpers@0.5.19))(webpack-cli@6.0.1)
+      webpack-cli: 6.0.1(webpack-dev-server@5.2.3)(webpack@5.104.1)
 
   '@webpack-cli/info@1.5.0(webpack-cli@4.10.0)':
     dependencies:
@@ -38648,8 +38672,8 @@ snapshots:
 
   '@webpack-cli/info@3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)':
     dependencies:
-      webpack: 5.104.1(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack@5.104.1)
+      webpack: 5.104.1(@swc/core@1.15.18(@swc/helpers@0.5.19))(webpack-cli@6.0.1)
+      webpack-cli: 6.0.1(webpack-dev-server@5.2.3)(webpack@5.104.1)
 
   '@webpack-cli/serve@1.7.0(webpack-cli@4.10.0)':
     dependencies:
@@ -46722,10 +46746,7 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:
@@ -51231,6 +51252,11 @@ snapshots:
       prosemirror-state: 1.4.3
       w3c-keyname: 2.2.8
 
+  prosemirror-keymap@1.2.3:
+    dependencies:
+      prosemirror-state: 1.4.3
+      w3c-keyname: 2.2.8
+
   prosemirror-markdown@1.13.2:
     dependencies:
       '@types/markdown-it': 14.1.2
@@ -51266,6 +51292,12 @@ snapshots:
       prosemirror-model: 1.25.4
       prosemirror-state: 1.4.3
       prosemirror-transform: 1.12.0
+
+  prosemirror-view@1.41.7:
+    dependencies:
+      prosemirror-model: 1.25.4
+      prosemirror-state: 1.4.3
+      prosemirror-transform: 1.11.0
 
   protobufjs@7.2.5:
     dependencies:
@@ -53351,7 +53383,7 @@ snapshots:
     dependencies:
       iconv-lite: 0.6.3
       source-map-js: 1.2.1
-      webpack: 5.104.1(webpack-cli@5.1.4)
+      webpack: 5.104.1(webpack-cli@4.10.0)
 
   source-map-resolve@0.6.0:
     dependencies:
