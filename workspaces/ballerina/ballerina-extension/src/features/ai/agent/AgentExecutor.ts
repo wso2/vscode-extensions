@@ -198,7 +198,8 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 allModifiedFiles,
                 projects,
                 generationType: GenerationType.CODE_GENERATION,
-                projectRootPath: this.config.executionContext.workspacePath || this.config.executionContext.projectPath || '',
+                projectRootPath: this.config.executionContext.projectPath || this.config.executionContext.workspacePath || '',
+                workspaceRootPath: this.config.executionContext.workspacePath || '',
                 generationId: this.config.generationId,
                 threadId: 'default',
                 runningServices: runningServicesManager,
@@ -209,11 +210,16 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             let tools = ballerinaTools;
             // todo: just check if wi extension is installed instead of login method
             if (AIStateMachine.context().loginMethod === LoginMethod.BI_INTEL) {
+                if (!this.config.executionContext?.projectPath){
+                    throw new Error("Please navigate into a particular project in the Ballerina visualizer and try again")
+                }
+                const projectSubPath = path.relative(this.config.executionContext?.workspacePath, this.config.executionContext?.projectPath);
+                const tempProjectPath = path.join(this.config.executionContext?.tempProjectPath, projectSubPath);
                 const devantTools = await createDevantToolRegistry({
                     eventHandler: this.config.eventHandler,
                     tempProjectPath,
+                    rootTempPath: this.config.executionContext?.tempProjectPath,
                     modifiedFiles,
-                    projectName: projects[0]?.projectName,
                 });
                 tools = { ...ballerinaTools, ...devantTools };
             }
@@ -336,7 +342,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
 
             this.config.eventHandler({
                 type: "error",
-                content: "An error occurred during agent execution. Please check the logs for details."
+                content: (error as Error).message || "An error occurred during agent execution. Please check the logs for details."
             });
 
             // For other errors, return result with error

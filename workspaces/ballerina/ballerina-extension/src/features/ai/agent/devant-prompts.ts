@@ -25,14 +25,9 @@ import {
     DEVANT_CREATE_CONNECTION_TOOL,
 } from './tools/devant/devant-create-connection';
 import {
-    DEVANT_GENERATE_OAS_CONNECTOR_TOOL,
-} from './tools/devant/devant-generate-oas-connector';
-import {
-    DEVANT_INITIALIZE_CONNECTOR_TOOL,
-} from './tools/devant/devant-initialize-connector';
-import {
     DEVANT_GET_SELECTED_INTEGRATION_TOOL,
 } from './tools/devant/devant-get-selected-integration';
+import { CONNECTOR_GENERATOR_TOOL } from './tools/connector-generator';
 import { LIBRARY_SEARCH_TOOL } from './tools/library-search';
 import { LIBRARY_GET_TOOL } from './tools/library-get';
 
@@ -113,37 +108,33 @@ Call **${DEVANT_CREATE_CONNECTION_TOOL}** with:
 This creates the connection in the Devant platform and returns:
 - \`isRest\`: whether the service has a REST / OpenAPI interface
 - \`detectedSecurityType\`: \`""\` | \`"oauth"\` | \`"apikey"\`
-- \`requireProxy\`: \`true\` when the service uses ORGANIZATION or PROJECT visibility (internal non-public services); \`false\` for 3rd party and PUBLIC services — pass directly to DevantInitializeConnectorTool
-- \`configEntries\`: array of config variable entries (name + envVariableName) needed for initialization
+- \`requireProxy\`: \`true\` when the service uses ORGANIZATION or PROJECT visibility; \`false\` for 3rd party and PUBLIC services
+- \`configEntries\`: array of config variable entries (name + envVariableName)
+- \`specFilePath\`: (if REST) path to the pre-saved OpenAPI spec file
+- \`moduleName\`: (if REST) derived module name for the connector
 
-### Step 3 — Obtain a Ballerina connector
+**Automatic initialization:** This tool also writes \`config.bal\` (configurable declarations, proxy config if needed) and — for REST services with a successful spec fetch — \`connections.bal\` (import + client initialization). You do NOT need to write these files manually for the REST path.
 
-**If \`isRest: true\`** → call **${DEVANT_GENERATE_OAS_CONNECTOR_TOOL}** with:
-- \`serviceId\`, \`connectionName\` (same as Step 2)
-- \`securityType\`: use \`detectedSecurityType\` from Step 2
+### Step 3 — Generate the Ballerina connector
 
-This fetches the OpenAPI spec from Devant and generates a custom Ballerina connector module.
-Returns: \`moduleName\`, \`importStatement\`, \`generatedFiles\` (use content directly, do NOT re-read files)
+**If \`isRest: true\` AND \`specFilePath\` is returned** → call **${CONNECTOR_GENERATOR_TOOL}** with:
+- \`serviceName\`: the service name from Step 2
+- \`specFilePath\`: from Step 2 result (the pre-saved OpenAPI spec path)
+- \`moduleName\`: from Step 2 result
 
-**If \`isRest: false\` OR Step 3 fails** → fall back to Ballerina Central:
+This generates a custom Ballerina connector module from the pre-saved OpenAPI spec without user interaction.
+Returns: \`moduleName\`, \`importStatement\`, \`generatedFiles\` (use content directly, do NOT re-read files).
+Since \`connections.bal\` and \`config.bal\` were already written in Step 2, the connection is fully initialized — proceed to use the connector in your code.
+
+**If \`isRest: true\` but no \`specFilePath\`** (IDL fetch failed) → fall back to Ballerina Central:
 1. Call **${LIBRARY_SEARCH_TOOL}** with keywords derived from the service name
 2. Call **${LIBRARY_GET_TOOL}** to get full API details for the best matching library
-3. Use the library's Client type for initialization in Step 4
+3. Write \`connections.bal\` yourself using the library module and the \`configEntries\` from Step 2. Use \`os:getEnv(envVariableName)\` for each config entry.
 
-### Step 4 — Initialize the connector
-Call **${DEVANT_INITIALIZE_CONNECTOR_TOOL}** with:
-- \`connectionName\`: same as Step 2 (use \`resolvedConnectionName\`)
-- \`moduleName\`: from Step 3 (OAS generator output or the Ballerina Central package module path)
-- \`securityType\`, \`requireProxy\`: use values returned directly by Step 2 — do not re-derive from visibility
-- \`configEntries\`: pass the \`configEntries\` array directly from Step 2
-- \`configs\`: object mapping \`serviceUrlVarName\`, \`apiKeyVarName\`, etc. to the config variable names from Step 2's \`configEntries\`:
-  - \`serviceUrlVarName\`: \`name\` from configEntries where \`id === "ServiceURL"\`
-  - \`apiKeyVarName\`: \`name\` from configEntries where \`id === "ChoreoAPIKey"\` (apikey auth)
-  - \`tokenUrlVarName\`: \`name\` from configEntries where \`id === "TokenURL"\` (oauth)
-  - \`clientIdVarName\`: \`name\` from configEntries where \`id === "ConsumerKey"\` (oauth)
-  - \`clientSecretVarName\`: \`name\` from configEntries where \`id === "ConsumerSecret"\` (oauth)
-
-This writes the import statement and client initialization to \`connections.bal\`, and writes all configurable declarations to \`config.bal\` automatically.
+**If \`isRest: false\`** → fall back to Ballerina Central:
+1. Call **${LIBRARY_SEARCH_TOOL}** with keywords derived from the service name
+2. Call **${LIBRARY_GET_TOOL}** to get full API details for the best matching library
+3. Write \`connections.bal\` yourself using the library module and the \`configEntries\` from Step 2. Use \`os:getEnv(envVariableName)\` for each config entry.
 
 ## Quick Reference: Tool Sequence
 
@@ -153,16 +144,13 @@ ${DEVANT_GET_SELECTED_INTEGRATION_TOOL}() → orgId, orgUuid, projectId, compone
 ${DEVANT_LIST_MARKETPLACE_SERVICES_TOOL}(orgId, projectId, query) → serviceId
   ↓
 ${DEVANT_CREATE_CONNECTION_TOOL}(serviceId, connectionName, orgId, orgUuid, projectId, componentId, componentType)
-  → isRest, detectedSecurityType, requireProxy, configEntries
+  → creates platform connection, writes config.bal + connections.bal (for REST)
+  → isRest, specFilePath?, moduleName?, connectionCode?, configEntries
   ↓
-[if REST] ${DEVANT_GENERATE_OAS_CONNECTOR_TOOL}(serviceId, connectionName, securityType)
-  → moduleName, importStatement, generatedFiles
-[if non-REST or fails] ${LIBRARY_SEARCH_TOOL} + ${LIBRARY_GET_TOOL}
-  → library module name
-  ↓
-${DEVANT_INITIALIZE_CONNECTOR_TOOL}(connectionName, moduleName, securityType, requireProxy, configEntries, configs)
-  → writes import + client init to connections.bal
-  → writes configurable declarations to config.bal
+[if REST + specFilePath] ${CONNECTOR_GENERATOR_TOOL}(serviceName, specFilePath, moduleName)
+  → generates connector module → connection is fully ready
+[if non-REST or no specFilePath] ${LIBRARY_SEARCH_TOOL} + ${LIBRARY_GET_TOOL}
+  → find library → write connections.bal using configEntries and os:getEnv()
 \`\`\`
 
 ## Important Rules
@@ -171,11 +159,8 @@ ${DEVANT_INITIALIZE_CONNECTOR_TOOL}(connectionName, moduleName, securityType, re
 - **Always communicate the connection scope** to the user before creating the connection (integration-level or project-level).
 - **Pass context as parameters** — do not read org/project/component from internal state; pass the values returned by DevantGetSelectedIntegrationTool explicitly.
 - **Always use marketplace services via Devant connections** — do not hardcode API keys or construct HTTP clients manually when the service is in the marketplace.
-- **connections.bal** holds all Devant connection client initializations. It is auto-imported by Ballerina.
-- **config.bal** holds all \`configurable\` declarations for environment-specific values (URLs, tokens, keys). These are written automatically by **${DEVANT_INITIALIZE_CONNECTOR_TOOL}** — do not write them manually.
-- The \`configEntries\` from **${DEVANT_CREATE_CONNECTION_TOOL}** already contain the correct environment variable names — use them directly, do not invent your own names.
-- If security type is \`"oauth"\`, the configs will include \`ConsumerKey\`, \`ConsumerSecret\`, \`TokenURL\`, and \`ServiceURL\` entries.
-- If security type is \`"apikey"\`, the configs will include \`ChoreoAPIKey\` and \`ServiceURL\` entries.
-- If security type is \`""\` (none), only \`ServiceURL\` is needed.
+- **connections.bal** holds all Devant connection client initializations. It is auto-imported by Ballerina. For REST services, this file is written automatically by ${DEVANT_CREATE_CONNECTION_TOOL}. For non-REST services (library fallback), write it yourself using the library module and \`configEntries\` — use \`os:getEnv(envVariableName)\` for each config value.
+- **config.bal** holds all \`configurable\` declarations for environment-specific values (URLs, tokens, keys). It is written automatically by ${DEVANT_CREATE_CONNECTION_TOOL} — do not write it manually.
+- **Do not duplicate** imports or configurable declarations that already exist in the file.
 `.trim();
 }

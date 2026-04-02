@@ -22,6 +22,7 @@ import { WorkspaceConfiguration, workspace, Uri, RelativePattern, extensions } f
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from '@iarna/toml';
+import * as toml from "@iarna/toml";
 
 export enum VERSION {
     BETA = 'beta',
@@ -339,7 +340,7 @@ export async function getProjectTomlValues(projectPath: string): Promise<Partial
     if (fs.existsSync(ballerinaTomlPath)) {
         const tomlContent = await fs.promises.readFile(ballerinaTomlPath, 'utf-8');
         try {
-            return parse(tomlContent) as Partial<PackageTomlValues>;
+            return toml.parse(tomlContent) as Partial<PackageTomlValues>;
         } catch (error) {
             console.error("Failed to load Ballerina.toml content for project at path: ", projectPath, error);
             return;
@@ -352,7 +353,7 @@ export async function getWorkspaceTomlValues(workspacePath: string): Promise<Par
     if (fs.existsSync(ballerinaTomlPath)) {
         const tomlContent = await fs.promises.readFile(ballerinaTomlPath, 'utf-8');
         try {
-            return parse(tomlContent) as Partial<WorkspaceTomlValues>;
+            return toml.parse(tomlContent) as Partial<WorkspaceTomlValues>;
         } catch (error) {
             console.error("Failed to load Ballerina.toml content for workspace at path: ", workspacePath, error);
             return;

@@ -56,6 +56,7 @@ export interface ToolRegistryOptions {
     allModifiedFiles: Set<string>;
     projects: ProjectSource[];
     generationType: GenerationType;
+    workspaceRootPath: string;
     projectRootPath: string;
     generationId: string;
     threadId?: string;
@@ -65,7 +66,7 @@ export interface ToolRegistryOptions {
 }
 
 export function createToolRegistry(opts: ToolRegistryOptions) {
-    const { eventHandler, tempProjectPath, modifiedFiles, allModifiedFiles, projects, generationType, projectRootPath, generationId, threadId, webSearchEnabled, ctx } = opts;
+    const { eventHandler, tempProjectPath, modifiedFiles, allModifiedFiles, projects, generationType, workspaceRootPath, projectRootPath, generationId, threadId, webSearchEnabled, ctx } = opts;
     return {
         [TASK_WRITE_TOOL_NAME]: createTaskWriteTool(
             eventHandler,
@@ -87,6 +88,8 @@ export function createToolRegistry(opts: ToolRegistryOptions) {
         ),
         [CONNECTOR_GENERATOR_TOOL]: createConnectorGeneratorTool(
             eventHandler,
+            workspaceRootPath,
+            projectRootPath,
             tempProjectPath,
             projects[0].projectName,
             modifiedFiles

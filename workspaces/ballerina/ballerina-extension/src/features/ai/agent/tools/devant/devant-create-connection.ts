@@ -31,7 +31,9 @@ import { ModulePart, STKindChecker, CaptureBindingPattern } from "@wso2/syntax-t
 import { CopilotEventHandler } from "../../../utils/events";
 import { WI_EXTENSION_ID, getOrgPackageName } from "../../../../../utils/config";
 import { platformExtStore } from "../../../../../rpc-managers/platform-ext/platform-store";
+import { processOpenApiWithApiKeyAuth } from "../../../../../rpc-managers/platform-ext/platform-utils";
 import { StateMachine } from "../../../../../stateMachine";
+import { writeConfigBal, writeConnectionsBal } from "./devant-connection-utils";
 
 export const DEVANT_CREATE_CONNECTION_TOOL = "DevantCreateConnectionTool";
 
@@ -48,9 +50,11 @@ const DevantCreateConnectionInputSchema = z.object({
 export function createDevantCreateConnectionTool(
     eventHandler: CopilotEventHandler,
     tempProjectPath?: string,
+    rootTempPath?: string,
+    modifiedFiles?: string[],
 ) {
     return tool({
-        description: `Creates a Devant connection from a marketplace service.
+        description: `Creates a Devant connection from a marketplace service and initializes configuration files.
 
 **Prerequisites (call in order):**
 1. DevantGetSelectedIntegrationTool → provides orgId, orgUuid, projectId, componentId, componentType, connectionScope
@@ -77,15 +81,20 @@ export function createDevantCreateConnectionTool(
 1. Sanitizes and resolves a unique connectionName
 2. Fetches the marketplace item details (serviceType, visibility, connection schemas)
 3. Creates the connection record in the Devant platform backend
-4. Returns everything needed for the next steps
+4. For REST services: fetches the OpenAPI spec from the marketplace, injects auth schemes, and saves the spec
+5. Writes configurable declarations to \`config.bal\` (service URL, API keys, OAuth tokens, proxy config)
+6. For REST services with spec: writes import + client initialization to \`connections.bal\`
 
 **Returns:**
 - \`resolvedConnectionName\`: The actual connection variable name used (may differ from input if sanitized/suffixed)
-- \`isRest\`: true → use DevantGenerateOASConnectorTool next; false → use LibrarySearchTool
-- \`detectedSecurityType\`: "" | "oauth" | "apikey" — pass directly to subsequent tools
-- \`requireProxy\`: true when the service has ORGANIZATION or PROJECT visibility (internal non-public services) — pass directly to DevantInitializeConnectorTool; false for 3rd party and PUBLIC services
-- \`configEntries\`: array of { id, name, envVariableName, isSecret } — pass directly to DevantInitializeConnectorTool
-  - \`name\` is the ready-to-use Ballerina configurable variable name, unique across all existing project configs`,
+- \`isRest\`: true → includes \`specFilePath\` and \`moduleName\` for ConnectorGeneratorTool; false → use LibrarySearchTool
+- \`specFilePath\`: (if REST) path to the pre-saved OpenAPI spec file — pass to ConnectorGeneratorTool
+- \`moduleName\`: (if REST) derived module name for the connector
+- \`detectedSecurityType\`: "" | "oauth" | "apikey"
+- \`requireProxy\`: true when the service has ORGANIZATION or PROJECT visibility
+- \`configEntries\`: array of { id, name, envVariableName, isSecret }
+- \`connectionCode\`: (if written) the client initialization code written to connections.bal
+- \`importStatement\`: (if written) the import statement written to connections.bal`,
         inputSchema: DevantCreateConnectionInputSchema,
         execute: async (input, context?: { toolCallId?: string }) => {
             const toolCallId = context?.toolCallId ?? `fallback-${Date.now()}`;
@@ -98,7 +107,7 @@ export function createDevantCreateConnectionTool(
             });
 
             try {
-                const result = await executeCreateConnection(input, tempProjectPath);
+                const result = await executeCreateConnection(input, tempProjectPath, rootTempPath, modifiedFiles);
 
                 eventHandler({
                     type: "tool_result",
@@ -139,6 +148,8 @@ async function executeCreateConnection(
         componentType: string;
     },
     tempProjectPath?: string,
+    rootTempPath?: string,
+    modifiedFiles?: string[],
 ) {
     // 1. Sanitize the raw name into a valid Ballerina identifier (no API calls needed)
     const sanitized = sanitizeName(input.connectionName);
@@ -277,14 +288,84 @@ async function executeCreateConnection(
 
     let detectedSecurityType: "" | "oauth" | "apikey" = "";
     if (!isThirdParty) {
-        detectedSecurityType = schemaName?.toLowerCase().includes("oauth") ? "oauth" : "apikey" 
+        detectedSecurityType = schemaName?.toLowerCase().includes("oauth") ? "oauth" : "apikey";
     }
 
-    // requireProxy is true when the service is internal (non-3rd-party) and its schema
-    // name indicates ORGANIZATION or PROJECT visibility — mirrors rpc-manager.ts:821-824.
+    // requireProxy mirrors rpc-manager.ts:821-824 — using the same ServiceInfoVisibilityEnum.
     // Third-party services always default to PUBLIC visibility → no proxy needed.
-    const requireProxy = !isThirdParty &&
-        (schemaName?.toLowerCase().includes("organization") || schemaName?.toLowerCase().includes("project"));
+    const visibility = getVisibilityOfConnectionSchema(defaultSchema);
+    const requireProxy = !isThirdParty && [
+        ServiceInfoVisibilityEnum.Organization.toString(),
+        ServiceInfoVisibilityEnum.Project.toString(),
+    ].includes(visibility);
+
+    // For REST services, fetch the OpenAPI spec from the marketplace and save it for
+    // ConnectorGeneratorTool to use directly (avoiding a separate tool round-trip).
+    let specFilePath: string | undefined;
+    let moduleName: string | undefined;
+
+    if (isRest && tempProjectPath) {
+        try {
+            const serviceIdl = await cloudAPIs.getMarketplaceIdl({
+                orgId,
+                serviceId: input.serviceId,
+            });
+
+            if (serviceIdl?.content && serviceIdl.idlType === "OpenAPI") {
+                const processedSpec = processOpenApiWithApiKeyAuth(serviceIdl.content, detectedSecurityType);
+                moduleName = resolvedConnectionName.replace(/[_\-\s]/g, "").toLowerCase();
+
+                const choreoDir = path.join(tempProjectPath, ".choreo");
+                if (!fs.existsSync(choreoDir)) {
+                    fs.mkdirSync(choreoDir, { recursive: true });
+                }
+
+                specFilePath = path.join(choreoDir, `${moduleName}-spec.yaml`);
+                fs.writeFileSync(specFilePath, processedSpec, "utf8");
+
+                if (modifiedFiles) {
+                    const trackingBase = rootTempPath || tempProjectPath;
+                    modifiedFiles.push(path.relative(trackingBase, specFilePath));
+                }
+            }
+        } catch {
+            // IDL fetch failure is non-fatal — agent will fall back to LibrarySearchTool
+        }
+    }
+
+    // Write config.bal and connections.bal using shared Templates (same as GUI flow).
+    // This is done eagerly so the agent doesn't need a separate initialization step.
+    let connectionCode = "";
+    let importStatement = "";
+
+    if (tempProjectPath && configEntries.length > 0) {
+        // --- config.bal (always written) ---
+        writeConfigBal({
+            tempProjectPath,
+            configEntries,
+            requireProxy,
+            rootTempPath,
+            modifiedFiles,
+        });
+
+        // --- connections.bal (only when module name is known — REST with spec) ---
+        const { packageName: pkgName } = getOrgPackageName(tempProjectPath);
+        if (pkgName && moduleName) {
+            const result = writeConnectionsBal({
+                tempProjectPath,
+                packageName: pkgName,
+                moduleName,
+                connectionName: resolvedConnectionName,
+                securityType: detectedSecurityType,
+                requireProxy,
+                configEntries,
+                rootTempPath,
+                modifiedFiles,
+            });
+            connectionCode = result.connectionCode;
+            importStatement = result.importStatement;
+        }
+    }
 
     return {
         success: true,
@@ -297,12 +378,19 @@ async function executeCreateConnection(
         detectedSecurityType,
         requireProxy,
         configEntries,
+        specFilePath,
+        moduleName,
+        connectionCode: connectionCode.trim() || undefined,
+        importStatement: importStatement.trim() || undefined,
         message: `Successfully created Devant connection "${resolvedConnectionName}" for service "${marketplaceItem.name}" (${marketplaceItem.serviceType}).` +
             (resolvedConnectionName !== input.connectionName ? ` Note: connection name was resolved to "${resolvedConnectionName}" (sanitized/suffixed for uniqueness).` : "") +
-            (requireProxy ? " This service uses ORGANIZATION or PROJECT visibility — proxy config will be needed (devantProxyHost/devantProxyPort)." : "") +
-            (isRest
-                ? " This is a REST service — use DevantGenerateOASConnectorTool to generate a Ballerina connector from its OpenAPI spec."
-                : " This is a non-REST service — use LibrarySearchTool to find an appropriate Ballerina Central connector."),
+            (requireProxy ? " This service uses ORGANIZATION or PROJECT visibility — proxy config has been written to config.bal." : "") +
+            (connectionCode ? ` Connection initialization written to connections.bal and config.bal.` : "") +
+            (isRest && specFilePath
+                ? ` This is a REST service — call ConnectorGeneratorTool with specFilePath="${specFilePath}" and moduleName="${moduleName}" to generate a Ballerina connector. After generation, connections.bal will be ready to use.`
+                : isRest
+                    ? " This is a REST service but the OpenAPI spec could not be fetched — use LibrarySearchTool to find a Ballerina Central connector, then call DevantWriteConnectionTool with the library module name to write connections.bal."
+                    : " This is a non-REST service — use LibrarySearchTool to find an appropriate Ballerina Central connector, then call DevantWriteConnectionTool with the library module name to write connections.bal."),
     };
 }
 
@@ -316,7 +404,7 @@ const getPossibleSchema = (marketplaceItem: MarketplaceItem, projectId: string) 
         return orgLevel;
     }
     return marketplaceItem.connectionSchemas[0];
-}
+};
 
 const getVisibilityOfConnectionSchema = (connectionSchema: MarketplaceItemSchema) => {
     if(connectionSchema.name?.toLowerCase().includes("project")) {
@@ -325,7 +413,7 @@ const getVisibilityOfConnectionSchema = (connectionSchema: MarketplaceItemSchema
         return ServiceInfoVisibilityEnum.Organization;
     }
     return ServiceInfoVisibilityEnum.Public;
-}
+};
 
 /**
  * Sanitizes a raw name into a valid Ballerina identifier.
@@ -367,7 +455,7 @@ async function getExistingConnectionNamesFromFile(connectionsBal?: string): Prom
     }
     try {
         const uri = vscode.Uri.file(connectionsBal).toString();
-        StateMachine
+        StateMachine;
         const stResp = await StateMachine.context().langClient.getSyntaxTree({ documentIdentifier: { uri } }) as any;
         for (const member of (stResp?.syntaxTree as ModulePart)?.members ?? []) {
             if (STKindChecker.isModuleVarDecl(member)) {

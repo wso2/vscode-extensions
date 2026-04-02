@@ -34,20 +34,13 @@ import {
     createDevantCreateConnectionTool,
     DEVANT_CREATE_CONNECTION_TOOL,
 } from './tools/devant/devant-create-connection';
-import {
-    createDevantGenerateOASConnectorTool,
-    DEVANT_GENERATE_OAS_CONNECTOR_TOOL,
-} from './tools/devant/devant-generate-oas-connector';
-import {
-    createDevantInitializeConnectorTool,
-    DEVANT_INITIALIZE_CONNECTOR_TOOL,
-} from './tools/devant/devant-initialize-connector';
 
 export interface DevantToolRegistryOptions {
     eventHandler: CopilotEventHandler;
     tempProjectPath?: string;
+    /** Root temp workspace path — used for computing modifiedFiles relative paths so that integrateCodeToWorkspace can resolve them. */
+    rootTempPath?: string;
     modifiedFiles?: string[];
-    projectName?: string;
 }
 
 export async function createDevantToolRegistry(opts: DevantToolRegistryOptions) {
@@ -62,13 +55,7 @@ export async function createDevantToolRegistry(opts: DevantToolRegistryOptions) 
     // and therefore belong in the ballerina extension rather than wi-extension.
     const ballerinaDevantTools = {
         [DEVANT_GET_SELECTED_INTEGRATION_TOOL]: createDevantGetSelectedIntegrationTool(opts.eventHandler),
-        [DEVANT_CREATE_CONNECTION_TOOL]: createDevantCreateConnectionTool(opts.eventHandler, opts.tempProjectPath),
-        [DEVANT_GENERATE_OAS_CONNECTOR_TOOL]: createDevantGenerateOASConnectorTool(
-            opts.eventHandler, opts.tempProjectPath, opts.projectName, opts.modifiedFiles,
-        ),
-        [DEVANT_INITIALIZE_CONNECTOR_TOOL]: createDevantInitializeConnectorTool(
-            opts.eventHandler, opts.tempProjectPath, opts.projectName, opts.modifiedFiles,
-        ),
+        [DEVANT_CREATE_CONNECTION_TOOL]: createDevantCreateConnectionTool(opts.eventHandler, opts.tempProjectPath, opts.rootTempPath, opts.modifiedFiles),
     };
 
     return { ...wiDevantTools, ...ballerinaDevantTools };

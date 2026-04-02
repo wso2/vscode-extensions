@@ -17,6 +17,8 @@
 export interface SpecFetcherInput {
     serviceName: string;
     serviceDescription?: string;
+    specFilePath?: string;
+    moduleName?: string;
 }
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";

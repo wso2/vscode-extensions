@@ -36,17 +36,22 @@ import { LIBRARY_GET_TOOL } from "./library-get";
 import { approvalManager } from '../../state/ApprovalManager';
 import { sendAiSchemaDidOpen } from "../../utils/project/ls-schema-notifications";
 import { LIBRARY_SEARCH_TOOL } from "./library-search";
+import { PackageTomlValues } from "@wso2/ballerina-core";
+import * as toml from "@iarna/toml";
+import { getProjectTomlValues } from "../../../../utils";
 
 export const CONNECTOR_GENERATOR_TOOL = "ConnectorGeneratorTool";
 
 const SpecFetcherInputSchema = z.object({
     serviceName: z.string().describe("Name of the service/API that needs specification"),
     serviceDescription: z.string().optional().describe("Optional description of what the service is for"),
+    specFilePath: z.string().optional().describe("Pre-saved OpenAPI spec file path. When provided, skips user interaction and generates directly from this file."),
+    moduleName: z.string().optional().describe("Module name for the generated connector. Required when specFilePath is provided."),
 });
 
 
 
-export function createConnectorGeneratorTool(eventHandler: CopilotEventHandler, tempProjectPath: string, projectName?: string, modifiedFiles?: string[]) {
+export function createConnectorGeneratorTool(eventHandler: CopilotEventHandler, workspacePath: string, projectPath: string, tempProjectPath: string, projectName?: string, modifiedFiles?: string[]) {
     return tool({
         // TODO: Verify that the agent invokes LIBRARY_SEARCH_TOOL before LIBRARY_GET_TOOL and only falls back to this tool when no suitable library is found; update the tool description or agent prompt if the ordering is incorrect
         description: `
@@ -57,14 +62,20 @@ Use this tool when:
 2. User request is ambiguous and needs a SaaS connector
 3. User explicitly requests to create a SaaS connector
 4. After searching with ${LIBRARY_SEARCH_TOOL}, no suitable connector is found
+5. A pre-saved OpenAPI spec file path is available (e.g. from Devant marketplace via DevantCreateConnectionTool)
 
 **CRITICAL: Do NOT call this tool again for the same service if the user has already skipped it (errorCode: USER_SKIPPED). Accept the skip and proceed without the connector.**
 
+**Mode 1 — User-provided spec (default):**
+Call with serviceName only. The tool will request the OpenAPI spec from the user via UI.
+
+**Mode 2 — Pre-saved spec (programmatic):**
+Call with serviceName + specFilePath + moduleName. The tool will generate directly from the spec file without user interaction.
+Use this mode when DevantCreateConnectionTool returns a specFilePath (for Devant marketplace REST services).
+
 The tool will:
-1. Request OpenAPI spec from user (supports JSON and YAML formats)
-2. Generate complete Ballerina connector module with client class, typed methods, record types, and authentication
-3. Save the spec to resources/specs/ directory
-4. Generate connector files in generated/moduleName submodule
+1. Generate complete Ballerina connector module with client class, typed methods, record types, and authentication
+2. Generate connector files in generated/moduleName submodule
 
 Returns complete connector information (DO NOT read files, use the returned content directly):
 - moduleName: Name of the generated submodule
@@ -79,7 +90,7 @@ Returns complete connector information (DO NOT read files, use the returned cont
 **Result**: Returns importStatement and generatedFiles with complete content → Use importStatement in your code`,
         inputSchema: SpecFetcherInputSchema,
         execute: async (input: SpecFetcherInput): Promise<SpecFetcherResult> => {
-            return await ConnectorGeneratorTool(input, eventHandler, tempProjectPath, projectName, modifiedFiles);
+            return await ConnectorGeneratorTool(input, eventHandler, workspacePath, projectPath, tempProjectPath, projectName, modifiedFiles);
         },
     });
 }
@@ -87,6 +98,8 @@ Returns complete connector information (DO NOT read files, use the returned cont
 export async function ConnectorGeneratorTool(
     input: SpecFetcherInput,
     eventHandler: CopilotEventHandler,
+    workspacePath: string,
+    projectPath: string,
     tempProjectPath: string,
     projectName?: string,
     modifiedFiles?: string[]
@@ -107,6 +120,27 @@ export async function ConnectorGeneratorTool(
         );
     }
 
+    // Mode 2: Direct generation from pre-saved spec (used by Devant marketplace flow)
+    if (input.specFilePath && input.moduleName) {
+        try {
+            const result = await generateConnector(
+                input.specFilePath, workspacePath, projectPath, tempProjectPath, input.moduleName, projectName, modifiedFiles
+            );
+            return {
+                success: true,
+                message: `Connector successfully generated for "${input.serviceName}". Use the import statement: ${result.importStatement}`,
+                connector: {
+                    moduleName: result.moduleName,
+                    importStatement: result.importStatement,
+                    generatedFiles: result.generatedFiles,
+                },
+            };
+        } catch (error: any) {
+            return createErrorResult("INVALID_SPEC", error.message, input.serviceName, error.stack);
+        }
+    }
+
+    // Mode 1: Request spec from user via UI
     // requestId must be defined before try block to ensure it's available in catch
     const requestId = crypto.randomUUID();
 
@@ -132,6 +166,8 @@ export async function ConnectorGeneratorTool(
 
         const { moduleName, importStatement, generatedFiles } = await generateConnector(
             specFilePath,
+            workspacePath,
+            projectPath,
             tempProjectPath,
             sanitizedServiceName,
             projectName,
@@ -256,6 +292,8 @@ function sendGeneratingNotification(
 
 async function generateConnector(
     specFilePath: string,
+    workspacePath: string,
+    projectPath: string,
     tempProjectPath: string,
     moduleName: string,
     projectName?: string,
@@ -263,6 +301,10 @@ async function generateConnector(
 ): Promise<{ moduleName: string; importStatement: string; generatedFiles: Array<{ path: string; content: string }> }> {
     const importStatement = `import ${projectName || "project"}.${moduleName}`;
     const generatedFiles: Array<{ path: string; content: string }> = [];
+
+    const projectSubPath = path.relative(workspacePath, projectPath);
+    const rootTempPath = tempProjectPath;
+    tempProjectPath = path.join(tempProjectPath, projectSubPath);
 
     const response = await langClient.openApiGenerateClient({
         openApiContractPath: specFilePath,
@@ -294,7 +336,29 @@ async function generateConnector(
 
         // Track all generated files (including Ballerina.toml) for integration
         if (modifiedFiles) {
-            modifiedFiles.push(relativePath);
+            modifiedFiles.push(path.relative(rootTempPath, filePath));
+        }
+
+        // Update the Ballerina.toml file with the relative path of the openapi spec
+        if (filePath.endsWith("Ballerina.toml") && specFilePath.startsWith(tempProjectPath)) {
+            const updatedSpecPath = specFilePath.replace(tempProjectPath, '.');
+            // Replace the file path of the openapi spec to be relative path in the toml
+            const tomlValues = await getProjectTomlValues(tempProjectPath);
+            const updatedToml: Partial<PackageTomlValues> = {
+                ...tomlValues,
+                tool: {
+                    ...tomlValues?.tool,
+                    openapi: tomlValues.tool?.openapi?.map((item) => {
+                        if (item.id === moduleName) {
+                            return { ...item, filePath: updatedSpecPath };
+                        }
+                        return item;
+                    }),
+                },
+            };
+            const balTomlPath = path.join(tempProjectPath, "Ballerina.toml");
+            const updatedTomlContent = toml.stringify(JSON.parse(JSON.stringify(updatedToml)));
+            fs.writeFileSync(balTomlPath, updatedTomlContent, "utf-8");
         }
     }
 
