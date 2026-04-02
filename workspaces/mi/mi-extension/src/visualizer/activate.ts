@@ -604,12 +604,12 @@ export async function extractCAppDependenciesAsProjects(projectUri: string | und
 
             if (!fs.existsSync(carFileExtractedDir)) {
                 fs.mkdirSync(carFileExtractedDir, { recursive: true });
+                await importCapp({
+                    source: path.join(downloadedDir, carFile),
+                    directory: carFileExtractedDir,
+                    open: false
+                });
             }
-            await importCapp({
-                source: path.join(downloadedDir, carFile),
-                directory: carFileExtractedDir,
-                open: false
-            });
         }
     } catch (error: any) {
         vscode.window.showErrorMessage(`Failed to load integration project dependencies: ${error.message}`);
