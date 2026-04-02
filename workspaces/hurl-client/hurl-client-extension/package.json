@@ -1,27 +1,31 @@
 {
   "name": "hurl-client",
-  "displayName": "HTTP Client",
+  "displayName": "Hurl Client",
   "description": "Open and run .hurl files as interactive notebooks",
-  "version": "1.9.0",
+  "version": "0.9.3",
   "publisher": "wso2",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wso2/ballerina-plugin-vscode.git"
+    "url": "git+https://github.com/wso2/vscode-extensions.git"
   },
+  "keywords": [
+    "hurl",
+    "http",
+    "notebook",
+    "wso2"
+  ],
   "engines": {
     "vscode": "^1.100.0"
   },
   "categories": [
-    "Notebooks",
-    "Other"
+    "Notebooks"
   ],
   "activationEvents": [
-    "onNotebook:HTTPClient",
+    "onNotebook:HurlClient",
+    "onCommand:HurlClient.importHurlString",
     "onCommand:HTTPClient.importHurlString"
   ],
-  "extensionDependencies": [
-    "JacobPfeifer.pfeifer-hurl"
-  ],
+  "icon": "images/icon.png",
   "main": "./dist/extension.js",
   "contributes": {
     "languages": [
@@ -40,8 +44,8 @@
     ],
     "notebooks": [
       {
-        "type": "HTTPClient",
-        "displayName": "HTTP Client",
+        "type": "HurlClient",
+        "displayName": "Hurl Client",
         "selector": [
           {
             "filenamePattern": "*.hurl"
@@ -51,36 +55,60 @@
     ],
     "commands": [
       {
-        "command": "HTTPClient.openHurlNotebook",
-        "title": "HTTP Client: Open Hurl Notebook",
+        "command": "HurlClient.openHurlNotebook",
+        "title": "Hurl Client: Open Hurl Notebook",
         "icon": "$(notebook)"
       },
       {
-        "command": "HTTPClient.installHurl",
-        "title": "HTTP Client: Install Hurl",
+        "command": "HurlClient.installHurl",
+        "title": "Hurl Client: Install Hurl",
         "icon": "$(cloud-download)"
       },
       {
-        "command": "HTTPClient.importHurlString",
-        "title": "HTTP Client: Import Hurl String",
+        "command": "HurlClient.importHurlString",
+        "title": "Hurl Client: Import Hurl String",
         "icon": "$(edit)"
+      },
+      {
+        "command": "HTTPClient.openHurlNotebook",
+        "title": "HTTP Client: Open Hurl Notebook (Deprecated)"
+      },
+      {
+        "command": "HTTPClient.installHurl",
+        "title": "HTTP Client: Install Hurl (Deprecated)"
+      },
+      {
+        "command": "HTTPClient.importHurlString",
+        "title": "HTTP Client: Import Hurl String (Deprecated)"
       }
     ],
     "menus": {
       "commandPalette": [
         {
-          "command": "HTTPClient.openHurlNotebook"
+          "command": "HurlClient.openHurlNotebook"
         },
         {
-          "command": "HTTPClient.installHurl"
+          "command": "HurlClient.installHurl"
         },
         {
-          "command": "HTTPClient.importHurlString"
+          "command": "HurlClient.importHurlString"
+        },
+        {
+          "command": "HTTPClient.openHurlNotebook",
+          "when": "false"
+        },
+        {
+          "command": "HTTPClient.installHurl",
+          "when": "false"
+        },
+        {
+          "command": "HTTPClient.importHurlString",
+          "when": "false"
         }
       ],
       "explorer/context": [
         {
-          "command": "HTTPClient.openHurlNotebook",
+          "command": "HurlClient.openHurlNotebook",
           "when": "resourceExtname == .hurl",
           "group": "navigation"
         }
@@ -107,19 +135,19 @@
       }
     ],
     "configuration": {
-      "title": "HTTP Client",
+      "title": "Hurl Client",
       "properties": {
-        "http-client.hurl.path": {
+        "hurl-client.hurl.path": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to the hurl executable. If empty, HTTP Client uses managed install or PATH."
+          "description": "Absolute path to the hurl executable. If empty, Hurl Client uses managed install or PATH."
         },
-        "http-client.hurl.autoInstall": {
+        "hurl-client.hurl.autoInstall": {
           "type": "boolean",
           "default": true,
           "description": "Automatically download and install a managed hurl binary when needed."
         },
-        "http-client.hurl.version": {
+        "hurl-client.hurl.version": {
           "type": "string",
           "default": "7.1.0",
           "description": "Managed hurl version to install."
@@ -154,6 +182,7 @@
   "dependencies": {
     "@wso2/hurl-client-core": "workspace:*",
     "@wso2/api-tryit-hurl-runner": "workspace:*",
-    "@wso2/api-tryit-hurl-parser": "workspace:*"
+    "@wso2/api-tryit-hurl-parser": "workspace:*",
+    "@wso2/api-tryit-core": "workspace:*"
   }
 }
