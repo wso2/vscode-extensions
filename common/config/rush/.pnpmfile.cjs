@@ -30,6 +30,7 @@ module.exports = {
         if (deps['lodash']) deps['lodash'] = '4.18.0';
         if (deps['qs']) deps['qs'] = '6.14.2';
         if (deps['hono']) deps['hono'] = '4.12.7';
+        if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.3';
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.10';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
         if (deps['dompurify']) deps['dompurify'] = '3.3.2';

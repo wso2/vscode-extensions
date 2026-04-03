@@ -46,7 +46,7 @@ export function AuthenticationDialog(props: AuthenticationDialogProps) {
         operationType,
         sessionStorageKey,
         formValues,
-        signInMessage = 'You need to sign in to MI Copilot to use AI features. Would you like to sign in?',
+        signInMessage = 'You need to sign in to WSO2 Integrator Copilot to use AI features. Would you like to sign in?',
         waitingMessage = 'Please complete the sign-in process. Your operation will continue automatically after successful authentication.',
         dependencies = [],
         onSignInConfirm,
