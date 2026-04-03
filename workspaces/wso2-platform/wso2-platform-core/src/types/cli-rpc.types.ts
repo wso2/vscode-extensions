@@ -93,7 +93,7 @@ export interface CreateProjectReq {
 	orgId: string;
 	orgHandler: string;
 	projectName: string;
-	projectHandler: string;
+	projectHandler?: string;
 	region: string;
 }
 export interface UpdateProjectReq {
