@@ -121,6 +121,10 @@ function getAuthHeader() {
         return { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` };
     }
 
+    if (process.env.gitPAT) {
+        return { Authorization: `Bearer ${process.env.gitPAT}` };
+    }
+
     return {};
 }
 

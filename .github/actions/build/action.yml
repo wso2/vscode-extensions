@@ -179,6 +179,7 @@ runs:
         retention-days: 1
 
     - name: Validate Ballerina LS selection
+      if: ${{ inputs.ballerina == 'true' || inputs.bi == 'true' }}
       shell: bash
       run: |
         if [[ ("$IS_BALLERINA_RELEASE" == "true" || "$IS_BI_RELEASE" == "true") && "$BALLERINA_LS_RELEASE" == "N/A" ]]; then
@@ -197,6 +198,7 @@ runs:
         BALLERINA_LS_TAG: ${{ inputs.ballerinaLSTag }}
 
     - name: Download Ballerina LS
+      if: ${{ inputs.ballerina == 'true' || inputs.bi == 'true' }}
       shell: bash
       run: |
         args=()
@@ -209,11 +211,14 @@ runs:
           N/A)
             ;;
           latest)
+            echo "Using Ballerina LS source: latest"
             ;;
           pre-release)
+            echo "Using Ballerina LS source: pre-release"
             args+=(--prerelease)
             ;;
           specific-tag)
+            echo "Using Ballerina LS source: specific-tag ($BALLERINA_LS_TAG)"
             args+=(--tag "$BALLERINA_LS_TAG")
             ;;
           *)
