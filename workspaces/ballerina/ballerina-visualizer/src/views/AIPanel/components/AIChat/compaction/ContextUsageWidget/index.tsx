@@ -28,6 +28,7 @@ interface UsageBreakdown {
     systemInstructions: number;
     toolDefinitions: number;
     reservedOutput: number;
+    files: number;
     messages: number;
     toolResults: number;
 }
@@ -247,6 +248,10 @@ const ContextUsageWidget: React.FC<ContextUsageWidgetProps> = ({ percentage, inp
                             </CategoryRow>
 
                             <SectionLabel>User Context</SectionLabel>
+                            <CategoryRow>
+                                <CategoryName>Project Files</CategoryName>
+                                <CategoryPct>{toPct(breakdown.files)}</CategoryPct>
+                            </CategoryRow>
                             <CategoryRow>
                                 <CategoryName>Messages</CategoryName>
                                 <CategoryPct>{toPct(breakdown.messages)}</CategoryPct>
