@@ -41,6 +41,7 @@ const EVENT_INTEGRATION_MODULES = [
 ];
 const FILE_INTEGRATION_MODULES = [
     "ftp",
+    "smb", 
     "file"
 ];
 const AI_AGENT_MODULE = "ai";

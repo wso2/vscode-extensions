@@ -92,6 +92,8 @@ export function getCustomFileIntegrationIcon(type: string) {
     switch (type) {
         case "ftp":
             return <Icon name="bi-ftp" />;
+        case "smb":
+            return <Icon name="bi-smb" />;
         case "file":
             return <Icon name="bi-file" />;
         default:

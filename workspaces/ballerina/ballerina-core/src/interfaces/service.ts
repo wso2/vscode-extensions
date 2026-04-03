@@ -112,6 +112,7 @@ export enum Protocol {
     MESSAGE_BROKER = "MESSAGE_BROKER",
     GRAPHQL = "GRAPHQL",
     FTP = "FTP",
+    SMB = "SMB",
     CDC = "CDC"
 }
 
