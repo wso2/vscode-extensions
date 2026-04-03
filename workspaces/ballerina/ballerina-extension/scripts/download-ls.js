@@ -70,12 +70,7 @@ function checkExistingJar(expectedVersion) {
 
 function httpsRequest(url, options = {}) {
     return new Promise((resolve, reject) => {
-        const authHeader = {};
-        if (process.env.CHOREO_BOT_TOKEN) {
-            authHeader['Authorization'] = `Bearer ${process.env.CHOREO_BOT_TOKEN}`;
-        } else if (process.env.GITHUB_TOKEN) {
-            authHeader['Authorization'] = `Bearer ${process.env.GITHUB_TOKEN}`;
-        }
+        const authHeader = getAuthHeader();
 
         const req = https.request(url, {
             ...options,
@@ -117,6 +112,18 @@ function httpsRequest(url, options = {}) {
     });
 }
 
+function getAuthHeader() {
+    if (process.env.CHOREO_BOT_TOKEN) {
+        return { Authorization: `Bearer ${process.env.CHOREO_BOT_TOKEN}` };
+    }
+
+    if (process.env.GITHUB_TOKEN) {
+        return { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` };
+    }
+
+    return {};
+}
+
 function downloadFile(url, outputPath, maxRedirects = 5) {
     return new Promise((resolve, reject) => {
         const file = fs.createWriteStream(outputPath);
@@ -125,7 +132,8 @@ function downloadFile(url, outputPath, maxRedirects = 5) {
             const req = https.request(requestUrl, {
                 headers: {
                     'User-Agent': 'Ballerina-LS-Downloader',
-                    'Accept': 'application/octet-stream'
+                    'Accept': 'application/octet-stream',
+                    ...getAuthHeader()
                 }
             }, (res) => {
                 if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -141,10 +149,50 @@ function downloadFile(url, outputPath, maxRedirects = 5) {
                 }
 
                 if (res.statusCode >= 200 && res.statusCode < 300) {
+                    const totalBytes = Number(res.headers['content-length'] || 0);
+                    let downloadedBytes = 0;
+                    let lastLoggedAt = Date.now();
+
+                    const formatBytes = (bytes) => {
+                        if (bytes < 1024) {
+                            return `${bytes} B`;
+                        }
+
+                        if (bytes < 1024 * 1024) {
+                            return `${(bytes / 1024).toFixed(1)} KB`;
+                        }
+
+                        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+                    };
+
+                    res.on('data', (chunk) => {
+                        downloadedBytes += chunk.length;
+
+                        const now = Date.now();
+                        if (now - lastLoggedAt < 2000) {
+                            return;
+                        }
+
+                        lastLoggedAt = now;
+
+                        if (totalBytes > 0) {
+                            const percentage = ((downloadedBytes / totalBytes) * 100).toFixed(1);
+                            console.log(`Downloaded ${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)} (${percentage}%)`);
+                            return;
+                        }
+
+                        console.log(`Downloaded ${formatBytes(downloadedBytes)}`);
+                    });
+
                     res.pipe(file);
 
                     file.on('finish', () => {
                         file.close();
+                        if (totalBytes > 0) {
+                            console.log(`Downloaded ${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)} (100.0%)`);
+                        } else {
+                            console.log(`Downloaded ${formatBytes(downloadedBytes)}`);
+                        }
                         resolve();
                     });
 

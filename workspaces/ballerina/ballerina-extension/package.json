@@ -1419,8 +1419,8 @@
         "download-ls": "node scripts/download-ls.js",
         "download-ls:prerelease": "node scripts/download-ls.js --prerelease --replace",
         "verify-ls": "node scripts/verify-ls.js",
-        "build": "pnpm run compile && pnpm run lint && pnpm run postbuild",
-        "rebuild": "pnpm run clean && pnpm run compile && pnpm run postbuild",
+        "build": "pnpm run verify-ls && pnpm run compile && pnpm run lint && pnpm run postbuild",
+        "rebuild": "pnpm run verify-ls && pnpm run clean && pnpm run compile && pnpm run postbuild",
         "postbuild": "pnpm run copyFonts && pnpm run copyJSLibs && pnpm run package && pnpm run copyVSIX",
         "copyJSLibs": "copyfiles -f ../ballerina-visualizer/build/*.js resources/jslibs && copyfiles -f ../trace-visualizer/build/*.js resources/jslibs"
     },
