@@ -93,7 +93,13 @@ export interface CreateProjectReq {
 	orgId: string;
 	orgHandler: string;
 	projectName: string;
+	projectHandler: string;
 	region: string;
+}
+export interface UpdateProjectReq {
+	orgId: string;
+	orgUuid: string;
+	projectId: string;
 }
 export interface DeleteCompReq {
 	orgId: string;
@@ -680,6 +686,7 @@ export interface IChoreoRPCClient {
 	getProjects(orgID: string): Promise<Project[]>;
 	getComponentList(params: GetComponentsReq): Promise<ComponentKind[]>;
 	createProject(params: CreateProjectReq): Promise<Project>;
+	updateProject(params: UpdateProjectReq): Promise<Project>;
 	createComponent(params: CreateComponentReq): Promise<ComponentKind>;
 	getBuildPacks(params: BuildPackReq): Promise<Buildpack[]>;
 	getRepoBranches(params: GetBranchesReq): Promise<string[]>;
@@ -734,6 +741,9 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	}
 	createProject(params: CreateProjectReq): Promise<Project> {
 		return this._messenger.sendRequest(ChoreoRpcCreateProjectRequest, HOST_EXTENSION, params);
+	}
+	updateProject(params: UpdateProjectReq): Promise<Project> {
+		return this._messenger.sendRequest(ChoreoRpcUpdateProjectRequest, HOST_EXTENSION, params);
 	}
 	createComponent(params: CreateComponentReq): Promise<ComponentKind> {
 		return this._messenger.sendRequest(ChoreoRpcCreateComponentRequest, HOST_EXTENSION, params);
@@ -858,6 +868,7 @@ export const ChoreoRpcGetProjectsRequest: RequestType<string, Project[]> = { met
 export const ChoreoRpcGetComponentsRequest: RequestType<GetComponentsReq, ComponentKind[]> = { method: "rpc/component/getList" };
 export const ChoreoRpcGetComponentItemRequest: RequestType<GetComponentItemReq, ComponentKind> = { method: "rpc/component/getItem" };
 export const ChoreoRpcCreateProjectRequest: RequestType<CreateProjectReq, Project> = { method: "rpc/project/create" };
+export const ChoreoRpcUpdateProjectRequest: RequestType<UpdateProjectReq, Project> = { method: "rpc/project/update" };
 export const ChoreoRpcCreateComponentRequest: RequestType<CreateComponentReq, ComponentKind> = { method: "rpc/component/create" };
 export const ChoreoRpcGetBuildPacksRequest: RequestType<BuildPackReq, Buildpack[]> = { method: "rpc/component/getBuildPacks" };
 export const ChoreoRpcGetBranchesRequest: RequestType<GetBranchesReq, string[]> = { method: "rpc/repo/getBranches" };
