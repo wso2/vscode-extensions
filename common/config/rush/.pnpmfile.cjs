@@ -25,7 +25,8 @@ module.exports = {
         if (deps['js-yaml']) deps['js-yaml'] = '4.1.1';
         if (deps['diff']) deps['diff'] = '^8.0.3';
         if (deps['eslint']) deps['eslint'] = '^9.27.0';
-        if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.5.6';
+        if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.5.7';
+        if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.17.23';
         if (deps['qs']) deps['qs'] = '6.14.2';
         if (deps['hono']) deps['hono'] = '4.12.7';
@@ -35,7 +36,9 @@ module.exports = {
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2';
         if (deps['file-type']) deps['file-type'] = '21.3.2';
         if (deps['immutable']) deps['immutable'] = '3.8.3';
-        if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.3';
+        if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5';
+        if (deps['flatted']) deps['flatted'] = '3.4.2';
+        if (deps['handlebars']) deps['handlebars'] = '4.7.9';
         if (deps['undici']) deps['undici'] = '7.24.0';
         if (deps['yauzl']) deps['yauzl'] = '3.2.1';
         if (deps['bn.js']) {
@@ -65,6 +68,64 @@ module.exports = {
             newVersion = currentVersion;
           }
           deps['minimatch'] = newVersion;
+        }
+        if (deps['brace-expansion']) {
+          const currentVersion = deps['brace-expansion'];
+          let newVersion;
+          if (currentVersion.startsWith('^1') || currentVersion.startsWith('1')) {
+            newVersion = '1.1.13';
+          } else if (currentVersion.startsWith('^2') || currentVersion.startsWith('2')) {
+            newVersion = '2.0.3';
+          } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
+            newVersion = '3.0.2';
+          } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
+            newVersion = '5.0.5';
+          } else {
+            context.log(`Unexpected brace-expansion version: ${currentVersion}`);
+            newVersion = currentVersion;
+          }
+          deps['brace-expansion'] = newVersion;
+        }
+        if (deps['path-to-regexp']) {
+          const currentVersion = deps['path-to-regexp'];
+          let newVersion;
+          if (currentVersion.startsWith('^0.1') || currentVersion.startsWith('~0.1') || currentVersion.startsWith('0.1')) {
+            newVersion = '0.1.13';
+          } else if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
+            newVersion = '8.4.0';
+          } else {
+            context.log(`Unexpected path-to-regexp version: ${currentVersion}`);
+            newVersion = currentVersion;
+          }
+          deps['path-to-regexp'] = newVersion;
+        }
+        if (deps['picomatch']) {
+          const currentVersion = deps['picomatch'];
+          let newVersion;
+          if (currentVersion.startsWith('^2') || currentVersion.startsWith('2')) {
+            newVersion = '2.3.2';
+          } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
+            newVersion = '3.0.2';
+          } else if (currentVersion.startsWith('^4') || currentVersion.startsWith('4')) {
+            newVersion = '4.0.4';
+          } else {
+            context.log(`Unexpected picomatch version: ${currentVersion}`);
+            newVersion = currentVersion;
+          }
+          deps['picomatch'] = newVersion;
+        }
+        if (deps['yaml']) {
+          const currentVersion = deps['yaml'];
+          let newVersion;
+          if (currentVersion.startsWith('^1') || currentVersion.startsWith('1')) {
+            newVersion = '1.10.3';
+          } else if (currentVersion.startsWith('^2') || currentVersion.startsWith('2')) {
+            newVersion = '2.8.3';
+          } else {
+            context.log(`Unexpected yaml version: ${currentVersion}`);
+            newVersion = currentVersion;
+          }
+          deps['yaml'] = newVersion;
         }
       }
 
