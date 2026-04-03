@@ -220,6 +220,7 @@ function topAppFrames(continuations: string[], limit: number): { frames: string[
 
 const DEFAULT_MAX_STACK_FRAMES = 3;
 const MAX_ALLOWED_STACK_FRAMES = 15;
+const MAX_ALLOWED_TAIL_LINES = 10_000;
 
 /** Check if a parsed log entry matches a text query (searches message + className + all continuations). */
 function entryMatchesText(entry: ParsedLine, text: string): boolean {
@@ -256,11 +257,19 @@ function formatStructured(
 
     // Filter order: grep_pattern first, then artifact_name scopes further (AND logic)
     if (grepPattern) {
-        try {
-            const re = new RegExp(grepPattern, 'i');
-            parsed = parsed.filter(entry => entryMatchesRegex(entry, re));
-        } catch {
-            // invalid regex — skip
+        const MAX_GREP_PATTERN_LENGTH = 200;
+        if (grepPattern.length > MAX_GREP_PATTERN_LENGTH) {
+            // Pattern too long — fall back to literal substring match
+            const lowerPattern = grepPattern.substring(0, MAX_GREP_PATTERN_LENGTH).toLowerCase();
+            parsed = parsed.filter(entry => entryMatchesText(entry, lowerPattern));
+        } else {
+            try {
+                const re = new RegExp(grepPattern, 'i');
+                parsed = parsed.filter(entry => entryMatchesRegex(entry, re));
+            } catch {
+                // invalid regex — fall back to literal substring match
+                parsed = parsed.filter(entry => entryMatchesText(entry, grepPattern));
+            }
         }
     }
     if (artifactName) {
@@ -451,7 +460,7 @@ export function createReadServerLogsExecute(projectPath: string): ReadServerLogs
             };
         }
 
-        const tailLines = tail_lines ?? DEFAULT_TAIL_LINES[log_file];
+        const tailLines = Math.min(tail_lines ?? DEFAULT_TAIL_LINES[log_file], MAX_ALLOWED_TAIL_LINES);
         const stackFrameLimit = Math.min(max_stack_frames ?? DEFAULT_MAX_STACK_FRAMES, MAX_ALLOWED_STACK_FRAMES);
 
         let lines: string[];
@@ -499,7 +508,7 @@ const inputSchema = z.object({
             "'service' = wso2-mi-service.log — service lifecycle events. " +
             "'correlation' = correlation.log — per-request tracing."
         ),
-    tail_lines: z.number().optional()
+    tail_lines: z.number().int().nonnegative().optional()
         .describe('Lines to read from end of file. Defaults: 500 for main, 300 for errors, 100 for http/service/correlation.'),
     artifact_name: z.string().optional()
         .describe("Full-text filter across log entry (message, class name, and stack trace). Matches artifact names, class names, or any text. Applied after grep_pattern."),
@@ -508,7 +517,7 @@ const inputSchema = z.object({
     parse_mode: z.enum(['summary', 'raw'])
         .default('summary')
         .describe("'summary' = structured parse: grouped errors, deployment events, stats (default). 'raw' = return raw lines."),
-    max_stack_frames: z.number().optional()
+    max_stack_frames: z.number().int().nonnegative().optional()
         .describe('Max application stack frames to show per error in summary mode. Default 3, max 15. Increase when 3 frames are insufficient to identify root cause.'),
 });
 

@@ -18,6 +18,7 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { createWriteStream, WriteStream } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { logDebug, logError, logInfo } from '../copilot/logger';
@@ -160,7 +161,6 @@ export interface JournalEntry {
  * Metadata: ~/.wso2-mi/copilot/projects/<encoded-project>/<session-id>/metadata.json
  */
 export class ChatHistoryManager {
-    private static readonly MALFORMED_JSONL_LOG_SNIPPET_CHARS = 160;
     private projectPath: string;
     private sessionId: string;
     private sessionFile: string = '';
@@ -196,12 +196,10 @@ export class ChatHistoryManager {
             try {
                 entries.push(JSON.parse(line) as JournalEntry);
             } catch (error) {
-                const snippet = line.length > ChatHistoryManager.MALFORMED_JSONL_LOG_SNIPPET_CHARS
-                    ? `${line.slice(0, ChatHistoryManager.MALFORMED_JSONL_LOG_SNIPPET_CHARS)}...`
-                    : line;
+                const lineHash = crypto.createHash('sha256').update(line).digest('hex').substring(0, 8);
                 logError(
                     `[ChatHistory] Skipping malformed JSONL entry at ${path.basename(this.sessionFile)}:${index + 1} while ${context}. ` +
-                    `Entry prefix: ${snippet}`,
+                    `Length: ${line.length}, hash: ${lineHash}`,
                     error
                 );
             }
@@ -369,7 +367,7 @@ export class ChatHistoryManager {
     /**
      * Write session start entry
      */
-    private async writeSessionStart(): Promise<void> {
+    private async writeSessionStart(options?: { allowWhileClosing?: boolean }): Promise<void> {
         const entry: JournalEntry = {
             type: 'session_start',
             timestamp: new Date().toISOString(),
@@ -381,7 +379,7 @@ export class ChatHistoryManager {
             }
         };
 
-        await this.writeEntry(entry);
+        await this.writeEntry(entry, options);
     }
 
     /**
@@ -1043,13 +1041,14 @@ export class ChatHistoryManager {
 
             // Reopen write stream
             this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
-            this.isClosing = false;
 
-            // Write new session start
-            await this.writeSessionStart();
-
-            // Reset metadata
+            // Write new session start and reset metadata while still in closing state
+            // to prevent external writes from interleaving with bootstrap
+            await this.writeSessionStart({ allowWhileClosing: true });
             await this.createInitialMetadata();
+
+            // Only clear the guard after bootstrap writes complete
+            this.isClosing = false;
 
             logDebug('[ChatHistory] Cleared all messages');
         } catch (error) {
@@ -1319,12 +1318,10 @@ export class ChatHistoryManager {
                                 messageCount++;
                             }
                         } catch (parseError) {
-                            const snippet = line.length > ChatHistoryManager.MALFORMED_JSONL_LOG_SNIPPET_CHARS
-                                ? `${line.slice(0, ChatHistoryManager.MALFORMED_JSONL_LOG_SNIPPET_CHARS)}...`
-                                : line;
+                            const lineHash = crypto.createHash('sha256').update(line).digest('hex').substring(0, 8);
                             logError(
                                 `[ChatHistory] Skipping malformed JSONL entry at ${path.basename(historyPath)}:${index + 1} while building session summary ${sessionId}. ` +
-                                `Entry prefix: ${snippet}`,
+                                `Length: ${line.length}, hash: ${lineHash}`,
                                 parseError
                             );
                         }

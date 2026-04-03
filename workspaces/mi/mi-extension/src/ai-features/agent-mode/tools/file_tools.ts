@@ -369,7 +369,23 @@ function validateFilePathSecurity(projectPath: string, filePath: string): Valida
  * Validates file paths for text-only operations (write/edit/grep).
  */
 function validateTextFilePath(projectPath: string, filePath: string): ValidationResult {
-    return validateFilePathSecurity(projectPath, filePath);
+    const securityValidation = validateFilePathSecurity(projectPath, filePath);
+    if (!securityValidation.valid) {
+        return securityValidation;
+    }
+
+    // Reject non-text files (images, PDFs, binaries) to prevent corrupt overwrites
+    if (!isTextAllowedFilePath(filePath)) {
+        const fullPath = resolveFullPath(projectPath, filePath);
+        if (fs.existsSync(fullPath)) {
+            return {
+                valid: false,
+                error: `Cannot write/edit binary or non-text file '${filePath}'. Allowed text file types: ${getAllowedFileTypesDescription()}`
+            };
+        }
+    }
+
+    return { valid: true };
 }
 
 /**
@@ -849,10 +865,6 @@ export function createReadExecute(projectPath: string, readFiles?: Set<string>):
             };
         }
 
-        // Track that this file has been read (used by write tool's read-before-write guard)
-        readFiles?.add(file_path);
-        readFiles?.add(fullPath);
-
         const readOptionValidation = validateMultimodalReadOptions(file_path, { offset, limit, pages });
         if (!readOptionValidation.valid) {
             logError(`[FileReadTool] Invalid read options for file: ${file_path}`);
@@ -862,6 +874,11 @@ export function createReadExecute(projectPath: string, readFiles?: Set<string>):
                 error: `Error: ${ErrorMessages.INVALID_READ_OPTIONS}`
             };
         }
+
+        // Track that this file has been read (used by write tool's read-before-write guard)
+        // Placed after existence check and option validation so failed reads are not tracked.
+        readFiles?.add(file_path);
+        readFiles?.add(fullPath);
 
         const fileKind = getReadFileKind(file_path);
         if (fileKind === 'image') {
@@ -1289,10 +1306,13 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
                             break; // Only need one match per file
                         } else {
                             if (results.length >= head_limit) break;
+                            const trimmedLine = lines[i].trim();
                             results.push({
                                 file: relativePath,
                                 line: i + 1,
-                                content: lines[i].trim()
+                                content: trimmedLine.length > MAX_GREP_MATCH_LINE_LENGTH
+                                    ? trimmedLine.substring(0, MAX_GREP_MATCH_LINE_LENGTH) + '… [truncated]'
+                                    : trimmedLine
                             });
                         }
                     }
