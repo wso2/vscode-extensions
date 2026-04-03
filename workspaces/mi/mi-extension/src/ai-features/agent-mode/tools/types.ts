@@ -29,6 +29,7 @@ export interface DiagnosticInfo {
     severity: 'error' | 'warning' | 'info';
     line: number;
     message: string;
+    code?: string;           // LSP error code (e.g., "cvc-complex-type.2.4.a")
     codeActions?: string[];  // Optional LSP quick fix titles
 }
 
@@ -48,6 +49,7 @@ export interface ToolResult {
     validation?: ValidationDiagnostics;
 }
 
+/** @deprecated Replaced by simple old_string/new_string edit. Kept for reference only. */
 export interface FileEditHunk {
     old_text: string;
     new_text: string;
@@ -84,7 +86,14 @@ export const VALID_FILE_EXTENSIONS = [
     '.txt',
     '.log',
     '.java',
-    '.xslt'
+    '.xslt',
+    '.sql',
+    '.xsd',
+    '.wsdl',
+    '.csv',
+    '.html',
+    '.sh',
+    '.bat'
 ];
 
 /**
@@ -132,6 +141,37 @@ export const TASK_OUTPUT_TOOL_NAME = 'task_output';
 export const WEB_SEARCH_TOOL_NAME = 'web_search';
 export const WEB_FETCH_TOOL_NAME = 'web_fetch';
 
+// Memory Tool (Anthropic native memory_20250818)
+export const MEMORY_TOOL_NAME = 'memory';
+
+// Log Tools
+export const READ_SERVER_LOGS_TOOL_NAME = 'read_server_logs';
+
+// Tool Loading (local — replaces Anthropic native tool_search)
+export const TOOL_LOAD_TOOL_NAME = 'load_tools';
+
+// ============================================================================
+// Deferred Tools — hidden from initial prompt, loaded on-demand via tool_search
+// ============================================================================
+
+export const DEFERRED_TOOLS = new Set<string>([
+    CREATE_DATA_MAPPER_TOOL_NAME,
+    GENERATE_DATA_MAPPING_TOOL_NAME,
+    SERVER_MANAGEMENT_TOOL_NAME,
+    ENTER_PLAN_MODE_TOOL_NAME,
+    EXIT_PLAN_MODE_TOOL_NAME,
+    ASK_USER_TOOL_NAME,
+    SUBAGENT_TOOL_NAME,
+    KILL_TASK_TOOL_NAME,
+    TASK_OUTPUT_TOOL_NAME,
+    WEB_SEARCH_TOOL_NAME,
+    WEB_FETCH_TOOL_NAME,
+    READ_SERVER_LOGS_TOOL_NAME,
+]);
+
+// DeepWiki MCP Tool (Anthropic prefixes with server name: deepwiki_ask_question)
+export const DEEPWIKI_ASK_QUESTION_TOOL_NAME = 'ask_question';
+
 // ============================================================================
 // Subagent Types
 // ============================================================================
@@ -156,6 +196,7 @@ export interface BackgroundSubagent {
     subagentType: SubagentType;
     description: string;
     startTime: Date;
+    completedAt?: Date;
     output: string;           // accumulated text output
     completed: boolean;
     success: boolean | null;
@@ -218,7 +259,9 @@ export type ReadExecuteFn = (args: {
 
 export type EditExecuteFn = (args: {
     file_path: string;
-    hunks: FileEditHunk[];
+    old_string: string;
+    new_string: string;
+    replace_all?: boolean;
 }) => Promise<ToolResult>;
 
 export type GrepExecuteFn = (args: {
@@ -275,6 +318,15 @@ export type ServerManagementExecuteFn = (args: {
     artifact_name?: string;
     control_action?: string;
     body?: Record<string, unknown>;
+}) => Promise<ToolResult>;
+
+export type ReadServerLogsExecuteFn = (args: {
+    log_file?: 'errors' | 'main' | 'http' | 'service' | 'correlation';
+    tail_lines?: number;
+    artifact_name?: string;
+    grep_pattern?: string;
+    parse_mode?: 'summary' | 'raw';
+    max_stack_frames?: number;
 }) => Promise<ToolResult>;
 
 // ============================================================================

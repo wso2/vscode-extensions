@@ -17,27 +17,20 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { FlexRow, Footer, StyledTransParentButton, FloatingInputContainer } from "../styles";
+import { FlexRow, Footer, FloatingInputContainer } from "../styles";
 import { Codicon } from "@wso2/ui-toolkit";
 import { useMICopilotContext, AgentMode } from "./MICopilotContext";
 import { handleFileAttach, convertChatHistoryToModelMessages } from "../utils";
-import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
+import { VALID_FILE_TYPES } from "../constants";
 import { generateId, updateTokenInfo } from "../utils";
 import { BackendRequestType } from "../types";
-import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem, Question, UndoCheckpointSummary, PlanApprovalKind } from "@wso2/mi-core";
+import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem, Question, PlanApprovalKind } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 
 // Tool name constant
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
 const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
 const WEB_ACCESS_PREFERENCE_KEY = 'mi-agent-web-access-enabled';
-
-function removeCompactingPlaceholder(content: string): string {
-    return content
-        .replace(/\n\n<toolcall(?:\s+[^>]*)?>Compacting conversation\.\.\.<\/toolcall>/g, '')
-        .replace(/<toolcall(?:\s+[^>]*)?>Compacting conversation\.\.\.<\/toolcall>/g, '')
-        .trimEnd();
-}
 
 function appendThinkingPlaceholder(content: string, thinkingId: string): string {
     return `${content}\n\n<thinking data-id="${thinkingId}" data-loading="true"></thinking>`;
@@ -126,7 +119,6 @@ function upsertLoadingBashOutputTag(
 
 const WORKING_ON_IT_TOOL_MESSAGE = 'copilot is working on it...';
 const WORKING_ON_IT_DELAY_MS = 2000;
-const RUNNING_PLACEHOLDER_DOT_FRAMES = ['.  ', '.. ', '...', ' ..', '  .', ' ..'];
 // Stream safeguards for reconnect + polling fallback recovery.
 const ENABLE_STREAM_SAFEGUARDS = true;
 
@@ -208,57 +200,6 @@ function sanitizeSuggestedPrefixRule(value: unknown): string[] {
     return value.filter((item): item is string =>
         typeof item === 'string' && item.trim().length > 0
     );
-}
-
-function markFileChangesTagsAsNonUndoable(content: string): string {
-    return content.replace(/<filechanges>([\s\S]*?)<\/filechanges>/g, (fullMatch, summaryText) => {
-        try {
-            const summary = JSON.parse(summaryText) as UndoCheckpointSummary;
-            if (!summary || typeof summary !== "object") {
-                return fullMatch;
-            }
-            return `<filechanges>${JSON.stringify({ ...summary, undoable: false })}</filechanges>`;
-        } catch {
-            return fullMatch;
-        }
-    });
-}
-
-function hasFileChangesCheckpoint(content: string, checkpointId?: string): boolean {
-    if (!checkpointId) {
-        return false;
-    }
-
-    const regex = /<filechanges>([\s\S]*?)<\/filechanges>/g;
-    for (const match of content.matchAll(regex)) {
-        try {
-            const summary = JSON.parse(match[1]) as UndoCheckpointSummary;
-            if (summary?.checkpointId === checkpointId) {
-                return true;
-            }
-        } catch {
-            // Ignore malformed checkpoint tags.
-        }
-    }
-    return false;
-}
-
-function appendFileChangesTag(content: string, checkpoint?: UndoCheckpointSummary): string {
-    if (!checkpoint) {
-        return content;
-    }
-
-    const normalizedContent = markFileChangesTagsAsNonUndoable(content);
-    if (hasFileChangesCheckpoint(normalizedContent, checkpoint.checkpointId)) {
-        return normalizedContent;
-    }
-
-    const fileChangesTag = `<filechanges>${JSON.stringify(checkpoint)}</filechanges>`;
-    if (normalizedContent.includes(fileChangesTag)) {
-        return normalizedContent;
-    }
-
-    return normalizedContent ? `${normalizedContent}\n\n${fileChangesTag}` : fileChangesTag;
 }
 
 interface AIChatFooterProps {
@@ -388,7 +329,7 @@ function calculateTodoStatus(todos: TodoItem[]): 'active' | 'completed' | 'pendi
  * Footer component containing chat input and controls
  */
 const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) => {
-    const SHOW_THINKING_TOGGLE = false;
+    // Thinking toggle moved to SettingsPanel
     const {
         rpcClient,
         messages,
@@ -416,6 +357,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         addPendingApproval,
         removePendingApproval,
         clearPendingApprovals,
+        setPendingReview,
         todos,
         setTodos,
         isPlanMode,
@@ -425,7 +367,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         agentMode,
         setAgentMode,
         isThinkingEnabled,
-        setIsThinkingEnabled,
+        isMemoryEnabled,
         modelSettings,
     } = useMICopilotContext();
 
@@ -438,8 +380,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const isDarkMode = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 
     // Mode switcher state
-    const [showModeMenu, setShowModeMenu] = useState(false);
-    const modeMenuRef = useRef<HTMLDivElement>(null);
+    // Mode switcher is now a pill group (no dropdown menu needed)
     const [isWebAccessEnabled, setIsWebAccessEnabled] = useState<boolean>(() => {
         try {
             return localStorage.getItem(WEB_ACCESS_PREFERENCE_KEY) === 'true';
@@ -450,7 +391,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     // Manual compact state
     const [isCompacting, setIsCompacting] = useState(false);
-    const [runningPlaceholderFrameIndex, setRunningPlaceholderFrameIndex] = useState(0);
+    // Placeholder frame animation removed — replaced by "Generating.." indicator
     const [mentionContext, setMentionContext] = useState<MentionContext | null>(null);
     const [mentionSuggestions, setMentionSuggestions] = useState<MentionablePathItem[]>([]);
     const [activeMentionIndex, setActiveMentionIndex] = useState(0);
@@ -459,25 +400,22 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const mentionSearchRequestIdRef = useRef(0);
     const debouncedMentionContext = useDebouncedValue(mentionContext, MENTION_SEARCH_DEBOUNCE_MS);
 
-    // Context usage tracking (for compact button display)
+    // Context usage tracking (always visible)
     const CONTEXT_TOKEN_THRESHOLD = 200000;
-    const MANUAL_COMPACT_VISIBLE_USAGE_PERCENT = 50;
-    // Keep this aligned with backend auto-compact threshold in rpc-manager.ts.
-    // We trigger auto-compact before reaching the full context limit to avoid losing context.
-    const PRE_SEND_AUTO_COMPACT_THRESHOLD = 180000;
     const contextUsagePercent = Math.min(
         Math.round((lastTotalInputTokens / CONTEXT_TOKEN_THRESHOLD) * 100),
         100
     );
     const remainingContextPercent = Math.max(0, 100 - contextUsagePercent);
 
-    const placeholderString = USER_INPUT_PLACEHOLDER_MESSAGE;
-    const runningPlaceholder = `Please wait${RUNNING_PLACEHOLDER_DOT_FRAMES[runningPlaceholderFrameIndex]}`;
+    const modePlaceholder = agentMode === 'ask'
+        ? "Ask a question..."
+        : agentMode === 'plan'
+            ? "Describe what to plan..."
+            : "Describe what to build...";
     const inputPlaceholder = isUsageExceeded
         ? "Usage quota exceeded..."
-        : backendRequestTriggered
-            ? runningPlaceholder
-            : placeholderString;
+        : modePlaceholder;
 
     // State for streaming agent response
     const [currentChatId, setCurrentChatId] = useState<number | null>(null);
@@ -493,8 +431,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     const getModeIcon = (mode: AgentMode): string => {
         if (mode === 'ask') return 'comment-discussion';
-        if (mode === 'plan') return 'checklist';
-        return 'edit';
+        if (mode === 'plan') return 'list-tree';
+        return 'wrench';
     };
 
     // Refs to hold latest values for the event handler (avoids stale closure)
@@ -579,6 +517,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 // Start of agent response
                 setAssistantResponse("");
                 setToolStatus("");
+                isResponseReceived.current = false;
                 break;
 
             case "content_block":
@@ -803,52 +742,44 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 // Agent response completed - use ref to read latest assistantResponse (avoids stale closure)
                 clearWorkingOnItTimer();
                 clearWorkingOnItPlaceholder();
-                if (assistantResponseRef.current) {
-                    handleAgentComplete(assistantResponseRef.current, event.modelMessages || []);
-                } else {
-                    // Even if no accumulated text, still mark as completed
-                    setBackendRequestTriggered(false);
+                if (event.undoCheckpoint) {
+                    setPendingReview({
+                        checkpointId: event.undoCheckpoint.checkpointId,
+                        files: event.undoCheckpoint.files,
+                        totalAdded: event.undoCheckpoint.totalAdded,
+                        totalDeleted: event.undoCheckpoint.totalDeleted,
+                    });
                 }
-                // Fetch and update usage after agent response
-                rpcClient?.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
-                    if (usage) {
-                        rpcClient?.getAIVisualizerState().then((machineView) => {
-                            const { remainingTokenPercentage } = updateTokenInfo(machineView);
-                            setRemainingTokenPercentage(remainingTokenPercentage);
-                        });
-                    }
-                }).catch((error) => {
-                    console.error("Error fetching usage after agent response:", error);
-                });
+                if (!isResponseReceived.current) {
+                    // Always call handleAgentComplete so tool-only turns persist modelMessages
+                    handleAgentComplete(assistantResponseRef.current || '', event.modelMessages || []);
+                    isResponseReceived.current = true;
+                    // Fetch and update usage after agent response
+                    rpcClient?.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
+                        if (usage) {
+                            rpcClient?.getAIVisualizerState().then((machineView) => {
+                                const { remainingTokenPercentage } = updateTokenInfo(machineView);
+                                setRemainingTokenPercentage(remainingTokenPercentage);
+                            });
+                        }
+                    }).catch((error) => {
+                        console.error("Error fetching usage after agent response:", error);
+                    });
+                }
                 setToolStatus("");
                 break;
 
             case "compact":
-                // Conversation was compacted (auto or manual). Insert a compact summary tag.
+                // Native compaction summary arrived (auto, mid-stream).
                 if (event.summary) {
                     setToolStatus("");
                     setMessages((prev) => {
-                        // If the last message is an in-progress assistant message during agent run, append to it
-                        // Use ref to avoid stale closure (this callback is registered once via onAgentEvent)
+                        // Append to the in-progress assistant message during agent run
                         if (prev.length > 0 && prev[prev.length - 1].role === Role.MICopilot && backendRequestTriggeredRef.current) {
-                            return updateLastMessage(prev, (c) => {
-                                const cleaned = removeCompactingPlaceholder(c);
-                                return cleaned
-                                    ? `${cleaned}\n\n<compact>${event.summary}</compact>`
-                                    : `<compact>${event.summary}</compact>`;
-                            });
-                        }
-                        // Otherwise (manual compact): replace the loading message with the summary
-                        const loadingIdx = prev.findIndex((m) =>
-                            m.content.includes('Compacting conversation...')
-                        );
-                        if (loadingIdx >= 0) {
-                            const updated = [...prev];
-                            updated[loadingIdx] = {
-                                ...updated[loadingIdx],
-                                content: `<compact>${event.summary}</compact>`,
-                            };
-                            return updated;
+                            return updateLastMessage(prev, (c) =>
+                                c ? `${c}\n\n<compact>${event.summary}</compact>`
+                                  : `<compact>${event.summary}</compact>`
+                            );
                         }
                         // Fallback: add a new standalone assistant message
                         return [...prev, {
@@ -1078,48 +1009,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
     };
 
-    // Handle manual compact button click
-    const handleManualCompact = async () => {
-        if (isCompacting || backendRequestTriggered) return;
-        setIsCompacting(true);
-
-        // Show a loading indicator in the chat panel
-        setMessages((prev) => [...prev, {
-            id: generateId(),
-            role: Role.MICopilot,
-            content: `<toolcall data-loading="true" data-file="">Compacting conversation...</toolcall>`,
-            type: MessageType.AssistantMessage,
-        }]);
-
-        try {
-            const result = await rpcClient.getMiAgentPanelRpcClient().compactConversation({ modelSettings });
-            if (!result.success) {
-                console.error("Manual compact failed:", result.error);
-                // Remove the loading message and show error
-                setMessages((prev) => {
-                    const filtered = prev.filter((m) =>
-                        !m.content.includes('Compacting conversation...')
-                    );
-                    return [...filtered, {
-                        id: generateId(),
-                        role: Role.MICopilot,
-                        content: `Failed to compact conversation: ${result.error || 'Unknown error'}`,
-                        type: MessageType.Error,
-                    }];
-                });
-            }
-            // The compact event handler in handleAgentEvent will replace the loading message
-            // with the actual compact summary
-        } catch (error) {
-            console.error("Error during manual compact:", error);
-            // Remove the loading message on error
-            setMessages((prev) =>
-                prev.filter((m) => !m.content.includes('Compacting conversation...'))
-            );
-        } finally {
-            setIsCompacting(false);
-        }
-    };
 
     // Handle completion of agent response
     // Uses currentChatIdRef to avoid stale closure (called from event handler)
@@ -1208,7 +1097,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
         if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
-            if (isCompacting || backendRequestTriggered) {
+            if (backendRequestTriggered) {
                 return;
             }
             if (currentUserPrompt.trim() !== "") {
@@ -1229,7 +1118,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     };
 
     async function handleSend(requestType: BackendRequestType = BackendRequestType.UserPrompt, prompt?: string | "") {
-        if (sendInProgressRef.current || isCompacting || backendRequestTriggered) {
+        if (sendInProgressRef.current || backendRequestTriggered) {
             return;
         }
 
@@ -1245,22 +1134,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         // Clear input immediately so user can't send the same message again while compacting.
         setCurrentUserprompt("");
 
-        // Auto-compact first (when threshold is reached) so the compact UI appears
-        // before rendering the next user message.
-        if (
-            lastTotalInputTokens >= PRE_SEND_AUTO_COMPACT_THRESHOLD &&
-            !isCompacting &&
-            !backendRequestTriggered
-        ) {
-            await handleManualCompact();
-        }
-
         // Remove all messages marked as label or questions from history before a backend call
         setMessages((prevMessages) =>
             prevMessages.filter(
                 (message) => message.type !== MessageType.Label && message.type !== MessageType.Question
             )
         );
+        setPendingReview(null);
         setBackendRequestTriggered(true);
         isResponseReceived.current = false;
         // Reset polling state for the new run
@@ -1273,16 +1153,27 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         // Add the current user prompt to the chats based on the request type
         let currentCopilotChat: CopilotChatEntry[] = [...copilotChat];
         const chatId = generateId();
+        const checkpointId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+            ? crypto.randomUUID()
+            : `checkpoint-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         setCurrentChatId(chatId);
 
-        const updateChats = (userPrompt: string, userMessageType?: MessageType) => {
+        const updateChats = (userPrompt: string, userMessageType?: MessageType, checkpointAnchorId?: string) => {
             // Store the user prompt for potential abort restoration
             lastUserPromptRef.current = userPrompt;
 
             // Append labels to the user prompt
             setMessages((prevMessages) => [
                 ...prevMessages,
-                { id: chatId, role: Role.MIUser, content: userPrompt, type: userMessageType, files, images },
+                {
+                    id: chatId,
+                    role: Role.MIUser,
+                    content: userPrompt,
+                    type: userMessageType,
+                    checkpointAnchorId,
+                    files,
+                    images,
+                },
                 {
                     id: chatId,
                     role: Role.MICopilot,
@@ -1304,10 +1195,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         let messageToSend = outgoingPrompt;
         switch (requestType) {
             case BackendRequestType.InitialPrompt:
-                updateChats(outgoingPrompt, MessageType.InitialPrompt);
+                updateChats(outgoingPrompt, MessageType.InitialPrompt, checkpointId);
                 break;
             default:
-                updateChats(outgoingPrompt, MessageType.UserMessage);
+                updateChats(outgoingPrompt, MessageType.UserMessage, checkpointId);
                 break;
         }
 
@@ -1337,10 +1228,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             const response = await rpcClient.getMiAgentPanelRpcClient().sendAgentMessage({
                 message: messageToSend,
                 chatId,
+                checkpointId,
                 mode: agentMode,
                 files,
                 images,
                 thinking: isThinkingEnabled,
+                memoryEnabled: isMemoryEnabled,
                 webAccessPreapproved: isWebAccessEnabled,
                 chatHistory: chatHistory,
                 modelSettings,
@@ -1350,17 +1243,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 throw new Error(response.error || "Failed to send agent request");
             }
 
-            if (response.undoCheckpoint) {
-                setMessages((prev) => {
-                    if (prev.length === 0) {
-                        return prev;
+            if (response.checkpointId && response.checkpointId !== checkpointId) {
+                setMessages((prevMessages) => prevMessages.map((msg) => {
+                    if (msg.role === Role.MIUser && msg.id === chatId) {
+                        return { ...msg, checkpointAnchorId: response.checkpointId };
                     }
-                    const normalized = prev.map((message) => ({
-                        ...message,
-                        content: markFileChangesTagsAsNonUndoable(message.content || ""),
-                    }));
-                    return updateLastMessage(normalized, (c) => appendFileChangesTag(c, response.undoCheckpoint));
-                });
+                    return msg;
+                }));
             }
 
             // Remove the user uploaded files and images after sending them to the backend
@@ -1672,40 +1561,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setShellFocusedOption(0);
     }, [pendingPlanApproval?.approvalId]);
 
-    // Close mode menu on click outside
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (modeMenuRef.current && !modeMenuRef.current.contains(e.target as Node)) {
-                setShowModeMenu(false);
-            }
-        };
-        if (showModeMenu) {
-            document.addEventListener("mousedown", handleClickOutside);
-        }
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [showModeMenu]);
-
     useEffect(() => {
         if (backendRequestTriggered) {
-            setShowModeMenu(false);
             setMentionContext(null);
             setMentionSuggestions([]);
             setActiveMentionIndex(0);
             setIsMentionLoading(false);
         }
-    }, [backendRequestTriggered]);
-
-    useEffect(() => {
-        if (!backendRequestTriggered) {
-            setRunningPlaceholderFrameIndex(0);
-            return;
-        }
-
-        const interval = setInterval(() => {
-            setRunningPlaceholderFrameIndex((prev) => (prev + 1) % RUNNING_PLACEHOLDER_DOT_FRAMES.length);
-        }, 240);
-
-        return () => clearInterval(interval);
     }, [backendRequestTriggered]);
 
     useEffect(() => {
@@ -2563,7 +2425,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 </div>
             )}
 
-
             {mentionContext && !backendRequestTriggered && !isUsageExceeded && (
                 <div
                     style={{
@@ -2785,137 +2646,44 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     </FlexRow>
                 )}
 
-                <div style={{ 
-                    display: "flex", 
-                    justifyContent: "space-between", 
-                    alignItems: "center", 
-                    padding: "4px 8px",
-                    marginTop: "4px"
-                }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <div ref={modeMenuRef} style={{ position: "relative" }}>
-                            <FooterTooltip
-                                content="Switch Ask, Plan, and Edit modes"
-                                align="start"
-                            >
-                                <button
-                                    onClick={() => setShowModeMenu(!showModeMenu)}
-                                    disabled={isUsageExceeded || backendRequestTriggered}
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "4px",
-                                        padding: "2px 6px",
-                                        fontSize: "11px",
-                                        backgroundColor: "var(--vscode-badge-background)",
-                                        color: "var(--vscode-badge-foreground)",
-                                        border: "none",
-                                        borderRadius: "4px",
-                                        cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
-                                        opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 0.8
-                                    }}
-                                >
-                                    <Codicon name={getModeIcon(agentMode)} />
-                                    {getModeLabel(agentMode)}
-                                </button>
-                            </FooterTooltip>
-                                {showModeMenu && (
-                                <div style={{
-                                    position: "absolute",
-                                    bottom: "100%",
-                                    left: 0,
-                                    marginBottom: "4px",
-                                    backgroundColor: "var(--vscode-dropdown-background)",
-                                    border: "1px solid var(--vscode-dropdown-border)",
-                                    borderRadius: "4px",
-                                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                                    zIndex: 1000,
-                                    minWidth: "100px",
-                                    overflow: "hidden",
-                                }}>
-                                    {(['ask', 'plan', 'edit'] as AgentMode[]).map((m) => (
-                                        <button
-                                            key={m}
-                                            onClick={() => { setAgentMode(m); setShowModeMenu(false); }}
-                                            disabled={backendRequestTriggered}
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "6px",
-                                                width: "100%",
-                                                padding: "6px 10px",
-                                                fontSize: "12px",
-                                                border: "none",
-                                                cursor: backendRequestTriggered ? "not-allowed" : "pointer",
-                                                backgroundColor: agentMode === m
-                                                    ? "var(--vscode-list-activeSelectionBackground)"
-                                                    : "transparent",
-                                                color: agentMode === m
-                                                    ? "var(--vscode-list-activeSelectionForeground)"
-                                                    : "var(--vscode-dropdown-foreground)",
-                                                opacity: backendRequestTriggered ? 0.5 : 1,
-                                            }}
-                                        >
-                                            <Codicon name={getModeIcon(m)} />
-                                            {getModeLabel(m)}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                        {SHOW_THINKING_TOGGLE && (
-                            <FooterTooltip content="Enable Claude thinking mode">
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "6px",
-                                        marginLeft: "4px"
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: "10px",
-                                            color: "var(--vscode-descriptionForeground)",
-                                            userSelect: "none"
-                                        }}
-                                    >
-                                        Thinking
-                                    </span>
+                {/* Toolbar: Left (behavior) | Right (composition) */}
+                <div className="flex justify-between items-center" style={{ padding: "4px 8px", marginTop: "4px" }}>
+                    {/* Left group: Mode switcher pill + Web search toggle + Compact */}
+                    <div className="flex items-center gap-1">
+                        {/* Mode switcher pill */}
+                        <div
+                            className="flex rounded-md p-0.5"
+                            style={{
+                                backgroundColor: "var(--vscode-input-background)",
+                                border: "1px solid var(--vscode-input-border)",
+                                opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1,
+                                pointerEvents: (isUsageExceeded || backendRequestTriggered) ? "none" : "auto",
+                            }}
+                        >
+                            {(['ask', 'plan', 'edit'] as AgentMode[]).map((m) => {
+                                const isActive = agentMode === m;
+                                return (
                                     <button
-                                        type="button"
-                                        onClick={() => setIsThinkingEnabled((prev) => !prev)}
+                                        key={m}
+                                        onClick={() => setAgentMode(m)}
                                         disabled={isUsageExceeded || backendRequestTriggered}
-                                        aria-pressed={isThinkingEnabled}
+                                        className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all"
                                         style={{
-                                            position: "relative",
-                                            width: "34px",
-                                            height: "18px",
-                                            borderRadius: "999px",
+                                            backgroundColor: isActive ? "var(--vscode-button-background)" : "transparent",
+                                            color: isActive ? "var(--vscode-button-foreground)" : "var(--vscode-foreground)",
                                             border: "none",
-                                            padding: 0,
                                             cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
-                                            backgroundColor: isThinkingEnabled
-                                                ? "var(--vscode-button-background)"
-                                                : "var(--vscode-input-border)",
-                                            opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1
+                                            boxShadow: isActive ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
                                         }}
                                     >
-                                        <span
-                                            style={{
-                                                position: "absolute",
-                                                top: "2px",
-                                                left: isThinkingEnabled ? "18px" : "2px",
-                                                width: "14px",
-                                                height: "14px",
-                                                borderRadius: "50%",
-                                                backgroundColor: "var(--vscode-button-foreground)"
-                                            }}
-                                        />
+                                        <Codicon name={getModeIcon(m)} />
+                                        {getModeLabel(m)}
                                     </button>
-                                </div>
-                            </FooterTooltip>
-                        )}
+                                );
+                            })}
+                        </div>
+
+                        {/* Web search toggle */}
                         <FooterTooltip
                             align="start"
                             content="Enable web search and fetch without approval prompts"
@@ -2925,13 +2693,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 onClick={() => setIsWebAccessEnabled((prev) => !prev)}
                                 disabled={isUsageExceeded || backendRequestTriggered}
                                 aria-pressed={isWebAccessEnabled}
+                                className="flex items-center justify-center rounded-md transition-colors"
                                 style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    width: "22px",
-                                    height: "22px",
-                                    borderRadius: "6px",
+                                    width: "26px",
+                                    height: "26px",
                                     border: "none",
                                     cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
                                     backgroundColor: isWebAccessEnabled
@@ -2946,75 +2711,69 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 <Codicon name="globe" />
                             </button>
                         </FooterTooltip>
-                        {contextUsagePercent >= MANUAL_COMPACT_VISIBLE_USAGE_PERCENT && (
-                            <FooterTooltip
-                                variant="card"
-                                align="start"
-                                content={
-                                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                                        <div style={{ fontWeight: 600 }}>Summarize context</div>
-                                        <div style={{ color: "var(--vscode-descriptionForeground)" }}>
-                                            Click to summarize earlier messages and free up context.
-                                        </div>
-                                        <div style={{ color: "var(--vscode-descriptionForeground)" }}>
-                                            {`${remainingContextPercent}% context remaining.`}
-                                        </div>
-                                        <div style={{ color: "var(--vscode-descriptionForeground)" }}>
-                                            Copilot also summarizes automatically near the limit.
-                                        </div>
+
+                        {/* Context usage indicator — always visible */}
+                        <FooterTooltip
+                            variant="card"
+                            align="start"
+                            content={
+                                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                    <div style={{ fontWeight: 600 }}>Context usage</div>
+                                    <div style={{ color: "var(--vscode-descriptionForeground)" }}>
+                                        {`${remainingContextPercent}% context remaining.`}
                                     </div>
-                                }
+                                    <div style={{ color: "var(--vscode-descriptionForeground)" }}>
+                                        Copilot summarizes automatically when context is running low.
+                                    </div>
+                                </div>
+                            }
+                        >
+                            <span
+                                style={{
+                                    fontSize: "10px",
+                                    color: contextUsagePercent >= 80 ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                }}
                             >
-                                <button
-                                    onClick={handleManualCompact}
-                                    disabled={isUsageExceeded || isCompacting || backendRequestTriggered || messages.length === 0}
-                                    style={{
-                                        fontSize: "10px",
-                                        color: contextUsagePercent >= 80 ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)",
-                                        background: "transparent",
-                                        border: "none",
-                                        cursor: (isUsageExceeded || isCompacting || backendRequestTriggered || messages.length === 0) ? "not-allowed" : "pointer",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "4px",
-                                        opacity: (isUsageExceeded || isCompacting || backendRequestTriggered || messages.length === 0) ? 0.5 : 1
-                                    }}
-                                >
-                                    <Codicon name="history" />
-                                    {contextUsagePercent}%
-                                </button>
-                            </FooterTooltip>
-                        )}
+                                <Codicon name="history" />
+                                {contextUsagePercent}%
+                            </span>
+                        </FooterTooltip>
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    {/* Right group: Attach + divider + Send/Stop */}
+                    <div className="flex items-center gap-1">
                         <FooterTooltip content="Attach files or images">
-                            <StyledTransParentButton
+                            <button
                                 onClick={() => document.getElementById("fileInput")?.click()}
-                                style={{
-                                    width: "24px",
-                                    padding: "4px",
-                                    opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1,
-                                    cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
-                                    color: "var(--vscode-descriptionForeground)"
-                                }}
                                 disabled={isUsageExceeded || backendRequestTriggered}
+                                className="flex items-center justify-center rounded-md transition-colors"
+                                style={{
+                                    width: "26px",
+                                    height: "26px",
+                                    border: "none",
+                                    background: "transparent",
+                                    cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
+                                    color: "var(--vscode-descriptionForeground)",
+                                    opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1
+                                }}
                             >
                                 <Codicon name="attach" />
-                            </StyledTransParentButton>
+                            </button>
                         </FooterTooltip>
+
+                        <div style={{ width: "1px", height: "16px", backgroundColor: "var(--vscode-panel-border)", margin: "0 2px" }} />
 
                         {backendRequestTriggered ? (
                             <FooterTooltip content="Interrupt">
                                 <button
                                     onClick={handleInterrupt}
+                                    className="flex items-center justify-center rounded-full"
                                     style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        width: "24px",
-                                        height: "24px",
-                                        borderRadius: "50%",
+                                        width: "26px",
+                                        height: "26px",
                                         backgroundColor: "var(--vscode-button-background)",
                                         color: "var(--vscode-button-foreground)",
                                         border: "none",
@@ -3038,25 +2797,22 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             <FooterTooltip content="Send message">
                                 <button
                                     onClick={() => currentUserPrompt.trim() !== "" && handleSend()}
-                                    disabled={isUsageExceeded || isCompacting || currentUserPrompt.trim() === ""}
+                                    disabled={isUsageExceeded || currentUserPrompt.trim() === ""}
+                                    className="flex items-center justify-center rounded-full"
                                     style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        width: "24px",
-                                        height: "24px",
-                                        borderRadius: "50%",
-                                        backgroundColor: currentUserPrompt.trim() !== "" 
-                                            ? "var(--vscode-button-background)" 
+                                        width: "26px",
+                                        height: "26px",
+                                        backgroundColor: currentUserPrompt.trim() !== ""
+                                            ? "var(--vscode-button-background)"
                                             : "var(--vscode-button-secondaryBackground)",
-                                        color: currentUserPrompt.trim() !== "" 
-                                            ? "var(--vscode-button-foreground)" 
+                                        color: currentUserPrompt.trim() !== ""
+                                            ? "var(--vscode-button-foreground)"
                                             : "var(--vscode-button-secondaryForeground)",
                                         border: "none",
-                                        cursor: (currentUserPrompt.trim() !== "" && !isCompacting) ? "pointer" : "default"
+                                        cursor: currentUserPrompt.trim() !== "" ? "pointer" : "default"
                                     }}
                                 >
-                                    <Codicon name="arrow-up" />
+                                    <Codicon name="send" />
                                 </button>
                             </FooterTooltip>
                         )}
@@ -3075,6 +2831,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     disabled={isUsageExceeded || backendRequestTriggered}
                 />
             </FloatingInputContainer>
+
+            <p style={{ fontSize: "10px", color: "var(--vscode-descriptionForeground)", opacity: 0.6, margin: "0", padding: "0 16px 8px 16px", lineHeight: 1.2, textAlign: "center", width: "100%" }}>
+                AI-generated output may contain mistakes. Review before adding to your integration.
+            </p>
         </Footer>
     );
 };

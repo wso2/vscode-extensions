@@ -24,7 +24,7 @@ import { Codicon } from "@wso2/ui-toolkit";
 import { identifyLanguage, isDarkMode } from "../utils";
 import { EntryContainer, StyledTransParentButton, StyledContrastButton } from "../styles";
 import { useMICopilotContext } from "./MICopilotContext";
-import { Role, UndoCheckpointSummary } from "@wso2/mi-core";
+import { Role } from "@wso2/mi-core";
 
 interface CodeSegmentProps {
     segmentText: string;
@@ -61,7 +61,7 @@ const getFileName = (language: string, segmentText: string, loading: boolean): s
 };
 
 export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, language: propLanguage, index, chatId }) => {
-    const { rpcClient, setMessages, messages } = useMICopilotContext();
+    const { rpcClient, messages, setPendingReview } = useMICopilotContext();
 
     const darkModeEnabled = React.useMemo(() => {
         return isDarkMode();
@@ -75,39 +75,6 @@ export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, 
     const [applyInfo, setApplyInfo] = useState<string>("");
     const language = propLanguage || identifyLanguage(segmentText);
     const name = getFileName(language, segmentText, loading);
-
-    const markExistingFileChangesAsNonUndoable = (content: string): string => {
-        return content.replace(/<filechanges>([\s\S]*?)<\/filechanges>/g, (_fullMatch, summaryText) => {
-            try {
-                const summary = JSON.parse(summaryText) as UndoCheckpointSummary;
-                if (!summary || typeof summary !== "object") {
-                    return _fullMatch;
-                }
-                return `<filechanges>${JSON.stringify({ ...summary, undoable: false })}</filechanges>`;
-            } catch {
-                return _fullMatch;
-            }
-        });
-    };
-
-    const hasFileChangesCheckpoint = (content: string, checkpointId?: string): boolean => {
-        if (!checkpointId) {
-            return false;
-        }
-
-        const regex = /<filechanges>([\s\S]*?)<\/filechanges>/g;
-        for (const match of content.matchAll(regex)) {
-            try {
-                const summary = JSON.parse(match[1]) as UndoCheckpointSummary;
-                if (summary?.checkpointId === checkpointId) {
-                    return true;
-                }
-            } catch {
-                // Ignore malformed checkpoint tags.
-            }
-        }
-        return false;
-    };
 
     const handleToggle = () => setIsOpen(!isOpen);
 
@@ -170,43 +137,11 @@ export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, 
             }
 
             if (response.undoCheckpoint) {
-                const fileChangesTag = `<filechanges>${JSON.stringify(response.undoCheckpoint)}</filechanges>`;
-                setMessages((prevMessages) => {
-                    if (prevMessages.length === 0) {
-                        return prevMessages;
-                    }
-
-                    const updated = prevMessages.map((message) => ({
-                        ...message,
-                        content: markExistingFileChangesAsNonUndoable(message.content || ""),
-                    }));
-
-                    let targetMessageIndex = -1;
-                    if (typeof targetChatId === "number") {
-                        for (let i = updated.length - 1; i >= 0; i--) {
-                            if (updated[i].role === Role.MICopilot && updated[i].id === targetChatId) {
-                                targetMessageIndex = i;
-                                break;
-                            }
-                        }
-                    }
-                    if (targetMessageIndex === -1) {
-                        targetMessageIndex = index;
-                    }
-                    if (targetMessageIndex < 0 || targetMessageIndex >= updated.length) {
-                        return updated;
-                    }
-
-                    const contentWithLockedHistory = updated[targetMessageIndex].content || "";
-                    if (!hasFileChangesCheckpoint(contentWithLockedHistory, response.undoCheckpoint.checkpointId)) {
-                        updated[targetMessageIndex] = {
-                            ...updated[targetMessageIndex],
-                            content: contentWithLockedHistory
-                                ? `${contentWithLockedHistory}\n\n${fileChangesTag}`
-                                : fileChangesTag,
-                        };
-                    }
-                    return updated;
+                setPendingReview({
+                    checkpointId: response.undoCheckpoint.checkpointId,
+                    files: response.undoCheckpoint.files,
+                    totalAdded: response.undoCheckpoint.totalAdded,
+                    totalDeleted: response.undoCheckpoint.totalDeleted,
                 });
                 setIsApplied(true);
             } else {

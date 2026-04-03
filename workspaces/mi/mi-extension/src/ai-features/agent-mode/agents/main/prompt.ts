@@ -27,7 +27,8 @@ import { getRuntimeVersionFromPom } from '../../tools/connector_store_cache';
 import { getServerPathFromConfig } from '../../../../util/onboardingUtils';
 import { AgentMode } from '@wso2/mi-core';
 import { getModeReminder } from './mode';
-import { buildSystemReminder } from './prompt_system_reminder';
+import { logDebug } from '../../../copilot/logger';
+import { getStateMachine } from '../../../../stateMachine';
 
 const MAX_PROJECT_STRUCTURE_FILES = 50;
 const MAX_PROJECT_STRUCTURE_CHARS = 10000;
@@ -36,39 +37,49 @@ const MAX_PROJECT_STRUCTURE_CHARS = 10000;
 // User Prompt Template
 // ============================================================================
 
+// ============================================================================
+// Content Block Type
+// ============================================================================
+
+/**
+ * A single text content block for the user message.
+ * Splitting the user prompt into multiple blocks enables better prompt caching:
+ * - Stable blocks (env, connectors) get cache hits even when volatile blocks change
+ * - Blocks are ordered from most stable to most volatile for maximum prefix reuse
+ */
+export interface UserPromptContentBlock {
+    type: 'text';
+    text: string;
+}
+
+// ============================================================================
+// User Prompt Template
+// ============================================================================
+
+/**
+ * Handlebars template for the user prompt.
+ *
+ * After rendering, the output is split into separate content blocks at
+ * <system-reminder>...</system-reminder> and <user_query>...</user_query> boundaries.
+ * Each <system-reminder> block becomes a separate API content block (for prompt caching).
+ * The <user_query> content becomes a plain text block (tags stripped).
+ *
+ * Block order: stable → volatile (for optimal prefix-based caching)
+ */
+
+// {{#if fileList}}
+// <system-reminder>
+// # Project Structure
+// {{#each fileList}}
+// {{this}}
+// {{/each}}
+// </system-reminder>
+// {{/if}}
+
 export const PROMPT_TEMPLATE = `
-{{#if fileList}}
-<project_structure>
-{{#each fileList}}
-{{this}}
-{{/each}}
-</project_structure>
-{{/if}}
-
-{{#if currentlyOpenedFile}}
-<ide_opened_file>
-The user has opened the file {{currentlyOpenedFile}} in the IDE. This may or may not be related to the current task. User may refer it as "this".
-</ide_opened_file>
-{{/if}}
-
-{{#if userPreconfigured}}
-<user_preconfigured>
-{{payloads}}
-</user_preconfigured>
-These are preconfigured values in the Low-Code IDE that should be accessed using Synapse expressions in the integration flow. Always use Synapse expressions when referring to these values.
-{{/if}}
-
-<available_connectors>
-{{available_connectors}}
-These are the available WSO2 connectors from WSO2 connector store.
-</available_connectors>
-
-<available_inbound_endpoints>
-{{available_inbound_endpoints}}
-These are the available WSO2 inbound endpoints from WSO2 inbound endpoint store.
-</available_inbound_endpoints>
-
-<env>
+{{#if include_session_context}}
+<system-reminder>
+# Environment
 Working directory: {{env_working_directory}}
 Is directory a git repo: {{env_is_git_repo}}
 {{#if env_git_branch}}Current git branch: {{env_git_branch}}{{/if}}
@@ -77,13 +88,68 @@ OS Version: {{env_os_version}}
 Today's date: {{env_today}}
 MI Runtime version: {{env_mi_runtime_version}}
 MI Runtime home path: {{env_mi_runtime_home_path}}
-MI Runtime carbon log path: {{env_mi_runtime_carbon_log_path}}
-</env>
+MI Runtime log directory: {{env_mi_log_dir_path}}
+MI Runtime logs:
+  - wso2carbon.log (main): {{env_mi_runtime_carbon_log_path}}
+  - wso2error.log (errors + stack traces): {{env_mi_error_log_path}}
+  - http_access.log (HTTP requests): {{env_mi_http_access_log_path}}
+  - wso2-mi-service.log (service lifecycle): {{env_mi_service_log_path}}
+  - correlation.log (request tracing): {{env_mi_correlation_log_path}}
+</system-reminder>
 
-<system_reminder>
-{{system_reminder}}
+<system-reminder>
+Available WSO2 connectors from the WSO2 connector store:
+{{available_connectors}}
+
+Available WSO2 inbound endpoints from the WSO2 connector store:
+{{available_inbound_endpoints}}
+</system-reminder>
+{{/if}}
+
+{{#if currentlyOpenedFile}}
+<system-reminder>
+# IDE Context
+The user has opened the file {{currentlyOpenedFile}} in the IDE. This may or may not be related to the current task. User may refer to it as "this".
+</system-reminder>
+{{/if}}
+
+{{#if userPreconfigured}}
+<system-reminder>
+# Preconfigured Values
+{{payloads}}
+These are preconfigured values in the Low-Code IDE that should be accessed using Synapse expressions in the integration flow. Always use Synapse expressions when referring to these values.
+</system-reminder>
+{{/if}}
+
+{{#if runtime_version_detection_warning}}
+<system-reminder>
+# Runtime Version Warning
+{{runtime_version_detection_warning}}
+</system-reminder>
+{{/if}}
+
+<system-reminder>
+You are in {{mode_upper}} mode.
+{{mode_policy}}
+</system-reminder>
+
+{{#if plan_file_reminder}}
+<system-reminder>
+{{plan_file_reminder}}
+</system-reminder>
+{{/if}}
+
+{{#if connector_store_reminder}}
+<system-reminder>
+# Connector Store Status
+{{connector_store_reminder}}
+</system-reminder>
+{{/if}}
+
+<system-reminder>
+YOU ARE IN DEVELOPMENT PHASE. NOT IN PRODUCTION YET. HELP THE DEVELOPER IF DEVELOPER ASKS META QUESTIONS ABOUT YOUR INTERNALS/TOOL CALLS etc
 **DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task unless explicitly requested by the user.**
-</system_reminder>
+</system-reminder>
 
 <user_query>
 {{question}}
@@ -110,6 +176,10 @@ export interface UserPromptParams {
     payloads?: string;
     /** MI runtime version from pom.xml (optional; avoids re-reading pom when already known) */
     runtimeVersion?: string | null;
+    /** True when runtime version was detected from project metadata */
+    runtimeVersionDetected?: boolean;
+    /** Include session context (env, connectors) — true for first message or after compaction, false otherwise */
+    includeSessionContext?: boolean;
 }
 
 // ============================================================================
@@ -122,6 +192,37 @@ export interface UserPromptParams {
 function renderTemplate(templateContent: string, context: Record<string, any>): string {
     const template = Handlebars.compile(templateContent);
     return template(context);
+}
+
+/**
+ * Split a rendered prompt string into separate content blocks.
+ *
+ * Extracts:
+ * - Each `<system-reminder>...</system-reminder>` block → content block (tags kept)
+ * - `<user_query>...</user_query>` → plain text content block (tags stripped)
+ * - Whitespace between blocks is ignored
+ *
+ * This enables Anthropic's prefix-based prompt caching: stable blocks at the start
+ * get cache hits even when later volatile blocks change.
+ */
+export function splitPromptIntoBlocks(rendered: string): UserPromptContentBlock[] {
+    const blocks: UserPromptContentBlock[] = [];
+
+    // Match all <system-reminder> blocks and the <user_query> block
+    const blockPattern = /(<system-reminder>[\s\S]*?<\/system-reminder>)|(<user_query>\s*([\s\S]*?)\s*<\/user_query>)/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = blockPattern.exec(rendered)) !== null) {
+        if (match[1]) {
+            // <system-reminder> block — keep tags intact
+            blocks.push({ type: 'text', text: match[1].trim() });
+        } else if (match[3] !== undefined) {
+            // <user_query> block — strip tags, extract inner content
+            blocks.push({ type: 'text', text: match[3].trim() });
+        }
+    }
+
+    return blocks;
 }
 
 /**
@@ -172,8 +273,6 @@ function capProjectStructureLength(projectStructure: string): string {
  */
 async function getCurrentlyOpenedFile(projectPath: string): Promise<string | null> {
     try {
-        const { getStateMachine } = await import('../../../../stateMachine');
-
         const currentFile = getStateMachine(projectPath).context().documentUri;
         if (currentFile && fs.existsSync(currentFile)) {
             // Make the path relative to project root
@@ -182,35 +281,55 @@ async function getCurrentlyOpenedFile(projectPath: string): Promise<string | nul
             return relativePath;
         }
     } catch (error) {
-        // Silently fail if state machine is not available
+        logDebug(
+            `[Prompt] Unable to resolve currently opened file for project ${projectPath}: ` +
+            `${error instanceof Error ? error.message : String(error)}`
+        );
     }
     return null;
 }
 
 function getRuntimePaths(projectPath: string): {
     runtimeHomePath: string;
+    logDirPath: string;
     carbonLogPath: string;
+    errorLogPath: string;
+    httpAccessLogPath: string;
+    serviceLogPath: string;
+    correlationLogPath: string;
 } {
+    const NOT_CONFIGURED = 'not_configured';
     const runtimeHome = getServerPathFromConfig(projectPath);
     if (!runtimeHome || runtimeHome.trim().length === 0) {
         return {
-            runtimeHomePath: 'not_configured',
-            carbonLogPath: 'not_configured',
+            runtimeHomePath: NOT_CONFIGURED,
+            logDirPath: NOT_CONFIGURED,
+            carbonLogPath: NOT_CONFIGURED,
+            errorLogPath: NOT_CONFIGURED,
+            httpAccessLogPath: NOT_CONFIGURED,
+            serviceLogPath: NOT_CONFIGURED,
+            correlationLogPath: NOT_CONFIGURED,
         };
     }
 
     const resolvedRuntimeHome = path.resolve(runtimeHome.trim());
     const runtimeExists = fs.existsSync(resolvedRuntimeHome);
-    const resolvedCarbonLogPath = path.join(resolvedRuntimeHome, 'repository', 'logs', 'wso2carbon.log');
-    const carbonLogExists = fs.existsSync(resolvedCarbonLogPath);
+    const logDir = path.join(resolvedRuntimeHome, 'repository', 'logs');
+    const logDirExists = fs.existsSync(logDir);
+
+    const resolveLogPath = (filename: string) => {
+        const p = path.join(logDir, filename);
+        return fs.existsSync(p) ? p : `${p} (missing)`;
+    };
 
     return {
-        runtimeHomePath: runtimeExists
-            ? resolvedRuntimeHome
-            : `${resolvedRuntimeHome} (path_not_found)`,
-        carbonLogPath: carbonLogExists
-            ? resolvedCarbonLogPath
-            : `${resolvedCarbonLogPath} (missing)`,
+        runtimeHomePath: runtimeExists ? resolvedRuntimeHome : `${resolvedRuntimeHome} (path_not_found)`,
+        logDirPath: logDirExists ? logDir : `${logDir} (missing)`,
+        carbonLogPath: resolveLogPath('wso2carbon.log'),
+        errorLogPath: resolveLogPath('wso2error.log'),
+        httpAccessLogPath: resolveLogPath('http_access.log'),
+        serviceLogPath: resolveLogPath('wso2-mi-service.log'),
+        correlationLogPath: resolveLogPath('correlation.log'),
     };
 }
 
@@ -219,15 +338,16 @@ function getRuntimePaths(projectPath: string): {
 // ============================================================================
 
 /**
- * Generates the user prompt content using Handlebars template
- * Automatically fetches:
- * 1. Project structure (all files in tree format)
- * 2. Currently opened file (if available)
- * 3. User query
+ * Generates the user prompt as an array of content blocks.
+ *
+ * Renders the Handlebars template, then splits the result into separate
+ * content blocks at <system-reminder> and <user_query> boundaries.
+ * Each <system-reminder> block becomes a separate API content block.
+ * The <user_query> content becomes a plain text block (tags stripped).
  *
  * The agent can read any file content on-demand using file_read tool.
  */
-export async function getUserPrompt(params: UserPromptParams): Promise<string> {
+export async function getUserPrompt(params: UserPromptParams): Promise<UserPromptContentBlock[]> {
     // Get all files in the project (relative paths from project root)
     const existingFiles = getExistingFiles(params.projectPath, MAX_PROJECT_STRUCTURE_FILES);
     let projectStructure = formatProjectStructure(existingFiles);
@@ -253,9 +373,6 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     const connectorStoreReminder = connectorCatalog.warnings.length > 0
         ? `Connector store status: ${connectorCatalog.storeStatus}. ${connectorCatalog.warnings.join(' ')}`
         : '';
-    const modeReminderSections = [modePolicyReminder, planFileReminder, connectorStoreReminder]
-        .filter((section) => section.trim().length > 0);
-    const modeReminder = modeReminderSections.join('\n\n');
 
     // Prepare template context
     const isGitRepo = fs.existsSync(path.join(params.projectPath, '.git'));
@@ -269,12 +386,19 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
             } else if (/^[0-9a-f]{40}$/i.test(headContent)) {
                 gitBranch = `DETACHED@${headContent.substring(0, 7)}`;
             }
-        } catch {
-            // Silently fail
+        } catch (error) {
+            logDebug(
+                `[Prompt] Failed to resolve git branch from HEAD for project ${params.projectPath}: ` +
+                `${error instanceof Error ? error.message : String(error)}`
+            );
         }
     }
     const today = new Date().toISOString().split('T')[0];
     const runtimeVersion = params.runtimeVersion ?? await getRuntimeVersionFromPom(params.projectPath);
+    const runtimeVersionDetected = params.runtimeVersionDetected ?? !!runtimeVersion;
+    const runtimeVersionDetectionWarning = runtimeVersionDetected
+        ? ''
+        : 'MI runtime version could not be detected. Code examples use modern syntax (MI >= 4.4.0). If your project uses an older MI runtime, specify it explicitly.';
     const runtimePaths = getRuntimePaths(params.projectPath);
     const context: Record<string, any> = {
         question: params.query,
@@ -282,6 +406,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         currentlyOpenedFile: currentlyOpenedFile, // Currently editing file (optional)
         userPreconfigured: params.payloads, // Pre-configured payloads (optional)
         payloads: params.payloads, // Backward-compatible template key
+        include_session_context: params.includeSessionContext ?? true,
         available_connectors: availableConnectors.join(', '), // Available connectors list
         available_inbound_endpoints: availableInboundEndpoints.join(', '), // Available inbound endpoints list
         env_working_directory: params.projectPath,
@@ -292,10 +417,20 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         env_today: today,
         env_mi_runtime_version: runtimeVersion || 'unknown',
         env_mi_runtime_home_path: runtimePaths.runtimeHomePath,
+        env_mi_log_dir_path: runtimePaths.logDirPath,
         env_mi_runtime_carbon_log_path: runtimePaths.carbonLogPath,
-        system_reminder: buildSystemReminder(mode, modeReminder),
+        env_mi_error_log_path: runtimePaths.errorLogPath,
+        env_mi_http_access_log_path: runtimePaths.httpAccessLogPath,
+        env_mi_service_log_path: runtimePaths.serviceLogPath,
+        env_mi_correlation_log_path: runtimePaths.correlationLogPath,
+        runtime_version_detection_warning: runtimeVersionDetectionWarning,
+        mode_upper: mode.toUpperCase(),
+        mode_policy: modePolicyReminder,
+        plan_file_reminder: planFileReminder,
+        connector_store_reminder: connectorStoreReminder,
     };
 
-    // Render the template
-    return renderTemplate(PROMPT_TEMPLATE, context);
+    // Render the template and split into content blocks
+    const rendered = renderTemplate(PROMPT_TEMPLATE, context);
+    return splitPromptIntoBlocks(rendered);
 }

@@ -18,12 +18,18 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { createWriteStream, WriteStream } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { logDebug, logError, logInfo } from '../copilot/logger';
 import { getToolAction, capitalizeAction } from './tool-action-mapper';
 import { BASH_TOOL_NAME } from './tools/types';
-import { AgentMode, UndoCheckpointSummary } from '@wso2/mi-core';
+import {
+    AgentMode,
+    CheckpointAnchorSummary,
+    FileHistorySnapshot,
+    UndoCheckpointSummary,
+} from '@wso2/mi-core';
 import { getCopilotProjectStorageDir, getCopilotSessionDir } from './storage-paths';
 
 // Storage location: ~/.wso2-mi/copilot/projects/<encoded-project>/<session_id>/history.jsonl
@@ -50,7 +56,9 @@ export interface SessionMetadata {
     sessionVersion?: number;
 }
 
-export const TOOL_USE_INTERRUPTION_CONTEXT = `The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the patch hunks were NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.`;
+export const TOOL_USE_INTERRUPTION_CONTEXT = `<system-reminder>The user interrupted while a tool was running. The tool use was rejected and any pending mutations were NOT applied. Stop immediately and wait for the user's next message.</system-reminder>`;
+
+export const USER_INTERRUPTION_CONTEXT = `<system-reminder>The user interrupted your response before any tool calls were made. Your previous output was discarded. Wait for the user's next message before proceeding.</system-reminder>`;
 
 /**
  * Session summary for UI list display
@@ -88,7 +96,17 @@ export const SESSION_STORAGE_VERSION = 1;
  */
 export interface JournalEntry {
     /** Entry type: message role for model messages, or a special marker */
-    type: 'user' | 'assistant' | 'tool' | 'session_start' | 'session_end' | 'compact_summary' | 'mode_change' | 'undo_checkpoint';
+    type:
+    | 'user'
+    | 'assistant'
+    | 'tool'
+    | 'session_start'
+    | 'session_end'
+    | 'compact_summary'
+    | 'mode_change'
+    | 'undo_checkpoint'
+    | 'checkpoint_anchor'
+    | 'file_history_snapshot';
     /** The model message (for user/assistant/tool entries) */
     message?: any;
     /** Stable UI chat id for grouping a user turn and assistant output */
@@ -112,6 +130,14 @@ export interface JournalEntry {
     undoCheckpoint?: UndoCheckpointSummary;
     /** Assistant chat id this undo checkpoint belongs to (undo_checkpoint) */
     targetChatId?: number;
+    /** Checkpoint anchor summary (checkpoint_anchor) */
+    checkpointAnchor?: CheckpointAnchorSummary;
+    /** Snapshot entry message id (file_history_snapshot) */
+    messageId?: string;
+    /** Snapshot payload (file_history_snapshot) */
+    fileHistorySnapshot?: FileHistorySnapshot;
+    /** Indicates if this snapshot entry is an incremental update (file_history_snapshot) */
+    isSnapshotUpdate?: boolean;
     /** Total input tokens — attached to last message entry of each agent step */
     totalInputTokens?: number;
     /** Lightweight attachment metadata for user messages (for UI replay) */
@@ -140,10 +166,45 @@ export class ChatHistoryManager {
     private sessionFile: string = '';
     private metadataFile: string = '';
     private writeStream: WriteStream | null = null;
+    private writeQueue: Promise<void> = Promise.resolve();
+    private isClosing = false;
 
     constructor(projectPath: string, sessionId?: string) {
         this.projectPath = projectPath;
         this.sessionId = sessionId || uuidv4();
+    }
+
+    private enqueueWrite<T>(operation: () => Promise<T>): Promise<T> {
+        const operationPromise = this.writeQueue.then(operation);
+        this.writeQueue = operationPromise.then(() => undefined, () => undefined);
+        return operationPromise;
+    }
+
+    private async waitForPendingWrites(): Promise<void> {
+        await this.writeQueue;
+    }
+
+    private parseJournalEntries(content: string, context: string): JournalEntry[] {
+        const entries: JournalEntry[] = [];
+        const lines = content.split('\n');
+        for (let index = 0; index < lines.length; index++) {
+            const line = lines[index];
+            if (!line.trim()) {
+                continue;
+            }
+
+            try {
+                entries.push(JSON.parse(line) as JournalEntry);
+            } catch (error) {
+                const lineHash = crypto.createHash('sha256').update(line).digest('hex').substring(0, 8);
+                logError(
+                    `[ChatHistory] Skipping malformed JSONL entry at ${path.basename(this.sessionFile)}:${index + 1} while ${context}. ` +
+                    `Length: ${line.length}, hash: ${lineHash}`,
+                    error
+                );
+            }
+        }
+        return entries;
     }
 
     /**
@@ -166,8 +227,12 @@ export class ChatHistoryManager {
             const content = await fs.readFile(metadataPath, 'utf8');
             const metadata = JSON.parse(content) as SessionMetadata;
             return ChatHistoryManager.isCompatibleSessionVersion(metadata.sessionVersion);
-        } catch {
+        } catch (error) {
             // Missing/invalid metadata is treated as legacy-compatible; per-entry guards still apply.
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError(`[ChatHistory] Failed to read session metadata compatibility for ${sessionId}`, error);
+            }
             return true;
         }
     }
@@ -229,10 +294,27 @@ export class ChatHistoryManager {
      * Close the write stream
      */
     async close(): Promise<void> {
-        if (this.writeStream) {
+        if (!this.writeStream) {
+            return;
+        }
+
+        if (this.isClosing) {
+            await this.waitForPendingWrites();
+            return;
+        }
+
+        this.isClosing = true;
+        try {
             await this.writeSessionEnd();
-            return new Promise((resolve, reject) => {
-                this.writeStream!.end((err: Error | null | undefined) => {
+            await this.waitForPendingWrites();
+
+            const streamToClose = this.writeStream;
+            if (!streamToClose) {
+                return;
+            }
+
+            await new Promise<void>((resolve, reject) => {
+                streamToClose.end((err: Error | null | undefined) => {
                     if (err) {
                         logError('[ChatHistory] Failed to close stream', err);
                         reject(err);
@@ -242,6 +324,11 @@ export class ChatHistoryManager {
                     }
                 });
             });
+            if (this.writeStream === streamToClose) {
+                this.writeStream = null;
+            }
+        } finally {
+            this.isClosing = false;
         }
     }
 
@@ -249,8 +336,16 @@ export class ChatHistoryManager {
      * Write a JSONL entry to the file using canonical JSON
      * Canonical JSON ensures byte-for-byte consistency for cache key matching
      */
-    private async writeEntry(message: any): Promise<void> {
-        return new Promise((resolve, reject) => {
+    private async writeEntry(message: any, options?: { allowWhileClosing?: boolean }): Promise<void> {
+        if (this.isClosing && !options?.allowWhileClosing) {
+            throw new Error('Chat history stream is closing; refusing new writes');
+        }
+
+        await this.enqueueWrite(() => this.writeEntryUnsafe(message));
+    }
+
+    private async writeEntryUnsafe(message: any): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
             if (!this.writeStream) {
                 reject(new Error('Write stream not initialized'));
                 return;
@@ -272,7 +367,7 @@ export class ChatHistoryManager {
     /**
      * Write session start entry
      */
-    private async writeSessionStart(): Promise<void> {
+    private async writeSessionStart(options?: { allowWhileClosing?: boolean }): Promise<void> {
         const entry: JournalEntry = {
             type: 'session_start',
             timestamp: new Date().toISOString(),
@@ -284,7 +379,7 @@ export class ChatHistoryManager {
             }
         };
 
-        await this.writeEntry(entry);
+        await this.writeEntry(entry, options);
     }
 
     /**
@@ -298,7 +393,7 @@ export class ChatHistoryManager {
             projectPath: this.projectPath
         };
 
-        await this.writeEntry(entry);
+        await this.writeEntry(entry, { allowWhileClosing: true });
     }
 
     // ============================================================================
@@ -349,8 +444,12 @@ export class ChatHistoryManager {
                 };
             }
             return metadata;
-        } catch {
+        } catch (error) {
             // Metadata file doesn't exist or is invalid
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError(`[ChatHistory] Failed to load metadata for session ${this.sessionId}`, error);
+            }
             return null;
         }
     }
@@ -359,11 +458,18 @@ export class ChatHistoryManager {
      * Update metadata with new values
      */
     async updateMetadata(updates: Partial<SessionMetadata>): Promise<void> {
-        const metadata = await this.loadMetadata();
-        if (metadata) {
-            const updated = { ...metadata, ...updates, lastModifiedAt: new Date().toISOString() };
-            await this.saveMetadata(updated);
+        if (this.isClosing) {
+            logDebug(`[ChatHistory] Skipping metadata update while stream is closing (session: ${this.sessionId})`);
+            return;
         }
+
+        await this.enqueueWrite(async () => {
+            const metadata = await this.loadMetadata();
+            if (metadata) {
+                const updated = { ...metadata, ...updates, lastModifiedAt: new Date().toISOString() };
+                await this.saveMetadata(updated);
+            }
+        });
     }
 
     /**
@@ -473,12 +579,14 @@ export class ChatHistoryManager {
             // Update metadata
             await this.incrementMessageCount();
 
-            // Update title from first user message
+            // Update title from first user message.
+            // For array content (multi-block prompts), use the LAST text block
+            // which is the user query — earlier blocks are system-reminder context.
             if (message.role === 'user') {
                 const content = typeof message.content === 'string'
                     ? message.content
                     : Array.isArray(message.content)
-                        ? message.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
+                        ? (message.content.filter((p: any) => p.type === 'text').pop()?.text ?? '')
                         : '';
                 await this.updateTitleFromMessage(content);
             }
@@ -517,7 +625,7 @@ export class ChatHistoryManager {
     async saveInterruptionMessage(wasToolUse: boolean = false): Promise<void> {
         const interruptionText = wasToolUse
             ? TOOL_USE_INTERRUPTION_CONTEXT
-            : '[Request interrupted by user]';
+            : USER_INTERRUPTION_CONTEXT;
 
         const message = {
             role: 'user',
@@ -546,14 +654,12 @@ export class ChatHistoryManager {
      * Save an undo reminder as a user message with <system-reminder> tags.
      * This is used for future model turns and should not be shown in UI replay.
      */
-    async saveUndoReminderMessage(summary: UndoCheckpointSummary, restoredFiles: string[]): Promise<void> {
-        const restored = restoredFiles.length > 0
-            ? restoredFiles.join(', ')
-            : summary.files.map((file) => file.path).join(', ');
+    async saveUndoReminderMessage(checkpointId: string, restoredFiles: string[]): Promise<void> {
+        const restored = restoredFiles.join(', ') || 'none';
         const reminderText = [
             '<system-reminder>',
-            `The user executed an undo for the latest checkpoint (${summary.checkpointId}).`,
-            `Restored files: ${restored || 'none'}.`,
+            `The user rejected the latest checkpoint (${checkpointId}).`,
+            `Restored files: ${restored}.`,
             'Treat the undone changes as reverted and use the restored file state for subsequent edits.',
             '</system-reminder>',
         ].join('\n');
@@ -575,7 +681,7 @@ export class ChatHistoryManager {
 
         try {
             await this.writeEntry(entry);
-            logDebug(`[ChatHistory] Saved undo reminder message for checkpoint: ${summary.checkpointId}`);
+            logDebug(`[ChatHistory] Saved undo reminder message for checkpoint: ${checkpointId}`);
         } catch (error) {
             logError('[ChatHistory] Failed to save undo reminder message', error);
         }
@@ -627,24 +733,121 @@ export class ChatHistoryManager {
     }
 
     /**
-     * Save an undo checkpoint summary to history for session replay.
+     * Save a checkpoint anchor entry before a user turn starts.
      */
-    async saveUndoCheckpoint(summary: UndoCheckpointSummary, targetChatId?: number): Promise<void> {
+    async saveCheckpointAnchor(anchor: CheckpointAnchorSummary): Promise<void> {
         const entry: JournalEntry = {
-            type: 'undo_checkpoint',
+            type: 'checkpoint_anchor',
             timestamp: new Date().toISOString(),
             sessionId: this.sessionId,
-            undoCheckpoint: summary,
-            targetChatId,
+            checkpointAnchor: anchor,
         };
 
         try {
             await this.writeEntry(entry);
-            logInfo(`[ChatHistory] Saved undo checkpoint: ${summary.checkpointId}`);
+            logInfo(`[ChatHistory] Saved checkpoint anchor: ${anchor.checkpointId}`);
         } catch (error) {
-            logError('[ChatHistory] Failed to save undo checkpoint', error);
+            logError('[ChatHistory] Failed to save checkpoint anchor', error);
             throw error;
         }
+    }
+
+    /**
+     * Save a file-history snapshot index entry.
+     */
+    async saveFileHistorySnapshot(
+        snapshot: FileHistorySnapshot,
+        options: { isSnapshotUpdate: boolean; messageId?: string }
+    ): Promise<void> {
+        const messageId = options.messageId?.trim() || uuidv4();
+        const entry: JournalEntry = {
+            type: 'file_history_snapshot',
+            timestamp: new Date().toISOString(),
+            sessionId: this.sessionId,
+            messageId,
+            fileHistorySnapshot: snapshot,
+            isSnapshotUpdate: options.isSnapshotUpdate,
+        };
+
+        try {
+            await this.writeEntry(entry);
+        } catch (error) {
+            logError('[ChatHistory] Failed to save file-history snapshot', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get the latest snapshot index entry for a checkpoint anchor ID.
+     */
+    async getLatestFileHistorySnapshot(checkpointId: string): Promise<FileHistorySnapshot | undefined> {
+        const normalizedCheckpointId = checkpointId?.trim();
+        if (!normalizedCheckpointId) {
+            return undefined;
+        }
+
+        try {
+            const content = await fs.readFile(this.sessionFile, 'utf8');
+            const entries = this.parseJournalEntries(content, 'loading latest file-history snapshot');
+
+            for (let i = entries.length - 1; i >= 0; i--) {
+                const entry = entries[i];
+                if (entry.type !== 'file_history_snapshot' || !entry.fileHistorySnapshot) {
+                    continue;
+                }
+
+                if (entry.fileHistorySnapshot.messageId === normalizedCheckpointId) {
+                    return entry.fileHistorySnapshot;
+                }
+            }
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError(
+                    `[ChatHistory] Failed to load latest file-history snapshot for checkpoint ${normalizedCheckpointId}`,
+                    error
+                );
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Enumerate backup files currently referenced by surviving snapshot entries.
+     */
+    async listReferencedBackupFiles(): Promise<Set<string>> {
+        const referenced = new Set<string>();
+
+        try {
+            const content = await fs.readFile(this.sessionFile, 'utf8');
+            const entries = this.parseJournalEntries(content, 'listing referenced file-history backups');
+
+            for (const entry of entries) {
+                if (entry.type !== 'file_history_snapshot' || !entry.fileHistorySnapshot) {
+                    continue;
+                }
+
+                for (const backup of Object.values(entry.fileHistorySnapshot.trackedFileBackups || {})) {
+                    const backupFileName = backup?.backupFileName?.trim();
+                    if (backupFileName) {
+                        referenced.add(backupFileName);
+                    }
+                }
+
+                const planBackupFileName = entry.fileHistorySnapshot.planFileSnapshot?.backup?.backupFileName?.trim();
+                if (planBackupFileName) {
+                    referenced.add(planBackupFileName);
+                }
+            }
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError('[ChatHistory] Failed to list referenced file-history backups', error);
+            }
+        }
+
+        return referenced;
     }
 
     /**
@@ -653,17 +856,20 @@ export class ChatHistoryManager {
     async getLatestMode(defaultMode: AgentMode = 'edit'): Promise<AgentMode> {
         try {
             const content = await fs.readFile(this.sessionFile, 'utf8');
-            const lines = content.trim().split('\n');
+            const entries = this.parseJournalEntries(content, 'loading latest mode');
 
-            for (let i = lines.length - 1; i >= 0; i--) {
-                if (!lines[i].trim()) continue;
-                const entry = JSON.parse(lines[i]) as JournalEntry;
+            for (let i = entries.length - 1; i >= 0; i--) {
+                const entry = entries[i];
                 if (entry.type === 'mode_change' && entry.mode) {
                     return entry.mode;
                 }
             }
-        } catch {
+        } catch (error) {
             // Ignore and return default
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== 'ENOENT') {
+                logError(`[ChatHistory] Failed to get latest mode for session ${this.sessionId}`, error);
+            }
         }
 
         return defaultMode;
@@ -678,11 +884,10 @@ export class ChatHistoryManager {
     async getLastUsage(): Promise<number | undefined> {
         try {
             const content = await fs.readFile(this.sessionFile, 'utf8');
-            const lines = content.trim().split('\n');
+            const entries = this.parseJournalEntries(content, 'loading last API call info');
 
-            for (let i = lines.length - 1; i >= 0; i--) {
-                if (!lines[i].trim()) continue;
-                const entry = JSON.parse(lines[i]);
+            for (let i = entries.length - 1; i >= 0; i--) {
+                const entry = entries[i];
                 if (entry.type === 'compact_summary') {
                     return undefined;
                 }
@@ -703,21 +908,17 @@ export class ChatHistoryManager {
      * @param options - Controls inclusion of non-ModelMessage checkpoint entries
      * @returns Array of ModelMessages (plus compact_summary entry when requested)
      */
-    async getMessages(options?: { includeCompactSummaryEntry?: boolean; includeUndoCheckpointEntry?: boolean }): Promise<any[]> {
+    async getMessages(options?: {
+        includeCompactSummaryEntry?: boolean;
+        includeUndoCheckpointEntry?: boolean;
+        includeCheckpointAnchorEntry?: boolean;
+    }): Promise<any[]> {
         try {
             const includeCompactSummaryEntry = options?.includeCompactSummaryEntry === true;
             const includeUndoCheckpointEntry = options?.includeUndoCheckpointEntry === true;
+            const includeCheckpointAnchorEntry = options?.includeCheckpointAnchorEntry === true;
             const content = await fs.readFile(this.sessionFile, 'utf8');
-            const lines = content.trim().split('\n');
-            const allEntries: JournalEntry[] = [];
-
-            // Parse all entries first
-            for (const line of lines) {
-                if (line.trim()) {
-                    const entry = JSON.parse(line) as JournalEntry;
-                    allEntries.push(entry);
-                }
-            }
+            const allEntries = this.parseJournalEntries(content, 'loading messages');
 
             // Find the index of the last compact_summary entry
             let lastCompactIndex = -1;
@@ -770,6 +971,8 @@ export class ChatHistoryManager {
                         messages.push(modelMessage);
                     } else if (includeUndoCheckpointEntry && entry.type === 'undo_checkpoint') {
                         messages.push(entry);
+                    } else if (includeCheckpointAnchorEntry && entry.type === 'checkpoint_anchor') {
+                        messages.push(entry);
                     }
                 }
 
@@ -797,6 +1000,8 @@ export class ChatHistoryManager {
                     messages.push(modelMessage);
                 } else if (includeUndoCheckpointEntry && entry.type === 'undo_checkpoint') {
                     messages.push(entry);
+                } else if (includeCheckpointAnchorEntry && entry.type === 'checkpoint_anchor') {
+                    messages.push(entry);
                 }
             }
             return messages;
@@ -812,15 +1017,23 @@ export class ChatHistoryManager {
      * Truncates the file and resets message count and metadata
      */
     async clearMessages(): Promise<void> {
+        const wasClosing = this.isClosing;
         try {
+            this.isClosing = true;
+            await this.waitForPendingWrites();
+
             // Close existing stream
             if (this.writeStream) {
+                const streamToClose = this.writeStream;
                 await new Promise<void>((resolve, reject) => {
-                    this.writeStream!.end((err: Error | null | undefined) => {
+                    streamToClose.end((err: Error | null | undefined) => {
                         if (err) reject(err);
                         else resolve();
                     });
                 });
+                if (this.writeStream === streamToClose) {
+                    this.writeStream = null;
+                }
             }
 
             // Truncate the file
@@ -829,16 +1042,161 @@ export class ChatHistoryManager {
             // Reopen write stream
             this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
 
-            // Write new session start
-            await this.writeSessionStart();
-
-            // Reset metadata
+            // Write new session start and reset metadata while still in closing state
+            // to prevent external writes from interleaving with bootstrap
+            await this.writeSessionStart({ allowWhileClosing: true });
             await this.createInitialMetadata();
+
+            // Only clear the guard after bootstrap writes complete
+            this.isClosing = false;
 
             logDebug('[ChatHistory] Cleared all messages');
         } catch (error) {
             logError('[ChatHistory] Failed to clear messages', error);
             throw error;
+        } finally {
+            if (this.writeStream && !wasClosing) {
+                this.isClosing = false;
+            } else {
+                this.isClosing = wasClosing;
+            }
+        }
+    }
+
+    private extractUserMessageContentFromEntry(entry: JournalEntry): string {
+        if (entry.type !== 'user' || !entry.message) {
+            return '';
+        }
+
+        const message = entry.message as { content?: unknown };
+        if (typeof message.content === 'string') {
+            return message.content;
+        }
+
+        if (Array.isArray(message.content)) {
+            const textParts = message.content.filter((part: any) => part?.type === 'text');
+            const latestTextPart = textParts.length > 0 ? textParts[textParts.length - 1] : undefined;
+            return typeof latestTextPart?.text === 'string' ? latestTextPart.text : '';
+        }
+
+        return '';
+    }
+
+    private async rewriteHistoryEntries(entries: JournalEntry[]): Promise<void> {
+        const serialized = entries.length > 0
+            ? `${entries.map((entry) => JSON.stringify(entry)).join('\n')}\n`
+            : '';
+        await fs.writeFile(this.sessionFile, serialized, 'utf8');
+    }
+
+    private async rebuildMetadataFromEntries(entries: JournalEntry[]): Promise<void> {
+        const existingMetadata = await this.loadMetadata();
+        const now = new Date().toISOString();
+
+        let title = 'New Chat';
+        for (const entry of entries) {
+            const content = this.extractUserMessageContentFromEntry(entry);
+            if (content.trim()) {
+                title = ChatHistoryManager.extractTitle(content);
+                break;
+            }
+        }
+
+        const messageCount = entries.filter((entry) =>
+            entry.type === 'user' || entry.type === 'assistant' || entry.type === 'tool'
+        ).length;
+
+        const metadata: SessionMetadata = existingMetadata
+            ? {
+                ...existingMetadata,
+                title,
+                messageCount,
+                lastModifiedAt: now,
+                sessionVersion: SESSION_STORAGE_VERSION,
+            }
+            : {
+                sessionId: this.sessionId,
+                title,
+                createdAt: now,
+                lastModifiedAt: now,
+                messageCount,
+                sessionVersion: SESSION_STORAGE_VERSION,
+            };
+
+        await this.saveMetadata(metadata);
+    }
+
+    /**
+     * Truncate history to a checkpoint anchor (inclusive), removing all later entries.
+     * Returns true if truncation happened, false if checkpoint was not found.
+     */
+    async truncateToCheckpoint(checkpointId: string): Promise<boolean> {
+        const normalizedCheckpointId = checkpointId?.trim();
+        if (!normalizedCheckpointId) {
+            return false;
+        }
+
+        const wasClosing = this.isClosing;
+        try {
+            this.isClosing = true;
+            await this.waitForPendingWrites();
+
+            if (this.writeStream) {
+                const streamToClose = this.writeStream;
+                await new Promise<void>((resolve, reject) => {
+                    streamToClose.end((err: Error | null | undefined) => {
+                        if (err) reject(err);
+                        else resolve();
+                    });
+                });
+                if (this.writeStream === streamToClose) {
+                    this.writeStream = null;
+                }
+            }
+
+            const content = await fs.readFile(this.sessionFile, 'utf8');
+            const entries = this.parseJournalEntries(
+                content,
+                `truncating history to checkpoint ${normalizedCheckpointId}`
+            );
+
+            let checkpointIndex = -1;
+            for (let i = entries.length - 1; i >= 0; i--) {
+                const entry = entries[i];
+                if (
+                    entry.type === 'checkpoint_anchor'
+                    && entry.checkpointAnchor?.checkpointId === normalizedCheckpointId
+                ) {
+                    checkpointIndex = i;
+                    break;
+                }
+            }
+
+            if (checkpointIndex < 0) {
+                this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
+                this.isClosing = wasClosing;
+                return false;
+            }
+
+            const truncatedEntries = entries.slice(0, checkpointIndex + 1);
+            await this.rewriteHistoryEntries(truncatedEntries);
+            await this.rebuildMetadataFromEntries(truncatedEntries);
+
+            this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
+            this.isClosing = wasClosing;
+            logInfo(
+                `[ChatHistory] Truncated history to checkpoint ${normalizedCheckpointId}. ` +
+                `Remaining entries: ${truncatedEntries.length}`
+            );
+            return true;
+        } catch (error) {
+            logError(`[ChatHistory] Failed to truncate history to checkpoint ${normalizedCheckpointId}`, error);
+            throw error;
+        } finally {
+            if (!this.writeStream) {
+                this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
+            }
+            this.isClosing = wasClosing;
         }
     }
 
@@ -851,8 +1209,10 @@ export class ChatHistoryManager {
             const copilotDir = getCopilotProjectStorageDir(projectPath);
 
             const entries = await fs.readdir(copilotDir, { withFileTypes: true });
+            // Exclude reserved directories that are not sessions (e.g., 'memories' used by the memory tool)
+            const RESERVED_DIRS = new Set(['memories']);
             const sessionDirs = entries
-                .filter(entry => entry.isDirectory())
+                .filter(entry => entry.isDirectory() && !RESERVED_DIRS.has(entry.name))
                 .map(entry => entry.name);
 
             // Sort by directory modification time (newest first)
@@ -923,8 +1283,12 @@ export class ChatHistoryManager {
                 messageCount: metadata.messageCount,
                 isCurrentSession: sessionId === currentSessionId
             };
-        } catch {
+        } catch (metadataError) {
             // Fallback: extract from JSONL and directory stats
+            const metadataNodeError = metadataError as NodeJS.ErrnoException;
+            if (metadataNodeError.code !== 'ENOENT') {
+                logError(`[ChatHistory] Failed to load metadata for session summary ${sessionId}; falling back to history scan`, metadataError);
+            }
             try {
                 const stats = await fs.stat(sessionDir);
                 let title = 'New Chat';
@@ -932,18 +1296,20 @@ export class ChatHistoryManager {
 
                 try {
                     const content = await fs.readFile(historyPath, 'utf8');
-                    const lines = content.trim().split('\n');
+                    const lines = content.split('\n');
 
-                    for (const line of lines) {
+                    for (let index = 0; index < lines.length; index++) {
+                        const line = lines[index];
                         if (!line.trim()) continue;
                         try {
                             const entry = JSON.parse(line) as JournalEntry;
-                            // Find first user message for title
+                            // Find first user message for title.
+                            // For array content, use last text block (user query, not system-reminder context).
                             if (entry.type === 'user' && entry.message?.content && title === 'New Chat') {
                                 const msgContent = typeof entry.message.content === 'string'
                                     ? entry.message.content
                                     : Array.isArray(entry.message.content)
-                                        ? entry.message.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
+                                        ? (entry.message.content.filter((p: any) => p.type === 'text').pop()?.text ?? '')
                                         : '';
                                 title = ChatHistoryManager.extractTitle(msgContent);
                             }
@@ -951,12 +1317,21 @@ export class ChatHistoryManager {
                             if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'tool') {
                                 messageCount++;
                             }
-                        } catch {
-                            // Skip invalid lines
+                        } catch (parseError) {
+                            const lineHash = crypto.createHash('sha256').update(line).digest('hex').substring(0, 8);
+                            logError(
+                                `[ChatHistory] Skipping malformed JSONL entry at ${path.basename(historyPath)}:${index + 1} while building session summary ${sessionId}. ` +
+                                `Length: ${line.length}, hash: ${lineHash}`,
+                                parseError
+                            );
                         }
                     }
-                } catch {
+                } catch (historyError) {
                     // Empty or missing history
+                    const historyNodeError = historyError as NodeJS.ErrnoException;
+                    if (historyNodeError.code !== 'ENOENT') {
+                        logError(`[ChatHistory] Failed to read history while building session summary ${sessionId}`, historyError);
+                    }
                 }
 
                 return {
@@ -967,8 +1342,12 @@ export class ChatHistoryManager {
                     messageCount,
                     isCurrentSession: sessionId === currentSessionId
                 };
-            } catch {
+            } catch (sessionError) {
                 // Session directory doesn't exist
+                const sessionNodeError = sessionError as NodeJS.ErrnoException;
+                if (sessionNodeError.code !== 'ENOENT') {
+                    logError(`[ChatHistory] Failed to stat session directory ${sessionDir}`, sessionError);
+                }
                 return null;
             }
         }
@@ -1040,7 +1419,7 @@ export class ChatHistoryManager {
      * @returns UI events for display
      */
     static convertToEventFormat(messages: any[]): Array<{
-        type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint';
+        type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint' | 'checkpoint_anchor';
         chatId?: number;
         content?: string;
         files?: Array<{ name: string; mimetype: string; content: string }>;
@@ -1051,6 +1430,7 @@ export class ChatHistoryManager {
         toolCallId?: string;
         action?: string;
         undoCheckpoint?: UndoCheckpointSummary;
+        checkpointAnchor?: CheckpointAnchorSummary;
         targetChatId?: number;
         timestamp: string;
     }> {
@@ -1077,6 +1457,20 @@ export class ChatHistoryManager {
                         type: 'undo_checkpoint',
                         undoCheckpoint: msg.undoCheckpoint,
                         targetChatId: typeof msg.targetChatId === 'number' ? msg.targetChatId : undefined,
+                        timestamp: msg.timestamp || timestamp,
+                    });
+                }
+                continue;
+            }
+
+            if (msg.type === 'checkpoint_anchor') {
+                if (msg.checkpointAnchor) {
+                    events.push({
+                        type: 'checkpoint_anchor',
+                        checkpointAnchor: msg.checkpointAnchor,
+                        chatId: typeof msg.checkpointAnchor?.chatId === 'number'
+                            ? msg.checkpointAnchor.chatId
+                            : undefined,
                         timestamp: msg.timestamp || timestamp,
                     });
                 }
@@ -1119,14 +1513,15 @@ export class ChatHistoryManager {
                     if (typeof msg.content === 'string') {
                         userContent = msg.content;
                     } else if (Array.isArray(msg.content)) {
-                        // Extract text from content parts and fallback attachment markers for older history
+                        // Extract text from content parts and fallback attachment markers for older history.
+                        // Filter out <system-reminder> blocks — they're context for the LLM, not user-facing.
                         const textParts: string[] = [];
                         let unnamedPdfCount = 0;
                         let unnamedImageCount = 0;
 
                         for (const part of msg.content) {
                             if (part.type === 'text') {
-                                if (part.text) {
+                                if (part.text && !part.text.includes('<system-reminder>')) {
                                     textParts.push(part.text);
                                 }
                                 // Fallback extraction for text file names from formatted text block
@@ -1162,17 +1557,13 @@ export class ChatHistoryManager {
                         userContent = textParts.join('');
                     }
 
-                    // Skip interruption messages from UI display (they're only for LLM context)
-                    // These are saved when user aborts a request
-                    if (
-                        userContent.includes('[Request interrupted by user') ||
-                        userContent.includes("The user doesn't want to proceed with this tool use.") ||
-                        userContent.includes('<system-reminder>')
-                    ) {
+                    // Skip interruption/system-only messages from UI display (they're only for LLM context).
+                    if (userContent.includes('<system-reminder>') || !userContent.trim()) {
                         continue;
                     }
 
-                    // Extract content between <user_query> tags (user's actual query)
+                    // Extract content between <user_query> tags (user's actual query).
+                    // For multi-block messages this is a no-op (query is already unwrapped).
                     const queryMatch = userContent.match(/<user_query>\s*([\s\S]*?)\s*<\/user_query>/);
                     if (queryMatch && queryMatch[1]) {
                         userContent = queryMatch[1].trim();
@@ -1228,14 +1619,17 @@ export class ChatHistoryManager {
                                 if (part.toolCallId) {
                                     toolInputMap.set(part.toolCallId, part.input);
                                 }
-                                events.push({
-                                    type: 'tool_call',
-                                    chatId: typeof msg._chatId === 'number' ? msg._chatId : undefined,
-                                    toolName: part.toolName,
-                                    toolInput: part.input,
-                                    toolCallId: part.toolCallId,
-                                    timestamp
-                                });
+                                // Skip provider-managed tools (e.g. tool_search) that have no toolName
+                                if (part.toolName) {
+                                    events.push({
+                                        type: 'tool_call',
+                                        chatId: typeof msg._chatId === 'number' ? msg._chatId : undefined,
+                                        toolName: part.toolName,
+                                        toolInput: part.input,
+                                        toolCallId: part.toolCallId,
+                                        timestamp
+                                    });
+                                }
                             }
                         }
                     }
@@ -1246,6 +1640,10 @@ export class ChatHistoryManager {
                     if (Array.isArray(msg.content)) {
                         for (const part of msg.content) {
                             if (part.type === 'tool-result') {
+                                // Skip provider-managed tools (e.g. tool_search) that have no toolName
+                                if (!part.toolName) {
+                                    continue;
+                                }
                                 const output = part.output?.value || part.output;
                                 const toolInput = toolInputMap.get(part.toolCallId);
                                 const toolActions = getToolAction(part.toolName, output, toolInput);

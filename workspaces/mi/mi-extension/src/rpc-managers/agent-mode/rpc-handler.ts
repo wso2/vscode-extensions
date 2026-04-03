@@ -32,14 +32,14 @@ import {
     ApplyCodeSegmentWithCheckpointRequest,
     UserQuestionResponse,
     PlanApprovalResponse,
-    CompactConversationRequest,
     listSessions,
     switchSession,
     createNewSession,
     deleteSession,
-    compactConversation,
     searchMentionablePaths,
     getAgentRunStatus,
+    clearAgentMemory,
+    openAgentMemoryFolder,
     ListSessionsRequest,
     SwitchSessionRequest,
     CreateNewSessionRequest,
@@ -94,15 +94,16 @@ export function registerMIAgentPanelRpcHandlers(messenger: MessengerAPI, project
     messenger.onRequest(deleteSession, (request: DeleteSessionRequest) => rpcManager.deleteSession(request));
 
     // ==================================
-    // Compact Functions
-    // ==================================
-    messenger.onRequest(compactConversation, (request: CompactConversationRequest) => rpcManager.compactConversation(request));
-
-    // ==================================
     // Mention Search Functions
     // ==================================
     messenger.onRequest(searchMentionablePaths, (request: SearchMentionablePathsRequest) =>
         rpcManager.searchMentionablePaths(request)
     );
+
+    // ==================================
+    // Memory Management Functions
+    // ==================================
+    messenger.onRequest(clearAgentMemory, () => rpcManager.clearAgentMemory());
+    messenger.onRequest(openAgentMemoryFolder, () => rpcManager.openAgentMemoryFolder());
 
 }

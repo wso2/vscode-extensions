@@ -351,110 +351,14 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
     if (loginMethod === LoginMethod.AWS_BEDROCK) {
         return (
             <Container>
-                <AlertContainer variant="primary">
-                    <Title>Connect with AWS Bedrock</Title>
+                <AlertContainer variant="secondary">
+                    <Title>AWS Bedrock — Coming Soon</Title>
                     <SubTitle>
-                        Enter your AWS credentials to connect to WSO2 Integrator Copilot via Amazon Bedrock.
-                        Your credentials will be securely stored and used for authentication.
+                        AWS Bedrock support for the agent mode is currently unavailable. Full support is coming in a future release.
                     </SubTitle>
-
-                    {/* AWS Access Key ID */}
-                    <InputContainer>
-                        <InputRow>
-                            <StyledTextField
-                                type={showAwsAccessKey ? "text" : "password"}
-                                placeholder="AWS Access Key ID"
-                                value={awsCredentials.accessKeyId}
-                                onChange={handleAwsCredentialChange('accessKeyId')}
-                                {...(isValidating ? { disabled: true } : {})}
-                            />
-                            <EyeButton
-                                type="button"
-                                onClick={() => setShowAwsAccessKey(!showAwsAccessKey)}
-                                title={showAwsAccessKey ? "Hide" : "Show"}
-                                {...(isValidating ? { disabled: true } : {})}
-                            >
-                                <Codicon name={showAwsAccessKey ? "eye-closed" : "eye"} />
-                            </EyeButton>
-                        </InputRow>
-                    </InputContainer>
-
-                    {/* AWS Secret Access Key */}
-                    <InputContainer>
-                        <InputRow>
-                            <StyledTextField
-                                type={showAwsSecretKey ? "text" : "password"}
-                                placeholder="AWS Secret Access Key"
-                                value={awsCredentials.secretAccessKey}
-                                onChange={handleAwsCredentialChange('secretAccessKey')}
-                                {...(isValidating ? { disabled: true } : {})}
-                            />
-                            <EyeButton
-                                type="button"
-                                onClick={() => setShowAwsSecretKey(!showAwsSecretKey)}
-                                title={showAwsSecretKey ? "Hide" : "Show"}
-                                {...(isValidating ? { disabled: true } : {})}
-                            >
-                                <Codicon name={showAwsSecretKey ? "eye-closed" : "eye"} />
-                            </EyeButton>
-                        </InputRow>
-                    </InputContainer>
-
-                    {/* AWS Region */}
-                    <InputContainer>
-                        <InputRow>
-                            <StyledTextField
-                                type="text"
-                                placeholder="AWS Region (e.g., us-east-1)"
-                                value={awsCredentials.region}
-                                onChange={handleAwsCredentialChange('region')}
-                                {...(isValidating ? { disabled: true } : {})}
-                            />
-                        </InputRow>
-                    </InputContainer>
-
-                    {/* Session Token (Optional) */}
-                    <InputContainer>
-                        <InputRow>
-                            <StyledTextField
-                                type={showAwsSessionToken ? "text" : "password"}
-                                placeholder="Session Token (Optional)"
-                                value={awsCredentials.sessionToken}
-                                onChange={handleAwsCredentialChange('sessionToken')}
-                                {...(isValidating ? { disabled: true } : {})}
-                            />
-                            <EyeButton
-                                type="button"
-                                onClick={() => setShowAwsSessionToken(!showAwsSessionToken)}
-                                title={showAwsSessionToken ? "Hide" : "Show"}
-                                {...(isValidating ? { disabled: true } : {})}
-                            >
-                                <Codicon name={showAwsSessionToken ? "eye-closed" : "eye"} />
-                            </EyeButton>
-                        </InputRow>
-                    </InputContainer>
-
-                    {displayError && (
-                        <ErrorMessage>
-                            <Codicon name="error" />
-                            <span>{displayError}</span>
-                        </ErrorMessage>
-                    )}
-
                     <ButtonContainer>
-                        <VSCodeButton
-                            appearance="primary"
-                            onClick={connectWithAwsBedrock}
-                            {...(isValidating ? { disabled: true } : {})}
-                        >
-                            {isValidating ? "Validating..." : "Connect with AWS Bedrock"}
-                        </VSCodeButton>
-                        <VSCodeButton
-                            appearance="secondary"
-                            onClick={cancelLogin}
-                            {...(isValidating ? { disabled: true } : {})}
-                        >
-                            Cancel
+                        <VSCodeButton appearance="secondary" onClick={cancelLogin}>
+                            Back
                         </VSCodeButton>
                     </ButtonContainer>
                 </AlertContainer>

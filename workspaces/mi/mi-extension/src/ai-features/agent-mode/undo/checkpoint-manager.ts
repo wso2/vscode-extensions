@@ -21,6 +21,8 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import {
     ChangedFileSummary,
+    FileHistoryBackupReference,
+    FileHistorySnapshot,
     UndoCheckpointSummary,
 } from '@wso2/mi-core';
 import { logDebug, logError } from '../../copilot/logger';
@@ -28,49 +30,65 @@ import { getCopilotSessionDir } from '../storage-paths';
 
 export type UndoCheckpointSource = 'agent' | 'code_segment';
 
-interface FileBeforeState {
+interface FileState {
     exists: boolean;
     content?: string;
     hash: string;
-}
-
-export interface StoredUndoCheckpointFile {
-    path: string;
-    before: FileBeforeState;
-    afterHash: string;
-    addedLines: number;
-    deletedLines: number;
-}
-
-export interface StoredUndoCheckpoint {
-    summary: UndoCheckpointSummary;
-    files: StoredUndoCheckpointFile[];
 }
 
 interface PendingUndoCheckpoint {
     source: UndoCheckpointSource;
     checkpointId: string;
     createdAt: string;
-    files: Map<string, FileBeforeState>;
+    targetChatId?: number;
+    trackedFileBackups: Map<string, FileHistoryBackupReference>;
+    planFileSnapshot?: {
+        planPath: string;
+        backup: FileHistoryBackupReference;
+    };
+}
+
+export interface SnapshotRestoreFile {
+    path: string;
+    before: {
+        exists: boolean;
+        content?: string;
+    };
+}
+
+export interface SnapshotRestorePlan {
+    checkpointId: string;
+    source: UndoCheckpointSource;
+    createdAt: string;
+    targetChatId?: number;
+    files: SnapshotRestoreFile[];
+    sessionFiles?: SnapshotRestoreFile[];
+}
+
+export interface SnapshotJournalStore {
+    saveFileHistorySnapshot(
+        snapshot: FileHistorySnapshot,
+        options: { isSnapshotUpdate: boolean; messageId?: string }
+    ): Promise<void>;
+    getLatestFileHistorySnapshot(checkpointId: string): Promise<FileHistorySnapshot | undefined>;
+    listReferencedBackupFiles(): Promise<Set<string>>;
 }
 
 const MISSING_FILE_HASH = '__MISSING_FILE__';
-const UNDO_CHECKPOINT_FILE_NAME = 'undo-checkpoint.json';
-const UNDO_CHECKPOINT_STORE_VERSION = 2;
-const MAX_UNDO_CHECKPOINTS = 25;
+const FILE_HISTORY_DIR_NAME = 'file-history';
 const MAX_EXACT_LINE_DIFF_LINES = 2000;
 const MAX_EXACT_LINE_DIFF_MATRIX_CELLS = 1_000_000;
-
-interface StoredUndoCheckpointStore {
-    version: number;
-    checkpoints: StoredUndoCheckpoint[];
-}
 
 function hashContent(content?: string): string {
     if (content === undefined) {
         return MISSING_FILE_HASH;
     }
     return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
+}
+
+function normalizeAbsolutePath(filePath: string): string {
+    const normalized = path.resolve(filePath).replace(/\\/g, '/');
+    return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
 }
 
 function normalizeRelativePath(projectPath: string, candidatePath: string): string | null {
@@ -109,9 +127,9 @@ function calculateApproximateLineChanges(beforeLines: string[], afterLines: stri
     let beforeSuffixIndex = beforeLength - 1;
     let afterSuffixIndex = afterLength - 1;
     while (
-        beforeSuffixIndex >= prefixMatchCount &&
-        afterSuffixIndex >= prefixMatchCount &&
-        beforeLines[beforeSuffixIndex] === afterLines[afterSuffixIndex]
+        beforeSuffixIndex >= prefixMatchCount
+        && afterSuffixIndex >= prefixMatchCount
+        && beforeLines[beforeSuffixIndex] === afterLines[afterSuffixIndex]
     ) {
         beforeSuffixIndex -= 1;
         afterSuffixIndex -= 1;
@@ -133,11 +151,10 @@ function calculateLineChanges(beforeContent: string, afterContent: string): { ad
     const rows = beforeLines.length;
     const cols = afterLines.length;
 
-    // Large files can make exact LCS expensive in the extension host; use a coarse estimate when over threshold.
     if (
-        rows > MAX_EXACT_LINE_DIFF_LINES ||
-        cols > MAX_EXACT_LINE_DIFF_LINES ||
-        rows * cols > MAX_EXACT_LINE_DIFF_MATRIX_CELLS
+        rows > MAX_EXACT_LINE_DIFF_LINES
+        || cols > MAX_EXACT_LINE_DIFF_LINES
+        || rows * cols > MAX_EXACT_LINE_DIFF_MATRIX_CELLS
     ) {
         return calculateApproximateLineChanges(beforeLines, afterLines);
     }
@@ -167,73 +184,83 @@ function calculateLineChanges(beforeContent: string, afterContent: string): { ad
 
 export class AgentUndoCheckpointManager {
     private pendingCheckpoint: PendingUndoCheckpoint | null = null;
+    private versionCountersLoaded = false;
+    private readonly hashVersionCounters = new Map<string, number>();
 
     constructor(
         private readonly projectPath: string,
         private readonly sessionId: string,
+        private readonly journalStore: SnapshotJournalStore,
     ) {}
 
-    private getCheckpointFilePath(): string {
-        return path.join(getCopilotSessionDir(this.projectPath, this.sessionId), UNDO_CHECKPOINT_FILE_NAME);
+    private getFileHistoryDirPath(): string {
+        return path.join(getCopilotSessionDir(this.projectPath, this.sessionId), FILE_HISTORY_DIR_NAME);
     }
 
-    private async ensureCheckpointDir(): Promise<void> {
-        await fs.mkdir(path.dirname(this.getCheckpointFilePath()), { recursive: true });
+    private async ensureFileHistoryDir(): Promise<void> {
+        await fs.mkdir(this.getFileHistoryDirPath(), { recursive: true });
     }
 
-    private normalizeCheckpoint(checkpoint: StoredUndoCheckpoint): StoredUndoCheckpoint | null {
-        if (!checkpoint?.summary || !Array.isArray(checkpoint.files)) {
-            return null;
-        }
-
-        return {
-            ...checkpoint,
-            summary: {
-                ...checkpoint.summary,
-                undoable: Boolean(checkpoint.summary.undoable),
-            },
-        };
-    }
-
-    private async readCheckpointStack(): Promise<StoredUndoCheckpoint[]> {
-        try {
-            const payload = await fs.readFile(this.getCheckpointFilePath(), 'utf8');
-            const parsed = JSON.parse(payload) as StoredUndoCheckpointStore | StoredUndoCheckpoint;
-
-            if (Array.isArray((parsed as StoredUndoCheckpointStore).checkpoints)) {
-                const checkpoints = (parsed as StoredUndoCheckpointStore).checkpoints
-                    .map((checkpoint) => this.normalizeCheckpoint(checkpoint))
-                    .filter((checkpoint): checkpoint is StoredUndoCheckpoint => checkpoint !== null);
-                return checkpoints;
-            }
-
-            const legacyCheckpoint = this.normalizeCheckpoint(parsed as StoredUndoCheckpoint);
-            return legacyCheckpoint ? [legacyCheckpoint] : [];
-        } catch {
-            return [];
-        }
-    }
-
-    private async writeCheckpointStack(checkpoints: StoredUndoCheckpoint[]): Promise<void> {
-        if (checkpoints.length === 0) {
-            await this.clearLatestCheckpoint();
+    private async loadVersionCounters(): Promise<void> {
+        if (this.versionCountersLoaded) {
             return;
         }
 
-        await this.ensureCheckpointDir();
-        const payload: StoredUndoCheckpointStore = {
-            version: UNDO_CHECKPOINT_STORE_VERSION,
-            checkpoints,
-        };
-        await fs.writeFile(this.getCheckpointFilePath(), JSON.stringify(payload), 'utf8');
+        this.hashVersionCounters.clear();
+
+        try {
+            const entries = await fs.readdir(this.getFileHistoryDirPath(), { withFileTypes: true });
+            for (const entry of entries) {
+                if (!entry.isFile()) {
+                    continue;
+                }
+
+                const match = entry.name.match(/^([a-f0-9]+)@v(\d+)$/i);
+                if (!match) {
+                    continue;
+                }
+
+                const pathHash = match[1].toLowerCase();
+                const version = Number.parseInt(match[2], 10);
+                if (!Number.isFinite(version) || version <= 0) {
+                    continue;
+                }
+
+                const previous = this.hashVersionCounters.get(pathHash) || 0;
+                if (version > previous) {
+                    this.hashVersionCounters.set(pathHash, version);
+                }
+            }
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError?.code !== 'ENOENT') {
+                logError('[UndoCheckpoint] Failed to load file-history version counters', error);
+            }
+        }
+
+        this.versionCountersLoaded = true;
     }
 
-    private createCheckpointId(): string {
-        return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    private allocateNextVersion(pathHash: string): number {
+        const current = this.hashVersionCounters.get(pathHash) || 0;
+        const next = current + 1;
+        this.hashVersionCounters.set(pathHash, next);
+        return next;
     }
 
-    private async readFileState(relativePath: string): Promise<FileBeforeState> {
-        const fullPath = path.join(this.projectPath, relativePath);
+    private createPathHashFromAbsolutePath(absolutePath: string): string {
+        return crypto
+            .createHash('sha256')
+            .update(normalizeAbsolutePath(absolutePath), 'utf8')
+            .digest('hex')
+            .slice(0, 16);
+    }
+
+    private getBackupFilePath(backupFileName: string): string {
+        return path.join(this.getFileHistoryDirPath(), backupFileName);
+    }
+
+    private async readAbsoluteFileState(fullPath: string): Promise<FileState> {
         try {
             const content = await fs.readFile(fullPath, 'utf8');
             return {
@@ -241,21 +268,160 @@ export class AgentUndoCheckpointManager {
                 content,
                 hash: hashContent(content),
             };
-        } catch {
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                return {
+                    exists: false,
+                    hash: hashContent(undefined),
+                };
+            }
+            throw error;
+        }
+    }
+
+    private async readFileState(relativePath: string): Promise<FileState> {
+        const fullPath = path.join(this.projectPath, relativePath);
+        return this.readAbsoluteFileState(fullPath);
+    }
+
+    private async captureAbsoluteFileBackup(absolutePath: string): Promise<FileHistoryBackupReference> {
+        await this.ensureFileHistoryDir();
+        await this.loadVersionCounters();
+
+        const fileState = await this.readAbsoluteFileState(absolutePath);
+        const backupTime = new Date().toISOString();
+        const pathHash = this.createPathHashFromAbsolutePath(absolutePath);
+        const version = this.allocateNextVersion(pathHash);
+
+        let backupFileName: string | null = null;
+        if (fileState.exists) {
+            backupFileName = `${pathHash}@v${version}`;
+            await fs.writeFile(this.getBackupFilePath(backupFileName), fileState.content || '', 'utf8');
+        }
+
+        return {
+            backupFileName,
+            version,
+            backupTime,
+        };
+    }
+
+    private async captureFileBackup(relativePath: string): Promise<FileHistoryBackupReference> {
+        await this.ensureFileHistoryDir();
+        await this.loadVersionCounters();
+
+        const fileState = await this.readFileState(relativePath);
+        const backupTime = new Date().toISOString();
+        const pathHash = this.createPathHashFromAbsolutePath(path.join(this.projectPath, relativePath));
+        const version = this.allocateNextVersion(pathHash);
+
+        let backupFileName: string | null = null;
+        if (fileState.exists) {
+            backupFileName = `${pathHash}@v${version}`;
+            await fs.writeFile(this.getBackupFilePath(backupFileName), fileState.content || '', 'utf8');
+        }
+
+        return {
+            backupFileName,
+            version,
+            backupTime,
+        };
+    }
+
+    private buildSnapshotFromPending(pending: PendingUndoCheckpoint, timestamp?: string): FileHistorySnapshot {
+        const trackedFileBackups: Record<string, FileHistoryBackupReference> = {};
+        for (const [relativePath, backupReference] of pending.trackedFileBackups.entries()) {
+            trackedFileBackups[relativePath] = backupReference;
+        }
+
+        return {
+            messageId: pending.checkpointId,
+            source: pending.source,
+            trackedFileBackups,
+            timestamp: timestamp || new Date().toISOString(),
+            targetChatId: pending.targetChatId,
+            planFileSnapshot: pending.planFileSnapshot ? { ...pending.planFileSnapshot } : undefined,
+        };
+    }
+
+    private async resolveBeforeState(backupReference: FileHistoryBackupReference): Promise<FileState> {
+        if (!backupReference.backupFileName) {
             return {
                 exists: false,
                 hash: hashContent(undefined),
             };
         }
+
+        try {
+            const content = await fs.readFile(this.getBackupFilePath(backupReference.backupFileName), 'utf8');
+            return {
+                exists: true,
+                content,
+                hash: hashContent(content),
+            };
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                return {
+                    exists: false,
+                    hash: hashContent(undefined),
+                };
+            }
+            throw error;
+        }
     }
 
-    async beginRun(source: UndoCheckpointSource): Promise<void> {
-        this.pendingCheckpoint = {
+    private isSafeSessionPlanPath(planPath: string): boolean {
+        const resolvedPlanPath = path.resolve(planPath);
+        const planRoot = path.resolve(getCopilotSessionDir(this.projectPath, this.sessionId), 'plan');
+        const underPlanRoot = (
+            resolvedPlanPath === planRoot
+            || resolvedPlanPath.startsWith(`${planRoot}${path.sep}`)
+        );
+        if (!underPlanRoot) {
+            return false;
+        }
+
+        const statsPath = resolvedPlanPath.toLowerCase();
+        return statsPath.endsWith('.md');
+    }
+
+    async beginRun(
+        source: UndoCheckpointSource,
+        options?: {
+            checkpointId?: string;
+            targetChatId?: number;
+            createdAt?: string;
+            planFilePath?: string;
+        }
+    ): Promise<void> {
+        const pendingCheckpoint: PendingUndoCheckpoint = {
             source,
-            checkpointId: this.createCheckpointId(),
-            createdAt: new Date().toISOString(),
-            files: new Map<string, FileBeforeState>(),
+            checkpointId: options?.checkpointId?.trim() || crypto.randomUUID(),
+            createdAt: options?.createdAt || new Date().toISOString(),
+            targetChatId: options?.targetChatId,
+            trackedFileBackups: new Map<string, FileHistoryBackupReference>(),
         };
+
+        const planFilePath = options?.planFilePath?.trim();
+        if (planFilePath && this.isSafeSessionPlanPath(planFilePath)) {
+            try {
+                const resolvedPlanPath = path.resolve(planFilePath);
+                pendingCheckpoint.planFileSnapshot = {
+                    planPath: resolvedPlanPath,
+                    backup: await this.captureAbsoluteFileBackup(resolvedPlanPath),
+                };
+            } catch (error) {
+                logError(`[UndoCheckpoint] Failed to capture plan-file baseline: ${planFilePath}`, error);
+            }
+        }
+
+        this.pendingCheckpoint = pendingCheckpoint;
+
+        const snapshot = this.buildSnapshotFromPending(pendingCheckpoint, pendingCheckpoint.createdAt);
+        await this.journalStore.saveFileHistorySnapshot(snapshot, {
+            isSnapshotUpdate: false,
+            messageId: pendingCheckpoint.checkpointId,
+        });
     }
 
     async discardPendingRun(): Promise<void> {
@@ -263,7 +429,8 @@ export class AgentUndoCheckpointManager {
     }
 
     async captureBeforeChange(relativePath: string): Promise<void> {
-        if (!this.pendingCheckpoint) {
+        const pending = this.pendingCheckpoint;
+        if (!pending) {
             return;
         }
 
@@ -278,28 +445,33 @@ export class AgentUndoCheckpointManager {
             return;
         }
 
-        if (this.pendingCheckpoint.files.has(normalizedPath)) {
+        // Keep first backup reference for the checkpoint so restore returns to true checkpoint state.
+        // Skip if already tracked to avoid creating orphan backup files.
+        if (pending.trackedFileBackups.has(normalizedPath)) {
             return;
         }
 
-        const state = await this.readFileState(normalizedPath);
-        this.pendingCheckpoint.files.set(normalizedPath, state);
+        const backupReference = await this.captureFileBackup(normalizedPath);
+        pending.trackedFileBackups.set(normalizedPath, backupReference);
+
+        const snapshot = this.buildSnapshotFromPending(pending, new Date().toISOString());
+        await this.journalStore.saveFileHistorySnapshot(snapshot, { isSnapshotUpdate: true });
     }
 
     async commitRun(): Promise<UndoCheckpointSummary | undefined> {
         const pending = this.pendingCheckpoint;
         this.pendingCheckpoint = null;
 
-        if (!pending || pending.files.size === 0) {
+        if (!pending || pending.trackedFileBackups.size === 0) {
             return undefined;
         }
 
-        const fileDetails: StoredUndoCheckpointFile[] = [];
         const fileSummaries: ChangedFileSummary[] = [];
         let totalAdded = 0;
         let totalDeleted = 0;
 
-        for (const [relativePath, beforeState] of pending.files.entries()) {
+        for (const [relativePath, backupReference] of pending.trackedFileBackups.entries()) {
+            const beforeState = await this.resolveBeforeState(backupReference);
             const afterState = await this.readFileState(relativePath);
 
             if (beforeState.hash === afterState.hash) {
@@ -310,14 +482,6 @@ export class AgentUndoCheckpointManager {
             const afterContent = afterState.exists ? (afterState.content || '') : '';
             const { addedLines, deletedLines } = calculateLineChanges(beforeContent, afterContent);
 
-            fileDetails.push({
-                path: relativePath,
-                before: beforeState,
-                afterHash: afterState.hash,
-                addedLines,
-                deletedLines,
-            });
-
             fileSummaries.push({
                 path: relativePath,
                 addedLines,
@@ -327,11 +491,11 @@ export class AgentUndoCheckpointManager {
             totalDeleted += deletedLines;
         }
 
-        if (fileDetails.length === 0) {
+        if (fileSummaries.length === 0) {
             return undefined;
         }
 
-        const summary: UndoCheckpointSummary = {
+        return {
             checkpointId: pending.checkpointId,
             source: pending.source,
             createdAt: pending.createdAt,
@@ -340,77 +504,109 @@ export class AgentUndoCheckpointManager {
             totalDeleted,
             undoable: true,
         };
+    }
 
-        const payload: StoredUndoCheckpoint = {
-            summary,
-            files: fileDetails,
+    async buildRestorePlan(checkpointId: string): Promise<SnapshotRestorePlan | undefined> {
+        if (!checkpointId?.trim()) {
+            return undefined;
+        }
+
+        const snapshot = await this.journalStore.getLatestFileHistorySnapshot(checkpointId);
+        if (!snapshot) {
+            return undefined;
+        }
+
+        const entries = Object.entries(snapshot.trackedFileBackups || {});
+        const files: SnapshotRestoreFile[] = await Promise.all(
+            entries.map(async ([relativePath, backupReference]) => {
+                if (!backupReference.backupFileName) {
+                    return { path: relativePath, before: { exists: false } };
+                }
+                try {
+                    const content = await fs.readFile(this.getBackupFilePath(backupReference.backupFileName), 'utf8');
+                    return { path: relativePath, before: { exists: true, content } };
+                } catch (error) {
+                    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                        return { path: relativePath, before: { exists: false } };
+                    }
+                    throw error;
+                }
+            })
+        );
+
+        let sessionFiles: SnapshotRestoreFile[] | undefined;
+        const planSnapshot = snapshot.planFileSnapshot;
+        if (planSnapshot?.planPath) {
+            const planPath = path.resolve(planSnapshot.planPath);
+            const planBackupFileName = planSnapshot.backup?.backupFileName?.trim();
+            if (!planBackupFileName) {
+                sessionFiles = [{
+                    path: planPath,
+                    before: { exists: false },
+                }];
+            } else {
+                try {
+                    const content = await fs.readFile(this.getBackupFilePath(planBackupFileName), 'utf8');
+                    sessionFiles = [{
+                        path: planPath,
+                        before: { exists: true, content },
+                    }];
+                } catch (error) {
+                    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                        sessionFiles = [{
+                            path: planPath,
+                            before: { exists: false },
+                        }];
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+        }
+
+        return {
+            checkpointId: snapshot.messageId,
+            source: snapshot.source,
+            createdAt: snapshot.timestamp,
+            targetChatId: snapshot.targetChatId,
+            files,
+            sessionFiles,
         };
-
-        const existingCheckpoints = await this.readCheckpointStack();
-        const normalizedExisting = existingCheckpoints.map((checkpoint) => ({
-            ...checkpoint,
-            summary: {
-                ...checkpoint.summary,
-                undoable: false,
-            },
-        }));
-
-        const nextCheckpoints = [...normalizedExisting, payload];
-        const trimmedCheckpoints = nextCheckpoints.slice(-MAX_UNDO_CHECKPOINTS);
-        if (trimmedCheckpoints.length > 0) {
-            const lastCheckpoint = trimmedCheckpoints[trimmedCheckpoints.length - 1];
-            lastCheckpoint.summary = {
-                ...lastCheckpoint.summary,
-                undoable: true,
-            };
-        }
-
-        await this.writeCheckpointStack(trimmedCheckpoints);
-        return summary;
     }
 
-    async getLatestCheckpoint(): Promise<StoredUndoCheckpoint | undefined> {
-        const checkpoints = await this.readCheckpointStack();
-        return checkpoints.length > 0 ? checkpoints[checkpoints.length - 1] : undefined;
-    }
+    async cleanupOrphanSnapshotFiles(): Promise<void> {
+        await this.ensureFileHistoryDir();
 
-    async getConflictedFiles(checkpoint: StoredUndoCheckpoint): Promise<string[]> {
-        const conflicts: string[] = [];
-        for (const file of checkpoint.files) {
-            const currentState = await this.readFileState(file.path);
-            if (currentState.hash !== file.afterHash) {
-                conflicts.push(file.path);
-            }
-        }
-        return conflicts;
-    }
+        const referencedBackupFiles = await this.journalStore.listReferencedBackupFiles();
+        let deletedCount = 0;
 
-    async clearLatestCheckpoint(): Promise<void> {
         try {
-            const checkpoints = await this.readCheckpointStack();
-            if (checkpoints.length === 0) {
-                await fs.unlink(this.getCheckpointFilePath());
-                return;
+            const entries = await fs.readdir(this.getFileHistoryDirPath(), { withFileTypes: true });
+            for (const entry of entries) {
+                if (!entry.isFile()) {
+                    continue;
+                }
+
+                if (referencedBackupFiles.has(entry.name)) {
+                    continue;
+                }
+
+                await fs.unlink(path.join(this.getFileHistoryDirPath(), entry.name));
+                deletedCount += 1;
             }
-
-            checkpoints.pop();
-            if (checkpoints.length === 0) {
-                await fs.unlink(this.getCheckpointFilePath());
-                return;
-            }
-
-            const lastCheckpoint = checkpoints[checkpoints.length - 1];
-            lastCheckpoint.summary = {
-                ...lastCheckpoint.summary,
-                undoable: true,
-            };
-
-            await this.writeCheckpointStack(checkpoints);
         } catch (error) {
-            const err = error as NodeJS.ErrnoException;
-            if (err?.code !== 'ENOENT') {
-                logError('[UndoCheckpoint] Failed to clear latest checkpoint', error);
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError?.code !== 'ENOENT') {
+                logError('[UndoCheckpoint] Failed to cleanup orphan snapshot files', error);
+                throw error;
             }
+        }
+
+        this.versionCountersLoaded = false;
+        await this.loadVersionCounters();
+
+        if (deletedCount > 0) {
+            logDebug(`[UndoCheckpoint] Removed ${deletedCount} orphan snapshot file(s)`);
         }
     }
 }
