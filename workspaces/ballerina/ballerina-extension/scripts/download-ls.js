@@ -12,7 +12,21 @@ const args = process.argv.slice(2);
 const usePrerelease = args.includes('--prerelease') || process.env.isPreRelease === 'true';
 const forceReplace = args.includes('--replace');
 const tagIndex = args.indexOf('--tag');
-const requestedTag = tagIndex >= 0 ? args[tagIndex + 1] : process.env.BALLERINA_LS_TAG;
+
+function getTagValue(cliArgs, index) {
+    if (index < 0) {
+        return process.env.BALLERINA_LS_TAG;
+    }
+
+    const value = cliArgs[index + 1];
+    if (!value || value.startsWith('-')) {
+        return undefined;
+    }
+
+    return value;
+}
+
+const requestedTag = getTagValue(args, tagIndex);
 
 function getExpectedVersion(tag) {
     if (!tag) {

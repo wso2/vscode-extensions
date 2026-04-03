@@ -20,7 +20,9 @@ const jarName = getBundledLanguageServerJar();
 
 if (!jarName) {
     console.error(`Bundled Ballerina language server JAR not found in ${path.relative(projectRoot, lsDir)}.`);
-    console.error('Download it before building the VSIX: pnpm run download-ls');
+    console.error('Download it before building the VSIX:');
+    console.error('  cd workspaces/ballerina/ballerina-extension && pnpm run download-ls');
+    console.error('  pnpm --filter ./workspaces/ballerina/ballerina-extension run download-ls');
     process.exit(1);
 }
 

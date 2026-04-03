@@ -181,26 +181,31 @@ runs:
     - name: Validate Ballerina LS selection
       shell: bash
       run: |
-        if [[ ("${{ inputs.ballerina }}" == "true" || "${{ inputs.bi }}" == "true") && "${{ inputs.ballerinaLSRelease }}" == "N/A" ]]; then
+        if [[ ("$IS_BALLERINA_RELEASE" == "true" || "$IS_BI_RELEASE" == "true") && "$BALLERINA_LS_RELEASE" == "N/A" ]]; then
           echo "ballerinaLSRelease must be set for Ballerina or BI extension releases."
           exit 1
         fi
 
-        if [[ ("${{ inputs.ballerina }}" == "true" || "${{ inputs.bi }}" == "true") && "${{ inputs.ballerinaLSRelease }}" == "specific-tag" && -z "${{ inputs.ballerinaLSTag }}" ]]; then
+        if [[ ("$IS_BALLERINA_RELEASE" == "true" || "$IS_BI_RELEASE" == "true") && "$BALLERINA_LS_RELEASE" == "specific-tag" && -z "$BALLERINA_LS_TAG" ]]; then
           echo "ballerinaLSTag is required when ballerinaLSRelease is set to specific-tag."
           exit 1
         fi
+      env:
+        IS_BALLERINA_RELEASE: ${{ inputs.ballerina }}
+        IS_BI_RELEASE: ${{ inputs.bi }}
+        BALLERINA_LS_RELEASE: ${{ inputs.ballerinaLSRelease }}
+        BALLERINA_LS_TAG: ${{ inputs.ballerinaLSTag }}
 
     - name: Download Ballerina LS
       shell: bash
       run: |
         args=()
 
-        if [[ "${{ inputs.isReleaseBuild }}" == "true" ]]; then
+        if [[ "$IS_RELEASE_BUILD" == "true" ]]; then
           args+=(--replace)
         fi
 
-        case "${{ inputs.ballerinaLSRelease }}" in
+        case "$BALLERINA_LS_RELEASE" in
           N/A)
             ;;
           latest)
@@ -209,16 +214,19 @@ runs:
             args+=(--prerelease)
             ;;
           specific-tag)
-            args+=(--tag "${{ inputs.ballerinaLSTag }}")
+            args+=(--tag "$BALLERINA_LS_TAG")
             ;;
           *)
-            echo "Unsupported ballerinaLSRelease value: ${{ inputs.ballerinaLSRelease }}"
+            echo "Unsupported ballerinaLSRelease value: $BALLERINA_LS_RELEASE"
             exit 1
             ;;
         esac
 
         pnpm --dir workspaces/ballerina/ballerina-extension run download-ls -- "${args[@]}"
       env:
+        IS_RELEASE_BUILD: ${{ inputs.isReleaseBuild }}
+        BALLERINA_LS_RELEASE: ${{ inputs.ballerinaLSRelease }}
+        BALLERINA_LS_TAG: ${{ inputs.ballerinaLSTag }}
         GITHUB_TOKEN: ${{ inputs.token }}
 
     - name: Build repo
