@@ -9,6 +9,9 @@ inputs:
   enableLSCache:
     default: false
     type: boolean
+  isReleaseBuild:
+    default: false
+    type: boolean
   ballerina:
     description: Update Ballerina extension version
     type: boolean
@@ -41,6 +44,14 @@ inputs:
     default: false
   version:
     default: "N/A"
+    type: string
+    required: false
+  ballerinaLSRelease:
+    default: "latest"
+    type: string
+    required: false
+  ballerinaLSTag:
+    default: ""
     type: string
     required: false
   balVersion:
@@ -166,6 +177,42 @@ runs:
         path: workspaces/ballerina/ballerina-extension/ls
         key: ballerina-ls
         retention-days: 1
+
+    - name: Validate Ballerina LS selection
+      shell: bash
+      run: |
+        if [[ "${{ inputs.ballerinaLSRelease }}" == "specific-tag" && -z "${{ inputs.ballerinaLSTag }}" ]]; then
+          echo "ballerinaLSTag is required when ballerinaLSRelease is set to specific-tag."
+          exit 1
+        fi
+
+    - name: Download Ballerina LS
+      shell: bash
+      run: |
+        args=()
+
+        if [[ "${{ inputs.isReleaseBuild }}" == "true" ]]; then
+          args+=(--replace)
+        fi
+
+        case "${{ inputs.ballerinaLSRelease }}" in
+          latest)
+            ;;
+          pre-release)
+            args+=(--prerelease)
+            ;;
+          specific-tag)
+            args+=(--tag "${{ inputs.ballerinaLSTag }}")
+            ;;
+          *)
+            echo "Unsupported ballerinaLSRelease value: ${{ inputs.ballerinaLSRelease }}"
+            exit 1
+            ;;
+        esac
+
+        pnpm --dir workspaces/ballerina/ballerina-extension run download-ls -- "${args[@]}"
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
 
     - name: Build repo
       shell: bash

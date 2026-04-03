@@ -11,8 +11,18 @@ const GITHUB_REPO_URL = 'https://api.github.com/repos/ballerina-platform/balleri
 const args = process.argv.slice(2);
 const usePrerelease = args.includes('--prerelease') || process.env.isPreRelease === 'true';
 const forceReplace = args.includes('--replace');
+const tagIndex = args.indexOf('--tag');
+const requestedTag = tagIndex >= 0 ? args[tagIndex + 1] : process.env.BALLERINA_LS_TAG;
 
-function checkExistingJar() {
+function getExpectedVersion(tag) {
+    if (!tag) {
+        return undefined;
+    }
+
+    return tag.startsWith('v') ? tag.slice(1) : tag;
+}
+
+function checkExistingJar(expectedVersion) {
     try {
         if (!fs.existsSync(LS_DIR)) {
             return false;
@@ -21,11 +31,22 @@ function checkExistingJar() {
         const files = fs.readdirSync(LS_DIR);
         const jarFiles = files.filter(file => file.includes('ballerina-language-server-') && file.endsWith('.jar'));
 
-        if (jarFiles.length > 0) {
+        if (jarFiles.length === 0) {
+            return false;
+        }
+
+        if (!expectedVersion) {
             console.log(`Ballerina language server JAR already exists in ${path.relative(PROJECT_ROOT, LS_DIR)}`);
             return true;
         }
 
+        const expectedJar = jarFiles.find(file => file === `ballerina-language-server-${expectedVersion}.jar`);
+        if (expectedJar) {
+            console.log(`Ballerina language server JAR for version ${expectedVersion} already exists in ${path.relative(PROJECT_ROOT, LS_DIR)}`);
+            return true;
+        }
+
+        console.log(`Existing language server JAR does not match requested version ${expectedVersion}; downloading requested version.`);
         return false;
     } catch (error) {
         console.error('Error checking existing JAR files:', error.message);
@@ -147,6 +168,15 @@ function getFileSize(filePath) {
 }
 
 async function getLatestRelease(usePrerelease) {
+    if (requestedTag) {
+        const releaseResponse = await httpsRequest(`${GITHUB_REPO_URL}/releases/tags/${encodeURIComponent(requestedTag)}`);
+        try {
+            return JSON.parse(releaseResponse.data);
+        } catch (error) {
+            throw new Error(`Failed to parse release information JSON for tag ${requestedTag}`);
+        }
+    }
+
     if (usePrerelease) {
         // Get all releases and find the latest prerelease
         const releasesResponse = await httpsRequest(`${GITHUB_REPO_URL}/releases`);
@@ -178,11 +208,22 @@ async function getLatestRelease(usePrerelease) {
 
 async function main() {
     try {
-        if (!forceReplace && checkExistingJar()) {
+        if (usePrerelease && requestedTag) {
+            throw new Error('Use either --prerelease or --tag, not both');
+        }
+
+        if (tagIndex >= 0 && !requestedTag) {
+            throw new Error('Missing value for --tag');
+        }
+
+        if (!forceReplace && checkExistingJar(getExpectedVersion(requestedTag))) {
             process.exit(0);
         }
 
-        console.log(`Downloading Ballerina language server${usePrerelease ? ' (prerelease)' : ''}${forceReplace ? ' (force replace)' : ''}...`);
+        const releaseLabel = requestedTag
+            ? ` (tag: ${requestedTag})`
+            : (usePrerelease ? ' (prerelease)' : '');
+        console.log(`Downloading Ballerina language server${releaseLabel}${forceReplace ? ' (force replace)' : ''}...`);
 
         if (forceReplace && fs.existsSync(LS_DIR)) {
             console.log('Force replace enabled: clearing existing language server directory...');
@@ -241,4 +282,4 @@ if (require.main === module) {
     main();
 }
 
-module.exports = { main, checkExistingJar }; 
+module.exports = { main, checkExistingJar };

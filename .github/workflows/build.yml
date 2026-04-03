@@ -54,6 +54,14 @@ on:
         default: 'N/A'
         type: string
         required: false
+      ballerinaLSRelease:
+        default: 'latest'
+        type: string
+        required: false
+      ballerinaLSTag:
+        default: ''
+        type: string
+        required: false
       isReleaseBuild:  
         type: boolean
         default: false
@@ -213,6 +221,9 @@ jobs:
           mi: ${{ inputs.mi }}
           hurl-client: ${{ inputs.hurl-client }}
           version: ${{ inputs.version }}
+          ballerinaLSRelease: ${{ inputs.ballerinaLSRelease }}
+          ballerinaLSTag: ${{ inputs.ballerinaLSTag }}
+          isReleaseBuild: ${{ inputs.isReleaseBuild }}
           token: ${{ secrets.CHOREO_BOT_TOKEN }}
           BALLERINA_AUTH_ORG: ${{ secrets.BALLERINA_AUTH_ORG }}
           BALLERINA_AUTH_CLIENT_ID: ${{ secrets.BALLERINA_AUTH_CLIENT_ID }}
