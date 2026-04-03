@@ -98,8 +98,8 @@ export interface CreateProjectReq {
 }
 export interface UpdateProjectReq {
 	orgId: string;
-	orgUuid: string;
 	projectId: string;
+    name: string;
 }
 export interface DeleteCompReq {
 	orgId: string;
