@@ -68,14 +68,24 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok }) => {
 
     const handleClearMemory = async () => {
         try {
-            await rpcClient.getMiAgentPanelRpcClient().clearAgentMemory();
-        } catch { /* silent */ }
+            const result = await rpcClient.getMiAgentPanelRpcClient().clearAgentMemory();
+            if (result && !result.success) {
+                console.error('[SettingsPanel] Failed to clear memory:', result.error);
+            }
+        } catch (err) {
+            console.error('[SettingsPanel] Failed to clear memory:', err);
+        }
     };
 
     const handleOpenMemoryFolder = async () => {
         try {
-            await rpcClient.getMiAgentPanelRpcClient().openAgentMemoryFolder();
-        } catch { /* silent */ }
+            const result = await rpcClient.getMiAgentPanelRpcClient().openAgentMemoryFolder();
+            if (result && !result.success) {
+                console.error('[SettingsPanel] Failed to open memory folder:', result.error);
+            }
+        } catch (err) {
+            console.error('[SettingsPanel] Failed to open memory folder:', err);
+        }
     };
 
     const isDefault =

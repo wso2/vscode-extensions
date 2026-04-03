@@ -26,7 +26,6 @@ const FileChangesSegment: React.FC = () => {
         setPendingReview,
         rpcClient,
         setMessages,
-        setCopilotChat,
     } = useMICopilotContext();
     const [isRejecting, setIsRejecting] = useState(false);
     const [error, setError] = useState("");
@@ -80,7 +79,6 @@ const FileChangesSegment: React.FC = () => {
             }
 
             setMessages(convertEventsToMessages(historyResponse.events));
-            setCopilotChat([]);
             setPendingReview(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Reject failed");

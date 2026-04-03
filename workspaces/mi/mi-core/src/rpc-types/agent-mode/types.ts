@@ -599,4 +599,7 @@ export interface MIAgentPanelAPI {
     searchMentionablePaths: (request: SearchMentionablePathsRequest) => Promise<SearchMentionablePathsResponse>;
     // Agent run status for panel reconnection
     getAgentRunStatus: (request?: GetAgentRunStatusRequest) => Promise<GetAgentRunStatusResponse>;
+    // Memory management
+    clearAgentMemory: () => Promise<ClearAgentMemoryResponse>;
+    openAgentMemoryFolder: () => Promise<OpenAgentMemoryFolderResponse>;
 }
