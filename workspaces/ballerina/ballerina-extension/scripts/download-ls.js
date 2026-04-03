@@ -11,8 +11,32 @@ const GITHUB_REPO_URL = 'https://api.github.com/repos/ballerina-platform/balleri
 const args = process.argv.slice(2);
 const usePrerelease = args.includes('--prerelease') || process.env.isPreRelease === 'true';
 const forceReplace = args.includes('--replace');
+const tagIndex = args.indexOf('--tag');
 
-function checkExistingJar() {
+function getTagValue(cliArgs, index) {
+    if (index < 0) {
+        return process.env.BALLERINA_LS_TAG;
+    }
+
+    const value = cliArgs[index + 1];
+    if (!value || value.startsWith('-')) {
+        return undefined;
+    }
+
+    return value;
+}
+
+const requestedTag = getTagValue(args, tagIndex);
+
+function getExpectedVersion(tag) {
+    if (!tag) {
+        return undefined;
+    }
+
+    return tag.startsWith('v') ? tag.slice(1) : tag;
+}
+
+function checkExistingJar(expectedVersion) {
     try {
         if (!fs.existsSync(LS_DIR)) {
             return false;
@@ -21,11 +45,22 @@ function checkExistingJar() {
         const files = fs.readdirSync(LS_DIR);
         const jarFiles = files.filter(file => file.includes('ballerina-language-server-') && file.endsWith('.jar'));
 
-        if (jarFiles.length > 0) {
+        if (jarFiles.length === 0) {
+            return false;
+        }
+
+        if (!expectedVersion) {
             console.log(`Ballerina language server JAR already exists in ${path.relative(PROJECT_ROOT, LS_DIR)}`);
             return true;
         }
 
+        const expectedJar = jarFiles.find(file => file === `ballerina-language-server-${expectedVersion}.jar`);
+        if (expectedJar) {
+            console.log(`Ballerina language server JAR for version ${expectedVersion} already exists in ${path.relative(PROJECT_ROOT, LS_DIR)}`);
+            return true;
+        }
+
+        console.log(`Existing language server JAR does not match requested version ${expectedVersion}; downloading requested version.`);
         return false;
     } catch (error) {
         console.error('Error checking existing JAR files:', error.message);
@@ -35,12 +70,7 @@ function checkExistingJar() {
 
 function httpsRequest(url, options = {}) {
     return new Promise((resolve, reject) => {
-        const authHeader = {};
-        if (process.env.CHOREO_BOT_TOKEN) {
-            authHeader['Authorization'] = `Bearer ${process.env.CHOREO_BOT_TOKEN}`;
-        } else if (process.env.GITHUB_TOKEN) {
-            authHeader['Authorization'] = `Bearer ${process.env.GITHUB_TOKEN}`;
-        }
+        const authHeader = getAuthHeader();
 
         const req = https.request(url, {
             ...options,
@@ -82,6 +112,22 @@ function httpsRequest(url, options = {}) {
     });
 }
 
+function getAuthHeader() {
+    if (process.env.CHOREO_BOT_TOKEN) {
+        return { Authorization: `Bearer ${process.env.CHOREO_BOT_TOKEN}` };
+    }
+
+    if (process.env.GITHUB_TOKEN) {
+        return { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` };
+    }
+
+    if (process.env.gitPAT) {
+        return { Authorization: `Bearer ${process.env.gitPAT}` };
+    }
+
+    return {};
+}
+
 function downloadFile(url, outputPath, maxRedirects = 5) {
     return new Promise((resolve, reject) => {
         const file = fs.createWriteStream(outputPath);
@@ -90,7 +136,8 @@ function downloadFile(url, outputPath, maxRedirects = 5) {
             const req = https.request(requestUrl, {
                 headers: {
                     'User-Agent': 'Ballerina-LS-Downloader',
-                    'Accept': 'application/octet-stream'
+                    'Accept': 'application/octet-stream',
+                    ...getAuthHeader()
                 }
             }, (res) => {
                 if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -106,10 +153,50 @@ function downloadFile(url, outputPath, maxRedirects = 5) {
                 }
 
                 if (res.statusCode >= 200 && res.statusCode < 300) {
+                    const totalBytes = Number(res.headers['content-length'] || 0);
+                    let downloadedBytes = 0;
+                    let lastLoggedAt = Date.now();
+
+                    const formatBytes = (bytes) => {
+                        if (bytes < 1024) {
+                            return `${bytes} B`;
+                        }
+
+                        if (bytes < 1024 * 1024) {
+                            return `${(bytes / 1024).toFixed(1)} KB`;
+                        }
+
+                        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+                    };
+
+                    res.on('data', (chunk) => {
+                        downloadedBytes += chunk.length;
+
+                        const now = Date.now();
+                        if (now - lastLoggedAt < 2000) {
+                            return;
+                        }
+
+                        lastLoggedAt = now;
+
+                        if (totalBytes > 0) {
+                            const percentage = ((downloadedBytes / totalBytes) * 100).toFixed(1);
+                            console.log(`Downloaded ${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)} (${percentage}%)`);
+                            return;
+                        }
+
+                        console.log(`Downloaded ${formatBytes(downloadedBytes)}`);
+                    });
+
                     res.pipe(file);
 
                     file.on('finish', () => {
                         file.close();
+                        if (totalBytes > 0) {
+                            console.log(`Downloaded ${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)} (100.0%)`);
+                        } else {
+                            console.log(`Downloaded ${formatBytes(downloadedBytes)}`);
+                        }
                         resolve();
                     });
 
@@ -147,6 +234,15 @@ function getFileSize(filePath) {
 }
 
 async function getLatestRelease(usePrerelease) {
+    if (requestedTag) {
+        const releaseResponse = await httpsRequest(`${GITHUB_REPO_URL}/releases/tags/${encodeURIComponent(requestedTag)}`);
+        try {
+            return JSON.parse(releaseResponse.data);
+        } catch (error) {
+            throw new Error(`Failed to parse release information JSON for tag ${requestedTag}`);
+        }
+    }
+
     if (usePrerelease) {
         // Get all releases and find the latest prerelease
         const releasesResponse = await httpsRequest(`${GITHUB_REPO_URL}/releases`);
@@ -178,11 +274,22 @@ async function getLatestRelease(usePrerelease) {
 
 async function main() {
     try {
-        if (!forceReplace && checkExistingJar()) {
+        if (usePrerelease && requestedTag) {
+            throw new Error('Use either --prerelease or --tag, not both');
+        }
+
+        if (tagIndex >= 0 && !requestedTag) {
+            throw new Error('Missing value for --tag');
+        }
+
+        if (!forceReplace && checkExistingJar(getExpectedVersion(requestedTag))) {
             process.exit(0);
         }
 
-        console.log(`Downloading Ballerina language server${usePrerelease ? ' (prerelease)' : ''}${forceReplace ? ' (force replace)' : ''}...`);
+        const releaseLabel = requestedTag
+            ? ` (tag: ${requestedTag})`
+            : (usePrerelease ? ' (prerelease)' : '');
+        console.log(`Downloading Ballerina language server${releaseLabel}${forceReplace ? ' (force replace)' : ''}...`);
 
         if (forceReplace && fs.existsSync(LS_DIR)) {
             console.log('Force replace enabled: clearing existing language server directory...');
@@ -241,4 +348,4 @@ if (require.main === module) {
     main();
 }
 
-module.exports = { main, checkExistingJar }; 
+module.exports = { main, checkExistingJar };

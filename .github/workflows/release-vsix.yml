@@ -51,6 +51,20 @@ on:
           - 'minor'
           - 'major'    
           - 'N/A'     
+      ballerinaLSRelease:
+        type: choice
+        description: 'Ballerina LS source for ballerina extension releases'
+        required: true
+        default: 'N/A'
+        options:
+          - 'N/A'
+          - 'latest'
+          - 'pre-release'
+          - 'specific-tag'
+      ballerinaLSTag:
+        type: string
+        description: 'Ballerina LS tag when source is specific-tag (e.g. v1.8.0.m1)'
+        required: false
 
 jobs:
   Build:
@@ -69,6 +83,8 @@ jobs:
       mi:  ${{ inputs.mi }}
       hurl-client: ${{ inputs.hurl-client }}
       version: ${{ inputs.version }}
+      ballerinaLSRelease: ${{ inputs.ballerinaLSRelease }}
+      ballerinaLSTag: ${{ inputs.ballerinaLSTag }}
       isReleaseBuild: true
 
   Release:
