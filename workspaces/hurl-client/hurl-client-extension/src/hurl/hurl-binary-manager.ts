@@ -25,7 +25,7 @@ import { spawn } from 'child_process';
 
 const DEFAULT_HURL_VERSION = '7.1.0';
 const HURL_RELEASE_BASE_URL = 'https://github.com/Orange-OpenSource/hurl/releases/download';
-const CONFIG_SECTION = 'http-client';
+const CONFIG_SECTION = 'hurl-client';
 
 interface ResolveCommandOptions {
 	autoInstall?: boolean;
@@ -118,7 +118,7 @@ export class HurlBinaryManager {
 			if (options.promptOnFailure) {
 				const message = error instanceof Error ? error.message : 'Failed to install managed hurl binary';
 				const action = await vscode.window.showErrorMessage(
-					`${message}. Set http-client.hurl.path or run "HTTP Client: Install Hurl".`,
+					`${message}. Set hurl-client.hurl.path or run "Hurl Client: Install Hurl".`,
 					'Install Hurl',
 					'Open Settings'
 				);
@@ -142,7 +142,7 @@ export class HurlBinaryManager {
 		const asset = resolveManagedAsset(version);
 		if (!asset) {
 			throw new Error(
-				`Managed Hurl install is not supported on ${getPlatformArchKey()}. Set http-client.hurl.path manually.`
+				`Managed Hurl install is not supported on ${getPlatformArchKey()}. Set hurl-client.hurl.path manually.`
 			);
 		}
 
@@ -201,7 +201,7 @@ export class HurlBinaryManager {
 			return vscode.window.withProgress(
 				{
 					location: vscode.ProgressLocation.Notification,
-					title: 'HTTP Client: Installing Hurl',
+					title: 'Hurl Client: Installing Hurl',
 					cancellable: false
 				},
 				progress => install(progress)

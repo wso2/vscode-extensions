@@ -35,8 +35,7 @@
         "node_modules",
         ".vscode-test",
         "target",
-        "extractedDistribution",
-        "src/test/test-resources"
+        "extractedDistribution"
     ],
     "include": [
         "src",

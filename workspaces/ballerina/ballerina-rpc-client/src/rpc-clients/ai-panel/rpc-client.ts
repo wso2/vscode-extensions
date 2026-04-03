@@ -39,6 +39,8 @@ import {
     PlanApprovalRequest,
     ProcessContextTypeCreationRequest,
     ProcessMappingParametersRequest,
+    PromptEnhancementRequest,
+    PromptEnhancementResponse,
     RequirementSpecification,
     RestoreCheckpointRequest,
     SemanticDiffRequest,
@@ -50,8 +52,12 @@ import {
     UpdateChatMessageRequest,
     UsageResponse,
     WebToolApprovalRequest,
+    ClarifyAnswerRequest,
+    ClarifyCancelRequest,
     approveWebTool,
     declineWebTool,
+    submitClarifyAnswer,
+    cancelClarify,
     abortAIGeneration,
     acceptChanges,
     addFilesToProject,
@@ -65,6 +71,7 @@ import {
     declineChanges,
     declinePlan,
     declineTask,
+    enhancePrompt,
     generateAgent,
     generateContextTypes,
     generateInlineMappingCode,
@@ -82,7 +89,6 @@ import {
     getLoginMethod,
     getSemanticDiff,
     getServiceNames,
-    getUsage,
     isCopilotSignedIn,
     isPlatformExtensionAvailable,
     isUserAuthenticated,
@@ -91,6 +97,7 @@ import {
     openAIPanel,
     openChatWindowWithCommand,
     openFileDiff,
+    promptForLogin,
     promptGithubAuthorize,
     provideConfiguration,
     provideConnectorSpec,
@@ -98,7 +105,12 @@ import {
     showSignInAlert,
     submitFeedback,
     updateChatMessage,
-    updateRequirementSpecification
+    updateRequirementSpecification,
+    getUsage,
+    compactConversation,
+    CompactConversationRequest,
+    CompactConversationResponse,
+    getShowContextUsage,
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -305,5 +317,30 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     declineWebTool(params: WebToolApprovalRequest): Promise<void> {
         return this._messenger.sendRequest(declineWebTool, HOST_EXTENSION, params);
+    }
+
+    compactConversation(params: CompactConversationRequest): Promise<CompactConversationResponse> {
+        return this._messenger.sendRequest(compactConversation, HOST_EXTENSION, params);
+    }
+
+    getShowContextUsage(): Promise<boolean> {
+        return this._messenger.sendRequest(getShowContextUsage, HOST_EXTENSION);
+    }
+
+    
+    enhancePrompt(params: PromptEnhancementRequest): Promise<PromptEnhancementResponse> {
+        return this._messenger.sendRequest(enhancePrompt, HOST_EXTENSION, params);
+    }
+
+    promptForLogin(): void {
+        return this._messenger.sendNotification(promptForLogin, HOST_EXTENSION);
+    }
+
+    submitClarifyAnswer(params: ClarifyAnswerRequest): Promise<void> {
+        return this._messenger.sendRequest(submitClarifyAnswer, HOST_EXTENSION, params);
+    }
+
+    cancelClarify(params: ClarifyCancelRequest): Promise<void> {
+        return this._messenger.sendRequest(cancelClarify, HOST_EXTENSION, params);
     }
 }
