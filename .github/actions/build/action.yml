@@ -181,7 +181,12 @@ runs:
     - name: Validate Ballerina LS selection
       shell: bash
       run: |
-        if [[ "${{ inputs.ballerinaLSRelease }}" == "specific-tag" && -z "${{ inputs.ballerinaLSTag }}" ]]; then
+        if [[ ("${{ inputs.ballerina }}" == "true" || "${{ inputs.bi }}" == "true") && "${{ inputs.ballerinaLSRelease }}" == "N/A" ]]; then
+          echo "ballerinaLSRelease must be set for Ballerina or BI extension releases."
+          exit 1
+        fi
+
+        if [[ ("${{ inputs.ballerina }}" == "true" || "${{ inputs.bi }}" == "true") && "${{ inputs.ballerinaLSRelease }}" == "specific-tag" && -z "${{ inputs.ballerinaLSTag }}" ]]; then
           echo "ballerinaLSTag is required when ballerinaLSRelease is set to specific-tag."
           exit 1
         fi
@@ -196,6 +201,8 @@ runs:
         fi
 
         case "${{ inputs.ballerinaLSRelease }}" in
+          N/A)
+            ;;
           latest)
             ;;
           pre-release)

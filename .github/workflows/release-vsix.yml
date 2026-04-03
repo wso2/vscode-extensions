@@ -55,8 +55,9 @@ on:
         type: choice
         description: 'Ballerina LS source for ballerina extension releases'
         required: true
-        default: 'latest'
+        default: 'N/A'
         options:
+          - 'N/A'
           - 'latest'
           - 'pre-release'
           - 'specific-tag'
