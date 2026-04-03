@@ -473,9 +473,15 @@ export function ServiceCreationView(props: ServiceCreationViewProps) {
         setIsSaving(true);
         formFields.forEach(val => {
             if (val.type === "CHOICE") {
+                // When the user never changes a CHOICE from its default (index 0), ChoiceForm
+                // never calls setValue for that field key, so data[val.key] is undefined.
+                // Fall back to val.value (the model's initial selected index) in that case.
+                const selectedChoiceIndex = data[val.key] !== undefined
+                    ? Number(data[val.key])
+                    : Number(val.value ?? 0);
                 val.choices.forEach((choice, index) => {
                     choice.enabled = false;
-                    if (data[val.key] === index) {
+                    if (selectedChoiceIndex === index) {
                         choice.enabled = true;
                         if (choice.properties) {
                             for (const key in choice.properties) {
