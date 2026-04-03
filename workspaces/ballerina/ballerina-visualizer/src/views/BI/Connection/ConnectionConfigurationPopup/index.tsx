@@ -370,7 +370,7 @@ export function ConnectionConfigurationForm(props: ConnectionConfigurationFormPr
                         return;
                     }
                     if (response.artifacts.length > 0) {
-                        const newConnection = response.artifacts.find((artifact) => artifact.isNew);
+                        const newConnection = response.artifacts.find((artifact) => artifact.isNew) || response.artifacts[0];
                         onClose({ recentIdentifier: newConnection.name, artifactType: DIRECTORY_MAP.CONNECTION });
                     } else {
                         console.error(">>> Error updating source code", response);

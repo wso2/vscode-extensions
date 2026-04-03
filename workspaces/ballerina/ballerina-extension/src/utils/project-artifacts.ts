@@ -433,6 +433,7 @@ async function processUpdate(artifact: BaseArtifact, artifactCategoryKey: string
             } else {
                 // Artifact not found for update, add it instead (matches original logic)
                 console.warn(`Artifact ${artifact.id} not found for update in ${mapping.mapKey}, adding it instead.`);
+                entryValue.isNew = true;
                 project.directoryMap[mapping.mapKey]?.push(entryValue);
             }
             return entryValue;
