@@ -100,7 +100,7 @@ const MODES = {
     RUNTIME_SERVICES: "runtime-services",
     AGENT_CHAT: "agent-chat",
     EVALUATION_HISTORY: "evaluation-history",
-    EVALUATION_REPORT: "evaluation-report"
+    EVALUATION_REPORT: "evaluation-report",
 };
 
 export function Visualizer({ mode }: { mode: string }) {
