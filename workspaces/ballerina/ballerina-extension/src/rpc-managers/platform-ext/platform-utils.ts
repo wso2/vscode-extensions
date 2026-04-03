@@ -449,7 +449,6 @@ export const findUniqueConnectionName = (name: string, existingMarketplaceItems:
     return uniqueName;
 };
 
-
 export const ProxyConfigEnvVars = {
     proxyHost:{
         varName: "wso2CloudProxyHost",
