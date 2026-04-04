@@ -18,8 +18,8 @@
 import { URLSearchParams } from "url";
 import { window, Uri, ProviderResult, commands } from "vscode";
 import { COMMANDS } from "./constants";
-import { checkForWso2IntegratorExt } from "./extension";
-import { IOpenCompSrcCmdParams, WICommandIds } from "@wso2/wso2-platform-core";
+import { checkForDevantExt } from "./extension";
+import { IOpenCompSrcCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 
 export function activateUriHandlers() {
     window.registerUriHandler({
@@ -28,10 +28,10 @@ export function activateUriHandlers() {
             switch (uri.path) {
                 case '/signin':
                     // Legacy OAuth callback route - no longer used for MI Copilot auth.
-                    console.log("Legacy /signin route called - MI Copilot authentication now uses WSO2 integrator extension.");
+                    console.log("Legacy /signin route called - MI Copilot authentication now uses Devant platform extension.");
                     break;
                 case '/open':
-                    if(!checkForWso2IntegratorExt()) {
+                    if(!checkForDevantExt()) {
                         return;
                     }
                     const org = urlParams.get("org");
@@ -42,7 +42,7 @@ export function activateUriHandlers() {
                     const integrationDisplayType = urlParams.get("integrationDisplayType");
                     window.showInformationMessage('Opening component');
                     if (org && project && component && technology && integrationType) {
-                        commands.executeCommand(WICommandIds.OpenCompSrcDir, {
+                        commands.executeCommand(PlatformExtCommandIds.OpenCompSrcDir, {
                             org, project, component, technology, integrationType, integrationDisplayType, extName: "Devant"
                         } as IOpenCompSrcCmdParams);
                     } else {

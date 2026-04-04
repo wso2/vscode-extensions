@@ -118,8 +118,7 @@ export const COMMANDS = {
 
     BI_EXTENSION: 'WSO2.ballerina-integrator',
     BI_OPEN_COMMAND: 'ballerina.open.bi.welcome',
-    INSTALL_EXTENSION_COMMAND: 'workbench.extensions.installExtension',
-    RELOAD_WINDOW: 'workbench.action.reloadWindow'
+    INSTALL_EXTENSION_COMMAND: 'workbench.extensions.installExtension'
 };
 
 export const MVN_COMMANDS = {
