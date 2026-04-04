@@ -34,13 +34,12 @@ import * as vscode from 'vscode';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { generateText } from 'ai';
-import { WICommandIds, IWso2PlatformExtensionAPI } from '@wso2/wso2-platform-core';
+import { CommandIds as PlatformExtCommandIds, IWso2PlatformExtensionAPI } from '@wso2/wso2-platform-core';
 import { logInfo, logWarn, logError } from './copilot/logger';
-import { WI_EXTENSION_ID } from '../constants';
-import { checkForWso2IntegratorExt } from '../extension';
 
 export const TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = 'Access token is not available.';
 export const STS_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = 'Failed to get STS token from platform extension';
+export const PLATFORM_EXTENSION_ID = 'wso2.wso2-platform';
 export const TOKEN_REFRESH_ONLY_SUPPORTED_FOR_MI_INTEL = 'Token refresh is only supported for MI Intelligence authentication';
 export const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5';
 
@@ -135,25 +134,25 @@ export const getCopilotTokenExchangeUrl = (): string | undefined => {
 // ==================================
 
 /**
- * Check if the WSO2 Integrator extension is installed.
+ * Check if the WSO2 Platform extension is installed.
  */
-export const isIntegratorExtensionAvailable = (): boolean => {
-    return !!vscode.extensions.getExtension(WI_EXTENSION_ID);
+export const isPlatformExtensionAvailable = (): boolean => {
+    return !!vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
 };
 
-export const getIntegratorExtensionAPI = async (): Promise<IWso2PlatformExtensionAPI | undefined> => {
-    const integratorExt = vscode.extensions.getExtension(WI_EXTENSION_ID);
-    if (!integratorExt) {
+export const getPlatformExtensionAPI = async (): Promise<IWso2PlatformExtensionAPI | undefined> => {
+    const platformExt = vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
+    if (!platformExt) {
         return undefined;
     }
 
     try {
-        if (!integratorExt.isActive) {
-            await integratorExt.activate();
+        if (!platformExt.isActive) {
+            await platformExt.activate();
         }
-        return integratorExt.exports?.cloudAPIs as IWso2PlatformExtensionAPI;
+        return platformExt.exports as IWso2PlatformExtensionAPI;
     } catch (error) {
-        logError('Failed to activate WSO2 Integrator extension', error);
+        logError('Failed to activate platform extension', error);
         return undefined;
     }
 };
@@ -162,7 +161,7 @@ export const getIntegratorExtensionAPI = async (): Promise<IWso2PlatformExtensio
  * Get STS token from the platform extension.
  */
 const getPlatformStsTokenOnce = async (): Promise<string | undefined> => {
-    const api = await getIntegratorExtensionAPI();
+    const api = await getPlatformExtensionAPI();
     if (!api) {
         return undefined;
     }
@@ -207,7 +206,7 @@ export const getPlatformStsToken = async (options: StsTokenFetchOptions = {}): P
  * Check if user is logged into Devant via platform extension.
  */
 export const isDevantUserLoggedIn = async (): Promise<boolean> => {
-    const api = await getIntegratorExtensionAPI();
+    const api = await getPlatformExtensionAPI();
     if (!api) {
         return false;
     }
@@ -215,7 +214,7 @@ export const isDevantUserLoggedIn = async (): Promise<boolean> => {
     try {
         return api.isLoggedIn();
     } catch (error) {
-        logError('Error checking WSO2 Integrator login status', error);
+        logError('Error checking Devant login status', error);
         return false;
     }
 };
@@ -433,7 +432,7 @@ export const checkToken = async (): Promise<{ token: string; loginMethod: LoginM
         return { token, loginMethod };
     }
 
-    if (!isIntegratorExtensionAvailable()) {
+    if (!isPlatformExtensionAvailable()) {
         return undefined;
     }
 
@@ -466,11 +465,11 @@ export const checkToken = async (): Promise<{ token: string; loginMethod: LoginM
  * Initiate Devant login via platform extension command.
  */
 export async function initiateDevantAuth(): Promise<boolean> {
-    if (!checkForWso2IntegratorExt()) {
-        throw new Error('The WSO2 Integrator extension is not installed. Please install it to use WSO2 Integrator Copilot.');
+    if (!isPlatformExtensionAvailable()) {
+        throw new Error('The WSO2 Platform extension is not installed. Please install it to use WSO2 Integrator Copilot.');
     }
 
-    await vscode.commands.executeCommand(WICommandIds.SignIn);
+    await vscode.commands.executeCommand(PlatformExtCommandIds.SignIn);
     return true;
 }
 

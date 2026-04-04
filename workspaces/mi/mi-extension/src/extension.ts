@@ -33,7 +33,7 @@ import { isOldProjectOrWorkspace, getStateMachine } from './stateMachine';
 import { webviews } from './visualizer/webview';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
-import { COMMANDS, WI_EXTENSION_ID } from './constants';
+import { COMMANDS } from './constants';
 import { enableLS } from './util/workspace';
 import { disposeMIAgentPanelRpcManager } from './rpc-managers/agent-mode/rpc-handler';
 import { isConsolidatedProject } from './util/onboardingUtils';
@@ -125,20 +125,10 @@ export async function deactivate(): Promise<void> {
 	}
 }
 
-export function checkForWso2IntegratorExt() {
-	const wso2PlatformExtension = extensions.getExtension(WI_EXTENSION_ID);
+export function checkForDevantExt() {
+	const wso2PlatformExtension = extensions.getExtension('wso2.wso2-platform');
 	if (!wso2PlatformExtension) {
-		vscode.window.showErrorMessage('The WSO2 Integrator extension is not installed. Please install it to proceed.', "Install WSO2 Integrator").then(selection => {
-			if (selection === "Install WSO2 Integrator") {
-				vscode.commands.executeCommand(COMMANDS.INSTALL_EXTENSION_COMMAND, WI_EXTENSION_ID).then(() => {
-					vscode.window.showInformationMessage('WSO2 Integrator extension installed. Please reload VSCode to complete the extension activation.', "Reload Window").then(reloadSelection => {
-						if (reloadSelection === "Reload Window") {
-							vscode.commands.executeCommand(COMMANDS.RELOAD_WINDOW);
-						}
-					});
-				});
-			}
-		});
+		vscode.window.showErrorMessage('The WSO2 Platform extension is not installed. Please install it to proceed.');
 		return false;
 	}
 	return true;
