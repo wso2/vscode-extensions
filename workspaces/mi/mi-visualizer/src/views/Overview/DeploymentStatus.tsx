@@ -172,7 +172,7 @@ export function DeploymentOptions({ handleDockerBuild, handleConfigureKubernetes
                         description={
                             devantMetadata?.hasComponent
                                 ? "This integration is already deployed in Devant."
-                                : "Deploy your integration to the cloud using Devant."
+                                : "Deploy your integration to the cloud using Devant by WSO2."
                         }
                         buttonText={devantMetadata?.hasComponent ? "View in Devant" : "Deploy"}
                         isExpanded={expandedOptions.has("devant")}
