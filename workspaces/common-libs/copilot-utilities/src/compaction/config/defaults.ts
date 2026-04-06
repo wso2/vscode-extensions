@@ -25,11 +25,11 @@ import { ModelConfig } from '../types';
  * streamText call. If AgentExecutor changes maxOutputTokens, update this constant.
  *
  * Threshold calculation:
- *   effectiveWindow = maxContextWindow - maxOutputTokens = 200_000 - 8_192 = 191_808
- *   autoCompactThreshold = effectiveWindow - autoCompactBuffer = 191_808 - 13_000 = 178_808
+ *   effectiveWindow = maxContextWindow - maxOutputTokens = 500_000 - 8_192 = 491_808
+ *   autoCompactThreshold = effectiveWindow - autoCompactBuffer = 491_808 - 13_000 = 478_808
  */
 export const DEFAULT_MODEL_CONFIG: ModelConfig = {
-    maxContextWindow: 200_000,
+    maxContextWindow: 600_000,
     maxOutputTokens: 8_192,  // Matches AgentExecutor.ts streamText maxOutputTokens
     autoCompactBuffer: 13_000,
 };
