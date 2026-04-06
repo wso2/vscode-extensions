@@ -16,7 +16,7 @@
  * under the License.
  */
 import React, { useEffect, useState } from "react";
-import { Button, Dropdown, FormActions, FormGroup, FormView, LocationSelector, OptionProps, TextField, ProgressRing, CheckBox } from "@wso2/ui-toolkit";
+import { Button, Dropdown, FormActions, FormGroup, FormView, LocationSelector, OptionProps, TextField, ProgressRing, CheckBox, Tooltip, Icon } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
 import { yupResolver } from "@hookform/resolvers/yup"
@@ -65,15 +65,22 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
     const [supportedMIVersions, setSupportedMIVersions] = useState<OptionProps[]>([]);
     const [formSaved, setFormSaved] = useState(false);
 
+    const consolidatedHelpTip = <Tooltip
+                content="A consolidated project allows you to manage multiple related integration projects as a single unit"
+                position='right'
+            >
+                <Icon name="question" isCodicon iconSx={{ fontSize: '18px' }} sx={{ marginLeft: '5px', cursor: 'help' }} />
+            </Tooltip>;
+
     const subProjectConfigs: ParamConfig = {
         paramValues: [],
         paramFields: [
             {
                 id: 0,
                 type: "TextField",
-                label: "Project Name",
+                label: "Module Name",
                 defaultValue: "",
-                placeholder: "Project Name",
+                placeholder: "Module Name",
                 isRequired: true
             }]
     }
@@ -225,18 +232,18 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
                 <FormGroup title="Advanced Options">
                     <React.Fragment>
                         {canCreateConsolidatedProject &&
-                            <CheckBox
-                                label="Consolidated Project"
-                                value="consolidated"
-                                checked={isConsolidatedProject}
-                                onChange={(isChecked: boolean) => setIsConsolidatedProject(isChecked)}
-                            />
-                        }
-                        {isConsolidatedProject &&
-                            <>
-                                <span>Modules</span>
-                                <ParamManager paramConfigs={subProjects} onChange={handleSubProjectsOnChange} addParamText="Add Module" />
-                            </>
+                            <FormGroup title="Project Configurations" sx={{ marginBottom: -20 }}>
+                                <CheckBox
+                                    label="Consolidated Project"
+                                    value="consolidated"
+                                    checked={isConsolidatedProject}
+                                    onChange={(isChecked: boolean) => setIsConsolidatedProject(isChecked)}
+                                    labelAdornment={consolidatedHelpTip}
+                                />
+                                {isConsolidatedProject &&
+                                    <ParamManager paramConfigs={subProjects} onChange={handleSubProjectsOnChange} addParamText="Add Module" sx={{ margin: -10 }} />
+                                }
+                            </FormGroup>
                         }
                         <TextField
                             id='groupID'
