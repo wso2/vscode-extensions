@@ -2032,12 +2032,15 @@ export interface ProjectArtifacts {
 export interface CodeMapRequest {
     projectPath: string;
     changesOnly: boolean;
-    artifacts: boolean;
+}
+
+export interface CodeMapIncrementalChanges {
+    modifiedFiles?: Record<string, { markdown: string } | Record<string, { markdown: string }>>;
+    deletedFiles?: string[] | Record<string, string[]>;
 }
 
 export interface CodeMapResponse {
-    files?: Record<string, any>;
-    markdown?: string;
+    content?: string | CodeMapIncrementalChanges;
 }
 
 export interface ProjectInfoRequest {

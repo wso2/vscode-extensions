@@ -119,35 +119,36 @@ export async function generateAgent(params: GenerateAgentCodeRequest): Promise<b
             }
         );
 
+// ==================================
+// bal.md Generation for Agent Context
+// ==================================
+
         // Fetch code map at query submission time to capture the current project state.
-        // Runs against the actual workspace since temp project doesn't exist yet.
+        // TODO: The language server does not capture file delete events yet. Once that is fixed,
+        // we can use incremental updates — fetching the code map only for changed files and
+        // merging into the existing bal.md, instead of regenerating the full code map each time.
         const langClient = StateMachine.context().langClient;
+        const workspacePath = StateMachine.context().workspacePath || projectRootPath;
         if (langClient) {
             try {
-                const codeMapStartTime = performance.now();
                 const codeMapResponse = await langClient.getCodeMap({
-                    projectPath: projectRootPath, changesOnly: false, artifacts: false,
+                    projectPath: workspacePath, changesOnly: false,
                 });
-                const lsElapsed = ((performance.now() - codeMapStartTime) / 1000).toFixed(2);
-                console.log(`[generateAgent] LS code map response received in ${lsElapsed}s`);
 
-                const codeMapMarkdown = codeMapResponse?.markdown;
+                const codeMapMarkdown = typeof codeMapResponse?.content === 'string'
+                    ? codeMapResponse.content
+                    : (codeMapResponse as any)?.markdown as string | undefined;
                 if (codeMapMarkdown) {
                     const targetDir = path.join(projectRootPath, 'target');
                     if (!fs.existsSync(targetDir)) {
                         fs.mkdirSync(targetDir, { recursive: true });
                     }
                     fs.writeFileSync(path.join(targetDir, 'bal.md'), codeMapMarkdown, 'utf-8');
-                    console.log(`[generateAgent] Saved code map to bal.md in ${lsElapsed}s`);
                     config.codeMapMarkdown = codeMapMarkdown;
-                } else {
-                    console.warn('[generateAgent] Code map response has no markdown field');
                 }
             } catch (err) {
                 console.warn('[generateAgent] Failed to fetch code map, continuing without it:', err);
             }
-        } else {
-            console.warn('[generateAgent] langClient is null, skipping code map fetch');
         }
 
         await new AgentExecutor(config).run();
