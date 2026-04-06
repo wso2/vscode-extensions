@@ -89,10 +89,11 @@ import { copy } from 'fs-extra';
 
 const fs = require('fs');
 import { TextEdit } from "vscode-languageclient";
-import { downloadJavaFromMI, downloadMI, getProjectSetupDetails, getSupportedMIVersionsHigherThan, setPathsInWorkSpace, updateRuntimeVersionsInPom, getMIVersionFromPom } from '../../util/onboardingUtils';
+import { downloadJavaFromMI, downloadMI, getProjectSetupDetails, getSupportedMIVersionsHigherThan, setPathsInWorkSpace, updateRuntimeVersionsInPom, getMIVersionFromPom, isConsolidatedProject } from '../../util/onboardingUtils';
 import { extractCAppDependenciesAsProjects } from "../../visualizer/activate";
 import { findMultiModuleProjectsInWorkspaceDir } from "../../util/migrationUtils";
 import { MILanguageClient } from "../../lang-client/activator";
+import { reorderModulesByBuildOrder } from "../../debugger/pomResolver";
 
 Mustache.escape = escapeXml;
 
@@ -318,6 +319,10 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 }
             } catch (error) {
                 console.error("Error extracting CApp dependencies:", error);
+            }
+            const parentDir = path.dirname(this.projectUri)
+            if (isConsolidatedProject(parentDir) && params?.isProjectDependenciesUpdated) {
+                await reorderModulesByBuildOrder(path.join(parentDir, 'pom.xml'));
             }
             resolve(reloadDependenciesResult);
         });

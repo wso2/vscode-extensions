@@ -122,13 +122,18 @@ const SampleTitle = {
 export function WelcomeView() {
     const { rpcClient } = useVisualizerContext();
     const [machineView, setMachineView] = useState<MACHINE_VIEW>();
+    const [isConsolidatedProject, setIsConsolidatedProject] = useState(false);
 
     useEffect(() => {
-        if (rpcClient) {
-            rpcClient.getVisualizerState().then((initialState) => {
-                setMachineView(initialState.view);
-            });
-        }
+        (async () => {
+            if (rpcClient) {
+                rpcClient.getVisualizerState().then((initialState) => {
+                    setMachineView(initialState.view);
+                });
+                const canCreate = await rpcClient.getMiDiagramRpcClient().canCreateConsolidatedProject();
+                setIsConsolidatedProject(canCreate.isConsolidatedProject);
+            }
+        })();
     }, [rpcClient]);
 
     const goToCreateProject = () => {
@@ -213,18 +218,20 @@ export function WelcomeView() {
                                 </div>
                             </Button>
                         </Tab>
-                        <Tab>
-                            <SubTitle>Import from CApp</SubTitle>
-                            <span>Import project from a CApp file.</span>
-                            <Button appearance="primary" onClick={() => goToImportFromCApp()}>
-                                <div style={CreateBtnStyles}>
-                                    <IconWrapper>
-                                        <Codicon name="go-to-file" iconSx={{ fontSize: 20 }} />
-                                    </IconWrapper>
-                                    <TextWrapper>Import from CApp</TextWrapper>
-                                </div>
-                            </Button>
-                        </Tab>
+                        { !isConsolidatedProject && 
+                            <Tab>
+                                <SubTitle>Import from CApp</SubTitle>
+                                <span>Import project from a CApp file.</span>
+                                <Button appearance="primary" onClick={() => goToImportFromCApp()}>
+                                    <div style={CreateBtnStyles}>
+                                        <IconWrapper>
+                                            <Codicon name="go-to-file" iconSx={{ fontSize: 20 }} />
+                                        </IconWrapper>
+                                        <TextWrapper>Import from CApp</TextWrapper>
+                                    </div>
+                                </Button>
+                            </Tab>
+                        }
                         <Tab>
                             <SubTitle>Troubleshooting</SubTitle>
                             <span>Experiencing problems? Start with our <VSCodeLink onClick={openTroubleshootGuide}>Troubleshooting Guide</VSCodeLink>.</span>
