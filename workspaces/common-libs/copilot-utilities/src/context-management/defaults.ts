@@ -16,20 +16,12 @@
  * under the License.
  */
 
-import { ModelConfig } from '../types';
+/** Anthropic API default trigger for compact_20260112 (tokens). */
+export const DEFAULT_COMPACT_TRIGGER = 160_000;
 
-/**
- * Default model configuration for Claude Sonnet 4.
- *
- * maxOutputTokens MUST match the value configured in AgentExecutor.ts
- * streamText call. If AgentExecutor changes maxOutputTokens, update this constant.
- *
- * Threshold calculation:
- *   effectiveWindow = maxContextWindow - maxOutputTokens = 200_000 - 8_192 = 191_808
- *   autoCompactThreshold = effectiveWindow - autoCompactBuffer = 191_808 - 13_000 = 178_808
- */
-export const DEFAULT_MODEL_CONFIG: ModelConfig = {
-    maxContextWindow: 200_000,
-    maxOutputTokens: 8_192,  // Matches AgentExecutor.ts streamText maxOutputTokens
-    autoCompactBuffer: 13_000,
-};
+/** Trigger for clear_tool_uses_20250919 (tokens). Fires before compact to reduce overhead. */
+export const DEFAULT_CLEAR_TOOL_USES_TRIGGER = 120_000;
+
+/** Number of recent tool-use pairs to preserve when clearing. */
+export const DEFAULT_KEEP_RECENT_TOOL_USES = 6;
+

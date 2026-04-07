@@ -738,6 +738,14 @@ export class CommonRpcManager implements CommonRPCAPI {
         }
     }
 
+    async getPreferredTryItOption(): Promise<string | undefined> {
+        return extension.context.globalState.get<string>("ballerina.bi.preferredTryItOption");
+    }
+
+    async setPreferredTryItOption(option: string): Promise<void> {
+        await extension.context.globalState.update("ballerina.bi.preferredTryItOption", option);
+    }
+
     async getOrgID(): Promise<OrgIDResponse> {
         const platformState = platformExtStore.getState().state;
         const organizations = platformState.userInfo?.organizations ?? [];
