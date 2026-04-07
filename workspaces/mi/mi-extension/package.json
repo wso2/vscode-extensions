@@ -2,7 +2,7 @@
   "name": "micro-integrator",
   "displayName": "WSO2 Integrator: MI",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
-  "icon": "resources/images/wso2-micro-integrator-image.png",
+  "icon": "resources/images/wso2-micro-integrator-icon.png",
   "version": "3.1.5",
   "publisher": "wso2",
   "engines": {
@@ -232,7 +232,7 @@
         {
           "id": "micro-integrator",
           "title": "WSO2 Integrator: MI",
-          "icon": "assets/icon.svg"
+          "icon": "assets/wso2-micro-integrator-icon.svg"
         }
       ]
     },
