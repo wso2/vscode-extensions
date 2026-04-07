@@ -218,7 +218,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 await window.showWarningMessage(loadResult, { modal: true });
             }
         } catch (error) {
-            console.error("Error extracting CApp dependencies:", error);
+            console.error("Failed to load CApp resources:", error);
         }
     }
 
@@ -443,12 +443,10 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     }
 
     async refetchIntegrationProjectDependencies(): Promise<string> {
-        return new Promise(async (resolve) => {
-            const langClient = await MILanguageClient.getInstance(this.projectUri);
-            const res = await langClient.refetchIntegrationProjectDependencies();
-            await this._loadCAppResources(langClient);
-            resolve(res);
-        });
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
+        const res = await langClient.refetchIntegrationProjectDependencies();
+        await this._loadCAppResources(langClient);
+        return res;
     }
 
     async updateDependenciesFromOverview(params: UpdateDependenciesRequest): Promise<boolean> {
