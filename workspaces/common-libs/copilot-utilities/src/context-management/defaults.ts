@@ -24,3 +24,19 @@ export const DEFAULT_CLEAR_TOOL_USES_TRIGGER = 120_000;
 
 /** Number of recent tool-use pairs to preserve when clearing. */
 export const DEFAULT_KEEP_RECENT_TOOL_USES = 6;
+
+/**
+ * Default model configuration for Claude Sonnet 4.
+ *
+ * maxOutputTokens MUST match the value configured in AgentExecutor.ts
+ * streamText call. If AgentExecutor changes maxOutputTokens, update this constant.
+ *
+ * Threshold calculation:
+ *   effectiveWindow = maxContextWindow - maxOutputTokens = 500_000 - 8_192 = 491_808
+ *   autoCompactThreshold = effectiveWindow - autoCompactBuffer = 491_808 - 13_000 = 478_808
+ */
+export const DEFAULT_MODEL_CONFIG = {
+    maxContextWindow: 600_000,
+    maxOutputTokens: 8_192,  // Matches AgentExecutor.ts streamText maxOutputTokens
+    autoCompactBuffer: 13_000,
+};
