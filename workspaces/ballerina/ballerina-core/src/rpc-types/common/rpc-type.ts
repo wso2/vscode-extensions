@@ -39,7 +39,8 @@ import {
     ShowInfoModalRequest,
     SampleDownloadRequest,
     ShowQuickPickRequest,
-    PublishToCentralResponse
+    PublishToCentralResponse,
+    OrgIDResponse
 } from "./interfaces";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -68,3 +69,4 @@ export const downloadSelectedSampleFromGithub: RequestType<SampleDownloadRequest
 export const getDefaultOrgName: RequestType<void, { orgName: string }> = { method: `${_preFix}/getDefaultOrgName` };
 export const publishToCentral: RequestType<void, PublishToCentralResponse> = { method: `${_preFix}/publishToCentral` };
 export const hasCentralPATConfigured: RequestType<void, boolean> = { method: `${_preFix}/hasCentralPATConfigured` };
+export const getOrgID: RequestType<void, OrgIDResponse> = { method: `${_preFix}/getOrgID` };

@@ -393,6 +393,15 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
         }
     }
 
+    async getProjects(orgID: number): Promise<Project[]> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            return platformExt?.getProjects(orgID);
+        } catch (err) {
+            log(`Failed to invoke getProjects: ${err}`);
+        }
+    }
+
     async deleteLocalConnectionsConfig(params: DeleteLocalConnectionsConfigReq): Promise<void> {
         try {
             const platformExt = await this.getPlatformExt();

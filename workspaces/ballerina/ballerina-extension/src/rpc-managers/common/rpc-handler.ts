@@ -22,6 +22,7 @@ import {
     ClearWebviewCache,
     CommandsRequest,
     FileOrDirRequest,
+    getOrgID,
     GoToSourceRequest,
     OpenExternalUrlRequest,
     RestoreWebviewCache,
@@ -84,4 +85,5 @@ export function registerCommonRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getDefaultOrgName, () => rpcManger.getDefaultOrgName());
     messenger.onRequest(publishToCentral, () => rpcManger.publishToCentral());
     messenger.onRequest(hasCentralPATConfigured, () => rpcManger.hasCentralPATConfigured());
+    messenger.onRequest(getOrgID, () => rpcManger.getOrgID());
 }

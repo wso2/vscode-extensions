@@ -20,6 +20,7 @@
 import {
     BallerinaDiagnosticsRequest,
     BallerinaDiagnosticsResponse,
+    OrgIDResponse,
     CommandResponse,
     CommandsRequest,
     CommandsResponse,
@@ -57,6 +58,8 @@ import * as unzipper from 'unzipper';
 import { commands, env, MarkdownString, ProgressLocation, QuickPickItem, Uri, window, workspace } from "vscode";
 import { URI } from "vscode-uri";
 import { parse } from "@iarna/toml";
+import { load as loadYaml } from "js-yaml";
+import { platformExtStore } from "../platform-ext/platform-store";
 import { extension } from "../../BalExtensionContext";
 import { StateMachine } from "../../stateMachine";
 import {
@@ -733,6 +736,63 @@ export class CommonRpcManager implements CommonRPCAPI {
         } else {
             window.showErrorMessage(result.message || 'Failed to publish project to Ballerina Central');
         }
+    }
+
+    async getOrgID(): Promise<OrgIDResponse> {
+        const platformState = platformExtStore.getState().state;
+        const organizations = platformState.userInfo?.organizations ?? [];
+
+        // 1. Try selectedContext first
+        const selectedOrgID = platformState.selectedContext?.org?.id;
+        if (selectedOrgID) {
+            return { org: selectedOrgID };
+        }
+
+        // 2. Try context files in workspace
+        const workspaceRoot = workspace.workspaceFolders?.[0]?.uri.fsPath;
+        let fileOrgHandle: string | undefined;
+
+        if (workspaceRoot) {
+            const contextYamlPath = path.join(workspaceRoot, '.choreo', 'context.yaml');
+            if (fs.existsSync(contextYamlPath)) {
+                try {
+                    const content = await fs.promises.readFile(contextYamlPath, 'utf-8');
+                    const parsed = loadYaml(content);
+                    const entries = Array.isArray(parsed) ? parsed : [parsed];
+                    fileOrgHandle = entries[0]?.org as string | undefined;
+                } catch {
+                    // fall through
+                }
+            }
+
+            if (!fileOrgHandle) {
+                const localProjectYamlPath = path.join(workspaceRoot, '.choreo', 'local-project.yaml');
+                if (fs.existsSync(localProjectYamlPath)) {
+                    try {
+                        const content = await fs.promises.readFile(localProjectYamlPath, 'utf-8');
+                        const parsed = loadYaml(content) as Record<string, unknown>;
+                        fileOrgHandle = parsed?.org as string | undefined;
+                    } catch {
+                        // fall through
+                    }
+                }
+            }
+        }
+
+        // 3. If we got a handle from files, try to match against available organizations
+        if (fileOrgHandle) {
+            const matched = organizations.find(o => o.handle === fileOrgHandle);
+            if (matched) {
+                return { org: matched.id };
+            }
+        }
+
+        // 4. Fall back to 0th org if available
+        if (organizations.length > 0) {
+            return { org: organizations[0].id };
+        }
+
+        return { org: undefined };
     }
 
     async hasCentralPATConfigured(): Promise<boolean> {

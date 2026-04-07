@@ -39,7 +39,8 @@ import {
     SampleDownloadRequest,
     ShowQuickPickRequest,
     DefaultOrgNameResponse,
-    PublishToCentralResponse
+    PublishToCentralResponse,
+    OrgIDResponse
 } from "./interfaces";
 
 export interface CommonRPCAPI {
@@ -67,4 +68,5 @@ export interface CommonRPCAPI {
     getDefaultOrgName: () => Promise<DefaultOrgNameResponse>;
     publishToCentral: () => Promise<PublishToCentralResponse>;
     hasCentralPATConfigured: () => Promise<boolean>;
+    getOrgID: () => Promise<OrgIDResponse>;
 }

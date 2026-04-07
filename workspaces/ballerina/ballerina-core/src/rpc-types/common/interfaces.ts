@@ -155,3 +155,7 @@ export interface PublishToCentralResponse {
     success: boolean;
     message?: string;
 }
+
+export interface OrgIDResponse {
+    org: number;
+}

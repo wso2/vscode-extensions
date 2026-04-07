@@ -26,14 +26,13 @@ import {
 } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { useQuery } from "@tanstack/react-query";
-import { IOpenInConsoleCmdParams, WICommandIds } from "@wso2/wso2-platform-core";
+import { IOpenInConsoleCmdParams, Project, WICommandIds } from "@wso2/wso2-platform-core";
 import { Typography, Codicon, ProgressRing, Button, Icon, Divider } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
 import { ThemeColors } from "@wso2/ui-toolkit";
 import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
 import ReactMarkdown from "react-markdown";
 import { AlertBoxWithClose } from "../../AIPanel/AlertBoxWithClose";
-import { UndoRedoGroup } from "../../../components/UndoRedoGroup";
 import { PackageListView } from "./PackageListView";
 import { getWorkspaceProjectScopes } from "../PackageOverview/utils";
 import { usePlatformExtContext } from "../../../providers/platform-ext-ctx-provider";
@@ -684,6 +683,7 @@ function IntegrationControlPlane({
 
 export function WorkspaceOverview() {
     const { rpcClient } = useRpcContext();
+    const { platformRpcClient, platformExtState } = usePlatformExtContext();
     const [readmeContent, setReadmeContent] = React.useState<string>("");
     const [projectCollection, setProjectCollection] = React.useState<ProjectStructureResponse>();
     const [icpStatusByProjectPath, setIcpStatusByProjectPath] = React.useState<Record<string, boolean>>({});
@@ -693,6 +693,20 @@ export function WorkspaceOverview() {
     const titleInputRef = useRef<HTMLInputElement>(null);
     const [displayedTitle, setDisplayedTitle] = useState("");
     const [titleVisible, setTitleVisible] = useState(true);
+
+    const { data: orgIDResponse } = useQuery({
+        queryKey: ["cloud-org"],
+        queryFn: () => rpcClient.getCommonRpcClient().getOrgID(),
+        enabled: !!platformExtState?.isLoggedIn,
+    });
+
+    const orgID = orgIDResponse?.org || undefined;
+
+    const { data: cloudProjects } = useQuery({
+        queryKey: ["cloud-projects", orgID],
+        queryFn: () => platformRpcClient.getProjects(orgID) as Promise<Project[]>,
+        enabled: !!orgID && !!platformRpcClient,
+    });
 
     const [showAlert, setShowAlert] = React.useState(false);
     const [icpActionLoading, setIcpActionLoading] = React.useState<IcpAction | null>(null);
@@ -851,8 +865,11 @@ export function WorkspaceOverview() {
         if (/[^a-zA-Z0-9\-_ ]/.test(trimmed)) {
             return "The name cannot contain special characters.";
         }
+        if (cloudProjects?.some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) {
+            return "A cloud project with this name already exists.";
+        }
         return "";
-    }, []);
+    }, [cloudProjects]);
 
     const startEditingTitle = useCallback(() => {
         const currentTitle = projectCollection?.workspaceTitle || projectCollection?.workspaceName || "";

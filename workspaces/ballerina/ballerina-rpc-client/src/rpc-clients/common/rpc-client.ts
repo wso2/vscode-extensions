@@ -20,12 +20,14 @@
 import {
     BallerinaDiagnosticsRequest,
     BallerinaDiagnosticsResponse,
+    OrgIDResponse,
     CommandsRequest,
     CommandsResponse,
     CommonRPCAPI,
     DefaultOrgNameResponse,
     FileOrDirRequest,
     FileOrDirResponse,
+    getOrgID,
     GoToSourceRequest,
     OpenExternalUrlRequest,
     PackageTomlValues,
@@ -172,5 +174,9 @@ export class CommonRpcClient implements CommonRPCAPI {
 
     hasCentralPATConfigured(): Promise<boolean> {
         return this._messenger.sendRequest(hasCentralPATConfigured, HOST_EXTENSION);
+    }
+
+    getOrgID(): Promise<OrgIDResponse> {
+        return this._messenger.sendRequest(getOrgID, HOST_EXTENSION);
     }
 }
