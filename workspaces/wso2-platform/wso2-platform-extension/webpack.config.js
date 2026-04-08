@@ -16,6 +16,7 @@
  * under the License.
  */
 
+const fs = require("fs");
 const path = require("path");
 const TerserPlugin = require("terser-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
@@ -36,6 +37,9 @@ if (missingVars.length > 0) {
 		Please provide values in either .env file or runtime environment.\n`,
 	);
 }
+
+const distDir = path.resolve(__dirname, "dist");
+fs.mkdirSync(distDir, { recursive: true });
 
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/

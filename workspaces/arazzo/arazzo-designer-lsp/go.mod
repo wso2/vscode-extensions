@@ -1,6 +1,6 @@
 module github.com/arazzo/lsp
 
-go 1.25.6
+go 1.23
 
 require (
 	github.com/segmentio/asm v1.1.3 // indirect
