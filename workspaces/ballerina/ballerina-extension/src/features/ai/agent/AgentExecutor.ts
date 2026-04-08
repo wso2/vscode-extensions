@@ -211,7 +211,8 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             // todo: just check if wi extension is installed instead of login method
             if (AIStateMachine.context().loginMethod === LoginMethod.BI_INTEL) {
                 if (!this.config.executionContext?.projectPath){
-                    throw new Error("Please navigate into a particular project in the Ballerina visualizer and try again")
+                    // instead of throwing error here, we need the handlers to handle it
+                    throw new Error("Please navigate into a particular project in the Ballerina visualizer and try again");
                 }
                 const projectSubPath = path.relative(this.config.executionContext?.workspacePath, this.config.executionContext?.projectPath);
                 const tempProjectPath = path.join(this.config.executionContext?.tempProjectPath, projectSubPath);

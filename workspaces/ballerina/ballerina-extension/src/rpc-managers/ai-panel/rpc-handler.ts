@@ -39,6 +39,8 @@ import {
     declineChanges,
     declinePlan,
     declineTask,
+    EnvConfigCancelRequest,
+    EnvConfigProvideRequest,
     DocGenerationRequest,
     enhancePrompt,
     generateAgent,
@@ -79,6 +81,8 @@ import {
     promptGithubAuthorize,
     provideConfiguration,
     provideConnectorSpec,
+    provideEnvConfig,
+    cancelEnvConfig,
     RequirementSpecification,
     restoreCheckpoint,
     RestoreCheckpointRequest,
@@ -136,8 +140,11 @@ export function registerAiPanelRpcHandlers(messenger: Messenger) {
     messenger.onRequest(declineTask, (args: TaskDeclineRequest) => rpcManger.declineTask(args));
     messenger.onRequest(provideConnectorSpec, (args: ConnectorSpecRequest) => rpcManger.provideConnectorSpec(args));
     messenger.onRequest(cancelConnectorSpec, (args: ConnectorSpecCancelRequest) => rpcManger.cancelConnectorSpec(args));
+    // todo: check if we can replace provideEnvConfig, cancelEnvConfig with provideConfiguration, cancelConfiguration
     messenger.onRequest(provideConfiguration, (args: ConfigurationProvideRequest) => rpcManger.provideConfiguration(args));
     messenger.onRequest(cancelConfiguration, (args: ConfigurationCancelRequest) => rpcManger.cancelConfiguration(args));
+    messenger.onRequest(provideEnvConfig, (args: EnvConfigProvideRequest) => rpcManger.provideEnvConfig(args));
+    messenger.onRequest(cancelEnvConfig, (args: EnvConfigCancelRequest) => rpcManger.cancelEnvConfig(args));
     messenger.onRequest(getChatMessages, () => rpcManger.getChatMessages());
     messenger.onRequest(getCheckpoints, () => rpcManger.getCheckpoints());
     messenger.onRequest(restoreCheckpoint, (args: RestoreCheckpointRequest) => rpcManger.restoreCheckpoint(args));

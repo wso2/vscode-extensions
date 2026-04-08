@@ -459,6 +459,16 @@ export interface ConfigurationCancelRequest {
     comment?: string;
 }
 
+export interface EnvConfigProvideRequest {
+    requestId: string;
+    configs: Array<{ key: string; value: string; isSecret: boolean }>;
+}
+
+export interface EnvConfigCancelRequest {
+    requestId: string;
+    comment?: string;
+}
+
 export interface WebToolApprovalRequest {
     requestId: string;
 }

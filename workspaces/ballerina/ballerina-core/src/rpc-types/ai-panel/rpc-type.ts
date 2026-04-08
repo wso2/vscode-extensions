@@ -50,7 +50,9 @@ import {
     OpenFileDiffRequest,
     WebToolApprovalRequest,
     PromptEnhancementRequest,
-    PromptEnhancementResponse
+    PromptEnhancementResponse,
+    EnvConfigProvideRequest,
+    EnvConfigCancelRequest
 } from "./interfaces";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -94,6 +96,8 @@ export const provideConnectorSpec: RequestType<ConnectorSpecRequest, void> = { m
 export const cancelConnectorSpec: RequestType<ConnectorSpecCancelRequest, void> = { method: `${_preFix}/cancelConnectorSpec` };
 export const provideConfiguration: RequestType<ConfigurationProvideRequest, void> = { method: `${_preFix}/provideConfiguration` };
 export const cancelConfiguration: RequestType<ConfigurationCancelRequest, void> = { method: `${_preFix}/cancelConfiguration` };
+export const provideEnvConfig: RequestType<EnvConfigProvideRequest, void> = { method: `${_preFix}/provideEnvConfig` };
+export const cancelEnvConfig: RequestType<EnvConfigCancelRequest, void> = { method: `${_preFix}/cancelEnvConfig` };
 export const getChatMessages: NotificationType<void> = { method: `${_preFix}/getChatMessages` };
 export const getCheckpoints: NotificationType<void> = { method: `${_preFix}/getCheckpoints` };
 export const restoreCheckpoint: RequestType<RestoreCheckpointRequest, void> = { method: `${_preFix}/restoreCheckpoint` };

@@ -34,6 +34,7 @@ import { platformExtStore } from "../../../../../rpc-managers/platform-ext/platf
 import { processOpenApiWithApiKeyAuth } from "../../../../../rpc-managers/platform-ext/platform-utils";
 import { StateMachine } from "../../../../../stateMachine";
 import { writeConfigBal, writeConnectionsBal } from "./devant-connection-utils";
+import { log } from "../../../../../utils";
 
 export const DEVANT_CREATE_CONNECTION_TOOL = "DevantCreateConnectionTool";
 
@@ -224,16 +225,12 @@ async function executeCreateConnection(
         });
     } else {
         // Third-party service connection
-        const endpointRefs: Record<string, string> = {};
         const sensitiveKeys: string[] = [];
 
         if (defaultSchema?.entries) {
             for (const entry of defaultSchema.entries) {
                 if (entry.isSensitive) {
                     sensitiveKeys.push(entry.name);
-                }
-                if (marketplaceItem.endpointRefs?.[entry.name]) {
-                    endpointRefs[entry.name] = marketplaceItem.endpointRefs[entry.name];
                 }
             }
         }
@@ -246,7 +243,7 @@ async function executeCreateConnection(
             name: resolvedConnectionName,
             serviceId: input.serviceId,
             serviceSchemaId: defaultSchema?.id || "",
-            endpointRefs,
+            endpointRefs: marketplaceItem.endpointRefs,
             sensitiveKeys,
         });
     }
@@ -364,6 +361,25 @@ async function executeCreateConnection(
             });
             connectionCode = result.connectionCode;
             importStatement = result.importStatement;
+        }
+    }
+
+    // Update component YAML with connection config
+    if (tempProjectPath){
+        try {
+            const componentYamlPath = await cloudAPIs.createConnectionConfig({
+                componentDir: tempProjectPath,
+                name: resolvedConnectionName,
+                visibility,
+                marketplaceItem,
+            });
+            if (componentYamlPath && modifiedFiles) {
+                const trackingBase = rootTempPath || tempProjectPath;
+                modifiedFiles.push(path.relative(trackingBase, componentYamlPath));
+            }
+        } catch (err){
+            // non-fatal — component YAML update is best-effort
+            log("Failed to write connection config to component YAML: " + (err as Error).message);
         }
     }
 

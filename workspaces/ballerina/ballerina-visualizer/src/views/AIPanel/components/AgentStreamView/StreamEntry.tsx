@@ -23,6 +23,7 @@ import ConfigCard from "./ConfigCard";
 import ConnectorCard from "./ConnectorCard";
 import CommandOutputCard from "./CommandOutputCard";
 import TryItCard from "./TryItCard";
+import EnvConfigCollector from "../EnvConfigCollector";
 import {
     DoneCircle,
     DotWrapper,
@@ -69,6 +70,7 @@ const TOOL_ICON_MAP: Record<string, ToolIconEntry> = {
     TaskWrite:                     { loading: "codicon-checklist" },
     ConfigCollector:               { loading: "codicon-settings-gear" },
     ConnectorGeneratorTool:        { loading: "codicon-plug" },
+    DevantRegisterThirdPartyServiceTool: { loading: "codicon-cloud-upload" },
 };
 const DEFAULT_TOOL_ICON = "codicon-symbol-property";
 
@@ -110,6 +112,7 @@ function getToolCallDisplay(toolName: string | undefined, toolInput: any): { lab
         case "getCompilationErrors": return { label: "Checking for errors..." };
         case "ConfigCollector": return { label: "Reading config..." };
         case "ConnectorGeneratorTool": return { label: "Generating connector..." };
+        case "DevantRegisterThirdPartyServiceTool": return { label: "Registering third-party service..." };
         case "runTests": return { label: "Running tests..." };
         case "curlRequest": return { label: "Sending HTTP request..." };
         case "runBallerinaPackage": return { label: `Running ${toolInput?.runType === "service" ? "service" : "program"}...` };
@@ -146,6 +149,7 @@ function getToolResultDisplay(toolName: string | undefined, toolOutput: any, hin
         }
         case "ConfigCollector": return { label: "Config loaded" };
         case "ConnectorGeneratorTool": return { label: "Connector ready" };
+        case "DevantRegisterThirdPartyServiceTool": return { label: "Service registered" };
         case "runTests": return { label: toolOutput?.summary ?? "Tests completed" };
         case "curlRequest": return { label: "HTTP request completed" };
         case "runBallerinaPackage": {
@@ -234,6 +238,9 @@ function renderItem(item: StreamItem, idx: number, streamActive: boolean, rpcCli
         case "connector":
             return <ConnectorCard key={idx} data={item.data} rpcClient={rpcClient} />;
         case "component":
+            if (item.componentType === "env_config") {
+                return <EnvConfigCollector key={idx} data={item.data as any} rpcClient={rpcClient} />;
+            }
             if (item.componentType === "progress") {
                 const isDone = item.data.status === "end";
                 const isSpinning = !isDone && streamActive;

@@ -58,6 +58,15 @@ export interface ConfigurationResponse {
 }
 
 /**
+ * Env config response from the inline env config collection UI
+ */
+export interface EnvConfigResponse {
+    provided: boolean;
+    configs?: Array<{ key: string; value: string; isSecret: boolean }>;
+    comment?: string;
+}
+
+/**
  * Generic promise resolver for approval requests
  */
 interface PromiseResolver<T> {
@@ -89,6 +98,7 @@ export class ApprovalManager {
     private taskApprovals = new Map<string, PromiseResolver<TaskApprovalResponse>>();
     private connectorSpecs = new Map<string, PromiseResolver<ConnectorSpecResponse>>();
     private configurationRequests = new Map<string, PromiseResolver<ConfigurationResponse>>();
+    private envConfigs = new Map<string, PromiseResolver<EnvConfigResponse>>();
     private webToolApprovals = new Map<string, PromiseResolver<{ approved: boolean }>>();
     private approvalQueue: ApprovalQueueItem[] = [];
     private approvalQueueActive = false;
@@ -419,6 +429,83 @@ export class ApprovalManager {
     }
 
     // ============================================
+    // Devant Env Config Collection
+    // ============================================
+
+    /**
+     * Request runtime env config values from user for third-party Devant service registration.
+     * Emits a chat_component event that renders an inline UI in the AI chat.
+     *
+     * @param requestId - Unique identifier for this request
+     * @param serviceName - Name of the third-party service being registered
+     * @param initialConfigs - Initial env config keys identified by the agent
+     * @param eventHandler - Event handler to emit the chat component event
+     * @returns Promise that resolves when user submits/cancels
+     */
+    requestEnvConfig(
+        requestId: string,
+        serviceName: string,
+        initialConfigs: Array<{ key: string; value: string; isSecret: boolean; description?: string }>,
+        eventHandler: CopilotEventHandler,
+    ): Promise<EnvConfigResponse> {
+        console.log(`[ApprovalManager] Requesting env config: ${requestId}`);
+
+        // Emit chat_component event to render inline UI in chat
+        eventHandler({
+            type: "chat_component",
+            componentType: "env_config",
+            id: requestId,
+            data: {
+                requestId,
+                stage: "collecting",
+                serviceName,
+                initialConfigs,
+                message: `Please provide runtime environment variable values for ${serviceName}`,
+            },
+        } as any);
+
+        // Create promise that will be resolved by resolveEnvConfig()
+        return new Promise((resolve, reject) => {
+            const timeoutId = setTimeout(() => {
+                this.envConfigs.delete(requestId);
+                reject(new Error(`Env config request timeout for request ${requestId}`));
+            }, this.DEFAULT_TIMEOUT_MS);
+
+            this.envConfigs.set(requestId, { resolve, reject, timeoutId });
+        });
+    }
+
+    /**
+     * Resolve env config request (called by RPC method when user responds)
+     *
+     * @param requestId - Unique identifier for this request
+     * @param provided - Whether the configs were provided
+     * @param configs - The env config key-value pairs (if provided)
+     * @param comment - Optional comment from user
+     */
+    resolveEnvConfig(
+        requestId: string,
+        provided: boolean,
+        configs?: Array<{ key: string; value: string; isSecret: boolean }>,
+        comment?: string,
+    ): void {
+        const resolver = this.envConfigs.get(requestId);
+        if (!resolver) {
+            console.warn(`[ApprovalManager] No pending env config request for: ${requestId}`);
+            return;
+        }
+
+        console.log(`[ApprovalManager] Resolving env config: ${requestId}, provided: ${provided}`);
+
+        if (resolver.timeoutId) {
+            clearTimeout(resolver.timeoutId);
+        }
+
+        resolver.resolve({ provided, configs, comment });
+        this.envConfigs.delete(requestId);
+    }
+
+    // ============================================
     // Web Tool Approval
     // ============================================
 
@@ -576,6 +663,15 @@ export class ApprovalManager {
         }
         this.configurationRequests.clear();
 
+        // Resolve env config requests as skipped
+        for (const [, resolver] of this.envConfigs.entries()) {
+            if (resolver.timeoutId) {
+                clearTimeout(resolver.timeoutId);
+            }
+            resolver.resolve({ provided: false, comment: reason });
+        }
+        this.envConfigs.clear();
+
         // Auto-deny all pending web tool approvals and clear the queue
         for (const [, resolver] of this.webToolApprovals.entries()) {
             if (resolver.timeoutId) {
@@ -599,12 +695,13 @@ export class ApprovalManager {
     /**
      * Get count of pending approvals (useful for debugging)
      */
-    getPendingCount(): { plans: number; tasks: number; connectorSpecs: number; configurations: number; webTools: number } {
+    getPendingCount(): { plans: number; tasks: number; connectorSpecs: number; configurations: number; envConfigs: number; webTools: number } {
         return {
             plans: this.planApprovals.size,
             tasks: this.taskApprovals.size,
             connectorSpecs: this.connectorSpecs.size,
             configurations: this.configurationRequests.size,
+            envConfigs: this.envConfigs.size,
             webTools: this.webToolApprovals.size,
         };
     }

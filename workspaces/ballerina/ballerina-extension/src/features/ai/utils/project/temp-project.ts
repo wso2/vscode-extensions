@@ -105,7 +105,7 @@ export async function getTempProject(ctx: ExecutionContext): Promise<TempProject
     let projectRoot = ctx.projectPath;
     const workspacePath = ctx.workspacePath;
     if (workspacePath) {
-        projectRoot = workspacePath;
+        projectRoot = workspacePath; // always setting workspace path
     }
 
     const projectHash = crypto.createHash('sha256').update(projectRoot).digest('hex');

@@ -587,6 +587,14 @@ export class AiPanelRpcManager implements AIPanelAPI {
         approvalManager.resolveConfiguration(params.requestId, false, undefined, params.comment);
     }
 
+    async provideEnvConfig(params: { requestId: string; configs: Array<{ key: string; value: string; isSecret: boolean }> }): Promise<void> {
+        approvalManager.resolveEnvConfig(params.requestId, true, params.configs);
+    }
+
+    async cancelEnvConfig(params: { requestId: string; comment?: string }): Promise<void> {
+        approvalManager.resolveEnvConfig(params.requestId, false, undefined, params.comment);
+    }
+
     async approveWebTool(params: WebToolApprovalRequest): Promise<void> {
         approvalManager.resolveWebToolApproval(params.requestId, true);
     }

@@ -48,7 +48,9 @@ import {
     OpenFileDiffRequest,
     WebToolApprovalRequest,
     PromptEnhancementRequest,
-    PromptEnhancementResponse
+    PromptEnhancementResponse,
+    EnvConfigProvideRequest,
+    EnvConfigCancelRequest
 } from "./interfaces";
 
 export interface AIPanelAPI {
@@ -102,6 +104,8 @@ export interface AIPanelAPI {
     cancelConnectorSpec: (params: ConnectorSpecCancelRequest) => Promise<void>;
     provideConfiguration: (params: ConfigurationProvideRequest) => Promise<void>;
     cancelConfiguration: (params: ConfigurationCancelRequest) => Promise<void>;
+    provideEnvConfig: (params: EnvConfigProvideRequest) => Promise<void>;
+    cancelEnvConfig: (params: EnvConfigCancelRequest) => Promise<void>;
     // ==================================
     // Chat State Management
     // ==================================

@@ -34,6 +34,10 @@ import {
     createDevantCreateConnectionTool,
     DEVANT_CREATE_CONNECTION_TOOL,
 } from './tools/devant/devant-create-connection';
+import {
+    createDevantRegisterThirdPartyServiceTool,
+    DEVANT_REGISTER_THIRD_PARTY_SERVICE_TOOL,
+} from './tools/devant/devant-register-third-party-service';
 
 export interface DevantToolRegistryOptions {
     eventHandler: CopilotEventHandler;
@@ -56,6 +60,7 @@ export async function createDevantToolRegistry(opts: DevantToolRegistryOptions) 
     const ballerinaDevantTools = {
         [DEVANT_GET_SELECTED_INTEGRATION_TOOL]: createDevantGetSelectedIntegrationTool(opts.eventHandler),
         [DEVANT_CREATE_CONNECTION_TOOL]: createDevantCreateConnectionTool(opts.eventHandler, opts.tempProjectPath, opts.rootTempPath, opts.modifiedFiles),
+        [DEVANT_REGISTER_THIRD_PARTY_SERVICE_TOOL]: createDevantRegisterThirdPartyServiceTool(opts.eventHandler),
     };
 
     return { ...wiDevantTools, ...ballerinaDevantTools };
