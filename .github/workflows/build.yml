@@ -209,6 +209,13 @@ jobs:
           echo "uiTestMatrix=$(echo "$matrix" | jq -c .)" >> $GITHUB_OUTPUT
           echo "Matrix: $(echo "$matrix" | jq -c .)"
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+          cache-dependency-path: workspaces/arazzo/arazzo-designer-lsp/go.sum
+
       - name: Build
         uses: ./.github/actions/build
         with:
