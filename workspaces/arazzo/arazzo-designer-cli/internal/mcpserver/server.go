@@ -34,7 +34,7 @@ func NewMCPServer(arazzoFilePath string, port int, runtimeParams *models.Runtime
 
 	// Create MCP server
 	mcpSrv := server.NewMCPServer(
-		"arazzo-workflow-runner",
+		"arazzo",
 		"1.0.0",
 		server.WithToolCapabilities(false),
 	)
@@ -280,12 +280,6 @@ func sanitizeToolName(workflowID string) string {
 	name := strings.ReplaceAll(workflowID, "-", "_")
 	name = strings.ReplaceAll(name, " ", "_")
 	name = strings.ReplaceAll(name, ".", "_")
-
-	// Prefix with "workflow_" to avoid conflicts with utility tools
-	if !strings.HasPrefix(name, "workflow_") {
-		name = "workflow_" + name
-	}
-
 	return name
 }
 

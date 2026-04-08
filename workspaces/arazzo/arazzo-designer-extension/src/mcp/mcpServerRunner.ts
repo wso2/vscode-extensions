@@ -92,7 +92,7 @@ async function writeMcpConfig(workspaceFolder: string, port: number): Promise<vo
         existingConfig.servers = {};
     }
 
-    existingConfig.servers['arazzo-workflow-runner'] = {
+    existingConfig.servers['arazzo'] = {
         type: 'http',
         url: `http://localhost:${port}/mcp`
     };
