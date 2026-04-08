@@ -268,6 +268,7 @@
     "terser-webpack-plugin": "5.3.14"
   },
   "dependencies": {
+    "@microsoft/applicationinsights-common": "3.4.1",
     "@vscode-logging/logger": "2.0.0",
     "@vscode-logging/types": "2.0.0",
     "@vscode-logging/wrapper": "2.0.0",
