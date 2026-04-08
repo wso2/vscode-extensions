@@ -102,6 +102,7 @@ export const updatePomValues: RequestType<UpdatePomValuesRequest, boolean> = { m
 export const updateConfigFileValues: RequestType<UpdateConfigValuesRequest, boolean> = { method: `${_preFix}/updateConfigFileValues` };
 export const updateConnectorDependencies: RequestType<void, string> = { method: `${_preFix}/updateConnectorDependencies` };
 export const getDependencyStatusList: RequestType<void, DependencyStatusResponse> = { method: `${_preFix}/getDependencyStatusList` };
+export const refetchIntegrationProjectDependencies: RequestType<void, string> = { method: `${_preFix}/refetchIntegrationProjectDependencies` };
 export const updateDependenciesFromOverview: RequestType<UpdateDependenciesRequest, boolean> = { method: `${_preFix}/updateDependenciesFromOverview` };
 export const getProjectSetupDetails: RequestType<void, SetupDetails> = { method: `${_preFix}/getProjectSetupDetails` };
 export const updateRuntimeVersionsInPom: RequestType<string, boolean> = { method: `${_preFix}/updateRuntimeVersionsInPom` };

@@ -268,6 +268,7 @@ import {
     UpdateRegistryPropertyRequest,
     Property,
     GenerateMappingsParamsRequest,
+    ProjectCreationStatusResponse,
     LoadDriverAndTestConnectionRequest,
     GetDynamicFieldsRequest,
     GetDynamicFieldsResponse,
@@ -334,7 +335,7 @@ export interface MiDiagramAPI {
     openDiagram: (params: OpenDiagramRequest) => void;
     openFile: (params: OpenDiagramRequest) => void;
     closeWebViewNotification: () => void;
-    getWorkspaceRoot: () => Promise<ProjectRootResponse>;
+    getWorkspaceRoot: (params?: boolean) => Promise<ProjectRootResponse>;
     getProjectRoot: (params: GetProjectRootRequest) => Promise<ProjectRootResponse>;
     askProjectDirPath: () => Promise<ProjectDirResponse>;
     askProjectImportDirPath: () => Promise<ProjectDirResponse>;
@@ -462,4 +463,6 @@ export interface MiDiagramAPI {
     getStoredProcedures: (params: DSSFetchTablesRequest) => Promise<GetStoredProceduresResponse>;
     downloadDriverForConnector: (params: DriverDownloadRequest) => Promise<DriverDownloadResponse>;
     getDriverMavenCoordinates: (params: DriverMavenCoordinatesRequest) => Promise<DriverMavenCoordinatesResponse>;
+    canCreateConsolidatedProject: () => Promise<ProjectCreationStatusResponse>;
+    createConsolidatedProjectFromWorkspace: (params: CreateProjectRequest) => Promise<CreateProjectResponse>;
 }

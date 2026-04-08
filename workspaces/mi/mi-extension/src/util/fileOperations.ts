@@ -39,6 +39,12 @@ interface ProgressMessage {
     increment?: number;
 }
 
+interface ParentPomInfo {
+  groupId: string;
+  artifactId: string;
+  version: string;
+}
+
 export function getFileName(filePath: string): string {
     const fileNameWithExt = filePath.split('/').pop();
     return fileNameWithExt?.split('.')[0] || '';
@@ -386,8 +392,8 @@ export async function getMavenInfoFromRootPom(projectDir: string): Promise<{ gro
             const parser = new XMLParser(options);
             const pomXMLData = parser.parse(pomXML);
             const artifactId = pomXMLData["project"]["artifactId"];
-            const groupId = pomXMLData["project"]["groupId"];
-            const version = pomXMLData["project"]["version"];
+            const groupId = pomXMLData["project"]["groupId"] ?? pomXMLData["project"]["parent"]["groupId"];
+            const version = pomXMLData["project"]["version"] ?? pomXMLData["project"]["parent"]["version"];
             const response = {
                 groupId: groupId,
                 artifactId: artifactId,
@@ -1155,4 +1161,72 @@ export function zipProjectFolder(sourceFolder: string, targetFolder: string): st
     zip.writeZip(targetZipPath);
 
     return targetZipPath;
+}
+
+export function updatePomWithParent(pomPath: string, parent: ParentPomInfo) {
+    const xml = fs.readFileSync(pomPath, "utf-8");
+
+    const parser = new XMLParser({
+        ignoreAttributes: false,
+        attributeNamePrefix: "@_"
+    });
+
+    const builder = new XMLBuilder({
+        ignoreAttributes: false,
+        attributeNamePrefix: "@_",
+        format: true,
+        indentBy: "    ",
+        suppressBooleanAttributes: false
+    });
+
+    const pom = parser.parse(xml);
+    const project = pom.project;
+
+    if (!project) {
+        throw new Error("Invalid POM");
+    }
+
+    if (project.profiles && project.profiles.profile) {
+        const profiles = project.profiles.profile;
+
+        if (Array.isArray(profiles)) {
+            const filtered = profiles.filter(p => p.id !== "docker");
+
+            if (filtered.length > 0) {
+                project.profiles.profile = filtered;
+            } else {
+                delete project.profiles;
+            }
+        } else {
+            if (profiles.id === "docker") {
+                delete project.profiles;
+            }
+        }
+    }
+
+    const artifactId = project.artifactId;
+    delete project.groupId;
+    delete project.version;
+
+    const newProject: any = {};
+    if (project.modelVersion) {
+        newProject.modelVersion = project.modelVersion;
+    }
+    newProject.parent = {
+        groupId: parent.groupId,
+        artifactId: parent.artifactId,
+        version: parent.version
+    };
+    newProject.artifactId = artifactId;
+
+    for (const key of Object.keys(project)) {
+        if (["modelVersion", "groupId", "version", "artifactId", "parent"].includes(key)) {
+            continue;
+        }
+        newProject[key] = project[key];
+    }
+    pom.project = newProject;
+
+    const updatedXml = builder.build(pom);
+    fs.writeFileSync(pomPath, updatedXml);
 }

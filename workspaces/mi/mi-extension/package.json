@@ -2,7 +2,7 @@
   "name": "micro-integrator",
   "displayName": "WSO2 Integrator: MI",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
-  "icon": "resources/images/wso2-micro-integrator-image.png",
+  "icon": "resources/images/wso2-micro-integrator-icon.png",
   "version": "3.1.5",
   "publisher": "wso2",
   "engines": {
@@ -219,6 +219,11 @@
           "default": "error",
           "description": "The verbosity of logging. The Order is off < error < warn < info < debug.",
           "scope": "window"
+        },
+        "MI.convertToConsolidatedProjectAfterMigration": {
+          "type": "boolean",
+          "default": false,
+          "description": "Convert the migrated projects to a consolidated project."
         }
       }
     },
@@ -227,7 +232,7 @@
         {
           "id": "micro-integrator",
           "title": "WSO2 Integrator: MI",
-          "icon": "assets/icon.svg"
+          "icon": "assets/wso2-micro-integrator-icon.svg"
         }
       ]
     },
@@ -505,6 +510,11 @@
         "icon": "$(trash)"
       },
       {
+        "command": "MI.project-explorer.project-delete",
+        "title": "Remove Project from Workspace",
+        "icon": "$(trash)"
+      },
+      {
         "command": "MI.manage-registry-property",
         "title": "Manage Properties",
         "icon": "$(add)"
@@ -527,6 +537,11 @@
         "command": "MI.show.source",
         "title": "Show Source",
         "icon": "$(code)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.convert.to.consolidated",
+        "title": "Convert Workspace to Consolidated Project",
         "category": "MI"
       },
       {
@@ -946,9 +961,12 @@
           "key": "delete"
         },
         {
+          "command": "MI.project-explorer.project-delete",
+          "when": "view == MI.project-explorer && viewItem == project"
+        },
+        {
           "command": "MI.manage-registry-property",
-          "when": "view == MI.project-explorer && (viewItem == resource || viewItem == registry-with-metadata || viewItem == registry-without-metadata)",
-          "key": "add-registry-property"
+          "when": "view == MI.project-explorer && (viewItem == resource || viewItem == registry-with-metadata || viewItem == registry-without-metadata)"
         },
         {
           "command": "MI.project-explorer.markAsDefaultSequence",
