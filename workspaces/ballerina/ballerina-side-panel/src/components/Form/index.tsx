@@ -539,7 +539,7 @@ export const Form = forwardRef((props: FormProps, _ref) => {
                     } else if (typeof field.value === "string") {
                         defaultValues[field.key] = formatJSONLikeString(field.value) ?? "";
                     } else {
-                        defaultValues[field.key] = field.value;
+                        defaultValues[field.key] = field.value === undefined ? "" : field.value;
                     }
                     if (field.key === "variable") {
                         defaultValues[field.key] = formValues[field.key] ?? defaultValues[field.key] ?? "";
@@ -551,14 +551,11 @@ export const Form = forwardRef((props: FormProps, _ref) => {
                     if (field.key === "type") {
                         // Handle the case where the type is changed via 'Add Type'
                         const existingType = formValues[field.key];
-                        const newType = field.value;
+                        const newType = field.value ?? "";
 
                         if (existingType !== newType) {
                             setValue(field.key, newType);
                             getVisualiableFields();
-                        }
-                        else if (newType === undefined) {
-                             defaultValues[field.key] = "";
                         }
                     }
 
