@@ -80,7 +80,7 @@ export const getTypes = (types: VisibleTypeItem[], filterDMTypes?: boolean, payl
         items
     }));
 
-    if (payloadContext?.protocol === Protocol.FTP || payloadContext?.protocol === Protocol.CDC) {
+    if (payloadContext?.protocol === Protocol.FTP || payloadContext?.protocol === Protocol.SMB || payloadContext?.protocol === Protocol.CDC) {
 
         categories = categories
             .filter((category) => category.category === "User-Defined")

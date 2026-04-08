@@ -177,8 +177,9 @@ export function FileIntegrationForm(props: FileIntegrationFormProps) {
     const [serviceModel, setServiceModel] = useState<ServiceModel>(model);
     const [functionModel, setFunctionModel] = useState<FunctionModel | null>(props.functionModel || null);
 
+    const protocol = model.moduleName === 'smb' ? Protocol.SMB : Protocol.FTP;
     const payloadContext = {
-        protocol: Protocol.FTP,
+        protocol,
         filterType: functionModel?.name?.metadata?.label || "",
     } as GeneralPayloadContext;
 
