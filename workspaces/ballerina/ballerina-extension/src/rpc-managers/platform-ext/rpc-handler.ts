@@ -16,10 +16,10 @@
  * under the License.
  */
 
-import { getMarketplaceItems, getMarketplaceIdl, getConnections, deleteLocalConnectionsConfig, getDevantConsoleUrl, getMarketplaceItem, getConnection, onPlatformExtStoreStateChange, refreshConnectionList, getPlatformStore, setConnectedToDevant, setSelectedComponent, deployIntegrationInDevant, deleteDevantTempConfigs, generateCustomConnectorFromOAS, addDevantTempConfig, setSelectedEnv, createConnectionConfig, replaceDevantTempConfigValues, registerDevantMarketplaceService, createThirdPartyConnection, initializeDevantOASConnection, createInternalConnection, getComponentList, getMarketplaceDatabases, getDatabaseServer, getDatabaseAdminCredential, getDatabaseCredentials, getProjectEnvs, createDatabaseConnection, getMarketplaceDatabaseItem, resolveConnectionSecrets, getProjects } from "@wso2/ballerina-core";
+import { getMarketplaceItems, getMarketplaceIdl, getConnections, deleteLocalConnectionsConfig, getDevantConsoleUrl, getMarketplaceItem, getConnection, refreshConnectionList, getPlatformStore, setConnectedToDevant, setSelectedComponent, deployIntegrationInDevant, deleteDevantTempConfigs, generateCustomConnectorFromOAS, addDevantTempConfig, setSelectedEnv, createConnectionConfig, replaceDevantTempConfigValues, registerDevantMarketplaceService, createThirdPartyConnection, initializeDevantOASConnection, createInternalConnection, getComponentList, getMarketplaceDatabases, getDatabaseServer, getDatabaseAdminCredential, getDatabaseCredentials, getProjectEnvs, createDatabaseConnection, getMarketplaceDatabaseItem, resolveConnectionSecrets, getProjects, updateProject } from "@wso2/ballerina-core";
 import { Messenger } from "vscode-messenger";
 import { PlatformExtRpcManager } from "./rpc-manager";
-import { CreateComponentConnectionReq, CreateDatabaseConnectionReq, CreateLocalConnectionsConfigReq, CreateThirdPartyConnectionReq, DeleteLocalConnectionsConfigReq, GetComponentsReq, GetConnectionItemReq, GetConnectionsReq, GetDatabaseItemReq, GetDatabaseServerReq, GetMarketplaceIdlReq, GetMarketplaceItemReq, GetMarketplaceListReq, GetProjectEnvsReq, ResolveConnectionSecretsReq } from "@wso2/wso2-platform-core";
+import { CreateComponentConnectionReq, CreateDatabaseConnectionReq, CreateLocalConnectionsConfigReq, CreateThirdPartyConnectionReq, DeleteLocalConnectionsConfigReq, GetComponentsReq, GetConnectionItemReq, GetConnectionsReq, GetDatabaseItemReq, GetDatabaseServerReq, GetMarketplaceIdlReq, GetMarketplaceItemReq, GetMarketplaceListReq, GetProjectEnvsReq, ResolveConnectionSecretsReq, UpdateProjectReq } from "@wso2/wso2-platform-core";
 import { AddDevantTempConfigReq, DeleteDevantTempConfigReq, GenerateCustomConnectorFromOASReq, InitializeDevantOASConnectionReq, RegisterDevantMarketplaceServiceReq, ReplaceDevantTempConfigValuesReq } from "@wso2/ballerina-core/lib/rpc-types/platform-ext/interfaces";
 import { platformExtStore } from "./platform-store";
 import { debug } from "../../utils";
@@ -56,6 +56,7 @@ export function registerPlatformExtRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getConnection, (params: GetConnectionItemReq) => rpcManger.getConnection(params));
     messenger.onRequest(getComponentList, (params: GetComponentsReq) => rpcManger.getComponentList(params));
     messenger.onRequest(getProjects, (orgID: number) => rpcManger.getProjects(orgID));
+    messenger.onRequest(updateProject, (params: UpdateProjectReq) => rpcManger.updateProject(params));
     messenger.onRequest(deleteLocalConnectionsConfig, (params: DeleteLocalConnectionsConfigReq) => rpcManger.deleteLocalConnectionsConfig(params));
     messenger.onRequest(getDevantConsoleUrl, () => rpcManger.getDevantConsoleUrl());
     messenger.onRequest(refreshConnectionList, () => rpcManger.refreshConnectionList());

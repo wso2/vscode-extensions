@@ -65,6 +65,7 @@ import {
     GetDatabaseItemReq,
     ResolveConnectionSecretsResp,
     ResolveConnectionSecretsReq,
+    UpdateProjectReq,
     WICommandIds,
     ICreateNewIntegrationCmdParams,
 } from "@wso2/wso2-platform-core";
@@ -396,9 +397,18 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
     async getProjects(orgID: number): Promise<Project[]> {
         try {
             const platformExt = await this.getPlatformExt();
-            return platformExt?.getProjects(orgID);
+            return platformExt?.getProjects(orgID.toString());
         } catch (err) {
             log(`Failed to invoke getProjects: ${err}`);
+        }
+    }
+
+    async updateProject(params: UpdateProjectReq): Promise<Project> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            return platformExt?.updateProject(params);
+        } catch (err) {
+            log(`Failed to invoke updateProject: ${err}`);
         }
     }
 

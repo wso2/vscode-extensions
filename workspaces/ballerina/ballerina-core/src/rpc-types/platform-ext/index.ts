@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { GetMarketplaceListReq,MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, ConnectionListItem, GetConnectionsReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, MarketplaceItem, GetConnectionItemReq, ConnectionDetailed, CreateLocalConnectionsConfigReq, CreateThirdPartyConnectionReq, CreateComponentConnectionReq, GetComponentsReq, ComponentKind, GetDatabaseServerReq, DatabaseAdminCredential, DatabaseServer, MarketplaceDatabaseListResp, DatabaseCredential, GetProjectEnvsReq, Environment, CreateDatabaseConnectionReq, GetDatabaseItemReq, Project, ResolveConnectionSecretsReq, ResolveConnectionSecretsResp } from "@wso2/wso2-platform-core"
+import { GetMarketplaceListReq,MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, ConnectionListItem, GetConnectionsReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, MarketplaceItem, GetConnectionItemReq, ConnectionDetailed, CreateLocalConnectionsConfigReq, CreateThirdPartyConnectionReq, CreateComponentConnectionReq, GetComponentsReq, ComponentKind, GetDatabaseServerReq, DatabaseAdminCredential, DatabaseServer, MarketplaceDatabaseListResp, DatabaseCredential, GetProjectEnvsReq, Environment, CreateDatabaseConnectionReq, GetDatabaseItemReq, Project, ResolveConnectionSecretsReq, ResolveConnectionSecretsResp, UpdateProjectReq } from "@wso2/wso2-platform-core"
 import { DeleteDevantTempConfigReq, GenerateCustomConnectorFromOASReq, GenerateCustomConnectorFromOASResp, AddDevantTempConfigReq, AddDevantTempConfigResp, ReplaceDevantTempConfigValuesReq, RegisterDevantMarketplaceServiceReq, InitializeDevantOASConnectionReq, InitializeDevantOASConnectionResp } from "./interfaces";
 export * from "./rpc-type"
 export * from "./utils"
@@ -49,6 +49,7 @@ export interface PlatformExtAPI {
     getConnection: (params: GetConnectionItemReq) => Promise<ConnectionDetailed>;
     getComponentList: (params: GetComponentsReq) => Promise<ComponentKind[]>;
     getProjects: (orgID: number) => Promise<Project[]>;
+    updateProject: (params: UpdateProjectReq) => Promise<Project>;
     deleteLocalConnectionsConfig: (params: DeleteLocalConnectionsConfigReq) => void;
     getDevantConsoleUrl: () => Promise<string>;
     refreshConnectionList: () => Promise<void>;

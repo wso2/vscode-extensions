@@ -184,7 +184,7 @@ import { fetchWithAuth } from "../../features/ai/utils/ai-client";
 import { cleanAndValidateProject, getCurrentBIProject } from "../../features/config-generator/configGenerator";
 import { BreakpointManager } from "../../features/debugger/breakpoint-manager";
 import { StateMachine, updateView } from "../../stateMachine";
-import { getAccessToken, getLoginMethod } from "../../utils/ai/auth";
+import { getAccessToken, getLoginMethod, getPlatformExtensionAPI } from "../../utils/ai/auth";
 import { getCompleteSuggestions } from '../../utils/ai/completions';
 import {
     addProjectToExistingWorkspace,
@@ -216,6 +216,7 @@ import { getRepoRoot } from "../platform-ext/platform-utils";
 import { WI_EXTENSION_ID } from "../../utils";
 import { notifyOnIdentifierUpdated } from "../../RPCLayer";
 import { openView } from "../../stateMachine";
+import * as yaml from 'js-yaml';
 
 function ensureGitignoreEntry(projectRoot: string): void {
     const gitignorePath = path.join(projectRoot, '.gitignore');
@@ -2534,14 +2535,38 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         }
         fs.writeFileSync(ballerinaTomlPath, toml.stringify(doc), "utf-8");
 
-        const localProjectYamlPath = path.join(params.projectPath, '.choreo', 'local-project.yaml');
+        const contextYamlPath = path.join(params.projectPath, '.choreo', 'context.yaml');
         try {
-            const yamlContent = fs.readFileSync(localProjectYamlPath, 'utf-8');
-            const updatedYaml = yamlContent.replace(
-                /^name\s*:.*$/m,
-                `name: ${JSON.stringify(params.title)}`
-            );
-            fs.writeFileSync(localProjectYamlPath, updatedYaml, 'utf-8');
+            const yamlContent = fs.readFileSync(contextYamlPath, 'utf-8');
+            const data = yaml.load(yamlContent) as Array<Record<string, any>>;
+            if (Array.isArray(data) && data[0]?.org && data[0]?.project) {
+                const projectHandle = data[0].project;
+                const orgHandle = data[0].org;
+
+                // Best-effort: update the matching cloud project name
+                if (projectHandle && orgHandle) {
+                    getPlatformExtensionAPI().then(async (platformExt) => {
+                        if (!platformExt?.isLoggedIn()) {
+                            return;
+                        }
+                        const org = platformExt.getAuthState().userInfo?.organizations?.find(
+                            (o) => o.handle === orgHandle
+                        );
+                        if (!org) {
+                            return;
+                        }
+                        const projects = await platformExt.getProjects(String(org.id));
+                        const cloudProject = projects?.find((p) => p.handler === projectHandle);
+                        if (cloudProject) {
+                            await platformExt.updateProject({
+                                orgId: String(cloudProject.orgId),
+                                projectId: String(cloudProject.id),
+                                name: params.title
+                            });
+                        }
+                    }).catch(() => { /* cloud update is best-effort */ });
+                }
+            }
         } catch {
             // file doesn't exist, skip
         }
