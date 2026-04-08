@@ -23,9 +23,9 @@ const path = require("path");
 const fontDir = path.join(__dirname, '..', '..', 'dist');
 const codiconDir = path.join(__dirname, '..', '..', 'node_modules', '@vscode', 'codicons', 'dist');
 
-// Read the CSS and JSON files
-const wso2FontJsonPath = path.join(fontDir, 'wso2-vscode.json');
-const wso2FontJson = JSON.parse(fs.readFileSync(wso2FontJsonPath, 'utf-8'));
+// Read the CSS and JSON files (optional; populated below if dist artifacts exist)
+const wso2FontJsonPath = path.join(fontDir, "wso2-vscode.json");
+const wso2FontCssPath = path.join(fontDir, "wso2-vscode.css");
 
 let wso2FontCss = "";
 let wso2FontJson = {};
