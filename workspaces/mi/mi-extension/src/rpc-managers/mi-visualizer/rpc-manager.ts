@@ -235,14 +235,21 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             const updateDependenciesResult = await langClient?.updateConnectorDependencies();
             if (!updateDependenciesResult.toLowerCase().startsWith("success")) {              
                 const connectorsNotDownloaded: string[] = [];
+                const connectorsFromIntegrationProjectDeps: string[] = [];
                 const unavailableDependencies: string[] = [];
                 const missingDescriptorDependencies: string[] = [];
                 const versioningMismatchDependencies: string[] = [];
-                
+
                 // Extract connectors not downloaded
                 connectorsNotDownloaded.push(...extractDependenciesFromError(
                     updateDependenciesResult,
                     /Some connectors were not downloaded:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
+                ));
+
+                // Extract connectors provided by integration project dependencies
+                connectorsFromIntegrationProjectDeps.push(...extractDependenciesFromError(
+                    updateDependenciesResult,
+                    /Following connectors are provided by integration project dependencies and cannot be downloaded:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
                 ));
                 
                 // Extract unavailable integration project dependencies
@@ -265,6 +272,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 
                 const allFailedDependencies = [
                     ...connectorsNotDownloaded,
+                    ...connectorsFromIntegrationProjectDeps,
                     ...unavailableDependencies,
                     ...missingDescriptorDependencies,
                     ...versioningMismatchDependencies
@@ -303,6 +311,8 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                         let warningMessage = "";
                         if (connectorsNotDownloaded.includes(dependencyString)) {
                             warningMessage = "Connector downloading failed.";
+                        } else if (connectorsFromIntegrationProjectDeps.includes(dependencyString)) {
+                            warningMessage = "This connector is provided by an integration project dependency and cannot be downloaded separately.";
                         } else if (unavailableDependencies.includes(dependencyString)) {
                             warningMessage = "Dependency downloading failed.";
                         } else if (missingDescriptorDependencies.includes(dependencyString)) {
