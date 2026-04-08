@@ -20,6 +20,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { ChildProcess, spawn } from 'child_process';
+import * as yaml from 'js-yaml';
 
 let mcpServerProcess: ChildProcess | undefined;
 let mcpOutputChannel: vscode.OutputChannel | undefined;
@@ -101,12 +102,31 @@ async function writeMcpConfig(workspaceFolder: string, port: number): Promise<vo
 }
 
 /**
+ * Read the Arazzo file and return the first workflowId, or undefined if it
+ * cannot be determined. Used to pre-fill the Copilot "Try Now" prompt.
+ */
+function getFirstWorkflowId(arazzoFilePath: string): string | undefined {
+    try {
+        const content = fs.readFileSync(arazzoFilePath, 'utf-8');
+        const doc = yaml.load(content) as any;
+        const workflows = doc?.workflows;
+        if (Array.isArray(workflows) && workflows.length > 0) {
+            return workflows[0]?.workflowId as string | undefined;
+        }
+    } catch {
+        // Non-fatal — best effort
+    }
+    return undefined;
+}
+
+/**
  * Start the Arazzo MCP server for the given Arazzo file.
  * Spawns the Go binary, writes .vscode/mcp.json, and shows output.
  */
 export async function startMCPServer(context: vscode.ExtensionContext, arazzoFilePath?: string): Promise<void> {
     const output = getOutputChannel();
-    output.show(true);
+    output.show(false); // Move focus to output panel so clicking back on the editor
+                        // fires onDidChangeActiveTextEditor and restores toolbar buttons.
 
     // Stop any existing server
     if (mcpServerProcess) {
@@ -165,46 +185,17 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
     // Choose a port
     const port = 18080 + Math.floor(Math.random() * 1000);
 
-    // Determine the mcp.json path based on workspace
+    // Always write mcp.json so VS Code Copilot connects automatically
     const workspaceFolders = vscode.workspace.workspaceFolders;
     let mcpConfigPath: string | undefined;
     if (workspaceFolders && workspaceFolders.length > 0) {
         mcpConfigPath = path.join(workspaceFolders[0].uri.fsPath, '.vscode', 'mcp.json');
-    }
-
-    // Ask the user whether to write/update mcp.json and connect to Copilot
-    let shouldWriteConfig = false;
-    if (mcpConfigPath) {
-        const configExists = fs.existsSync(mcpConfigPath);
-        const message = configExists
-            ? 'An mcp.json already exists. Add the Arazzo MCP server config to it and connect to Copilot?'
-            : 'No mcp.json found. Create one and connect the MCP server to Copilot?';
-        const answer = await vscode.window.showInformationMessage(message, 'Yes, Connect', 'Start Server Only');
-        shouldWriteConfig = answer === 'Yes, Connect';
-    }
-
-    // Write config and open the file if the user agreed
-    if (shouldWriteConfig && mcpConfigPath && workspaceFolders) {
         try {
             await writeMcpConfig(workspaceFolders[0].uri.fsPath, port);
             output.appendLine(`Wrote .vscode/mcp.json with MCP server URL: http://localhost:${port}/mcp`);
-            // Open the updated mcp.json beside the current editor so the user can see the change
-            const mcpUri = vscode.Uri.file(mcpConfigPath);
-            await vscode.window.showTextDocument(mcpUri, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true });
-            // Open Copilot chat with a pre-filled prompt to guide the user on what to do next
-            try {
-                await vscode.commands.executeCommand('workbench.action.chat.open', {
-                    query: 'list all tools of the mcp server',
-                    isPartialQuery: true
-                });
-            } catch {
-                // Copilot chat not available — non-fatal, silently ignore
-            }
         } catch (e: any) {
             output.appendLine(`Warning: Could not write .vscode/mcp.json: ${e.message}`);
         }
-    } else if (!shouldWriteConfig) {
-        output.appendLine('Skipping .vscode/mcp.json update (Start Server Only selected).');
     }
 
     // Start the server
@@ -220,6 +211,10 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         cwd: path.dirname(arazzoFilePath)
     });
 
+    // Keep a local reference so async callbacks can check whether they belong
+    // to the current process or a stale one that was already replaced.
+    const thisProcess = mcpServerProcess;
+
     mcpServerProcess.stdout?.on('data', (data: Buffer) => {
         output.append(data.toString());
     });
@@ -231,21 +226,55 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
     mcpServerProcess.on('error', (err: Error) => {
         output.appendLine(`\nMCP server error: ${err.message}`);
         vscode.window.showErrorMessage(`Failed to start MCP server: ${err.message}`);
-        mcpServerProcess = undefined;
+        // Only clear if this is still the active process
+        if (mcpServerProcess === thisProcess) {
+            mcpServerProcess = undefined;
+        }
     });
 
     mcpServerProcess.on('exit', (code: number | null) => {
         output.appendLine(`\nMCP server exited with code: ${code}`);
-        mcpServerProcess = undefined;
+        // Only clear if this is still the active process — a newer spawn
+        // may have already replaced mcpServerProcess.
+        if (mcpServerProcess === thisProcess) {
+            mcpServerProcess = undefined;
+        }
     });
 
     // Give the server a moment to start, then notify the user
-    setTimeout(() => {
-        if (mcpServerProcess && !mcpServerProcess.killed) {
-            vscode.window.showInformationMessage(
-                `Arazzo MCP server running on port ${port}. ` +
-                `Use GitHub Copilot to interact with your workflows.`
-            );
+    setTimeout(async () => {
+        if (!mcpServerProcess || mcpServerProcess.killed) {
+            return;
+        }
+
+        const serverUrl = `http://localhost:${port}/mcp`;
+        const configNote = mcpConfigPath ? ` Config added to mcp.json.` : '';
+
+        // Primary status message
+        vscode.window.showInformationMessage(
+            `Arazzo MCP server started. Running on ${serverUrl}.${configNote}`
+        );
+
+        // Get first workflow name for the "Try Now" prompt
+        const firstWorkflow = getFirstWorkflowId(arazzoFilePath!);
+        const copilotPrompt = firstWorkflow
+            ? `execute the workflow ${firstWorkflow}`
+            : `list all workflows`;
+
+        // "Try with Copilot" follow-up message
+        const action = await vscode.window.showInformationMessage(
+            `Try your Arazzo workflows with GitHub Copilot.`,
+            'Try Now'
+        );
+        if (action === 'Try Now') {
+            try {
+                await vscode.commands.executeCommand('workbench.action.chat.open', {
+                    query: copilotPrompt,
+                    isPartialQuery: true
+                });
+            } catch {
+                // Copilot not available — non-fatal
+            }
         }
     }, 1500);
 }
