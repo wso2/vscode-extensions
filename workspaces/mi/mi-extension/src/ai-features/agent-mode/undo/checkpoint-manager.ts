@@ -186,6 +186,7 @@ export class AgentUndoCheckpointManager {
     private pendingCheckpoint: PendingUndoCheckpoint | null = null;
     private versionCountersLoaded = false;
     private readonly hashVersionCounters = new Map<string, number>();
+    private readonly inFlightCaptures = new Map<string, Promise<FileHistoryBackupReference>>();
 
     constructor(
         private readonly projectPath: string,
@@ -451,11 +452,24 @@ export class AgentUndoCheckpointManager {
             return;
         }
 
-        const backupReference = await this.captureFileBackup(normalizedPath);
-        pending.trackedFileBackups.set(normalizedPath, backupReference);
+        // Guard against concurrent captures for the same path (TOCTOU between has() and set()).
+        const inFlight = this.inFlightCaptures.get(normalizedPath);
+        if (inFlight) {
+            await inFlight;
+            return;
+        }
 
-        const snapshot = this.buildSnapshotFromPending(pending, new Date().toISOString());
-        await this.journalStore.saveFileHistorySnapshot(snapshot, { isSnapshotUpdate: true });
+        const capturePromise = this.captureFileBackup(normalizedPath);
+        this.inFlightCaptures.set(normalizedPath, capturePromise);
+        try {
+            const backupReference = await capturePromise;
+            pending.trackedFileBackups.set(normalizedPath, backupReference);
+
+            const snapshot = this.buildSnapshotFromPending(pending, new Date().toISOString());
+            await this.journalStore.saveFileHistorySnapshot(snapshot, { isSnapshotUpdate: true });
+        } finally {
+            this.inFlightCaptures.delete(normalizedPath);
+        }
     }
 
     async commitRun(): Promise<UndoCheckpointSummary | undefined> {

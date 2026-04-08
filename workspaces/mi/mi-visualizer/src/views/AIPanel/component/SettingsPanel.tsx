@@ -117,6 +117,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok }) => {
                         (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
                     }}
                     title="Back to chat"
+                    aria-label="Back to chat"
                 >
                     <Codicon name="arrow-left" />
                 </button>
@@ -252,7 +253,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok }) => {
                                 onMouseLeave={(e) => {
                                     (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
                                 }}
-                                onClick={handleClearMemory}
+                                onClick={() => {
+                                    if (window.confirm("Are you sure you want to delete all memory files for this project? This action cannot be undone.")) {
+                                        handleClearMemory();
+                                    }
+                                }}
                                 title="Delete all memory files for this project"
                             >
                                 <Codicon name="trash" />
@@ -356,7 +361,9 @@ function ToggleGroup({
                 return (
                     <button
                         key={option}
+                        type="button"
                         onClick={() => onSelect(option)}
+                        aria-pressed={isSelected}
                         className={`${compact ? "px-3 py-1" : "flex-1 px-3 py-1.5"} rounded-md text-xs font-medium transition-all`}
                         style={{
                             backgroundColor: isSelected ? "var(--vscode-button-background)" : "transparent",

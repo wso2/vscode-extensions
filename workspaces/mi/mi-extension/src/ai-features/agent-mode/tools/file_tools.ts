@@ -355,14 +355,34 @@ function validateFilePathSecurity(projectPath: string, filePath: string): Valida
     }
 
     const fullPath = resolveFullPath(projectPath, normalizedPath);
-    if (isPathWithin(projectPath, fullPath) || isCopilotGlobalPath(fullPath)) {
-        return { valid: true };
+    if (!isPathWithin(projectPath, fullPath) && !isCopilotGlobalPath(fullPath)) {
+        return {
+            valid: false,
+            error: 'File path must be within the project or ~/.wso2-mi/copilot/projects.'
+        };
     }
 
-    return {
-        valid: false,
-        error: 'File path must be within the project or ~/.wso2-mi/copilot/projects.'
-    };
+    // Symlink protection: resolve real path and re-check containment
+    try {
+        if (fs.existsSync(fullPath)) {
+            const realTarget = fs.realpathSync(fullPath);
+            const realProject = fs.realpathSync(projectPath);
+            if (!isPathWithin(realProject, realTarget) && !isCopilotGlobalPath(realTarget)) {
+                return {
+                    valid: false,
+                    error: 'File path resolves via symlink to a location outside the project.'
+                };
+            }
+        }
+    } catch {
+        // realpath failure (e.g. broken symlink) — reject
+        return {
+            valid: false,
+            error: 'File path could not be resolved (broken symlink or permission error).'
+        };
+    }
+
+    return { valid: true };
 }
 
 /**
@@ -376,13 +396,10 @@ function validateTextFilePath(projectPath: string, filePath: string): Validation
 
     // Reject non-text files (images, PDFs, binaries) to prevent corrupt overwrites
     if (!isTextAllowedFilePath(filePath)) {
-        const fullPath = resolveFullPath(projectPath, filePath);
-        if (fs.existsSync(fullPath)) {
-            return {
-                valid: false,
-                error: `Cannot write/edit binary or non-text file '${filePath}'. Allowed text file types: ${getAllowedFileTypesDescription()}`
-            };
-        }
+        return {
+            valid: false,
+            error: `Cannot write/edit binary or non-text file '${filePath}'. Allowed text file types: ${getAllowedFileTypesDescription()}`
+        };
     }
 
     return { valid: true };
@@ -1226,9 +1243,13 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
                         }
                         searchInDirectory(fullPath, currentDepth + 1);
                     } else if (entry.isFile()) {
-                        // Check glob pattern if specified
-                        if (globRegex && !globRegex.test(entry.name)) {
-                            continue;
+                        // Check glob pattern if specified — test against relative path from search root
+                        // so patterns containing "/" (e.g. "src/**/foo.xml") can match
+                        if (globRegex) {
+                            const relativeFromRoot = path.relative(fullSearchPath, fullPath);
+                            if (!globRegex.test(relativeFromRoot) && !globRegex.test(entry.name)) {
+                                continue;
+                            }
                         }
 
                         if (!isTextAllowedFilePath(entry.name)) {

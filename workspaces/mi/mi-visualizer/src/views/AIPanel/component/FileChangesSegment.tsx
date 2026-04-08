@@ -73,13 +73,15 @@ const FileChangesSegment: React.FC = () => {
                 throw new Error(response.error || "Reject failed");
             }
 
+            // Clear the review card immediately — the undo succeeded
+            setPendingReview(null);
+
             const historyResponse = await agentRpcClient.loadChatHistory({});
             if (!historyResponse.success) {
                 throw new Error(historyResponse.error || "Reject applied but failed to refresh history");
             }
 
             setMessages(convertEventsToMessages(historyResponse.events));
-            setPendingReview(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Reject failed");
         } finally {
