@@ -560,14 +560,14 @@ importers:
   ../../workspaces/ballerina/ballerina-extension:
     dependencies:
       '@ai-sdk/amazon-bedrock':
-        specifier: 4.0.67
-        version: 4.0.67(zod@4.1.8)
+        specifier: 4.0.83
+        version: 4.0.83(zod@4.1.8)
       '@ai-sdk/anthropic':
-        specifier: 3.0.48
-        version: 3.0.48(zod@4.1.8)
+        specifier: 3.0.64
+        version: 3.0.64(zod@4.1.8)
       '@ai-sdk/google-vertex':
-        specifier: 4.0.66
-        version: 4.0.66(zod@4.1.8)
+        specifier: 4.0.94
+        version: 4.0.94(zod@4.1.8)
       '@iarna/toml':
         specifier: 2.2.5
         version: 2.2.5
@@ -4899,8 +4899,8 @@ packages:
   '@adobe/css-tools@4.4.4':
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
 
-  '@ai-sdk/amazon-bedrock@4.0.67':
-    resolution: {integrity: sha512-Bb5HkT5h2mIsQTGzlcGNEDu+19d5pA8FPNiqlbXxVmYFKbLjZu/4nncY0GXVnXUglX9GdheMIofanYlL9O3KIg==}
+  '@ai-sdk/amazon-bedrock@4.0.83':
+    resolution: {integrity: sha512-DoRpvIWGU/r83UeJAM9L93Lca8Kf/yP5fIhfEOltMPGP/PXrGe0BZaz0maLSRn8djJ6+HzWIsgu5ZI6bZqXEXg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -4911,8 +4911,14 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/anthropic@3.0.48':
-    resolution: {integrity: sha512-QSvz0XumBFaxulalUB+3D2/tLvfsYjIcG3HlqOxmmXIzATIBLInTVEw0Sy3yXJjqhNQZedBokVrN53Bh/V+eWQ==}
+  '@ai-sdk/anthropic@3.0.63':
+    resolution: {integrity: sha512-SiLosFr0FfKfrNpAAj8mD/i3S5YBB/z5orb1DH3pN1yATuBNjjPMLnRE4P3Dn7Y5cQsro0uzw5g5117hkShWoQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/anthropic@3.0.64':
+    resolution: {integrity: sha512-rwLi/Rsuj2pYniQXIrvClHvXDzgM4UQHHnvHTWEF14efnlKclG/1ghpNC+adsRujAbCTr6gRsSbDE2vEqriV7g==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -4929,14 +4935,14 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/google-vertex@4.0.66':
-    resolution: {integrity: sha512-euSOJSgOwemtnQ/EIM2LgKPPWUqOkZwYTejsle79K/kOWvDzu376IbvaLaegLQ+uymxx2pskhmSrMvAD1uAQoA==}
+  '@ai-sdk/google-vertex@4.0.94':
+    resolution: {integrity: sha512-jaPG5kLnFBLm0IPNH0yQNJseE6cyZmpDYqumQ3jQmrmQ8530QVwjZ+Z88L1h2pNYqEeFug4h5F+IVuXddXFgyw==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/google@3.0.33':
-    resolution: {integrity: sha512-ElHkhMGMJ1MY5AlwLljWWE1jj+Bs3cMyq0KbeWUu2H89OsMAORiE4cB3xhfLlSIEnVmVKx/YHjoW3bN+DFI24A==}
+  '@ai-sdk/google@3.0.53':
+    resolution: {integrity: sha512-uz8tIlkDgQJG9Js2Wh9JHzd4kI9+hYJqf9XXJLx60vyN5mRIqhr49iwR5zGP5Gl8odp2PeR3Gh2k+5bh3Z1HHw==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -4949,6 +4955,12 @@ packages:
 
   '@ai-sdk/provider-utils@4.0.15':
     resolution: {integrity: sha512-8XiKWbemmCbvNN0CLR9u3PQiet4gtEVIrX4zzLxnCj06AwsEDJwJVBbKrEI4t6qE8XRSIvU2irka0dcpziKW6w==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/provider-utils@4.0.21':
+    resolution: {integrity: sha512-MtFUYI1/8mgDvRmaBDjbLJPFFrMG777AvSgyIFQtZHIMzm88R/12vYBBpnk7pfiWLFE1DSZzY4WDYzGbKAcmiw==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -24852,11 +24864,11 @@ snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
-  '@ai-sdk/amazon-bedrock@4.0.67(zod@4.1.8)':
+  '@ai-sdk/amazon-bedrock@4.0.83(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/anthropic': 3.0.48(zod@4.1.8)
+      '@ai-sdk/anthropic': 3.0.64(zod@4.1.8)
       '@ai-sdk/provider': 3.0.8
-      '@ai-sdk/provider-utils': 4.0.15(zod@4.1.8)
+      '@ai-sdk/provider-utils': 4.0.21(zod@4.1.8)
       '@smithy/eventstream-codec': 4.2.12
       '@smithy/util-utf8': 4.2.2
       aws4fetch: 1.0.20
@@ -24868,10 +24880,16 @@ snapshots:
       '@ai-sdk/provider-utils': 3.0.12(zod@4.1.11)
       zod: 4.1.11
 
-  '@ai-sdk/anthropic@3.0.48(zod@4.1.8)':
+  '@ai-sdk/anthropic@3.0.63(zod@4.1.8)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
-      '@ai-sdk/provider-utils': 4.0.15(zod@4.1.8)
+      '@ai-sdk/provider-utils': 4.0.21(zod@4.1.8)
+      zod: 4.1.8
+
+  '@ai-sdk/anthropic@3.0.64(zod@4.1.8)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.21(zod@4.1.8)
       zod: 4.1.8
 
   '@ai-sdk/gateway@2.0.0(zod@4.1.11)':
@@ -24888,21 +24906,21 @@ snapshots:
       '@vercel/oidc': 3.1.0
       zod: 4.1.8
 
-  '@ai-sdk/google-vertex@4.0.66(zod@4.1.8)':
+  '@ai-sdk/google-vertex@4.0.94(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/anthropic': 3.0.48(zod@4.1.8)
-      '@ai-sdk/google': 3.0.33(zod@4.1.8)
+      '@ai-sdk/anthropic': 3.0.63(zod@4.1.8)
+      '@ai-sdk/google': 3.0.53(zod@4.1.8)
       '@ai-sdk/provider': 3.0.8
-      '@ai-sdk/provider-utils': 4.0.15(zod@4.1.8)
+      '@ai-sdk/provider-utils': 4.0.21(zod@4.1.8)
       google-auth-library: 10.6.1
       zod: 4.1.8
     transitivePeerDependencies:
       - supports-color
 
-  '@ai-sdk/google@3.0.33(zod@4.1.8)':
+  '@ai-sdk/google@3.0.53(zod@4.1.8)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
-      '@ai-sdk/provider-utils': 4.0.15(zod@4.1.8)
+      '@ai-sdk/provider-utils': 4.0.21(zod@4.1.8)
       zod: 4.1.8
 
   '@ai-sdk/provider-utils@3.0.12(zod@4.1.11)':
@@ -24913,6 +24931,13 @@ snapshots:
       zod: 4.1.11
 
   '@ai-sdk/provider-utils@4.0.15(zod@4.1.8)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@standard-schema/spec': 1.1.0
+      eventsource-parser: 3.0.6
+      zod: 4.1.8
+
+  '@ai-sdk/provider-utils@4.0.21(zod@4.1.8)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
       '@standard-schema/spec': 1.1.0
@@ -24955,14 +24980,14 @@ snapshots:
   '@aws-crypto/crc32c@5.2.0':
     dependencies:
       '@aws-crypto/util': 5.2.0
-      '@aws-sdk/types': 3.804.0
+      '@aws-sdk/types': 3.973.5
       tslib: 2.8.1
 
   '@aws-crypto/sha1-browser@5.2.0':
     dependencies:
       '@aws-crypto/supports-web-crypto': 5.2.0
       '@aws-crypto/util': 5.2.0
-      '@aws-sdk/types': 3.804.0
+      '@aws-sdk/types': 3.973.5
       '@aws-sdk/util-locate-window': 3.965.5
       '@smithy/util-utf8': 2.3.0
       tslib: 2.8.1
@@ -24972,7 +24997,7 @@ snapshots:
       '@aws-crypto/sha256-js': 5.2.0
       '@aws-crypto/supports-web-crypto': 5.2.0
       '@aws-crypto/util': 5.2.0
-      '@aws-sdk/types': 3.804.0
+      '@aws-sdk/types': 3.973.5
       '@aws-sdk/util-locate-window': 3.965.5
       '@smithy/util-utf8': 2.3.0
       tslib: 2.8.1
@@ -24980,7 +25005,7 @@ snapshots:
   '@aws-crypto/sha256-js@5.2.0':
     dependencies:
       '@aws-crypto/util': 5.2.0
-      '@aws-sdk/types': 3.804.0
+      '@aws-sdk/types': 3.973.5
       tslib: 2.8.1
 
   '@aws-crypto/supports-web-crypto@5.2.0':
@@ -24989,7 +25014,7 @@ snapshots:
 
   '@aws-crypto/util@5.2.0':
     dependencies:
-      '@aws-sdk/types': 3.804.0
+      '@aws-sdk/types': 3.973.5
       '@smithy/util-utf8': 2.3.0
       tslib: 2.8.1
 
