@@ -616,7 +616,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
                 onFocus={handleTextAreaFocus}
                 onBlur={handleTextAreaBlur}
                 sx={{ width: '100%', ...sx }}
-                disabled={disabled || isSavingExpression}
+                disabled={(disabled || isSavingExpression) || undefined}
                 growRange={growRange}
                 resize={resize}
             />

@@ -99,7 +99,7 @@ function convertAvailableNodeToPanelNode(
         return undefined;
     }
 
-    const isPersistConnection = connectorType === "persist";
+    const isDBConnection = connectorType === "persist" || connectorType === "Database";
 
     // Return common panel node structure
     return {
@@ -125,7 +125,7 @@ function convertAvailableNodeToPanelNode(
             <NodeIcon
                 type={functionType === FUNCTION_TYPE.EXPRESSION_BODIED ? "DATA_MAPPER_CALL" : node.codedata.node}
                 size={16}
-                isPersistConnection={isPersistConnection}
+                isDBConnection={isDBConnection}
             />
         ),
     };
@@ -221,6 +221,7 @@ export function convertFunctionCategoriesToSidePanelCategories(
     functionType: FUNCTION_TYPE
 ): PanelCategory[] {
     const panelCategories = categories
+        .filter((category) => category.metadata.label !== "Agent Tools")
         .map((category) => convertDiagramCategoryToSidePanelCategory(category, functionType))
         .filter((category) => category !== undefined);
     const functionCategory = panelCategories.find((category) => category.title === "Project");
@@ -236,12 +237,14 @@ export function convertModelProviderCategoriesToSidePanelCategories(categories: 
         category.items?.forEach((item) => {
             if ((item as PanelNode).metadata?.codedata) {
                 const codedata = (item as PanelNode).metadata.codedata;
+                const iconUrl = (item as PanelNode)?.metadata?.metadata?.icon;
                 const iconType = codedata?.module == "ai" ? codedata.object : codedata?.module;
-                item.icon = <AIModelIcon type={iconType} codedata={codedata} />;
+                item.icon = <AIModelIcon type={iconType} codedata={codedata} iconUrl={iconUrl} />;
             } else if (((item as PanelCategory).items.at(0) as PanelNode)?.metadata?.codedata) {
                 const codedata = ((item as PanelCategory).items.at(0) as PanelNode)?.metadata.codedata;
+                const iconUrl = ((item as PanelCategory).items.at(0) as PanelNode)?.metadata?.metadata?.icon;
                 const iconType = codedata?.module == "ai" ? codedata.object : codedata?.module;
-                item.icon = <AIModelIcon type={iconType} codedata={codedata} />;
+                item.icon = <AIModelIcon type={iconType} codedata={codedata} iconUrl={iconUrl} />;
             }
         });
     });
@@ -249,8 +252,8 @@ export function convertModelProviderCategoriesToSidePanelCategories(categories: 
 }
 
 export function convertVectorStoreCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
-    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => {
-        return <AIModelIcon type={codedata?.module} codedata={codedata} />;
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata, iconUrl) => {
+        return <AIModelIcon type={codedata?.module} codedata={codedata} iconUrl={iconUrl} />;
     });
 }
 
@@ -259,27 +262,29 @@ export function convertEmbeddingProviderCategoriesToSidePanelCategories(categori
 }
 
 export function convertKnowledgeBaseCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
-    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => {
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata, iconUrl) => {
         if ((codedata?.module as string).includes("azure")) {
-            return <AIModelIcon type="ai.azure" />;
+            return <AIModelIcon type="ai.azure" iconUrl={iconUrl} />;
         }
-        return <NodeIcon type={codedata?.node} size={24} />
+        return <AIModelIcon type={codedata?.module} codedata={codedata} iconUrl={iconUrl} />;
     });
 }
 
 export function convertCategoriesToSidePanelCategoriesWithIcon(
     categories: Category[],
-    iconFactory: (codedata: any) => React.ReactElement
+    iconFactory: (codedata: any, iconUrl?: string) => React.ReactElement
 ): PanelCategory[] {
     const panelCategories = categories.map((category) => convertDiagramCategoryToSidePanelCategory(category));
     panelCategories.forEach((category) => {
         category.items?.forEach((item) => {
             if ((item as PanelNode).metadata?.codedata) {
                 const codedata = (item as PanelNode).metadata.codedata;
-                item.icon = iconFactory(codedata);
+                const iconUrl = (item as PanelNode)?.metadata?.metadata?.icon;
+                item.icon = iconFactory(codedata, iconUrl);
             } else if (((item as PanelCategory).items.at(0) as PanelNode)?.metadata?.codedata) {
                 const codedata = ((item as PanelCategory).items.at(0) as PanelNode)?.metadata.codedata;
-                item.icon = iconFactory(codedata);
+                const iconUrl = ((item as PanelCategory).items.at(0) as PanelNode)?.metadata?.metadata?.icon;
+                item.icon = iconFactory(codedata, iconUrl);
             }
         });
     });
@@ -287,21 +292,23 @@ export function convertCategoriesToSidePanelCategoriesWithIcon(
 }
 
 export function convertDataLoaderCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
-    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => (
-        <NodeIcon type={codedata?.node} size={24} />
-    ));
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata, iconUrl) => {
+        if (iconUrl && codedata?.module !== "ai" && codedata?.module !== "ai.devant") return <img src={iconUrl} style={{ width: 24, height: 24 }} />;
+        return <NodeIcon type={codedata?.node} size={24} />;
+    });
 }
 
 export function convertChunkerCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
-    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => (
-        <NodeIcon type={codedata?.node} size={24} />
-    ));
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata, iconUrl) => {
+        if (iconUrl && codedata?.module !== "ai" && codedata?.module !== "ai.devant") return <img src={iconUrl} style={{ width: 24, height: 24 }} />;
+        return <NodeIcon type={codedata?.node} size={24} />;
+    });
 }
 
 export function convertMemoryStoreCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
-    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => (
-        <NodeIcon type={codedata?.node} size={24} />
-    ));
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata, iconUrl) => {
+        return <AIModelIcon type={codedata?.module} codedata={codedata} iconUrl={iconUrl} />;
+    });
 }
 
 export function convertNodePropertiesToFormFields(
@@ -476,8 +483,10 @@ export function getContainerTitle(view: SidePanelView, activeNode: FlowNode, cli
             return `Select ${getConnectionDisplayName(connectionKind)}`;
         case SidePanelView.CONNECTION_CREATE:
             return `Create ${getConnectionDisplayName(connectionKind)}`;
-        case SidePanelView.CONNECTOR_ERROR:
+        case SidePanelView.ERROR:
             return "Error";
+        case SidePanelView.LOADING:
+            return "";
         case SidePanelView.AGENT_MEMORY_MANAGER:
             return "Configure Memory";
         case SidePanelView.AGENT_TOOL:
@@ -879,13 +888,6 @@ export function convertRecordTypeToCompletionItem(type: Type): CompletionItem {
         sortText: label?.toLowerCase?.() || label,
     };
 }
-
-export const clearDiagramZoomAndPosition = () => {
-    localStorage.removeItem("diagram-file-path");
-    localStorage.removeItem("diagram-zoom-level");
-    localStorage.removeItem("diagram-offset-x");
-    localStorage.removeItem("diagram-offset-y");
-};
 
 export const convertToHelperPaneVariable = (variables: VisibleType[]): HelperPaneVariableInfo => {
     return {

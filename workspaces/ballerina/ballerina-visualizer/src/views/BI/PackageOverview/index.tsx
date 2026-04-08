@@ -476,7 +476,7 @@ function DeploymentOptions({
                         buttonText={isDeployed ? "View in Console" : "Deploy"}
                         isExpanded={expandedOptions.has("devant")}
                         onToggle={() => toggleOption("devant")}
-                        onDeploy={isDeployed? () => goToDevant() : handleDeploy}
+                        onDeploy={isDeployed ? () => goToDevant() : handleDeploy}
                         learnMoreLink={"https://wso2.com/devant/docs"}
                         hasDeployableIntegration={hasDeployableIntegration}
                         secondaryAction={
@@ -493,7 +493,7 @@ function DeploymentOptions({
                         }
                     />
                 )}
-                
+
                 <DeploymentOption
                     title="Deploy with Docker"
                     description="Create a Docker image of your integration and deploy it to any Docker-enabled system."
@@ -536,14 +536,25 @@ function IntegrationControlPlane({ enabled, handleICP }: IntegrationControlPlane
         <div>
             <Title variant="h3">Integration Control Plane</Title>
             <p>
-                {"Monitor the deployment runtime using WSO2 Integration Control Plane."}
+                {"Monitor and manage your integration deployments using a single enhanced interface, and streamline operations and increase efficiency."}
                 <VSCodeLink onClick={openLearnMoreURL} style={{ marginLeft: '4px' }}> Learn More </VSCodeLink>
             </p>
             <CheckBox
                 checked={enabled}
                 onChange={handleICP}
-                label="Enable WSO2 Integrator: ICP"
+                label="Enable ICP monitoring"
             />
+            {enabled && (
+                <Button
+                    appearance="secondary"
+                    onClick={() => rpcClient.getICPRpcClient().viewInICP({
+                        projectPath: ''
+                    })}
+                    sx={{ marginTop: "10px", display: "flex", alignItems: "center", justifyContent: "center", mx: "auto" }}
+                >
+                    <Codicon name="link-external" sx={{ marginRight: 8 }} /> View in ICP
+                </Button>
+            )}
         </div>
     );
 }
@@ -921,7 +932,7 @@ export function PackageOverview(props: PackageOverviewProps) {
                                     {!isEmptyIntegration() && (
                                         <ActionContainer>
                                             <Button appearance="secondary" onClick={handleGenerate}>
-                                                <Icon name="bi-ai-chat" sx={{ marginRight: 4 }} iconSx={{ position: "relative", top: "2px" }} /> Generate with AI
+                                                <Icon name="bi-ai-chat" sx={{ marginRight: 8 }} iconSx={{ width: "16px", height: "16px", fontSize: "16px" }} /> Generate with AI
                                             </Button>
                                             <Button appearance="primary" onClick={handleAddConstruct}>
                                                 <Codicon name="add" sx={{ marginRight: 8 }} /> Add Artifact

@@ -210,7 +210,6 @@ async function getComponents(
 
 async function getEntryValue(artifact: BaseArtifact, projectPath: string, icon: string, moduleName?: string) {
     const targetFile = Utils.joinPath(URI.file(projectPath), artifact.location.fileName).fsPath;
-    const isPublic = artifact.scope?.toLowerCase() === "global";
     const entryValue: ProjectStructureArtifactResponse = {
         id: artifact.id,
         name: artifact.name,
@@ -220,7 +219,7 @@ async function getEntryValue(artifact: BaseArtifact, projectPath: string, icon: 
         icon: artifact.module ? `bi-${artifact.module}` : icon,
         context: artifact.name === "automation" ? "main" : artifact.name,
         resources: [],
-        isPublic,
+        visibility: artifact.visibility,
         position: {
             endColumn: artifact.location.endLine.offset,
             endLine: artifact.location.endLine.line,
@@ -267,11 +266,7 @@ async function getEntryValue(artifact: BaseArtifact, projectPath: string, icon: 
             entryValue.icon = getCustomEntryNodeIcon(getTypePrefix(artifact.module));
             break;
         case DIRECTORY_MAP.CONNECTION:
-            if ((artifact as any).metadata?.connectorType === "persist") {
-                entryValue.icon = "bi-db";
-            } else {
-                entryValue.icon = icon;
-            }
+            entryValue.icon = icon;
             break;
         case DIRECTORY_MAP.RESOURCE:
             // Do things related to resource
@@ -367,10 +362,15 @@ function getDirectoryMapKeyAndIcon(artifact: BaseArtifact, artifactCategoryKey: 
 function processDeletion(artifact: BaseArtifact, artifactCategoryKey: string, projectStructure: ProjectStructureResponse): void {
     const mapping = getDirectoryMapKeyAndIcon(artifact, artifactCategoryKey);
     if (mapping) {
-        const projectPath = StateMachine.context().projectPath;
-        const project = projectStructure.projects.find(project => project.projectPath === projectPath);
-        project.directoryMap[mapping.mapKey] =
-            project.directoryMap[mapping.mapKey]?.filter(value => value.id !== artifact.id) ?? [];
+        try {
+            const projectPath = StateMachine.context().projectPath;
+            const project = projectStructure.projects.find(project => project.projectPath === projectPath);
+            project.directoryMap[mapping.mapKey] =
+                project.directoryMap[mapping.mapKey]?.filter(value => value.id !== artifact.id) ?? [];
+        } catch (error) {
+            //TODO: Hack: Properly fix for the workspace scenario
+            console.error(`Error processing deletion for artifact ${artifact.id} in category ${artifactCategoryKey}:`, error);
+        }
     } else {
         console.error(`Could not determine directory map key for deletion of artifact ${artifact.id} in category ${artifactCategoryKey}`);
     }
@@ -478,10 +478,17 @@ async function traverseUpdatedComponents(publishedArtifacts: Artifacts, currentP
 
     const projectPath = StateMachine.context().projectPath;
     const project = currentProjectStructure.projects.find(project => project.projectPath === projectPath);
-    for (const key of Object.keys(project.directoryMap)) {
-        if (project.directoryMap[key]) {
-            project.directoryMap[key].sort((a, b) => a.name.localeCompare(b.name));
+    try {
+        if (project) {
+            for (const key of Object.keys(project.directoryMap)) {
+                if (project.directoryMap[key]) {
+                    project.directoryMap[key].sort((a, b) => a.name.localeCompare(b.name));
+                }
+            }
         }
+    } catch (error) {
+        //TODO: Hack: Properly fix for the workspace scenario
+        console.error(`Error sorting directory map entries for project ${projectPath}:`, error);
     }
 
     // Populate addition entry locations
