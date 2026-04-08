@@ -44,7 +44,12 @@ on:
         description: Update MI extension version
         type: boolean
         required: false
-        default: false                     
+        default: false
+      arazzo:
+        description: Update Arazzo extension version
+        type: boolean
+        required: false
+        default: false
       version:
         default: 'N/A'
         type: string
@@ -135,6 +140,11 @@ jobs:
             echo "hasBIDiff=true" >> $GITHUB_OUTPUT
           fi
 
+          # Arazzo ext
+          if [[ "${CHANGED_DIRS[@]}" =~ "workspaces/arazzo" ]]; then
+            echo "hasArazzoDiff=true" >> $GITHUB_OUTPUT
+          fi
+
           # Common
           if  [[ "${CHANGED_DIRS[@]}" =~ "workspaces/common-libs" || "${CHANGED_DIRS[@]}" =~ "common" || "${CHANGED_DIRS[@]}" =~ ".github" || "${CHANGED_DIRS[@]}" =~ "^/*.json" ]]; then
             echo "Have changes in common libs"
@@ -201,6 +211,7 @@ jobs:
           apk: ${{ inputs.apk }}
           bi: ${{ inputs.bi }}
           mi: ${{ inputs.mi }}
+          arazzo: ${{ inputs.arazzo }}
           version: ${{ inputs.version }}
           token: ${{ secrets.CHOREO_BOT_TOKEN }}
           BALLERINA_AUTH_ORG: ${{ secrets.BALLERINA_AUTH_ORG }}

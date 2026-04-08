@@ -34,6 +34,11 @@ inputs:
     type: boolean
     required: false
     default: false
+  arazzo:
+    description: Update Arazzo extension version
+    type: boolean
+    required: false
+    default: false
   version:
     default: "N/A"
     type: string
@@ -133,6 +138,14 @@ runs:
       uses: ./.github/actions/updateVersion
       with:
         path: "mi/mi-extension"
+        isPreRelease: ${{ inputs.isPreRelease }}
+        version: ${{ inputs.version }}
+
+    - name: Update version - Arazzo
+      if: ${{ inputs.arazzo == 'true' }}
+      uses: ./.github/actions/updateVersion
+      with:
+        path: "arazzo/arazzo-designer-extension"
         isPreRelease: ${{ inputs.isPreRelease }}
         version: ${{ inputs.version }}
 
