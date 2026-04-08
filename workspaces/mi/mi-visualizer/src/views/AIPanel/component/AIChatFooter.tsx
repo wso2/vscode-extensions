@@ -2729,6 +2729,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             }
                         >
                             <span
+                                tabIndex={0}
+                                role="status"
+                                aria-label={`Context usage: ${contextUsagePercent}%, ${remainingContextPercent}% remaining`}
                                 style={{
                                     fontSize: "10px",
                                     color: contextUsagePercent >= 80 ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)",

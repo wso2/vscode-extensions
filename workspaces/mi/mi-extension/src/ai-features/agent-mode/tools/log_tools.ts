@@ -146,6 +146,10 @@ async function readTail(filePath: string, numLines: number): Promise<string[]> {
                 }
             }
             const lines = text.split('\n');
+            // Remove trailing empty element from a terminal newline so it doesn't consume a slot
+            if (lines.length > 0 && lines[lines.length - 1] === '') {
+                lines.pop();
+            }
             resolve(lines.slice(Math.max(0, lines.length - numLines)));
         });
     });
@@ -263,12 +267,20 @@ function formatStructured(
             const lowerPattern = grepPattern.substring(0, MAX_GREP_PATTERN_LENGTH).toLowerCase();
             parsed = parsed.filter(entry => entryMatchesText(entry, lowerPattern));
         } else {
-            try {
-                const re = new RegExp(grepPattern, 'i');
-                parsed = parsed.filter(entry => entryMatchesRegex(entry, re));
-            } catch {
-                // invalid regex — fall back to literal substring match
-                parsed = parsed.filter(entry => entryMatchesText(entry, grepPattern));
+            // Only treat as regex if delimited with /.../ (optional flags)
+            const regexDelimited = /^\/(.+)\/([gimsuy]*)$/.exec(grepPattern);
+            if (regexDelimited) {
+                try {
+                    const re = new RegExp(regexDelimited[1], regexDelimited[2] || 'i');
+                    parsed = parsed.filter(entry => entryMatchesRegex(entry, re));
+                } catch {
+                    // invalid regex — fall back to literal substring match
+                    parsed = parsed.filter(entry => entryMatchesText(entry, grepPattern));
+                }
+            } else {
+                // Literal substring match for non-regex patterns
+                const lowerPattern = grepPattern.toLowerCase();
+                parsed = parsed.filter(entry => entryMatchesText(entry, lowerPattern));
             }
         }
     }
@@ -396,9 +408,10 @@ function formatHttp(lines: string[], logFileName: string, tailLines: number): st
 
     const entries = [...groups.values()];
     const total   = entries.reduce((s, e) => s + e.count, 0);
-    const ok      = entries.filter(e => e.status >= 200 && e.status < 300).reduce((s, e) => s + e.count, 0);
+    const ok      = entries.filter(e => e.status >= 200 && e.status < 400).reduce((s, e) => s + e.count, 0);
     const err5xx  = entries.filter(e => e.status >= 500).reduce((s, e) => s + e.count, 0);
     const err4xx  = entries.filter(e => e.status >= 400 && e.status < 500).reduce((s, e) => s + e.count, 0);
+    const errors  = err4xx + err5xx;
 
     const out: string[] = [];
     out.push(`=== MI Log: ${logFileName} (tail ${tailLines}) ===`);
@@ -412,7 +425,7 @@ function formatHttp(lines: string[], logFileName: string, tailLines: number): st
     out.push('');
     if (err5xx > 0) { out.push(`SERVER ERRORS (5xx): ${err5xx} requests`); }
     if (err4xx > 0) { out.push(`CLIENT ERRORS (4xx): ${err4xx} requests`); }
-    out.push(`STATS: ${total} requests · ${ok} success · ${total - ok} errors`);
+    out.push(`STATS: ${total} requests · ${ok} success · ${errors} errors`);
 
     return out.join('\n');
 }
@@ -460,8 +473,8 @@ export function createReadServerLogsExecute(projectPath: string): ReadServerLogs
             };
         }
 
-        const tailLines = Math.min(tail_lines ?? DEFAULT_TAIL_LINES[log_file], MAX_ALLOWED_TAIL_LINES);
-        const stackFrameLimit = Math.min(max_stack_frames ?? DEFAULT_MAX_STACK_FRAMES, MAX_ALLOWED_STACK_FRAMES);
+        const tailLines = Math.max(0, Math.min(tail_lines ?? DEFAULT_TAIL_LINES[log_file], MAX_ALLOWED_TAIL_LINES));
+        const stackFrameLimit = Math.max(0, Math.min(max_stack_frames ?? DEFAULT_MAX_STACK_FRAMES, MAX_ALLOWED_STACK_FRAMES));
 
         let lines: string[];
         try {

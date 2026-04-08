@@ -1178,7 +1178,7 @@ export class ChatHistoryManager {
                 return false;
             }
 
-            const truncatedEntries = entries.slice(0, checkpointIndex + 1);
+            const truncatedEntries = entries.slice(0, checkpointIndex);
             await this.rewriteHistoryEntries(truncatedEntries);
             await this.rebuildMetadataFromEntries(truncatedEntries);
 
