@@ -18,7 +18,7 @@
 
 export const PROMPT_TEMPLATE = `
 {{#if chat_history}}
-You have an ongoing conversation with MI Copilot. Here's your current chat history:
+You have an ongoing conversation with WSO2 Integrator Copilot. Here's your current chat history:
 <CHAT_HISTORY>
 {{{chat_history}}}
 </CHAT_HISTORY>
@@ -32,11 +32,11 @@ You are currently working on the following integration project:
 {{/each}}
 </INTEGRATION_PROJECT>
 
-Now ask MI Copilot to enhance your integration by adding new artifacts (such as APIs, Sequences, Endpoints, etc.), features, or improvements.
+Now ask WSO2 Integrator Copilot to enhance your integration by adding new artifacts (such as APIs, Sequences, Endpoints, etc.), features, or improvements.
 {{else}}
-You are starting a new integration project. Describe an integration challenge or requirement for MI Copilot to solve.
+You are starting a new integration project. Describe an integration challenge or requirement for WSO2 Integrator Copilot to solve.
 {{/if}}
 
-Your output should be a single line of query you ask from MI Copilot. Nothing else.
+Your output should be a single line of query you ask from WSO2 Integrator Copilot. Nothing else.
 Start creating your response now.
 `;

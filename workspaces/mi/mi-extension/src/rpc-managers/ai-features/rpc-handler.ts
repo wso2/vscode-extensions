@@ -25,6 +25,7 @@ import {
     GenerateSuggestionsRequest,
     GenerateCodeRequest,
     hasAnthropicApiKey,
+    isMiCopilotLoggedIn,
     fetchUsage,
     generateUnitTest,
     generateUnitTestCase,
@@ -50,6 +51,7 @@ export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri
     messenger.onRequest(generateCode, (request: GenerateCodeRequest) => rpcManager.generateCode(request));
     messenger.onRequest(abortCodeGeneration, () => rpcManager.abortCodeGeneration());
     messenger.onRequest(hasAnthropicApiKey, () => rpcManager.hasAnthropicApiKey());
+    messenger.onRequest(isMiCopilotLoggedIn, () => rpcManager.isMiCopilotLoggedIn());
     messenger.onRequest(fetchUsage, () => rpcManager.fetchUsage());
 
     // ==================================

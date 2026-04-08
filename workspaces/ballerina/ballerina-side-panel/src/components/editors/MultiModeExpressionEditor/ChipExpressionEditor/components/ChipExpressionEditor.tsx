@@ -73,7 +73,7 @@ export type ChipExpressionEditorComponentProps = {
     ) => React.ReactNode;
     completions: CompletionItem[];
     onChange: (updatedValue: string, updatedCursorPosition: number) => void;
-    value: string;
+    value: string | undefined;
     fileName?: string;
     extractArgsFromFunction?: (value: string, cursorPosition: number) => Promise<{
         label: string;
@@ -323,7 +323,7 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
     useEffect(() => {
         if (!editorRef.current) return;
         const startState = EditorState.create({
-            doc: props.value ?? "",
+            doc: configuration.serializeValue(props.value ?? ""),
             extensions: [
                 ...(configuration.getPlugins()),
                 history(),

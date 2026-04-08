@@ -35,12 +35,12 @@ import { getTelemetryReporter } from "./telemetry";
 // this will inject custom dimensions to the event and send it to the telemetry server
 export function sendTelemetryEvent(eventName: string, properties?: { [key: string]: string }, measurements?: { [key: string]: number }) {
 	const reporter = getTelemetryReporter();
-	reporter.sendTelemetryEvent(eventName, { ...properties, ...getCommonProperties() }, measurements);
+	reporter?.sendTelemetryEvent(eventName, { ...properties, ...getCommonProperties() }, measurements);
 }
 
 export function sendTelemetryException(error: Error, properties?: { [key: string]: string }, measurements?: { [key: string]: number }) {
 	const reporter = getTelemetryReporter();
-	reporter.sendTelemetryErrorEvent(`error:${error.message}`, { ...properties, ...getCommonProperties() }, measurements);
+	reporter?.sendTelemetryErrorEvent(`error:${error.message}`, { ...properties, ...getCommonProperties() }, measurements);
 }
 
 // Create common properties for all events

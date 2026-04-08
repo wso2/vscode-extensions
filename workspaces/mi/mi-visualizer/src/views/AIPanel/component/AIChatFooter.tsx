@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { FlexRow, Footer, StyledTransParentButton, FloatingInputContainer } from "../styles";
 import { Codicon } from "@wso2/ui-toolkit";
 import { useMICopilotContext, AgentMode } from "./MICopilotContext";
@@ -24,34 +24,13 @@ import { handleFileAttach, convertChatHistoryToModelMessages } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
 import { generateId, updateTokenInfo } from "../utils";
 import { BackendRequestType } from "../types";
-import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem, Question, UndoCheckpointSummary } from "@wso2/mi-core";
+import { Role, MessageType, CopilotChatEntry, AgentEvent, ChatMessage, TodoItem, Question, UndoCheckpointSummary, PlanApprovalKind } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 
 // Tool name constant
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
 const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
-const THINKING_PREFERENCE_KEY_PREFIX = 'mi-agent-thinking-enabled';
 const WEB_ACCESS_PREFERENCE_KEY = 'mi-agent-web-access-enabled';
-
-function getThinkingPreferenceStorageKey(mode: AgentMode): string {
-    return `${THINKING_PREFERENCE_KEY_PREFIX}-${mode}`;
-}
-
-function getDefaultThinkingEnabled(mode: AgentMode): boolean {
-    return true;
-}
-
-function getThinkingPreferenceForMode(mode: AgentMode): boolean {
-    try {
-        const storedPreference = localStorage.getItem(getThinkingPreferenceStorageKey(mode));
-        if (storedPreference === null) {
-            return getDefaultThinkingEnabled(mode);
-        }
-        return storedPreference === 'true';
-    } catch {
-        return getDefaultThinkingEnabled(mode);
-    }
-}
 
 function removeCompactingPlaceholder(content: string): string {
     return content
@@ -148,6 +127,8 @@ function upsertLoadingBashOutputTag(
 const WORKING_ON_IT_TOOL_MESSAGE = 'copilot is working on it...';
 const WORKING_ON_IT_DELAY_MS = 2000;
 const RUNNING_PLACEHOLDER_DOT_FRAMES = ['.  ', '.. ', '...', ' ..', '  .', ' ..'];
+// Stream safeguards for reconnect + polling fallback recovery.
+const ENABLE_STREAM_SAFEGUARDS = true;
 
 function removeWorkingOnItToolCallTag(content: string): string {
     const workingTag = `<toolcall data-loading="true" data-file="">${WORKING_ON_IT_TOOL_MESSAGE}</toolcall>`;
@@ -178,6 +159,55 @@ function getPlanApprovalPrompt(planContent?: string, planFilePath?: string): str
     }
 
     return "Review the plan above and choose Approve Plan or Request Changes.";
+}
+
+function getApprovalFallbackContent(
+    approvalKind: PlanApprovalKind | undefined,
+    planContent?: string,
+    planFilePath?: string
+): string {
+    switch (approvalKind) {
+        case 'enter_plan_mode':
+            return 'Agent recommends entering Plan mode. Do you want to switch now?';
+        case 'exit_plan_mode_without_plan':
+            return 'Agent wants to exit Plan mode without a full plan. Do you want to continue?';
+        case 'web_search':
+            return 'Agent wants permission to run a web search.';
+        case 'web_fetch':
+            return 'Agent wants permission to fetch a web page.';
+        case 'shell_command':
+            return 'Agent wants permission to run a shell command.';
+        case 'continue_after_limit':
+            return 'Agent paused because it reached a run limit. Continue in a new run?';
+        default:
+            return getPlanApprovalPrompt(planContent, planFilePath);
+    }
+}
+
+function getApprovalTitle(approvalKind: PlanApprovalKind | undefined): string {
+    switch (approvalKind) {
+        case 'exit_plan_mode':
+            return 'Plan Approval';
+        case 'web_search':
+        case 'web_fetch':
+            return 'Web Access Approval';
+        case 'shell_command':
+            return 'Shell Access Approval';
+        case 'continue_after_limit':
+            return 'Continue Agent Run?';
+        default:
+            return 'Approval Required';
+    }
+}
+
+function sanitizeSuggestedPrefixRule(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value.filter((item): item is string =>
+        typeof item === 'string' && item.trim().length > 0
+    );
 }
 
 function markFileChangesTagsAsNonUndoable(content: string): string {
@@ -382,7 +412,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         pendingQuestion,
         setPendingQuestion,
         pendingPlanApproval,
-        setPendingPlanApproval,
+        pendingApprovalCount,
+        addPendingApproval,
+        removePendingApproval,
+        clearPendingApprovals,
         todos,
         setTodos,
         isPlanMode,
@@ -391,6 +424,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setLastTotalInputTokens,
         agentMode,
         setAgentMode,
+        isThinkingEnabled,
+        setIsThinkingEnabled,
+        modelSettings,
     } = useMICopilotContext();
 
     const [, setFileUploadStatus] = useState({ type: "", text: "" });
@@ -404,7 +440,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     // Mode switcher state
     const [showModeMenu, setShowModeMenu] = useState(false);
     const modeMenuRef = useRef<HTMLDivElement>(null);
-    const [isThinkingEnabled, setIsThinkingEnabled] = useState<boolean>(() => getThinkingPreferenceForMode(agentMode));
     const [isWebAccessEnabled, setIsWebAccessEnabled] = useState<boolean>(() => {
         try {
             return localStorage.getItem(WEB_ACCESS_PREFERENCE_KEY) === 'true';
@@ -469,6 +504,14 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const sendInProgressRef = useRef(false);
     const workingOnItTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const firstProgressEventReceivedRef = useRef(false);
+    /** Highest event sequence number received via push notifications */
+    const lastReceivedSeqRef = useRef<number>(0);
+    /** Timestamp of last received push event (for staleness detection) */
+    const lastEventTimeRef = useRef<number>(0);
+    /** Whether a terminal event (stop/error/abort) has been received for the current run */
+    const terminalEventReceivedRef = useRef<boolean>(false);
+    /** Prevent overlapping fallback polling requests */
+    const pollInFlightRef = useRef<boolean>(false);
 
     // Keep refs in sync with state (for use in stale closure of event handler)
     assistantResponseRef.current = assistantResponse;
@@ -518,6 +561,17 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         // Ignore all events if generation was aborted
         if (abortedRef.current) {
             return;
+        }
+
+        // Track sequence number and timestamp for polling fallback
+        if (ENABLE_STREAM_SAFEGUARDS) {
+            if (event.seq !== undefined && event.seq > lastReceivedSeqRef.current) {
+                lastReceivedSeqRef.current = event.seq;
+            }
+            lastEventTimeRef.current = Date.now();
+            if (event.type === 'stop' || event.type === 'error' || event.type === 'abort') {
+                terminalEventReceivedRef.current = true;
+            }
         }
 
         switch (event.type) {
@@ -721,10 +775,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 clearWorkingOnItPlaceholder();
                 setBackendRequestTriggered(false);
                 setPendingQuestion(null);
-                setPendingPlanApproval(null);
+                clearPendingApprovals();
                 setShowRejectionInput(false);
                 setPlanRejectionFeedback("");
-                setAnswers(new Map());
+                resetApprovalUiState();
                 setOtherAnswers(new Map());
                 setMessages((prevMessages) => {
                     if (prevMessages.length === 0) return prevMessages;
@@ -869,13 +923,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
                     case "plan_approval_requested":
                         if (planEvent.approvalId) {
-                            const approvalKind = (planEvent.approvalKind || 'exit_plan_mode') as
-                                | 'enter_plan_mode'
-                                | 'exit_plan_mode'
-                                | 'exit_plan_mode_without_plan'
-                                | 'web_search'
-                                | 'web_fetch';
+                            const approvalKind: PlanApprovalKind = planEvent.approvalKind || 'exit_plan_mode';
                             const planContent = typeof planEvent.content === "string" ? planEvent.content.trim() : "";
+                            const planSummary = typeof planEvent.summary === "string" ? planEvent.summary.trim() : "";
+                            const safeSuggestedPrefixRule = sanitizeSuggestedPrefixRule(planEvent.suggestedPrefixRule);
                             if (approvalKind === 'exit_plan_mode' && planContent) {
                                 setMessages((prev) => {
                                     const planTag = `<plan>${planContent}</plan>`;
@@ -891,29 +942,28 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 });
                             }
 
-                            const fallbackContent = approvalKind === 'enter_plan_mode'
-                                ? 'Agent recommends entering Plan mode. Do you want to switch now?'
-                                : approvalKind === 'exit_plan_mode_without_plan'
-                                    ? 'Agent wants to exit Plan mode without a full plan. Do you want to continue?'
-                                    : approvalKind === 'web_search'
-                                        ? 'Agent wants permission to run a web search.'
-                                        : approvalKind === 'web_fetch'
-                                            ? 'Agent wants permission to fetch a web page.'
-                                            : getPlanApprovalPrompt(planContent, planEvent.planFilePath);
+                            const fallbackContent = getApprovalFallbackContent(
+                                approvalKind,
+                                planContent,
+                                planEvent.planFilePath
+                            );
 
                             const dialogContent = approvalKind === 'exit_plan_mode'
-                                ? getPlanApprovalPrompt(planContent, planEvent.planFilePath)
+                                ? (planSummary || getPlanApprovalPrompt(planContent, planEvent.planFilePath))
                                 : (planContent || fallbackContent);
 
-                            setPendingPlanApproval({
+                            addPendingApproval({
                                 approvalId: planEvent.approvalId,
                                 approvalKind,
                                 approvalTitle: planEvent.approvalTitle,
                                 approveLabel: planEvent.approveLabel,
                                 rejectLabel: planEvent.rejectLabel,
                                 allowFeedback: planEvent.allowFeedback,
+                                suggestedPrefixRule: safeSuggestedPrefixRule,
                                 planFilePath: planEvent.planFilePath,
                                 content: dialogContent,
+                                shellCommand: planEvent.bashCommand,
+                                shellDescription: planEvent.bashDescription,
                             });
                         }
                         break;
@@ -936,8 +986,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
         // Clear local dialog state immediately.
         setPendingQuestion(null);
-        setPendingPlanApproval(null);
-        setAnswers(new Map());
+        clearPendingApprovals();
+        resetApprovalUiState();
         setOtherAnswers(new Map());
         setShowRejectionInput(false);
         setPlanRejectionFeedback("");
@@ -990,11 +1040,20 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 await rpcClient.getMiAgentPanelRpcClient().respondToPlanApproval({
                     approvalId: pendingPlanApproval.approvalId,
                     approved,
-                    feedback
+                    feedback,
+                    rememberForSession: approved && pendingPlanApproval.approvalKind === 'shell_command'
+                        ? rememberShellApprovalForSession
+                        : undefined,
+                    suggestedPrefixRule: approved
+                        && pendingPlanApproval.approvalKind === 'shell_command'
+                        && rememberShellApprovalForSession
+                        ? pendingPlanApproval.suggestedPrefixRule
+                        : undefined,
                 });
-                setPendingPlanApproval(null);
+                removePendingApproval(pendingPlanApproval.approvalId);
                 setShowRejectionInput(false);
                 setPlanRejectionFeedback("");
+                setRememberShellApprovalForSession(false);
             } catch (error) {
                 console.error("Error responding to plan approval:", error);
             }
@@ -1007,10 +1066,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
         // Close any pending approval/question dialogs immediately in UI.
         setPendingQuestion(null);
-        setPendingPlanApproval(null);
+        clearPendingApprovals();
         setShowRejectionInput(false);
         setPlanRejectionFeedback("");
-        setAnswers(new Map());
+        resetApprovalUiState();
         setOtherAnswers(new Map());
         try {
             await rpcClient.getMiAgentPanelRpcClient().abortAgentGeneration();
@@ -1033,7 +1092,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }]);
 
         try {
-            const result = await rpcClient.getMiAgentPanelRpcClient().compactConversation({});
+            const result = await rpcClient.getMiAgentPanelRpcClient().compactConversation({ modelSettings });
             if (!result.success) {
                 console.error("Manual compact failed:", result.error);
                 // Remove the loading message and show error
@@ -1204,6 +1263,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         );
         setBackendRequestTriggered(true);
         isResponseReceived.current = false;
+        // Reset polling state for the new run
+        if (ENABLE_STREAM_SAFEGUARDS) {
+            lastReceivedSeqRef.current = 0;
+            lastEventTimeRef.current = Date.now();
+            terminalEventReceivedRef.current = false;
+        }
 
         // Add the current user prompt to the chats based on the request type
         let currentCopilotChat: CopilotChatEntry[] = [...copilotChat];
@@ -1275,9 +1340,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 mode: agentMode,
                 files,
                 images,
-                thinking: true,
+                thinking: isThinkingEnabled,
                 webAccessPreapproved: isWebAccessEnabled,
-                chatHistory: chatHistory
+                chatHistory: chatHistory,
+                modelSettings,
             });
 
             if (!response.success) {
@@ -1354,19 +1420,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     }, [pendingMentionCursorPosition, currentUserPrompt]);
 
     useEffect(() => {
-        setIsThinkingEnabled(getThinkingPreferenceForMode(agentMode));
-    }, [agentMode]);
-
-    // Persist thinking preference across panel reloads (per mode)
-    useEffect(() => {
-        try {
-            localStorage.setItem(getThinkingPreferenceStorageKey(agentMode), String(isThinkingEnabled));
-        } catch {
-            // Ignore localStorage errors in restricted environments
-        }
-    }, [agentMode, isThinkingEnabled]);
-
-    useEffect(() => {
         try {
             localStorage.setItem(WEB_ACCESS_PREFERENCE_KEY, String(isWebAccessEnabled));
         } catch {
@@ -1380,6 +1433,134 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             rpcClient.onAgentEvent(handleAgentEvent);
         }
     }, [rpcClient, handleAgentEvent]);
+
+    // Restore in-progress/completed run state when the panel reconnects.
+    useEffect(() => {
+        if (!ENABLE_STREAM_SAFEGUARDS || !rpcClient) {
+            return;
+        }
+
+        let isDisposed = false;
+
+        const restoreAgentRunStatus = async () => {
+            try {
+                const runStatus = await rpcClient.getMiAgentPanelRpcClient().getAgentRunStatus({});
+                if (isDisposed) {
+                    return;
+                }
+
+                const bufferedEvents = runStatus.events || [];
+                if (!runStatus.isRunning && bufferedEvents.length === 0) {
+                    return;
+                }
+
+                if (runStatus.mode) {
+                    setAgentMode(runStatus.mode);
+                    setIsPlanMode(runStatus.mode === 'plan');
+                }
+
+                if (runStatus.isRunning) {
+                    setBackendRequestTriggered(true);
+                }
+
+                setMessages((prev) => {
+                    if (prev.length > 0 && prev[prev.length - 1].role === Role.MICopilot) {
+                        return prev;
+                    }
+                    return [
+                        ...prev,
+                        {
+                            id: generateId(),
+                            role: Role.MICopilot,
+                            content: "",
+                            type: MessageType.AssistantMessage,
+                        },
+                    ];
+                });
+
+                for (const event of bufferedEvents) {
+                    if (isDisposed) {
+                        return;
+                    }
+                    handleAgentEvent(event);
+                }
+            } catch (error) {
+                console.error("Error restoring agent run status:", error);
+            }
+        };
+
+        void restoreAgentRunStatus();
+
+        return () => {
+            isDisposed = true;
+        };
+    }, [
+        rpcClient,
+        handleAgentEvent,
+        setAgentMode,
+        setBackendRequestTriggered,
+        setIsPlanMode,
+        setMessages,
+    ]);
+
+    // Polling fallback: when the push notification channel appears broken during an
+    // active agent run (no events received for POLL_STALE_THRESHOLD_MS), periodically
+    // poll getAgentRunStatus to retrieve missed events and replay them.
+    const ENABLE_STREAM_POLLING_FALLBACK = ENABLE_STREAM_SAFEGUARDS;
+    const POLL_STALE_THRESHOLD_MS = 5_000;
+    const POLL_INTERVAL_MS = 3_000;
+
+    useEffect(() => {
+        // Guard: only activate when a run is in progress and polling is enabled.
+        // Once active, the interval keeps running until a terminal event is observed
+        // (terminalEventReceivedRef) so we don't stop before the run is fully caught up.
+        if (!ENABLE_STREAM_POLLING_FALLBACK || !backendRequestTriggered || !rpcClient) {
+            return;
+        }
+
+        const intervalId = setInterval(async () => {
+            // Stop polling once a terminal event has been received via push or a previous poll.
+            if (terminalEventReceivedRef.current || pollInFlightRef.current) {
+                return;
+            }
+            const elapsed = Date.now() - lastEventTimeRef.current;
+            if (elapsed < POLL_STALE_THRESHOLD_MS) {
+                return;
+            }
+
+            try {
+                pollInFlightRef.current = true;
+                const runStatus = await rpcClient.getMiAgentPanelRpcClient().getAgentRunStatus({
+                    sinceSeq: lastReceivedSeqRef.current,
+                });
+
+                const missedEvents = runStatus.events || [];
+                for (const event of missedEvents) {
+                    // Skip events already received via push (race guard)
+                    if (event.seq !== undefined && event.seq <= lastReceivedSeqRef.current) {
+                        continue;
+                    }
+                    handleAgentEvent(event);
+                }
+
+                // If the backend says the run ended and we have no more events to replay,
+                // ensure the UI is no longer stuck in loading state.
+                if (!runStatus.isRunning && missedEvents.length === 0 && !terminalEventReceivedRef.current) {
+                    setBackendRequestTriggered(false);
+                }
+            } catch {
+                // Polling is best-effort — swallow errors silently
+            } finally {
+                pollInFlightRef.current = false;
+            }
+        }, POLL_INTERVAL_MS);
+
+        return () => {
+            clearInterval(intervalId);
+            pollInFlightRef.current = false;
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [backendRequestTriggered, rpcClient, handleAgentEvent, setBackendRequestTriggered]);
 
     useEffect(() => {
         return () => {
@@ -1396,13 +1577,56 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     // State for plan rejection feedback
     const [planRejectionFeedback, setPlanRejectionFeedback] = useState("");
     const [showRejectionInput, setShowRejectionInput] = useState(false);
+    const [rememberShellApprovalForSession, setRememberShellApprovalForSession] = useState(false);
+    const [shellDenyFeedback, setShellDenyFeedback] = useState("");
+    const [shellFocusedOption, setShellFocusedOption] = useState(0);
     const [activeQuestionTab, setActiveQuestionTab] = useState(0);
+    const resetApprovalUiState = useCallback(() => {
+        setRememberShellApprovalForSession(false);
+        setShellDenyFeedback("");
+        setShellFocusedOption(0);
+        setAnswers(new Map());
+    }, []);
 
     const handlePlanApprovalCancel = async () => {
         await handleQuestionCancel();
     };
 
-    // Handle escape key to cancel question dialog or plan approval dialog
+    // Build shell approval options for the current approval
+    const shellApprovalOptions = useMemo(() => {
+        if (!pendingPlanApproval || pendingPlanApproval.approvalKind !== 'shell_command') return [];
+        const options: Array<{ key: string; label: string; action: () => void }> = [];
+        options.push({ key: '1', label: 'Yes', action: () => handlePlanApproval(true) });
+        const prefix = sanitizeSuggestedPrefixRule(pendingPlanApproval.suggestedPrefixRule);
+        if (prefix.length > 0) {
+            options.push({
+                key: '2',
+                label: `Yes, allow ${prefix.join(' ')} for this session`,
+                action: () => {
+                    setRememberShellApprovalForSession(true);
+                    // Need to call the RPC directly since state won't update in time
+                    if (pendingPlanApproval) {
+                        rpcClient.getMiAgentPanelRpcClient().respondToPlanApproval({
+                            approvalId: pendingPlanApproval.approvalId,
+                            approved: true,
+                            rememberForSession: true,
+                            suggestedPrefixRule: prefix,
+                        }).then(() => {
+                            removePendingApproval(pendingPlanApproval.approvalId);
+                            setRememberShellApprovalForSession(false);
+                        }).catch((err) => {
+                            console.error(err);
+                            setRememberShellApprovalForSession(false);
+                        });
+                    }
+                },
+            });
+        }
+        options.push({ key: String(prefix.length > 0 ? 3 : 2), label: 'No', action: () => handlePlanApproval(false, shellDenyFeedback.trim() || undefined) });
+        return options;
+    }, [pendingPlanApproval?.approvalId, pendingPlanApproval?.approvalKind, pendingPlanApproval?.suggestedPrefixRule, shellDenyFeedback]);
+
+    // Handle escape key and number keys for approval dialogs
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === "Escape") {
@@ -1412,11 +1636,25 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 if (pendingPlanApproval) {
                     void handlePlanApprovalCancel();
                 }
+                return;
+            }
+
+            // Number keys for shell command approval options
+            if (pendingPlanApproval?.approvalKind === 'shell_command' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                // Don't capture keys when typing in the feedback input
+                const activeEl = document.activeElement;
+                if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
+
+                const option = shellApprovalOptions.find((o: { key: string; action: () => void }) => o.key === e.key);
+                if (option) {
+                    e.preventDefault();
+                    option.action();
+                }
             }
         };
         document.addEventListener("keydown", handleKeyDown);
         return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [pendingQuestion, setPendingQuestion, pendingPlanApproval, setPendingPlanApproval]);
+    }, [pendingQuestion, setPendingQuestion, pendingPlanApproval, clearPendingApprovals, shellApprovalOptions]);
 
     // Reset answers when question changes
     useEffect(() => {
@@ -1429,6 +1667,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     useEffect(() => {
         setShowRejectionInput(false);
         setPlanRejectionFeedback("");
+        setRememberShellApprovalForSession(false);
+        setShellDenyFeedback("");
+        setShellFocusedOption(0);
     }, [pendingPlanApproval?.approvalId]);
 
     // Close mode menu on click outside
@@ -1578,14 +1819,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const planApprovalAllowsFeedback =
         (pendingPlanApproval?.allowFeedback ?? (pendingPlanApproval?.approvalKind === 'exit_plan_mode')) === true;
     const planApprovalTitle = pendingPlanApproval?.approvalTitle
-        || (pendingPlanApproval?.approvalKind === 'exit_plan_mode'
-            ? 'Plan Approval'
-            : pendingPlanApproval?.approvalKind === 'web_search' || pendingPlanApproval?.approvalKind === 'web_fetch'
-                ? 'Web Access Approval'
-                : 'Approval Required');
+        || getApprovalTitle(pendingPlanApproval?.approvalKind);
     const planApproveLabel = pendingPlanApproval?.approveLabel || 'Approve';
     const planRejectLabel = pendingPlanApproval?.rejectLabel || 'Reject';
-
     return (
         <Footer>
             {/* User Question Dialog */}
@@ -1917,7 +2153,156 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             )}
 
             {/* Plan Approval Dialog */}
-            {pendingPlanApproval && (
+            {pendingPlanApproval && pendingPlanApproval.approvalKind === 'shell_command' && (
+                <div style={{
+                    margin: "0 12px 8px 12px",
+                    backgroundColor: "var(--vscode-editor-background)",
+                    border: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
+                    borderRadius: "8px",
+                    overflow: "hidden",
+                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.18)"
+                }}>
+                    <div style={{ padding: "14px 14px 10px 14px" }}>
+                        {/* Title */}
+                        <div style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            marginBottom: "8px"
+                        }}>
+                            <span style={{
+                                fontSize: "13px",
+                                fontWeight: 700,
+                                color: "var(--vscode-foreground)"
+                            }}>
+                                {planApprovalTitle}
+                            </span>
+                            {pendingApprovalCount > 1 && (
+                                <span style={{
+                                    fontSize: "10px",
+                                    fontWeight: 500,
+                                    color: "var(--vscode-badge-foreground)",
+                                    backgroundColor: "var(--vscode-badge-background)",
+                                    borderRadius: "8px",
+                                    padding: "1px 6px"
+                                }}>
+                                    1 of {pendingApprovalCount}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Command in monospace */}
+                        <div style={{
+                            fontFamily: "var(--vscode-editor-font-family, 'Menlo', 'Monaco', 'Courier New', monospace)",
+                            fontSize: "12.5px",
+                            color: "var(--vscode-foreground)",
+                            lineHeight: "1.5",
+                            whiteSpace: "pre-wrap",
+                            overflowWrap: "anywhere",
+                            marginBottom: "6px"
+                        }}>
+                            {pendingPlanApproval.shellCommand || ''}
+                        </div>
+
+                        {/* Description */}
+                        {pendingPlanApproval.shellDescription && (
+                            <div style={{
+                                fontSize: "12px",
+                                color: "var(--vscode-descriptionForeground)",
+                                lineHeight: "1.4",
+                                marginBottom: "4px"
+                            }}>
+                                {pendingPlanApproval.shellDescription}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Options list */}
+                    <div style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        padding: "0 6px 6px 6px",
+                        gap: "2px"
+                    }}>
+                        {shellApprovalOptions.map((option, idx) => (
+                            <button
+                                key={option.key}
+                                onClick={option.action}
+                                onMouseEnter={() => setShellFocusedOption(idx)}
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "10px",
+                                    padding: "7px 10px",
+                                    backgroundColor: shellFocusedOption === idx
+                                        ? "var(--vscode-list-activeSelectionBackground)"
+                                        : "transparent",
+                                    color: shellFocusedOption === idx
+                                        ? "var(--vscode-list-activeSelectionForeground)"
+                                        : "var(--vscode-foreground)",
+                                    border: "none",
+                                    borderRadius: "5px",
+                                    cursor: "pointer",
+                                    fontSize: "12.5px",
+                                    textAlign: "left",
+                                    width: "100%",
+                                    fontFamily: "inherit"
+                                }}
+                            >
+                                <span style={{
+                                    fontWeight: 600,
+                                    opacity: 0.6,
+                                    minWidth: "14px"
+                                }}>
+                                    {option.key}
+                                </span>
+                                <span>{option.label}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Feedback text input */}
+                    <div style={{ padding: "0 6px 6px 6px" }}>
+                        <input
+                            type="text"
+                            value={shellDenyFeedback}
+                            onChange={(e) => setShellDenyFeedback(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && shellDenyFeedback.trim()) {
+                                    e.preventDefault();
+                                    handlePlanApproval(false, shellDenyFeedback.trim());
+                                }
+                            }}
+                            placeholder="Tell agent what to do instead"
+                            style={{
+                                width: "100%",
+                                padding: "7px 10px",
+                                backgroundColor: "var(--vscode-input-background)",
+                                color: "var(--vscode-input-foreground)",
+                                border: "1px solid var(--vscode-input-border)",
+                                borderRadius: "5px",
+                                fontSize: "12.5px",
+                                boxSizing: "border-box",
+                                fontFamily: "inherit",
+                                outline: "none"
+                            }}
+                        />
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{
+                        padding: "4px 14px 10px 14px",
+                        fontSize: "11px",
+                        color: "var(--vscode-descriptionForeground)",
+                        opacity: 0.7
+                    }}>
+                        Esc to cancel
+                    </div>
+                </div>
+            )}
+
+            {/* Non-shell Plan Approval Dialog (exit_plan_mode, web, continue, etc.) */}
+            {pendingPlanApproval && pendingPlanApproval.approvalKind !== 'shell_command' && (
                 <div style={{
                     margin: "0 12px 8px 12px",
                     backgroundColor: "var(--vscode-editor-background)",
@@ -1945,6 +2330,21 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         }}>
                             <span className="codicon codicon-checklist" />
                             {planApprovalTitle}
+                            {pendingApprovalCount > 1 && (
+                                <span style={{
+                                    fontSize: "10px",
+                                    fontWeight: 500,
+                                    color: "var(--vscode-badge-foreground)",
+                                    backgroundColor: "var(--vscode-badge-background)",
+                                    borderRadius: "8px",
+                                    padding: "1px 6px",
+                                    marginLeft: "2px",
+                                    textTransform: "none",
+                                    letterSpacing: "normal"
+                                }}>
+                                    1 of {pendingApprovalCount}
+                                </span>
+                            )}
                         </div>
                     </div>
 
@@ -1953,7 +2353,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             fontSize: "12.5px",
                             marginBottom: "8px",
                             color: "var(--vscode-foreground)",
-                            lineHeight: "1.4"
+                            lineHeight: "1.4",
+                            whiteSpace: pendingPlanApproval.approvalKind === 'continue_after_limit' ? "pre-wrap" : "normal",
+                            overflowWrap: pendingPlanApproval.approvalKind === 'continue_after_limit' ? "anywhere" : "normal"
                         }}>
                             {pendingPlanApproval.content || "The plan is ready for your review."}
                         </div>
@@ -2514,7 +2916,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 </div>
                             </FooterTooltip>
                         )}
-                        <FooterTooltip content="Enable web search and fetch without approval prompts">
+                        <FooterTooltip
+                            align="start"
+                            content="Enable web search and fetch without approval prompts"
+                        >
                             <button
                                 type="button"
                                 onClick={() => setIsWebAccessEnabled((prev) => !prev)}

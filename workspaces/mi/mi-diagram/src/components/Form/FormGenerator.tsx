@@ -30,7 +30,10 @@ import {
     TextArea,
     TextField,
     Tooltip,
-    Typography
+    Typography,
+    RadioButtonGroup,
+    Button,
+    Dropdown
 } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { Controller, useWatch } from 'react-hook-form';
@@ -61,6 +64,10 @@ import { compareVersions } from '../../utils/commons';
 import { RUNTIME_VERSION_440 } from '../../resources/constants';
 import { McpToolsSelection } from './MCPtoolsSelection/McpToolsSelection';
 
+import { DynamicFieldsHandler } from './DynamicFields/DynamicFieldsHandler';
+import { GenericRadioGroup } from '../Form/RadioButtonGroup/GenericRadioGroup';
+import { DriverConfig, DRIVER_OPTIONS, DefaultDriverConfig, CustomDriverConfig, MavenDriverConfig } from './DBConnector/DriverConfiguration';
+import { getValue } from './Keylookup/utils';
 // Constants
 const XML_VALUE = 'xml';
 
@@ -91,6 +98,7 @@ export interface FormGeneratorProps {
     documentUri?: string;
     formData: any;
     connectorName?: string;
+    parameters?: any;
     sequences?: string[];
     onEdit?: boolean;
     control: any;
@@ -98,10 +106,14 @@ export interface FormGeneratorProps {
     setValue: any;
     setError?: any;
     clearErrors?: any;
+    setComboValues?: (elementName: string, newValues: string[]) => void;
+    comboValuesMap?: any;
     reset: any;
     watch: any;
     getValues: any;
     skipGeneralHeading?: boolean;
+    connectionName?: string;
+    connections?: string[];
     ignoreFields?: string[];
     disableFields?: string[];
     autoGenerateSequences?: boolean;
@@ -141,12 +153,32 @@ export interface Element {
     artifactType?: string;
     isUnitTest?: boolean;
     skipSanitization?: boolean;
+    onValueChange?: any;
 }
 
 interface ExpressionValueWithSetter {
     value: ExpressionFieldValue;
     setValue: (value: ExpressionFieldValue) => void;
 };
+
+export interface DynamicField {
+    type: string;
+    value: {
+        columnName: string;
+        name: string;
+        displayName: string;
+        inputType: string;
+        required: string;
+        helpTip: string;
+        placeholder: string;
+        defaultValue: string;
+    };
+}
+
+export interface DynamicFieldGroup {
+    header?: string;           // optional title/header
+    fields: DynamicField[];    // the actual fields
+}
 
 export function getNameForController(name: string | number) {
     if (name === 'configRef') {
@@ -216,7 +248,10 @@ export function FormGenerator(props: FormGeneratorProps) {
         skipGeneralHeading,
         ignoreFields,
         disableFields,
-        range
+        range,
+        connectionName,
+        parameters,
+        setComboValues
     } = props;
     const [currentExpressionValue, setCurrentExpressionValue] =  useState<ExpressionValueWithSetter | null>(null);
     const [expressionEditorField, setExpressionEditorField] = useState<string | null>(null);
@@ -224,6 +259,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const [isLegacyExpressionEnabled, setIsLegacyExpressionEnabled] = useState<boolean>(false);
     const handleOnCancelExprEditorRef = useRef(() => { });
     const [connectionNames, setConnections] = useState<{ [key: string]: string[] }>({});
+    const [connectionTypeMap, setConnectionTypeMap] = useState<{ [fieldName: string]: { [connName: string]: string } }>({});
     const [generatedFormDetails, setGeneratedFormDetails] = useState<Record<string,any>>(null);
     const [visibleDetails, setVisibleDetails] = useState<{ [key: string]: boolean }>({});
     const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -241,6 +277,58 @@ export function FormGenerator(props: FormGeneratorProps) {
     const [showFillWithAI, setShowFillWithAI] = useState<boolean>(false);
     const selectedConnection = useWatch({ control, name: 'configKey' });
     const selectedMcpTools = useWatch({ control, name: 'mcpToolsSelection' });
+    const [isProcessing, setIsProcessing] = useState<boolean>(false);
+    const [customErrors, setCustomErrors] = useState<Record<string, string | null>>({});
+    const [driverError, setDriverError] = useState("");
+    const dynamicFieldsHandler = useRef<DynamicFieldsHandler>(null);
+    const [dynamicFields, setDynamicFields] = useState<Record<string, DynamicFieldGroup>>({});
+    const setCustomError = (fieldName: string, message: string | null) => {
+        setCustomErrors(prevErrors => ({
+            ...prevErrors,
+            [fieldName]: message
+        }));
+    };
+    const [driverConfig, setDriverConfig] = useState<DriverConfig>({
+        type: 'default',
+        groupId: '',
+        artifactId: '',
+        version: '',
+        driverPath: ''
+    });
+    const [, setIsDriverConfigLoading] = useState(true);
+
+    useEffect(() => {
+        const initializeDriverConfig = () => {
+            setIsDriverConfigLoading(true);
+
+            try {
+                const paramValues = parameters?.paramValues || [];
+                const getParamValue = (key: string) => paramValues.find((p: any) => p.key === key)?.value;
+
+                const formValues = getValues();
+
+                const groupId = formValues.groupId || getParamValue('groupId') || '';
+                const artifactId = formValues.artifactId || getParamValue('artifactId') || '';
+                const version = formValues.version || getParamValue('version') || '';
+                const driverPath = formValues.driverPath || getParamValue('driverPath') || '';
+
+                let type: DriverConfig['type'] = 'default';
+                if (driverPath) {
+                    type = 'custom';
+                } else if (groupId || artifactId || version) {
+                    type = 'maven';
+                }
+
+                setDriverConfig({ type, groupId, artifactId, version, driverPath });
+            } catch (error) {
+                console.error('Failed to initialize driver config:', error);
+            } finally {
+                setIsDriverConfigLoading(false);
+            }
+        };
+
+        initializeDriverConfig();
+    }, [parameters, getValues]);
 
     useEffect(() => {
         if (generatedFormDetails) {
@@ -331,6 +419,28 @@ export function FormGenerator(props: FormGeneratorProps) {
     }
 
     useEffect(() => {
+        try {
+            if (!dynamicFieldsHandler.current) {
+                dynamicFieldsHandler.current = new DynamicFieldsHandler({
+                    rpcClient,
+                    formData,
+                    getValues,
+                    setValue,
+                    setComboValues,
+                    documentUri: props.documentUri,
+                    parameters,
+                    dynamicFields,
+                    setDynamicFields,
+                    connectionName,
+                    setCustomError
+                });
+            }
+        } catch (error) {
+            console.error("Error initializing dynamicFieldsHandler:", error);
+        }
+    }, []);
+
+    useEffect(() => {
         setIsLoading(true);
         handleOnCancelExprEditorRef.current = () => {
             sidepanelGoBack(sidePanelContext);
@@ -345,7 +455,7 @@ export function FormGenerator(props: FormGeneratorProps) {
         setIsLoading(false);
     }, [sidePanelContext.pageStack, formData]);
 
-    async function getConnectionNames(allowedTypes?: string[]) {
+    async function getConnectionNames(allowedTypes?: string[], fieldName?: string) {
         const connectorData = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
             documentUri: documentUri,
             connectorName: formData?.connectorName ?? connectorName.replace(/\s/g, '')
@@ -355,9 +465,237 @@ export function FormGenerator(props: FormGeneratorProps) {
             connection => allowedTypes?.some(
                 type => type.toLowerCase() === connection.connectionType.toLowerCase()
             ));
+
+        // Build name-to-type mapping for connection type condition evaluation
+        if (fieldName) {
+            const typeMapping: { [connName: string]: string } = {};
+            filteredConnections.forEach(conn => {
+                typeMapping[conn.name] = conn.connectionType;
+            });
+            setConnectionTypeMap(prev => ({ ...prev, [fieldName]: typeMapping }));
+        }
+
         const connectionNames = filteredConnections.map(connection => connection.name);
         return connectionNames;
     }
+
+    // Handler to call dynamic fields handler methods
+    const handleValueChange = async (value: any, fieldName: string, element: Element) => {
+        if (!element?.onValueChange?.function) return;
+        if (dynamicFieldsHandler.current) {
+            await dynamicFieldsHandler.current.handleValueChange(value, fieldName, element);
+        }
+    };
+
+    const handleDriverDirSelection = async () => {
+        setIsProcessing(true);
+        const projectDirectory = await rpcClient.getMiDiagramRpcClient().askDriverPath();
+        props.setValue("driverPath", projectDirectory.path);
+        return projectDirectory.path;
+    };
+
+    const handleDriverTypeChange = async (driverType: string, element: Element) => {
+        const option = DRIVER_OPTIONS.find(opt => opt.label === driverType);
+        if (!option) return;
+
+        setDriverConfig(prev => ({ ...prev, type: option.configType }));
+        setDriverError(null);
+
+        if (option.configType === 'default') {
+            handleClearDriver();
+            await loadDefaultDriverDetails();
+        } else {
+            // For custom driver, check if we already have parameters
+            const paramValues = parameters?.paramValues || [];
+            const getParamValue = (key: string) => paramValues.find((p: any) => p.key === key)?.value;
+
+            const existingGroupId = getParamValue('groupId');
+            const existingArtifactId = getParamValue('artifactId');
+            const existingVersion = getParamValue('version');
+            const existingDriverPath = getParamValue('driverPath');
+            if (option.configType === 'custom') {
+                if (existingGroupId && existingArtifactId && existingVersion && existingDriverPath) {
+                    setDriverConfig(prev => ({
+                        ...prev,
+                        groupId: existingGroupId,
+                        artifactId: existingArtifactId,
+                        version: existingVersion,
+                        driverPath: existingDriverPath
+                    }));
+                }
+            } else {
+                if (existingGroupId && existingArtifactId && existingVersion) {
+                    setDriverConfig(prev => ({
+                        ...prev,
+                        groupId: existingGroupId,
+                        artifactId: existingArtifactId,
+                        version: existingVersion,
+                        driverPath: null
+                    }));
+                } else if (existingDriverPath) {
+                    setValue("driverPath", null);
+                }
+            }
+            saveDriverConfig();
+        }
+    };
+
+    const loadDefaultDriverDetails = async () => {
+        try {
+            const driverDetails = await rpcClient.getMiDiagramRpcClient().getDriverMavenCoordinates({
+                filePath: "",
+                connectionType: formData?.connectionName,
+                connectorName: formData?.connectorName ?? connectorName.replace(/\s/g, '')
+            });
+
+            setDriverConfig(prev => ({
+                ...prev,
+                groupId: driverDetails.groupId,
+                artifactId: driverDetails.artifactId,
+                version: driverDetails.version
+            }));
+        } catch (error) {
+            console.error('Failed to load default driver details:', error);
+        }
+    };
+
+    const saveDriverConfig = async () => {
+        try {
+            // Validate required fields based on driver type
+            if (driverConfig.type === 'maven' &&
+                (!driverConfig.groupId || !driverConfig.artifactId || !driverConfig.version)) {
+                setDriverError("All Maven coordinates are required");
+                return;
+            }
+            //check if valid coordinates
+            if (driverConfig.type === 'maven') {
+                const validDriver = await rpcClient.getMiDiagramRpcClient().downloadDriverForConnector({
+                    groupId: driverConfig.groupId,
+                    artifactId: driverConfig.artifactId,
+                    version: driverConfig.version
+                });
+                if (!validDriver) {
+                    setDriverError("Invalid Maven coordinates. Please check the values.");
+                    return;
+                }
+                if (getValue("driverPath")) {
+                    setValue("driverPath", null);
+                }
+            }
+
+            // Save to form values
+            setValue("groupId", driverConfig.groupId);
+            setValue("artifactId", driverConfig.artifactId);
+            setValue("version", driverConfig.version);
+            if (driverConfig.type === 'custom') {
+                setValue("driverPath", driverConfig.driverPath);
+            }
+
+
+            setDriverError(null);
+        } catch (error) {
+            console.error('Failed to save driver config:', error);
+            setDriverError("Failed to save driver configuration");
+        }
+    };
+
+    const handleClearDriver = () => {
+        setDriverConfig(prev => ({
+            ...prev,
+            groupId: '',
+            artifactId: '',
+            version: '',
+            driverPath: ''
+        }));
+        setDriverError(null);
+
+        // Also clear form values
+        setValue("groupId", null);
+        setValue("artifactId", null);
+        setValue("version", null);
+        setValue("driverPath", null);
+    };
+
+    const handleSelectLocation = async () => {
+        try {
+            const driveDir = await handleDriverDirSelection();
+            if (!driveDir) return;
+
+            // Clear any previous errors
+            setDriverError(null);
+
+            const driverDetails = await rpcClient.getMiDiagramRpcClient().getDriverMavenCoordinates({
+                filePath: driveDir,
+                connectionType: formData?.connectionName,
+                connectorName: formData?.connectorName ?? connectorName.replace(/\s/g, '')
+            });
+
+            if (driverDetails.found) {
+                setDriverConfig(prev => ({
+                    ...prev,
+                    groupId: driverDetails.groupId,
+                    artifactId: driverDetails.artifactId,
+                    version: driverDetails.version,
+                    driverPath: driveDir
+                }));
+            } else {
+                setDriverConfig(prev => ({
+                    ...prev,
+                    driverPath: '',
+                    groupId: '',
+                    artifactId: '',
+                    version: ''
+                }));
+                setDriverError("Unable to fetch maven coordinates for the selected driver. Please provide the maven coordinates manually using \"Add Maven Dependency\" option.");
+            }
+        } catch (error) {
+            console.error('Failed to select driver location:', error);
+            setDriverError("Failed to select driver location");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const renderDriverConfiguration = (selectedValue: string) => {
+        const option = DRIVER_OPTIONS.find(opt => opt.label === selectedValue);
+        if (!option) return null;
+
+        switch (option.configType) {
+            case 'default':
+                return (
+                    <DefaultDriverConfig
+                        config={driverConfig}
+                        isReadOnly={true}
+                        onConfigChange={setDriverConfig}
+                        onSave={saveDriverConfig}
+                    />
+                );
+            case 'custom':
+                return (
+                    <CustomDriverConfig
+                        config={driverConfig}
+                        onConfigChange={setDriverConfig}
+                        onSave={saveDriverConfig}
+                        onClear={handleClearDriver}
+                        onSelectLocation={handleSelectLocation}
+                        error={driverError}
+                        isLoading={isProcessing}
+                    />
+                );
+            case 'maven':
+                return (
+                    <MavenDriverConfig
+                        config={driverConfig}
+                        onConfigChange={setDriverConfig}
+                        onSave={saveDriverConfig}
+                        onClear={handleClearDriver}
+                        error={driverError}
+                    />
+                );
+            default:
+                return null;
+        }
+    };
 
     function getDefaultValues(elements: any[]) {
         const defaultValues: Record<string, any> = {};
@@ -370,7 +708,7 @@ export function FormGenerator(props: FormGeneratorProps) {
 
                 if (element.value.inputType === 'connection' && documentUri && connectorName) {
                     const allowedTypes: string[] = element.value.allowedConnectionTypes;
-                    const connectionNames = await getConnectionNames(allowedTypes);
+                    const connectionNames = await getConnectionNames(allowedTypes, name);
 
                     setConnections((prevConnections) => ({
                         ...prevConnections,
@@ -567,6 +905,9 @@ export function FormGenerator(props: FormGeneratorProps) {
     };
 
     function ParamManagerComponent(element: Element, isRequired: boolean, helpTipElement: JSX.Element, field: any) {
+        useEffect(() => {
+            handleValueChange(field.value, element.name.toString(), element);
+        }, []); // run only on mount
         return <ComponentCard id={'parameterManager-' + element.name} sx={cardStyle} disbaleHoverEffect>
             <div style={{ display: 'flex', alignItems: 'center' }}>
                 <Typography variant="h3">{element.displayName}</Typography>
@@ -581,7 +922,10 @@ export function FormGenerator(props: FormGeneratorProps) {
                 documentUri={documentUri}
                 formData={element}
                 parameters={field.value}
-                setParameters={field.onChange}
+                setParameters={(e: any) => {
+                    field.onChange(e);
+                    handleValueChange(e, element.name.toString(), element);
+                }}
                 nodeRange={range}
             />
         </ComponentCard>;
@@ -589,7 +933,10 @@ export function FormGenerator(props: FormGeneratorProps) {
 
     const ExpressionFieldComponent = ({ element, canChange, field, helpTipElement, placeholder, isRequired }: { element: Element, canChange: boolean, field: any, helpTipElement: JSX.Element, placeholder: string, isRequired: boolean }) => {
         const name = getNameForController(element.name);
+        useEffect(() => {
+            handleValueChange(field.value, name, element);
 
+        }, []);
         return expressionEditorField !== name ? (
             <ExpressionField
                 {...field}
@@ -603,6 +950,10 @@ export function FormGenerator(props: FormGeneratorProps) {
                 openExpressionEditor={(value: ExpressionFieldValue, setValue: any) => {
                     setCurrentExpressionValue({ value, setValue });
                     setExpressionEditorField(name);
+                }}
+                onChange={(e: any) => {
+                    field.onChange(e);
+                    handleValueChange(e.value, name, element);
                 }}
             />
         ) : (
@@ -632,7 +983,10 @@ export function FormGenerator(props: FormGeneratorProps) {
 
     const FormExpressionFieldComponent = (element: Element, field: any, helpTipElement: JSX.Element, isRequired: boolean, errorMsg: string) => {
         const name = getNameForController(element.name);
-
+        const customError = customErrors[name]; // Get custom error
+        useEffect(() => {
+            handleValueChange(field.value, name, element);
+        }, []);
         return expressionEditorField !== name ? (
             <FormExpressionField
                 {...field}
@@ -652,13 +1006,17 @@ export function FormGenerator(props: FormGeneratorProps) {
                 nodeRange={range}
                 canChange={element.inputType !== 'expression'}
                 supportsAIValues={element.supportsAIValues}
-                errorMsg={errorMsg}
+                errorMsg={customError ?? errorMsg} // Prioritize custom error
                 artifactPath={element.artifactPath}
                 artifactType={element.artifactType}
                 isUnitTest={element.isUnitTest || false}
                 openExpressionEditor={(value, setValue) => {
                     setCurrentExpressionValue({ value, setValue });
                     setExpressionEditorField(name);
+                }}
+                onChange={(e: any) => {
+                    field.onChange(e);
+                    handleValueChange(e.value, name, element);
                 }}
             />
         ) : (
@@ -690,7 +1048,9 @@ export function FormGenerator(props: FormGeneratorProps) {
         const name = getNameForController(element.name);
         const isRequired = typeof element.required === 'boolean' ? element.required : element.required === 'true';
         const isDisabled = disableFields?.includes(String(element.name));
-        const errorMsg = errors[name] && errors[name].message.toString();
+        const standardErrorMsg = errors[name] && errors[name].message.toString();
+        const customErrorMsg = customErrors[name]; // Get custom error
+        const errorMsg = customErrorMsg ?? standardErrorMsg; // Prioritize custom error
         const helpTip = element.helpTip;
 
         const helpTipElement = helpTip ? (
@@ -733,6 +1093,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                             errorMsg={errorMsg}
                             onChange={(e: any) => {
                                 field.onChange(e.target.value);
+                                handleValueChange(e.target.value, name, element);
                             }}
                         />
                         {generatedFormDetails && visibleDetails[element.name] && generatedFormDetails[element.name] !== getValues(element.name) && (
@@ -805,6 +1166,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                             }
                             onChange={(checked: boolean) => {
                                 field.onChange(checked);
+                                handleValueChange(checked, name, element);
                             }}
                         />
                         {generatedFormDetails && visibleDetails[element.name] && generatedFormDetails[element.name].toString().toLowerCase() !== getValues(element.name).toString().toLowerCase() && element.name !== "responseVariable" && element.name !== "overwriteBody" && (
@@ -851,10 +1213,13 @@ export function FormGenerator(props: FormGeneratorProps) {
             case 'booleanOrExpression':
             case 'comboOrExpression':
             case 'combo':
-                const items = element.inputType === 'booleanOrExpression' ? ["true", "false"] : element.comboValues;
+                const items = element.inputType === 'booleanOrExpression' ? ["true", "false"] : (props.comboValuesMap?.[name] || element.comboValues);
                 const allowItemCreate = element.inputType === 'comboOrExpression';
+                useEffect(() => {
+                    handleValueChange(field.value, name, element);
+                }, [props.comboValuesMap?.[name]]); // run on mount and on props.comboValuesMap
                 return (
-                    <div>
+                    <>
                         <AutoComplete
                             name={name}
                             label={element.displayName}
@@ -864,30 +1229,43 @@ export function FormGenerator(props: FormGeneratorProps) {
                             value={field.value}
                             onValueChange={(e: any) => {
                                 field.onChange(e);
+                                handleValueChange(e, name, element);
                             }}
                             required={isRequired}
                             allowItemCreate={allowItemCreate}
                         />
-                        {generatedFormDetails && visibleDetails[element.name] && generatedFormDetails[element.name] !== getValues(element.name) && (
-                                <GenerateDiv
-                                    element={element}
-                                    generatedFormDetails={generatedFormDetails}
-                                    handleOnClickChecked={() => {
-                                        if (generatedFormDetails) {
-                                            field.onChange(generatedFormDetails[element.name]);
-                                            setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
-                                            setNumberOfDifferent(numberOfDifferent - 1);
-                                        }
-                                    }}
-                                    handleOnClickClose={() => {
-                                        setIsClickedDropDown(false);
-                                        setIsGenerating(false);
-                                        setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
-                                        setNumberOfDifferent(numberOfDifferent - 1);
-                                    }}
-                                />
-                            )}
-                    </div>
+
+                        {dynamicFields[name]?.fields?.length > 0 && (
+                            <>
+                                <span style={{ display: "block", marginBottom: "8px", marginTop: "20px" }}>{dynamicFields[name].header}</span>
+                                {/* String/Expression fields */}
+                                {dynamicFields[name].fields.some((el: any) => el.value.inputType === "stringOrExpression") && (
+                                    <>
+                                        {dynamicFields[name].fields
+                                            .filter((el: any) => el.value.inputType === "stringOrExpression")
+                                            .map((dynamicElement: any) => (
+                                                <div key={dynamicElement.value.name} style={{ marginTop: "10px" }}>
+                                                    {renderController(dynamicElement)}
+                                                </div>
+                                            ))}
+                                    </>
+                                )}
+
+                                {/* Checkbox fields */}
+                                {dynamicFields[name].fields.some((el: any) => el.value.inputType === "checkbox") && (
+                                    <>
+                                        {dynamicFields[name].fields
+                                            .filter((el: any) => el.value.inputType === "checkbox")
+                                            .map((dynamicElement: any) => (
+                                                <div key={dynamicElement.value.name} style={{ marginTop: "6px" }}>
+                                                    {renderController(dynamicElement)}
+                                                </div>
+                                            ))}
+                                    </>
+                                )}
+                            </>
+                        )}
+                    </>
                 );
             case 'key':
             case 'keyOrExpression':
@@ -1092,6 +1470,9 @@ export function FormGenerator(props: FormGeneratorProps) {
                 );
             }
             case 'connection':
+                useEffect(() => {
+                    handleValueChange(field.value, name, element);
+                }, []);
                 if (isDisabled && getValues("configRef")) {
                     field.value = getValues("configRef");
                 }
@@ -1101,7 +1482,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                     }
 
                     const fetchItems = async () => {
-                        const connectionNames = await getConnectionNames(allowedConnectionTypes);
+                        const connectionNames = await getConnectionNames(allowedConnectionTypes, name);
 
                         setConnections((prevConnections) => ({
                             ...prevConnections,
@@ -1139,11 +1520,12 @@ export function FormGenerator(props: FormGeneratorProps) {
                         </div>
                         <AutoComplete
                             name={name}
-                            errorMsg={errors[getNameForController(name)] && errors[getNameForController(name)].message.toString()}
+                            errorMsg={errorMsg}
                             items={connectionNames[name] ?? []}
                             value={field.value}
                             onValueChange={(e: any) => {
                                 field.onChange(e);
+                                handleValueChange(e, name, element);
                             }}
                             disabled={isDisabled}
                             required={element.required === 'true'}
@@ -1187,6 +1569,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                             errorMsg={errorMsg}
                             onChange={(e: any) => {
                                 field.onChange(e.target.value);
+                                handleValueChange(e, name, element);
                             }}
                         />
                     );
@@ -1235,6 +1618,49 @@ export function FormGenerator(props: FormGeneratorProps) {
                             <span>{element.helpTip}</span>
                         </div>
                     </div>
+                );
+            case 'radio':
+                if (element.name === 'driverSelectOption') {
+                    return (
+                        <>
+                            <GenericRadioGroup
+                                name={name}
+                                label={element.displayName}
+                                options={element.comboValues.map((val: string) => ({
+                                    value: val,
+                                    label: val
+                                }))}
+                                value={field.value}
+                                helpTip={element.helpTip}
+                                onChange={(value) => {
+                                    field.onChange(value);
+                                    handleDriverTypeChange(value, element);
+                                }}
+                                required={true}
+                            />
+
+                            {renderDriverConfiguration(field.value)}
+                        </>
+                    );
+                }
+                // For generic radio inputs
+                return (
+                    <GenericRadioGroup
+                        name={name}
+                        label={element.displayName}
+                        options={element.comboValues.map((val: string) => ({
+                            value: val,
+                            label: val
+                        }))}
+                        value={field.value}
+                        onChange={(value) => {
+                            field.onChange(value);
+                            if (element.onValueChange) {
+                                handleValueChange(value, name, element);
+                            }
+                        }}
+                        required={isRequired}
+                    />
                 );
             case 'idpSchemaGenerateView':
                 const onCreateSchemaButtonClick = async (name?: string) => {
@@ -1314,6 +1740,13 @@ export function FormGenerator(props: FormGeneratorProps) {
                     if (getValues(name) !== undefined) {
                         setValue(name, undefined)
                     }
+                    return;
+                }
+            }
+
+            if (element?.value?.connectionTypeEnableCondition !== undefined) {
+                const shouldRender = getConnectionTypeConditions(element.value.connectionTypeEnableCondition);
+                if (!shouldRender) {
                     return;
                 }
             }
@@ -1503,6 +1936,65 @@ export function FormGenerator(props: FormGeneratorProps) {
             }
         }
         return conditions; // Default case if conditions are not met
+    }
+
+    /**
+     * Evaluates conditions based on the connection type of a selected connection,
+     * rather than the raw form field value. This allows UI schema authors to show/hide
+     * fields depending on the type of connection the user has selected.
+     *
+     * Example schema usage:
+     *   "connectionTypeEnableCondition": ["NOT", { "llmConfigKey": "WSO2_AI" }]
+     *
+     * This reads as: show this field when the connection type of llmConfigKey is NOT WSO2_AI.
+     */
+    function getConnectionTypeConditions(conditions: any): boolean {
+        const evaluateCondition = (condition: any) => {
+            const [fieldName] = Object.keys(condition);
+            const expectedType = condition[fieldName];
+
+            // Get the current connection name selected in the referenced field
+            const selectedConnectionName = watch(getNameForController(fieldName));
+
+            if (!selectedConnectionName) {
+                // No connection selected yet — cannot confirm type match
+                return false;
+            }
+
+            // Look up the connection type from the mapping
+            const fieldTypeMapping = connectionTypeMap[getNameForController(fieldName)];
+            if (!fieldTypeMapping) {
+                // Type map not yet loaded — cannot confirm type match
+                return false;
+            }
+
+            const actualType = fieldTypeMapping[selectedConnectionName];
+            if (!actualType) {
+                // Connection name not found in the map — cannot confirm type match
+                return false;
+            }
+
+            return actualType.toUpperCase() === String(expectedType).toUpperCase();
+        };
+
+        if (Array.isArray(conditions)) {
+            const firstElement = conditions[0];
+            const restConditions = conditions.slice(1);
+
+            if (firstElement === "AND") {
+                return restConditions.every((condition: any) =>
+                    Array.isArray(condition) ? getConnectionTypeConditions(condition) : evaluateCondition(condition));
+            } else if (firstElement === "OR") {
+                return restConditions.some((condition: any) =>
+                    Array.isArray(condition) ? getConnectionTypeConditions(condition) : evaluateCondition(condition));
+            } else if (firstElement === "NOT") {
+                const condition = conditions[1];
+                return Array.isArray(condition) ? !getConnectionTypeConditions(condition) : !evaluateCondition(condition);
+            } else {
+                return evaluateCondition(conditions[0]);
+            }
+        }
+        return conditions;
     }
 
     return (

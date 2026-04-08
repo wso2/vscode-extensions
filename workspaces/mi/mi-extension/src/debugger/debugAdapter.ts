@@ -33,6 +33,9 @@ import { EVENT_TYPE, miServerRunStateChanged } from '@wso2/mi-core';
 import { DebuggerConfig } from './config';
 import { openRuntimeServicesWebview } from '../runtime-services-panel/activate';
 import { RPCLayer } from '../RPCLayer';
+import { getWSO2AIEnvVariables } from '../ai-features/configUtils';
+import path = require("path");
+import { isConsolidatedProject } from '../util/onboardingUtils';
 
 interface ILaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
     /** Env variables setup through launch.json */
@@ -293,7 +296,7 @@ export class MiDebugAdapter extends LoggingDebugSession {
 
     private currentServerPath;
     protected launchRequest(response: DebugProtocol.LaunchResponse, args?: ILaunchRequestArguments, request?: DebugProtocol.Request): void {
-        this._configurationDone.wait().then(() => {
+        this._configurationDone.wait().then(async () => {
             const workspaceFolders = vscode.workspace.workspaceFolders;
             const folderPaths = workspaceFolders?.map(f => f.uri.fsPath) || [];
 
@@ -310,6 +313,13 @@ export class MiDebugAdapter extends LoggingDebugSession {
             // Auto select when a single project is opened
             if (folderPaths.length === 1) {
                 selectedOptions = [folderPaths[0]];
+                DebuggerConfig.setProjectList(selectedOptions);
+                this.continueLaunch(response, args);
+                return;
+            }
+
+            if (isConsolidatedProject(path.dirname(folderPaths[0]))) {
+                selectedOptions = folderPaths;
                 DebuggerConfig.setProjectList(selectedOptions);
                 this.continueLaunch(response, args);
                 return;
@@ -539,7 +549,16 @@ export class MiDebugAdapter extends LoggingDebugSession {
                     DebuggerConfig.setConfigPortOffset(this.projectUri);
                     DebuggerConfig.setPortOffset(portOffset);
 
-                    DebuggerConfig.setEnvVariables(args?.env || {});
+                    let envVars = args?.env || {};
+                    try {
+                        const wso2AiEnvVars = await getWSO2AIEnvVariables();
+                        if (Object.keys(wso2AiEnvVars).length > 0) {
+                            envVars = { ...wso2AiEnvVars, ...envVars };
+                        }
+                    } catch (error) {
+                        // Silently ignore - user may not be logged in
+                    }
+                    DebuggerConfig.setEnvVariables(envVars);
                     DebuggerConfig.setVmArgs(args?.vmArgs ? args?.vmArgs : []);
 
                     vscode.commands.executeCommand('setContext', 'MI.isRunning', 'true');

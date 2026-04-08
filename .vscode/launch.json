@@ -339,5 +339,21 @@
             ],
             "preLaunchTask": "npm: watch-apk"
         },
+        {
+            "name": "HTTP Client Extension",
+            "type": "extensionHost",
+            "request": "launch",
+            "debugWebviews": true,
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/hurl-client/hurl-client-extension"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/workspaces/hurl-client/hurl-client-extension/dist/**/*.js"
+            ],
+            "skipFiles": [
+                "**/node_modules/**"
+            ],
+            "preLaunchTask": "npm: watch-hurl-client",
+        }
     ]
 }

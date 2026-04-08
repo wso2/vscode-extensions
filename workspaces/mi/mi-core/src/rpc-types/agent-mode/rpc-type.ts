@@ -40,6 +40,8 @@ import {
     CompactConversationResponse,
     SearchMentionablePathsRequest,
     SearchMentionablePathsResponse,
+    GetAgentRunStatusRequest,
+    GetAgentRunStatusResponse,
 } from "./types";
 
 const _prefix = "mi-agent-service";
@@ -132,4 +134,9 @@ export const compactConversation: RequestType<CompactConversationRequest, Compac
 // Search mentionable file/folder paths for @mentions in chat input
 export const searchMentionablePaths: RequestType<SearchMentionablePathsRequest, SearchMentionablePathsResponse> = {
     method: `${_prefix}/searchMentionablePaths`
+};
+
+// Get current agent run status and buffered events for panel reconnection
+export const getAgentRunStatus: RequestType<GetAgentRunStatusRequest, GetAgentRunStatusResponse> = {
+    method: `${_prefix}/getAgentRunStatus`
 };

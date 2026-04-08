@@ -16,6 +16,7 @@ on:
           - 'apk'
           - 'micro-integrator'
           - 'arazzo-designer'
+          - 'hurl-client'
       isPreRelease:
         required: true
         type: boolean 
@@ -97,6 +98,8 @@ jobs:
           elif [ "${{ github.event.inputs.extension }}" == "micro-integrator" ]; then
             echo "repo=wso2/mi-vscode" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.extension }}" == "arazzo-designer" ]; then
+            echo "repo=wso2/vscode-extensions" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.inputs.extension }}" == "hurl-client" ]; then
             echo "repo=wso2/vscode-extensions" >> $GITHUB_OUTPUT
           fi
 

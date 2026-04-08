@@ -241,6 +241,7 @@ interface SessionSwitcherProps {
     sessions: GroupedSessions | null;
     currentSessionTitle: string;
     isLoading: boolean;
+    disabled?: boolean;
     onSessionSwitch: (sessionId: string) => void;
     onNewSession: () => void;
     onDeleteSession: (sessionId: string) => void;
@@ -275,6 +276,7 @@ const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
     sessions,
     currentSessionTitle,
     isLoading,
+    disabled = false,
     onSessionSwitch,
     onNewSession,
     onDeleteSession,
@@ -304,6 +306,12 @@ const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
         }
     }, [isOpen]);
 
+    useEffect(() => {
+        if (disabled && isOpen) {
+            setIsOpen(false);
+        }
+    }, [disabled, isOpen]);
+
     // Refresh sessions when dropdown opens
     useEffect(() => {
         if (isOpen) {
@@ -312,7 +320,7 @@ const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
     }, [isOpen]);
 
     const handleToggle = () => {
-        if (!isLoading) {
+        if (!isLoading && !disabled) {
             setIsOpen(!isOpen);
             setSearchQuery('');
         }
@@ -388,7 +396,7 @@ const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
 
     return (
         <SwitcherContainer ref={containerRef}>
-            <DropdownTrigger onClick={handleToggle} disabled={isLoading}>
+            <DropdownTrigger onClick={handleToggle} disabled={isLoading || disabled}>
                 <Codicon name="comment-discussion" />
                 <TriggerText>{currentSessionTitle || 'New Chat'}</TriggerText>
                 <Codicon name={isOpen ? 'chevron-up' : 'chevron-down'} />

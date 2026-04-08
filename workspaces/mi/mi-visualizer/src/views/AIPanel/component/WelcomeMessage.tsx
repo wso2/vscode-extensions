@@ -58,7 +58,7 @@ export const WelcomeMessage: React.FC = () => {
                     iconSx={{ fontSize: "60px", color: "var(--vscode-foreground)", cursor: "default" }}
                 />
                 <div style={WelcomeStyles.title}>
-                    <h2>WSO2 MI Copilot</h2>
+                    <h2>WSO2 Integrator Copilot</h2>
                 </div>
                 <Typography variant="body1" sx={WelcomeStyles.description}>
                     The AI Integration Engineer is at your service!

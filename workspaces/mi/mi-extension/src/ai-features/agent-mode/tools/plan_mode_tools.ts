@@ -226,7 +226,11 @@ export interface PendingQuestion {
 export interface PendingPlanApproval {
     approvalId: string;
     approvalKind: PlanApprovalKind;
-    resolve: (result: { approved: boolean; feedback?: string }) => void;
+    sessionId: string;
+    createdAt?: number;
+    expiresAt?: number;
+    timeoutHandle?: ReturnType<typeof setTimeout>;
+    resolve: (result: { approved: boolean; feedback?: string; rememberForSession?: boolean; suggestedPrefixRule?: string[] }) => void;
     reject: (error: Error) => void;
 }
 
@@ -236,15 +240,17 @@ async function requestPlanApproval(
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
     request: {
+        sessionId: string;
         approvalKind: PlanApprovalKind;
         content: string;
+        summary?: string;
         planFilePath?: string;
         approvalTitle: string;
         approveLabel: string;
         rejectLabel: string;
         allowFeedback: boolean;
     }
-): Promise<{ approved: boolean; feedback?: string }> {
+): Promise<{ approved: boolean; feedback?: string; rememberForSession?: boolean; suggestedPrefixRule?: string[] }> {
     const approvalId = uuidv4();
 
     const approvalEvent: PlanApprovalRequestedEvent = {
@@ -252,6 +258,7 @@ async function requestPlanApproval(
         approvalId,
         planFilePath: request.planFilePath,
         content: request.content,
+        summary: request.summary,
         approvalKind: request.approvalKind,
         approvalTitle: request.approvalTitle,
         approveLabel: request.approveLabel,
@@ -261,14 +268,31 @@ async function requestPlanApproval(
     eventHandler(approvalEvent);
 
     return new Promise((resolve, reject) => {
+        const createdAt = Date.now();
+        const expiresAt = createdAt + ASK_USER_TIMEOUT_MS;
+        const timeoutHandle = setTimeout(() => {
+            const pending = pendingApprovals.get(approvalId);
+            if (!pending) {
+                return;
+            }
+            pendingApprovals.delete(approvalId);
+            reject(new Error(`Plan approval timed out after ${ASK_USER_TIMEOUT_MS / 1000} seconds`));
+        }, ASK_USER_TIMEOUT_MS);
+
         pendingApprovals.set(approvalId, {
             approvalId,
             approvalKind: request.approvalKind,
+            sessionId: request.sessionId,
+            createdAt,
+            expiresAt,
+            timeoutHandle,
             resolve: (result) => {
+                clearTimeout(timeoutHandle);
                 pendingApprovals.delete(approvalId);
                 resolve(result);
             },
             reject: (error: Error) => {
+                clearTimeout(timeoutHandle);
                 pendingApprovals.delete(approvalId);
                 reject(error);
             }
@@ -296,6 +320,28 @@ export function cleanupPendingQuestionsForSession(
 
         pendingQuestions.delete(questionId);
         pending.resolve(USER_CANCELLED_RESPONSE);
+    }
+}
+
+export function cleanupPendingApprovalsForSession(
+    pendingApprovals: Map<string, PendingPlanApproval>,
+    sessionId: string
+): void {
+    if (!sessionId) {
+        return;
+    }
+
+    const pendingEntries = Array.from(pendingApprovals.entries())
+        .filter(([, pending]) => pending.sessionId === sessionId);
+
+    for (const [approvalId, pending] of pendingEntries) {
+        if (pending.timeoutHandle) {
+            clearTimeout(pending.timeoutHandle);
+            pending.timeoutHandle = undefined;
+        }
+
+        pendingApprovals.delete(approvalId);
+        pending.reject(new Error('Plan approval cancelled because the session was closed.'));
     }
 }
 
@@ -456,10 +502,9 @@ const askUserInputSchema = z.object({
 
 export function createAskUserTool(execute: AskUserExecuteFn) {
     return (tool as any)({
-        description: `Ask the user 1-4 questions with 2-4 options each. BLOCKS until user responds.
-            Use to clarify requirements, get preferences, or confirm implementation choices.
-            Put recommended option first with "(Recommended)" in label. Users can always select "Other" for free text.
-            Use multiSelect=true when choices are not mutually exclusive.`,
+        description: `Ask the user 1-4 multiple-choice questions and wait for a response.
+            Supports 2-4 options per question and optional multiSelect mode for non-mutually-exclusive choices.
+            Use this to clarify requirements, confirm assumptions, or collect preferences before implementation.`,
         inputSchema: askUserInputSchema,
         execute
     });
@@ -487,6 +532,7 @@ export function createEnterPlanModeExecute(
 
         try {
             const approval = await requestPlanApproval(eventHandler, pendingApprovals, {
+                sessionId,
                 approvalKind: 'enter_plan_mode',
                 approvalTitle: 'Enter Plan Mode?',
                 approveLabel: 'Enter Plan Mode',
@@ -585,6 +631,7 @@ export function createExitPlanModeExecute(
         if (forceExitWithoutPlan) {
             try {
                 const approval = await requestPlanApproval(eventHandler, pendingApprovals, {
+                    sessionId,
                     approvalKind: 'exit_plan_mode_without_plan',
                     approvalTitle: 'Exit Plan Mode?',
                     approveLabel: 'Exit Plan Mode',
@@ -675,14 +722,17 @@ export function createExitPlanModeExecute(
         }
 
         try {
+            const approvalSummary = typeof summary === 'string' ? summary.trim() : '';
             const approval = await requestPlanApproval(eventHandler, pendingApprovals, {
+                sessionId,
                 approvalKind: 'exit_plan_mode',
                 approvalTitle: 'Plan Approval',
                 approveLabel: 'Approve Plan',
                 rejectLabel: 'Request Changes',
                 allowFeedback: true,
                 planFilePath: planInfo.planPath,
-                content: planContent || summary || 'Plan ready for approval',
+                summary: approvalSummary || undefined,
+                content: planContent || 'Plan ready for approval',
             });
 
             if (approval.approved) {
@@ -737,26 +787,21 @@ export function createExitPlanModeExecute(
 
 const exitPlanModeInputSchema = z.object({
     summary: z.string().optional().describe(
-        'Optional short summary shown while requesting approval. The actual plan is read from the plan file.'
-    ),
-    plan: z.string().optional().describe(
-        'Deprecated alias for summary. The actual plan is always read from the plan file.'
+        'Optional short note shown in the approval request. The plan content is read from the assigned plan file.'
     ),
     force_exit_without_plan: z.boolean().optional().describe(
-        'Set true to request exiting plan mode without requiring a plan file update. Use only when planning is unnecessary.'
+        'If true, requests user approval to exit plan mode without requiring a plan file approval flow.'
     ),
     reason: z.string().optional().describe(
-        'Short reason for why exiting plan mode without a plan is acceptable.'
+        'Optional reason shown to the user when force_exit_without_plan=true.'
     ),
 });
 
 export function createExitPlanModeTool(execute: ExitPlanModeExecuteFn) {
     return (tool as any)({
-        description: `Signal that your implementation plan is ready for user approval. BLOCKS until user approves or rejects.
-            Write/update your plan in the assigned plan file BEFORE calling this tool.
-            If planning is not required, set force_exit_without_plan=true (with optional reason) to request user consent to exit plan mode without a plan.
-            Use only when planning implementation work; do NOT use for research/exploration-only tasks.
-            Resolve open requirement questions with ask_user first. Do NOT ask "Is this plan okay?" via ask_user - this tool handles plan approval.`,
+        description: `Request to exit plan mode and wait for user approval.
+            Default flow submits the current assigned plan file for plan approval.
+            Set force_exit_without_plan=true to request an explicit exit approval without plan-file approval, optionally with a reason.`,
         inputSchema: exitPlanModeInputSchema,
         execute
     });
@@ -819,10 +864,9 @@ const todoWriteInputSchema = z.object({
 
 export function createTodoWriteTool(execute: TodoWriteExecuteFn) {
     return (tool as any)({
-        description: `Track task progress with a structured todo list (in-memory, not persisted).
-            Each call REPLACES the entire list - always include ALL tasks (completed + pending).
-            Only ONE task should be in_progress at a time. Mark tasks completed immediately after finishing.
-            Use for multi-step tasks (3+ steps). Each task needs content (imperative) and activeForm (present continuous).`,
+        description: `Update the structured in-memory todo list shown in the UI.
+            Each call replaces the full list and accepts tasks with content, status, and activeForm fields.
+            Todo state is session-scoped and not persisted to project files.`,
         inputSchema: todoWriteInputSchema,
         execute
     });

@@ -17,7 +17,6 @@
  */
 
 import { CREATE_DATA_MAPPER_TOOL_NAME } from "../tools/types";
-import { SYNAPSE_EXPRESSION_EXAMPLES } from "./synapse_expression_examples";
 import { SYNAPSE_EXPRESSION_GUIDE } from "./synapse_expression_guide"
 
 export const SYNAPSE_GUIDE = `
@@ -26,7 +25,7 @@ export const SYNAPSE_GUIDE = `
 ## Steps for developing integration solutions:
     - Make necessary assumptions to complete the solution.
     - Identify the necessary mediators from the following list of supported mediators
-        - Core Mediators: call, call-template, drop, log, loopback, property(deprecated), variable, propertyGroup(deprecated), respond, send, sequence, store
+        - Core Mediators: call, call-template, drop, log, loopback, property(deprecated), variable, propertyGroup(deprecated), respond, send(legacy; prefer HTTP connector for new REST integrations), sequence, store
         - Routing & Conditional Processing: filter, switch, validate
         - Custom & External Service Invocation: class, script
         - Message Transformation: enrich, header, payloadFactory, smooks, rewrite, xquery, xslt, datamapper, fastXSLT, jsontransform
@@ -46,7 +45,6 @@ export const SYNAPSE_GUIDE = `
    - Adhere to Synapse best practices.
    - Create a separate file for each endpoint.
    - Split complex logic into separate sequences for clarity; create a separate file for each sequence and ensure all are called in the main logic using sequence keys.
-   - Do not use \`outSequence\` as it is deprecated.
    - Give meaningful names to Synapse artifacts.
    - Provide a meaningful path in the uri-template in APIs.
    - Use &amp; instead of & in XML.
@@ -55,12 +53,19 @@ export const SYNAPSE_GUIDE = `
    - Use WSO2 Connectors whenever possible instead of directly calling APIs.
    - Do not use new class mediators unless it is absolutely necessary.
    - Define driver, username, dburl, and passwords inside the dbreport or dblookup mediator <connection> tag instead of generating deployment toml file changes.
-   - Do not use <> tags as placeholders.
+   - Do not use fake XML placeholders (for example, <TODO>, <placeholder>, or <...>) in generated artifacts.
    - To include an API key in uri-template, define:
     \`\`\`xml
     <variable name="username" value="your_api_key_here" type="STRING"/>
-    \`\`\`
+   \`\`\`
    - The respond mediator should be empty; it does not support child elements.
+
+## Deprecated patterns quick reference
+   - \`outSequence\` is deprecated. Use \`inSequence\` and explicit sequence flow.
+   - \`property\` / \`propertyGroup\` mediators are deprecated for new flows. Use \`variable\`.
+   - In \`log\` mediator, \`level\` and \`<property>\` children are deprecated. Use \`category\` + \`<message>\`.
+   - \`clone\` mediator is deprecated. Use \`scatter-gather\`.
+   - For new REST integrations, prefer the HTTP connector over \`send\` or generic \`call\`. For SOAP, prefer \`call\` with named endpoints.
 
 ## WSO2 Synapse Connector Guidelines:
     - You can use WSO2 Synapse Connectors to integrate with WSO2 services and third-party services.
@@ -80,21 +85,21 @@ export const SYNAPSE_GUIDE = `
 </api>
 \`\`\`
 
-## WSO2 has introduced Synapse Expressions, which should be used instead of JsonPath or XPath. Refer to the following documentation.
+## WSO2 has introduced Synapse Expressions, which should be used instead of JsonPath or XPath.
+    - For complex expression patterns, type coercion rules, function details, and edge cases, load deep reference contexts via load_context_reference.
 
-<SYNAPSE_EXPRESSIONS_DOCS>
+<SYNAPSE_EXPRESSION_REFERENCE>
     ${SYNAPSE_EXPRESSION_GUIDE}
-</SYNAPSE_EXPRESSIONS_DOCS>
-
-<SYNAPSE_EXPRESSION_EXAMPLES>
-    ${SYNAPSE_EXPRESSION_EXAMPLES}
-</SYNAPSE_EXPRESSION_EXAMPLES>
+</SYNAPSE_EXPRESSION_REFERENCE>
 
 ## Use the new variable mediator instead of the deprecated property mediator:
     - Syntax
     \`\`\`xml
-    <variable name="string" [type="STRING"|"BOOLEAN"|"INTEGER"|"DOUBLE"|"LONG"|"XML"|"JSON"] (value="string" | expression="expression") />
+    <variable name="userName" type="STRING" value="JohnDoe"/>
+    <variable name="userId" type="INTEGER" expression="\${payload.user.id}"/>
     \`\`\`
+    - Supported types: \`STRING\`, \`BOOLEAN\`, \`INTEGER\`, \`DOUBLE\`, \`LONG\`, \`XML\`, \`JSON\`.
+    - Use either \`value\` or \`expression\` in a single variable definition (not both).
 
     - Examples
     \`\`\`xml
@@ -103,7 +108,8 @@ export const SYNAPSE_GUIDE = `
     <variable name="userId" expression="\${payload.user.id}" type="INTEGER"/>
     \`\`\`
     
-    - Variables can only include name, type, and value/expression attributes.
+    - Generic variables use only name, type, and value/expression attributes.
+    - **Exception:** Synapse runtime properties (e.g., \`HTTP_SC\`, \`messageType\`, \`REST_URL_POSTFIX\`, \`ERROR_CODE\`) require \`action\` and \`scope\` attributes. See the "Synapse Runtime Properties" section below.
     - Example of an incorrect usage:
     \`\`\`xml
     <variable name="username" value="JohnDoe" type="STRING">
@@ -123,23 +129,15 @@ export const SYNAPSE_GUIDE = `
     </log>
     \`\`\`
 
-## Do not use \`level\` in log mediator. It is deprecated. Use \`category\` instead.
-
-    - Incorrect syntax:
-    \`\`\`xml
-    <log level="custom">
-       <message>Message</message>
-    </log>
-    \`\`\`
-
-    - Correct syntax:
+## Log mediator rules (single source of truth)
+    - \`level\` is deprecated. Use \`category\`.
+    - \`<property>\` children inside \`<log>\` are deprecated. Use \`<message>\` with Synapse expressions.
+    - Canonical syntax:
     \`\`\`xml
     <log [category="INFO|TRACE|DEBUG|WARN|ERROR|FATAL"] [separator="string"]>
        <message></message>
     </log>
     \`\`\`
-
-    - Do not use properties inside log mediators. It is deprecated.  Use Synapse Expressions directly:
     - Deprecated syntax:
     \`\`\`xml
     <log level="custom">
@@ -147,54 +145,23 @@ export const SYNAPSE_GUIDE = `
         <property name="RequestID" expression="get-property('RequestID')"/>
     </log>
     \`\`\`
-
     - Correct syntax:
     \`\`\`xml
-    <log category="INFO">
-       <message>\${payload.name}</message>
-    </log>
-
-    <log category="INFO">
-       <message>Hello \${payload.name}, Welcome to the system</message>
+    <log [category="INFO|TRACE|DEBUG|WARN|ERROR|FATAL"] [separator="string"] logMessageID=(true | false) logFullPayload=(true | false)>
+       <message>Hello \${payload.name}, RequestID=\${vars.requestId}</message>
     </log>
     \`\`\`
 
-## Prefer using the new HTTP connector over call or send mediators unless absolutely necessary or legacy compatibility requires it or if you encounter issues with the new HTTP connector.
-    - First, define a local entry using http.init:
-       \`\`\`xml
-       <localEntry key="HTTP_1" xmlns="http://ws.apache.org/ns/synapse">
-          <http.init>
-             <connectionType>http</connectionType> <!-- http or https -->
-             <baseUrl>http://localhost:9090</baseUrl>
-             <authType>Basic Auth</authType>
-             <basicCredentialsUsername>user</basicCredentialsUsername>
-             <basicCredentialsPassword>1234</basicCredentialsPassword>
-             <timeoutDuration>10</timeoutDuration>
-             <timeoutAction>Never</timeoutAction>
-             <retryErrorCodes>500</retryErrorCodes>
-             <retryCount>1</retryCount>
-             <retryDelay>5</retryDelay>
-             <suspendErrorCodes>406</suspendErrorCodes>
-             <suspendInitialDuration>-1</suspendInitialDuration>
-             <suspendProgressionFactor>1</suspendProgressionFactor>
-             <suspendMaximumDuration>5000</suspendMaximumDuration>
-             <name>balSampleConn</name>
-          </http.init>
-       </localEntry>
-       \`\`\`
-    - Always create a separate file for each local entry
+## Prefer using the new HTTP connector over call or send mediators unless absolutely necessary, legacy compatibility requires it, or you encounter issues with the new HTTP connector.
+    - Resolve initialization mode from connector summary fields (\`connectionLocalEntryNeeded\`, \`noInitializationNeeded\`) and follow \`CONNECTOR_DEVELOPMENT_GUIDELINES\`.
+    - Do not assume all HTTP usage requires local entry + \`configKey\`; that is required only when \`connectionLocalEntryNeeded=true\`.
+    - If local entry is required, keep each local entry in a separate file.
 
     - Example GET:
        \`\`\`xml
        <http.get configKey="QueryDoctorConn">
-          <relativePath>/\${params.uriParams.category}</relativePath>
-          <headers>[[&quot;content-type&quot;,&quot;application/xml&quot;],]</headers>
-          <forceScAccepted>false</forceScAccepted>
-          <disableChunking>false</disableChunking>
-          <forceHttp10>false</forceHttp10>
-          <noKeepAlive>false</noKeepAlive>
-          <forcePostPutNobody>false</forcePostPutNobody>
-          <forceHttpContentLength>false</forceHttpContentLength>
+          <relativePath>/\${params.pathParams.category}</relativePath>
+          <headers>[[&quot;content-type&quot;,&quot;application/xml&quot;]]</headers>
        </http.get>
        \`\`\`
 
@@ -205,50 +172,64 @@ export const SYNAPSE_GUIDE = `
           <headers>[]</headers>
           <requestBodyType>XML</requestBodyType>
           <requestBodyXml>{\${xpath('$body/node()')}}</requestBodyXml>
-          <forceScAccepted>false</forceScAccepted>
-          <disableChunking>false</disableChunking>
-          <forceHttp10>false</forceHttp10>
-          <noKeepAlive>false</noKeepAlive>
-          <forcePostPutNobody>false</forcePostPutNobody>
-          <forceHttpContentLength>false</forceHttpContentLength>
        </http.post>
        \`\`\`
+
     - How to add query parameters:
     \`\`\`xml
     <http.get configKey="SimpleStockQuoteService">
       <relativePath>/getQuote?userId=\${vars.userId}</relativePath>
       <headers>[]</headers>
-      <requestBodyType>XML</requestBodyType>
-      <requestBodyXml>{\${xpath('$body/node()')}}</requestBodyXml>
-      <forceScAccepted>false</forceScAccepted>
-      <disableChunking>false</disableChunking>
-      <forceHttp10>false</forceHttp10>
-      <noKeepAlive>false</noKeepAlive>
-      <forcePostPutNobody>false</forcePostPutNobody>
-      <forceHttpContentLength>false</forceHttpContentLength>
     </http.get>
     \`\`\`
     - Supported methods: GET, POST, PUT, DELETE, HEAD, PATCH, OPTIONS
+    - Optional boolean flags (all default to false): \`forceScAccepted\`, \`disableChunking\`, \`forceHttp10\`, \`noKeepAlive\`, \`forcePostPutNobody\`, \`forceHttpContentLength\`. Only include when needed.
 
-## SOAP / XML Integration Rules
-    - For SOAP services, always prefer the \\\`call\\\` mediator with a named endpoint over the HTTP connector. The HTTP connector is designed for REST; it can cause stream-building failures with SOAP responses.
-    - Before using any external service URL, verify whether it uses HTTP or HTTPS (e.g., test with curl -L). Never assume HTTP — many services redirect to HTTPS. Use an HTTPS endpoint URI when the service requires it.
+## SOAP / XML Integration Recommendations
+    - For SOAP, use the \`call\` mediator with a named endpoint. Avoid the HTTP connector as it does not support SOAP.
+    - Never assume HTTP for external services. Prefer HTTPS unless the service is explicitly HTTP-only.
 
-### SOAP Response Handling After \\\`call\\\` Mediator (MI 4.x)
-    - After a \\\`call\\\` mediator to a SOAP endpoint with \\\`format="soap11"\\\`, WSO2 MI 4.x automatically converts the SOAP XML response body to JSON in the message context.
-    - ALWAYS access the SOAP response using the JSON payload path: \\\`\\\${payload.ResponseElementName.ChildElement}\\\`
-    - DO NOT use XPath as the first access after a SOAP call: \\\`\\\${xpath("string($body//*[local-name()='Element'])")}\\\`  ← may return empty
-    - Reason: The SOAP response is in deferred/pass-through (unbuilt) mode until something forces message building. Accessing \\\`\\\${payload}\\\` forces the build; raw XPath may silently evaluate against an unbuilt message and return empty.
-    - If XPath is unavoidable, force message building first by setting an intermediate variable: \\\`<variable name="p" expression="\\\${payload}" type="JSON"/>\\\` then use XPath in a subsequent expression.
+### SOAP response access after \`call\` (MI 4.x)
+    - After a SOAP \`call\`, \`\${payload}\` is JSON. When using \`\${payload}\`, prefer JSON paths. The JSON key names match the XML element local names (namespace prefix is stripped):
+    \`\`\`xml
+    <!-- SOAP response: <m:NumberToWordsResponse><m:NumberToWordsResult>five hundred -->
+    <variable name="result" expression="\${payload.NumberToWordsResponse.NumberToWordsResult}" type="STRING"/>
+    \`\`\`
+    - Storing \`\${payload}\` as \`type="XML"\` after a SOAP call can fail with \`WstxUnexpectedCharException: Unexpected character '{'\` because the value is JSON, not XML.
+    - \`xpath()\` and \`\$body\` access are supported when the raw XML body is explicitly materialized and that usage is documented by the expression engine for the flow.
+    - For \`\$body\`/\`xpath()\` syntax and quoting patterns, follow the Synapse Expression Guide examples in this document.
+
+### SOAP namespace accuracy
+    - Never infer SOAP operation namespace from service URL.
+    - Always use WSDL \`targetNamespace\` when building SOAP bodies (especially in \`payloadFactory\`).
+    - Wrong namespace can cause silent SOAP Fault behavior (empty results without explicit MI exception).
+
+## Synapse Runtime Properties (axis2 & synapse scope)
+Synapse has special properties set via the \`variable\` mediator (with axis2 or synapse scope) that control runtime HTTP/transport behavior. These are NOT regular application variables — they change how MI processes and sends messages. Common scenarios:
+- **Custom HTTP status codes**: Return 202 Accepted, 204 No Content, etc. → set \`HTTP_SC\` in axis2 scope
+- **Content-type control**: \`messageType\` (controls serialization format) vs \`ContentType\` (controls HTTP Content-Type header) — both in axis2 scope
+- **Transport behavior**: Disable chunking, force HTTP 1.0, disable keep-alive, force Content-Length header
+- **Fire-and-forget**: \`OUT_ONLY\` / \`FORCE_SC_ACCEPTED\` for async one-way messages
+- **REST URL manipulation**: \`REST_URL_POSTFIX\` to dynamically append to endpoint URLs
+- **Error info in fault sequences** (read-only): \`ERROR_CODE\`, \`ERROR_MESSAGE\`, \`ERROR_DETAIL\` — these are populated by the mediation engine in synapse scope and are available for reading inside fault sequences, but are NOT set via the variable mediator
+
+The writable transport properties above are set using the variable mediator with scope:
+\`\`\`xml
+<variable name="HTTP_SC" type="INTEGER" value="202" action="set" scope="axis2"/>
+<variable name="messageType" type="STRING" value="application/json" action="set" scope="axis2"/>
+\`\`\`
+
+For the full property reference (70+ properties with exact names, scopes, and usage patterns), load the \`synapse-property-reference\` context.
 
 ## For the new filter mediator, do not use source. Use only xpath:
+    - The \`xpath\` attribute accepts Synapse Expressions (despite the attribute name). The expression must evaluate to a boolean.
 \`\`\`xml
-<filter xpath="[SynapseExpression]">
+<filter xpath="\${payload.age &gt; 18}">
     <then>
-     mediator+
+        <!-- adult flow -->
     </then>
     <else>
-     mediator+
+        <!-- minor flow -->
     </else>
 </filter>
 \`\`\`
@@ -302,6 +283,30 @@ export const SYNAPSE_GUIDE = `
         </sequence>
 
     </scatter-gather>
+    \`\`\`
+
+## ForEach Mediator (v2 — collection-based iteration)
+    - Use forEach to iterate over a JSON array.
+    - Syntax:
+    \`\`\`xml
+    <foreach collection="\${expression}" parallel-execution=(true | false) counter-variable="string" update-original=(true | false) result-content-type=(JSON | XML) target-variable="string">
+        <sequence>
+            (mediator)+
+        </sequence>
+    </foreach>
+    \`\`\`
+    - During iteration, \`\${payload}\` refers to the current array element, not the original payload.
+    - Use \`counter-variable\` to access the current index via \`\${vars.counterName}\`.
+    - Sequences inside forEach cannot contain \`call\`, \`send\`, or \`callout\` mediators.
+    - Example:
+    \`\`\`xml
+    <foreach collection="\${payload.orders}" parallel-execution="false" counter-variable="i">
+        <sequence>
+            <log category="INFO">
+                <message>Order \${vars.i}: \${payload.orderId}</message>
+            </log>
+        </sequence>
+    </foreach>
     \`\`\`
 
 ## Correct syntax for dblookup mediator:
@@ -370,7 +375,7 @@ export const SYNAPSE_GUIDE = `
     <!-- Error message as string -->
     <throwError type="string" errorMessage="string"></throwError>
     <!-- Dynamic error message -->
-    <throwError type="string" errorMessage="{\${expression}}"></throwError>
+    <throwError type="string" errorMessage="\${expression}"></throwError>
     \`\`\`
     - Example:
     \`\`\`xml
@@ -379,12 +384,14 @@ export const SYNAPSE_GUIDE = `
             <inSequence>
                 <filter xpath="\${exists(payload.required)}">
                     <then>
-                        <log level="full"/>
+                        <log category="INFO" logMessageID="false" logFullPayload="true">
+                            <message>Required field exists: \${payload.required}</message>
+                        </log>
                         <respond/>
                     </then>
                     <else>
                         <variable name="ERROR_MSG" value="Required field does not exist"/>
-                        <throwError type="PAYLOAD_ERROR" errorMessage="{\${vars.ERROR_MSG}}"/>
+                        <throwError type="PAYLOAD_ERROR" errorMessage="\${vars.ERROR_MSG}"/>
                     </else>
                 </filter>
             </inSequence>
@@ -399,6 +406,8 @@ export const SYNAPSE_GUIDE = `
     \`\`\`
 
 ## Data Mappers
+**Important runtime requirement:** Data mapper artifacts and the \`<datamapper>\` mediator require MI runtime \`4.4.0\` or newer. If runtime is below \`4.4.0\`, do not use data mapper generation.
+
 Data mappers transform data between input and output schemas using TypeScript. They are used with the \`<datamapper>\` mediator in Synapse integrations.
 Always use ${CREATE_DATA_MAPPER_TOOL_NAME} tool to create a data mapper. Do not create data mappers manually.
 
@@ -453,8 +462,8 @@ export function mapFunction(input: InputRoot): OutputRoot {
 - Property access: \`dmUtils.getPropertyValue(scope, name)\`
 
 ## Registry Resources
-When creating supportive resources that are needed for the Integration inside src/main/java/wso2mi/resources, an entry should be added to the src/main/java/wso2mi/resources/artifact.xml. If an artifacts.xml doesn't exist, then create one and add the entry. The format should be as follows:
-For data mappers this is get automatically done by the ${CREATE_DATA_MAPPER_TOOL_NAME} tool. But for other resources, you need to add the entry manually.
+When creating supportive resources that are needed for the Integration inside src/main/wso2mi/resources, an entry should be added to the src/main/wso2mi/resources/artifact.xml. If an artifact.xml doesn't exist, then create one and add the entry. The format should be as follows:
+For data mappers this is automatically done by the ${CREATE_DATA_MAPPER_TOOL_NAME} tool. But for other resources, you need to add the entry manually.
 
 \`\`\`xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -471,7 +480,7 @@ For data mappers this is get automatically done by the ${CREATE_DATA_MAPPER_TOOL
 \`\`\`
 
 Here the path artifact name should be unique and generally resembles the file path inside the resources folder. The file element should be the name of the file inside the resources folder. The path element should be the registry path where the resource will be added when the integration is deployed. Generally resources are added inside '/_system/governance/mi-resources'. The mediaType should be the media type of the resource. The properties element can be used to add any additional properties to the resource, but it can be left empty if there are no additional properties to add. 
-For an example if an XSLT file is added inside src/main/java/wso2mi/resources/xslt/conversion.xslt, then the artifact entry can be as follows:
+For an example if an XSLT file is added inside src/main/wso2mi/resources/xslt/conversion.xslt, then the artifact entry can be as follows:
 
 \`\`\`xml
 <artifact name="resources_xslt_conversion_xslt" groupId="com.microintegrator.projects" version="1.0.0" type="registry/resource" serverRole="EnterpriseIntegrator">
@@ -484,5 +493,5 @@ For an example if an XSLT file is added inside src/main/java/wso2mi/resources/xs
   </artifact>
 \`\`\`
 
-Content under api-definitions, conf, connectors and metadata are not added as registry resources and hence do not require an entry in the artifact.xml. Only supportive resources that are needed for the integration and are added inside src/main/java/wso2mi/resources need to be added as registry resources and require an entry in the artifact.xml.
+Content under api-definitions, conf, connectors and metadata are not added as registry resources and hence do not require an entry in the artifact.xml. Only supportive resources that are needed for the integration and are added inside src/main/wso2mi/resources need to be added as registry resources and require an entry in the artifact.xml.
 `;

@@ -268,9 +268,18 @@ import {
     GetMockServicesResponse,
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
+    LoadDriverAndTestConnectionRequest,
+    GetDynamicFieldsRequest,
+    GetDynamicFieldsResponse,
+    GetStoredProceduresResponse,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse,
     Property,
     UpdateRegistryPropertyRequest,
-    GenerateMappingsParamsRequest
+    GenerateMappingsParamsRequest,
+    ProjectCreationStatusResponse
 } from "./types";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -330,7 +339,7 @@ export const closeWebView: NotificationType<void> = { method: `${_preFix}/closeW
 export const openDiagram: NotificationType<OpenDiagramRequest> = { method: `${_preFix}/openDiagram` };
 export const openFile: NotificationType<OpenDiagramRequest> = { method: `${_preFix}/openFile` };
 export const closeWebViewNotification: NotificationType<void> = { method: `${_preFix}/closeWebViewNotification` };
-export const getWorkspaceRoot: RequestType<void, ProjectRootResponse> = { method: `${_preFix}/getWorkspaceRoot` };
+export const getWorkspaceRoot: RequestType<boolean | undefined, ProjectRootResponse> = { method: `${_preFix}/getWorkspaceRoot` };
 export const getProjectRoot: RequestType<GetProjectRootRequest, ProjectRootResponse> = { method: `${_preFix}/getProjectRoot` };
 export const askProjectDirPath: RequestType<void, ProjectDirResponse> = { method: `${_preFix}/askProjectDirPath` };
 export const askProjectImportDirPath: RequestType<void, ProjectDirResponse> = { method: `${_preFix}/askProjectImportDirPath` };
@@ -458,3 +467,10 @@ export const isKubernetesConfigured: RequestType<void, boolean> = { method: `${_
 export const updatePropertiesInArtifactXML: RequestType<UpdateRegistryPropertyRequest, string> = { method: `${_preFix}/updatePropertiesInArtifactXML` };
 export const getPropertiesFromArtifactXML: RequestType<string, Property[] | undefined> = { method: `${_preFix}/getPropertiesFromArtifactXML` };
 export const getInputOutputMappings: RequestType<GenerateMappingsParamsRequest, string[]> = { method: `${_preFix}/getInputOutputMappings` };
+export const loadDriverAndTestConnection: RequestType<LoadDriverAndTestConnectionRequest, TestDbConnectionResponse> = { method: `${_preFix}/loadDriverAndTestConnection` };
+export const getDynamicFields: RequestType<GetDynamicFieldsRequest, GetDynamicFieldsResponse> = { method: `${_preFix}/getDynamicFields` };
+export const getStoredProcedures: RequestType<DSSFetchTablesRequest, GetStoredProceduresResponse> = { method: `${_preFix}/getStoredProcedures` };
+export const downloadDriverForConnector: RequestType<DriverDownloadRequest, DriverDownloadResponse> = { method: `${_preFix}/downloadDriverForConnector` };
+export const getDriverMavenCoordinates: RequestType<DriverMavenCoordinatesRequest, DriverMavenCoordinatesResponse> = { method: `${_preFix}/getDriverMavenCoordinates` };
+export const canCreateConsolidatedProject: RequestType<void, ProjectCreationStatusResponse> = { method: `${_preFix}/canCreateConsolidatedProject` };
+export const createConsolidatedProjectFromWorkspace: RequestType<CreateProjectRequest, CreateProjectResponse> = { method: `${_preFix}/createConsolidatedProjectFromWorkspace` };

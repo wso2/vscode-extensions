@@ -29,15 +29,38 @@ import CodeContextCard from "../../CodeContextCard";
 import { AgentMode } from "../../AIChatInput/ModeToggle";
 
 export const FooterContainer = styled.footer({
-    padding: "20px",
+    padding: "20px 20px 12px",
 });
 
-const SuggestedCommandsWrapper = styled.div({
-    marginTop: "16px",
-    marginBottom: "6px",
-    marginLeft: "2px",
-    color: "var(--vscode-descriptionForeground)",
-});
+const SuggestedCommandsWrapper = styled.div`
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 12px;
+`;
+
+const SuggestionChip = styled.button`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-family: var(--vscode-font-family);
+    background: var(--vscode-editor-background);
+    color: var(--vscode-descriptionForeground);
+    border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+    border-radius: 8px;
+    cursor: pointer !important;
+    transition: all 0.15s ease;
+    text-align: left;
+
+    &:hover {
+        background: var(--vscode-list-hoverBackground);
+        border-color: var(--vscode-focusBorder, var(--vscode-widget-border));
+        color: var(--vscode-foreground);
+    }
+`;
 
 const bubbleAnimation = keyframes`
     0% {
@@ -104,20 +127,23 @@ const renderPrompt = (item: AIPanelPrompt, index: number, aiChatInputRef: React.
     }
 
     return (
-        <div key={index} style={{ marginBottom: "2px" }}>
-            <a
-                href="#"
-                style={{ textDecoration: "none", cursor: "pointer", outline: "none", boxShadow: "none" }}
-                onClick={(e) => {
-                    e.preventDefault();
-                    aiChatInputRef.current?.setInputContent(item);
-                }}
-            >
-                {text}
-            </a>
-        </div>
+        <SuggestionChip key={index} onClick={() => aiChatInputRef.current?.setInputContent(item)}>
+            <span className="codicon codicon-arrow-right" style={{ fontSize: "11px", opacity: 0.6 }} />
+            {text}
+        </SuggestionChip>
     );
 };
+
+const DisclaimerText = styled.p<{ visible: boolean }>`
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    text-align: center;
+    margin: 6px 0 0;
+    opacity: ${(props: { visible: boolean }) => props.visible ? 0.7 : 0};
+    max-height: ${(props: { visible: boolean }) => props.visible ? '20px' : '0'};
+    overflow: hidden;
+    transition: opacity 0.2s ease, max-height 0.2s ease;
+`;
 
 type FooterProps = {
     aiChatInputRef: React.RefObject<AIChatInputRef>;
@@ -127,6 +153,7 @@ type FooterProps = {
     onSend: (content: { input: Input[]; attachments: Attachment[]; metadata?: Record<string, any> }) => Promise<void>;
     onStop: () => void;
     isLoading: boolean;
+    loadingLabel?: string;
     showSuggestedCommands: boolean;
     codeContext?: CodeContext;
     onRemoveCodeContext?: () => void;
@@ -134,7 +161,10 @@ type FooterProps = {
     onChangeAgentMode?: (mode: AgentMode) => void;
     isAutoApproveEnabled?: boolean;
     onDisableAutoApprove?: () => void;
+    isWebToolsEnabled?: boolean;
+    onToggleWebSearch?: () => void;
     disabled?: boolean;
+    contextUsage?: { inputTokens: number; percentage: number; breakdown?: { systemInstructions: number; toolDefinitions: number; reservedOutput: number; messages: number; toolResults: number } } | null;
 };
 
 const Footer: React.FC<FooterProps> = ({
@@ -145,6 +175,7 @@ const Footer: React.FC<FooterProps> = ({
     onSend,
     onStop,
     isLoading,
+    loadingLabel,
     showSuggestedCommands,
     codeContext,
     onRemoveCodeContext,
@@ -152,22 +183,33 @@ const Footer: React.FC<FooterProps> = ({
     onChangeAgentMode,
     isAutoApproveEnabled,
     onDisableAutoApprove,
+    isWebToolsEnabled,
+    onToggleWebSearch,
     disabled,
+    contextUsage,
 }) => {
-    const [generatingText, setGeneratingText] = useState("Generating.");
+    const [animatedText, setAnimatedText] = useState("Generating.");
 
     useEffect(() => {
         if (isLoading) {
+            const baseText = loadingLabel || "Generating";
+            setAnimatedText(baseText + ".");
+
             const interval = setInterval(() => {
-                setGeneratingText((prev) => {
-                    if (prev === "Generating...") return "Generating.";
+                setAnimatedText((prev) => {
+                    // Extract the base text without dots
+                    const dots = prev.match(/\.+$/)?.[0] || "";
+                    const base = prev.slice(0, prev.length - dots.length);
+
+                    // Cycle through 1, 2, 3 dots
+                    if (dots.length >= 3) return base + ".";
                     return prev + ".";
                 });
             }, 500);
 
             return () => clearInterval(interval);
         }
-    }, [isLoading]);
+    }, [isLoading, loadingLabel]);
 
     return (
         <FooterContainer>
@@ -186,7 +228,7 @@ const Footer: React.FC<FooterProps> = ({
                         <span />
                         <span />
                     </Bubbles>
-                    <span>{generatingText}</span>
+                    <span>{animatedText}</span>
                 </LoadingIndicatorContainer>
             )}
             <AIChatInput
@@ -202,8 +244,14 @@ const Footer: React.FC<FooterProps> = ({
                 onChangeAgentMode={onChangeAgentMode}
                 isAutoApproveEnabled={isAutoApproveEnabled}
                 onDisableAutoApprove={onDisableAutoApprove}
+                isWebToolsEnabled={isWebToolsEnabled}
+                onToggleWebSearch={onToggleWebSearch}
                 disabled={disabled}
+                contextUsage={contextUsage}
             />
+            <DisclaimerText visible={!showSuggestedCommands}>
+                AI-generated content may contain mistakes. Always review changes.
+            </DisclaimerText>
         </FooterContainer>
     );
 };

@@ -22,12 +22,12 @@ import * as path from 'path';
 import * as os from 'os';
 import { formatFileTree, getExistingFiles } from '../../../utils/file-utils';
 import { getAvailableConnectorCatalog } from '../../tools/connector_tools';
-import { getAvailableSkills } from '../../tools/skill_tools';
 import { getPlanModeReminder as getPlanModeSessionReminder } from '../../tools/plan_mode_tools';
 import { getRuntimeVersionFromPom } from '../../tools/connector_store_cache';
 import { getServerPathFromConfig } from '../../../../util/onboardingUtils';
 import { AgentMode } from '@wso2/mi-core';
 import { getModeReminder } from './mode';
+import { buildSystemReminder } from './prompt_system_reminder';
 
 const MAX_PROJECT_STRUCTURE_FILES = 50;
 const MAX_PROJECT_STRUCTURE_CHARS = 10000;
@@ -68,14 +68,10 @@ These are the available WSO2 connectors from WSO2 connector store.
 These are the available WSO2 inbound endpoints from WSO2 inbound endpoint store.
 </available_inbound_endpoints>
 
-<available_skills>
-{{available_skills}}
-These are optional specialized skill contexts. Load them on demand with load_skill_context when needed.
-</available_skills>
-
 <env>
 Working directory: {{env_working_directory}}
 Is directory a git repo: {{env_is_git_repo}}
+{{#if env_git_branch}}Current git branch: {{env_git_branch}}{{/if}}
 Platform: {{env_platform}}
 OS Version: {{env_os_version}}
 Today's date: {{env_today}}
@@ -85,14 +81,13 @@ MI Runtime carbon log path: {{env_mi_runtime_carbon_log_path}}
 </env>
 
 <system_reminder>
-{{system_remainder}}
+{{system_reminder}}
+**DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task unless explicitly requested by the user.**
 </system_reminder>
 
-**DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task.**
 <user_query>
 {{question}}
 </user_query>
-**DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task.**
 `;
 
 // ============================================================================
@@ -245,9 +240,8 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     const currentlyOpenedFile = await getCurrentlyOpenedFile(params.projectPath);
 
     // Get available connectors and inbound endpoints
-    const { connectors: availableConnectors, inboundEndpoints: availableInboundEndpoints } =
-        await getAvailableConnectorCatalog(params.projectPath);
-    const availableSkills = getAvailableSkills();
+    const connectorCatalog = await getAvailableConnectorCatalog(params.projectPath);
+    const { connectors: availableConnectors, inboundEndpoints: availableInboundEndpoints } = connectorCatalog;
 
     const mode = params.mode || 'edit';
     const modePolicyReminder = await getModeReminder({
@@ -256,12 +250,29 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     const planFileReminder = mode === 'plan'
         ? await getPlanModeSessionReminder(params.projectPath, params.sessionId || 'default')
         : '';
-    const modeReminder = planFileReminder
-        ? `${modePolicyReminder}\n\n${planFileReminder}`
-        : modePolicyReminder;
+    const connectorStoreReminder = connectorCatalog.warnings.length > 0
+        ? `Connector store status: ${connectorCatalog.storeStatus}. ${connectorCatalog.warnings.join(' ')}`
+        : '';
+    const modeReminderSections = [modePolicyReminder, planFileReminder, connectorStoreReminder]
+        .filter((section) => section.trim().length > 0);
+    const modeReminder = modeReminderSections.join('\n\n');
 
     // Prepare template context
     const isGitRepo = fs.existsSync(path.join(params.projectPath, '.git'));
+    let gitBranch: string | null = null;
+    if (isGitRepo) {
+        try {
+            const headPath = path.join(params.projectPath, '.git', 'HEAD');
+            const headContent = fs.readFileSync(headPath, 'utf8').trim();
+            if (headContent.startsWith('ref: refs/heads/')) {
+                gitBranch = headContent.replace('ref: refs/heads/', '');
+            } else if (/^[0-9a-f]{40}$/i.test(headContent)) {
+                gitBranch = `DETACHED@${headContent.substring(0, 7)}`;
+            }
+        } catch {
+            // Silently fail
+        }
+    }
     const today = new Date().toISOString().split('T')[0];
     const runtimeVersion = params.runtimeVersion ?? await getRuntimeVersionFromPom(params.projectPath);
     const runtimePaths = getRuntimePaths(params.projectPath);
@@ -273,20 +284,16 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
         payloads: params.payloads, // Backward-compatible template key
         available_connectors: availableConnectors.join(', '), // Available connectors list
         available_inbound_endpoints: availableInboundEndpoints.join(', '), // Available inbound endpoints list
-        available_skills: availableSkills.map((skill) => `${skill.name} - ${skill.description}`).join('\n'), // Specialized skills
         env_working_directory: params.projectPath,
         env_is_git_repo: isGitRepo ? 'true' : 'false',
+        env_git_branch: gitBranch,
         env_platform: process.platform,
         env_os_version: `${os.type()} ${os.release()}`,
         env_today: today,
         env_mi_runtime_version: runtimeVersion || 'unknown',
         env_mi_runtime_home_path: runtimePaths.runtimeHomePath,
         env_mi_runtime_carbon_log_path: runtimePaths.carbonLogPath,
-        system_remainder: `.
-        <mode>
-        ${mode.toUpperCase()}
-        </mode>
-        ${modeReminder}`
+        system_reminder: buildSystemReminder(mode, modeReminder),
     };
 
     // Render the template

@@ -17,15 +17,17 @@
  */
 
 import * as vscode from "vscode";
-import fs from "fs/promises";
+import * as fs from "fs";
 import path from "path";
-import { XMLParser } from "fast-xml-parser";
+import { XMLBuilder, XMLParser } from "fast-xml-parser";
 
 type Project = {
     id: string; // groupId:artifactId
     folder: string;
     dependencies: string[];
 };
+
+type Action = "add" | "remove";
 
 const parser = new XMLParser({
     ignoreAttributes: false,
@@ -34,7 +36,7 @@ const parser = new XMLParser({
 
 async function fileExists(p: string) {
     try {
-        await fs.access(p);
+        await fs.promises.access(p);
         return true;
     } catch {
         return false;
@@ -42,7 +44,7 @@ async function fileExists(p: string) {
 }
 
 async function parsePom(pomPath: string) {
-    const xml = await fs.readFile(pomPath, "utf-8");
+    const xml = await fs.promises.readFile(pomPath, "utf-8");
     const json = parser.parse(xml);
 
     const project = json.project;
@@ -238,3 +240,143 @@ function detectDependencyCycle(projects: Map<string, Project>): string[] | null 
     return null;
 }
 
+export function updatePomModules(pomPath: string, moduleName: string, action: Action) {
+    const pom = parseConsolidatedProjectPom(pomPath);
+    const project = pom.project;
+
+    // Update <modules> section
+    let modules = getModules(project);
+    if (action === "add" && !modules.includes(moduleName)) {
+        modules.push(moduleName);
+    }
+    if (action === "remove") {
+        modules = modules.filter(m => m !== moduleName);
+    }
+    project.modules.module = normalizeModulesOrder(modules);
+
+    writePom(pom, pomPath);
+    const dockerBuildPomPath = path.join(path.dirname(pomPath), "docker-build", "pom.xml");
+    if (fs.existsSync(dockerBuildPomPath)) {
+        updateCopyModulesInAggregatePom(dockerBuildPomPath, project.modules.module);
+    }
+}
+
+export async function reorderModulesByBuildOrder(parentPomPath: string) {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders?.length) {
+        throw new Error("No workspace folders found.");
+    }
+
+    const projectFolders = workspaceFolders
+        .map(ws => ws.uri.fsPath)
+        .filter(folder => fs.existsSync(path.join(folder, "pom.xml")));
+    if (!projectFolders.length) {
+        throw new Error("No Maven projects found in workspace.");
+    }
+
+    const orderedFolders = await getBuildOrder(projectFolders);
+    const orderedModules = orderedFolders.map(folder =>
+        path.basename(folder)
+    );
+
+    const pom = parseConsolidatedProjectPom(parentPomPath);
+    const project = pom.project;
+
+    const existingModules = getModules(project);
+    if (existingModules.includes("docker-build")) {
+        orderedModules.push("docker-build");
+    }
+    project.modules.module = normalizeModulesOrder(orderedModules);
+
+    writePom(pom, parentPomPath);
+    const dockerBuildPomPath = path.join(path.dirname(parentPomPath), "docker-build", "pom.xml");
+    if (fs.existsSync(dockerBuildPomPath)) {
+        updateCopyModulesInAggregatePom(dockerBuildPomPath, project.modules.module);
+    }
+}
+
+export function parseConsolidatedProjectPom(pomPath: string) {
+    const xml = fs.readFileSync(pomPath, "utf-8");
+    const parser = new XMLParser({
+        ignoreAttributes: false,
+        attributeNamePrefix: "@_",
+        allowBooleanAttributes: true
+    });
+    const pom = parser.parse(xml);
+
+    if (!pom.project) {
+        throw new Error("Invalid POM: <project> not found");
+    }
+    return pom;
+}
+
+export function getModules(project: any): string[] {
+    if (!project.modules) {
+        project.modules = { module: [] };
+    }
+    if (!Array.isArray(project.modules.module)) {
+        if (project.modules.module) {
+            project.modules.module = [project.modules.module];
+        } else {
+            project.modules.module = [];
+        }
+    }
+    return project.modules.module;
+}
+
+function normalizeModulesOrder(modules: string[]): string[] {
+    const withoutDockerBuild = modules.filter(m => m !== "docker-build");
+
+    // If docker-build exists, append it at the end
+    if (modules.includes("docker-build")) {
+        return [...withoutDockerBuild, "docker-build"];
+    }
+    return modules;
+}
+
+function writePom(pom: any, pomPath: string) {
+    const builder = new XMLBuilder({
+        ignoreAttributes: false,
+        attributeNamePrefix: "@_",
+        format: true,
+        indentBy: "    ",
+        suppressBooleanAttributes: false
+    });
+    const updatedXml = builder.build(pom);
+    fs.writeFileSync(pomPath, updatedXml);
+}
+
+export function updateCopyModulesInAggregatePom(pomPath: string, modules: string[]) {
+    const pom = parseConsolidatedProjectPom(pomPath);
+    const project = pom.project;
+
+    const plugins =
+        project?.profiles?.profile?.build?.plugins?.plugin;
+    if (!plugins) {
+        throw new Error("Plugins section not found in POM");
+    }
+
+    const pluginList = Array.isArray(plugins) ? plugins : [plugins];
+    const antrunPlugin = pluginList.find((p: any) => p.artifactId === "maven-antrun-plugin");
+    if (!antrunPlugin) {
+        throw new Error("maven-antrun-plugin not found");
+    }
+
+    const execution = antrunPlugin.executions?.execution;
+    const executionObj = Array.isArray(execution) ? execution[0] : execution;
+    const target = executionObj?.configuration?.target;
+    if (!target?.copy) {
+        throw new Error("<copy> section not found");
+    }
+
+    const fileSets = modules.filter(
+        (m) => m && m !== "docker-build"
+    ).map((module) => ({
+        "@_dir": `../${module}/target`,
+        include: {
+            "@_name": "*.car"
+        }
+    }));
+    target.copy.fileset = fileSets;
+    writePom(pom, pomPath);
+}

@@ -34,8 +34,8 @@ import {
     createConnectorTool,
 } from '../../tools/connector_tools';
 import {
-    createSkillTool,
-} from '../../tools/skill_tools';
+    createContextTool,
+} from '../../tools/context_tools';
 import {
     createManageConnectorTool,
 } from '../../tools/project_tools';
@@ -47,7 +47,7 @@ import {
     createGenerateDataMappingTool,
 } from '../../tools/data_mapper_tools';
 import {
-    createBuildProjectTool,
+    createBuildAndDeployTool,
     createServerManagementTool,
 } from '../../tools/runtime_tools';
 import {
@@ -75,12 +75,12 @@ import {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
-    BUILD_PROJECT_TOOL_NAME,
+    BUILD_AND_DEPLOY_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
     SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
@@ -102,12 +102,12 @@ export {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
-    BUILD_PROJECT_TOOL_NAME,
+    BUILD_AND_DEPLOY_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
     SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
@@ -161,7 +161,7 @@ export function createCompactAgentTools() {
 
         // Connector Tools (2 tools) - execution blocked
         [CONNECTOR_TOOL_NAME]: createConnectorTool(createBlockedExecute()),
-        [SKILL_TOOL_NAME]: createSkillTool(createBlockedExecute()),
+        [CONTEXT_TOOL_NAME]: createContextTool(createBlockedExecute()),
 
         // Project Tools (1 tool) - execution blocked
         [MANAGE_CONNECTOR_TOOL_NAME]: createManageConnectorTool(createBlockedExecute()),
@@ -174,7 +174,7 @@ export function createCompactAgentTools() {
         [GENERATE_DATA_MAPPING_TOOL_NAME]: createGenerateDataMappingTool(createBlockedExecute()),
 
         // Runtime Tools (2 tools) - execution blocked
-        [BUILD_PROJECT_TOOL_NAME]: createBuildProjectTool(createBlockedExecute()),
+        [BUILD_AND_DEPLOY_TOOL_NAME]: createBuildAndDeployTool(createBlockedExecute()),
         [SERVER_MANAGEMENT_TOOL_NAME]: createServerManagementTool(createBlockedExecute()),
 
         // Plan Mode Tools (4 tools) - execution blocked

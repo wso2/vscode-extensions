@@ -24,9 +24,14 @@ import { MILanguageClient } from '../../../lang-client/activator';
 import { DependencyDetails } from '@wso2/mi-core';
 import { logDebug, logError } from '../../copilot/logger';
 import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
-import { CONNECTOR_DB } from '../context/connector_db';
-import { INBOUND_DB } from '../context/inbound_db';
-import { getConnectorStoreCatalog, getRuntimeVersionFromPom } from './connector_store_cache';
+import { CONNECTOR_DB } from '../context/connectors/connector_db';
+import { INBOUND_DB } from '../context/connectors/inbound_db';
+import {
+    getConnectorDefinitions,
+    getInboundDefinitions,
+    ConnectorDefinitionLookupResult,
+    getRuntimeVersionFromPom,
+} from './connector_store_cache';
 
 // ============================================================================
 // Execute Function Types
@@ -37,6 +42,35 @@ export type ManageConnectorExecuteFn = (args: {
     connector_names?: string[];
     inbound_endpoint_names?: string[];
 }) => Promise<ToolResult>;
+
+interface ProcessItemResult {
+    name: string;
+    type: 'connector' | 'inbound';
+    success: boolean;
+    alreadyAdded?: boolean;
+    usedFallback?: boolean;
+    storeFailure?: boolean;
+    error?: string;
+}
+
+interface ConnectorDefinition {
+    mavenGroupId?: string;
+    mavenArtifactId?: string;
+    version?: {
+        tagName?: string;
+    };
+}
+
+interface ExistingDependency {
+    groupId: string;
+    artifact: string;
+    version?: string;
+}
+
+interface ExistingDependencies {
+    connectorDependencies?: ExistingDependency[];
+    otherDependencies?: ExistingDependency[];
+}
 
 // ============================================================================
 // Execute Functions
@@ -75,7 +109,7 @@ export function createManageConnectorExecute(
             logDebug(`[${toolName}] Runtime version: ${runtimeVersion}`);
 
             // For add operation, get existing dependencies to check for duplicates
-            let existingDependencies: any = { connectorDependencies: [], otherDependencies: [] };
+            let existingDependencies: ExistingDependencies = { connectorDependencies: [], otherDependencies: [] };
             if (isAdd) {
                 const langClient = await MILanguageClient.getInstance(projectPath);
                 const projectDetails = await langClient.getProjectDetails();
@@ -83,9 +117,28 @@ export function createManageConnectorExecute(
                 logDebug(`[${toolName}] Existing connector dependencies: ${existingDependencies.connectorDependencies?.length || 0}`);
             }
 
-            const results: Array<{ name: string; type: 'connector' | 'inbound'; success: boolean; alreadyAdded?: boolean; error?: string }> = [];
-            const { connectors, inbounds } = await getConnectorStoreCatalog(projectPath, CONNECTOR_DB, INBOUND_DB);
-            logDebug(`[${toolName}] Loaded connector catalog with ${connectors.length} connectors and ${inbounds.length} inbound endpoints`);
+            const emptyLookup: ConnectorDefinitionLookupResult = {
+                definitionsByName: {},
+                missingNames: [],
+                fallbackUsedNames: [],
+                storeFailureNames: [],
+                warnings: [],
+                runtimeVersionUsed: runtimeVersion || 'unknown',
+            };
+
+            const results: ProcessItemResult[] = [];
+            const [connectorLookup, inboundLookup] = await Promise.all([
+                connector_names.length > 0
+                    ? getConnectorDefinitions(projectPath, connector_names, CONNECTOR_DB)
+                    : Promise.resolve(emptyLookup),
+                inbound_endpoint_names.length > 0
+                    ? getInboundDefinitions(projectPath, inbound_endpoint_names, INBOUND_DB)
+                    : Promise.resolve(emptyLookup),
+            ]);
+
+            if (connectorLookup.warnings.length > 0 || inboundLookup.warnings.length > 0) {
+                logDebug(`[${toolName}] Connector lookup warnings: ${[...connectorLookup.warnings, ...inboundLookup.warnings].join(' | ')}`);
+            }
 
             // Process connectors if any
             if (connector_names.length > 0) {
@@ -93,7 +146,9 @@ export function createManageConnectorExecute(
                     const result = await processItem(
                         connectorName,
                         'connector',
-                        connectors,
+                        connectorLookup.definitionsByName[connectorName] ?? null,
+                        connectorLookup.fallbackUsedNames.includes(connectorName),
+                        connectorLookup.storeFailureNames.includes(connectorName),
                         existingDependencies,
                         miVisualizerRpcManager,
                         isAdd,
@@ -110,7 +165,9 @@ export function createManageConnectorExecute(
                     const result = await processItem(
                         inboundName,
                         'inbound',
-                        inbounds,
+                        inboundLookup.definitionsByName[inboundName] ?? null,
+                        inboundLookup.fallbackUsedNames.includes(inboundName),
+                        inboundLookup.storeFailureNames.includes(inboundName),
                         existingDependencies,
                         miVisualizerRpcManager,
                         isAdd,
@@ -142,8 +199,18 @@ export function createManageConnectorExecute(
             // Build response message
             const successful = results.filter(r => r.success);
             const failed = results.filter(r => !r.success);
+            const fallbackUsed = results.filter(r => r.success && r.usedFallback);
+            const storeFailed = results.filter((r) => !r.success && r.storeFailure);
 
             let message = '';
+
+            if (fallbackUsed.length > 0) {
+                message += `Used local fallback definitions for ${fallbackUsed.length} item(s):\n`;
+                fallbackUsed.forEach(r => {
+                    message += `  - ${r.name} (${r.type})\n`;
+                });
+                message += '\n';
+            }
 
             if (isAdd) {
                 const alreadyAdded = results.filter(r => r.success && r.alreadyAdded);
@@ -184,6 +251,11 @@ export function createManageConnectorExecute(
                 });
             }
 
+            if (storeFailed.length > 0) {
+                message += `\nConnector store outage impacted ${storeFailed.length} item(s). `;
+                message += `Those items were not in cache or fallback data.`;
+            }
+
             return {
                 success: successful.length > 0,
                 message: message.trim()
@@ -205,44 +277,56 @@ export function createManageConnectorExecute(
 async function processItem(
     itemName: string,
     itemType: 'connector' | 'inbound',
-    storeData: any[],
-    existingDependencies: any,
+    resolvedItem: ConnectorDefinition | null,
+    usedFallback: boolean,
+    storeFailure: boolean,
+    existingDependencies: ExistingDependencies,
     miVisualizerRpcManager: MiVisualizerRpcManager,
     isAdd: boolean,
     operation: 'add' | 'remove',
     toolName: string
-): Promise<{ name: string; type: 'connector' | 'inbound'; success: boolean; alreadyAdded?: boolean; error?: string }> {
+): Promise<ProcessItemResult> {
     try {
-        const normalizedInput = normalizeConnectorIdentifier(itemName);
-
-        // Match by connectorName and artifact identifiers (case-insensitive)
-        const item = storeData.find(
-            (c: any) => {
-                const connectorName = normalizeConnectorIdentifier(c?.connectorName);
-                const artifactId = normalizeConnectorIdentifier(c?.mavenArtifactId);
-                const artifactShortName = normalizeConnectorIdentifier(stripConnectorPrefix(c?.mavenArtifactId));
-
-                return normalizedInput === connectorName ||
-                    normalizedInput === artifactId ||
-                    normalizedInput === artifactShortName;
-            }
-        );
-
-        if (!item) {
+        if (!resolvedItem) {
             return {
                 name: itemName,
                 type: itemType,
                 success: false,
-                error: `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} not found in store`
+                storeFailure,
+                error: storeFailure
+                    ? `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} is unavailable because connector store is unavailable and no cache/fallback definition exists`
+                    : `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} not found in connector store or fallback`
+            };
+        }
+
+        const mavenGroupId = typeof resolvedItem?.mavenGroupId === 'string' ? resolvedItem.mavenGroupId.trim() : '';
+        const mavenArtifactId = typeof resolvedItem?.mavenArtifactId === 'string' ? resolvedItem.mavenArtifactId.trim() : '';
+        const versionTag = typeof resolvedItem?.version?.tagName === 'string' ? resolvedItem.version.tagName.trim() : '';
+
+        if (!mavenGroupId || !mavenArtifactId) {
+            return {
+                name: itemName,
+                type: itemType,
+                success: false,
+                error: `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} definition is missing Maven coordinates`
+            };
+        }
+
+        if (!versionTag) {
+            return {
+                name: itemName,
+                type: itemType,
+                success: false,
+                error: `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} definition is missing a valid version tag`
             };
         }
 
         // For add operation, check if item is already in pom.xml
         if (isAdd) {
             const alreadyExists = existingDependencies.connectorDependencies?.some(
-                (existingDep: any) =>
-                    existingDep.groupId === item.mavenGroupId &&
-                    existingDep.artifact === item.mavenArtifactId
+                (existingDep: ExistingDependency) =>
+                    existingDep.groupId === mavenGroupId &&
+                    existingDep.artifact === mavenArtifactId
             );
 
             if (alreadyExists) {
@@ -251,20 +335,21 @@ async function processItem(
                     name: itemName,
                     type: itemType,
                     success: true,
-                    alreadyAdded: true
+                    alreadyAdded: true,
+                    usedFallback
                 };
             }
         }
 
         // Prepare dependency details
         const dependencies: DependencyDetails[] = [{
-            groupId: item.mavenGroupId,
-            artifact: item.mavenArtifactId,
-            version: item.version?.tagName,
+            groupId: mavenGroupId,
+            artifact: mavenArtifactId,
+            version: versionTag,
             type: "zip"
         }];
 
-        logDebug(`[${toolName}] ${isAdd ? 'Adding' : 'Removing'} ${itemType}: ${itemName} (${item.mavenArtifactId}:${item.version?.tagName})`);
+        logDebug(`[${toolName}] ${isAdd ? 'Adding' : 'Removing'} ${itemType}: ${itemName} (${mavenArtifactId}:${versionTag})`);
 
         // Update pom.xml
         const response = await miVisualizerRpcManager.updateAiDependencies({
@@ -273,7 +358,7 @@ async function processItem(
         });
 
         if (response) {
-            return { name: itemName, type: itemType, success: true };
+            return { name: itemName, type: itemType, success: true, usedFallback };
         } else {
             return {
                 name: itemName,
@@ -290,22 +375,6 @@ async function processItem(
             error: error instanceof Error ? error.message : String(error)
         };
     }
-}
-
-function stripConnectorPrefix(value: unknown): string {
-    if (typeof value !== 'string') {
-        return '';
-    }
-
-    return value.replace(/^mi-(connector|module)-/i, '');
-}
-
-function normalizeConnectorIdentifier(value: unknown): string {
-    if (typeof value !== 'string') {
-        return '';
-    }
-
-    return value.trim().toLowerCase();
 }
 
 
@@ -328,7 +397,7 @@ const manageConnectorInputSchema = z.object({
  * Creates the manage_connector tool (unified add/remove for connectors and inbound endpoints)
  */
 export function createManageConnectorTool(execute: ManageConnectorExecuteFn) {
-    return (tool as any)({
+    return tool({
         description: `Add or remove MI connector and inbound endpoint dependencies in pom.xml.
             Use 'add' when Synapse configs reference connector operations or inbound endpoints.
             Names must match <AVAILABLE_CONNECTORS> or <AVAILABLE_INBOUND_ENDPOINTS>.

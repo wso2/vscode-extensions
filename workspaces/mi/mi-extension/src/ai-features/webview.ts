@@ -43,7 +43,7 @@ export class AiPanelWebview {
     private static createWebview(): vscode.WebviewPanel {
         const panel = vscode.window.createWebviewPanel(
             AiPanelWebview.viewType,
-            "MI Copilot",
+            "WSO2 Integrator Copilot",
             ViewColumn.Beside,
             {
                 enableScripts: true,

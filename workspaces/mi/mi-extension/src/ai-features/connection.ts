@@ -15,29 +15,67 @@
 // under the License.
 
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import * as vscode from "vscode";
-import { getAccessToken, getCopilotLlmApiBaseUrl, getLoginMethod, getRefreshedAccessToken } from "./auth";
+import {
+    getAccessToken,
+    getCopilotLlmApiBaseUrl,
+    getLoginMethod,
+    getRefreshedAccessToken,
+    getAwsBedrockCredentials,
+    isStsTokenUnavailableError
+} from "./auth";
 import { StateMachineAI, openAIWebview } from "./aiMachine";
 import { AI_EVENT_TYPE, LoginMethod } from "@wso2/mi-core";
 import { logInfo, logDebug, logError } from "./copilot/logger";
 
 export const ANTHROPIC_HAIKU_4_5 = "claude-haiku-4-5";
 export const ANTHROPIC_SONNET_4_6 = "claude-sonnet-4-6";
+export const ANTHROPIC_OPUS_4_6 = "claude-opus-4-6";
 // Backward-compatible alias for existing imports.
 export const ANTHROPIC_SONNET_4_5 = ANTHROPIC_SONNET_4_6;
 
 export type AnthropicModel =
     | typeof ANTHROPIC_HAIKU_4_5
-    | typeof ANTHROPIC_SONNET_4_6;
+    | typeof ANTHROPIC_SONNET_4_6
+    | typeof ANTHROPIC_OPUS_4_6;
+
+// Bedrock model ID mappings
+const BEDROCK_MODEL_MAP: Record<string, string> = {
+    [ANTHROPIC_HAIKU_4_5]: "anthropic.claude-3-5-haiku-20241022-v1:0",
+    [ANTHROPIC_SONNET_4_6]: "anthropic.claude-sonnet-4-6-20250619-v1:0",
+    [ANTHROPIC_OPUS_4_6]: "anthropic.claude-opus-4-6-20250619-v1:0",
+};
+
+/**
+ * Get the regional prefix for Bedrock model IDs based on AWS region.
+ * Cross-region inference requires a regional prefix (e.g., us., eu.).
+ */
+export const getBedrockRegionalPrefix = (region: string): string => {
+    const prefix = region.split('-')[0];
+    switch (prefix) {
+        case 'us':
+        case 'eu':
+        case 'ap':
+        case 'ca':
+        case 'sa':
+        case 'me':
+        case 'af':
+            return prefix;
+        default:
+            return 'us';
+    }
+};
 
 let cachedAnthropic: ReturnType<typeof createAnthropic> | null = null;
+let cachedBedrock: ReturnType<typeof createAmazonBedrock> | null = null;
 let cachedAuthMethod: LoginMethod | null = null;
 let reLoginPromptInFlight = false;
 
 /**
  * Get the backend URL for MI Copilot
  */
-const getAnthropicProxyUrl = (): string => {
+export const getAnthropicProxyUrl = (): string => {
     const proxyUrl = getCopilotLlmApiBaseUrl();
     if (!proxyUrl) {
         throw new Error('Copilot LLM API URL is not set. Configure COPILOT_ROOT_URL (or COPILOT_DEV_ROOT_URL when CLOUD_ENV=dev) so getCopilotLlmApiBaseUrl() resolves correctly.');
@@ -52,7 +90,7 @@ const promptReLogin = () => {
 
     reLoginPromptInFlight = true;
     void vscode.window.showWarningMessage(
-        'Your MI Copilot session is no longer valid for the current environment. Please sign in again.',
+        'Your WSO2 Integrator Copilot session is no longer valid for the current environment. Please sign in again.',
         'Sign In'
     ).then((selection) => {
         if (selection === 'Sign In') {
@@ -87,6 +125,7 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
         if (accessToken && loginMethod === LoginMethod.MI_INTEL) {
             headers['Authorization'] = `Bearer ${accessToken}`;
         }
+        // AWS_BEDROCK auth is handled by the AWS SDK directly, no auth headers needed here
 
         // Ensure headers object exists
         // Note: anthropic-beta header for prompt caching is added by the AI SDK
@@ -142,7 +181,7 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
 
             // Notify user and prompt to use their own API key
             vscode.window.showWarningMessage(
-                "Your free usage quota has been exceeded. Set your own Anthropic API key to continue using MI Copilot with unlimited access.",
+                "Your free usage quota has been exceeded. Set your own Anthropic API key to continue using WSO2 Integrator Copilot with unlimited access.",
                 "Set API Key",
                 "Learn More"
             ).then(selection => {
@@ -182,11 +221,17 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
                 } catch (refreshError) {
                     StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
                     promptReLogin();
+                    if (isStsTokenUnavailableError(refreshError)) {
+                        throw new Error("Authentication failed: Please sign in again.");
+                    }
                     throw new Error(`Authentication failed: ${refreshError instanceof Error ? refreshError.message : 'Unable to refresh token'}`);
                 }
             } else if (loginMethod === LoginMethod.ANTHROPIC_KEY) {
                 StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
                 throw new Error('Authentication failed: Anthropic API key is invalid or expired');
+            } else if (loginMethod === LoginMethod.AWS_BEDROCK) {
+                StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
+                throw new Error('Authentication failed: AWS Bedrock credentials are invalid or expired');
             }
         }
 
@@ -195,6 +240,12 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
         if (error?.message === "TOKEN_EXPIRED") {
             StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
             throw new Error("Authentication failed: Token expired");
+        }
+
+        if (isStsTokenUnavailableError(error)) {
+            StateMachineAI.sendEvent(AI_EVENT_TYPE.SILENT_LOGOUT);
+            promptReLogin();
+            throw new Error("Authentication failed: Please sign in again.");
         } else {
             throw error;
         }
@@ -226,6 +277,13 @@ export const getAnthropicProvider = async (): Promise<ReturnType<typeof createAn
                 baseURL: "https://api.anthropic.com/v1",
                 apiKey: apiKey,
             });
+        } else if (loginMethod === LoginMethod.AWS_BEDROCK) {
+            // For Bedrock, Anthropic provider is not used directly.
+            // Return a dummy provider; actual model creation happens in getAnthropicClient.
+            cachedAnthropic = createAnthropic({
+                baseURL: "https://api.anthropic.com/v1",
+                apiKey: "xx", // dummy; not used for Bedrock
+            });
         } else {
             throw new Error(`Unsupported login method: ${loginMethod}`);
         }
@@ -238,15 +296,89 @@ export const getAnthropicProvider = async (): Promise<ReturnType<typeof createAn
     return cachedAnthropic!;
 };
 
+/**
+ * Get or create a cached Bedrock provider instance.
+ */
+const getBedrockProvider = async (): Promise<{
+    provider: ReturnType<typeof createAmazonBedrock>;
+    credentials: Awaited<ReturnType<typeof getAwsBedrockCredentials>> & {};
+}> => {
+    const credentials = await getAwsBedrockCredentials();
+    if (!credentials) {
+        throw new Error("Authentication failed: Unable to get AWS Bedrock credentials");
+    }
+
+    // Always recreate to ensure fresh credentials
+    cachedBedrock = createAmazonBedrock({
+        region: credentials.region,
+        accessKeyId: credentials.accessKeyId,
+        secretAccessKey: credentials.secretAccessKey,
+        sessionToken: credentials.sessionToken,
+    });
+
+    return { provider: cachedBedrock, credentials };
+};
+
 export const getAnthropicClient = async (model: AnthropicModel): Promise<any> => {
+    const loginMethod = await getLoginMethod();
+
+    if (loginMethod === LoginMethod.AWS_BEDROCK) {
+        const { provider: bedrockProvider, credentials } = await getBedrockProvider();
+        const regionalPrefix = getBedrockRegionalPrefix(credentials.region);
+        const bedrockModelId = BEDROCK_MODEL_MAP[model];
+        if (!bedrockModelId) {
+            throw new Error(`No Bedrock model mapping found for: ${model}`);
+        }
+        const fullModelId = `${regionalPrefix}.${bedrockModelId}`;
+        logDebug(`Using Bedrock model: ${fullModelId}`);
+        return bedrockProvider(fullModelId);
+    }
+
     const provider = await getAnthropicProvider();
     return provider(model);
 };
 
 /**
- * Returns cache control options for prompt caching
- * @returns Cache control options for Anthropic
+ * Get an Anthropic client for an arbitrary (custom) model ID string.
+ * Custom model IDs are NOT supported with AWS Bedrock — throws immediately.
  */
-export const getProviderCacheControl = () => {
+export const getAnthropicClientForCustomModel = async (modelId: string): Promise<any> => {
+    const loginMethod = await getLoginMethod();
+    if (loginMethod === LoginMethod.AWS_BEDROCK) {
+        throw new Error('Custom model IDs are not supported with AWS Bedrock. Use a standard model preset instead.');
+    }
+    const provider = await getAnthropicProvider();
+    return provider(modelId);
+};
+
+/**
+ * Resolve the main model ID from model settings.
+ */
+export function resolveMainModelId(settings: { mainModelPreset: string; mainModelCustomId?: string }): string {
+    if (settings.mainModelCustomId) {
+        return settings.mainModelCustomId;
+    }
+    return settings.mainModelPreset === 'opus' ? ANTHROPIC_OPUS_4_6 : ANTHROPIC_SONNET_4_6;
+}
+
+/**
+ * Resolve the sub-agent model ID from model settings.
+ */
+export function resolveSubModelId(settings: { subModelPreset: string; subModelCustomId?: string }): string {
+    if (settings.subModelCustomId) {
+        return settings.subModelCustomId;
+    }
+    return settings.subModelPreset === 'sonnet' ? ANTHROPIC_SONNET_4_6 : ANTHROPIC_HAIKU_4_5;
+}
+
+/**
+ * Returns cache control options for prompt caching
+ * @returns Cache control options for Anthropic or Bedrock
+ */
+export const getProviderCacheControl = async (): Promise<Record<string, { cacheControl: { type: string } }>> => {
+    const loginMethod = await getLoginMethod();
+    if (loginMethod === LoginMethod.AWS_BEDROCK) {
+        return { bedrock: { cacheControl: { type: "ephemeral" } } };
+    }
     return { anthropic: { cacheControl: { type: "ephemeral" } } };
 };

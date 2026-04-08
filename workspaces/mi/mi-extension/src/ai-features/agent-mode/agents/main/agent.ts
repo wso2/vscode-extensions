@@ -24,7 +24,7 @@ const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local d
 
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
-import { getAnthropicClient, ANTHROPIC_SONNET_4_6 } from '../../../connection';
+import { getAnthropicClient, getAnthropicClientForCustomModel, AnthropicModel, resolveMainModelId } from '../../../connection';
 import { getSystemPrompt } from '../main/system';
 import { getUserPrompt, UserPromptParams } from './prompt';
 import { addCacheControlToMessages } from '../../../cache-utils';
@@ -41,12 +41,12 @@ import {
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
-    BUILD_PROJECT_TOOL_NAME,
+    BUILD_AND_DEPLOY_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
     BASH_TOOL_NAME,
@@ -55,13 +55,27 @@ import {
     WEB_FETCH_TOOL_NAME,
 } from './tools';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
-import { ChatHistoryManager } from '../../chat-history-manager';
+import { ChatHistoryManager, TOOL_USE_INTERRUPTION_CONTEXT } from '../../chat-history-manager';
 import { getToolAction } from '../../tool-action-mapper';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
 import { getCopilotSessionDir } from '../../storage-paths';
+import { ShellApprovalRuleStore } from '../../tools/types';
+import {
+    awaitWithTimeout,
+    createProxyTerminatedError,
+    createStreamWatchdog,
+    DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS,
+    DEFAULT_STREAM_IDLE_TIMEOUT_MS,
+    DEFAULT_STREAM_TOTAL_TIMEOUT_MS,
+    getErrorDiagnostics,
+    getErrorMessage,
+    isProxyTerminatedStreamError,
+    isStreamTimeoutError,
+    StreamWatchdog,
+} from '../../stream_guard';
 
 // Import types from mi-core (shared with visualizer)
-import { AgentEvent, AgentEventType, FileObject, ImageObject, AgentMode } from '@wso2/mi-core';
+import { AgentEvent, AgentEventType, FileObject, ImageObject, AgentMode, ModelSettings } from '@wso2/mi-core';
 
 // Re-export types for other modules that import from agent.ts
 export type { AgentEvent, AgentEventType };
@@ -103,8 +117,14 @@ export interface AgentRequest {
     pendingQuestions?: Map<string, PendingQuestion>;
     /** Pending plan approvals map for exit_plan_mode tool (shared with RPC layer) */
     pendingApprovals?: Map<string, PendingPlanApproval>;
+    /** Session-scoped shell approval rule store */
+    shellApprovalRuleStore?: ShellApprovalRuleStore;
     /** Optional checkpoint manager for undo support */
     undoCheckpointManager?: AgentUndoCheckpointManager;
+    /** Model settings for this session (main model + sub-agent model overrides) */
+    modelSettings?: ModelSettings;
+    /** Called after a stream step is persisted to JSONL history */
+    onStepPersisted?: () => void;
 }
 
 /**
@@ -119,6 +139,56 @@ export interface AgentResult {
     error?: string;
     /** Full AI SDK messages from this turn (includes tool calls/results) */
     modelMessages?: any[];
+    /** True when the run ended due to model limits (step/token) and should be continued in a new run */
+    continuationSuggested?: boolean;
+    /** Normalized stop reason when continuation is suggested */
+    continuationReason?: 'max_output_tokens' | 'max_tool_calls';
+}
+
+type ContinuationReason = 'max_output_tokens' | 'max_tool_calls';
+
+function normalizeFinishReason(finishPart: unknown): string | undefined {
+    const part = finishPart as Record<string, unknown> | undefined;
+    const candidates = [
+        part?.finishReason,
+        part?.finish_reason,
+        part?.stopReason,
+        part?.stop_reason,
+        part?.reason,
+    ];
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.trim().length > 0) {
+            return candidate.trim().toLowerCase();
+        }
+    }
+    return undefined;
+}
+
+function getContinuationReasonFromFinish(finishReason?: string): ContinuationReason | undefined {
+    if (!finishReason) {
+        return undefined;
+    }
+
+    const reason = finishReason.toLowerCase();
+    if (
+        reason.includes('tool') ||
+        reason.includes('step') ||
+        reason.includes('max_steps') ||
+        reason.includes('stepcount')
+    ) {
+        return 'max_tool_calls';
+    }
+
+    if (
+        reason.includes('length') ||
+        reason.includes('token') ||
+        reason.includes('max_tokens') ||
+        reason.includes('output')
+    ) {
+        return 'max_output_tokens';
+    }
+
+    return undefined;
 }
 
 // ============================================================================
@@ -137,6 +207,23 @@ export async function executeAgent(
     let response: any = null; // Store response promise for later access
     let accumulatedContent: string = ''; // Accumulate assistant response content
     let isExecutingTool = false; // Track if we're currently executing a tool (for interruption message)
+    let cleanupStreamLifecycle: (() => void) | undefined;
+    let streamWatchdog: StreamWatchdog | undefined;
+    let pauseIdleTimeout = false;
+    let touchStreamActivity: () => void = () => undefined;
+    let finalResponseWaitTimeoutMs = DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS;
+
+    const emitEvent = (event: AgentEvent) => {
+        const eventType = (event as { type?: string })?.type;
+        if (eventType === 'ask_user' || eventType === 'plan_approval_requested') {
+            pauseIdleTimeout = true;
+        } else {
+            pauseIdleTimeout = false;
+        }
+
+        touchStreamActivity();
+        eventHandler(event);
+    };
 
     // Use provided pendingQuestions map or create a new one
     const pendingQuestions = request.pendingQuestions || new Map<string, PendingQuestion>();
@@ -233,26 +320,54 @@ export async function executeAgent(
         // This counter tracks messages from the current turn only (not history)
         let savedMessageCount = 0;
 
-        // Create tools (cache control will be added dynamically by prepareStep)
+        // Setup stream watchdog and timeout controls (fixed constants)
+        // Created before tools so that subagents and background tasks inherit
+        // the effective abort signal (user abort + stream timeouts).
+        const idleTimeoutMs = DEFAULT_STREAM_IDLE_TIMEOUT_MS;
+        const totalTimeoutMs = DEFAULT_STREAM_TOTAL_TIMEOUT_MS;
+        finalResponseWaitTimeoutMs = DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS;
+        streamWatchdog = createStreamWatchdog({
+            requestAbortSignal: request.abortSignal,
+            idleTimeoutMs,
+            totalTimeoutMs,
+            shouldPauseIdleTimeout: () => pauseIdleTimeout || isExecutingTool,
+            onTimeout: (kind, timeoutError) => {
+                const timeoutLabel = kind === 'idle' ? 'idle' : 'total';
+                logError(`[Agent] Stream ${timeoutLabel} timeout reached`, timeoutError);
+            },
+        });
+
+        touchStreamActivity = () => {
+            streamWatchdog?.markActivity();
+        };
+
+        // Create tools with the watchdog's abort signal so subagents and
+        // background tasks are cancelled on both user abort and stream timeout.
         const tools = createAgentTools({
             projectPath: request.projectPath,
             mode: request.mode || 'edit',
             modifiedFiles,
             sessionId,
             sessionDir,
-            eventHandler,
+            eventHandler: emitEvent,
             pendingQuestions,
             pendingApprovals,
             getAnthropicClient,
             webAccessPreapproved: request.webAccessPreapproved === true,
+            shellApprovalRuleStore: request.shellApprovalRuleStore,
             undoCheckpointManager: request.undoCheckpointManager,
+            abortSignal: streamWatchdog.abortSignal,
+            modelSettings: request.modelSettings,
         });
 
         // Track step number for logging
         let currentStepNumber = 0;
 
-        // Get the model for prepareStep
-        let model = await getAnthropicClient(ANTHROPIC_SONNET_4_6);
+        // Get the model for prepareStep — resolve from model settings or default to Sonnet
+        const mainModelId = resolveMainModelId(request.modelSettings || { mainModelPreset: 'sonnet' });
+        let model = request.modelSettings?.mainModelCustomId
+            ? await getAnthropicClientForCustomModel(mainModelId)
+            : await getAnthropicClient(mainModelId as AnthropicModel);
 
         // Wrap model with DevTools middleware if enabled (local development only!)
         // IMPORTANT: DevTools must be imported AFTER process.chdir() because it captures
@@ -282,14 +397,16 @@ export async function executeAgent(
         const anthropicOptions: AnthropicProviderOptions = request.thinking
         // NOTE: Current pinned @ai-sdk/anthropic types support enabled/disabled thinking.
         // Adaptive thinking can be enabled once the SDK is upgraded in this repo.
-        ? { thinking: { type: 'adaptive' } } 
+        ? { thinking: { type: 'adaptive' }, effort: 'low' }
         : {};
-    
+
     const requestHeaders = request.thinking
         ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' }
         : undefined;
+        cleanupStreamLifecycle = () => {
+            streamWatchdog?.cleanup();
+        };
 
-        // Setup Langfuse tracing if enabled
         const streamConfig: any = {
             model,
             maxOutputTokens: 15000,
@@ -297,14 +414,30 @@ export async function executeAgent(
             messages: allMessages,
             stopWhen: stepCountIs(50),
             tools,
-            abortSignal: request.abortSignal,
+            abortSignal: streamWatchdog.abortSignal,
             headers: requestHeaders,
             providerOptions: {
                 anthropic: anthropicOptions,
             },
             prepareStep,
+            onAbort: () => {
+                logInfo('[Agent] streamText aborted');
+            },
+            onError: (error: unknown) => {
+                const errorMsg = getErrorMessage(error);
+                logError(`[Agent] streamText error: ${errorMsg}`, error);
+                logDebug(`[Agent] streamText error diagnostics: ${getErrorDiagnostics(error)}`);
+                if (streamWatchdog && !streamWatchdog.abortSignal.aborted) {
+                    const abortReason = error instanceof Error
+                        ? error
+                        : new Error(errorMsg);
+                    streamWatchdog.abort(abortReason);
+                }
+            },
             onStepFinish: async (step) => {
+                touchStreamActivity();
                 currentStepNumber++;
+                let stepPersisted = true;
 
                 // Simple cache metrics logging
                 if (step.usage) {
@@ -318,7 +451,7 @@ export async function executeAgent(
 
                     // Emit usage event to UI
                     const totalInputTokens = inputTokens + cachedInputTokens;
-                    eventHandler({ type: 'usage', totalInputTokens });
+                    emitEvent({ type: 'usage', totalInputTokens });
                 }
 
                 // Save only unsaved messages from this step
@@ -339,9 +472,15 @@ export async function executeAgent(
                             );
                             savedMessageCount += unsavedMessages.length;
                         }
+                        stepPersisted = true;
                     } catch (error) {
                         logError('[Agent] Failed to save messages from step', error);
+                        stepPersisted = false;
                     }
+                }
+
+                if (stepPersisted) {
+                    request.onStepPersisted?.();
                 }
             },
         };
@@ -356,8 +495,19 @@ export async function executeAgent(
         const streamResult = streamText(streamConfig);
         const fullStream = streamResult.fullStream;
         response = streamResult.response; // Assign to outer scope variable
+        response?.catch((error: unknown) => {
+            const errorMsg = getErrorMessage(error);
+            logError(`[Agent] streamText response error: ${errorMsg}`, error);
+            logDebug(`[Agent] streamText response error diagnostics: ${getErrorDiagnostics(error)}`);
+            if (streamWatchdog && !streamWatchdog.abortSignal.aborted) {
+                const abortReason = isProxyTerminatedStreamError(errorMsg)
+                    ? createProxyTerminatedError(errorMsg)
+                    : (error instanceof Error ? error : new Error(errorMsg));
+                streamWatchdog.abort(abortReason);
+            }
+        });
 
-        eventHandler({ type: 'start' });
+        emitEvent({ type: 'start' });
 
         // Track tool inputs for use in tool results (by toolCallId)
         const toolInputMap = new Map<string, any>();
@@ -368,6 +518,8 @@ export async function executeAgent(
 
         // Process stream
         for await (const part of fullStream) {
+            touchStreamActivity();
+            pauseIdleTimeout = false;
             // Check for abort signal at each iteration
             if (request.abortSignal?.aborted) {
                 logInfo('[Agent] Abort signal detected during stream processing');
@@ -379,7 +531,7 @@ export async function executeAgent(
                     // Accumulate content for later recording as complete message
                     accumulatedContent += part.text;
 
-                    eventHandler({
+                    emitEvent({
                         type: 'content_block',
                         content: part.text,
                     });
@@ -388,7 +540,7 @@ export async function executeAgent(
 
                 case 'reasoning-start': {
                     reasoningById.set(part.id, '');
-                    eventHandler({
+                    emitEvent({
                         type: 'thinking_start',
                         thinkingId: part.id,
                     });
@@ -404,7 +556,7 @@ export async function executeAgent(
                     const current = reasoningById.get(part.id) || '';
                     reasoningById.set(part.id, current + delta);
 
-                    eventHandler({
+                    emitEvent({
                         type: 'thinking_delta',
                         thinkingId: part.id,
                         content: delta,
@@ -414,7 +566,7 @@ export async function executeAgent(
 
                 case 'reasoning-end': {
                     reasoningById.delete(part.id);
-                    eventHandler({
+                    emitEvent({
                         type: 'thinking_end',
                         thinkingId: part.id,
                     });
@@ -422,6 +574,7 @@ export async function executeAgent(
                 }
 
                 case 'tool-input-start': {
+                    isExecutingTool = true;
                     const toolCallId = (part as any).id ?? (part as any).toolCallId;
                     if (toolCallId && preloadedToolCallIds.has(toolCallId)) {
                         break;
@@ -440,7 +593,7 @@ export async function executeAgent(
                     const loadingAction = toolActions?.loading || toolName;
 
                     // Emit an early loading event so UI shows progress while tool input streams.
-                    eventHandler({
+                    emitEvent({
                         type: 'tool_call',
                         toolName,
                         toolInput: {},
@@ -481,12 +634,14 @@ export async function executeAgent(
                         displayInput = { file_path: toolInput?.file_path };
                     } else if (part.toolName === CONNECTOR_TOOL_NAME) {
                         displayInput = {
-                            connector_names: toolInput?.connector_names,
-                            inbound_endpoint_names: toolInput?.inbound_endpoint_names,
+                            name: toolInput?.name,
+                            include_full_descriptions: toolInput?.include_full_descriptions,
+                            operation_names: toolInput?.operation_names,
+                            connection_names: toolInput?.connection_names,
                         };
-                    } else if (part.toolName === SKILL_TOOL_NAME) {
+                    } else if (part.toolName === CONTEXT_TOOL_NAME) {
                         displayInput = {
-                            skill_name: toolInput?.skill_name,
+                            context_name: toolInput?.context_name,
                         };
                     } else if (part.toolName === MANAGE_CONNECTOR_TOOL_NAME) {
                         displayInput = {
@@ -508,9 +663,9 @@ export async function executeAgent(
                         displayInput = {
                             dm_config_path: toolInput?.dm_config_path,
                         };
-                    } else if (part.toolName === BUILD_PROJECT_TOOL_NAME) {
+                    } else if (part.toolName === BUILD_AND_DEPLOY_TOOL_NAME) {
                         displayInput = {
-                            copy_to_runtime: toolInput?.copy_to_runtime,
+                            mode: toolInput?.mode,
                         };
                     } else if (part.toolName === SERVER_MANAGEMENT_TOOL_NAME) {
                         displayInput = {
@@ -542,7 +697,7 @@ export async function executeAgent(
 
                     // Skip tool call UI for todo_write (handled by inline todo list)
                     if (part.toolName !== TODO_WRITE_TOOL_NAME) {
-                        eventHandler({
+                        emitEvent({
                             type: 'tool_call',
                             toolName: part.toolName,
                             toolInput: displayInput,
@@ -591,7 +746,7 @@ export async function executeAgent(
                         }
 
                         // Send to visualizer with result action for display
-                        eventHandler(toolResultEvent);
+                        emitEvent(toolResultEvent);
                     }
 
                     // Clean up stored tool input
@@ -600,9 +755,10 @@ export async function executeAgent(
                 }
 
                 case 'error': {
+                    cleanupStreamLifecycle?.();
                     const errorMsg = getErrorMessage(part.error);
                     logError(`[Agent] Stream error: ${errorMsg}`);
-                    eventHandler({
+                    emitEvent({
                         type: 'error',
                         error: errorMsg,
                     });
@@ -615,7 +771,7 @@ export async function executeAgent(
 
                 case 'text-start': {
                     // Add newline for formatting
-                    eventHandler({
+                    emitEvent({
                         type: 'content_block',
                         content: ' \n',
                     });
@@ -623,64 +779,85 @@ export async function executeAgent(
                 }
 
                 case 'finish': {
+                    cleanupStreamLifecycle?.();
                     logInfo(`[Agent] Execution finished. Modified files: ${modifiedFiles.length}`);
+                    const finishReason = normalizeFinishReason(part);
+                    const continuationReason = getContinuationReasonFromFinish(finishReason);
 
                     // Capture final messages and log cache usage
                     try {
-                        const finalResponse = await response;
-                        finalModelMessages = finalResponse.messages || [];
+                        const finalResponse: any = response
+                            ? await awaitWithTimeout<any>(response, finalResponseWaitTimeoutMs)
+                            : undefined;
+                        finalModelMessages = finalResponse?.messages ?? [];
                     } catch (error) {
-                        logError('[Agent] Failed to capture model messages', error);
+                        logError('[Agent] Failed to capture model messages on finish', error);
                     }
 
                     // Send stop event to UI
-                    eventHandler({ type: 'stop', modelMessages: finalModelMessages });
+                    emitEvent({ type: 'stop', modelMessages: finalModelMessages });
                     return {
                         success: true,
                         modifiedFiles,
                         modelMessages: finalModelMessages,
+                        continuationSuggested: continuationReason !== undefined,
+                        continuationReason,
                     };
                 }
+
+                default:
+                    break;
             }
         }
 
         // Stream completed without finish event (shouldn't happen normally)
-        // Capture final model messages for UI only (recording should have happened in onStepFinish)
+        cleanupStreamLifecycle?.();
+        // Capture partial messages if available, but do not block forever waiting for response.
         try {
-            const finalResponse = await response;
-            finalModelMessages = finalResponse.messages || [];
-            logDebug(`[Agent] Captured ${finalModelMessages.length} model messages (no finish event)`);
+            const finalResponse: any = response
+                ? await awaitWithTimeout<any>(response, finalResponseWaitTimeoutMs)
+                : undefined;
+            finalModelMessages = finalResponse?.messages ?? [];
+            logDebug(`[Agent] Captured ${finalModelMessages.length} model messages after unexpected stream end`);
         } catch (error) {
-            logError('[Agent] Failed to capture model messages', error);
+            logError('[Agent] Failed to capture model messages after unexpected stream end', error);
         }
 
-        // Send stop event with modelMessages
-        eventHandler({ type: 'stop', modelMessages: finalModelMessages });
+        const unexpectedStreamEndMessage = 'Agent stream ended unexpectedly before completion. Please retry.';
+        logError(`[Agent] ${unexpectedStreamEndMessage}`);
+        emitEvent({ type: 'error', error: unexpectedStreamEndMessage });
         return {
-            success: true,
+            success: false,
             modifiedFiles,
+            error: unexpectedStreamEndMessage,
             modelMessages: finalModelMessages,
         };
 
     } catch (error: any) {
+        cleanupStreamLifecycle?.();
         const errorMsg = getErrorMessage(error);
+        const abortReason = streamWatchdog?.getAbortReason();
 
         // Try to capture partial model messages even on error
         try {
-            const finalResponse = await response;
-            finalModelMessages = finalResponse.messages || [];
-        } catch {
-            // Ignore errors in capturing messages
+            const finalResponse: any = response
+                ? await awaitWithTimeout<any>(response, finalResponseWaitTimeoutMs)
+                : undefined;
+            finalModelMessages = finalResponse?.messages ?? [];
+        } catch (captureError) {
+            logDebug(`[Agent] Skipped capturing final model messages after error: ${getErrorMessage(captureError)}`);
         }
 
         // Check if aborted - be thorough about detecting abort scenarios
         // The abort could come from various sources with different error types
-        const isAborted = 
-            error?.name === 'AbortError' || 
-            request.abortSignal?.aborted ||
-            errorMsg.toLowerCase().includes('abort') ||
-            errorMsg.toLowerCase().includes('cancel') ||
-            error?.code === 'ABORT_ERR';
+        const isToolInterruptionAbort = errorMsg.includes(TOOL_USE_INTERRUPTION_CONTEXT);
+        const isUserInitiatedAbort = (streamWatchdog?.isUserAbortRequested() || false) || request.abortSignal?.aborted || isToolInterruptionAbort;
+        const isTimeoutAbort = isStreamTimeoutError(error) || isStreamTimeoutError(abortReason);
+        const isProxyTerminated = isProxyTerminatedStreamError(errorMsg) || isProxyTerminatedStreamError(getErrorMessage(abortReason));
+        const isAborted =
+            !isTimeoutAbort &&
+            !isProxyTerminated &&
+            isUserInitiatedAbort;
 
         if (isAborted) {
             logInfo(`[Agent] Execution aborted by user (isExecutingTool: ${isExecutingTool})`);
@@ -696,7 +873,7 @@ export async function executeAgent(
                 }
             }
 
-            eventHandler({ type: 'abort' });
+            emitEvent({ type: 'abort' });
             return {
                 success: false,
                 modifiedFiles,
@@ -705,9 +882,61 @@ export async function executeAgent(
             };
         }
 
-        logError(`[Agent] Execution error: ${errorMsg}`);
+        if (isTimeoutAbort) {
+            const timeoutMessage = 'Agent request timed out while waiting for the model proxy response. Please retry.';
+            logError(`[Agent] Execution timeout: ${errorMsg}`);
+            emitEvent({
+                type: 'error',
+                error: timeoutMessage,
+            });
+            return {
+                success: false,
+                modifiedFiles,
+                error: timeoutMessage,
+                modelMessages: finalModelMessages,
+            };
+        }
 
-        eventHandler({
+        if (isProxyTerminated) {
+            const proxyTerminatedMessage = 'Agent stream was terminated by the proxy/network before completion. Please retry. If this keeps happening, increase proxy stream timeout limits.';
+            logError(`[Agent] Proxy/network terminated stream: ${errorMsg}`, error);
+            logDebug(`[Agent] Proxy/network termination diagnostics: error=${getErrorDiagnostics(error)} abortReason=${getErrorDiagnostics(abortReason)}`);
+            emitEvent({
+                type: 'error',
+                error: proxyTerminatedMessage,
+            });
+            return {
+                success: false,
+                modifiedFiles,
+                error: proxyTerminatedMessage,
+                modelMessages: finalModelMessages,
+            };
+        }
+
+        // Check for model-related errors (invalid model ID, model not found, deprecated)
+        const isModelError = /model.*not found|invalid.*model|unknown model|could not resolve model|model.*deprecated|model.*not available|model.*does not exist|model.*decommissioned/i.test(errorMsg)
+            || (error?.status === 400 && /model/i.test(errorMsg))
+            || (error?.status === 404 && /model/i.test(errorMsg));
+
+        if (isModelError) {
+            const isCustomModel = !!request.modelSettings?.mainModelCustomId;
+            const modelErrorMessage = isCustomModel
+                ? `Invalid model ID '${request.modelSettings!.mainModelCustomId}'. Check your model settings and try again.`
+                : `The model used by this extension may be outdated or unavailable. Please update the WSO2 MI Extension to the latest version to get updated model support. (Error: ${errorMsg})`;
+            logError(`[Agent] Model error (custom=${isCustomModel}): ${errorMsg}`, error);
+            emitEvent({ type: 'error', error: modelErrorMessage });
+            return {
+                success: false,
+                modifiedFiles,
+                error: modelErrorMessage,
+                modelMessages: finalModelMessages,
+            };
+        }
+
+        logError(`[Agent] Execution error: ${errorMsg}`, error);
+        logDebug(`[Agent] Execution error diagnostics: error=${getErrorDiagnostics(error)} abortReason=${getErrorDiagnostics(abortReason)}`);
+
+        emitEvent({
             type: 'error',
             error: errorMsg,
         });
@@ -718,26 +947,6 @@ export async function executeAgent(
             modelMessages: finalModelMessages,
         };
     }
-}
-
-// ============================================================================
-// Utilities
-// ============================================================================
-
-/**
- * Extracts a readable error message from an error object
- */
-function getErrorMessage(error: unknown): string {
-    if (error instanceof Error) {
-        return error.message;
-    }
-    if (typeof error === 'string') {
-        return error;
-    }
-    if (error && typeof error === 'object' && 'message' in error) {
-        return String((error as any).message);
-    }
-    return 'An unknown error occurred';
 }
 
 /**

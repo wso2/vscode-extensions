@@ -30,7 +30,7 @@
         "onUri"
     ],
     "extensionDependencies": [
-        "anweber.httpbook"
+        "wso2.hurl-client"
     ],
     "contributes": {
         "languages": [
@@ -83,6 +83,11 @@
                     "type": "string",
                     "default": "",
                     "description": "Specify the Ballerina home directory path."
+                },
+                "ballerina.icpPath": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to the ICP binary. If empty, the extension will attempt to auto-detect from the default installation location."
                 },
                 "ballerina.isBI": {
                     "type": "boolean",
@@ -258,6 +263,11 @@
                     "type": "number",
                     "default": 52428800,
                     "description": "Maximum snapshot size in bytes (default: 50MB)."
+                },
+                "ballerina.ai.showContextUsage": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show context usage indicator in the AI chat input footer."
                 }
             }
         },
@@ -324,7 +334,7 @@
                                 "description": "Indicates the terminal kind to launch the debugging process in."
                             },
                             "choreoConnect": {
-                                "description": "Connect with Choreo/Devant when launching the app"
+                                "description": "Connect with WSO2 Cloud when launching the app"
                             }
                         }
                     },
@@ -547,7 +557,7 @@
             },
             {
                 "command": "ballerina.open.ai.panel",
-                "title": "Open AI Panel",
+                "title": "Open WSO2 Integrator Copilot",
                 "category": "Ballerina",
                 "icon": {
                     "dark": "./resources/icons/light-ai-chat.svg",
@@ -728,11 +738,28 @@
                 "enablement": "isBIProject && devant.editor"
             },
             {
+                "command": "ballerina.icp.start",
+                "title": "Start ICP",
+                "category": "Ballerina",
+                "enablement": "isSupportedProject && !ballerina.icpRunning"
+            },
+            {
+                "command": "ballerina.icp.stop",
+                "title": "Stop ICP",
+                "category": "Ballerina",
+                "enablement": "isSupportedProject && ballerina.icpRunning"
+            },
+            {
                 "command": "ballerina.showTraceWindow",
                 "title": "Show Traces",
                 "icon": "$(list-tree)",
                 "category": "Ballerina",
                 "enablement": "isSupportedProject"
+            },
+            {
+                "command": "ballerina.startTraceServer",
+                "title": "Start Trace Server",
+                "category": "Ballerina"
             },
             {
                 "command": "ballerina.enableTracing",
@@ -1004,7 +1031,7 @@
                     "command": "ballerina.open.ai.panel",
                     "group": "navigation@1",
                     "when": "resourceLangId == ballerina || isBallerinaDiagram || (isBalVisualizerActive && isBIProject)",
-                    "title": "Open AI Panel"
+                    "title": "Open WSO2 Integrator Copilot"
                 },
                 {
                     "command": "BI.project.run",
@@ -1388,6 +1415,7 @@
         "@vscode/test-electron": "2.5.2",
         "@vscode/vsce": "3.7.1",
         "@wso2/ballerina-core": "workspace:*",
+        "@wso2/copilot-utilities": "workspace:*",
         "@wso2/ballerina-visualizer": "workspace:*",
         "@wso2/font-wso2-vscode": "workspace:*",
         "@wso2/syntax-tree": "workspace:*",
@@ -1465,6 +1493,6 @@
     ],
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/wso2/ballerina-plugin-vscode.git"
+        "url": "git+https://github.com/wso2/vscode-extensions.git"
     }
 }

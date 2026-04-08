@@ -39,6 +39,8 @@ import {
     PlanApprovalRequest,
     ProcessContextTypeCreationRequest,
     ProcessMappingParametersRequest,
+    PromptEnhancementRequest,
+    PromptEnhancementResponse,
     RequirementSpecification,
     RestoreCheckpointRequest,
     SemanticDiffRequest,
@@ -49,6 +51,9 @@ import {
     UIChatMessage,
     UpdateChatMessageRequest,
     UsageResponse,
+    WebToolApprovalRequest,
+    approveWebTool,
+    declineWebTool,
     abortAIGeneration,
     acceptChanges,
     addFilesToProject,
@@ -62,6 +67,7 @@ import {
     declineChanges,
     declinePlan,
     declineTask,
+    enhancePrompt,
     generateAgent,
     generateContextTypes,
     generateInlineMappingCode,
@@ -79,7 +85,6 @@ import {
     getLoginMethod,
     getSemanticDiff,
     getServiceNames,
-    getUsage,
     isCopilotSignedIn,
     isPlatformExtensionAvailable,
     isUserAuthenticated,
@@ -88,6 +93,7 @@ import {
     openAIPanel,
     openChatWindowWithCommand,
     openFileDiff,
+    promptForLogin,
     promptGithubAuthorize,
     provideConfiguration,
     provideConnectorSpec,
@@ -95,7 +101,12 @@ import {
     showSignInAlert,
     submitFeedback,
     updateChatMessage,
-    updateRequirementSpecification
+    updateRequirementSpecification,
+    getUsage,
+    compactConversation,
+    CompactConversationRequest,
+    CompactConversationResponse,
+    getShowContextUsage,
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -294,5 +305,30 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     openFileDiff(params: OpenFileDiffRequest): void {
         return this._messenger.sendNotification(openFileDiff, HOST_EXTENSION, params);
+    }
+
+    approveWebTool(params: WebToolApprovalRequest): Promise<void> {
+        return this._messenger.sendRequest(approveWebTool, HOST_EXTENSION, params);
+    }
+
+    declineWebTool(params: WebToolApprovalRequest): Promise<void> {
+        return this._messenger.sendRequest(declineWebTool, HOST_EXTENSION, params);
+    }
+
+    compactConversation(params: CompactConversationRequest): Promise<CompactConversationResponse> {
+        return this._messenger.sendRequest(compactConversation, HOST_EXTENSION, params);
+    }
+
+    getShowContextUsage(): Promise<boolean> {
+        return this._messenger.sendRequest(getShowContextUsage, HOST_EXTENSION);
+    }
+
+    
+    enhancePrompt(params: PromptEnhancementRequest): Promise<PromptEnhancementResponse> {
+        return this._messenger.sendRequest(enhancePrompt, HOST_EXTENSION, params);
+    }
+
+    promptForLogin(): void {
+        return this._messenger.sendNotification(promptForLogin, HOST_EXTENSION);
     }
 }

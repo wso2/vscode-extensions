@@ -86,6 +86,7 @@ import {
     FormDiagnosticsResponse,
     FormDidCloseParams,
     FormDidOpenParams,
+    FormDirtyDidChangeParams,
     FunctionNodeRequest,
     FunctionNodeResponse,
     GeneratedClientSaveResponse,
@@ -190,10 +191,12 @@ import {
     createEmptyBIWorkspace,
     deleteProjectFromWorkspace,
     openInVSCode
-, validateProjectPath } from "../../utils/bi";
+    , validateProjectPath
+} from "../../utils/bi";
 import { writeBallerinaFileDidOpen } from "../../utils/modification";
 import { updateSourceCode } from "../../utils/source-utils";
 import { getView } from "../../utils/state-machine-utils";
+import { isLibraryProject } from "../../utils/config";
 import { PlatformExtRpcManager } from "../platform-ext/rpc-manager";
 import { openAIPanelWithPrompt } from "../../views/ai-panel/aiMachine";
 import { checkProjectDiagnostics, removeUnusedImports } from "../ai-panel/repair-utils";
@@ -201,10 +204,11 @@ import { getCurrentBallerinaProject } from "../../utils/project-utils";
 import { CommonRpcManager } from "../common/rpc-manager";
 import * as toml from "@iarna/toml";
 import { readOrWriteReadmeContent } from "./utils";
-import { registerFormOpen, registerFormClose } from "./form-state";
+import { registerFormOpen, registerFormClose, setFormDirtyState } from "./form-state";
 import { chatStateStorage } from "../../views/ai-panel/chatStateStorage";
 import { getRepoRoot } from "../platform-ext/platform-utils";
 import { WI_EXTENSION_ID } from "../../utils";
+import { notifyOnIdentifierUpdated } from "../../RPCLayer";
 
 
 export class BiDiagramRpcManager implements BIDiagramAPI {
@@ -656,6 +660,8 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     async getNodeTemplate(params: BINodeTemplateRequest): Promise<BINodeTemplateResponse> {
         console.log(">>> requesting bi node template from ls", params);
         params.forceAssign = true; // TODO: remove this
+        const projectPath = StateMachine.context().projectPath;
+        params.isLibrary = projectPath ? await isLibraryProject(projectPath) : false;
 
         // Check if the file exists
         if (!fs.existsSync(params.filePath)) {
@@ -789,8 +795,13 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
 
     async getProjectComponents(): Promise<ProjectComponentsResponse> {
         return new Promise(async (resolve) => {
+            const projectPath = StateMachine.context().projectPath;
+            if (!projectPath) {
+                resolve({ components: {packages: []} });
+                return;
+            }
             const components = await StateMachine.langClient().getBallerinaProjectComponents({
-                documentIdentifiers: [{ uri: Uri.file(StateMachine.context().projectPath).toString() }],
+                documentIdentifiers: [{ uri: Uri.file(projectPath).toString() }],
             });
             resolve({ components });
         });
@@ -1154,8 +1165,8 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         }
 
         const deploymentParams: ICreateNewIntegrationCmdParams = {
-            buildPackLang:"ballerina",
-            integrations:[{ fsPath: StateMachine.context().projectPath, supportedIntegrationTypes: [integrationType] }],
+            buildPackLang: "ballerina",
+            integrations: [{ fsPath: StateMachine.context().projectPath, supportedIntegrationTypes: [integrationType] }],
             workspaceDir: StateMachine.context().workspacePath || StateMachine.context().projectPath,
         };
         await commands.executeCommand(WICommandIds.CreateNewComponent, deploymentParams);
@@ -1169,7 +1180,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             window.showWarningMessage("No deployable projects found in the workspace.");
             return { isCompleted: true };
         }
-        const deploymentParams: ICreateNewIntegrationCmdIntegrations[]= [];
+        const integrations: ICreateNewIntegrationCmdIntegrations[]= [];
 
         // If there is only one project in the workspace and it has multiple integration types,
         // ask the user to pick the type similar to the single project deploy flow.
@@ -1182,7 +1193,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 return { isCompleted: true };
             }
 
-            deploymentParams.push({fsPath: projectPath, supportedIntegrationTypes: [integrationType] });
+            integrations.push({fsPath: projectPath, supportedIntegrationTypes: [integrationType] });
         } else {
             for (const projectScope of projectScopes) {
                 const { projectPath, integrationTypes } = projectScope;
@@ -1191,17 +1202,17 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                     continue;
                 }
 
-                deploymentParams.push({fsPath: projectPath, supportedIntegrationTypes: integrationTypes });
+                integrations.push({fsPath: projectPath, supportedIntegrationTypes: integrationTypes });
             }
         }
 
-        if (deploymentParams.length === 0) {
+        if (integrations.length === 0) {
             return { isCompleted: true };
         }
 
         await commands.executeCommand(
             WICommandIds.CreateNewComponent,
-            deploymentParams,
+            { buildPackLang: 'ballerina', integrations, workspaceDir: StateMachine.context().workspacePath } as ICreateNewIntegrationCmdParams,
             params.rootDirectory
         );
         return { isCompleted: true };
@@ -1600,6 +1611,10 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         });
     }
 
+    formDirtyDidChange(params: FormDirtyDidChangeParams): void {
+        setFormDirtyState(params.filePath, params.isDirty);
+    }
+
     async formDidClose(params: FormDidCloseParams): Promise<void> {
         return new Promise(async (resolve, reject) => {
             try {
@@ -1766,7 +1781,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     async promptGithubCopilotAuthNotificaiton(): Promise<void> {
         //TODO: Prevent multiple notifications
         vscode.window.showInformationMessage(
-            'WSO2 Integrator: BI supports visual completions with GitHub Copilot.',
+            'WSO2 Integrator supports visual completions with GitHub Copilot.',
             'Authorize using GitHub Copilot'
         ).then(selection => {
             if (selection === 'Authorize using GitHub Copilot') {
@@ -1904,7 +1919,16 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         try {
             const workspaceEdit = await StateMachine.langClient().rename(request);
             if (workspaceEdit && 'changes' in workspaceEdit && workspaceEdit.changes) {
-                await updateSourceCode({ textEdits: workspaceEdit.changes, description: 'Rename for ' + params.newName, isRenameOperation: true });
+                const response = await updateSourceCode({ textEdits: workspaceEdit.changes, description: 'Rename for ' + params.newName, isRenameOperation: true });
+                if (response && response.length > 0) {
+                    // Find the artifact that is renamed or send all
+                    const artifact = response.find(res => res.name === params.newName || res.context === params.newName);
+                    if (artifact) {
+                        notifyOnIdentifierUpdated([artifact]);
+                    } else {
+                        notifyOnIdentifierUpdated(response);
+                    }
+                }
             }
         } catch (error) {
             console.error('Error in renameIdentifier:', error);

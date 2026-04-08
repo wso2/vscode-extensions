@@ -19,12 +19,20 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import * as childProcess from 'child_process';
-import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { BashResult, ToolResult, BashExecuteFn, KillTaskExecuteFn, TaskOutputExecuteFn, TaskOutputResult, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './types';
-import { logDebug, logError, logInfo } from '../../copilot/logger';
+import { AgentEvent } from '@wso2/mi-core';
+import { BashResult, ToolResult, BashExecuteFn, KillTaskExecuteFn, TaskOutputExecuteFn, TaskOutputResult, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, ShellApprovalRuleStore } from './types';
+import { logError, logInfo } from '../../copilot/logger';
 import { getBackgroundSubagents } from './subagent_tool';
 import { setJavaHomeInEnvironmentAndPath } from '../../../debugger/debugHelper';
+import { PendingPlanApproval } from './plan_mode_tools';
+import {
+    analyzeShellCommand,
+    buildShellCommandDeniedResult,
+    buildShellSandboxBlockedResult,
+    isAnalysisCoveredByRules,
+    normalizePrefixRule,
+} from './shell_sandbox';
 import treeKill = require('tree-kill');
 
 // ============================================================================
@@ -52,6 +60,8 @@ interface BackgroundShell {
     output: string;
     completed: boolean;
     exitCode: number | null;
+    notified: boolean;           // true once completion notification has been injected into a tool result
+    sessionId: string;
 }
 
 const backgroundShells: Map<string, BackgroundShell> = new Map();
@@ -61,6 +71,42 @@ const backgroundShells: Map<string, BackgroundShell> = new Map();
  */
 export function getBackgroundShells(): Map<string, BackgroundShell> {
     return backgroundShells;
+}
+
+/**
+ * Kill and remove all running background shells.
+ * Used by RPC-level run cleanup to prevent orphaned shell processes on failed/aborted runs.
+ */
+export async function cleanupRunningBackgroundShells(): Promise<number> {
+    const runningShells = Array.from(backgroundShells.entries()).filter(([, shell]) => !shell.completed);
+    if (runningShells.length === 0) {
+        return 0;
+    }
+
+    await Promise.all(runningShells.map(([id, shell]) => new Promise<void>((resolve) => {
+        const pid = shell.process.pid;
+        shell.completed = true;
+        shell.exitCode = -9;
+        if (!shell.output) {
+            shell.output = `Shell task ${id} was terminated because the main agent run ended.`;
+        }
+        backgroundShells.delete(id);
+
+        if (!pid) {
+            resolve();
+            return;
+        }
+
+        treeKill(pid, 'SIGKILL', (error) => {
+            if (error) {
+                logError(`[ShellTool] Failed to kill background shell ${id} during cleanup: ${error.message}`);
+            }
+            resolve();
+        });
+    })));
+
+    logInfo(`[ShellTool] Cleaned up ${runningShells.length} running background shell(s) at agent run end`);
+    return runningShells.length;
 }
 
 // ============================================================================
@@ -79,8 +125,140 @@ function cleanupOldShells(): void {
     }
 }
 
+/**
+ * Escape a string for safe inclusion inside an internal tag boundary (e.g. <system-reminder>).
+ * Prevents crafted task text from breaking the tag structure.
+ */
+function escapeForInternalTag(value: string): string {
+    return value.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Drain completion notifications for background tasks (shells + subagents)
+ * that belong to the given session.
+ * Returns a system-reminder string for any tasks that completed since last drain, or empty string.
+ * Marks drained tasks as notified so they are only reported once.
+ */
+export function drainBackgroundTaskNotifications(sessionId: string): string {
+    const notifications: string[] = [];
+
+    // Check background shells owned by this session
+    for (const [, shell] of backgroundShells) {
+        if (shell.sessionId !== sessionId) {
+            continue;
+        }
+        if (shell.completed && !shell.notified) {
+            shell.notified = true;
+            const status = shell.exitCode === 0 ? 'completed successfully' : `completed with exit code ${shell.exitCode}`;
+            const safeCommand = escapeForInternalTag(shell.command);
+            notifications.push(`Background shell "${safeCommand}" (${shell.id}) ${status}. Use task_output to retrieve the result.`);
+        }
+    }
+
+    // Check background subagents owned by this session
+    for (const [, subagent] of getBackgroundSubagents()) {
+        if (subagent.sessionId !== sessionId) {
+            continue;
+        }
+        if (subagent.completed && !subagent.notified) {
+            subagent.notified = true;
+            const status = subagent.success ? 'completed successfully' : (subagent.aborted ? 'was aborted' : 'failed');
+            const safeDescription = escapeForInternalTag(subagent.description);
+            notifications.push(`Background ${subagent.subagentType} subagent "${safeDescription}" (${subagent.id}) ${status}. Use task_output to retrieve the result.`);
+        }
+    }
+
+    if (notifications.length === 0) {
+        return '';
+    }
+
+    return `\n\n<system-reminder>\n${notifications.join('\n')}\n</system-reminder>`;
+}
+
 function generateShellTaskId(): string {
     return `task-shell-${uuidv4().split('-')[0]}`;
+}
+
+type AgentEventHandler = (event: AgentEvent) => void;
+
+function formatApprovalReasons(reasons: string[]): string {
+    if (reasons.length === 0) {
+        return '- Shell policy requires explicit user approval for this command.';
+    }
+
+    return reasons.map((reason) => `- ${reason}`).join('\n');
+}
+
+function summarizeCommandForLog(command: string): string {
+    const trimmed = command.trim();
+    if (!trimmed) {
+        return '<empty>';
+    }
+
+    const tokens = trimmed.split(/\s+/);
+    const commandName = tokens[0].replace(/^['"`]+|['"`]+$/g, '');
+    const argCount = Math.max(tokens.length - 1, 0);
+    return `${commandName || '<unknown>'} (args=${argCount})`;
+}
+
+function buildShellApprovalContent(command: string, reasons: string[], suggestedPrefixRule: string[]): string {
+    const lines: string[] = [
+        'Agent wants to run this shell command:',
+        `\`${command}\``,
+        '',
+        'Why approval is required:',
+        formatApprovalReasons(reasons),
+    ];
+
+    if (suggestedPrefixRule.length > 0) {
+        lines.push('', `Suggested session rule prefix: \`${suggestedPrefixRule.join(' ')}\``);
+    }
+
+    return lines.join('\n');
+}
+
+async function requestShellApproval(
+    eventHandler: AgentEventHandler,
+    pendingApprovals: Map<string, PendingPlanApproval>,
+    request: {
+        sessionId: string;
+        command: string;
+        description?: string;
+        reasons: string[];
+        suggestedPrefixRule: string[];
+    }
+): Promise<{ approved: boolean; feedback?: string; rememberForSession?: boolean; suggestedPrefixRule?: string[] }> {
+    const approvalId = uuidv4();
+
+    eventHandler({
+        type: 'plan_approval_requested',
+        approvalId,
+        approvalKind: 'shell_command',
+        approvalTitle: 'Allow Shell Command?',
+        approveLabel: 'Allow',
+        rejectLabel: 'Deny',
+        allowFeedback: false,
+        content: buildShellApprovalContent(request.command, request.reasons, request.suggestedPrefixRule),
+        bashCommand: request.command,
+        bashDescription: request.description,
+        suggestedPrefixRule: request.suggestedPrefixRule,
+    });
+
+    return new Promise((resolve, reject) => {
+        pendingApprovals.set(approvalId, {
+            approvalId,
+            approvalKind: 'shell_command',
+            sessionId: request.sessionId,
+            resolve: (result) => {
+                pendingApprovals.delete(approvalId);
+                resolve(result);
+            },
+            reject: (error: Error) => {
+                pendingApprovals.delete(approvalId);
+                reject(error);
+            }
+        });
+    });
 }
 
 // ============================================================================
@@ -90,7 +268,14 @@ function generateShellTaskId(): string {
 /**
  * Creates the execute function for the shell tool
  */
-export function createBashExecute(projectPath: string): BashExecuteFn {
+export function createBashExecute(
+    projectPath: string,
+    eventHandler?: AgentEventHandler,
+    pendingApprovals?: Map<string, PendingPlanApproval>,
+    shellApprovalRuleStore?: ShellApprovalRuleStore,
+    sessionId: string = '',
+    mainAbortSignal?: AbortSignal
+): BashExecuteFn {
     return async (args: {
         command: string;
         description?: string;
@@ -103,6 +288,56 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
             timeout = DEFAULT_TIMEOUT,
             run_in_background = false
         } = args;
+
+        const analysis = analyzeShellCommand(command, process.platform, projectPath, run_in_background);
+        if (analysis.blocked) {
+            return buildShellSandboxBlockedResult(analysis.reasons);
+        }
+
+        const sessionRules = shellApprovalRuleStore?.getRules() ?? [];
+        const approvalBypassedByRule = analysis.requiresApproval
+            && !analysis.isDestructive
+            && isAnalysisCoveredByRules(analysis, sessionRules);
+
+        if (analysis.requiresApproval && !approvalBypassedByRule) {
+            if (!eventHandler || !pendingApprovals) {
+                return {
+                    success: false,
+                    message: 'Shell command requires user approval, but approval flow is unavailable in this context.',
+                    error: 'SHELL_APPROVAL_UNAVAILABLE',
+                };
+            }
+
+            const approvalResult = await requestShellApproval(eventHandler, pendingApprovals, {
+                sessionId,
+                command,
+                description,
+                reasons: analysis.reasons,
+                suggestedPrefixRule: analysis.suggestedPrefixRule,
+            });
+
+            if (!approvalResult.approved) {
+                return buildShellCommandDeniedResult();
+            }
+
+            const rememberForSession = approvalResult.rememberForSession === true;
+            if (rememberForSession && shellApprovalRuleStore && !analysis.isDestructive) {
+                const selectedRule = normalizePrefixRule(
+                    (approvalResult.suggestedPrefixRule && approvalResult.suggestedPrefixRule.length > 0)
+                        ? approvalResult.suggestedPrefixRule
+                        : analysis.suggestedPrefixRule
+                );
+                if (selectedRule.length > 0) {
+                    try {
+                        await shellApprovalRuleStore.addRule(selectedRule);
+                    } catch (error) {
+                        logError('[ShellTool] Failed to persist shell approval rule', error);
+                    }
+                }
+            }
+        } else if (approvalBypassedByRule) {
+            logInfo(`[ShellTool] Approval bypassed by session rule for command summary: ${summarizeCommandForLog(command)}`);
+        }
 
         logInfo(`[ShellTool] Executing: ${command}${description ? ` (${description})` : ''}`);
 
@@ -141,7 +376,9 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
                 startTime: new Date(),
                 output: '',
                 completed: false,
-                exitCode: null
+                exitCode: null,
+                notified: false,
+                sessionId,
             };
 
             backgroundShells.set(taskId, shell);
@@ -166,6 +403,23 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
                 shell.output += `\nError: ${error.message}`;
                 logError(`[ShellTool] Background shell ${taskId} error: ${error.message}`);
             });
+
+            // Kill background shell if main agent is aborted
+            if (mainAbortSignal && proc.pid) {
+                const onMainAbort = () => {
+                    if (!shell.completed && proc.pid) {
+                        logInfo(`[ShellTool] Main agent aborted, killing background shell: ${taskId}`);
+                        treeKill(proc.pid, 'SIGKILL');
+                    }
+                };
+                if (mainAbortSignal.aborted) {
+                    onMainAbort();
+                } else {
+                    mainAbortSignal.addEventListener('abort', onMainAbort, { once: true });
+                    // Clean up listener when shell completes naturally
+                    proc.on('close', () => mainAbortSignal.removeEventListener('abort', onMainAbort));
+                }
+            }
 
             logInfo(`[ShellTool] Started background shell: ${taskId}`);
 
@@ -199,6 +453,23 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
                     }
                 }, effectiveTimeout);
 
+                // Kill foreground process if main agent is aborted
+                let aborted = false;
+                const onMainAbort = () => {
+                    if (!aborted && proc.pid) {
+                        aborted = true;
+                        clearTimeout(timeoutHandle);
+                        treeKill(proc.pid, 'SIGKILL');
+                    }
+                };
+                if (mainAbortSignal) {
+                    if (mainAbortSignal.aborted) {
+                        onMainAbort();
+                    } else {
+                        mainAbortSignal.addEventListener('abort', onMainAbort, { once: true });
+                    }
+                }
+
                 proc.stdout?.on('data', (data) => {
                     stdout += data.toString();
                 });
@@ -209,6 +480,19 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
 
                 proc.on('close', (code) => {
                     clearTimeout(timeoutHandle);
+                    mainAbortSignal?.removeEventListener('abort', onMainAbort);
+
+                    if (aborted) {
+                        resolve({
+                            success: false,
+                            message: `Command was aborted.\n\n**Output before abort:**\n\`\`\`\n${stdout + (stderr ? `\n\nSTDERR:\n${stderr}` : '')}\n\`\`\``,
+                            stdout,
+                            stderr,
+                            exitCode: -1,
+                            error: 'Command aborted'
+                        });
+                        return;
+                    }
 
                     const combinedOutput = stdout + (stderr ? `\n\nSTDERR:\n${stderr}` : '');
 
@@ -243,6 +527,7 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
 
                 proc.on('error', (error) => {
                     clearTimeout(timeoutHandle);
+                    mainAbortSignal?.removeEventListener('abort', onMainAbort);
                     resolve({
                         success: false,
                         message: `Failed to execute command: ${error.message}`,
@@ -269,7 +554,7 @@ const bashInputSchema = z.object({
         `Optional timeout in milliseconds (default: ${DEFAULT_TIMEOUT}ms, max: ${MAX_TIMEOUT}ms)`
     ),
     run_in_background: z.boolean().optional().default(false).describe(
-        'Set to true to run the command in the background. Returns a task_id that can be used with kill_task tool.'
+        `Set to true to run the command in the background. Returns a task_id that can be checked with ${TASK_OUTPUT_TOOL_NAME} and terminated with ${KILL_TASK_TOOL_NAME}.`
     ),
 });
 
@@ -280,7 +565,7 @@ export function createBashTool(execute: BashExecuteFn) {
     return (tool as any)({
         description: `Execute shell commands in the MI project directory (JAVA_HOME pre-configured).
             Always provide platform-specific commands according to <env> (Windows: PowerShell syntax, macOS/Linux: bash syntax).
-            Use run_in_background=true for long-running commands; use ${KILL_TASK_TOOL_NAME} to terminate.
+            Use run_in_background=true for long-running commands; this returns a task_id usable with ${TASK_OUTPUT_TOOL_NAME} and ${KILL_TASK_TOOL_NAME}.
             Do NOT use shell for file reading (use file_read), content search (use grep), or file search (use glob).
             No interactive commands (vim, nano, etc.).`,
         inputSchema: bashInputSchema,
@@ -306,6 +591,7 @@ export function createKillTaskExecute(): KillTaskExecuteFn {
 
         if (shell) {
             if (shell.completed) {
+                shell.notified = true;
                 const output = shell.output;
                 backgroundShells.delete(taskId);
                 return {
@@ -357,6 +643,7 @@ export function createKillTaskExecute(): KillTaskExecuteFn {
         }
 
         if (subagent.completed) {
+            subagent.notified = true;
             const output = subagent.output;
             getBackgroundSubagents().delete(taskId);
             return {
@@ -438,8 +725,15 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
             ? { output: shell.output, completed: shell.completed, exitCode: shell.exitCode, type: 'shell' as const }
             : { output: subagent!.output, completed: subagent!.completed, exitCode: subagent!.success === true ? 0 : subagent!.success === false ? 1 : null, type: 'subagent' as const };
 
+        // Mark as notified so drainBackgroundTaskNotifications() won't duplicate this
+        const markNotified = () => {
+            if (shell) { shell.notified = true; }
+            if (subagent) { subagent.notified = true; }
+        };
+
         // If not blocking, return current state immediately
         if (!block) {
+            if (task.completed) { markNotified(); }
             const output = task.output;
             return {
                 success: true,
@@ -455,6 +749,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
 
         // If already completed, return immediately
         if (task.completed) {
+            markNotified();
             const output = task.output;
             return {
                 success: task.exitCode === 0,
@@ -484,6 +779,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
 
                 if (currentCompleted) {
                     clearInterval(checkInterval);
+                    markNotified();
                     const output = currentOutput;
                     resolve({
                         success: currentExitCode === 0,

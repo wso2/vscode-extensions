@@ -24,19 +24,67 @@ import { AiPanelWebview } from './webview';
 import { extension } from '../MIExtensionContext';
 import {
     getAuthCredentials,
+    getPlatformExtensionAPI,
     initiateInbuiltAuth,
     logout,
     validateApiKey,
+    validateAwsCredentials,
     isPlatformExtensionAvailable,
     isDevantUserLoggedIn,
     getPlatformStsToken,
     exchangeStsToCopilotToken,
-    storeAuthCredentials,
-    PLATFORM_EXTENSION_ID
+    storeAuthCredentials
 } from './auth';
 import { PromptObject } from '@wso2/mi-core';
-import { IWso2PlatformExtensionAPI } from '@wso2/wso2-platform-core';
-import { logError } from './copilot/logger';
+import { logError, logInfo, logWarn } from './copilot/logger';
+
+const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
+
+let silentPlatformBootstrapInFlight = false;
+const LOGIN_STS_RETRY_COUNT = 10;
+const LOGIN_STS_RETRY_DELAY_MS = 500;
+
+const trySilentPlatformBootstrap = async (): Promise<void> => {
+    if (silentPlatformBootstrapInFlight) {
+        return;
+    }
+
+    // Only bootstrap when the machine is currently unauthenticated.
+    if (aiStateService.getSnapshot().value !== 'Unauthenticated') {
+        return;
+    }
+
+    silentPlatformBootstrapInFlight = true;
+    try {
+        const isLoggedIn = await isDevantUserLoggedIn();
+        if (!isLoggedIn) {
+            return;
+        }
+
+        const stsToken = await getPlatformStsToken({
+            retries: LOGIN_STS_RETRY_COUNT,
+            retryDelayMs: LOGIN_STS_RETRY_DELAY_MS,
+        });
+        if (!stsToken) {
+            return;
+        }
+
+        const secrets = await exchangeStsToCopilotToken(stsToken);
+        await storeAuthCredentials({
+            loginMethod: LoginMethod.MI_INTEL,
+            secrets
+        });
+
+        // Transition to authenticated only if state is still unauthenticated.
+        if (aiStateService.getSnapshot().value === 'Unauthenticated') {
+            aiStateService.send({ type: AI_EVENT_TYPE.SIGN_IN_SUCCESS });
+        }
+    } catch (error) {
+        logError('Silent platform auth bootstrap failed', error);
+    } finally {
+        silentPlatformBootstrapInFlight = false;
+    }
+};
 
 export const openAIWebview = (initialPrompt?: PromptObject) => {
     extension.initialPrompt = initialPrompt;
@@ -45,6 +93,9 @@ export const openAIWebview = (initialPrompt?: PromptObject) => {
     } else {
         AiPanelWebview.currentPanel!.getWebview()?.reveal();
     }
+
+    // If platform session is already active, silently bootstrap auth for the AI panel.
+    void trySilentPlatformBootstrap();
 };
 
 export const closeAIWebview = () => {
@@ -53,6 +104,13 @@ export const closeAIWebview = () => {
         AiPanelWebview.currentPanel = undefined;
     }
 };
+
+const createAuthSuccessTransition = (target: string) => ({
+    target,
+    actions: assign({
+        errorMessage: (_ctx: AIMachineContext) => undefined,
+    }),
+});
 
 const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
     id: 'mi-ai',
@@ -150,7 +208,15 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                     actions: assign({
                         loginMethod: (_ctx) => LoginMethod.ANTHROPIC_KEY
                     })
-                }
+                },
+                [AI_EVENT_TYPE.AUTH_WITH_AWS_BEDROCK]: {
+                    target: 'Authenticating',
+                    actions: assign({
+                        loginMethod: (_ctx) => LoginMethod.AWS_BEDROCK
+                    })
+                },
+                [AI_EVENT_TYPE.COMPLETE_AUTH]: createAuthSuccessTransition('Authenticated'),
+                [AI_EVENT_TYPE.SIGN_IN_SUCCESS]: createAuthSuccessTransition('Authenticated'),
             }
         },
         Authenticating: {
@@ -165,6 +231,10 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                         {
                             cond: (context) => context.loginMethod === LoginMethod.ANTHROPIC_KEY,
                             target: 'apiKeyFlow'
+                        },
+                        {
+                            cond: (context) => context.loginMethod === LoginMethod.AWS_BEDROCK,
+                            target: 'awsBedrockFlow'
                         },
                         {
                             target: 'ssoFlow' // default
@@ -184,18 +254,8 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                         }
                     },
                     on: {
-                        [AI_EVENT_TYPE.COMPLETE_AUTH]: {
-                            target: '#mi-ai.Authenticated',
-                            actions: assign({
-                                errorMessage: (_ctx) => undefined,
-                            })
-                        },
-                        [AI_EVENT_TYPE.SIGN_IN_SUCCESS]: {
-                            target: '#mi-ai.Authenticated',
-                            actions: assign({
-                                errorMessage: (_ctx) => undefined,
-                            })
-                        },
+                        [AI_EVENT_TYPE.COMPLETE_AUTH]: createAuthSuccessTransition('#mi-ai.Authenticated'),
+                        [AI_EVENT_TYPE.SIGN_IN_SUCCESS]: createAuthSuccessTransition('#mi-ai.Authenticated'),
                         [AI_EVENT_TYPE.CANCEL_LOGIN]: {
                             target: '#mi-ai.Unauthenticated',
                             actions: assign({
@@ -250,6 +310,48 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                             target: 'apiKeyFlow',
                             actions: assign({
                                 errorMessage: (_ctx, event) => event.data?.message || 'API key validation failed'
+                            })
+                        }
+                    }
+                },
+                awsBedrockFlow: {
+                    on: {
+                        [AI_EVENT_TYPE.SUBMIT_AWS_CREDENTIALS]: {
+                            target: 'validatingAwsCredentials',
+                            actions: assign({
+                                errorMessage: (_ctx) => undefined
+                            })
+                        },
+                        [AI_EVENT_TYPE.CANCEL_LOGIN]: {
+                            target: '#mi-ai.Unauthenticated',
+                            actions: assign({
+                                loginMethod: (_ctx) => undefined,
+                                errorMessage: (_ctx) => undefined,
+                            })
+                        },
+                        [AI_EVENT_TYPE.CANCEL]: {
+                            target: '#mi-ai.Unauthenticated',
+                            actions: assign({
+                                loginMethod: (_ctx) => undefined,
+                                errorMessage: (_ctx) => undefined,
+                            })
+                        }
+                    }
+                },
+                validatingAwsCredentials: {
+                    invoke: {
+                        id: 'validateAwsCredentials',
+                        src: 'validateAwsCredentials',
+                        onDone: {
+                            target: '#mi-ai.Authenticated',
+                            actions: assign({
+                                errorMessage: (_ctx) => undefined,
+                            })
+                        },
+                        onError: {
+                            target: 'awsBedrockFlow',
+                            actions: assign({
+                                errorMessage: (_ctx, event) => event.data?.message || 'AWS credentials validation failed'
                             })
                         }
                     }
@@ -321,6 +423,13 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                     target: 'Authenticating',
                     actions: assign({
                         loginMethod: (_ctx) => LoginMethod.ANTHROPIC_KEY,
+                        errorMessage: (_ctx) => undefined,
+                    })
+                },
+                [AI_EVENT_TYPE.AUTH_WITH_AWS_BEDROCK]: {
+                    target: 'Authenticating',
+                    actions: assign({
+                        loginMethod: (_ctx) => LoginMethod.AWS_BEDROCK,
                         errorMessage: (_ctx) => undefined,
                     })
                 },
@@ -396,18 +505,41 @@ const checkWorkspaceAndToken = async (): Promise<{ workspaceSupported: boolean; 
         return { workspaceSupported: false };
     }
 
-    // Startup must stay local-only: do not trigger platform/proxy calls before AI panel is used.
     const credentials = await getAuthCredentials();
     let tokenData: { token: string; loginMethod: LoginMethod } | undefined;
     if (credentials?.loginMethod === LoginMethod.MI_INTEL) {
-        const accessToken = (credentials.secrets as { accessToken?: string })?.accessToken;
-        if (accessToken) {
-            tokenData = { token: accessToken, loginMethod: LoginMethod.MI_INTEL };
+        const secrets = credentials.secrets as { accessToken?: string; expiresAt?: number };
+        if (secrets.accessToken) {
+            const isExpiredOrUnknown = !secrets.expiresAt || (secrets.expiresAt - TOKEN_EXPIRY_BUFFER_MS) < Date.now();
+            if (isExpiredOrUnknown) {
+                // Token expired — try silent STS refresh so the user doesn't have to re-login.
+                logInfo('Stored MI_INTEL token is expired. Attempting silent STS refresh...');
+                try {
+                    const stsToken = await getPlatformStsToken({ retries: 3, retryDelayMs: 500 });
+                    if (stsToken) {
+                        const newSecrets = await exchangeStsToCopilotToken(stsToken);
+                        await storeAuthCredentials({ loginMethod: LoginMethod.MI_INTEL, secrets: newSecrets });
+                        tokenData = { token: newSecrets.accessToken, loginMethod: LoginMethod.MI_INTEL };
+                        logInfo('Silent STS refresh succeeded. Token refreshed.');
+                    } else {
+                        logWarn('Silent STS refresh skipped: platform STS token unavailable. User will need to re-login.');
+                    }
+                } catch (error) {
+                    logWarn(`Silent STS refresh failed during initialization. User will need to re-login. ${error instanceof Error ? error.message : String(error)}`);
+                }
+            } else {
+                tokenData = { token: secrets.accessToken, loginMethod: LoginMethod.MI_INTEL };
+            }
         }
     } else if (credentials?.loginMethod === LoginMethod.ANTHROPIC_KEY) {
         const apiKey = (credentials.secrets as { apiKey?: string })?.apiKey;
         if (apiKey) {
             tokenData = { token: apiKey, loginMethod: LoginMethod.ANTHROPIC_KEY };
+        }
+    } else if (credentials?.loginMethod === LoginMethod.AWS_BEDROCK) {
+        const secrets = credentials.secrets as { accessKeyId?: string; secretAccessKey?: string; region?: string };
+        if (secrets.accessKeyId && secrets.secretAccessKey && secrets.region) {
+            tokenData = { token: secrets.accessKeyId, loginMethod: LoginMethod.AWS_BEDROCK };
         }
     }
 
@@ -417,12 +549,13 @@ const checkWorkspaceAndToken = async (): Promise<{ workspaceSupported: boolean; 
 const openLogin = async () => {
     await setupPlatformExtensionListener();
 
-    // If platform extension already has an authenticated session, complete auth immediately.
-    const isLoggedIn = await isDevantUserLoggedIn();
-    if (isLoggedIn) {
-        const stsToken = await getPlatformStsToken();
+    const tryCompleteAuthFromSts = async (): Promise<boolean> => {
+        const stsToken = await getPlatformStsToken({
+            retries: LOGIN_STS_RETRY_COUNT,
+            retryDelayMs: LOGIN_STS_RETRY_DELAY_MS,
+        });
         if (!stsToken) {
-            throw new Error('Failed to get STS token from platform extension');
+            return false;
         }
 
         const secrets = await exchangeStsToCopilotToken(stsToken);
@@ -432,13 +565,24 @@ const openLogin = async () => {
         });
         aiStateService.send({ type: AI_EVENT_TYPE.COMPLETE_AUTH });
         return true;
+    };
+
+    // If platform extension already has an authenticated session, complete auth immediately.
+    const isLoggedIn = await isDevantUserLoggedIn();
+    if (isLoggedIn) {
+        if (await tryCompleteAuthFromSts()) {
+            return true;
+        }
+        logWarn('Platform reports logged in but STS token is not available yet; continuing with interactive sign-in.');
     }
 
     // Otherwise trigger platform login; completion is handled by the platform login listener.
     const status = await initiateInbuiltAuth();
     if (!status) {
         aiStateService.send({ type: AI_EVENT_TYPE.CANCEL_LOGIN });
+        return status;
     }
+    // Keep waiting in ssoFlow; platform login callback will complete token exchange.
     return status;
 };
 
@@ -448,6 +592,14 @@ const validateApiKeyService = async (_context: AIMachineContext, event: any) => 
         throw new Error('API key is required');
     }
     return await validateApiKey(apiKey, LoginMethod.ANTHROPIC_KEY);
+};
+
+const validateAwsCredentialsService = async (_context: AIMachineContext, event: any) => {
+    const { accessKeyId, secretAccessKey, region, sessionToken } = event.payload || {};
+    if (!accessKeyId || !secretAccessKey || !region) {
+        throw new Error('AWS access key ID, secret access key, and region are required');
+    }
+    return await validateAwsCredentials({ accessKeyId, secretAccessKey, region, sessionToken });
 };
 
 const getTokenAndLoginMethod = async () => {
@@ -472,6 +624,14 @@ const getTokenAndLoginMethod = async () => {
         return { token: apiKey, loginMethod: LoginMethod.ANTHROPIC_KEY };
     }
 
+    if (credentials.loginMethod === LoginMethod.AWS_BEDROCK) {
+        const secrets = credentials.secrets as { accessKeyId?: string; secretAccessKey?: string; region?: string };
+        if (!secrets.accessKeyId || !secrets.secretAccessKey || !secrets.region) {
+            throw new Error('Incomplete AWS Bedrock credentials. Please log in again.');
+        }
+        return { token: secrets.accessKeyId, loginMethod: LoginMethod.AWS_BEDROCK };
+    }
+
     throw new Error('No authentication credentials found');
 };
 
@@ -480,6 +640,7 @@ const aiStateService = interpret(aiMachine.withConfig({
         checkWorkspaceAndToken: checkWorkspaceAndToken,
         openLogin: openLogin,
         validateApiKey: validateApiKeyService,
+        validateAwsCredentials: validateAwsCredentialsService,
         getTokenAndLoginMethod: getTokenAndLoginMethod,
     },
     actions: {
@@ -501,19 +662,14 @@ const isExtendedEvent = <K extends AI_EVENT_TYPE>(
 let platformLoginListenerSetup = false;
 
 const setupPlatformExtensionListener = async () => {
-    if (platformLoginListenerSetup || !isPlatformExtensionAvailable()) {
+    if (platformLoginListenerSetup) {
         return;
     }
     platformLoginListenerSetup = true;
 
-    const platformExt = vscode.extensions.getExtension(PLATFORM_EXTENSION_ID);
-    if (!platformExt) {
-        return;
-    }
-
     try {
-        const api = await platformExt.activate() as IWso2PlatformExtensionAPI;
-        if (!api.subscribeIsLoggedIn) {
+        const api = await getPlatformExtensionAPI();
+        if (!api || !api.subscribeIsLoggedIn) {
             return;
         }
 
@@ -529,7 +685,10 @@ const setupPlatformExtensionListener = async () => {
             }
 
             try {
-                const stsToken = await getPlatformStsToken();
+                const stsToken = await getPlatformStsToken({
+                    retries: LOGIN_STS_RETRY_COUNT,
+                    retryDelayMs: LOGIN_STS_RETRY_DELAY_MS,
+                });
                 if (!stsToken) {
                     throw new Error('Failed to get STS token after platform login');
                 }

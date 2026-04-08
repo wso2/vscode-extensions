@@ -304,6 +304,7 @@ export interface GenerateAgentCodeRequest {
     threadId?: string; //TODO: Make this required once we support threads in UI
     isPlanMode: boolean;
     codeContext?: CodeContext;
+    webSearchEnabled?: boolean;
 }
 
 export type LibraryMode = "CORE" | "HEALTHCARE" | "ALL";
@@ -458,6 +459,10 @@ export interface ConfigurationCancelRequest {
     comment?: string;
 }
 
+export interface WebToolApprovalRequest {
+    requestId: string;
+}
+
 export type ErrorCode = {
     code: number;
     message: string;
@@ -505,4 +510,48 @@ export interface UsageResponse {
 
 export interface OpenFileDiffRequest {
     relativePath: string;
+}
+// ==================================
+// Compaction Related Interfaces
+// ==================================
+
+export interface CompactConversationRequest {
+    /** Optional user instructions for guiding the summarization (e.g., "focus on test changes") */
+    customInstructions?: string;
+}
+
+export interface CompactConversationResponse {
+    success: boolean;
+    /** Token count before compaction */
+    originalTokens?: number;
+    /** Token count after compaction */
+    compactedTokens?: number;
+    /** Percentage of tokens reduced */
+    reductionPercentage?: number;
+    /** The LLM-generated summary text shown to the user after compaction */
+    summary?: string;
+    /** Error message if compaction failed */
+    error?: string;
+}
+
+// ==================================
+// Prompt Enhancement Related Interfaces
+// ==================================
+
+export enum PromptMode {
+    ROLE = "role",
+    INSTRUCTIONS = "instructions",
+    QUERY = "query",
+    DEFAULT = "default"
+}
+
+export interface PromptEnhancementRequest {
+    originalPrompt: string;
+    additionalInstructions?: string;
+    mode: PromptMode;
+    isGeneration?: boolean;
+}
+
+export interface PromptEnhancementResponse {
+    enhancedPrompt: string;
 }

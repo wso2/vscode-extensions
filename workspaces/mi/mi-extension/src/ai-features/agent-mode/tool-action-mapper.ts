@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_PROJECT_TOOL_NAME, CONNECTOR_TOOL_NAME, SKILL_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, WEB_SEARCH_TOOL_NAME, WEB_FETCH_TOOL_NAME } from './tools/types';
+import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_AND_DEPLOY_TOOL_NAME, CONNECTOR_TOOL_NAME, CONTEXT_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, WEB_SEARCH_TOOL_NAME, WEB_FETCH_TOOL_NAME } from './tools/types';
 /**
  * Tool action states for UI display
  */
@@ -68,11 +68,23 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
         case FILE_GLOB_TOOL_NAME:
             return { loading: 'finding files', completed: 'found files', failed: 'failed to find files' };
 
-        case CONNECTOR_TOOL_NAME:
-            return { loading: 'fetching connectors', completed: 'fetched connectors', failed: 'failed to fetch connectors' };
+        case CONNECTOR_TOOL_NAME: {
+            const targetName = toolInput?.name;
+            if (typeof targetName === 'string') {
+                const trimmedName = targetName.trim();
+                if (trimmedName.length > 0) {
+                    return {
+                        loading: `fetching ${trimmedName}`,
+                        completed: `fetched ${trimmedName}`,
+                        failed: `failed to fetch ${trimmedName}`
+                    };
+                }
+            }
+            return { loading: 'fetching connector details', completed: 'fetched connector details', failed: 'failed to fetch connector details' };
+        }
 
-        case SKILL_TOOL_NAME:
-            return { loading: 'loading skill context', completed: 'loaded skill context', failed: 'failed to load skill context' };
+        case CONTEXT_TOOL_NAME:
+            return { loading: 'loading deep context', completed: 'loaded deep context', failed: 'failed to load deep context' };
 
         case MANAGE_CONNECTOR_TOOL_NAME: {
             // Extract operation, connector names, and inbound endpoint names from tool input
@@ -106,8 +118,16 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
         case GENERATE_DATA_MAPPING_TOOL_NAME:
             return { loading: 'generating mappings', completed: 'generated mappings', failed: 'failed to generate mappings' };
 
-        case BUILD_PROJECT_TOOL_NAME:
+        case BUILD_AND_DEPLOY_TOOL_NAME: {
+            const mode = toolInput?.mode;
+            if (mode === 'deploy') {
+                return { loading: 'deploying to server', completed: 'deployed to server', failed: 'deploy failed' };
+            }
+            if (mode === 'build_and_deploy') {
+                return { loading: 'building and deploying', completed: 'built and deployed', failed: 'build and deploy failed' };
+            }
             return { loading: 'building project', completed: 'built project', failed: 'build failed' };
+        }
 
         case SERVER_MANAGEMENT_TOOL_NAME:
             // Extract action from tool input for dynamic messages
@@ -119,15 +139,39 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                         return { loading: 'stopping server', completed: 'stopped server', failed: 'failed to stop server' };
                     case 'status':
                         return { loading: 'checking server status', completed: 'checked server status', failed: 'failed to check status' };
+                    case 'query': {
+                        const type = toolInput.artifact_type || 'artifacts';
+                        const name = toolInput.artifact_name;
+                        return name
+                            ? { loading: `querying ${type}: ${name}`, completed: `queried ${type}: ${name}`, failed: `failed to query ${type}` }
+                            : { loading: `listing ${type}`, completed: `listed ${type}`, failed: `failed to list ${type}` };
+                    }
+                    case 'control': {
+                        const ctrl = toolInput.control_action || 'updating';
+                        const target = toolInput.artifact_name || toolInput.artifact_type || 'artifact';
+                        return { loading: `${ctrl} ${target}`, completed: `${ctrl} ${target} completed`, failed: `failed to ${ctrl} ${target}` };
+                    }
                 }
             }
             return { loading: 'managing server', completed: 'managed server', failed: 'server management failed' };
 
         // Plan Mode Tools
         case SUBAGENT_TOOL_NAME: {
-            // Extract subagent type and background mode for dynamic messages
+            // Map subagent types to user-friendly display names
+            const subagentDisplayNames: Record<string, { loading: string; loadingBg: string; completed: string; failed: string }> = {
+                'Explore': { loading: 'exploring codebase', loadingBg: 'exploring codebase (background)', completed: 'exploration completed', failed: 'exploration failed' },
+                'SynapseContext': { loading: 'referencing Synapse docs', loadingBg: 'referencing Synapse docs (background)', completed: 'Synapse docs lookup completed', failed: 'Synapse docs lookup failed' },
+            };
             const subagentType = toolInput?.subagent_type || 'subagent';
+            const display = subagentDisplayNames[subagentType];
             const isBackgroundTask = toolInput?.run_in_background;
+            if (display) {
+                return {
+                    loading: isBackgroundTask ? display.loadingBg : display.loading,
+                    completed: display.completed,
+                    failed: display.failed
+                };
+            }
             return {
                 loading: isBackgroundTask ? `launching ${subagentType} agent` : `running ${subagentType} agent`,
                 completed: isBackgroundTask ? `launched ${subagentType} agent` : `${subagentType} agent completed`,

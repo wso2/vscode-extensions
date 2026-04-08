@@ -43,6 +43,8 @@ export interface SendAgentMessageRequest {
     /** Chat history for context (AI SDK format with tool calls/results) */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     chatHistory?: any[];
+    /** Model settings (main model + sub-agent model presets/overrides) */
+    modelSettings?: ModelSettings;
 }
 
 export interface ChangedFileSummary {
@@ -169,7 +171,9 @@ export type PlanApprovalKind =
     | 'exit_plan_mode'
     | 'exit_plan_mode_without_plan'
     | 'web_search'
-    | 'web_fetch';
+    | 'web_fetch'
+    | 'shell_command'
+    | 'continue_after_limit';
 
 /**
  * Agent event for streaming.
@@ -179,7 +183,7 @@ export type PlanApprovalKind =
  * - `tool_result`: `toolName`, `toolOutput`, `completedAction` (+ optional shell fields)
  * - `ask_user`: `questionId`, `questions`
  * - `todo_updated`: `todos`
- * - `plan_approval_requested`: `approvalId`, `approvalKind`, `approvalTitle`, `approveLabel`, `rejectLabel`, `allowFeedback`, `planFilePath`, `content`
+ * - `plan_approval_requested`: `approvalId`, `approvalKind`, `approvalTitle`, `approveLabel`, `rejectLabel`, `allowFeedback`, `planFilePath`, `content`, `suggestedPrefixRule`
  * - `compact`: `summary`, `content`
  * - `usage`: `totalInputTokens`
  * - `error`: `error`
@@ -187,6 +191,8 @@ export type PlanApprovalKind =
  */
 export interface AgentEvent {
     type: AgentEventType;
+    /** Monotonic sequence number assigned by the event handler (used for polling dedup) */
+    seq?: number;
     content?: string;
     /** Thinking block ID for thinking_* events */
     thinkingId?: string;
@@ -223,6 +229,8 @@ export interface AgentEvent {
     rejectLabel?: string;
     /** Whether the UI should collect rejection feedback */
     allowFeedback?: boolean;
+    /** Suggested command prefix rule for shell approval dialogs */
+    suggestedPrefixRule?: string[];
     /** Summary text for compact event */
     summary?: string;
 
@@ -252,11 +260,13 @@ export interface PlanApprovalRequestedEvent extends AgentEvent {
     type: 'plan_approval_requested';
     approvalId: string;
     content: string;
+    summary?: string;
     approvalKind: PlanApprovalKind;
     approvalTitle: string;
     approveLabel: string;
     rejectLabel: string;
     allowFeedback: boolean;
+    suggestedPrefixRule?: string[];
     planFilePath?: string;
 }
 
@@ -334,6 +344,10 @@ export interface PlanApprovalResponse {
     approved: boolean;
     /** Optional feedback if user rejects the plan */
     feedback?: string;
+    /** Optional per-session approval preference for shell command approvals */
+    rememberForSession?: boolean;
+    /** Optional command-prefix rule to persist for shell command approvals */
+    suggestedPrefixRule?: string[];
 }
 
 // ============================================================================
@@ -463,9 +477,9 @@ export interface DeleteSessionResponse {
 /**
  * Request to manually compact/summarize the current conversation
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CompactConversationRequest {
-    // Empty - uses current session
+    /** Model settings for compact agent model selection */
+    modelSettings?: ModelSettings;
 }
 
 /**
@@ -476,6 +490,22 @@ export interface CompactConversationResponse {
     /** The generated summary */
     summary?: string;
     error?: string;
+}
+
+// ============================================================================
+// Model Settings Types
+// ============================================================================
+
+export type MainModelPreset = 'opus' | 'sonnet';
+export type SubModelPreset = 'haiku' | 'sonnet';
+
+export interface ModelSettings {
+    mainModelPreset: MainModelPreset;
+    subModelPreset: SubModelPreset;
+    /** Custom model ID override for main agent (if set, overrides preset) */
+    mainModelCustomId?: string;
+    /** Custom model ID override for sub-agents (if set, overrides preset) */
+    subModelCustomId?: string;
 }
 
 // ============================================================================
@@ -503,6 +533,17 @@ export interface SearchMentionablePathsResponse {
     error?: string;
 }
 
+export interface GetAgentRunStatusRequest {
+    /** When set, only return events with seq > sinceSeq (for polling dedup) */
+    sinceSeq?: number;
+}
+
+export interface GetAgentRunStatusResponse {
+    isRunning: boolean;
+    events: AgentEvent[];
+    mode?: AgentMode;
+}
+
 /**
  * Agent Panel API interface
  */
@@ -524,4 +565,6 @@ export interface MIAgentPanelAPI {
     compactConversation: (request: CompactConversationRequest) => Promise<CompactConversationResponse>;
     // Mention search
     searchMentionablePaths: (request: SearchMentionablePathsRequest) => Promise<SearchMentionablePathsResponse>;
+    // Agent run status for panel reconnection
+    getAgentRunStatus: (request?: GetAgentRunStatusRequest) => Promise<GetAgentRunStatusResponse>;
 }
