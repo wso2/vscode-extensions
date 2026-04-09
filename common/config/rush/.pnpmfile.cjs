@@ -41,6 +41,14 @@ module.exports = {
         if (deps['flatted']) deps['flatted'] = '3.4.2';
         if (deps['handlebars']) deps['handlebars'] = '4.7.9';
         if (deps['undici']) deps['undici'] = '7.24.0';
+        if (deps['vite']) {
+          const currentVersion = deps['vite'];
+          if (currentVersion.startsWith('^6.0') || currentVersion.startsWith('~6.0') || currentVersion.startsWith('6.0')) {
+            deps['vite'] = '6.0.14';
+          } else {
+            deps['vite'] = '6.4.1';
+          }
+        }
         if (deps['yauzl']) deps['yauzl'] = '3.2.1';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
@@ -49,7 +57,7 @@ module.exports = {
           const currentVersion = deps['minimatch'];
           let newVersion;
           if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
-            newVersion = '3.1.4';
+            newVersion = '3.1.5';
           } else if (currentVersion.startsWith('^4') || currentVersion.startsWith('4')) {
             newVersion = '4.2.5';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
