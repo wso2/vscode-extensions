@@ -27,7 +27,7 @@ module.exports = {
         if (deps['eslint']) deps['eslint'] = '^9.27.0';
         if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.5.7';
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
-        if (deps['lodash']) deps['lodash'] = '4.17.23';
+        if (deps['lodash']) deps['lodash'] = '4.18.0';
         if (deps['qs']) deps['qs'] = '6.14.2';
         if (deps['hono']) deps['hono'] = '4.12.7';
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.10';
@@ -40,6 +40,14 @@ module.exports = {
         if (deps['flatted']) deps['flatted'] = '3.4.2';
         if (deps['handlebars']) deps['handlebars'] = '4.7.9';
         if (deps['undici']) deps['undici'] = '7.24.0';
+        if (deps['vite']) {
+          const currentVersion = deps['vite'];
+          if (currentVersion.startsWith('^6.0') || currentVersion.startsWith('~6.0') || currentVersion.startsWith('6.0')) {
+            deps['vite'] = '6.0.14';
+          } else {
+            deps['vite'] = '6.4.1';
+          }
+        }
         if (deps['yauzl']) deps['yauzl'] = '3.2.1';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
@@ -48,7 +56,7 @@ module.exports = {
           const currentVersion = deps['minimatch'];
           let newVersion;
           if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
-            newVersion = '3.1.4';
+            newVersion = '3.1.5';
           } else if (currentVersion.startsWith('^4') || currentVersion.startsWith('4')) {
             newVersion = '4.2.5';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
