@@ -24,6 +24,17 @@ import { initializeHurlBinaryManager } from './hurl/hurl-binary-manager';
 import { ReadonlyHurlFSProvider, READONLY_HURL_SCHEME } from './readonly-fs-provider';
 import RunHurlTest from './tools/run-hurl-test';
 
+function sanitizeFileName(fileName: string | undefined, fallback: string): string {
+    const value = (fileName || fallback).trim();
+    const withoutExtension = value.replace(/\.hurl$/i, '');
+    const sanitized = withoutExtension
+        .replace(/[<>:"/\\|?*%#\x00-\x1F]/g, '-')
+        .replace(/\s+/g, ' ')
+        .replace(/[. ]+$/g, '');
+
+    return sanitized || fallback;
+}
+
 export function activate(context: vscode.ExtensionContext): void {
     // Initialize the Hurl binary manager (singleton)
     const binaryManager = initializeHurlBinaryManager(context);
@@ -103,7 +114,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // When called from command palette (no args): prompts user to paste a hurl string
     const importHurlStringCommand = vscode.commands.registerCommand(
         'HurlClient.importHurlString',
-        async (contentOrCells?: string | NotebookCellInput[], options?: { savable?: boolean; savePath?: string; viewColumn?: 'beside' | 'active' }) => {
+        async (contentOrCells?: string | NotebookCellInput[], options?: { savable?: boolean; savePath?: string; viewColumn?: 'beside' | 'active'; fileName?: string }) => {
             let notebookData: vscode.NotebookData;
             let resolvedHurlText: string;
 
@@ -144,7 +155,11 @@ export function activate(context: vscode.ExtensionContext): void {
                     // are opened concurrently (avoids the FIFO-ordering race in a shared queue).
                     const token = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
                     enqueuePendingUntitledContent(token, resolvedHurlText);
-                    const untitledUri = vscode.Uri.parse(`untitled:TryIt-${token}.hurl`);
+                    const preparedFileName = sanitizeFileName(options?.fileName, `TryIt`);
+                    const untitledUri = vscode.Uri.from({
+                        scheme: 'untitled',
+                        path: `${preparedFileName}-${token}.hurl`
+                    });
                     doc = await vscode.workspace.openNotebookDocument(untitledUri);
 
                     // Mark the notebook dirty immediately so VS Code prompts to save on close even
