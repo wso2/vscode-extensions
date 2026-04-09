@@ -4609,9 +4609,6 @@ importers:
       rimraf:
         specifier: 6.0.1
         version: 6.0.1
-      terser-webpack-plugin:
-        specifier: 5.3.16
-        version: 5.3.16(webpack@5.104.1)
       ts-loader:
         specifier: 9.5.2
         version: 9.5.2(typescript@5.8.3)(webpack@5.104.1)
@@ -24505,22 +24502,6 @@ packages:
       uglify-js:
         optional: true
 
-  terser-webpack-plugin@5.3.16:
-    resolution: {integrity: sha512-h9oBFCWrq78NyWWVcSwZarJkZ01c2AyGrzs1crmHZO3QUg9D61Wu4NPjBy69n7JqylFF5y+CsUZYmYEIZ3mR+Q==}
-    engines: {node: '>= 10.13.0'}
-    peerDependencies:
-      '@swc/core': '*'
-      esbuild: '*'
-      uglify-js: '*'
-      webpack: ^5.1.0
-    peerDependenciesMeta:
-      '@swc/core':
-        optional: true
-      esbuild:
-        optional: true
-      uglify-js:
-        optional: true
-
   terser-webpack-plugin@5.4.0:
     resolution: {integrity: sha512-Bn5vxm48flOIfkdl5CaD2+1CiUVbonWQ3KQPyP7/EuIl9Gbzq/gQFOzaMFUEgVjB1396tcK0SG8XcNJ/2kDH8g==}
     engines: {node: '>= 10.13.0'}
@@ -35959,7 +35940,7 @@ snapshots:
       semver: 7.7.4
       style-loader: 3.3.4(webpack@5.104.1)
       swc-loader: 0.2.7(@swc/core@1.15.24(@swc/helpers@0.5.21))(webpack@5.104.1)
-      terser-webpack-plugin: 5.3.16(@swc/core@1.15.24(@swc/helpers@0.5.21))(webpack@5.104.1)
+      terser-webpack-plugin: 5.3.14(@swc/core@1.15.24(@swc/helpers@0.5.21))(webpack@5.104.1)
       ts-dedent: 2.2.0
       url: 0.11.4
       util: 0.12.5
@@ -35999,7 +35980,7 @@ snapshots:
       semver: 7.7.4
       storybook: 8.6.14(prettier@3.5.3)
       style-loader: 3.3.4(webpack@5.104.1(@swc/core@1.15.24(@swc/helpers@0.5.21))(esbuild@0.25.12))
-      terser-webpack-plugin: 5.3.16(@swc/core@1.15.24(@swc/helpers@0.5.21))(esbuild@0.25.12)(webpack@5.104.1(@swc/core@1.15.24(@swc/helpers@0.5.21))(esbuild@0.25.12))
+      terser-webpack-plugin: 5.3.14(@swc/core@1.15.24(@swc/helpers@0.5.21))(esbuild@0.25.12)(webpack@5.104.1(@swc/core@1.15.24(@swc/helpers@0.5.21))(esbuild@0.25.12))
       ts-dedent: 2.2.0
       url: 0.11.4
       util: 0.12.5
@@ -36035,7 +36016,7 @@ snapshots:
       semver: 7.7.4
       storybook: 8.6.14(prettier@3.5.3)
       style-loader: 3.3.4(webpack@5.104.1)
-      terser-webpack-plugin: 5.3.16(webpack@5.104.1)
+      terser-webpack-plugin: 5.3.14(webpack@5.104.1)
       ts-dedent: 2.2.0
       url: 0.11.4
       util: 0.12.5
@@ -42153,8 +42134,8 @@ snapshots:
 
   '@webpack-cli/configtest@3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)':
     dependencies:
-      webpack: 5.104.1(@swc/core@1.15.24(@swc/helpers@0.5.21))(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.3)(webpack@5.104.1)
+      webpack: 5.104.1(webpack-cli@6.0.1)
+      webpack-cli: 6.0.1(webpack@5.104.1)
 
   '@webpack-cli/info@1.5.0(webpack-cli@4.10.0)':
     dependencies:
@@ -42168,8 +42149,8 @@ snapshots:
 
   '@webpack-cli/info@3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)':
     dependencies:
-      webpack: 5.104.1(@swc/core@1.15.24(@swc/helpers@0.5.21))(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.3)(webpack@5.104.1)
+      webpack: 5.104.1(webpack-cli@6.0.1)
+      webpack-cli: 6.0.1(webpack@5.104.1)
 
   '@webpack-cli/serve@1.7.0(webpack-cli@4.10.0)':
     dependencies:
@@ -58357,6 +58338,18 @@ snapshots:
       terser: 5.46.1
       webpack: 5.104.1(webpack-cli@6.0.1)
 
+  terser-webpack-plugin@5.3.14(@swc/core@1.15.24(@swc/helpers@0.5.21))(esbuild@0.25.12)(webpack@5.104.1(@swc/core@1.15.24(@swc/helpers@0.5.21))(esbuild@0.25.12)):
+    dependencies:
+      '@jridgewell/trace-mapping': 0.3.31
+      jest-worker: 27.5.1
+      schema-utils: 4.3.3
+      serialize-javascript: 7.0.5
+      terser: 5.46.1
+      webpack: 5.104.1(@swc/core@1.15.24(@swc/helpers@0.5.21))(esbuild@0.25.12)
+    optionalDependencies:
+      '@swc/core': 1.15.24(@swc/helpers@0.5.21)
+      esbuild: 0.25.12
+
   terser-webpack-plugin@5.3.14(@swc/core@1.15.24(@swc/helpers@0.5.21))(webpack@5.104.1):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
@@ -58376,38 +58369,6 @@ snapshots:
       serialize-javascript: 7.0.5
       terser: 5.46.1
       webpack: 5.104.1(webpack-cli@6.0.1)
-
-  terser-webpack-plugin@5.3.16(@swc/core@1.15.24(@swc/helpers@0.5.21))(esbuild@0.25.12)(webpack@5.104.1(@swc/core@1.15.24(@swc/helpers@0.5.21))(esbuild@0.25.12)):
-    dependencies:
-      '@jridgewell/trace-mapping': 0.3.31
-      jest-worker: 27.5.1
-      schema-utils: 4.3.3
-      serialize-javascript: 7.0.5
-      terser: 5.46.1
-      webpack: 5.104.1(@swc/core@1.15.24(@swc/helpers@0.5.21))(esbuild@0.25.12)
-    optionalDependencies:
-      '@swc/core': 1.15.24(@swc/helpers@0.5.21)
-      esbuild: 0.25.12
-
-  terser-webpack-plugin@5.3.16(@swc/core@1.15.24(@swc/helpers@0.5.21))(webpack@5.104.1):
-    dependencies:
-      '@jridgewell/trace-mapping': 0.3.31
-      jest-worker: 27.5.1
-      schema-utils: 4.3.3
-      serialize-javascript: 7.0.5
-      terser: 5.46.1
-      webpack: 5.104.1(webpack-cli@5.1.4)
-    optionalDependencies:
-      '@swc/core': 1.15.24(@swc/helpers@0.5.21)
-
-  terser-webpack-plugin@5.3.16(webpack@5.104.1):
-    dependencies:
-      '@jridgewell/trace-mapping': 0.3.31
-      jest-worker: 27.5.1
-      schema-utils: 4.3.3
-      serialize-javascript: 7.0.5
-      terser: 5.46.1
-      webpack: 5.104.1(webpack-cli@4.10.0)
 
   terser-webpack-plugin@5.4.0(@swc/core@1.15.24(@swc/helpers@0.5.21))(esbuild@0.25.12)(webpack@5.104.1(@swc/core@1.15.24(@swc/helpers@0.5.21))(esbuild@0.25.12)):
     dependencies:
