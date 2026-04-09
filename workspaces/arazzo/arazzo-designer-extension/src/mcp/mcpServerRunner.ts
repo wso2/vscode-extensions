@@ -25,6 +25,29 @@ import * as yaml from 'js-yaml';
 let mcpServerProcess: ChildProcess | undefined;
 let mcpOutputChannel: vscode.OutputChannel | undefined;
 
+/** Callback invoked whenever the MCP server starts or stops. */
+let onServerStateChangeCallback: (() => void) | undefined;
+
+/**
+ * Register a callback that fires whenever the MCP server starts or stops.
+ * Used by the Run-workflow CodeLens provider to refresh its lenses.
+ */
+export function onMCPServerStateChange(cb: () => void): void {
+    onServerStateChangeCallback = cb;
+}
+
+/** Fire the state-change callback (if registered). */
+function notifyStateChange(): void {
+    onServerStateChangeCallback?.();
+}
+
+/**
+ * Returns true if the MCP server process is currently running.
+ */
+export function isMCPServerRunning(): boolean {
+    return mcpServerProcess !== undefined && !mcpServerProcess.killed;
+}
+
 /**
  * Returns the platform-specific binary name for the Arazzo Designer CLI.
  */
@@ -229,6 +252,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         // Only clear if this is still the active process
         if (mcpServerProcess === thisProcess) {
             mcpServerProcess = undefined;
+            notifyStateChange();
         }
     });
 
@@ -238,6 +262,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         // may have already replaced mcpServerProcess.
         if (mcpServerProcess === thisProcess) {
             mcpServerProcess = undefined;
+            notifyStateChange();
         }
     });
 
@@ -246,6 +271,9 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         if (!mcpServerProcess || mcpServerProcess.killed) {
             return;
         }
+
+        // Notify listeners (e.g. CodeLens provider) that the server is now running
+        notifyStateChange();
 
         const serverUrl = `http://localhost:${port}/mcp`;
         const configNote = mcpConfigPath ? ` Config added to mcp.json.` : '';
@@ -288,6 +316,7 @@ export function stopMCPServer(): void {
         mcpServerProcess = undefined;
         const output = getOutputChannel();
         output.appendLine('MCP server stopped.');
+        notifyStateChange();
     }
 }
 
