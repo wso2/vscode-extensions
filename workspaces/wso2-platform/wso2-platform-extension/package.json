@@ -280,7 +280,7 @@
     "dotenv": "16.0.3",
     "file-type": "21.3.2",
     "js-yaml": "4.1.1",
-    "yaml": "2.8.0",
+    "yaml": "2.8.3",
     "@iarna/toml": "2.2.5",
     "jschardet": "3.1.4",
     "vscode-messenger": "0.5.1",
