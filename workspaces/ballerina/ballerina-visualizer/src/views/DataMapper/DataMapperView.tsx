@@ -133,7 +133,7 @@ export function DataMapperView(props: DataMapperViewProps) {
                     view: viewId
                 }).then((resp) => {
                     console.log(">>> [Data Mapper] getSubMappingCodedata response:", resp);
-                    setViewState({ viewId: viewId, codedata: resp.codedata, subMappingName: viewId });
+                    setViewState({ viewId: viewId, codedata: resp.codedata, subMappingName: viewStateRef.current.subMappingName });
                 });
         } else if (viewStateRef.current.subMappingName && !positionChanged) {
             setViewState(prevState => ({
