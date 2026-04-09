@@ -17,11 +17,11 @@
  */
 
 /** Anthropic API default trigger for compact_20260112 (tokens). */
-export const DEFAULT_COMPACT_TRIGGER = 160_000;
+export const DEFAULT_COMPACT_TRIGGER = 500_000;
 
 /** Trigger for clear_tool_uses_20250919 (tokens). Fires before compact to reduce overhead. */
-export const DEFAULT_CLEAR_TOOL_USES_TRIGGER = 120_000;
+export const DEFAULT_CLEAR_TOOL_USES_TRIGGER = 200_000;
 
 /** Number of recent tool-use pairs to preserve when clearing. */
-export const DEFAULT_KEEP_RECENT_TOOL_USES = 6;
+export const DEFAULT_KEEP_RECENT_TOOL_USES = 20;
 
