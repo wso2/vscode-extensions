@@ -4645,6 +4645,9 @@ importers:
       '@iarna/toml':
         specifier: 2.2.5
         version: 2.2.5
+      '@microsoft/applicationinsights-common':
+        specifier: 3.3.11
+        version: 3.3.11(tslib@2.8.1)
       '@vscode-logging/logger':
         specifier: 2.0.0
         version: 2.0.0
@@ -7508,6 +7511,16 @@ packages:
 
   '@microsoft/applicationinsights-channel-js@3.4.1':
     resolution: {integrity: sha512-QS1k6iwVwR1MznGAB1H0F9raqpevbFNbadLS5O1419pz9OEWBfF9wRQLnENCyo8QS9Q0IdiqnGAON/D8IywpWg==}
+    peerDependencies:
+      tslib: '>= 1.0.0'
+
+  '@microsoft/applicationinsights-common@3.3.11':
+    resolution: {integrity: sha512-OIe5vL56lkmIsRsI21QqbGpF8gF/UzUP4mlEhGWyG2UMskdtWrY+c+xAynyNDsAjhKKge+Rrs/xkpC0Fo0QrhQ==}
+    peerDependencies:
+      tslib: '>= 1.0.0'
+
+  '@microsoft/applicationinsights-core-js@3.3.11':
+    resolution: {integrity: sha512-WlBY1sKDNL62T++NifgFCyDuOoNUNrVILfnHubOzgU/od7MFEQYWU8EZyDcBC/+Z8e3TD6jfixurYtWoUC+6Eg==}
     peerDependencies:
       tslib: '>= 1.0.0'
 
@@ -22109,8 +22122,8 @@ packages:
   select-hose@2.0.0:
     resolution: {integrity: sha512-mEugaLK+YfkijB4fx0e6kImuJdCIt2LxCRcbEYPqRGCs4F2ogyfZU5IAZRdjCP8JPq2AtdNoC/Dux63d9Kiryg==}
 
-  selenium-webdriver@4.41.0:
-    resolution: {integrity: sha512-1XxuKVhr9az24xwixPBEDGSZP+P0z3ZOnCmr9Oiep0MlJN2Mk+flIjD3iBS9BgyjS4g14dikMqnrYUPIjhQBhA==}
+  selenium-webdriver@4.42.0:
+    resolution: {integrity: sha512-X+5Qe2v921BYATfU/Ckq/BbUVabRe+YAWZ5qiyBSd8EBue+fdoBsyYI506ETupzwZYEVUc3vcYMVSmH0oToDRg==}
     engines: {node: '>= 20.0.0'}
 
   selfsigned@1.10.14:
@@ -30088,6 +30101,22 @@ snapshots:
       '@nevware21/ts-utils': 0.13.0
       tslib: 2.8.1
 
+  '@microsoft/applicationinsights-common@3.3.11(tslib@2.8.1)':
+    dependencies:
+      '@microsoft/applicationinsights-core-js': 3.3.11(tslib@2.8.1)
+      '@microsoft/applicationinsights-shims': 3.0.1
+      '@microsoft/dynamicproto-js': 2.0.3
+      '@nevware21/ts-utils': 0.13.0
+      tslib: 2.8.1
+
+  '@microsoft/applicationinsights-core-js@3.3.11(tslib@2.8.1)':
+    dependencies:
+      '@microsoft/applicationinsights-shims': 3.0.1
+      '@microsoft/dynamicproto-js': 2.0.3
+      '@nevware21/ts-async': 0.5.5
+      '@nevware21/ts-utils': 0.13.0
+      tslib: 2.8.1
+
   '@microsoft/applicationinsights-core-js@3.4.1(tslib@2.8.1)':
     dependencies:
       '@microsoft/applicationinsights-shims': 3.0.1
@@ -32044,18 +32073,18 @@ snapshots:
     dependencies:
       react: 18.2.0
 
-  '@redhat-developer/locators@1.20.0(@redhat-developer/page-objects@1.20.0(selenium-webdriver@4.41.0)(typescript@5.8.3))(selenium-webdriver@4.41.0)':
+  '@redhat-developer/locators@1.20.0(@redhat-developer/page-objects@1.20.0(selenium-webdriver@4.42.0)(typescript@5.8.3))(selenium-webdriver@4.42.0)':
     dependencies:
-      '@redhat-developer/page-objects': 1.20.0(selenium-webdriver@4.41.0)(typescript@5.8.3)
-      selenium-webdriver: 4.41.0
+      '@redhat-developer/page-objects': 1.20.0(selenium-webdriver@4.42.0)(typescript@5.8.3)
+      selenium-webdriver: 4.42.0
 
-  '@redhat-developer/page-objects@1.20.0(selenium-webdriver@4.41.0)(typescript@5.8.3)':
+  '@redhat-developer/page-objects@1.20.0(selenium-webdriver@4.42.0)(typescript@5.8.3)':
     dependencies:
       clipboardy: 5.3.1
       clone-deep: 4.0.1
       compare-versions: 6.1.1
       fs-extra: 11.3.4
-      selenium-webdriver: 4.41.0
+      selenium-webdriver: 4.42.0
       type-fest: 4.41.0
       typescript: 5.8.3
 
@@ -40984,7 +41013,7 @@ snapshots:
 
   browserify-rsa@4.1.1:
     dependencies:
-      bn.js: 5.2.3
+      bn.js: 4.12.3
       randombytes: 2.1.0
       safe-buffer: 5.2.1
 
@@ -50021,13 +50050,13 @@ snapshots:
       vscode-languageserver-textdocument: 1.0.12
       vscode-uri: 3.1.0
 
-  monaco-page-objects@3.14.1(selenium-webdriver@4.41.0)(typescript@5.8.3):
+  monaco-page-objects@3.14.1(selenium-webdriver@4.42.0)(typescript@5.8.3):
     dependencies:
       clipboardy: 4.0.0
       clone-deep: 4.0.1
       compare-versions: 6.1.1
       fs-extra: 11.3.0
-      selenium-webdriver: 4.41.0
+      selenium-webdriver: 4.42.0
       type-fest: 4.41.0
       typescript: 5.8.3
 
@@ -53650,7 +53679,7 @@ snapshots:
 
   select-hose@2.0.0: {}
 
-  selenium-webdriver@4.41.0:
+  selenium-webdriver@4.42.0:
     dependencies:
       '@bazel/runfiles': 6.5.0
       jszip: 3.10.1
@@ -56648,10 +56677,10 @@ snapshots:
     dependencies:
       applicationinsights: 1.7.4
 
-  vscode-extension-tester-locators@3.12.2(monaco-page-objects@3.14.1(selenium-webdriver@4.41.0)(typescript@5.8.3))(selenium-webdriver@4.41.0):
+  vscode-extension-tester-locators@3.12.2(monaco-page-objects@3.14.1(selenium-webdriver@4.42.0)(typescript@5.8.3))(selenium-webdriver@4.42.0):
     dependencies:
-      monaco-page-objects: 3.14.1(selenium-webdriver@4.41.0)(typescript@5.8.3)
-      selenium-webdriver: 4.41.0
+      monaco-page-objects: 3.14.1(selenium-webdriver@4.42.0)(typescript@5.8.3)
+      selenium-webdriver: 4.42.0
 
   vscode-extension-tester@5.10.0(mocha@10.2.0)(typescript@5.8.3):
     dependencies:
@@ -56665,13 +56694,13 @@ snapshots:
       hpagent: 1.2.0
       js-yaml: 4.1.1
       mocha: 10.2.0
-      monaco-page-objects: 3.14.1(selenium-webdriver@4.41.0)(typescript@5.8.3)
+      monaco-page-objects: 3.14.1(selenium-webdriver@4.42.0)(typescript@5.8.3)
       sanitize-filename: 1.6.4
-      selenium-webdriver: 4.41.0
+      selenium-webdriver: 4.42.0
       targz: 1.0.1
       typescript: 5.8.3
       unzipper: 0.10.14
-      vscode-extension-tester-locators: 3.12.2(monaco-page-objects@3.14.1(selenium-webdriver@4.41.0)(typescript@5.8.3))(selenium-webdriver@4.41.0)
+      vscode-extension-tester-locators: 3.12.2(monaco-page-objects@3.14.1(selenium-webdriver@4.42.0)(typescript@5.8.3))(selenium-webdriver@4.42.0)
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -56679,8 +56708,8 @@ snapshots:
 
   vscode-extension-tester@8.14.1(mocha@11.4.0)(typescript@5.8.3):
     dependencies:
-      '@redhat-developer/locators': 1.20.0(@redhat-developer/page-objects@1.20.0(selenium-webdriver@4.41.0)(typescript@5.8.3))(selenium-webdriver@4.41.0)
-      '@redhat-developer/page-objects': 1.20.0(selenium-webdriver@4.41.0)(typescript@5.8.3)
+      '@redhat-developer/locators': 1.20.0(@redhat-developer/page-objects@1.20.0(selenium-webdriver@4.42.0)(typescript@5.8.3))(selenium-webdriver@4.42.0)
+      '@redhat-developer/page-objects': 1.20.0(selenium-webdriver@4.42.0)(typescript@5.8.3)
       '@types/selenium-webdriver': 4.35.5
       '@vscode/vsce': 3.7.1
       c8: 10.1.3
@@ -56694,7 +56723,7 @@ snapshots:
       js-yaml: 4.1.1
       mocha: 11.4.0
       sanitize-filename: 1.6.4
-      selenium-webdriver: 4.41.0
+      selenium-webdriver: 4.42.0
       targz: 1.0.1
       typescript: 5.8.3
       unzipper: 0.12.3
@@ -56706,8 +56735,8 @@ snapshots:
 
   vscode-extension-tester@8.14.1(mocha@11.5.0)(typescript@5.8.3):
     dependencies:
-      '@redhat-developer/locators': 1.20.0(@redhat-developer/page-objects@1.20.0(selenium-webdriver@4.41.0)(typescript@5.8.3))(selenium-webdriver@4.41.0)
-      '@redhat-developer/page-objects': 1.20.0(selenium-webdriver@4.41.0)(typescript@5.8.3)
+      '@redhat-developer/locators': 1.20.0(@redhat-developer/page-objects@1.20.0(selenium-webdriver@4.42.0)(typescript@5.8.3))(selenium-webdriver@4.42.0)
+      '@redhat-developer/page-objects': 1.20.0(selenium-webdriver@4.42.0)(typescript@5.8.3)
       '@types/selenium-webdriver': 4.35.5
       '@vscode/vsce': 3.7.1
       c8: 10.1.3
@@ -56721,7 +56750,7 @@ snapshots:
       js-yaml: 4.1.1
       mocha: 11.5.0
       sanitize-filename: 1.6.4
-      selenium-webdriver: 4.41.0
+      selenium-webdriver: 4.42.0
       targz: 1.0.1
       typescript: 5.8.3
       unzipper: 0.12.3
