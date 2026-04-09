@@ -155,8 +155,8 @@ export function activate(context: vscode.ExtensionContext): void {
                     // are opened concurrently (avoids the FIFO-ordering race in a shared queue).
                     const token = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
                     enqueuePendingUntitledContent(token, resolvedHurlText);
-                    const preparedFileName = sanitizeFileName(options?.fileName, `TryIt-${token}`);
-                    const untitledUri = vscode.Uri.parse(`untitled:${preparedFileName}.hurl`);
+                    const preparedFileName = sanitizeFileName(options?.fileName, `TryIt`);
+                    const untitledUri = vscode.Uri.parse(`untitled:${preparedFileName}-${token}.hurl`);
                     doc = await vscode.workspace.openNotebookDocument(untitledUri);
 
                     // Mark the notebook dirty immediately so VS Code prompts to save on close even
