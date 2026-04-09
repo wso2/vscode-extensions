@@ -209,6 +209,7 @@ import {
 } from "../../utils/bi";
 import { writeBallerinaFileDidOpen } from "../../utils/modification";
 import { updateSourceCode } from "../../utils/source-utils";
+import { buildProjectsStructure } from "../../utils/project-artifacts";
 import { getView } from "../../utils/state-machine-utils";
 import { isLibraryProject } from "../../utils/config";
 import { PlatformExtRpcManager } from "../platform-ext/rpc-manager";
@@ -224,7 +225,7 @@ import { readOrWriteReadmeContent } from "./utils";
 import { registerFormOpen, registerFormClose, setFormDirtyState } from "./form-state";
 import { chatStateStorage } from "../../views/ai-panel/chatStateStorage";
 import { WI_EXTENSION_ID } from "../../utils";
-import { notifyOnIdentifierUpdated } from "../../RPCLayer";
+import { notifyCurrentWebview, notifyOnIdentifierUpdated } from "../../RPCLayer";
 
 
 export class BiDiagramRpcManager implements BIDiagramAPI {
@@ -983,16 +984,44 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
 
     async deleteFlowNode(params: BISourceCodeRequest): Promise<UpdatedArtifactsResponse> {
         console.log(">>> requesting bi delete node from ls", params);
-        // Clean project diagnostics before deleting flow node
-        await cleanAndValidateProject(StateMachine.langClient(), StateMachine.context().projectPath);
 
         return new Promise((resolve) => {
             StateMachine.langClient()
                 .deleteFlowNode(params)
                 .then(async (model) => {
                     console.log(">>> bi delete node from ls", model);
+                    const notifyDeletionUpdate = () => {
+                        // Defer to the next macrotask so the caller can first update local artifact location.
+                        setTimeout(() => notifyCurrentWebview(), 0);
+                    };
                     const artifacts = await updateSourceCode({ textEdits: model.textEdits, description: 'Flow Node Deletion - ' + params.flowNode.metadata.label, skipPayloadCheck: true });
+                    if (!artifacts || artifacts.length === 0) {
+                        const projectInfo = StateMachine.context().projectInfo;
+                        if (projectInfo) {
+                            try {
+                                const freshStructure = await buildProjectsStructure(projectInfo, StateMachine.langClient(), true);
+                                const freshArtifacts: typeof artifacts = [];
+                                for (const project of freshStructure.projects ?? []) {
+                                    for (const list of Object.values(project.directoryMap ?? {})) {
+                                        for (const artifact of list as typeof artifacts) {
+                                            freshArtifacts.push(artifact);
+                                            if (artifact.resources) {
+                                                freshArtifacts.push(...artifact.resources as typeof artifacts);
+                                            }
+                                        }
+                                    }
+                                }
+                                resolve({ artifacts: freshArtifacts });
+                                notifyDeletionUpdate();
+                                return;
+                            } catch (err) {
+                                console.error('>>> error refreshing project structure after node deletion', err);
+                            }
+                        }
+                    }
+
                     resolve({ artifacts });
+                    notifyDeletionUpdate();
                 })
                 .catch((error) => {
                     console.log(">>> error fetching delete node from ls", error);
@@ -1002,7 +1031,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 });
         });
     }
-
+    
     async handleReadmeContent(params: ReadmeContentRequest): Promise<ReadmeContentResponse> {
         return readOrWriteReadmeContent(params);
     }

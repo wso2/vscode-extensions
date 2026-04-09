@@ -142,7 +142,9 @@ export async function writeBallerinaFileDidOpen(filePath: string, content: strin
         const edit = new WorkspaceEdit();
         edit.replace(doc.uri, new Range(new Position(0, 0), doc.lineAt(doc.lineCount - 1).range.end), content.trim());
         await workspace.applyEdit(edit);
-        await doc.save();
+        if (doc.uri.scheme === 'file') {
+            await doc.save();
+        }
     } else {
         if (remoteUri) {
             // For remote files: 1) Update cache first, 2) Notify LS, 3) Write to remote

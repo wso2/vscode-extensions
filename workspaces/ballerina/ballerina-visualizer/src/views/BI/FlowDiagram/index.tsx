@@ -447,15 +447,31 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     const localDiagramId = normalizedCurrentFile
                         ? `${normalizedCurrentFile}:${targetRef.current?.startLine?.line ?? ''}`
                         : undefined;
-                    // Prefer diagramId comparison (exact match, handles same-file multi-function case).
-                    // Fall back to filePath suffix match for peers that haven't sent diagramId yet.
-                    const isForCurrentDiagram = !data.filePath || !normalizedCurrentFile || (() => {
-                        if (data.diagramId && localDiagramId) {
-                            return data.diagramId === localDiagramId;
+                    // Strictly render remote cursors only for the same file/diagram.
+                    const isForCurrentDiagram = (() => {
+                        if (!normalizedCurrentFile) {
+                            return false;
                         }
-                        const pathA = normalizeFilePath(data.filePath);
-                        const pathB = normalizedCurrentFile;
-                        return pathA === pathB || pathA.endsWith('/' + pathB) || pathB.endsWith('/' + pathA);
+
+                        if (data.diagramId && localDiagramId) {
+                            if (diagramIdsMatchWithLegacyFallback(data.diagramId, localDiagramId)) {
+                                return true;
+                            }
+
+                            // Fall back to file-level matching when diagram IDs diverge due to
+                            // transient target range differences across peers.
+                            if (data.filePath) {
+                                return pathsMatchWithLegacyFallback(data.filePath, normalizedCurrentFile);
+                            }
+
+                            return false;
+                        }
+
+                        if (data.filePath) {
+                            return pathsMatchWithLegacyFallback(data.filePath, normalizedCurrentFile);
+                        }
+
+                        return false;
                     })();
                     console.log(`[OCT Webview] Presence data is for current diagram: ${isForCurrentDiagram}`);
                     if (!isForCurrentDiagram) {
@@ -511,7 +527,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     const nextPeerLocks: Record<string, any> = {};
 
                     data.locks.forEach((lock) => {
-                        if (normalizedCurrentFile && normalizeFilePath(lock.filePath) !== normalizedCurrentFile) {
+                        if (normalizedCurrentFile && !pathsMatchWithLegacyFallback(lock.filePath, normalizedCurrentFile)) {
                             return;
                         }
 
@@ -1154,6 +1170,61 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
 
         return normalized;
+    };
+
+    const getBaseName = (filePath: string): string => {
+        const normalized = normalizeFilePath(filePath);
+        const segments = normalized.split('/').filter((segment) => segment.length > 0);
+        return segments[segments.length - 1] || normalized;
+    };
+
+    // Compatibility fallback for mixed path shapes during rollout.
+    // Basename comparison is allowed only when one side is basename-only and
+    // the other side is workspace-relative.
+    const pathsMatchWithLegacyFallback = (pathA?: string, pathB?: string): boolean => {
+        if (!pathA || !pathB) {
+            return false;
+        }
+
+        const normalizedA = normalizeFilePath(pathA);
+        const normalizedB = normalizeFilePath(pathB);
+        if (normalizedA === normalizedB) {
+            return true;
+        }
+
+        const hasSlashA = normalizedA.includes('/');
+        const hasSlashB = normalizedB.includes('/');
+        if (hasSlashA === hasSlashB) {
+            return false;
+        }
+
+        return getBaseName(normalizedA) === getBaseName(normalizedB);
+    };
+
+    const diagramIdsMatchWithLegacyFallback = (peerDiagramId?: string, localDiagramId?: string): boolean => {
+        if (!peerDiagramId || !localDiagramId) {
+            return false;
+        }
+
+        if (peerDiagramId === localDiagramId) {
+            return true;
+        }
+
+        const peerSeparator = peerDiagramId.lastIndexOf(':');
+        const localSeparator = localDiagramId.lastIndexOf(':');
+        if (peerSeparator < 0 || localSeparator < 0) {
+            return false;
+        }
+
+        const peerFile = peerDiagramId.slice(0, peerSeparator);
+        const peerLine = peerDiagramId.slice(peerSeparator + 1);
+        const localFile = localDiagramId.slice(0, localSeparator);
+        const localLine = localDiagramId.slice(localSeparator + 1);
+        if (peerLine !== localLine) {
+            return false;
+        }
+
+        return pathsMatchWithLegacyFallback(peerFile, localFile);
     };
 
     const resetNodeSelectionStates = async () => {

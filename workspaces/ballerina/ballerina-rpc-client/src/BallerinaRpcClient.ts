@@ -59,6 +59,8 @@ import {
     ProjectMigrationResult,
     onMigratedProject,
     nodeLockUpdated,
+    diagramCursorUpdated,
+    DiagramCursorUpdate,
     onOctUpdateTextSelection,
     onOctRerenderPresence,
     CollaborationTextSelection,
@@ -334,6 +336,13 @@ export class BallerinaRpcClient {
         this.messenger.onNotification(nodeLockUpdated, callback);
         return () => {
             // Return unsubscribe function if needed
+        };
+    }
+
+    onDiagramCursorUpdated(callback: (data: DiagramCursorUpdate) => void) {
+        this.messenger.onNotification(diagramCursorUpdated, callback);
+        return () => {
+            // Cleanup handled by messenger
         };
     }
 

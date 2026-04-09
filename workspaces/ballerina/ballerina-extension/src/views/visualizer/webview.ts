@@ -63,9 +63,10 @@ export class VisualizerWebview {
         }, 500);
 
         vscode.workspace.onDidChangeTextDocument(async (document) => {
-            // Save the document only if it is not already opened in a visible editor or the webview is active
+            const isRemoteDocument = document.document.uri.scheme !== 'file';
+
             const isOpened = vscode.window.visibleTextEditors.some(editor => editor.document.uri.toString() === document.document.uri.toString());
-            if (!isOpened || this._panel?.active) {
+            if ((!isOpened || this._panel?.active) && !isRemoteDocument) {
                 await document.document.save();
             }
 
@@ -76,13 +77,12 @@ export class VisualizerWebview {
             const documentPath = document.document.uri.fsPath;
             const { uriCache } = await import('../../extension');
 
-            const isRemoteDocument = document.document.uri.scheme !== 'file';
             const resolvedDocumentPath = isRemoteDocument
                 ? (uriCache?.getLocalPath(document.document.uri) || documentPath)
                 : documentPath;
 
             const isDocumentUnderProject = !!(resolvedDocumentPath && projectPath && resolvedDocumentPath.includes(projectPath));
-            
+
             // Reset visualizer the undo-redo stack if user did changes in the editor
             if (isOpened && isDocumentUnderProject && !this._panel?.active && !undoRedoManager?.isBatchInProgress()) {
                 undoRedoManager.reset();
@@ -100,6 +100,7 @@ export class VisualizerWebview {
             }
 
             const balFileModified = document?.document.languageId === LANGUAGE.BALLERINA;
+            const remoteBalFileModified = balFileModified && isDocumentUnderProject && isRemoteDocument;
             const configTomlModified = document.document.languageId === LANGUAGE.TOML &&
                 document.document.fileName.endsWith("Config.toml") &&
                 vscode.window.visibleTextEditors.some(editor =>
@@ -124,12 +125,27 @@ export class VisualizerWebview {
             if (dataMapperModified) {
                 console.log('[Webview] Refreshing data mapper');
                 debouncedRefreshDataMapper();
-            } else if ((this._panel?.active || AiPanelWebview.currentPanel?.getWebview()?.active) && balFileModified && isDocumentUnderProject && !isRemoteDocument) {
+            } else if (balFileModified && isDocumentUnderProject && !isRemoteDocument) {
                 // Remote (OCT) documents are handled by the extension.ts file watcher which
                 // ensures cache is updated before triggering updateView. Triggering here would
                 // cause a race condition where getFlowModel runs before the cache is refreshed.
                 console.log('[Webview] Sending update notification to webview');
                 sendUpdateNotificationToWebview();
+            } else if (remoteBalFileModified && uriCache) {
+                try {
+                    await uriCache.storeContent(document.document.uri, document.document.getText());
+                    const cachedPath = uriCache.getLocalPath(document.document.uri);
+                    const langClient = extension.ballerinaExtInstance?.langClient;
+                    if (langClient && cachedPath) {
+                        langClient.didChange({
+                            textDocument: { uri: Uri.file(cachedPath).toString(), version: document.document.version },
+                            contentChanges: [{ text: document.document.getText() }]
+                        });
+                    }
+                    sendUpdateNotificationToWebview();
+                } catch (error) {
+                    console.error('[Webview] Failed to sync remote text change with LS:', error);
+                }
             } else if (configTomlModified) {
                 sendUpdateNotificationToWebview(true);
             }

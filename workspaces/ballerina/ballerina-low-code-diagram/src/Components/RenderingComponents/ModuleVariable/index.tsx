@@ -99,7 +99,9 @@ export function ModuleVariable(props: ModuleVariableProps) {
     }
 
     const hadnleOnDeleteConfirm = () => {
-        deleteComponent(model);
+        if (deleteComponent) {
+            deleteComponent(model);
+        }
     }
 
     const handleEditBtnClick = () => {

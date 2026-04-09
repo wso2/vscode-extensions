@@ -206,7 +206,6 @@ export async function activate(context: ExtensionContext) {
                 watcher.onDidChange(async (uri) => {
                     try {
                         debug(`[FileSync] Remote file changed: ${uri.toString()}`);
-                        // Re-cache the changed file
                         const localPath = await uriCache.cacheRemoteFile(uri);
                         
                         // Notify language server using the cached local path
@@ -222,24 +221,54 @@ export async function activate(context: ExtensionContext) {
                                 contentChanges: [{ text: textContent }]
                             });
                         }
+                        // Give the LS event loop a brief settle window before querying
+                        // project structure to avoid stale positions after remote deletes.
+                        await new Promise((resolve) => setTimeout(resolve, 150));
                         // Trigger webview update whenever this file matches the current context.
-                        // Do NOT gate on panel.active — collaborators must receive updates even
-                        // when the diagram panel is visible but not focused.
                         const smContext = StateMachine.context();
                         const changedRemoteUri = uri.toString();
                         const changedLocalPath = localPath;
-                        const isMatchingDocument = smContext.documentUri === changedLocalPath ||
-                                                 smContext.documentUri === changedRemoteUri ||
-                                                 (smContext.projectPath && changedLocalPath.startsWith(smContext.projectPath));
+                        const contextDocumentPath = smContext.documentUri;
+                        const contextProjectPath = smContext.projectPath;
 
-                        if (isMatchingDocument) {
+                        const isMatchingDocument = !!contextDocumentPath && (
+                            contextDocumentPath === changedLocalPath ||
+                            contextDocumentPath === changedRemoteUri ||
+                            uriCache.isSamePath(changedLocalPath, contextDocumentPath) ||
+                            uriCache.isSamePath(changedRemoteUri, contextDocumentPath)
+                        );
+
+                        let isWithinContextProject = false;
+                        if (contextProjectPath) {
+                            isWithinContextProject =
+                                changedLocalPath.startsWith(contextProjectPath) ||
+                                changedRemoteUri.startsWith(contextProjectPath);
+
+                            if (!isWithinContextProject && contextProjectPath.includes('://')) {
+                                try {
+                                    const cachedProjectPath = uriCache.getLocalPath(Uri.parse(contextProjectPath));
+                                    isWithinContextProject = changedLocalPath.startsWith(cachedProjectPath);
+                                } catch {
+                                    // Ignore parse failures and keep existing checks.
+                                }
+                            }
+
+                            if (!isWithinContextProject) {
+                                const remoteProjectUri = uriCache.getRemoteUri(contextProjectPath);
+                                if (remoteProjectUri) {
+                                    isWithinContextProject = changedRemoteUri.startsWith(remoteProjectUri.toString());
+                                }
+                            }
+                        }
+
+                        const shouldRefreshWebview = isMatchingDocument || isWithinContextProject;
+
+                        if (shouldRefreshWebview) {
                             debug(`[FileSync] Match found! Refreshing project structure and triggering webview update`);
-                            // Refresh project structure before updateView so that artifact positions
-                            // (startLine/endLine) are current. Without this, updateView() resolves
-                            // positions from a stale projectStructure, causing getFlowModel to use
-                            // an outdated endLine and the LS to return an incomplete flow model.
                             const projectInfo = smContext.projectInfo;
                             const lsClient = extension.ballerinaExtInstance?.langClient;
+                            const { updateView } = await import('./stateMachine');
+
                             if (projectInfo && lsClient) {
                                 try {
                                     await buildProjectsStructure(projectInfo, lsClient, true);
@@ -247,7 +276,18 @@ export async function activate(context: ExtensionContext) {
                                     console.error('[FileSync] Failed to refresh project structure:', e);
                                 }
                             }
-                            const { updateView } = await import('./stateMachine');
+
+                            // Second rebuild after a longer settle window — by this point the LS
+                            // has had enough time to fully process the deletion and return correct
+                            // artifact positions.  Only now do we trigger the webview update.
+                            await new Promise((resolve) => setTimeout(resolve, 250));
+                            if (projectInfo && lsClient) {
+                                try {
+                                    await buildProjectsStructure(projectInfo, lsClient, true);
+                                } catch (e) {
+                                    console.error('[FileSync] Retry failed to refresh project structure:', e);
+                                }
+                            }
                             updateView(false);
                         } else {
                             debug(`[FileSync] No match found, skipping webview update`);

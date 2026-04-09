@@ -141,9 +141,26 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                     );
                 }
             }
-            // Set up a listener to consume the LS notification triggered by the raw edit,
-            // so the final subscriber only sees the notification from the formatted edit.
-            // Capture IDs of newly added artifacts so we can re-apply isNew on the formatted edit notification.
+            // Apply all changes at once
+            await workspace.applyEdit(workspaceEdit);
+            for (const [fileUriString, request] of Object.entries(modificationRequests)) {
+                const remoteUri = uriCache?.getRemoteUri(request.filePath);
+
+                if (remoteUri) {
+                    const doc = workspace.textDocuments.find((doc) => doc.uri.toString() === remoteUri.toString());
+                    if (doc && doc.uri.scheme === 'file') {
+                        await doc.save();
+                    }
+                }
+            }
+
+            // Subscribe AFTER applyEdit so that only the notification fired by this specific
+            // edit can resolve rawEditNotification. Subscribing before applyEdit allows any
+            // in-flight ArtifactsUpdated from a concurrent background operation (e.g. an
+            // ongoing cleanAndValidateProject) to resolve the promise early, which would cause
+            // the format step to run against the pre-edit LS state and effectively revert the change.
+            // LS notifications arrive via the async event loop — subscribing synchronously after
+            // await applyEdit guarantees we are registered before the LS response arrives.
             const handler = ArtifactNotificationHandler.getInstance();
             let newArtifactIds: Set<string> | undefined;
             const rawEditNotification = new Promise<void>((resolve) => {
@@ -159,19 +176,6 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                 );
                 timeoutId = setTimeout(() => { unsub(); resolve(); }, 10000);
             });
-
-            // Apply all changes at once
-            await workspace.applyEdit(workspaceEdit);
-            for (const [fileUriString, request] of Object.entries(modificationRequests)) {
-                const remoteUri = uriCache?.getRemoteUri(request.filePath);
-                
-                if (remoteUri) {
-                    const doc = workspace.textDocuments.find((doc) => doc.uri.toString() === remoteUri.toString());
-                    if (doc) {
-                        await doc.save();
-                    }
-                }
-            }
 
             await rawEditNotification;
 
@@ -296,6 +300,13 @@ function checkAndNotifyWebview(
     if ((selectedArtifact?.type === "TYPE " || newArtifact?.type === "TYPE") && stateContext !== MACHINE_VIEW.TypeDiagram) {
         return;
     } else if (!isChangeFromHelperPane) {
+        // Skip notification for deletion (skipPayloadCheck=true). The webview's handleOnDeleteNode
+        // calls debouncedGetFlowModel() after updateArtifactLocation updates context.position —
+        // a premature notifyCurrentWebview here would fire getFlowModel with a stale endLine
+        // (before position is refreshed) and cause a failed/incorrect diagram update.
+        if (request.skipPayloadCheck) {
+            return;
+        }
         notifyCurrentWebview();
     }
 }
