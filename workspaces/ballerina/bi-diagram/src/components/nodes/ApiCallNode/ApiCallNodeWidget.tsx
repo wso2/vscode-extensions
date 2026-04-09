@@ -30,6 +30,7 @@ import {
     NODE_WIDTH,
 } from "../../../resources/constants";
 import { Button, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
+import { NodeLockBadge } from "../NodeLockBadge";
 import { MoreVertIcon } from "../../../resources";
 import { FlowNode } from "../../../utils/types";
 import NodeIcon from "../../NodeIcon";
@@ -58,6 +59,7 @@ export namespace NodeStyles {
         isSelected?: boolean;
     };
     export const Box = styled.div<NodeStyleProp>`
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -201,26 +203,6 @@ export namespace NodeStyles {
         }
     `;
 
-    export const LockIndicator = styled.div`
-        position: absolute;
-        top: -8px;
-        right: -8px;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background-color: ${ThemeColors.SECONDARY_CONTAINER};
-        border: 2px solid ${ThemeColors.SECONDARY};
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10;
-        cursor: help;
-    `;
-
-    export const LockIcon = styled.div`
-        color: ${ThemeColors.SECONDARY_CONTAINER};
-        font-size: 14px;
-    `;
 }
 
 interface ApiCallNodeWidgetProps {
@@ -360,16 +342,7 @@ export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
                     cursor: isLocked ? 'not-allowed' : readOnly ? 'default' : 'pointer'
                 }}
             >
-                {/* Lock indicator */}
-                {isLocked && (
-                    <Tooltip content={`Locked by ${model.node.locked.userName}`} sx={{ size: "small" }}>
-                        <NodeStyles.LockIndicator>
-                            <NodeStyles.LockIcon>
-                                🔒
-                            </NodeStyles.LockIcon>
-                        </NodeStyles.LockIndicator>
-                    </Tooltip>
-                )}
+                <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
                 {hasBreakpoint && (
                     <div
                         style={{

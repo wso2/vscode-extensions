@@ -22,6 +22,7 @@ import { DiagramEngine, PortWidget } from "@projectstorm/react-diagrams-core";
 import { IfNodeModel } from "./IfNodeModel";
 import { IF_NODE_WIDTH, NODE_BORDER_WIDTH, NODE_HEIGHT, NODE_WIDTH } from "../../../resources/constants";
 import { Button, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
+import { NodeLockBadge } from "../NodeLockBadge";
 import { FlowNode } from "../../../utils/types";
 import { useDiagramContext } from "../../DiagramContext";
 import { MoreVertIcon } from "../../../resources";
@@ -114,6 +115,7 @@ export namespace NodeStyles {
     `;
 
     export const Column = styled.div`
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -124,26 +126,6 @@ export namespace NodeStyles {
         width: 100%;
     `;
 
-    export const LockIndicator = styled.div`
-        position: absolute;
-        top: -8px;
-        right: -11px;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background-color: ${ThemeColors.SECONDARY_CONTAINER};
-        border: 2px solid ${ThemeColors.SECONDARY};
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10;
-        cursor: help;
-    `;
-
-    export const LockIcon = styled.div`
-        color: ${ThemeColors.ON_SECONDARY};
-        font-size: 10px;
-    `;
 }
 
 interface IfNodeWidgetProps {
@@ -272,15 +254,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
                             }}
                         />
                     )}
-                    {isLocked && (
-                        <Tooltip content={`Locked by ${model.node.locked.userName}`} >
-                            <NodeStyles.LockIndicator>
-                                <NodeStyles.LockIcon>
-                                    🔒
-                                </NodeStyles.LockIcon>
-                            </NodeStyles.LockIndicator>
-                        </Tooltip>
-                    )}
+                    <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
                     <NodeStyles.TopPortWidget port={model.getPort("in")!} engine={engine} />
                     <svg width={IF_NODE_WIDTH} height={IF_NODE_WIDTH} viewBox="0 0 70 70">
                         <rect

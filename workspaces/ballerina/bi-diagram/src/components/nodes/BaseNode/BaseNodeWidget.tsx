@@ -27,6 +27,7 @@ import {
     NODE_WIDTH,
 } from "../../../resources/constants";
 import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
+import { NodeLockBadge } from "../NodeLockBadge";
 import { MoreVertIcon } from "../../../resources";
 import NodeIcon from "../../NodeIcon";
 import { useDiagramContext } from "../../DiagramContext";
@@ -46,6 +47,7 @@ export namespace NodeStyles {
         isSelected?: boolean;
     };
     export const Node = styled.div<NodeStyleProp>`
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -164,26 +166,6 @@ export namespace NodeStyles {
         gap: 8px;
     `;
 
-    export const LockIndicator = styled.div`
-        position: absolute;
-        top: -8px;
-        right: -8px;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background-color: ${ThemeColors.SECONDARY_CONTAINER};
-        border: 2px solid ${ThemeColors.SECONDARY};
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10;
-        cursor: help;
-    `;
-
-    export const LockIcon = styled.div`
-        color: ${ThemeColors.ON_SECONDARY};
-        font-size: 10px;
-    `;
 }
 
 export interface BaseNodeWidgetProps {
@@ -398,15 +380,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
                 cursor: isLocked ? 'not-allowed' : readOnly ? 'default' : 'pointer'
             }}
         >
-            {isLocked && (
-                <Tooltip content={`Locked by ${model.node.locked.userName}`} >
-                    <NodeStyles.LockIndicator>
-                        <NodeStyles.LockIcon>
-                            🔒
-                        </NodeStyles.LockIcon>
-                    </NodeStyles.LockIndicator>
-                </Tooltip>
-            )}
+            <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
             {hasBreakpoint && (
                 <div
                     style={{

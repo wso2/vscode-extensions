@@ -34,6 +34,7 @@ import {
     NODE_WIDTH,
 } from "../../../resources/constants";
 import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors, getAIModuleIcon, DefaultLlmIcon } from "@wso2/ui-toolkit";
+import { NodeLockBadge } from "../NodeLockBadge";
 import { MoreVertIcon } from "../../../resources/icons";
 import { AgentData, FlowNode, ToolData } from "../../../utils/types";
 import NodeIcon, { CHART_COLORS, getAIColor, isDarkTheme, ThemeListener } from "../../NodeIcon";
@@ -488,8 +489,9 @@ export interface NodeWidgetProps extends Omit<AgentCallNodeWidgetProps, "childre
 
 export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, goToSource, onDeleteNode, removeBreakpoint, addBreakpoint, agentNode, readOnly, selectedNodeId, entrypointContext } =
+    const { onNodeSelect, goToSource, onDeleteNode, removeBreakpoint, addBreakpoint, agentNode, readOnly, selectedNodeId, entrypointContext, currentUserId } =
         useDiagramContext();
+    const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
     const traceAnimation = useTraceAnimation();
 
     const isSelected = selectedNodeId === model.node.id;
@@ -520,7 +522,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     }, [model.node.suggested]);
 
     const handleOnClick = (event: React.MouseEvent<HTMLDivElement>) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         if (event.metaKey) {
@@ -545,7 +547,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     };
 
     const onMemoryManagerClick = () => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         agentNode?.onSelectMemoryManager && agentNode.onSelectMemoryManager(model.node);
@@ -553,7 +555,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     };
 
     const onMemoryManagerDeleteClick = () => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         agentNode?.onDeleteMemoryManager && agentNode.onDeleteMemoryManager(model.node);
@@ -561,7 +563,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     };
 
     const onToolClick = (tool: ToolData) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         const toolType = tool.type ?? "";
@@ -575,7 +577,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     };
 
     const onAddToolClick = () => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         agentNode?.onAddTool && agentNode.onAddTool(model.node);
@@ -593,7 +595,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         setAnchorEl(event.currentTarget);
@@ -601,6 +603,9 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
         event.preventDefault();
+        if (isLocked) {
+            return;
+        }
         setAnchorEl(menuButtonElement || event.currentTarget);
     };
 
@@ -610,7 +615,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     };
 
     const handleToolMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>, tool: ToolData) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         event.stopPropagation();
@@ -624,7 +629,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     };
 
     const onImplementTool = (tool: ToolData) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         agentNode?.goToTool && agentNode.goToTool(tool, model.node);
@@ -647,7 +652,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     };
 
     const handleOnMemoryMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         event.stopPropagation();
@@ -790,9 +795,14 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                 isSelected={isSelected}
                 onMouseEnter={() => setIsBoxHovered(true)}
                 onMouseLeave={() => setIsBoxHovered(false)}
-                onContextMenu={!readOnly ? handleOnContextMenu : undefined}
+                onContextMenu={!readOnly && !isLocked ? handleOnContextMenu : undefined}
                 title="Configure Agent"
+                style={{
+                    opacity: isLocked ? 0.6 : 1,
+                    cursor: isLocked ? 'not-allowed' : readOnly ? 'default' : 'pointer',
+                }}
             >
+                <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
                 {/* Overlay for Agent Box pulsing transition */}
                 <div
                     css={css`

@@ -31,6 +31,7 @@ import {
     NODE_WIDTH,
 } from "../../../resources/constants";
 import { Button, Item, Menu, MenuItem, Popover, Tooltip, ThemeColors } from "@wso2/ui-toolkit";
+import { NodeLockBadge } from "../NodeLockBadge";
 import { MoreVertIcon } from "../../../resources";
 import { FlowNode } from "../../../utils/types";
 import { useDiagramContext } from "../../DiagramContext";
@@ -166,7 +167,8 @@ export interface NodeWidgetProps extends Omit<CommentNodeWidgetProps, "children"
 
 export function CommentNodeWidget(props: CommentNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, goToSource, onDeleteNode, readOnly, selectedNodeId } = useDiagramContext();
+    const { onNodeSelect, goToSource, onDeleteNode, readOnly, selectedNodeId, currentUserId } = useDiagramContext();
+    const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
 
     const isSelected = selectedNodeId === model.node.id;
 
@@ -175,6 +177,9 @@ export function CommentNodeWidget(props: CommentNodeWidgetProps) {
     const isMenuOpen = Boolean(anchorEl);
 
     const handleOnClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        if (isLocked) {
+            return;
+        }
         if (event.metaKey) {
             onGoToSource();
         } else {
@@ -199,6 +204,9 @@ export function CommentNodeWidget(props: CommentNodeWidgetProps) {
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
+        if (isLocked) {
+            return;
+        }
         setAnchorEl(event.currentTarget);
     };
 
@@ -218,7 +226,16 @@ export function CommentNodeWidget(props: CommentNodeWidgetProps) {
     ];
 
     return (
-        <NodeStyles.Node onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+        <NodeStyles.Node
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            style={{
+                position: 'relative',
+                opacity: isLocked ? 0.6 : 1,
+                cursor: isLocked ? 'not-allowed' : 'default',
+            }}
+        >
+            <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
             <NodeStyles.Circle
                 hovered={isHovered}
                 disabled={model.node.suggested}

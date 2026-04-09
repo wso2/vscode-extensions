@@ -30,6 +30,7 @@ import {
     NODE_GAP_Y,
 } from "../../../resources/constants";
 import { Button, Item, Menu, MenuItem, Popover, ThemeColors } from "@wso2/ui-toolkit";
+import { NodeLockBadge } from "../NodeLockBadge";
 import { FlowNode } from "../../../utils/types";
 import { useDiagramContext } from "../../DiagramContext";
 import { MoreVertIcon } from "../../../resources";
@@ -117,6 +118,7 @@ export namespace NodeStyles {
         isSelected?: boolean;
     };
     export const Box = styled.div<NodeStyleProp>`
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -185,7 +187,9 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
         expandedErrorHandler,
         toggleErrorHandlerExpansion,
         selectedNodeId,
+        currentUserId,
     } = useDiagramContext();
+    const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
 
     const isSelected = selectedNodeId === model.node.id;
 
@@ -205,6 +209,9 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
     }, [model.node.suggested]);
 
     const handleOnClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        if (isLocked) {
+            return;
+        }
         if (event.metaKey) {
             onGoToSource();
         } else {
@@ -240,7 +247,7 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         setAnchorEl(event.currentTarget);
@@ -248,6 +255,9 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
         event.preventDefault();
+        if (isLocked) {
+            return;
+        }
         setAnchorEl(menuButtonElement || event.currentTarget);
     };
 
@@ -283,14 +293,19 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
                         onClick={handleOnClick}
                         onMouseEnter={() => setIsHovered(true)}
                         onMouseLeave={() => setIsHovered(false)}
-                        onContextMenu={!readOnly ? handleOnContextMenu : undefined}
+                        onContextMenu={!readOnly && !isLocked ? handleOnContextMenu : undefined}
                         selected={model.isSelected() || isExpanded}
                         hovered={isHovered || isExpanded}
                         hasError={hasError}
                         isActiveBreakpoint={isActiveBreakpoint}
                         disabled={disabled}
                         isSelected={isSelected}
+                        style={{
+                            opacity: isLocked ? 0.6 : 1,
+                            cursor: isLocked ? 'not-allowed' : 'pointer',
+                        }}
                     >
+                        <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
                         {hasBreakpoint && (
                             <div
                                 style={{
