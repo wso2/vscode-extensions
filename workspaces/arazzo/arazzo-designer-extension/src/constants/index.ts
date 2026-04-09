@@ -26,13 +26,8 @@ export const COMMANDS = {
     // LSP Code Lens commands
     ARAZZO_VISUALIZE: "arazzo.visualize",
     ARAZZO_OPEN_DESIGNER: "arazzo.openDesigner",
-<<<<<<< HEAD
     // MCP Server command
     ARAZZO_START_MCP_SERVER: "arazzo.startMCPServer"
-=======
-    // MCP Server CLI
-    RUN_MCP_SERVER: "ArazzoDesigner.runMCPServer"
->>>>>>> a2466077832bb8cd45111e33b8fd24c63a6079e4
 };
 
 export const CONTEXT_KEYS = {
