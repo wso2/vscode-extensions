@@ -89,6 +89,6 @@
     "@types/mustache": "4.2.6",
     "vscode-languageserver-types": "3.17.5",
     "@headlessui/react": "2.2.4",
-    "yaml": "2.8.0"
+    "yaml": "2.8.3"
   }
 }
