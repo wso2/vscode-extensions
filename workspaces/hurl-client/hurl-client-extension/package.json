@@ -2,7 +2,7 @@
   "name": "hurl-client",
   "displayName": "Hurl Client",
   "description": "Open and run .hurl files as interactive notebooks",
-  "version": "0.9.3",
+  "version": "0.9.326040910",
   "publisher": "wso2",
   "repository": {
     "type": "git",
@@ -31,7 +31,9 @@
     "languages": [
       {
         "id": "hurl",
-        "extensions": [".hurl"],
+        "extensions": [
+          ".hurl"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -130,7 +132,9 @@
               "description": "The Hurl test script to execute."
             }
           },
-          "required": ["hurlScript"]
+          "required": [
+            "hurlScript"
+          ]
         }
       }
     ],
