@@ -283,24 +283,15 @@ export function DataMapperView(props: DataMapperViewProps) {
     const handleView = async (viewId: string, isSubMapping?: boolean) => {
         if (isSubMapping) {
             const subMappingName = viewId.split(".")[0];
-            if (subMappingName !== viewState.subMappingName) {
-                const resp = await rpcClient
-                    .getDataMapperRpcClient()
-                    .getSubMappingCodedata({
-                        filePath,
-                        codedata: viewState.codedata,
-                        view: subMappingName
-                    });
-                console.log(">>> [Data Mapper] getSubMappingCodedata response:", resp);
-                setViewState({ viewId, codedata: resp.codedata, subMappingName });
-            } else {
-                setViewState(prev => ({
-                    viewId,
-                    codedata: prev.codedata,
-                    subMappingName: subMappingName
-                }));
-            }
-
+            const resp = await rpcClient
+                .getDataMapperRpcClient()
+                .getSubMappingCodedata({
+                    filePath,
+                    codedata: codedata,
+                    view: subMappingName
+                });
+            console.log(">>> [Data Mapper] getSubMappingCodedata response:", resp);
+            setViewState({ viewId, codedata: resp.codedata, subMappingName });
         } else {
             const res = await rpcClient
                 .getDataMapperRpcClient()
