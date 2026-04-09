@@ -15,10 +15,10 @@
 // under the License.
 
 /**
- * Ballerina+Devant tool: creates a Devant connection from a marketplace
+ * Ballerina+WSO2 Cloud tool: creates a WSO2 Cloud connection from a marketplace
  * service item in the platform backend.
  *
- * This tool combines Devant platform operations (creating connections,
+ * This tool combines WSO2 Cloud platform operations (creating connections,
  * fetching marketplace items) with Ballerina workspace knowledge.
  */
 import * as vscode from "vscode";
@@ -33,42 +33,43 @@ import { WI_EXTENSION_ID, getOrgPackageName } from "../../../../../utils/config"
 import { platformExtStore } from "../../../../../rpc-managers/platform-ext/platform-store";
 import { processOpenApiWithApiKeyAuth } from "../../../../../rpc-managers/platform-ext/platform-utils";
 import { StateMachine } from "../../../../../stateMachine";
-import { writeConfigBal, writeConnectionsBal } from "./devant-connection-utils";
+import { writeConfigBal, writeConnectionsBal } from "./cloud-connection-utils";
 import { log } from "../../../../../utils";
+import { CLOUD_GET_SELECTED_INTEGRATION_TOOL } from "./cloud-get-selected-integration";
 
-export const DEVANT_CREATE_CONNECTION_TOOL = "DevantCreateConnectionTool";
+export const CLOUD_CREATE_CONNECTION_TOOL = "CloudCreateConnectionTool";
 
-const DevantCreateConnectionInputSchema = z.object({
-    serviceId: z.string().describe("The marketplace service ID (obtained from DevantListMarketplaceServicesTool)"),
+const CloudCreateConnectionInputSchema = z.object({
+    serviceId: z.string().describe("The marketplace service ID (obtained from CloudListMarketplaceServicesTool)"),
     connectionName: z.string().describe("A unique name for the connection (alphanumeric and underscores, min 3 chars)"),
-    orgId: z.string().describe("Numeric organization ID from DevantGetSelectedIntegrationTool"),
-    orgUuid: z.string().describe("Organization UUID from DevantGetSelectedIntegrationTool"),
-    projectId: z.string().describe("Project ID from DevantGetSelectedIntegrationTool"),
-    componentId: z.string().describe("Component ID from DevantGetSelectedIntegrationTool (empty string for project-level connections)"),
-    componentType: z.string().describe("Component type from DevantGetSelectedIntegrationTool (empty string for project-level connections)"),
+    orgId: z.string().describe(`Numeric organization ID from ${CLOUD_GET_SELECTED_INTEGRATION_TOOL}`),
+    orgUuid: z.string().describe(`Organization UUID from ${CLOUD_GET_SELECTED_INTEGRATION_TOOL}`),
+    projectId: z.string().describe(`Project ID from ${CLOUD_GET_SELECTED_INTEGRATION_TOOL}`),
+    componentId: z.string().describe(`Component ID from ${CLOUD_GET_SELECTED_INTEGRATION_TOOL} (empty string for project-level connections)`),
+    componentType: z.string().describe(`Component type from ${CLOUD_GET_SELECTED_INTEGRATION_TOOL} (empty string for project-level connections)`),
 });
 
-export function createDevantCreateConnectionTool(
+export function createCloudCreateConnectionTool(
     eventHandler: CopilotEventHandler,
     tempProjectPath?: string,
     rootTempPath?: string,
     modifiedFiles?: string[],
 ) {
     return tool({
-        description: `Creates a Devant connection from a marketplace service and initializes configuration files.
+        description: `Creates a WSO2 Cloud connection from a marketplace service and initializes configuration files.
 
 **Prerequisites (call in order):**
-1. DevantGetSelectedIntegrationTool → provides orgId, orgUuid, projectId, componentId, componentType, connectionScope
-2. DevantListMarketplaceServicesTool → provides serviceId
+1. ${CLOUD_GET_SELECTED_INTEGRATION_TOOL} → provides orgId, orgUuid, projectId, componentId, componentType, connectionScope
+2. CloudListMarketplaceServicesTool → provides serviceId
 
 **When to use this tool:**
 - Connect to an API service or external service
-- Integrate with an internal service (running in Devant)
+- Integrate with an internal service (running in WSO2 Cloud)
 - Integrate with a 3rd party API service (e.g. Salesforce, GitHub, Stripe)
 - Any time user says: "connect to X", "use the X service", "call the X API", "add a connection to X"
 
 **Connection scope:**
-- Pass \`componentId\` from DevantGetSelectedIntegrationTool as-is:
+- Pass \`componentId\` from ${CLOUD_GET_SELECTED_INTEGRATION_TOOL} as-is:
   - Non-empty → integration-level connection (scoped to that component)
   - Empty string → project-level connection (no integration selected)
 
@@ -81,7 +82,7 @@ export function createDevantCreateConnectionTool(
 **What this tool does:**
 1. Sanitizes and resolves a unique connectionName
 2. Fetches the marketplace item details (serviceType, visibility, connection schemas)
-3. Creates the connection record in the Devant platform backend
+3. Creates the connection record in the WSO2 Cloud platform backend
 4. For REST services: fetches the OpenAPI spec from the marketplace, injects auth schemes, and saves the spec
 5. Writes configurable declarations to \`config.bal\` (service URL, API keys, OAuth tokens, proxy config)
 6. For REST services with spec: writes import + client initialization to \`connections.bal\`
@@ -96,13 +97,13 @@ export function createDevantCreateConnectionTool(
 - \`configEntries\`: array of { id, name, envVariableName, isSecret }
 - \`connectionCode\`: (if written) the client initialization code written to connections.bal
 - \`importStatement\`: (if written) the import statement written to connections.bal`,
-        inputSchema: DevantCreateConnectionInputSchema,
+        inputSchema: CloudCreateConnectionInputSchema,
         execute: async (input, context?: { toolCallId?: string }) => {
             const toolCallId = context?.toolCallId ?? `fallback-${Date.now()}`;
 
             eventHandler({
                 type: "tool_call",
-                toolName: DEVANT_CREATE_CONNECTION_TOOL,
+                toolName: CLOUD_CREATE_CONNECTION_TOOL,
                 toolInput: input,
                 toolCallId,
             });
@@ -112,7 +113,7 @@ export function createDevantCreateConnectionTool(
 
                 eventHandler({
                     type: "tool_result",
-                    toolName: DEVANT_CREATE_CONNECTION_TOOL,
+                    toolName: CLOUD_CREATE_CONNECTION_TOOL,
                     toolCallId,
                     toolOutput: result,
                 });
@@ -121,13 +122,13 @@ export function createDevantCreateConnectionTool(
             } catch (error: any) {
                 const errorResult = {
                     success: false,
-                    message: `Failed to create Devant connection: ${error.message}`,
+                    message: `Failed to create WSO2 Cloud connection: ${error.message}`,
                     error: error.message,
                 };
 
                 eventHandler({
                     type: "tool_result",
-                    toolName: DEVANT_CREATE_CONNECTION_TOOL,
+                    toolName: CLOUD_CREATE_CONNECTION_TOOL,
                     toolCallId,
                     toolOutput: errorResult,
                 });
@@ -160,7 +161,7 @@ async function executeCreateConnection(
     if (!wiExt) {
         return {
             success: false,
-            message: "WSO2 Platform extension is not installed. Please install it to use Devant connections.",
+            message: "WSO2 Platform extension is not installed. Please install it to use WSO2 Cloud connections.",
         };
     }
     if (!wiExt.isActive) {
@@ -190,15 +191,15 @@ async function executeCreateConnection(
         };
     }
 
-    // 3. Collect existing names from connections.bal (ST) and Devant platform in parallel,
+    // 3. Collect existing names from connections.bal (ST) and WSO2 Cloud platform in parallel,
     //    then resolve to a unique candidate before making any platform mutation calls.
-    const [localNames, devantNames] = await Promise.all([
+    const [localNames, cloudNames] = await Promise.all([
         getExistingConnectionNamesFromFile(tempProjectPath
             ? path.join(tempProjectPath, "connections.bal")
             : undefined),
-        getExistingDevantConnectionNames(cloudAPIs, orgId, projectId),
+        getExistingCloudConnectionNames(cloudAPIs, orgId, projectId),
     ]);
-    const existingNames = new Set([...localNames, ...devantNames]);
+    const existingNames = new Set([...localNames, ...cloudNames]);
     const resolvedConnectionName = resolveUniqueName(sanitized, existingNames);
 
     const isRest = marketplaceItem.serviceType === "REST";
@@ -251,7 +252,7 @@ async function executeCreateConnection(
     if (!connectionDetailed) {
         return {
             success: false,
-            message: "Failed to create connection in Devant platform. The API returned no result.",
+            message: "Failed to create connection in WSO2 Cloud platform. The API returned no result.",
         };
     }
 
@@ -280,7 +281,7 @@ async function executeCreateConnection(
         : [];
 
     // Detect security type and proxy requirement from the connection's schema name.
-    // Both use connectionDetailed.schemaName — mirrors DevantConnectorPopup.tsx and rpc-manager.ts.
+    // Both use connectionDetailed.schemaName — mirrors CloudConnectorPopup.tsx and rpc-manager.ts.
     const schemaName = connectionDetailed.schemaName?.toLowerCase() ?? "";
 
     let detectedSecurityType: "" | "oauth" | "apikey" = "";
@@ -398,15 +399,15 @@ async function executeCreateConnection(
         moduleName,
         connectionCode: connectionCode.trim() || undefined,
         importStatement: importStatement.trim() || undefined,
-        message: `Successfully created Devant connection "${resolvedConnectionName}" for service "${marketplaceItem.name}" (${marketplaceItem.serviceType}).` +
+        message: `Successfully created WSO2 Cloud connection "${resolvedConnectionName}" for service "${marketplaceItem.name}" (${marketplaceItem.serviceType}).` +
             (resolvedConnectionName !== input.connectionName ? ` Note: connection name was resolved to "${resolvedConnectionName}" (sanitized/suffixed for uniqueness).` : "") +
             (requireProxy ? " This service uses ORGANIZATION or PROJECT visibility — proxy config has been written to config.bal." : "") +
             (connectionCode ? ` Connection initialization written to connections.bal and config.bal.` : "") +
             (isRest && specFilePath
                 ? ` This is a REST service — call ConnectorGeneratorTool with specFilePath="${specFilePath}" and moduleName="${moduleName}" to generate a Ballerina connector. After generation, connections.bal will be ready to use.`
                 : isRest
-                    ? " This is a REST service but the OpenAPI spec could not be fetched — use LibrarySearchTool to find a Ballerina Central connector, then call DevantWriteConnectionTool with the library module name to write connections.bal."
-                    : " This is a non-REST service — use LibrarySearchTool to find an appropriate Ballerina Central connector, then call DevantWriteConnectionTool with the library module name to write connections.bal."),
+                    ? " This is a REST service but the OpenAPI spec could not be fetched — use LibrarySearchTool to find a Ballerina Central connector, then call CloudWriteConnectionTool with the library module name to write connections.bal."
+                    : " This is a non-REST service — use LibrarySearchTool to find an appropriate Ballerina Central connector, then call CloudWriteConnectionTool with the library module name to write connections.bal."),
     };
 }
 
@@ -461,7 +462,7 @@ function resolveUniqueName(base: string, existingNames: Set<string>): string {
 
 /**
  * Returns all module-level variable declaration names in connections.bal
- * by traversing its syntax tree. Mirrors the pattern in DevantConnectorPopup.tsx.
+ * by traversing its syntax tree. Mirrors the pattern in CloudConnectorPopup.tsx.
  * Returns an empty set if the file doesn't exist or the ST fetch fails.
  */
 async function getExistingConnectionNamesFromFile(connectionsBal?: string): Promise<Set<string>> {
@@ -491,14 +492,14 @@ async function getExistingConnectionNamesFromFile(connectionsBal?: string): Prom
 }
 
 /**
- * Fetches all existing Devant connection names across the project:
+ * Fetches all existing WSO2 Cloud connection names across the project:
  * - Project-level connections (componentId: "")
  * - Per-component connections (all components in the project)
  *
- * Mirrors the pattern in DevantConnectorPopup.tsx existingDevantConnNames query.
+ * Mirrors the pattern in CloudConnectorPopup.tsx existingCloudConnNames query.
  * Returns an empty set if any API call fails.
  */
-async function getExistingDevantConnectionNames(
+async function getExistingCloudConnectionNames(
     cloudAPIs: IWso2PlatformExtensionAPI,
     orgId: string,
     projectId: string,
@@ -537,7 +538,7 @@ async function getExistingDevantConnectionNames(
 /**
  * Returns all configurable variable names already declared in the project
  * by calling getConfigVariablesV2 on the language server.
- * Mirrors the pattern in DevantConnectorPopup.tsx createTempConfigs mutation.
+ * Mirrors the pattern in CloudConnectorPopup.tsx createTempConfigs mutation.
  * Returns an empty set if the project path is not available or the call fails.
  */
 async function getExistingConfigVariableNames(tempProjectPath?: string): Promise<Set<string>> {

@@ -15,11 +15,11 @@
 // under the License.
 
 /**
- * Ballerina+Devant tool: collects runtime env config values from the user
+ * Ballerina+WSO2 Cloud tool: collects runtime env config values from the user
  * via an inline webview UI, then registers a third-party service in the
- * Devant marketplace.
+ * WSO2 Cloud marketplace.
  *
- * After registration the agent should call DevantCreateConnectionTool
+ * After registration the agent should call CloudCreateConnectionTool
  * with the returned serviceId to create the actual connection.
  */
 import * as vscode from "vscode";
@@ -32,8 +32,10 @@ import { CopilotEventHandler } from "../../../utils/events";
 import { WI_EXTENSION_ID } from "../../../../../utils/config";
 import { approvalManager } from "../../../state/ApprovalManager";
 import { findUniqueConnectionName } from "../../../../../rpc-managers/platform-ext/platform-utils";
+import { CLOUD_CREATE_CONNECTION_TOOL } from "./cloud-create-connection";
+import { CLOUD_GET_SELECTED_INTEGRATION_TOOL } from "./cloud-get-selected-integration";
 
-export const DEVANT_REGISTER_THIRD_PARTY_SERVICE_TOOL = "DevantRegisterThirdPartyServiceTool";
+export const CLOUD_REGISTER_THIRD_PARTY_SERVICE_TOOL = "CloudRegisterThirdPartyServiceTool";
 
 const InputSchema = z.object({
     serviceName: z.string().describe("Name of the third-party service being registered (min 3 characters)"),
@@ -48,35 +50,35 @@ const InputSchema = z.object({
         isSecret: z.boolean().describe("Whether this is a sensitive value (password, API key, token, etc.)"),
         description: z.string().optional().describe("Human-readable description of the config"),
     })).describe("Initial environment config keys the agent has identified. The user can modify, add, or remove entries in the UI."),
-    orgId: z.string().describe("Numeric organization ID from DevantGetSelectedIntegrationTool"),
-    orgUuid: z.string().describe("Organization UUID from DevantGetSelectedIntegrationTool"),
-    projectId: z.string().describe("Project ID from DevantGetSelectedIntegrationTool"),
+    orgId: z.string().describe(`Numeric organization ID from ${CLOUD_GET_SELECTED_INTEGRATION_TOOL}`),
+    orgUuid: z.string().describe(`Organization UUID from ${CLOUD_GET_SELECTED_INTEGRATION_TOOL}`),
+    projectId: z.string().describe(`Project ID from ${CLOUD_GET_SELECTED_INTEGRATION_TOOL}`),
 });
 
-export function createDevantRegisterThirdPartyServiceTool(eventHandler: CopilotEventHandler) {
+export function createCloudRegisterThirdPartyServiceTool(eventHandler: CopilotEventHandler) {
     return tool({
-        description: `Registers a third-party service in the Devant marketplace by collecting runtime environment variable values from the user.
+        description: `Registers a third-party service in the WSO2 Cloud marketplace by collecting runtime environment variable values from the user.
 
 **When to use this tool:**
-- The user wants to connect to an external/third-party service that is NOT already registered in the Devant marketplace
+- The user wants to connect to an external/third-party service that is NOT already registered in the WSO2 Cloud marketplace
 - After generating a custom connector from an OpenAPI spec (via ConnectorGeneratorTool) for a service not in the marketplace
 - After identifying a Ballerina connector (via LibrarySearchTool) for a service not in the marketplace
 - Any time the user says: "register this service", "add this as a third-party service", "connect to a new external API"
 
 **Prerequisites:**
-1. DevantGetSelectedIntegrationTool → provides orgId, orgUuid, projectId
+1. ${CLOUD_GET_SELECTED_INTEGRATION_TOOL} → provides orgId, orgUuid, projectId
 2. Identify the env config keys needed (from OpenAPI spec, connector init params, or user input)
 
 **What this tool does:**
 1. Shows an inline UI in the chat for the user to review/modify env config keys and provide runtime values
-2. On submit, registers the service in the Devant marketplace
+2. On submit, registers the service in the WSO2 Cloud marketplace
 3. Returns the registered service's serviceId
 
 **After this tool:**
-Call DevantCreateConnectionTool with the returned serviceId to create the Devant connection and write config.bal/connections.bal.
+Call ${CLOUD_CREATE_CONNECTION_TOOL} with the returned serviceId to create the WSO2 Cloud connection and write config.bal/connections.bal.
 
 **Returns:**
-- \`serviceId\`: The ID of the newly registered marketplace service — pass this to DevantCreateConnectionTool
+- \`serviceId\`: The ID of the newly registered marketplace service — pass this to ${CLOUD_CREATE_CONNECTION_TOOL}
 - \`serviceName\`: The name of the registered service`,
         inputSchema: InputSchema,
         execute: async (input, context?: { toolCallId?: string }) => {
@@ -84,7 +86,7 @@ Call DevantCreateConnectionTool with the returned serviceId to create the Devant
 
             eventHandler({
                 type: "tool_call",
-                toolName: DEVANT_REGISTER_THIRD_PARTY_SERVICE_TOOL,
+                toolName: CLOUD_REGISTER_THIRD_PARTY_SERVICE_TOOL,
                 toolInput: input,
                 toolCallId,
             });
@@ -94,7 +96,7 @@ Call DevantCreateConnectionTool with the returned serviceId to create the Devant
 
                 eventHandler({
                     type: "tool_result",
-                    toolName: DEVANT_REGISTER_THIRD_PARTY_SERVICE_TOOL,
+                    toolName: CLOUD_REGISTER_THIRD_PARTY_SERVICE_TOOL,
                     toolCallId,
                     toolOutput: result,
                 });
@@ -109,7 +111,7 @@ Call DevantCreateConnectionTool with the returned serviceId to create the Devant
 
                 eventHandler({
                     type: "tool_result",
-                    toolName: DEVANT_REGISTER_THIRD_PARTY_SERVICE_TOOL,
+                    toolName: CLOUD_REGISTER_THIRD_PARTY_SERVICE_TOOL,
                     toolCallId,
                     toolOutput: errorResult,
                 });
@@ -129,7 +131,7 @@ async function executeRegisterThirdPartyService(
     if (!wiExt) {
         return {
             success: false,
-            message: "WSO2 Platform extension is not installed. Please install it to use Devant connections.",
+            message: "WSO2 Platform extension is not installed. Please install it to use WSO2 Cloud connections.",
         };
     }
     if (!wiExt.isActive) {
@@ -252,7 +254,7 @@ async function executeRegisterThirdPartyService(
     if (!registeredItem?.serviceId) {
         return {
             success: false,
-            message: "Failed to register the third-party service in Devant. The API returned no result.",
+            message: "Failed to register the third-party service in WSO2 Cloud. The API returned no result.",
         };
     }
 
@@ -280,7 +282,7 @@ async function executeRegisterThirdPartyService(
         serviceName: marketplaceService?.name || input.serviceName,
         serviceId: registeredItem.serviceId,
         isThirdParty: true,
-        message: `Successfully registered third-party service "${marketplaceService?.name || input.serviceName}" in Devant marketplace. ` +
-            `Now call DevantCreateConnectionTool with serviceId="${registeredItem.serviceId}" to create the connection.`,
+        message: `Successfully registered third-party service "${marketplaceService?.name || input.serviceName}" in WSO2 Cloud marketplace. ` +
+            `Now call ${CLOUD_CREATE_CONNECTION_TOOL} with serviceId="${registeredItem.serviceId}" to create the connection.`,
     };
 }

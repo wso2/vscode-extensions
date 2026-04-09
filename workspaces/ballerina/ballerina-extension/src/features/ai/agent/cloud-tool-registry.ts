@@ -15,31 +15,31 @@
 // under the License.
 
 /**
- * Devant tool registry factory.
+ * WSO2 Cloud tool registry factory.
  * Delegates to wi-extension's exported AI tool factory so that the generic
- * Devant tools live in wi-extension while still being registered in the
+ * WSO2 Cloud tools live in wi-extension while still being registered in the
  * Ballerina copilot's agent tool registry.
  *
- * Ballerina+Devant specific tools (future) should be added directly here.
+ * Ballerina+WSO2 Cloud specific tools (future) should be added directly here.
  */
 import * as vscode from "vscode";
 import { DevantToolEventHandler } from "@wso2/wso2-platform-core";
 import { CopilotEventHandler } from '../utils/events';
 import { WI_EXTENSION_ID } from '../../../utils/config';
 import {
-    createDevantGetSelectedIntegrationTool,
-    DEVANT_GET_SELECTED_INTEGRATION_TOOL,
-} from './tools/devant/devant-get-selected-integration';
+    createCloudGetSelectedIntegrationTool,
+    CLOUD_GET_SELECTED_INTEGRATION_TOOL,
+} from './tools/cloud/cloud-get-selected-integration';
 import {
-    createDevantCreateConnectionTool,
-    DEVANT_CREATE_CONNECTION_TOOL,
-} from './tools/devant/devant-create-connection';
+    createCloudCreateConnectionTool,
+    CLOUD_CREATE_CONNECTION_TOOL,
+} from './tools/cloud/cloud-create-connection';
 import {
-    createDevantRegisterThirdPartyServiceTool,
-    DEVANT_REGISTER_THIRD_PARTY_SERVICE_TOOL,
-} from './tools/devant/devant-register-third-party-service';
+    createCloudRegisterThirdPartyServiceTool,
+    CLOUD_REGISTER_THIRD_PARTY_SERVICE_TOOL,
+} from './tools/cloud/cloud-register-third-party-service';
 
-export interface DevantToolRegistryOptions {
+export interface CloudToolRegistryOptions {
     eventHandler: CopilotEventHandler;
     tempProjectPath?: string;
     /** Root temp workspace path — used for computing modifiedFiles relative paths so that integrateCodeToWorkspace can resolve them. */
@@ -47,22 +47,22 @@ export interface DevantToolRegistryOptions {
     modifiedFiles?: string[];
 }
 
-export async function createDevantToolRegistry(opts: DevantToolRegistryOptions) {
+export async function createCloudToolRegistry(opts: CloudToolRegistryOptions) {
     const wiExt = vscode.extensions.getExtension(WI_EXTENSION_ID);
     if (!wiExt?.isActive) {
         await wiExt.activate();
     }
-    const wiDevantTools = wiExt.exports.ai.createCloudToolRegistry(opts.eventHandler as unknown as DevantToolEventHandler);
+    const wiCloudTools = wiExt.exports.ai.createCloudToolRegistry(opts.eventHandler as unknown as DevantToolEventHandler);
 
-    // Ballerina+Devant specific tools are added here.
-    // These combine Ballerina workspace knowledge with Devant platform operations
+    // Ballerina+WSO2 Cloud specific tools are added here.
+    // These combine Ballerina workspace knowledge with WSO2 Cloud platform operations
     // and therefore belong in the ballerina extension rather than wi-extension.
-    const ballerinaDevantTools = {
-        [DEVANT_GET_SELECTED_INTEGRATION_TOOL]: createDevantGetSelectedIntegrationTool(opts.eventHandler),
-        [DEVANT_CREATE_CONNECTION_TOOL]: createDevantCreateConnectionTool(opts.eventHandler, opts.tempProjectPath, opts.rootTempPath, opts.modifiedFiles),
-        [DEVANT_REGISTER_THIRD_PARTY_SERVICE_TOOL]: createDevantRegisterThirdPartyServiceTool(opts.eventHandler),
+    const ballerinaCloudTools = {
+        [CLOUD_GET_SELECTED_INTEGRATION_TOOL]: createCloudGetSelectedIntegrationTool(opts.eventHandler),
+        [CLOUD_CREATE_CONNECTION_TOOL]: createCloudCreateConnectionTool(opts.eventHandler, opts.tempProjectPath, opts.rootTempPath, opts.modifiedFiles),
+        [CLOUD_REGISTER_THIRD_PARTY_SERVICE_TOOL]: createCloudRegisterThirdPartyServiceTool(opts.eventHandler),
     };
 
-    return { ...wiDevantTools, ...ballerinaDevantTools };
+    return { ...wiCloudTools, ...ballerinaCloudTools };
 }
     

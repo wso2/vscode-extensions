@@ -26,7 +26,7 @@ import { sendAgentDidOpenForFreshProjects } from '../utils/project/ls-schema-not
 import { getSystemPrompt, getUserPrompt } from './prompts';
 import { GenerationType } from '../utils/libs/libraries';
 import { createToolRegistry } from './tool-registry';
-import { createDevantToolRegistry } from './devant-tool-registry';
+import { createCloudToolRegistry } from './cloud-tool-registry';
 import { getProjectSource, cleanupTempProject } from '../utils/project/temp-project';
 import { integrateCodeToWorkspace } from './utils';
 import { getWorkspaceTomlValues } from '../../../utils';
@@ -216,13 +216,13 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 }
                 const projectSubPath = path.relative(this.config.executionContext?.workspacePath, this.config.executionContext?.projectPath);
                 const tempProjectPath = path.join(this.config.executionContext?.tempProjectPath, projectSubPath);
-                const devantTools = await createDevantToolRegistry({
+                const cloudTools = await createCloudToolRegistry({
                     eventHandler: this.config.eventHandler,
                     tempProjectPath,
                     rootTempPath: this.config.executionContext?.tempProjectPath,
                     modifiedFiles,
                 });
-                tools = { ...ballerinaTools, ...devantTools };
+                tools = { ...ballerinaTools, ...cloudTools };
             }
             
             // Stream LLM response

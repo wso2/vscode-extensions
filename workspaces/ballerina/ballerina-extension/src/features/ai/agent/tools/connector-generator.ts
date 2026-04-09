@@ -39,6 +39,7 @@ import { LIBRARY_SEARCH_TOOL } from "./library-search";
 import { PackageTomlValues } from "@wso2/ballerina-core";
 import * as toml from "@iarna/toml";
 import { getProjectTomlValues } from "../../../../utils";
+import { CLOUD_CREATE_CONNECTION_TOOL } from "./cloud/cloud-create-connection";
 
 export const CONNECTOR_GENERATOR_TOOL = "ConnectorGeneratorTool";
 
@@ -62,7 +63,7 @@ Use this tool when:
 2. User request is ambiguous and needs a SaaS connector
 3. User explicitly requests to create a SaaS connector
 4. After searching with ${LIBRARY_SEARCH_TOOL}, no suitable connector is found
-5. A pre-saved OpenAPI spec file path is available (e.g. from Devant marketplace via DevantCreateConnectionTool)
+5. A pre-saved OpenAPI spec file path is available (e.g. from WSO2 Cloud marketplace via ${CLOUD_CREATE_CONNECTION_TOOL})
 
 **CRITICAL: Do NOT call this tool again for the same service if the user has already skipped it (errorCode: USER_SKIPPED). Accept the skip and proceed without the connector.**
 
@@ -71,7 +72,7 @@ Call with serviceName only. The tool will request the OpenAPI spec from the user
 
 **Mode 2 — Pre-saved spec (programmatic):**
 Call with serviceName + specFilePath + moduleName. The tool will generate directly from the spec file without user interaction.
-Use this mode when DevantCreateConnectionTool returns a specFilePath (for Devant marketplace REST services).
+Use this mode when ${CLOUD_CREATE_CONNECTION_TOOL} returns a specFilePath (for WSO2 Cloud marketplace REST services).
 
 The tool will:
 1. Generate complete Ballerina connector module with client class, typed methods, record types, and authentication
@@ -120,7 +121,7 @@ export async function ConnectorGeneratorTool(
         );
     }
 
-    // Mode 2: Direct generation from pre-saved spec (used by Devant marketplace flow)
+    // Mode 2: Direct generation from pre-saved spec (used by WSO2 Cloud marketplace flow)
     if (input.specFilePath && input.moduleName) {
         try {
             const result = await generateConnector(

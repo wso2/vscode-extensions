@@ -15,7 +15,7 @@
 // under the License.
 
 /**
- * Ballerina+Devant tool: returns the currently selected Devant integration
+ * Ballerina+WSO2 Cloud tool: returns the currently selected WSO2 Cloud integration
  * (component) and workspace context needed for creating connections.
  *
  * This is the first tool to call in any connection creation workflow.
@@ -27,28 +27,29 @@ import { tool } from "ai";
 import { z } from "zod";
 import { CopilotEventHandler } from "../../../utils/events";
 import { platformExtStore } from "../../../../../rpc-managers/platform-ext/platform-store";
+import { CLOUD_CREATE_CONNECTION_TOOL } from "./cloud-create-connection";
 
-export const DEVANT_GET_SELECTED_INTEGRATION_TOOL = "DevantGetSelectedIntegrationTool";
+export const CLOUD_GET_SELECTED_INTEGRATION_TOOL = "CloudGetSelectedIntegrationTool";
 
-export function createDevantGetSelectedIntegrationTool(eventHandler: CopilotEventHandler) {
+export function createCloudGetSelectedIntegrationTool(eventHandler: CopilotEventHandler) {
     return tool({
-        description: `Returns the currently selected Devant integration (component) and workspace context required for creating connections.
+        description: `Returns the currently selected WSO2 Cloud integration (component) and workspace context required for creating connections.
 
-**Always call this tool first** in any connection creation workflow — before DevantListMarketplaceServicesTool or DevantCreateConnectionTool.
+**Always call this tool first** in any connection creation workflow — before CloudListMarketplaceServicesTool or ${CLOUD_CREATE_CONNECTION_TOOL}.
 It returns all context values that must be passed as parameters to those tools.
 
 **What it returns:**
-- \`orgId\`: Numeric organization ID (pass to DevantListMarketplaceServicesTool and DevantCreateConnectionTool)
-- \`orgUuid\`: Organization UUID (pass to DevantCreateConnectionTool)
-- \`projectId\`: Project ID (pass to DevantListMarketplaceServicesTool and DevantCreateConnectionTool)
+- \`orgId\`: Numeric organization ID (pass to CloudListMarketplaceServicesTool and ${CLOUD_CREATE_CONNECTION_TOOL})
+- \`orgUuid\`: Organization UUID (pass to ${CLOUD_CREATE_CONNECTION_TOOL})
+- \`projectId\`: Project ID (pass to CloudListMarketplaceServicesTool and ${CLOUD_CREATE_CONNECTION_TOOL})
 - \`hasIntegration\`: Whether a Ballerina integration (component) is currently selected
 - \`integration\`: Selected integration details ({ id, name, type }) — null if none selected
-- \`componentId\`: Component ID to pass to DevantCreateConnectionTool (empty string if no integration)
-- \`componentType\`: Component type to pass to DevantCreateConnectionTool (empty string if no integration)
+- \`componentId\`: Component ID to pass to ${CLOUD_CREATE_CONNECTION_TOOL} (empty string if no integration)
+- \`componentType\`: Component type to pass to ${CLOUD_CREATE_CONNECTION_TOOL} (empty string if no integration)
 - \`connectionScope\`: \`"integration"\` | \`"project"\` — determines the connection level
 
 **Connection scope rules:**
-- \`"integration"\`: A Devant integration is selected → connection is created at integration level and scoped to that component
+- \`"integration"\`: A WSO2 Cloud integration is selected → connection is created at integration level and scoped to that component
 - \`"project"\`: No integration selected but a project is associated → connection is created at project level
 
 Make sure to communicate the connection scope to the user before proceeding:
@@ -60,7 +61,7 @@ Make sure to communicate the connection scope to the user before proceeding:
 
             eventHandler({
                 type: "tool_call",
-                toolName: DEVANT_GET_SELECTED_INTEGRATION_TOOL,
+                toolName: CLOUD_GET_SELECTED_INTEGRATION_TOOL,
                 toolInput: {},
                 toolCallId,
             });
@@ -70,9 +71,9 @@ Make sure to communicate the connection scope to the user before proceeding:
             if (!state?.isLoggedIn) {
                 const result = {
                     success: false,
-                    message: "You are not logged in to Devant. Please log in first.",
+                    message: "You are not logged in to WSO2 Cloud. Please log in first.",
                 };
-                eventHandler({ type: "tool_result", toolName: DEVANT_GET_SELECTED_INTEGRATION_TOOL, toolCallId, toolOutput: result });
+                eventHandler({ type: "tool_result", toolName: CLOUD_GET_SELECTED_INTEGRATION_TOOL, toolCallId, toolOutput: result });
                 return result;
             }
 
@@ -80,9 +81,9 @@ Make sure to communicate the connection scope to the user before proceeding:
             if (!selectedContext?.org || !selectedContext?.project) {
                 const result = {
                     success: false,
-                    message: "No Devant organization or project is associated with this workspace. Please associate your workspace with a Devant project first.",
+                    message: "No WSO2 Cloud organization or project is associated with this workspace. Please associate your workspace with a WSO2 Cloud project first.",
                 };
-                eventHandler({ type: "tool_result", toolName: DEVANT_GET_SELECTED_INTEGRATION_TOOL, toolCallId, toolOutput: result });
+                eventHandler({ type: "tool_result", toolName: CLOUD_GET_SELECTED_INTEGRATION_TOOL, toolCallId, toolOutput: result });
                 return result;
             }
 
@@ -115,7 +116,7 @@ Make sure to communicate the connection scope to the user before proceeding:
                     : `No integration selected — connection will be created at project level. orgId: ${orgId}, projectId: ${projectId}.`,
             };
 
-            eventHandler({ type: "tool_result", toolName: DEVANT_GET_SELECTED_INTEGRATION_TOOL, toolCallId, toolOutput: result });
+            eventHandler({ type: "tool_result", toolName: CLOUD_GET_SELECTED_INTEGRATION_TOOL, toolCallId, toolOutput: result });
             return result;
         },
     });

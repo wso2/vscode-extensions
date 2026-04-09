@@ -15,57 +15,57 @@
 // under the License.
 
 /**
- * Devant platform domain knowledge injected into the agent system prompt.
- * Delegates to wi-extension for generic Devant platform knowledge, then
- * appends Ballerina+Devant specific knowledge about connections and tooling.
+ * WSO2 Cloud platform domain knowledge injected into the agent system prompt.
+ * Delegates to wi-extension for generic WSO2 Cloud platform knowledge, then
+ * appends Ballerina+WSO2 Cloud specific knowledge about connections and tooling.
  */
 import * as vscode from "vscode";
 import { WI_EXTENSION_ID } from '../../../utils/config';
 import {
-    DEVANT_CREATE_CONNECTION_TOOL,
-} from './tools/devant/devant-create-connection';
+    CLOUD_CREATE_CONNECTION_TOOL,
+} from './tools/cloud/cloud-create-connection';
 import {
-    DEVANT_GET_SELECTED_INTEGRATION_TOOL,
-} from './tools/devant/devant-get-selected-integration';
+    CLOUD_GET_SELECTED_INTEGRATION_TOOL,
+} from './tools/cloud/cloud-get-selected-integration';
 import { CONNECTOR_GENERATOR_TOOL } from './tools/connector-generator';
 import { LIBRARY_SEARCH_TOOL } from './tools/library-search';
 import { LIBRARY_GET_TOOL } from './tools/library-get';
 import {
-    DEVANT_REGISTER_THIRD_PARTY_SERVICE_TOOL,
-} from './tools/devant/devant-register-third-party-service';
+    CLOUD_REGISTER_THIRD_PARTY_SERVICE_TOOL,
+} from './tools/cloud/cloud-register-third-party-service';
 
-const DEVANT_LIST_MARKETPLACE_SERVICES_TOOL = "DevantListMarketplaceServicesTool";
+const CLOUD_LIST_MARKETPLACE_SERVICES_TOOL = "CloudListMarketplaceServicesTool";
 
-export function getDevantKnowledge(): string {
+export function getCloudKnowledge(): string {
     const wiExt = vscode.extensions.getExtension(WI_EXTENSION_ID);
     let wiKnowledge = "";
     if (wiExt?.isActive && typeof wiExt.exports?.ai?.getCloudKnowledge === "function") {
         wiKnowledge = wiExt.exports.ai.getCloudKnowledge();
     }
-    return [wiKnowledge, getBallerinaDevantConnectionKnowledge()].filter(Boolean).join("\n\n");
+    return [wiKnowledge, getBallerinaCloudConnectionKnowledge()].filter(Boolean).join("\n\n");
 }
 
-function getBallerinaDevantConnectionKnowledge(): string {
+function getBallerinaCloudConnectionKnowledge(): string {
     return `
-# Ballerina + Devant: Service Connections
+# Ballerina + WSO2 Cloud: Service Connections
 
-## This Knowledge Block = Devant Project is Active
+## This Knowledge Block = WSO2 Cloud Project is Active
 
-**The presence of this knowledge in your context means the current project is associated with Devant.** This is not optional context — it is a hard constraint on how you must handle all external service connections:
+**The presence of this knowledge in your context means the current project is associated with WSO2 Cloud.** This is not optional context — it is a hard constraint on how you must handle all external service connections:
 
-- If you find yourself about to use \`LibrarySearchTool\` or \`LibraryGetTool\` to connect to an external service, stop — that is a signal to go through the Devant connection workflow first. Only use these tools after the Devant connection has been created, to find the Ballerina library whose client you initialize using the \`configEntries[].name\` variables (already declared as \`configurable\` in \`config.bal\`).
+- If you find yourself about to use \`LibrarySearchTool\` or \`LibraryGetTool\` to connect to an external service, stop — that is a signal to go through the WSO2 Cloud connection workflow first. Only use these tools after the WSO2 Cloud connection has been created, to find the Ballerina library whose client you initialize using the \`configEntries[].name\` variables (already declared as \`configurable\` in \`config.bal\`).
 - **NEVER** write \`configurable\` declarations for credentials (API keys, tokens, passwords, host/port settings) yourself.
-- **ALWAYS** go through the Devant connection workflow below for any external service, regardless of whether the user explicitly mentions "Devant" or "connection".
+- **ALWAYS** go through the WSO2 Cloud connection workflow below for any external service, regardless of whether the user explicitly mentions "Cloud" or "connection".
 
-This applies even for well-known services like SMTP, Twilio, Slack, GitHub, databases, etc. The moment the user asks to connect to, call, or use any external service in a Devant project — the workflow below is mandatory.
+This applies even for well-known services like SMTP, Twilio, Slack, GitHub, databases, etc. The moment the user asks to connect to, call, or use any external service in a WSO2 Cloud project — the workflow below is mandatory.
 
-The correct order is: **Devant connection workflow first** → library search/get second (only to write the import and client init in \`connections.bal\` — \`config.bal\` is already done).
+The correct order is: **WSO2 Cloud connection workflow first** → library search/get second (only to write the import and client init in \`connections.bal\` — \`config.bal\` is already done).
 
-## Types of Devant Connections
+## Types of WSO2 Cloud Connections
 
 | Type | When to use |
 |------|-------------|
-| **Internal service** | The API is another service running in the same Devant project/org (e.g. another microservice deployed to Devant) |
+| **Internal service** | The API is another service running in the same WSO2 Cloud project/org (e.g. another microservice deployed to WSO2 Cloud) |
 | **3rd party service** | Any external service — SaaS APIs, email servers, databases, messaging platforms, etc. |
 
 When the user refers to any external service (e.g. "connect to SMTP", "use Twilio", "call the GitHub API") — always use the workflow below. Do not assume it is only for services explicitly visible in the marketplace.
@@ -76,7 +76,7 @@ Before creating any connection, you must determine the **connection scope**. Thi
 
 | Scope | Condition | Behavior |
 |-------|-----------|----------|
-| **Integration-level** | A Devant integration is selected (\`hasIntegration: true\`) | Connection is scoped to the specific component |
+| **Integration-level** | A WSO2 Cloud integration is selected (\`hasIntegration: true\`) | Connection is scoped to the specific component |
 | **Project-level** | No integration selected (\`hasIntegration: false\`) | Connection is created at the project level |
 
 **Always inform the user of the scope** before proceeding:
@@ -88,26 +88,26 @@ Before creating any connection, you must determine the **connection scope**. Thi
 Follow these steps in order. Do not skip steps.
 
 ### Step 0 — Get workspace and integration context (ALWAYS do this first)
-Call **${DEVANT_GET_SELECTED_INTEGRATION_TOOL}** to obtain all required context.
+Call **${CLOUD_GET_SELECTED_INTEGRATION_TOOL}** to obtain all required context.
 This returns: \`orgId\`, \`orgUuid\`, \`projectId\`, \`componentId\`, \`componentType\`, \`connectionScope\`, \`hasIntegration\`.
 You must have these values before calling any other tool in this workflow.
 Inform the user of the connection scope (integration-level or project-level) based on the result.
 
 ### Step 1 — Discover the service in the marketplace
-Call **${DEVANT_LIST_MARKETPLACE_SERVICES_TOOL}** with \`orgId\` and \`projectId\` from Step 0.
+Call **${CLOUD_LIST_MARKETPLACE_SERVICES_TOOL}** with \`orgId\` and \`projectId\` from Step 0.
 Search by service name to find the target service.
 This returns service items with a \`serviceId\` for each.
 
-**If the service is NOT found in the marketplace** → do NOT fall back to plain Ballerina configurables. Instead, pivot to the **Third-Party Service Registration** flow below to register the service in Devant first, then come back to Step 2.
+**If the service is NOT found in the marketplace** → do NOT fall back to plain Ballerina configurables. Instead, pivot to the **Third-Party Service Registration** flow below to register the service in WSO2 Cloud first, then come back to Step 2.
 
 ### Step 2 — Create the platform connection
-Call **${DEVANT_CREATE_CONNECTION_TOOL}** with:
+Call **${CLOUD_CREATE_CONNECTION_TOOL}** with:
 - \`serviceId\`: from Step 1
 - \`connectionName\`: a valid Ballerina identifier (e.g. \`paymentService\`)
 - \`orgId\`, \`orgUuid\`, \`projectId\`: from Step 0
 - \`componentId\`, \`componentType\`: from Step 0 (pass as-is — empty string means project-level)
 
-This creates the connection in the Devant platform and returns:
+This creates the connection in the WSO2 Cloud platform and returns:
 - \`isRest\`: whether the service has a REST / OpenAPI interface
 - \`detectedSecurityType\`: \`""\` | \`"oauth"\` | \`"apikey"\`
 - \`requireProxy\`: \`true\` when the service uses ORGANIZATION or PROJECT visibility; \`false\` for 3rd party and PUBLIC services
@@ -141,11 +141,11 @@ Since \`connections.bal\` and \`config.bal\` were already written in Step 2, the
 ## Quick Reference: Tool Sequence
 
 \`\`\`
-${DEVANT_GET_SELECTED_INTEGRATION_TOOL}() → orgId, orgUuid, projectId, componentId, componentType, connectionScope
+${CLOUD_GET_SELECTED_INTEGRATION_TOOL}() → orgId, orgUuid, projectId, componentId, componentType, connectionScope
   ↓ (inform user of connection scope)
-${DEVANT_LIST_MARKETPLACE_SERVICES_TOOL}(orgId, projectId, query) → serviceId
+${CLOUD_LIST_MARKETPLACE_SERVICES_TOOL}(orgId, projectId, query) → serviceId
   ↓
-${DEVANT_CREATE_CONNECTION_TOOL}(serviceId, connectionName, orgId, orgUuid, projectId, componentId, componentType)
+${CLOUD_CREATE_CONNECTION_TOOL}(serviceId, connectionName, orgId, orgUuid, projectId, componentId, componentType)
   → creates platform connection, writes config.bal + connections.bal (for REST)
   → isRest, specFilePath?, moduleName?, connectionCode?, configEntries
   ↓
@@ -157,61 +157,61 @@ ${DEVANT_CREATE_CONNECTION_TOOL}(serviceId, connectionName, orgId, orgUuid, proj
 
 ## Important Rules
 
-- **Always call DevantGetSelectedIntegrationTool first** — it provides all context (org, project, component) needed for the rest of the workflow. Never call DevantListMarketplaceServicesTool or DevantCreateConnectionTool without first obtaining these values.
+- **Always call ${CLOUD_GET_SELECTED_INTEGRATION_TOOL} first** — it provides all context (org, project, component) needed for the rest of the workflow. Never call CloudListMarketplaceServicesTool or ${CLOUD_CREATE_CONNECTION_TOOL} without first obtaining these values.
 - **Always communicate the connection scope** to the user before creating the connection (integration-level or project-level).
-- **Pass context as parameters** — do not read org/project/component from internal state; pass the values returned by DevantGetSelectedIntegrationTool explicitly.
-- **Always use marketplace services via Devant connections** — do not hardcode API keys or construct HTTP clients manually when the service is in the marketplace.
-- **NEVER use plain Ballerina \`configurable\` variables for external service credentials in a Devant project** — this applies even if the service is not found in the marketplace. If a service is not in the marketplace, register it as a third-party service first (see flows below), then create the Devant connection. Plain configurables bypass Devant's secrets management and must not be used.
-- **connections.bal** holds all Devant connection client initializations. It is auto-imported by Ballerina. For REST services, this file is written automatically by ${DEVANT_CREATE_CONNECTION_TOOL}. For non-REST services (library fallback), write only the import and client initialization — use the \`configEntries[].name\` values as existing Ballerina variable names. Do NOT add any \`configurable\` declarations or call \`os:getEnv()\` — \`config.bal\` is already fully written by ${DEVANT_CREATE_CONNECTION_TOOL}.
-- **config.bal** holds all \`configurable\` declarations for environment-specific values (URLs, tokens, keys). It is written automatically by ${DEVANT_CREATE_CONNECTION_TOOL} — do not write it manually, ever.
+- **Pass context as parameters** — do not read org/project/component from internal state; pass the values returned by ${CLOUD_GET_SELECTED_INTEGRATION_TOOL} explicitly.
+- **Always use marketplace services via WSO2 Cloud connections** — do not hardcode API keys or construct HTTP clients manually when the service is in the marketplace.
+- **NEVER use plain Ballerina \`configurable\` variables for external service credentials in a WSO2 Cloud project** — this applies even if the service is not found in the marketplace. If a service is not in the marketplace, register it as a third-party service first (see flows below), then create the WSO2 Cloud connection. Plain configurables bypass WSO2 Cloud's secrets management and must not be used.
+- **connections.bal** holds all WSO2 Cloud connection client initializations. It is auto-imported by Ballerina. For REST services, this file is written automatically by ${CLOUD_CREATE_CONNECTION_TOOL}. For non-REST services (library fallback), write only the import and client initialization — use the \`configEntries[].name\` values as existing Ballerina variable names. Do NOT add any \`configurable\` declarations or call \`os:getEnv()\` — \`config.bal\` is already fully written by ${CLOUD_CREATE_CONNECTION_TOOL}.
+- **config.bal** holds all \`configurable\` declarations for environment-specific values (URLs, tokens, keys). It is written automatically by ${CLOUD_CREATE_CONNECTION_TOOL} — do not write it manually, ever.
 - **Do not duplicate** imports or configurable declarations that already exist in the file.
 
 ## Third-Party Service Registration (When Service is NOT in Marketplace)
 
-When the user wants to connect to a third-party service that is **NOT already registered** in the Devant marketplace, you must register it first using **${DEVANT_REGISTER_THIRD_PARTY_SERVICE_TOOL}**. This tool collects runtime environment variable values from the user via an inline UI and registers the service in Devant.
+When the user wants to connect to a third-party service that is **NOT already registered** in the WSO2 Cloud marketplace, you must register it first using **${CLOUD_REGISTER_THIRD_PARTY_SERVICE_TOOL}**. This tool collects runtime environment variable values from the user via an inline UI and registers the service in WSO2 Cloud.
 
 ### Flow 1 — From OpenAPI Specification (service NOT in marketplace)
 
 Use this when the user provides an OpenAPI spec for a service that isn't in the marketplace:
 
-1. **${DEVANT_GET_SELECTED_INTEGRATION_TOOL}** → get workspace context (orgId, orgUuid, projectId, etc.)
+1. **${CLOUD_GET_SELECTED_INTEGRATION_TOOL}** → get workspace context (orgId, orgUuid, projectId, etc.)
 2. **${CONNECTOR_GENERATOR_TOOL}** → generate a custom Ballerina connector from the spec
-3. **${DEVANT_REGISTER_THIRD_PARTY_SERVICE_TOOL}** → register the service in Devant:
+3. **${CLOUD_REGISTER_THIRD_PARTY_SERVICE_TOOL}** → register the service in WSO2 Cloud:
    - Pass \`serviceType: "REST"\`, \`idlType: "OpenAPI"\`, \`idlFilePath\` (the spec path from step 2)
    - Pass \`initialConfigKeys\` — identify the env config keys from the connector's init params (e.g. API keys, base URLs, tokens)
    - This shows an inline UI where the user can review/edit config keys and provide runtime values
    - Returns \`serviceId\` and \`serviceSchemaId\` on success
-4. **${DEVANT_CREATE_CONNECTION_TOOL}** → create the Devant connection using the \`serviceId\` from step 3
+4. **${CLOUD_CREATE_CONNECTION_TOOL}** → create the WSO2 Cloud connection using the \`serviceId\` from step 3
    - This writes \`config.bal\` and \`connections.bal\` automatically
 
 ### Flow 2 — From Ballerina Connector (service NOT in marketplace)
 
 Use this when the user wants to use an existing Ballerina connector for a service that isn't in the marketplace:
 
-1. **${DEVANT_GET_SELECTED_INTEGRATION_TOOL}** → get workspace context
+1. **${CLOUD_GET_SELECTED_INTEGRATION_TOOL}** → get workspace context
 2. **${LIBRARY_SEARCH_TOOL}** + **${LIBRARY_GET_TOOL}** → find the connector and get its init parameters
-3. **${DEVANT_REGISTER_THIRD_PARTY_SERVICE_TOOL}** → register the service:
+3. **${CLOUD_REGISTER_THIRD_PARTY_SERVICE_TOOL}** → register the service:
    - Pass \`serviceType\` based on the connector type (e.g. "REST", "GRPC")
    - Pass \`idlType: "TCP"\` (no OpenAPI spec available)
    - Pass \`initialConfigKeys\` — derived from the connector's init parameters
    - User provides runtime values via inline UI
    - Returns \`serviceId\`
-4. **${DEVANT_CREATE_CONNECTION_TOOL}** → create the connection using the \`serviceId\`
+4. **${CLOUD_CREATE_CONNECTION_TOOL}** → create the connection using the \`serviceId\`
 5. Write only the import and client initialization in \`connections.bal\` using the connector found in step 2 and the \`configEntries[].name\` values as variable names. Do NOT add any \`configurable\` declarations — \`config.bal\` is already fully written by step 4.
 
 ### Flow 3 — From Already Registered Service (NO registration needed)
 
 When the service is **already in the marketplace**, skip registration and use the standard workflow:
 
-1. **${DEVANT_GET_SELECTED_INTEGRATION_TOOL}** → context
-2. **${DEVANT_LIST_MARKETPLACE_SERVICES_TOOL}** → find the existing service by name
-3. **${DEVANT_CREATE_CONNECTION_TOOL}** → create connection (existing tool handles both internal and third-party)
+1. **${CLOUD_GET_SELECTED_INTEGRATION_TOOL}** → context
+2. **${CLOUD_LIST_MARKETPLACE_SERVICES_TOOL}** → find the existing service by name
+3. **${CLOUD_CREATE_CONNECTION_TOOL}** → create connection (existing tool handles both internal and third-party)
 4. If REST with spec: **${CONNECTOR_GENERATOR_TOOL}** with specFilePath/moduleName from step 3
 5. If non-REST or no spec: **${LIBRARY_SEARCH_TOOL}** + **${LIBRARY_GET_TOOL}** → initialize connector
 
 ### How to Decide Which Flow
 
-- **First**, always call **${DEVANT_LIST_MARKETPLACE_SERVICES_TOOL}** to check if the service already exists in the marketplace
+- **First**, always call **${CLOUD_LIST_MARKETPLACE_SERVICES_TOOL}** to check if the service already exists in the marketplace
 - **If found** → use Flow 3 (standard workflow, no registration needed)
 - **If NOT found** and user has an OpenAPI spec → use Flow 1
 - **If NOT found** and no spec → use Flow 2
@@ -219,13 +219,13 @@ When the service is **already in the marketplace**, skip registration and use th
 ### Third-Party Registration Tool Reference
 
 \`\`\`
-${DEVANT_REGISTER_THIRD_PARTY_SERVICE_TOOL}(
+${CLOUD_REGISTER_THIRD_PARTY_SERVICE_TOOL}(
   serviceName,           // Name of the service to register
   serviceType,           // "REST" | "GRPC" | "GRAPHQL" | "SOAP" | "ASYNC_API"
   idlType,               // "OpenAPI" (when spec available) | "TCP" (no spec)
   idlFilePath?,          // Path to OpenAPI spec file (for idlType: "OpenAPI")
   initialConfigKeys,     // Array of {key, isSecret, description?} — agent-identified env config keys
-  orgId, orgUuid, projectId  // From DevantGetSelectedIntegrationTool
+  orgId, orgUuid, projectId  // From ${CLOUD_GET_SELECTED_INTEGRATION_TOOL}
 )
 → { success, serviceName, serviceId, serviceSchemaId, isThirdParty }
 \`\`\`

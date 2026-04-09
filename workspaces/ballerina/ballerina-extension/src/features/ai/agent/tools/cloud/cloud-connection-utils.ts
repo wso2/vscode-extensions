@@ -15,7 +15,7 @@
 // under the License.
 
 /**
- * Shared utilities for writing Devant connection files (config.bal, connections.bal)
+ * Shared utilities for writing WSO2 Cloud connection files (config.bal, connections.bal)
  * using the same Templates as the GUI flow in platform-utils.ts.
  */
 import * as fs from "fs";
