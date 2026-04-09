@@ -18,15 +18,15 @@
 
 import * as vscode from 'vscode';
 import { COMMANDS } from '../constants';
-import { runMCPServer } from './mcpServerRunner';
+import { startMCPServer } from './mcpServerRunner';
 
 /**
  * Registers the MCP Server CLI command so it can be triggered from the editor title bar play button.
  */
 export function activateMCPServer(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand(
-        COMMANDS.RUN_MCP_SERVER,
-        () => runMCPServer(context)
+        COMMANDS.ARAZZO_START_MCP_SERVER,
+        () => startMCPServer(context)
     );
     context.subscriptions.push(disposable);
 }
