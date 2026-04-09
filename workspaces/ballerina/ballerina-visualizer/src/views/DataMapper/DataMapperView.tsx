@@ -124,23 +124,20 @@ export function DataMapperView(props: DataMapperViewProps) {
             prevPositionRef.current?.line !== position?.line ||
             prevPositionRef.current?.offset !== position?.offset;
         
-        if (viewStateRef.current.subMappingName && positionChanged) {
-            const viewId = viewStateRef.current.viewId;
-            rpcClient.getDataMapperRpcClient()
-                .getSubMappingCodedata({
-                    filePath,
-                    codedata: codedata,
-                    view: viewId
-                }).then((resp) => {
-                    console.log(">>> [Data Mapper] getSubMappingCodedata response:", resp);
-                    setViewState({ viewId: viewId, codedata: resp.codedata, subMappingName: viewStateRef.current.subMappingName });
-                });
-        } else if (viewStateRef.current.subMappingName && !positionChanged) {
-            setViewState(prevState => ({
-                viewId: prevState.viewId || viewStateRef.current.subMappingName,
-                codedata: codedata,
-                subMappingName: prevState.subMappingName
-            }));
+        if (viewStateRef.current.subMappingName) {
+            if (positionChanged) {
+                const viewId = viewStateRef.current.viewId;
+                rpcClient.getDataMapperRpcClient()
+                    .getSubMappingCodedata({
+                        filePath,
+                        codedata: codedata,
+                        view: viewId
+                    }).then((resp) => {
+                        console.log(">>> [Data Mapper] getSubMappingCodedata response:", resp);
+                        setViewState({ viewId: viewId, codedata: resp.codedata, subMappingName: viewStateRef.current.subMappingName });
+                    });
+            }
+
         } else {
             setViewState(prevState => ({
                 viewId: positionChanged ? name : prevState.viewId || name,
