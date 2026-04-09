@@ -560,8 +560,8 @@ importers:
         specifier: '>=4.18.0'
         version: 4.18.1
       node-fetch:
-        specifier: 2.6.2
-        version: 2.6.2
+        specifier: 2.6.7
+        version: 2.6.7(encoding@0.1.13)
       node-loader:
         specifier: 2.0.0
         version: 2.0.0(webpack@5.104.1)
@@ -20686,10 +20686,6 @@ packages:
 
   node-fetch-native@1.6.7:
     resolution: {integrity: sha512-g9yhqoedzIUm0nTnTqAQvueMPVOuIY16bqgAJJC8XOOubYFNwz6IER9qs0Gq2Xd0+CecCKFjtdDTMA4u4xG06Q==}
-
-  node-fetch@2.6.2:
-    resolution: {integrity: sha512-aLoxToI6RfZ+0NOjmWAgn9+LEd30YCkJKFSyWacNZdEKTit/ZMcKjGkTRo8uWEsnIb/hfKecNPEbln02PdWbcA==}
-    engines: {node: 4.x || >=6.0.0}
 
   node-fetch@2.6.7:
     resolution: {integrity: sha512-ZjMPFEfVx5j+y2yF35Kzx5sF7kDzxuDj6ziH4FFbOp87zKDZNx8yExJIb05OGF4Nlt9IHFIMBkRl41VdvcNdbQ==}
@@ -53301,8 +53297,6 @@ snapshots:
       web-streams-polyfill: 3.3.3
 
   node-fetch-native@1.6.7: {}
-
-  node-fetch@2.6.2: {}
 
   node-fetch@2.6.7(encoding@0.1.13):
     dependencies:
