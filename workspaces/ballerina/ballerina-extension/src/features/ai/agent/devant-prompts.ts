@@ -39,8 +39,8 @@ const DEVANT_LIST_MARKETPLACE_SERVICES_TOOL = "DevantListMarketplaceServicesTool
 export function getDevantKnowledge(): string {
     const wiExt = vscode.extensions.getExtension(WI_EXTENSION_ID);
     let wiKnowledge = "";
-    if (wiExt?.isActive && typeof wiExt.exports?.ai?.getDevantKnowledge === "function") {
-        wiKnowledge = wiExt.exports.ai.getDevantKnowledge();
+    if (wiExt?.isActive && typeof wiExt.exports?.ai?.getCloudKnowledge === "function") {
+        wiKnowledge = wiExt.exports.ai.getCloudKnowledge();
     }
     return [wiKnowledge, getBallerinaDevantConnectionKnowledge()].filter(Boolean).join("\n\n");
 }

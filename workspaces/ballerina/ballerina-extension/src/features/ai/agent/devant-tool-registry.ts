@@ -52,7 +52,7 @@ export async function createDevantToolRegistry(opts: DevantToolRegistryOptions) 
     if (!wiExt?.isActive) {
         await wiExt.activate();
     }
-    const wiDevantTools = wiExt.exports.ai.createDevantToolRegistry(opts.eventHandler as unknown as DevantToolEventHandler);
+    const wiDevantTools = wiExt.exports.ai.createCloudToolRegistry(opts.eventHandler as unknown as DevantToolEventHandler);
 
     // Ballerina+Devant specific tools are added here.
     // These combine Ballerina workspace knowledge with Devant platform operations
