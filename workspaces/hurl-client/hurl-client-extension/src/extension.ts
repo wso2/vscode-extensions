@@ -28,7 +28,7 @@ function sanitizeFileName(fileName: string | undefined, fallback: string): strin
     const value = (fileName || fallback).trim();
     const withoutExtension = value.replace(/\.hurl$/i, '');
     const sanitized = withoutExtension
-        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
+        .replace(/[<>:"/\\|?*%#\x00-\x1F]/g, '-')
         .replace(/\s+/g, ' ')
         .replace(/[. ]+$/g, '');
 
@@ -156,7 +156,10 @@ export function activate(context: vscode.ExtensionContext): void {
                     const token = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
                     enqueuePendingUntitledContent(token, resolvedHurlText);
                     const preparedFileName = sanitizeFileName(options?.fileName, `TryIt`);
-                    const untitledUri = vscode.Uri.parse(`untitled:${preparedFileName}-${token}.hurl`);
+                    const untitledUri = vscode.Uri.from({
+                        scheme: 'untitled',
+                        path: `${preparedFileName}-${token}.hurl`
+                    });
                     doc = await vscode.workspace.openNotebookDocument(untitledUri);
 
                     // Mark the notebook dirty immediately so VS Code prompts to save on close even
