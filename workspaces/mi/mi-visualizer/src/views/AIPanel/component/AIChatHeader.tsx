@@ -18,9 +18,38 @@
 
 import React, { useState, useEffect } from "react";
 import { Button, Codicon } from "@wso2/ui-toolkit";
+import { LoginMethod } from "@wso2/mi-core";
 import { Badge, Header, HeaderButtons, ResetsInBadge } from '../styles';
 import { useMICopilotContext } from "./MICopilotContext";
 import SessionSwitcher from "./SessionSwitcher";
+import ModelSettingsMenu from "./ModelSettingsMenu";
+
+// Guard session switching while an agent run is active.
+const ENABLE_SESSION_SWITCH_GUARD = true;
+
+function formatResetTime(seconds: number): string {
+  const totalSeconds = Math.max(0, Math.floor(seconds || 0));
+
+  if (totalSeconds < 60) {
+    return "< 1 min";
+  }
+
+  if (totalSeconds < 60 * 60) {
+    const minutes = Math.ceil(totalSeconds / 60);
+    return `${minutes} min`;
+  }
+
+  if (totalSeconds < 60 * 60 * 24) {
+    const hours = Math.floor(totalSeconds / (60 * 60));
+    const remainingMinutes = Math.ceil((totalSeconds % (60 * 60)) / 60);
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  }
+
+  const days = Math.floor(totalSeconds / (60 * 60 * 24));
+  const remainingHours = Math.floor((totalSeconds % (60 * 60 * 24)) / (60 * 60));
+  const dayLabel = days === 1 ? "day" : "days";
+  return remainingHours > 0 ? `${days} ${dayLabel} ${remainingHours}h` : `${days} ${dayLabel}`;
+}
 
 /**
  * Header component for the chat interface
@@ -42,6 +71,7 @@ const AIChatHeader: React.FC = () => {
     deleteSession
   } = useMICopilotContext();
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [isAwsBedrock, setIsAwsBedrock] = useState(false);
 
   const handleLogout = async () => {
     await rpcClient?.getMiDiagramRpcClient().logoutFromMIAccount();
@@ -50,6 +80,9 @@ const AIChatHeader: React.FC = () => {
   const checkApiKey = async () => {
     const hasApiKey = await rpcClient?.getMiAiPanelRpcClient().hasAnthropicApiKey();
     setHasApiKey(hasApiKey);
+    // Check if specifically using AWS Bedrock
+    const machineView = await rpcClient?.getAIVisualizerState();
+    setIsAwsBedrock(machineView?.loginMethod === LoginMethod.AWS_BEDROCK);
   };
 
   // Check for API key on component mount
@@ -66,9 +99,9 @@ const AIChatHeader: React.FC = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <Codicon name="key" />
-                          Copilot is using your API Key
+                          {isAwsBedrock ? "Copilot is using your AWS Bedrock Account" : "Copilot is using your API Key"}
                       </div>
-                      <ResetsInBadge>Logout to clear the API key</ResetsInBadge>
+                      <ResetsInBadge>{isAwsBedrock ? "Logout to clear the credentials" : "Logout to clear the API key"}</ResetsInBadge>
                   </div>
               ) : (
                   <>
@@ -81,9 +114,7 @@ const AIChatHeader: React.FC = () => {
                       <br />
                       <ResetsInBadge>
                           {tokenInfo.remainingPercentage !== -1 &&
-                              `Resets in: ${
-                                  tokenInfo.timeToReset < 1 ? "< 1 day" : `${Math.round(tokenInfo.timeToReset)} days`
-                              }`}
+                              `Resets in: ${formatResetTime(tokenInfo.timeToReset)}`}
                       </ResetsInBadge>
                   </>
               )}
@@ -94,11 +125,13 @@ const AIChatHeader: React.FC = () => {
                   sessions={sessions}
                   currentSessionTitle={currentSessionTitle}
                   isLoading={isLoading}
+                  disabled={ENABLE_SESSION_SWITCH_GUARD ? backendRequestTriggered : false}
                   onSessionSwitch={switchToSession}
                   onNewSession={createNewSession}
                   onDeleteSession={deleteSession}
                   onRefresh={refreshSessions}
               />
+              <ModelSettingsMenu isLoading={isLoading} isByok={hasApiKey} />
               <Button appearance="icon" onClick={handleLogout} tooltip="Logout" disabled={isLoading}>
                   <Codicon name="sign-out" />
                   &nbsp;&nbsp;Logout

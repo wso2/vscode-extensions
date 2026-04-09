@@ -33,9 +33,9 @@ import {
     createConnectorExecute,
 } from '../../tools/connector_tools';
 import {
-    createSkillTool,
-    createSkillExecute,
-} from '../../tools/skill_tools';
+    createContextTool,
+    createContextExecute,
+} from '../../tools/context_tools';
 import {
     createManageConnectorTool,
     createManageConnectorExecute,
@@ -51,10 +51,11 @@ import {
     createGenerateDataMappingExecute,
 } from '../../tools/data_mapper_tools';
 import {
-    createBuildProjectTool,
-    createBuildProjectExecute,
+    createBuildAndDeployTool,
+    createBuildAndDeployExecute,
     createServerManagementTool,
     createServerManagementExecute,
+    type ServerManagementExecuteFn,
 } from '../../tools/runtime_tools';
 import {
     createSubagentTool,
@@ -80,6 +81,7 @@ import {
     createKillTaskExecute,
     createTaskOutputTool,
     createTaskOutputExecute,
+    drainBackgroundTaskNotifications,
 } from '../../tools/bash_tools';
 import {
     createWebSearchTool,
@@ -87,22 +89,23 @@ import {
     createWebFetchTool,
     createWebFetchExecute,
 } from '../../tools/web_tools';
-import { AnthropicModel } from '../../../connection';
-import { AgentMode } from '@wso2/mi-core';
+import { AnthropicModel, resolveMainModelId } from '../../../connection';
+import { AgentMode, ModelSettings } from '@wso2/mi-core';
 import { persistOversizedToolResult } from '../../tools/tool-result-persistence';
 import {
+    BashExecuteFn,
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
-    BUILD_PROJECT_TOOL_NAME,
+    BUILD_AND_DEPLOY_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
     SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
@@ -112,10 +115,11 @@ import {
     BASH_TOOL_NAME,
     KILL_TASK_TOOL_NAME,
     TASK_OUTPUT_TOOL_NAME,
+    ToolResult,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    ShellApprovalRuleStore,
 } from '../../tools/types';
-import { BashExecuteFn, ToolResult } from '../../tools/types';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
 import * as path from 'path';
 import { getCopilotSessionDir } from '../../storage-paths';
@@ -128,12 +132,12 @@ export {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
-    BUILD_PROJECT_TOOL_NAME,
+    BUILD_AND_DEPLOY_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
     SUBAGENT_TOOL_NAME,
     ASK_USER_TOOL_NAME,
@@ -172,8 +176,14 @@ export interface CreateToolsParams {
     getAnthropicClient: (model: AnthropicModel) => Promise<any>;
     /** Skip per-call web approval prompts for this run */
     webAccessPreapproved: boolean;
+    /** Session-scoped shell approval rule store */
+    shellApprovalRuleStore?: ShellApprovalRuleStore;
     /** Optional undo checkpoint manager for capturing pre-change states */
     undoCheckpointManager?: AgentUndoCheckpointManager;
+    /** Abort signal from the main agent — propagated to subagents and background tasks */
+    abortSignal?: AbortSignal;
+    /** Model settings for this session (main model + sub-agent model overrides) */
+    modelSettings?: ModelSettings;
 }
 
 const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
@@ -181,10 +191,11 @@ const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    SKILL_TOOL_NAME,
+    CONTEXT_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    SERVER_MANAGEMENT_TOOL_NAME,
 ]);
 
 const PLAN_MODE_ALLOWED_TOOLS = new Set<string>([
@@ -293,6 +304,21 @@ function getPlanModeShellRestrictionReason(command: string): string | null {
     return null;
 }
 
+const SERVER_MANAGEMENT_READ_ONLY_ACTIONS = new Set(['status', 'query']);
+
+function createReadOnlyServerManagementExecute(execute: ServerManagementExecuteFn): ServerManagementExecuteFn {
+    return async (args) => {
+        if (!SERVER_MANAGEMENT_READ_ONLY_ACTIONS.has(args.action)) {
+            return {
+                success: false,
+                message: `Action '${args.action}' is not allowed in Ask/Plan mode. Only 'status' and 'query' actions are available. Switch to Edit mode to use '${args.action}'.`,
+                error: 'ASK_MODE_RESTRICTED',
+            };
+        }
+        return execute(args);
+    };
+}
+
 function createPlanModeReadOnlyBashExecute(execute: BashExecuteFn): BashExecuteFn {
     return async (args) => {
         const restrictionReason = getPlanModeShellRestrictionReason(args.command);
@@ -332,6 +358,9 @@ function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
     const planReadOnlyBashExecute = mode === 'plan' && toolName === BASH_TOOL_NAME
         ? createPlanModeReadOnlyBashExecute(execute as unknown as BashExecuteFn)
         : undefined;
+    const readOnlyServerManagementExecute = (mode === 'ask' || mode === 'plan') && toolName === SERVER_MANAGEMENT_TOOL_NAME
+        ? createReadOnlyServerManagementExecute(execute as unknown as ServerManagementExecuteFn)
+        : undefined;
 
     return (async (...args: Parameters<T>): Promise<ToolResult> => {
         if (mode === 'plan') {
@@ -353,11 +382,19 @@ function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
                 return planReadOnlyBashExecute(args[0] as Parameters<BashExecuteFn>[0]);
             }
 
+            if (readOnlyServerManagementExecute) {
+                return readOnlyServerManagementExecute(args[0] as Parameters<ServerManagementExecuteFn>[0]);
+            }
+
             if (PLAN_MODE_ALLOWED_TOOLS.has(toolName)) {
                 return execute(...args);
             }
 
             return blockedExecute(args[0]);
+        }
+
+        if (readOnlyServerManagementExecute) {
+            return readOnlyServerManagementExecute(args[0] as Parameters<ServerManagementExecuteFn>[0]);
         }
 
         if (READ_ONLY_MODE_ALLOWED_TOOLS.has(toolName)) {
@@ -371,7 +408,8 @@ function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
 function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResult>>(
     toolName: string,
     sessionDir: string,
-    execute: T
+    execute: T,
+    sessionId: string
 ): T {
     return (async (...args: Parameters<T>): Promise<ToolResult> => {
         const result = await execute(...args);
@@ -381,7 +419,17 @@ function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResul
             toolArgs: args[0],
             result,
         });
-        return processed as ToolResult;
+
+        // Append completion notifications for any background tasks that finished
+        const notifications = drainBackgroundTaskNotifications(sessionId);
+        const toolResult = processed as ToolResult;
+        if (notifications && typeof toolResult.message === 'string') {
+            toolResult.message = toolResult.message.length > 0
+                ? toolResult.message + '\n' + notifications
+                : notifications;
+        }
+
+        return toolResult;
     }) as T;
 }
 
@@ -390,7 +438,7 @@ function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResul
  * This ensures consistent tool definitions across main agent and compact agent.
  *
  * @param params - Tool creation parameters
- * @returns Tools object with all 20+ tools
+ * @returns Tools object with all 23 tools
  */
 export function createAgentTools(params: CreateToolsParams) {
     const {
@@ -404,8 +452,15 @@ export function createAgentTools(params: CreateToolsParams) {
         pendingApprovals,
         getAnthropicClient,
         webAccessPreapproved,
+        shellApprovalRuleStore,
         undoCheckpointManager,
+        abortSignal,
+        modelSettings,
     } = params;
+
+    // Resolve the main model ID for tools that need it (web search/fetch)
+    const mainModelId = modelSettings ? resolveMainModelId(modelSettings) : undefined;
+    const mainModelIsCustom = !!modelSettings?.mainModelCustomId;
 
     const getWrappedExecute = <T extends (...args: any[]) => Promise<ToolResult>>(
         toolName: string,
@@ -413,7 +468,8 @@ export function createAgentTools(params: CreateToolsParams) {
     ): T => withPersistedToolResult(
         toolName,
         sessionDir,
-        getModeAwareExecute(mode, toolName, execute, { projectPath, sessionId })
+        getModeAwareExecute(mode, toolName, execute, { projectPath, sessionId }),
+        sessionId
     );
 
     const allTools = {
@@ -439,8 +495,8 @@ export function createAgentTools(params: CreateToolsParams) {
         [CONNECTOR_TOOL_NAME]: createConnectorTool(
             getWrappedExecute(CONNECTOR_TOOL_NAME, createConnectorExecute(projectPath))
         ),
-        [SKILL_TOOL_NAME]: createSkillTool(
-            getWrappedExecute(SKILL_TOOL_NAME, createSkillExecute(projectPath))
+        [CONTEXT_TOOL_NAME]: createContextTool(
+            getModeAwareExecute(mode, CONTEXT_TOOL_NAME, createContextExecute(projectPath), { projectPath, sessionId })
         ),
 
         // Project Tools (1 tool)
@@ -462,16 +518,22 @@ export function createAgentTools(params: CreateToolsParams) {
         ),
 
         // Runtime Tools (2 tools)
-        [BUILD_PROJECT_TOOL_NAME]: createBuildProjectTool(
-            getWrappedExecute(BUILD_PROJECT_TOOL_NAME, createBuildProjectExecute(projectPath, sessionDir))
+        [BUILD_AND_DEPLOY_TOOL_NAME]: createBuildAndDeployTool(
+            getWrappedExecute(
+                BUILD_AND_DEPLOY_TOOL_NAME,
+                createBuildAndDeployExecute(projectPath, sessionDir, abortSignal)
+            )
         ),
         [SERVER_MANAGEMENT_TOOL_NAME]: createServerManagementTool(
-            getWrappedExecute(SERVER_MANAGEMENT_TOOL_NAME, createServerManagementExecute(projectPath, sessionDir))
+            getWrappedExecute(
+                SERVER_MANAGEMENT_TOOL_NAME,
+                createServerManagementExecute(projectPath, sessionDir, abortSignal)
+            )
         ),
 
         // Plan Mode Tools (5 tools)
         [SUBAGENT_TOOL_NAME]: createSubagentTool(
-            getWrappedExecute(SUBAGENT_TOOL_NAME, createSubagentExecute(projectPath, sessionId, getAnthropicClient))
+            getWrappedExecute(SUBAGENT_TOOL_NAME, createSubagentExecute(projectPath, sessionId, getAnthropicClient, abortSignal, modelSettings))
         ),
         [ASK_USER_TOOL_NAME]: createAskUserTool(
             getWrappedExecute(ASK_USER_TOOL_NAME, createAskUserExecute(eventHandler, pendingQuestions, sessionId))
@@ -488,15 +550,38 @@ export function createAgentTools(params: CreateToolsParams) {
 
         // Web Tools (2 tools)
         [WEB_SEARCH_TOOL_NAME]: createWebSearchTool(
-            getWrappedExecute(WEB_SEARCH_TOOL_NAME, createWebSearchExecute(getAnthropicClient, eventHandler, pendingApprovals, webAccessPreapproved))
+            getWrappedExecute(WEB_SEARCH_TOOL_NAME, createWebSearchExecute(
+                getAnthropicClient,
+                eventHandler,
+                pendingApprovals,
+                webAccessPreapproved,
+                sessionId,
+                mainModelId,
+                mainModelIsCustom
+            ))
         ),
         [WEB_FETCH_TOOL_NAME]: createWebFetchTool(
-            getWrappedExecute(WEB_FETCH_TOOL_NAME, createWebFetchExecute(getAnthropicClient, eventHandler, pendingApprovals, webAccessPreapproved))
+            getWrappedExecute(WEB_FETCH_TOOL_NAME, createWebFetchExecute(
+                getAnthropicClient,
+                eventHandler,
+                pendingApprovals,
+                webAccessPreapproved,
+                sessionId,
+                mainModelId,
+                mainModelIsCustom
+            ))
         ),
 
         // Shell Tools (3 tools)
         [BASH_TOOL_NAME]: createBashTool(
-            getWrappedExecute(BASH_TOOL_NAME, createBashExecute(projectPath))
+            getWrappedExecute(BASH_TOOL_NAME, createBashExecute(
+                projectPath,
+                eventHandler,
+                pendingApprovals,
+                shellApprovalRuleStore,
+                sessionId,
+                abortSignal
+            ))
         ),
         [KILL_TASK_TOOL_NAME]: createKillTaskTool(
             getWrappedExecute(KILL_TASK_TOOL_NAME, createKillTaskExecute())

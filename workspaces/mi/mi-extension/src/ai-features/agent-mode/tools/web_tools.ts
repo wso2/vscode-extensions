@@ -21,7 +21,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { AgentEvent } from '@wso2/mi-core';
 import { logError, logInfo } from '../../copilot/logger';
-import { ANTHROPIC_SONNET_4_6, AnthropicModel, getAnthropicProvider } from '../../connection';
+import { ANTHROPIC_SONNET_4_6, AnthropicModel, getAnthropicProvider, getAnthropicClientForCustomModel } from '../../connection';
 import { PendingPlanApproval } from './plan_mode_tools';
 import {
     ToolResult,
@@ -79,6 +79,7 @@ async function requestWebApproval(
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
     request: {
+        sessionId: string;
         kind: WebApprovalKind;
         approvalTitle: string;
         content: string;
@@ -101,6 +102,7 @@ async function requestWebApproval(
         pendingApprovals.set(approvalId, {
             approvalId,
             approvalKind: request.kind,
+            sessionId: request.sessionId,
             resolve: (result) => {
                 pendingApprovals.delete(approvalId);
                 resolve(result);
@@ -123,7 +125,10 @@ export function createWebSearchExecute(
     getAnthropicClient: (model: AnthropicModel) => Promise<any>,
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
-    webAccessPreapproved: boolean
+    webAccessPreapproved: boolean,
+    sessionId: string,
+    mainModelId?: string,
+    mainModelIsCustom?: boolean
 ): WebSearchExecuteFn {
     return async (args): Promise<ToolResult> => {
         const allowedDomains = sanitizeDomainList(args.allowed_domains);
@@ -132,6 +137,7 @@ export function createWebSearchExecute(
         let approved = true;
         if (!webAccessPreapproved) {
             approved = await requestWebApproval(eventHandler, pendingApprovals, {
+                sessionId,
                 kind: 'web_search',
                 approvalTitle: 'Allow Web Search?',
                 content: `Agent wants to search the web for: "${args.query}"`,
@@ -162,7 +168,9 @@ export function createWebSearchExecute(
             });
 
             const result = await generateText({
-                model: await getAnthropicClient(ANTHROPIC_SONNET_4_6),
+                model: mainModelIsCustom && mainModelId
+                    ? await getAnthropicClientForCustomModel(mainModelId)
+                    : await getAnthropicClient((mainModelId || ANTHROPIC_SONNET_4_6) as AnthropicModel),
                 prompt: [
                     `Search query: ${args.query}`,
                     'Use the web_search tool and return concise findings with relevant source links.'
@@ -210,7 +218,10 @@ export function createWebFetchExecute(
     getAnthropicClient: (model: AnthropicModel) => Promise<any>,
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>,
-    webAccessPreapproved: boolean
+    webAccessPreapproved: boolean,
+    sessionId: string,
+    mainModelId?: string,
+    mainModelIsCustom?: boolean
 ): WebFetchExecuteFn {
     return async (args): Promise<ToolResult> => {
         try {
@@ -232,6 +243,7 @@ export function createWebFetchExecute(
         let approved = true;
         if (!webAccessPreapproved) {
             approved = await requestWebApproval(eventHandler, pendingApprovals, {
+                sessionId,
                 kind: 'web_fetch',
                 approvalTitle: 'Allow Web Fetch?',
                 content: `Agent wants to fetch content from: ${args.url}`,
@@ -262,7 +274,9 @@ export function createWebFetchExecute(
             });
 
             const result = await generateText({
-                model: await getAnthropicClient(ANTHROPIC_SONNET_4_6),
+                model: mainModelIsCustom && mainModelId
+                    ? await getAnthropicClientForCustomModel(mainModelId)
+                    : await getAnthropicClient((mainModelId || ANTHROPIC_SONNET_4_6) as AnthropicModel),
                 prompt: [
                     `URL: ${args.url}`,
                     `Task: ${args.prompt}`,
@@ -311,7 +325,7 @@ const webSearchSchema = z.object({
 
 export function createWebSearchTool(execute: WebSearchExecuteFn) {
     return (tool as any)({
-        description: 'Search the web for up-to-date information. Use when local project files are insufficient. To constrain to official MI docs, set allowed_domains to ["mi.docs.wso2.com"] (https://mi.docs.wso2.com/en/{version}/ or /en/latest/). Requires user consent before execution.',
+        description: 'Search the web for up-to-date information when local project context is insufficient. Supports domain allow/block filters. For MI docs, use allowed_domains=["mi.docs.wso2.com"]. Requires user consent before execution; if denied, continue without web access.',
         inputSchema: webSearchSchema,
         execute,
     });
@@ -326,7 +340,7 @@ const webFetchSchema = z.object({
 
 export function createWebFetchTool(execute: WebFetchExecuteFn) {
     return (tool as any)({
-        description: 'Fetch and analyze content from a specific URL. Note: web_fetch does not support JavaScript-rendered websites. MI docs (mi.docs.wso2.com) is JS-rendered, so prefer web_search constrained to allowed_domains=["mi.docs.wso2.com"] for MI docs research. Requires user consent before execution.',
+        description: 'Fetch and analyze content from a specific URL. Supports domain allow/block filters. web_fetch does not support JavaScript-rendered pages (including MI docs), so use web_search with allowed_domains=["mi.docs.wso2.com"] for MI docs. Requires user consent before execution; if denied, continue without web access.',
         inputSchema: webFetchSchema,
         execute,
     });

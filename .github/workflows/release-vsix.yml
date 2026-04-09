@@ -36,6 +36,16 @@ on:
         type: boolean
         required: true
         default: false
+      arazzo:
+        description: Release Arazzo extension
+        type: boolean
+        required: true
+        default: false
+      hurl-client:
+        description: Release Hurl Client extension
+        type: boolean
+        required: true
+        default: false
       version:
         type: choice
         description: 'Enter the version type'
@@ -62,6 +72,8 @@ jobs:
       apk: ${{ inputs.apk }}
       bi:  ${{ inputs.bi }}
       mi:  ${{ inputs.mi }}
+      arazzo: ${{ inputs.arazzo }}
+      hurl-client: ${{ inputs.hurl-client }}
       version: ${{ inputs.version }}
       isReleaseBuild: true
 
@@ -110,6 +122,12 @@ jobs:
           if [[ "${{ github.event.inputs.mi }}" == "true" ]]; then
             file=$(ls micro-integrator*.vsix)
           fi
+          if [[ "${{ github.event.inputs.arazzo }}" == "true" ]]; then
+            file=$(ls arazzo-designer-[0-9]*.[0-9]*.[0-9]*.vsix)
+          fi
+          if [[ "${{ github.event.inputs.hurl-client }}" == "true" ]]; then
+            file=$(ls hurl-client-[0-9]*.[0-9]*.[0-9]*.vsix)
+          fi
           version=$(basename "$file" .vsix)
           echo $version
           echo "version=$version" >> $GITHUB_OUTPUT
@@ -121,6 +139,8 @@ jobs:
             echo "chatAPI=${{ secrets.MI_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.bi }}" == "true" ] || [ "${{ github.event.inputs.ballerina }}" == "true" ]; then
             echo "chatAPI=${{ secrets.BI_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.inputs.arazzo }}" == "true" ]; then
+            echo "chatAPI=${{ secrets.TOOLING_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           else
             echo "chatAPI=${{ secrets.TOOLING_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           fi
@@ -179,6 +199,24 @@ jobs:
           name: micro-integrator
           chatAPI: ${{ steps.chat.outputs.chatAPI }}
 
+      - name: Create a release in wso2/vscode-extensions repo for arazzo
+        if: ${{ github.event.inputs.arazzo == 'true' }}
+        uses: ./.github/actions/release
+        with:
+          repo: wso2/vscode-extensions
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
+          name: arazzo-designer
+          chatAPI: ${{ steps.chat.outputs.chatAPI }}
+
+      - name: Create a release in wso2/ballerina-vscode repo for hurl-client
+        if: ${{ github.event.inputs.hurl-client == 'true' }}
+        uses: ./.github/actions/release
+        with:
+          repo: wso2/ballerina-vscode
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
+          name: hurl-client
+          chatAPI: ${{ secrets.TOOLING_TEAM_CHAT_API }}
+
       - name: Create PR and notify
         uses: ./.github/actions/pr
         with:
@@ -195,6 +233,8 @@ jobs:
           choreo: ${{ inputs.choreo }}
           apk: ${{ inputs.apk }}
           mi: ${{ inputs.mi }}
+          arazzo: ${{ inputs.arazzo }}
+          hurl-client: ${{ inputs.hurl-client }}
           chatAPI: ${{ secrets.TOOLING_TEAM_CHAT_API }}
 
   Notify:

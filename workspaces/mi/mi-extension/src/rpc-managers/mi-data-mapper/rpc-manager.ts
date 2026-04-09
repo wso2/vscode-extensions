@@ -237,7 +237,7 @@ export class MiDataMapperRpcManager implements MIDataMapperAPI {
     // Function to ask whether the user wants to replace all existing mappings with ai generated mappings
     async confirmMappingAction(): Promise<boolean> {
         // Define the message based on the action
-        let message = "MI Copilot may modify existing mappings. Do you want to proceed?";
+        let message = "WSO2 Integrator Copilot may modify existing mappings. Do you want to proceed?";
         // Show the confirmation dialog
         const response = await window.showInformationMessage(
             message,
@@ -302,7 +302,7 @@ export class MiDataMapperRpcManager implements MIDataMapperAPI {
             const mappingRet = removeMapFunctionEntry(mappingString);
 
             if (!mappingRet?.trim()) {
-                throw new Error("MI Copilot did not return a valid mapping body.");
+                throw new Error("WSO2 Integrator Copilot did not return a valid mapping body.");
             }
             
             // Create an object of type DataMapWriteRequest

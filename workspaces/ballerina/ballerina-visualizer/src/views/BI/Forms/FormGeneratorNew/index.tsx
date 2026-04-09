@@ -162,6 +162,8 @@ export function FormGeneratorNew(props: FormProps) {
 
     const { rpcClient } = useRpcContext();
 
+
+
     const getAdjustedStartLine = (targetLineRange: LineRange | undefined, expressionOffset: number): LinePosition | undefined => {
         return targetLineRange ? updateLineRange(targetLineRange, expressionOffset).startLine : undefined;
     };
@@ -359,7 +361,7 @@ export function FormGeneratorNew(props: FormProps) {
 
     const isParamTypePublicByDefault = () => {
         const isPublicField = fieldsValuesRef.current.find(field => field.key === "isPublic");
-        const isPublicFieldValue =  typeof isPublicField?.value === "string" ? isPublicField.value.toLowerCase() === "true" : Boolean(isPublicField?.value);
+        const isPublicFieldValue = typeof isPublicField?.value === "string" ? isPublicField.value.toLowerCase() === "true" : Boolean(isPublicField?.value);
         return (
             isFunctionParameterForm() && isPublicFieldValue
         );
@@ -691,6 +693,17 @@ export function FormGeneratorNew(props: FormProps) {
                 try {
                     const field = fieldsRef.current.find(f => f.key === key);
                     if (field) {
+                        const propertyPrimaryFieldType = getPrimaryInputType(property.types);
+                        if (property.types.length>1 && propertyPrimaryFieldType.fieldType !== "REPEATABLE_LIST" && propertyPrimaryFieldType.fieldType !== "REPEATABLE_MAP") {
+                            property.types.forEach(t => {
+                                if (t.fieldType === "EXPRESSION") {
+                                    t.selected = true;
+                                }
+                                else{
+                                    t.selected = false;
+                                }
+                            });
+                        }
                         const response = await rpcClient.getBIDiagramRpcClient().getExpressionDiagnostics({
                             filePath: fileName,
                             context: {

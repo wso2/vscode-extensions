@@ -1,65 +1,154 @@
-export const CONNECTOR_DOCUMENTATION = `
-<CONNECTORS_DOCUMENTATION>
-When using connectors, follow these rules:
-1. Only use operations defined in the connector JSON signatures.
-2. For connectors with \`connectionLocalEntryNeeded\`: true
-   - You must define a local entry for each connection type.
-   - Always include the name parameter in the init operation.
-   - Pass the key of the local entry via configKey in the connector operation for using the connection.
-   - If a connector connection has been initialized via a local entry, do not initialize it again elsewhere.
-Example: Defining and using a connector with connectionBasedSupport
+/**
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import { CONNECTOR_TOOL_NAME } from "../tools/types";
+
+const CONNECTOR_DOCUMENTATION_BASE = `
+When using connectors, follow these guidelines.
+
+### 1) Connector Initialization — Decision Tree
+Always fetch connector details with ${CONNECTOR_TOOL_NAME} first, then check the summary fields:
+
+\`\`\`
+noInitializationNeeded? (HIGHEST PRECEDENCE — check this first)
+├─ true  → No init at all
+│         Just call operations directly (e.g., CSV, utility connectors)
+│         NEVER call .init or create a local entry for these connectors
+│
+└─ false → Check connectionLocalEntryNeeded
+           ├─ true  → Local entry init (most connectors: HTTP, Email, DB, etc.)
+           │         1. Create <localEntry> with <connector.init> inside
+           │         2. Include <name> param matching the local entry key
+           │         3. Use configKey="..." in operations
+           │         4. NEVER call .init again in the sequence
+           │
+           └─ false → Inline init (legacy connectors)
+                     1. Call <connector.init> in the sequence before operations
+                     2. No local entry needed
+\`\`\`
+
+**Important**: \`noInitializationNeeded: true\` takes highest precedence. If a connector has \`noInitializationNeeded === true\`, never call \`.init\` or create a local entry regardless of other fields.
+
+**Local entry example** (\`connectionLocalEntryNeeded: true\`):
 \`\`\`xml
-<localEntry key="EMAIL_CONNECTION_1" xmlns="http://ws.apache.org/ns/synapse">
+<localEntry key="EMAIL_CONN" xmlns="http://ws.apache.org/ns/synapse">
     <email.init>
         <connectionType>IMAP</connectionType>
         <host>gmail.com</host>
-        <enableOAuth2>false</enableOAuth2>
-        <port>8899</port>
-        <name>EMAIL_CONNECTION_1</name>
+        <port>993</port>
+        <name>EMAIL_CONN</name>
         <username>joe</username>
     </email.init>
 </localEntry>
 \`\`\`
 \`\`\`xml
-<email.delete configKey="EMAIL_CONNECTION_1"/>
+<email.delete configKey="EMAIL_CONN"/>
 \`\`\`
-3. For connectors with \`connectionLocalEntryNeeded\`: false
-   - You must initialize the connection via the init operation everytime you use a connector operation in the synaose seqence itself.
 
-4. For connectors with \`noInitializationNeeded\`: true
-  - You do not need to initialize the connection via the init operation or a local entry.
-  - You can directly use the connector operation.
-Example:
+**No-init example** (\`noInitializationNeeded: true\`):
 \`\`\`xml
-  <CSV.csvToJson>
-      <headerPresent>Absent</headerPresent>
-      <valueSeparator></valueSeparator>
-      <columnsToSkip></columnsToSkip>
-      <dataRowsToSkip></dataRowsToSkip>
-      <csvEmptyValues>Null</csvEmptyValues>
-      <jsonKeys></jsonKeys>
-      <dataTypes></dataTypes>
-      <rootJsonKey></rootJsonKey>
-  </CSV.csvToJson>
+<CSV.csvToJson>
+    <headerPresent>Absent</headerPresent>
+    <csvEmptyValues>Null</csvEmptyValues>
+</CSV.csvToJson>
 \`\`\`
 
-5. Never use <class name="..."/> in connector definitions—use the proper connector syntax instead.
-6. Implement a complete and functional solution without placeholder comments or partial implementations.
-7. Ensure all required parameters for each operation are explicitly included.
-8. Do not use the utility connector unless absolutely necessary.
-
-##### Revamped Connector operation response handling:
-With the latest updates to **certain connectors**, operations now support two additional parameters:
-1. \`responseVariable\` – Use this to store the connector operation response into a named variable.
-    - This variable can be referenced later using Synapse expressions. ( \${vars.variable_name_you_defined} )
-    - For operations where the response is required later, prefer responseVariable.
-2. \`overwriteBody\` – Use this to directly replace the message body/payload with the connector's response.
-    - This is useful when you want to pass the response from one connector operation as the request payload for the next. ( \${payload} )
-    - For flows where the response must be forwarded, use overwriteBody.
-
-**This connector update is an ongoing effort. So if you get validation errors with some connectors just don't use \`responseVariable\` or \`overwriteBody\` parameters for those connectors. Instead use the old way of handling the response.**
-</CONNECTORS_DOCUMENTATION>
+### 2) General rules
+1. Only use operations defined in connector JSON signatures (via ${CONNECTOR_TOOL_NAME}).
+2. Never use \`<class name="..."/>\`. Use proper connector syntax.
+3. No placeholders — include all required parameters.
+4. \`configKey\` must exactly match the local entry \`key\`.
+5. Connector-specific timeouts (e.g., HTTP \`connectionTimeout\`) override global endpoint timeouts. Set them explicitly for long-running operations.
+6. Variables set by \`responseVariable\` are available immediately after the connector operation in the same flow scope.
+7. Do not use the utility connector unless absolutely necessary.
 `;
+
+const CONNECTOR_DOCUMENTATION_REVAMPED_RESPONSE_HANDLING = `
+### 3) Revamped response handling (supported only by certain connectors)
+Now some connectors support two additional operation parameters ( ongoing connector improvement by WSO2 team ) :
+1. \`responseVariable\`
+    - Stores connector response in a named variable.
+    - Reference later using Synapse expressions (for example, \`\${vars.my_variable}\`).
+    - Prefer this when the response is needed later in the flow.
+2. \`overwriteBody\`
+    - Replaces the message payload/body directly with connector response.
+    - Useful when next operation should consume previous response as \`\${payload}\`.
+    - Prefer this when response must be forwarded through the flow.
+3. Before using \`responseVariable\` or \`overwriteBody\`, verify the selected operation signature/supported parameters include them.
+   - If an operation does not support these parameters, fall back to the older response-handling approach.
+
+For other connectors, use the older response-handling approach instead.
+
+### 4) Connector Response Structure
+When a connector stores its response in a variable (via \`responseVariable\`), the variable is a **Map** with these keys:
+- \`payload\` — the response body (JSON, XML, or text depending on the connector)
+- \`headers\` — response headers as a map
+- \`attributes\` — metadata including HTTP status code
+
+Access patterns:
+\`\`\`xml
+<!-- Access response payload -->
+\${vars.myResponse.payload}
+\${vars.myResponse.payload.someField}
+
+<!-- Access HTTP status code -->
+\${vars.myResponse.attributes.statusCode}
+
+<!-- Access response headers -->
+\${vars.myResponse.headers["Content-Type"]}
+\`\`\`
+
+### 5) Error Handling with Connectors
+- First check for transport errors (e.g. connection timeout, DNS failure) where no HTTP status code exists:
+\`\`\`xml
+<filter xpath="\${not(exists(vars.myResponse.attributes.statusCode))}">
+  <then>
+    <log category="ERROR">
+      <message>Transport error: no response received (timeout or connection failure)</message>
+    </log>
+    <payloadFactory media-type="json">
+      <format>{"error": "Backend unreachable"}</format>
+    </payloadFactory>
+    <respond/>
+  </then>
+</filter>
+\`\`\`
+- Then check for HTTP 4xx/5xx errors when a status code is present:
+\`\`\`xml
+<filter xpath="\${vars.myResponse.attributes.statusCode >= 400}">
+  <then>
+    <log category="ERROR">
+      <message>Call failed with status: \${vars.myResponse.attributes.statusCode}</message>
+    </log>
+    <payloadFactory media-type="json">
+      <format>{"error": "Backend call failed", "status": \${vars.myResponse.attributes.statusCode}}</format>
+    </payloadFactory>
+    <respond/>
+  </then>
+</filter>
+\`\`\`
+- Connectors that don't support \`responseVariable\` replace the message body directly. Use a fault sequence for error handling.
+`;
+
+export const CONNECTOR_DOCUMENTATION_OLD = CONNECTOR_DOCUMENTATION_BASE;
+
+export const CONNECTOR_DOCUMENTATION = `${CONNECTOR_DOCUMENTATION_BASE}
+${CONNECTOR_DOCUMENTATION_REVAMPED_RESPONSE_HANDLING}`;
 
 export const AI_CONNECTOR_DOCUMENTATION = `
 <AI_CONNECTOR_DOCUMENTATION>

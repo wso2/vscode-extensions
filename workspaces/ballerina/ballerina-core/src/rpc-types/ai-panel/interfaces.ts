@@ -27,8 +27,8 @@ import { ComponentInfo, DataMapperMetadata, Diagnostics, DMModel, ImportStatemen
 // General Interfaces
 // ==================================
 export type AIPanelPrompt =
-    | { type: 'command-template'; command: Command; templateId: TemplateId; text?: string; params?: Record<string, string>; metadata?: Record<string, any> }
-    | { type: 'text'; text: string; planMode: boolean; codeContext?: CodeContext; autoSubmit?: boolean }
+    | { type: 'command-template'; command: Command; templateId: TemplateId; text?: string; params?: Record<string, string>; metadata?: Record<string, any>; hiddenContext?: string }
+    | { type: 'text'; text: string; planMode: boolean; codeContext?: CodeContext; autoSubmit?: boolean; hiddenContext?: string; suggestedCommandTemplates?: AIPanelPrompt[];    inputPlaceholder?:string; }
     | undefined;
 
 export interface AIMachineSnapshot {
@@ -299,11 +299,13 @@ export type CodeContext =
 
 export interface GenerateAgentCodeRequest {
     usecase: string;
+    hiddenContext?: string;
     operationType?: OperationType;
     fileAttachmentContents: FileAttatchment[];
     threadId?: string; //TODO: Make this required once we support threads in UI
     isPlanMode: boolean;
     codeContext?: CodeContext;
+    webSearchEnabled?: boolean;
 }
 
 export type LibraryMode = "CORE" | "HEALTHCARE" | "ALL";
@@ -458,6 +460,19 @@ export interface ConfigurationCancelRequest {
     comment?: string;
 }
 
+export interface WebToolApprovalRequest {
+    requestId: string;
+}
+
+export interface ClarifyAnswerRequest {
+    requestId: string;
+    answers: Array<{ question: string; answers: string[] }>;
+}
+
+export interface ClarifyCancelRequest {
+    requestId: string;
+}
+
 export type ErrorCode = {
     code: number;
     message: string;
@@ -505,4 +520,70 @@ export interface UsageResponse {
 
 export interface OpenFileDiffRequest {
     relativePath: string;
+}
+
+// ==================================
+// Running Services (long-lived processes started by the AI agent)
+// ==================================
+
+/** Serializable view of a running service tracked by the agent's RunningServicesManager. */
+export interface RunningServiceInfo {
+    /** Unique identifier returned by the runBallerinaPackage tool. */
+    taskId: string;
+    /** Filesystem path of the package being run. */
+    packagePath: string;
+    /** Epoch ms when the process started. */
+    startedAt: number;
+    /** True once the process has exited (naturally or via stop). */
+    exited: boolean;
+    /** Exit code of the process. 0 while still running. */
+    exitCode: number;
+}
+
+export interface StopRunningServiceRequest {
+    taskId: string;
+}
+// ==================================
+// Compaction Related Interfaces
+// ==================================
+
+export interface CompactConversationRequest {
+    /** Optional user instructions for guiding the summarization (e.g., "focus on test changes") */
+    customInstructions?: string;
+}
+
+export interface CompactConversationResponse {
+    success: boolean;
+    /** Token count before compaction */
+    originalTokens?: number;
+    /** Token count after compaction */
+    compactedTokens?: number;
+    /** Percentage of tokens reduced */
+    reductionPercentage?: number;
+    /** The LLM-generated summary text shown to the user after compaction */
+    summary?: string;
+    /** Error message if compaction failed */
+    error?: string;
+}
+
+// ==================================
+// Prompt Enhancement Related Interfaces
+// ==================================
+
+export enum PromptMode {
+    ROLE = "role",
+    INSTRUCTIONS = "instructions",
+    QUERY = "query",
+    DEFAULT = "default"
+}
+
+export interface PromptEnhancementRequest {
+    originalPrompt: string;
+    additionalInstructions?: string;
+    mode: PromptMode;
+    isGeneration?: boolean;
+}
+
+export interface PromptEnhancementResponse {
+    enhancedPrompt: string;
 }

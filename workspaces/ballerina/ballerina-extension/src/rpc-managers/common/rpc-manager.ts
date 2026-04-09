@@ -187,11 +187,15 @@ export class CommonRpcManager implements CommonRPCAPI {
     }
 
     async executeCommand(params: CommandsRequest): Promise<CommandsResponse> {
-        return new Promise(async (resolve) => {
+        return new Promise(async (resolve, reject) => {
             if (params.commands.length >= 1) {
                 const cmdArgs = params.commands.length > 1 ? params.commands.slice(1) : [];
-                await commands.executeCommand(params.commands[0], ...cmdArgs);
-                resolve({ data: "SUCCESS" });
+                try {
+                    await commands.executeCommand(params.commands[0], ...cmdArgs);
+                    resolve({ data: "SUCCESS" });
+                } catch (error) {
+                    reject(error);
+                }
             }
         });
     }
@@ -729,6 +733,14 @@ export class CommonRpcManager implements CommonRPCAPI {
         } else {
             window.showErrorMessage(result.message || 'Failed to publish project to Ballerina Central');
         }
+    }
+
+    async getPreferredTryItOption(): Promise<string | undefined> {
+        return extension.context.globalState.get<string>("ballerina.bi.preferredTryItOption");
+    }
+
+    async setPreferredTryItOption(option: string): Promise<void> {
+        await extension.context.globalState.update("ballerina.bi.preferredTryItOption", option);
     }
 
     async hasCentralPATConfigured(): Promise<boolean> {

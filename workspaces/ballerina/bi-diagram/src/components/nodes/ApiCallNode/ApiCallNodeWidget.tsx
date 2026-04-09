@@ -343,7 +343,13 @@ export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
                 <NodeStyles.TopPortWidget port={model.getPort("in")!} engine={engine} />
                 <NodeStyles.Row>
                     <NodeStyles.Icon onClick={handleOnClick}>
-                        <NodeIcon type={model.node.codedata.node} />
+                        <NodeIcon
+                            type={model.node.codedata.node}
+                            {...(["persist", "Database"].includes((model.node.properties?.connection?.metadata?.data as NodeMetadata)?.connectorType) && {
+                                size: 24,
+                                isDBConnection: true,
+                            })}
+                        />
                     </NodeStyles.Icon>
                     <NodeStyles.Row>
                         <NodeStyles.Header onClick={handleOnClick}>

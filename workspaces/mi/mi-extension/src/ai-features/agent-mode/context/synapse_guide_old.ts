@@ -56,7 +56,7 @@ export const SYNAPSE_GUIDE = `
    - Use WSO2 Connectors whenever possible instead of directly calling APIs.
    - Do not use new class mediators unless it is absolutely necessary.
    - Define driver, username, dburl, and passwords inside the dbreport or dblookup mediator <connection> tag instead of generating deployment toml file changes.
-   - Do not use <> tags as placeholders.
+   - Do not use fake XML placeholders (for example, <TODO>, <placeholder>, or <...>) in generated artifacts.
    - To include an API key in uri-template, define:
     \`\`\`xml
     <variable name="username" value=your_api_key_here type="STRING"/>

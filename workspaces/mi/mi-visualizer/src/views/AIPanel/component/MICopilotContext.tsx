@@ -18,7 +18,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { FileObject, ImageObject, TodoItem, Question } from "@wso2/mi-core";
+import { FileObject, ImageObject, TodoItem, Question, PlanApprovalKind } from "@wso2/mi-core";
 import { LoaderWrapper, ProgressRing } from "../styles";
 import {
     ChatMessage,
@@ -27,6 +27,7 @@ import {
     Role,
 } from "@wso2/mi-core";
 import { GroupedSessions } from "./SessionSwitcher";
+import { ModelSettings } from "@wso2/mi-core";
 
 // Pending user question type (using structured Question format from mi-core)
 export interface PendingUserQuestion {
@@ -37,13 +38,16 @@ export interface PendingUserQuestion {
 // Pending plan approval type (for UI)
 export interface PendingPlanApproval {
     approvalId: string;
-    approvalKind?: 'enter_plan_mode' | 'exit_plan_mode' | 'exit_plan_mode_without_plan' | 'web_search' | 'web_fetch';
+    approvalKind?: PlanApprovalKind;
     approvalTitle?: string;
     approveLabel?: string;
     rejectLabel?: string;
     allowFeedback?: boolean;
+    suggestedPrefixRule?: string[];
     planFilePath?: string;
     content?: string;  // Summary or plan content to display
+    shellCommand?: string;  // Raw shell command for shell_command approval display
+    shellDescription?: string;  // Shell command description from tool args
 }
 import {
     RpcClientType,
@@ -110,7 +114,10 @@ interface MICopilotContextType {
     pendingQuestion: PendingUserQuestion | null;
     setPendingQuestion: React.Dispatch<React.SetStateAction<PendingUserQuestion | null>>;
     pendingPlanApproval: PendingPlanApproval | null;
-    setPendingPlanApproval: React.Dispatch<React.SetStateAction<PendingPlanApproval | null>>;
+    pendingApprovalCount: number;
+    addPendingApproval: (approval: PendingPlanApproval) => void;
+    removePendingApproval: (approvalId: string) => void;
+    clearPendingApprovals: () => void;
     todos: TodoItem[];
     setTodos: React.Dispatch<React.SetStateAction<TodoItem[]>>;
     isPlanMode: boolean;
@@ -131,6 +138,14 @@ interface MICopilotContextType {
     deleteSession: (sessionId: string) => Promise<void>;
     agentMode: AgentMode;
     setAgentMode: React.Dispatch<React.SetStateAction<AgentMode>>;
+
+    // Model settings
+    modelSettings: ModelSettings;
+    updateModelSettings: (settings: ModelSettings) => void;
+
+    // Thinking mode
+    isThinkingEnabled: boolean;
+    setIsThinkingEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 // Define the context for MI Copilot
@@ -170,10 +185,61 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
     // Plan mode state
     const [pendingQuestion, setPendingQuestion] = useState<PendingUserQuestion | null>(null);
-    const [pendingPlanApproval, setPendingPlanApproval] = useState<PendingPlanApproval | null>(null);
+    const [pendingApprovalQueue, setPendingApprovalQueue] = useState<PendingPlanApproval[]>([]);
+    const pendingPlanApproval = pendingApprovalQueue.length > 0 ? pendingApprovalQueue[0] : null;
+    const pendingApprovalCount = pendingApprovalQueue.length;
+
+    const addPendingApproval = useCallback((approval: PendingPlanApproval) => {
+        setPendingApprovalQueue(prev => [...prev, approval]);
+    }, []);
+
+    const removePendingApproval = useCallback((approvalId: string) => {
+        setPendingApprovalQueue(prev => prev.filter(a => a.approvalId !== approvalId));
+    }, []);
+
+    const clearPendingApprovals = useCallback(() => {
+        setPendingApprovalQueue([]);
+    }, []);
     const [todos, setTodos] = useState<TodoItem[]>([]);
     const [isPlanMode, setIsPlanMode] = useState<boolean>(false);
     const [agentMode, setAgentMode] = useState<AgentMode>('edit');
+
+    // Model settings state (persisted in localStorage)
+    const DEFAULT_MODEL_SETTINGS: ModelSettings = { mainModelPreset: 'sonnet', subModelPreset: 'haiku' };
+    const MODEL_SETTINGS_KEY = 'mi-agent-model-settings';
+    const VALID_MAIN_PRESETS = ['opus', 'sonnet'];
+    const VALID_SUB_PRESETS = ['haiku', 'sonnet'];
+    const [modelSettings, setModelSettingsState] = useState<ModelSettings>(() => {
+        try {
+            const stored = localStorage.getItem(MODEL_SETTINGS_KEY);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                return {
+                    ...DEFAULT_MODEL_SETTINGS,
+                    ...parsed,
+                    mainModelPreset: VALID_MAIN_PRESETS.includes(parsed.mainModelPreset) ? parsed.mainModelPreset : DEFAULT_MODEL_SETTINGS.mainModelPreset,
+                    subModelPreset: VALID_SUB_PRESETS.includes(parsed.subModelPreset) ? parsed.subModelPreset : DEFAULT_MODEL_SETTINGS.subModelPreset,
+                };
+            }
+        } catch { /* ignore */ }
+        return { ...DEFAULT_MODEL_SETTINGS };
+    });
+
+    // Thinking mode state (persisted in localStorage per agent mode)
+    const THINKING_KEY_PREFIX = 'mi-agent-thinking-enabled';
+    const [isThinkingEnabled, setIsThinkingEnabled] = useState<boolean>(() => {
+        try {
+            const stored = localStorage.getItem(`${THINKING_KEY_PREFIX}-${agentMode}`);
+            return stored === 'true';
+        } catch { return false; }
+    });
+
+    const updateModelSettings = useCallback((settings: ModelSettings) => {
+        setModelSettingsState(settings);
+        try {
+            localStorage.setItem(MODEL_SETTINGS_KEY, JSON.stringify(settings));
+        } catch { /* ignore */ }
+    }, []);
 
     // Session management state
     // Context usage tracking
@@ -238,7 +304,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 setAgentMode(responseMode ?? 'edit');
                 // Clear plan mode state when switching sessions
                 setPendingQuestion(null);
-                setPendingPlanApproval(null);
+                clearPendingApprovals();
                 setTodos([]);
                 setIsPlanMode(false);
                 // Refresh sessions with the new session ID to avoid stale closure
@@ -270,7 +336,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 setAgentMode(responseMode ?? 'edit');
                 // Clear plan mode state
                 setPendingQuestion(null);
-                setPendingPlanApproval(null);
+                clearPendingApprovals();
                 setTodos([]);
                 setIsPlanMode(false);
                 // Refresh sessions list with the new session ID
@@ -345,9 +411,13 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                     setCurrentUserprompt(initialPrompt);
                     setIsInitialPromptLoaded(true);
                 } else {
-                    // Load chat history from backend via RPC
+                    // Load chat history and sessions list in parallel
                     try {
-                        const response = await rpcClient.getMiAgentPanelRpcClient().loadChatHistory({});
+                        const agentClient = rpcClient.getMiAgentPanelRpcClient();
+                        const [response, sessionsResponse] = await Promise.all([
+                            agentClient.loadChatHistory({}),
+                            agentClient.listSessions({}),
+                        ]);
 
                         if (response.success) {
                             const responseMode = (response as { mode?: AgentMode }).mode;
@@ -372,23 +442,22 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                             if (response.lastTotalInputTokens) {
                                 setLastTotalInputTokens(response.lastTotalInputTokens);
                             }
+                        }
 
-                            // Load sessions list to get current session title
-                            const sessionsResponse = await rpcClient.getMiAgentPanelRpcClient().listSessions({});
-                            if (sessionsResponse.success) {
-                                setSessions(sessionsResponse.sessions);
-                                // Find current session title
-                                if (response.sessionId && sessionsResponse.sessions) {
-                                    const allSessions = [
-                                        ...sessionsResponse.sessions.today,
-                                        ...sessionsResponse.sessions.yesterday,
-                                        ...sessionsResponse.sessions.pastWeek,
-                                        ...sessionsResponse.sessions.older
-                                    ];
-                                    const currentSession = allSessions.find(s => s.sessionId === response.sessionId);
-                                    if (currentSession) {
-                                        setCurrentSessionTitle(currentSession.title);
-                                    }
+                        if (sessionsResponse.success) {
+                            setSessions(sessionsResponse.sessions);
+                            // Find current session title
+                            const sessionId = response.success ? response.sessionId : undefined;
+                            if (sessionId && sessionsResponse.sessions) {
+                                const allSessions = [
+                                    ...sessionsResponse.sessions.today,
+                                    ...sessionsResponse.sessions.yesterday,
+                                    ...sessionsResponse.sessions.pastWeek,
+                                    ...sessionsResponse.sessions.older
+                                ];
+                                const currentSession = allSessions.find(s => s.sessionId === sessionId);
+                                if (currentSession) {
+                                    setCurrentSessionTitle(currentSession.title);
                                 }
                             }
                         }
@@ -402,6 +471,21 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         }
         initializeContext();
     }, [rpcClient]);
+
+    // Sync thinking preference when agent mode changes
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem(`${THINKING_KEY_PREFIX}-${agentMode}`);
+            setIsThinkingEnabled(stored === 'true');
+        } catch { setIsThinkingEnabled(false); }
+    }, [agentMode]);
+
+    // Persist thinking preference to localStorage
+    useEffect(() => {
+        try {
+            localStorage.setItem(`${THINKING_KEY_PREFIX}-${agentMode}`, String(isThinkingEnabled));
+        } catch { /* ignore */ }
+    }, [agentMode, isThinkingEnabled]);
 
     useEffect(() => {
         setRemaingTokenLessThanOne(remainingTokenPercentage < 1 && remainingTokenPercentage > 0);
@@ -440,7 +524,10 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         pendingQuestion,
         setPendingQuestion,
         pendingPlanApproval,
-        setPendingPlanApproval,
+        pendingApprovalCount,
+        addPendingApproval,
+        removePendingApproval,
+        clearPendingApprovals,
         todos,
         setTodos,
         isPlanMode,
@@ -459,6 +546,12 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         deleteSession,
         agentMode,
         setAgentMode,
+        // Model settings
+        modelSettings,
+        updateModelSettings,
+        // Thinking mode
+        isThinkingEnabled,
+        setIsThinkingEnabled,
     };
 
     return (

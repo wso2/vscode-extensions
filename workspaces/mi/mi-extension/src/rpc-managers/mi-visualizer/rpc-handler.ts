@@ -75,6 +75,7 @@ import {
     UpdateConfigValuesRequest,
     importOpenAPISpec,
     updateConnectorDependencies,
+    refetchIntegrationProjectDependencies,
     ImportOpenAPISpecRequest,
     updateRuntimeVersionsInPom,
     getProjectSetupDetails,
@@ -138,6 +139,7 @@ export function registerMiVisualizerRpcHandlers(messenger: Messenger, projectUri
     messenger.onRequest(updatePomValues, (args: UpdatePomValuesRequest) => rpcManger.updatePomValues(args));
     messenger.onRequest(updateConfigFileValues, (args: UpdateConfigValuesRequest) => rpcManger.updateConfigFileValues(args));
     messenger.onRequest(updateConnectorDependencies, () => rpcManger.updateConnectorDependencies());
+    messenger.onRequest(refetchIntegrationProjectDependencies, () => rpcManger.refetchIntegrationProjectDependencies());
     messenger.onRequest(getDependencyStatusList, () => rpcManger.getDependencyStatusList());
     messenger.onRequest(updateDependenciesFromOverview, (args: UpdateDependenciesRequest) => rpcManger.updateDependenciesFromOverview(args));
     messenger.onRequest(importOpenAPISpec, (args: ImportOpenAPISpecRequest) => rpcManger.importOpenAPISpec(args));

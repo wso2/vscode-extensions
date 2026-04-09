@@ -15,6 +15,8 @@ on:
           - 'wso2-platform'
           - 'apk'
           - 'micro-integrator'
+          - 'arazzo-designer'
+          - 'hurl-client'
       isPreRelease:
         required: true
         type: boolean 
@@ -95,6 +97,10 @@ jobs:
             echo "repo=wso2/apk-vscode" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.extension }}" == "micro-integrator" ]; then
             echo "repo=wso2/mi-vscode" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.inputs.extension }}" == "arazzo-designer" ]; then
+            echo "repo=wso2/vscode-extensions" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.inputs.extension }}" == "hurl-client" ]; then
+            echo "repo=wso2/vscode-extensions" >> $GITHUB_OUTPUT
           fi
 
       - name: Publish to VSCode marketplace
@@ -155,6 +161,8 @@ jobs:
             echo "chatAPI=${{ secrets.MI_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           elif [ "${{ inputs.extension }}" == "ballerina" ] || [ "${{ inputs.extension }}" == "ballerina-integrator" ]; then
             echo "chatAPI=${{ secrets.BI_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
+          elif [ "${{ inputs.extension }}" == "arazzo-designer" ]; then
+            echo "chatAPI=${{ secrets.TOOLING_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           else
             echo "chatAPI=${{ secrets.TOOLING_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           fi

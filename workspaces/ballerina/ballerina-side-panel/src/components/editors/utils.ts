@@ -133,7 +133,7 @@ export const getValueForTextModeEditor = (value: string | any[] | Record<string,
         }
         return value;
     }
-    return value;
+    return value ?? "";
 }
 
 export function isExpandableMode(mode: InputMode): mode is EditorMode {
@@ -179,7 +179,7 @@ export const getMapSubFormFieldFromTypes = (formId: string, types: InputType[]):
             editable: true,
             documentation: "",
             value: "",
-            types: types,
+            types: types.map(type => ({ ...type })),
             enabled: true
         }
     ]

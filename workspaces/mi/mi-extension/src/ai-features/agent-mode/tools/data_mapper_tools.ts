@@ -85,7 +85,14 @@ function resolveProjectBoundPath(projectPath: string, requestedPath: string): st
 async function getUnsupportedRuntimeToolResult(projectPath: string, toolName: string): Promise<ToolResult | undefined> {
     const runtimeVersion = await getRuntimeVersionFromPom(projectPath);
     if (!runtimeVersion) {
-        return undefined;
+        const message = `${toolName} requires MI runtime version information, but it was not found in pom.xml. ` +
+            `Set <project.runtime.version> to ${RUNTIME_VERSION_440} or newer, then retry.`;
+        logWarn(`[DataMapperTools] ${message}`);
+        return {
+            success: false,
+            message,
+            error: 'Error: MI runtime version not configured',
+        };
     }
 
     if (compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
@@ -399,16 +406,6 @@ export function createGenerateDataMappingExecute(
                 }
             }
 
-            const validatedTsFilePath = resolveProjectBoundPath(projectPath, tsFilePath);
-            if (!validatedTsFilePath) {
-                return {
-                    success: false,
-                    message: `Path not found: ${dm_config_path}`,
-                    error: 'Error: Path not found',
-                };
-            }
-            tsFilePath = validatedTsFilePath;
-
             if (!fs.existsSync(tsFilePath)) {
                 return {
                     success: false,
@@ -419,7 +416,6 @@ export function createGenerateDataMappingExecute(
 
             // Verify it's a valid data mapper file
             const content = fs.readFileSync(tsFilePath, 'utf8');
-            await undoCheckpointManager?.captureBeforeChange(path.relative(projectPath, tsFilePath));
             if (!content.includes('mapFunction')) {
                 return {
                     success: false,
@@ -427,6 +423,7 @@ export function createGenerateDataMappingExecute(
                     error: 'Error: Invalid data mapper file',
                 };
             }
+            await undoCheckpointManager?.captureBeforeChange(path.relative(projectPath, tsFilePath));
 
             // Call sub-agent
             logInfo(`[GenerateDataMapping] Calling data mapper sub-agent...`);

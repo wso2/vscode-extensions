@@ -48,6 +48,14 @@ export interface ToolResult {
     validation?: ValidationDiagnostics;
 }
 
+export interface FileEditHunk {
+    old_text: string;
+    new_text: string;
+    context_before?: string;
+    context_after?: string;
+    line_hint?: number;
+}
+
 // ============================================================================
 // Constants
 // ============================================================================
@@ -100,12 +108,12 @@ export const FILE_EDIT_TOOL_NAME = 'file_edit';
 export const FILE_GREP_TOOL_NAME = 'grep';
 export const FILE_GLOB_TOOL_NAME = 'glob';
 export const CONNECTOR_TOOL_NAME = 'get_connector_definitions';
-export const SKILL_TOOL_NAME = 'load_skill_context';
+export const CONTEXT_TOOL_NAME = 'load_context_reference';
 export const MANAGE_CONNECTOR_TOOL_NAME = 'add_or_remove_connector';
 export const VALIDATE_CODE_TOOL_NAME = 'validate_code';
 export const CREATE_DATA_MAPPER_TOOL_NAME = 'create_data_mapper';
 export const GENERATE_DATA_MAPPING_TOOL_NAME = 'generate_data_mapping';
-export const BUILD_PROJECT_TOOL_NAME = 'build_project';
+export const BUILD_AND_DEPLOY_TOOL_NAME = 'build_and_deploy';
 export const SERVER_MANAGEMENT_TOOL_NAME = 'server_management';
 
 // Plan Mode Tool Names
@@ -128,7 +136,7 @@ export const WEB_FETCH_TOOL_NAME = 'web_fetch';
 // Subagent Types
 // ============================================================================
 
-export type SubagentType = 'Explore';
+export type SubagentType = 'Explore' | 'SynapseContext';
 
 /**
  * Return type from subagent execution (captures messages for JSONL persistence)
@@ -154,6 +162,8 @@ export interface BackgroundSubagent {
     historyDirPath: string;   // path to subagents/<task-id>/ directory
     aborted: boolean;
     abortController: AbortController;
+    notified: boolean;           // true once completion notification has been injected into a tool result
+    sessionId: string;
 }
 
 // ============================================================================
@@ -179,9 +189,11 @@ export const ErrorMessages = {
     INVALID_FILE_PATH: 'Invalid file path',
     INVALID_EXTENSION: 'Invalid file extension',
     EMPTY_CONTENT: 'Content cannot be empty',
-    NO_MATCH_FOUND: 'No match found for old_string',
-    MULTIPLE_MATCHES: 'Multiple matches found - old_string must be unique',
-    IDENTICAL_STRINGS: 'old_string and new_string are identical',
+    INVALID_HUNK: 'Invalid hunk',
+    HUNK_NOT_FOUND: 'Hunk not found in target file',
+    HUNK_AMBIGUOUS: 'Hunk match is ambiguous',
+    HUNK_OVERLAP: 'Hunks overlap',
+    PATCH_APPLY_FAILED: 'Failed to apply patch',
     INVALID_LINE_RANGE: 'Invalid line range',
     INVALID_READ_OPTIONS: 'Invalid read options',
     EDIT_FAILED: 'Edit operation failed',
@@ -206,9 +218,7 @@ export type ReadExecuteFn = (args: {
 
 export type EditExecuteFn = (args: {
     file_path: string;
-    old_string: string;
-    new_string: string;
-    replace_all?: boolean;
+    hunks: FileEditHunk[];
 }) => Promise<ToolResult>;
 
 export type GrepExecuteFn = (args: {
@@ -226,8 +236,8 @@ export type GlobExecuteFn = (args: {
     path?: string;
 }) => Promise<ToolResult>;
 
-export type SkillExecuteFn = (args: {
-    skill_name: string;
+export type ContextExecuteFn = (args: {
+    context_name: string;
 }) => Promise<ToolResult>;
 
 // ============================================================================
@@ -255,12 +265,16 @@ export type GenerateDataMappingExecuteFn = (args: {
 // Runtime Tool Execute Function Types
 // ============================================================================
 
-export type BuildProjectExecuteFn = (args: {
-    copy_to_runtime?: boolean;
+export type BuildAndDeployExecuteFn = (args: {
+    mode: 'build' | 'deploy' | 'build_and_deploy';
 }) => Promise<ToolResult>;
 
 export type ServerManagementExecuteFn = (args: {
-    action: 'run' | 'stop' | 'status';
+    action: 'run' | 'stop' | 'status' | 'query' | 'control';
+    artifact_type?: string;
+    artifact_name?: string;
+    control_action?: string;
+    body?: Record<string, unknown>;
 }) => Promise<ToolResult>;
 
 // ============================================================================
@@ -338,6 +352,11 @@ export interface BashResult extends ToolResult {
     stderr?: string;
     exitCode?: number;
     taskId?: string;
+}
+
+export interface ShellApprovalRuleStore {
+    getRules: () => string[][];
+    addRule: (rule: string[]) => Promise<void>;
 }
 
 export type BashExecuteFn = (args: {

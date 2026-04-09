@@ -18,11 +18,13 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { tool } from 'ai';
 import { z } from 'zod';
+import { ExecutionContext } from '@wso2/ballerina-core';
 import { CopilotEventHandler } from '../../utils/events';
 import { extension } from '../../../../BalExtensionContext';
 import { RunningServicesManager, spawnProcess, killProcessGroup } from './running-service-manager';
 import { DIAGNOSTICS_TOOL_NAME } from './diagnostics';
 import { getRunCommand } from '../../../project/cmds/cmd-runner';
+import { integrateAndClearModifiedFiles } from '../utils';
 
 export const BALLERINA_RUN_TOOL_NAME = "runBallerinaPackage";
 
@@ -38,7 +40,10 @@ const DEFAULT_SERVICE_READY_TIMEOUT = 60000;
 export function createBallerinaRunTool(
     tempProjectPath: string,
     runningServices: RunningServicesManager,
-    eventHandler: CopilotEventHandler
+    eventHandler: CopilotEventHandler,
+    modifiedFiles: string[],
+    allModifiedFiles: Set<string>,
+    ctx: ExecutionContext
 ) {
     return tool({
         description: `Runs a Ballerina package using \`bal run\`.
@@ -56,6 +61,8 @@ export function createBallerinaRunTool(
         inputSchema: BallerinaRunInputSchema,
         execute: async (input, context?: { toolCallId?: string }) => {
             const toolCallId = context?.toolCallId || `fallback-${Date.now()}`;
+
+            await integrateAndClearModifiedFiles(tempProjectPath, modifiedFiles, allModifiedFiles, ctx);
 
             eventHandler({
                 type: "tool_call",
@@ -111,19 +118,13 @@ async function executeRun(
         exitCode: -1,
     };
 
-    // Track process exit
-    proc.on('close', (code) => {
-        service.exited = true;
-        service.exitCode = code ?? -1;
-    });
-
     runningServices.register(service);
 
     if (input.runType === "service") {
         const readyResult = await waitForServiceReady(service, DEFAULT_SERVICE_READY_TIMEOUT);
 
         if (!readyResult.ready) {
-            killProcessGroup(proc, 'SIGTERM');
+            await killProcessGroup(proc, 'SIGTERM');
             runningServices.remove(taskId);
             return {
                 status: "error",
@@ -148,7 +149,7 @@ async function executeRun(
     const completionResult = await waitForCompletion(service, timeout);
 
     if (completionResult.timedOut) {
-        killProcessGroup(proc, 'SIGTERM');
+        await killProcessGroup(proc, 'SIGTERM');
         runningServices.remove(taskId);
         return {
             status: "timeout",

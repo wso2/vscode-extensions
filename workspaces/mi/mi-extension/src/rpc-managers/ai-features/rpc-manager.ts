@@ -47,7 +47,7 @@ import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
 import { generateSuggestions as generateSuggestionsFromLLM } from "../../ai-features/copilot/suggestions/suggestions";
 import { fillIdpSchema } from '../../ai-features/copilot/idp/fill_schema';
 import { codeDiagnostics } from "../../ai-features/copilot/diagnostics/diagnostics";
-import { getCopilotLlmApiBaseUrl, getLoginMethod } from '../../ai-features/auth';
+import { getCopilotUsageApiUrl, getLoginMethod } from '../../ai-features/auth';
 import { LoginMethod } from '@wso2/mi-core';
 import { logInfo, logWarn, logError, logDebug } from '../../ai-features/copilot/logger';
 import { MILanguageClient } from '../../lang-client/activator';
@@ -110,6 +110,148 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             }
         }
         return null;
+    }
+
+    private toUsageValue(payload: unknown): { remainingUsagePercentage: number; resetsIn?: number } | undefined {
+        if (Array.isArray(payload)) {
+            for (const item of payload) {
+                const usage = this.toUsageValue(item);
+                if (usage) {
+                    return usage;
+                }
+            }
+            return undefined;
+        }
+
+        if (!payload || typeof payload !== 'object') {
+            return undefined;
+        }
+
+        const record = payload as Record<string, unknown>;
+        const remaining = record.remainingUsagePercentage;
+        const resetsIn = record.resetsIn;
+
+        if (typeof remaining === 'number' && Number.isFinite(remaining)) {
+            return {
+                remainingUsagePercentage: remaining,
+                resetsIn: typeof resetsIn === 'number' && Number.isFinite(resetsIn)
+                    ? resetsIn
+                    : undefined
+            };
+        }
+
+        const nestedKeys = ['usage', 'data', 'result', 'payload'];
+        for (const key of nestedKeys) {
+            const nestedUsage = this.toUsageValue(record[key]);
+            if (nestedUsage) {
+                return nestedUsage;
+            }
+        }
+
+        return undefined;
+    }
+
+    private parseUsageFromResponseBody(responseBody: string): { remainingUsagePercentage: number; resetsIn?: number } | undefined {
+        const trimmedBody = responseBody.trim();
+        if (!trimmedBody) {
+            return undefined;
+        }
+
+        // 1) Try plain JSON first.
+        try {
+            const parsed = JSON.parse(trimmedBody);
+            const usage = this.toUsageValue(parsed);
+            if (usage) {
+                return usage;
+            }
+        } catch {
+            // Not plain JSON; continue with line-based parsing.
+        }
+
+        // 2) Handle SSE / NDJSON style payloads (e.g. "data: {...}").
+        const lines = trimmedBody.split(/\r?\n/);
+        for (const rawLine of lines) {
+            const line = rawLine.trim();
+            if (!line || line.startsWith(':')) {
+                continue;
+            }
+
+            const candidate = line.startsWith('data:') ? line.slice(5).trim() : line;
+            if (!candidate || candidate === '[DONE]') {
+                continue;
+            }
+
+            try {
+                const parsed = JSON.parse(candidate);
+                const usage = this.toUsageValue(parsed);
+                if (usage) {
+                    return usage;
+                }
+            } catch {
+                // Ignore malformed line and continue.
+            }
+        }
+
+        return undefined;
+    }
+
+    private async readUsageResponseBody(response: Response, readTimeoutMs: number = 1500): Promise<string> {
+        if (!response.body) {
+            return response.text();
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        const timeoutMarker = Symbol('usage-read-timeout');
+        let responseBody = '';
+
+        try {
+            while (responseBody.length < 32768) {
+                let readTimeoutHandle: ReturnType<typeof setTimeout> | undefined;
+                const readResult = await Promise.race([
+                    reader.read(),
+                    new Promise<typeof timeoutMarker>((resolve) => {
+                        readTimeoutHandle = setTimeout(() => resolve(timeoutMarker), readTimeoutMs);
+                    })
+                ]);
+                if (readResult !== timeoutMarker && readTimeoutHandle !== undefined) {
+                    clearTimeout(readTimeoutHandle);
+                }
+
+                if (readResult === timeoutMarker) {
+                    break;
+                }
+
+                if (readResult.done) {
+                    responseBody += decoder.decode();
+                    break;
+                }
+
+                responseBody += decoder.decode(readResult.value, { stream: true });
+
+                // For event streams / chunked responses, stop early once usage payload is parseable.
+                if (this.parseUsageFromResponseBody(responseBody)) {
+                    responseBody += decoder.decode();
+                    break;
+                }
+            }
+        } finally {
+            try {
+                await reader.cancel();
+            } catch {
+                // Ignore reader cancellation errors.
+            }
+        }
+
+        return responseBody;
+    }
+
+    private getUsageBodyPreview(responseBody: string, maxLength: number = 200): string {
+        const normalized = responseBody.replace(/\s+/g, ' ').trim();
+        if (normalized.length <= maxLength) {
+            return normalized;
+        }
+        return `${normalized.slice(0, maxLength)}...`;
     }
 
     async generateSuggestions(request: GenerateSuggestionsRequest): Promise<GenerateSuggestionsResponse> {
@@ -478,11 +620,19 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
     }
 
     /**
-     * Check if user is using their own Anthropic API key
+     * Check if user is using their own Anthropic API key or AWS Bedrock credentials
      */
     async hasAnthropicApiKey(): Promise<boolean | undefined> {
         const loginMethod = await getLoginMethod();
-        return loginMethod === LoginMethod.ANTHROPIC_KEY;
+        return loginMethod === LoginMethod.ANTHROPIC_KEY || loginMethod === LoginMethod.AWS_BEDROCK;
+    }
+
+    /**
+     * Check if user is logged in to MI Copilot (via MI_INTEL SSO)
+     */
+    async isMiCopilotLoggedIn(): Promise<boolean> {
+        const loginMethod = await getLoginMethod();
+        return loginMethod === LoginMethod.MI_INTEL;
     }
 
     /**
@@ -503,54 +653,58 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             const { StateMachineAI } = await import('../../ai-features/aiMachine');
             const { AI_EVENT_TYPE } = await import('@wso2/mi-core');
 
-            const backendUrl = getCopilotLlmApiBaseUrl();
-            if (!backendUrl) {
-                logWarn('Copilot LLM API URL is not configured; skipping usage fetch.');
+            const usageUrl = getCopilotUsageApiUrl();
+            if (!usageUrl) {
+                logWarn('Copilot usage API URL is not configured; skipping usage fetch.');
                 return undefined;
             }
 
-            const USER_CHECK_BACKEND_URL = '/usage';
-            const response = await fetchWithAuth(`${backendUrl}${USER_CHECK_BACKEND_URL}`);
-            if (response.ok) {
-                const usageResponse = await response.json();
-                const remainingUsagePercentage = typeof usageResponse?.remainingUsagePercentage === 'number'
-                    ? usageResponse.remainingUsagePercentage
-                    : undefined;
-                const resetsIn = typeof usageResponse?.resetsIn === 'number'
-                    ? usageResponse.resetsIn
-                    : undefined;
-                if (remainingUsagePercentage === undefined) {
-                    logWarn('Usage response missing remainingUsagePercentage; skipping usage update.');
-                    return undefined;
-                }
-                const usage = { remainingUsagePercentage, resetsIn };
+            const response = await fetchWithAuth(usageUrl);
+            const contentType = response.headers.get('content-type') || 'unknown';
+            const responseBody = await this.readUsageResponseBody(response);
 
-                // Get current state before updating
-                const currentState = StateMachineAI.state();
+            if (!response.ok) {
+                const failureSummary = `status ${response.status} (${contentType}). Body preview: ${this.getUsageBodyPreview(responseBody)}`;
+                logWarn(`Usage fetch failed with ${failureSummary}`);
+                return undefined;
+            }
 
-                // Update usage via state machine event (proper XState pattern)
-                if (currentState === 'Authenticated' || currentState === 'UsageExceeded') {
-                    StateMachineAI.sendEvent({ type: AI_EVENT_TYPE.UPDATE_USAGE, payload: { usage } });
-                }
+            const usage = this.parseUsageFromResponseBody(responseBody);
+            if (!usage) {
+                logWarn(`Unable to parse usage response (${contentType}). Body preview: ${this.getUsageBodyPreview(responseBody)}`);
+                return undefined;
+            }
 
-                // Check if quota is exceeded and transition to UsageExceeded state
-                const isUsageExceeded = usage.remainingUsagePercentage <= 0;
+            // Update usage via state machine event (proper XState pattern)
+            const stateBeforeUsageUpdate = StateMachineAI.state();
+            if (stateBeforeUsageUpdate === 'Authenticated' || stateBeforeUsageUpdate === 'UsageExceeded') {
+                StateMachineAI.sendEvent({ type: AI_EVENT_TYPE.UPDATE_USAGE, payload: { usage } });
+            }
 
-                if (isUsageExceeded && currentState === 'Authenticated') {
+            // Check if quota is exceeded and transition to UsageExceeded state
+            const isUnlimitedUsage = usage.remainingUsagePercentage === -1;
+            const isUsageExceeded = !isUnlimitedUsage && usage.remainingUsagePercentage <= 0;
+
+            if (isUsageExceeded) {
+                const stateBeforeUsageExceeded = StateMachineAI.state();
+                if (stateBeforeUsageExceeded === 'Authenticated') {
                     logInfo('Quota exceeded. Transitioning to UsageExceeded state.');
                     StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_EXCEEDED);
                 }
+            }
 
-                // Check if we're in UsageExceeded state and if usage has reset
-                const isUsageReset = usage.remainingUsagePercentage > 0;
+            // Check if we're in UsageExceeded state and if usage has reset
+            const isUsageReset = isUnlimitedUsage || usage.remainingUsagePercentage > 0;
 
-                if (currentState === 'UsageExceeded' && isUsageReset) {
+            if (isUsageReset) {
+                const stateBeforeUsageReset = StateMachineAI.state();
+                if (stateBeforeUsageReset === 'UsageExceeded') {
                     logInfo('Usage has reset. Transitioning back to Authenticated state.');
                     StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_RESET);
                 }
-
-                return usage;
             }
+
+            return usage;
         } catch (error) {
             logError('Failed to fetch usage', error);
         }

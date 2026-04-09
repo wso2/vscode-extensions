@@ -44,7 +44,17 @@ on:
         description: Update MI extension version
         type: boolean
         required: false
-        default: false                     
+        default: false
+      arazzo:
+        description: Update Arazzo extension version
+        type: boolean
+        required: false
+        default: false
+      hurl-client:
+        description: Update Hurl Client extension version
+        type: boolean
+        required: false
+        default: false
       version:
         default: 'N/A'
         type: string
@@ -135,6 +145,16 @@ jobs:
             echo "hasBIDiff=true" >> $GITHUB_OUTPUT
           fi
 
+          # Arazzo ext
+          if [[ "${CHANGED_DIRS[@]}" =~ "workspaces/arazzo" ]]; then
+            echo "hasArazzoDiff=true" >> $GITHUB_OUTPUT
+          fi
+
+          # Hurl Client ext
+          if [[ "${CHANGED_DIRS[@]}" =~ "workspaces/hurl-client" ]]; then
+            echo "hasHurlClientDiff=true" >> $GITHUB_OUTPUT
+          fi
+
           # Common
           if  [[ "${CHANGED_DIRS[@]}" =~ "workspaces/common-libs" || "${CHANGED_DIRS[@]}" =~ "common" || "${CHANGED_DIRS[@]}" =~ ".github" || "${CHANGED_DIRS[@]}" =~ "^/*.json" ]]; then
             echo "Have changes in common libs"
@@ -189,6 +209,13 @@ jobs:
           echo "uiTestMatrix=$(echo "$matrix" | jq -c .)" >> $GITHUB_OUTPUT
           echo "Matrix: $(echo "$matrix" | jq -c .)"
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+          cache-dependency-path: workspaces/arazzo/arazzo-designer-lsp/go.sum
+
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -201,6 +228,8 @@ jobs:
           apk: ${{ inputs.apk }}
           bi: ${{ inputs.bi }}
           mi: ${{ inputs.mi }}
+          arazzo: ${{ inputs.arazzo }}
+          hurl-client: ${{ inputs.hurl-client }}
           version: ${{ inputs.version }}
           token: ${{ secrets.CHOREO_BOT_TOKEN }}
           BALLERINA_AUTH_ORG: ${{ secrets.BALLERINA_AUTH_ORG }}

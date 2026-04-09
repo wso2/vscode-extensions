@@ -23,7 +23,7 @@ import { DocumentIdentifier, LinePosition, LineRange, NOT_SUPPORTED_TYPE, Positi
 import { BallerinaConnectorInfo, BallerinaExampleCategory, BallerinaModuleResponse, BallerinaModulesRequest, BallerinaTrigger, BallerinaTriggerInfo, BallerinaConnector, ExecutorPosition, ExpressionRange, JsonToRecordMapperDiagnostic, MainTriggerModifyRequest, NoteBookCellOutputValue, NotebookCellMetaInfo, OASpec, PackageSummary, PartialSTModification, ResolvedTypeForExpression, ResolvedTypeForSymbol, STModification, SequenceModel, SequenceModelDiagnostic, ServiceTriggerModifyRequest, SymbolDocumentation, XMLToRecordConverterDiagnostic, TypeField, ComponentInfo } from "./ballerina";
 import { ModulePart, STNode } from "@wso2/syntax-tree";
 import { CodeActionParams, DefinitionParams, DocumentSymbolParams, ExecuteCommandParams, InitializeParams, InitializeResult, LocationLink, RenameParams } from "vscode-languageserver-protocol";
-import { Category, Flow, FlowNode, CodeData, ConfigVariable, FunctionNode, Property, PropertyTypeMemberInfo, DIRECTORY_MAP, Imports, NodeKind, InputType, FormFieldInputType, ProjectStructureArtifactResponse } from "./bi";
+import { Category, Flow, FlowNode, CodeData, ConfigVariable, FunctionNode, Property, PropertyTypeMemberInfo, DIRECTORY_MAP, Imports, NodeKind, InputType, FormFieldInputType, ProjectStructureArtifactResponse, VISIBILITY } from "./bi";
 import { ConnectorRequest, ConnectorResponse } from "../rpc-types/connector-wizard/interfaces";
 import { SqFlow } from "../rpc-types/sequence-diagram/interfaces";
 import { FieldType, FunctionModel, ListenerModel, ServiceClassModel, ServiceInitModel, ServiceModel } from "./service";
@@ -454,7 +454,7 @@ export interface MapWithFnRequest {
 export interface ResolveOutputRequest {
     filePath: string;
     codedata: CodeData;
-    varName?: string;
+    varName: string;
     targetField: string;
     subMappingName?: string;
 }
@@ -929,6 +929,7 @@ export interface BINodeTemplateRequest {
     filePath: string;
     id: CodeData;
     forceAssign?: boolean;
+    isLibrary?: boolean;
 }
 
 export type BINodeTemplateResponse = {
@@ -965,7 +966,7 @@ export type SearchKind =
     | "CHUNKER"
     | "AGENT"
     | "MEMORY"
-    | "MEMORY_STORE"
+    | "SHORT_TERM_MEMORY_STORE"
     | "AGENT_TOOL"
     | "CLASS_INIT"
     | "ALL";
@@ -1874,6 +1875,16 @@ export interface AIGentToolsResponse {
     };
 }
 
+export interface AIGetPackageVersionRequest {
+    projectPath: string;
+    org: string;
+    packageName: string;
+}
+
+export interface AIGetPackageVersionResponse {
+    version: string;
+}
+
 export type OpenAPIClientGenerationRequest = {
     openApiContractPath: string;
     projectPath: string;
@@ -1955,6 +1966,7 @@ export interface BaseArtifact<T = any> {
     name: string;
     module?: string;
     scope: string;
+    visibility?: VISIBILITY;
     icon?: string; // Optional for those that have an icon
     children?: Record<string, BaseArtifact>; // To allow nested structures
     accessor?: string; // Specific to Entry Points
@@ -2088,6 +2100,7 @@ export interface BIInterface extends BaseLangClientInterface {
     getTools: (params: AIToolsRequest) => Promise<AIToolsResponse>;
     getMcpTools: (params: McpToolsRequest) => Promise<McpToolsResponse>;
     genTool: (params: AIGentToolsRequest) => Promise<AIGentToolsResponse>;
+    getPackageVersion: (params: AIGetPackageVersionRequest) => Promise<AIGetPackageVersionResponse>;
 }
 
 export interface ExtendedLangClientInterface extends BIInterface {

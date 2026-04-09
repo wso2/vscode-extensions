@@ -454,7 +454,23 @@ import {
     getPropertiesFromArtifactXML,
     formatPomFile,
     GenerateMappingsParamsRequest,
-    getInputOutputMappings
+    getInputOutputMappings,
+    GetDynamicFieldsRequest,
+    GetDynamicFieldsResponse,
+    getDynamicFields,
+    GetStoredProceduresResponse,
+    getStoredProcedures,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse,
+    downloadDriverForConnector,
+    getDriverMavenCoordinates,
+    LoadDriverAndTestConnectionRequest,
+    loadDriverAndTestConnection,
+    canCreateConsolidatedProject,
+    ProjectCreationStatusResponse,
+    createConsolidatedProjectFromWorkspace
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -686,8 +702,8 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
         return this._messenger.sendNotification(closeWebViewNotification, HOST_EXTENSION);
     }
 
-    getWorkspaceRoot(): Promise<ProjectRootResponse> {
-        return this._messenger.sendRequest(getWorkspaceRoot, HOST_EXTENSION);
+    getWorkspaceRoot(params?: boolean): Promise<ProjectRootResponse> {
+        return this._messenger.sendRequest(getWorkspaceRoot, HOST_EXTENSION, params);
     }
 
     getProjectRoot(params: GetProjectRootRequest): Promise<ProjectRootResponse> {
@@ -1196,5 +1212,31 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getInputOutputMappings(params: GenerateMappingsParamsRequest): Promise<string[]> {
         return this._messenger.sendRequest(getInputOutputMappings, HOST_EXTENSION, params);
+    }
+    getDynamicFields(params: GetDynamicFieldsRequest): Promise<GetDynamicFieldsResponse> {
+        return this._messenger.sendRequest(getDynamicFields, HOST_EXTENSION, params);
+    }
+
+    getStoredProcedures(params: DSSFetchTablesRequest): Promise<GetStoredProceduresResponse> {
+        return this._messenger.sendRequest(getStoredProcedures, HOST_EXTENSION, params);
+    }
+
+    downloadDriverForConnector(params: DriverDownloadRequest): Promise<DriverDownloadResponse> {
+        return this._messenger.sendRequest(downloadDriverForConnector, HOST_EXTENSION, params);
+    }
+    getDriverMavenCoordinates(params: DriverMavenCoordinatesRequest): Promise<DriverMavenCoordinatesResponse> {
+        return this._messenger.sendRequest(getDriverMavenCoordinates, HOST_EXTENSION, params);
+    }
+
+    loadDriverAndTestConnection(params: LoadDriverAndTestConnectionRequest): Promise<TestDbConnectionResponse> {
+        return this._messenger.sendRequest(loadDriverAndTestConnection, HOST_EXTENSION, params);
+    }
+
+    canCreateConsolidatedProject(): Promise<ProjectCreationStatusResponse> {
+        return this._messenger.sendRequest(canCreateConsolidatedProject, HOST_EXTENSION);
+    }
+
+    createConsolidatedProjectFromWorkspace(params: CreateProjectRequest): Promise<CreateProjectResponse> {
+        return this._messenger.sendRequest(createConsolidatedProjectFromWorkspace, HOST_EXTENSION, params);
     }
 }

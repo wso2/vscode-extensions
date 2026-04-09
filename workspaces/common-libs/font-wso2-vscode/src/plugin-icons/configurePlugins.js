@@ -15,6 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+const { log } = require("console");
 const fs = require("fs");
 const path = require("path");
 
@@ -22,33 +23,64 @@ const path = require("path");
 const fontDir = path.join(__dirname, '..', '..', 'dist');
 const codiconDir = path.join(__dirname, '..', '..', 'node_modules', '@vscode', 'codicons', 'dist');
 
-// Read the CSS and JSON files
-const wso2FontCssPath = path.join(fontDir, 'wso2-vscode.css');
-const wso2FontJsonPath = path.join(fontDir, 'wso2-vscode.json');
-const wso2FontCss = fs.readFileSync(wso2FontCssPath, 'utf-8');
-const wso2FontJson = JSON.parse(fs.readFileSync(wso2FontJsonPath, 'utf-8'));
+// Read the CSS and JSON files (optional; populated below if dist artifacts exist)
+const wso2FontJsonPath = path.join(fontDir, "wso2-vscode.json");
+const wso2FontCssPath = path.join(fontDir, "wso2-vscode.css");
 
-const codiconCssPath = path.join(codiconDir, 'codicon.css');
-const codiconCss = fs.readFileSync(codiconCssPath, 'utf-8');
+let wso2FontCss = "";
+let wso2FontJson = {};
+
+if (fs.existsSync(wso2FontCssPath)) {
+  try {
+    wso2FontCss = fs.readFileSync(wso2FontCssPath, "utf-8");
+  } catch (error) {
+    console.error(`Failed to read WSO2 font CSS from ${wso2FontCssPath}`, error);
+  }
+} else {
+  console.warn(`WSO2 font CSS not found at ${wso2FontCssPath}. WSO2 font icons will be skipped.`);
+}
+
+if (fs.existsSync(wso2FontJsonPath)) {
+  try {
+    wso2FontJson = JSON.parse(fs.readFileSync(wso2FontJsonPath, "utf-8"));
+  } catch (error) {
+    console.error(`Failed to read WSO2 font JSON from ${wso2FontJsonPath}`, error);
+  }
+} else {
+  console.warn(`WSO2 font JSON not found at ${wso2FontJsonPath}. WSO2 font icons will be skipped.`);
+}
+
+const codiconCssPath = path.join(codiconDir, "codicon.css");
+let codiconCss = "";
+
+if (fs.existsSync(codiconCssPath)) {
+  try {
+    codiconCss = fs.readFileSync(codiconCssPath, "utf-8");
+  } catch (error) {
+    console.error(`Failed to read Codicon CSS from ${codiconCssPath}`, error);
+  }
+} else {
+  console.warn(`Codicon CSS not found at ${codiconCssPath}. Codicon icons will be skipped.`);
+}
 
 // Read the configuration from config.json
-const configPath = path.join(__dirname, 'config.json');
-const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+const configPath = path.join(__dirname, "config.json");
+let config = {};
+
+if (fs.existsSync(configPath)) {
+  try {
+    config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+  } catch (error) {
+    console.error(`Failed to read config from ${configPath}`, error);
+    config = {};
+  }
+} else {
+  console.warn(`Config file not found at ${configPath}. No icon configuration will be applied.`);
+  config = {};
+}
 
 const wso2FontPath = "./resources/font-wso2-vscode/dist/wso2-vscode.woff";
 const codiconFontPath = "./resources/codicons/codicon.ttf";
-
-// Define a function to extract content value from Font CSS
-function extractWso2FontContentValue(iconName) {
-  const classRegex = new RegExp(`\\.fw-${iconName}:before\\s*{\\s*content:\\s*"\\\\([a-fA-F0-9]+)";\\s*}`, 'g');
-  const match = classRegex.exec(wso2FontCss);
-
-  if (match && match[1]) {
-    return `\\${match[1]}`;
-  } else {
-    return null;
-  }
-}
 
 // Define a function to extract content value from Codicon CSS
 function extractCodiconContentValue(iconName) {
@@ -62,27 +94,22 @@ function extractCodiconContentValue(iconName) {
 }
             
 // Define a function to generate icons contribution
-function generateWso2FontContribution(selectedIconJson) {
+function generateWso2FontContribution(selectedIconJson, extensionName) {
   let iconsContribution = {};
   for (const selectedIconName of selectedIconJson) {
-    for (const fontName in wso2FontJson) {
-      if (selectedIconName === `${fontName}.svg`) {
-        const contentValue = extractWso2FontContentValue(fontName);
-  
-        if (contentValue) {
-          const iconDescription = fontName;
-          const iconCharacter = contentValue;
-    
-          iconsContribution[`distro-${fontName}`] = {
-            description: iconDescription,
-            default: {
-              fontPath: wso2FontPath,
-              fontCharacter: iconCharacter
-            }
-          };
-          break;
+    const fontName = selectedIconName.replace('.svg', '');
+    const codepoint = wso2FontJson[fontName];
+
+    if (codepoint !== undefined) {
+      iconsContribution[`${extensionName ? `${extensionName}-` : 'distro-'}${fontName}`] = {
+        description: fontName,
+        default: {
+          fontPath: wso2FontPath,
+          fontCharacter: `\\${codepoint.toString(16)}`
         }
-      }
+      };
+    } else {
+      console.warn(`Icon not found in wso2-vscode font: ${fontName}`);
     }
   }
   return iconsContribution;
@@ -109,13 +136,13 @@ function generateCodiconContribution(selectedIconJson) {
   return iconsContribution;
 }
 
-function generateFontIconsContribution(extIcons) {
+function generateFontIconsContribution(extIcons, extensionName) {
   const wso2FontIcons = extIcons.wso2Font;
   const codiconIcons = extIcons.codiconFont;
   let wso2FontContributions;
   let codiconContributions;
   if (wso2FontIcons) {
-    wso2FontContributions = generateWso2FontContribution(wso2FontIcons);
+    wso2FontContributions = generateWso2FontContribution(wso2FontIcons, extensionName);
   }
   if (codiconIcons) {
     codiconContributions = generateCodiconContribution(codiconIcons);
@@ -128,12 +155,20 @@ function generateFontIconsContribution(extIcons) {
 }
 
 const copyDirectoryContent = (srcDir, destDir) => {
+  if (!fs.existsSync(srcDir)) {
+    console.warn(`Source directory ${srcDir} does not exist. Skipping copy.`);
+    return;
+  }
+
+  fs.mkdirSync(destDir, { recursive: true });
+
   const files = fs.readdirSync(srcDir);
   for (const file of files) {
     const srcFile = path.join(srcDir, file);
     const destFile = path.join(destDir, file);
-    if (fs.statSync(srcFile).isDirectory()) {
-      fs.mkdirSync(destFile, { recursive: true });
+    const stats = fs.statSync(srcFile);
+
+    if (stats.isDirectory()) {
       copyDirectoryContent(srcFile, destFile);
     } else {
       fs.copyFileSync(srcFile, destFile);
@@ -146,27 +181,45 @@ const ballerinaIcons = config.ballerinaExtIcons || [];
 const choreoIcons = config.choreoExtIcons || [];
 const mIIcons = config.mIExtIcons || [];
 
-const ballerinaIconsContribution = generateFontIconsContribution(ballerinaIcons);
-const choreoIconsContribution = generateFontIconsContribution(choreoIcons);
-const mIIconsContribution = generateFontIconsContribution(mIIcons);
+const ballerinaIconsContribution = generateFontIconsContribution(ballerinaIcons, "ballerina");
+const choreoIconsContribution = generateFontIconsContribution(choreoIcons, "choreo");
+const mIIconsContribution = generateFontIconsContribution(mIIcons, "mi");
 
 // Merge the generated icons contribution into the existing package.json contributes
-const choreoExtPackageJsonPath = path.join(__dirname, '..', '..', '..', '..', 'choreo', 'choreo-extension', 'package.json');
-const ballerinaExtPackageJsonPath = path.join(__dirname, '..', '..', '..', '..', 'ballerina', 'ballerina-extension', 'package.json');
-const mIExtPackageJsonPath = path.join(__dirname, '..', '..', '..', '..', 'mi', 'mi-extension', 'package.json');
+const choreoExtPackageJsonPath = path.join(__dirname, "..", "..", "..", "..", "choreo", "choreo-extension", "package.json");
+const ballerinaExtPackageJsonPath = path.join(__dirname, "..", "..", "..", "..", "ballerina", "ballerina-extension", "package.json");
+const mIExtPackageJsonPath = path.join(__dirname, "..", "..", "..", "..", "mi", "mi-extension", "package.json");
 
-const choreoExtPackageJson = require(choreoExtPackageJsonPath);
-const ballerinaExtPackageJson = require(ballerinaExtPackageJsonPath);
-const mIExtPackageJson = require(mIExtPackageJsonPath);
+function safelyUpdatePackageJsonIcons(packageJsonPath, iconsContribution, indent = 2) {
+  if (!iconsContribution || Object.keys(iconsContribution).length === 0) {
+    return;
+  }
 
-choreoExtPackageJson.contributes.icons = { ...choreoExtPackageJson.contributes.icons, ...choreoIconsContribution };
-ballerinaExtPackageJson.contributes.icons = { ...ballerinaExtPackageJson.contributes.icons, ...ballerinaIconsContribution };
-mIExtPackageJson.contributes.icons = { ...mIExtPackageJson.contributes.icons, ...mIIconsContribution };
+  if (!fs.existsSync(packageJsonPath)) {
+    console.warn(`package.json not found at ${packageJsonPath}. Skipping icon contribution update.`);
+    return;
+  }
 
-// Write the modified package.json files back to the file system
-fs.writeFileSync(choreoExtPackageJsonPath, JSON.stringify(choreoExtPackageJson, null, 2), 'utf-8');
-fs.appendFileSync(choreoExtPackageJsonPath, '\n');
-fs.writeFileSync(ballerinaExtPackageJsonPath, JSON.stringify(ballerinaExtPackageJson, null, 4), 'utf-8');
-fs.appendFileSync(ballerinaExtPackageJsonPath, '\n');
-fs.writeFileSync(mIExtPackageJsonPath, JSON.stringify(mIExtPackageJson, null, 2), 'utf-8');
-fs.appendFileSync(mIExtPackageJsonPath, '\n');
+  try {
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
+    const contributes = packageJson.contributes || {};
+    const existingIcons = contributes.icons || {};
+
+    packageJson.contributes = {
+      ...contributes,
+      icons: {
+        ...existingIcons,
+        ...iconsContribution,
+      },
+    };
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, indent), "utf-8");
+    fs.appendFileSync(packageJsonPath, "\n");
+  } catch (error) {
+    console.error(`Failed to update icons contribution for ${packageJsonPath}`, error);
+  }
+}
+
+safelyUpdatePackageJsonIcons(choreoExtPackageJsonPath, choreoIconsContribution, 2);
+safelyUpdatePackageJsonIcons(ballerinaExtPackageJsonPath, ballerinaIconsContribution, 4);
+safelyUpdatePackageJsonIcons(mIExtPackageJsonPath, mIIconsContribution, 2);

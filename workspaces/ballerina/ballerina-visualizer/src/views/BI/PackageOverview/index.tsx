@@ -451,7 +451,7 @@ function DeploymentOptions({
                         title={
                             isDeployed ? (
                                 <DevantHeaderWrap>
-                                    <span>Deployed in Devant</span>
+                                    <span>Deployed in WSO2 Cloud</span>
                                     <Button
                                         appearance="icon"
                                         onClick={(e) => {
@@ -465,24 +465,24 @@ function DeploymentOptions({
                                     </Button>
                                 </DevantHeaderWrap>
                             ) : (
-                                "Deploy to Devant"
+                                "Deploy to WSO2 Cloud"
                             )
                         }
                         description={
                             isDeployed
-                                ? "This integration is already deployed in Devant."
-                                : "Deploy your integration to the cloud using Devant by WSO2."
+                                ? "This integration is already deployed in WSO2 Cloud."
+                                : "Deploy your integration to WSO2 Cloud."
                         }
-                        buttonText={isDeployed ? "View in Devant" : "Deploy"}
+                        buttonText={isDeployed ? "View in Console" : "Deploy"}
                         isExpanded={expandedOptions.has("devant")}
                         onToggle={() => toggleOption("devant")}
-                        onDeploy={isDeployed? () => goToDevant() : handleDeploy}
+                        onDeploy={isDeployed ? () => goToDevant() : handleDeploy}
                         learnMoreLink={"https://wso2.com/devant/docs"}
                         hasDeployableIntegration={hasDeployableIntegration}
                         secondaryAction={
                             isDeployed && platformExtState?.hasLocalChanges
                                 ? {
-                                    description: "To redeploy in Devant, please commit and push your changes.",
+                                    description: "To redeploy in WSO2 Cloud, please commit and push your changes.",
                                     buttonText: "Open Source Control",
                                     onClick: () =>
                                         rpcClient
@@ -493,7 +493,7 @@ function DeploymentOptions({
                         }
                     />
                 )}
-                
+
                 <DeploymentOption
                     title="Deploy with Docker"
                     description="Create a Docker image of your integration and deploy it to any Docker-enabled system."
@@ -536,14 +536,25 @@ function IntegrationControlPlane({ enabled, handleICP }: IntegrationControlPlane
         <div>
             <Title variant="h3">Integration Control Plane</Title>
             <p>
-                {"Monitor the deployment runtime using WSO2 Integration Control Plane."}
+                {"Monitor and manage your integration deployments using a single enhanced interface, and streamline operations and increase efficiency."}
                 <VSCodeLink onClick={openLearnMoreURL} style={{ marginLeft: '4px' }}> Learn More </VSCodeLink>
             </p>
             <CheckBox
                 checked={enabled}
                 onChange={handleICP}
-                label="Enable WSO2 Integrator: ICP"
+                label="Enable ICP monitoring"
             />
+            {enabled && (
+                <Button
+                    appearance="secondary"
+                    onClick={() => rpcClient.getICPRpcClient().viewInICP({
+                        projectPath: ''
+                    })}
+                    sx={{ marginTop: "10px", display: "flex", alignItems: "center", justifyContent: "center", mx: "auto" }}
+                >
+                    <Codicon name="link-external" sx={{ marginRight: 8 }} /> View in ICP
+                </Button>
+            )}
         </div>
     );
 }
@@ -568,17 +579,17 @@ function DevantDashboard({ projectStructure, handleDeploy, goToDevant }: { proje
 
     return (
         <React.Fragment>
-            {platformExtState?.selectedComponent ? <Title variant="h3">Deployed in Devant</Title> : <Title variant="h3">Deploy to Devant</Title>}
+            {platformExtState?.selectedComponent ? <Title variant="h3">Deployed in WSO2 Cloud</Title> : <Title variant="h3">Deploy to WSO2 Cloud</Title>}
             {!hasAutomationOrService ? (
                 <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
-                    Before you can deploy your integration to Devant, please add an artifact (such as a Service or Automation) to your integration.
+                    Before you can deploy your integration to WSO2 Cloud, please add an artifact (such as a Service or Automation) to your integration.
                 </Typography>
             ) : (
                 <>
                     {platformExtState?.selectedComponent ? (
                         <>
                             <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
-                                This integration is deployed in Devant.
+                                This integration is deployed in WSO2 Cloud.
                             </Typography>
                             <Button
                                 appearance="secondary"
@@ -592,7 +603,7 @@ function DevantDashboard({ projectStructure, handleDeploy, goToDevant }: { proje
                                     mx: "auto"
                                 }}
                             >
-                                <Codicon name="save" sx={{ marginRight: 8 }} /> Push Changes to Devant
+                                <Codicon name="save" sx={{ marginRight: 8 }} /> Push Changes to WSO2 Cloud
                             </Button>
                             <Button
                                 appearance="icon"
@@ -605,13 +616,13 @@ function DevantDashboard({ projectStructure, handleDeploy, goToDevant }: { proje
                                     mx: "auto"
                                 }}
                             >
-                                <Codicon name="link" sx={{ marginRight: 8 }} /> Open in Devant Console
+                                <Codicon name="link" sx={{ marginRight: 8 }} /> Open in Console
                             </Button>
                         </>
                     ) : (
                         <React.Fragment>
                             <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
-                                Deploy your integration to Devant and run it in the cloud.
+                                Deploy your integration in WSO2 Cloud.
                             </Typography>
                             <Button
                                 appearance="primary"
@@ -920,8 +931,8 @@ export function PackageOverview(props: PackageOverviewProps) {
                                     <Title variant="h2">Design</Title>
                                     {!isEmptyIntegration() && (
                                         <ActionContainer>
-                                            <Button appearance="icon" onClick={handleGenerate} buttonSx={{ padding: "2px 8px" }}>
-                                                <Codicon name="wand" sx={{ marginRight: 8 }} /> Generate
+                                            <Button appearance="secondary" onClick={handleGenerate}>
+                                                <Icon name="bi-ai-chat" sx={{ marginRight: 8 }} iconSx={{ width: "16px", height: "16px", fontSize: "16px" }} /> Generate with AI
                                             </Button>
                                             <Button appearance="primary" onClick={handleAddConstruct}>
                                                 <Codicon name="add" sx={{ marginRight: 8 }} /> Add Artifact
@@ -949,7 +960,7 @@ export function PackageOverview(props: PackageOverviewProps) {
                                                     <Codicon name="add" sx={{ marginRight: 8 }} /> Add Artifact
                                                 </Button>
                                                 <Button appearance="secondary" onClick={handleGenerate}>
-                                                    <Codicon name="wand" sx={{ marginRight: 8 }} /> Generate with AI
+                                                    <Icon name="bi-ai-chat" sx={{ marginRight: 4 }} iconSx={{ position: "relative", top: "2px" }} /> Generate with AI
                                                 </Button>
                                             </ButtonContainer>
                                         </EmptyStateContainer>

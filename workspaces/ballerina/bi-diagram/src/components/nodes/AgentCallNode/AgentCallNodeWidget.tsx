@@ -149,6 +149,7 @@ export namespace NodeStyles {
     `;
 
     export const Title = styled(StyledText)`
+        height: 18px !important; 
         max-width: ${NODE_WIDTH - 80}px;
         white-space: nowrap;
         overflow: hidden;
@@ -167,6 +168,7 @@ export namespace NodeStyles {
         -webkit-box-orient: vertical;
         color: ${ThemeColors.ON_SURFACE};
         opacity: 0.7;
+        margin-top: -2px;
     `;
 
     const MarkdownContent = styled.div`
@@ -430,6 +432,50 @@ export namespace NodeStyles {
         color: ${ThemeColors.ON_SURFACE};
         opacity: 0.7;
     `;
+
+    export const AgentIdBadge = styled.div`
+        margin-left: 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        cursor: default;
+        position: relative;
+        overflow: visible;
+        z-index: 10;
+
+        &:hover {
+            opacity: 0.8;
+        }
+    `;
+
+    export const AgentIdTooltip = styled.div`
+        position: absolute;
+        left: 50%;
+        top: calc(100% + 8px);
+        transform: translateX(-50%);
+        padding: 6px 10px;
+        background: ${ThemeColors.SURFACE_DIM};
+        color: ${ThemeColors.ON_SURFACE};
+        border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
+        border-radius: 6px;
+        font-size: 11px;
+        font-family: "GilmerRegular";
+        white-space: nowrap;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        pointer-events: none;
+        z-index: 1000;
+
+        &::before {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-bottom-color: ${ThemeColors.OUTLINE_VARIANT};
+        }
+    `;
 }
 
 interface AgentCallNodeWidgetProps {
@@ -442,13 +488,13 @@ export interface NodeWidgetProps extends Omit<AgentCallNodeWidgetProps, "childre
 
 export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, goToSource, onDeleteNode, removeBreakpoint, addBreakpoint, agentNode, readOnly, selectedNodeId } =
-        useDiagramContext();
+    const { onNodeSelect, goToSource, onDeleteNode, removeBreakpoint, addBreakpoint, agentNode, readOnly, selectedNodeId, entrypointContext } = useDiagramContext();
     const traceAnimation = useTraceAnimation();
 
     const isSelected = selectedNodeId === model.node.id;
 
     const [isBoxHovered, setIsBoxHovered] = useState(false);
+    const [agentIdHovered, setAgentIdHovered] = useState(false);
     const [anchorEl, setAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
     const [toolAnchorEl, setToolAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
     const [selectedTool, setSelectedTool] = useState<ToolData | null>(null);
@@ -623,7 +669,17 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
         setAiColor(getAIColor());
     };
 
+    const onChatWithAgent = () => {
+        agentNode?.onChatWithAgent?.(model.node);
+        setAnchorEl(null);
+    };
+
     const menuItems: Item[] = [
+        ...(agentNode?.onChatWithAgent ? [{
+            id: "chat",
+            label: "Chat",
+            onClick: () => onChatWithAgent(),
+        }] : []),
         {
             id: "edit",
             label: "Edit",
@@ -664,23 +720,36 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     const nodeTitle = "AI Agent";
     const hasError = nodeHasError(model.node);
     const nodeMetadata = model?.node.metadata.data as NodeMetadata;
+    const nodeModelIconUrl = nodeMetadata?.model?.path;
     const tools = nodeMetadata?.tools || [];
 
-    if (nodeMetadata?.agent) {
-        nodeMetadata.agent = sanitizeAgentData(nodeMetadata.agent);
-    }
+    const sanitizedAgent = nodeMetadata?.agent ? sanitizeAgentData(nodeMetadata.agent) : undefined;
     const nodeToolNames = tools.map((t: ToolData) => t.name).sort();
-    const nodeRole = nodeMetadata?.agent?.role || '';
-    const nodeInstructions = nodeMetadata?.agent?.instructions || '';
+    const nodeRole = sanitizedAgent?.role || '';
+    const nodeInstructions = sanitizedAgent?.instructions || '';
 
     const isTraceMatch = traceAnimation && (() => {
+        // Guard: only animate if the trace's entrypoint matches the current flow diagram's service/function
+        if (entrypointContext) {
+            const traceService = traceAnimation.entrypointServiceName ?? '';
+            const traceFunction = traceAnimation.entrypointFunctionName ?? '';
+            const ctxService = entrypointContext.serviceName ?? '';
+            const ctxFunction = entrypointContext.functionName ?? '';
+            if (traceService !== ctxService || traceFunction !== ctxFunction) {
+                return false;
+            }
+        }
+
         const sysInstr = traceAnimation.systemInstructions;
         if (sysInstr) {
             const extractedRole = sysInstr.match(/(?:^|\n)#\s*Role[ \t]*\r?\n([\s\S]*?)(?=\r?\n#\s*Instructions|$)/i)?.[1]?.trim();
-            const extractedInstructions = sysInstr.match(/(?:^|\n)#\s*Instructions[ \t]*\r?\n([\s\S]*)$/i)?.[1]?.trim();
+            const extractedInstructions = sysInstr.match(/(?:^|\n)#\s*Instructions[ \t]*\r?\n([\s\S]*?)(?=\r?\n#\s*Instructions for Tool Validation Failure Handling|$)/i)?.[1]?.trim();
 
             const roleMatch = nodeRole != null && extractedRole === nodeRole.trim();
-            const instrMatch = nodeInstructions != null && extractedInstructions === nodeInstructions.trim();
+            const cleanedInstructions = extractedInstructions
+                ?.replace(/\n#\s*Instructions for Tool Validation Failure Handling[^\n]*\n[\s\S]*$/, '')
+                ?.trim();
+            const instrMatch = nodeInstructions != null && cleanedInstructions === nodeInstructions.trim();
 
             if (nodeRole != null && nodeInstructions != null) {
                 return roleMatch && instrMatch;
@@ -767,7 +836,23 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                         </NodeStyles.Icon>
                         <NodeStyles.Row readOnly={readOnly}>
                             <NodeStyles.Header onClick={handleOnClick}>
-                                <NodeStyles.Title>{nodeTitle}</NodeStyles.Title>
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px", lineHeight: 1, maxWidth: `${NODE_WIDTH - 80}px` }}>
+                                    <NodeStyles.Title>{nodeTitle}</NodeStyles.Title>
+                                    {model.node.properties?.credential?.value && (
+                                        <NodeStyles.AgentIdBadge
+                                            title=""
+                                            onMouseEnter={() => setAgentIdHovered(true)}
+                                            onMouseLeave={() => setAgentIdHovered(false)}
+                                        >
+                                            <Icon name="workspace-trusted" isCodicon={true} iconSx={{ fontSize: "14px" }} sx={{ color: "#0e8a6e" }} />
+                                            {agentIdHovered && (
+                                                <NodeStyles.AgentIdTooltip>
+                                                    Agent ID Enabled
+                                                </NodeStyles.AgentIdTooltip>
+                                            )}
+                                        </NodeStyles.AgentIdBadge>
+                                    )}
+                                </div>
                                 <NodeStyles.Description>
                                     {model.node.properties.variable?.value as ReactNode}
                                 </NodeStyles.Description>
@@ -860,41 +945,45 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                         </Popover>
                     </NodeStyles.MemoryContainer>
 
-                    {nodeMetadata?.agent?.role ? (
-                        <NodeStyles.Row readOnly={readOnly} onClick={handleOnClick}>
-                            <NodeStyles.Role>
-                                <ReactMarkdown
-                                    disallowedElements={['script', 'iframe', 'object', 'embed', 'link', 'style']}
-                                    unwrapDisallowed={true}
-                                >
-                                    {nodeMetadata.agent.role}
-                                </ReactMarkdown>
-                            </NodeStyles.Role>
-                        </NodeStyles.Row>
-                    ) : (
-                        <NodeStyles.Row readOnly={readOnly} onClick={handleOnClick}>
-                            <NodeStyles.RolePlaceholder>Define agent's role</NodeStyles.RolePlaceholder>
-                        </NodeStyles.Row>
-                    )}
+                    {
+                        sanitizedAgent?.role ? (
+                            <NodeStyles.Row readOnly={readOnly} onClick={handleOnClick}>
+                                <NodeStyles.Role>
+                                    <ReactMarkdown
+                                        disallowedElements={['script', 'iframe', 'object', 'embed', 'link', 'style']}
+                                        unwrapDisallowed={true}
+                                    >
+                                        {sanitizedAgent?.role}
+                                    </ReactMarkdown>
+                                </NodeStyles.Role>
+                            </NodeStyles.Row>
+                        ) : (
+                            <NodeStyles.Row readOnly={readOnly} onClick={handleOnClick}>
+                                <NodeStyles.RolePlaceholder>Define agent's role</NodeStyles.RolePlaceholder>
+                            </NodeStyles.Row>
+                        )
+                    }
 
-                    {nodeMetadata?.agent?.instructions ? (
-                        <NodeStyles.InstructionsRow readOnly={readOnly} onClick={handleOnClick}>
-                            <NodeStyles.Instructions>
-                                <ReactMarkdown
-                                    disallowedElements={['script', 'iframe', 'object', 'embed', 'link', 'style']}
-                                    unwrapDisallowed={true}
-                                >
-                                    {nodeMetadata.agent.instructions}
-                                </ReactMarkdown>
-                            </NodeStyles.Instructions>
-                        </NodeStyles.InstructionsRow>
-                    ) : (
-                        <NodeStyles.InstructionsRow readOnly={readOnly} onClick={handleOnClick}>
-                            <NodeStyles.InstructionsPlaceholder>
-                                Provide specific instructions on how the agent should behave.
-                            </NodeStyles.InstructionsPlaceholder>
-                        </NodeStyles.InstructionsRow>
-                    )}
+                    {
+                        sanitizedAgent?.instructions ? (
+                            <NodeStyles.InstructionsRow readOnly={readOnly} onClick={handleOnClick}>
+                                <NodeStyles.Instructions>
+                                    <ReactMarkdown
+                                        disallowedElements={['script', 'iframe', 'object', 'embed', 'link', 'style']}
+                                        unwrapDisallowed={true}
+                                    >
+                                        {sanitizedAgent?.instructions}
+                                    </ReactMarkdown>
+                                </NodeStyles.Instructions>
+                            </NodeStyles.InstructionsRow>
+                        ) : (
+                            <NodeStyles.InstructionsRow readOnly={readOnly} onClick={handleOnClick}>
+                                <NodeStyles.InstructionsPlaceholder>
+                                    Provide specific instructions on how the agent should behave.
+                                </NodeStyles.InstructionsPlaceholder>
+                            </NodeStyles.InstructionsRow>
+                        )
+                    }
                 </NodeStyles.Column>
                 <NodeStyles.BottomPortWidget port={model.getPort("out")!} engine={engine} />
             </NodeStyles.Box>
@@ -952,7 +1041,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                         fill={ThemeColors.ON_SURFACE}
                         style={{ pointerEvents: "none" }}
                     >
-                        {getAIModuleIcon(nodeMetadata?.model?.type) ?? <DefaultLlmIcon />}
+                        {getAIModuleIcon(nodeMetadata?.model?.type) ?? (nodeModelIconUrl ? <img src={nodeModelIconUrl} style={{ width: 24, height: 24 }} /> : <DefaultLlmIcon />)}
                     </foreignObject>
 
                     {/* Base Line */}
@@ -1229,14 +1318,14 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                     </Menu>
                 </Popover>
 
-                {/* Add "Add new tool" button below all tools */}
-                <g
+                {/* Add "Add new tool" button below all tools — hidden in read-only mode */}
+                {!readOnly && <g
                     transform={`translate(-11, ${tools.length > 0
                         ? (tools.length + 1) * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP) + AGENT_NODE_TOOL_SECTION_GAP
                         : NODE_HEIGHT + AGENT_NODE_TOOL_SECTION_GAP
                         })`}
                     onClick={onAddToolClick}
-                    style={{ cursor: readOnly ? "default" : "pointer" }}
+                    style={{ cursor: "pointer" }}
                 >
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -1287,7 +1376,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                             Add New Tool / MCP Server
                         </div>
                     </foreignObject>
-                </g>
+                </g>}
 
                 <defs>
                     <marker
@@ -1374,12 +1463,25 @@ function sanitizeId(name: string): string {
 // sanitize agent instructions and role
 // remove leading and trailing quotes
 // remove suffix "string `" and prefix "`"
-function sanitizeAgentData(data: AgentData) {
-    if (data.role) {
-        data.role = data.role.replace(/^['"]|['"]$/g, "").replace(/^string `|`$/g, "");
+function stripWrappingQuotes(str: string): string {
+    // Handle `string \`...\`` template format — backticks are the definitive wrapper, no further stripping needed
+    if (str.startsWith('string `') && str.endsWith('`')) {
+        return str.slice('string `'.length, -1);
     }
-    if (data.instructions) {
-        data.instructions = data.instructions.replace(/^['"]|['"]$/g, "").replace(/^string `|`$/g, "");
+    // Only strip quotes if wrapped in a single matching pair (not multiple like """...""")
+    if (
+        ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'")))
+        && !(str.startsWith('""') || str.startsWith("''"))
+    ) {
+        return str.slice(1, -1);
     }
-    return data;
+    return str;
+}
+
+function sanitizeAgentData(data: AgentData): AgentData {
+    return {
+        ...data,
+        role: data.role ? stripWrappingQuotes(data.role) : data.role,
+        instructions: data.instructions ? stripWrappingQuotes(data.instructions) : data.instructions,
+    };
 }

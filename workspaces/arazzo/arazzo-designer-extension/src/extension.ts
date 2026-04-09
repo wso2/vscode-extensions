@@ -24,6 +24,7 @@ import { StateMachine, openView } from './stateMachine';
 import { extension } from './Context';
 import { activate as activateHistory } from './history';
 import { activateVisualizer } from './visualizer/activate';
+import { activateMCPServer } from './mcp';
 import { RPCLayer } from './RPCLayer';
 import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/arazzo-designer-core';
 import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange } from './mcp/mcpServerRunner';
