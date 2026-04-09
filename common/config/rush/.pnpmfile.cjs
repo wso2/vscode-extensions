@@ -23,7 +23,7 @@ module.exports = {
         if (deps['braces']) deps['braces'] = '3.0.3';
         if (deps['micromatch']) deps['micromatch'] = '4.0.8';
         if (deps['js-yaml']) deps['js-yaml'] = '4.1.1';
-        if (deps['diff']) deps['diff'] = '^8.0.3';
+        if (deps['diff']) deps['diff'] = '8.0.3';
         if (deps['eslint']) deps['eslint'] = '^9.27.0';
         if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.5.7';
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
@@ -42,14 +42,7 @@ module.exports = {
         if (deps['handlebars']) deps['handlebars'] = '4.7.9';
         if (deps['tmp']) deps['tmp'] = '0.2.4';
         if (deps['undici']) deps['undici'] = '7.24.0';
-        if (deps['vite']) {
-          const currentVersion = deps['vite'];
-          if (currentVersion.startsWith('^6.0') || currentVersion.startsWith('~6.0') || currentVersion.startsWith('6.0')) {
-            deps['vite'] = '6.0.14';
-          } else {
-            deps['vite'] = '6.4.1';
-          }
-        }
+        if (deps['vite']) deps['vite'] = '6.0.14';
         if (deps['yauzl']) deps['yauzl'] = '3.2.1';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
