@@ -39,6 +39,7 @@ module.exports = {
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5';
         if (deps['flatted']) deps['flatted'] = '3.4.2';
         if (deps['handlebars']) deps['handlebars'] = '4.7.9';
+        if (deps['tmp']) deps['tmp'] = '0.2.4';
         if (deps['undici']) deps['undici'] = '7.24.0';
         if (deps['vite']) {
           const currentVersion = deps['vite'];
