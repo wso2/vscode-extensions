@@ -23,6 +23,7 @@
 const path = require('path');
 const dotenv = require('dotenv');
 const webpack = require('webpack');
+const TerserPlugin = require('terser-webpack-plugin');
 const { createEnvDefinePlugin } = require('../../../common/scripts/env-webpack-helper');
 
 const envPath = path.resolve(__dirname, '.env');
@@ -84,5 +85,17 @@ module.exports = {
   devtool: !process.env.CI ? "nosources-source-map" : undefined,
   infrastructureLogging: {
     level: "log",
+  },
+  optimization: {
+    minimizer: [
+      new TerserPlugin({
+        // Avoid ERR_WORKER_OUT_OF_MEMORY on large bundles (CI agents with limited RAM).
+        parallel: false,
+        terserOptions: {
+          keep_classnames: true,
+          keep_fnames: true,
+        },
+      }),
+    ],
   },
 };
