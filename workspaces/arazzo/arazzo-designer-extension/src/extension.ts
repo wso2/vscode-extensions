@@ -49,7 +49,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	RPCLayer.init();
 	activateHistory();
 	activateVisualizer(context);
-	activateMCPServer(context);
 	StateMachine.initialize();
 
 	// Prompt user to enable Arazzo file icon theme (one-time)
