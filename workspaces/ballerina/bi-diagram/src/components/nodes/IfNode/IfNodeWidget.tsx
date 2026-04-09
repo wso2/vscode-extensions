@@ -138,7 +138,7 @@ export interface NodeWidgetProps extends Omit<IfNodeWidgetProps, "children"> {}
 
 export function IfNodeWidget(props: IfNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId, currentUserId } =
+    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId, currentUserId, setMenuOpenNodeId } =
         useDiagramContext();
 
     const isSelected = selectedNodeId === model.node.id;
@@ -188,6 +188,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
             return;
         }
         setAnchorEl(event.currentTarget);
+        setMenuOpenNodeId?.(model.node.id);
     };
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -201,6 +202,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
     const handleOnMenuClose = () => {
         setAnchorEl(null);
         setIsHovered(false);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const onAddBreakpoint = () => {

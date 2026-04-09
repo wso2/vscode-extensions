@@ -167,7 +167,7 @@ export interface NodeWidgetProps extends Omit<CommentNodeWidgetProps, "children"
 
 export function CommentNodeWidget(props: CommentNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, goToSource, onDeleteNode, readOnly, selectedNodeId, currentUserId } = useDiagramContext();
+    const { onNodeSelect, goToSource, onDeleteNode, readOnly, selectedNodeId, currentUserId, setMenuOpenNodeId } = useDiagramContext();
     const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
 
     const isSelected = selectedNodeId === model.node.id;
@@ -208,11 +208,13 @@ export function CommentNodeWidget(props: CommentNodeWidgetProps) {
             return;
         }
         setAnchorEl(event.currentTarget);
+        setMenuOpenNodeId?.(model.node.id);
     };
 
     const handleOnMenuClose = () => {
         setAnchorEl(null);
         setIsHovered(false);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const menuItems: Item[] = [

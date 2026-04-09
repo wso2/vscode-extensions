@@ -138,6 +138,8 @@ export interface DiagramContextState {
     remoteCursors?: Map<string, any>;
     onCursorMove?: (x: number, y: number, nodeId?: string) => void;
     isCollaborationActive?: boolean;
+    menuOpenNodeId?: string;
+    setMenuOpenNodeId?: (nodeId: string | undefined) => void;
     expressionContext: ExpressionContextProps;
     entrypointContext?: {
         serviceName?: string;
@@ -206,6 +208,8 @@ export const DiagramContext = React.createContext<DiagramContextState>({
     lockCanvas: false,
     setLockCanvas: (_lock: boolean) => { },
     isUserAuthenticated: false,
+    menuOpenNodeId: undefined,
+    setMenuOpenNodeId: () => { },
     expressionContext: {
         completions: [],
         triggerCharacters: [],
@@ -217,11 +221,14 @@ export const useDiagramContext = () => React.useContext(DiagramContext);
 
 export function DiagramContextProvider(props: { children: React.ReactNode; value: DiagramContextState }) {
     const [lockCanvas, setLockCanvas] = useState(false);
+    const [menuOpenNodeId, setMenuOpenNodeId] = useState<string | undefined>(undefined);
 
     const ctx = {
         ...props.value,
         lockCanvas,
         setLockCanvas,
+        menuOpenNodeId,
+        setMenuOpenNodeId,
     };
 
     return <DiagramContext.Provider value={ctx}>{props.children}</DiagramContext.Provider>;

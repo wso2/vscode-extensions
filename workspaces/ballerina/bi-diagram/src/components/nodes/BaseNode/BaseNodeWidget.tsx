@@ -189,6 +189,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
         selectedNodeId,
         project,
         currentUserId,
+        setMenuOpenNodeId,
     } = useDiagramContext();
 
     const isSelected = selectedNodeId === model.node.id;
@@ -255,6 +256,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
             return;
         }
         setMenuAnchorEl(event.currentTarget);
+        setMenuOpenNodeId?.(model.node.id);
     };
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -268,6 +270,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
     const handleOnMenuClose = () => {
         setMenuAnchorEl(null);
         setIsHovered(false);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const handleOnViewFunctionClick = () => {

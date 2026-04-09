@@ -188,6 +188,7 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
         toggleErrorHandlerExpansion,
         selectedNodeId,
         currentUserId,
+        setMenuOpenNodeId,
     } = useDiagramContext();
     const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
 
@@ -251,6 +252,7 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
             return;
         }
         setAnchorEl(event.currentTarget);
+        setMenuOpenNodeId?.(model.node.id);
     };
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -264,6 +266,7 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
     const handleOnMenuClose = () => {
         setAnchorEl(null);
         setIsHovered(false);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const menuItems: Item[] = [

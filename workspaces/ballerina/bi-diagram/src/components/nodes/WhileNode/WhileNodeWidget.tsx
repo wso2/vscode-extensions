@@ -191,7 +191,7 @@ export interface NodeWidgetProps extends Omit<WhileNodeWidgetProps, "children"> 
 
 export function WhileNodeWidget(props: WhileNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId, currentUserId } = useDiagramContext();
+    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId, currentUserId, setMenuOpenNodeId } = useDiagramContext();
     const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
 
     const isSelected = selectedNodeId === model.node.id;
@@ -257,6 +257,7 @@ export function WhileNodeWidget(props: WhileNodeWidgetProps) {
             return;
         }
         setAnchorEl(event.currentTarget);
+        setMenuOpenNodeId?.(model.node.id);
     };
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -270,6 +271,7 @@ export function WhileNodeWidget(props: WhileNodeWidgetProps) {
     const handleOnMenuClose = () => {
         setAnchorEl(null);
         setIsHovered(false);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const menuItems: Item[] = [

@@ -489,7 +489,7 @@ export interface NodeWidgetProps extends Omit<AgentCallNodeWidgetProps, "childre
 
 export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, goToSource, onDeleteNode, removeBreakpoint, addBreakpoint, agentNode, readOnly, selectedNodeId, entrypointContext, currentUserId } =
+    const { onNodeSelect, goToSource, onDeleteNode, removeBreakpoint, addBreakpoint, agentNode, readOnly, selectedNodeId, entrypointContext, currentUserId, setMenuOpenNodeId } =
         useDiagramContext();
     const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
     const traceAnimation = useTraceAnimation();
@@ -599,6 +599,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
             return;
         }
         setAnchorEl(event.currentTarget);
+        setMenuOpenNodeId?.(model.node.id);
     };
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -612,6 +613,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     const handleOnMenuClose = () => {
         setAnchorEl(null);
         setIsBoxHovered(false);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const handleToolMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>, tool: ToolData) => {

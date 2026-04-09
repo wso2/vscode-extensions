@@ -215,7 +215,7 @@ export interface NodeWidgetProps extends Omit<ApiCallNodeWidgetProps, "children"
 
 export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, onConnectionSelect, goToSource, onDeleteNode, removeBreakpoint, addBreakpoint, readOnly, selectedNodeId, currentUserId } =
+    const { onNodeSelect, onConnectionSelect, goToSource, onDeleteNode, removeBreakpoint, addBreakpoint, readOnly, selectedNodeId, currentUserId, setMenuOpenNodeId } =
         useDiagramContext();
 
     const isSelected = selectedNodeId === model.node.id;
@@ -286,6 +286,7 @@ export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
             return;
         }
         setAnchorEl(event.currentTarget);
+        setMenuOpenNodeId?.(model.node.id);
     };
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -296,6 +297,7 @@ export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
     const handleOnMenuClose = () => {
         setAnchorEl(null);
         setIsBoxHovered(false);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const onAddBreakpoint = () => {

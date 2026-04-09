@@ -80,7 +80,7 @@ function screenToDiagramPosition(engine: any, screenX: number, screenY: number):
 
 export function DiagramCanvas(props: DiagramCanvasProps) {
     const { color, background, children } = props;
-    const { lockCanvas, onCursorMove, isCollaborationActive, diagramEngine, selectedNodeId } = useDiagramContext();
+    const { lockCanvas, onCursorMove, isCollaborationActive, diagramEngine, selectedNodeId, menuOpenNodeId } = useDiagramContext();
 
     const handleMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
         if (onCursorMove && isCollaborationActive) {
@@ -101,20 +101,20 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 }
             });
             
-            if (selectedNodeId) {
-                const selectedNodeAnchor = getPreferredCursorAnchor(diagramEngine, selectedNodeId);
-                if (selectedNodeAnchor) {
-                    onCursorMove(selectedNodeAnchor.x, selectedNodeAnchor.y, selectedNodeId);
+            const anchorNodeId = menuOpenNodeId || selectedNodeId;
+            if (anchorNodeId) {
+                const anchor = getPreferredCursorAnchor(diagramEngine, anchorNodeId);
+                if (anchor) {
+                    onCursorMove(anchor.x, anchor.y, anchorNodeId);
                     return;
                 }
-
-                onCursorMove(diagramPos.x, diagramPos.y, selectedNodeId);
+                onCursorMove(diagramPos.x, diagramPos.y, anchorNodeId);
                 return;
             }
 
             onCursorMove(diagramPos.x, diagramPos.y);
         }
-    }, [onCursorMove, isCollaborationActive, diagramEngine, selectedNodeId]);
+    }, [onCursorMove, isCollaborationActive, diagramEngine, selectedNodeId, menuOpenNodeId]);
 
     return (
         <>
