@@ -97,12 +97,6 @@
         "command": "arazzo.openDesigner",
         "title": "Open Arazzo Designer",
         "category": "Arazzo"
-      },
-      {
-        "command": "ArazzoDesigner.runMCPServer",
-        "title": "Run MCP Server",
-        "category": "ArazzoDesigner",
-        "icon": "$(play)"
       }
     ],
     "menus": {
