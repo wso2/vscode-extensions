@@ -6,10 +6,10 @@ info:
     Tests various expression types:
     - $inputs references
     - $steps.stepId.outputs.x
-    - $response.body#/json/pointer (JSON Pointer notation per Arazzo spec ABNF)
+    - $response.body#/json/pointer (JSON Pointer notation)
+    - $response.body.dotNotation (dot notation)
     - $statusCode
-    - Nested object access 2 levels deep (brand, category within product)
-    - Deeply nested access 3 levels deep (product_image within product)
+    - Nested object access (brand, category within product)
     - Array element access within paginated response
 
 sourceDescriptions:
@@ -62,9 +62,9 @@ workflows:
           categoryName: "$response.body#/category/name"
           categorySlug: "$response.body#/category/slug"
           categoryParentId: "$response.body#/category/parent_id"
-          imageTitle: "$response.body#/product_image/title"
-          imageFile: "$response.body#/product_image/file_name"
-          imageSourceName: "$response.body#/product_image/source_name"
+          dotNotationName: "$response.body.name"
+          dotNotationBrandName: "$response.body.brand.name"
+          dotNotationCategoryName: "$response.body.category.name"
           httpStatus: "$statusCode"
 
     outputs:
@@ -85,9 +85,9 @@ workflows:
       detailCategoryName: "$steps.getProductDetail.outputs.categoryName"
       detailCategorySlug: "$steps.getProductDetail.outputs.categorySlug"
       detailCategoryParentId: "$steps.getProductDetail.outputs.categoryParentId"
-      # From detail step - deeply nested JSON Pointer (3 levels: product_image object)
-      imageTitle: "$steps.getProductDetail.outputs.imageTitle"
-      imageFile: "$steps.getProductDetail.outputs.imageFile"
-      imageSourceName: "$steps.getProductDetail.outputs.imageSourceName"
+      # From detail step - dot notation
+      dotName: "$steps.getProductDetail.outputs.dotNotationName"
+      dotBrandName: "$steps.getProductDetail.outputs.dotNotationBrandName"
+      dotCategoryName: "$steps.getProductDetail.outputs.dotNotationCategoryName"
       # Status code
       detailHttpStatus: "$steps.getProductDetail.outputs.httpStatus"
