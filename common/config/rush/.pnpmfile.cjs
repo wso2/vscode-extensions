@@ -17,6 +17,7 @@ module.exports = {
     readPackage(pkg, context) {
       function applyOverrides(deps) {
         if (!deps) return;
+        if (deps['axios']) deps['axios'] = '1.15.0';
         if (deps['http-proxy']) deps['http-proxy'] = '1.18.1';
         if (deps['prismjs']) deps['prismjs'] = '1.30.0';
         if (deps['xmldom']) deps['xmldom'] = 'npm:@xmldom/xmldom@0.8.10';
