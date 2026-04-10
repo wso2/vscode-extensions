@@ -94,7 +94,7 @@ const LabelContainer = styled.div<ContainerProps>`
 `;
 
 export const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>((props, ref) => {
-    const { isLoading, isRequired, id, items, label, errorMsg, sx, containerSx, addNewBtnLabel, addNewBtnClick, description, descriptionSx, dropdownContainerSx, labelAdornment, "aria-label": ariaLabel, ...rest } = props;
+    const { isLoading, isRequired, id, items, label, errorMsg, sx, containerSx, addNewBtnLabel, addNewBtnClick, description, descriptionSx, dropdownContainerSx, labelAdornment, "aria-label": ariaLabel, disabled, ...rest } = props;
 
     const handleValueChange = (e: any) => {
         props.onValueChange && props.onValueChange(e.target.value);
@@ -121,9 +121,9 @@ export const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>((prop
                             {description}
                         </Description>
                     )}
-                    <VSCodeDropdown ref={ref} id={id} aria-label={ariaLabel ? ariaLabel : `${label}${isRequired ? "*" : ""}`} style={sx} {...rest} onChange={handleValueChange}>
+                    <VSCodeDropdown ref={ref} id={id} aria-label={ariaLabel ? ariaLabel : `${label}${isRequired ? "*" : ""}`} style={sx} disabled={disabled || undefined} {...rest} onChange={handleValueChange}>
                         {items?.map((item: OptionProps) => (
-                            <VSCodeOption key={item?.id} value={item.value} disabled={item.disabled}>
+                            <VSCodeOption key={item?.id} value={item.value} disabled={item.disabled || undefined}>
                                 {item?.content || item.value}
                             </VSCodeOption>
                         ))}
