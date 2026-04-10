@@ -1,7 +1,7 @@
-arazzo: "1.0.0"
+arazzo: 1.0.0
 info:
   title: "Test 05 - Nested Workflow and Dependencies"
-  version: "1.0.0"
+  version: 1.0.0
   description: >
     Tests nested workflow execution (step with workflowId) and
     workflow dependencies (dependsOn).
