@@ -159,7 +159,7 @@
     "clean": "rimraf ./dist",
     "compile": "webpack",
     "watch": "webpack --watch",
-    "package": "node ../../common-libs/scripts/package-vsix.js",
+    "package": "node ../../common-libs/scripts/package-vsix.js --baseImagesUrl https://raw.githubusercontent.com/wso2/vscode-extensions/main/workspaces/hurl-client/hurl-client-extension/",
     "lint": "eslint src --ext ts",
     "build": "pnpm clean && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run copyVSIX",
     "copyVSIX": "copyfiles *.vsix ./vsix",

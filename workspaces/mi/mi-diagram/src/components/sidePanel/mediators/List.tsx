@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { Codicon, ErrorBanner, LinkButton, ProgressRing, Tooltip } from '@wso2/ui-toolkit';
+import { Button, Codicon, ComponentCard, ErrorBanner, LinkButton, ProgressRing, Tooltip } from '@wso2/ui-toolkit';
 import React, { useEffect } from 'react';
 import SidePanelContext from '../SidePanelContexProvider';
 import { getMediatorIconsFromFont } from '../../../resources/icons/mediatorIcons/icons';
@@ -217,7 +217,7 @@ export function Mediators(props: MediatorProps) {
                     });
 
                     if (filtered.length > 0) {
-                        searchedCategories[categoryKey] = filtered ;
+                        searchedCategories[categoryKey] = filtered;
                     } else {
                         delete searchedCategories[categoryKey];
                     }
@@ -259,11 +259,11 @@ export function Mediators(props: MediatorProps) {
 
     const deleteConnector = async (connectorName: string, artifactId: string, version: string, iconUrl: string, connectorPath: string) => {
         const removePage = <RemoveConnectorPage
-                        connectorName={connectorName}
-                        artifactId={artifactId}
-                        version={version}
-                        connectorPath={connectorPath}
-                        onRemoveSuccess={reloadPalette} />;
+            connectorName={connectorName}
+            artifactId={artifactId}
+            version={version}
+            connectorPath={connectorPath}
+            onRemoveSuccess={reloadPalette} />;
 
         sidepanelAddPage(sidePanelContext, removePage, FirstCharToUpperCase(connectorName), iconUrl);
     }
@@ -277,6 +277,20 @@ export function Mediators(props: MediatorProps) {
         }
         setIsLoading(false);
     }
+
+    /**
+     * Determines whether a connector belongs to the current project.
+     *
+     * @param connectorName - The name (or display name) of the connector to check.
+     * @returns `true` if the connector is local to the current project, `false` otherwise.
+     */
+    const isLocalConnector = (connectorName: string): boolean => {
+        if (!localConnectors) return false;
+        const connector = localConnectors.find((c: any) =>
+            c.displayName ? c.displayName === connectorName : c.name?.toLowerCase() === connectorName.toLowerCase()
+        );
+        return connector?.fromProject === true;
+    };
 
     const firstCharToUpperCaseForDefault = (name: string) => {
         if (INBUILT_MODULES.includes(name)) {
@@ -296,6 +310,34 @@ export function Mediators(props: MediatorProps) {
         const icon = <Codicon name="library" iconSx={{ fontSize: 20, color: 'var(--vscode-textLink-foreground)' }} />
 
         sidepanelAddPage(sidePanelContext, modulesList, 'Add Modules', icon);
+    }
+
+    const isAIMediatorVersionValid = () => {
+        if (!allMediators?.AI?.version) return false;
+        
+        const version = allMediators.AI.version.split('.').map(Number);
+        const minVersion = [0, 2, 1];
+        
+        // Compare major.minor.patch
+        if (version[0] > minVersion[0]) return true;
+        if (version[1] > minVersion[1]) return true;
+        if (version[1] < minVersion[1]) return false;
+        return version[2] >= minVersion[2];
+    };
+
+    const AddMcpServer = () => {
+        const mediator: Mediator = {
+            tag: 'ai.mcpTools',
+            title: 'MCP Tools',
+            type: 'mcp',
+            description: 'Connect to Model Context Protocol Server',
+            icon: 'mcp',
+            operationName: 'MCPtools',
+            iconPath: '',
+            tooltip: 'Add MCP Server connection'
+        };
+
+        getMediator(mediator, false, <Codicon name="mcp" />)
     }
 
     const MediatorGrid = ({ mediator, key }: { mediator: Mediator; key: string }) => {
@@ -353,7 +395,7 @@ export function Mediators(props: MediatorProps) {
                             connectorDetails={values["isConnector"] ?
                                 { artifactId: values["artifactId"], version: values["version"], connectorPath: values["connectorPath"],
                                     isBallerinaModule: values["isBallerinaModule"], ballerinaModulePath: values["ballerinaModulePath"] } : undefined}
-                            onDelete={deleteConnector}
+                            onDelete={isLocalConnector(key) ? deleteConnector : undefined}
                             onRefresh={refreshConnector}
                             versionTag={values.version}
                             disableGrid={values.isSupportCategories}>
@@ -366,6 +408,14 @@ export function Mediators(props: MediatorProps) {
                             ) : (
                                 <>
                                     {Object.entries(values.items as unknown as MediatorCategory).map(([key, group]) => {
+                                        const filteredGroup = (group as Mediator[]).filter(
+                                            (child) => child.operationName !== 'mcpTools'
+                                        );
+
+                                        if (filteredGroup.length === 0) {
+                                            return null;
+                                        }
+
                                         return (
                                             <>
                                                 <div style={{
@@ -376,7 +426,7 @@ export function Mediators(props: MediatorProps) {
                                                     {key}
                                                 </div>
                                                 <ButtonGrid>
-                                                    {(group as Mediator[]).map((mediator: Mediator) => (
+                                                    {filteredGroup.map((mediator: Mediator) => (
                                                         <MediatorGrid mediator={mediator} key={key} />
                                                     ))}
                                                 </ButtonGrid>
@@ -405,6 +455,23 @@ export function Mediators(props: MediatorProps) {
                                 <Codicon name="plus" />Add Module
                             </LinkButton>
                         </div>
+                        {(sidePanelContext.node as any).mediatorName === "ai.agent" &&
+                            (sidePanelContext.node as any).stNode.tag === "tools" &&
+                            isAIMediatorVersionValid() &&
+                            <div style={{ marginTop: '15px' }}>
+                                <ComponentCard
+                                    sx={{
+                                        border: '0px',
+                                        borderRadius: 2,
+                                        padding: '6px 10px',
+                                        width: 'auto',
+                                        height: '32px',
+                                        backgroundColor: Colors.CARD_BUTTON_BACKGROUND
+                                    }}
+                                    onClick={() => AddMcpServer()}>
+                                    <Codicon name="mcp" />Add MCP Tools
+                                </ComponentCard>
+                            </div>}
                         <MediatorList />
                         <ModuleSuggestions
                             documentUri={props.documentUri}

@@ -1,4 +1,7 @@
 packages:
+  - 'workspaces/api-designer/*'
+  - 'workspaces/api-tryit/*'
+  - 'workspaces/apk/*'
   - 'workspaces/*'
   - 'workspaces/ballerina/*'
   - 'workspaces/choreo/*'

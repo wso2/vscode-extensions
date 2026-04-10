@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 import { extension } from './MIExtensionContext';
 import { activate as activateHistory } from './history';
 import { activateVisualizer } from './visualizer/activate';
-import { activateAiPanel } from './ai-panel/activate';
+import { activateAiPanel } from './ai-features/activate';
 
 import { activateDebugger } from './debugger/activate';
 import { activateMigrationSupport } from './migration';
@@ -28,14 +28,17 @@ import { activateRuntimeService } from './runtime-services-panel/activate';
 import { MILanguageClient } from './lang-client/activator';
 import { activateUriHandlers } from './uri-handler';
 import { extensions, workspace } from 'vscode';
-import { StateMachineAI } from './ai-panel/aiMachine';
+import { StateMachineAI } from './ai-features/aiMachine';
 import { isOldProjectOrWorkspace, getStateMachine } from './stateMachine';
 import { webviews } from './visualizer/webview';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { COMMANDS } from './constants';
 import { enableLS } from './util/workspace';
+import { disposeMIAgentPanelRpcManager } from './rpc-managers/agent-mode/rpc-handler';
+import { isConsolidatedProject } from './util/onboardingUtils';
 const os = require('os');
+const fs = require('fs');
 
 export async function activate(context: vscode.ExtensionContext) {
 	extension.context = context;
@@ -45,6 +48,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		.flatMap((tabGroup) => tabGroup.tabs)
 		.filter((tab) => (tab.input as any)?.viewType?.includes("micro-integrator."));
 	vscode.window.tabGroups.close(orphanedTabs);
+
+	if (workspace.workspaceFolders) {
+		for (const folder of workspace.workspaceFolders) {
+			await replaceWithSubProjects(folder);
+		}
+	}
 
 	const oldProjects = workspace.workspaceFolders
 		? (await Promise.all(
@@ -68,21 +77,22 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 	workspace.onDidChangeWorkspaceFolders(async (event) => {
 		if (event.added.length > 0) {
-			const newProject = event.added[0];
-			getStateMachine(newProject.uri.fsPath);
+			for (const addedProject of event.added) {
+				getStateMachine(addedProject.uri.fsPath);
+			}
 		}
 		if (event.removed.length > 0) {
-			const removedProject = event.removed[0];
-			const webview = webviews.get(removedProject.uri.fsPath);
-
-			if (webview) {
-				webview.dispose();
+			for (const removedProject of event.removed) {
+				disposeMIAgentPanelRpcManager(removedProject.uri.fsPath);
+				const webview = webviews.get(removedProject.uri.fsPath);
+				if (webview) {
+					webview.dispose();
+				}
 			}
 		}
 		// refresh project explorer
 		vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND);
-	}
-	);
+	});
 	StateMachineAI.initialize();
 
 	activateUriHandlers();
@@ -122,4 +132,40 @@ export function checkForDevantExt() {
 		return false;
 	}
 	return true;
+}
+
+async function replaceWithSubProjects(folder: vscode.WorkspaceFolder) {
+	try {
+		const folderPath = folder.uri.fsPath;
+		if (!isConsolidatedProject(folderPath)) {
+			return;
+		}
+
+		const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
+		const subUris: vscode.Uri[] = [];
+
+		for (const entry of entries) {
+			const subPath = path.join(folderPath, entry.name);
+			if (!entry.isDirectory() || entry.name.startsWith('.') || fs.existsSync(path.join(subPath, '.docker-build'))) {
+				continue;
+			}
+			const pomPath = path.join(subPath, 'pom.xml');
+
+			if (fs.existsSync(pomPath)) {
+				subUris.push(vscode.Uri.file(subPath));
+			}
+		}
+
+		if (subUris.length === 0) {
+			return;
+		}
+		vscode.workspace.updateWorkspaceFolders(
+			folder.index,   // start index
+			1,              // remove the consolidated project folder
+			...subUris.map(uri => ({ uri }))
+		);
+
+	} catch (err) {
+		console.error('Error replacing consolidated project', err);
+	}
 }

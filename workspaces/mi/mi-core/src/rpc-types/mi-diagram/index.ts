@@ -226,6 +226,8 @@ import {
     GetMediatorsResponse,
     GetMediatorRequest,
     GetMediatorResponse,
+    McpToolsRequest,
+    McpToolsResponse,
     UpdateMediatorRequest,
     ExpressionCompletionsRequest,
     ExpressionCompletionsResponse,
@@ -265,7 +267,16 @@ import {
     ConfigureKubernetesResponse,
     UpdateRegistryPropertyRequest,
     Property,
-    GenerateMappingsParamsRequest
+    GenerateMappingsParamsRequest,
+    ProjectCreationStatusResponse,
+    LoadDriverAndTestConnectionRequest,
+    GetDynamicFieldsRequest,
+    GetDynamicFieldsResponse,
+    GetStoredProceduresResponse,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse,
 } from "./types";
 
 export interface MiDiagramAPI {
@@ -324,7 +335,7 @@ export interface MiDiagramAPI {
     openDiagram: (params: OpenDiagramRequest) => void;
     openFile: (params: OpenDiagramRequest) => void;
     closeWebViewNotification: () => void;
-    getWorkspaceRoot: () => Promise<ProjectRootResponse>;
+    getWorkspaceRoot: (params?: boolean) => Promise<ProjectRootResponse>;
     getProjectRoot: (params: GetProjectRootRequest) => Promise<ProjectRootResponse>;
     askProjectDirPath: () => Promise<ProjectDirResponse>;
     askProjectImportDirPath: () => Promise<ProjectDirResponse>;
@@ -426,6 +437,7 @@ export interface MiDiagramAPI {
     getMediators: (param: GetMediatorsRequest) => Promise<GetMediatorsResponse>;
     getMediator: (param: GetMediatorRequest) => Promise<GetMediatorResponse>;
     updateMediator: (param: UpdateMediatorRequest) => void;
+    getMcpTools: (param: McpToolsRequest) => Promise<McpToolsResponse>;
     getLocalInboundConnectors: () => Promise<LocalInboundConnectorsResponse>;
     getConnectionSchema: (param: GetConnectionSchemaRequest) => Promise<GetConnectionSchemaResponse>;
     getExpressionCompletions: (params: ExpressionCompletionsRequest) => Promise<ExpressionCompletionsResponse>;
@@ -446,4 +458,11 @@ export interface MiDiagramAPI {
     updatePropertiesInArtifactXML: (params: UpdateRegistryPropertyRequest) => Promise<string>;
     getPropertiesFromArtifactXML: (params: string) => Promise<Property[] | undefined>;
     getInputOutputMappings: (params: GenerateMappingsParamsRequest) => Promise<string[]>;
+    loadDriverAndTestConnection: (params: LoadDriverAndTestConnectionRequest) => Promise<TestDbConnectionResponse>;
+    getDynamicFields: (params: GetDynamicFieldsRequest) => Promise<GetDynamicFieldsResponse>;
+    getStoredProcedures: (params: DSSFetchTablesRequest) => Promise<GetStoredProceduresResponse>;
+    downloadDriverForConnector: (params: DriverDownloadRequest) => Promise<DriverDownloadResponse>;
+    getDriverMavenCoordinates: (params: DriverMavenCoordinatesRequest) => Promise<DriverMavenCoordinatesResponse>;
+    canCreateConsolidatedProject: () => Promise<ProjectCreationStatusResponse>;
+    createConsolidatedProjectFromWorkspace: (params: CreateProjectRequest) => Promise<CreateProjectResponse>;
 }
