@@ -64,6 +64,7 @@ import { activateICP } from './features/icp';
 let langClient: ExtendedLangClient;
 export let isPluginStartup = true;
 export let uriCache: UriCache;
+const remoteFileVersions = new Map<string, number>();
 
 
 const collaborationState: {
@@ -216,8 +217,10 @@ export async function activate(context: ExtensionContext) {
                         // Tell LS the file changed using the cached path
                         const langClient = extension.ballerinaExtInstance?.langClient;
                         if (langClient) {
+                            const nextVersion = (remoteFileVersions.get(localFileUri) ?? 0) + 1;
+                            remoteFileVersions.set(localFileUri, nextVersion);
                             langClient.didChange({
-                                textDocument: { uri: localFileUri, version: Date.now() },
+                                textDocument: { uri: localFileUri, version: nextVersion },
                                 contentChanges: [{ text: textContent }]
                             });
                         }
@@ -267,7 +270,7 @@ export async function activate(context: ExtensionContext) {
                             debug(`[FileSync] Match found! Refreshing project structure and triggering webview update`);
                             const projectInfo = smContext.projectInfo;
                             const lsClient = extension.ballerinaExtInstance?.langClient;
-                            const { updateView } = await import('./stateMachine');
+                            const { updateView, undoRedoManager } = await import('./stateMachine');
 
                             if (projectInfo && lsClient) {
                                 try {
@@ -288,7 +291,13 @@ export async function activate(context: ExtensionContext) {
                                     console.error('[FileSync] Retry failed to refresh project structure:', e);
                                 }
                             }
-                            updateView(false);
+                            // Guard against firing updateView mid-operation (e.g. during updateSourceCode's
+                            // startBatchOperation … commitBatchOperation window). A spurious updateView here
+                            // reads stale project structure, potentially unmounting the FlowDiagram component
+                            // and disposing the OCT presence listeners, which stops remote cursor syncing.
+                            if (!undoRedoManager?.isBatchInProgress()) {
+                                updateView(false);
+                            }
                         } else {
                             debug(`[FileSync] No match found, skipping webview update`);
                         }
@@ -304,8 +313,10 @@ export async function activate(context: ExtensionContext) {
                         // Trigger diagram refresh — adding a new Automation/Service/Connection
                         // in the BI diagram can create new .bal files on the host that must
                         // be reflected in the collaborator's diagram.
-                        const { updateView } = await import('./stateMachine');
-                        updateView(false);
+                        const { updateView, undoRedoManager } = await import('./stateMachine');
+                        if (!undoRedoManager?.isBatchInProgress()) {
+                            updateView(false);
+                        }
                     } catch (error) {
                         console.error(`[FileSync] Failed to cache new file: ${error}`);
                     }
@@ -321,8 +332,10 @@ export async function activate(context: ExtensionContext) {
                         }
                         // Trigger diagram refresh — deleting an Automation/Service removes
                         // its .bal file; collaborator's diagram must reflect the deletion.
-                        const { updateView } = await import('./stateMachine');
-                        updateView(false);
+                        const { updateView, undoRedoManager } = await import('./stateMachine');
+                        if (!undoRedoManager?.isBatchInProgress()) {
+                            updateView(false);
+                        }
                     } catch (error) {
                         console.error(`[FileSync] Failed to remove cached file: ${error}`);
                     }

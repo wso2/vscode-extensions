@@ -40,6 +40,7 @@ export class VisualizerWebview {
     public static readonly biTitle = "WSO2 Integrator";
     private _panel: vscode.WebviewPanel | undefined;
     private _disposables: vscode.Disposable[] = [];
+    private _remoteSyncInProgress: Set<string> = new Set();
 
     constructor() {
         this._panel = VisualizerWebview.createWebview();
@@ -132,6 +133,13 @@ export class VisualizerWebview {
                 console.log('[Webview] Sending update notification to webview');
                 sendUpdateNotificationToWebview();
             } else if (remoteBalFileModified && uriCache) {
+                const remoteUriKey = document.document.uri.toString();
+                if (this._remoteSyncInProgress.has(remoteUriKey)) {
+                    // Skip re-entrant sync for the same remote document.
+                    return;
+                }
+
+                this._remoteSyncInProgress.add(remoteUriKey);
                 try {
                     await uriCache.storeContent(document.document.uri, document.document.getText());
                     const cachedPath = uriCache.getLocalPath(document.document.uri);
@@ -142,9 +150,18 @@ export class VisualizerWebview {
                             contentChanges: [{ text: document.document.getText() }]
                         });
                     }
-                    sendUpdateNotificationToWebview();
+                    // Only trigger a view refresh for peer-initiated changes. Local diagram edits
+                    // (updateSourceCode) manage their own view update after the full operation
+                    // completes. Calling updateView mid-operation reads stale project structure
+                    // (pre-edit positions) which can cause a bad state-machine navigation and
+                    // dispose the OCT presence listeners, stopping remote cursor syncing.
+                    if (!undoRedoManager?.isBatchInProgress()) {
+                        sendUpdateNotificationToWebview();
+                    }
                 } catch (error) {
                     console.error('[Webview] Failed to sync remote text change with LS:', error);
+                } finally {
+                    this._remoteSyncInProgress.delete(remoteUriKey);
                 }
             } else if (configTomlModified) {
                 sendUpdateNotificationToWebview(true);
@@ -152,23 +169,20 @@ export class VisualizerWebview {
         }, extension.context);
 
         vscode.workspace.onDidSaveTextDocument(async (document) => {
-            // Update cache for remote files when saved
+            // Update cache for remote files when saved. This is a fallback for cases where
+            // onDidChangeTextDocument was skipped (e.g. machineReady=false during a diagram edit).
             if (document.uri.scheme !== 'file') {
                 const { uriCache } = await import('../../extension');
                 if (uriCache) {
                     try {
-                        console.log('[Webview] Updating cache for saved remote file:', document.uri.toString());
                         await uriCache.storeContent(document.uri, document.getText());
-                   
                         const cachedPath = uriCache.getLocalPath(document.uri);
                         const langClient = extension.ballerinaExtInstance?.langClient;
                         if (langClient && cachedPath) {
-                            // Notify language server about the change using cached path
                             langClient.didChange({
                                 textDocument: { uri: Uri.file(cachedPath).toString(), version: document.version },
                                 contentChanges: [{ text: document.getText() }]
                             });
-                            console.log('[Webview] Notified LS about remote file change');
                         }
                     } catch (error) {
                         console.error('[Webview] Failed to update cache for remote file:', error);

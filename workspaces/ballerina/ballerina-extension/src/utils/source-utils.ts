@@ -182,7 +182,12 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
             // <-------- Format the document after applying all changes using the native formatting API-------->
             const formattedWorkspaceEdit = new vscode.WorkspaceEdit();
             for (const [fileUriString, request] of Object.entries(modificationRequests)) {
-                const fileUri = Uri.file(request.filePath);
+                // Use the same target URI as the first edit — remote URI if available, else local.
+                // Applying the formatting edit to the local cache while the first edit targeted the
+                // remote OCT document would leave the OCT document dirty with unformatted content,
+                // causing a concurrent-write version conflict ("content is newer") on auto-save.
+                const remoteUri = uriCache?.getRemoteUri(request.filePath);
+                const targetUri = remoteUri || Uri.file(request.filePath);
                 const formattedSources: { newText: string, range: { start: { line: number, character: number }, end: { line: number, character: number } } }[] = await StateMachine.langClient().sendRequest("textDocument/formatting", {
                     textDocument: { uri: fileUriString },
                     options: {
@@ -193,7 +198,7 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                 for (const formattedSource of formattedSources) {
                     // Replace the entire document content with the formatted text to avoid duplication
                     formattedWorkspaceEdit.replace(
-                        fileUri,
+                        targetUri,
                         new vscode.Range(
                             new vscode.Position(0, 0),
                             new vscode.Position(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)
@@ -201,7 +206,7 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                         formattedSource.newText
                     );
                     if (!skipUndoRedoStack) {
-                        undoRedoManager?.addFileToBatch(fileUri.fsPath, formattedSource.newText, formattedSource.newText);
+                        undoRedoManager?.addFileToBatch(request.filePath, formattedSource.newText, formattedSource.newText);
                     }
                 }
             }
