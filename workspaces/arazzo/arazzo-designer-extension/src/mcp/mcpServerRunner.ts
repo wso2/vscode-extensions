@@ -25,6 +25,17 @@ import * as yaml from 'js-yaml';
 let mcpServerProcess: ChildProcess | undefined;
 let mcpOutputChannel: vscode.OutputChannel | undefined;
 
+/** The absolute path of the Arazzo file the current MCP server is serving. */
+let mcpActiveFilePath: string | undefined;
+
+/**
+ * Returns the file path of the Arazzo file currently being served by the MCP
+ * server, or undefined if the server is not running.
+ */
+export function getMCPActiveFilePath(): string | undefined {
+    return isMCPServerRunning() ? mcpActiveFilePath : undefined;
+}
+
 /** Callback invoked whenever the MCP server starts or stops. */
 let onServerStateChangeCallback: (() => void) | undefined;
 
@@ -234,6 +245,9 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         cwd: path.dirname(arazzoFilePath)
     });
 
+    // Record which file this server is serving
+    mcpActiveFilePath = arazzoFilePath;
+
     // Keep a local reference so async callbacks can check whether they belong
     // to the current process or a stale one that was already replaced.
     const thisProcess = mcpServerProcess;
@@ -252,6 +266,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         // Only clear if this is still the active process
         if (mcpServerProcess === thisProcess) {
             mcpServerProcess = undefined;
+            mcpActiveFilePath = undefined;
             notifyStateChange();
         }
     });
@@ -262,6 +277,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         // may have already replaced mcpServerProcess.
         if (mcpServerProcess === thisProcess) {
             mcpServerProcess = undefined;
+            mcpActiveFilePath = undefined;
             notifyStateChange();
         }
     });
@@ -314,6 +330,7 @@ export function stopMCPServer(): void {
     if (mcpServerProcess) {
         mcpServerProcess.kill();
         mcpServerProcess = undefined;
+        mcpActiveFilePath = undefined;
         const output = getOutputChannel();
         output.appendLine('MCP server stopped.');
         notifyStateChange();

@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { isMCPServerRunning } from './mcpServerRunner';
+import { isMCPServerRunning, getMCPActiveFilePath } from './mcpServerRunner';
 
 /**
  * CodeLens provider that shows a "▶ Run" lens above each workflow
@@ -41,8 +41,13 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
         document: vscode.TextDocument,
         _token: vscode.CancellationToken
     ): vscode.CodeLens[] {
-        // Only show Run lenses when the MCP server is active
+        // Only show Run lenses when the MCP server is active AND it is
+        // serving this exact file (workflows from other files are not exposed).
         if (!isMCPServerRunning()) {
+            return [];
+        }
+        const activeFile = getMCPActiveFilePath();
+        if (!activeFile || document.uri.fsPath !== activeFile) {
             return [];
         }
 
