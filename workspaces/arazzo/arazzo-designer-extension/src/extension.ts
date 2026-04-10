@@ -27,6 +27,8 @@ import { activateVisualizer } from './visualizer/activate';
 import { activateMCPServer } from './mcp';
 import { RPCLayer } from './RPCLayer';
 import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/arazzo-designer-core';
+import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange } from './mcp/mcpServerRunner';
+import { RunWorkflowCodeLensProvider } from './mcp/runWorkflowCodeLens';
 
 let languageClient: LanguageClient | undefined;
 
@@ -65,6 +67,28 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Register the showCode command
 	let showCodeDisposable = vscode.commands.registerCommand('ArazzoDesigner.showCode', showCode);
 	context.subscriptions.push(showCodeDisposable);
+
+	// Register the MCP Server command
+	let mcpServerDisposable = vscode.commands.registerCommand('arazzo.startMCPServer', async (args?: any) => {
+		let filePath: string | undefined;
+		if (args && args.uri) {
+			filePath = vscode.Uri.parse(args.uri).fsPath;
+		}
+		await startMCPServer(context, filePath);
+	});
+	context.subscriptions.push(mcpServerDisposable);
+
+	// Register the Run-workflow CodeLens provider (shows "▶ Run" when MCP server is active)
+	const runCodeLensProvider = new RunWorkflowCodeLensProvider();
+	context.subscriptions.push(
+		vscode.languages.registerCodeLensProvider(
+			{ language: 'arazzo-yaml' },
+			runCodeLensProvider
+		)
+	);
+
+	// Refresh CodeLenses whenever the MCP server starts or stops
+	onMCPServerStateChange(() => runCodeLensProvider.refresh());
 
 	// Initialize Arazzo Language Server for procode features
 	initializeLanguageServer(context);
@@ -214,6 +238,54 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(designerCommand);
+
+	// Register "Run Workflow" command — triggered by the Run Code Lens.
+	// Ensures the MCP server is running, then opens Copilot with a prompt
+	// to execute the specific workflow.
+	const runWorkflowCommand = vscode.commands.registerCommand('arazzo.runWorkflow', async (args?: any) => {
+		let filePath: string | undefined;
+		let workflowId: string | undefined;
+
+		if (args && args.uri) {
+			filePath = vscode.Uri.parse(args.uri).fsPath;
+			workflowId = args.workflowId;
+		} else {
+			const editor = vscode.window.activeTextEditor;
+			if (editor) {
+				filePath = editor.document.uri.fsPath;
+			}
+		}
+
+		if (!filePath) {
+			vscode.window.showWarningMessage('No Arazzo file found. Open an Arazzo file and try again.');
+			return;
+		}
+
+		// Start the MCP server if it isn't already running
+		if (!isMCPServerRunning()) {
+			await startMCPServer(context, filePath);
+			// Give the server a moment to become ready
+			await new Promise(resolve => setTimeout(resolve, 2000));
+		}
+
+		// Build the Copilot prompt
+		const prompt = workflowId
+			? `execute the workflow ${workflowId}`
+			: `list all workflows`;
+
+		try {
+			await vscode.commands.executeCommand('workbench.action.chat.open', {
+				query: prompt,
+				isPartialQuery: false
+			});
+		} catch {
+			vscode.window.showWarningMessage(
+				'Could not open GitHub Copilot. Make sure the Copilot extension is installed.'
+			);
+		}
+	});
+
+	context.subscriptions.push(runWorkflowCommand);
 }
 
 async function promptForFileIconTheme(context: vscode.ExtensionContext) {
@@ -444,6 +516,7 @@ async function showCode() {
 }
 
 export function deactivate(): Thenable<void> | undefined {
+	disposeMCPServer();
 	if (!languageClient) {
 		return undefined;
 	}

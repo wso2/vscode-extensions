@@ -1,0 +1,50 @@
+arazzo: "1.0.0"
+info:
+  title: "Test 08 - Remote URL Source Description"
+  version: "1.0.0"
+  description: >
+    Tests loading source description from a remote URL
+    instead of a local file path.
+
+sourceDescriptions:
+  - name: toolshop
+    url: https://api.practicesoftwaretesting.com/docs
+    type: openapi
+
+workflows:
+  - workflowId: remote_source_test
+    summary: Test workflow with remote source description
+    steps:
+      - stepId: getBrandsRemote
+        operationId: getBrands
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          firstBrandId: "$response.body#/0/id"
+          firstBrandName: "$response.body#/0/name"
+
+      - stepId: getBrandRemote
+        operationId: getBrand
+        parameters:
+          - name: brandId
+            in: path
+            value: "$steps.getBrandsRemote.outputs.firstBrandId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          verifiedName: "$response.body#/name"
+          verifiedSlug: "$response.body#/slug"
+
+      - stepId: searchBrandsRemote
+        operationId: searchBrand
+        parameters:
+          - name: q
+            in: query
+            value: "$steps.getBrandsRemote.outputs.firstBrandName"
+        successCriteria:
+          - condition: "$statusCode == 200"
+
+    outputs:
+      brandId: "$steps.getBrandsRemote.outputs.firstBrandId"
+      brandName: "$steps.getBrandsRemote.outputs.firstBrandName"
+      verifiedName: "$steps.getBrandRemote.outputs.verifiedName"
