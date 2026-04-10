@@ -18,6 +18,7 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
+    AIMachineEventType,
     AIMachineSnapshot,
     AIPanelAPI,
     AIPanelPrompt,
@@ -35,6 +36,8 @@ import {
     OpenFileDiffRequest,
     ProcessContextTypeCreationRequest,
     ProcessMappingParametersRequest,
+    PromptEnhancementRequest,
+    PromptEnhancementResponse,
     RequirementSpecification,
     RestoreCheckpointRequest,
     SemanticDiffRequest,
@@ -45,10 +48,18 @@ import {
     UpdateChatMessageRequest,
     UsageResponse,
     WebToolApprovalRequest,
+    CompactConversationRequest,
+    CompactConversationResponse,
+    ClarifyAnswerRequest,
+    ClarifyCancelRequest,
+    RunningServiceInfo,
+    StopRunningServiceRequest,
 } from "@wso2/ballerina-core";
 import * as fs from 'fs';
 import path from "path";
 import * as vscode from 'vscode';
+import { window, workspace } from 'vscode';
+import { LOGIN_REQUIRED_WARNING, SIGN_IN_BI_COPILOT } from '../../features/ai/constants';
 
 import { isNumber } from "lodash";
 import { getServiceDeclarationNames } from "../../../src/features/ai/documentation/utils";
@@ -64,6 +75,7 @@ import { sendChatComponentNotification, sendSaveChatNotification } from "../../f
 import { submitFeedback as submitFeedbackUtil } from "../../features/ai/utils/feedback";
 import { sendGenerationDiscardTelemetry, sendGenerationKeptTelemetry } from "../../features/ai/utils/generation-response";
 import { getLLMDiagnosticArrayAsString } from "../../features/natural-programming/utils";
+import { enhancePrompt as enhancePromptService } from "../../features/ai/service/prompt-enhancement/promptEnhancement";
 import { StateMachine, updateView } from "../../stateMachine";
 import { isInWI } from "../../utils";
 import { getLoginMethod, isPlatformExtensionAvailable, loginGithubCopilot } from "../../utils/ai/auth";
@@ -74,8 +86,8 @@ import {
 } from "./constants";
 import { addToIntegration, searchDocumentation } from "./utils";
 
-import { createExecutionContextFromStateMachine, createExecutorConfig, generateAgent, resolveProjectRootPath } from '../../features/ai/agent/index';
-import { integrateCodeToWorkspace } from "../../features/ai/agent/utils";
+import { createExecutorConfig, generateAgent, resolveProjectRootPath } from '../../features/ai/agent/index';
+import { clearCompactionDisabledWarning } from '../../features/ai/agent/AgentExecutor';
 import { LLM_API_BASE_PATH, WI_EXTENSION_ID } from "../../features/ai/constants";
 import { ContextTypesExecutor } from '../../features/ai/executors/datamapper/ContextTypesExecutor';
 import { FunctionMappingExecutor } from '../../features/ai/executors/datamapper/FunctionMappingExecutor';
@@ -84,6 +96,7 @@ import { approvalManager } from '../../features/ai/state/ApprovalManager';
 import { cleanupTempProject } from "../../features/ai/utils/project/temp-project";
 import { chatStateStorage } from '../../views/ai-panel/chatStateStorage';
 import { restoreWorkspaceSnapshot } from '../../views/ai-panel/checkpoint/checkpointUtils';
+import { runningServicesManager } from '../../features/ai/agent/tools/running-service-manager';
 
 export class AiPanelRpcManager implements AIPanelAPI {
 
@@ -129,6 +142,10 @@ export class AiPanelRpcManager implements AIPanelAPI {
         return new Promise(async (resolve, reject) => {
             try {
                 const projectPath = StateMachine.context().projectPath;
+                if (!projectPath) {
+                    resolve({ mentions: [] });
+                    return;
+                }
                 const serviceDeclNames = await getServiceDeclarationNames(projectPath);
                 resolve({
                     mentions: serviceDeclNames
@@ -366,6 +383,18 @@ export class AiPanelRpcManager implements AIPanelAPI {
         }
     }
 
+    async enhancePrompt(params: PromptEnhancementRequest): Promise<PromptEnhancementResponse> {
+        return await enhancePromptService(params);
+    }
+
+    promptForLogin(): void {
+        window.showWarningMessage(LOGIN_REQUIRED_WARNING, SIGN_IN_BI_COPILOT).then(selection => {
+            if (selection === SIGN_IN_BI_COPILOT) {
+                AIStateMachine.service().send(AIMachineEventType.LOGIN);
+            }
+        });
+    }
+
     async generateAgent(params: GenerateAgentCodeRequest): Promise<boolean> {
         return await generateAgent(params);
     }
@@ -420,7 +449,6 @@ export class AiPanelRpcManager implements AIPanelAPI {
     async acceptChanges(): Promise<void> {
         try {
             // Get project root path and thread ID
-            const ctx = createExecutionContextFromStateMachine();
             const projectRootPath = resolveProjectRootPath();
             const threadId = 'default';
 
@@ -438,29 +466,6 @@ export class AiPanelRpcManager implements AIPanelAPI {
             // Get LATEST generation for integration
             const latestReview = underReviewGenerations[underReviewGenerations.length - 1];
             console.log(`[Review Actions] Accepting generation ${latestReview.id} with ${latestReview.reviewState.modifiedFiles.length} modified file(s)`);
-
-            // In workspace mode, if no active project is set, resolve it from the modified files
-            // so that artifact notifications can find the correct project in the structure.
-            if (!ctx.projectPath && ctx.workspacePath && latestReview.reviewState.modifiedFiles.length > 0) {
-                const firstBalFile = latestReview.reviewState.modifiedFiles.find(f => f.endsWith('.bal'));
-                if (firstBalFile) {
-                    const packageName = firstBalFile.split('/')[0];
-                    if (packageName) {
-                        StateMachine.context().projectPath = path.join(ctx.workspacePath, packageName);
-                    }
-                }
-            }
-
-            // Integrate LATEST generation's code to workspace
-            if (latestReview.reviewState.modifiedFiles.length > 0) {
-                const modifiedFilesSet = new Set(latestReview.reviewState.modifiedFiles);
-                await integrateCodeToWorkspace(
-                    latestReview.reviewState.tempProjectPath!,
-                    modifiedFilesSet,
-                    ctx
-                );
-                console.log(`[Review Actions] Integrated ${latestReview.reviewState.modifiedFiles.length} file(s) to workspace`);
-            }
 
             // Cleanup ALL under_review temp projects (prevents memory leak)
             if (!process.env.AI_TEST_ENV) {
@@ -515,6 +520,15 @@ export class AiPanelRpcManager implements AIPanelAPI {
 
             console.log(`[Review Actions] Declining ${underReviewGenerations.length} generation(s)`);
 
+            // Restore workspace to state before the latest generation ran
+            const latestReview = underReviewGenerations[underReviewGenerations.length - 1];
+            const checkpoint = latestReview.checkpoint;
+            if (checkpoint) {
+                await restoreWorkspaceSnapshot(checkpoint, true);
+            } else {
+                console.warn("[Review Actions] No checkpoint found for generation — workspace changes will not be reverted");
+            }
+
             // Cleanup ALL under_review temp projects (prevents memory leak)
             if (!process.env.AI_TEST_ENV) {
                 for (const generation of underReviewGenerations) {
@@ -529,7 +543,6 @@ export class AiPanelRpcManager implements AIPanelAPI {
             console.log("[Review Actions] Marked all under_review generations as declined");
 
             // Send telemetry for generation discard
-            const latestReview = underReviewGenerations[underReviewGenerations.length - 1];
             sendGenerationDiscardTelemetry(latestReview.id);
 
             // Clear affectedPackagePaths from all completed reviews to prevent stale data
@@ -590,6 +603,14 @@ export class AiPanelRpcManager implements AIPanelAPI {
         approvalManager.resolveWebToolApproval(params.requestId, false);
     }
 
+    async submitClarifyAnswer(params: ClarifyAnswerRequest): Promise<void> {
+        approvalManager.resolveClarify(params.requestId, true, params.answers);
+    }
+
+    async cancelClarify(params: ClarifyCancelRequest): Promise<void> {
+        approvalManager.resolveClarify(params.requestId, false);
+    }
+
     async restoreCheckpoint(params: RestoreCheckpointRequest): Promise<void> {
         // Get project root path and thread identifiers
         const projectRootPath = resolveProjectRootPath();
@@ -599,6 +620,12 @@ export class AiPanelRpcManager implements AIPanelAPI {
         const found = chatStateStorage.findCheckpoint(projectRootPath, threadId, params.checkpointId);
 
         if (!found) {
+            if (chatStateStorage.hasCompactedHistory(projectRootPath, threadId)) {
+                window.showWarningMessage(
+                    "This conversation was compacted to manage memory. Undo points prior to compaction are unavailable."
+                );
+                throw new Error("Checkpoint unavailable due to compaction");
+            }
             throw new Error(`Checkpoint ${params.checkpointId} not found`);
         }
 
@@ -625,6 +652,7 @@ export class AiPanelRpcManager implements AIPanelAPI {
 
         // Clear the workspace (all threads)
         await chatStateStorage.clearWorkspace(projectRootPath);
+        clearCompactionDisabledWarning(projectRootPath, 'default');
 
         console.log(`[RPC] Cleared chat for projectRootPath: ${projectRootPath}`);
     }
@@ -713,6 +741,19 @@ export class AiPanelRpcManager implements AIPanelAPI {
         return projectPath;
     }
 
+    async compactConversation(_params: CompactConversationRequest): Promise<CompactConversationResponse> {
+        // Manual compaction is no longer supported. Context is managed automatically
+        // server-side via the compact_20260112 API during agent execution.
+        return {
+            success: false,
+            error: 'Manual compaction is not available. Context is automatically managed by the server during agent execution.',
+        };
+    }
+
+    async getShowContextUsage(): Promise<boolean> {
+        return workspace.getConfiguration('ballerina').get<boolean>('ai.showContextUsage', false);
+    }
+
     async getUsage(): Promise<UsageResponse | undefined> {
         const loginMethod = await getLoginMethod();
         if (loginMethod !== LoginMethod.BI_INTEL) {
@@ -752,10 +793,7 @@ export class AiPanelRpcManager implements AIPanelAPI {
     async openFileDiff(params: OpenFileDiffRequest): Promise<void> {
         AiPanelRpcManager.registerDiffContentProvider();
 
-        // Resolve roots on the host — never trust webview-supplied absolute paths
         const context = StateMachine.context();
-        // Use workspace root when available; modifiedFiles are relative to the workspace root in workspace mode
-        const originalRoot = context.workspacePath || context.projectPath;
         const workspaceId = context.workspacePath || context.projectPath;
         const threadId = 'default';
         const pendingReview = chatStateStorage.getPendingReviewGeneration(workspaceId, threadId);
@@ -766,24 +804,18 @@ export class AiPanelRpcManager implements AIPanelAPI {
             return;
         }
 
-        const originalFilePath = path.resolve(originalRoot, params.relativePath);
         const modifiedFilePath = path.resolve(tempProjectPath, params.relativePath);
 
-        // Reject paths that escape the project roots
-        if (!originalFilePath.startsWith(originalRoot + path.sep) || !modifiedFilePath.startsWith(tempProjectPath + path.sep)) {
-            console.error("[openFileDiff] Path escapes project root, rejecting");
+        if (!modifiedFilePath.startsWith(tempProjectPath + path.sep)) {
+            console.error("[openFileDiff] Path escapes temp project root, rejecting");
             return;
         }
 
         // Clear previous diff entries to prevent unbounded memory growth
         AiPanelRpcManager.diffContentMap.clear();
 
-        let originalContent = '';
-        try {
-            originalContent = fs.readFileSync(originalFilePath, 'utf8');
-        } catch {
-            // File doesn't exist (new file) — left side will be empty
-        }
+        // Read original content from checkpoint snapshot — workspace already has generated code
+        const originalContent = pendingReview?.checkpoint?.workspaceSnapshot[params.relativePath] ?? '';
 
         let modifiedContent = '';
         try {
@@ -802,6 +834,16 @@ export class AiPanelRpcManager implements AIPanelAPI {
         AiPanelRpcManager.diffContentMap.set(modifiedUri.toString(), modifiedContent);
 
         const title = `${fileName} (Review Diff)`;
-        await vscode.commands.executeCommand('vscode.diff', originalUri, modifiedUri, title);
+        await vscode.commands.executeCommand('vscode.diff', originalUri, modifiedUri, title, {
+            viewColumn: vscode.ViewColumn.One,
+        });
+    }
+
+    async getRunningServices(): Promise<RunningServiceInfo[]> {
+        return runningServicesManager.getAll();
+    }
+
+    async stopRunningService(params: StopRunningServiceRequest): Promise<boolean> {
+        return runningServicesManager.stopOne(params.taskId);
     }
 }

@@ -113,10 +113,12 @@ import {
     BIAiSuggestionsRequest,
     BIAiSuggestionsResponse,
     AIChatRequest,
+    InlineAgentChatRequest,
     BreakpointRequest,
     CurrentBreakpointsResponse,
     FormDidOpenParams,
     FormDidCloseParams,
+    FormDirtyDidChangeParams,
     EndOfFileRequest,
     RecordsInWorkspaceMentions,
     BuildMode,
@@ -127,7 +129,10 @@ import {
     DeleteProjectRequest,
     OpenReadmeRequest,
     ValidateProjectFormRequest,
-    ValidateProjectFormResponse
+    ValidateProjectFormResponse,
+    SuggestedProjectDefaultsResponse,
+    UpdateProjectTitleRequest,
+    UpdatePackageTitleRequest
 } from "./interfaces";
 
 export interface BIDiagramAPI {
@@ -148,6 +153,7 @@ export interface BIDiagramAPI {
     getAiSuggestions: (params: BIAiSuggestionsRequest) => Promise<BIAiSuggestionsResponse>;
     createProject: (params: ProjectRequest) => void;
     validateProjectPath: (params: ValidateProjectFormRequest) => Promise<ValidateProjectFormResponse>;
+    getSuggestedProjectDefaults: (params: { isInProject: boolean }) => Promise<SuggestedProjectDefaultsResponse>;
     deleteProject: (params: DeleteProjectRequest) => void;
     addProjectToWorkspace: (params: AddProjectToWorkspaceRequest) => void;
     getWorkspaces: () => Promise<WorkspacesResponse>;
@@ -169,6 +175,8 @@ export interface BIDiagramAPI {
     deployProject: (params: DeploymentRequest) => Promise<DeploymentResponse>;
     deployWorkspace: (params: WorkspaceDeploymentRequest) => Promise<DeploymentResponse>;
     openAIChat: (params: AIChatRequest) => void;
+    startInlineAgentChat: (params: InlineAgentChatRequest) => void;
+    cleanupAgentChatServices: () => Promise<boolean>;
     getSignatureHelp: (params: SignatureHelpRequest) => Promise<SignatureHelpResponse>;
     buildProject: (mode: BuildMode) => void;
     runProject: () => void;
@@ -180,6 +188,7 @@ export interface BIDiagramAPI {
     getExpressionDiagnostics: (params: ExpressionDiagnosticsRequest) => Promise<ExpressionDiagnosticsResponse>;
     formDidOpen: (params: FormDidOpenParams) => Promise<void>;
     formDidClose: (params: FormDidCloseParams) => Promise<void>;
+    formDirtyDidChange: (params: FormDirtyDidChangeParams) => void;
     getDesignModel: (params: BIDesignModelRequest) => Promise<BIDesignModelResponse>;
     getTypes: (params: GetTypesRequest) => Promise<GetTypesResponse>;
     getType: (params: GetTypeRequest) => Promise<GetTypeResponse>;
@@ -212,4 +221,6 @@ export interface BIDiagramAPI {
     getOpenApiGeneratedModules: (params: OpenAPIGeneratedModulesRequest) => Promise<OpenAPIGeneratedModulesResponse>;
     deleteOpenApiGeneratedModules: (params: OpenAPIClientDeleteRequest) => Promise<OpenAPIClientDeleteResponse>;
     OpenConfigTomlRequest: (params: OpenConfigTomlRequest) => Promise<void>;
+    updateProjectTitle: (params: UpdateProjectTitleRequest) => Promise<void>;
+    updatePackageTitle: (params: UpdatePackageTitleRequest) => Promise<void>;
 }

@@ -36,10 +36,12 @@ import {
     CodeContext,
     ApprovalOverlayState,
     WebToolToggle,
+    LoginMethod,
+    RunningServiceInfo,
 } from "@wso2/ballerina-core";
 
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
-import { Button, Codicon } from "@wso2/ui-toolkit";
+import { Button, Codicon, Icon } from "@wso2/ui-toolkit";
 
 import { AIChatInputRef } from "../AIChatInput";
 import ToolCallSegment from "../ToolCallSegment";
@@ -53,7 +55,7 @@ import { ConfigurationCollectorSegment, ConfigurationCollectionData } from "../C
 import CheckpointSeparator from "../CheckpointSeparator";
 import { Attachment, AttachmentStatus, TaskApprovalRequest } from "@wso2/ballerina-core";
 
-import { AIChatView, Header, HeaderButtons, ChatMessage, Badge, ResetsInBadge, ApprovalOverlay, OverlayMessage } from "../../styles";
+import { AIChatView, Header, HeaderButtons, ChatMessage, TurnGroup, AuthProviderChip, UsageBadge, ApprovalOverlay, OverlayMessage } from "../../styles";
 import ReferenceDropdown from "../ReferenceDropdown";
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react";
 import MarkdownRenderer from "../MarkdownRenderer";
@@ -75,6 +77,7 @@ import AttachmentBox, { AttachmentsContainer } from "../AttachmentBox";
 import Footer from "./Footer";
 import { AgentMode } from "../AIChatInput/ModeToggle";
 import CommonApprovalFooter from "./Footer/CommonApprovalFooter";
+import ClarifyFooter from "./Footer/ClarifyFooter";
 import { useFooterLogic } from "./Footer/useFooterLogic";
 import { SettingsPanel } from "../../SettingsPanel";
 import WelcomeMessage from "./Welcome";
@@ -83,6 +86,8 @@ import { getOnboardingOpens, incrementOnboardingOpens, convertToUIMessages, isCo
 import FeedbackBar from "./../FeedbackBar";
 import { useFeedback } from "./utils/useFeedback";
 import { SegmentType, splitContent } from "./segment";
+import { MigrationContextCard } from "../MigrationContextCard";
+import { ActiveMigrationSession } from "@wso2/ballerina-rpc-client";
 import { ReviewBar } from "../ReviewBar";
 
 const NO_DRIFT_FOUND = "No drift identified between the code and the documentation.";
@@ -104,6 +109,26 @@ const MessageBody = styled.div<{ isUserMessage: boolean }>(({ isUserMessage }: {
     background: isUserMessage ? "var(--vscode-editor-inactiveSelectionBackground)" : "transparent",
     overflowWrap: "anywhere",
 }));
+
+const CompactionNoticeContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--vscode-textCodeBlock-background);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 4px;
+    padding: 6px 12px;
+    margin: 6px 0;
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+`;
+
+const CompactionNotice: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <CompactionNoticeContainer>
+        <span className="codicon codicon-fold" role="img" />
+        {children}
+    </CompactionNoticeContainer>
+);
 
 // ── Agent stream serialization ────────────────────────────────────────────────
 
@@ -162,6 +187,8 @@ const AIChat: React.FC = () => {
     };
 
     const [isLoading, setIsLoading] = useState(false);
+    const [isCompacting, setIsCompacting] = useState(false);
+    const [hoveredTurnIndex, setHoveredTurnIndex] = useState<number | null>(null);
     const [lastQuestionIndex, setLastQuestionIndex] = useState(-1);
     const [isCodeLoading, setIsCodeLoading] = useState(false);
     const [currentGeneratingPromptIndex, setCurrentGeneratingPromptIndex] = useState(-1);
@@ -176,9 +203,15 @@ const AIChat: React.FC = () => {
     const [isAutoApproveEnabled, setIsAutoApproveEnabled] = useState(false);
     const [isWebToolsEnabled, setIsWebToolsEnabled] = useState(false);
     const userWebSearchPreferenceRef = useRef(false);
-    const [agentMode, setAgentMode] = useState<AgentMode>(AgentMode.Edit);
+    const [agentMode, _setAgentMode] = useState<AgentMode>(AgentMode.Edit);
+    const agentModeRef = useRef<AgentMode>(AgentMode.Edit);
+    const setAgentMode = (mode: AgentMode) => {
+        _setAgentMode(mode);
+        agentModeRef.current = mode;
+    };
 
     const [availableCheckpointIds, setAvailableCheckpointIds] = useState<Set<string>>(new Set());
+    const [hasActiveReview, setHasActiveReview] = useState(false);
 
     const [approvalRequest, setApprovalRequest] = useState<TaskApprovalRequest | null>(null);
     const [approvalOverlay, setApprovalOverlay] = useState<ApprovalOverlayState>({ show: false });
@@ -190,13 +223,28 @@ const AIChat: React.FC = () => {
 
     const [currentFileArray, setCurrentFileArray] = useState<SourceFile[]>([]);
     const [codeContext, setCodeContext] = useState<CodeContext | undefined>(undefined);
+    const [footerSuggestedCommandTemplates, setFooterSuggestedCommandTemplates] = useState<AIPanelPrompt[] | undefined>(undefined);
+    const [footerInputPlaceholder, setFooterInputPlaceholder] = useState("Describe your integration...");
 
+    const [migrationSession, setMigrationSession] = useState<ActiveMigrationSession | null>(null);
+    const [isMigrationEnhancementRunning, setIsMigrationEnhancementRunning] = useState(false);
     const [usage, setUsage] = useState<{ remainingUsagePercentage: number; resetsIn: number } | null>(null);
     const [isUsageExceeded, setIsUsageExceeded] = useState(false);
+    const [loginMethod, setLoginMethod] = useState<LoginMethod | null>(null);
+
+    const [contextUsage, setContextUsage] = useState<{
+        inputTokens: number;
+        percentage: number;
+        breakdown?: { systemInstructions: number; toolDefinitions: number; reservedOutput: number; files: number; messages: number; toolResults: number };
+    } | null>(null);
+    const [showContextUsage, setShowContextUsage] = useState(false);
+
+    const [runningServices, setRunningServices] = useState<RunningServiceInfo[]>([]);
 
     //TODO: Need a better way of storing data related to last generation to be in the repair state.
     const currentDiagnosticsRef = useRef<DiagnosticEntry[]>([]);
     const codeContextRef = useRef<CodeContext | undefined>(undefined);
+    const hiddenContextRef = useRef<string | undefined>(undefined);
     const functionsRef = useRef<any>([]);
     const lastAttatchmentsRef = useRef<any>([]);
     const aiChatInputRef = useRef<AIChatInputRef>(null);
@@ -204,7 +252,7 @@ const AIChat: React.FC = () => {
 
     const isErrorChunkReceivedRef = useRef(false);
 
-    const messagesEndRef = React.createRef<HTMLDivElement>();
+    const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
     /* REFACTORED CODE START [2] */
     // custom hooks: commands + attachments
@@ -240,10 +288,14 @@ const AIChat: React.FC = () => {
                                 : undefined;
 
                         updateCodeContext(codeCtx);
+                        hiddenContextRef.current = defaultPrompt.hiddenContext;
 
                         // Handle plan mode for text-type prompts
                         if (defaultPrompt.type === 'text') {
+                            const textPrompt = defaultPrompt;
                             setAgentMode(defaultPrompt.planMode ? AgentMode.Plan : AgentMode.Edit);
+                            setFooterSuggestedCommandTemplates(textPrompt.suggestedCommandTemplates);
+                            setFooterInputPlaceholder(textPrompt.inputPlaceholder ?? "Describe your integration...");
 
                             if (defaultPrompt.autoSubmit && defaultPrompt.text.trim().length > 0) {
                                 void handleSend({
@@ -252,6 +304,9 @@ const AIChat: React.FC = () => {
                                 });
                                 return;
                             }
+                        } else {
+                            setFooterSuggestedCommandTemplates(undefined);
+                            setFooterInputPlaceholder("Describe your integration...");
                         }
 
                         aiChatInputRef.current?.setInputContent(defaultPrompt);
@@ -274,7 +329,7 @@ const AIChat: React.FC = () => {
     useEffect(function updateOnboardingState() {
         incrementOnboardingOpens();
     }, []);
-    /* REFACTORED CODE END [2] */
+
 
     const formatResetsIn = (seconds: number): string => {
         const days = Math.floor(seconds / 86400);
@@ -314,17 +369,32 @@ const AIChat: React.FC = () => {
         }
     };
 
-    useEffect(() => { fetchUsage(); }, []);
+    const fetchLoginMethod = async () => {
+        try {
+            const method = await rpcClient.getAiPanelRpcClient().getLoginMethod();
+            setLoginMethod(method);
+        } catch (e) {
+            console.error("Failed to fetch login method:", e);
+        }
+    };
+
+    useEffect(() => { fetchUsage(); fetchLoginMethod(); }, []);
+
+    useEffect(() => {
+        rpcClient.getAiPanelRpcClient().getShowContextUsage().then(setShowContextUsage).catch(() => {});
+    }, []);
 
     const handleCheckpointRestore = async (checkpointId: string) => {
         try {
             // Call backend to restore checkpoint (files + chat history)
             await rpcClient.getAiPanelRpcClient().restoreCheckpoint({ checkpointId });
 
-            // Fetch updated messages from backend
-            const updatedMessages = await rpcClient.getAiPanelRpcClient().getChatMessages();
-            const uiMessages = convertToUIMessages(updatedMessages);
-            setMessages(uiMessages);
+            // Trim chat UI to the restored checkpoint — messages after this point
+            // no longer reflect the restored file state so they should be removed.
+            setMessages(prev => {
+                const idx = prev.findIndex(m => m.checkpointId === checkpointId);
+                return idx === -1 ? prev : prev.slice(0, idx);
+            });
 
             // Update available checkpoint IDs after restore (checkpoints are trimmed during restore)
             const checkpoints = await rpcClient.getAiPanelRpcClient().getCheckpoints();
@@ -339,6 +409,10 @@ const AIChat: React.FC = () => {
             setCurrentFileArray([]);
             setLastQuestionIndex(-1);
             setCurrentGeneratingPromptIndex(-1);
+            // Clear stale context usage — token count changed with the restore.
+            // Widget will reappear with accurate data on the next agent turn.
+            setContextUsage(null);
+            setHasActiveReview(false);
         } catch (error) {
             console.error("Failed to restore checkpoint:", error);
         }
@@ -376,6 +450,43 @@ const AIChat: React.FC = () => {
         });
     }, [rpcClient]);
 
+    // Initial fetch covers services started before the webview opened;
+    // the subscription keeps the list live for the rest of the session.
+    useEffect(() => {
+        let cancelled = false;
+        rpcClient.getAiPanelRpcClient().getRunningServices().then((services) => {
+            if (!cancelled) {
+                setRunningServices(services);
+            }
+        }).catch(() => { /* manager not initialized yet */ });
+        const disposeListener = rpcClient.onRunningServicesChanged((services: RunningServiceInfo[]) => {
+            setRunningServices(services);
+        });
+        return () => {
+            cancelled = true;
+            disposeListener();
+        };
+    }, [rpcClient]);
+
+    const handleStopRunningService = async (taskId: string) => {
+        try {
+            await rpcClient.getAiPanelRpcClient().stopRunningService({ taskId });
+        } catch (err) {
+            console.error("Failed to stop running service", err);
+        }
+    };
+
+    const handleStopAllRunningServices = async () => {
+        const active = runningServices.filter((s) => !s.exited);
+        await Promise.all(
+            active.map((s) =>
+                rpcClient.getAiPanelRpcClient().stopRunningService({ taskId: s.taskId }).catch((err) => {
+                    console.error("Failed to stop running service", err);
+                })
+            )
+        );
+    };
+
     /**
      * Effect: Load initial chat history from aiChatMachine context
      */
@@ -394,6 +505,26 @@ const AIChat: React.FC = () => {
         };
 
         loadHistory();
+    }, [rpcClient]);
+
+    /**
+     * Effect: Check for an active migration session that needs AI enhancement.
+     * Shows a context card so the user can resume or start enhancement.
+     */
+    useEffect(function checkMigrationSession() {
+        const fetchSession = async () => {
+            try {
+                const session = await rpcClient.getMigrateIntegrationRpcClient().getActiveMigrationSession();
+                if (session && !session.fullyEnhanced) {
+                    setMigrationSession(session);
+                } else {
+                    setMigrationSession(null);
+                }
+            } catch {
+                // Migration RPC may not be available – ignore
+            }
+        };
+        fetchSession();
     }, [rpcClient]);
 
     rpcClient?.onCheckpointCaptured(async (payload: { messageId: string; checkpointId: string }) => {
@@ -528,11 +659,19 @@ const AIChat: React.FC = () => {
                     const targetIndex = ensureAssistantMessage(msgs);
                     const last = msgs[targetIndex];
                     const entries = parseStream(last.content);
-                    const planItem: StreamItem = { kind: "plan", tasks: response.tasks, message: response.message };
+                    const planItem: StreamItem = {
+                        kind: "plan", requestId: response.requestId, tasks: response.tasks, message: response.message,
+                        ...(response.autoApproved ? { approvalStatus: "approved" as const } : {})
+                    };
                     const updated = appendToLastEntry(entries, planItem);
                     msgs[targetIndex] = { ...last, content: serializeStream(updated, last.content) };
                     return msgs;
                 });
+            }
+
+            // Skip approval UI when auto-approved from backend (scaffold mode)
+            if (response.autoApproved) {
+                return;
             }
 
             if (isAutoApproveEnabled && response.approvalType === "completion") {
@@ -624,20 +763,47 @@ const AIChat: React.FC = () => {
                 return msgs;
             });
 
-        } else if (type === "diagnostics") {
-            currentDiagnosticsRef.current = response.diagnostics;
-
-        } else if ((response as any).type === "chat_component") {
-            const { componentType, data } = response as any;
+        } else if (type === "clarify_event") {
+            const clarifyNotification = response as any;
+            const clarifyData = {
+                requestId: clarifyNotification.requestId,
+                stage: clarifyNotification.stage,
+                questions: clarifyNotification.questions,
+                answers: clarifyNotification.answers,
+            };
             setMessages(prevMessages => {
                 const msgs = [...prevMessages];
                 const targetIndex = ensureAssistantMessage(msgs);
                 const last = msgs[targetIndex];
                 const entries = parseStream(last.content);
-                // For "review" components, update the existing item by merging data instead of appending
                 let found = false;
                 let updated = entries.map(entry => {
-                    const idx = entry.items.findIndex(item => item.kind === "component" && (item as any).componentType === componentType);
+                    const idx = entry.items.findIndex(item => item.kind === "ask" && (item.data as any)?.requestId === clarifyData.requestId);
+                    if (idx === -1) return entry;
+                    found = true;
+                    return { ...entry, items: entry.items.map((item, i) => i === idx ? { kind: "ask" as const, data: clarifyData } : item) };
+                });
+                if (!found) updated = appendToLastEntry(entries, { kind: "ask", data: clarifyData });
+                msgs[targetIndex] = { ...last, content: serializeStream(updated, last.content) };
+                return msgs;
+            });
+
+        } else if (type === "diagnostics") {
+            currentDiagnosticsRef.current = response.diagnostics;
+
+        } else if ((response as any).type === "chat_component") {
+            const { componentType, id, data } = response as any;
+            setMessages(prevMessages => {
+                const msgs = [...prevMessages];
+                const targetIndex = ensureAssistantMessage(msgs);
+                const last = msgs[targetIndex];
+                const entries = parseStream(last.content);
+                let found = false;
+                let updated = entries.map(entry => {
+                    const idx = entry.items.findIndex(item =>
+                        item.kind === "component" &&
+                        (id ? (item as any).id === id : (item as any).componentType === componentType)
+                    );
                     if (idx === -1) return entry;
                     found = true;
                     return {
@@ -649,21 +815,58 @@ const AIChat: React.FC = () => {
                         )
                     };
                 });
-                if (!found) updated = appendToLastEntry(entries, { kind: "component", componentType, data });
+                if (!found) updated = appendToLastEntry(entries, { kind: "component", componentType, id, data });
                 msgs[targetIndex] = { ...last, content: serializeStream(updated, last.content) };
                 return msgs;
             });
+            if (componentType === "review") {
+                setHasActiveReview(true);
+            }
 
         } else if (type === "messages") {
             messagesRef.current = response.messages;
+
+        } else if (type === "compaction_start") {
+            setIsCompacting(true);
+
+        } else if (type === "compaction_end") {
+            setIsCompacting(false);
+
+        } else if (type === "compaction_disabled") {
+            setIsCompacting(false);
+            setMessages(prevMessages => {
+                const msgs = [...prevMessages];
+                const targetIndex = ensureAssistantMessage(msgs);
+                const last = msgs[targetIndex];
+                msgs[targetIndex] = {
+                    ...last,
+                    content: last.content + "\n<compaction>Your project is large — automatic context compaction is disabled. You may hit the context limit on long sessions. Start a new thread if that happens.</compaction>"
+                };
+                return msgs;
+            });
+
+        } else if (type === "usage_metrics") {
+            const inputTokens = (response as any).usage?.inputTokens ?? 0;
+            const MAX_CONTEXT_WINDOW = 200_000;
+            const percentage = Math.min(100, Math.round((inputTokens / MAX_CONTEXT_WINDOW) * 100));
+            const breakdown = (response as any).breakdown;
+            setContextUsage({ inputTokens, percentage, breakdown });
+
+        } else if (type === "config_change") {
+            if ((response as any).key === 'showContextUsage') {
+                setShowContextUsage((response as any).value);
+            }
 
         } else if (type === "stop") {
             console.log("Received stop signal");
             setIsWebToolsEnabled(userWebSearchPreferenceRef.current);
             setWebToolApprovalRequest(null);
+            setIsCompacting(false);
             setIsCodeLoading(false);
             setIsLoading(false);
+            setIsMigrationEnhancementRunning(false);
             fetchUsage();
+            setAgentMode(AgentMode.Edit);
 
         } else if (type === "abort") {
             console.log("Received abort signal");
@@ -675,21 +878,28 @@ const AIChat: React.FC = () => {
                 const targetIndex = ensureAssistantMessage(msgs);
                 const last = msgs[targetIndex];
                 const entries = parseStream(last.content);
-                const updated = appendToLastEntry(entries, abortItem);
+                const updated = [...entries, { description: "", items: [abortItem] }];
                 msgs[targetIndex] = { ...last, content: serializeStream(updated, last.content) };
                 return msgs;
             });
+            setIsCompacting(false);
             setIsCodeLoading(false);
             setIsLoading(false);
+            if (isMigrationEnhancementRunning) {
+                setIsMigrationEnhancementRunning(false);
+                // Re-fetch session so the Resume card appears
+                try {
+                    const updatedSession = await rpcClient.getMigrateIntegrationRpcClient().getActiveMigrationSession();
+                    setMigrationSession(updatedSession);
+                } catch (e) {
+                    console.error('[AIChat] Failed to refresh migration session after abort:', e);
+                }
+            }
 
         } else if (type === "save_chat") {
             console.log("Received save_chat signal");
-            let contentToSave: string | undefined;
-            setMessages(prevMessages => {
-                const assistantIndex = getLatestAssistantMessageIndex(prevMessages);
-                contentToSave = assistantIndex >= 0 ? prevMessages[assistantIndex]?.content : undefined;
-                return prevMessages;
-            });
+            const assistantIndex = getLatestAssistantMessageIndex(messages);
+            const contentToSave = assistantIndex >= 0 ? messages[assistantIndex]?.content : messages[messages.length - 1]?.content;
             await rpcClient.getAiPanelRpcClient().updateChatMessage({
                 messageId: response.messageId,
                 content: contentToSave || "",
@@ -730,6 +940,7 @@ const AIChat: React.FC = () => {
                 newMessages[targetIndex].content = content + errorTemplate;
                 return newMessages;
             });
+            setIsCompacting(false);
             setIsCodeLoading(false);
             setIsLoading(false);
             isErrorChunkReceivedRef.current = true;
@@ -779,11 +990,19 @@ const AIChat: React.FC = () => {
     }, [isReqFileExists]);
 
     useEffect(() => {
-        // Step 2: Scroll into view when messages state changes
-        if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+        // Step 2: Scroll into view when messages state changes or review bar appears
+        // Use a small delay when the review bar just appeared to let the DOM settle
+        const doScroll = () => {
+            if (messagesEndRef.current) {
+                messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+            }
+        };
+        if (hasActiveReview) {
+            setTimeout(doScroll, 50);
+        } else {
+            doScroll();
         }
-    }, [messages]);
+    }, [messages, hasActiveReview]);
 
     async function handleSendQuery(content: {
         input: Input[];
@@ -799,6 +1018,7 @@ const AIChat: React.FC = () => {
         try {
             await processContent(content);
         } catch (error: any) {
+            setIsCompacting(false);
             setIsLoading(false);
             setIsCodeLoading(false);
             if (error.name === "AbortError") {
@@ -816,6 +1036,62 @@ const AIChat: React.FC = () => {
         }
     }
 
+    /**
+     * Handles the user clicking "Resume/Start AI Enhancement" from the migration
+     * context card. Seeds any saved conversation history, then submits the
+     * auto-fix prompt via the default prompt mechanism.
+     */
+    async function handleContinueMigrationEnhancement() {
+        try {
+            // Prime the chat UI so streaming events have a message to append to
+            setMigrationSession(null);
+            setIsLoading(true);
+
+            // aiFeatureUsed=true && fullyEnhanced=false means enhancement was previously
+            // started (at the wizard or via AI Chat) but never finished — this is a resume.
+            const isResume = migrationSession?.aiFeatureUsed === true;
+
+            if (isResume) {
+                // Load any persisted history into the chat UI before resuming
+                const historyMessages = await rpcClient.getMigrateIntegrationRpcClient().getMigrationHistoryMessages();
+                if (historyMessages.length > 0) {
+                    const historyUiMessages = historyMessages.map((m) => ({
+                        role: m.role === "user" ? "User" : "Copilot",
+                        content: m.content,
+                        type: m.role === "user" ? "user_message" : "assistant_message",
+                    }));
+                    setMessages((prev) => [...prev, ...historyUiMessages]);
+                }
+            }
+
+            // Push the user trigger and empty assistant placeholder
+            setMessages((prevMessages) => [
+                ...prevMessages,
+                { role: "User", content: isResume ? "Continue AI Enhancement" : "Start AI Enhancement", type: "user_message" },
+                { role: "Copilot", content: "", type: "assistant_message" },
+            ]);
+
+            setIsMigrationEnhancementRunning(true);
+
+            // Seed saved conversation history into AI chat state
+            await rpcClient.getMigrateIntegrationRpcClient().seedMigrationHistory();
+            // Prepare the pipeline (updates toml, sets _wizardProjectRoot, marks session active, flags AI Chat routing)
+            await rpcClient.getMigrateIntegrationRpcClient().startMigrationEnhancement();
+            // Actually start the wizard-level streaming pipeline — events now routed to AI Chat
+            await rpcClient.getMigrateIntegrationRpcClient().wizardEnhancementReady();
+        } catch (error) {
+            console.error('[AIChat] Failed to continue migration enhancement:', error);
+            setIsMigrationEnhancementRunning(false);
+            setIsLoading(false);
+        }
+    }
+
+    /**
+     * Handles the user clicking "Auto-fix" from the "none" banner.
+     * Calls the backend to update the toml and start the pipeline, which will
+     * push a new default prompt – the `onPromptUpdated` listener picks it up and
+     * triggers the auto-submit effect.
+     */
     async function handleSend(content: { input: Input[]; attachments: Attachment[]; metadata?: Record<string, any> }) {
         setCurrentGeneratingPromptIndex(otherMessages.length);
         setIsPromptExecutedInCurrentWindow(true);
@@ -824,6 +1100,12 @@ const AIChat: React.FC = () => {
         if (content.input.length === 0) {
             return;
         }
+        if (hasActiveReview) {
+            await rpcClient.getAiPanelRpcClient().acceptChanges().catch((e: unknown) => console.warn("[AIChat] auto-accept failed:", e));
+            setHasActiveReview(false);
+        }
+        // Clear until onCheckpointCaptured repopulates with the new set
+        setAvailableCheckpointIds(new Set());
         rpcClient.getAiPanelRpcClient().clearInitialPrompt();
         setMessages((prevMessages) => prevMessages.filter((message) => message.type !== "label"));
         setMessages((prevMessages) => prevMessages.filter((message) => message.type !== "question"));
@@ -995,6 +1277,43 @@ const AIChat: React.FC = () => {
                     }
                     break;
                 }
+                /*
+                case Command.Compact: {
+                    setIsCompacting(true);
+                    const customInstructions = parsedInput.templateId === TemplateId.Wildcard
+                        ? parsedInput.text?.trim() || undefined
+                        : undefined;
+                    const result = await rpcClient.getAiPanelRpcClient().compactConversation(
+                        customInstructions ? { customInstructions } : {}
+                    );
+                    if (!result.success) {
+                        throw new Error(result.error || 'Compaction failed');
+                    }
+                    // Reload the compacted history from backend and reset all UI state.
+                    // Without this, isLoading stays true (input disabled) and the old
+                    // messages remain on screen because the success path never resets state.
+                    const updatedMessages = await rpcClient.getAiPanelRpcClient().getChatMessages();
+                    const uiMessages = convertToUIMessages(updatedMessages);
+                    const summaryContent = result.summary
+                        ? `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\n\n**Summary**\n\n${result.summary}`
+                        : `Context compacted successfully. You can continue the conversation.`;
+                    uiMessages.push({
+                        role: 'Copilot',
+                        content: summaryContent,
+                        type: 'assistant_message',
+                        checkpointId: '',
+                        messageId: '',
+                    });
+                    setMessages(uiMessages);
+                    setIsCompacting(false);
+                    setIsLoading(false);
+                    setIsCodeLoading(false);
+                    setCurrentFileArray([]);
+                    setLastQuestionIndex(-1);
+                    setCurrentGeneratingPromptIndex(-1);
+                    break;
+                }
+                */
             }
         }
     }
@@ -1131,13 +1450,23 @@ const AIChat: React.FC = () => {
         }));
 
         const currentCodeContext = codeContextRef.current;
-        console.log("Submitting agent prompt:", { useCase, agentMode, codeContext: currentCodeContext, operationType, fileAttatchments });
+        const currentHiddenContext = hiddenContextRef.current;
+        hiddenContextRef.current = undefined;
+        console.log("Submitting agent prompt:", { useCase, agentMode: agentModeRef.current, codeContext: currentCodeContext, operationType, fileAttatchments });
         rpcClient.getAiPanelRpcClient().generateAgent({
-            usecase: useCase, isPlanMode: agentMode === AgentMode.Plan, codeContext: currentCodeContext, operationType, fileAttachmentContents: fileAttatchments, webSearchEnabled: isWebToolsEnabled
+            usecase: useCase, hiddenContext: currentHiddenContext, isPlanMode: agentModeRef.current === AgentMode.Plan, codeContext: currentCodeContext, operationType, fileAttachmentContents: fileAttatchments, webSearchEnabled: isWebToolsEnabled
         })
     }
 
     async function handleStop() {
+        if (isMigrationEnhancementRunning) {
+            // Stop the migration agent - partial state and VS Code notification are
+            // handled by the orchestrator's abort catch block.
+            await rpcClient.getMigrateIntegrationRpcClient().abortMigrationAgent();
+            setIsLoading(false);
+            setIsCodeLoading(false);
+            return;
+        }
         // Call RPC with empty params (defaults to current workspace + 'default' thread)
         rpcClient.getAiPanelRpcClient().abortAIGeneration({});
 
@@ -1152,6 +1481,7 @@ const AIChat: React.FC = () => {
     async function handleClearChat(): Promise<void> {
         setMessages([]);
         setApprovalRequest(null);
+        setContextUsage(null);
         await rpcClient.getAiPanelRpcClient().clearChat();
     }
 
@@ -1187,7 +1517,7 @@ const AIChat: React.FC = () => {
     }, [otherMessages.length]);
 
 
-    const updateReviewStatus = (message: { role: string; content: string; type: string }, newStatus: "accepted" | "discarded") => {
+    const updateReviewStatus = (message: { role: string; content: string; type: string }, newStatus: "discarded") => {
         setMessages(prevMessages => {
             const msgs = [...prevMessages];
             const idx = msgs.findIndex(m => m === message);
@@ -1290,7 +1620,7 @@ const AIChat: React.FC = () => {
                 const updated = entries.map(entry => ({
                     ...entry,
                     items: entry.items.map(item =>
-                        item.kind === "plan" ? { ...item, approvalStatus: "approved" as const } : item
+                        item.kind === "plan" && item.requestId === approvalRequest.requestId ? { ...item, approvalStatus: "approved" as const } : item
                     )
                 }));
                 msgs[lastIdx] = { ...last, content: serializeStream(updated, last.content) };
@@ -1327,7 +1657,7 @@ const AIChat: React.FC = () => {
                 const updated = entries.map(entry => ({
                     ...entry,
                     items: entry.items.map(item =>
-                        item.kind === "plan" ? { ...item, approvalStatus: "revised" as const, approvalComment: comment } : item
+                        item.kind === "plan" && item.requestId === approvalRequest.requestId ? { ...item, approvalStatus: "revised" as const, approvalComment: comment } : item
                     )
                 }));
                 msgs[lastIdx] = { ...last, content: serializeStream(updated, last.content) };
@@ -1392,57 +1722,88 @@ const AIChat: React.FC = () => {
                         </ApprovalOverlay>
                     )}
                     <Header>
-                        <Badge>
-                            {usage ? (
-                                <>
-                                    Remaining Usage: {usage.resetsIn === -1 ? "Unlimited" : (isUsageExceeded ? "Exceeded" : `${Math.round(usage.remainingUsagePercentage)}%`)}
-                                    {usage.resetsIn !== -1 && (
-                                        <>
-                                            <br />
-                                            <ResetsInBadge title={formatResetsInExact(usage.resetsIn)}>{`Resets in: ${formatResetsIn(usage.resetsIn)}`}</ResetsInBadge>
-                                        </>
-                                    )}
-                                </>
-                            ) : (
-                                "Remaining Usage: N/A"
-                            )}
-                        </Badge>
+                        {loginMethod === LoginMethod.ANTHROPIC_KEY || loginMethod === LoginMethod.AWS_BEDROCK || loginMethod === LoginMethod.VERTEX_AI ? (
+                            <AuthProviderChip>
+                                <UsageBadge>
+                                    <span className="codicon codicon-key" style={{ fontSize: 11 }} />
+                                    {loginMethod === LoginMethod.ANTHROPIC_KEY ? "Anthropic (own key)"
+                                        : loginMethod === LoginMethod.AWS_BEDROCK ? "AWS Bedrock (own key)"
+                                        : "Vertex AI (own key)"}
+                                </UsageBadge>
+                            </AuthProviderChip>
+                        ) : (
+                            <AuthProviderChip>
+                                Remaining Usage:
+                                <UsageBadge>
+                                    {!usage ? "N/A"
+                                        : usage.resetsIn === -1 ? "Unlimited"
+                                        : isUsageExceeded ? "Exceeded"
+                                        : `${Math.round(usage.remainingUsagePercentage)}%`}
+                                </UsageBadge>
+                                {usage && usage.resetsIn !== -1 && (
+                                    <span style={{ fontSize: 10, opacity: 0.7 }} title={formatResetsInExact(usage.resetsIn)}>
+                                        Resets in: {formatResetsIn(usage.resetsIn)}
+                                    </span>
+                                )}
+                            </AuthProviderChip>
+                        )}
                         <HeaderButtons>
-                            <Button
-                                appearance="icon"
-                                onClick={() => handleClearChat()}
-                                tooltip="Clear Chat"
-                                disabled={isLoading}
-                            >
-                                <Codicon name="clear-all" />
-                                &nbsp;&nbsp;Clear
-                            </Button>
+                            {otherMessages.length > 0 && (
+                                <Button
+                                    appearance="icon"
+                                    onClick={() => handleClearChat()}
+                                    tooltip="New Chat"
+                                    disabled={isLoading}
+                                >
+                                    <Icon name="NewChat" sx={{ fontSize: "16px", marginRight: 4 }} iconSx={{ position: "relative", top: "2px" }} />
+                                    New Chat
+                                </Button>
+                            )}
                             <Button appearance="icon" onClick={() => handleSettings()} tooltip="Settings">
-                                <Codicon name="settings-gear" />
-                                &nbsp;&nbsp;Settings
+                                <Icon name="SettingsRounded" sx={{ fontSize: "18px", marginRight: 6 }} iconSx={{ position: "relative" }} />
+                                Settings
                             </Button>
                         </HeaderButtons>
                     </Header>
                     <main style={{ flex: 1, overflowY: "auto" }}>
+                        {migrationSession && (
+                            <MigrationContextCard
+                                session={migrationSession}
+                                onContinueEnhancement={handleContinueMigrationEnhancement}
+                            />
+                        )}
                         {Array.isArray(otherMessages) && otherMessages.length === 0 && (
                             <WelcomeMessage isOnboarding={getOnboardingOpens() <= 3.0} />
                         )}
-                        {otherMessages.map((message, index) => {
-                            const isLastResponse = index === currentGeneratingPromptIndex;
-                            const isUserMessage = message.role === "User";
-                            const isAssistantMessage = message.role === "Copilot";
+                        {(() => {
+                            // Group flat message list into [userMsg, assistantMsg | undefined] pairs for turn-level hover
+                            const turns: Array<[typeof otherMessages[0], number, typeof otherMessages[0] | undefined, number | undefined]> = [];
+                            let i = 0;
+                            while (i < otherMessages.length) {
+                                const msg = otherMessages[i];
+                                if (msg.role === "User") {
+                                    const next = otherMessages[i + 1];
+                                    const hasAssistant = next?.role === "Copilot";
+                                    turns.push([msg, i, hasAssistant ? next : undefined, hasAssistant ? i + 1 : undefined]);
+                                    i += hasAssistant ? 2 : 1;
+                                } else {
+                                    turns.push([msg, i, undefined, undefined]);
+                                    i++;
+                                }
+                            }
                             const lastAssistantIndex = otherMessages.map((m) => m.role).lastIndexOf("Copilot");
-                            const isLatestAssistantMessage = isAssistantMessage && index === lastAssistantIndex;
+
+                            return turns.map(([userMsg, userIndex, assistantMsg, assistantIndex], turnIndex) => {
+                                const renderMessage = (message: typeof otherMessages[0], index: number) => {
+                                    const isLastResponse = index === currentGeneratingPromptIndex;
+                                    const isUserMessage = message.role === "User";
+                                    const isAssistantMessage = message.role === "Copilot";
+                                    const isLatestAssistantMessage = isAssistantMessage && index === lastAssistantIndex;
 
                             // Note: Cannot use useMemo here as it's inside map() callback
                             // The stateless regex implementation in splitContent() ensures no corruption during streaming
                             const segmentedContent = splitContent(message.content);
-                            const hasReviewActions = segmentedContent.some(segment =>
-                                segment.type === SegmentType.AgentStream &&
-                                (segment.stream ?? []).flatMap((e: StreamEntry) => e.items).some(
-                                    (item: StreamItem) => item.kind === "component" && (item as any).componentType === "review" && (item as any).data.status === "pending"
-                                )
-                            );
+                            const hasReviewActions = isLatestAssistantMessage && hasActiveReview;
                             return (
                                 <ChatMessage key={index}>
                                     {/* Checkpoint separator before user messages */}
@@ -1462,6 +1823,7 @@ const AIChat: React.FC = () => {
                                                         isAvailable={false}
                                                         isDisabled={true}
                                                         isCreating={true}
+                                                        isGroupHovered={hoveredTurnIndex === turnIndex}
                                                         onRestore={handleCheckpointRestore}
                                                     />
                                                 )}
@@ -1472,6 +1834,7 @@ const AIChat: React.FC = () => {
                                                         isAvailable={availableCheckpointIds.has(message.checkpointId)}
                                                         isDisabled={isLoading}
                                                         isCreating={false}
+                                                        isGroupHovered={hoveredTurnIndex === turnIndex}
                                                         onRestore={handleCheckpointRestore}
                                                     />
                                                 )}
@@ -1491,7 +1854,7 @@ const AIChat: React.FC = () => {
                                                         <AgentStreamView
                                                             stream={stream}
                                                             isLoading={isLoading && isLatestAssistantMessage}
-                                                            rpcClient={isLatestAssistantMessage ? rpcClient : undefined}
+                                                            rpcClient={rpcClient}
                                                         />
                                                         {reviewItem && (
                                                             <ReviewBar
@@ -1500,10 +1863,13 @@ const AIChat: React.FC = () => {
                                                                 loadDesignDiagrams={(reviewItem as any).data.loadDesignDiagrams}
                                                                 isWorkspace={(reviewItem as any).data.isWorkspace}
                                                                 diffPackageMap={(reviewItem as any).data.diffPackageMap}
-                                                                status={(reviewItem as any).data.status ?? "pending"}
+                                                                isDiscarded={(reviewItem as any)?.data?.status === "discarded"}
                                                                 rpcClient={isLatestAssistantMessage ? rpcClient : undefined}
-                                                                isActive={isLatestAssistantMessage && !isLoading}
-                                                                onStatusChange={(newStatus) => updateReviewStatus(message, newStatus)}
+                                                                isActive={isLatestAssistantMessage && !isLoading && hasActiveReview}
+                                                                onDiscarded={() => {
+                                                                    updateReviewStatus(message, "discarded");
+                                                                    setHasActiveReview(false);
+                                                                }}
                                                             />
                                                         )}
                                                         {buttonItems.map((item: StreamItem, ci: number) => {
@@ -1702,6 +2068,8 @@ const AIChat: React.FC = () => {
                                                 );
                                             } else if (segment.type === SegmentType.References) {
                                                 return <ReferenceDropdown key={`references-${i}`} links={JSON.parse(segment.text)} />;
+                                            } else if (segment.type === SegmentType.Compaction) {
+                                                return <CompactionNotice key={`compaction-${i}`}>{segment.text}</CompactionNotice>;
                                             } else {
                                                 if (message.type === "Error") {
                                                     return <ErrorBox key={`error-${i}`}>{segment.text}</ErrorBox>;
@@ -1720,25 +2088,61 @@ const AIChat: React.FC = () => {
                                     )}
                                 </ChatMessage>
                             );
-                        })}
+                        };
+
+                                return (
+                                    <TurnGroup
+                                        key={userIndex}
+                                        onMouseEnter={() => setHoveredTurnIndex(turnIndex)}
+                                        onMouseLeave={() => setHoveredTurnIndex(null)}
+                                    >
+                                        {renderMessage(userMsg, userIndex)}
+                                        {assistantMsg !== undefined && renderMessage(assistantMsg, assistantIndex!)}
+                                    </TurnGroup>
+                                );
+                            });
+                        })()}
                         <div ref={messagesEndRef} />
                     </main>
-                    {webToolApprovalRequest ? (
-                        <CommonApprovalFooter
-                            type="web_tool"
-                            toolName={webToolApprovalRequest.toolName}
-                            content={webToolApprovalRequest.content}
-                            onAllow={handleWebToolAllow}
-                            onDeny={handleWebToolDeny}
-                        />
-                    ) : approvalRequest ? (
-                        <CommonApprovalFooter
-                            type={approvalRequest.approvalType}
-                            onApprove={handleApprovalApprove}
-                            onReject={handleApprovalReject}
-                        />
-                    ) : (
-                        <Footer
+                    {(() => {
+                        const lastAssistantMsg = [...otherMessages].reverse().find(m => m.role === "Copilot");
+                        const lastStream = lastAssistantMsg ? parseStream(lastAssistantMsg.content) : [];
+                        const lastStreamItems = lastStream.flatMap((e: StreamEntry) => e.items);
+                        const activeClarifyItem = lastStreamItems.find(
+                            (item: StreamItem) => item.kind === "ask" && (item as any).data?.stage === "asking"
+                        ) as { kind: "ask"; data: { requestId: string; questions: any[] } } | undefined;
+
+                        if (activeClarifyItem) {
+                            return (
+                                <ClarifyFooter
+                                    questions={activeClarifyItem.data.questions}
+                                    requestId={activeClarifyItem.data.requestId}
+                                    rpcClient={rpcClient}
+                                />
+                            );
+                        }
+                        if (webToolApprovalRequest) {
+                            return (
+                                <CommonApprovalFooter
+                                    type="web_tool"
+                                    toolName={webToolApprovalRequest.toolName}
+                                    content={webToolApprovalRequest.content}
+                                    onAllow={handleWebToolAllow}
+                                    onDeny={handleWebToolDeny}
+                                />
+                            );
+                        }
+                        if (approvalRequest) {
+                            return (
+                                <CommonApprovalFooter
+                                    type={approvalRequest.approvalType}
+                                    onApprove={handleApprovalApprove}
+                                    onReject={handleApprovalReject}
+                                />
+                            );
+                        }
+                        return (
+                            <Footer
                             aiChatInputRef={aiChatInputRef}
                             tagOptions={{
                                 placeholderTags: placeholderTags,
@@ -1750,10 +2154,12 @@ const AIChat: React.FC = () => {
                                 acceptResolver: acceptResolver,
                                 handleAttachmentSelection: handleAttachmentSelection,
                             }}
-                            inputPlaceholder="Describe your integration..."
+                            suggestedCommandTemplates={footerSuggestedCommandTemplates}
+                            inputPlaceholder={footerInputPlaceholder}
                             onSend={handleSend}
                             onStop={handleStop}
                             isLoading={isLoading}
+                            loadingLabel={isCompacting ? "Compacting conversation" : undefined}
                             showSuggestedCommands={Array.isArray(otherMessages) && otherMessages.length === 0}
                             codeContext={codeContext}
                             onRemoveCodeContext={() => updateCodeContext(undefined)}
@@ -1764,8 +2170,15 @@ const AIChat: React.FC = () => {
                             isWebToolsEnabled={isWebToolsEnabled}
                             onToggleWebSearch={handleToggleWebSearch}
                             disabled={isUsageExceeded}
+                            contextUsage={showContextUsage ? contextUsage : null}
+                            runningServicesPanel={{
+                                services: runningServices,
+                                onStopService: handleStopRunningService,
+                                onStopAll: handleStopAllRunningServices,
+                            }}
                         />
-                    )}
+                        );
+                    })()}
                 </AIChatView>
             )}
             {showSettings && <SettingsPanel onClose={() => setShowSettings(false)}></SettingsPanel>}

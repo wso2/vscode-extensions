@@ -40,6 +40,7 @@ import {
     declinePlan,
     declineTask,
     DocGenerationRequest,
+    enhancePrompt,
     generateAgent,
     GenerateAgentCodeRequest,
     generateContextTypes,
@@ -59,7 +60,7 @@ import {
     getLoginMethod,
     getSemanticDiff,
     getServiceNames,
-    getUsage,
+    
     isCopilotSignedIn,
     isPlatformExtensionAvailable,
     isUserAuthenticated,
@@ -73,6 +74,8 @@ import {
     PlanApprovalRequest,
     ProcessContextTypeCreationRequest,
     ProcessMappingParametersRequest,
+    PromptEnhancementRequest,
+    promptForLogin,
     promptGithubAuthorize,
     provideConfiguration,
     provideConnectorSpec,
@@ -89,10 +92,25 @@ import {
     updateRequirementSpecification,
     approveWebTool,
     declineWebTool,
-    WebToolApprovalRequest
+    WebToolApprovalRequest,
+    getUsage,
+    compactConversation,
+    CompactConversationRequest,
+    getShowContextUsage,
+    submitClarifyAnswer,
+    cancelClarify,
+    ClarifyAnswerRequest,
+    ClarifyCancelRequest,
+    getRunningServices,
+    stopRunningService,
+    StopRunningServiceRequest,
 } from "@wso2/ballerina-core";
+import { workspace } from 'vscode';
 import { Messenger } from "vscode-messenger";
 import { AiPanelRpcManager } from "./rpc-manager";
+import { sendConfigChangeNotification } from "../../features/ai/utils/ai-utils";
+import { runningServicesManager } from "../../features/ai/agent/tools/running-service-manager";
+import { notifyRunningServicesChanged } from "../../RPCLayer";
 
 export function registerAiPanelRpcHandlers(messenger: Messenger) {
     const rpcManger = new AiPanelRpcManager();
@@ -145,4 +163,25 @@ export function registerAiPanelRpcHandlers(messenger: Messenger) {
     messenger.onNotification(openFileDiff, (args: OpenFileDiffRequest) => rpcManger.openFileDiff(args));
     messenger.onRequest(approveWebTool, (args: WebToolApprovalRequest) => rpcManger.approveWebTool(args));
     messenger.onRequest(declineWebTool, (args: WebToolApprovalRequest) => rpcManger.declineWebTool(args));
+    messenger.onRequest(compactConversation, (args: CompactConversationRequest) => rpcManger.compactConversation(args));
+    messenger.onRequest(getShowContextUsage, () => rpcManger.getShowContextUsage());
+
+    // Notify webview immediately when the showContextUsage setting is toggled
+    workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('ballerina.ai.showContextUsage')) {
+            const value = workspace.getConfiguration('ballerina').get<boolean>('ai.showContextUsage', false);
+            sendConfigChangeNotification('showContextUsage', value);
+        }
+    });
+    messenger.onRequest(enhancePrompt, (args: PromptEnhancementRequest) => rpcManger.enhancePrompt(args));
+    messenger.onNotification(promptForLogin, () => rpcManger.promptForLogin());
+    messenger.onRequest(submitClarifyAnswer, (args: ClarifyAnswerRequest) => rpcManger.submitClarifyAnswer(args));
+    messenger.onRequest(cancelClarify, (args: ClarifyCancelRequest) => rpcManger.cancelClarify(args));
+    messenger.onRequest(getRunningServices, () => rpcManger.getRunningServices());
+    messenger.onRequest(stopRunningService, (args: StopRunningServiceRequest) => rpcManger.stopRunningService(args));
+
+    // Push updates to the webview whenever the set of running services changes.
+    runningServicesManager.onChange = (services) => {
+        notifyRunningServicesChanged(services);
+    };
 }

@@ -170,7 +170,8 @@ export type FormFieldInputType = "TEXT" |
     "NUMBER" |
     "REPEATABLE_LIST" |
     "CONDITIONAL_FIELDS" |
-    "DOC_TEXT"
+    "DOC_TEXT" |
+    "GROUP_SECTION"
     ;
 
 export interface BaseType {
@@ -355,6 +356,12 @@ export enum FUNCTION_TYPE {
     ALL = "all",
 }
 
+export enum VISIBILITY {
+    PUBLIC = "public",
+    PRIVATE = "private",
+    MODULE = "module",
+}
+
 /**
  * Represents the directory structure of artifacts in a project.
  */
@@ -412,7 +419,7 @@ export interface ProjectStructureArtifactResponse {
     position?: NodePosition;
     resources?: ProjectStructureArtifactResponse[];
     isNew?: boolean;
-    isPublic?: boolean;
+    visibility?: VISIBILITY;
 }
 
 export interface UpdatedArtifactsResponse {
@@ -437,6 +444,7 @@ export type DiagramLabel = "On Fail" | "Body";
 
 export type NodePropertyKey =
     | "agentType"
+    | "credential"
     | "annotations"
     | "auth"
     | "checkError"
@@ -504,6 +512,7 @@ export type NodeKind =
     | "AGENTS"
     | "AGENT"
     | "AGENT_CALL"
+    | "AGENT_ID_AUTH_CONFIG"
     | "AGENT_RUN"
     | "ASSIGN"
     | "AUTOMATION"
@@ -539,7 +548,7 @@ export type NodeKind =
     | "MATCH"
     | "METHOD_CALL"
     | "MEMORY"
-    | "MEMORY_STORE"
+    | "SHORT_TERM_MEMORY_STORE"
     | "MODEL_PROVIDER"
     | "MODEL_PROVIDERS"
     | "VARIABLE"
@@ -576,6 +585,7 @@ export type NodeKind =
     | "WAIT"
     | "WHILE"
     | "WORKER"
+    | "RECORD"
     | "VARIABLE";
 
 export type OverviewFlow = {

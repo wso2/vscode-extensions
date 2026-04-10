@@ -16,14 +16,14 @@
  * under the License.
  */
 
-import React, { ReactNode, useEffect, useMemo, useState } from "react";
+import React, { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EditableTitle } from "../../../components/EditableTitle";
 import {
     ProjectStructure,
     EVENT_TYPE,
     MACHINE_VIEW,
     BuildMode,
     BI_COMMANDS,
-    SHARED_COMMANDS,
     DIRECTORY_MAP,
 } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
@@ -35,7 +35,7 @@ import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
 import ReactMarkdown from "react-markdown";
 import { IOpenInConsoleCmdParams, WICommandIds } from "@wso2/wso2-platform-core";
 import { AlertBoxWithClose } from "../../AIPanel/AlertBoxWithClose";
-import { getIntegrationTypes } from "./utils";
+import { getIntegrationTypes, validateComponentName } from "./utils";
 import { UndoRedoGroup } from "../../../components/UndoRedoGroup";
 import { usePlatformExtContext } from "../../../providers/platform-ext-ctx-provider";
 import { TopNavigationBar } from "../../../components/TopNavigationBar";
@@ -451,7 +451,7 @@ function DeploymentOptions({
                         title={
                             isDeployed ? (
                                 <DevantHeaderWrap>
-                                    <span>Deployed in Devant</span>
+                                    <span>Deployed in WSO2 Cloud</span>
                                     <Button
                                         appearance="icon"
                                         onClick={(e) => {
@@ -465,24 +465,24 @@ function DeploymentOptions({
                                     </Button>
                                 </DevantHeaderWrap>
                             ) : (
-                                "Deploy to Devant"
+                                "Deploy to WSO2 Cloud"
                             )
                         }
                         description={
                             isDeployed
-                                ? "This integration is already deployed in Devant."
-                                : "Deploy your integration to the cloud using Devant by WSO2."
+                                ? "This integration is already deployed in WSO2 Cloud."
+                                : "Deploy your integration to WSO2 Cloud."
                         }
-                        buttonText={isDeployed ? "View in Devant" : "Deploy"}
+                        buttonText={isDeployed ? "View in Console" : "Deploy"}
                         isExpanded={expandedOptions.has("devant")}
                         onToggle={() => toggleOption("devant")}
-                        onDeploy={isDeployed? () => goToDevant() : handleDeploy}
+                        onDeploy={isDeployed ? () => goToDevant() : handleDeploy}
                         learnMoreLink={"https://wso2.com/devant/docs"}
                         hasDeployableIntegration={hasDeployableIntegration}
                         secondaryAction={
                             isDeployed && platformExtState?.hasLocalChanges
                                 ? {
-                                    description: "To redeploy in Devant, please commit and push your changes.",
+                                    description: "To redeploy in WSO2 Cloud, please commit and push your changes.",
                                     buttonText: "Open Source Control",
                                     onClick: () =>
                                         rpcClient
@@ -493,7 +493,7 @@ function DeploymentOptions({
                         }
                     />
                 )}
-                
+
                 <DeploymentOption
                     title="Deploy with Docker"
                     description="Create a Docker image of your integration and deploy it to any Docker-enabled system."
@@ -536,14 +536,25 @@ function IntegrationControlPlane({ enabled, handleICP }: IntegrationControlPlane
         <div>
             <Title variant="h3">Integration Control Plane</Title>
             <p>
-                {"Monitor the deployment runtime using WSO2 Integration Control Plane."}
+                {"Monitor and manage your integration deployments using a single enhanced interface, and streamline operations and increase efficiency."}
                 <VSCodeLink onClick={openLearnMoreURL} style={{ marginLeft: '4px' }}> Learn More </VSCodeLink>
             </p>
             <CheckBox
                 checked={enabled}
                 onChange={handleICP}
-                label="Enable WSO2 Integrator: ICP"
+                label="Enable ICP monitoring"
             />
+            {enabled && (
+                <Button
+                    appearance="secondary"
+                    onClick={() => rpcClient.getICPRpcClient().viewInICP({
+                        projectPath: ''
+                    })}
+                    sx={{ marginTop: "10px", display: "flex", alignItems: "center", justifyContent: "center", mx: "auto" }}
+                >
+                    <Codicon name="link-external" sx={{ marginRight: 8 }} /> View in ICP
+                </Button>
+            )}
         </div>
     );
 }
@@ -568,17 +579,17 @@ function DevantDashboard({ projectStructure, handleDeploy, goToDevant }: { proje
 
     return (
         <React.Fragment>
-            {platformExtState?.selectedComponent ? <Title variant="h3">Deployed in Devant</Title> : <Title variant="h3">Deploy to Devant</Title>}
+            {platformExtState?.selectedComponent ? <Title variant="h3">Deployed in WSO2 Cloud</Title> : <Title variant="h3">Deploy to WSO2 Cloud</Title>}
             {!hasAutomationOrService ? (
                 <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
-                    Before you can deploy your integration to Devant, please add an artifact (such as a Service or Automation) to your integration.
+                    Before you can deploy your integration to WSO2 Cloud, please add an artifact (such as a Service or Automation) to your integration.
                 </Typography>
             ) : (
                 <>
                     {platformExtState?.selectedComponent ? (
                         <>
                             <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
-                                This integration is deployed in Devant.
+                                This integration is deployed in WSO2 Cloud.
                             </Typography>
                             <Button
                                 appearance="secondary"
@@ -592,7 +603,7 @@ function DevantDashboard({ projectStructure, handleDeploy, goToDevant }: { proje
                                     mx: "auto"
                                 }}
                             >
-                                <Codicon name="save" sx={{ marginRight: 8 }} /> Push Changes to Devant
+                                <Codicon name="save" sx={{ marginRight: 8 }} /> Push Changes to WSO2 Cloud
                             </Button>
                             <Button
                                 appearance="icon"
@@ -605,13 +616,13 @@ function DevantDashboard({ projectStructure, handleDeploy, goToDevant }: { proje
                                     mx: "auto"
                                 }}
                             >
-                                <Codicon name="link" sx={{ marginRight: 8 }} /> Open in Devant Console
+                                <Codicon name="link" sx={{ marginRight: 8 }} /> Open in Console
                             </Button>
                         </>
                     ) : (
                         <React.Fragment>
                             <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
-                                Deploy your integration to Devant and run it in the cloud.
+                                Deploy your integration in WSO2 Cloud.
                             </Typography>
                             <Button
                                 appearance="primary"
@@ -651,8 +662,7 @@ export function PackageOverview(props: PackageOverviewProps) {
     const [isInProject, setIsInProject] = useState(false);
     const [isLibrary, setIsLibrary] = useState<boolean>(false);
     const [isNPSupported, setIsNPSupported] = useState<boolean>(false);
-
-    const fetchContext = () => {
+    const fetchContext = useCallback(() => {
         rpcClient
             .getBIDiagramRpcClient()
             .getProjectStructure()
@@ -687,20 +697,29 @@ export function PackageOverview(props: PackageOverviewProps) {
             .then((res) => {
                 setReadmeContent(res.content);
             });
-    };
-
-    rpcClient?.onProjectContentUpdated((state: boolean) => {
-        if (state) {
-            fetchContext();
-        }
-    });
+    }, [rpcClient, projectPath]);
 
     useEffect(() => {
         fetchContext();
         showLoginAlert().then((status) => {
             setShowAlert(status);
         });
-    }, [projectPath]);
+    }, [projectPath, fetchContext]);
+
+    // Keep a stable ref so the subscription callback always calls the latest fetchContext
+    // without needing to re-register the listener every time fetchContext changes.
+    const fetchContextRef = useRef(fetchContext);
+    fetchContextRef.current = fetchContext;
+
+    useEffect(() => {
+        if (!rpcClient) return;
+        const unsubscribe = rpcClient.onProjectContentUpdated((state: boolean) => {
+            if (state) {
+                fetchContextRef.current();
+            }
+        });
+        return unsubscribe;
+    }, [rpcClient]);
 
     const deployableIntegrationTypes = useMemo(() => {
         return getIntegrationTypes(projectStructure);
@@ -709,6 +728,23 @@ export function PackageOverview(props: PackageOverviewProps) {
     const integrationTitle = useMemo(() => {
         return projectStructure?.projectTitle || projectStructure?.projectName;
     }, [projectStructure]);
+
+    const validateTitle = useCallback((value: string): string => {
+        return validateComponentName(value.trim(), isLibrary) ?? "";
+    }, [isLibrary]);
+
+    const handleTitleUpdate = useCallback(async (newTitle: string) => {
+        await rpcClient.getBIDiagramRpcClient().updatePackageTitle({
+            packagePath: projectPath,
+            title: newTitle,
+        });
+        // Optimistically update the displayed title immediately.
+        // Do NOT call fetchContext() here — buildProjectsStructure in the backend is async;
+        // calling getProjectStructure() too early would return stale data and overwrite this update.
+        // The backend's notifyCurrentWebview() fires after buildProjectsStructure completes,
+        // which triggers onProjectContentUpdated → fetchContext() as the background confirm.
+        setProjectStructure(prev => prev ? { ...prev, projectTitle: newTitle } : prev);
+    }, [projectPath, rpcClient]);
 
     function isEmptyIntegration(): boolean {
         // Filter out connections that start with underscore
@@ -881,11 +917,19 @@ export function PackageOverview(props: PackageOverviewProps) {
                         subtitle={isLibrary ? "Library" : "Integration"}
                         onBack={handleBack}
                         actions={headerActions}
+                        onTitleEdit={handleTitleUpdate}
+                        validateTitle={validateTitle}
                     />
                 ) : (
                     <HeaderRow>
                         <TitleContainer>
-                            <ProjectTitle>{integrationTitle}</ProjectTitle>
+                            <EditableTitle
+                                title={integrationTitle}
+                                onCommit={handleTitleUpdate}
+                                validate={validateTitle}
+                            >
+                                <ProjectTitle>{integrationTitle}</ProjectTitle>
+                            </EditableTitle>
                             <ProjectSubtitle>{isLibrary ? "Library" : "Integration"}</ProjectSubtitle>
                         </TitleContainer>
                         <HeaderControls>
@@ -920,8 +964,8 @@ export function PackageOverview(props: PackageOverviewProps) {
                                     <Title variant="h2">Design</Title>
                                     {!isEmptyIntegration() && (
                                         <ActionContainer>
-                                            <Button appearance="icon" onClick={handleGenerate} buttonSx={{ padding: "2px 8px" }}>
-                                                <Codicon name="wand" sx={{ marginRight: 8 }} /> Generate
+                                            <Button appearance="secondary" onClick={handleGenerate}>
+                                                <Icon name="bi-ai-chat" sx={{ marginRight: 8 }} iconSx={{ width: "16px", height: "16px", fontSize: "16px" }} /> Generate with AI
                                             </Button>
                                             <Button appearance="primary" onClick={handleAddConstruct}>
                                                 <Codicon name="add" sx={{ marginRight: 8 }} /> Add Artifact
@@ -949,7 +993,7 @@ export function PackageOverview(props: PackageOverviewProps) {
                                                     <Codicon name="add" sx={{ marginRight: 8 }} /> Add Artifact
                                                 </Button>
                                                 <Button appearance="secondary" onClick={handleGenerate}>
-                                                    <Codicon name="wand" sx={{ marginRight: 8 }} /> Generate with AI
+                                                    <Icon name="bi-ai-chat" sx={{ marginRight: 4 }} iconSx={{ position: "relative", top: "2px" }} /> Generate with AI
                                                 </Button>
                                             </ButtonContainer>
                                         </EmptyStateContainer>

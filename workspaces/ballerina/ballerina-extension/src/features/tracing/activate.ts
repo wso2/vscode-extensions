@@ -24,6 +24,7 @@ import { TraceDetailsWebview } from './trace-details-webview';
 import { StateMachine } from '../../stateMachine';
 import { VisualizerWebview } from '../../views/visualizer/webview';
 import { initTraceAnimation, disposeTraceAnimation } from './trace-animation';
+import { executeTraceServerTask } from './trace-server-task';
 import { getCurrentProjectRoot, tryGetCurrentBallerinaFile } from '../../utils/project-utils';
 import { findBallerinaPackageRoot } from '../../utils';
 import { requiresPackageSelection, selectPackageOrPrompt } from '../../utils/command-utils';
@@ -34,14 +35,40 @@ export const DISABLE_TRACING_COMMAND = 'ballerina.disableTracing';
 export const CLEAR_TRACES_COMMAND = 'ballerina.clearTraces';
 export const SHOW_TRACE_DETAILS_COMMAND = 'ballerina.showTraceDetails';
 export const TOGGLE_AGENT_FILTER_COMMAND = 'ballerina.toggleAgentFilter';
+export const START_TRACE_SERVER_COMMAND = 'ballerina.startTraceServer';
 export const TRACE_VIEW_ID = 'ballerina-traceView';
 
 let treeDataProvider: TraceTreeDataProvider | undefined;
 let treeView: vscode.TreeView<vscode.TreeItem> | undefined;
 
 export function activateTracing(ballerinaExtInstance: BallerinaExtension) {
-    // Initialize TracerMachine
-    TracerMachine.initialize(StateMachine.context().projectPath);
+    // Initialize TracerMachine with child project paths for workspace projects
+    const { projectPath, projectInfo } = StateMachine.context();
+    const childProjectPaths = projectInfo?.children
+        ?.map((child: any) => child.projectPath)
+        .filter(Boolean) as string[] | undefined;
+    TracerMachine.initialize(projectPath, childProjectPaths);
+
+    // When project info isn't available yet (e.g. workspace still loading),
+    // listen for StateMachine transitions and refresh once it becomes available.
+    if (!projectPath && !childProjectPaths?.length) {
+        let hasRefreshed = false;
+        StateMachine.service().onTransition((state) => {
+            if (hasRefreshed) {
+                return;
+            }
+            const ctx = state.context;
+            const newProjectPath = ctx?.projectPath;
+            const newChildPaths = ctx?.projectInfo?.children
+                ?.map((child: any) => child.projectPath)
+                .filter(Boolean) as string[] | undefined;
+
+            if (newProjectPath || newChildPaths?.length) {
+                hasRefreshed = true;
+                TracerMachine.refresh(newProjectPath, newChildPaths);
+            }
+        });
+    }
 
     // Create TreeDataProvider
     treeDataProvider = new TraceTreeDataProvider();
@@ -85,8 +112,7 @@ export function activateTracing(ballerinaExtInstance: BallerinaExtension) {
         }
 
         TracerMachine.enable(targetPath);
-        // Reveal/focus the ballerina-traceView (shows trace panel in panel)
-        vscode.commands.executeCommand('workbench.view.extension.ballerina-traceView');
+        vscode.window.showInformationMessage('Tracing enabled.');
     });
 
     const disableTracingCommand = vscode.commands.registerCommand(DISABLE_TRACING_COMMAND, async () => {
@@ -95,6 +121,7 @@ export function activateTracing(ballerinaExtInstance: BallerinaExtension) {
             return;
         }
         TracerMachine.disable(targetPath);
+        vscode.window.showInformationMessage('Tracing disabled.');
     });
 
     const clearTracesCommand = vscode.commands.registerCommand(CLEAR_TRACES_COMMAND, () => {
@@ -110,6 +137,24 @@ export function activateTracing(ballerinaExtInstance: BallerinaExtension) {
             showTraceDetails(trace, focusSpanId, isAgentChat, showSidebar);
         }
     );
+
+    let traceServerStarting = false;
+    const startTraceServerCommand = vscode.commands.registerCommand(START_TRACE_SERVER_COMMAND, async () => {
+        if (TraceServer.isRunning()) {
+            vscode.window.showInformationMessage('Trace server is already running.');
+            return;
+        }
+        if (traceServerStarting) {
+            vscode.window.showInformationMessage('Trace server is already starting.');
+            return;
+        }
+        traceServerStarting = true;
+        try {
+            await executeTraceServerTask();
+        } finally {
+            traceServerStarting = false;
+        }
+    });
 
     const toggleAgentFilterCommand = vscode.commands.registerCommand(
         TOGGLE_AGENT_FILTER_COMMAND,
@@ -133,6 +178,7 @@ export function activateTracing(ballerinaExtInstance: BallerinaExtension) {
         disableTracingCommand,
         clearTracesCommand,
         showTraceDetailsCommand,
+        startTraceServerCommand,
         toggleAgentFilterCommand,
         treeDataProvider
     );

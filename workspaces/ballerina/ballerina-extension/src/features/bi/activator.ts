@@ -42,13 +42,16 @@ import {
     createBIWorkspaceWithProject,
     createEmptyBIWorkspace
 } from "../../utils/bi";
+import { checkAndRunPendingEnhancement } from "../ai/migration/orchestrator";
 import { createVersionNumber, findBallerinaPackageRoot, isSupportedSLVersion } from ".././../utils";
 import { extension } from "../../BalExtensionContext";
 import { VisualizerWebview } from "../../views/visualizer/webview";
 import { getCurrentProjectRoot, tryGetCurrentBallerinaFile } from "../../utils/project-utils";
 import { selectPackageOrPrompt, needsProjectDiscovery, requiresPackageSelection } from "../../utils/command-utils";
+import { handleAIAgentServiceDeletion } from "../../utils/ai-service-utils";
 import { findWorkspaceTypeFromWorkspaceFolders } from "../../rpc-managers/common/utils";
 import { MESSAGES } from "../project";
+import { ensureICPServerRunning } from "../icp";
 
 const FOCUS_DEBUG_CONSOLE_COMMAND = 'workbench.debug.action.focusRepl';
 const TRACE_SERVER_OFF = "off";
@@ -60,11 +63,27 @@ export function activate(context: BallerinaExtension) {
     // Set context for command visibility
     commands.executeCommand('setContext', 'ballerina.bi.workspaceSupported', isWorkspaceSupported);
 
-    commands.registerCommand(BI_COMMANDS.BI_RUN_PROJECT, () => {
+    commands.registerCommand(BI_COMMANDS.BI_RUN_PROJECT, async () => {
         const stateMachineContext = StateMachine.context();
         const { workspacePath, view, projectPath, projectInfo } = stateMachineContext;
         const isWebviewOpen = VisualizerWebview.currentPanel !== undefined;
         const hasActiveTextEditor = !!window.activeTextEditor;
+
+        // Check if ICP is enabled for this project
+        if (projectPath && stateMachineContext.langClient) {
+            try {
+                const icpStatus = await stateMachineContext.langClient.isIcpEnabled({ projectPath });
+                if (icpStatus && 'enabled' in icpStatus && icpStatus.enabled) {
+                    const proceed = await ensureICPServerRunning(projectPath);
+                    if (!proceed) {
+                        return;
+                    }
+                }
+            } catch (error) {
+                // ICP check failed, continue with run
+                console.error('[ICP] Error checking ICP status:', error);
+            }
+        }
 
         const needsPackageSelection = requiresPackageSelection(
             workspacePath, view, projectPath, isWebviewOpen, hasActiveTextEditor
@@ -199,6 +218,18 @@ export function activate(context: BallerinaExtension) {
 
     // Open the ballerina toml file as the first file for LS to trigger the project loading
     openBallerinaTomlFile(context);
+
+    // After the language server and project are fully ready, check whether a
+    // migration AI enhancement was scheduled before the last folder reload.
+    const service = StateMachine.service();
+    const subscription = service.subscribe((state) => {
+        if (state.value === "extensionReady" && state.changed) {
+            subscription.unsubscribe();
+            checkAndRunPendingEnhancement().catch((err) =>
+                console.error("[MigrationEnhancement] Unexpected error:", err)
+            );
+        }
+    });
 }
 
 
@@ -245,7 +276,7 @@ async function handleCommandWithContext(
             view,
             projectPath,
             ...additionalViewParams
-        });
+        }, true);
     }
     // Scenario 2: Invoked from tree view with item context
     else if (item?.resourceUri) {
@@ -254,11 +285,11 @@ async function handleCommandWithContext(
             view,
             projectPath,
             ...additionalViewParams
-        });
+        }, true);
     }
     // Scenario 3: Default - no specific context
     else {
-        openView(EVENT_TYPE.OPEN_VIEW, { view, ...additionalViewParams });
+        openView(EVENT_TYPE.OPEN_VIEW, { view, ...additionalViewParams }, true);
     }
 }
 
@@ -423,6 +454,10 @@ const handleComponentDeletion = async (componentType: string, itemLabel: string,
 
     for (const component of componentCategory) {
         if (component.name === itemLabel) {
+            if (component.name.startsWith("AI Agent Services")) {
+                await handleAIAgentServiceDeletion(component, rpcClient, filePath, deleteComponent);
+                return;
+            }
             const componentInfo: ComponentInfo = {
                 name: component.name,
                 filePath: component.path,

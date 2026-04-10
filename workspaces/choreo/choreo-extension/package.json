@@ -153,11 +153,11 @@
       }
     ],
     "icons": {
-      "distro-choreo-2": {
+      "choreo-choreo-2": {
         "description": "choreo-2",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f18a"
+          "fontCharacter": "\\f1a8"
         }
       }
     }
@@ -195,7 +195,7 @@
     "@types/which": "3.0.4",
     "@vscode/vsce": "3.7.0",
     "@wso2/playwright-vscode-tester": "workspace:*",
-    "axios": "1.13.5",
+    "axios": "1.15.0",
     "copyfiles": "2.4.1",
     "del-cli": "6.0.0",
     "mocha": "11.5.0",
@@ -221,9 +221,9 @@
     "@wso2/wso2-platform-core": "workspace:*",
     "byline": "5.0.0",
     "dotenv": "16.0.3",
-    "file-type": "21.3.1",
+    "file-type": "21.3.2",
     "js-yaml": "4.1.1",
-    "yaml": "2.6.0",
+    "yaml": "2.8.3",
     "jschardet": "3.0.0",
     "vscode-messenger": "0.5.1",
     "vscode-messenger-common": "0.5.1",

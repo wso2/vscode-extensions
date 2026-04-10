@@ -29,8 +29,18 @@ inputs:
     type: boolean
     required: false
     default: false
+  wso2-platform:
+    description: Update WSO2 Platform extension version
+    type: boolean
+    required: false
+    default: false
   mi:
     description: Update MI extension version
+    type: boolean
+    required: false
+    default: false
+  hurl-client:
+    description: Update Hurl Client extension version
     type: boolean
     required: false
     default: false
@@ -125,6 +135,14 @@ runs:
       uses: ./.github/actions/updateVersion
       with:
         path: "bi/bi-extension"
+        isPreRelease: ${{ inputs.isPreRelease }}
+        version: ${{ inputs.version }}
+
+    - name: Update version - WSO2 Platform
+      if: ${{ inputs.wso2-platform == 'true' }}
+      uses: ./.github/actions/updateVersion
+      with:
+        path: "wso2-platform/wso2-platform-extension"
         isPreRelease: ${{ inputs.isPreRelease }}
         version: ${{ inputs.version }}
 

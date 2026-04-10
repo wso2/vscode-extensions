@@ -56,6 +56,8 @@ const AI_MODULE_ICON_MAP: Record<string, AIModuleIconConfig> = {
     "ai.milvus": { iconName: "bi-milvus", iconColor: "#4fc4f9" },
     "ai.pinecone": { iconName: "bi-pinecone" },
     "ai.pgvector": { iconName: "bi-postgresql" },
+    "ai.openrouter": { iconName: "bi-openrouter" },
+    "ai.memory.mssql": { iconName: "bi-mssql" }
 };
 
 export function getAIModuleIcon(moduleType: string, size: number = 24): React.ReactElement | null {

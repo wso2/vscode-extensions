@@ -353,13 +353,13 @@
       {
         "command": "MI.project-explorer.open-service-designer",
         "title": "Open Service Designer",
-        "icon": "$(distro-design-view)",
+        "icon": "$(mi-design-view)",
         "when": "false"
       },
       {
         "command": "MI.show.graphical-view",
         "title": "Open Graphical View",
-        "icon": "$(distro-design-view)"
+        "icon": "$(mi-design-view)"
       },
       {
         "command": "MI.project-explorer.add-endpoint",
@@ -469,7 +469,7 @@
       {
         "command": "MI.project-explorer.open-dss-service-designer",
         "title": "Open Service Designer",
-        "icon": "$(distro-design-view)",
+        "icon": "$(mi-design-view)",
         "when": "false"
       },
       {
@@ -531,7 +531,7 @@
       {
         "command": "MI.build-bal-module",
         "title": "Build Ballerina Module",
-        "icon": "$(distro-build-package)",
+        "icon": "$(mi-build-package)",
         "category": "MI"
       },
       {
@@ -543,7 +543,7 @@
       {
         "command": "MI.test.edit.suite",
         "title": "Edit test suite",
-        "icon": "$(distro-design-view)",
+        "icon": "$(mi-design-view)",
         "category": "MI"
       },
       {
@@ -555,7 +555,7 @@
       {
         "command": "MI.test.edit.case",
         "title": "Edit test case",
-        "icon": "$(distro-design-view)",
+        "icon": "$(mi-design-view)",
         "category": "MI"
       },
       {
@@ -567,7 +567,7 @@
       {
         "command": "MI.test.edit.mock-service",
         "title": "Edit mock service",
-        "icon": "$(distro-design-view)",
+        "icon": "$(mi-design-view)",
         "category": "MI"
       },
       {
@@ -984,18 +984,18 @@
       "testing/message/context": []
     },
     "icons": {
-      "distro-design-view": {
+      "mi-design-view": {
         "description": "design-view",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f177"
+          "fontCharacter": "\\f1c3"
         }
       },
-      "distro-build-package": {
+      "mi-build-package": {
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f191"
+          "fontCharacter": "\\f19b"
         }
       }
     }
@@ -1046,7 +1046,7 @@
     "typescript": "5.8.3",
     "webpack": "5.104.1",
     "webpack-cli": "4.10.0",
-    "yaml": "2.8.0"
+    "yaml": "2.8.3"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "2.0.35",
@@ -1070,14 +1070,14 @@
     "@wso2/mi-syntax-tree": "workspace:*",
     "@wso2/playwright-vscode-tester": "workspace:*",
     "adm-zip": "0.5.16",
-    "axios": "1.13.5",
+    "axios": "1.15.0",
     "copyfiles": "2.4.1",
     "cors-anywhere": "0.4.4",
     "dotenv": "16.5.0",
     "fast-xml-parser": "5.2.3",
     "find-process": "1.4.10",
     "fs-extra": "11.3.0",
-    "handlebars": "4.7.8",
+    "handlebars": "4.7.9",
     "json-schema": "0.4.0",
     "json-schema-to-ts": "3.1.1",
     "jsonix": "3.0.0",

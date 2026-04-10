@@ -30,6 +30,7 @@ interface OptionProps {
     id?: string;
     content?: string | ReactNode;
     value: any;
+    disabled?: boolean;
 }
 
 const RadioButtonContainer = styled.div<RadioButtonContainerProps>`
@@ -46,10 +47,10 @@ export interface RadioButtonGroupProps extends ComponentProps<"input"> {
 }
 
 export const RadioButtonGroup = React.forwardRef<HTMLInputElement, RadioButtonGroupProps>((props, ref) => {
-    const { id, className, label, options, orientation, sx, ...rest } = props;
+    const { id, className, label, options, orientation, sx, value, ...rest } = props;
 
     return (
-        <RadioButtonContainer id={id} className={className} sx={sx} {...rest} >
+        <RadioButtonContainer id={id} className={className} sx={sx}>
             <div style={{color: "var(--vscode-editor-foreground	)"}}>
                 <label htmlFor={`${id}-label`}>{label}</label>
             </div>
@@ -63,6 +64,8 @@ export const RadioButtonGroup = React.forwardRef<HTMLInputElement, RadioButtonGr
                         key={index}
                         id={option.id}
                         value={option.value}
+                        checked={value !== undefined ? String(option.value) === String(value) : undefined}
+                        disabled={option.disabled || undefined}
                     >
                         {option.content}
                     </VSCodeRadio>

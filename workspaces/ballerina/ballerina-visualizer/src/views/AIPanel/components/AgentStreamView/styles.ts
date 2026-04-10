@@ -27,18 +27,12 @@ export const sonarRing = keyframes`
     100% { transform: scale(2.4); opacity: 0;   }
 `;
 
-// Tool icon: horizontal flip for loading state
-export const flip = keyframes`
-    0%   { transform: scaleX(1); }
-    50%  { transform: scaleX(-1); }
-    100% { transform: scaleX(1); }
+// Tool icon: opacity pulse for loading state
+export const breathe = keyframes`
+    0%, 100% { opacity: 0.4; }
+    50%       { opacity: 1; }
 `;
 
-// Progress spinner: thick arc rotating
-export const spin = keyframes`
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-`;
 
 // ── Pipeline container ────────────────────────────────────────────────────────
 
@@ -210,28 +204,9 @@ export const ToolIcon = styled.span<{ loading?: boolean; failed?: boolean }>`
             ? "var(--vscode-charts-blue)"
             : "var(--vscode-descriptionForeground)"};
     opacity: ${(props: { loading?: boolean; failed?: boolean }) => props.loading ? 1 : 0.75};
-    ${(props: { loading?: boolean; failed?: boolean }) => props.loading ? `animation: ${flip} 1.4s ease-in-out infinite;` : ""}
+    ${(props: { loading?: boolean; failed?: boolean }) => props.loading ? `animation: ${breathe} 1.4s ease-in-out infinite;` : ""}
 `;
 
-// Spinning sync icon — blue, rotating
-export const ProgressSpinner = styled.span`
-    font-size: 12px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    color: var(--vscode-charts-blue);
-    animation: ${spin} 1s linear infinite;
-`;
-
-// Done icon — green pass-filled
-export const ProgressDone = styled.span`
-    font-size: 12px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    color: var(--vscode-charts-green, #388a34);
-    opacity: 0.85;
-`;
 
 
 export const ItemLabel = styled.span<{ loading: boolean; failed?: boolean }>`

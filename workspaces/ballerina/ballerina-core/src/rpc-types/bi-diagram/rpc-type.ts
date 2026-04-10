@@ -115,10 +115,12 @@ import {
     BIAiSuggestionsRequest,
     BIAiSuggestionsResponse,
     AIChatRequest,
+    InlineAgentChatRequest,
     BreakpointRequest,
     CurrentBreakpointsResponse,
     FormDidOpenParams,
     FormDidCloseParams,
+    FormDirtyDidChangeParams,
     EndOfFileRequest,
     RecordsInWorkspaceMentions,
     BuildMode,
@@ -129,7 +131,10 @@ import {
     DeleteProjectRequest,
     OpenReadmeRequest,
     ValidateProjectFormRequest,
-    ValidateProjectFormResponse
+    ValidateProjectFormResponse,
+    SuggestedProjectDefaultsResponse,
+    UpdateProjectTitleRequest,
+    UpdatePackageTitleRequest
 } from "./interfaces";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -151,6 +156,7 @@ export const getNodeTemplate: RequestType<BINodeTemplateRequest, BINodeTemplateR
 export const getAiSuggestions: RequestType<BIAiSuggestionsRequest, BIAiSuggestionsResponse> = { method: `${_preFix}/getAiSuggestions` };
 export const createProject: NotificationType<ProjectRequest> = { method: `${_preFix}/createProject` };
 export const validateProjectPath: RequestType<ValidateProjectFormRequest, ValidateProjectFormResponse> = { method: `${_preFix}/validateProjectPath` };
+export const getSuggestedProjectDefaults: RequestType<{ isInProject: boolean }, SuggestedProjectDefaultsResponse> = { method: `${_preFix}/getSuggestedProjectDefaults` };
 export const deleteProject: NotificationType<DeleteProjectRequest> = { method: `${_preFix}/deleteProject` };
 export const addProjectToWorkspace: NotificationType<AddProjectToWorkspaceRequest> = { method: `${_preFix}/addProjectToWorkspace` };
 export const getWorkspaces: RequestType<void, WorkspacesResponse> = { method: `${_preFix}/getWorkspaces` };
@@ -172,6 +178,8 @@ export const renameIdentifier: NotificationType<RenameIdentifierRequest> = { met
 export const deployProject: RequestType<DeploymentRequest, DeploymentResponse> = { method: `${_preFix}/deployProject` };
 export const deployWorkspace: RequestType<WorkspaceDeploymentRequest, DeploymentResponse> = { method: `${_preFix}/deployWorkspace` };
 export const openAIChat: NotificationType<AIChatRequest> = { method: `${_preFix}/openAIChat` };
+export const startInlineAgentChat: NotificationType<InlineAgentChatRequest> = { method: `${_preFix}/startInlineAgentChat` };
+export const cleanupAgentChatServices: RequestType<void, boolean> = { method: `${_preFix}/cleanupAgentChatServices` };
 export const getSignatureHelp: RequestType<SignatureHelpRequest, SignatureHelpResponse> = { method: `${_preFix}/getSignatureHelp` };
 export const buildProject: NotificationType<BuildMode> = { method: `${_preFix}/buildProject` };
 export const runProject: NotificationType<void> = { method: `${_preFix}/runProject` };
@@ -183,6 +191,7 @@ export const getFormDiagnostics: RequestType<FormDiagnosticsRequest, FormDiagnos
 export const getExpressionDiagnostics: RequestType<ExpressionDiagnosticsRequest, ExpressionDiagnosticsResponse> = { method: `${_preFix}/getExpressionDiagnostics` };
 export const formDidOpen: RequestType<FormDidOpenParams, void> = { method: `${_preFix}/formDidOpen` };
 export const formDidClose: RequestType<FormDidCloseParams, void> = { method: `${_preFix}/formDidClose` };
+export const formDirtyDidChange: NotificationType<FormDirtyDidChangeParams> = { method: `${_preFix}/formDirtyDidChange` };
 export const getDesignModel: RequestType<BIDesignModelRequest, BIDesignModelResponse> = { method: `${_preFix}/getDesignModel` };
 export const getTypes: RequestType<GetTypesRequest, GetTypesResponse> = { method: `${_preFix}/getTypes` };
 export const getType: RequestType<GetTypeRequest, GetTypeResponse> = { method: `${_preFix}/getType` };
@@ -216,3 +225,5 @@ export const getOpenApiGeneratedModules: RequestType<OpenAPIGeneratedModulesRequ
 export const deleteOpenApiGeneratedModules: RequestType<OpenAPIClientDeleteRequest, OpenAPIClientDeleteResponse> = { method: `${_preFix}/deleteOpenApiGeneratedModules` };
 export const openConfigToml: RequestType<OpenConfigTomlRequest, void> = { method: `${_preFix}/openConfigToml` };
 export const getExpressionTokens: RequestType<ExpressionTokensRequest, number[]> = { method: `${_preFix}/getExpressionTokens` };
+export const updateProjectTitle: RequestType<UpdateProjectTitleRequest, void> = { method: `${_preFix}/updateProjectTitle` };
+export const updatePackageTitle: RequestType<UpdatePackageTitleRequest, void> = { method: `${_preFix}/updatePackageTitle` };
