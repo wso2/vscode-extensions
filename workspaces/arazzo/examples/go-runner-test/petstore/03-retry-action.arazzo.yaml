@@ -45,7 +45,7 @@ workflows:
         parameters:
           - name: petId
             in: path
-            value: "10"
+            value: "15"
         successCriteria:
           - condition: "$statusCode == 200"
         outputs:
