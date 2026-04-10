@@ -78,7 +78,4 @@ The [Arazzo Specification](https://spec.openapis.org/arazzo/v1.0.1.html) is an O
 - [Arazzo GitHub Repository](https://github.com/OAI/Arazzo-Specification)
 - [OpenAPI Initiative](https://www.openapis.org/)
 
-## License
-
-Apache 2.0
 
