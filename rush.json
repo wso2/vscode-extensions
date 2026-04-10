@@ -246,7 +246,6 @@
     */
     "postRushBuild": [
       "cd workspaces/ballerina/ballerina-extension && pnpm run copyVSIXToRoot",
-      "cd workspaces/wso2-platform/wso2-platform-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/choreo/choreo-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/mi/mi-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/bi/bi-extension && pnpm run copyVSIXToRoot",
@@ -419,16 +418,6 @@
     {
       "packageName": "@wso2/wso2-platform-core",
       "projectFolder": "workspaces/wso2-platform/wso2-platform-core",
-      "versionPolicyName": "wso2-platform-extension"
-    },
-    {
-      "packageName": "wso2-platform",
-      "projectFolder": "workspaces/wso2-platform/wso2-platform-extension",
-      "versionPolicyName": "wso2-platform-extension"
-    },
-    {
-      "packageName": "@wso2/wso2-platform-vscode-webviews",
-      "projectFolder": "workspaces/wso2-platform/wso2-platform-webviews",
       "versionPolicyName": "wso2-platform-extension"
     },
     {
