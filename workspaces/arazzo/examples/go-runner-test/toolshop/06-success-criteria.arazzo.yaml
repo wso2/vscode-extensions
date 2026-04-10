@@ -1,0 +1,70 @@
+arazzo: "1.0.0"
+info:
+  title: "Test 06 - Success Criteria Types"
+  version: "1.0.0"
+  description: >
+    Tests different success criteria types:
+    - default (no criteria = 2xx check)
+    - simple conditions ($statusCode comparisons)
+    - multiple criteria (all must pass)
+    - regex matching on JSON response body
+
+sourceDescriptions:
+  - name: toolshop
+    url: ./toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: success_criteria_tests
+    summary: Test various success criteria
+    steps:
+      - stepId: defaultCriteria
+        description: "No explicit successCriteria - should pass with 2xx default"
+        operationId: getBrands
+        outputs:
+          brandsResult: "$statusCode"
+
+      - stepId: simpleCriteria
+        description: "Simple condition - $statusCode == 200"
+        operationId: getProducts
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          firstProductId: "$response.body#/data/0/id"
+          firstProductName: "$response.body#/data/0/name"
+
+      - stepId: multipleSimpleCriteria
+        description: "Multiple simple criteria - all must pass"
+        operationId: sendMessage
+        requestBody:
+          contentType: application/json
+          payload:
+            name: "Criteria Test User"
+            email: "criteriatest@example.com"
+            subject: "website"
+            message: "Testing multiple criteria"
+        successCriteria:
+          - condition: "$statusCode == 200"
+          - condition: "$response.body#/status == NEW"
+        outputs:
+          messageId: "$response.body#/id"
+          messageStatus: "$response.body#/status"
+
+      - stepId: regexCriteria
+        description: "Regex criteria - match response body content for access_token"
+        operationId: loginCustomer
+        requestBody:
+          contentType: application/json
+          payload:
+            email: "customer@practicesoftwaretesting.com"
+            password: "welcome01"
+        successCriteria:
+          - condition: "(?i).*access_token.*"
+            context: "$response.body"
+            type: regex
+
+    outputs:
+      defaultCheck: "$steps.defaultCriteria.outputs.brandsResult"
+      firstProductId: "$steps.simpleCriteria.outputs.firstProductId"
+      messageId: "$steps.multipleSimpleCriteria.outputs.messageId"
+      messageStatus: "$steps.multipleSimpleCriteria.outputs.messageStatus"
