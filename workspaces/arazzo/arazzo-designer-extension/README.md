@@ -8,27 +8,27 @@ Beyond the visual features, the extension enhances the Arazzo authoring experien
 
 1. Install the extension from the VS Code Marketplace.
 2. Open any Arazzo file (`.arazzo.yaml`, `.arazzo.yml`).
-3. Click the **Arazzo Overview** icon in the editor toolbar, or use the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run **"ArazzoDesigner: Open Arazzo Designer"**.
+3. Click the **Arazzo Overview** icon in the editor toolbar, or use the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run **"ArazzoDesigner: Open Arazzo Visualizer"**.
 
-The Visualizer opens beside your code and stays in sync as you edit.
+The visualizer opens beside your code and stays in sync as you edit.
 
 ## Features
 
-### 📊 Workflow Visualizer
+### Workflow Visualizer
 
-Open an Arazzo file and click the **Arazzo Designer** toolbar icon (or use `Ctrl+Shift+P` → *"ArazzoDesigner: Open Arazzo Designer"*) to launch the **Overview**. The Overview gives you a bird's-eye view of every workflow defined in your specification including their names, summaries, and how many steps they contain. Click any workflow card to drill into the full **Workflow View**, which renders every step as a node, every decision branch as a labelled edge, and every success/failure path in a clean interactive diagram. Click any node to open the **Properties Panel** on the right and inspect that step's inputs, parameters, success criteria, and outputs without leaving the diagram.
-
+Open an Arazzo file and click the **Arazzo Visualizer** toolbar icon (or use `Ctrl+Shift+P` → *"ArazzoDesigner: Open Arazzo Visualizer"*) to launch the **Overview**. The Overview gives you a bird's-eye view of every workflow defined in your specification including their names, summaries, and how many steps they contain. Click any workflow card to drill into the full **Workflow View**, which renders every step as a node, every decision branch as a labelled edge, and every success/failure path in a clean interactive diagram. Click any node to open the **Properties Panel** on the right and inspect that step's inputs, parameters, success criteria, and outputs without leaving the diagram.
 
 
 ---
 
-### ⚡ Code Lens — Jump Straight to a Workflow
+### Code Lens — Jump Straight to a Workflow
 
 You don't always need to go through the Overview. When you open an Arazzo file, the extension adds clickable **Code Lens** action buttons directly above each workflow definition in the editor. Click **"Visualize"** on any workflow to jump straight into its Workflow View in one click, great when you know exactly which workflow you want to inspect.
 
+
 ---
 
-### 🤖 Getting Started with GitHub Copilot
+### Getting Started with GitHub Copilot
 
 The Arazzo Visualizer works hand-in-hand with **GitHub Copilot**, making it easy to create and evolve Arazzo workflows using plain English — no need to memorise the spec syntax.
 
@@ -37,7 +37,7 @@ The Arazzo Visualizer works hand-in-hand with **GitHub Copilot**, making it easy
 > *"create a sample arazzo file named petstore.arazzo.yaml with 5 steps using the petstore openAPI specification given below
 https://petstore3.swagger.io/api/v3/openapi.json"*
 
-Copilot will generate the Arazzo file for you. Open it and the plugin will visualize it instantly.
+Copilot will generate the Arazzo file for you. Open it and the extension will visualize it instantly.
 
 **Editing an existing file?** Ask Copilot to change it in plain language:
 
@@ -47,10 +47,9 @@ Copilot will generate the Arazzo file for you. Open it and the plugin will visua
 Every time you save, the diagram **automatically re-renders** to reflect the latest state of your file — no manual refresh, no switching context.
 
 
-
 ---
 
-### ✨ Smart Editor Support
+### Smart Editor Support
 
 The extension includes a built-in language server that quietly improves the editing experience in the background:
 
@@ -77,5 +76,3 @@ The [Arazzo Specification](https://spec.openapis.org/arazzo/v1.0.1.html) is an O
 - [Arazzo Specification v1.0.1](https://spec.openapis.org/arazzo/v1.0.1.html)
 - [Arazzo GitHub Repository](https://github.com/OAI/Arazzo-Specification)
 - [OpenAPI Initiative](https://www.openapis.org/)
-
-

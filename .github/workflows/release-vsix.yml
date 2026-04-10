@@ -123,7 +123,7 @@ jobs:
             file=$(ls micro-integrator*.vsix)
           fi
           if [[ "${{ github.event.inputs.arazzo }}" == "true" ]]; then
-            file=$(ls arazzo-designer-[0-9]*.[0-9]*.[0-9]*.vsix)
+            file=$(ls arazzo-visualizer-[0-9]*.[0-9]*.[0-9]*.vsix)
           fi
           if [[ "${{ github.event.inputs.hurl-client }}" == "true" ]]; then
             file=$(ls hurl-client-[0-9]*.[0-9]*.[0-9]*.vsix)
@@ -205,7 +205,7 @@ jobs:
         with:
           repo: wso2/vscode-extensions
           token: ${{ secrets.CHOREO_BOT_TOKEN }}
-          name: arazzo-designer
+          name: arazzo-visualizer
           chatAPI: ${{ steps.chat.outputs.chatAPI }}
 
       - name: Create a release in wso2/ballerina-vscode repo for hurl-client

@@ -626,7 +626,7 @@
       "projectFolder": "workspaces/mcp-inspector/mcp-inspector-extension"
     },
     {
-      "packageName": "arazzo-designer",
+      "packageName": "arazzo-visualizer",
       "projectFolder": "workspaces/arazzo/arazzo-designer-extension"
     },
     {
