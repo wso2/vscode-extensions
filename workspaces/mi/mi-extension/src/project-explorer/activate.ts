@@ -30,11 +30,12 @@ import { APIResource } from '../../../syntax-tree/lib/src';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { RUNTIME_VERSION_440 } from "../constants";
 import { deleteSwagger } from '../util/swagger';
-import { compareVersions } from '../util/onboardingUtils';
+import { compareVersions, isConsolidatedProject } from '../util/onboardingUtils';
 import { removeFromHistory } from '../history';
 import * as fs from "fs";
 import { webviews } from '../visualizer/webview';
 import { MILanguageClient } from '../lang-client/activator';
+import { updatePomModules } from '../debugger/pomResolver';
 
 let isProjectExplorerInitialized = false;
 export async function activateProjectExplorer(treeviewId: string, context: ExtensionContext, projectUri: string, isInWI: boolean) {
@@ -177,11 +178,6 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 	commands.registerCommand(COMMANDS.ADD_TEMPLATE_COMMAND, (entry: ProjectExplorerEntry) => {
 		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.TemplateForm, documentUri: entry.info?.path });
 		console.log('Add Template');
-	});
-
-	commands.registerCommand(COMMANDS.IMPORT_PROJECT_COMMAND, () => {
-		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ImportProjectForm });
-		console.log('Import a Project');
 	});
 
 	commands.registerCommand(COMMANDS.ADD_LOCAL_ENTRY_COMMAND, (entry: ProjectExplorerEntry) => {
@@ -385,7 +381,12 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 	commands.registerCommand(COMMANDS.EDIT_K8_CONFIGURATION_COMMAND, async () => {
 		const webview = [...webviews.values()].find(webview => webview.getWebview()?.active);
 		if (webview && webview?.getProjectUri()) {
-			const filePath = path.join(webview.getProjectUri(), 'deployment', 'kubernetes', 'integration_k8s.yaml');
+			let filePath: string;
+			if (isConsolidatedProject(path.dirname(webview.getProjectUri()))) {
+				filePath = path.join(path.dirname(webview.getProjectUri()), 'deployment', 'kubernetes', 'integration_k8s.yaml');
+			} else {
+				filePath = path.join(webview.getProjectUri(), 'deployment', 'kubernetes', 'integration_k8s.yaml');
+			}
 			workspace.openTextDocument(filePath).then((doc) => {
 				window.showTextDocument(doc, { preview: false });
 			});
@@ -641,6 +642,54 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 				} else if (currentLocation?.view === MACHINE_VIEW.Overview) {
 					refreshUI(projectUri);
 				}
+			}
+		}
+	});
+
+	commands.registerCommand(COMMANDS.DELETE_PROJECT_EXPLORER_PROJECT, async (item: TreeItem) => {
+		const confirmation = await window.showWarningMessage(
+			`Are you sure you want to remove ${item.label} from the workspace? This action cannot be undone.`,
+			{ modal: true },
+			'Yes'
+		);
+
+		if (confirmation === 'Yes') {
+			const workspaceFolders = vscode.workspace.workspaceFolders;
+			if (!workspaceFolders) {
+				vscode.window.showErrorMessage("No workspace folders found.");
+				return;
+			}
+
+			const projectUri = item.command?.arguments?.[0] || (item as any)?.info?.path;
+			if (!projectUri) {
+				vscode.window.showErrorMessage("Project URI not found.");
+				return;
+			}
+
+			const index = workspaceFolders.findIndex(
+				folder => folder.uri.fsPath === path.resolve(projectUri)
+			);
+			if (index === -1) {
+				vscode.window.showErrorMessage("Folder not found in workspace.");
+				return;
+			}
+
+			const success = vscode.workspace.updateWorkspaceFolders(index, 1);
+			if (isConsolidatedProject(path.dirname(projectUri))) {
+				fs.rmSync(projectUri, { recursive: true, force: true });
+				updatePomModules(path.join(path.dirname(projectUri), 'pom.xml'), path.basename(projectUri), "remove");
+			}
+
+			if (success) {
+				vscode.window.showInformationMessage(
+					`${path.basename(projectUri)} has been removed from the workspace.`
+				);
+			} else {
+				vscode.window.showErrorMessage("Failed to remove folder from workspace.");
+			}
+			projectExplorerDataProvider.refresh();
+			if (compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0 && registryExplorerDataProvider) {
+				registryExplorerDataProvider.refresh();
 			}
 		}
 	});

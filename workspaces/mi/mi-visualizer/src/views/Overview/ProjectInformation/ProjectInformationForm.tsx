@@ -63,14 +63,15 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
     const [runtimeVersions, setRuntimeVersions] = useState<OptionProps[]>([]);
 
     const [selectedId, setSelectedId] = useState<string | null>("Project Information");
+    const [isConsolidatedProject, setIsConsolidatedProject] = useState(false);
 
     const schema = yup.object({
         "primaryDetails-projectName": yup.string().required("Project Name is required"),
         "primaryDetails-projectDescription": yup.string(),
         "primaryDetails-projectVersion": yup.string().required("Version is required").matches(/^[a-zA-Z0-9][a-zA-Z0-9.-]*$/, "Version cannot contain spaces or special characters"),
         "primaryDetails-runtimeVersion": yup.string().required("Runtime version is required"),
-        "buildDetails-dockerDetails-dockerFileBaseImage": yup.string().required("Base image is required"),
-        "buildDetails-dockerDetails-dockerName": yup.string().required("Docker name is required"),
+        "buildDetails-dockerDetails-dockerFileBaseImage": yup.string(),
+        "buildDetails-dockerDetails-dockerName": yup.string(),
         "buildDetails-enableFatCar": yup.boolean(),
         "buildDetails-versionedDeployment": yup.boolean(),
         "buildDetails-dockerDetails-cipherToolEnable": yup.boolean(),
@@ -181,7 +182,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                     "buildDetails-advanceDetails-projectGroupId": response.buildDetails?.advanceDetails?.projectGroupId?.value,
                     "buildDetails-advanceDetails-projectArtifactId": response.buildDetails?.advanceDetails?.projectArtifactId?.value,
                     "buildDetails-dockerDetails-dockerFileBaseImage": response.buildDetails?.dockerDetails?.dockerFileBaseImage?.value,
-                    "buildDetails-dockerDetails-dockerName": response.buildDetails?.dockerDetails?.dockerName.value,
+                    "buildDetails-dockerDetails-dockerName": response.buildDetails?.dockerDetails?.dockerName?.value ?? "",
                     "buildDetails-enableFatCar": response.buildDetails?.enableFatCar?.value === 'true',
                     "buildDetails-versionedDeployment": response.buildDetails?.versionedDeployment?.value === 'true',
                     "buildDetails-dockerDetails-cipherToolEnable": response.buildDetails?.dockerDetails?.cipherToolEnable?.value === 'true',
@@ -191,7 +192,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                     "buildDetails-dockerDetails-keyStorePassword": response.buildDetails?.dockerDetails?.keyStorePassword?.value,
                     "buildDetails-advanceDetails-pluginDetails-projectBuildPluginVersion": response.buildDetails?.advanceDetails?.pluginDetails?.projectBuildPluginVersion?.value,
                     "buildDetails-advanceDetails-pluginDetails-unitTestPluginVersion": response.buildDetails?.advanceDetails?.pluginDetails?.unitTestPluginVersion?.value,
-                    "buildDetails-advanceDetails-pluginDetails-miContainerPluginVersion": response.buildDetails?.advanceDetails?.pluginDetails?.miContainerPluginVersion?.value,
+                    "buildDetails-advanceDetails-pluginDetails-miContainerPluginVersion": response.buildDetails?.advanceDetails?.pluginDetails?.miContainerPluginVersion?.value ?? "",
                     "unitTest-skipTest": Boolean(response.unitTest?.skipTest?.value),
                     "unitTest-serverHost": response.unitTest?.serverHost?.value,
                     "unitTest-serverPort": response.unitTest?.serverPort?.value,
@@ -211,6 +212,8 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                     "deployment-serverType": pluginDetails ? pluginDetails.serverType : "mi"
                 });
                 setProjectDetails(response);
+                const checkConsolidated = await rpcClient.getMiDiagramRpcClient().canCreateConsolidatedProject();
+                setIsConsolidatedProject(checkConsolidated.isConsolidatedProject);
             } catch (error) {
                 console.error("Error fetching project details:", error);
             }
@@ -450,15 +453,17 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                     />
                                 )}
                             />
-                            <TextField
-                                label="Group ID"
-                                required
-                                description="The group ID of the project"
-                                descriptionSx={{ margin: "8px 0" }}
-                                sx={fieldStyle}
-                                errorMsg={errors["buildDetails-advanceDetails-projectGroupId"]?.message?.toString()}
-                                {...register("buildDetails-advanceDetails-projectGroupId")}
-                            />
+                            { !isConsolidatedProject &&
+                                <TextField
+                                    label="Group ID"
+                                    required
+                                    description="The group ID of the project"
+                                    descriptionSx={{ margin: "8px 0" }}
+                                    sx={fieldStyle}
+                                    errorMsg={errors["buildDetails-advanceDetails-projectGroupId"]?.message?.toString()}
+                                    {...register("buildDetails-advanceDetails-projectGroupId")}
+                                />
+                            }
                             <TextField
                                 label="Artifact ID"
                                 required
@@ -468,15 +473,17 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                 errorMsg={errors["buildDetails-advanceDetails-projectArtifactId"]?.message?.toString()}
                                 {...register("buildDetails-advanceDetails-projectArtifactId")}
                             />
-                            <TextField
-                                label="Version"
-                                required
-                                description="The version of the project"
-                                descriptionSx={{ margin: "8px 0" }}
-                                sx={fieldStyle}
-                                errorMsg={errors["primaryDetails-projectVersion"]?.message?.toString()}
-                                {...register("primaryDetails-projectVersion")}
-                            />
+                            { !isConsolidatedProject &&
+                                <TextField
+                                    label="Version"
+                                    required
+                                    description="The version of the project"
+                                    descriptionSx={{ margin: "8px 0" }}
+                                    sx={fieldStyle}
+                                    errorMsg={errors["primaryDetails-projectVersion"]?.message?.toString()}
+                                    {...register("primaryDetails-projectVersion")}
+                                />
+                            }
 
                             <TextField
                                 label="Description"
@@ -506,24 +513,26 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                         </div>
                         <Typography variant="h1" sx={sectionTitleStyle} > Build Details </Typography>
                         <div ref={divRefs["Build Details"]} id="Build Details" style={fieldGroupStyle}>
-                            <TextField
-                                label="Base Image"
-                                required
-                                errorMsg={errors["buildDetails-dockerDetails-dockerFileBaseImage"]?.message?.toString()}
-                                description="The base image of the project"
-                                descriptionSx={{ margin: "8px 0" }}
-                                sx={fieldStyle}
-                                {...register("buildDetails-dockerDetails-dockerFileBaseImage")}
-                            />
-                            <TextField
-                                label="Docker Name"
-                                required
-                                errorMsg={errors["buildDetails-dockerDetails-dockerName"]?.message?.toString()}
-                                description="The name of the docker"
-                                descriptionSx={{ margin: "10px 0" }}
-                                sx={fieldStyle}
-                                {...register("buildDetails-dockerDetails-dockerName")}
-                            />
+                            { !isConsolidatedProject && (
+                                <>
+                                    <TextField
+                                        label="Base Image"
+                                        errorMsg={errors["buildDetails-dockerDetails-dockerFileBaseImage"]?.message?.toString()}
+                                        description="The base image of the project"
+                                        descriptionSx={{ margin: "8px 0" }}
+                                        sx={fieldStyle}
+                                        {...register("buildDetails-dockerDetails-dockerFileBaseImage")}
+                                    />
+                                    <TextField
+                                        label="Docker Name"
+                                        errorMsg={errors["buildDetails-dockerDetails-dockerName"]?.message?.toString()}
+                                        description="The name of the docker"
+                                        descriptionSx={{ margin: "10px 0" }}
+                                        sx={fieldStyle}
+                                        {...register("buildDetails-dockerDetails-dockerName")}
+                                    />
+                                </>
+                            )}
                             <FormCheckBox
                                 label="Enable Fat CAR"
                                 description="Enables the Fat CAR build option"
@@ -548,34 +557,38 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                 sx={fieldStyle}
                                 {...register("buildDetails-dockerDetails-cipherToolEnable")}
                             />
-                            <TextField
-                                label="Keystore Name"
-                                description="The name of the keystore"
-                                descriptionSx={{ margin: "8px 0" }}
-                                sx={fieldStyle}
-                                {...register("buildDetails-dockerDetails-keyStoreName")}
-                            />
-                            <TextField
-                                label="Keystore Alias"
-                                description="The alias of the keystore"
-                                descriptionSx={{ margin: "8px 0" }}
-                                sx={fieldStyle}
-                                {...register("buildDetails-dockerDetails-keyStoreAlias")}
-                            />
-                            <TextField
-                                label="Keystore Type"
-                                description="The type of the keystore"
-                                descriptionSx={{ margin: "8px 0" }}
-                                sx={fieldStyle}
-                                {...register("buildDetails-dockerDetails-keyStoreType")}
-                            />
-                            <PasswordField
-                                label="Keystore Password"
-                                description="The password of the keystore"
-                                descriptionSx={{ margin: "8px 0" }}
-                                sx={fieldStyle}
-                                {...register("buildDetails-dockerDetails-keyStorePassword")}
-                            />
+                            {!isConsolidatedProject && (
+                                <>
+                                    <TextField
+                                        label="Keystore Name"
+                                        description="The name of the keystore"
+                                        descriptionSx={{ margin: "8px 0" }}
+                                        sx={fieldStyle}
+                                        {...register("buildDetails-dockerDetails-keyStoreName")}
+                                    />
+                                    <TextField
+                                        label="Keystore Alias"
+                                        description="The alias of the keystore"
+                                        descriptionSx={{ margin: "8px 0" }}
+                                        sx={fieldStyle}
+                                        {...register("buildDetails-dockerDetails-keyStoreAlias")}
+                                    />
+                                    <TextField
+                                        label="Keystore Type"
+                                        description="The type of the keystore"
+                                        descriptionSx={{ margin: "8px 0" }}
+                                        sx={fieldStyle}
+                                        {...register("buildDetails-dockerDetails-keyStoreType")}
+                                    />
+                                    <PasswordField
+                                        label="Keystore Password"
+                                        description="The password of the keystore"
+                                        descriptionSx={{ margin: "8px 0" }}
+                                        sx={fieldStyle}
+                                        {...register("buildDetails-dockerDetails-keyStorePassword")}
+                                    />
+                                </>
+                            )}
                             <TextField
                                 label="CAR Plugin Version"
                                 description="The version of the car plugin"
@@ -583,20 +596,15 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                 sx={fieldStyle}
                                 {...register("buildDetails-advanceDetails-pluginDetails-projectBuildPluginVersion")}
                             />
-                            <TextField
-                                label="Unit Test Plugin Version"
-                                description="The version of the unit test plugin"
-                                descriptionSx={{ margin: "8px 0" }}
-                                sx={fieldStyle}
-                                {...register("buildDetails-advanceDetails-pluginDetails-unitTestPluginVersion")}
-                            />
-                            <TextField
-                                label="MI Config Mapper Plugin Version"
-                                description="The version of the mi config mapper plugin"
-                                descriptionSx={{ margin: "8px 0" }}
-                                sx={fieldStyle}
-                                {...register("buildDetails-advanceDetails-pluginDetails-miContainerPluginVersion")}
-                            />
+                            { !isConsolidatedProject &&
+                                <TextField
+                                    label="MI Config Mapper Plugin Version"
+                                    description="The version of the mi config mapper plugin"
+                                    descriptionSx={{ margin: "8px 0" }}
+                                    sx={fieldStyle}
+                                    {...register("buildDetails-advanceDetails-pluginDetails-miContainerPluginVersion")}
+                                />
+                            }
                         </div>
                         <Typography variant="h1" sx={sectionTitleStyle} > Unit Test </Typography>
                         <div ref={divRefs["Unit Test"]} id="Unit Test" style={fieldGroupStyle}>
@@ -634,6 +642,13 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                 descriptionSx={{ margin: "8px 0" }}
                                 sx={fieldStyle}
                                 {...register("unitTest-serverVersion")}
+                            />
+                            <TextField
+                                label="Unit Test Plugin Version"
+                                description="The version of the unit test plugin"
+                                descriptionSx={{ margin: "8px 0" }}
+                                sx={fieldStyle}
+                                {...register("buildDetails-advanceDetails-pluginDetails-unitTestPluginVersion")}
                             />
                             <TextField
                                 label="Server Download Link"

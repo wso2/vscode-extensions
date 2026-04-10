@@ -18,11 +18,14 @@
 
 export const COMMANDS = {
     OPEN_PROJECT: "MI.openProject",
-    IMPORT_CAPP: "MI.importCAPP",
+    IMPORT_FROM_CAPP: "MI.importProjectFromCapp",
+    IMPORT_FROM_ZIP: "MI.importProjectFromZip",
+    EXPORT_AS_ZIP: "MI.exportProjectAsZip",
     MIGRATE_PROJECT: "MI.migrateProject",
     SHOW_OVERVIEW: "MI.showOverview",
     DISABLE_OVERVIEW: "MI.disableOverview",
     OPEN_AI_PANEL: "MI.openAiPanel",
+    OPEN_AGENT_PANEL: "MI.openAgentPanel",
     CLEAR_AI_PROMPT: "MI.clearAIPrompt",
     OPEN_WELCOME: "MI.openWelcome",
     SHOW_GRAPHICAL_VIEW: "MI.show.graphical-view",
@@ -73,7 +76,6 @@ export const COMMANDS = {
     ADD_TEMPLATE_COMMAND: 'MI.project-explorer.add-template',
     ADD_DATA_SERVICE_COMMAND: 'MI.project-explorer.add-data-service',
     CREATE_PROJECT_COMMAND: 'MI.project-explorer.create-project',
-    IMPORT_PROJECT_COMMAND: 'MI.project-explorer.import-project',
     REVEAL_ITEM_COMMAND: 'MI.project-explorer.revealItem',
     OPEN_SERVICE_DESIGNER: 'MI.project-explorer.open-service-designer',
     OPEN_PROJECT_OVERVIEW: 'MI.project-explorer.open-project-overview',
@@ -85,7 +87,9 @@ export const COMMANDS = {
     ADD_BALLERINA_MODULE_COMMAND: 'MI.project-explorer.add-ballerina-module',
     EDIT_BALLERINA_MODULE_COMMAND: 'MI.project-explorer.edit-ballerina-module',
     DELETE_PROJECT_EXPLORER_ITEM: 'MI.project-explorer.delete',
+    DELETE_PROJECT_EXPLORER_PROJECT: 'MI.project-explorer.project-delete',
     CHANGE_SERVER_PATH: 'MI.change.server',
+    CONVERT_TO_CONSOLIDATED: 'MI.convert.to.consolidated',
     CHANGE_JAVA_HOME: 'MI.change.java',
     BUILD_PROJECT: 'MI.build-project',
     REMOTE_DEPLOY_PROJECT: 'MI.remote-deploy-project',
@@ -112,6 +116,7 @@ export const COMMANDS = {
     REVEAL_TEST_PANE: 'MI.mock-services.focus',
     EDIT_K8_CONFIGURATION_COMMAND: 'MI.edit-k8-configuration',
     MANAGE_REGISTRY_PROPERTIES_COMMAND: 'MI.manage-registry-property',
+    CONFIGURE_DEFAULT_MODEL: 'MI.configureDefaultModelProvider',
 
     BI_EXTENSION: 'WSO2.ballerina-integrator',
     BI_OPEN_COMMAND: 'ballerina.open.bi.welcome',
@@ -198,6 +203,7 @@ export const APIS = {
 export const DM_OPERATORS_FILE_NAME = "dm-utils";
 export const DM_OPERATORS_IMPORT_NAME = "dmUtils";
 export const LAST_EXPORTED_CAR_PATH = "last-exported-car-path";
+export const LAST_EXPORTED_ZIP_PATH = "last-exported-zip-path";
 export const RUNTIME_VERSION_440 = "4.4.0";
 export const RUNTIME_VERSION_450 = "4.5.0";
 export const DEFAULT_ICON = "https://mi-connectors.wso2.com/icons/wordpress.gif";

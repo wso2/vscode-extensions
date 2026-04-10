@@ -20,9 +20,7 @@ import { useEffect, useState } from "react";
 import { MACHINE_VIEW } from "@wso2/mi-core";
 import { SamplesView } from "./views/SamplesView";
 import { ProjectWizard } from "./views/Forms/ProjectForm";
-import { ImportProjectWizard } from "./views/Forms/ImportProjectForm";
 import { WelcomeView } from "./views/WelcomeView";
-import { ImportCAPPWizard } from "./views/Forms/ImportCAPPForm";
 
 interface WelcomePanelProps {
     machineView: MACHINE_VIEW;
@@ -35,8 +33,6 @@ export function WelcomePanel(props: WelcomePanelProps) {
             {machineView === MACHINE_VIEW.Welcome && <WelcomeView />}
             {machineView === MACHINE_VIEW.ProjectCreationForm && <ProjectWizard cancelView={MACHINE_VIEW.Welcome} />}
             {machineView === MACHINE_VIEW.Samples && <SamplesView />}
-            {machineView === MACHINE_VIEW.ImportProject && <ImportProjectWizard />}
-            {machineView === MACHINE_VIEW.ImportProjectForm && <ImportCAPPWizard />}
         </>
     );
 }

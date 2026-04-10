@@ -17,9 +17,9 @@
  */
 
 import * as vscode from 'vscode';
-import { commands, window, workspace } from 'vscode';
+import { commands, Uri, window, workspace } from 'vscode';
 import { getStateMachine, navigate, openView, refreshUI } from '../stateMachine';
-import { COMMANDS, REFRESH_ENABLED_DOCUMENTS, SWAGGER_LANG_ID, SWAGGER_REL_DIR } from '../constants';
+import { COMMANDS, LAST_EXPORTED_ZIP_PATH, REFRESH_ENABLED_DOCUMENTS, SWAGGER_LANG_ID, SWAGGER_REL_DIR } from '../constants';
 import { EVENT_TYPE, MACHINE_VIEW, onDocumentSave } from '@wso2/mi-core';
 import { extension } from '../MIExtensionContext';
 import { importCapp } from '../util/importCapp';
@@ -31,72 +31,116 @@ import { RPCLayer } from '../RPCLayer';
 import { deleteSwagger, generateSwagger } from '../util/swagger';
 import { VisualizerWebview, webviews } from './webview';
 import * as fs from 'fs';
-import { AiPanelWebview } from '../ai-panel/webview';
+import { AiPanelWebview } from '../ai-features/webview';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log } from '../util/logger';
-import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR } from '../util/onboardingUtils';
-import { getHash } from '../util/fileOperations';
+import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR, isConsolidatedProject } from '../util/onboardingUtils';
+import { extractZip, getHash, zipProjectFolder } from '../util/fileOperations';
 import { MILanguageClient } from '../lang-client/activator';
+import { askForProject } from '../util/workspace';
 
 export function activateVisualizer(context: vscode.ExtensionContext, firstProject: string) {
     context.subscriptions.push(
         vscode.commands.registerCommand(COMMANDS.OPEN_PROJECT, (providedUri?: vscode.Uri) => {
-            const processUri = (uri: vscode.Uri[] | undefined) => {
+            const processUri = async (uri: vscode.Uri[] | undefined) => {
                 if (uri && uri[0]) {
-                    const handleOpenProject = (folderUri: vscode.Uri) => {
-                        window.showInformationMessage('Where would you like to open the project?',
-                            { modal: true },
-                            'Current Window',
-                            'New Window'
-                        ).then(selection => {
-                            if (selection === "Current Window") {
-                                const workspaceFolders = workspace.workspaceFolders || [];
-                                if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
-                                    workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
-                                }
-                            } else if (selection === "New Window") {
-                                commands.executeCommand('vscode.openFolder', folderUri);
+                    let isWorkspaceAlreadyOpen = false;
+                    let isConsolidatedProjectAlreadyOpened = false;
+                    let isSelectedProjectConsolidated = false;
+                    const workspaceFolders = vscode.workspace.workspaceFolders;
+                    if (isConsolidatedProject(uri[0].fsPath)) {
+                        isSelectedProjectConsolidated = true;
+                    }
+                    if (workspaceFolders && workspaceFolders.length > 0) {
+                        isWorkspaceAlreadyOpen = true;
+                        if (isConsolidatedProject(path.dirname(workspaceFolders[0].uri.fsPath))) {
+                            isConsolidatedProjectAlreadyOpened = true;
+                        }
+                    }
+
+                    const rpcManager = new MiDiagramRpcManager("");
+                    if (isWorkspaceAlreadyOpen) {
+                        if (isSelectedProjectConsolidated) {
+                            await rpcManager.addSubfoldersToWorkspace(uri[0].fsPath);
+                            return;
+                        } else {
+                            if (isConsolidatedProjectAlreadyOpened) {
+                                window.showInformationMessage('Would you like to add the project to the existing consolidated project?',
+                                    { modal: true },
+                                    'Yes',
+                                    'No'
+                                ).then(selection => {
+                                    if (selection === "Yes") {
+                                        rpcManager.addProjectToConsolidatedProject(uri[0].fsPath, path.dirname(workspaceFolders![0].uri.fsPath));
+                                    } else if (selection === "No") {
+                                        commands.executeCommand('vscode.openFolder', uri[0]);
+                                        return;
+                                    }
+                                });
                             }
-                        });
-                    };
-                    if (uri[0].fsPath.endsWith('.car') || uri[0].fsPath.endsWith('.zip')) {
-                        window.showInformationMessage('A car file (CAPP) is selected.\n Do you want to extract it?', { modal: true }, 'Extract')
-                            .then(option => {
-                                if (option === 'Extract') {
-                                    window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: 'Select the location to extract the CAPP', openLabel: 'Select Folder' })
-                                        .then(async extractUri => {
-                                            if (extractUri && extractUri[0]) {
-                                                try {
-                                                    const result = await importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false });
-                                                    if (result.filePath) {
-                                                        handleOpenProject(extractUri[0]);
-                                                    } else {
-                                                        window.showErrorMessage('Failed to import CAPP. Please check the file and try again.');
-                                                    }
-                                                } catch (error: any) {
-                                                    window.showErrorMessage(`CAPP import failed: ${error.message}`);
-                                                }
-                                            }
-                                        });
-                                }
-                            });
+                        }
                     } else {
-                        const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
-                        const projectUri = webview ? webview.getProjectUri() : firstProject;
-                        const projectOpened = getStateMachine(projectUri).context().projectOpened;
-                        if (projectOpened) {
-                            handleOpenProject(uri[0]);
+                        if (isSelectedProjectConsolidated) {
+                            await rpcManager.addSubfoldersToWorkspace(uri[0].fsPath);
+                            return;
                         } else {
                             commands.executeCommand('vscode.openFolder', uri[0]);
                         }
                     }
+
+                    const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+                    const projectUri = webview ? webview.getProjectUri() : firstProject;
+                    const projectOpened = getStateMachine(projectUri).context().projectOpened;
+                    if (projectOpened && !isConsolidatedProjectAlreadyOpened && !isSelectedProjectConsolidated) {
+                        handleOpenProject(uri[0]);
+                    }
                 }
             };
-
             if (providedUri) {
                 processUri([providedUri]);
             } else {
-                window.showOpenDialog({ canSelectFolders: true, canSelectFiles: true, filters: { 'CAPP': ['car', 'zip'] }, openLabel: 'Open MI Project' })
+                window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, openLabel: 'Open MI Project' })
+                    .then(processUri);
+            }
+        }),
+        vscode.commands.registerCommand(COMMANDS.IMPORT_FROM_CAPP, (providedUri?: vscode.Uri) => {
+            const processUri = async (uri: vscode.Uri[] | undefined) => {
+                if (uri && uri[0]) {
+                    const confirmation = await vscode.window.showInformationMessage(
+                        'Select the location where the CApp should be extracted.',
+                        { modal: true },
+                        'Continue'
+                    );
+                    if (confirmation === 'Continue') {
+                        window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: 'Select the location to extract the CApp', openLabel: 'Select Folder' })
+                            .then(async extractUri => {
+                                if (extractUri && extractUri[0]) {
+                                    try {
+                                        const result = await importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false, createNewFolder: true });
+                                        if (result.filePath) {
+                                            const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+                                            const projectUri = webview ? webview.getProjectUri() : firstProject;
+                                            const projectOpened = getStateMachine(projectUri).context().projectOpened;
+                                            if (projectOpened) {
+                                                handleOpenProject(Uri.file(result.filePath));
+                                            } else {
+                                                commands.executeCommand('vscode.openFolder', Uri.file(result.filePath));
+                                            }
+                                        } else {
+                                            window.showErrorMessage('Failed to import CApp. Please check the file and try again.');
+                                        }
+                                    } catch (error: any) {
+                                        window.showErrorMessage(`CApp import failed: ${error.message}`);
+                                    }
+                                }
+                            });
+                    }
+                }
+            };
+            if (providedUri) {
+                processUri([providedUri]);
+            } else {
+                window.showOpenDialog({ canSelectFolders: false, canSelectFiles: true, filters: { 'CApp': ['car', 'zip'] }, openLabel: 'Import CApp file' })
                     .then(processUri);
             }
         }),
@@ -109,7 +153,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                             directory: path.dirname(args.path),
                             name: path.basename(args.path),
                             open: args.open ?? false,
-                            miVersion: "4.4.0"
+                            miVersion: args.miVersion ?? "4.6.0"
                         }
                     );
                     await createSettingsFile(args);
@@ -139,17 +183,149 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ProjectCreationForm, projectUri });
                 log('Create New Project');
             }
-        })
-    );
-    context.subscriptions.push(
-        vscode.commands.registerCommand(COMMANDS.IMPORT_CAPP, () => {
-            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ImportProjectForm });
+        }),
+        vscode.commands.registerCommand(COMMANDS.IMPORT_FROM_ZIP, (providedUri?: vscode.Uri) => {
+            const processUri = async (uri: vscode.Uri[] | undefined) => {
+                if (uri && uri[0]) {
+                    const confirmation = await vscode.window.showInformationMessage(
+                        'Select the location where the ZIP archive should be extracted.',
+                        { modal: true },
+                        'Continue'
+                    );
+                    if (confirmation === 'Continue') {
+                        window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: 'Select the location to extract the ZIP archive', openLabel: 'Select Folder' })
+                            .then(async extractUri => {
+                                if (extractUri && extractUri[0]) {
+                                    try {
+                                        const result = await vscode.window.withProgress(
+                                            {
+                                                location: vscode.ProgressLocation.Notification,
+                                                title: "Importing project from ZIP archive...",
+                                                cancellable: false,
+                                            },
+                                            async (progress) => {
+                                                progress.report({ message: "Unzipping project folder..." });
+                                                return extractZip(uri[0].fsPath, extractUri[0].fsPath);
+                                            }
+                                        );
+                                        if (result) {
+                                            const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+                                            const projectUri = webview ? webview.getProjectUri() : firstProject;
+                                            const projectOpened = getStateMachine(projectUri).context().projectOpened;
+                                            if (projectOpened) {
+                                                if (isConsolidatedProject(path.dirname(projectUri))) {
+                                                    commands.executeCommand('vscode.openFolder', Uri.file(result));
+                                                } else {
+                                                    handleOpenProject(Uri.file(result));
+                                                }
+                                            } else {
+                                                commands.executeCommand('vscode.openFolder', Uri.file(result));
+                                            }
+                                        } else {
+                                            window.showErrorMessage('Failed to import ZIP archive. Please check the file and try again.');
+                                        }
+                                    } catch (error: any) {
+                                        window.showErrorMessage(`ZIP archive import failed: ${error.message}`);
+                                    }
+                                }
+                            });
+                    }
+                }
+            };
+            if (providedUri) {
+                processUri([providedUri]);
+            } else {
+                window.showOpenDialog({ canSelectFolders: false, canSelectFiles: true, filters: { 'ZIP Archive': ['zip'] }, openLabel: 'Import ZIP Archive' })
+                    .then(processUri);
+            }
+        }),
+        vscode.commands.registerCommand(COMMANDS.EXPORT_AS_ZIP, async () => {
+            if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+                vscode.window.showErrorMessage("No workspace folder is open to export.");
+                return;
+            }
+            let sourceProject: string;
+            if (vscode.workspace.workspaceFolders.length > 1) {
+                if (isConsolidatedProject(path.dirname(vscode.workspace.workspaceFolders[0].uri.fsPath))) {
+                    sourceProject = path.dirname(vscode.workspace.workspaceFolders[0].uri.fsPath);
+                } else {
+                    sourceProject = await askForProject();
+                }
+            } else {
+                sourceProject = vscode.workspace.workspaceFolders[0].uri.fsPath;
+            }
+
+            if (sourceProject) {
+                const lastExportedPath = extension.context.globalState.get<string>(LAST_EXPORTED_ZIP_PATH);
+                const quickPicks: vscode.QuickPickItem[] = [
+                    {
+                        label: "Select Destination",
+                        description: "Select a destination folder to export the ZIP archive",
+                    },
+                ];
+                if (lastExportedPath) {
+                    quickPicks.push({
+                        label: "Last Exported Path: " + lastExportedPath,
+                        description: "Use the last exported path to export the ZIP archive",
+                    });
+                }
+                const selection = await vscode.window.showQuickPick(
+                    quickPicks,
+                    {
+                        placeHolder: "Export Options",
+                    }
+                );
+
+
+                if (selection) {
+                    let destination: string | undefined;
+                    if (selection.label == "Select Destination") {
+                        const rpcManager = new MiDiagramRpcManager("");
+                        const selectedLocation = await rpcManager.browseFile({
+                            canSelectFiles: false,
+                            canSelectFolders: true,
+                            canSelectMany: false,
+                            defaultUri: lastExportedPath ?? sourceProject,
+                            title: "Select a folder to export the project",
+                            openLabel: "Select Folder"
+                        });
+                        destination = selectedLocation.filePath;
+                        await extension.context.globalState.update(LAST_EXPORTED_ZIP_PATH, destination);
+                    } else {
+                        destination = lastExportedPath;
+                    }
+                    if (destination) {
+                        const result = await vscode.window.withProgress(
+                            {
+                                location: vscode.ProgressLocation.Notification,
+                                title: "Exporting project as a ZIP archive...",
+                                cancellable: false,
+                            },
+                            async (progress) => {
+                                progress.report({ message: "Zipping project folder..." });
+                                return zipProjectFolder(sourceProject, destination as string);
+                            }
+                        );
+                        if (result) {
+                            vscode.window.showInformationMessage("Project exported successfully to " + result);
+                        } else {
+                            vscode.window.showErrorMessage("Failed to export project as a ZIP archive.");
+                        }
+                    }
+                }
+            }
         })
     );
     context.subscriptions.push(
         vscode.commands.registerCommand(COMMANDS.OPEN_WELCOME, () => {
             const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
             openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.Welcome, projectUri: webview ? webview.getProjectUri() : firstProject });
+        })
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand(COMMANDS.CONVERT_TO_CONSOLIDATED, () => {
+            const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ConvertToConsolidatedForm, projectUri: webview ? webview.getProjectUri() : firstProject });
         })
     );
     // Activate editor/title items
@@ -422,34 +598,17 @@ export async function extractCAppDependenciesAsProjects(projectUri: string | und
         const extractedDir = path.join(dependenciesDir, selectedDependencyDir, 'Extracted');
         const carFiles = fs.readdirSync(downloadedDir).filter(file => file.endsWith('.car'));
 
-        // Delete any directory inside the Extracted directory
-        if (fs.existsSync(extractedDir)) {
-            const extractedSubDirs = fs.readdirSync(extractedDir, { withFileTypes: true })
-                .filter(dirent => dirent.isDirectory())
-                .map(dirent => path.join(extractedDir, dirent.name));
-
-            extractedSubDirs.forEach(subDir => {
-                fs.rmSync(subDir, { recursive: true, force: true });
-            });
-        }
-
         for (const carFile of carFiles) {
             const carFileNameWithoutExt = path.basename(carFile, path.extname(carFile));
             const carFileExtractedDir = path.join(extractedDir, carFileNameWithoutExt);
 
             if (!fs.existsSync(carFileExtractedDir)) {
                 fs.mkdirSync(carFileExtractedDir, { recursive: true });
-            }
-            await importCapp({
-                source: path.join(downloadedDir, carFile),
-                directory: carFileExtractedDir,
-                open: false
-            });
-            // During the extraction process, the .car file is renamed to .zip
-            // Hence remove the .car file after extraction
-            const zipFilePath = path.join(downloadedDir, carFileNameWithoutExt + '.zip');
-            if (fs.existsSync(zipFilePath)) {
-                fs.rmSync(zipFilePath);
+                await importCapp({
+                    source: path.join(downloadedDir, carFile),
+                    directory: carFileExtractedDir,
+                    open: false
+                });
             }
         }
     } catch (error: any) {
@@ -485,4 +644,21 @@ const getResources = (st: any): any[] => {
         },
         expandable: false
     }));
+};
+
+const handleOpenProject = (folderUri: vscode.Uri) => {
+    window.showInformationMessage('Where would you like to open the project?',
+        { modal: true },
+        'Current Window',
+        'New Window'
+    ).then(selection => {
+        if (selection === "Current Window") {
+            const workspaceFolders = workspace.workspaceFolders || [];
+            if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
+                workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
+            }
+        } else if (selection === "New Window") {
+            commands.executeCommand('vscode.openFolder', folderUri);
+        }
+    });
 };

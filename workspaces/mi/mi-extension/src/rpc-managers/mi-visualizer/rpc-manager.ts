@@ -89,10 +89,11 @@ import { copy } from 'fs-extra';
 
 const fs = require('fs');
 import { TextEdit } from "vscode-languageclient";
-import { downloadJavaFromMI, downloadMI, getProjectSetupDetails, getSupportedMIVersionsHigherThan, setPathsInWorkSpace, updateRuntimeVersionsInPom, getMIVersionFromPom } from '../../util/onboardingUtils';
+import { downloadJavaFromMI, downloadMI, getProjectSetupDetails, getSupportedMIVersionsHigherThan, setPathsInWorkSpace, updateRuntimeVersionsInPom, getMIVersionFromPom, isConsolidatedProject } from '../../util/onboardingUtils';
 import { extractCAppDependenciesAsProjects } from "../../visualizer/activate";
 import { findMultiModuleProjectsInWorkspaceDir } from "../../util/migrationUtils";
 import { MILanguageClient } from "../../lang-client/activator";
+import { reorderModulesByBuildOrder } from "../../debugger/pomResolver";
 
 Mustache.escape = escapeXml;
 
@@ -205,6 +206,23 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     }
 
     /**
+     * Extracts CApp dependencies as projects and loads dependent CApp resources.
+     *
+     * @param langClient - The language client instance.
+     */
+    private async _loadCAppResources(langClient: Awaited<ReturnType<typeof MILanguageClient.getInstance>>): Promise<void> {
+        try {
+            await extractCAppDependenciesAsProjects(this.projectUri);
+            const loadResult = await langClient?.loadDependentCAppResources();
+            if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
+                await window.showWarningMessage(loadResult, { modal: true });
+            }
+        } catch (error) {
+            console.error("Failed to load CApp resources:", error);
+        }
+    }
+
+    /**
      * Reloads the dependencies for the current integration project.
      *
      * @param params - An object containing the parameters for reloading dependencies.
@@ -217,14 +235,21 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             const updateDependenciesResult = await langClient?.updateConnectorDependencies();
             if (!updateDependenciesResult.toLowerCase().startsWith("success")) {              
                 const connectorsNotDownloaded: string[] = [];
+                const connectorsFromIntegrationProjectDeps: string[] = [];
                 const unavailableDependencies: string[] = [];
                 const missingDescriptorDependencies: string[] = [];
                 const versioningMismatchDependencies: string[] = [];
-                
+
                 // Extract connectors not downloaded
                 connectorsNotDownloaded.push(...extractDependenciesFromError(
                     updateDependenciesResult,
                     /Some connectors were not downloaded:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
+                ));
+
+                // Extract connectors provided by integration project dependencies
+                connectorsFromIntegrationProjectDeps.push(...extractDependenciesFromError(
+                    updateDependenciesResult,
+                    /Following connectors are provided by integration project dependencies and cannot be downloaded:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
                 ));
                 
                 // Extract unavailable integration project dependencies
@@ -247,6 +272,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 
                 const allFailedDependencies = [
                     ...connectorsNotDownloaded,
+                    ...connectorsFromIntegrationProjectDeps,
                     ...unavailableDependencies,
                     ...missingDescriptorDependencies,
                     ...versioningMismatchDependencies
@@ -285,6 +311,8 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                         let warningMessage = "";
                         if (connectorsNotDownloaded.includes(dependencyString)) {
                             warningMessage = "Connector downloading failed.";
+                        } else if (connectorsFromIntegrationProjectDeps.includes(dependencyString)) {
+                            warningMessage = "This connector is provided by an integration project dependency and cannot be downloaded separately.";
                         } else if (unavailableDependencies.includes(dependencyString)) {
                             warningMessage = "Dependency downloading failed.";
                         } else if (missingDescriptorDependencies.includes(dependencyString)) {
@@ -306,18 +334,11 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                     }
                 }
             }
-            
-            try {
-                await extractCAppDependenciesAsProjects(this.projectUri);
-                const loadResult = await langClient?.loadDependentCAppResources();
-                if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
-                    await window.showWarningMessage(
-                        loadResult,
-                        { modal: true }
-                    );
-                }
-            } catch (error) {
-                console.error("Error extracting CApp dependencies:", error);
+
+            await this._loadCAppResources(langClient);
+            const parentDir = path.dirname(this.projectUri)
+            if (isConsolidatedProject(parentDir) && params?.isProjectDependenciesUpdated) {
+                await reorderModulesByBuildOrder(path.join(parentDir, 'pom.xml'));
             }
             resolve(reloadDependenciesResult);
         });
@@ -429,6 +450,13 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             await extractCAppDependenciesAsProjects(this.projectUri);
             resolve(res);
         });
+    }
+
+    async refetchIntegrationProjectDependencies(): Promise<string> {
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
+        const res = await langClient.refetchIntegrationProjectDependencies();
+        await this._loadCAppResources(langClient);
+        return res;
     }
 
     async updateDependenciesFromOverview(params: UpdateDependenciesRequest): Promise<boolean> {
