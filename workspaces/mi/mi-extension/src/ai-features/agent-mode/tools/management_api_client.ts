@@ -58,10 +58,9 @@ export const ARTIFACT_TYPE_MAP: Record<string, ArtifactTypeInfo> = {
 // Management API HTTP Client
 // ============================================================================
 
-// Allow insecure TLS only when explicitly opted in (e.g. self-signed certs in dev).
-// Set MI_MANAGEMENT_ALLOW_INSECURE_TLS=true to enable.
-const allowInsecureTls = process.env['MI_MANAGEMENT_ALLOW_INSECURE_TLS'] === 'true';
-const httpsAgent = new https.Agent({ rejectUnauthorized: !allowInsecureTls });
+// MI Management API always runs on localhost with a self-signed certificate.
+// Skip TLS verification since we're connecting to a local server.
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 function getManagementBaseUrl(): string {
     const host = DebuggerConfig.getHost();

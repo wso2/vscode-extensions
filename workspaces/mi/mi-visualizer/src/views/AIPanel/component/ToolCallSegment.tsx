@@ -17,100 +17,37 @@
  */
 
 import React from "react";
-import styled from "@emotion/styled";
-import { keyframes } from "@emotion/css";
+import { Codicon } from "@wso2/ui-toolkit";
 import { useMICopilotContext } from "./MICopilotContext";
 
-const spin = keyframes`
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-`;
-
-const dotWave = keyframes`
-    0%, 60%, 100% {
-        opacity: 0.25;
-        transform: translateY(0);
+// Map tool action text to distinct icons for visual scanning
+function getToolIcon(text: string): string {
+    const lower = text.toLowerCase();
+    if (lower.includes("search") || lower.includes("grep") || lower.includes("glob") || lower.includes("looking for") || lower.includes("searching")) {
+        return "search";
     }
-    30% {
-        opacity: 1;
-        transform: translateY(-1px);
+    if (lower.includes("fetched") || lower.includes("connector") || lower.includes("package") || lower.includes("dependency") || lower.includes("library")) {
+        return "package";
     }
-`;
-
-const ToolRow = styled.div`
-    display: flex;
-    align-items: center;
-    padding: 4px 0;
-    margin: 2px 0;
-    font-family: var(--vscode-editor-font-family);
-    font-size: 12px;
-    color: var(--vscode-descriptionForeground);
-`;
-
-const StatusIcon = styled.span<{ status: 'success' | 'error' | 'loading' }>`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 8px;
-    width: 14px;
-    height: 14px;
-    color: ${(props: { status: 'success' | 'error' | 'loading' }) => {
-        switch (props.status) {
-            case 'success': return 'var(--vscode-testing-iconPassed, #4caf50)';
-            case 'error': return 'var(--vscode-testing-iconFailed, #f44336)';
-            case 'loading': return 'var(--vscode-progressBar-background, #007acc)';
-            default: return 'currentColor';
-        }
-    }};
-    
-    &.spin {
-        animation: ${spin} 1s linear infinite;
+    if (lower.includes("updated") || lower.includes("created") || lower.includes("wrote") || lower.includes("edited") || lower.includes("writing")) {
+        return "edit";
     }
-`;
-
-const ToolText = styled.span`
-    margin-right: 4px;
-`;
-
-const LoadingDots = styled.span`
-    display: inline-flex;
-    gap: 1px;
-    margin-left: 2px;
-    color: var(--vscode-descriptionForeground);
-
-    span {
-        display: inline-block;
-        animation: ${dotWave} 1.1s ease-in-out infinite;
+    if (lower.includes("no issues") || lower.includes("validated") || lower.includes("diagnostics") || lower.includes("validation")) {
+        return "pass";
     }
-
-    span:nth-of-type(1) {
-        animation-delay: 0s;
+    if (lower.includes("reading") || lower.includes("read ")) {
+        return "file";
     }
-
-    span:nth-of-type(2) {
-        animation-delay: 0.15s;
+    if (lower.includes("shell") || lower.includes("running") || lower.includes("command")) {
+        return "terminal";
     }
-
-    span:nth-of-type(3) {
-        animation-delay: 0.3s;
+    if (lower.includes("subagent") || lower.includes("exploring") || lower.includes("agent")) {
+        return "hubot";
     }
-`;
-
-const ToolTarget = styled.span`
-    color: var(--vscode-textLink-foreground);
-    font-weight: 500;
-    cursor: pointer;
-    
-    &:hover {
-        text-decoration: underline;
+    if (lower.includes("build") || lower.includes("deploy") || lower.includes("server")) {
+        return "play";
     }
-`;
-
-interface ToolCallSegmentProps {
-    text: string;
-    loading: boolean;
-    failed?: boolean;
-    filePath?: string;
+    return "tools";
 }
 
 const PATH_CANDIDATE_REGEX = /([A-Za-z]:\\[^\s]+|(?:\.{1,2}\/|\/)?[^\s]*[\\/][^\s]+|[^\s]+\.[A-Za-z0-9]+(?:[^\s]*)?)/g;
@@ -121,13 +58,9 @@ function cleanPathCandidate(raw: string): string {
 
 function extractPathFromText(text: string): string | undefined {
     const matches = Array.from(text.matchAll(PATH_CANDIDATE_REGEX));
-    if (matches.length === 0) {
-        return undefined;
-    }
+    if (matches.length === 0) return undefined;
     const last = matches[matches.length - 1];
-    if (!last[1]) {
-        return undefined;
-    }
+    if (!last[1]) return undefined;
     return cleanPathCandidate(last[1]);
 }
 
@@ -138,6 +71,13 @@ function basename(path: string): string {
 
 function removeTrailingEllipsis(text: string): string {
     return text.replace(/\.\.\.$/, "").trimEnd();
+}
+
+interface ToolCallSegmentProps {
+    text: string;
+    loading: boolean;
+    failed?: boolean;
+    filePath?: string;
 }
 
 const ToolCallSegment: React.FC<ToolCallSegmentProps> = ({ text, loading, failed, filePath }) => {
@@ -156,36 +96,60 @@ const ToolCallSegment: React.FC<ToolCallSegmentProps> = ({ text, loading, failed
         }
     }
 
-    const status = loading ? 'loading' : (failed ? 'error' : 'success');
-    const iconClass = loading ? 'codicon-loading spin' : (failed ? 'codicon-error' : 'codicon-check');
     const actionText = loading ? removeTrailingEllipsis(action) : action;
+    const iconName = loading ? "loading" : (failed ? "error" : getToolIcon(text));
+    const isCompleted = !loading && !failed;
 
     const handleTargetClick = () => {
-        if (!target || !rpcClient) {
-            return;
-        }
-        rpcClient.getMiDiagramRpcClient().openFile({
-            path: target,
-        });
+        if (!target || !rpcClient) return;
+        rpcClient.getMiDiagramRpcClient().openFile({ path: target });
     };
 
     return (
-        <ToolRow>
-            <StatusIcon status={status} className={`codicon ${iconClass}`} />
-            {actionText && <ToolText>{actionText}</ToolText>}
+        <div
+            className="flex items-center gap-2 py-1"
+            style={{
+                fontSize: "12.5px",
+                color: isCompleted ? "var(--vscode-descriptionForeground)" : "var(--vscode-foreground)",
+                opacity: isCompleted ? 0.6 : 1,
+            }}
+        >
+            <span
+                className={`codicon codicon-${iconName}`}
+                style={{
+                    fontSize: "13px",
+                    width: "14px",
+                    height: "14px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: failed
+                        ? "var(--vscode-errorForeground)"
+                        : loading
+                            ? "var(--vscode-progressBar-background)"
+                            : "var(--vscode-descriptionForeground)",
+                    animation: loading ? "spin 1s linear infinite" : "none",
+                }}
+            />
+            {actionText && <span>{actionText}</span>}
             {target && (
-                <ToolTarget title={target} onClick={handleTargetClick}>
+                <span
+                    className="cursor-pointer font-medium"
+                    style={{ color: "var(--vscode-textLink-foreground)" }}
+                    onClick={handleTargetClick}
+                    title={target}
+                >
                     {basename(target)}
-                </ToolTarget>
+                </span>
             )}
             {loading && (
-                <LoadingDots aria-hidden="true">
-                    <span>.</span>
-                    <span>.</span>
-                    <span>.</span>
-                </LoadingDots>
+                <span className="inline-flex gap-px ml-0.5" style={{ color: "var(--vscode-descriptionForeground)" }}>
+                    <span className="animate-fade-dot">.</span>
+                    <span className="animate-fade-dot" style={{ animationDelay: "0.15s" }}>.</span>
+                    <span className="animate-fade-dot" style={{ animationDelay: "0.3s" }}>.</span>
+                </span>
             )}
-        </ToolRow>
+        </div>
     );
 };
 

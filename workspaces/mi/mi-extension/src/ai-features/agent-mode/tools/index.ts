@@ -149,6 +149,24 @@ export {
     createWebFetchTool,
 } from './web_tools';
 
+// Export deepwiki MCP constants
+export {
+    DEEPWIKI_MCP_SERVER_CONFIG,
+    DEEPWIKI_MCP_TOOL_NAMES,
+} from './deepwiki_tools';
+
+// Export log tools
+export {
+    createReadServerLogsExecute,
+    createReadServerLogsTool,
+} from './log_tools';
+
+// Export tool search
+export {
+    createToolSearchTool,
+    DEFERRED_TOOL_DESCRIPTIONS,
+} from './tool_load';
+
 // Re-export tool names for convenience
 export {
     FILE_WRITE_TOOL_NAME,
@@ -174,6 +192,11 @@ export {
     TASK_OUTPUT_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    DEEPWIKI_ASK_QUESTION_TOOL_NAME,
+    // Log tool names
+    READ_SERVER_LOGS_TOOL_NAME,
+    // Tool search
+    TOOL_LOAD_TOOL_NAME,
 } from './types';
 
 /**

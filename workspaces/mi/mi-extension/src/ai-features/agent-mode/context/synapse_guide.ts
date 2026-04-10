@@ -25,7 +25,7 @@ export const SYNAPSE_GUIDE = `
 ## Steps for developing integration solutions:
     - Make necessary assumptions to complete the solution.
     - Identify the necessary mediators from the following list of supported mediators
-        - Core Mediators: call, call-template, drop, log, loopback, property(deprecated), variable, propertyGroup(deprecated), respond, send(legacy; prefer HTTP connector for new REST integrations), sequence, store
+        - Core Mediators: call, call-template, drop, log, loopback, property, variable, propertyGroup, respond, send, sequence, store
         - Routing & Conditional Processing: filter, switch, validate
         - Custom & External Service Invocation: class, script
         - Message Transformation: enrich, header, payloadFactory, smooks, rewrite, xquery, xslt, datamapper, fastXSLT, jsontransform
@@ -34,48 +34,43 @@ export const SYNAPSE_GUIDE = `
         - Message Processing & Aggregation: foreach, scatter-gather
         - Security & Authorization: NTLM
         - Error Handling: throwError
-    - There are other supported mediators but we do not encourage their use in latest versions of WSO2 Synapse.
-    - DO NOT USE ANY MEDIATORS NOT LISTED ABOVE.
+    - Other mediators (clone, iterate, callout, etc.) are also valid. Use them when needed.
     - Identify necessary connector operations.
-    - Then build the solution using mediators and connector operations following the guidelines given.
     - Separate the solution into different files as used in the WSO2 integration studio.
-    - Use placeholder values if required.
+
+**IMPORTANT: All older patterns are fully supported by MI. Use newer alternatives for new code only. Never rewrite existing code to replace older patterns — they may be required for edge cases.**
+
+## Newer alternatives for new code
+
+| Older Pattern | Preferred for New Code |
+|---------------|----------------------|
+| \`outSequence\` | \`inSequence\`-only flow |
+| \`property\` / \`propertyGroup\` | \`variable\` (except runtime props needing \`scope\`) |
+| \`log level\` + \`<property>\` children | \`log category\` + \`<message>\` |
+| \`clone\` | \`scatter-gather\` |
+| \`iterate\` | \`foreach\` |
+| \`call\`/\`send\` for REST | HTTP connector (keep \`call\` for SOAP) |
+| \`filter source+regex\` | \`filter xpath\` |
 
 ## Guidelines for generating Synapse artifacts:
-   - Adhere to Synapse best practices.
    - Create a separate file for each endpoint.
-   - Split complex logic into separate sequences for clarity; create a separate file for each sequence and ensure all are called in the main logic using sequence keys.
+   - Split complex logic into separate sequences; create a separate file for each and call via sequence keys.
    - Give meaningful names to Synapse artifacts.
    - Provide a meaningful path in the uri-template in APIs.
    - Use &amp; instead of & in XML.
    - Use the Redis connector instead of the cache mediator for Redis cache.
    - Do not leave placeholders like "To be implemented". Always implement the complete solution.
    - Use WSO2 Connectors whenever possible instead of directly calling APIs.
-   - Do not use new class mediators unless it is absolutely necessary.
+   - Do not use new class mediators unless absolutely necessary.
    - Define driver, username, dburl, and passwords inside the dbreport or dblookup mediator <connection> tag instead of generating deployment toml file changes.
-   - Do not use fake XML placeholders (for example, <TODO>, <placeholder>, or <...>) in generated artifacts.
-   - To include an API key in uri-template, define:
-    \`\`\`xml
-    <variable name="username" value="your_api_key_here" type="STRING"/>
-   \`\`\`
+   - Do not use fake XML placeholders (e.g., <TODO>, <placeholder>, <...>).
    - The respond mediator should be empty; it does not support child elements.
 
-## Deprecated patterns quick reference
-   - \`outSequence\` is deprecated. Use \`inSequence\` and explicit sequence flow.
-   - \`property\` / \`propertyGroup\` mediators are deprecated for new flows. Use \`variable\`.
-   - In \`log\` mediator, \`level\` and \`<property>\` children are deprecated. Use \`category\` + \`<message>\`.
-   - \`clone\` mediator is deprecated. Use \`scatter-gather\`.
-   - For new REST integrations, prefer the HTTP connector over \`send\` or generic \`call\`. For SOAP, prefer \`call\` with named endpoints.
+## Connectors & Inbound Endpoints:
+    - Prefer WSO2 connectors over direct API calls when applicable.
+    - Inbound endpoints (also called event listeners) listen to events for triggering sequences.
 
-## WSO2 Synapse Connector Guidelines:
-    - You can use WSO2 Synapse Connectors to integrate with WSO2 services and third-party services.
-    - Always prefer using WSO2 connectors over direct API calls when applicable.
-
-## WSO2 Synapse Inbound Endpoints/Event Listeners Guidelines:
-    - Inbound endpoints are also called event listeners in latest versions of WSO2 Micro Integrator.
-    - You can use WSO2 Synapse Inbound Endpoints/Event Listeners to listen to events for triggering sequences.
-
-## Do not use outSequence as it is deprecated. Use the following sample API Template.
+## API Template (inSequence-only flow)
 \`\`\`xml
 <api xmlns="http://ws.apache.org/ns/synapse" name="name-here" context="context-here">
     <resource methods="GET" uri-template="">
@@ -92,7 +87,7 @@ export const SYNAPSE_GUIDE = `
     ${SYNAPSE_EXPRESSION_GUIDE}
 </SYNAPSE_EXPRESSION_REFERENCE>
 
-## Use the new variable mediator instead of the deprecated property mediator:
+## Variable mediator (preferred over property for new code):
     - Syntax
     \`\`\`xml
     <variable name="userName" type="STRING" value="JohnDoe"/>
@@ -129,30 +124,22 @@ export const SYNAPSE_GUIDE = `
     </log>
     \`\`\`
 
-## Log mediator rules (single source of truth)
-    - \`level\` is deprecated. Use \`category\`.
-    - \`<property>\` children inside \`<log>\` are deprecated. Use \`<message>\` with Synapse expressions.
-    - Canonical syntax:
+## Log mediator
+    - New code syntax:
     \`\`\`xml
-    <log [category="INFO|TRACE|DEBUG|WARN|ERROR|FATAL"] [separator="string"]>
-       <message></message>
+    <log [category="INFO|TRACE|DEBUG|WARN|ERROR|FATAL"] [separator="string"] logMessageID=(true | false) logFullPayload=(true | false)>
+       <message>Hello \${payload.name}, RequestID=\${vars.requestId}</message>
     </log>
     \`\`\`
-    - Deprecated syntax:
+    - Older syntax (still valid):
     \`\`\`xml
     <log level="custom">
         <property name="Message" value="Starting the sequence execution."/>
         <property name="RequestID" expression="get-property('RequestID')"/>
     </log>
     \`\`\`
-    - Correct syntax:
-    \`\`\`xml
-    <log [category="INFO|TRACE|DEBUG|WARN|ERROR|FATAL"] [separator="string"] logMessageID=(true | false) logFullPayload=(true | false)>
-       <message>Hello \${payload.name}, RequestID=\${vars.requestId}</message>
-    </log>
-    \`\`\`
 
-## Prefer using the new HTTP connector over call or send mediators unless absolutely necessary, legacy compatibility requires it, or you encounter issues with the new HTTP connector.
+## HTTP connector (preferred for new REST integrations; use call/send for SOAP or when HTTP connector doesn't fit).
     - Resolve initialization mode from connector summary fields (\`connectionLocalEntryNeeded\`, \`noInitializationNeeded\`) and follow \`CONNECTOR_DEVELOPMENT_GUIDELINES\`.
     - Do not assume all HTTP usage requires local entry + \`configKey\`; that is required only when \`connectionLocalEntryNeeded=true\`.
     - If local entry is required, keep each local entry in a separate file.
@@ -221,7 +208,7 @@ The writable transport properties above are set using the variable mediator with
 
 For the full property reference (70+ properties with exact names, scopes, and usage patterns), load the \`synapse-property-reference\` context.
 
-## For the new filter mediator, do not use source. Use only xpath:
+## Filter mediator (prefer xpath for new code):
     - The \`xpath\` attribute accepts Synapse Expressions (despite the attribute name). The expression must evaluate to a boolean.
 \`\`\`xml
 <filter xpath="\${payload.age &gt; 18}">
@@ -234,7 +221,7 @@ For the full property reference (70+ properties with exact names, scopes, and us
 </filter>
 \`\`\`
 
-## Prefer the Scatter-Gather Mediator Over the Deprecated Clone Mediator.
+## Scatter-Gather mediator (preferred over clone for new code).
     - The Scatter Gather Mediator can be used to clone a message into several messages and aggregate the responses. It resembles the Scatter-Gather enterprise integration pattern.
     - Syntax:
     \`\`\`xml

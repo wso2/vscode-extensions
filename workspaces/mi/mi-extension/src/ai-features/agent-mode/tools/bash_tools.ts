@@ -19,10 +19,11 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import * as childProcess from 'child_process';
+import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { AgentEvent } from '@wso2/mi-core';
 import { BashResult, ToolResult, BashExecuteFn, KillTaskExecuteFn, TaskOutputExecuteFn, TaskOutputResult, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, ShellApprovalRuleStore } from './types';
-import { logError, logInfo } from '../../copilot/logger';
+import { logDebug, logError, logInfo } from '../../copilot/logger';
 import { getBackgroundSubagents } from './subagent_tool';
 import { setJavaHomeInEnvironmentAndPath } from '../../../debugger/debugHelper';
 import { PendingPlanApproval } from './plan_mode_tools';
@@ -33,6 +34,7 @@ import {
     isAnalysisCoveredByRules,
     normalizePrefixRule,
 } from './shell_sandbox';
+import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
 import treeKill = require('tree-kill');
 
 // ============================================================================
@@ -47,6 +49,11 @@ export { BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME };
 
 const DEFAULT_TIMEOUT = 120000; // 2 minutes
 const MAX_TIMEOUT = 600000; // 10 minutes
+const MAX_SHELL_OUTPUT_CHARS = 512 * 1024; // 512KB
+const SHELL_OUTPUT_TRUNCATION_NOTICE = `[Output truncated. Showing last ${Math.round(MAX_SHELL_OUTPUT_CHARS / 1024)}KB.]`;
+const BACKGROUND_SHELL_TTL_MS = 60 * 60 * 1000; // 1 hour
+const BACKGROUND_SHELL_CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_BACKGROUND_SHELLS = 50;
 
 // ============================================================================
 // Module State - Background Shell Tracking
@@ -57,7 +64,9 @@ interface BackgroundShell {
     process: childProcess.ChildProcess;
     command: string;
     startTime: Date;
+    completedAt?: Date;
     output: string;
+    outputTruncated: boolean;
     completed: boolean;
     exitCode: number | null;
     notified: boolean;           // true once completion notification has been injected into a tool result
@@ -65,6 +74,7 @@ interface BackgroundShell {
 }
 
 const backgroundShells: Map<string, BackgroundShell> = new Map();
+let backgroundShellCleanupTimer: NodeJS.Timeout | null = null;
 
 /**
  * Get all running background shells (for status/listing)
@@ -85,8 +95,7 @@ export async function cleanupRunningBackgroundShells(): Promise<number> {
 
     await Promise.all(runningShells.map(([id, shell]) => new Promise<void>((resolve) => {
         const pid = shell.process.pid;
-        shell.completed = true;
-        shell.exitCode = -9;
+        markShellCompleted(shell, -9);
         if (!shell.output) {
             shell.output = `Shell task ${id} was terminated because the main agent run ended.`;
         }
@@ -116,13 +125,75 @@ export async function cleanupRunningBackgroundShells(): Promise<number> {
 /**
  * Clean up completed background shells older than 1 hour
  */
-function cleanupOldShells(): void {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+function cleanupOldShells(): number {
+    const threshold = Date.now() - BACKGROUND_SHELL_TTL_MS;
+    let removed = 0;
     for (const [id, shell] of backgroundShells.entries()) {
-        if (shell.completed && shell.startTime < oneHourAgo) {
+        const completedAt = shell.completedAt?.getTime() ?? shell.startTime.getTime();
+        if (shell.completed && completedAt < threshold) {
             backgroundShells.delete(id);
+            removed++;
         }
     }
+    return removed;
+}
+
+function startBackgroundShellCleanup(): void {
+    if (backgroundShellCleanupTimer) {
+        return;
+    }
+
+    backgroundShellCleanupTimer = setInterval(() => {
+        const removed = cleanupOldShells();
+        if (removed > 0) {
+            logDebug(`[ShellTool] Cleanup sweep removed ${removed} stale background shell task(s)`);
+        }
+    }, BACKGROUND_SHELL_CLEANUP_INTERVAL_MS);
+    backgroundShellCleanupTimer.unref?.();
+}
+
+function evictOldestCompletedShell(): boolean {
+    let oldestId: string | null = null;
+    let oldestTimestamp = Number.POSITIVE_INFINITY;
+
+    for (const [id, shell] of backgroundShells.entries()) {
+        if (!shell.completed) {
+            continue;
+        }
+
+        const completedAt = shell.completedAt?.getTime() ?? shell.startTime.getTime();
+        if (completedAt < oldestTimestamp) {
+            oldestTimestamp = completedAt;
+            oldestId = id;
+        }
+    }
+
+    if (!oldestId) {
+        return false;
+    }
+
+    backgroundShells.delete(oldestId);
+    return true;
+}
+
+function ensureBackgroundShellCapacity(): { ok: true } | { ok: false; reason: string } {
+    if (backgroundShells.size < MAX_BACKGROUND_SHELLS) {
+        return { ok: true };
+    }
+
+    const cleaned = cleanupOldShells();
+    if (cleaned > 0 && backgroundShells.size < MAX_BACKGROUND_SHELLS) {
+        return { ok: true };
+    }
+
+    if (evictOldestCompletedShell()) {
+        return { ok: true };
+    }
+
+    return {
+        ok: false,
+        reason: `Background shell limit reached (${MAX_BACKGROUND_SHELLS}). Wait for an existing task to complete or terminate one before starting a new task.`,
+    };
 }
 
 /**
@@ -179,6 +250,52 @@ function generateShellTaskId(): string {
     return `task-shell-${uuidv4().split('-')[0]}`;
 }
 
+function normalizePathForComparison(targetPath: string): string {
+    const normalized = path.resolve(targetPath).replace(/\\/g, '/').replace(/\/+$/, '');
+    return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+function isPathWithin(basePath: string, targetPath: string): boolean {
+    const normalizedBase = normalizePathForComparison(basePath);
+    const normalizedTarget = normalizePathForComparison(targetPath);
+    return normalizedTarget === normalizedBase || normalizedTarget.startsWith(`${normalizedBase}/`);
+}
+
+async function captureShellMutationCheckpointCandidates(
+    projectPath: string,
+    analysis: ReturnType<typeof analyzeShellCommand>,
+    undoCheckpointManager?: AgentUndoCheckpointManager
+): Promise<void> {
+    if (!undoCheckpointManager) {
+        return;
+    }
+
+    const projectRoot = path.resolve(projectPath);
+    const seenRelativePaths = new Set<string>();
+    for (const segment of analysis.segments) {
+        const resolvedMutationPaths = segment.resolvedMutationPaths ?? [];
+        for (const resolvedPath of resolvedMutationPaths) {
+            if (!resolvedPath || !isPathWithin(projectRoot, resolvedPath)) {
+                continue;
+            }
+
+            const relativePath = path.relative(projectRoot, resolvedPath).replace(/\\/g, '/');
+            if (
+                !relativePath
+                || relativePath === '.'
+                || relativePath.startsWith('..')
+                || path.isAbsolute(relativePath)
+                || seenRelativePaths.has(relativePath)
+            ) {
+                continue;
+            }
+
+            seenRelativePaths.add(relativePath);
+            await undoCheckpointManager.captureBeforeChange(relativePath);
+        }
+    }
+}
+
 type AgentEventHandler = (event: AgentEvent) => void;
 
 function formatApprovalReasons(reasons: string[]): string {
@@ -199,6 +316,46 @@ function summarizeCommandForLog(command: string): string {
     const commandName = tokens[0].replace(/^['"`]+|['"`]+$/g, '');
     const argCount = Math.max(tokens.length - 1, 0);
     return `${commandName || '<unknown>'} (args=${argCount})`;
+}
+
+function appendBoundedOutput(
+    current: string,
+    chunk: string,
+    alreadyTruncated: boolean
+): { output: string; truncated: boolean } {
+    if (!chunk) {
+        return { output: current, truncated: alreadyTruncated };
+    }
+
+    const combined = current + chunk;
+    if (combined.length <= MAX_SHELL_OUTPUT_CHARS) {
+        return { output: combined, truncated: alreadyTruncated };
+    }
+
+    return {
+        output: combined.slice(-MAX_SHELL_OUTPUT_CHARS),
+        truncated: true,
+    };
+}
+
+function appendToShellOutput(shell: BackgroundShell, chunk: string): void {
+    const updated = appendBoundedOutput(shell.output, chunk, shell.outputTruncated);
+    shell.output = updated.output;
+    shell.outputTruncated = updated.truncated;
+}
+
+function markShellCompleted(shell: BackgroundShell, exitCode: number | null): void {
+    shell.completed = true;
+    shell.exitCode = exitCode;
+    shell.completedAt = new Date();
+}
+
+function withTruncationNotice(output: string, truncated: boolean): string {
+    return truncated ? `${SHELL_OUTPUT_TRUNCATION_NOTICE}\n${output}` : output;
+}
+
+function getBackgroundShellOutput(shell: BackgroundShell): string {
+    return withTruncationNotice(shell.output, shell.outputTruncated);
 }
 
 function buildShellApprovalContent(command: string, reasons: string[], suggestedPrefixRule: string[]): string {
@@ -274,8 +431,11 @@ export function createBashExecute(
     pendingApprovals?: Map<string, PendingPlanApproval>,
     shellApprovalRuleStore?: ShellApprovalRuleStore,
     sessionId: string = '',
-    mainAbortSignal?: AbortSignal
+    mainAbortSignal?: AbortSignal,
+    undoCheckpointManager?: AgentUndoCheckpointManager
 ): BashExecuteFn {
+    startBackgroundShellCleanup();
+
     return async (args: {
         command: string;
         description?: string;
@@ -317,7 +477,7 @@ export function createBashExecute(
             });
 
             if (!approvalResult.approved) {
-                return buildShellCommandDeniedResult();
+                return buildShellCommandDeniedResult(approvalResult.feedback);
             }
 
             const rememberForSession = approvalResult.rememberForSession === true;
@@ -339,6 +499,12 @@ export function createBashExecute(
             logInfo(`[ShellTool] Approval bypassed by session rule for command summary: ${summarizeCommandForLog(command)}`);
         }
 
+        try {
+            await captureShellMutationCheckpointCandidates(projectPath, analysis, undoCheckpointManager);
+        } catch (error) {
+            logDebug(`[ShellTool] Failed to capture shell mutation checkpoint candidates: ${error instanceof Error ? error.message : String(error)}`);
+        }
+
         logInfo(`[ShellTool] Executing: ${command}${description ? ` (${description})` : ''}`);
 
         // Validate timeout
@@ -350,10 +516,16 @@ export function createBashExecute(
             ...setJavaHomeInEnvironmentAndPath(projectPath)
         };
 
-        // Clean up old shells periodically
-        cleanupOldShells();
-
         if (run_in_background) {
+            const capacityCheck = ensureBackgroundShellCapacity();
+            if (!capacityCheck.ok) {
+                return {
+                    success: false,
+                    message: capacityCheck.reason,
+                    error: 'TOO_MANY_BACKGROUND_SHELLS',
+                };
+            }
+
             // Background execution
             const taskId = generateShellTaskId();
 
@@ -362,7 +534,7 @@ export function createBashExecute(
                 isWindows ? 'powershell.exe' : 'bash',
                 isWindows
                     ? ['-NoProfile', '-NonInteractive', '-Command', command]
-                    : ['-lc', command],
+                    : ['-c', command],
                 {
                 cwd: projectPath,
                 env: envVariables,
@@ -375,6 +547,7 @@ export function createBashExecute(
                 command,
                 startTime: new Date(),
                 output: '',
+                outputTruncated: false,
                 completed: false,
                 exitCode: null,
                 notified: false,
@@ -384,23 +557,21 @@ export function createBashExecute(
             backgroundShells.set(taskId, shell);
 
             proc.stdout?.on('data', (data) => {
-                shell.output += data.toString();
+                appendToShellOutput(shell, data.toString());
             });
 
             proc.stderr?.on('data', (data) => {
-                shell.output += data.toString();
+                appendToShellOutput(shell, data.toString());
             });
 
             proc.on('close', (code) => {
-                shell.completed = true;
-                shell.exitCode = code;
+                markShellCompleted(shell, code);
                 logInfo(`[ShellTool] Background shell ${taskId} completed with code ${code}`);
             });
 
             proc.on('error', (error) => {
-                shell.completed = true;
-                shell.exitCode = -1;
-                shell.output += `\nError: ${error.message}`;
+                markShellCompleted(shell, -1);
+                appendToShellOutput(shell, `\nError: ${error.message}`);
                 logError(`[ShellTool] Background shell ${taskId} error: ${error.message}`);
             });
 
@@ -433,6 +604,8 @@ export function createBashExecute(
             return new Promise<BashResult>((resolve) => {
                 let stdout = '';
                 let stderr = '';
+                let stdoutTruncated = false;
+                let stderrTruncated = false;
                 let timedOut = false;
 
                 const isWindows = process.platform === 'win32';
@@ -440,7 +613,7 @@ export function createBashExecute(
                     isWindows ? 'powershell.exe' : 'bash',
                     isWindows
                         ? ['-NoProfile', '-NonInteractive', '-Command', command]
-                        : ['-lc', command],
+                        : ['-c', command],
                     {
                     cwd: projectPath,
                     env: envVariables
@@ -471,11 +644,15 @@ export function createBashExecute(
                 }
 
                 proc.stdout?.on('data', (data) => {
-                    stdout += data.toString();
+                    const updated = appendBoundedOutput(stdout, data.toString(), stdoutTruncated);
+                    stdout = updated.output;
+                    stdoutTruncated = updated.truncated;
                 });
 
                 proc.stderr?.on('data', (data) => {
-                    stderr += data.toString();
+                    const updated = appendBoundedOutput(stderr, data.toString(), stderrTruncated);
+                    stderr = updated.output;
+                    stderrTruncated = updated.truncated;
                 });
 
                 proc.on('close', (code) => {
@@ -483,25 +660,30 @@ export function createBashExecute(
                     mainAbortSignal?.removeEventListener('abort', onMainAbort);
 
                     if (aborted) {
+                        const formattedStdout = withTruncationNotice(stdout, stdoutTruncated);
+                        const formattedStderr = withTruncationNotice(stderr, stderrTruncated);
+                        const combinedOutput = formattedStdout + (formattedStderr ? `\n\nSTDERR:\n${formattedStderr}` : '');
                         resolve({
                             success: false,
-                            message: `Command was aborted.\n\n**Output before abort:**\n\`\`\`\n${stdout + (stderr ? `\n\nSTDERR:\n${stderr}` : '')}\n\`\`\``,
-                            stdout,
-                            stderr,
+                            message: `Command was aborted.\n\n**Output before abort:**\n\`\`\`\n${combinedOutput}\n\`\`\``,
+                            stdout: formattedStdout,
+                            stderr: formattedStderr,
                             exitCode: -1,
                             error: 'Command aborted'
                         });
                         return;
                     }
 
-                    const combinedOutput = stdout + (stderr ? `\n\nSTDERR:\n${stderr}` : '');
+                    const formattedStdout = withTruncationNotice(stdout, stdoutTruncated);
+                    const formattedStderr = withTruncationNotice(stderr, stderrTruncated);
+                    const combinedOutput = formattedStdout + (formattedStderr ? `\n\nSTDERR:\n${formattedStderr}` : '');
 
                     if (timedOut) {
                         resolve({
                             success: false,
                             message: `Command timed out after ${effectiveTimeout / 1000} seconds.\n\n**Output before timeout:**\n\`\`\`\n${combinedOutput}\n\`\`\``,
-                            stdout: stdout,
-                            stderr: stderr,
+                            stdout: formattedStdout,
+                            stderr: formattedStderr,
                             exitCode: -1,
                             error: 'Command timed out'
                         });
@@ -509,16 +691,16 @@ export function createBashExecute(
                         resolve({
                             success: true,
                             message: combinedOutput || 'Command completed successfully with no output.',
-                            stdout: stdout,
-                            stderr: stderr,
+                            stdout: formattedStdout,
+                            stderr: formattedStderr,
                             exitCode: code
                         });
                     } else {
                         resolve({
                             success: false,
                             message: `Command failed with exit code ${code}.\n\n**Output:**\n\`\`\`\n${combinedOutput}\n\`\`\``,
-                            stdout: stdout,
-                            stderr: stderr,
+                            stdout: formattedStdout,
+                            stderr: formattedStderr,
                             exitCode: code ?? -1,
                             error: `Exit code: ${code}`
                         });
@@ -592,7 +774,7 @@ export function createKillTaskExecute(): KillTaskExecuteFn {
         if (shell) {
             if (shell.completed) {
                 shell.notified = true;
-                const output = shell.output;
+                const output = getBackgroundShellOutput(shell);
                 backgroundShells.delete(taskId);
                 return {
                     success: true,
@@ -620,9 +802,8 @@ export function createKillTaskExecute(): KillTaskExecuteFn {
                             error: err.message
                         });
                     } else {
-                        shell.completed = true;
-                        shell.exitCode = -9; // SIGKILL
-                        const output = shell.output;
+                        markShellCompleted(shell, -9);
+                        const output = getBackgroundShellOutput(shell);
                         backgroundShells.delete(taskId);
                         logInfo(`[KillTaskTool] Successfully killed shell ${taskId}`);
                         resolve({
@@ -656,6 +837,7 @@ export function createKillTaskExecute(): KillTaskExecuteFn {
         subagent.abortController.abort();
         subagent.completed = true;
         subagent.success = false;
+        subagent.completedAt = new Date();
         if (!subagent.output) {
             subagent.output = `Subagent ${taskId} was terminated by user request.`;
         }
@@ -722,7 +904,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
 
         // Use a unified view: either shell or subagent
         const task = shell
-            ? { output: shell.output, completed: shell.completed, exitCode: shell.exitCode, type: 'shell' as const }
+            ? { output: getBackgroundShellOutput(shell), completed: shell.completed, exitCode: shell.exitCode, type: 'shell' as const }
             : { output: subagent!.output, completed: subagent!.completed, exitCode: subagent!.success === true ? 0 : subagent!.success === false ? 1 : null, type: 'subagent' as const };
 
         // Mark as notified so drainBackgroundTaskNotifications() won't duplicate this
@@ -772,7 +954,7 @@ export function createTaskOutputExecute(): TaskOutputExecuteFn {
 
                 // Re-read current state (mutable references)
                 const currentCompleted = shell ? shell.completed : subagent!.completed;
-                const currentOutput = shell ? shell.output : subagent!.output;
+                const currentOutput = shell ? getBackgroundShellOutput(shell) : subagent!.output;
                 const currentExitCode = shell
                     ? shell.exitCode
                     : (subagent!.success === true ? 0 : subagent!.success === false ? 1 : null);

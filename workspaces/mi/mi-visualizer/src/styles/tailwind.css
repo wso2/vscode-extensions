@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Minimal element resets for Tailwind-styled components (Preflight is disabled).
+ * Uses @layer base so Emotion styled-components (class selectors) always win.
+ */
+@layer base {
+    button, [type="button"], [type="reset"], [type="submit"] {
+        border: none;
+        background: transparent;
+        padding: 0;
+        margin: 0;
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+    }
+}
+
+/* Spin animation for loading icons */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Checkpoint hover effect: show checkpoint on conversation turn hover */
+.group\/turn:hover .checkpoint-hover {
+    opacity: 1 !important;
+}
+
