@@ -112,6 +112,51 @@ export class StringTemplateEditorConfig extends ChipExpressionEditorDefaultConfi
     }
 }
 
+export class StringLiteralEditorConfig extends ChipExpressionEditorDefaultConfiguration {
+    getSerializationPrefix() {
+        return '"';
+    }
+    getSerializationSuffix() {
+        return '"';
+    }
+    getAdornment(): ({ onClick }: { onClick?: () => void; }) => JSX.Element {
+        return () => null;
+    }
+    /** Strip outer double-quotes (or legacy string-template wrapper) for display in the editor */
+    serializeValue(value: string): string {
+        if (!value) return value ?? "";
+        const trimmed = value.trim();
+        if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) {
+            try { return JSON.parse(trimmed); } catch { return trimmed.slice(1, -1); }
+        }
+        // Backward-compat: strip legacy string-template wrapper for display
+        if (trimmed.startsWith('string `') && trimmed.endsWith('`')) {
+            return trimmed.slice('string `'.length, -1);
+        }
+        return value;
+    }
+    /** Wrap user input in double quotes for storage as a Ballerina string literal */
+    deserializeValue(value: string): string {
+        if (!value) return value ?? "";
+        const trimmed = value.trim();
+        if (!trimmed) return value;
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) return value; // already correct
+        // Backward-compat: convert legacy string-template values to double-quoted form
+        if (trimmed.startsWith('string `') && trimmed.endsWith('`')) {
+            return `"${trimmed.slice('string `'.length, -1)}"`;
+        }
+        return `"${value}"`;
+    }
+    getIsValueCompatible(expValue: string) {
+        if (!expValue) return true;
+        const trimmed = expValue.trim();
+        return (
+            (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+            (trimmed.startsWith('string `') && trimmed.endsWith('`')) // backward-compat
+        );
+    }
+}
+
 export class RawTemplateEditorConfig extends ChipExpressionEditorDefaultConfiguration {
     getHelperValue(value: string, token?: ParsedToken): string {
         if (token?.type === TokenType.FUNCTION) return value;

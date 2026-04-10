@@ -21,7 +21,7 @@ import styled from "@emotion/styled";
 import { debounce } from "lodash";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { Diagnostic, ExpressionProperty, LineRange, PropertyModel, TriggerCharacter, TRIGGER_CHARACTERS } from "@wso2/ballerina-core";
-import { ChipExpressionEditorComponent, FieldProvider, FormField, InputMode, Provider as FormContextProvider, StringTemplateEditorConfig } from "@wso2/ballerina-side-panel";
+import { ChipExpressionEditorComponent, FieldProvider, FormField, InputMode, Provider as FormContextProvider, StringLiteralEditorConfig } from "@wso2/ballerina-side-panel";
 import { ChipExpressionEditorDefaultConfiguration } from "@wso2/ballerina-side-panel/lib/components/editors/MultiModeExpressionEditor/ChipExpressionEditor/ChipExpressionDefaultConfig";
 import WarningPopup from "@wso2/ballerina-side-panel/lib/components/WarningPopup";
 import { CompletionItem, ErrorBanner, ThemeColors, Typography } from "@wso2/ui-toolkit";
@@ -29,7 +29,7 @@ import { getHelperPaneNew } from "../../../HelperPaneNew";
 import { EXPRESSION_EXTRACTION_REGEX } from "../../../../../constants";
 import { calculateExpressionOffsets, convertBalCompletion, removeDuplicateDiagnostics } from "../../../../../utils/bi";
 
-class TextEditorConfig extends StringTemplateEditorConfig {
+class TextEditorConfig extends StringLiteralEditorConfig {
 }
 
 class ExpressionEditorConfig extends ChipExpressionEditorDefaultConfiguration {

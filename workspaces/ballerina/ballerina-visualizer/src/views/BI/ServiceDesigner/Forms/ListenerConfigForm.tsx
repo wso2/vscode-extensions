@@ -208,15 +208,32 @@ export function ListenerConfigForm(props: ListenerConfigFormProps) {
 
 export default ListenerConfigForm;
 
+/** Converts legacy Ballerina string-template literals to double-quoted string literals.
+ *  e.g. string `/tmp` → "/tmp"
+ *  This normalises values that were stored before the TEXT-mode editor was updated to
+ *  use StringLiteralEditorConfig instead of StringTemplateEditorConfig.
+ */
+function normalizeStringTemplateToLiteral(value: string): string {
+    const trimmed = value.trim();
+    if (trimmed.startsWith('string `') && trimmed.endsWith('`')) {
+        return `"${trimmed.slice('string `'.length, -1)}"`;
+    }
+    return value;
+}
+
 function convertConfig(listener: ListenerModel): FormField[] {
     const formFields: FormField[] = [];
     for (const key in listener.properties) {
         const expression = listener.properties[key];
         const fieldType = getPrimaryInputType(expression.types)?.fieldType;
         // For MULTIPLE_SELECT, EXPRESSION_SET, and TEXT_SET, read from values array
-        const value = (fieldType === "MULTIPLE_SELECT" || fieldType === "EXPRESSION_SET" || fieldType === "TEXT_SET")
+        let value = (fieldType === "MULTIPLE_SELECT" || fieldType === "EXPRESSION_SET" || fieldType === "TEXT_SET")
             ? (expression.values && expression.values.length > 0 ? expression.values : (expression.value ? [expression.value] : []))
             : expression.value;
+        // Normalise any legacy string-template values stored in TEXT fields to double-quoted string literals
+        if (fieldType === 'TEXT' && typeof value === 'string') {
+            value = normalizeStringTemplateToLiteral(value);
+        }
         const formField: FormField = {
             key: key,
             label: expression?.metadata.label || key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, str => str.toUpperCase()),
