@@ -35,6 +35,7 @@ import overviewPageTests from './overviewPageTests/projectSettingPage.spec';
 import openEntryPointArtifact from './overviewPageTests/openEntryPointArtifact.spec';
 import multiWorkspaceTests from './multiWorkspaceTests/multiWorkspace.spec';
 import unitTestSuitTests from './unitTestSuite.spec';
+import nonMiProjectActivationTests from './nonMiProjectActivation.spec';
 import { page } from './Utils';
 const fs = require('fs');
 const path = require('path');
@@ -68,6 +69,7 @@ test.describe(validateMediatorTests);
 test.describe(dataMapperMediatorTests);
 test.describe(unitTestSuitTests);
 test.describe(dbReportMediatorTests);
+test.describe(nonMiProjectActivationTests);
 test.describe(artifact430Tests);
 
 test.afterAll(async () => {

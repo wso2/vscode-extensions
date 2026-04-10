@@ -323,7 +323,7 @@ const stateMachine = createMachine<MachineContext>({
         },
         newProject: {
             entry: () => logDebug("State Machine: Entering 'newProject' state"),
-            initial: "viewLoading",
+            initial: "viewReady",
             states: {
                 viewLoading: {
                     entry: () => logDebug("State Machine: Entering 'newProject.viewLoading' state"),
