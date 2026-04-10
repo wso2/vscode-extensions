@@ -35,6 +35,7 @@ import overviewPageTests from './overviewPageTests/projectSettingPage.spec';
 import openEntryPointArtifact from './overviewPageTests/openEntryPointArtifact.spec';
 import multiWorkspaceTests from './multiWorkspaceTests/multiWorkspace.spec';
 import unitTestSuitTests from './unitTestSuite.spec';
+import backNavigationTests from './navigationTests/backNavigation.spec';
 import { page } from './Utils';
 const fs = require('fs');
 const path = require('path');
@@ -69,6 +70,7 @@ test.describe(dataMapperMediatorTests);
 test.describe(unitTestSuitTests);
 test.describe(dbReportMediatorTests);
 test.describe(artifact430Tests);
+test.describe(backNavigationTests);
 
 test.afterAll(async () => {
     console.log('\n' + '='.repeat(80));

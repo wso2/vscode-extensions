@@ -147,6 +147,7 @@ export function AddArtifactView() {
     const handleClick = async (key: string) => {
         const dir = path.join(projectUri, "src", "main", "wso2mi", "artifacts", key);
         let entry = { info: { path: dir } };
+        rpcClient.getMiVisualizerRpcClient().addToHistory({ location: { view: MACHINE_VIEW.ADD_ARTIFACT } });
         if (key === "apis") {
             await rpcClient
                 .getMiDiagramRpcClient()
