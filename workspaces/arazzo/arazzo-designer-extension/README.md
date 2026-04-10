@@ -1,6 +1,6 @@
-# Arazzo Designer for VS Code
+# Arazzo Visualizer for VS Code
 
-The Arazzo Designer VS Code extension offers the ability to **visualize and navigate [Arazzo Specification](https://www.openapis.org/arazzo-specification) workflows** through an interactive graphical designer with live updates powered by GitHub Copilot.
+The Arazzo Visualizer VS Code extension offers the ability to **visualize and navigate [Arazzo Specification](https://www.openapis.org/arazzo-specification) workflows** through an interactive graphical interface with live updates powered by GitHub Copilot.
 
 Beyond the visual features, the extension enhances the Arazzo authoring experience with syntax highlighting, intelligent code completions, and real-time validation provided by a built-in language server.
 
@@ -10,7 +10,7 @@ Beyond the visual features, the extension enhances the Arazzo authoring experien
 2. Open any Arazzo file (`.arazzo.yaml`, `.arazzo.yml`).
 3. Click the **Arazzo Overview** icon in the editor toolbar, or use the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run **"ArazzoDesigner: Open Arazzo Designer"**.
 
-The designer opens beside your code and stays in sync as you edit.
+The Visualizer opens beside your code and stays in sync as you edit.
 
 ## Features
 
@@ -30,14 +30,14 @@ You don't always need to go through the Overview. When you open an Arazzo file, 
 
 ### 🤖 Getting Started with GitHub Copilot
 
-The Arazzo Designer works hand-in-hand with **GitHub Copilot**, making it easy to create and evolve Arazzo workflows using plain English — no need to memorise the spec syntax.
+The Arazzo Visualizer works hand-in-hand with **GitHub Copilot**, making it easy to create and evolve Arazzo workflows using plain English — no need to memorise the spec syntax.
 
 **Starting from scratch?** Open GitHub Copilot Chat and describe the workflow you want. For example:
 
 > *"create a sample arazzo file named petstore.arazzo.yaml with 5 steps using the petstore openAPI specification given below
 https://petstore3.swagger.io/api/v3/openapi.json"*
 
-Copilot will generate the Arazzo file for you. Open it and the designer will visualize it instantly.
+Copilot will generate the Arazzo file for you. Open it and the plugin will visualize it instantly.
 
 **Editing an existing file?** Ask Copilot to change it in plain language:
 
