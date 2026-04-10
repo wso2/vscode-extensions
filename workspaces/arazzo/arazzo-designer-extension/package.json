@@ -2,7 +2,7 @@
   "name": "arazzo-visualizer",
   "displayName": "Arazzo Visualizer",
   "description": "An extension which gives a development environment for visualizing Arazzo Specification.",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "publisher": "wso2",
   "repository": {
     "type": "git",
