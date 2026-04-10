@@ -461,14 +461,17 @@ func (r *ArazzoRunner) resolveWorkflowOutputs(wf map[string]interface{}, state *
 		exprStr, ok := exprRaw.(string)
 		if !ok {
 			outputs[name] = exprRaw
+			log.Printf("Workflow output %s: %v (literal)", name, exprRaw)
 			continue
 		}
 
 		resolved := evaluator.EvaluateExpression(exprStr, state, r.SourceDescriptions, nil)
 		if resolved != nil {
 			outputs[name] = resolved
+			log.Printf("Workflow output %s: %v", name, resolved)
 		} else {
 			outputs[name] = exprStr
+			log.Printf("Workflow output %s: unresolved (expression: %s)", name, exprStr)
 		}
 	}
 
