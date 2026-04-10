@@ -1,7 +1,7 @@
 {
-  "name": "arazzo-designer",
-  "displayName": "Arazzo Designer",
-  "description": "An extension which gives a development environment for designing, developing, debugging, and testing Arazzo Specification.",
+  "name": "arazzo-visualizer",
+  "displayName": "Arazzo Visualizer",
+  "description": "An extension which gives a development environment for visualizing Arazzo Specification.",
   "version": "0.1.0",
   "publisher": "wso2",
   "repository": {
@@ -21,6 +21,7 @@
     "onLanguage:arazzo-yaml",
     "onLanguage:arazzo-json"
   ],
+  "icon": "./assets/logo.png",
   "main": "./dist/extension.js",
   "contributes": {
     "languages": [
@@ -66,7 +67,7 @@
     "commands": [
       {
         "command": "ArazzoDesigner.openAPIDesigner",
-        "title": "Open Arazzo Designer",
+        "title": "Open Arazzo Visualizer",
         "category": "ArazzoDesigner",
         "when": "isFileOpenAPI || isFileArazzo",
         "icon": "$(open-preview)"
@@ -95,7 +96,7 @@
       },
       {
         "command": "arazzo.openDesigner",
-        "title": "Open Arazzo Designer",
+        "title": "Open Arazzo Visualizer",
         "category": "Arazzo"
       }
     ],
