@@ -283,7 +283,6 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
                 onCancel?.();
                 return;
             }
-            setLoading(true);
             fetchNodes();
         });
     }, [rpcClient]);
