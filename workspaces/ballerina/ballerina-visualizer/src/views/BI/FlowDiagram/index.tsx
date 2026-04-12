@@ -203,6 +203,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const pinnedCursorRef = useRef<{ x: number; y: number; nodeId: string }>();
     const lastBroadcastCursorRef = useRef<{ x: number; y: number; nodeId?: string }>();
     const clickedCursorAnchorNodeIdRef = useRef<string>();
+    const flowModelRequestGenRef = useRef(0);
     const parentNodeRef = useRef<FlowNode>();
     const nodeTemplateRef = useRef<FlowNode>();
     const hasRenameOperation = useRef<boolean>(false);
@@ -263,6 +264,17 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         currentModelFileRef.current = model?.fileName;
     }, [model?.fileName]);
 
+    // Restore last cursor position from sessionStorage on mount so the heartbeat can
+    // immediately resume broadcasting after a remount (e.g. caused by a key change).
+    useEffect(() => {
+        try {
+            const saved = sessionStorage.getItem('bi_last_cursor');
+            if (saved) {
+                lastBroadcastCursorRef.current = JSON.parse(saved);
+            }
+        } catch {}
+    }, []);
+
         const debouncedGetFlowModel = useCallback(
         debounce(() => {
             getFlowModel();
@@ -291,7 +303,11 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     useEffect(() => {
         rpcClient.onProjectContentUpdated(() => {
             debouncedGetFlowModel();
-        })
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
         rpcClient.onParentPopupSubmitted((parent: ParentPopupData) => {
             if (parent.dataMapperMetadata) {
                 // Skip if the parent is a data mapper popup
@@ -402,7 +418,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 }
             } catch (error) {
                 console.error(`[Collaboration] Error checking collaboration:`, error);
-                setIsCollaborationActive(false);
+                // Do NOT set isCollaborationActive(false) on transient errors (e.g. LS busy during
+                // node deletion). Transient errors should not disrupt cursor sync — only an explicit
+                // isActive:false response should mark collaboration as inactive.
             }
         };
 
@@ -873,6 +891,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     };
 
     const getFlowModel = () => {
+        const requestGen = ++flowModelRequestGenRef.current;
         setShowProgressIndicator(true);
         onUpdate();
 
@@ -895,6 +914,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     .getFlowModel({})
                     .then((model) => {
                         console.log(">>> BIFlowDiagram getFlowModel", model);
+                        if (requestGen !== flowModelRequestGenRef.current) {
+                            return; // A newer request is in-flight; discard this stale response
+                        }
                         if (model?.flowModel) {
                             const currentSelectedNode = selectedNodeRef.current;
                             if (
@@ -1412,6 +1434,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 y: broadcastY,
                 nodeId: broadcastNodeId,
             };
+            try {
+                sessionStorage.setItem('bi_last_cursor', JSON.stringify(lastBroadcastCursorRef.current));
+            } catch {}
 
             try {
                 const normalizedFileName = normalizeFilePath(model.fileName);
@@ -1466,26 +1491,35 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             return;
         }
 
-        const heartbeatInterval = setInterval(() => {
+        const fireCursorHeartbeat = () => {
             const lastCursor = lastBroadcastCursorRef.current;
             if (!lastCursor) {
                 return;
             }
-
             sendPresenceUpdate(lastCursor.x, lastCursor.y, lastCursor.nodeId);
-        }, CURSOR_HEARTBEAT_INTERVAL_MS);
+        };
+
+        // Fire immediately so peers see the cursor without waiting a full heartbeat interval.
+        // This also recovers cursor sync quickly after a remount (e.g. key change on resource
+        // diagrams) by using the position restored from sessionStorage on mount.
+        fireCursorHeartbeat();
+
+        const heartbeatInterval = setInterval(fireCursorHeartbeat, CURSOR_HEARTBEAT_INTERVAL_MS);
 
         return () => {
             clearInterval(heartbeatInterval);
         };
     }, [isCollaborationActive, sendPresenceUpdate]);
 
+    // Run the stale cursor sweeper continuously regardless of isCollaborationActive.
+    // Cursors expire naturally via their timestamp (STALE_CURSOR_TIMEOUT_MS).
+    // We intentionally do NOT clear the remote cursors map when isCollaborationActive
+    // transitions to false — that would cause a visible blink every time a transient
+    // RPC error occurs during deletion (e.g. LS busy).  The rendering layer already
+    // hides cursors when !isCollaborationActive via the `remoteCursors: isCollaborationActive
+    // ? remoteCursors : new Map()` guard in memoizedDiagramProps, so state preservation here
+    // is safe.
     useEffect(() => {
-        if (!isCollaborationActive) {
-            setRemoteCursors((prev) => prev.size === 0 ? prev : new Map());
-            return;
-        }
-
         const staleCursorInterval = setInterval(() => {
             const now = Date.now();
             setRemoteCursors((prev) => {
@@ -1511,7 +1545,8 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         return () => {
             clearInterval(staleCursorInterval);
         };
-    }, [isCollaborationActive]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     
     // Send selection updates when nodes are selected
     const sendSelectionUpdate = useCallback((selectedNodeIds: string[]) => {
@@ -2507,10 +2542,13 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
         await updateArtifactLocation(deleteNodeResponse);
 
-        selectedNodeRef.current = undefined;
-        await closeSidePanelAndFetchUpdatedFlowModel();
         setShowProgressIndicator(false);
         debouncedGetFlowModel();
+        // Fallback retry: if the LS hasn't reparsed the file within 150ms (cold start can take
+        // 400–700ms), the debounced fetch above may return the old model. This retry fires after
+        // 800ms total, giving the LS enough time to finish reparsing. The generation counter in
+        // getFlowModel ensures any earlier stale response is discarded and the latest wins.
+        setTimeout(() => getFlowModel(), 800);
     };
 
     const handleOnAddComment = (comment: string, target: LineRange) => {

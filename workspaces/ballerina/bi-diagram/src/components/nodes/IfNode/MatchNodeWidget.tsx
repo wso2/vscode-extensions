@@ -82,6 +82,7 @@ export function MatchNodeWidget(props: MatchNodeWidgetProps) {
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
         setAnchorEl(null);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {

@@ -240,6 +240,7 @@ export function WhileNodeWidget(props: WhileNodeWidgetProps) {
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
         setAnchorEl(null);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const onAddBreakpoint = () => {

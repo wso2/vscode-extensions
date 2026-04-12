@@ -181,6 +181,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
         setAnchorEl(null);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {

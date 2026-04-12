@@ -239,6 +239,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
         setMenuAnchorEl(null);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const onAddBreakpoint = () => {

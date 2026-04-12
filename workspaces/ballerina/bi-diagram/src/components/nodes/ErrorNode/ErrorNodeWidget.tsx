@@ -235,6 +235,7 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
         setAnchorEl(null);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const onAddBreakpoint = () => {

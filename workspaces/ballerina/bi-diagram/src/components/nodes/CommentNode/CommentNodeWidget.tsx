@@ -201,6 +201,7 @@ export function CommentNodeWidget(props: CommentNodeWidgetProps) {
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
         setAnchorEl(null);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {

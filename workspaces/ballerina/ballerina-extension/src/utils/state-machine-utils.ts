@@ -357,7 +357,7 @@ function findViewByArtifact(
                         view: MACHINE_VIEW.BIDiagram,
                         documentUri: currentDocumentUri,
                         position: dir.position,
-                        identifier: dir.id,
+                        identifier: dir.name,
                         artifactType: DIRECTORY_MAP.RESOURCE,
                     }
                 };
