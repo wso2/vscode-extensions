@@ -201,6 +201,10 @@ export function McpToolForm(props: McpToolFormProps) {
                 editable: model.returnType.editable,
                 advanced: model.returnType.advanced,
                 documentation: model.returnType.metadata?.description || "",
+                placeholder:
+                    model.returnType.placeholder ??
+                    model.returnType.metadata?.placeholder ??
+                    "e.g. string, int, json",
                 value: model.returnType.value,
                 types: model.returnType.types,
             },
