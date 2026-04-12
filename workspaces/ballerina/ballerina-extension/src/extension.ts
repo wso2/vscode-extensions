@@ -274,15 +274,11 @@ export async function activate(context: ExtensionContext) {
 
                             if (projectInfo && lsClient) {
                                 try {
-                                    await buildProjectsStructure(projectInfo, lsClient, true);
+                                    await buildProjectsStructure(projectInfo, lsClient, false);
                                 } catch (e) {
                                     console.error('[FileSync] Failed to refresh project structure:', e);
                                 }
                             }
-
-                            // Second rebuild after a longer settle window — by this point the LS
-                            // has had enough time to fully process the deletion and return correct
-                            // artifact positions.  Only now do we trigger the webview update.
                             await new Promise((resolve) => setTimeout(resolve, 250));
                             if (projectInfo && lsClient) {
                                 try {

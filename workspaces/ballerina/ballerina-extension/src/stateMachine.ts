@@ -96,20 +96,12 @@ const stateMachine = createMachine<MachineContext>(
                     }),
                     () => {
                         // Use queueMicrotask to ensure context is updated before command execution
-                        queueMicrotask(async () => {
-                            try {
-                                await commands.executeCommand("BI.project-explorer.refresh");
-                            } catch (error) {
-                                // BI extension might not be installed/active, ignore the error
-                                console.debug('BI.project-explorer.refresh command not available');
+                        queueMicrotask(() => {
+                            commands.executeCommand("BI.project-explorer.refresh");
+                            // Check if the current view is Service desginer and if so don't notify the webview
+                            if (StateMachine.context().view !== MACHINE_VIEW.ServiceDesigner && StateMachine.context().view !== MACHINE_VIEW.BIDiagram) {
+                                notifyCurrentWebview();
                             }
-                            // Check if the current view is Service desginer or BIDiagram and if so don't notify the webview
-                            // if (StateMachine.context().view !== MACHINE_VIEW.ServiceDesigner && StateMachine.context().view !== MACHINE_VIEW.BIDiagram) {
-                            //     notifyCurrentWebview();
-                            // }
-
-                            // Always notify the webview to update project structure
-                            notifyCurrentWebview();
                         });
                     }
                 ]

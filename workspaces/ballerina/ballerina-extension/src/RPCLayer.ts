@@ -186,8 +186,15 @@ function isWebviewPanel(webview: WebviewPanel | WebviewView): boolean {
     return title === VisualizerWebview.webviewTitle;
 }
 
+let _notifyCurrentWebviewTimer: ReturnType<typeof setTimeout> | undefined;
 export function notifyCurrentWebview() {
-    RPCLayer._messenger.sendNotification(projectContentUpdated, { type: 'webview', webviewType: VisualizerWebview.viewType }, true);
+    if (_notifyCurrentWebviewTimer !== undefined) {
+        clearTimeout(_notifyCurrentWebviewTimer);
+    }
+    _notifyCurrentWebviewTimer = setTimeout(() => {
+        _notifyCurrentWebviewTimer = undefined;
+        RPCLayer._messenger.sendNotification(projectContentUpdated, { type: 'webview', webviewType: VisualizerWebview.viewType }, true);
+    }, 50);
 }
 
 export function notifyAiWebview() {

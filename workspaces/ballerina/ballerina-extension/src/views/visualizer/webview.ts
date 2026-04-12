@@ -150,14 +150,6 @@ export class VisualizerWebview {
                             contentChanges: [{ text: document.document.getText() }]
                         });
                     }
-                    // Only trigger a view refresh for peer-initiated changes. Local diagram edits
-                    // (updateSourceCode) manage their own view update after the full operation
-                    // completes. Calling updateView mid-operation reads stale project structure
-                    // (pre-edit positions) which can cause a bad state-machine navigation and
-                    // dispose the OCT presence listeners, stopping remote cursor syncing.
-                    if (!undoRedoManager?.isBatchInProgress()) {
-                        sendUpdateNotificationToWebview();
-                    }
                 } catch (error) {
                     console.error('[Webview] Failed to sync remote text change with LS:', error);
                 } finally {
