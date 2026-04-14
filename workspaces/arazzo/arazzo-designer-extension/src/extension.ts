@@ -27,7 +27,7 @@ import { activateVisualizer } from './visualizer/activate';
 import { activateMCPServer } from './mcp';
 import { RPCLayer } from './RPCLayer';
 import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/arazzo-designer-core';
-import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange } from './mcp/mcpServerRunner';
+import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange, getMCPActiveFilePath } from './mcp/mcpServerRunner';
 import { RunWorkflowCodeLensProvider } from './mcp/runWorkflowCodeLens';
 
 let languageClient: LanguageClient | undefined;
@@ -261,8 +261,10 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		// Start the MCP server if it isn't already running
-		if (!isMCPServerRunning()) {
+		// Start the MCP server if it isn't running, or if it is serving a
+		// different Arazzo file than the one being requested.
+		const activeMCPFilePath = getMCPActiveFilePath();
+		if (!isMCPServerRunning() || activeMCPFilePath !== filePath) {
 			await startMCPServer(context, filePath);
 			// Give the server a moment to become ready
 			await new Promise(resolve => setTimeout(resolve, 2000));
