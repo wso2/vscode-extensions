@@ -4449,9 +4449,6 @@ importers:
       axios:
         specifier: 1.15.0
         version: 1.15.0
-      canonicalize:
-        specifier: 2.1.0
-        version: 2.1.0
       copyfiles:
         specifier: 2.4.1
         version: 2.4.1
