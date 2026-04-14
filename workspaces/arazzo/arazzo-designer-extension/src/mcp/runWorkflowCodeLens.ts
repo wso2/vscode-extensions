@@ -79,8 +79,8 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
                 continue;
             }
 
-            // Match "- workflowId: <id>" (list item) or "workflowId: <id>"
-            const match = line.match(/^\s*-?\s*workflowId\s*:\s*(.+)/);
+            // Match only workflow list items: "- workflowId: <id>"
+            const match = line.match(/^\s*-\s*workflowId\s*:\s*(.+)/);
             if (match) {
                 const workflowId = match[1].trim().replace(/^['"]|['"]$/g, '');
                 const range = new vscode.Range(i, 0, i, line.length);
