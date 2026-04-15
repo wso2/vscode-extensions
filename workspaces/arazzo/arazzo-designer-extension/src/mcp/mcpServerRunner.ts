@@ -219,13 +219,17 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
     // Choose a port
     const port = 18080 + Math.floor(Math.random() * 1000);
 
-    // Always write mcp.json so VS Code Copilot connects automatically
+    // Always write mcp.json so VS Code Copilot connects automatically.
+    // In a multi-root workspace, write to the folder that actually contains
+    // the Arazzo file, falling back to the first workspace folder.
     const workspaceFolders = vscode.workspace.workspaceFolders;
     let mcpConfigPath: string | undefined;
-    if (workspaceFolders && workspaceFolders.length > 0) {
-        mcpConfigPath = path.join(workspaceFolders[0].uri.fsPath, '.vscode', 'mcp.json');
+    const targetFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(arazzoFilePath))
+        ?? workspaceFolders?.[0];
+    if (targetFolder) {
+        mcpConfigPath = path.join(targetFolder.uri.fsPath, '.vscode', 'mcp.json');
         try {
-            await writeMcpConfig(workspaceFolders[0].uri.fsPath, port);
+            await writeMcpConfig(targetFolder.uri.fsPath, port);
             output.appendLine(`Wrote .vscode/mcp.json with MCP server URL: http://localhost:${port}/mcp`);
         } catch (e: any) {
             output.appendLine(`Warning: Could not write .vscode/mcp.json: ${e.message}`);
