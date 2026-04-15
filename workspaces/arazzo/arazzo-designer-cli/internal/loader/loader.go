@@ -9,10 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/wso2/arazzo-designer-cli/internal/models"
 	"gopkg.in/yaml.v3"
 )
+
+var remoteHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 // LoadArazzoDoc loads and parses an Arazzo YAML/JSON document from a file path.
 func LoadArazzoDoc(arazzoPath string) (*models.ArazzoDoc, error) {
@@ -146,7 +149,7 @@ func loadSpecFile(path string) (interface{}, error) {
 
 // loadRemoteSpec fetches a remote OpenAPI spec.
 func loadRemoteSpec(url string) (interface{}, error) {
-	resp, err := http.Get(url)
+	resp, err := remoteHTTPClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch remote spec %s: %w", url, err)
 	}
