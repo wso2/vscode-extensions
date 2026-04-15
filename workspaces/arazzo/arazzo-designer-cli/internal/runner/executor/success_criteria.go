@@ -96,10 +96,9 @@ func (sc *SuccessCriteriaChecker) CheckSuccessCriteria(step map[string]interface
 			}
 
 		case "jsonpath":
-			// Simplified JSONPath support - check for common patterns
-			log.Printf("JSONPath evaluation requested: %s (simplified support)", condition)
-			// For now, assume true if we can't evaluate
-			// TODO: Add proper JSONPath support if needed
+			//FIXME: Implement JSONPath evaluation logic here
+			log.Printf("Unsupported criterion type: jsonpath; JSONPath evaluation is not implemented (condition: %s)", condition)
+			return false
 
 		default:
 			log.Printf("Unsupported criterion type: %s", criterionType)
