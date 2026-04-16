@@ -17,6 +17,7 @@
  */
 
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import styled from "@emotion/styled";
 import { DiagramEngine, PortWidget } from "@projectstorm/react-diagrams-core";
 import { IfNodeModel } from "./IfNodeModel";
@@ -30,6 +31,7 @@ import { DiagnosticsPopUp } from "../../DiagnosticsPopUp";
 import { nodeHasError } from "../../../utils/node";
 import { BreakpointMenu } from "../../BreakNodeMenu/BreakNodeMenu";
 import NodeIcon from "../../NodeIcon";
+import { NodeNoteChip } from "../../NodeNoteChip";
 
 export namespace NodeStyles {
     export type NodeStyleProp = {
@@ -42,7 +44,7 @@ export namespace NodeStyles {
         flex-direction: column;
         justify-content: space-between;
         align-items: center;
-        color: ${ThemeColors.ON_SURFACE};
+        color: ${NODE_TEXT_COLOR};
         cursor: ${(props: NodeStyleProp) => (props.readOnly ? "default" : "pointer")};
     `;
 
@@ -60,6 +62,12 @@ export namespace NodeStyles {
         position: absolute;
         top: -6px;
         left: 46px;
+    `;
+
+    export const NoteChipWrapper = styled.div`
+        position: absolute;
+        top: -14px;
+        right: -50px;
     `;
 
     export const ErrorIcon = styled.div`
@@ -83,7 +91,7 @@ export namespace NodeStyles {
     export const Icon = styled.div`
         padding: 4px;
         svg {
-            fill: ${ThemeColors.ON_SURFACE};
+            fill: ${NODE_TEXT_COLOR};
         }
     `;
 
@@ -93,7 +101,7 @@ export namespace NodeStyles {
         overflow: hidden;
         text-overflow: ellipsis;
         font-family: "GilmerMedium";
-        color: ${ThemeColors.ON_SURFACE};
+        color: ${NODE_TEXT_COLOR};
     `;
 
     export const Description = styled(StyledText)`
@@ -138,15 +146,42 @@ export interface NodeWidgetProps extends Omit<IfNodeWidgetProps, "children"> {}
 
 export function IfNodeWidget(props: IfNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId, currentUserId, setMenuOpenNodeId } =
+    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId, currentUserId, setMenuOpenNodeId, nodeComments } =
         useDiagramContext();
+
+    const noteComment = nodeComments?.get(model.node.id);
 
     const isSelected = selectedNodeId === model.node.id;
 
     const [isHovered, setIsHovered] = useState(false);
-    const [anchorEl, setAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
+    const [isNoteActive, setIsNoteActive] = useState(false);
+    const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
     const [menuButtonElement, setMenuButtonElement] = useState<HTMLElement | null>(null);
-    const isMenuOpen = Boolean(anchorEl);
+    const isMenuOpen = menuPos !== null;
+
+    const getMenuPos = (el: HTMLElement): { top: number; left: number } => {
+        const rect = el.getBoundingClientRect();
+        return { top: rect.bottom, left: rect.left };
+    };
+
+    useEffect(() => {
+        if (!isMenuOpen || !menuButtonElement) return;
+        const handle = engine.getModel().registerListener({
+            offsetUpdated: () => setMenuPos(getMenuPos(menuButtonElement)),
+            zoomUpdated: () => setMenuPos(getMenuPos(menuButtonElement)),
+        });
+        return () => handle.deregister();
+    }, [isMenuOpen, menuButtonElement]);
+
+    useEffect(() => {
+        if (!isMenuOpen) return;
+        const handleClickOutside = () => setMenuPos(null);
+        const timer = setTimeout(() => document.addEventListener("mousedown", handleClickOutside), 0);
+        return () => {
+            clearTimeout(timer);
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isMenuOpen]);
     const hasBreakpoint = model.hasBreakpoint();
     const isActiveBreakpoint = model.isActiveBreakpoint();
     const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
@@ -170,17 +205,17 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
     const onNodeClick = () => {
         onClick && onClick(model.node);
         onNodeSelect && onNodeSelect(model.node);
-        setAnchorEl(null);
+        setMenuPos(null);
     };
 
     const onGoToSource = () => {
         goToSource && goToSource(model.node);
-        setAnchorEl(null);
+        setMenuPos(null);
     };
 
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
-        setAnchorEl(null);
+        setMenuPos(null);
         setMenuOpenNodeId?.(undefined);
     };
 
@@ -188,7 +223,8 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
         if (readOnly || isLocked) {
             return;
         }
-        setAnchorEl(event.currentTarget);
+        const target = menuButtonElement || (event.currentTarget as HTMLElement);
+        setMenuPos(getMenuPos(target));
         setMenuOpenNodeId?.(model.node.id);
     };
 
@@ -197,23 +233,24 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
         if (readOnly || isLocked) {
             return;
         }
-        setAnchorEl(menuButtonElement || event.currentTarget);
+        const target = menuButtonElement || event.currentTarget;
+        setMenuPos(getMenuPos(target as HTMLElement));
     };
 
     const handleOnMenuClose = () => {
-        setAnchorEl(null);
+        setMenuPos(null);
         setIsHovered(false);
         setMenuOpenNodeId?.(undefined);
     };
 
     const onAddBreakpoint = () => {
         addBreakpoint && addBreakpoint(model.node);
-        setAnchorEl(null);
+        setMenuPos(null);
     };
 
     const onRemoveBreakpoint = () => {
         removeBreakpoint && removeBreakpoint(model.node);
-        setAnchorEl(null);
+        setMenuPos(null);
     };
 
     const menuItems: Item[] = [
@@ -235,7 +272,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
             hovered={isHovered}
             readOnly={readOnly || isLocked}
             onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            onMouseLeave={() => { setIsHovered(false); setIsNoteActive(false); }}
             onContextMenu={!readOnly && !isLocked ? handleOnContextMenu : undefined}
             style={{
                 opacity: isLocked ? 0.6 : 1,
@@ -259,7 +296,15 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
                     )}
                     <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
                     <NodeStyles.TopPortWidget port={model.getPort("in")!} engine={engine} />
-                    <svg width={IF_NODE_WIDTH} height={IF_NODE_WIDTH} viewBox="0 0 70 70">
+                    <svg
+                        width={IF_NODE_WIDTH}
+                        height={IF_NODE_WIDTH}
+                        viewBox="0 0 70 70"
+                        style={{
+                            filter: (isHovered || isNoteActive) && !disabled && !readOnly ? `drop-shadow(0 0 3px ${NODE_BORDER_SELECTED_COLOR})` : 'none',
+                            transition: 'filter 0.1s ease',
+                        }}
+                    >
                         <rect
                             x="12.5"
                             y="4"
@@ -269,17 +314,19 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
                             ry="5"
                             fill={
                                 isActiveBreakpoint
-                                    ? ThemeColors.DEBUGGER_BREAKPOINT_BACKGROUND
-                                    : ThemeColors.SURFACE_DIM
+                                    ? NODE_BG_BREAKPOINT_COLOR
+                                    : (isHovered || isNoteActive) && !disabled && !readOnly
+                                    ? NODE_BG_HOVER_COLOR
+                                    : NODE_BG_COLOR
                             }
                             stroke={
                                 hasError
-                                    ? ThemeColors.ERROR
+                                    ? NODE_BORDER_ERROR_COLOR
                                     : isSelected && !disabled
-                                    ? ThemeColors.SECONDARY
-                                    : isHovered && !disabled && !readOnly
-                                    ? ThemeColors.SECONDARY
-                                    : ThemeColors.OUTLINE_VARIANT
+                                    ? NODE_BORDER_SELECTED_COLOR
+                                    : (isHovered || isNoteActive) && !disabled && !readOnly
+                                    ? NODE_BORDER_SELECTED_COLOR
+                                    : NODE_BORDER_COLOR
                             }
                             strokeWidth={NODE_BORDER_WIDTH}
                             strokeDasharray={disabled ? "5 5" : "none"}
@@ -300,8 +347,13 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
                 </NodeStyles.Header>
                 {hasError && (
                     <NodeStyles.ErrorIcon>
-                        <DiagnosticsPopUp node={model.node} />
+                        <DiagnosticsPopUp node={model.node} engine={engine} />
                     </NodeStyles.ErrorIcon>
+                )}
+                {noteComment && (
+                    <NodeStyles.NoteChipWrapper>
+                        <NodeNoteChip commentNode={noteComment} engine={engine} onOpen={() => setIsNoteActive(true)} onClose={() => { setIsNoteActive(false); setIsHovered(false); }} />
+                    </NodeStyles.NoteChipWrapper>
                 )}
                 <NodeStyles.StyledButton
                     ref={setMenuButtonElement}
@@ -311,28 +363,33 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
                 >
                     <MoreVertIcon />
                 </NodeStyles.StyledButton>
-                <Popover
-                    open={isMenuOpen}
-                    anchorEl={anchorEl}
-                    handleClose={handleOnMenuClose}
-                    sx={{
-                        padding: 0,
-                        borderRadius: 0,
-                    }}
-                >
-                    <Menu>
-                        <>
-                            {menuItems.map((item) => (
-                                <MenuItem key={item.id} item={item} />
-                            ))}
-                            <BreakpointMenu
-                                hasBreakpoint={hasBreakpoint}
-                                onAddBreakpoint={onAddBreakpoint}
-                                onRemoveBreakpoint={onRemoveBreakpoint}
-                            />
-                        </>
-                    </Menu>
-                </Popover>
+                {isMenuOpen && menuPos && createPortal(
+                    <div
+                        style={{
+                            position: "fixed",
+                            top: menuPos.top,
+                            left: menuPos.left,
+                            zIndex: 1300,
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                            borderRadius: 0,
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                    >
+                        <Menu>
+                            <>
+                                {menuItems.map((item) => (
+                                    <MenuItem key={item.id} item={item} />
+                                ))}
+                                <BreakpointMenu
+                                    hasBreakpoint={hasBreakpoint}
+                                    onAddBreakpoint={onAddBreakpoint}
+                                    onRemoveBreakpoint={onRemoveBreakpoint}
+                                />
+                            </>
+                        </Menu>
+                    </div>,
+                    document.body
+                )}
             </NodeStyles.Row>
         </NodeStyles.Node>
     );

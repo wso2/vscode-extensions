@@ -27,11 +27,14 @@ import { getStateMachine, refreshUI } from '../stateMachine';
 import * as fs from 'fs';
 import * as path from 'path';
 import { SELECTED_SERVER_PATH, SELECTED_JAVA_HOME } from './constants';
-import { buildBallerinaModule, setPathsInWorkSpace, verifyJavaHomePath, verifyMIPath } from '../util/onboardingUtils';
+import { buildBallerinaModule, isConsolidatedProject, setPathsInWorkSpace, verifyJavaHomePath, verifyMIPath } from '../util/onboardingUtils';
 import { MACHINE_VIEW } from '@wso2/mi-core';
 import { askForProject } from '../util/workspace';
 import { webviews } from '../visualizer/webview';
 import { getWSO2AIEnvVariables } from '../ai-features/configUtils';
+import { createAggregatePomInRoot, dockerfileContent } from '../util/templates';
+import { copyDockerResources, copyMavenWrapper } from '../util';
+import { getModules, parseConsolidatedProjectPom, updateCopyModulesInAggregatePom, updatePomModules } from './pomResolver';
 
 
 class MiConfigurationProvider implements vscode.DebugConfigurationProvider {
@@ -52,7 +55,7 @@ class MiConfigurationProvider implements vscode.DebugConfigurationProvider {
 
 export function activateDebugger(context: vscode.ExtensionContext) {
 
-    vscode.commands.registerCommand(COMMANDS.BUILD_PROJECT, async (projectUri?: string, shouldCopyTarget?: boolean, postBuildTask?: Function) => {
+    vscode.commands.registerCommand(COMMANDS.BUILD_PROJECT, async (projectUri?: string, shouldCopyTarget?: boolean, postBuildTask?: Function, isConsolidated: boolean = false) => {
         if (!projectUri) {
             projectUri = await askForProject();
         }
@@ -61,7 +64,7 @@ export function activateDebugger(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage("Server path not found");
                 return;
             }
-            await executeBuildTask(projectUri!, serverPath, shouldCopyTarget, postBuildTask);
+            await executeBuildTask(projectUri!, serverPath, shouldCopyTarget, postBuildTask, isConsolidated);
         });
     });
 
@@ -69,7 +72,30 @@ export function activateDebugger(context: vscode.ExtensionContext) {
         if (!projectUri) {
             projectUri = await askForProject();
         }
-        const dockerTask = getDockerTask(projectUri);
+        let mvnExecutionPath: string;
+        if (isConsolidatedProject(path.dirname(projectUri))) {
+            const rootProject = path.dirname(projectUri)
+            const pom = parseConsolidatedProjectPom(path.join(rootProject, 'pom.xml'));
+            if (!fs.existsSync(path.join(rootProject, 'docker-build', '.docker-build'))) {
+                fs.mkdirSync(path.join(rootProject, 'docker-build', 'deployment', 'docker', 'resources'), { recursive: true });
+                fs.mkdirSync(path.join(rootProject, 'docker-build', 'deployment', 'libs'), { recursive: true });
+                copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), path.join(rootProject, 'docker-build'));
+                fs.writeFileSync(path.join(rootProject, 'docker-build', 'deployment', 'docker', 'Dockerfile'), dockerfileContent());
+                await copyMavenWrapper(
+                    extension.context.asAbsolutePath(path.join('resources', 'maven-wrapper')),
+                    rootProject
+                );
+                await createAggregatePomInRoot(rootProject, getModules(pom.project));
+                fs.writeFileSync(path.join(rootProject, 'docker-build', '.docker-build'), "");
+                updatePomModules(path.join(rootProject, "pom.xml"), "docker-build", "add");
+            } else {
+                updateCopyModulesInAggregatePom(path.join(rootProject, "docker-build", "pom.xml"), getModules(pom.project));
+            }
+            mvnExecutionPath = rootProject;
+        } else {
+            mvnExecutionPath = projectUri;
+        }
+        const dockerTask = getDockerTask(projectUri, mvnExecutionPath);
         if (dockerTask) {
             await vscode.tasks.executeTask(dockerTask);
         } else {

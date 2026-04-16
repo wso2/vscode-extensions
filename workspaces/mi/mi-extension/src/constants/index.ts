@@ -87,7 +87,9 @@ export const COMMANDS = {
     ADD_BALLERINA_MODULE_COMMAND: 'MI.project-explorer.add-ballerina-module',
     EDIT_BALLERINA_MODULE_COMMAND: 'MI.project-explorer.edit-ballerina-module',
     DELETE_PROJECT_EXPLORER_ITEM: 'MI.project-explorer.delete',
+    DELETE_PROJECT_EXPLORER_PROJECT: 'MI.project-explorer.project-delete',
     CHANGE_SERVER_PATH: 'MI.change.server',
+    CONVERT_TO_CONSOLIDATED: 'MI.convert.to.consolidated',
     CHANGE_JAVA_HOME: 'MI.change.java',
     BUILD_PROJECT: 'MI.build-project',
     REMOTE_DEPLOY_PROJECT: 'MI.remote-deploy-project',
@@ -118,8 +120,7 @@ export const COMMANDS = {
 
     BI_EXTENSION: 'WSO2.ballerina-integrator',
     BI_OPEN_COMMAND: 'ballerina.open.bi.welcome',
-    INSTALL_EXTENSION_COMMAND: 'workbench.extensions.installExtension',
-    RELOAD_WINDOW: 'workbench.action.reloadWindow'
+    INSTALL_EXTENSION_COMMAND: 'workbench.extensions.installExtension'
 };
 
 export const MVN_COMMANDS = {

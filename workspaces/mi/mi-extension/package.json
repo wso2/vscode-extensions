@@ -2,7 +2,7 @@
   "name": "micro-integrator",
   "displayName": "WSO2 Integrator: MI",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
-  "icon": "resources/images/wso2-micro-integrator-image.png",
+  "icon": "resources/images/wso2-micro-integrator-icon.png",
   "version": "3.1.5",
   "publisher": "wso2",
   "engines": {
@@ -18,6 +18,9 @@
     "onDebugResolve:mi",
     "onDebugDynamicConfigurations:mi",
     "onUri"
+  ],
+  "extensionDependencies": [
+    "wso2.wso2-platform"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -179,7 +182,7 @@
         "MI.Scope": {
           "type": "string",
           "default": "",
-          "description": "WSO2 Cloud project scope",
+          "description": "Devant project scope",
           "scope": "resource"
         },
         "MI.suppressServerUpdateNotification": {
@@ -216,6 +219,11 @@
           "default": "error",
           "description": "The verbosity of logging. The Order is off < error < warn < info < debug.",
           "scope": "window"
+        },
+        "MI.convertToConsolidatedProjectAfterMigration": {
+          "type": "boolean",
+          "default": false,
+          "description": "Convert the migrated projects to a consolidated project."
         }
       }
     },
@@ -224,7 +232,7 @@
         {
           "id": "micro-integrator",
           "title": "WSO2 Integrator: MI",
-          "icon": "assets/icon.svg"
+          "icon": "assets/wso2-micro-integrator-icon.svg"
         }
       ]
     },
@@ -502,6 +510,11 @@
         "icon": "$(trash)"
       },
       {
+        "command": "MI.project-explorer.project-delete",
+        "title": "Remove Project from Workspace",
+        "icon": "$(trash)"
+      },
+      {
         "command": "MI.manage-registry-property",
         "title": "Manage Properties",
         "icon": "$(add)"
@@ -524,6 +537,11 @@
         "command": "MI.show.source",
         "title": "Show Source",
         "icon": "$(code)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.convert.to.consolidated",
+        "title": "Convert Workspace to Consolidated Project",
         "category": "MI"
       },
       {
@@ -943,9 +961,12 @@
           "key": "delete"
         },
         {
+          "command": "MI.project-explorer.project-delete",
+          "when": "view == MI.project-explorer && viewItem == project"
+        },
+        {
           "command": "MI.manage-registry-property",
-          "when": "view == MI.project-explorer && (viewItem == resource || viewItem == registry-with-metadata || viewItem == registry-without-metadata)",
-          "key": "add-registry-property"
+          "when": "view == MI.project-explorer && (viewItem == resource || viewItem == registry-with-metadata || viewItem == registry-without-metadata)"
         },
         {
           "command": "MI.project-explorer.markAsDefaultSequence",
@@ -1012,14 +1033,14 @@
         "description": "design-view",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f1bb"
+          "fontCharacter": "\\f1c5"
         }
       },
       "mi-build-package": {
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f193"
+          "fontCharacter": "\\f19d"
         }
       }
     }
@@ -1071,7 +1092,7 @@
     "typescript": "5.8.3",
     "webpack": "5.104.1",
     "webpack-cli": "4.10.0",
-    "yaml": "2.8.0"
+    "yaml": "2.8.3"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "4.0.4",
@@ -1099,16 +1120,14 @@
     "@wso2/mi-syntax-tree": "workspace:*",
     "@wso2/playwright-vscode-tester": "workspace:*",
     "adm-zip": "0.5.16",
-    "axios": "1.13.5",
-    "canonicalize": "2.1.0",
+    "axios": "1.15.0",
     "copyfiles": "2.4.1",
     "cors-anywhere": "0.4.4",
     "dotenv": "16.5.0",
     "fast-xml-parser": "5.2.3",
     "find-process": "1.4.10",
     "fs-extra": "11.3.0",
-    "glob": "11.1.0",
-    "handlebars": "4.7.8",
+    "handlebars": "4.7.9",
     "json-schema": "0.4.0",
     "json-schema-to-ts": "3.1.1",
     "jsonix": "3.0.0",

@@ -41,6 +41,7 @@ export class VisualizerWebview {
     private _panel: vscode.WebviewPanel | undefined;
     private _disposables: vscode.Disposable[] = [];
     private _remoteSyncInProgress: Set<string> = new Set();
+    private _pendingProjectInfoRefresh = false;
 
     constructor() {
         this._panel = VisualizerWebview.createWebview();
@@ -54,6 +55,10 @@ export class VisualizerWebview {
                 updateView(refreshTreeView);
             }
         }, 100);
+
+        const debouncedRefreshWorkspaceProjectInfo = debounce(() => {
+            StateMachine.refreshProjectInfo();
+        }, 500);
 
         const debouncedRefreshDataMapper = debounce(async () => {
             const stateMachineContext = StateMachine.context();
@@ -116,6 +121,11 @@ export class VisualizerWebview {
                 (uriCache && uriCache.isSamePath(documentUriString, contextDocumentPath))
             );
 
+            const workspacePath = StateMachine.context().workspacePath;
+            const workspaceBallerinaTomlModified = !!workspacePath &&
+                document.document.languageId === LANGUAGE.TOML &&
+                document.document.fileName === path.join(workspacePath, "Ballerina.toml");
+
             const dataMapperModified = balFileModified &&
                 (
                     StateMachine.context().view === MACHINE_VIEW.InlineDataMapper ||
@@ -126,6 +136,9 @@ export class VisualizerWebview {
             if (dataMapperModified) {
                 console.log('[Webview] Refreshing data mapper');
                 debouncedRefreshDataMapper();
+            } else if (workspaceBallerinaTomlModified) {
+                // Defer the project info refresh until the webview is active
+                this._pendingProjectInfoRefresh = true;
             } else if (balFileModified && isDocumentUnderProject && !isRemoteDocument) {
                 // Remote (OCT) documents are handled by the extension.ts file watcher which
                 // ensures cache is updated before triggering updateView. Triggering here would
@@ -195,7 +208,12 @@ export class VisualizerWebview {
             const machineReady = typeof state === 'object' && 'viewActive' in state && state.viewActive === "viewReady";
             const popupActive = typeof popupState === 'object' && 'open' in popupState && popupState.open === "active";
             if (this._panel?.active && machineReady && !popupActive) {
-                sendUpdateNotificationToWebview(true);
+                if (this._pendingProjectInfoRefresh) {
+                    this._pendingProjectInfoRefresh = false;
+                    debouncedRefreshWorkspaceProjectInfo();
+                } else {
+                    sendUpdateNotificationToWebview(true);
+                }
             }
         });
 

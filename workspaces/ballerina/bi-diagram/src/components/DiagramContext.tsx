@@ -114,6 +114,7 @@ export interface DiagramContextState {
         goToTool: (tool: ToolData, node: FlowNode) => void;
         onSelectMemoryManager: (node: FlowNode) => void;
         onDeleteMemoryManager: (node: FlowNode) => void;
+        onChatWithAgent?: (node: FlowNode) => void;
     };
     aiNodes?: {
         onModelSelect: (node: FlowNode) => void;
@@ -127,6 +128,7 @@ export interface DiagramContextState {
         org: string;
         path: string;
         getProjectPath?: (props: JoinProjectPathRequest) => Promise<JoinProjectPathResponse>;
+        getFunctionLocation?: (functionName: string) => Promise<VisualizerLocation | undefined>;
     };
     readOnly?: boolean;
     lockCanvas?: boolean;
@@ -141,6 +143,7 @@ export interface DiagramContextState {
     menuOpenNodeId?: string;
     setMenuOpenNodeId?: (nodeId: string | undefined) => void;
     expressionContext: ExpressionContextProps;
+    nodeComments?: Map<string, FlowNode>;
     entrypointContext?: {
         serviceName?: string;
         functionName?: string;
@@ -203,6 +206,7 @@ export const DiagramContext = React.createContext<DiagramContextState>({
         org: "",
         path: "",
         getProjectPath: () => Promise.resolve({ filePath: "", projectPath: "" }),
+        getFunctionLocation: () => Promise.resolve(undefined),
     },
     readOnly: false,
     lockCanvas: false,

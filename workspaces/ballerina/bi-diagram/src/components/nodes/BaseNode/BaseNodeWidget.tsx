@@ -17,13 +17,25 @@
  */
 
 import React, { ReactNode, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import styled from "@emotion/styled";
 import { DiagramEngine, PortWidget } from "@projectstorm/react-diagrams-core";
 import {
     DRAFT_NODE_BORDER_WIDTH,
+    HIGHLIGHT_NODE_BORDER_COLOR,
+    HIGHLIGHT_NODE_BORDER_WIDTH,
+    NODE_BG_BREAKPOINT_COLOR,
+    NODE_BG_COLOR,
+    NODE_BG_HOVER_COLOR,
+    NODE_HOVER_GLOW,
+    NODE_BORDER_COLOR,
+    NODE_BORDER_ERROR_COLOR,
+    NODE_BORDER_SELECTED_COLOR,
     NODE_BORDER_WIDTH,
+    NODE_ERROR_COLOR,
     NODE_HEIGHT,
     NODE_PADDING,
+    NODE_TEXT_COLOR,
     NODE_WIDTH,
 } from "../../../resources/constants";
 import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
@@ -34,8 +46,9 @@ import { useDiagramContext } from "../../DiagramContext";
 import { BaseNodeModel } from "./BaseNodeModel";
 import { ELineRange, FlowNode } from "@wso2/ballerina-core";
 import { DiagnosticsPopUp } from "../../DiagnosticsPopUp";
-import { getNodeTitle, nodeHasError } from "../../../utils/node";
+import { getNodeTitle, isWorkflowNode, nodeHasError } from "../../../utils/node";
 import { BreakpointMenu } from "../../BreakNodeMenu/BreakNodeMenu";
+import { NodeNoteChip } from "../../NodeNoteChip";
 
 export namespace NodeStyles {
     export type NodeStyleProp = {
@@ -45,6 +58,7 @@ export namespace NodeStyles {
         readOnly: boolean;
         isActiveBreakpoint?: boolean;
         isSelected?: boolean;
+        isWorkflowNode?: boolean;
     };
     export const Node = styled.div<NodeStyleProp>`
         position: relative;
@@ -56,21 +70,30 @@ export namespace NodeStyles {
         min-height: ${NODE_HEIGHT}px;
         padding: 0 ${NODE_PADDING}px;
         background-color: ${(props: NodeStyleProp) =>
-            props?.isActiveBreakpoint ? ThemeColors.DEBUGGER_BREAKPOINT_BACKGROUND : ThemeColors.SURFACE_DIM};
-        color: ${ThemeColors.ON_SURFACE};
+            props?.isActiveBreakpoint ? NODE_BG_BREAKPOINT_COLOR : props.hovered && !props.disabled && !props.readOnly ? NODE_BG_HOVER_COLOR : NODE_BG_COLOR};
+        color: ${NODE_TEXT_COLOR};
         opacity: ${(props: NodeStyleProp) => (props.disabled ? 0.7 : 1)};
-        border: ${(props: NodeStyleProp) => (props.disabled ? DRAFT_NODE_BORDER_WIDTH : NODE_BORDER_WIDTH)}px;
+        border: ${(props: NodeStyleProp) =>
+            props.disabled
+                ? DRAFT_NODE_BORDER_WIDTH
+                : props.isWorkflowNode
+                    ? HIGHLIGHT_NODE_BORDER_WIDTH
+                    : NODE_BORDER_WIDTH}px;
         border-style: ${(props: NodeStyleProp) => (props.disabled ? "dashed" : "solid")};
         border-color: ${(props: NodeStyleProp) =>
             props.hasError
-                ? ThemeColors.ERROR
+                ? NODE_BORDER_ERROR_COLOR
                 : props.isSelected && !props.disabled
-                    ? ThemeColors.SECONDARY
+                    ? NODE_BORDER_SELECTED_COLOR
                     : props.hovered && !props.disabled && !props.readOnly
-                        ? ThemeColors.SECONDARY
-                        : ThemeColors.OUTLINE_VARIANT};
+                        ? NODE_BORDER_SELECTED_COLOR
+                        : props.isWorkflowNode
+                            ? HIGHLIGHT_NODE_BORDER_COLOR
+                            : NODE_BORDER_COLOR};
         border-radius: 10px;
         cursor: ${(props: NodeStyleProp) => (props.readOnly ? "default" : "pointer")};
+        box-shadow: ${(props: NodeStyleProp) => props.hovered && !props.disabled && !props.readOnly ? NODE_HOVER_GLOW : 'none'};
+        transition: box-shadow 0.1s ease, background-color 0.1s ease, border-color 0.1s ease;
     `;
 
     export const Header = styled.div<{}>`
@@ -90,6 +113,7 @@ export namespace NodeStyles {
         justify-content: flex-end;
         align-items: center;
         gap: 2px;
+        flex-shrink: 0;
     `;
 
     export const MenuButton = styled(Button)`
@@ -100,7 +124,7 @@ export namespace NodeStyles {
         font-size: 20px;
         width: 20px;
         height: 20px;
-        color: ${ThemeColors.ERROR};
+        color: ${NODE_ERROR_COLOR};
     `;
 
     export const TopPortWidget = styled(PortWidget)`
@@ -117,8 +141,9 @@ export namespace NodeStyles {
 
     export const Icon = styled.div`
         padding: 4px;
+        flex-shrink: 0;
         svg {
-            fill: ${ThemeColors.ON_SURFACE};
+            fill: ${NODE_TEXT_COLOR};
         }
     `;
 
@@ -140,7 +165,7 @@ export namespace NodeStyles {
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         word-break: break-all;
-        color: ${ThemeColors.ON_SURFACE};
+        color: ${NODE_TEXT_COLOR};
         opacity: 0.7;
         white-space: normal;
         font-size: 12px;
@@ -190,22 +215,69 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
         project,
         currentUserId,
         setMenuOpenNodeId,
+        nodeComments,
     } = useDiagramContext();
+
+    const noteComment = nodeComments?.get(model.node.id);
 
     const isSelected = selectedNodeId === model.node.id;
     const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
     const isLockedBySelf = model.node.locked && model.node.locked.userId === currentUserId;
 
     const [isHovered, setIsHovered] = useState(false);
-    const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
+    const [isNoteActive, setIsNoteActive] = useState(false);
+    const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
     const [menuButtonElement, setMenuButtonElement] = useState<HTMLElement | null>(null);
-    const isMenuOpen = Boolean(menuAnchorEl);
+    const isMenuOpen = menuPos !== null;
+
+    const getMenuPos = (el: HTMLElement): { top: number; left: number } => {
+        const rect = el.getBoundingClientRect();
+        return { top: rect.bottom, left: rect.left };
+    };
+
+    // Re-anchor the menu whenever the canvas is panned or zoomed
+    useEffect(() => {
+        if (!isMenuOpen || !menuButtonElement) return;
+        const handle = engine.getModel().registerListener({
+            offsetUpdated: () => setMenuPos(getMenuPos(menuButtonElement)),
+            zoomUpdated: () => setMenuPos(getMenuPos(menuButtonElement)),
+        });
+        return () => handle.deregister();
+    }, [isMenuOpen, menuButtonElement]);
+
+    // Close on click-outside (don't block propagation — canvas keeps receiving events)
+    useEffect(() => {
+        if (!isMenuOpen) return;
+        const handleClickOutside = () => setMenuPos(null);
+        // Delay so the opening click itself doesn't immediately close the menu
+        const timer = setTimeout(() => document.addEventListener("mousedown", handleClickOutside), 0);
+        return () => {
+            clearTimeout(timer);
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isMenuOpen]);
+
     const hasBreakpoint = model.hasBreakpoint();
     const isActiveBreakpoint = model.isActiveBreakpoint();
-    const canViewFunction =
+    const functionViewRange = model.node.properties?.view?.value as ELineRange | undefined;
+    const hasViewRange = Boolean(functionViewRange);
+    const processFunctionValue = (model.node.properties as any)?.processFunction?.value as string | undefined;
+    const workflowStartFunctionName =
+        typeof processFunctionValue === "string"
+            ? processFunctionValue
+                .trim()
+                .replace(/^["']|["']$/g, "")
+                .split(":")
+                .pop()
+                ?.split("(")[0]
+                ?.trim()
+            : undefined;
+    const canViewProjectFunction =
+        hasViewRange &&
         model.node.codedata.node === "FUNCTION_CALL" &&
-        model.node.codedata.org === project?.org &&
-        Boolean(model.node.properties?.view?.value);
+        model.node.codedata.org === project?.org;
+    const canViewWorkflowRunFunction = model.node.codedata.node === "WORKFLOW_RUN" && Boolean(workflowStartFunctionName);
+    const canViewFunction = canViewProjectFunction || canViewWorkflowRunFunction;
 
     const handleOnClick = async (event: React.MouseEvent<HTMLDivElement>) => {
         if (readOnly) {
@@ -215,7 +287,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
             // Handle action when cmd key is pressed
             if (model.node.codedata.node === "DATA_MAPPER_CALL") {
                 openDataMapper();
-            } else if (model.node.codedata.node === "FUNCTION_CALL") {
+            } else if (canViewFunction) {
                 viewFunction();
             } else {
                 onGoToSource();
@@ -228,35 +300,36 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
     const onNodeClick = () => {
         onClick && onClick(model.node);
         onNodeSelect && onNodeSelect(model.node);
-        setMenuAnchorEl(null);
+        setMenuPos(null);
     };
 
     const onGoToSource = () => {
         goToSource && goToSource(model.node);
-        setMenuAnchorEl(null);
+        setMenuPos(null);
     };
 
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
-        setMenuAnchorEl(null);
+        setMenuPos(null);
         setMenuOpenNodeId?.(undefined);
     };
 
     const onAddBreakpoint = () => {
         addBreakpoint && addBreakpoint(model.node);
-        setMenuAnchorEl(null);
+        setMenuPos(null);
     };
 
     const onRemoveBreakpoint = () => {
         removeBreakpoint && removeBreakpoint(model.node);
-        setMenuAnchorEl(null);
+        setMenuPos(null);
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
         if (readOnly || isLocked) {
             return;
         }
-        setMenuAnchorEl(event.currentTarget);
+        const target = menuButtonElement || (event.currentTarget as HTMLElement);
+        setMenuPos(getMenuPos(target));
         setMenuOpenNodeId?.(model.node.id);
     };
 
@@ -265,11 +338,12 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
         if (readOnly || isLocked) {
             return;
         }
-        setMenuAnchorEl(menuButtonElement || event.currentTarget);
+        const target = menuButtonElement || event.currentTarget;
+        setMenuPos(getMenuPos(target as HTMLElement));
     };
 
     const handleOnMenuClose = () => {
-        setMenuAnchorEl(null);
+        setMenuPos(null);
         setIsHovered(false);
         setMenuOpenNodeId?.(undefined);
     };
@@ -301,22 +375,29 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
     };
 
     const viewFunction = async () => {
-        if (!model.node.properties?.view?.value) {
+        if (canViewProjectFunction && functionViewRange) {
+            const { fileName, startLine, endLine } = functionViewRange;
+            const response = await project?.getProjectPath?.({ segments: [fileName], codeData: model.node.codedata });
+            openView &&
+                openView({
+                    documentUri: response.filePath,
+                    position: {
+                        startLine: startLine.line,
+                        startColumn: startLine.offset,
+                        endLine: endLine.line,
+                        endColumn: endLine.offset,
+                    },
+                    projectPath: response.projectPath,
+                });
             return;
         }
-        const { fileName, startLine, endLine } = model.node.properties.view.value as ELineRange;
-        const response = await project?.getProjectPath?.({ segments: [fileName], codeData: model.node.codedata });
-        openView &&
-            openView({
-                documentUri: response.filePath,
-                position: {
-                    startLine: startLine.line,
-                    startColumn: startLine.offset,
-                    endLine: endLine.line,
-                    endColumn: endLine.offset,
-                },
-                projectPath: response.projectPath,
-            });
+
+        if (canViewWorkflowRunFunction && workflowStartFunctionName) {
+            const functionLocation = await project?.getFunctionLocation?.(workflowStartFunctionName);
+            if (functionLocation) {
+                openView && openView(functionLocation);
+            }
+        }
     };
 
     const menuItems: Item[] = [
@@ -367,17 +448,19 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
 
     const nodeTitle = getNodeTitle(model.node);
     const hasError = nodeHasError(model.node);
+    const isWorkflowStyledNode = isWorkflowNode(model.node);
 
     return (
         <NodeStyles.Node
-            hovered={isHovered}
+            hovered={isHovered || isNoteActive}
             disabled={model.node.suggested}
             hasError={hasError}
             readOnly={readOnly || isLocked}
             isActiveBreakpoint={isActiveBreakpoint}
             isSelected={isSelected}
+            isWorkflowNode={isWorkflowStyledNode}
             onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            onMouseLeave={() => { setIsHovered(false); setIsNoteActive(false); }}
             onContextMenu={!readOnly && !isLocked ? handleOnContextMenu : undefined}
             style={{
                 opacity: isLocked ? 0.6 : 1,
@@ -405,13 +488,14 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
                         <NodeStyles.Description>{model.node.properties.variable.value}</NodeStyles.Description>
                     )} */}
                 </NodeStyles.Icon>
-                <NodeStyles.Row>
+                <NodeStyles.Row style={{ flex: 1, minWidth: 0, width: "auto" }}>
                     <NodeStyles.Header onClick={handleOnClick}>
                         <NodeStyles.Title>{nodeTitle}</NodeStyles.Title>
                         <NodeStyles.Description>{nodeDescription as ReactNode}</NodeStyles.Description>
                     </NodeStyles.Header>
                     <NodeStyles.ActionButtonGroup>
-                        {hasError && <DiagnosticsPopUp node={model.node} />}
+                        {noteComment && <NodeNoteChip commentNode={noteComment} engine={engine} onOpen={() => setIsNoteActive(true)} onClose={() => { setIsNoteActive(false); setIsHovered(false); }} />}
+                        {hasError && <DiagnosticsPopUp node={model.node} engine={engine} />}
                         {canViewFunction && (
                             <Tooltip content="View function flow">
                                 <NodeStyles.MenuButton
@@ -420,7 +504,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
                                     onClick={handleOnViewFunctionClick}
                                 >
                                     <Icon
-                                        name="bi-function-flow"
+                                        name="bi-open-in"
                                         sx={{ width: 16, height: 16 }}
                                         iconSx={{ fontSize: 16 }}
                                     />
@@ -437,28 +521,33 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
                         </NodeStyles.MenuButton>
                     </NodeStyles.ActionButtonGroup>
                 </NodeStyles.Row>
-                <Popover
-                    open={isMenuOpen}
-                    anchorEl={menuAnchorEl}
-                    handleClose={handleOnMenuClose}
-                    sx={{
-                        padding: 0,
-                        borderRadius: 0,
-                    }}
-                >
-                    <Menu>
-                        <>
-                            {menuItems.map((item) => (
-                                <MenuItem key={item.id} item={item} />
-                            ))}
-                            <BreakpointMenu
-                                hasBreakpoint={hasBreakpoint}
-                                onAddBreakpoint={onAddBreakpoint}
-                                onRemoveBreakpoint={onRemoveBreakpoint}
-                            />
-                        </>
-                    </Menu>
-                </Popover>
+                {isMenuOpen && menuPos && createPortal(
+                    <div
+                        style={{
+                            position: "fixed",
+                            top: menuPos.top,
+                            left: menuPos.left,
+                            zIndex: 1300,
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                            borderRadius: 0,
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                    >
+                        <Menu>
+                            <>
+                                {menuItems.map((item) => (
+                                    <MenuItem key={item.id} item={item} />
+                                ))}
+                                <BreakpointMenu
+                                    hasBreakpoint={hasBreakpoint}
+                                    onAddBreakpoint={onAddBreakpoint}
+                                    onRemoveBreakpoint={onRemoveBreakpoint}
+                                />
+                            </>
+                        </Menu>
+                    </div>,
+                    document.body
+                )}
             </NodeStyles.Row>
             <NodeStyles.BottomPortWidget port={model.getPort("out")!} engine={engine} />
         </NodeStyles.Node>

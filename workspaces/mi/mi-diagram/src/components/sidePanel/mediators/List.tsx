@@ -278,6 +278,20 @@ export function Mediators(props: MediatorProps) {
         setIsLoading(false);
     }
 
+    /**
+     * Determines whether a connector belongs to the current project.
+     *
+     * @param connectorName - The name (or display name) of the connector to check.
+     * @returns `true` if the connector is local to the current project, `false` otherwise.
+     */
+    const isLocalConnector = (connectorName: string): boolean => {
+        if (!localConnectors) return false;
+        const connector = localConnectors.find((c: any) =>
+            c.displayName ? c.displayName === connectorName : c.name?.toLowerCase() === connectorName.toLowerCase()
+        );
+        return connector?.fromProject === true;
+    };
+
     const firstCharToUpperCaseForDefault = (name: string) => {
         if (INBUILT_MODULES.includes(name)) {
             return FirstCharToUpperCase(name);
@@ -381,7 +395,7 @@ export function Mediators(props: MediatorProps) {
                             connectorDetails={values["isConnector"] ?
                                 { artifactId: values["artifactId"], version: values["version"], connectorPath: values["connectorPath"],
                                     isBallerinaModule: values["isBallerinaModule"], ballerinaModulePath: values["ballerinaModulePath"] } : undefined}
-                            onDelete={deleteConnector}
+                            onDelete={isLocalConnector(key) ? deleteConnector : undefined}
                             onRefresh={refreshConnector}
                             versionTag={values.version}
                             disableGrid={values.isSupportCategories}>

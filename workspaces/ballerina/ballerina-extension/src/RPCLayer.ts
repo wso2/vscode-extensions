@@ -19,7 +19,7 @@
 import { WebviewView, WebviewPanel, window } from 'vscode';
 import { Messenger } from 'vscode-messenger';
 import { StateMachine } from './stateMachine';
-import { stateChanged, getVisualizerLocation, VisualizerLocation, projectContentUpdated, aiStateChanged, sendAIStateEvent, popupStateChanged, getPopupVisualizerState, PopupVisualizerLocation, breakpointChanged, AIMachineEventType, ArtifactData, onArtifactUpdatedNotification, onArtifactUpdatedRequest, currentThemeChanged, AIMachineSendableEvent, checkpointCaptured, CheckpointCapturedPayload, promptUpdated, approvalOverlayState, ApprovalOverlayState, onIdentifierUpdated, ProjectStructureArtifactResponse } from '@wso2/ballerina-core';
+import { stateChanged, getVisualizerLocation, VisualizerLocation, projectContentUpdated, aiStateChanged, sendAIStateEvent, popupStateChanged, getPopupVisualizerState, PopupVisualizerLocation, breakpointChanged, AIMachineEventType, ArtifactData, onArtifactUpdatedNotification, onArtifactUpdatedRequest, currentThemeChanged, AIMachineSendableEvent, checkpointCaptured, CheckpointCapturedPayload, promptUpdated, approvalOverlayState, ApprovalOverlayState, onIdentifierUpdated, ProjectStructureArtifactResponse, runningServicesChanged, RunningServiceInfo } from '@wso2/ballerina-core';
 import { VisualizerWebview } from './views/visualizer/webview';
 import { registerVisualizerRpcHandlers } from './rpc-managers/visualizer/rpc-handler';
 import { registerLangClientRpcHandlers } from './rpc-managers/lang-client/rpc-handler';
@@ -48,6 +48,7 @@ import { ArtifactsUpdated, ArtifactNotificationHandler } from './utils/project-a
 import { registerMigrateIntegrationRpcHandlers } from './rpc-managers/migrate-integration/rpc-handler';
 import { registerCollaborationRpcHandlers } from './rpc-managers/collaboration/rpc-handler';
 import { registerPlatformExtRpcHandlers } from './rpc-managers/platform-ext/rpc-handler';
+import { MigrationPanelWebview } from './views/migration-panel/webview';
 
 export class RPCLayer {
     static _messenger: Messenger = new Messenger();
@@ -65,6 +66,9 @@ export class RPCLayer {
             window.onDidChangeActiveColorTheme((theme) => {
                 RPCLayer._messenger.sendNotification(currentThemeChanged, { type: 'webview', webviewType: VisualizerWebview.viewType }, theme.kind);
             });
+        } else if (isMigrationPanel(webViewPanel)) {
+            // Migration panel is a WebviewPanel but does not use the AI state machine.
+            RPCLayer._messenger.registerWebviewPanel(webViewPanel as WebviewPanel);
         } else {
             RPCLayer._messenger.registerWebviewView(webViewPanel as WebviewView);
             AIStateMachine.service().onTransition((state) => {
@@ -186,6 +190,10 @@ function isWebviewPanel(webview: WebviewPanel | WebviewView): boolean {
     return title === VisualizerWebview.webviewTitle;
 }
 
+function isMigrationPanel(webview: WebviewPanel | WebviewView): boolean {
+    return 'reveal' in webview && webview.title === "Migration Assistant";
+}
+
 let _notifyCurrentWebviewTimer: ReturnType<typeof setTimeout> | undefined;
 export function notifyCurrentWebview() {
     if (_notifyCurrentWebviewTimer !== undefined) {
@@ -217,8 +225,12 @@ export function notifyApprovalOverlayState(state: ApprovalOverlayState) {
     RPCLayer._messenger.sendNotification(approvalOverlayState, { type: 'webview', webviewType: AiPanelWebview.viewType }, state);
 }
 
-export function notifyOnIdentifierUpdated(response: ProjectStructureArtifactResponse[]) {
-    RPCLayer._messenger.sendNotification(onIdentifierUpdated, { type: 'webview', webviewType: VisualizerWebview.viewType }, response);
+export function notifyRunningServicesChanged(services: RunningServiceInfo[]) {
+    RPCLayer._messenger.sendNotification(runningServicesChanged, { type: 'webview', webviewType: AiPanelWebview.viewType }, services);
+}
+
+export function notifyOnIdentifierUpdated(artifacts: ProjectStructureArtifactResponse[]) {
+    RPCLayer._messenger.sendNotification(onIdentifierUpdated, { type: 'webview', webviewType: VisualizerWebview.viewType }, artifacts);
 }
 
 export function sendAgentChangedNotification(agentName: string) {

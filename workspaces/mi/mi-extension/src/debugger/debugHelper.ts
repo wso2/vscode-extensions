@@ -155,29 +155,43 @@ export async function executeCopyTask(task: vscode.Task) {
     });
 }
 
-export async function executeBuildTask(projectUri: string, serverPath: string, shouldCopyTarget: boolean = true, postBuildTask?: Function) {
+export async function executeBuildTask(projectUri: string, serverPath: string, shouldCopyTarget: boolean = true, postBuildTask?: Function, isConsolidated: boolean = false) {
     if (shouldCopyTarget) {
-        const isEqual = await compareFilesByMD5(path.join(serverPath, "conf", "deployment.toml"),
-            path.join(projectUri, "deployment", "deployment.toml"));
-        if (!isEqual) {
-            const copyConf = await vscode.window.showWarningMessage(
-                'Deployment configurations in the runtime is different from the project. How do you want to proceed?',
-                { modal: true },
-                "Use Project Configurations", "Use Server Configurations"
-            );
-            if (copyConf === 'Use Project Configurations') {
-                fs.copyFileSync(path.join(serverPath, "conf", "deployment.toml"), path.join(serverPath, "conf", "deployment-backup.toml"));
-                fs.copyFileSync(path.join(projectUri, "deployment", "deployment.toml"), path.join(serverPath, "conf", "deployment.toml"));
-                vscode.window.showInformationMessage("A backup of the server configuration is stored at conf/deployment-backup.toml.");
-            } else if (copyConf === 'Use Server Configurations') {
-                fs.copyFileSync(path.join(serverPath, "conf", "deployment.toml"), path.join(projectUri, "deployment", "deployment.toml"));
-                DebuggerConfig.setConfigPortOffset(projectUri);
-            } else {
-                throw new Error('Deployment configurations in the project should be the same as the runtime.');
+        if (DebuggerConfig.getProjectList().length <= 1) {
+            const isEqual = await compareFilesByMD5(path.join(serverPath, "conf", "deployment.toml"),
+                path.join(projectUri, "deployment", "deployment.toml"));
+            if (!isEqual) {
+                const copyConf = await vscode.window.showWarningMessage(
+                    'Deployment configurations in the runtime is different from the project. How do you want to proceed?',
+                    { modal: true },
+                    "Use Project Configurations", "Use Server Configurations"
+                );
+                if (copyConf === 'Use Project Configurations') {
+                    fs.copyFileSync(path.join(serverPath, "conf", "deployment.toml"), path.join(serverPath, "conf", "deployment-backup.toml"));
+                    fs.copyFileSync(path.join(projectUri, "deployment", "deployment.toml"), path.join(serverPath, "conf", "deployment.toml"));
+                    vscode.window.showInformationMessage("A backup of the server configuration is stored at conf/deployment-backup.toml.");
+                } else if (copyConf === 'Use Server Configurations') {
+                    fs.copyFileSync(path.join(serverPath, "conf", "deployment.toml"), path.join(projectUri, "deployment", "deployment.toml"));
+                    DebuggerConfig.setConfigPortOffset(projectUri);
+                } else {
+                    throw new Error('Deployment configurations in the project should be the same as the runtime.');
+                }
             }
         }
     } else {
-        DebuggerConfig.setProjectList([projectUri]);
+        if (isConsolidated) {
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            const folderPaths = workspaceFolders?.map(f => f.uri.fsPath) || [];
+            
+            if (folderPaths.length === 0) {
+                const message = 'No workspace folder is opened';
+                vscode.window.showErrorMessage(message);
+                return;
+            }
+            DebuggerConfig.setProjectList(folderPaths);
+        } else {
+            DebuggerConfig.setProjectList([projectUri]);
+        }
     }
 
     if (DebuggerConfig.getProjectList().length > 0) {
@@ -339,9 +353,13 @@ const debugConsole = vscode.debug.activeDebugConsole;
 // Start the server
 export async function startServer(projectUri: string, serverPath: string, isDebug: boolean): Promise<void> {
     return new Promise<void>(async (resolve, reject) => {
-        const filePath = path.resolve(projectUri, '.env');
-        if (fs.existsSync(filePath)) {
-            loadEnvVariables(filePath)
+        if (DebuggerConfig.getProjectList().length > 0) {
+            for (const project of DebuggerConfig.getProjectList()) {
+                const filePath = path.resolve(project, '.env');
+                if (fs.existsSync(filePath)) {
+                    loadEnvVariables(filePath)
+                }
+            }
         }
         const runCommand = await getRunCommand(serverPath, isDebug);
         if (runCommand === undefined) {

@@ -93,6 +93,7 @@ export interface DiagramProps {
         org: string;
         path: string;
         getProjectPath?: (props: JoinProjectPathRequest) => Promise<JoinProjectPathResponse>;
+        getFunctionLocation?: (functionName: string) => Promise<VisualizerLocation | undefined>;
     };
     breakpointInfo?: BreakpointInfo;
     readOnly?: boolean;
@@ -149,6 +150,7 @@ export function Diagram(props: DiagramProps) {
     } = props;
 
     const [showErrorFlow, setShowErrorFlow] = useState(false);
+    const [nodeComments, setNodeComments] = useState<Map<string, FlowNode>>(new Map());
     const [diagramEngine] = useState<DiagramEngine>(generateEngine());
     const [diagramModel, setDiagramModel] = useState<DiagramModel | null>(null);
     const [showComponentPanel, setShowComponentPanel] = useState(false);
@@ -156,7 +158,8 @@ export function Diagram(props: DiagramProps) {
 
     useEffect(() => {
         if (diagramEngine) {
-            const { nodes, links } = getDiagramData();
+            const { nodes, links, comments } = getDiagramData();
+            setNodeComments(comments);
             drawDiagram(nodes, links);
         }
     }, [model, showErrorFlow, expandedErrorHandler]);
@@ -197,10 +200,11 @@ export function Diagram(props: DiagramProps) {
 
         const nodes = nodeVisitor.getNodes();
         const links = nodeVisitor.getLinks();
+        const comments = nodeVisitor.getNodeComments();
 
         const addTargetVisitor = new LinkTargetVisitor(model, nodes);
         traverseFlow(flowModel, addTargetVisitor);
-        return { nodes, links };
+        return { nodes, links, comments };
     };
 
     // Helper function to find error handlers with active breakpoints in onFailure branches
@@ -353,6 +357,7 @@ export function Diagram(props: DiagramProps) {
         readOnly: onAddNode === undefined || onDeleteNode === undefined || onNodeSelect === undefined || readOnly,
         isUserAuthenticated: isUserAuthenticated,
         currentUserId: props.currentUserId,
+        nodeComments: nodeComments,
         expressionContext: expressionContext || {
             completions: [],
             triggerCharacters: [],
@@ -373,7 +378,11 @@ export function Diagram(props: DiagramProps) {
                 node.getType() === NodeTypes.BASE_NODE ||
                 node.getType() === NodeTypes.WHILE_NODE ||
                 node.getType() === NodeTypes.IF_NODE ||
-                node.getType() === NodeTypes.API_CALL_NODE;
+                node.getType() === NodeTypes.API_CALL_NODE ||
+                node.getType() === NodeTypes.WORKFLOW_RUN_NODE ||
+                node.getType() === NodeTypes.CALL_ACTIVITY_NODE ||
+                node.getType() === NodeTypes.SEND_DATA_NODE ||
+                node.getType() === NodeTypes.WAIT_DATA_NODE;
             return isValidType && (node as BaseNodeModel).isActiveBreakpoint();
         });
 
