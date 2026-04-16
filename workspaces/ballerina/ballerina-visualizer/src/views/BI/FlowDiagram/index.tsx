@@ -1653,7 +1653,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         await resetNodeSelectionStates();
         // Complete draft and fetch new flow model
         if (hasDraft) {
-            // completeDraft();
+            completeDraft();
             setSuggestedModel(undefined);
             suggestedText.current = undefined;
         }
