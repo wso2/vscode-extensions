@@ -55,11 +55,14 @@ func (sc *SuccessCriteriaChecker) CheckSuccessCriteria(step map[string]interface
 
 		log.Printf("Evaluating criterion: %s (type: %s)", condition, criterionType)
 
-		// Handle context expression
+		// Handle context expression — resolve to raw interface{} for jsonpath,
+		// or map[string]interface{} for regex/simple.
 		criterionContext := context
+		var criterionContextRaw interface{} = context
 		if ctxExpr, ok := criterion["context"].(string); ok && ctxExpr != "" {
 			ctxVal := evaluator.EvaluateExpression(ctxExpr, state, sc.SourceDescriptions, context)
 			if ctxVal != nil {
+				criterionContextRaw = ctxVal
 				if m, ok := ctxVal.(map[string]interface{}); ok {
 					criterionContext = m
 				}
@@ -96,9 +99,14 @@ func (sc *SuccessCriteriaChecker) CheckSuccessCriteria(step map[string]interface
 			}
 
 		case "jsonpath":
-			//FIXME: Implement JSONPath evaluation logic here
-			log.Printf("Unsupported criterion type: jsonpath; JSONPath evaluation is not implemented (condition: %s)", condition)
-			return false
+			if criterionContextRaw == nil {
+				log.Printf("JSONPath criterion has nil context")
+				return false
+			}
+			if !evaluator.EvaluateJSONPathCriterion(criterionContextRaw, condition) {
+				log.Printf("JSONPath criterion failed: %s", condition)
+				return false
+			}
 
 		default:
 			log.Printf("Unsupported criterion type: %s", criterionType)

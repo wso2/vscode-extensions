@@ -4,6 +4,7 @@ package executor
 import (
 	"fmt"
 	"log"
+	"regexp"
 
 	"github.com/wso2/arazzo-designer-cli/internal/evaluator"
 	"github.com/wso2/arazzo-designer-cli/internal/models"
@@ -199,12 +200,14 @@ func (ah *ActionHandler) checkActionCriteria(criteria []interface{}, state *mode
 		}
 
 		// Evaluate context if specified
+		var criterionContextRaw interface{} = context
 		if ctxExpr, ok := criterion["context"].(string); ok && ctxExpr != "" {
 			ctxVal := evaluator.EvaluateExpression(ctxExpr, state, ah.SourceDescriptions, context)
 			if ctxVal == nil {
 				log.Printf("Context expression %s evaluated to nil", ctxExpr)
 				return false
 			}
+			criterionContextRaw = ctxVal
 		}
 
 		switch criterionType {
@@ -212,6 +215,26 @@ func (ah *ActionHandler) checkActionCriteria(criteria []interface{}, state *mode
 			result := evaluator.EvaluateSimpleCondition(condition, state, ah.SourceDescriptions, context)
 			if !result {
 				log.Printf("Simple condition failed: %s", condition)
+				return false
+			}
+		case "jsonpath":
+			if criterionContextRaw == nil {
+				log.Printf("JSONPath criterion has nil context")
+				return false
+			}
+			if !evaluator.EvaluateJSONPathCriterion(criterionContextRaw, condition) {
+				log.Printf("JSONPath criterion failed in action: %s", condition)
+				return false
+			}
+		case "regex":
+			ctxStr := fmt.Sprintf("%v", criterionContextRaw)
+			re, err := regexp.Compile(condition)
+			if err != nil {
+				log.Printf("Invalid regex pattern in action: %s", condition)
+				return false
+			}
+			if !re.MatchString(ctxStr) {
+				log.Printf("Regex criterion failed in action: %s", condition)
 				return false
 			}
 		default:
