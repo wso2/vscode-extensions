@@ -147,7 +147,7 @@ function getFileSize(filePath) {
 }
 
 async function getLatestRelease(usePrerelease) {
-    if (usePrerelease) {
+    if (true) {
         // Get all releases and find the latest prerelease
         const releasesResponse = await httpsRequest(`${GITHUB_REPO_URL}/releases`);
         let releases;
