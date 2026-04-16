@@ -96,7 +96,7 @@ const NODE_COLOR_GROUPS = {
         "DATA_LOADERS",
         "CHUNKER",
         "CHUNKERS",
-        "MEMORY_STORE"
+        "SHORT_TERM_MEMORY_STORE"
     ],
     // Data related - magenta variants
     MAGENTA_DATA_GROUP: ["VARIABLE", "NEW_DATA", "UPDATE_DATA", "ASSIGN"],
@@ -234,6 +234,10 @@ const NODE_ICONS: Record<NodeKind, React.FC<{ size: number; color: string; isDBC
     NP_FUNCTION_CALL: ({ size, color }) => <Icon name="bi-ai-function" sx={{ fontSize: size, width: size, height: size, color }} />,
     NP_FUNCTION: ({ size, color }) => <Icon name="bi-ai-function" sx={{ fontSize: size, width: size, height: size, color }} />,
     DATA_MAPPER_CALL: ({ size, color }) => <Icon name="dataMapper" sx={{ fontSize: size, width: size, height: size, color }} />,
+    WORKFLOW_RUN: ({ size, color }) => <Icon name="bi-workflow" sx={{ fontSize: size, width: size, height: size, color }} />,
+    ACTIVITY_CALL: ({ size, color }) => <Icon name="bi-task" sx={{ fontSize: size, width: size, height: size, color }} />,
+    SEND_DATA: ({ size, color }) => <Icon name="bi-arrow-outward" sx={{ fontSize: size, width: size, height: size, color }} />,
+    WAIT_DATA: ({ size, color }) => <Icon name="bi-wait" sx={{ fontSize: size, width: size, height: size, color }} />,
     FORK: ({ size, color }) => <Icon name="bi-parallel" sx={{ fontSize: size, width: size, height: size, color }} />,
     WAIT: ({ size, color }) => <Icon name="bi-wait" sx={{ fontSize: size, width: size, height: size, color }} />,
     START: ({ size, color }) => <Icon name="bi-start" sx={{ fontSize: size, width: size, height: size, color }} />,
@@ -257,7 +261,7 @@ const NODE_ICONS: Record<NodeKind, React.FC<{ size: number; color: string; isDBC
     DATA_LOADERS: ({ size, color }) => <Icon name="bi-data-table" sx={{ fontSize: size, width: size, height: size, color }} />,
     CHUNKER: ({ size, color }) => <Icon name="bi-cut" sx={{ fontSize: size, width: size, height: size, color }} />,
     CHUNKERS: ({ size, color }) => <Icon name="bi-cut" sx={{ fontSize: size, width: size, height: size, color }} />,
-    MEMORY_STORE: ({ size, color }) => <Icon name="bi-memory" sx={{ fontSize: size, width: size, height: size, color }} />
+    SHORT_TERM_MEMORY_STORE: ({ size, color }) => <Icon name="bi-memory" sx={{ fontSize: size, width: size, height: size, color }} />
     // Default case for any NodeKind not explicitly handled
 } as Record<NodeKind, React.FC<{ size: number; color: string; isDBConnection?: boolean }>>;
 

@@ -20,6 +20,7 @@
 import {
     AIChatRequest,
     AddFieldRequest,
+    InlineAgentChatRequest,
     AddFunctionRequest,
     AddImportItemResponse,
     AddProjectToWorkspaceRequest,
@@ -45,6 +46,8 @@ import {
     BISearchNodesResponse,
     BISearchRequest,
     BISearchResponse,
+    WorkflowDataRequest,
+    WorkflowDataResponse,
     BISourceCodeRequest,
     BreakpointRequest,
     BuildMode,
@@ -127,7 +130,9 @@ import {
     ValidateProjectFormRequest,
     ValidateProjectFormResponse,
     UpdateProjectTitleRequest,
+    UpdatePackageTitleRequest,
     updateProjectTitle,
+    updatePackageTitle,
     VerifyTypeDeleteRequest,
     VerifyTypeDeleteResponse,
     VisibleTypesRequest,
@@ -202,11 +207,14 @@ import {
     handleReadmeContent,
     openAIChat,
     openConfigToml,
+    startInlineAgentChat,
+    cleanupAgentChatServices,
     openReadme,
     removeBreakpointFromSource,
     renameIdentifier,
     runProject,
     search,
+    getAllData,
     searchNodes,
     updateClassField,
     updateConfigVariablesV2,
@@ -389,6 +397,14 @@ export class BiDiagramRpcClient implements BIDiagramAPI {
         return this._messenger.sendNotification(openAIChat, HOST_EXTENSION, params);
     }
 
+    startInlineAgentChat(params: InlineAgentChatRequest): void {
+        return this._messenger.sendNotification(startInlineAgentChat, HOST_EXTENSION, params);
+    }
+
+    cleanupAgentChatServices(): Promise<boolean> {
+        return this._messenger.sendRequest(cleanupAgentChatServices, HOST_EXTENSION);
+    }
+
     getSignatureHelp(params: SignatureHelpRequest): Promise<SignatureHelpResponse> {
         return this._messenger.sendRequest(getSignatureHelp, HOST_EXTENSION, params);
     }
@@ -525,6 +541,10 @@ export class BiDiagramRpcClient implements BIDiagramAPI {
         return this._messenger.sendRequest(search, HOST_EXTENSION, params);
     }
 
+    getAllData(params: WorkflowDataRequest): Promise<WorkflowDataResponse> {
+        return this._messenger.sendRequest(getAllData, HOST_EXTENSION, params);
+    }
+
     searchNodes(params: BISearchNodesRequest): Promise<BISearchNodesResponse> {
         return this._messenger.sendRequest(searchNodes, HOST_EXTENSION, params);
     }
@@ -567,5 +587,9 @@ export class BiDiagramRpcClient implements BIDiagramAPI {
 
     updateProjectTitle(params: UpdateProjectTitleRequest): Promise<void> {
         return this._messenger.sendRequest(updateProjectTitle, HOST_EXTENSION, params);
+    }
+
+    updatePackageTitle(params: UpdatePackageTitleRequest): Promise<void> {
+        return this._messenger.sendRequest(updatePackageTitle, HOST_EXTENSION, params);
     }
 }

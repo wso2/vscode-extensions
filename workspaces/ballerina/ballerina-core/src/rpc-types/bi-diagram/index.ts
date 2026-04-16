@@ -100,7 +100,9 @@ import {
     BIDesignModelRequest,
     BIFlowModelRequest,
     GetSimpleTypeOfExpressionRequest,
-    GetSimpleTypeOfExpressionResponse
+    GetSimpleTypeOfExpressionResponse,
+    WorkflowDataRequest,
+    WorkflowDataResponse
 } from "../../interfaces/extended-lang-client";
 import {
     ProjectRequest,
@@ -113,6 +115,7 @@ import {
     BIAiSuggestionsRequest,
     BIAiSuggestionsResponse,
     AIChatRequest,
+    InlineAgentChatRequest,
     BreakpointRequest,
     CurrentBreakpointsResponse,
     FormDidOpenParams,
@@ -130,7 +133,8 @@ import {
     ValidateProjectFormRequest,
     ValidateProjectFormResponse,
     SuggestedProjectDefaultsResponse,
-    UpdateProjectTitleRequest
+    UpdateProjectTitleRequest,
+    UpdatePackageTitleRequest
 } from "./interfaces";
 
 export interface BIDiagramAPI {
@@ -173,6 +177,8 @@ export interface BIDiagramAPI {
     deployProject: (params: DeploymentRequest) => Promise<DeploymentResponse>;
     deployWorkspace: (params: WorkspaceDeploymentRequest) => Promise<DeploymentResponse>;
     openAIChat: (params: AIChatRequest) => void;
+    startInlineAgentChat: (params: InlineAgentChatRequest) => void;
+    cleanupAgentChatServices: () => Promise<boolean>;
     getSignatureHelp: (params: SignatureHelpRequest) => Promise<SignatureHelpResponse>;
     buildProject: (mode: BuildMode) => void;
     runProject: () => void;
@@ -208,6 +214,7 @@ export interface BIDiagramAPI {
     getFunctionNode: (params: FunctionNodeRequest) => Promise<FunctionNodeResponse>;
     getEndOfFile: (params: EndOfFileRequest) => Promise<LinePosition>;
     search: (params: BISearchRequest) => Promise<BISearchResponse>;
+    getAllData: (params: WorkflowDataRequest) => Promise<WorkflowDataResponse>;
     searchNodes: (params: BISearchNodesRequest) => Promise<BISearchNodesResponse>;
     getRecordNames: () => Promise<RecordsInWorkspaceMentions>;
     getFunctionNames: () => Promise<RecordsInWorkspaceMentions>;
@@ -218,4 +225,5 @@ export interface BIDiagramAPI {
     deleteOpenApiGeneratedModules: (params: OpenAPIClientDeleteRequest) => Promise<OpenAPIClientDeleteResponse>;
     OpenConfigTomlRequest: (params: OpenConfigTomlRequest) => Promise<void>;
     updateProjectTitle: (params: UpdateProjectTitleRequest) => Promise<void>;
+    updatePackageTitle: (params: UpdatePackageTitleRequest) => Promise<void>;
 }

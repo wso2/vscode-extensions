@@ -117,6 +117,7 @@ export function Overview(props: OverviewProps) {
     const [isLoading, setIsLoading] = React.useState<boolean>(true);
     const [pomTimestamp, setPomTimestamp] = React.useState<number>(0);
     const [errors, setErrors] = React.useState({});
+    const [isConsolidatedProject, setIsConsolidatedProject] = React.useState<boolean>(false);
     const { data: devantMetadata } = useQuery({
         queryKey: ["devant-metadata", workspaces],
         queryFn: () => rpcClient.getMiDiagramRpcClient().getDevantMetadata(),
@@ -133,6 +134,10 @@ export function Overview(props: OverviewProps) {
                 const activeWorkspaceUri = response.workspaces.find((workspace) => workspace.fsPath === projectUri);
                 changeWorkspace(activeWorkspaceUri.fsPath);
                 setActiveWorkspace(response.workspaces.find((workspace) => workspace.fsPath === projectUri));
+                const consolidated = await rpcClient.getMiDiagramRpcClient().canCreateConsolidatedProject();
+                if (consolidated?.isConsolidatedProject) {
+                    setIsConsolidatedProject(consolidated.isConsolidatedProject);
+                }
 
                 rpcClient.getMiVisualizerRpcClient().getProjectOverview({}).then((response) => {
                     setProjectOverview(response);
@@ -211,6 +216,10 @@ export function Overview(props: OverviewProps) {
 
     const handleCappBuild = () => {
         rpcClient.getMiDiagramRpcClient().buildProject({ buildType: "capp" });
+    };
+
+    const handleConsolidatedBuild = () => {
+        rpcClient.getMiDiagramRpcClient().buildProject({ buildType: "consolidated" });
     };
 
     const handleRemoteDeploy = () => {
@@ -368,10 +377,12 @@ export function Overview(props: OverviewProps) {
                                 handleDockerBuild={handleDockerBuild}
                                 handleConfigureKubernetes={handleConfigureKubernetes}
                                 handleCAPPBuild={handleCappBuild}
+                                handleConsolidatedBuild={handleConsolidatedBuild}
                                 handleRemoteDeploy={handleRemoteDeploy}
                                 handleDeploy={handleDeploy}
                                 goToDevant={goToDevant}
-                                devantMetadata={devantMetadata} />
+                                devantMetadata={devantMetadata}
+                                isConsolidatedProject={isConsolidatedProject} />
                         </ProjectInfoColumn>
                         <ProjectInfoColumn style={{ marginTop: '10px' }}>
                             <Typography variant="h3" sx={{ margin: '0 0 16px 0', display: 'flex', alignItems: 'center', opacity: 0.8 }}>

@@ -28,7 +28,7 @@ import { ComponentInfo, DataMapperMetadata, Diagnostics, DMModel, ImportStatemen
 // ==================================
 export type AIPanelPrompt =
     | { type: 'command-template'; command: Command; templateId: TemplateId; text?: string; params?: Record<string, string>; metadata?: Record<string, any>; hiddenContext?: string }
-    | { type: 'text'; text: string; planMode: boolean; codeContext?: CodeContext; autoSubmit?: boolean; hiddenContext?: string }
+    | { type: 'text'; text: string; planMode: boolean; codeContext?: CodeContext; autoSubmit?: boolean; hiddenContext?: string; suggestedCommandTemplates?: AIPanelPrompt[];    inputPlaceholder?:string; }
     | undefined;
 
 export interface AIMachineSnapshot {
@@ -243,9 +243,10 @@ export interface ExistingFunction {
 // ==================================
 export interface Attachment {
     name: string;
-    path?: string
+    path?: string;
     content?: string;
     status: AttachmentStatus;
+    mimeType?: string;
 }
 
 export enum AttachmentStatus {
@@ -291,6 +292,7 @@ export interface ChatEntry {
 export interface FileAttatchment {
     fileName: string;
     content: string;
+    mimeType?: string;
 }
 
 export type CodeContext =
@@ -520,6 +522,28 @@ export interface UsageResponse {
 
 export interface OpenFileDiffRequest {
     relativePath: string;
+}
+
+// ==================================
+// Running Services (long-lived processes started by the AI agent)
+// ==================================
+
+/** Serializable view of a running service tracked by the agent's RunningServicesManager. */
+export interface RunningServiceInfo {
+    /** Unique identifier returned by the runBallerinaPackage tool. */
+    taskId: string;
+    /** Filesystem path of the package being run. */
+    packagePath: string;
+    /** Epoch ms when the process started. */
+    startedAt: number;
+    /** True once the process has exited (naturally or via stop). */
+    exited: boolean;
+    /** Exit code of the process. 0 while still running. */
+    exitCode: number;
+}
+
+export interface StopRunningServiceRequest {
+    taskId: string;
 }
 // ==================================
 // Compaction Related Interfaces

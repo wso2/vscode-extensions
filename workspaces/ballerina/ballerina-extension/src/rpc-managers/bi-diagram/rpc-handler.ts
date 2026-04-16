@@ -26,6 +26,7 @@ import {
     addProjectToWorkspace,
     AddProjectToWorkspaceRequest,
     AIChatRequest,
+    InlineAgentChatRequest,
     BIAiSuggestionsRequest,
     BIAvailableNodesRequest,
     BIDeleteByComponentInfoRequest,
@@ -36,6 +37,7 @@ import {
     BINodeTemplateRequest,
     BISearchNodesRequest,
     BISearchRequest,
+    WorkflowDataRequest,
     BISourceCodeRequest,
     BreakpointRequest,
     BuildMode,
@@ -96,6 +98,7 @@ import {
     getExpressionTokens,
     getFlowModel,
     getFormDiagnostics,
+    getAllData,
     getFunctionNames,
     getFunctionNode,
     getModuleNodes,
@@ -128,6 +131,8 @@ import {
     ModelFromCodeRequest,
     openAIChat,
     OpenAPIClientDeleteRequest,
+    startInlineAgentChat,
+    cleanupAgentChatServices,
     OpenAPIClientGenerationRequest,
     OpenAPIGeneratedModulesRequest,
     openConfigToml,
@@ -164,7 +169,9 @@ import {
     validateProjectPath,
     getSuggestedProjectDefaults,
     UpdateProjectTitleRequest,
-    updateProjectTitle
+    UpdatePackageTitleRequest,
+    updateProjectTitle,
+    updatePackageTitle
 } from "@wso2/ballerina-core";
 import { Messenger } from "vscode-messenger";
 import { BiDiagramRpcManager } from "./rpc-manager";
@@ -210,6 +217,8 @@ export function registerBiDiagramRpcHandlers(messenger: Messenger) {
     messenger.onRequest(deployProject, (args: DeploymentRequest) => rpcManger.deployProject(args));
     messenger.onRequest(deployWorkspace, (args: WorkspaceDeploymentRequest) => rpcManger.deployWorkspace(args));
     messenger.onNotification(openAIChat, (args: AIChatRequest) => rpcManger.openAIChat(args));
+    messenger.onNotification(startInlineAgentChat, (args: InlineAgentChatRequest) => rpcManger.startInlineAgentChat(args));
+    messenger.onRequest(cleanupAgentChatServices, () => rpcManger.cleanupAgentChatServices());
     messenger.onRequest(getSignatureHelp, (args: SignatureHelpRequest) => rpcManger.getSignatureHelp(args));
     messenger.onNotification(buildProject, (args: BuildMode) => rpcManger.buildProject(args));
     messenger.onNotification(runProject, () => rpcManger.runProject());
@@ -246,6 +255,7 @@ export function registerBiDiagramRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getFunctionNode, (args: FunctionNodeRequest) => rpcManger.getFunctionNode(args));
     messenger.onRequest(getEndOfFile, (args: EndOfFileRequest) => rpcManger.getEndOfFile(args));
     messenger.onRequest(search, (args: BISearchRequest) => rpcManger.search(args));
+    messenger.onRequest(getAllData, (args: WorkflowDataRequest) => rpcManger.getAllData(args));
     messenger.onRequest(searchNodes, (args: BISearchNodesRequest) => rpcManger.searchNodes(args));
     messenger.onRequest(getRecordNames, () => rpcManger.getRecordNames());
     messenger.onRequest(getFunctionNames, () => rpcManger.getFunctionNames());
@@ -255,5 +265,6 @@ export function registerBiDiagramRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getOpenApiGeneratedModules, (args: OpenAPIGeneratedModulesRequest) => rpcManger.getOpenApiGeneratedModules(args));
     messenger.onRequest(deleteOpenApiGeneratedModules, (args: OpenAPIClientDeleteRequest) => rpcManger.deleteOpenApiGeneratedModules(args));
     messenger.onRequest(updateProjectTitle, (args: UpdateProjectTitleRequest) => rpcManger.updateProjectTitle(args));
+    messenger.onRequest(updatePackageTitle, (args: UpdatePackageTitleRequest) => rpcManger.updatePackageTitle(args));
     messenger.onRequest(getSuggestedProjectDefaults, (args: { isInProject: boolean }) => rpcManger.getSuggestedProjectDefaults(args));
 }
