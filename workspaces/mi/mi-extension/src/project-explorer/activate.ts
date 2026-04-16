@@ -38,14 +38,14 @@ import { MILanguageClient } from '../lang-client/activator';
 import { updatePomModules } from '../debugger/pomResolver';
 
 let isProjectExplorerInitialized = false;
-export async function activateProjectExplorer(treeviewId: string, context: ExtensionContext, projectUri: string, isInWI: boolean) {
+export async function activateProjectExplorer(treeviewId: string, context: ExtensionContext, projectUri: string) {
 	if (isProjectExplorerInitialized) {
 		return;
 	}
 	isProjectExplorerInitialized = true;
 	const lsClient: ExtendedLanguageClient = await MILanguageClient.getInstance(projectUri);
 
-	const projectExplorerDataProvider = new ProjectExplorerEntryProvider(context);
+	const projectExplorerDataProvider = new ProjectExplorerEntryProvider(context, treeviewId);
 	await projectExplorerDataProvider.refresh();
 	let registryExplorerDataProvider;
 	const projectTree = window.createTreeView(treeviewId, { treeDataProvider: projectExplorerDataProvider });
