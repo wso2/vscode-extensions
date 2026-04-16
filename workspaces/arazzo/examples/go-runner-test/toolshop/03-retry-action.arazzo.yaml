@@ -1,0 +1,79 @@
+arazzo: 1.0.0
+info:
+  title: "Test 03 - onFailure Retry Action"
+  version: "1.0.0"
+  description: >
+    Tests the retry action on failure.
+    Workflow 1: retry then goto fallback step (should complete successfully).
+    Workflow 2: retry then end (should terminate with error - expected).
+
+sourceDescriptions:
+  - name: toolshop
+    url: ./toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: retry_then_goto_fallback
+    summary: Retry on failure then goto a fallback step
+    steps:
+      - stepId: tryGetProduct
+        operationId: getProduct
+        parameters:
+          - name: productId
+            in: path
+            value: "non-existent-product-id-99999"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        onFailure:
+          - name: retry_attempt
+            type: retry
+            retryAfter: 1
+            retryLimit: 2
+          - name: fallback_goto
+            type: goto
+            stepId: fallbackStep
+
+      - stepId: shouldBeSkipped
+        operationId: getCategories
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          categories: "$response.body"
+
+      - stepId: fallbackStep
+        operationId: getBrands
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          firstBrandName: "$response.body#/0/name"
+
+    outputs:
+      fallbackResult: "$steps.fallbackStep.outputs.firstBrandName"
+      shouldBeSkippedRan: "$steps.shouldBeSkipped.outputs.categories"
+
+  - workflowId: expect_error_retry_then_end
+    summary: Retry on failure then end workflow (expected error)
+    steps:
+      - stepId: tryGetProduct
+        operationId: getProduct
+        parameters:
+          - name: productId
+            in: path
+            value: "non-existent-product-id-99999"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        onFailure:
+          - name: retry_attempt
+            type: retry
+            retryAfter: 1
+            retryLimit: 2
+          - name: give_up
+            type: end
+
+      - stepId: shouldNotRun
+        operationId: getCategories
+        successCriteria:
+          - condition: "$statusCode == 200"
+
+    outputs:
+      shouldNotExist: "$steps.shouldNotRun.outputs.categories"

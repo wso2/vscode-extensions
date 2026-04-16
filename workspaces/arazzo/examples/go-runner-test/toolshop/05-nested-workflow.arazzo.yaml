@@ -1,0 +1,85 @@
+arazzo: 1.0.0
+info:
+  title: "Test 05 - Nested Workflow and Dependencies"
+  version: 1.0.0
+  description: >
+    Tests nested workflow execution (step with workflowId) and
+    workflow dependencies (dependsOn).
+
+sourceDescriptions:
+  - name: toolshop
+    url: ./toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: explore_brands
+    summary: Gets the brand list and returns the first brand's details
+    steps:
+      - stepId: listBrands
+        operationId: getBrands
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          brandId: "$response.body#/0/id"
+          brandName: "$response.body#/0/name"
+
+    outputs:
+      firstBrandId: "$steps.listBrands.outputs.brandId"
+      firstBrandName: "$steps.listBrands.outputs.brandName"
+
+  - workflowId: verify_brand_via_nested
+    summary: Uses nested workflow to get brand, then verifies and searches
+    steps:
+      - stepId: exploreBrandsWorkflow
+        description: "Calls the explore_brands workflow as a nested call"
+        workflowId: explore_brands
+        outputs:
+          nestedBrandId: "$steps.exploreBrandsWorkflow.outputs.firstBrandId"
+
+      - stepId: getBrandDetail
+        operationId: getBrand
+        parameters:
+          - name: brandId
+            in: path
+            value: "$steps.exploreBrandsWorkflow.outputs.firstBrandId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          verifiedName: "$response.body#/name"
+
+      - stepId: searchForBrand
+        operationId: searchBrand
+        parameters:
+          - name: q
+            in: query
+            value: "$steps.exploreBrandsWorkflow.outputs.firstBrandName"
+        successCriteria:
+          - condition: "$statusCode == 200"
+
+    outputs:
+      nestedBrandId: "$steps.exploreBrandsWorkflow.outputs.firstBrandId"
+      verifiedBrandName: "$steps.getBrandDetail.outputs.verifiedName"
+
+  - workflowId: message_with_dependency
+    summary: Sends a contact message about a brand - depends on explore_brands
+    dependsOn:
+      - explore_brands
+    steps:
+      - stepId: sendBrandMessage
+        operationId: sendMessage
+        requestBody:
+          contentType: application/json
+          payload:
+            name: "Dependency Test User"
+            email: "dependency@example.com"
+            subject: "Brand inquiry"
+            message: "$dependencies.explore_brands.firstBrandName"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          messageId: "$response.body#/id"
+          messageStatus: "$response.body#/status"
+
+    outputs:
+      messageId: "$steps.sendBrandMessage.outputs.messageId"
+      messageStatus: "$steps.sendBrandMessage.outputs.messageStatus"

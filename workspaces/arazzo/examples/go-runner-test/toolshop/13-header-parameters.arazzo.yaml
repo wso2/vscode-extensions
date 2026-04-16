@@ -1,0 +1,53 @@
+arazzo: "1.0.0"
+info:
+  title: "Test 13 - Header Parameters"
+  version: "1.0.0"
+  description: >
+    Tests passing parameters via HTTP headers (in: header).
+    Uses the Accept header to verify the runner properly sends
+    custom headers in API requests.
+
+sourceDescriptions:
+  - name: toolshop
+    url: ./toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: header_parameter_tests
+    summary: Test header parameters
+    steps:
+      - stepId: getBrandsWithAcceptHeader
+        description: "Pass Accept header as a parameter"
+        operationId: getBrands
+        parameters:
+          - name: Accept
+            in: header
+            value: "application/json"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          firstBrandName: "$response.body#/0/name"
+          contentType: "$response.header.Content-Type"
+
+      - stepId: getProductWithHeaders
+        description: "Pass multiple header parameters alongside query params"
+        operationId: getProducts
+        parameters:
+          - name: Accept
+            in: header
+            value: "application/json"
+          - name: page
+            in: query
+            value: "1"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          firstProductName: "$response.body#/data/0/name"
+          totalProducts: "$response.body#/total"
+          responseContentType: "$response.header.Content-Type"
+
+    outputs:
+      firstBrandName: "$steps.getBrandsWithAcceptHeader.outputs.firstBrandName"
+      brandsContentType: "$steps.getBrandsWithAcceptHeader.outputs.contentType"
+      firstProductName: "$steps.getProductWithHeaders.outputs.firstProductName"
+      productsContentType: "$steps.getProductWithHeaders.outputs.responseContentType"

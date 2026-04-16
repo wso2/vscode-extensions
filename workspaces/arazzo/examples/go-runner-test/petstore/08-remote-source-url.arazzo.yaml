@@ -1,0 +1,55 @@
+arazzo: "1.0.0"
+info:
+  title: "Test 08 - Remote URL Source Description"
+  version: "1.0.0"
+  description: >
+    Tests loading source description from a remote URL
+    instead of a local file path.
+
+sourceDescriptions:
+  - name: petstore
+    url: https://petstore3.swagger.io/api/v3/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: remote_source_test
+    summary: Test workflow with remote source description
+    steps:
+      - stepId: addPetRemote
+        operationId: addPet
+        requestBody:
+          contentType: application/json
+          payload:
+            id: 33301
+            name: "RemoteSourcePet"
+            photoUrls:
+              - "https://example.com/photo.jpg"
+            status: "available"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          petId: "$response.body#/id"
+          petName: "$response.body#/name"
+
+      - stepId: getRemotePet
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: "$steps.addPetRemote.outputs.petId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          verifiedName: "$response.body#/name"
+
+      - stepId: cleanupRemotePet
+        operationId: deletePet
+        parameters:
+          - name: petId
+            in: path
+            value: "$steps.addPetRemote.outputs.petId"
+
+    outputs:
+      petId: "$steps.addPetRemote.outputs.petId"
+      petName: "$steps.addPetRemote.outputs.petName"
+      verifiedName: "$steps.getRemotePet.outputs.verifiedName"
