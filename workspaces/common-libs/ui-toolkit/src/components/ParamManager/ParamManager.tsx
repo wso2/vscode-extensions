@@ -60,6 +60,7 @@ export interface ParamManagerProps {
     paramConfigs: ParamConfig;
     onChange?: (parameters: ParamConfig) => void,
     readonly?: boolean;
+    addParamText?: string;
 }
 
 const AddButtonWrapper = styled.div`
@@ -179,7 +180,7 @@ export function findFieldFromParam(field: ParamField[], value: Param): ParamFiel
 }
 
 export function ParamManager(props: ParamManagerProps) {
-    const { paramConfigs , readonly, onChange } = props;
+    const { paramConfigs , readonly, onChange, addParamText = "Add Parameter" } = props;
     const [editingSegmentId, setEditingSegmentId] = useState<number>(-1);
     const [isNew, setIsNew] = useState(false);
 
@@ -265,7 +266,7 @@ export function ParamManager(props: ParamManagerProps) {
                 <AddButtonWrapper>
                     <LinkButton sx={readonly && { color: "var(--vscode-badge-background)" }} onClick={!readonly && onAddClick} >
                         <Codicon name="add" />
-                        <>Add Parameter</>
+                        <>{addParamText}</>
                     </LinkButton>
                 </AddButtonWrapper>
             )}
