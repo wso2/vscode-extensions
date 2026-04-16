@@ -25,10 +25,10 @@ module.exports = {
           pkg.dependencies['@modelcontextprotocol/sdk'] = '^1.26.0';
         }
         if (pkg.dependencies['@isaacs/brace-expansion']) {
-          pkg.dependencies['@isaacs/brace-expansion'] = '^5.0.1';
+          pkg.dependencies['@isaacs/brace-expansion'] = '^5.0.5';
         }
         if (pkg.dependencies['axios']) {
-          pkg.dependencies['axios'] = '^1.13.5';
+          pkg.dependencies['axios'] = '^1.15.0';
         }
         if (pkg.dependencies['http-proxy']) {
           pkg.dependencies['http-proxy'] = '^1.18.1';
@@ -76,16 +76,21 @@ module.exports = {
           pkg.dependencies['eslint'] = '^9.27.0';
         }
         if (pkg.dependencies['fast-xml-parser']) {
-          pkg.dependencies['fast-xml-parser'] = '5.3.8';
+          const ver = pkg.dependencies['fast-xml-parser'];
+          if (/^[\^~]?4\./.test(ver)) {
+            pkg.dependencies['fast-xml-parser'] = '4.5.5';
+          } else {
+            pkg.dependencies['fast-xml-parser'] = '5.5.7';
+          }
         }
         if (pkg.dependencies['hono']) {
-          pkg.dependencies['hono'] = '^4.12.4';
+          pkg.dependencies['hono'] = '^4.12.14';
         }
         if (pkg.dependencies['@hono/node-server']) {
-          pkg.dependencies['@hono/node-server'] = '^1.19.10';
+          pkg.dependencies['@hono/node-server'] = '^1.19.13';
         }
         if (pkg.dependencies['dompurify']) {
-          pkg.dependencies['dompurify'] = '^3.3.2';
+          pkg.dependencies['dompurify'] = '^3.4.0';
         }
         if (pkg.dependencies['express-rate-limit']) {
           pkg.dependencies['express-rate-limit'] = '^8.2.2';
@@ -97,7 +102,16 @@ module.exports = {
           pkg.dependencies['immutable'] = '^3.8.3';
         }
         if (pkg.dependencies['serialize-javascript']) {
-          pkg.dependencies['serialize-javascript'] = '^7.0.3';
+          pkg.dependencies['serialize-javascript'] = '^7.0.5';
+        }
+        if (pkg.dependencies['follow-redirects']) {
+          pkg.dependencies['follow-redirects'] = '^1.16.0';
+        }
+        if (pkg.dependencies['flatted']) {
+          pkg.dependencies['flatted'] = '^3.4.2';
+        }
+        if (pkg.dependencies['handlebars']) {
+          pkg.dependencies['handlebars'] = '^4.7.9';
         }
         if (pkg.dependencies['minimatch']) {
           const ver = pkg.dependencies['minimatch'];
@@ -111,11 +125,55 @@ module.exports = {
             pkg.dependencies['minimatch'] = '^10.2.3';
           }
         }
+        if (pkg.dependencies['path-to-regexp']) {
+          const ver = pkg.dependencies['path-to-regexp'];
+          if (/^0\.1\./.test(ver)) {
+            pkg.dependencies['path-to-regexp'] = '0.1.13';
+          } else if (/^[\^~]?8\./.test(ver)) {
+            pkg.dependencies['path-to-regexp'] = '^8.4.0';
+          }
+        }
+        if (pkg.dependencies['picomatch']) {
+          const ver = pkg.dependencies['picomatch'];
+          if (/^[\^~]?2\./.test(ver)) {
+            pkg.dependencies['picomatch'] = '^2.3.2';
+          } else if (/^[\^~]?3\./.test(ver)) {
+            pkg.dependencies['picomatch'] = '^3.0.2';
+          } else if (/^[\^~]?4\./.test(ver)) {
+            pkg.dependencies['picomatch'] = '^4.0.4';
+          }
+        }
+        if (pkg.dependencies['brace-expansion']) {
+          const ver = pkg.dependencies['brace-expansion'];
+          if (/^[\^~]?1\./.test(ver)) {
+            pkg.dependencies['brace-expansion'] = '^1.1.13';
+          } else if (/^[\^~]?2\./.test(ver)) {
+            pkg.dependencies['brace-expansion'] = '^2.0.3';
+          } else if (/^[\^~]?5\./.test(ver)) {
+            pkg.dependencies['brace-expansion'] = '^5.0.5';
+          }
+        }
         if (pkg.dependencies['lodash']) {
-          pkg.dependencies['lodash'] = '4.17.23';
+          pkg.dependencies['lodash'] = '4.18.0';
         }
         if (pkg.dependencies['bn.js']) {
           pkg.dependencies['bn.js'] = '5.2.3';
+        }
+        if (pkg.dependencies['undici']) {
+          const ver = pkg.dependencies['undici'];
+          if (/^[\^~]?6\./.test(ver)) {
+            pkg.dependencies['undici'] = '^6.24.0';
+          } else if (/^[\^~]?7\./.test(ver)) {
+            pkg.dependencies['undici'] = '^7.24.0';
+          }
+        }
+        if (pkg.dependencies['yaml']) {
+          const ver = pkg.dependencies['yaml'];
+          if (/^[\^~]?1\./.test(ver)) {
+            pkg.dependencies['yaml'] = '^1.10.3';
+          } else if (/^[\^~]?2\./.test(ver)) {
+            pkg.dependencies['yaml'] = '^2.8.3';
+          }
         }
       }
 
@@ -125,10 +183,10 @@ module.exports = {
           pkg.devDependencies['@modelcontextprotocol/sdk'] = '^1.26.0';
         }
         if (pkg.devDependencies['@isaacs/brace-expansion']) {
-          pkg.devDependencies['@isaacs/brace-expansion'] = '^5.0.1';
+          pkg.devDependencies['@isaacs/brace-expansion'] = '^5.0.5';
         }
         if (pkg.devDependencies['axios']) {
-          pkg.devDependencies['axios'] = '^1.13.5';
+          pkg.devDependencies['axios'] = '^1.15.0';
         }
         if (pkg.devDependencies['http-proxy']) {
           pkg.devDependencies['http-proxy'] = '^1.18.1';
@@ -173,16 +231,21 @@ module.exports = {
           pkg.devDependencies['eslint'] = '^9.27.0';
         }
         if (pkg.devDependencies['fast-xml-parser']) {
-          pkg.devDependencies['fast-xml-parser'] = '5.3.8';
+          const ver = pkg.devDependencies['fast-xml-parser'];
+          if (/^[\^~]?4\./.test(ver)) {
+            pkg.devDependencies['fast-xml-parser'] = '4.5.5';
+          } else {
+            pkg.devDependencies['fast-xml-parser'] = '5.5.7';
+          }
         }
         if (pkg.devDependencies['hono']) {
-          pkg.devDependencies['hono'] = '^4.12.4';
+          pkg.devDependencies['hono'] = '^4.12.14';
         }
         if (pkg.devDependencies['@hono/node-server']) {
-          pkg.devDependencies['@hono/node-server'] = '^1.19.10';
+          pkg.devDependencies['@hono/node-server'] = '^1.19.13';
         }
         if (pkg.devDependencies['dompurify']) {
-          pkg.devDependencies['dompurify'] = '^3.3.2';
+          pkg.devDependencies['dompurify'] = '^3.4.0';
         }
         if (pkg.devDependencies['express-rate-limit']) {
           pkg.devDependencies['express-rate-limit'] = '^8.2.2';
@@ -194,7 +257,16 @@ module.exports = {
           pkg.devDependencies['immutable'] = '^3.8.3';
         }
         if (pkg.devDependencies['serialize-javascript']) {
-          pkg.devDependencies['serialize-javascript'] = '^7.0.3';
+          pkg.devDependencies['serialize-javascript'] = '^7.0.5';
+        }
+        if (pkg.devDependencies['follow-redirects']) {
+          pkg.devDependencies['follow-redirects'] = '^1.16.0';
+        }
+        if (pkg.devDependencies['flatted']) {
+          pkg.devDependencies['flatted'] = '^3.4.2';
+        }
+        if (pkg.devDependencies['handlebars']) {
+          pkg.devDependencies['handlebars'] = '^4.7.9';
         }
         if (pkg.devDependencies['minimatch']) {
           const ver = pkg.devDependencies['minimatch'];
@@ -208,11 +280,55 @@ module.exports = {
             pkg.devDependencies['minimatch'] = '^10.2.3';
           }
         }
+        if (pkg.devDependencies['path-to-regexp']) {
+          const ver = pkg.devDependencies['path-to-regexp'];
+          if (/^0\.1\./.test(ver)) {
+            pkg.devDependencies['path-to-regexp'] = '0.1.13';
+          } else if (/^[\^~]?8\./.test(ver)) {
+            pkg.devDependencies['path-to-regexp'] = '^8.4.0';
+          }
+        }
+        if (pkg.devDependencies['picomatch']) {
+          const ver = pkg.devDependencies['picomatch'];
+          if (/^[\^~]?2\./.test(ver)) {
+            pkg.devDependencies['picomatch'] = '^2.3.2';
+          } else if (/^[\^~]?3\./.test(ver)) {
+            pkg.devDependencies['picomatch'] = '^3.0.2';
+          } else if (/^[\^~]?4\./.test(ver)) {
+            pkg.devDependencies['picomatch'] = '^4.0.4';
+          }
+        }
+        if (pkg.devDependencies['brace-expansion']) {
+          const ver = pkg.devDependencies['brace-expansion'];
+          if (/^[\^~]?1\./.test(ver)) {
+            pkg.devDependencies['brace-expansion'] = '^1.1.13';
+          } else if (/^[\^~]?2\./.test(ver)) {
+            pkg.devDependencies['brace-expansion'] = '^2.0.3';
+          } else if (/^[\^~]?5\./.test(ver)) {
+            pkg.devDependencies['brace-expansion'] = '^5.0.5';
+          }
+        }
         if (pkg.devDependencies['lodash']) {
-          pkg.devDependencies['lodash'] = '4.17.23';
+          pkg.devDependencies['lodash'] = '4.18.0';
         }
         if (pkg.devDependencies['bn.js']) {
           pkg.devDependencies['bn.js'] = '5.2.3';
+        }
+        if (pkg.devDependencies['undici']) {
+          const ver = pkg.devDependencies['undici'];
+          if (/^[\^~]?6\./.test(ver)) {
+            pkg.devDependencies['undici'] = '^6.24.0';
+          } else if (/^[\^~]?7\./.test(ver)) {
+            pkg.devDependencies['undici'] = '^7.24.0';
+          }
+        }
+        if (pkg.devDependencies['yaml']) {
+          const ver = pkg.devDependencies['yaml'];
+          if (/^[\^~]?1\./.test(ver)) {
+            pkg.devDependencies['yaml'] = '^1.10.3';
+          } else if (/^[\^~]?2\./.test(ver)) {
+            pkg.devDependencies['yaml'] = '^2.8.3';
+          }
         }
       }
 
