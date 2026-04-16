@@ -20,7 +20,8 @@
     "onUri"
   ],
   "extensionDependencies": [
-    "wso2.wso2-platform"
+    "wso2.wso2-platform",
+    "wso2.wso2-integrator"
   ],
   "main": "./dist/extension.js",
   "contributes": {
