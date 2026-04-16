@@ -21,7 +21,7 @@ import { createPortal } from "react-dom";
 import styled from "@emotion/styled";
 import { DiagramEngine, PortWidget } from "@projectstorm/react-diagrams-core";
 import { IfNodeModel } from "./IfNodeModel";
-import { IF_NODE_WIDTH, NODE_BORDER_WIDTH, NODE_HEIGHT, NODE_WIDTH } from "../../../resources/constants";
+import { IF_NODE_WIDTH, NODE_BG_BREAKPOINT_COLOR, NODE_BG_COLOR, NODE_BG_HOVER_COLOR, NODE_BORDER_COLOR, NODE_BORDER_ERROR_COLOR, NODE_BORDER_SELECTED_COLOR, NODE_BORDER_WIDTH, NODE_HEIGHT, NODE_TEXT_COLOR, NODE_WIDTH } from "../../../resources/constants";
 import { Button, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
 import { NodeLockBadge } from "../NodeLockBadge";
 import { FlowNode } from "../../../utils/types";
