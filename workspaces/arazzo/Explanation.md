@@ -1584,9 +1584,19 @@ Go cross-compilation is done by setting `GOOS` and `GOARCH` environment variable
 On PowerShell (Windows), set env vars inline:
 
 ```powershell
-$env:GOOS="linux"; $env:GOARCH="amd64"; go build -o arazzo-designer-cli-linux-amd64 ./cmd/
-```
+# 1. Set variables for Mac (Intel) and build
+$env:GOOS='darwin'; $env:GOARCH='amd64'
+go build -o cli/arazzo-designer-cli-darwin-amd64 ./cmd/
 
+# 2. Set variables for Mac (Apple Silicon / M1 / M2) and build
+$env:GOARCH='arm64'
+go build -o cli/arazzo-designer-cli-darwin-arm64 ./cmd/
+
+```
+Later set it back to windows
+```powershell
+$env:GOOS='windows'; $env:GOARCH='amd64'
+```
 ---
 
 ### 18.6 Building `test_runner.exe` (Optional — Dev Only)
