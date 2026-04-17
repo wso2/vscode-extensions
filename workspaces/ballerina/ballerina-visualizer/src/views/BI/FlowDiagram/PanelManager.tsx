@@ -313,7 +313,7 @@ export function PanelManager(props: PanelManagerProps) {
                     <AddMcpServer
                         agentCallNode={selectedNode}
                         name={selectedMcpToolkitName}
-                        onSave={onClose}
+                        onSave={onSaveAndRefresh ?? onClose}
                         onBack={handleOnBackToAddTool}
                     />
                 );
@@ -324,7 +324,7 @@ export function PanelManager(props: PanelManagerProps) {
                         editMode={true}
                         name={selectedClientName}
                         agentCallNode={selectedNode}
-                        onSave={onClose}
+                        onSave={onSaveAndRefresh ?? onClose}
                     />
                 );
 

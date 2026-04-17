@@ -286,7 +286,7 @@ export function AddConnectionWizard(props: AddConnectionWizardProps) {
                         // clear memory
                         selectedNodeRef.current = undefined;
                         setSavingFormStatus(SavingFormStatus.SUCCESS);
-                        const newConnection = response.artifacts.find((artifact) => artifact.isNew);
+                        const newConnection = response.artifacts.find((artifact) => artifact.isNew) || response.artifacts[0];
                         onClose
                             ? onClose({ recentIdentifier: newConnection.name, artifactType: DIRECTORY_MAP.CONNECTION })
                             : gotoHome();
