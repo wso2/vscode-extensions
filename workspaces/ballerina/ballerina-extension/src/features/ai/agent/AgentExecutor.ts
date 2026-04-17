@@ -272,7 +272,10 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             const loginMethod = await getLoginMethod();
             const model = await getAnthropicClient(ANTHROPIC_SONNET_4);
 
-            const userMessageContent = getUserPrompt(params, tempProjectPath, projects);
+            // Code map is fetched at query submission time in index.ts generateAgent
+            const codeMapMarkdown = this.config.codeMapMarkdown;
+
+            const userMessageContent = getUserPrompt(params, tempProjectPath, projects, codeMapMarkdown);
 
             // Estimate fixed overhead (system prompt + codebase) to decide if compaction is viable
             const systemPromptText = getSystemPrompt(projects, params.operationType);
@@ -295,39 +298,7 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             const chatHistory = this.getChatHistory();
             console.log(`[AgentExecutor] Using ${chatHistory.length} chat history messages`);
 
-            // 5. Fetch code map markdown from Language Server
-            // Bind the authenticated model to the compaction manager
-            compactionManager.bindModel(model);
-
-            // Code map is fetched at query submission time in index.ts generateAgent
-            const codeMapMarkdown = this.config.codeMapMarkdown;
-
-            const userMessageContent = getUserPrompt(params, tempProjectPath, projects, codeMapMarkdown);
-
-            // PRE-TURN compaction: compact if context is already above threshold
-            // failures are handled gracefully inside checkAndCompact (returns without throwing)
-            // abortSignal ensures the summarization LLM call is also cancelled on user abort
-            await compactionManager.checkAndCompact(
-                workspaceId,
-                threadId,
-                projectState,
-                this.config.abortController.signal,
-                this.config.eventHandler,
-                [ { role: "user", content: userMessageContent } ]
-            );
-
-            // 3. Add generation to chat storage (if enabled)
-            this.addGeneration(params.usecase, {
-                isPlanMode: params.isPlanMode,
-                operationType: params.operationType,
-                generationType: 'agent',
-            });
-
-            // 4. Get chat history from storage (if enabled) — AFTER pre-turn compaction
-            const chatHistory = this.getChatHistory();
-            console.log(`[AgentExecutor] Using ${chatHistory.length} chat history messages`);
-
-            // 6. Build LLM messages with history
+            // 5. Build LLM messages with history
             const historyMessages = populateHistoryForAgent(chatHistory);
             const cacheOptions = await getProviderCacheControl();
 
