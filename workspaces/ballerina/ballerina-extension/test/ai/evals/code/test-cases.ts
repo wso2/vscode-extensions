@@ -365,6 +365,138 @@ export const langlibTestCases = [
 //  }
 ];
 
+// Code Indexing test cases for single packages existing codebase - Basic common prompts
+export const codeIndexingTestCasesForSinglePackage = [
+{
+  prompt: "Update calculate total function to accept an optional discount percentage and apply it to the final total. Also add a discount field to make sure it's used where relevant.", // keyword that already exists in the bal-md
+  projectPath: "simple_order_management_system",
+},
+{
+  prompt: "Refactor the delete order id endpoint to add rate limiting so that each client can only make 100 requests per minute.", // unrelevant prompt
+  projectPath: "simple_order_management_system"
+},
+{
+  prompt: "Add comments to every resource function.", // common prompt
+  projectPath: "simple_order_management_system"
+},
+{
+  prompt: "How to write a ballerina integration using salesforce connector to fetch account details and log them?", // over engineered prompt
+  projectPath: "simple_order_management_system"
+},
+{
+  prompt: "Rename the process lead function name into isLeadAllowed", // refactor function name
+  projectPath: "salesforce-lead-conversion-slack-notification"
+},
+{
+  prompt: "Can you rename the dinner request record name to DodMealRequest", // refactor record name
+  projectPath: "menu-app"
+},
+{
+  prompt: "Can you merge the get dinner req by email and get dinner req by id function into one?", // merger two components
+  projectPath: "menu-app"
+},
+{
+  prompt: "Can you explain how the authentication works in here?", // ask for explanation
+  projectPath: "menu-app"
+},
+{
+  prompt: "can you convert the post dinner endpoint to a GraphQL mutation? keep all the logic the same, just change it to work with GraphQL", // rest to GraphQL
+  projectPath: "menu-app"
+},
+{
+  prompt: "can you rename the customjwtpayload type to UserJwtClaims, rename the email field to userEmail and groups field to roles", // refactor type and field names and usages
+  projectPath: "menu-app"
+},
+{
+  prompt: "When a dinner request is cancelled, nothing records when it happened. Add a nullable cancellation timestamp to the dinner request type across all packages that define it, populate it during the cancel flow, and persist it to both the database and the sheet row before deletion.", // add new feature
+  projectPath: "menu-app"
+},
+{
+  prompt: "Delete the lunch feedback feature entirely as it is no longer being used", // delete a feature
+  projectPath: "menu-app"
+},
+{
+  prompt: "Delete the job role field from the employee record", // delete a field
+  projectPath: "menu-app",
+},
+{
+  prompt: "I want to add a maximum booking limit on dinner requests so once it is reached for a given date any new requests get rejected, the limit should be configurable.", // add new feature
+  projectPath: "menu-app"
+},
+{
+  prompt: "We're moving away from syncing dinner orders to Google Sheets, remove the sheet sync from the dinner flow so requests only get saved to the database.", // delete a feature
+  projectPath: "menu-app"
+},
+{
+  prompt: "Can you convert the employee data fetch from GraphQL to a REST call, we are deprecating the GraphQL people service.", // change code logic
+  projectPath: "menu-app"
+}
+];
+
+// Code Indexing test cases for workspace existing codebase
+export const codeIndexingTestCasesForWorkspace = [
+{
+  prompt: "When we confirm an order, the payment method is accepted as any arbitrary string which means invalid values can slip through. Update the existing payment record type to replace the plain string field with a proper enum that restricts it to a fixed set of accepted methods like credit card, debit card, cash, and wallet.", // chnage the existing logic
+  projectPath: "workspace_order_management_system",
+},
+{
+  prompt: "I want to add a gift wrapping option to the checkout process. When a customer checks out, they should be able to indicate that they want their order gift wrapped, and a small fixed surcharge should be added to the total. This choice should be visible in the final order result and mentioned in the confirmation email the customer receives.", // add new feature
+  projectPath: "microservices"
+},
+{
+  prompt: "I want to update the way product recommendations work so that instead of just returning a list of product identifiers, the service returns the full product details like name, description, and price directly in the response. This means the frontend won't need to make extra calls to look up each recommended product separately, so the shared response structure between the recommendation service and its callers will need to be updated too.", // change the existing logic
+  projectPath: "microservices"
+},
+{
+  prompt: "I want to remove the advertising feature from the platform entirely. This means stripping out the logic the frontend uses to fetch and display ads on the home page and product detail page, removing the ad fields from the response structures those pages return, and cleaning up all the shared type definitions and service client code that was used to communicate with the ad backend.", // delete a feature
+  projectPath: "microservices"
+},
+{
+  prompt: "I want to change how product search works, right now it does a plain text match against product names and descriptions, but I want it to instead filter by category so users can pass in one or more category identifiers and get back only products that belong to those categories. The search request structure, the matching logic, and the way the frontend sends search queries all need to be updated to reflect this new approach.", // change the existing logic
+  projectPath: "microservices"
+},
+{
+  prompt: "I want to add tests for the payment service to cover invalid card scenarios that aren't tested at all right now. We only have a test for a successful charge with a valid card, but there's nothing checking that the service correctly rejects an expired card or a card number that fails checksum validation.", // add new tests
+  projectPath: "microservices"
+},
+{
+  prompt: "I want to update the cart test to also verify that emptying the cart actually works.", // change the existing test logic
+  projectPath: "microservices"
+}
+];
+
+// Code Indexing test cases for semantic errors in existing codebase
+export const testCasesForCodeIndexingSemanticErrors = [
+  {
+    prompt: "I want to add a retry mechanism to the publish orders event function , if the kafka producer send call logic fails, it should retry up to 3 times before returning an error. Can you update that function to include the retry logic?", // add new feature
+    projectPath: "simple_order_management_system_with_semantic_errors"
+  },
+  {
+    prompt: "Hey, I deployed my order service and when I try to create an order, the Kafka publish step keeps failing. I can see in the logs that the publish order event function is throwing an error but I'm not sure why. Can you check and fix this?", // ask to fix the bug
+    projectPath: "simple_order_management_system_with_semantic_errors"
+  },
+  {
+    prompt: "Can you add a new field called notes to each order line in the order creation payload so that customers can add special instructions per line item??", // change the existing logic
+    projectPath: "simple_order_management_system_with_semantic_errors"
+  }
+];
+
+// Code Indexing test cases for syntax errors in existing codebase
+export const testCasesForCodeIndexingSyntaxErrors = [
+  {
+    prompt: "I want to update the order retrieval logic so that when fetching an order by ID, it also returns the total number of order lines as a separate field in the response.",
+    projectPath: "simple_order_management_system_with_syntax_errors"
+  },
+  {
+    prompt: "Something is wrong with my project, bal build keeps failing. I touched a few files but I can't figure out what I broke. Can you fixed", // ask to fix the bug
+    projectPath: "simple_order_management_system_with_syntax_errors"
+  },
+  {
+    prompt: "Can you fix the syntax errors in the functions.bal file?",
+    projectPath: "simple_order_management_system_with_syntax_errors"
+  }
+];
+
 export let testCases = [];
 testCases.push(...initialTestCases);
 testCases.push(...httpTestCases);
@@ -372,3 +504,7 @@ testCases.push(...textEditSpecializedTestCases);
 testCases.push(...testCasesForExistingProject);
 testCases.push(...testCasesForExistingSemanticErrors);
 testCases.push(...langlibTestCases);
+testCases.push(...codeIndexingTestCasesForSinglePackage);
+testCases.push(...codeIndexingTestCasesForWorkspace);
+testCases.push(...testCasesForCodeIndexingSemanticErrors);
+testCases.push(...testCasesForCodeIndexingSyntaxErrors);
