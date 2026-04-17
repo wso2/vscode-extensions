@@ -20,7 +20,8 @@
     "onUri"
   ],
   "extensionDependencies": [
-    "wso2.wso2-platform"
+    "wso2.wso2-platform",
+    "wso2.wso2-integrator"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -227,21 +228,12 @@
         }
       }
     },
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "micro-integrator",
-          "title": "WSO2 Integrator: MI",
-          "icon": "assets/wso2-micro-integrator-icon.svg"
-        }
-      ]
-    },
     "views": {
-      "micro-integrator": [
+      "wso2-integrator": [
         {
           "id": "MI.project-explorer",
-          "name": "Project Explorer",
-          "when": "!wso2-integrator.explorer.visible"
+          "name": "MI Project Explorer",
+          "when": "MI.projectType == 'miProject' || MI.projectType == 'oldProject' || MI.projectType == 'oldWorkspace'"
         }
       ],
       "test": [
@@ -256,22 +248,22 @@
       {
         "view": "MI.project-explorer",
         "contents": "Loading...",
-        "when": "!wso2-integrator.explorer.visible && (MI.status != 'unknownProject' && MI.status != 'projectLoaded' && MI.status != 'disabled' && MI.status != 'notSetUp')"
+        "when": "MI.status != 'unknownProject' && MI.status != 'projectLoaded' && MI.status != 'disabled' && MI.status != 'notSetUp'"
       },
       {
         "view": "MI.project-explorer",
         "contents": "Welcome to WSO2 Integrator: MI. You can open a folder containing a MI project or create a new project.\n[Create New Project](command:MI.project-explorer.create-project)\n[Open MI Project](command:MI.openProject)\n[Import from CApp](command:MI.importProjectFromCapp)\nTo learn more about how to use WSO2 Integrator: MI in VS Code, [read our docs](https://mi.docs.wso2.com/en/4.3.0/develop/mi-for-vscode/mi-for-vscode-overview/).",
-        "when": "!wso2-integrator.explorer.visible && MI.status == 'unknownProject'"
+        "when": "MI.status == 'unknownProject'"
       },
       {
         "view": "MI.project-explorer",
         "contents": "Some errors occurred while activating the extension. Please check the output channel for more information.",
-        "when": "!wso2-integrator.explorer.visible && MI.status == 'disabled'"
+        "when": "MI.status == 'disabled'"
       },
       {
         "view": "MI.project-explorer",
         "contents": "WSO2 Integrator: MI is not set up. Please set up the MI server and Java home to continue.",
-        "when": "!wso2-integrator.explorer.visible && MI.status == 'notSetUp'"
+        "when": "MI.status == 'notSetUp'"
       },
       {
         "view": "wso2-integrator.explorer",
@@ -957,7 +949,7 @@
         },
         {
           "command": "MI.project-explorer.delete",
-          "when": "view == MI.project-explorer && viewItem == api || viewItem == resource || viewItem == endpoint || viewItem == sequence || viewItem == proxy-service || viewItem == inboundEndpoint || viewItem == messageStore || viewItem == message-processor || viewItem == task || viewItem == localEntry || viewItem == template  || viewItem == dataSource || viewItem == data-service || viewItem == data-mapper || viewItem == connection || viewItem == registry-with-metadata || viewItem == registry-without-metadata || viewItem == class-mediator || viewItem == ballerina-module || viewItem == idp-schema",
+          "when": "view == MI.project-explorer && (viewItem == api || viewItem == resource || viewItem == endpoint || viewItem == sequence || viewItem == proxy-service || viewItem == inboundEndpoint || viewItem == messageStore || viewItem == message-processor || viewItem == task || viewItem == localEntry || viewItem == template  || viewItem == dataSource || viewItem == data-service || viewItem == data-mapper || viewItem == connection || viewItem == registry-with-metadata || viewItem == registry-without-metadata || viewItem == class-mediator || viewItem == ballerina-module || viewItem == idp-schema)",
           "key": "delete"
         },
         {
