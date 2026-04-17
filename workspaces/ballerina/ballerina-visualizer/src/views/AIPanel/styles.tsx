@@ -44,7 +44,6 @@ export const Header = styled.header({
 export const HeaderButtons = styled.div({
     display: "flex",
     justifyContent: "flex-end",
-    gap: "4px",
     marginRight: "10px",
 });
 

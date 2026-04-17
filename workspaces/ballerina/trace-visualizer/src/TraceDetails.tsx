@@ -62,7 +62,7 @@ const Container = styled.div`
     color: var(--vscode-editor-foreground);
     font-size: 13px;
     line-height: 1.5;
-    height: 100%;
+    height: 100vh;
     overflow: hidden;
 `;
 

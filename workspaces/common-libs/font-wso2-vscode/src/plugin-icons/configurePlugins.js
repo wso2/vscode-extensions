@@ -15,7 +15,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-const { log } = require("console");
 const fs = require("fs");
 const path = require("path");
 
@@ -82,6 +81,18 @@ if (fs.existsSync(configPath)) {
 const wso2FontPath = "./resources/font-wso2-vscode/dist/wso2-vscode.woff";
 const codiconFontPath = "./resources/codicons/codicon.ttf";
 
+// Define a function to extract content value from Font CSS
+function extractWso2FontContentValue(iconName) {
+  const classRegex = new RegExp(`\\.fw-${iconName}:before\\s*{\\s*content:\\s*"\\\\([a-fA-F0-9]+)";\\s*}`, 'g');
+  const match = classRegex.exec(wso2FontCss);
+
+  if (match && match[1]) {
+    return `\\${match[1]}`;
+  } else {
+    return null;
+  }
+}
+
 // Define a function to extract content value from Codicon CSS
 function extractCodiconContentValue(iconName) {
   const classRegex = new RegExp(`\\.codicon-${iconName}:before\\s*{\\s*content:\\s*"\\\\([a-zA-Z0-9]+)"\\s*}`, 'g');
@@ -94,22 +105,27 @@ function extractCodiconContentValue(iconName) {
 }
             
 // Define a function to generate icons contribution
-function generateWso2FontContribution(selectedIconJson, extensionName) {
+function generateWso2FontContribution(selectedIconJson) {
   let iconsContribution = {};
   for (const selectedIconName of selectedIconJson) {
-    const fontName = selectedIconName.replace('.svg', '');
-    const codepoint = wso2FontJson[fontName];
-
-    if (codepoint !== undefined) {
-      iconsContribution[`${extensionName ? `${extensionName}-` : 'distro-'}${fontName}`] = {
-        description: fontName,
-        default: {
-          fontPath: wso2FontPath,
-          fontCharacter: `\\${codepoint.toString(16)}`
+    for (const fontName in wso2FontJson) {
+      if (selectedIconName === `${fontName}.svg`) {
+        const contentValue = extractWso2FontContentValue(fontName);
+  
+        if (contentValue) {
+          const iconDescription = fontName;
+          const iconCharacter = contentValue;
+    
+          iconsContribution[`distro-${fontName}`] = {
+            description: iconDescription,
+            default: {
+              fontPath: wso2FontPath,
+              fontCharacter: iconCharacter
+            }
+          };
+          break;
         }
-      };
-    } else {
-      console.warn(`Icon not found in wso2-vscode font: ${fontName}`);
+      }
     }
   }
   return iconsContribution;
@@ -136,17 +152,17 @@ function generateCodiconContribution(selectedIconJson) {
   return iconsContribution;
 }
 
-function generateFontIconsContribution(extIcons, extensionName) {
+function generateFontIconsContribution(extIcons) {
+  if (!extIcons) {
+    return {};
+  }
+
   const wso2FontIcons = extIcons.wso2Font;
   const codiconIcons = extIcons.codiconFont;
-  let wso2FontContributions;
-  let codiconContributions;
-  if (wso2FontIcons) {
-    wso2FontContributions = generateWso2FontContribution(wso2FontIcons, extensionName);
-  }
-  if (codiconIcons) {
-    codiconContributions = generateCodiconContribution(codiconIcons);
-  }
+
+  const wso2FontContributions = wso2FontIcons ? generateWso2FontContribution(wso2FontIcons) : {};
+  const codiconContributions = codiconIcons ? generateCodiconContribution(codiconIcons) : {};
+
   const mergedContributions = {
     ...wso2FontContributions,
     ...codiconContributions,
@@ -181,9 +197,9 @@ const ballerinaIcons = config.ballerinaExtIcons || [];
 const choreoIcons = config.choreoExtIcons || [];
 const mIIcons = config.mIExtIcons || [];
 
-const ballerinaIconsContribution = generateFontIconsContribution(ballerinaIcons, "ballerina");
-const choreoIconsContribution = generateFontIconsContribution(choreoIcons, "choreo");
-const mIIconsContribution = generateFontIconsContribution(mIIcons, "mi");
+const ballerinaIconsContribution = generateFontIconsContribution(ballerinaIcons);
+const choreoIconsContribution = generateFontIconsContribution(choreoIcons);
+const mIIconsContribution = generateFontIconsContribution(mIIcons);
 
 // Merge the generated icons contribution into the existing package.json contributes
 const choreoExtPackageJsonPath = path.join(__dirname, "..", "..", "..", "..", "choreo", "choreo-extension", "package.json");

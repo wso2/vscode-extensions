@@ -16,10 +16,11 @@
  * under the License.
  */
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { TraceData } from "./index";
 import { TraceDetails } from "./TraceDetails";
 import { SessionOverview } from "./SessionOverview";
+import { ErrorBoundary } from "@wso2/ui-toolkit/lib/components/ErrorBoundary/ErrorBoundary";
 
 declare global {
     interface Window {
@@ -56,8 +57,6 @@ export function TraceVisualizer({
     useEffect(() => {
         if (initialTraceData) {
             setCurrentTraceData(initialTraceData);
-            setSessionTraces([]);
-            setCurrentSessionId(undefined);
             setViewMode('details');
         }
     }, [initialTraceData]);
@@ -101,12 +100,6 @@ export function TraceVisualizer({
     }, []);
 
     const handleViewSession = () => {
-        // If we already have session traces loaded, just switch back to overview
-        if (sessionTraces.length > 0 && currentSessionId) {
-            setViewMode('overview');
-            return;
-        }
-
         if (!currentTraceData) return;
 
         // Extract session ID from the current trace
@@ -120,6 +113,7 @@ export function TraceVisualizer({
         }
 
         if (extractedSessionId) {
+            // Request session traces from extension
             if (window.vscode) {
                 window.vscode.postMessage({
                     command: 'requestSessionTraces',

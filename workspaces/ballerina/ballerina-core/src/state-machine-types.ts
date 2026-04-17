@@ -21,7 +21,7 @@ import { NodePosition, STNode } from "@wso2/syntax-tree";
 import { Command } from "./interfaces/ai-panel";
 import { LinePosition } from "./interfaces/common";
 import { ProjectInfo, ProjectMigrationResult, Type } from "./interfaces/extended-lang-client";
-import { CodeData, DIRECTORY_MAP, FlowNode, ProjectStructureArtifactResponse, ProjectStructureResponse } from "./interfaces/bi";
+import { CodeData, DIRECTORY_MAP, ProjectStructureArtifactResponse, ProjectStructureResponse } from "./interfaces/bi";
 import { DiagnosticEntry, DocumentationGeneratorIntermediaryState, SourceFile, CodeContext, FileAttatchment } from "./rpc-types/ai-panel/interfaces";
 
 export type MachineStateValue =
@@ -369,12 +369,11 @@ export type ChatNotify =
     | GeneratedSourcesEvent
     | ConnectorGenerationNotification
     | ConfigurationCollectionEvent
-    | ClarifyEvent
     | ChatComponentEvent
     | PlanUpdated
     | CompactionStartEvent
     | CompactionEndEvent
-    | CompactionDisabledEvent
+    | CompactionFailedEvent
     | ConfigChangeEvent;
 
 export interface ChatStart {
@@ -448,7 +447,6 @@ export interface EvalsToolResult {
 export interface UsageMetricsEvent {
     type: "usage_metrics";
     isRepair?: boolean;
-    model?: string;
     usage: {
         inputTokens: number;
         cacheCreationInputTokens: number;
@@ -459,7 +457,6 @@ export interface UsageMetricsEvent {
         systemInstructions: number;
         toolDefinitions: number;
         reservedOutput: number;
-        files: number;
         messages: number;
         toolResults: number;
     };
@@ -472,7 +469,6 @@ export interface TaskApprovalRequest {
     tasks: Task[];
     taskDescription?: string;
     message?: string;
-    autoApproved?: boolean;
 }
 
 export interface WebToolApprovalEvent {
@@ -531,21 +527,6 @@ export interface ConfigurationCollectionEvent {
     };
 }
 
-export interface ClarifyQuestion {
-    question: string;
-    tabLabel: string;
-    options: Array<{ label: string; value: string }>;
-    selectionType: "single" | "multiple";
-}
-
-export interface ClarifyEvent {
-    type: "clarify_event";
-    requestId: string;
-    stage: "asking" | "answered" | "skipped";
-    questions: ClarifyQuestion[];
-    answers?: Array<{ question: string; answers: string[] }>;
-}
-
 export interface ChatComponentEvent {
     type: "chat_component";
     id?: string;
@@ -559,24 +540,24 @@ export interface PlanUpdated {
 }
 
 // ==================================
-// Server-side Compaction Events
+// Mid-Stream Compaction Events
 // ==================================
 
-/** Fired when the server starts compacting (detected mid-stream via providerMetadata) */
+/** Fired when mid-stream compaction starts (stream naturally pauses) */
 export interface CompactionStartEvent {
     type: 'compaction_start';
 }
 
-/** Fired when server-side compaction completes; carries the extracted summary */
+/** Fired when mid-stream compaction completes and streaming resumes */
 export interface CompactionEndEvent {
     type: 'compaction_end';
-    /** Extracted <summary> content from the compaction block */
-    summary?: string;
+    metadata?: GenerationCompactionMetadata;
 }
 
-/** Fired once per session when compaction is disabled because the codebase floor exceeds the trigger */
-export interface CompactionDisabledEvent {
-    type: 'compaction_disabled';
+/** Fired when mid-stream compaction fails and context cannot be reduced */
+export interface CompactionFailedEvent {
+    type: 'compaction_failed';
+    reason: string;
 }
 
 /** Fired when a VS Code configuration setting relevant to the AI panel changes */
@@ -825,8 +806,9 @@ export enum TaskStatus {
 
 export enum TaskTypes {
     SERVICE_DESIGN = "service_design",
+    CONNECTIONS_INIT = "connections_init",
     IMPLEMENTATION = "implementation",
-    EXECUTION = "execution"
+    TESTING = "testing"
 }
 
 /**

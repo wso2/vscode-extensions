@@ -92,9 +92,6 @@ export class StringTemplateEditorConfig extends ChipExpressionEditorDefaultConfi
         if (value === '') {
             return value;
         }
-        if (value.trim().startsWith('"') && value.trim().endsWith('"')) {
-            return `${prefix}${value.trim().slice(1, -1)}${suffix}`;
-        }
         if (value.trim().startsWith(prefix) && value.trim().endsWith(suffix)) {
             return value;
         }
@@ -105,10 +102,7 @@ export class StringTemplateEditorConfig extends ChipExpressionEditorDefaultConfi
         if (!expValue) return true;
         const suffix = this.getSerializationSuffix();
         const prefix = this.getSerializationPrefix();
-        return (
-            (expValue.trim().startsWith(prefix) && expValue.trim().endsWith(suffix)) ||
-            (expValue.trim().startsWith('"') && expValue.trim().endsWith('"')) 
-        )
+        return (expValue.trim().startsWith(prefix) && expValue.trim().endsWith(suffix))
     }
 }
 

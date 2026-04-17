@@ -1033,14 +1033,14 @@
         "description": "design-view",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f1c5"
+          "fontCharacter": "\\f1bb"
         }
       },
       "mi-build-package": {
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f19d"
+          "fontCharacter": "\\f193"
         }
       }
     }
@@ -1121,12 +1121,14 @@
     "@wso2/playwright-vscode-tester": "workspace:*",
     "adm-zip": "0.5.16",
     "axios": "1.15.0",
+    "canonicalize": "2.1.0",
     "copyfiles": "2.4.1",
     "cors-anywhere": "0.4.4",
     "dotenv": "16.5.0",
     "fast-xml-parser": "5.2.3",
     "find-process": "1.4.10",
     "fs-extra": "11.3.0",
+    "glob": "11.1.0",
     "handlebars": "4.7.9",
     "json-schema": "0.4.0",
     "json-schema-to-ts": "3.1.1",

@@ -94,7 +94,6 @@ import {
     getConfigFileUri,
     hasContextYaml,
     processOpenApiWithApiKeyAuth,
-    ProxyConfigEnvVars,
     Templates,
 } from "./platform-utils";
 import { debounce } from "lodash";
@@ -577,11 +576,11 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
         if (devantProxyResp?.proxyServerPort) {
             debugConfig.env = { ...(debugConfig.env || {}), ...devantProxyResp.envVars };
             if (devantProxyResp.requiresProxy) {
-                debugConfig.env[ProxyConfigEnvVars.proxyHost.envName] = "127.0.0.1";
-                debugConfig.env[ProxyConfigEnvVars.proxyPort.envName] = `${devantProxyResp.proxyServerPort}`;
+                debugConfig.env.BAL_CONFIG_VAR_DEVANTPROXYHOST = "127.0.0.1";
+                debugConfig.env.BAL_CONFIG_VAR_DEVANTPROXYPORT = `${devantProxyResp.proxyServerPort}`;
             } else {
-                delete debugConfig.env[ProxyConfigEnvVars.proxyHost.envName];
-                delete debugConfig.env[ProxyConfigEnvVars.proxyPort.envName];
+                delete debugConfig.env.BAL_CONFIG_VAR_DEVANTPROXYHOST;
+                delete debugConfig.env.BAL_CONFIG_VAR_DEVANTPROXYPORT;
             }
 
             const disposable = vscode.debug.onDidTerminateDebugSession((session) => {
@@ -610,7 +609,7 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
                     (member) =>
                         STKindChecker.isModuleVarDecl(member) &&
                         (member.typedBindingPattern?.bindingPattern as CaptureBindingPattern)?.variableName?.value ===
-                            ProxyConfigEnvVars.proxyConfig.varName,
+                            "wso2CloudProxyConfig",
                 )
             ) {
                 requiresProxy = true;
@@ -659,7 +658,7 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
                 const resp = await window.withProgress(
                     {
                         location: vscode.ProgressLocation.Notification,
-                        title: "Connecting to WSO2 Cloud before running/debugging the application...",
+                        title: "Connecting to Devant before running/debugging the application...",
                     },
                     () =>
                         platformExt?.startProxyServer({

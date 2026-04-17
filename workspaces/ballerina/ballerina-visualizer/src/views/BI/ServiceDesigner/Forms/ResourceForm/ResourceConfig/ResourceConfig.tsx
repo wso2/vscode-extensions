@@ -20,7 +20,7 @@ import { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { ConfigProperties, getPrimaryInputType, LineRange, RecordTypeField } from '@wso2/ballerina-core';
 import { FormField, FormValues } from '@wso2/ballerina-side-panel';
-import ArtifactForm from '../../../../Forms/ArtifactForm';
+import FormGeneratorNew from '../../../../Forms/FormGeneratorNew';
 import { useRpcContext } from '@wso2/ballerina-rpc-client';
 
 const ResourceConfigContainer = styled.div`
@@ -94,7 +94,7 @@ export function ResourceConfig(props: ResourceConfigProps) {
 	return (
 		<ResourceConfigContainer>
 			{configFields.length > 0 && filePath && targetLineRange && !checkReadOnly(configFields) &&
-				<ArtifactForm
+				<FormGeneratorNew
 					fileName={filePath}
 					fields={configFields}
 					targetLineRange={targetLineRange}

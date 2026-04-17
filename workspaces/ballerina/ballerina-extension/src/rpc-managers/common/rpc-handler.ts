@@ -37,7 +37,6 @@ import {
     getBallerinaDiagnostics,
     getCurrentProjectTomlValues,
     getDefaultOrgName,
-    getPreferredTryItOption,
     getTypeCompletions,
     getWorkspaceFiles,
     getWorkspaceRoot,
@@ -51,7 +50,6 @@ import {
     SampleDownloadRequest,
     selectFileOrDirPath,
     selectFileOrFolderPath,
-    setPreferredTryItOption,
     showErrorMessage,
     ShowInfoModalRequest,
     showQuickPick,
@@ -86,6 +84,4 @@ export function registerCommonRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getDefaultOrgName, () => rpcManger.getDefaultOrgName());
     messenger.onRequest(publishToCentral, () => rpcManger.publishToCentral());
     messenger.onRequest(hasCentralPATConfigured, () => rpcManger.hasCentralPATConfigured());
-    messenger.onRequest(getPreferredTryItOption, () => rpcManger.getPreferredTryItOption());
-    messenger.onRequest(setPreferredTryItOption, (option: string) => rpcManger.setPreferredTryItOption(option));
 }

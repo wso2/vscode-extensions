@@ -21,7 +21,7 @@ import styled from '@emotion/styled';
 import { ConfigVariable, EVENT_TYPE, FlowNode, MACHINE_VIEW } from '@wso2/ballerina-core';
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { PanelContainer, FormValues } from '@wso2/ballerina-side-panel';
-import FlowNodeForm from '../../Forms/FlowNodeForm';
+import FormGenerator from '../../Forms/FormGenerator';
 import { useState } from 'react';
 
 namespace S {
@@ -94,7 +94,7 @@ export function EditForm(props: ConfigFormProps) {
                 show={isOpen}
                 onClose={onClose ? onClose : goToViewConfig}
             >
-                <FlowNodeForm
+                <FormGenerator
                     fileName={filename}
                     node={variable}
                     targetLineRange={{

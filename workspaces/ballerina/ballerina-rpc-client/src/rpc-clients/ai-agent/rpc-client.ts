@@ -53,7 +53,6 @@ import {
     updateAIAgentTools,
     updateMCPToolKit,
     getPackageVersion,
-    fixMissingImports,
     AIGetPackageVersionResponse,
     AIGetPackageVersionRequest
 } from "@wso2/ballerina-core";
@@ -101,10 +100,6 @@ export class AiAgentRpcClient implements AIAgentAPI {
 
     genTool(params: AIGentToolsRequest): Promise<AIGentToolsResponse> {
         return this._messenger.sendRequest(genTool, HOST_EXTENSION, params);
-    }
-
-    fixMissingImports(): Promise<void> {
-        return this._messenger.sendRequest(fixMissingImports, HOST_EXTENSION);
     }
 
     getPackageVersion(params: AIGetPackageVersionRequest): Promise<AIGetPackageVersionResponse> {

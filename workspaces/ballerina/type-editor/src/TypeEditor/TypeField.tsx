@@ -197,16 +197,13 @@ export const TypeField = forwardRef<HTMLInputElement, TypeFieldProps>((props, re
 
     const handleTypeItemClick = async (item: TypeHelperItem): Promise<string> => {
         const response = await onTypeItemClick(item) as AddImportItemResponse;
-        if (response) {
-            if (response.prefix && response.moduleId) {
-                const importStatement = {
-                    [response.prefix]: response.moduleId
-                };
-                onUpdateImports(importStatement);
+        if (response.prefix && response.moduleId) {
+            const importStatement = {
+                [response.prefix]: response.moduleId
             }
-            return response.template;
+            onUpdateImports(importStatement);
         }
-        return "";
+        return response.template;
     };
 
     const handleTypeCreate = (typeName?: string) => {

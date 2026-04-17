@@ -22,9 +22,10 @@ import { Position, Range, Uri, workspace, WorkspaceEdit } from 'vscode';
 import path from "path";
 import * as fs from 'fs';
 import { AIChatError } from "./utils/errors";
-import { generateMappingInstructionFromFiles, processDataMapperInput } from "../../features/ai/data-mapper/context-api";
+import { processDataMapperInput } from "../../features/ai/data-mapper/context-api";
 import { DataMapperRequest, DataMapperResponse, FileData, RepairedMappings } from "../../features/ai/data-mapper/types";
 import { getAskResponse } from "../../features/ai/ask/index";
+import { MappingFileRecord} from "./types";
 import { generateAutoMappings, generateRepairCode } from "../../features/ai/data-mapper/index";
 import { ArtifactNotificationHandler, ArtifactsUpdated } from "../../utils/project-artifacts-handler";
 import { CopilotEventHandler } from "../../features/ai/utils/events";
@@ -155,13 +156,18 @@ export async function enrichModelWithMappingInstructions(mappingInstructionFiles
         mappingInstructionFiles.map(file => convertAttachmentToFileData(file))
     );
 
-    const mappingInstructions = await generateMappingInstructionFromFiles(fileDataArray);
+    const requestParams: DataMapperRequest = {
+        files: fileDataArray,
+        processType: "mapping_instruction"
+    };
+    const response: DataMapperResponse = await processDataMapperInput(requestParams);
+    let parsedMappingInstructions: MappingFileRecord = JSON.parse(response.fileContent) as MappingFileRecord;
 
     return {
         ...currentDataMapperResponse,
         mappingsModel: {
             ...currentDataMapperResponse.mappingsModel,
-            mapping_fields: mappingInstructions.mapping_fields
+            mapping_fields: parsedMappingInstructions.mapping_fields
         }
     };
 }

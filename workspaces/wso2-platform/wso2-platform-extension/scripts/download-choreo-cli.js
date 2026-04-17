@@ -337,7 +337,7 @@ function extractBinary(archivePath, platform, destDir) {
 
     try {
         if (platform.ext === '.tar.gz') {
-            execSync(`tar -xzf "${archivePath}" -C "${tmpExtractDir}"`, { stdio: 'inherit' });
+            execSync(`tar -xzf '${archivePath}' -C '${tmpExtractDir}'`, { stdio: 'inherit' });
         } else if (platform.ext === '.zip') {
             if (os.platform() === 'win32') {
                 execSync(`powershell.exe -Command "Expand-Archive -Path '${archivePath}' -DestinationPath '${tmpExtractDir}' -Force"`, { stdio: 'inherit' });

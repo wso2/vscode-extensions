@@ -27,7 +27,7 @@ import {
     SectionDivider,
     OptionalSectionsLabel,
 } from "./styles";
-import { CollapsibleSection, ProjectTypeSelector, AdvancedConfigurationSection } from "./components";
+import { CollapsibleSection, ProjectTypeSelector, PackageInfoSection } from "./components";
 import { ProjectFormData } from "./types";
 import { sanitizePackageName, validatePackageName, validateOrgName } from "./utils";
 
@@ -213,7 +213,7 @@ export function ProjectFormFields({
             )}
 
             {/* Ballerina Package Section */}
-            <AdvancedConfigurationSection
+            <PackageInfoSection
                 isExpanded={isPackageInfoExpanded}
                 onToggle={() => setIsPackageInfoExpanded(!isPackageInfoExpanded)}
                 data={{ packageName: formData.packageName, orgName: formData.orgName, version: formData.version }}

@@ -16,14 +16,13 @@
  * under the License.
  */
 
-import React, { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import styled from "@emotion/styled";
 import { Icon } from "@wso2/ui-toolkit";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { BetaSVG } from "../../views/Connectors/Marketplace/BetaSVG";
 import { UndoRedoGroup } from "../UndoRedoGroup";
 import { MACHINE_VIEW } from "@wso2/ballerina-core";
-import { EditableTitle } from "../EditableTitle";
 
 const TitleBarContainer = styled.div`
     display: flex;
@@ -109,20 +108,10 @@ interface TitleBarProps {
     hideUndoRedo?: boolean;
     onBack?: () => void; // Override back functionality
     isBetaFeature?: boolean;
-    onTitleEdit?: (newTitle: string) => Promise<void>;
-    validateTitle?: (value: string) => string;
 }
 
-// Input style overrides to match the TitleBar's Title styled component (20px, 600 weight).
-const TITLE_BAR_INPUT_STYLE: React.CSSProperties = {
-    fontSize: '20px',
-    fontWeight: '600',
-    whiteSpace: 'nowrap',
-    margin: 0,
-};
-
 export function TitleBar(props: TitleBarProps) {
-    const { title, subtitle, subtitleElement, actions, hideBack, hideUndoRedo, onBack, isBetaFeature, onTitleEdit, validateTitle } = props;
+    const { title, subtitle, subtitleElement, actions, hideBack, hideUndoRedo, onBack, isBetaFeature } = props;
     const { rpcClient } = useRpcContext();
 
     const [isDiagramView, setIsDiagramView] = useState(false);
@@ -154,18 +143,7 @@ export function TitleBar(props: TitleBarProps) {
                     </IconButton>
                 )}
                 <TitleSection>
-                    {onTitleEdit ? (
-                        <EditableTitle
-                            title={title}
-                            onCommit={onTitleEdit}
-                            validate={validateTitle}
-                            inputStyle={TITLE_BAR_INPUT_STYLE}
-                        >
-                            <Title>{title}</Title>
-                        </EditableTitle>
-                    ) : (
-                        <Title>{title}</Title>
-                    )}
+                    <Title>{title}</Title>
                     {subtitle && <SubTitle>{subtitle}</SubTitle>}
                     {subtitleElement && subtitleElement}
                 </TitleSection>

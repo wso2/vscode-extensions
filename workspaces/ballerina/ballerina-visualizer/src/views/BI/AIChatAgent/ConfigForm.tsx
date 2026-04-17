@@ -18,9 +18,9 @@
 
 import styled from "@emotion/styled";
 import { FormField, FormImports, FormValues } from "@wso2/ballerina-side-panel";
-import { ArtifactForm } from "../Forms/ArtifactForm";
+import { FormGeneratorNew } from "../Forms/FormGeneratorNew";
 import { getImportsForProperty } from "../../../utils/bi";
-import { LineRange, getPrimaryInputType } from "@wso2/ballerina-core";
+import { LineRange } from "@wso2/ballerina-core";
 
 const Container = styled.div`
     max-width: 600px;
@@ -76,7 +76,7 @@ export function ConfigForm(props: ConfigProps) {
     }
 
     // type field hide
-    const typeField = formFields.find((field) => getPrimaryInputType(field.types)?.fieldType === "TYPE");
+    const typeField = formFields.find((field) => field.key === "type");
     if (typeField) {
         typeField.enabled = false;
     }
@@ -86,7 +86,7 @@ export function ConfigForm(props: ConfigProps) {
             {formFields && formFields.length > 0 && (
                 <FormContainer>
                     {targetLineRange && (
-                        <ArtifactForm
+                        <FormGeneratorNew
                             fileName={fileName}
                             targetLineRange={targetLineRange}
                             fields={formFields}

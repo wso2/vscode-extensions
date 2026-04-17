@@ -23,7 +23,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { BallerinaExtension } from "src/core";
 import Handlebars from "handlebars";
-import { clientManager, findRunningBallerinaProcesses, handleError, waitForBallerinaService } from "./utils";
+import { clientManager, findRunningBallerinaProcesses, handleError, HTTPYAC_CONFIG_TEMPLATE, TRYIT_TEMPLATE, waitForBallerinaService } from "./utils";
 import { buildHurlCellsFromOASSpec } from "./hurl-builder";
 import { BIDesignModelResponse, EVENT_TYPE, MACHINE_VIEW, OpenAPISpec, ProjectInfo } from "@wso2/ballerina-core";
 import { getProjectWorkingDirectory } from "../../utils/file-utils";
@@ -38,8 +38,9 @@ import { TracerMachine } from "../tracing";
 
 // File constants
 const FILE_NAMES = {
-    TRYIT: 'TryIt.hurl',
-    ERROR_LOG: 'tryit_errors.log'
+    TRYIT: 'tryit.http',
+    HTTPYAC_CONFIG: 'httpyac.config.js',
+    ERROR_LOG: 'httpyac_errors.log'
 };
 
 let errorLogWatcher: FileSystemWatcher | undefined;
@@ -57,15 +58,60 @@ export function activateTryItCommand(ballerinaExtInstance: BallerinaExtension) {
         clientManager.setClient(ballerinaExtInstance.langClient);
 
         // Register try it command handler
-        const disposable = commands.registerCommand(PALETTE_COMMANDS.TRY_IT, async (withNotice: boolean = false, resourceMetadata?: ResourceMetadata, serviceMetadata?: ServiceMetadata, filePath?: string, autoRun?: boolean) => {
+        const disposable = commands.registerCommand(PALETTE_COMMANDS.TRY_IT, async (withNotice: boolean = false, resourceMetadata?: ResourceMetadata, serviceMetadata?: ServiceMetadata, filePath?: string) => {
             try {
-                await openTryItView(withNotice, resourceMetadata, serviceMetadata, filePath, autoRun);
+                await openTryItView(withNotice, resourceMetadata, serviceMetadata, filePath);
             } catch (error) {
                 handleError(error, "Opening Try It view failed");
             }
         });
 
-        return Disposable.from(disposable, {
+        // Command: start Ballerina service (no old Try It UI), then open WSO2 HTTP Client notebook
+        const startServiceDisposable = commands.registerCommand('ballerina.startService',
+            async (
+                content?: string | object[] | { oasSpec: any; baseUrl: string; serviceName: string; resourceMetadata?: { methodValue: string; pathValue: string } },
+                options?: { savable?: boolean },
+                serviceMetadata?: ServiceMetadata,
+                filePath?: string
+            ) => {
+                try {
+                    const projectAndServices = await getProjectPathAndServices(serviceMetadata, filePath);
+                    if (!projectAndServices) { return; }
+
+                    const { projectPath, services } = projectAndServices;
+                    const processesRunning = await checkBallerinaProcessRunning(projectPath);
+                    if (!processesRunning) { return; }
+
+                    if (content) {
+                        const savePath = path.join(projectPath, 'target', 'TryIt.hurl');
+                        if (isOasDescriptor(content)) {
+                            // Resolve the actual running service port (same logic as Code Lens Try It)
+                            let descriptor = content;
+                            try {
+                                const matchingService = services.find(s =>
+                                    s.basePath === serviceMetadata?.basePath &&
+                                    (!serviceMetadata?.listener || compareListeners(s.listener, serviceMetadata.listener))
+                                ) ?? (services.length === 1 ? services[0] : undefined);
+                                if (matchingService) {
+                                    const actualPort = await getServicePort(projectPath, matchingService, content.oasSpec);
+                                    const bp = matchingService.basePath === '/' ? '' : sanitizePath(matchingService.basePath);
+                                    descriptor = { ...content, baseUrl: `http://localhost:${actualPort}${bp}` };
+                                }
+                            } catch {
+                                // Fall back to the static baseUrl already in the descriptor
+                            }
+                            await openHurlNotebook(descriptor, savePath, options);
+                        } else {
+                            await openTryItNotebook(content, { ...options, savePath });
+                        }
+                    }
+                } catch (error) {
+                    handleError(error, "Starting Ballerina service");
+                }
+            }
+        );
+
+        return Disposable.from(disposable, startServiceDisposable, {
             dispose: disposeErrorWatcher
         });
     } catch (error) {
@@ -73,7 +119,7 @@ export function activateTryItCommand(ballerinaExtInstance: BallerinaExtension) {
     }
 }
 
-async function openTryItView(withNotice: boolean = false, resourceMetadata?: ResourceMetadata, serviceMetadata?: ServiceMetadata, filePath?: string, autoRun?: boolean): Promise<void> {
+async function openTryItView(withNotice: boolean = false, resourceMetadata?: ResourceMetadata, serviceMetadata?: ServiceMetadata, filePath?: string): Promise<void> {
     try {
         if (!clientManager.hasClient()) {
             throw new Error('Ballerina Language Server is not connected');
@@ -104,15 +150,13 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
 
             wasServiceAlreadyRunning = false;
         } else {
-            const processesRunning = autoRun
-                ? await autoRunIntegration(projectPath)
-                : await checkBallerinaProcessRunning(projectPath);
+            const processesRunning = await checkBallerinaProcessRunning(projectPath);
             if (!processesRunning) {
                 return;
             }
         }
 
-        let selectedService: ServiceInfo | undefined;
+        let selectedService: ServiceInfo;
         // If in resource try it mode, find the service containing the resource path
         if (resourceMetadata) {
             const matchingService = await findServiceForResource(services, resourceMetadata, serviceMetadata);
@@ -124,18 +168,14 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
             selectedService = matchingService;
         } else if (services.length > 1) {
             if (serviceMetadata) {
-                const normalize = (p: string) => p.replace(/\\/g, '');
                 const matchingService = services.find(service =>
-                    normalize(service.basePath) === normalize(serviceMetadata.basePath) && compareListeners(service.listener, serviceMetadata.listener)
+                    service.basePath === serviceMetadata.basePath && compareListeners(service.listener, serviceMetadata.listener)
                 );
 
                 if (matchingService) {
                     selectedService = matchingService;
                 }
-            }
-
-            // If no service was matched via metadata, fall back to QuickPick
-            if (!selectedService) {
+            } else {
                 const quickPickItems = services.map(service => ({
                     label: `'${service.basePath}' on ${service.listener.name}`,
                     description: `${service.type} Service`,
@@ -176,8 +216,7 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
             const baseUrl = `http://localhost:${selectedPort}${basePath}`;
             const serviceName = selectedService.name || selectedService.basePath;
             const savePath = path.join(projectPath, 'target', 'TryIt.hurl');
-            // Service Try It is savable (Cmd+S saves in-place); Resource Try It is read-only.
-            await openHurlNotebook({ oasSpec: openapiSpec, baseUrl, serviceName, resourceMetadata }, savePath, { savable: !resourceMetadata });
+            await openHurlNotebook({ oasSpec: openapiSpec, baseUrl, serviceName, resourceMetadata }, savePath, { savable: true });
         } else if (selectedService.type === ServiceType.GRAPHQL) {
             const selectedPort: number = await getServicePort(projectPath, selectedService);
             const port = selectedPort;
@@ -219,7 +258,7 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
 }
 
 // ---------------------------------------------------------------------------
-// Hurl notebook helpers
+// Hurl notebook helpers — shared by ballerina.startService and openTryItView
 // ---------------------------------------------------------------------------
 
 interface OasDescriptor {
@@ -229,27 +268,15 @@ interface OasDescriptor {
     resourceMetadata?: { methodValue: string; pathValue: string };
 }
 
+function isOasDescriptor(v: any): v is OasDescriptor {
+    return v !== null && typeof v === 'object' && !Array.isArray(v) && 'oasSpec' in v && 'baseUrl' in v && 'serviceName' in v;
+}
+
 async function openHurlNotebook(
     descriptor: OasDescriptor,
     savePath: string,
     options?: { savable?: boolean }
 ): Promise<void> {
-    // If TryIt.hurl is already open as a notebook, VS Code returns the cached in-memory
-    // document and ignores the freshly-written file (e.g. switching Service → Resource Try It).
-    // Close all tabs for that file first so the new content is read from disk.
-    const saveUri = vscode.Uri.file(savePath);
-    const isAlreadyOpen = vscode.workspace.notebookDocuments.some(d => d.uri.fsPath === saveUri.fsPath);
-    if (isAlreadyOpen) {
-        await Promise.all(
-            vscode.window.tabGroups.all
-                .flatMap(g => g.tabs)
-                .filter(t => {
-                    const input = t.input as any;
-                    return input?.uri?.fsPath === saveUri.fsPath || input?.notebook?.uri?.fsPath === saveUri.fsPath;
-                })
-                .map(tab => vscode.window.tabGroups.close(tab, true))
-        );
-    }
     const cells = buildHurlCellsFromOASSpec(descriptor.oasSpec, descriptor.baseUrl, descriptor.serviceName, descriptor.resourceMetadata);
     await openTryItNotebook(cells, { ...options, savePath });
 }
@@ -476,6 +503,82 @@ async function getAvailableServices(projectDir: string): Promise<ServiceInfo[] |
     }
 }
 
+async function generateTryItFileContent(targetDir: string, openapiSpec: OAISpec, service: ServiceInfo, resourceMetadata?: ResourceMetadata): Promise<vscode.Uri | undefined> {
+    try {
+        // Register Handlebars helpers
+        registerHandlebarsHelpers(openapiSpec);
+
+        let isResourceMode = false;
+        let resourcePath = '';
+        // Filter paths based on resourceMetadata if provided
+        if (resourceMetadata) {
+            const originalPaths = openapiSpec.paths;
+            const filteredPaths: Record<string, Record<string, Operation>> = {};
+
+            let matchingPath = '';
+            for (const path in originalPaths) {
+                const pathMatches = comparePathPatterns(path, resourceMetadata.pathValue);
+                if (pathMatches) {
+                    matchingPath = path;
+                    break;
+                }
+            }
+
+            if (matchingPath && originalPaths[matchingPath]) {
+                isResourceMode = true;
+                resourcePath = matchingPath;
+
+                const method = resourceMetadata.methodValue.toLowerCase();
+                if (originalPaths[matchingPath][method]) {
+                    // Create entry with only the specified method
+                    filteredPaths[matchingPath] = {
+                        [method]: {
+                            ...originalPaths[matchingPath][method]
+                        }
+                    };
+                } else {
+                    // Method not found in matching path
+                    vscode.window.showWarningMessage(`Method ${resourceMetadata.methodValue} not found for path ${matchingPath}. Showing all methods for this path.`);
+                    filteredPaths[matchingPath] = originalPaths[matchingPath];
+                }
+
+                openapiSpec.paths = filteredPaths;
+            } else {
+                // Path not found in OpenAPI spec
+                vscode.window.showWarningMessage(
+                    `Path ${resourceMetadata.pathValue} not found in service ${service.name || service.basePath}. Showing all resources.`
+                );
+            }
+        }
+
+        const tryitCompiledTemplate = Handlebars.compile(TRYIT_TEMPLATE);
+        const tryitContent = tryitCompiledTemplate({
+            ...openapiSpec,
+            port: service.port.toString(),
+            basePath: service.basePath === '/' ? '' : sanitizePath(service.basePath), // to avoid double slashes in the URL
+            serviceName: service.name || '/',
+            isResourceMode: isResourceMode,
+            resourceMethod: isResourceMode ? resourceMetadata?.methodValue.toUpperCase() : '',
+            resourcePath: resourcePath,
+        });
+
+        const httpyacCompiledTemplate = Handlebars.compile(HTTPYAC_CONFIG_TEMPLATE);
+        const httpyacContent = httpyacCompiledTemplate({
+            errorLogFile: FILE_NAMES.ERROR_LOG,
+        });
+
+        const tryitFilePath = path.join(targetDir, FILE_NAMES.TRYIT);
+        const configFilePath = path.join(targetDir, FILE_NAMES.HTTPYAC_CONFIG);
+        fs.writeFileSync(tryitFilePath, tryitContent);
+        fs.writeFileSync(configFilePath, httpyacContent);
+
+        return vscode.Uri.file(tryitFilePath);
+    } catch (error) {
+        handleError(error, "Try It client initialization failed");
+        return undefined;
+    }
+}
+
 // Helper function to compare path patterns, considering path parameters
 function comparePathPatterns(specPath: string, targetPath: string): boolean {
     const specSegments = specPath.split('/').filter(Boolean);
@@ -598,43 +701,6 @@ async function getServicePort(projectDir: string, service: ServiceInfo, openapiS
     } catch (error) {
         handleError(error, "Getting service port", false);
         throw error;
-    }
-}
-
-/**
- * Automatically starts the integration without prompting the user.
- * Used when the intent to run is already clear (e.g., user clicked "Chat" on an agent).
- */
-async function autoRunIntegration(projectDir: string): Promise<boolean> {
-    try {
-        const balProcesses = await findRunningBallerinaProcesses(projectDir)
-            .catch(error => {
-                throw new Error(`Failed to find running Ballerina processes: ${error.message}`);
-            });
-
-        if (balProcesses?.length) {
-            return true;
-        }
-
-        const { workspacePath, view: webviewType } = StateMachine.context();
-        const isWebviewOpen = VisualizerWebview.currentPanel !== undefined;
-        const needsPackageSelection = requiresPackageSelection(workspacePath, webviewType, projectDir, isWebviewOpen, false);
-
-        if (isWebviewOpen && needsPackageSelection) {
-            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.PackageOverview, projectPath: projectDir });
-        }
-
-        clearTerminal();
-        await startDebugging(Uri.file(projectDir), false, false, true);
-
-        const newProcesses = await waitForBallerinaService(projectDir).then(() => {
-            return findRunningBallerinaProcesses(projectDir);
-        });
-
-        return newProcesses?.length > 0;
-    } catch (error) {
-        handleError(error, "Auto-running integration", false);
-        return false;
     }
 }
 
@@ -975,10 +1041,10 @@ function compareListeners(serviceInfoListener: { name: string, port?: string }, 
         return true;
     }
 
-    // anonymous listeners - handle any listener type (e.g., http:Listener, ai:Listener, etc.)
-    if (serviceMetadataListener.startsWith('new ') && serviceInfoListener.port) {
-        // Extract port from patterns like 'new http:Listener(9090)', 'new ai:Listener(8080)', etc.
-        const portMatch = serviceMetadataListener.match(/new \w+:\w+\((\d+)/);
+    // anonymous listeners
+    if (serviceMetadataListener.startsWith('new http:Listener') && serviceInfoListener.port) {
+        // Extract port from 'http:Listener(9090)'
+        const portMatch = serviceMetadataListener.match(/new http:Listener\((\d+)\)/);
         if (portMatch && portMatch[1]) {
             const port = parseInt(portMatch[1], 10);
             return port === parseInt(serviceInfoListener.port);

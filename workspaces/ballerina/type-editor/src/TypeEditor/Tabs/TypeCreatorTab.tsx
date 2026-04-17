@@ -111,7 +111,6 @@ enum TypeKind {
 interface TypeCreatorTabProps {
     editingType: Type;
     newType: boolean;
-    filePath: string;
     isGraphql: boolean;
     initialTypeKind: TypeNodeKind;
     onTypeSave: (type: Type) => Promise<void>;
@@ -129,8 +128,7 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
         onTypeSave,
         isSaving,
         setIsSaving,
-        onTypeChange,
-        filePath
+        onTypeChange
     } = props;
 
     const [type, setType] = useState<Type>(editingType);
@@ -356,7 +354,7 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
         });
 
         const response = await rpcClient.getBIDiagramRpcClient().getExpressionDiagnostics({
-            filePath: type?.codedata?.lineRange?.fileName || filePath,
+            filePath: type?.codedata?.lineRange?.fileName || "types.bal",
             context: {
                 expression: value,
                 startLine: {

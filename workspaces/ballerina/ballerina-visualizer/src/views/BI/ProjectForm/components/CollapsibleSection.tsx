@@ -18,7 +18,6 @@
 
 import { ReactNode } from "react";
 import { Codicon } from "@wso2/ui-toolkit";
-import styled from "@emotion/styled";
 import {
     CollapsibleSectionWrapper,
     CollapsibleHeader,
@@ -28,17 +27,6 @@ import {
     HeaderSubtitle,
     ChevronIcon,
 } from "../styles";
-
-const ErrorDot = styled.span`
-    display: inline-block;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background-color: var(--vscode-inputValidation-errorBorder, #f14c4c);
-    margin-left: 6px;
-    flex-shrink: 0;
-    align-self: center;
-`;
 
 export interface CollapsibleSectionProps {
     /** Whether the section is expanded */
@@ -51,8 +39,6 @@ export interface CollapsibleSectionProps {
     title: string;
     /** Optional subtitle to show when collapsed (e.g., summary info) */
     subtitle?: string;
-    /** Whether the section contains validation errors */
-    hasError?: boolean;
     /** The content to render inside the collapsible section */
     children: ReactNode;
 }
@@ -63,7 +49,6 @@ export function CollapsibleSection({
     icon,
     title,
     subtitle,
-    hasError,
     children,
 }: CollapsibleSectionProps) {
     return (
@@ -77,7 +62,6 @@ export function CollapsibleSection({
                             <HeaderSubtitle>— {subtitle}</HeaderSubtitle>
                         )}
                     </HeaderTitle>
-                    {hasError && <ErrorDot />}
                 </HeaderLeft>
                 <ChevronIcon isExpanded={isExpanded}>
                     <Codicon name="chevron-down" iconSx={{ fontSize: 14 }} />

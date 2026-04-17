@@ -164,10 +164,12 @@ export const EnhanceModeDialog: React.FC<EnhanceModeDialogProps> = ({
     const popupBoxRef = useRef<HTMLDivElement>(null);
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
-    // Reset state when dialog opens
+    // Reset state and focus when dialog opens
     useEffect(() => {
         if (isOpen) {
             setCustomInstructions("");
+            // Focus textarea so user can start typing immediately
+            setTimeout(() => textAreaRef.current?.focus(), 50);
         }
     }, [isOpen]);
 

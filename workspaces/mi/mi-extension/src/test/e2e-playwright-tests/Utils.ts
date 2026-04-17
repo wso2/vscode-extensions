@@ -29,7 +29,7 @@ import { Page } from "@playwright/test";
 
 export const dataFolder = path.join(__dirname, 'data');
 const extensionsFolder = path.join(__dirname, '..', '..', '..', 'vsix');
-const vscodeVersion = 'latest';
+const vscodeVersion = '1.115.0';
 export const resourcesFolder = path.join(__dirname, '..', 'test-resources');
 export const newProjectPath = path.join(dataFolder, 'new-project', 'testProjectFolder');
 export const screenShotsFolder = path.join(__dirname, '..', 'test-resources', 'screenshots');

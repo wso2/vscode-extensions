@@ -21,7 +21,6 @@ import React, { useEffect, useState } from "react";
 import { Codicon, Dropdown, LinkButton, LocationSelector, RadioButtonGroup, ThemeColors } from "@wso2/ui-toolkit";
 
 import { FormField } from "../Form/types";
-import { FormRow, FormButtonContainer } from "../Form";
 import { capitalize, getValueForDropdown } from "./utils";
 import { useFormContext } from "../../context";
 import styled from "@emotion/styled";
@@ -49,6 +48,11 @@ const FormSection = styled.div`
     display: grid;
     gap: 20px;
     width: 100%;
+`;
+
+const ButtonContainer = styled.div`
+    display: flex;
+    justify-content: flex-start;
 `;
 
 export function ChoiceForm(props: ChoiceFormProps) {
@@ -92,7 +96,7 @@ export function ChoiceForm(props: ChoiceFormProps) {
             };
             setPropertyValues(property.properties);
         }
-    }, [selectedOption, field.choices]);
+    }, [selectedOption]);
 
     const convertConfig = (model: PropertyModel): FormField[] => {
         const formFields: FormField[] = [];
@@ -201,22 +205,19 @@ export function ChoiceForm(props: ChoiceFormProps) {
                             />
                         ))}
                         {advancedFields.length > 0 && (
-                            <FormRow>
-                                Advanced Configurations
-                                <FormButtonContainer>
-                                    <LinkButton
-                                        onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-                                        sx={{ fontSize: 12, padding: 8, color: ThemeColors.PRIMARY, gap: 4 }}
-                                    >
-                                        <Codicon
-                                            name={showAdvancedOptions ? "chevron-up" : "chevron-down"}
-                                            iconSx={{ fontSize: 12 }}
-                                            sx={{ height: 12 }}
-                                        />
-                                        {showAdvancedOptions ? "Collapse" : "Expand"}
-                                    </LinkButton>
-                                </FormButtonContainer>
-                            </FormRow>
+                            <ButtonContainer>
+                                <LinkButton
+                                    onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                                    sx={{ fontSize: 12, padding: 8, color: ThemeColors.PRIMARY, gap: 4 }}
+                                >
+                                    <Codicon
+                                        name={showAdvancedOptions ? "chevron-up" : "chevron-down"}
+                                        iconSx={{ fontSize: 12 }}
+                                        sx={{ height: 12 }}
+                                    />
+                                    {showAdvancedOptions ? "Collapse" : "Expand"}
+                                </LinkButton>
+                            </ButtonContainer>
                         )}
                         {showAdvancedOptions && advancedFields.map((dfield) => (
                             <FieldFactory

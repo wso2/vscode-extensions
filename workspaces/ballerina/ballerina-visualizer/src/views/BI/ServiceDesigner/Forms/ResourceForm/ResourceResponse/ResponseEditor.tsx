@@ -25,7 +25,7 @@ import { getPrimaryInputType, LineRange, PropertyModel, StatusCodeResponse, Visi
 import { TypeHelperContext } from '../../../../../../constants';
 import { getDefaultResponse, getTitleFromStatusCodeAndType, HTTP_METHOD } from '../../../utils';
 import { FormField, FormImports, FormValues } from '@wso2/ballerina-side-panel';
-import ArtifactForm from '../../../../Forms/ArtifactForm';
+import FormGeneratorNew from '../../../../Forms/FormGeneratorNew';
 import { useRpcContext } from '@wso2/ballerina-rpc-client';
 import { getImportsForProperty } from '../../../../../../utils/bi';
 
@@ -388,7 +388,7 @@ export function ResponseEditor(props: ParamProps) {
             </EditorContent>
             <Divider />
             {filePath && targetLineRange &&
-                <ArtifactForm
+                <FormGeneratorNew
                     fileName={filePath}
                     targetLineRange={targetLineRange}
                     fields={newFields}

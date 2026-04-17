@@ -36,7 +36,6 @@ import { getFirstOccurringPlaceholder, matchCommandTemplate } from "./utils/util
 import { getAllCommands, getTags, getTemplateDefinitionsByCommand } from "../../commandTemplates/utils/utils";
 import { PlaceholderTagMap } from "../../commandTemplates/data/placeholderTags.const";
 import ContextUsageWidget from "../AIChat/compaction/ContextUsageWidget";
-import RunningServicesChip, { RunningServicesPanel } from "./RunningServicesChip";
 
 // Styled Components
 const Container = styled.div`
@@ -138,15 +137,14 @@ interface AIChatInputProps {
     isWebToolsEnabled?: boolean;
     onToggleWebSearch?: () => void;
     disabled?: boolean;
-    contextUsage?: { inputTokens: number; percentage: number; breakdown?: { systemInstructions: number; toolDefinitions: number; reservedOutput: number; files: number; messages: number; toolResults: number } } | null;
-    runningServicesPanel?: RunningServicesPanel;
+    contextUsage?: { inputTokens: number; percentage: number; breakdown?: { systemInstructions: number; toolDefinitions: number; reservedOutput: number; messages: number; toolResults: number } } | null;
 }
 
 const AIChatInput = forwardRef<AIChatInputRef, AIChatInputProps>(
     ({ initialCommandTemplate, tagOptions, attachmentOptions, placeholder, onSend, onStop, isLoading,
        agentMode = AgentMode.Edit, onChangeAgentMode, isAutoApproveEnabled = false, onDisableAutoApprove,
        isWebToolsEnabled = false, onToggleWebSearch, disabled,
-       contextUsage, runningServicesPanel }, ref) => {        const [inputValue, setInputValue] = useState<{
+       contextUsage }, ref) => {        const [inputValue, setInputValue] = useState<{
             text: string;
             [key: string]: any;
         }>({
@@ -592,9 +590,6 @@ const AIChatInput = forwardRef<AIChatInputRef, AIChatInputProps>(
                                 )}
                             </div>
                             <div style={{ display: "flex", alignItems: "center" }}>
-                                {runningServicesPanel && runningServicesPanel.services.length > 0 && (
-                                    <RunningServicesChip {...runningServicesPanel} />
-                                )}
                                 <ActionButton
                                     title="Chat with Command"
                                     disabled={inputValue.text !== ""}

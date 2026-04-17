@@ -19,8 +19,7 @@ import { GenerationType } from "../../utils/libs/libraries";
 import { jsonSchema } from "ai";
 import { Library } from "../../utils/libs/library-types";
 import { selectRequiredFunctions } from "../../utils/libs/function-registry";
-import { toSyntaxString } from "../../utils/libs/to-syntax-string";
-import { CopilotEventHandler, emitModelUsage, ToolModelUsage } from "../../utils/events";
+import { CopilotEventHandler } from "../../utils/events";
 
 export const LIBRARY_GET_TOOL = "LibraryGetTool";
 
@@ -68,7 +67,6 @@ export async function LibraryGetTool(
     params: { libraryNames: string[]; userPrompt: string },
     generationType: GenerationType,
     eventHandler: CopilotEventHandler,
-    toolModelUsage: ToolModelUsage,
     toolCallId: string
 ): Promise<Library[]> {
     try {
@@ -80,14 +78,12 @@ export async function LibraryGetTool(
         });
 
         const startTime = Date.now();
-        const { libraries, usage } = await selectRequiredFunctions(params.userPrompt, params.libraryNames, generationType);
+        const libraries = await selectRequiredFunctions(params.userPrompt, params.libraryNames, generationType);
         console.log(
             `[LibraryGetTool] Fetched ${libraries.length} libraries: ${libraries
                 .map((lib) => lib.name)
-                .join(", ")}, took ${(Date.now() - startTime) / 1000}s, Usage:`, usage
+                .join(", ")}, took ${(Date.now() - startTime) / 1000}s`
         );
-
-        emitModelUsage(eventHandler, usage, toolModelUsage);
 
         // Emit tool_result event with filtered library names and ID
         emitLibraryToolResult(eventHandler, LIBRARY_GET_TOOL, libraries, params.libraryNames, toolCallId);
@@ -110,8 +106,7 @@ export async function LibraryGetTool(
 
 export function getLibraryGetTool(
     generationType: GenerationType,
-    eventHandler: CopilotEventHandler,
-    toolModelUsage: ToolModelUsage
+    eventHandler: CopilotEventHandler
 ) {
     return tool({
         description: `Fetches detailed information about Ballerina libraries along with their API documentation, including services, clients, functions, and types.
@@ -143,10 +138,7 @@ name, description, type definitions (records, objects, enums, type aliases), cli
                     ", "
                 )} and prompt: ${input.userPrompt} [toolCallId: ${toolCallId}]`
             );
-            const rawLibraries: Library[] = await LibraryGetTool(input, generationType, eventHandler, toolModelUsage, toolCallId);
-            const afterContent = toSyntaxString(rawLibraries);
-
-            return afterContent;
+            return await LibraryGetTool(input, generationType, eventHandler, toolCallId);
         },
     });
 }

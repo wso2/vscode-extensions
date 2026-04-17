@@ -55,7 +55,7 @@ import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { DataMapper } from "@wso2/ballerina-data-mapper";
 
 import { useDataMapperModel } from "../../Hooks";
-import ArtifactForm from "../BI/Forms/ArtifactForm";
+import FormGeneratorNew from "../BI/Forms/FormGeneratorNew";
 import { DataMapperProps } from ".";
 import { EXPRESSION_EXTRACTION_REGEX } from "../../constants";
 import { calculateExpressionOffsets, convertBalCompletion, updateLineRange } from "../../utils/bi";
@@ -306,7 +306,7 @@ export function DataMapperView(props: DataMapperViewProps) {
 
     const generateForm = (formProps: DMFormProps) => {
         return (
-            <ArtifactForm
+            <FormGeneratorNew
                 fileName={filePath}
                 preserveFieldOrder={true}
                 helperPaneSide="left"
