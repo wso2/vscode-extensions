@@ -110,12 +110,13 @@ export async function activate(ballerinaExtInstance: BallerinaExtension) {
 
     testController = tests.createTestController('ballerina-integrator-tests', 'WSO2 Integrator Tests');
 
-    const workspaceRoot = getWorkspaceRoot();
+    const workspaceFolder = workspace.workspaceFolders?.[0];
 
-    if (!workspaceRoot) {
+    if (!workspaceFolder) {
         return;
     }
 
+    const workspaceRoot = workspaceFolder.uri.fsPath;
     const isBallerinaWorkspace = await checkIsBallerinaWorkspace(Uri.file(workspaceRoot));
     const isBallerinaProject = !isBallerinaWorkspace && await checkIsBallerinaPackage(Uri.file(workspaceRoot));
     const isMultiProjectWorkspace = !isBallerinaWorkspace && !isBallerinaProject && await hasMultipleBallerinaPackages(Uri.file(workspaceRoot));

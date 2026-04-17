@@ -51,9 +51,14 @@ import {
     CodeContext,
     AIPanelPrompt,
     LinePosition,
+    onOctUpdateTextSelection,
+    onOctRerenderPresence,
+    updateWebviewCollaborationSelection,
+    updateWebviewCollaborationPresence,
+    CollaborationTextSelection,
+    CollaborationPresenceData,
     EditorDisplayMode,
 } from "@wso2/ballerina-core";
-
 import {
     convertBICategoriesToSidePanelCategories,
     convertFunctionCategoriesToSidePanelCategories,
@@ -62,6 +67,8 @@ import {
     convertEmbeddingProviderCategoriesToSidePanelCategories,
     convertDataLoaderCategoriesToSidePanelCategories,
     convertChunkerCategoriesToSidePanelCategories,
+    isNodeLockedByOther,
+    updateNodeLocks,
     enrichCategoryWithDevant,
     convertKnowledgeBaseCategoriesToSidePanelCategories
 } from "../../../utils/bi";
@@ -75,7 +82,7 @@ import { findFunctionByName, transformCategories, getNodeTemplateForConnection }
 import { PanelOverlayProvider } from "./context/PanelOverlayContext";
 import { PanelOverlayRenderer } from "./PanelOverlayRenderer";
 import { ExpressionFormField, Category as PanelCategory, S } from "@wso2/ballerina-side-panel";
-import { cloneDeep, debounce } from "lodash";
+import { cloneDeep, debounce, throttle } from "lodash";
 import { ConnectionKind } from "../../../components/ConnectionSelector";
 import {
     findFlowNodeByModuleVarName,
@@ -107,6 +114,12 @@ interface NavigationStackItem {
     categories: PanelCategory[];
     selectedNode?: FlowNode;
     clientName?: string;
+}
+
+interface AddNodeAnchor {
+    anchorX: number;
+    anchorY: number;
+    anchorKey: string;
 }
 
 export type FormSubmitOptions = {
@@ -148,6 +161,25 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const [projectOrg, setProjectOrg] = useState<string>("");
     const [entrypointContext, setEntrypointContext] = useState<{ serviceName?: string; functionName?: string }>();
     const [isUserAuthenticated, setIsUserAuthenticated] = useState<boolean>(false);
+
+    // Initialize with a fallback ID to ensure currentUserId is never empty
+    // This will be updated with OCT client ID when collaboration is detected
+    const [currentUserId, setCurrentUserId] = useState<string>(() =>
+        `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    );
+    const [currentUserName, setCurrentUserName] = useState<string>("Unknown User");
+    const [nodeLocks, setNodeLocks] = useState<Record<string, any>>({});
+    const [isCollaborationActive, setIsCollaborationActive] = useState<boolean>(false);
+    const [remoteCursors, setRemoteCursors] = useState<Map<string, any>>(new Map());
+    const CURSOR_HEARTBEAT_INTERVAL_MS = 3000;
+    const STALE_CURSOR_TIMEOUT_MS = 15000;
+    const STALE_CURSOR_SWEEP_INTERVAL_MS = 3000;
+    const hasAuthoritativeLockUpdatesRef = useRef<boolean>(false);
+    const octPeerLocksRef = useRef<Record<string, Record<string, any>>>({});
+    const currentUserIdRef = useRef<string>(currentUserId);
+    const currentModelFileRef = useRef<string | undefined>(undefined);
+
+    const [connectorErrorMessage, setConnectorErrorMessage] = useState<string | undefined>(undefined);
     const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
     // Navigation stack for back navigation
     const [navigationStack, setNavigationStack] = useState<NavigationStackItem[]>([]);
@@ -159,12 +191,24 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         completeDraft,
         hasDraft,
         isProcessing: isDraftProcessing,
+
         description: draftDescription,
         originalModel,
     } = useDraftNodeManager(model);
 
     const isMountedRef = useRef(true);
     const selectedNodeRef = useRef<FlowNode>();
+    // Tracks the exact nodeId/positionKey used when acquiring each lock.
+    // Kept separate from selectedNodeRef because the model can refresh mid-edit,
+    // reassigning node IDs via findNodeByStartLine — the lock in Y.Map is still
+    // stored under the original ID, so release must use the same ID.
+    const lockedNodeIdRef = useRef<string>();
+    const lockedPositionKeyRef = useRef<string>();
+    const lockedFileRef = useRef<string | undefined>();
+    const pinnedCursorRef = useRef<{ x: number; y: number; nodeId: string }>();
+    const lastBroadcastCursorRef = useRef<{ x: number; y: number; nodeId?: string }>();
+    const clickedCursorAnchorNodeIdRef = useRef<string>();
+    const flowModelRequestGenRef = useRef(0);
     const parentNodeRef = useRef<FlowNode>();
     const nodeTemplateRef = useRef<FlowNode>();
     const hasRenameOperation = useRef<boolean>(false);
@@ -224,6 +268,39 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     }, [breakpointState]);
 
     useEffect(() => {
+        currentUserIdRef.current = currentUserId;
+    }, [currentUserId]);
+
+    useEffect(() => {
+        currentModelFileRef.current = model?.fileName;
+    }, [model?.fileName]);
+
+    // Restore last cursor position from sessionStorage on mount so the heartbeat can
+    // immediately resume broadcasting after a remount (e.g. caused by a key change).
+    useEffect(() => {
+        try {
+            const saved = sessionStorage.getItem('bi_last_cursor');
+            if (saved) {
+                lastBroadcastCursorRef.current = JSON.parse(saved);
+            }
+        } catch {}
+    }, []);
+
+        const debouncedGetFlowModel = useCallback(
+        debounce(() => {
+            getFlowModel();
+        }, 150),
+        [hasDraft]
+    );
+
+    // Shorter debounce specifically for breakpoint changes (faster feedback)
+    const debouncedGetFlowModelForBreakpoints = useCallback(
+        debounce(() => {
+            getFlowModel();
+        }, 200),
+        []
+    );
+    useEffect(() => {
         rpcClient.onTraceAnimationChanged((event: TraceAnimationEvent) => {
             console.log('[TraceAnimation] Webview received event:', event.type, event.active, event.toolNames);
             if (event.active) {
@@ -237,7 +314,11 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     useEffect(() => {
         rpcClient.onProjectContentUpdated(() => {
             debouncedGetFlowModel();
-        })
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
         rpcClient.onParentPopupSubmitted((parent: ParentPopupData) => {
             if (parent.dataMapperMetadata) {
                 // Skip if the parent is a data mapper popup
@@ -280,29 +361,298 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             setProjectOrg(location.org);
         });
 
-        // Check user authentication status
-        rpcClient.getAiPanelRpcClient().isUserAuthenticated()
-            .then((isAuth) => {
+        // Check user authentication status and get user info
+        const initializeUserInfo = async () => {
+            try {
+                const isAuth = await rpcClient.getAiPanelRpcClient().isUserAuthenticated();
                 setIsUserAuthenticated(isAuth);
-            })
-            .catch(() => {
+                
+                // Get system username for display purposes
+                const systemUser = await rpcClient.getBIDiagramRpcClient().getSystemUsername();
+                const userName = systemUser || "Unknown User";
+                
+                setCurrentUserName(userName);
+                // Note: currentUserId will be set by checkCollaboration based on OCT client ID
+            } catch (error) {
+                console.error('Error initializing user info:', error);
                 setIsUserAuthenticated(false);
-            });
-
-    }, [rpcClient]);
-
-    useEffect(() => {
-        const unsubscribe = rpcClient.onIdentifierUpdated((renames) => {
-            if (!isMountedRef.current) return;
-            if (renames?.length > 0) {
-                hasRenameOperation.current = true;
+                setCurrentUserName("Unknown User");
             }
+        };
+
+        initializeUserInfo();
+
+        const fetchInitialLocks = async () => {
+            if (model?.fileName) {
+                try {
+                    const response = await rpcClient.getBIDiagramRpcClient().getNodeLocks({
+                        filePath: model.fileName,
+                    });
+                    setNodeLocks(response.locks);
+                } catch (error) {
+                    console.error('Error fetching initial locks:', error);
+                }
+            }
+        };
+
+        fetchInitialLocks();
+
+        // Subscribe to lock updates from other users (optional feature)
+        let unsubscribe: (() => void) | undefined;
+        try {
+            const rpcClientAny = rpcClient as any;
+            if (typeof rpcClientAny.onNodeLockUpdated === 'function') {
+                hasAuthoritativeLockUpdatesRef.current = true;
+                unsubscribe = rpcClientAny.onNodeLockUpdated((updatedLocks: any) => {
+                    octPeerLocksRef.current = {};
+                    setNodeLocks(updatedLocks.locks);
+                });
+            }
+        } catch (error) {
+            console.log('[Collaboration] Lock subscription not available');
+        }
+
+        // Check if collaboration is active
+        let collaborationCheckInterval: ReturnType<typeof setInterval> | undefined;
+
+        const checkCollaboration = async () => {
+            try {
+                const biClient = rpcClient.getBIDiagramRpcClient() as any;
+                if (typeof biClient.isCollaborationActive === 'function') {
+                    const response = await biClient.isCollaborationActive();
+                    
+                    setIsCollaborationActive(response.isActive);
+                    if (response.isActive && response.clientId) {
+                        setCurrentUserId(response.clientId);
+                    }
+                } else {
+                    setIsCollaborationActive(false);
+                }
+            } catch (error) {
+                console.error(`[Collaboration] Error checking collaboration:`, error);
+                // Do NOT set isCollaborationActive(false) on transient errors (e.g. LS busy during
+                // node deletion). Transient errors should not disrupt cursor sync — only an explicit
+                // isActive:false response should mark collaboration as inactive.
+            }
+        };
+
+        // Initialize collaboration features (non-blocking)
+        checkCollaboration().catch(() => {
         });
 
+        // Re-check periodically (every 5 seconds) to detect when collaboration starts/stops
+        collaborationCheckInterval = setInterval(() => {
+            checkCollaboration().catch(() => {
+                // Ignore errors during periodic checks
+            });
+        }, 5000);
+
+        let unsubscribeOctSelection: (() => void) | undefined;
+        let unsubscribeOctPresence: (() => void) | undefined;
+
+        try {
+            // Listen for text selection updates from OCT (webview collaboration)
+            unsubscribeOctSelection = rpcClient.onOctUpdateTextSelection((data: CollaborationTextSelection) => {
+                if (data.selectedNodes && data.selectedNodes.length > 0) {
+                    // Handle remote node selection visualization
+                    // For example: highlight the nodes selected by remote user
+                }
+            });
+
+            // Listen for presence updates from OCT (cursor position, locks, etc.)
+            unsubscribeOctPresence = rpcClient.onOctRerenderPresence((data: CollaborationPresenceData) => {
+                
+                if (data.cursor) {
+                    console.log(`[OCT Webview] Cursor details:`, JSON.stringify(data.cursor, null, 2));
+                }
+                
+                // Skip updating cursors for the current user
+                if (data.peerId === currentUserIdRef.current) {
+                    console.log('[OCT Webview] Skipping own cursor update (peer ID matches current user)');
+                } else {
+                    // Only show cursors from peers viewing the same flow diagram
+                    const normalizedCurrentFile = currentModelFileRef.current
+                        ? normalizeFilePath(currentModelFileRef.current)
+                        : undefined;
+                    const localDiagramId = normalizedCurrentFile
+                        ? `${normalizedCurrentFile}:${targetRef.current?.startLine?.line ?? ''}`
+                        : undefined;
+                    // Strictly render remote cursors only for the same file/diagram.
+                    const isForCurrentDiagram = (() => {
+                        if (!normalizedCurrentFile) {
+                            return false;
+                        }
+
+                        if (data.diagramId && localDiagramId) {
+                            if (diagramIdsMatchWithLegacyFallback(data.diagramId, localDiagramId)) {
+                                return true;
+                            }
+
+                            // Fall back to file-level matching when diagram IDs diverge due to
+                            // transient target range differences across peers.
+                            if (data.filePath) {
+                                return pathsMatchWithLegacyFallback(data.filePath, normalizedCurrentFile);
+                            }
+
+                            return false;
+                        }
+
+                        if (data.filePath) {
+                            return pathsMatchWithLegacyFallback(data.filePath, normalizedCurrentFile);
+                        }
+
+                        return false;
+                    })();
+                    console.log(`[OCT Webview] Presence data is for current diagram: ${isForCurrentDiagram}`);
+                    if (!isForCurrentDiagram) {
+                        // Peer is viewing a different diagram — remove their cursor if present
+                        setRemoteCursors((prev) => {
+                            if (!prev.has(data.peerId)) {
+                                return prev;
+                            }
+                            const updated = new Map(prev);
+                            updated.delete(data.peerId);
+                            return updated;
+                        });
+                    } else if (data.cursor) {
+                        console.log(`[OCT Webview] ✅ Updating cursor for peer ${data.peerId} at position (${data.cursor.x}, ${data.cursor.y})`);
+                        setRemoteCursors((prev) => {
+                            const updated = new Map(prev);
+                            updated.set(data.peerId, {
+                                user: {
+                                    id: data.peerId,
+                                    name: data.peerName,
+                                    color: data.color,
+                                },
+                                cursor: {
+                                    x: data.cursor.x,
+                                    y: data.cursor.y,
+                                    nodeId: data.cursor.nodeId,
+                                    timestamp: data.cursor.timestamp ?? Date.now(),
+                                },
+                            });
+                            console.log(`[OCT Webview] Updated remote cursors map, total peers: ${updated.size}`, Array.from(updated.keys()));
+                            return updated;
+                        });
+                    } else {
+                        console.log(`[OCT Webview] Removing remote cursor for peer without cursor data: ${data.peerId}`);
+                        setRemoteCursors((prev) => {
+                            if (!prev.has(data.peerId)) {
+                                return prev;
+                            }
+
+                            const updated = new Map(prev);
+                            updated.delete(data.peerId);
+                            return updated;
+                        });
+                    }
+                }
+
+                // Use OCT presence as lock source only when authoritative lock subscription is not available.
+                // Always process empty lock arrays as an explicit clear for that peer.
+                if (!hasAuthoritativeLockUpdatesRef.current && data.locks !== undefined) {
+                    const normalizedCurrentFile = currentModelFileRef.current
+                        ? normalizeFilePath(currentModelFileRef.current)
+                        : undefined;
+                    const nextPeerLocks: Record<string, any> = {};
+
+                    data.locks.forEach((lock) => {
+                        if (normalizedCurrentFile && !pathsMatchWithLegacyFallback(lock.filePath, normalizedCurrentFile)) {
+                            return;
+                        }
+
+                        nextPeerLocks[lock.nodeId] = {
+                            userId: lock.userId,
+                            userName: lock.userName,
+                            timestamp: lock.timestamp,
+                        };
+                    });
+
+                    octPeerLocksRef.current[data.peerId] = nextPeerLocks;
+
+                    const mergedLocks = Object.values(octPeerLocksRef.current).reduce((acc, peerLocks) => {
+                        return { ...acc, ...peerLocks };
+                    }, {} as Record<string, any>);
+
+                    setNodeLocks(mergedLocks);
+                }                
+            });
+        } catch (error) {
+            console.log('[OCT] Collaboration notifications not available:', error);
+        }
+
         return () => {
-            unsubscribe?.();
+            if (unsubscribe) {
+                try {
+                    unsubscribe();
+                } catch (error) {
+                    // Ignore cleanup errors
+                }
+            }
+            if (unsubscribeOctSelection) {
+                try {
+                    unsubscribeOctSelection();
+                } catch (error) {
+                    // Ignore cleanup errors
+                }
+            }
+            if (unsubscribeOctPresence) {
+                try {
+                    unsubscribeOctPresence();
+                } catch (error) {
+                    // Ignore cleanup errors
+                }
+            }
+            if (collaborationCheckInterval) {
+                clearInterval(collaborationCheckInterval);
+            }
         };
     }, [rpcClient]);
+
+    // Update model with lock information when locks change
+    useEffect(() => {
+        if (model) {
+            const updatedModel = updateNodeLocks(model, nodeLocks);
+            setModel(updatedModel);
+        }
+    }, [nodeLocks]);
+
+    // Cleanup locks on unmount or when file changes
+    useEffect(() => {
+        return () => {
+            // Release all locks when component unmounts or the file changes.
+            // releaseNodeLock closes over the model from this render, so it uses
+            // the correct filePath (lockedFileRef captures the same value explicitly).
+            const nodeKey = lockedNodeIdRef.current || selectedNodeRef.current?.id;
+            if (nodeKey) {
+                releaseNodeLock(nodeKey);
+                lockedNodeIdRef.current = undefined;
+            }
+            const posKey = lockedPositionKeyRef.current;
+            if (posKey) {
+                releaseNodeLock(posKey);
+                lockedPositionKeyRef.current = undefined;
+            }
+            lockedFileRef.current = undefined;
+        };
+    }, [model?.fileName]);
+
+    // Handle visibility changes to release locks when window loses focus
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                const nodeKey = lockedNodeIdRef.current || selectedNodeRef.current?.id;
+                if (nodeKey) {
+                    releaseNodeLock(nodeKey);
+                    lockedNodeIdRef.current = undefined;
+                }
+                resetNodeSelectionStates();
+            }
+        };
+        
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
 
     const updateConnectionWithNewItem = (recentIdentifier: string) => {
         // Add a new item as loading into the "Connections" category
@@ -331,20 +681,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         setTargetLineRange(range);
     }
 
-    const debouncedGetFlowModel = useCallback(
-        debounce(() => {
-            getFlowModel();
-        }, 1000),
-        [hasDraft]
-    );
 
-    // Shorter debounce specifically for breakpoint changes (faster feedback)
-    const debouncedGetFlowModelForBreakpoints = useCallback(
-        debounce(() => {
-            getFlowModel();
-        }, 200),
-        []
-    );
 
     // Navigation stack helpers
     const pushToNavigationStack = (
@@ -638,6 +975,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     };
 
     const getFlowModel = () => {
+        const requestGen = ++flowModelRequestGenRef.current;
         setShowProgressIndicator(true);
         onUpdate();
 
@@ -660,6 +998,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     .getFlowModel({})
                     .then((model) => {
                         console.log(">>> BIFlowDiagram getFlowModel", model);
+                        if (requestGen !== flowModelRequestGenRef.current) {
+                            return; // A newer request is in-flight; discard this stale response
+                        }
                         if (model?.flowModel) {
                             const currentSelectedNode = selectedNodeRef.current;
                             if (
@@ -900,7 +1241,138 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         return undefined;
     };
 
-    const resetNodeSelectionStates = () => {
+    // Normalize paths across local, oct://, collab:// and cached variants.
+    const normalizeFilePath = (absolutePath: string): string => {
+        if (!absolutePath) {
+            return '';
+        }
+
+        const normalized = absolutePath.replace(/\\/g, '/');
+
+        // Handle collab:// and oct:// URIs by stripping scheme/session/workspace prefix.
+        if (normalized.startsWith('collab://') || normalized.startsWith('oct://')) {
+            const parts = normalized.split('/').filter((part) => part.length > 0);
+            // For oct://roomId/workspaceName/path/to/file -> keep path from index 3
+            // For collab://sessionId/path/to/file -> index 2 still works because workspace name is absent.
+            const candidate = parts.slice(3).join('/');
+            if (candidate) {
+                return candidate;
+            }
+
+            const fallback = parts.slice(2).join('/');
+            return fallback || parts[parts.length - 1] || normalized;
+        }
+
+        // Handle cached oct local paths, e.g. .../oct/<room>/<workspace>/src/main.bal
+        const octCacheMatch = normalized.match(/\/oct\/[^/]+\/[^/]+\/(.+)$/);
+        if (octCacheMatch?.[1]) {
+            return octCacheMatch[1];
+        }
+
+        // Handle local paths by making them project-relative when possible.
+        const projectPathNormalized = (projectPath || '').replace(/\\/g, '/');
+        if (projectPathNormalized && normalized.startsWith(projectPathNormalized)) {
+            return normalized.substring(projectPathNormalized.length).replace(/^\/+/, '');
+        }
+
+        return normalized;
+    };
+
+    const getBaseName = (filePath: string): string => {
+        const normalized = normalizeFilePath(filePath);
+        const segments = normalized.split('/').filter((segment) => segment.length > 0);
+        return segments[segments.length - 1] || normalized;
+    };
+
+    // Compatibility fallback for mixed path shapes during rollout.
+    // Basename comparison is allowed only when one side is basename-only and
+    // the other side is workspace-relative.
+    const pathsMatchWithLegacyFallback = (pathA?: string, pathB?: string): boolean => {
+        if (!pathA || !pathB) {
+            return false;
+        }
+
+        const normalizedA = normalizeFilePath(pathA);
+        const normalizedB = normalizeFilePath(pathB);
+        if (normalizedA === normalizedB) {
+            return true;
+        }
+
+        const hasSlashA = normalizedA.includes('/');
+        const hasSlashB = normalizedB.includes('/');
+        if (hasSlashA === hasSlashB) {
+            return false;
+        }
+
+        return getBaseName(normalizedA) === getBaseName(normalizedB);
+    };
+
+    const diagramIdsMatchWithLegacyFallback = (peerDiagramId?: string, localDiagramId?: string): boolean => {
+        if (!peerDiagramId || !localDiagramId) {
+            return false;
+        }
+
+        if (peerDiagramId === localDiagramId) {
+            return true;
+        }
+
+        const peerSeparator = peerDiagramId.lastIndexOf(':');
+        const localSeparator = localDiagramId.lastIndexOf(':');
+        if (peerSeparator < 0 || localSeparator < 0) {
+            return false;
+        }
+
+        const peerFile = peerDiagramId.slice(0, peerSeparator);
+        const peerLine = peerDiagramId.slice(peerSeparator + 1);
+        const localFile = localDiagramId.slice(0, localSeparator);
+        const localLine = localDiagramId.slice(localSeparator + 1);
+        if (peerLine !== localLine) {
+            return false;
+        }
+
+        return pathsMatchWithLegacyFallback(peerFile, localFile);
+    };
+
+    const resetNodeSelectionStates = async () => {
+        // Use the exact keys captured at acquire time so release always matches the
+        // Y.Map entry even if the model refreshed and reassigned node IDs since then.
+        const positionLockToRelease = lockedPositionKeyRef.current ?? null;
+        const nodeLockToRelease = lockedNodeIdRef.current ?? selectedNodeRef.current?.id ?? null;
+
+        // Release both locks in parallel and wait for completion
+        const lockReleasePromises = [];
+
+        if (positionLockToRelease) {
+            console.log('[Lock Frontend] Releasing position lock:', positionLockToRelease);
+            lockReleasePromises.push(releaseNodeLock(positionLockToRelease));
+        }
+
+        if (nodeLockToRelease) {
+            console.log('[Lock Frontend] Releasing node lock:', nodeLockToRelease);
+            lockReleasePromises.push(releaseNodeLock(nodeLockToRelease));
+        }
+
+        // Wait for all lock releases to complete before clearing state
+        if (lockReleasePromises.length > 0) {
+            await Promise.all(lockReleasePromises);
+            console.log('[Lock Frontend] All locks released successfully');
+        }
+
+        // Clear locked-key refs now that release is done
+        lockedNodeIdRef.current = undefined;
+        lockedPositionKeyRef.current = undefined;
+
+        if (isCollaborationActive) {
+            sendSelectionUpdate([]);
+            const lastCursor = lastBroadcastCursorRef.current;
+            if (lastCursor) {
+                sendPresenceUpdate(lastCursor.x, lastCursor.y, undefined, { selectedNodeIdsOverride: [] });
+            }
+        }
+
+        pinnedCursorRef.current = undefined;
+        clickedCursorAnchorNodeIdRef.current = undefined;
+
         setShowSidePanel(false);
         setSidePanelView(SidePanelView.NODE_LIST);
         setSubPanel({ view: SubPanelView.UNDEFINED });
@@ -925,19 +1397,274 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         clearNavigationStack();
     };
 
-    const closeSidePanelAndFetchUpdatedFlowModel = () => {
-        resetNodeSelectionStates();
-        // Fetch the updated flow model
-        debouncedGetFlowModel();
+    // Helper function to check if a position is locked by another user
+    const isPositionLocked = (parent: FlowNode | Branch, target: LineRange): boolean => {
+        const parentId = 'id' in parent ? parent.id : 'branch';
+        const positionLockKey = `position_${parentId}_${target.startLine.line}_${target.startLine.offset}`;
+        const lock = nodeLocks[positionLockKey];
+        const isLocked = !!lock && lock.userId !== currentUserId;
+        
+        console.log(`[Lock Frontend] isPositionLocked check:`, {
+            positionLockKey,
+            lock,
+            currentUserId,
+            isLocked,
+            allLocks: nodeLocks
+        });
+        
+        return isLocked;
+    };
+
+    // Lock management functions
+    const acquireNodeLock = async (nodeId: string): Promise<{ success: boolean; error?: string }> => {
+        
+        if (!currentUserId || !nodeId || !model?.fileName) {
+            return { success: false, error: 'Missing required data' };
+        }
+        
+        try {
+            // Backend handles all lock logic and broadcasts updates to all clients
+            // The onNodeLockUpdated subscription will update nodeLocks state automatically
+            const response = await rpcClient.getBIDiagramRpcClient().acquireNodeLock({
+                nodeId,
+                userId: currentUserId,
+                userName: currentUserName,
+                filePath: model.fileName,
+                timestamp: Date.now(),
+            });
+            
+            if (response.success) {
+                // Remember the exact key stored in Y.Map so release always uses the
+                // same ID even if the model refreshes and reassigns node IDs.
+                lockedNodeIdRef.current = nodeId;
+                lockedFileRef.current = model?.fileName;
+                if (isCollaborationActive) {
+                    sendSelectionUpdate([nodeId]);
+                }
+                return { success: true };
+            } else {
+                return { success: false, error: response.error };
+            }
+        } catch (error) {
+            console.error('[Lock Frontend] Error acquiring node lock:', error);
+            return { success: false, error: String(error) };
+        }
+    };
+
+    const releaseNodeLock = async (nodeId: string): Promise<{ success: boolean; error?: string }> => {
+        if (!currentUserId || !nodeId || !model?.fileName) {
+            return { success: false, error: 'Missing required data' };
+        }
+        
+        try {
+            // Backend handles lock release and broadcasts updates to all clients
+            // The onNodeLockUpdated subscription will update nodeLocks state automatically
+            console.log(`[Lock Frontend] Releasing lock for node ${nodeId}`);
+            
+            const response = await rpcClient.getBIDiagramRpcClient().releaseNodeLock({
+                nodeId,
+                userId: currentUserId,
+                filePath: model.fileName,
+            });
+
+            if (!response.success) {
+                console.warn(`[Lock Frontend] Failed to release lock for ${nodeId}: ${response.error ?? 'Unknown error'}`);
+                return { success: false, error: response.error };
+            }
+            
+            console.log(`[Lock Frontend] Lock released - backend will broadcast update`);
+            return { success: true };
+        } catch (error) {
+            console.error('[Lock Frontend] Error releasing node lock:', error);
+            return { success: false, error: String(error) };
+        }
+    };
+
+    const sendPresenceUpdate = useCallback(
+        (
+            x: number,
+            y: number,
+            nodeId?: string,
+            options?: { selectedNodeIdsOverride?: string[] }
+        ) => {
+            if (!model?.fileName || !isCollaborationActive) {
+                return;
+            }
+
+            const selectedNodeIds = options?.selectedNodeIdsOverride ?? (selectedNodeRef.current ? [selectedNodeRef.current.id] : []);
+            const selectedNodeId = selectedNodeIds[0];
+            const explicitPinnedNodeId = clickedCursorAnchorNodeIdRef.current;
+            const activePinnedNodeId = explicitPinnedNodeId ?? selectedNodeId ?? nodeId;
+
+            let broadcastX = x;
+            let broadcastY = y;
+            let broadcastNodeId = nodeId;
+
+            if (activePinnedNodeId) {
+                if (!pinnedCursorRef.current || pinnedCursorRef.current.nodeId !== activePinnedNodeId) {
+                    pinnedCursorRef.current = {
+                        x,
+                        y,
+                        nodeId: activePinnedNodeId,
+                    };
+                }
+
+                broadcastX = pinnedCursorRef.current.x;
+                broadcastY = pinnedCursorRef.current.y;
+                broadcastNodeId = activePinnedNodeId;
+            } else {
+                pinnedCursorRef.current = undefined;
+                broadcastNodeId = undefined;
+            }
+
+            lastBroadcastCursorRef.current = {
+                x: broadcastX,
+                y: broadcastY,
+                nodeId: broadcastNodeId,
+            };
+            try {
+                sessionStorage.setItem('bi_last_cursor', JSON.stringify(lastBroadcastCursorRef.current));
+            } catch {}
+
+            try {
+                const normalizedFileName = normalizeFilePath(model.fileName);
+                const diagramId = `${normalizedFileName}:${targetRef.current?.startLine?.line ?? ''}`;
+                const presenceData: CollaborationPresenceData = {
+                    peerId: currentUserId,
+                    peerName: currentUserName,
+                    color: "#7A00FF", // Purple - could be enhanced to assign consistent colors per user
+                    filePath: normalizedFileName,
+                    diagramId,
+                    cursor: {
+                        x: broadcastX,
+                        y: broadcastY,
+                        nodeId: broadcastNodeId,
+                        timestamp: Date.now(),
+                    },
+                    selectedNodes: selectedNodeIds,
+                    locks: Object.entries(nodeLocks)
+                        .filter(([_, lock]) => lock.userId === currentUserId)
+                        .map(([nodeId, lock]) => ({
+                            filePath: normalizeFilePath(model.fileName),
+                            nodeId,
+                            userId: lock.userId,
+                            userName: lock.userName,
+                            timestamp: lock.timestamp,
+                        })),
+                };
+                // Send the presence update  to the backend, which will broadcast it to other collaborators via OCT
+                rpcClient.sendRequest(updateWebviewCollaborationPresence, presenceData);
+            } catch (error) {
+                console.error('[OCT] Failed to send presence update:', error);
+            }
+        },
+        [model?.fileName, isCollaborationActive, currentUserId, currentUserName, nodeLocks, rpcClient]
+    );
+
+    const updateCursorPosition = useMemo(() =>
+        throttle((x: number, y: number, nodeId?: string) => {
+            sendPresenceUpdate(x, y, nodeId);
+        }, 100),
+        [sendPresenceUpdate]
+    );
+
+    useEffect(() => {
+        return () => {
+            updateCursorPosition.cancel();
+        };
+    }, [updateCursorPosition]);
+
+    useEffect(() => {
+        if (!isCollaborationActive) {
+            return;
+        }
+
+        const fireCursorHeartbeat = () => {
+            const lastCursor = lastBroadcastCursorRef.current;
+            if (!lastCursor) {
+                return;
+            }
+            sendPresenceUpdate(lastCursor.x, lastCursor.y, lastCursor.nodeId);
+        };
+
+        // Fire immediately so peers see the cursor without waiting a full heartbeat interval.
+        // This also recovers cursor sync quickly after a remount (e.g. key change on resource
+        // diagrams) by using the position restored from sessionStorage on mount.
+        fireCursorHeartbeat();
+
+        const heartbeatInterval = setInterval(fireCursorHeartbeat, CURSOR_HEARTBEAT_INTERVAL_MS);
+
+        return () => {
+            clearInterval(heartbeatInterval);
+        };
+    }, [isCollaborationActive, sendPresenceUpdate]);
+
+    // Run the stale cursor sweeper continuously regardless of isCollaborationActive.
+    // Cursors expire naturally via their timestamp (STALE_CURSOR_TIMEOUT_MS).
+    // We intentionally do NOT clear the remote cursors map when isCollaborationActive
+    // transitions to false — that would cause a visible blink every time a transient
+    // RPC error occurs during deletion (e.g. LS busy).  The rendering layer already
+    // hides cursors when !isCollaborationActive via the `remoteCursors: isCollaborationActive
+    // ? remoteCursors : new Map()` guard in memoizedDiagramProps, so state preservation here
+    // is safe.
+    useEffect(() => {
+        const staleCursorInterval = setInterval(() => {
+            const now = Date.now();
+            setRemoteCursors((prev) => {
+                if (prev.size === 0) {
+                    return prev;
+                }
+
+                let didRemoveCursor = false;
+                const updated = new Map(prev);
+
+                for (const [peerId, presence] of prev.entries()) {
+                    const cursorTimestamp = presence?.cursor?.timestamp;
+                    if (!cursorTimestamp || now - cursorTimestamp > STALE_CURSOR_TIMEOUT_MS) {
+                        updated.delete(peerId);
+                        didRemoveCursor = true;
+                    }
+                }
+
+                return didRemoveCursor ? updated : prev;
+            });
+        }, STALE_CURSOR_SWEEP_INTERVAL_MS);
+
+        return () => {
+            clearInterval(staleCursorInterval);
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    
+    // Send selection updates when nodes are selected
+    const sendSelectionUpdate = useCallback((selectedNodeIds: string[]) => {
+        if (!model?.fileName || !isCollaborationActive) return;
+        
+        try {
+            const selectionData: CollaborationTextSelection = {
+                filePath: normalizeFilePath(model.fileName),
+                selectedNodes: selectedNodeIds,
+                cursor: undefined, 
+            };
+            
+            rpcClient.sendRequest(updateWebviewCollaborationSelection, selectionData);
+        } catch (error) {
+            console.log('[OCT] Failed to send selection update:', error);
+        }
+    }, [model?.fileName, isCollaborationActive]);
+
+    const closeSidePanelAndFetchUpdatedFlowModel = async () => {
+        await resetNodeSelectionStates();
+        // Complete draft and fetch new flow model
         if (hasDraft) {
-            // completeDraft();
+            completeDraft();
             setSuggestedModel(undefined);
             suggestedText.current = undefined;
         }
     };
 
-    const handleOnCloseSidePanel = () => {
-        resetNodeSelectionStates();
+    const handleOnCloseSidePanel = async () => {
+        await resetNodeSelectionStates();
         // Cancel draft and return to previous flow model
         if (hasDraft) {
             const restoredModel = cancelDraft();
@@ -949,13 +1676,14 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
     };
 
-    const fetchNodesAndAISuggestions = (
+    const fetchNodesAndAISuggestions = async (
         parent: FlowNode | Branch,
         target: LineRange,
         fetchAiSuggestions = false,
         updateFlowModel = true,
         isOnAddNode = false
     ) => {
+        
         if (!parent || !target) {
             console.error(">>> No parent or target found");
             return;
@@ -964,12 +1692,50 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             position: target.startLine,
             filePath: model?.fileName || parent?.codedata?.lineRange.fileName,
         };
-        // show side panel with available nodes
         setShowProgressIndicator(true);
-        // Add draft node to model using hook
+        
         if (updateFlowModel) {
-            const modelWithDraft = addDraftNode(parent, target);
-            setModel(modelWithDraft);
+            const parentId = 'id' in parent ? parent.id : 'branch';
+            const positionLockKey = `position_${parentId}_${target.startLine.line}_${target.startLine.offset}`;
+            
+            // Check if current user already owns this lock (clicking on existing draft)
+            const existingLock = nodeLocks[positionLockKey];
+            const alreadyLockedByCurrentUser = existingLock && existingLock.userId === currentUserId;
+            
+            if (alreadyLockedByCurrentUser) {
+                // Lock already acquired - clicking on existing draft node
+                // Still need to ensure draft state is set for description to show
+                console.log('[Lock Frontend] Lock already held by current user, skipping acquisition');
+                if (!hasDraft) {
+                    const modelWithDraft = addDraftNode(parent, target);
+                    setModel(modelWithDraft);
+                }
+            } else {
+                const lockResult = await acquireNodeLock(positionLockKey);
+                
+                if (!lockResult.success) {
+                    // Lock acquisition failed - clean up and don't show side panel
+                    console.error('[Lock Frontend] Cannot add node - position is locked:', lockResult.error);
+                    setShowProgressIndicator(false);
+                
+                    topNodeRef.current = undefined;
+                    targetRef.current = undefined;
+                    
+                    // Show error notification to user
+                    rpcClient.getCommonRpcClient().showErrorMessage({
+                        message: `Cannot add node here - ${lockResult.error || 'this position is locked by another user'}. Please wait until they finish editing.`
+                    });
+                    return; 
+                }
+                
+                console.log('[Lock Frontend] Lock acquired successfully, proceeding to add draft node');
+                lockedPositionKeyRef.current = positionLockKey;
+                lockedFileRef.current = model?.fileName;
+
+                // Now that lock is acquired, add draft node and update model
+                const modelWithDraft = addDraftNode(parent, target);
+                setModel(modelWithDraft);
+            }
         }
         setShowSidePanel(true);
         isOnAddNode && setSidePanelView(SidePanelView.LOADING);
@@ -977,7 +1743,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             .getBIDiagramRpcClient()
             .getAvailableNodes(getNodeRequest)
             .then((response) => {
-                console.log(">>> Available nodes", response);
                 if (!response.categories) {
                     console.error(">>> Error getting available nodes", response);
                     setErrorMessage(SIDE_PANEL_DEFAULT_ERROR_MESSAGE);
@@ -1026,16 +1791,48 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             });
     };
 
-    const handleOnAddNode = (parent: FlowNode | Branch, target: LineRange) => {
-        // clear previous click if had
+    const handleOnAddNode = (
+        parent: FlowNode | Branch,
+        target: LineRange,
+        clickedNodeId?: string,
+        anchor?: AddNodeAnchor
+    ) => {
+        
+        // clear previous selections if had
         if (topNodeRef.current || targetRef.current) {
             closeSidePanelAndFetchUpdatedFlowModel();
             return;
         }
-        // handle add new node
+        // store parent and target in refs
         topNodeRef.current = parent;
         changeTargetRange(target)
-        fetchNodesAndAISuggestions(parent, target, undefined, undefined, true);
+        const parentId = 'id' in parent ? parent.id : 'branch';
+        const positionLockKey = `position_${parentId}_${target.startLine.line}_${target.startLine.offset}`;
+        const activeAnchorKey = anchor?.anchorKey || positionLockKey || clickedNodeId;
+
+        clickedCursorAnchorNodeIdRef.current = activeAnchorKey;
+
+        if (anchor) {
+            pinnedCursorRef.current = {
+                x: anchor.anchorX,
+                y: anchor.anchorY,
+                nodeId: activeAnchorKey,
+            };
+        }
+
+        if (isCollaborationActive && activeAnchorKey) {
+            if (anchor) {
+                sendPresenceUpdate(anchor.anchorX, anchor.anchorY, activeAnchorKey, { selectedNodeIdsOverride: [] });
+            } else {
+                const lastCursor = lastBroadcastCursorRef.current;
+                if (lastCursor) {
+                    sendPresenceUpdate(lastCursor.x, lastCursor.y, activeAnchorKey, { selectedNodeIdsOverride: [] });
+                }
+            }
+        }
+
+        console.log(`[Lock Frontend] Calling fetchNodesAndAISuggestions`);
+        fetchNodesAndAISuggestions(parent, target);
     };
 
     const handleOnAddNodePrompt = (
@@ -1065,7 +1862,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             autoSubmit: options?.autoSubmit ?? false,
         };
 
-        // Use the standard pattern - import from utils/commands
         rpcClient.getAiPanelRpcClient().openAIPanel(aiPrompt);
     };
 
@@ -1393,7 +2189,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             await handleActivityAdded();
             return;
         }
-        closeSidePanelAndFetchUpdatedFlowModel();
+        await closeSidePanelAndFetchUpdatedFlowModel();
     };
 
     const handleOnSelectNode = (nodeId: string, metadata?: any, fileName?: string) => {
@@ -1821,6 +2617,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 && options?.isChangeFromHelperPane === undefined
                 && options?.postUpdateCallBack === undefined
             );
+        const shouldCloseSidePanel = options?.closeSidePanel ?? true;
 
         if (
             options?.isChangeFromHelperPane &&
@@ -1924,9 +2721,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                         selectedNodeRef.current = undefined;
                         await updateArtifactLocation(response);
                     }
-                    if (options?.closeSidePanel) {
+                    if (shouldCloseSidePanel) {
                         selectedNodeRef.current = undefined;
-                        closeSidePanelAndFetchUpdatedFlowModel();
+                        await closeSidePanelAndFetchUpdatedFlowModel();
                     }
                     if (options?.postUpdateCallBack) {
                         options.postUpdateCallBack();
@@ -1980,7 +2777,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             })
             .finally(() => {
                 setShowProgressIndicator(false);
-                if (options?.closeSidePanel === true) {
+                if (shouldCloseSidePanel) {
                     setShowSidePanel(false);
                 }
             });
@@ -1999,10 +2796,13 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
         await updateArtifactLocation(deleteNodeResponse);
 
-        selectedNodeRef.current = undefined;
-        closeSidePanelAndFetchUpdatedFlowModel();
         setShowProgressIndicator(false);
         debouncedGetFlowModel();
+        // Fallback retry: if the LS hasn't reparsed the file within 150ms (cold start can take
+        // 400–700ms), the debounced fetch above may return the old model. This retry fires after
+        // 800ms total, giving the LS enough time to finish reparsing. The generation counter in
+        // getFlowModel ensures any earlier stale response is discarded and the latest wins.
+        setTimeout(() => getFlowModel(), 800);
     };
 
     const handleOnAddComment = (comment: string, target: LineRange) => {
@@ -2046,7 +2846,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 if (response.artifacts.length > 0) {
                     selectedNodeRef.current = undefined;
                     await updateArtifactLocation(response);
-                    closeSidePanelAndFetchUpdatedFlowModel();
+                    await closeSidePanelAndFetchUpdatedFlowModel();
                 } else {
                     console.error(">>> Error updating source code", response);
                 }
@@ -2054,8 +2854,14 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     };
 
     const handleOnEditNode = async (node: FlowNode) => {
+        // Check if node is locked by another user
+        if (isNodeLockedByOther(node, currentUserId)) {
+            return;
+        }
+
         setSelectedNodeId(node.id);
         selectedNodeRef.current = node;
+        clickedCursorAnchorNodeIdRef.current = node.id;
         if (suggestedText.current) {
             // use targetRef from suggested model
         } else {
@@ -2067,17 +2873,45 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             return;
         }
 
+        // Acquire lock for this node before proceeding
         setShowProgressIndicator(true);
-        rpcClient.getBIDiagramRpcClient().getNodeTemplate({
-            position: targetRef.current.startLine,
-            filePath: model.fileName,
-            id: node.codedata,
-        })
-            .then((response: any) => {
-                if (response.errorMsg) {
-                    showConnectorError();
-                    return;
-                }
+        const lockResult = await acquireNodeLock(node.id);
+        
+        if (!lockResult.success) {
+            // Lock acquisition failed - clean up and show error
+            console.error('[Lock Frontend] Cannot edit node - node is locked:', lockResult.error);
+            setShowProgressIndicator(false);
+            setSelectedNodeId(undefined);
+            selectedNodeRef.current = undefined;
+            pinnedCursorRef.current = undefined;
+            clickedCursorAnchorNodeIdRef.current = undefined;
+            topNodeRef.current = undefined;
+            targetRef.current = undefined;
+            setTargetLineRange(undefined);
+            
+            rpcClient.getCommonRpcClient().showErrorMessage({
+                message: `Cannot edit this node - ${lockResult.error || 'it is locked by another user'}. Please wait until they finish editing.`
+            });
+            return;
+        }
+
+        console.log('[Lock Frontend] Node lock acquired, proceeding to load form');
+
+        if (isCollaborationActive) {
+            const lastCursor = lastBroadcastCursorRef.current;
+            if (lastCursor) {
+                sendPresenceUpdate(lastCursor.x, lastCursor.y, node.id, { selectedNodeIdsOverride: [node.id] });
+            }
+        }
+
+        rpcClient
+            .getBIDiagramRpcClient()
+            .getNodeTemplate({
+                position: targetRef.current.startLine,
+                filePath: model.fileName,
+                id: node.codedata,
+            })
+            .then((response) => {
                 nodeTemplateRef.current = response.flowNode;
                 showEditForm.current = true;
                 setSidePanelView(SidePanelView.FORM);
@@ -2929,7 +3763,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         await rpcClient
             .getBIDiagramRpcClient()
             .getSourceCode({ filePath: projectPath, flowNode: selectedNode });
-        closeSidePanelAndFetchUpdatedFlowModel();
+        await closeSidePanelAndFetchUpdatedFlowModel();
     };
 
     const deleteMcpVariableAndClass = async (tool: ToolData) => {
@@ -3173,6 +4007,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 onClickOverlay: handleOnCloseSidePanel,
             },
             isUserAuthenticated,
+            currentUserId,
+            nodeLocks,
+            isPositionLocked,
+            isCollaborationActive,
+            remoteCursors: isCollaborationActive ? remoteCursors : new Map(),
+            onCursorMove: isCollaborationActive ? updateCursorPosition : undefined,
             entrypointContext,
         }),
         [
@@ -3184,12 +4024,29 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             showProgressSpinner,
             showProgressIndicator,
             hasDraft,
+            isDraftProcessing,
+            draftDescription,
             selectedNodeId,
             rpcClient,
             isUserAuthenticated,
-            entrypointContext,
+            currentUserId,
+            nodeLocks,
+            isCollaborationActive,
+            remoteCursors,
+            updateCursorPosition,
         ]
     );
+
+    // Debug log for cursor rendering
+    useEffect(() => {
+        if (isCollaborationActive && remoteCursors.size > 0) {
+            console.log(`[FlowDiagram] Remote cursors available for rendering:`, {
+                count: remoteCursors.size,
+                currentUserId,
+                cursors: Array.from(remoteCursors.entries()),
+            });
+        }
+    }, [remoteCursors, currentUserId, isCollaborationActive]);
 
     return (
         <PanelOverlayProvider>
@@ -3199,7 +4056,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 )}
                 <Container>
                     {!model && <DiagramSkeleton />}
-                    {model && <MemoizedDiagram {...memoizedDiagramProps} />}
+                    {model && (
+                        <MemoizedDiagram {...memoizedDiagramProps} />
+                    )}
                 </Container>
             </View>
 

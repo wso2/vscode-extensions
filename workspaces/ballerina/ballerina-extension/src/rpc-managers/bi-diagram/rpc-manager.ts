@@ -19,6 +19,8 @@
  */
 import {
     AIChatRequest,
+    AcquireNodeLockRequest,
+    AcquireNodeLockResponse,
     AddFieldRequest,
     InlineAgentChatRequest,
     AddFunctionRequest,
@@ -93,6 +95,12 @@ import {
     FunctionNodeResponse,
     GeneratedClientSaveResponse,
     GetConfigVariableNodeTemplateRequest,
+    GetNodeLocksRequest,
+    GetNodeLocksResponse,
+    UpdateDiagramCursorRequest,
+    GetDiagramCursorsRequest,
+    GetDiagramCursorsResponse,
+    IsCollaborationActiveResponse,
     GetRecordConfigRequest,
     GetRecordConfigResponse,
     GetRecordModelFromSourceRequest,
@@ -109,6 +117,9 @@ import {
     LoginMethod,
     ModelFromCodeRequest,
     NodeKind,
+    NodeLock,
+    nodeLockUpdated,
+    diagramCursorUpdated,
     OpenAPIClientDeleteRequest,
     OpenAPIClientDeleteResponse,
     OpenAPIClientGenerationRequest,
@@ -124,6 +135,8 @@ import {
     RecordSourceGenRequest,
     RecordSourceGenResponse,
     RecordsInWorkspaceMentions,
+    ReleaseNodeLockRequest,
+    ReleaseNodeLockResponse,
     RenameIdentifierRequest,
     RenameRequest,
     SCOPE,
@@ -165,6 +178,7 @@ import {
 import * as fs from "fs";
 import * as path from 'path';
 import * as vscode from "vscode";
+import { uriCache } from '../../extension';
 import {
     WICommandIds,
     IWso2PlatformExtensionAPI,
@@ -204,19 +218,23 @@ import {
 } from "../../utils/bi";
 import { writeBallerinaFileDidOpen } from "../../utils/modification";
 import { updateSourceCode } from "../../utils/source-utils";
+import { buildProjectsStructure } from "../../utils/project-artifacts";
 import { getView } from "../../utils/state-machine-utils";
 import { isLibraryProject } from "../../utils/config";
 import { PlatformExtRpcManager } from "../platform-ext/rpc-manager";
 import { openAIPanelWithPrompt } from "../../views/ai-panel/aiMachine";
 import { getCurrentBallerinaProject } from "../../utils/project-utils";
+import { getUsername } from "../../utils/bi";
+import { Messenger } from "vscode-messenger";
+import { CollaborationLockManager } from '../../features/collaboration/lock-manager';
+import { getOctClientId } from '../collaboration/rpc-handler';
 import { CommonRpcManager } from "../common/rpc-manager";
 import * as toml from "@iarna/toml";
 import { readOrWriteReadmeContent } from "./utils";
 import { registerFormOpen, registerFormClose, setFormDirtyState } from "./form-state";
 import { chatStateStorage } from "../../views/ai-panel/chatStateStorage";
-import { getRepoRoot } from "../platform-ext/platform-utils";
 import { WI_EXTENSION_ID } from "../../utils";
-import { notifyOnIdentifierUpdated } from "../../RPCLayer";
+import { notifyCurrentWebview, notifyOnIdentifierUpdated } from "../../RPCLayer";
 import { openView } from "../../stateMachine";
 
 function ensureGitignoreEntry(projectRoot: string): void {
@@ -267,6 +285,38 @@ function setTomlSectionField(filePath: string, section: string, field: string, v
 
 export class BiDiagramRpcManager implements BIDiagramAPI {
     OpenConfigTomlRequest: (params: OpenConfigTomlRequest) => Promise<void>;
+    
+    // Messenger instance for broadcasting notifications
+    private messenger?: Messenger;
+
+    constructor(messenger?: Messenger) {
+        this.messenger = messenger;
+
+        if (messenger) {
+            // Subscribe to lock changes from OCT and broadcast to webviews
+            const lockManager = CollaborationLockManager.getInstance();
+            lockManager.onLocksChanged((filePath, locks) => {
+                console.log(`[Lock] Broadcasting lock update for ${filePath} to webviews`);
+                this.messenger.sendNotification(nodeLockUpdated, {
+                    type: 'webview',
+                    webviewType: 'ballerina.visualizer'
+                }, {
+                    locks,
+                });
+            });
+
+            // Subscribe to cursor changes and broadcast to webviews
+            lockManager.onCursorsChanged((cursors) => {
+                console.log(`[Cursor] Broadcasting cursor update to webviews`);
+                this.messenger.sendNotification(diagramCursorUpdated, {
+                    type: 'webview',
+                    webviewType: 'ballerina.visualizer'
+                }, {
+                    cursors: Array.from(cursors.values()),
+                });
+            });
+        }
+    }
 
     private toRawPath(input: string): string {
         if (input.includes('://')) {
@@ -1005,8 +1055,38 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 .deleteFlowNode(params)
                 .then(async (model) => {
                     console.log(">>> bi delete node from ls", model);
+                    const notifyDeletionUpdate = () => {
+                        // Defer to the next macrotask so the caller can first update local artifact location.
+                        setTimeout(() => notifyCurrentWebview(), 0);
+                    };
                     const artifacts = await updateSourceCode({ textEdits: model.textEdits, description: 'Flow Node Deletion - ' + params.flowNode.metadata.label, skipPayloadCheck: true });
+                    if (!artifacts || artifacts.length === 0) {
+                        const projectInfo = StateMachine.context().projectInfo;
+                        if (projectInfo) {
+                            try {
+                                const freshStructure = await buildProjectsStructure(projectInfo, StateMachine.langClient(), true);
+                                const freshArtifacts: typeof artifacts = [];
+                                for (const project of freshStructure.projects ?? []) {
+                                    for (const list of Object.values(project.directoryMap ?? {})) {
+                                        for (const artifact of list as typeof artifacts) {
+                                            freshArtifacts.push(artifact);
+                                            if (artifact.resources) {
+                                                freshArtifacts.push(...artifact.resources as typeof artifacts);
+                                            }
+                                        }
+                                    }
+                                }
+                                resolve({ artifacts: freshArtifacts });
+                                notifyDeletionUpdate();
+                                return;
+                            } catch (err) {
+                                console.error('>>> error refreshing project structure after node deletion', err);
+                            }
+                        }
+                    }
+
                     resolve({ artifacts });
+                    notifyDeletionUpdate();
                 })
                 .catch((error) => {
                     console.log(">>> error fetching delete node from ls", error);
@@ -1016,7 +1096,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 });
         });
     }
-
+    
     async handleReadmeContent(params: ReadmeContentRequest): Promise<ReadmeContentResponse> {
         return readOrWriteReadmeContent(params);
     }
@@ -2516,6 +2596,62 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         });
     }
 
+    // frontend calls this method to acquire lock for a node
+    async acquireNodeLock(params: AcquireNodeLockRequest): Promise<AcquireNodeLockResponse> {
+        const lockManager = CollaborationLockManager.getInstance();
+        const result = await lockManager.acquireLock(
+            params.filePath,
+            params.nodeId,
+            params.userId,
+            params.userName
+        );
+        console.log('[RPC Manager] acquireNodeLock result:', result);
+        return result;
+    }
+
+    async releaseNodeLock(params: ReleaseNodeLockRequest): Promise<ReleaseNodeLockResponse> {
+        const lockManager = CollaborationLockManager.getInstance();
+        return await lockManager.releaseLock(
+            params.filePath,
+            params.nodeId,
+            params.userId
+        );
+    }
+
+    async getNodeLocks(params: GetNodeLocksRequest): Promise<GetNodeLocksResponse> {
+        const lockManager = CollaborationLockManager.getInstance();
+        const locks = await lockManager.getLocks(params.filePath);
+        return { locks };
+    }
+
+    async getSystemUsername(): Promise<string> {
+        return getUsername();
+    }
+
+    // Cursor awareness methods
+    // RPC method to call lock manager to update cursor position from backend
+    async updateDiagramCursor(params: UpdateDiagramCursorRequest): Promise<void> {
+        const lockManager = CollaborationLockManager.getInstance();
+        // Only update cursor if collaboration is active
+        if (!lockManager.isCollaborationActive()) {
+            return;
+        }
+        lockManager.updateCursor(params.x, params.y, params.nodeId);
+    }
+    async getDiagramCursors(params: GetDiagramCursorsRequest): Promise<GetDiagramCursorsResponse> {
+        const lockManager = CollaborationLockManager.getInstance();
+        const users = lockManager.getConnectedUsers();
+        return { cursors: users };
+    }
+
+    async isCollaborationActive(): Promise<IsCollaborationActiveResponse> {
+        const lockManager = CollaborationLockManager.getInstance();
+        return {
+            isActive: lockManager.isCollaborationActive(),
+            clientId: getOctClientId()
+        };
+    }
+
     async getAvailableAgents(params: BIAvailableNodesRequest): Promise<BIAvailableNodesResponse> {
         console.log(">>> requesting bi available agents from ls", params);
         return new Promise((resolve) => {
@@ -2568,6 +2704,19 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     async getSuggestedProjectDefaults(params: { isInProject: boolean }): Promise<SuggestedProjectDefaultsResponse> {
         return getSuggestedProjectDefaults(params.isInProject);
     }
+}
+
+export function getRepoRoot(projectRoot: string): string | undefined {
+    // traverse up the directory tree until .git directory is found
+    const gitDir = path.join(projectRoot, ".git");
+    if (fs.existsSync(gitDir)) {
+        return projectRoot;
+    }
+    // path is root return undefined
+    if (projectRoot === path.parse(projectRoot).root) {
+        return undefined;
+    }
+    return getRepoRoot(path.join(projectRoot, ".."));
 }
 
 export async function getBallerinaFiles(dir: string): Promise<string[]> {

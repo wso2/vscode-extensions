@@ -134,6 +134,7 @@ export interface VisualizerLocation {
     documentUri?: string;
     projectPath?: string;
     workspacePath?: string;
+    fs?: string;
     projectInfo?: ProjectInfo;
     identifier?: string;
     parentIdentifier?: string;
@@ -607,6 +608,64 @@ export const onArtifactUpdatedRequest: RequestType<ArtifactData, void> = { metho
 export const onParentPopupSubmitted: NotificationType<ParentPopupData> = { method: `onParentPopupSubmitted` };
 export const popupStateChanged: NotificationType<PopupMachineStateValue> = { method: 'popupStateChanged' };
 export const getPopupVisualizerState: RequestType<void, PopupVisualizerLocation> = { method: 'getPopupVisualizerState' };
+
+// OCT (Open Collaboration Tools) types and notifications
+// These types handle collaboration state in the webview (diagram editor)
+export interface WebviewCursorPosition {
+    x: number;
+    y: number;
+    nodeId?: string; // ID of the diagram node being hovered/edited
+    timestamp: number;
+}
+
+export interface WebviewNodeLock {
+    filePath: string;
+    nodeId: string;
+    userId: string;
+    userName: string;
+    timestamp: number;
+}
+
+export interface WebviewUserPresence {
+    userId: string;
+    userName: string;
+    color?: string;
+    cursor?: WebviewCursorPosition;
+    selectedNodes?: string[]; // IDs of selected diagram nodes
+    status?: 'editing' | 'viewing';
+}
+
+export interface WebviewCollaborationState {
+    filePath: string;
+    locks: Record<string, WebviewNodeLock>; // nodeId -> lock
+    presences: WebviewUserPresence[];
+}
+
+// Payload when user updates their cursor/selection in webview
+export interface CollaborationTextSelection {
+    filePath: string;
+    selectedNodes?: string[];
+    cursor?: WebviewCursorPosition;
+}
+
+// Payload when broadcasting presence/lock updates to other webviews
+export interface CollaborationPresenceData {
+    peerId: string;
+    peerName: string;
+    color?: string;
+    filePath: string;
+    diagramId?: string; // "<normalizedFilePath>:<startLine>" — uniquely identifies a specific function's flow diagram
+    cursor?: WebviewCursorPosition;
+    selectedNodes?: string[];
+    locks?: WebviewNodeLock[];
+}
+
+export const onOctUpdateTextSelection: NotificationType<CollaborationTextSelection> = { method: 'onOctUpdateTextSelection' };
+export const onOctRerenderPresence: NotificationType<CollaborationPresenceData> = { method: 'onOctRerenderPresence' };
+
+// RPC methods for webview to send collaboration state to extension
+export const updateWebviewCollaborationSelection: RequestType<CollaborationTextSelection, void> = { method: 'updateWebviewCollaborationSelection' };
+export const updateWebviewCollaborationPresence: RequestType<CollaborationPresenceData, void> = { method: 'updateWebviewCollaborationPresence' };
 
 export const breakpointChanged: NotificationType<boolean> = { method: 'breakpointChanged' };
 export const approvalOverlayState: NotificationType<ApprovalOverlayState> = { method: 'approvalOverlayState' };

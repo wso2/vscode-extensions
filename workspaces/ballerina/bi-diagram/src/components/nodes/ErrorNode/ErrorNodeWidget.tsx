@@ -38,7 +38,8 @@ import {
     DRAFT_NODE_BORDER_WIDTH,
     NODE_GAP_Y,
 } from "../../../resources/constants";
-import { Button, Item, Menu, MenuItem } from "@wso2/ui-toolkit";
+import { Button, Item, Menu, MenuItem, Popover, ThemeColors } from "@wso2/ui-toolkit";
+import { NodeLockBadge } from "../NodeLockBadge";
 import { FlowNode } from "../../../utils/types";
 import { useDiagramContext } from "../../DiagramContext";
 import { MoreVertIcon } from "../../../resources";
@@ -126,6 +127,7 @@ export namespace NodeStyles {
         isSelected?: boolean;
     };
     export const Box = styled.div<NodeStyleProp>`
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -196,7 +198,10 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
         expandedErrorHandler,
         toggleErrorHandlerExpansion,
         selectedNodeId,
+        currentUserId,
+        setMenuOpenNodeId,
     } = useDiagramContext();
+    const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
 
     const isSelected = selectedNodeId === model.node.id;
 
@@ -240,6 +245,9 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
     }, [model.node.suggested]);
 
     const handleOnClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        if (isLocked) {
+            return;
+        }
         if (event.metaKey) {
             onGoToSource();
         } else {
@@ -262,6 +270,7 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
         setMenuPos(null);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const onAddBreakpoint = () => {
@@ -275,15 +284,19 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         const target = menuButtonElement || (event.currentTarget as HTMLElement);
         setMenuPos(getMenuPos(target));
+        setMenuOpenNodeId?.(model.node.id);
     };
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
         event.preventDefault();
+        if (isLocked) {
+            return;
+        }
         const target = menuButtonElement || event.currentTarget;
         setMenuPos(getMenuPos(target as HTMLElement));
     };
@@ -291,6 +304,7 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
     const handleOnMenuClose = () => {
         setMenuPos(null);
         setIsHovered(false);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const menuItems: Item[] = [
@@ -320,14 +334,19 @@ export function ErrorNodeWidget(props: ErrorNodeWidgetProps) {
                         onClick={handleOnClick}
                         onMouseEnter={() => setIsHovered(true)}
                         onMouseLeave={() => setIsHovered(false)}
-                        onContextMenu={!readOnly ? handleOnContextMenu : undefined}
+                        onContextMenu={!readOnly && !isLocked ? handleOnContextMenu : undefined}
                         selected={model.isSelected() || isExpanded}
                         hovered={isHovered || isExpanded}
                         hasError={hasError}
                         isActiveBreakpoint={isActiveBreakpoint}
                         disabled={disabled}
                         isSelected={isSelected}
+                        style={{
+                            opacity: isLocked ? 0.6 : 1,
+                            cursor: isLocked ? 'not-allowed' : 'pointer',
+                        }}
                     >
+                        <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
                         {hasBreakpoint && (
                             <div
                                 style={{

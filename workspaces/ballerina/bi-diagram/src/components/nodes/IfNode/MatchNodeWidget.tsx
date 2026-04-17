@@ -51,7 +51,7 @@ export interface NodeWidgetProps extends Omit<MatchNodeWidgetProps, "children"> 
 
 export function MatchNodeWidget(props: MatchNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId } = useDiagramContext();
+    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId, setMenuOpenNodeId } = useDiagramContext();
 
     const isSelected = selectedNodeId === model.node.id;
 
@@ -117,6 +117,7 @@ export function MatchNodeWidget(props: MatchNodeWidgetProps) {
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
         setMenuPos(null);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
@@ -125,6 +126,7 @@ export function MatchNodeWidget(props: MatchNodeWidgetProps) {
         }
         const target = menuButtonElement || (event.currentTarget as HTMLElement);
         setMenuPos(getMenuPos(target));
+        setMenuOpenNodeId?.(model.node.id);
     };
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -136,6 +138,7 @@ export function MatchNodeWidget(props: MatchNodeWidgetProps) {
     const handleOnMenuClose = () => {
         setMenuPos(null);
         setIsHovered(false);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const onAddBreakpoint = () => {

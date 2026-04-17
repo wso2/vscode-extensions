@@ -30,7 +30,8 @@ import {
     NODE_TEXT_COLOR,
 } from "../../../resources/constants";
 import { useDiagramContext } from "../../DiagramContext";
-import { ProgressRing } from "@wso2/ui-toolkit";
+import { ProgressRing, ThemeColors } from "@wso2/ui-toolkit";
+import { NodeLockBadge } from "../NodeLockBadge";
 
 export namespace NodeStyles {
     export const Node = styled.div`
@@ -85,7 +86,8 @@ export interface NodeWidgetProps extends Omit<DraftNodeWidgetProps, "children"> 
 
 export function DraftNodeWidget(props: DraftNodeWidgetProps) {
     const { model, engine } = props;
-    const { draftNode, suggestions } = useDiagramContext();
+    const { draftNode, suggestions, currentUserId } = useDiagramContext();
+    const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
 
     // special case draft node if suggestions are fetching
     if (suggestions?.fetching && !draftNode?.override) {
@@ -102,7 +104,8 @@ export function DraftNodeWidget(props: DraftNodeWidgetProps) {
     }
 
     return (
-        <NodeStyles.Node>
+        <NodeStyles.Node style={{ position: 'relative', opacity: isLocked ? 0.6 : 1 }}>
+            <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
             <NodeStyles.TopPortWidget port={model.getPort("in")!} engine={engine} />
             <NodeStyles.Row>
                 {draftNode?.showSpinner && <ProgressRing sx={{ width: 14 }} />}

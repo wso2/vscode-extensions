@@ -38,7 +38,8 @@ import {
     NODE_TEXT_COLOR,
     NODE_WIDTH,
 } from "../../../resources/constants";
-import { Button, Icon, Item, Menu, MenuItem, Tooltip } from "@wso2/ui-toolkit";
+import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
+import { NodeLockBadge } from "../NodeLockBadge";
 import { MoreVertIcon } from "../../../resources";
 import NodeIcon from "../../NodeIcon";
 import { useDiagramContext } from "../../DiagramContext";
@@ -60,6 +61,7 @@ export namespace NodeStyles {
         isWorkflowNode?: boolean;
     };
     export const Node = styled.div<NodeStyleProp>`
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -188,6 +190,7 @@ export namespace NodeStyles {
         align-items: center;
         gap: 8px;
     `;
+
 }
 
 export interface BaseNodeWidgetProps {
@@ -210,12 +213,16 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
         readOnly,
         selectedNodeId,
         project,
+        currentUserId,
+        setMenuOpenNodeId,
         nodeComments,
     } = useDiagramContext();
 
     const noteComment = nodeComments?.get(model.node.id);
 
     const isSelected = selectedNodeId === model.node.id;
+    const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
+    const isLockedBySelf = model.node.locked && model.node.locked.userId === currentUserId;
 
     const [isHovered, setIsHovered] = useState(false);
     const [isNoteActive, setIsNoteActive] = useState(false);
@@ -304,6 +311,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
         setMenuPos(null);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const onAddBreakpoint = () => {
@@ -317,15 +325,19 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         const target = menuButtonElement || (event.currentTarget as HTMLElement);
         setMenuPos(getMenuPos(target));
+        setMenuOpenNodeId?.(model.node.id);
     };
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
         event.preventDefault();
+        if (readOnly || isLocked) {
+            return;
+        }
         const target = menuButtonElement || event.currentTarget;
         setMenuPos(getMenuPos(target as HTMLElement));
     };
@@ -333,6 +345,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
     const handleOnMenuClose = () => {
         setMenuPos(null);
         setIsHovered(false);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const handleOnViewFunctionClick = () => {
@@ -417,9 +430,8 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
         });
     }
 
-    const nodeTitle = getNodeTitle(model.node);
-
-    const hasFullAssignment = model.node.properties?.variable?.value && model.node.properties?.expression?.value;
+    const hasFullAssignment =
+        model.node.properties?.variable?.value && model.node.properties?.expression?.value;
 
     let nodeDescription = hasFullAssignment
         ? `${model.node.properties.variable?.value} = ${model.node.properties?.expression?.value}`
@@ -434,6 +446,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
         nodeDescription = model.node.properties.msg.value;
     }
 
+    const nodeTitle = getNodeTitle(model.node);
     const hasError = nodeHasError(model.node);
     const isWorkflowStyledNode = isWorkflowNode(model.node);
 
@@ -442,14 +455,19 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
             hovered={isHovered || isNoteActive}
             disabled={model.node.suggested}
             hasError={hasError}
-            readOnly={readOnly}
+            readOnly={readOnly || isLocked}
             isActiveBreakpoint={isActiveBreakpoint}
             isSelected={isSelected}
             isWorkflowNode={isWorkflowStyledNode}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => { setIsHovered(false); setIsNoteActive(false); }}
-            onContextMenu={!readOnly ? handleOnContextMenu : undefined}
+            onContextMenu={!readOnly && !isLocked ? handleOnContextMenu : undefined}
+            style={{
+                opacity: isLocked ? 0.6 : 1,
+                cursor: isLocked ? 'not-allowed' : readOnly ? 'default' : 'pointer'
+            }}
         >
+            <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
             {hasBreakpoint && (
                 <div
                     style={{
@@ -495,7 +513,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
                         )}
                         <NodeStyles.MenuButton
                             ref={setMenuButtonElement}
-                            buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
+                            buttonSx={readOnly || isLocked ? { cursor: "not-allowed" } : {}}
                             appearance="icon"
                             onClick={handleOnMenuClick}
                         >

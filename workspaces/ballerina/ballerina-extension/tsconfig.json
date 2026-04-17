@@ -11,6 +11,8 @@
             "src",
             "test"
         ],
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
         /* Strict Type-Checking Option */
         "strict": true, /* enable all strict type-checking options */
         "strictNullChecks": false,
@@ -34,7 +36,8 @@
         "node_modules",
         ".vscode-test",
         "target",
-        "extractedDistribution"
+        "extractedDistribution",
+        "src/features/**/scripts/**"
     ],
     "include": [
         "src",

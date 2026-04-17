@@ -234,19 +234,19 @@ export async function findWorkspaceTypeFromWorkspaceFolders(): Promise<Workspace
                 : { type: "MULTIPLE_PROJECTS" };
         }
     } else if (workspaceFolders.length === 1) {
-        const workspaceFolderPath = workspaceFolders[0].uri.fsPath;
+        const workspaceFolderUri = workspaceFolders[0].uri;
 
-        const isBallerinaWorkspace = await checkIsBallerinaWorkspace(Uri.file(workspaceFolderPath));
+        const isBallerinaWorkspace = await checkIsBallerinaWorkspace(workspaceFolderUri);
         if (isBallerinaWorkspace) {
             return { type: "BALLERINA_WORKSPACE" };
         }
 
-        const isBallerinaPackage = await checkIsBallerinaPackage(Uri.file(workspaceFolderPath));
+        const isBallerinaPackage = await checkIsBallerinaPackage(workspaceFolderUri);
         if (isBallerinaPackage) {
             return { type: "SINGLE_PROJECT" };
         }
 
-        const hasMultiplePackages = await hasMultipleBallerinaPackages(Uri.file(workspaceFolderPath));
+        const hasMultiplePackages = await hasMultipleBallerinaPackages(workspaceFolderUri);
         if (hasMultiplePackages) {
             return { type: "MULTIPLE_PROJECTS" };
         }

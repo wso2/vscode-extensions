@@ -132,6 +132,17 @@ import {
     AddProjectToWorkspaceRequest,
     DeleteProjectRequest,
     OpenReadmeRequest,
+    AcquireNodeLockRequest,
+    AcquireNodeLockResponse,
+    ReleaseNodeLockRequest,
+    ReleaseNodeLockResponse,
+    GetNodeLocksRequest,
+    GetNodeLocksResponse,
+    UpdateDiagramCursorRequest,
+    GetDiagramCursorsRequest,
+    GetDiagramCursorsResponse,
+    DiagramCursorUpdate,
+    IsCollaborationActiveResponse,
     ValidateProjectFormRequest,
     ValidateProjectFormResponse,
     SuggestedProjectDefaultsResponse,
@@ -222,6 +233,20 @@ export const searchNodes: RequestType<BISearchNodesRequest, BISearchNodesRespons
 export const getRecordNames: RequestType<void, RecordsInWorkspaceMentions> = { method: `${_preFix}/getRecordNames` };
 export const getFunctionNames: RequestType<void, RecordsInWorkspaceMentions> = { method: `${_preFix}/getFunctionNames` };
 export const getDevantMetadata: RequestType<void, DevantMetadata> = { method: `${_preFix}/getDevantMetadata` };
+
+// Node Lock Management RPC Methods
+export const acquireNodeLock: RequestType<AcquireNodeLockRequest, AcquireNodeLockResponse> = { method: `${_preFix}/acquireNodeLock` };
+export const releaseNodeLock: RequestType<ReleaseNodeLockRequest, ReleaseNodeLockResponse> = { method: `${_preFix}/releaseNodeLock` };
+export const getNodeLocks: RequestType<GetNodeLocksRequest, GetNodeLocksResponse> = { method: `${_preFix}/getNodeLocks` };
+export const nodeLockUpdated: NotificationType<GetNodeLocksResponse> = { method: `${_preFix}/nodeLockUpdated` };
+export const getSystemUsername: RequestType<void, string> = { method: `${_preFix}/getSystemUsername` };
+
+// Cursor Awareness RPC Methods
+export const updateDiagramCursor: NotificationType<UpdateDiagramCursorRequest> = { method: `${_preFix}/updateDiagramCursor` };
+export const getDiagramCursors: RequestType<GetDiagramCursorsRequest, GetDiagramCursorsResponse> = { method: `${_preFix}/getDiagramCursors` };
+export const diagramCursorUpdated: NotificationType<DiagramCursorUpdate> = { method: `${_preFix}/diagramCursorUpdated` };
+export const isCollaborationActive: RequestType<void, IsCollaborationActiveResponse> = { method: `${_preFix}/isCollaborationActive` };
+
 export const getWorkspaceDevantMetadata: RequestType<void, WorkspaceDevantMetadata> = { method: `${_preFix}/getWorkspaceDevantMetadata` };
 export const generateOpenApiClient: RequestType<OpenAPIClientGenerationRequest, GeneratedClientSaveResponse> = { method: `${_preFix}/generateOpenApiClient` };
 export const getOpenApiGeneratedModules: RequestType<OpenAPIGeneratedModulesRequest, OpenAPIGeneratedModulesResponse> = { method: `${_preFix}/getOpenApiGeneratedModules` };

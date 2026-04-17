@@ -58,6 +58,14 @@ import {
     dependencyPullProgress,
     ProjectMigrationResult,
     onMigratedProject,
+    nodeLockUpdated,
+    diagramCursorUpdated,
+    DiagramCursorUpdate,
+    onOctUpdateTextSelection,
+    onOctRerenderPresence,
+    CollaborationTextSelection,
+    CollaborationPresenceData,
+    isCollaborationActive,
     navigateReviewIndex,
     reviewModeOpened,
     reviewModeClosed,
@@ -71,6 +79,7 @@ import {
     runningServicesChanged,
     RunningServiceInfo
 } from "@wso2/ballerina-core";
+
 import { LangClientRpcClient } from "./rpc-clients/lang-client/rpc-client";
 import { LibraryBrowserRpcClient } from "./rpc-clients/library-browser/rpc-client";
 import { HOST_EXTENSION } from "vscode-messenger-common";
@@ -327,6 +336,50 @@ export class BallerinaRpcClient {
 
     onTraceAnimationChanged(callback: (event: TraceAnimationEvent) => void) {
         this.messenger.onNotification(traceAnimationChanged, callback);
+    }
+
+    onNodeLockUpdated(callback: (locks: { [nodeId: string]: { userId: string; userName: string; timestamp: number } }) => void) {
+        this.messenger.onNotification(nodeLockUpdated, callback);
+        return () => {
+            // Return unsubscribe function if needed
+        };
+    }
+
+    onDiagramCursorUpdated(callback: (data: DiagramCursorUpdate) => void) {
+        this.messenger.onNotification(diagramCursorUpdated, callback);
+        return () => {
+            // Cleanup handled by messenger
+        };
+    }
+
+    /**
+     * Send a generic request to the extension host
+     * Useful for OCT collaboration and other custom RPC calls
+     */
+    sendRequest<TParams, TResult>(requestType: any, params: TParams): Promise<TResult> {
+        return this.messenger.sendRequest(requestType, HOST_EXTENSION, params);
+    }
+
+    /**
+     * Listen for OCT text selection updates (webview collaboration)
+     * Returns an unsubscribe function
+     */
+    onOctUpdateTextSelection(callback: (data: CollaborationTextSelection) => void) {
+        this.messenger.onNotification(onOctUpdateTextSelection, callback);
+        return () => {
+            // Cleanup handled by messenger
+        };
+    }
+
+    /**
+     * Listen for OCT presence re-render events (webview collaboration)
+     * Returns an unsubscribe function
+     */
+    onOctRerenderPresence(callback: (data: CollaborationPresenceData) => void) {
+        this.messenger.onNotification(onOctRerenderPresence, callback);
+        return () => {
+            // Cleanup handled by messenger
+        };
     }
 
     onRunningServicesChanged(callback: (services: RunningServiceInfo[]) => void): () => void {

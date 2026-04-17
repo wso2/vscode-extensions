@@ -229,6 +229,80 @@ export interface DeleteProjectRequest {
     projectPath: string;
 }
 
+// Node Lock Management Interfaces
+export interface AcquireNodeLockRequest {
+    nodeId: string;
+    userId: string;
+    userName: string;
+    filePath: string;
+    timestamp: number;
+}
+
+export interface AcquireNodeLockResponse {
+    success: boolean;
+    error?: string;
+}
+
+export interface ReleaseNodeLockRequest {
+    nodeId: string;
+    userId: string;
+    filePath: string;
+}
+
+export interface ReleaseNodeLockResponse {
+    success: boolean;
+    error?: string;
+}
+
+export interface GetNodeLocksRequest {
+    filePath: string;
+}
+
+export interface GetNodeLocksResponse {
+    locks: Record<string, { userId: string; userName: string; timestamp: number }>;
+}
+
+export interface CursorPosition {
+    x: number;
+    y: number;
+    nodeId?: string;
+    timestamp: number;
+}
+
+export interface UserPresence {
+    user: {
+        id: string;
+        name: string;
+    };
+    cursor?: CursorPosition;
+    selection?: string[];
+    status?: 'editing' | 'viewing';
+}
+
+export interface UpdateDiagramCursorRequest {
+    filePath: string;
+    x: number;
+    y: number;
+    nodeId?: string;
+}
+
+export interface GetDiagramCursorsRequest {
+    filePath: string;
+}
+
+export interface GetDiagramCursorsResponse {
+    cursors: UserPresence[];
+}
+
+export interface DiagramCursorUpdate {
+    cursors: UserPresence[];
+}
+
+export interface IsCollaborationActiveResponse {
+    isActive: boolean;
+    clientId?: string; 
+}
+
 export interface ValidateProjectFormRequest {
     projectPath: string;
     projectName: string;

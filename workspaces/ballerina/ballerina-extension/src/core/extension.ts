@@ -258,10 +258,10 @@ export class BallerinaExtension {
             // Set up client options
             try {
                 this.clientOptions = {
-                    documentSelector: [{ scheme: 'file', language: LANGUAGE.BALLERINA }, {
-                        scheme: 'file', language:
-                            LANGUAGE.TOML
-                    }],
+                    documentSelector: [
+                        { scheme: 'file', language: LANGUAGE.BALLERINA },
+                        { scheme: 'file', language: LANGUAGE.TOML }
+                    ],
                     synchronize: { configurationSection: LANGUAGE.BALLERINA },
                     outputChannel: getOutputChannel(),
                     revealOutputChannelOn: RevealOutputChannelOn.Never,

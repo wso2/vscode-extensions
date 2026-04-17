@@ -30,6 +30,7 @@
         "onUri"
     ],
     "extensionDependencies": [
+        "typefox.open-collaboration-tools",
         "wso2.hurl-client"
     ],
     "contributes": {
@@ -580,6 +581,12 @@
                 }
             },
             {
+                "command": "ballerina.open.oct.chat",
+                "title": "Chat",
+                "category": "Ballerina",
+                "icon": "$(comment-discussion)"
+            },
+            {
                 "command": "ballerina.open.bi.welcome",
                 "title": "Open Welcome",
                 "category": "BI"
@@ -1066,6 +1073,12 @@
                     "group": "navigation",
                     "title": "Save Changes in the cloud",
                     "when": "isBIProject && devant.editor"
+                },
+                {
+                    "command": "ballerina.open.oct.chat",
+                    "group": "navigation@4",
+                    "title": "OCT Chat",
+                    "when": "oct.connection && (resourceLangId == ballerina || isBallerinaDiagram || (isBalVisualizerActive && isBIProject))"
                 }
             ],
             "notebook/toolbar": [
@@ -1448,6 +1461,7 @@
         "handlebars": "4.7.8",
         "jwt-decode": "4.0.0",
         "lodash": "4.17.23",
+        "minimatch": "^10.1.1",
         "monaco-languageclient": "0.13.1-next.9",
         "zustand": "5.0.5",
         "node-fetch": "3.3.2",
@@ -1470,6 +1484,10 @@
         "xml-js": "1.6.11",
         "xstate": "4.38.3",
         "zod": "4.1.8",
+        "y-protocols": "^1.0.7",
+        "yjs": "^13.6.29",
+        "open-collaboration-protocol": "^0.3.1",
+        "open-collaboration-yjs": "^0.3.1",
         "yaml": "2.8.0"
     },
     "devDependencies": {

@@ -16,12 +16,14 @@
  * under the License.
  */
 
-import React from "react";
+import React, { useCallback, useEffect, useRef } from "react";
+import throttle from "lodash/throttle";
 import { css, Global } from "@emotion/react";
 import styled from "@emotion/styled";
 import "../resources/assets/font/fonts.css";
 import { useDiagramContext } from "./DiagramContext";
 import { CANVAS_BG_COLOR, CANVAS_DOT_COLOR, NODE_TEXT_COLOR } from "../resources/constants";
+import { getPreferredCursorAnchor } from "./cursorAnchor";
 
 export interface DiagramCanvasProps {
     color?: string;
@@ -34,6 +36,7 @@ export namespace DiagramStyles {
         height: 100%;
         background-size: 50px 50px;
         display: flex;
+        position: relative;
         pointer-events: ${(props) => (props.locked ? "none" : "auto")};
 
         > * {
@@ -57,9 +60,69 @@ export namespace DiagramStyles {
     `;
 }
 
+/**
+ * Convert viewport coordinates to diagram coordinates
+ * Accounts for pan (offset) and zoom transformations
+ */
+function screenToDiagramPosition(engine: any, screenX: number, screenY: number): { x: number; y: number } {
+    if (!engine) return { x: screenX, y: screenY };
+    
+    const model = engine.getModel();
+    const zoomLevel = model.getZoomLevel() / 100.0;
+    const offsetX = model.getOffsetX();
+    const offsetY = model.getOffsetY();
+    
+    // Reverse the transformation: subtract offset, then divide by zoom
+    const diagramX = (screenX - offsetX) / zoomLevel;
+    const diagramY = (screenY - offsetY) / zoomLevel;
+    
+    return { x: diagramX, y: diagramY };
+}
+
 export function DiagramCanvas(props: DiagramCanvasProps) {
     const { color, background, children } = props;
-    const { lockCanvas } = useDiagramContext();
+    const { lockCanvas, onCursorMove, isCollaborationActive, diagramEngine, selectedNodeId, menuOpenNodeId } = useDiagramContext();
+
+    const onCursorMoveRef = useRef(onCursorMove);
+    const isCollaborationActiveRef = useRef(isCollaborationActive);
+    const diagramEngineRef = useRef(diagramEngine);
+    const selectedNodeIdRef = useRef(selectedNodeId);
+    const menuOpenNodeIdRef = useRef(menuOpenNodeId);
+    onCursorMoveRef.current = onCursorMove;
+    isCollaborationActiveRef.current = isCollaborationActive;
+    diagramEngineRef.current = diagramEngine;
+    selectedNodeIdRef.current = selectedNodeId;
+    menuOpenNodeIdRef.current = menuOpenNodeId;
+
+    const throttledEmitRef = useRef(throttle((x: number, y: number, nodeId?: string) => {
+        onCursorMoveRef.current?.(x, y, nodeId);
+    }, 50));
+
+    useEffect(() => {
+        return () => throttledEmitRef.current.cancel();
+    }, []);
+
+    const handleMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+        if (!onCursorMoveRef.current || !isCollaborationActiveRef.current) return;
+
+        const rect = event.currentTarget.getBoundingClientRect();
+        const viewportX = event.clientX - rect.left;
+        const viewportY = event.clientY - rect.top;
+        const diagramPos = screenToDiagramPosition(diagramEngineRef.current, viewportX, viewportY);
+
+        const anchorNodeId = menuOpenNodeIdRef.current || selectedNodeIdRef.current;
+        if (anchorNodeId) {
+            const anchor = getPreferredCursorAnchor(diagramEngineRef.current, anchorNodeId);
+            if (anchor) {
+                throttledEmitRef.current(anchor.x, anchor.y, anchorNodeId);
+                return;
+            }
+            throttledEmitRef.current(diagramPos.x, diagramPos.y, anchorNodeId);
+            return;
+        }
+
+        throttledEmitRef.current(diagramPos.x, diagramPos.y);
+    }, []);
 
     return (
         <>
@@ -70,6 +133,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 background={background || CANVAS_BG_COLOR}
                 color={color || NODE_TEXT_COLOR}
                 locked={lockCanvas}
+                onMouseMove={handleMouseMove}
             >
                 {children}
             </DiagramStyles.Container>

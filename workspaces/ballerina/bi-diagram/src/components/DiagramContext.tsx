@@ -17,6 +17,7 @@
  */
 
 import React, { useState, useSyncExternalStore, RefObject } from "react";
+import { DiagramEngine } from "@projectstorm/react-diagrams";
 import { Flow, FlowNode, Branch, LineRange, ToolData } from "../utils/types";
 import { CompletionItem, FormExpressionEditorRef, HelperPaneHeight } from "@wso2/ui-toolkit";
 import { ExpressionProperty, JoinProjectPathRequest, JoinProjectPathResponse, RecordTypeField, TextEdit, VisualizerLocation } from "@wso2/ballerina-core";
@@ -72,6 +73,7 @@ export interface DiagramPromptOptions {
 
 export interface DiagramContextState {
     flow: Flow;
+    diagramEngine?: DiagramEngine;
     componentPanel: {
         visible: boolean;
         show(): void;
@@ -80,7 +82,12 @@ export interface DiagramContextState {
     showErrorFlow: boolean;
     expandedErrorHandler?: string;
     toggleErrorHandlerExpansion?: (nodeId: string) => void;
-    onAddNode?: (parent: FlowNode | Branch, target: LineRange) => void;
+    onAddNode?: (
+        parent: FlowNode | Branch,
+        target: LineRange,
+        clickedNodeId?: string,
+        anchor?: AddNodeAnchor
+    ) => void;
     onAddNodePrompt?: (parent: FlowNode | Branch, target: LineRange, prompt: string, options?: DiagramPromptOptions) => void;
     onDeleteNode?: (node: FlowNode) => void;
     onAddComment?: (comment: string, target: LineRange) => void;
@@ -127,6 +134,14 @@ export interface DiagramContextState {
     lockCanvas?: boolean;
     setLockCanvas?: (lock: boolean) => void;
     isUserAuthenticated?: boolean;
+    currentUserId?: string;
+    nodeLocks?: Record<string, any>;
+    isPositionLocked?: (parent: FlowNode | Branch, target: LineRange) => boolean;
+    remoteCursors?: Map<string, any>;
+    onCursorMove?: (x: number, y: number, nodeId?: string) => void;
+    isCollaborationActive?: boolean;
+    menuOpenNodeId?: string;
+    setMenuOpenNodeId?: (nodeId: string | undefined) => void;
     expressionContext: ExpressionContextProps;
     nodeComments?: Map<string, FlowNode>;
     entrypointContext?: {
@@ -135,8 +150,15 @@ export interface DiagramContextState {
     };
 }
 
+export interface AddNodeAnchor {
+    anchorX: number;
+    anchorY: number;
+    anchorKey: string;
+}
+
 export const DiagramContext = React.createContext<DiagramContextState>({
     flow: { fileName: "", nodes: [], connections: [] },
+    diagramEngine: undefined,
     componentPanel: {
         visible: false,
         show: () => { },
@@ -190,6 +212,8 @@ export const DiagramContext = React.createContext<DiagramContextState>({
     lockCanvas: false,
     setLockCanvas: (_lock: boolean) => { },
     isUserAuthenticated: false,
+    menuOpenNodeId: undefined,
+    setMenuOpenNodeId: () => { },
     expressionContext: {
         completions: [],
         triggerCharacters: [],
@@ -201,11 +225,14 @@ export const useDiagramContext = () => React.useContext(DiagramContext);
 
 export function DiagramContextProvider(props: { children: React.ReactNode; value: DiagramContextState }) {
     const [lockCanvas, setLockCanvas] = useState(false);
+    const [menuOpenNodeId, setMenuOpenNodeId] = useState<string | undefined>(undefined);
 
     const ctx = {
         ...props.value,
         lockCanvas,
         setLockCanvas,
+        menuOpenNodeId,
+        setMenuOpenNodeId,
     };
 
     return <DiagramContext.Provider value={ctx}>{props.children}</DiagramContext.Provider>;

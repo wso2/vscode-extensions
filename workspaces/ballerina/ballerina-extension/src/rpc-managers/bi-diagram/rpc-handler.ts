@@ -25,6 +25,8 @@ import {
     AddFunctionRequest,
     addProjectToWorkspace,
     AddProjectToWorkspaceRequest,
+    acquireNodeLock,
+    AcquireNodeLockRequest,
     AIChatRequest,
     InlineAgentChatRequest,
     BIAiSuggestionsRequest,
@@ -102,6 +104,8 @@ import {
     getFunctionNames,
     getFunctionNode,
     getModuleNodes,
+    getNodeLocks,
+    GetNodeLocksRequest,
     getNodeTemplate,
     getOpenApiGeneratedModules,
     getProjectComponents,
@@ -114,6 +118,7 @@ import {
     getRecordNames,
     getRecordSource,
     getServiceClassModel,
+    getSystemUsername,
     getSignatureHelp,
     getSimpleTypeOfExpression,
     GetSimpleTypeOfExpressionRequest,
@@ -142,6 +147,13 @@ import {
     ProjectRequest,
     ReadmeContentRequest,
     RecordSourceGenRequest,
+    releaseNodeLock,
+    ReleaseNodeLockRequest,
+    updateDiagramCursor,
+    UpdateDiagramCursorRequest,
+    getDiagramCursors,
+    GetDiagramCursorsRequest,
+    isCollaborationActive,
     removeBreakpointFromSource,
     renameIdentifier,
     RenameIdentifierRequest,
@@ -177,7 +189,7 @@ import { Messenger } from "vscode-messenger";
 import { BiDiagramRpcManager } from "./rpc-manager";
 
 export function registerBiDiagramRpcHandlers(messenger: Messenger) {
-    const rpcManger = new BiDiagramRpcManager();
+    const rpcManger = new BiDiagramRpcManager(messenger);
     messenger.onRequest(getFlowModel, (args: BIFlowModelRequest) => rpcManger.getFlowModel(args));
     messenger.onRequest(getSourceCode, (args: BISourceCodeRequest) => rpcManger.getSourceCode(args));
     messenger.onRequest(deleteFlowNode, (args: BISourceCodeRequest) => rpcManger.deleteFlowNode(args));
@@ -264,6 +276,18 @@ export function registerBiDiagramRpcHandlers(messenger: Messenger) {
     messenger.onRequest(generateOpenApiClient, (args: OpenAPIClientGenerationRequest) => rpcManger.generateOpenApiClient(args));
     messenger.onRequest(getOpenApiGeneratedModules, (args: OpenAPIGeneratedModulesRequest) => rpcManger.getOpenApiGeneratedModules(args));
     messenger.onRequest(deleteOpenApiGeneratedModules, (args: OpenAPIClientDeleteRequest) => rpcManger.deleteOpenApiGeneratedModules(args));
+
+    // Node lock management handlers
+    messenger.onRequest(acquireNodeLock, (args: AcquireNodeLockRequest) => rpcManger.acquireNodeLock(args));
+    messenger.onRequest(releaseNodeLock, (args: ReleaseNodeLockRequest) => rpcManger.releaseNodeLock(args));
+    messenger.onRequest(getNodeLocks, (args: GetNodeLocksRequest) => rpcManger.getNodeLocks(args));
+    messenger.onRequest(getSystemUsername, () => rpcManger.getSystemUsername());
+
+    // Cursor awareness handlers
+    messenger.onNotification(updateDiagramCursor, (args: UpdateDiagramCursorRequest) => rpcManger.updateDiagramCursor(args));
+    messenger.onRequest(getDiagramCursors, (args: GetDiagramCursorsRequest) => rpcManger.getDiagramCursors(args));
+    messenger.onRequest(isCollaborationActive, () => rpcManger.isCollaborationActive());
+
     messenger.onRequest(updateProjectTitle, (args: UpdateProjectTitleRequest) => rpcManger.updateProjectTitle(args));
     messenger.onRequest(updatePackageTitle, (args: UpdatePackageTitleRequest) => rpcManger.updatePackageTitle(args));
     messenger.onRequest(getSuggestedProjectDefaults, (args: { isInProject: boolean }) => rpcManger.getSuggestedProjectDefaults(args));

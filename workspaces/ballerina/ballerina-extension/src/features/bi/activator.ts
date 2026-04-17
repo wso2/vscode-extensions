@@ -27,6 +27,7 @@ import {
     ProjectInfo
 } from "@wso2/ballerina-core";
 import { BallerinaExtension } from "../../core";
+import { RPCLayer } from "../../RPCLayer";
 import { openView } from "../../stateMachine";
 import { ENABLE_DEBUG_LOG, ENABLE_TRACE_LOG, TRACE_SERVER } from "../../core/preferences";
 import { prepareAndGenerateConfig } from "../config-generator/configGenerator";
@@ -445,7 +446,7 @@ const findBallerinaFiles = (dir: string, fileList: string[] = []): string[] => {
 };
 
 const handleComponentDeletion = async (componentType: string, itemLabel: string, filePath: string) => {
-    const rpcClient = new BiDiagramRpcManager();
+    const rpcClient = new BiDiagramRpcManager(RPCLayer._messenger); 
     const { projectPath, projectInfo } = StateMachine.context();
     const projectRoot = await findBallerinaPackageRoot(filePath);
     if (projectRoot && (!projectPath || projectRoot !== projectPath)) {
@@ -483,7 +484,7 @@ const handleComponentDeletion = async (componentType: string, itemLabel: string,
 };
 
 const handleLocalModuleDeletion = async (moduleName: string, filePath: string) => {
-    const rpcClient = new BiDiagramRpcManager();
+    const rpcClient = new BiDiagramRpcManager(RPCLayer._messenger);
     // Note: Project path is overriden at rpc-client level.
     rpcClient.deleteOpenApiGeneratedModules({ projectPath: "", module: moduleName }).then((response) => {
         console.log(">>> Updated source code after local connector delete", response);
@@ -491,7 +492,7 @@ const handleLocalModuleDeletion = async (moduleName: string, filePath: string) =
 };
 
 const handleConnectionDeletion = async (itemLabel: string, filePath: string) => {
-    const rpcClient = new BiDiagramRpcManager();
+    const rpcClient = new BiDiagramRpcManager(RPCLayer._messenger);
     rpcClient.getModuleNodes().then((response) => {
         console.log(">>> moduleNodes", { moduleNodes: response });
         const connector = response?.flowModel?.connections.find(
