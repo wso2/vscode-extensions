@@ -22,6 +22,9 @@ export type {
     SendAgentMessageRequest,
     SendAgentMessageResponse,
     ChangedFileSummary,
+    CheckpointAnchorSummary,
+    FileHistoryBackupReference,
+    FileHistorySnapshot,
     UndoCheckpointSummary,
     UndoLastCheckpointRequest,
     UndoLastCheckpointResponse,
@@ -51,9 +54,6 @@ export type {
     CreateNewSessionResponse,
     DeleteSessionRequest,
     DeleteSessionResponse,
-    // Compact types
-    CompactConversationRequest,
-    CompactConversationResponse,
     // Mention search types
     MentionablePathType,
     MentionablePathItem,
@@ -65,6 +65,9 @@ export type {
     MainModelPreset,
     SubModelPreset,
     ModelSettings,
+    // Memory management types
+    ClearAgentMemoryResponse,
+    OpenAgentMemoryFolderResponse,
 } from './types';
 
 // Export RPC type definitions
@@ -83,12 +86,13 @@ export {
     switchSession,
     createNewSession,
     deleteSession,
-    // Compact RPC
-    compactConversation,
     // Mention search RPC
     searchMentionablePaths,
     // Run status RPC
     getAgentRunStatus,
+    // Memory management RPC
+    clearAgentMemory,
+    openAgentMemoryFolder,
 } from './rpc-type';
 
 // Export RPC request/response types

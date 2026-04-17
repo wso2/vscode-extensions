@@ -74,3 +74,11 @@ export function getCopilotSessionDir(projectPath: string, sessionId: string): st
     const safeSessionId = sanitizeSessionId(sessionId);
     return path.join(getCopilotProjectStorageDir(projectPath), safeSessionId);
 }
+
+/**
+ * Project-scoped memories directory for the Anthropic memory tool.
+ * Persists across sessions so the agent can build knowledge over time.
+ */
+export function getCopilotProjectMemoriesDir(projectPath: string): string {
+    return path.join(getCopilotProjectStorageDir(projectPath), 'memories');
+}

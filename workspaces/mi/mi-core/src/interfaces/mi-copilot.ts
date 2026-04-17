@@ -68,6 +68,8 @@ export type ChatMessage = {
     role: Role.MICopilot | Role.MIUser | Role.default;
     content: string;
     type: MessageType;
+    /** Checkpoint anchor shown immediately before this user message in the timeline */
+    checkpointAnchorId?: string;
     files?: FileObject[];
     images?: ImageObject[];
 };

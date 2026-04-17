@@ -18,7 +18,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { FileObject, ImageObject, TodoItem, Question, PlanApprovalKind } from "@wso2/mi-core";
+import { FileObject, ImageObject, TodoItem, Question, PlanApprovalKind, ChangedFileSummary } from "@wso2/mi-core";
 import { LoaderWrapper, ProgressRing } from "../styles";
 import {
     ChatMessage,
@@ -49,6 +49,7 @@ export interface PendingPlanApproval {
     shellCommand?: string;  // Raw shell command for shell_command approval display
     shellDescription?: string;  // Shell command description from tool args
 }
+
 import {
     RpcClientType,
 } from "../types";
@@ -62,6 +63,13 @@ import {
 } from "../utils";
 import { convertEventsToMessages } from "../utils/eventToMessageConverter";
 import { useFeedback } from "./useFeedback";
+
+export interface PendingReview {
+    checkpointId: string;
+    files: ChangedFileSummary[];
+    totalAdded: number;
+    totalDeleted: number;
+}
 
 export type AgentMode = 'ask' | 'edit' | 'plan';
 
@@ -118,6 +126,8 @@ interface MICopilotContextType {
     addPendingApproval: (approval: PendingPlanApproval) => void;
     removePendingApproval: (approvalId: string) => void;
     clearPendingApprovals: () => void;
+    pendingReview: PendingReview | null;
+    setPendingReview: React.Dispatch<React.SetStateAction<PendingReview | null>>;
     todos: TodoItem[];
     setTodos: React.Dispatch<React.SetStateAction<TodoItem[]>>;
     isPlanMode: boolean;
@@ -146,6 +156,10 @@ interface MICopilotContextType {
     // Thinking mode
     isThinkingEnabled: boolean;
     setIsThinkingEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+
+    // Memory mode
+    isMemoryEnabled: boolean;
+    setIsMemoryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 // Define the context for MI Copilot
@@ -188,6 +202,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const [pendingApprovalQueue, setPendingApprovalQueue] = useState<PendingPlanApproval[]>([]);
     const pendingPlanApproval = pendingApprovalQueue.length > 0 ? pendingApprovalQueue[0] : null;
     const pendingApprovalCount = pendingApprovalQueue.length;
+    const [pendingReview, setPendingReview] = useState<PendingReview | null>(null);
 
     const addPendingApproval = useCallback((approval: PendingPlanApproval) => {
         setPendingApprovalQueue(prev => [...prev, approval]);
@@ -230,6 +245,15 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const [isThinkingEnabled, setIsThinkingEnabled] = useState<boolean>(() => {
         try {
             const stored = localStorage.getItem(`${THINKING_KEY_PREFIX}-${agentMode}`);
+            return stored === 'true';
+        } catch { return false; }
+    });
+
+    // Memory mode state (persisted in localStorage, default off)
+    const MEMORY_KEY = 'mi-agent-memory-enabled';
+    const [isMemoryEnabled, setIsMemoryEnabled] = useState<boolean>(() => {
+        try {
+            const stored = localStorage.getItem(MEMORY_KEY);
             return stored === 'true';
         } catch { return false; }
     });
@@ -305,6 +329,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 // Clear plan mode state when switching sessions
                 setPendingQuestion(null);
                 clearPendingApprovals();
+                setPendingReview(null);
                 setTodos([]);
                 setIsPlanMode(false);
                 // Refresh sessions with the new session ID to avoid stale closure
@@ -337,6 +362,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 // Clear plan mode state
                 setPendingQuestion(null);
                 clearPendingApprovals();
+                setPendingReview(null);
                 setTodos([]);
                 setIsPlanMode(false);
                 // Refresh sessions list with the new session ID
@@ -487,6 +513,13 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         } catch { /* ignore */ }
     }, [agentMode, isThinkingEnabled]);
 
+    // Persist memory preference to localStorage
+    useEffect(() => {
+        try {
+            localStorage.setItem(MEMORY_KEY, String(isMemoryEnabled));
+        } catch { /* ignore */ }
+    }, [isMemoryEnabled]);
+
     useEffect(() => {
         setRemaingTokenLessThanOne(remainingTokenPercentage < 1 && remainingTokenPercentage > 0);
     }, [remainingTokenPercentage]);
@@ -528,6 +561,8 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         addPendingApproval,
         removePendingApproval,
         clearPendingApprovals,
+        pendingReview,
+        setPendingReview,
         todos,
         setTodos,
         isPlanMode,
@@ -552,6 +587,9 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         // Thinking mode
         isThinkingEnabled,
         setIsThinkingEnabled,
+        // Memory mode
+        isMemoryEnabled,
+        setIsMemoryEnabled,
     };
 
     return (

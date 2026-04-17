@@ -26,8 +26,6 @@ import {
     UserQuestionResponse,
     PlanApprovalResponse,
     ChatHistoryEvent,
-    CompactConversationRequest,
-    CompactConversationResponse,
     UndoLastCheckpointRequest,
     UndoLastCheckpointResponse,
     ApplyCodeSegmentWithCheckpointRequest,
@@ -47,14 +45,16 @@ import {
     GetAgentRunStatusRequest,
     GetAgentRunStatusResponse,
     ModelSettings,
+    ClearAgentMemoryResponse,
+    OpenAgentMemoryFolderResponse,
 } from '@wso2/mi-core';
+import * as crypto from 'crypto';
 import type { Dirent } from 'fs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { AgentEventHandler } from './event-handler';
 import { executeAgent, createAgentAbortController, AgentEvent } from '../../ai-features/agent-mode';
-import { executeCompactAgent } from '../../ai-features/agent-mode/agents/compact/agent';
 import { logInfo, logError, logDebug } from '../../ai-features/copilot/logger';
 import {
     ChatHistoryManager,
@@ -73,15 +73,16 @@ import { VALID_FILE_EXTENSIONS, VALID_SPECIAL_FILE_NAMES } from '../../ai-featur
 import { cleanupRunningBackgroundShells } from '../../ai-features/agent-mode/tools/bash_tools';
 import { cleanupRunningBackgroundSubagents } from '../../ai-features/agent-mode/tools/subagent_tool';
 import { beginServerManagementRunTracking, cleanupServerManagementOnAgentEnd } from '../../ai-features/agent-mode/tools/runtime_tools';
-import { AgentUndoCheckpointManager, StoredUndoCheckpoint } from '../../ai-features/agent-mode/undo/checkpoint-manager';
+import { AgentUndoCheckpointManager, SnapshotRestorePlan } from '../../ai-features/agent-mode/undo/checkpoint-manager';
 import { MiDiagramRpcManager } from '../mi-diagram/rpc-manager';
-import { getCopilotSessionDir } from '../../ai-features/agent-mode/storage-paths';
-import { resolveSubModelId } from '../../ai-features/connection';
+import { getCopilotSessionDir, getCopilotProjectMemoriesDir } from '../../ai-features/agent-mode/storage-paths';
 
 const DEFAULT_MODEL_SETTINGS: ModelSettings = { mainModelPreset: 'sonnet', subModelPreset: 'haiku' };
+const AGENT_RUN_IN_PROGRESS_ERROR = 'Another agent run is already in progress. Wait for it to finish or abort it before sending a new message.';
+const SESSION_SWITCH_BLOCKED_ERROR = 'Cannot switch sessions while an agent run is in progress. Abort the run first.';
+const NEW_SESSION_BLOCKED_ERROR = 'Cannot create a new session while an agent run is in progress. Abort the run first.';
+const TOOL_INTERRUPTION_ERROR_CODE = 'AGENT_TOOL_INTERRUPTION';
 
-const AUTO_COMPACT_TOKEN_THRESHOLD = 180000;
-const AUTO_COMPACT_TOOL_NAME = 'compact_conversation';
 const DEFAULT_AGENT_MODE: AgentMode = 'edit';
 const USER_CANCELLED_RESPONSE = '__USER_CANCELLED__';
 const MENTION_CACHE_TTL_MS = 15000;
@@ -90,7 +91,6 @@ const DEFAULT_MENTION_SEARCH_LIMIT = 30;
 const MENTION_MAX_CACHE_DEPTH = 8;
 const MENTION_MAX_CACHE_ITEMS = 5000;
 const SHELL_APPROVAL_RULES_FILE_NAME = 'shell-approval-rules.json';
-const CONTINUATION_COMMAND_MAX_LENGTH = 120;
 const MENTION_ROOT_DIRS = ['deployment', 'src'];
 const MENTION_POM_FILE = 'pom.xml';
 const MENTION_SKIP_DIRS = new Set([
@@ -112,10 +112,18 @@ const startupSessionInitializedProjects: Set<string> = new Set();
 
 type LimitContinuationReason = 'max_output_tokens' | 'max_tool_calls';
 
+function createToolInterruptionAbortError(): Error & { code: string } {
+    const error = new Error(`AbortError: ${TOOL_USE_INTERRUPTION_CONTEXT}`) as Error & { code: string };
+    error.name = 'ToolInterruptionError';
+    error.code = TOOL_INTERRUPTION_ERROR_CODE;
+    return error;
+}
+
 export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private eventHandler: AgentEventHandler;
     private currentAbortController: AbortController | null = null;
     private activeAbortControllers: Set<AbortController> = new Set();
+    private isAgentMessageInProgress = false;
     private chatHistoryManager: ChatHistoryManager | null = null;
     private currentSessionId: string | null = null;
     private currentMode: AgentMode = DEFAULT_AGENT_MODE;
@@ -131,7 +139,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private undoCheckpointManager: AgentUndoCheckpointManager | null = null;
     private undoCheckpointManagerSessionId: string | null = null;
     private shellApprovalRules: string[][] = [];
-    private pendingLimitContinuation: { reason: LimitContinuationReason } | null = null;
     private currentModelSettings: ModelSettings = { ...DEFAULT_MODEL_SETTINGS };
 
     constructor(private projectUri: string) {
@@ -143,22 +150,30 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      * so an abort can terminate execution immediately even when waiting for user input.
      */
     private rejectPendingInteractions(reason: Error): void {
-        for (const pending of this.pendingQuestions.values()) {
+        const pendingQuestions = Array.from(this.pendingQuestions.values());
+        const pendingApprovals = Array.from(this.pendingApprovals.values());
+
+        this.pendingQuestions.clear();
+        this.pendingApprovals.clear();
+
+        for (const pending of pendingQuestions) {
             try {
                 pending.reject(reason);
             } catch (error) {
                 logDebug(`[AgentPanel] Failed to reject pending question: ${error instanceof Error ? error.message : String(error)}`);
             }
         }
-        for (const pending of this.pendingApprovals.values()) {
+        for (const pending of pendingApprovals) {
             try {
                 pending.reject(reason);
             } catch (error) {
                 logDebug(`[AgentPanel] Failed to reject pending plan approval: ${error instanceof Error ? error.message : String(error)}`);
             }
         }
-        this.pendingQuestions.clear();
-        this.pendingApprovals.clear();
+    }
+
+    private hasActiveAgentRun(): boolean {
+        return this.isAgentMessageInProgress || this.activeAbortControllers.size > 0;
     }
 
     private async cleanupOnAgentEnd(runSucceeded: boolean): Promise<void> {
@@ -244,6 +259,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             const nodeError = error as NodeJS.ErrnoException;
             if (nodeError.code !== 'ENOENT') {
                 logError(`[AgentPanel] Failed to load shell approval rules for session ${sessionId}`, error);
+            } else {
+                logDebug(`[AgentPanel] No shell approval rules file found for session ${sessionId}`);
             }
             this.clearShellApprovalRules();
         }
@@ -261,7 +278,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     }
 
     private async addShellApprovalRule(rule: string[]): Promise<void> {
-        if (!this.currentSessionId) {
+        const sessionId = this.currentSessionId;
+        if (!sessionId) {
             return;
         }
 
@@ -278,12 +296,18 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
         this.shellApprovalRules.push(normalizedRule);
         try {
-            await this.persistShellApprovalRulesForSession(this.currentSessionId);
-            logInfo(`[AgentPanel] Added shell approval rule for session ${this.currentSessionId}: ${normalizedRule.join(' ')}`);
+            await this.persistShellApprovalRulesForSession(sessionId);
+            logInfo(`[AgentPanel] Added shell approval rule for session ${sessionId}: ${normalizedRule.join(' ')}`);
         } catch (error) {
+            const rollbackIndex = this.shellApprovalRules.findIndex(
+                (currentRule) => currentRule.join('\u0000') === ruleKey
+            );
+            if (rollbackIndex >= 0) {
+                this.shellApprovalRules.splice(rollbackIndex, 1);
+            }
             logError(
-                `[AgentPanel] Failed to persist shell approval rule for session ${this.currentSessionId}. ` +
-                `Keeping in-memory rule: ${normalizedRule.join(' ')}`,
+                `[AgentPanel] Failed to persist shell approval rule for session ${sessionId}. ` +
+                `Rolled back in-memory rule: ${normalizedRule.join(' ')}`,
                 error
             );
         }
@@ -301,71 +325,19 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         }
     }
 
-    private clearPendingLimitContinuation(): void {
-        this.pendingLimitContinuation = null;
-    }
-
-    private setPendingLimitContinuation(reason: LimitContinuationReason): void {
-        this.pendingLimitContinuation = { reason };
-    }
-
-    private isContinuationIntent(message: string): boolean {
-        const normalized = message.trim().toLowerCase();
-        if (!normalized || normalized.length > CONTINUATION_COMMAND_MAX_LENGTH) {
-            return false;
-        }
-
-        if (normalized.includes('\n')) {
-            return false;
-        }
-
-        const compact = normalized
-            .replace(/[`"']/g, '')
-            .replace(/[.!?]+$/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        const continuationPatterns = [
-            /^continue$/,
-            /^continue please$/,
-            /^continue the task$/,
-            /^continue from (here|there|where you (left off|stopped))$/,
-            /^resume$/,
-            /^resume please$/,
-            /^resume the task$/,
-            /^go on$/,
-            /^go ahead$/,
-            /^proceed$/,
-            /^carry on$/,
-            /^keep going$/,
-            /^keep working$/,
-        ];
-
-        return continuationPatterns.some((pattern) => pattern.test(compact));
-    }
-
     private buildContinuationReminder(reason: LimitContinuationReason): string {
         const reasonText = reason === 'max_tool_calls'
             ? 'the previous run reached the maximum step limit'
             : 'the previous run reached the maximum token/output limit';
 
         return [
-            '<system_reminder>',
+            '<system-reminder>',
             `Continuation request detected: ${reasonText}.`,
             'Resume from the existing conversation state in this session.',
             'Do not repeat already completed tool calls, file edits, or long explanations.',
             'Start with a brief 1-2 sentence status update (done vs remaining), then continue with the remaining work.',
-            '</system_reminder>',
+            '</system-reminder>',
         ].join('\n');
-    }
-
-    private buildQueryWithContinuationReminder(message: string): string {
-        if (!this.pendingLimitContinuation) {
-            return message;
-        }
-
-        const reminder = this.buildContinuationReminder(this.pendingLimitContinuation.reason);
-        return `${reminder}\n\n${message}`;
     }
 
     private buildContinuationApprovalContent(reason: LimitContinuationReason): string {
@@ -415,88 +387,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     }
 
     /**
-     * Detect context-window related model errors from AI SDK / provider messages.
-     */
-    private isContextLimitError(errorMessage?: string): boolean {
-        if (!errorMessage) {
-            return false;
-        }
-
-        const normalized = errorMessage.toLowerCase();
-        return (
-            normalized.includes('context window') ||
-            normalized.includes('context length') ||
-            normalized.includes('maximum context length') ||
-            normalized.includes('prompt is too long') ||
-            normalized.includes('input is too long') ||
-            normalized.includes('too many tokens') ||
-            normalized.includes('max input tokens')
-        );
-    }
-
-    /**
-     * Run compact agent, save checkpoint, and emit compact/usage events.
-     */
-    private async runAutoCompact(
-        historyManager: ChatHistoryManager,
-        reason: 'threshold' | 'context_error'
-    ): Promise<boolean> {
-        this.eventHandler.handleEvent({
-            type: 'tool_call',
-            toolName: AUTO_COMPACT_TOOL_NAME,
-            loadingAction: 'compacting conversation',
-            toolInput: {},
-        });
-
-        const messagesForCompact = await historyManager.getMessages({ includeCompactSummaryEntry: true });
-        if (messagesForCompact.length === 0) {
-            logDebug(`[AgentPanel] Skipping auto compact (${reason}): no messages`);
-            this.eventHandler.handleEvent({
-                type: 'tool_result',
-                toolName: AUTO_COMPACT_TOOL_NAME,
-                toolOutput: { success: false },
-                completedAction: 'failed to compact conversation',
-            });
-            return false;
-        }
-
-        const resolvedSubModel = resolveSubModelId(this.currentModelSettings);
-        const compactResult = await executeCompactAgent({
-            messages: messagesForCompact,
-            trigger: 'auto',
-            projectPath: this.projectUri,
-            subModelId: resolvedSubModel,
-            subModelIsCustom: !!this.currentModelSettings.subModelCustomId,
-        });
-
-        if (!compactResult.success || !compactResult.summary) {
-            logError(`[AgentPanel] Auto compact failed (${reason}): ${compactResult.error || 'unknown error'}`);
-            this.eventHandler.handleEvent({
-                type: 'tool_result',
-                toolName: AUTO_COMPACT_TOOL_NAME,
-                toolOutput: { success: false },
-                completedAction: 'failed to compact conversation',
-            });
-            return false;
-        }
-
-        await historyManager.saveSummaryMessage(compactResult.summary);
-        this.eventHandler.handleEvent({
-            type: 'compact',
-            summary: compactResult.summary,
-            content: compactResult.summary,
-        });
-        // Reset usage indicator after checkpoint.
-        this.eventHandler.handleEvent({
-            type: 'usage',
-            totalInputTokens: 0,
-        });
-
-        logInfo(`[AgentPanel] Auto compact complete (${reason}): ${compactResult.summary.length} chars`);
-        return true;
-    }
-
-    /**
      * Initialize or get existing chat history manager
      */
     private async getChatHistoryManager(): Promise<ChatHistoryManager> {
@@ -542,7 +432,13 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.currentSessionId = null;
             this.currentMode = DEFAULT_AGENT_MODE;
             this.clearShellApprovalRules();
-            this.clearPendingLimitContinuation();
+            if (this.undoCheckpointManager) {
+                try {
+                    await this.undoCheckpointManager.discardPendingRun();
+                } catch (error) {
+                    logError(`[AgentPanel] Failed to discard pending undo checkpoint run during session close`, error);
+                }
+            }
             this.undoCheckpointManager = null;
             this.undoCheckpointManagerSessionId = null;
         }
@@ -553,33 +449,25 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         const sessionId = historyManager.getSessionId();
 
         if (!this.undoCheckpointManager || this.undoCheckpointManagerSessionId !== sessionId) {
-            this.undoCheckpointManager = new AgentUndoCheckpointManager(this.projectUri, sessionId);
+            this.undoCheckpointManager = new AgentUndoCheckpointManager(
+                this.projectUri,
+                sessionId,
+                historyManager,
+            );
             this.undoCheckpointManagerSessionId = sessionId;
+            try {
+                // Startup sweep: remove crash-leftover orphan snapshot files for the session.
+                await this.undoCheckpointManager.cleanupOrphanSnapshotFiles();
+            } catch (error) {
+                logError('[AgentPanel] Failed startup sweep for snapshot file-history directory', error);
+            }
         }
 
         return this.undoCheckpointManager;
     }
 
-    private applyLatestUndoAvailabilityToEvents(
-        events: ChatHistoryEvent[],
-        latestCheckpointId?: string
-    ): ChatHistoryEvent[] {
-        return events.map((event) => {
-            if (event.type !== 'undo_checkpoint' || !event.undoCheckpoint) {
-                return event;
-            }
-
-            const isLatest = latestCheckpointId !== undefined &&
-                event.undoCheckpoint.checkpointId === latestCheckpointId;
-
-            return {
-                ...event,
-                undoCheckpoint: {
-                    ...event.undoCheckpoint,
-                    undoable: isLatest,
-                },
-            };
-        });
+    private applyLatestUndoAvailabilityToEvents(events: ChatHistoryEvent[]): ChatHistoryEvent[] {
+        return events;
     }
 
     private isSafeArtifactPathSegment(segment: string): boolean {
@@ -600,17 +488,16 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         lastTotalInputTokens?: number;
         mode: AgentMode;
     }> {
+        // Ensure startup sweep runs once per loaded session.
+        await this.getUndoCheckpointManager();
+
         const messages = await historyManager.getMessages({
             includeCompactSummaryEntry: true,
             includeUndoCheckpointEntry: true,
+            includeCheckpointAnchorEntry: true,
         });
         const events = ChatHistoryManager.convertToEventFormat(messages);
-        const undoCheckpointManager = await this.getUndoCheckpointManager();
-        const latestCheckpoint = await undoCheckpointManager.getLatestCheckpoint();
-        const normalizedEvents = this.applyLatestUndoAvailabilityToEvents(
-            events,
-            latestCheckpoint?.summary?.checkpointId
-        );
+        const normalizedEvents = this.applyLatestUndoAvailabilityToEvents(events);
         const lastTotalInputTokens = await historyManager.getLastUsage();
         const mode = await historyManager.getLatestMode(DEFAULT_AGENT_MODE);
 
@@ -723,18 +610,52 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         return undefined;
     }
 
-    private async applyUndoCheckpointRestore(checkpoint: StoredUndoCheckpoint): Promise<string[]> {
+    private async applyUndoCheckpointRestore(checkpoint: SnapshotRestorePlan): Promise<string[]> {
         const restoredFiles: string[] = [];
         const workspaceEdit = new vscode.WorkspaceEdit();
+        const validatedEntries: Array<{ file: SnapshotRestorePlan['files'][number]; fullPath: string }> = [];
+        const unsafePaths: string[] = [];
+        const validatedSessionEntries: Array<{ file: NonNullable<SnapshotRestorePlan['sessionFiles']>[number]; fullPath: string }> = [];
+        const unsafeSessionPaths: string[] = [];
 
         for (const file of checkpoint.files) {
             const fullPath = path.resolve(this.projectUri, file.path);
             const relative = path.relative(this.projectUri, fullPath).replace(/\\/g, '/');
             if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-                logError(`[AgentPanel] Skipping unsafe undo path: ${file.path}`);
+                unsafePaths.push(file.path);
                 continue;
             }
+            validatedEntries.push({ file, fullPath });
+        }
 
+        if (unsafePaths.length > 0) {
+            throw new Error(`Cannot undo checkpoint because it contains unsafe path(s): ${unsafePaths.join(', ')}`);
+        }
+
+        const sessionFiles = checkpoint.sessionFiles || [];
+        if (sessionFiles.length > 0) {
+            if (!this.currentSessionId) {
+                throw new Error('Cannot restore session artifact files because no active session is available');
+            }
+
+            const sessionRoot = path.resolve(getCopilotSessionDir(this.projectUri, this.currentSessionId));
+            for (const file of sessionFiles) {
+                const fullPath = path.resolve(file.path);
+                const relative = path.relative(sessionRoot, fullPath);
+                if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+                    unsafeSessionPaths.push(file.path);
+                    continue;
+                }
+                validatedSessionEntries.push({ file, fullPath });
+            }
+        }
+
+        if (unsafeSessionPaths.length > 0) {
+            throw new Error(`Cannot undo checkpoint because it contains unsafe session path(s): ${unsafeSessionPaths.join(', ')}`);
+        }
+
+        for (const entry of validatedEntries) {
+            const { file, fullPath } = entry;
             const fileUri = vscode.Uri.file(fullPath);
             restoredFiles.push(file.path);
             if (file.before.exists) {
@@ -752,6 +673,31 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             }
         }
 
+        for (const entry of validatedSessionEntries) {
+            const { file, fullPath } = entry;
+            const fileUri = vscode.Uri.file(fullPath);
+            restoredFiles.push(file.path);
+            if (file.before.exists) {
+                await fs.mkdir(path.dirname(fullPath), { recursive: true });
+                workspaceEdit.createFile(fileUri, { ignoreIfExists: true, overwrite: true });
+                workspaceEdit.replace(
+                    fileUri,
+                    new vscode.Range(
+                        new vscode.Position(0, 0),
+                        new vscode.Position(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)
+                    ),
+                    file.before.content || ''
+                );
+            } else {
+                workspaceEdit.deleteFile(fileUri, { ignoreIfNotExists: true });
+            }
+        }
+
+        if (validatedEntries.length === 0 && validatedSessionEntries.length === 0) {
+            await vscode.commands.executeCommand('MI.project-explorer.refresh');
+            return restoredFiles;
+        }
+
         const success = await vscode.workspace.applyEdit(workspaceEdit);
         if (!success) {
             throw new Error('Failed to apply undo workspace edit');
@@ -766,11 +712,21 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      * Send a message to the agent for processing
      */
     async sendAgentMessage(request: SendAgentMessageRequest): Promise<SendAgentMessageResponse> {
+        if (this.isAgentMessageInProgress) {
+            logInfo('[AgentPanel] Rejecting sendAgentMessage because another run is already in progress');
+            return {
+                success: false,
+                error: AGENT_RUN_IN_PROGRESS_ERROR,
+            };
+        }
+
+        this.isAgentMessageInProgress = true;
         let runSucceeded = false;
         let shouldRunCleanup = false;
-        beginServerManagementRunTracking();
-        this.eventHandler.beginRun();
+        let activeCheckpointId: string | undefined;
         try {
+            beginServerManagementRunTracking();
+            this.eventHandler.beginRun();
             const messageLength = typeof request.message === 'string' ? request.message.length : 0;
             logInfo(
                 `[AgentPanel] Received message request (chatId=${request.chatId}, mode=${request.mode || this.currentMode || DEFAULT_AGENT_MODE}, messageLength=${messageLength})`
@@ -805,34 +761,31 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 this.currentMode = effectiveMode;
             }
 
-            // Auto-compact before the new run when context usage exceeds threshold.
-            // We compact between runs (not mid-stream) to keep AI SDK orchestration stable.
-            const lastUsage = await historyManager.getLastUsage();
-            const shouldAutoCompact = lastUsage !== undefined && lastUsage >= AUTO_COMPACT_TOKEN_THRESHOLD;
-            if (shouldAutoCompact) {
-                logInfo(`[AgentPanel] Auto compact triggered at ${lastUsage} tokens (threshold: ${AUTO_COMPACT_TOKEN_THRESHOLD})`);
-                await this.runAutoCompact(historyManager, 'threshold');
+            const checkpointCreatedAt = new Date().toISOString();
+            activeCheckpointId = request.checkpointId?.trim() || crypto.randomUUID();
+            let planFilePathForCheckpoint: string | undefined;
+            if (this.currentSessionId) {
+                try {
+                    const planInfo = await initializePlanModeSession(this.projectUri, this.currentSessionId);
+                    planFilePathForCheckpoint = planInfo.planPath;
+                } catch (error) {
+                    logError('[AgentPanel] Failed to resolve plan file path for checkpoint baseline', error);
+                }
             }
-
-            const hasPendingContinuation = this.pendingLimitContinuation !== null;
-            const shouldApplyContinuationReminder = hasPendingContinuation &&
-                this.isContinuationIntent(request.message);
-
-            if (hasPendingContinuation && !shouldApplyContinuationReminder) {
-                this.clearPendingLimitContinuation();
-            }
-
-            const effectiveQuery = shouldApplyContinuationReminder
-                ? this.buildQueryWithContinuationReminder(request.message)
-                : request.message;
-
-            if (shouldApplyContinuationReminder) {
-                logInfo('[AgentPanel] Applying continuation reminder for resumed run');
-                this.clearPendingLimitContinuation();
-            }
+            await historyManager.saveCheckpointAnchor({
+                checkpointId: activeCheckpointId,
+                source: 'agent',
+                createdAt: checkpointCreatedAt,
+                chatId: request.chatId,
+            });
 
             shouldRunCleanup = true;
-            await undoCheckpointManager.beginRun('agent');
+            await undoCheckpointManager.beginRun('agent', {
+                checkpointId: activeCheckpointId,
+                targetChatId: request.chatId,
+                createdAt: checkpointCreatedAt,
+                planFilePath: planFilePathForCheckpoint,
+            });
 
             const persistModeChange = (mode: AgentMode) => {
                 if (this.currentMode === mode) {
@@ -844,133 +797,99 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 });
             };
 
-            const executeRunWithContextRetry = async (query: string) => {
-                let suppressedContextErrorFromStream = false;
-                let retriedAfterContextCompact = false;
+            let latestStopModelMessages: SendAgentMessageResponse['modelMessages'];
 
-                const runAgentOnce = async () => {
-                    const abortController = createAgentAbortController();
-                    this.activeAbortControllers.add(abortController);
-                    this.currentAbortController = abortController;
+            const runAgent = async (query: string) => {
+                const abortController = createAgentAbortController();
+                this.activeAbortControllers.add(abortController);
+                this.currentAbortController = abortController;
 
-                    try {
-                        return await executeAgent(
-                            {
-                                query,
-                                chatId: request.chatId,
-                                mode: effectiveMode,
-                                files: request.files,
-                                images: request.images,
-                                thinking: request.thinking ?? true,
-                                webAccessPreapproved: request.webAccessPreapproved,
-                                projectPath: this.projectUri,
-                                sessionId: this.currentSessionId || undefined,
-                                abortSignal: abortController.signal,
-                                chatHistoryManager: historyManager,
-                                pendingQuestions: this.pendingQuestions,
-                                pendingApprovals: this.pendingApprovals,
-                                shellApprovalRuleStore: {
-                                    getRules: () => this.getShellApprovalRulesSnapshot(),
-                                    addRule: async (rule: string[]) => this.addShellApprovalRule(rule),
-                                },
-                                undoCheckpointManager,
-                                modelSettings: this.currentModelSettings,
-                                onStepPersisted: () => this.eventHandler.stepCompleted(),
+                try {
+                    return await executeAgent(
+                        {
+                            query,
+                            chatId: request.chatId,
+                            mode: effectiveMode,
+                            files: request.files,
+                            images: request.images,
+                            thinking: request.thinking ?? true,
+                            memoryEnabled: request.memoryEnabled,
+                            webAccessPreapproved: request.webAccessPreapproved,
+                            projectPath: this.projectUri,
+                            sessionId: this.currentSessionId || undefined,
+                            abortSignal: abortController.signal,
+                            chatHistoryManager: historyManager,
+                            pendingQuestions: this.pendingQuestions,
+                            pendingApprovals: this.pendingApprovals,
+                            shellApprovalRuleStore: {
+                                getRules: () => this.getShellApprovalRulesSnapshot(),
+                                addRule: async (rule: string[]) => this.addShellApprovalRule(rule),
                             },
-                            (event: AgentEvent) => {
-                                if (event.type === 'plan_mode_entered') {
-                                    persistModeChange('plan');
-                                } else if (event.type === 'plan_mode_exited') {
-                                    persistModeChange('edit');
-                                }
-
-                                // When context is exceeded, suppress the immediate error event,
-                                // compact, and retry once for seamless UX.
-                                if (event.type === 'error' && this.isContextLimitError(event.error)) {
-                                    suppressedContextErrorFromStream = true;
-                                    logInfo('[AgentPanel] Suppressed context-limit error event; attempting compact-and-retry');
-                                    return;
-                                }
-                                this.eventHandler.handleEvent(event);
+                            undoCheckpointManager,
+                            modelSettings: this.currentModelSettings,
+                            onStepPersisted: () => this.eventHandler.stepCompleted(),
+                        },
+                        (event: AgentEvent) => {
+                            if (event.type === 'stop') {
+                                latestStopModelMessages = event.modelMessages;
+                                return;
                             }
-                        );
-                    } finally {
-                        this.activeAbortControllers.delete(abortController);
-                        if (this.currentAbortController === abortController) {
-                            this.currentAbortController = null;
+                            if (event.type === 'plan_mode_entered') {
+                                persistModeChange('plan');
+                            } else if (event.type === 'plan_mode_exited') {
+                                persistModeChange('edit');
+                            }
+                            this.eventHandler.handleEvent(event);
                         }
-                    }
-                };
-
-                let runResult = await runAgentOnce();
-
-                const hitContextLimit = () =>
-                    suppressedContextErrorFromStream || this.isContextLimitError(runResult.error);
-
-                if (!runResult.success && hitContextLimit() && !retriedAfterContextCompact) {
-                    retriedAfterContextCompact = true;
-                    logInfo('[AgentPanel] Context limit reached mid-run. Triggering auto compact and retrying once');
-
-                    const compacted = await this.runAutoCompact(historyManager, 'context_error');
-                    if (compacted) {
-                        await undoCheckpointManager.discardPendingRun();
-                        await undoCheckpointManager.beginRun('agent');
-                        suppressedContextErrorFromStream = false;
-                        runResult = await runAgentOnce();
+                    );
+                } finally {
+                    this.activeAbortControllers.delete(abortController);
+                    if (this.currentAbortController === abortController) {
+                        this.currentAbortController = null;
                     }
                 }
-
-                // If context-limit error was suppressed but we still failed, surface it now.
-                if (!runResult.success && (suppressedContextErrorFromStream || this.isContextLimitError(runResult.error))) {
-                    this.eventHandler.handleEvent({
-                        type: 'error',
-                        error: runResult.error || 'Context window exceeded',
-                    });
-                }
-
-                return runResult;
             };
 
-            let result = await executeRunWithContextRetry(effectiveQuery);
+            let result = await runAgent(request.message);
 
             while (result.success && result.continuationSuggested && result.continuationReason) {
-                this.setPendingLimitContinuation(result.continuationReason);
                 const approval = await this.requestContinuationApproval(result.continuationReason);
                 if (!approval.approved) {
                     logInfo('[AgentPanel] User denied automatic continuation after run limit');
-                    this.clearPendingLimitContinuation();
                     break;
                 }
 
-                const continuationQuery = this.buildQueryWithContinuationReminder('continue');
+                const reminder = this.buildContinuationReminder(result.continuationReason);
+                const continuationQuery = `${reminder}\n\ncontinue`;
                 logInfo('[AgentPanel] User approved automatic continuation after run limit');
-                this.clearPendingLimitContinuation();
-                result = await executeRunWithContextRetry(continuationQuery);
+                result = await runAgent(continuationQuery);
             }
 
             if (result.success) {
-                this.clearPendingLimitContinuation();
                 runSucceeded = true;
 
                 const undoCheckpoint = await undoCheckpointManager.commitRun();
-                if (undoCheckpoint) {
-                    await historyManager.saveUndoCheckpoint(undoCheckpoint, request.chatId);
-                }
+                this.eventHandler.handleEvent({
+                    type: 'stop',
+                    modelMessages: latestStopModelMessages ?? result.modelMessages,
+                    undoCheckpoint,
+                });
                 logInfo(`[AgentPanel] Agent completed successfully. Modified ${result.modifiedFiles.length} files.`);
                 return {
                     success: true,
                     message: 'Agent completed successfully',
                     modifiedFiles: result.modifiedFiles,
+                    checkpointId: activeCheckpointId,
                     undoCheckpoint,
                     modelMessages: result.modelMessages
                 };
             } else {
-                this.clearPendingLimitContinuation();
                 await undoCheckpointManager.discardPendingRun();
                 logError(`[AgentPanel] Agent failed: ${result.error}`);
                 return {
                     success: false,
                     error: result.error,
+                    checkpointId: activeCheckpointId,
                     modelMessages: result.modelMessages // Return partial messages even on error
                 };
             }
@@ -978,7 +897,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             logError('[AgentPanel] Error executing agent', error);
             this.currentAbortController = null;
             this.activeAbortControllers.clear();
-            this.clearPendingLimitContinuation();
             if (this.undoCheckpointManager) {
                 try {
                     await this.undoCheckpointManager.discardPendingRun();
@@ -988,6 +906,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             }
             return {
                 success: false,
+                checkpointId: activeCheckpointId,
                 error: error instanceof Error ? error.message : 'Unknown error'
             };
         } finally {
@@ -997,60 +916,70 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 await cleanupServerManagementOnAgentEnd();
             }
             this.eventHandler.endRun();
+            this.isAgentMessageInProgress = false;
         }
     }
 
     async undoLastCheckpoint(request: UndoLastCheckpointRequest): Promise<UndoLastCheckpointResponse> {
         try {
+            if (this.hasActiveAgentRun()) {
+                return {
+                    success: false,
+                    error: 'Cannot undo while an agent run is active',
+                };
+            }
+
+            const requestedCheckpointId = request.checkpointId?.trim();
+            if (!requestedCheckpointId) {
+                return {
+                    success: false,
+                    error: 'Checkpoint ID is required',
+                };
+            }
+
+            const behavior = request.behavior === 'soft' ? 'soft' : 'hard';
             const undoCheckpointManager = await this.getUndoCheckpointManager();
-            const checkpoint = await undoCheckpointManager.getLatestCheckpoint();
-            if (!checkpoint || !checkpoint.summary?.undoable) {
+            const restorePlan = await undoCheckpointManager.buildRestorePlan(requestedCheckpointId);
+            if (!restorePlan) {
                 return {
                     success: false,
-                    error: 'No undo checkpoint available',
+                    error: `Checkpoint '${requestedCheckpointId}' is not available for restore`,
                 };
             }
 
-            const requestedCheckpointId = request.checkpointId;
-            if (requestedCheckpointId && requestedCheckpointId !== checkpoint.summary.checkpointId) {
-                return {
-                    success: false,
-                    undoCheckpoint: checkpoint.summary,
-                    error: 'A newer checkpoint exists. Undo the latest checkpoint first.',
-                };
-            }
-
-            const conflicts = await undoCheckpointManager.getConflictedFiles(checkpoint);
-            if (conflicts.length > 0 && !request.force) {
-                return {
-                    success: false,
-                    requiresConfirmation: true,
-                    conflicts,
-                    undoCheckpoint: checkpoint.summary,
-                    error: 'Files were modified after checkpoint creation',
-                };
-            }
-
-            const restoredFiles = await this.applyUndoCheckpointRestore(checkpoint);
-            await undoCheckpointManager.clearLatestCheckpoint();
-            const latestCheckpoint = await undoCheckpointManager.getLatestCheckpoint();
             const historyManager = await this.getChatHistoryManager();
-            await historyManager.saveUndoReminderMessage(checkpoint.summary, restoredFiles);
+
+            const restorePlanToApply = behavior === 'soft'
+                ? { ...restorePlan, sessionFiles: [] }
+                : restorePlan;
+            const restoredFiles = await this.applyUndoCheckpointRestore(restorePlanToApply);
+
+            if (behavior === 'soft') {
+                await historyManager.saveUndoReminderMessage(requestedCheckpointId, restoredFiles);
+
+                return {
+                    success: true,
+                    restoredFiles,
+                    historyTruncated: false,
+                };
+            }
+
+            const historyTruncated = await historyManager.truncateToCheckpoint(requestedCheckpointId);
+            await undoCheckpointManager.cleanupOrphanSnapshotFiles();
+
+            if (this.currentSessionId) {
+                try {
+                    await initializePlanModeSession(this.projectUri, this.currentSessionId, { forceBaselineReset: true });
+                } catch (error) {
+                    logError('[AgentPanel] Failed to reset plan mode baseline after checkpoint restore', error);
+                }
+            }
 
             return {
                 success: true,
                 restoredFiles,
-                undoCheckpoint: {
-                    ...checkpoint.summary,
-                    undoable: false,
-                },
-                latestUndoCheckpoint: latestCheckpoint?.summary
-                    ? {
-                        ...latestCheckpoint.summary,
-                        undoable: true,
-                    }
-                    : undefined,
-            } as UndoLastCheckpointResponse;
+                historyTruncated,
+            };
         } catch (error) {
             logError('[AgentPanel] Failed to undo checkpoint', error);
             return {
@@ -1063,6 +992,13 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     async applyCodeSegmentWithCheckpoint(
         request: ApplyCodeSegmentWithCheckpointRequest
     ): Promise<ApplyCodeSegmentWithCheckpointResponse> {
+        if (this.hasActiveAgentRun()) {
+            return {
+                success: false,
+                error: 'Cannot apply code while an agent run is active',
+            };
+        }
+
         const segmentText = request.segmentText || '';
         if (!segmentText.trim()) {
             return {
@@ -1081,8 +1017,21 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
         const undoCheckpointManager = await this.getUndoCheckpointManager();
         const targetChatId = request.targetChatId ?? await this.resolveLatestAssistantChatId();
+        const historyManager = await this.getChatHistoryManager();
         try {
-            await undoCheckpointManager.beginRun('code_segment');
+            const checkpointCreatedAt = new Date().toISOString();
+            const checkpointId = crypto.randomUUID();
+            await historyManager.saveCheckpointAnchor({
+                checkpointId,
+                source: 'code_segment',
+                createdAt: checkpointCreatedAt,
+            });
+
+            await undoCheckpointManager.beginRun('code_segment', {
+                checkpointId,
+                targetChatId,
+                createdAt: checkpointCreatedAt,
+            });
             await undoCheckpointManager.captureBeforeChange(targetRelativePath);
 
             const diagramRpcManager = new MiDiagramRpcManager(this.projectUri);
@@ -1097,11 +1046,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             await vscode.commands.executeCommand('MI.project-explorer.refresh');
             const undoCheckpoint = await undoCheckpointManager.commitRun();
-
-            if (undoCheckpoint) {
-                const historyManager = await this.getChatHistoryManager();
-                await historyManager.saveUndoCheckpoint(undoCheckpoint, targetChatId);
-            }
 
             return {
                 success: true,
@@ -1122,12 +1066,13 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     async abortAgentGeneration(): Promise<void> {
         // Ensure tool-wait states are also interrupted (ask_user / plan approval waits).
-        this.rejectPendingInteractions(new Error(`AbortError: ${TOOL_USE_INTERRUPTION_CONTEXT}`));
+        const interruptionError = createToolInterruptionAbortError();
+        this.rejectPendingInteractions(interruptionError);
 
         if (this.activeAbortControllers.size > 0) {
             logInfo(`[AgentPanel] Aborting ${this.activeAbortControllers.size} active agent run(s)...`);
             for (const controller of this.activeAbortControllers) {
-                controller.abort();
+                controller.abort(interruptionError);
             }
             this.activeAbortControllers.clear();
             this.currentAbortController = null;
@@ -1148,7 +1093,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         if (pending) {
             if (answer === USER_CANCELLED_RESPONSE) {
                 logDebug(`[AgentPanel] User cancelled question flow: ${questionId}`);
-                pending.reject(new Error(`AbortError: ${TOOL_USE_INTERRUPTION_CONTEXT}`));
+                pending.reject(createToolInterruptionAbortError());
                 return;
             }
 
@@ -1172,7 +1117,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         if (pending) {
             if (!approved && feedback === USER_CANCELLED_RESPONSE) {
                 logDebug(`[AgentPanel] User cancelled plan approval flow: ${approvalId}`);
-                pending.reject(new Error(`AbortError: ${TOOL_USE_INTERRUPTION_CONTEXT}`));
+                pending.reject(createToolInterruptionAbortError());
                 return;
             }
 
@@ -1282,6 +1227,16 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     async switchSession(request: SwitchSessionRequest): Promise<SwitchSessionResponse> {
         try {
             const { sessionId } = request;
+
+            if (this.hasActiveAgentRun()) {
+                return {
+                    success: false,
+                    sessionId,
+                    events: [],
+                    error: SESSION_SWITCH_BLOCKED_ERROR,
+                };
+            }
+
             logInfo(`[AgentPanel] Switching to session: ${sessionId}`);
 
             const isCompatible = await ChatHistoryManager.isSessionCompatible(this.projectUri, sessionId);
@@ -1344,6 +1299,14 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     async createNewSession(_request: CreateNewSessionRequest): Promise<CreateNewSessionResponse> {
         try {
+            if (this.hasActiveAgentRun()) {
+                return {
+                    success: false,
+                    sessionId: this.currentSessionId || '',
+                    error: NEW_SESSION_BLOCKED_ERROR,
+                };
+            }
+
             logInfo('[AgentPanel] Creating new session...');
 
             // Close current session if exists
@@ -1410,78 +1373,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
     // ============================================================================
     // Manual Compact
-    // ============================================================================
-
-    /**
-     * Manually compact/summarize the current conversation.
-     * Reads all messages from the current session, runs the summarization sub-agent,
-     * saves the summary as a JSONL checkpoint, and returns it.
-     */
-    async compactConversation(request: CompactConversationRequest): Promise<CompactConversationResponse> {
-        try {
-            logInfo('[AgentPanel] Manual compact requested');
-
-            // Get chat history manager (must have an active session)
-            const historyManager = await this.getChatHistoryManager();
-            const messages = await historyManager.getMessages({ includeCompactSummaryEntry: true });
-
-            if (messages.length === 0) {
-                return {
-                    success: false,
-                    error: 'No conversation to compact'
-                };
-            }
-
-            logInfo(`[AgentPanel] Compacting ${messages.length} messages...`);
-
-            // Run compact agent (sends full conversation + system-reminder to Haiku)
-            const effectiveSettings = request.modelSettings || this.currentModelSettings;
-            const resolvedSubModel = resolveSubModelId(effectiveSettings);
-            const result = await executeCompactAgent({
-                messages,
-                trigger: 'user',
-                projectPath: this.projectUri,
-                subModelId: resolvedSubModel,
-                subModelIsCustom: !!effectiveSettings.subModelCustomId,
-            });
-
-            if (!result.success || !result.summary) {
-                logError(`[AgentPanel] Manual compact failed: ${result.error || 'unknown error'}`);
-                return {
-                    success: false,
-                    error: result.error || 'Summarization failed'
-                };
-            }
-
-            // Save compact summary to JSONL (checkpoint)
-            await historyManager.saveSummaryMessage(result.summary);
-
-            // Emit compact event to UI via event handler
-            this.eventHandler.handleEvent({
-                type: 'compact',
-                summary: result.summary,
-                content: result.summary,
-            });
-            this.eventHandler.handleEvent({
-                type: 'usage',
-                totalInputTokens: 0,
-            });
-
-            logInfo(`[AgentPanel] Manual compact complete: ${result.summary.length} chars`);
-
-            return {
-                success: true,
-                summary: result.summary,
-            };
-        } catch (error) {
-            logError('[AgentPanel] Failed to compact conversation', error);
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to compact conversation'
-            };
-        }
-    }
-
     // ============================================================================
     // Mention Search
     // ============================================================================
@@ -1745,6 +1636,41 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 success: false,
                 items: [],
                 error: error instanceof Error ? error.message : 'Failed to search mentionable paths',
+            };
+        }
+    }
+
+    // ========================================================================
+    // Memory Management
+    // ========================================================================
+
+    async clearAgentMemory(): Promise<ClearAgentMemoryResponse> {
+        try {
+            const memoriesDir = getCopilotProjectMemoriesDir(this.projectUri);
+            await fs.rm(memoriesDir, { recursive: true, force: true });
+            logInfo(`[AgentPanel] Cleared agent memory: ${memoriesDir}`);
+            return { success: true };
+        } catch (error) {
+            logError('[AgentPanel] Failed to clear agent memory', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to clear agent memory',
+            };
+        }
+    }
+
+    async openAgentMemoryFolder(): Promise<OpenAgentMemoryFolderResponse> {
+        try {
+            const memoriesDir = getCopilotProjectMemoriesDir(this.projectUri);
+            // Ensure directory exists before opening
+            await fs.mkdir(memoriesDir, { recursive: true });
+            await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(memoriesDir));
+            return { success: true };
+        } catch (error) {
+            logError('[AgentPanel] Failed to open agent memory folder', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to open memory folder',
             };
         }
     }

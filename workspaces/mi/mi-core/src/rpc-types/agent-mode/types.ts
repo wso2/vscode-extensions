@@ -30,6 +30,8 @@ export interface SendAgentMessageRequest {
     message: string;
     /** UI chat message id to anchor replay metadata (undo cards) to the matching assistant message */
     chatId?: number;
+    /** Checkpoint anchor ID created before this user turn */
+    checkpointId?: string;
     /** Agent mode: ask (read-only), edit (full tool access), or plan (planning-focused read-only) */
     mode?: AgentMode;
     /** Optional file attachments (text/PDF) for multimodal prompts */
@@ -38,6 +40,8 @@ export interface SendAgentMessageRequest {
     images?: ImageObject[];
     /** Enable Claude thinking mode (reasoning blocks) */
     thinking?: boolean;
+    /** Enable persistent cross-session memory tool */
+    memoryEnabled?: boolean;
     /** When true, web_search and web_fetch run without per-call approval prompts */
     webAccessPreapproved?: boolean;
     /** Chat history for context (AI SDK format with tool calls/results) */
@@ -51,6 +55,37 @@ export interface ChangedFileSummary {
     path: string;
     addedLines: number;
     deletedLines: number;
+}
+
+export interface CheckpointAnchorSummary {
+    checkpointId: string;
+    source: 'agent' | 'code_segment';
+    createdAt: string;
+    /** User chat id this checkpoint is anchored to (when created before a user turn) */
+    chatId?: number;
+}
+
+export interface FileHistoryBackupReference {
+    backupFileName: string | null;
+    version: number;
+    backupTime: string;
+}
+
+export interface FileHistorySnapshot {
+    /**
+     * Anchor checkpoint ID (inner message id in Claude-style snapshot indexing)
+     */
+    messageId: string;
+    source: 'agent' | 'code_segment';
+    trackedFileBackups: Record<string, FileHistoryBackupReference>;
+    timestamp: string;
+    /** Optional assistant chat id (used for code-segment checkpoints) */
+    targetChatId?: number;
+    /** Optional session plan-file baseline captured at checkpoint start (for hard time-reset restore). */
+    planFileSnapshot?: {
+        planPath: string;
+        backup: FileHistoryBackupReference;
+    };
 }
 
 export interface UndoCheckpointSummary {
@@ -70,6 +105,7 @@ export interface SendAgentMessageResponse {
     success: boolean;
     message?: string;
     modifiedFiles?: string[];
+    checkpointId?: string;
     undoCheckpoint?: UndoCheckpointSummary;
     error?: string;
     /** Full AI SDK messages from this turn (includes tool calls/results) */
@@ -80,6 +116,8 @@ export interface SendAgentMessageResponse {
 export interface UndoLastCheckpointRequest {
     force?: boolean;
     checkpointId?: string;
+    /** soft: restore files + keep timeline + add system-reminder, hard: full time-reset + truncate timeline */
+    behavior?: 'soft' | 'hard';
 }
 
 export interface UndoLastCheckpointResponse {
@@ -87,6 +125,7 @@ export interface UndoLastCheckpointResponse {
     requiresConfirmation?: boolean;
     conflicts?: string[];
     restoredFiles?: string[];
+    historyTruncated?: boolean;
     undoCheckpoint?: UndoCheckpointSummary;
     latestUndoCheckpoint?: UndoCheckpointSummary;
     error?: string;
@@ -187,7 +226,7 @@ export type PlanApprovalKind =
  * - `compact`: `summary`, `content`
  * - `usage`: `totalInputTokens`
  * - `error`: `error`
- * - `stop`: `modelMessages`
+ * - `stop`: `modelMessages`, `undoCheckpoint`
  */
 export interface AgentEvent {
     type: AgentEventType;
@@ -207,6 +246,8 @@ export interface AgentEvent {
     /** Full AI SDK messages (only sent with "stop" event) */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     modelMessages?: any[];
+    /** Undo checkpoint summary emitted with final stop event for review card */
+    undoCheckpoint?: UndoCheckpointSummary;
 
     // Plan mode fields
     /** Structured questions for ask_user event */
@@ -275,7 +316,7 @@ export interface PlanApprovalRequestedEvent extends AgentEvent {
  * Frontend will convert these to UI messages with inline tool call formatting
  */
 export interface ChatHistoryEvent {
-    type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint';
+    type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint' | 'checkpoint_anchor';
     /** Stable UI chat id for grouping a user turn and its assistant output */
     chatId?: number;
     content?: string;
@@ -289,6 +330,7 @@ export interface ChatHistoryEvent {
     /** User-friendly action text for tool result (e.g., "Created", "Read", "Failed to create") */
     action?: string;
     undoCheckpoint?: UndoCheckpointSummary;
+    checkpointAnchor?: CheckpointAnchorSummary;
     /** Assistant chat id this undo checkpoint should attach to during UI replay */
     targetChatId?: number;
     timestamp: string;
@@ -471,28 +513,6 @@ export interface DeleteSessionResponse {
 }
 
 // ============================================================================
-// Manual Compact Types
-// ============================================================================
-
-/**
- * Request to manually compact/summarize the current conversation
- */
-export interface CompactConversationRequest {
-    /** Model settings for compact agent model selection */
-    modelSettings?: ModelSettings;
-}
-
-/**
- * Response from manual compact
- */
-export interface CompactConversationResponse {
-    success: boolean;
-    /** The generated summary */
-    summary?: string;
-    error?: string;
-}
-
-// ============================================================================
 // Model Settings Types
 // ============================================================================
 
@@ -544,6 +564,20 @@ export interface GetAgentRunStatusResponse {
     mode?: AgentMode;
 }
 
+// ============================================================================
+// Memory Management Types
+// ============================================================================
+
+export interface ClearAgentMemoryResponse {
+    success: boolean;
+    error?: string;
+}
+
+export interface OpenAgentMemoryFolderResponse {
+    success: boolean;
+    error?: string;
+}
+
 /**
  * Agent Panel API interface
  */
@@ -561,10 +595,11 @@ export interface MIAgentPanelAPI {
     switchSession: (request: SwitchSessionRequest) => Promise<SwitchSessionResponse>;
     createNewSession: (request: CreateNewSessionRequest) => Promise<CreateNewSessionResponse>;
     deleteSession: (request: DeleteSessionRequest) => Promise<DeleteSessionResponse>;
-    // Compact
-    compactConversation: (request: CompactConversationRequest) => Promise<CompactConversationResponse>;
     // Mention search
     searchMentionablePaths: (request: SearchMentionablePathsRequest) => Promise<SearchMentionablePathsResponse>;
     // Agent run status for panel reconnection
     getAgentRunStatus: (request?: GetAgentRunStatusRequest) => Promise<GetAgentRunStatusResponse>;
+    // Memory management
+    clearAgentMemory: () => Promise<ClearAgentMemoryResponse>;
+    openAgentMemoryFolder: () => Promise<OpenAgentMemoryFolderResponse>;
 }

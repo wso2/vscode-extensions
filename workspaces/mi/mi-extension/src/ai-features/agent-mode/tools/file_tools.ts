@@ -25,7 +25,6 @@ import * as vscode from 'vscode';
 
 import {
     ValidationResult,
-    FileEditHunk,
     ToolResult,
     VALID_FILE_EXTENSIONS,
     VALID_SPECIAL_FILE_NAMES,
@@ -44,7 +43,7 @@ import { logDebug, logError } from '../../copilot/logger';
 import { validateXmlFile, formatValidationMessage } from './validation-utils';
 import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
 import { getCopilotProjectsRootDir } from '../storage-paths';
-import { applyStructuredFilePatch } from './file_edit_patch';
+// file_edit_patch.ts is deprecated — edit tool now uses simple string replacement
 
 // ============================================================================
 // Validation Functions
@@ -56,6 +55,7 @@ const PDF_MAX_PAGES_PER_REQUEST = 5;
 const MAX_GREP_PATTERN_LENGTH = 512;
 const MAX_GREP_GLOB_LENGTH = 256;
 const MAX_GREP_SEARCH_DEPTH = 12;
+const MAX_GREP_MATCH_LINE_LENGTH = 500;
 const POST_WRITE_VALIDATION_DELAY_MS = 500;
 
 const GREP_TYPE_EXTENSION_MAP: Record<string, string[]> = {
@@ -249,9 +249,14 @@ function compileGlobPattern(globPattern?: string, caseInsensitive?: boolean): { 
         };
     }
 
+    // Strip leading **/ — the tool already recurses directories, so globstar is redundant.
+    // Without this, patterns like "**/DLQ*.xml" fail because ** is not handled in regex conversion.
+    // Only remove a leading "**/" — embedded "**/" (e.g., "src/**/foo.xml") are meaningful and preserved.
+    let normalizedGlob = globPattern.replace(/^\*\*\//, '');
+
     try {
         let hasInvalidBraceGroup = false;
-        const escapedGlob = escapeRegexCharacters(globPattern).replace(/\\\{([^{}]+)\\\}/g, (_match, group) => {
+        const escapedGlob = escapeRegexCharacters(normalizedGlob).replace(/\\\{([^{}]+)\\\}/g, (_match, group) => {
             const options = group
                 .split(',')
                 .map((option: string) => option.trim())
@@ -350,14 +355,34 @@ function validateFilePathSecurity(projectPath: string, filePath: string): Valida
     }
 
     const fullPath = resolveFullPath(projectPath, normalizedPath);
-    if (isPathWithin(projectPath, fullPath) || isCopilotGlobalPath(fullPath)) {
-        return { valid: true };
+    if (!isPathWithin(projectPath, fullPath) && !isCopilotGlobalPath(fullPath)) {
+        return {
+            valid: false,
+            error: 'File path must be within the project or ~/.wso2-mi/copilot/projects.'
+        };
     }
 
-    return {
-        valid: false,
-        error: 'File path must be within the project or ~/.wso2-mi/copilot/projects.'
-    };
+    // Symlink protection: resolve real path and re-check containment
+    try {
+        if (fs.existsSync(fullPath)) {
+            const realTarget = fs.realpathSync(fullPath);
+            const realProject = fs.realpathSync(projectPath);
+            if (!isPathWithin(realProject, realTarget) && !isCopilotGlobalPath(realTarget)) {
+                return {
+                    valid: false,
+                    error: 'File path resolves via symlink to a location outside the project.'
+                };
+            }
+        }
+    } catch {
+        // realpath failure (e.g. broken symlink) — reject
+        return {
+            valid: false,
+            error: 'File path could not be resolved (broken symlink or permission error).'
+        };
+    }
+
+    return { valid: true };
 }
 
 /**
@@ -369,10 +394,11 @@ function validateTextFilePath(projectPath: string, filePath: string): Validation
         return securityValidation;
     }
 
+    // Reject non-text files (images, PDFs, binaries) to prevent corrupt overwrites
     if (!isTextAllowedFilePath(filePath)) {
         return {
             valid: false,
-            error: `File must use an allowed file type: ${getAllowedFileTypesDescription()}`
+            error: `Cannot write/edit binary or non-text file '${filePath}'. Allowed text file types: ${getAllowedFileTypesDescription()}`
         };
     }
 
@@ -695,7 +721,8 @@ function trackModifiedFile(modifiedFiles: string[] | undefined, filePath: string
 export function createWriteExecute(
     projectPath: string,
     modifiedFiles?: string[],
-    undoCheckpointManager?: AgentUndoCheckpointManager
+    undoCheckpointManager?: AgentUndoCheckpointManager,
+    readFiles?: Set<string>
 ): WriteExecuteFn {
     return async (args: { file_path: string; content: string }): Promise<ToolResult> => {
         const { file_path, content } = args;
@@ -724,7 +751,7 @@ export function createWriteExecute(
 
         const fullPath = resolveFullPath(projectPath, file_path);
 
-        // Check if file exists with non-empty content
+        // Check if file exists — allow overwrites but require Read first
         const fileExists = fs.existsSync(fullPath);
         if (fileExists) {
             let existingContent = '';
@@ -739,12 +766,19 @@ export function createWriteExecute(
                 };
             }
             if (existingContent.trim().length > 0) {
-                console.error(`[FileWriteTool] File already exists with content: ${file_path}`);
-                return {
-                    success: false,
-                    message: `File '${file_path}' already exists with content. Use ${FILE_EDIT_TOOL_NAME} to modify it instead.`,
-                    error: `Error: ${ErrorMessages.FILE_ALREADY_EXISTS}`
-                };
+                // Read-before-write guard: require the file to have been read first
+                const wasRead = readFiles?.has(file_path) || readFiles?.has(fullPath);
+                const isAgentCreated = modifiedFiles?.includes(file_path)
+                    || modifiedFiles?.includes(fullPath);
+                if (!wasRead && !isAgentCreated) {
+                    console.error(`[FileWriteTool] Overwrite blocked — file not read first: ${file_path}`);
+                    return {
+                        success: false,
+                        message: `File '${file_path}' already exists. You must use ${FILE_READ_TOOL_NAME} to read it before overwriting. Prefer ${FILE_EDIT_TOOL_NAME} for modifying existing files — it only sends the diff.`,
+                        error: `Error: ${ErrorMessages.FILE_ALREADY_EXISTS}`
+                    };
+                }
+                console.log(`[FileWriteTool] Overwriting existing file: ${file_path}`);
             }
         }
 
@@ -798,15 +832,15 @@ export function createWriteExecute(
 
         // Give language services a brief moment to settle before automatic validation.
         await delay(POST_WRITE_VALIDATION_DELAY_MS);
-        // Automatically validate the file and get structured diagnostics
-        const validation = await validateXmlFile(fullPath, projectPath, false);
+        // Automatically validate the file and get structured diagnostics (include code actions for agent)
+        const validation = await validateXmlFile(fullPath, projectPath, true);
 
         console.log(`[FileWriteTool] Successfully ${action} and synced file: ${file_path} with ${lineCount} lines`);
 
         // Build result with structured validation data
         const result: ToolResult = {
             success: true,
-            message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).${validation ? formatValidationMessage(validation) : ''}`
+            message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).${validation ? formatValidationMessage(validation, 15) : ''}`
         };
 
         if (validation) {
@@ -820,7 +854,7 @@ export function createWriteExecute(
 /**
  * Creates the execute function for file_read tool
  */
-export function createReadExecute(projectPath: string): ReadExecuteFn {
+export function createReadExecute(projectPath: string, readFiles?: Set<string>): ReadExecuteFn {
     return async (args: { file_path: string; offset?: number; limit?: number; pages?: string }): Promise<ToolResult> => {
         const { file_path, offset, limit, pages } = args;
         logDebug(`[FileReadTool] Reading ${file_path}, offset: ${offset}, limit: ${limit}, pages: ${pages}`);
@@ -857,6 +891,11 @@ export function createReadExecute(projectPath: string): ReadExecuteFn {
                 error: `Error: ${ErrorMessages.INVALID_READ_OPTIONS}`
             };
         }
+
+        // Track that this file has been read (used by write tool's read-before-write guard)
+        // Placed after existence check and option validation so failed reads are not tracked.
+        readFiles?.add(file_path);
+        readFiles?.add(fullPath);
 
         const fileKind = getReadFileKind(file_path);
         if (fileKind === 'image') {
@@ -967,10 +1006,12 @@ export function createEditExecute(
 ): EditExecuteFn {
     return async (args: {
         file_path: string;
-        hunks: FileEditHunk[];
+        old_string: string;
+        new_string: string;
+        replace_all?: boolean;
     }): Promise<ToolResult> => {
-        const { file_path, hunks } = args;
-        logDebug(`[FileEditTool] Editing ${file_path}, hunks: ${hunks?.length ?? 0}`);
+        const { file_path, old_string, new_string, replace_all = false } = args;
+        logDebug(`[FileEditTool] Editing ${file_path}, replace_all: ${replace_all}`);
 
         // Validate file path
         const pathValidation = validateFilePath(projectPath, file_path);
@@ -983,11 +1024,18 @@ export function createEditExecute(
             };
         }
 
-        if (!Array.isArray(hunks) || hunks.length === 0) {
-            logError(`[FileEditTool] No hunks provided for file: ${file_path}`);
+        if (!old_string) {
             return {
                 success: false,
-                message: 'No hunks were provided. Provide at least one patch hunk.',
+                message: 'old_string cannot be empty.',
+                error: `Error: ${ErrorMessages.NO_EDITS}`
+            };
+        }
+
+        if (old_string === new_string) {
+            return {
+                success: false,
+                message: 'new_string must be different from old_string.',
                 error: `Error: ${ErrorMessages.NO_EDITS}`
             };
         }
@@ -1004,22 +1052,40 @@ export function createEditExecute(
             };
         }
 
-        // Read file content
-        const content = fs.readFileSync(fullPath, 'utf-8');
+        // Read file content and normalize CRLF → LF so old_string from the LLM (always LF) matches
+        const rawContent = fs.readFileSync(fullPath, 'utf-8');
+        const hasCRLF = rawContent.includes('\r\n');
+        const content = hasCRLF ? rawContent.replace(/\r\n/g, '\n') : rawContent;
 
-        const patchResult = applyStructuredFilePatch(content, hunks);
-        if (!patchResult.success) {
-            const errorCode = ErrorMessages[patchResult.code as keyof typeof ErrorMessages] ?? patchResult.code;
-            logError(`[FileEditTool] Failed to apply hunk patch for: ${file_path}. ${patchResult.message}`);
+        if (!content.includes(old_string)) {
             return {
                 success: false,
-                message: patchResult.message,
-                error: `Error: ${errorCode}`,
+                message: `old_string not found in '${file_path}'. Make sure it matches exactly, including whitespace and indentation.`,
+                error: `Error: ${ErrorMessages.HUNK_NOT_FOUND}`
+            };
+        }
+
+        // Count occurrences
+        const occurrences = content.split(old_string).length - 1;
+
+        if (occurrences > 1 && !replace_all) {
+            return {
+                success: false,
+                message: `old_string found ${occurrences} times in '${file_path}'. Provide a larger string with more surrounding context to make it unique, or set replace_all=true to replace all occurrences.`,
+                error: `Error: ${ErrorMessages.HUNK_AMBIGUOUS}`
             };
         }
 
         await undoCheckpointManager?.captureBeforeChange(file_path);
-        const newContent = patchResult.newContent;
+
+        let newContent = replace_all
+            ? content.split(old_string).join(new_string)
+            : content.replace(old_string, new_string);
+
+        // Restore original CRLF line endings if the file had them
+        if (hasCRLF) {
+            newContent = newContent.replace(/\n/g, '\r\n');
+        }
 
         // Use WorkspaceEdit for LSP synchronization
         const uri = vscode.Uri.file(fullPath);
@@ -1050,19 +1116,16 @@ export function createEditExecute(
         // Track modified file
         trackModifiedFile(modifiedFiles, file_path);
 
-        const appliedHunkCount = patchResult.appliedHunks;
-
         // Give language services a brief moment to settle before automatic validation.
         await delay(POST_WRITE_VALIDATION_DELAY_MS);
-        // Automatically validate the file and get structured diagnostics
-        const validation = await validateXmlFile(fullPath, projectPath, false);
+        const validation = await validateXmlFile(fullPath, projectPath, true);
 
-        logDebug(`[FileEditTool] Successfully applied ${appliedHunkCount} hunk(s) and synced file: ${file_path}`);
+        const replacedCount = replace_all ? occurrences : 1;
+        logDebug(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) in: ${file_path}`);
 
-        // Build result with structured validation data
         const result: ToolResult = {
             success: true,
-            message: `Successfully applied ${appliedHunkCount} hunk(s) in '${file_path}'.${validation ? formatValidationMessage(validation) : ''}`
+            message: `Replaced ${replacedCount} occurrence(s) in '${file_path}'.${validation ? formatValidationMessage(validation, 15) : ''}`
         };
 
         if (validation) {
@@ -1174,14 +1237,19 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
                     if (entry.isDirectory()) {
                         // Skip common directories
                         if (entry.name === 'node_modules' || entry.name === '.git' ||
-                            entry.name === 'target' || entry.name === 'build') {
+                            entry.name === 'target' || entry.name === 'build' ||
+                            entry.name === '.devtools') {
                             continue;
                         }
                         searchInDirectory(fullPath, currentDepth + 1);
                     } else if (entry.isFile()) {
-                        // Check glob pattern if specified
-                        if (globRegex && !globRegex.test(entry.name)) {
-                            continue;
+                        // Check glob pattern if specified — test against relative path from search root
+                        // so patterns containing "/" (e.g. "src/**/foo.xml") can match
+                        if (globRegex) {
+                            const relativeFromRoot = path.relative(fullSearchPath, fullPath);
+                            if (!globRegex.test(relativeFromRoot) && !globRegex.test(entry.name)) {
+                                continue;
+                            }
                         }
 
                         if (!isTextAllowedFilePath(entry.name)) {
@@ -1206,10 +1274,13 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
                                         break; // Only need one match per file
                                     } else {
                                         if (results.length >= head_limit) break;
+                                        const trimmedLine = lines[i].trim();
                                         results.push({
                                             file: relativePath,
                                             line: i + 1,
-                                            content: lines[i].trim()
+                                            content: trimmedLine.length > MAX_GREP_MATCH_LINE_LENGTH
+                                                ? trimmedLine.substring(0, MAX_GREP_MATCH_LINE_LENGTH) + '… [truncated]'
+                                                : trimmedLine
                                         });
                                     }
                                 }
@@ -1256,10 +1327,13 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
                             break; // Only need one match per file
                         } else {
                             if (results.length >= head_limit) break;
+                            const trimmedLine = lines[i].trim();
                             results.push({
                                 file: relativePath,
                                 line: i + 1,
-                                content: lines[i].trim()
+                                content: trimmedLine.length > MAX_GREP_MATCH_LINE_LENGTH
+                                    ? trimmedLine.substring(0, MAX_GREP_MATCH_LINE_LENGTH) + '… [truncated]'
+                                    : trimmedLine
                             });
                         }
                     }
@@ -1424,10 +1498,11 @@ const writeInputSchema = z.object({
 export function createWriteTool(execute: WriteExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Creates a new file. Will NOT overwrite existing files with content - use ${FILE_EDIT_TOOL_NAME} for that.
-            Parent directories are created automatically. Allowed file types: ${getAllowedFileTypesDescription()}.
+        description: `Writes a file to the filesystem. Creates new files or overwrites existing ones.
+            If the file already exists, you MUST use ${FILE_READ_TOOL_NAME} first — this tool will fail if you haven't read it.
+            Prefer ${FILE_EDIT_TOOL_NAME} for modifying existing files — it only sends the diff. Use this tool for new files or complete rewrites.
+            Parent directories are created automatically.
             XML files are automatically validated after writing (results included in response).
-            LemMinx may reports "Premature end of file". This is a known false positive when LemMinx is not synchronized with the file system. Ignore it and verify by building the project instead if needed.
             Do NOT create documentation files unless explicitly requested.`,
         inputSchema: writeInputSchema,
         execute
@@ -1449,9 +1524,10 @@ export function createReadTool(execute: ReadExecuteFn, projectPath: string) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
         description: `Reads a file from the project.
-            Text files return line-numbered content (supports offset/limit).
+            Text files return line-numbered content (supports offset/limit). When you already know which part of the file you need, only read that part.
             Image files (.png, .jpg, .jpeg, .gif, .webp) are provided for multimodal analysis.
-            PDFs can be read with pages ("N" or "N-M"). For PDFs over ${PDF_MAX_PAGES_PER_REQUEST} pages, pages is required. Maximum ${PDF_MAX_PAGES_PER_REQUEST} pages per request.`,
+            PDFs can be read with pages ("N" or "N-M"). For PDFs over ${PDF_MAX_PAGES_PER_REQUEST} pages, pages is required. Maximum ${PDF_MAX_PAGES_PER_REQUEST} pages per request.
+            You can call this tool multiple times in parallel — speculatively read multiple potentially useful files at once rather than one at a time.`,
         inputSchema: readInputSchema,
         execute,
         toModelOutput: async ({ input, output }: { input: { file_path?: string; pages?: string }; output: unknown }) => {
@@ -1466,25 +1542,20 @@ export function createReadTool(execute: ReadExecuteFn, projectPath: string) {
 
 const editInputSchema = z.object({
     file_path: z.string().describe(`The file path to edit. Use a path relative to the project root, or an absolute path under ~/.wso2-mi/copilot/projects for copilot session artifacts.`),
-    hunks: z.array(z.object({
-        old_text: z.string().describe(`Exact text block to replace (non-empty). Matching ignores trailing whitespace and line ending style.`),
-        new_text: z.string().describe(`Replacement text block. Use empty string to delete matched content.`),
-        context_before: z.string().optional().describe(`Optional stable text immediately before old_text to disambiguate repeated matches.`),
-        context_after: z.string().optional().describe(`Optional stable text immediately after old_text to disambiguate repeated matches.`),
-        line_hint: z.number().int().positive().optional().describe(`Optional 1-based approximate start line for old_text. Used only as a tie-breaker.`),
-    })).min(1).describe(`One or more patch hunks for this file. Hunks must not overlap.`)
+    old_string: z.string().describe(`The exact text to replace. Must match exactly (including whitespace and indentation). Must be unique in the file unless replace_all is true.`),
+    new_string: z.string().describe(`The replacement text. Must be different from old_string. Use empty string to delete the matched text.`),
+    replace_all: z.boolean().default(false).describe(`Replace all occurrences of old_string. Default false. Use for renaming variables or changing repeated patterns across the file.`),
 });
 
 export function createEditTool(execute: EditExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Apply structured patch hunks to an existing file (single file per call).
-            Use minimal old_text blocks with stable context_before/context_after for repeated sections.
-            Use line_hint only for disambiguation when multiple matches remain.
-            Matching is strict but normalizes line endings and ignores trailing whitespace.
-            Cannot create new files - use ${FILE_WRITE_TOOL_NAME} for that.
-            XML files are automatically validated after editing (results included in response).
-            LemMinx may reports "Premature end of file". This is a known false positive when LemMinx is not synchronized with the file system. Ignore it and verify by building the project instead if needed.`,
+        description: `Performs exact string replacements in an existing file.
+            The edit will FAIL if old_string is not unique in the file — provide a larger string with more surrounding context to make it unique, or use replace_all to change every instance.
+            Use replace_all for renaming variables or replacing repeated strings across the file.
+            For multiple edits: call this tool in parallel for different files; call sequentially for the same file.
+            Cannot create new files — use ${FILE_WRITE_TOOL_NAME} for that.
+            XML files are automatically validated after editing (results included in response).`,
         inputSchema: editInputSchema,
         execute
     });
@@ -1509,7 +1580,7 @@ export function createGrepTool(execute: GrepExecuteFn) {
     return (tool as any)({
         description: `Search for regex patterns in project files. Supports glob filtering.
             Output modes: "content" (matching lines, default) or "files_with_matches" (file paths only).
-            Skips node_modules, .git, target, build. Limited to allowed file types: ${getAllowedFileTypesDescription()}.`,
+            Skips node_modules, .git, target, build, .devtools. Limited to allowed file types: ${getAllowedFileTypesDescription()}.`,
         inputSchema: grepInputSchema,
         execute
     });

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_AND_DEPLOY_TOOL_NAME, CONNECTOR_TOOL_NAME, CONTEXT_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, WEB_SEARCH_TOOL_NAME, WEB_FETCH_TOOL_NAME } from './tools/types';
+import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_AND_DEPLOY_TOOL_NAME, CONNECTOR_TOOL_NAME, CONTEXT_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, WEB_SEARCH_TOOL_NAME, WEB_FETCH_TOOL_NAME, DEEPWIKI_ASK_QUESTION_TOOL_NAME, MEMORY_TOOL_NAME, READ_SERVER_LOGS_TOOL_NAME, TOOL_LOAD_TOOL_NAME } from './tools/types';
 /**
  * Tool action states for UI display
  */
@@ -246,6 +246,50 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                 completed: 'fetched web page',
                 failed: 'web fetch failed'
             };
+
+        // Tool Loading (local — deferred tool loading)
+        case TOOL_LOAD_TOOL_NAME:
+            return {
+                loading: 'loading tools',
+                completed: 'loaded tools',
+                failed: 'tool loading failed'
+            };
+
+        case DEEPWIKI_ASK_QUESTION_TOOL_NAME:
+            return {
+                loading: 'querying DeepWiki',
+                completed: 'queried DeepWiki',
+                failed: 'DeepWiki query failed'
+            };
+
+        // Read Server Logs Tool
+        case READ_SERVER_LOGS_TOOL_NAME: {
+            const logFile = toolInput?.log_file || 'errors';
+            return {
+                loading: `reading ${logFile} log`,
+                completed: `read ${logFile} log`,
+                failed: `failed to read ${logFile} log`,
+            };
+        }
+
+        case MEMORY_TOOL_NAME: {
+            const cmd = toolInput?.command;
+            switch (cmd) {
+                case 'view':
+                    return { loading: 'reading memory', completed: 'read memory', failed: 'failed to read memory' };
+                case 'create':
+                    return { loading: 'saving to memory', completed: 'saved to memory', failed: 'failed to save to memory' };
+                case 'str_replace':
+                case 'insert':
+                    return { loading: 'updating memory', completed: 'updated memory', failed: 'failed to update memory' };
+                case 'delete':
+                    return { loading: 'deleting memory file', completed: 'deleted memory file', failed: 'failed to delete memory file' };
+                case 'rename':
+                    return { loading: 'renaming memory file', completed: 'renamed memory file', failed: 'failed to rename memory file' };
+                default:
+                    return { loading: 'updating memory', completed: 'updated memory', failed: 'failed to update memory' };
+            }
+        }
 
         default:
             return undefined;

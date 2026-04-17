@@ -17,128 +17,101 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { Button, Codicon } from "@wso2/ui-toolkit";
+import { Codicon } from "@wso2/ui-toolkit";
 import { LoginMethod } from "@wso2/mi-core";
-import { Badge, Header, HeaderButtons, ResetsInBadge } from '../styles';
 import { useMICopilotContext } from "./MICopilotContext";
 import SessionSwitcher from "./SessionSwitcher";
-import ModelSettingsMenu from "./ModelSettingsMenu";
+import AuthProviderChip from "./AuthProviderChip";
 
 // Guard session switching while an agent run is active.
 const ENABLE_SESSION_SWITCH_GUARD = true;
 
-function formatResetTime(seconds: number): string {
-  const totalSeconds = Math.max(0, Math.floor(seconds || 0));
-
-  if (totalSeconds < 60) {
-    return "< 1 min";
-  }
-
-  if (totalSeconds < 60 * 60) {
-    const minutes = Math.ceil(totalSeconds / 60);
-    return `${minutes} min`;
-  }
-
-  if (totalSeconds < 60 * 60 * 24) {
-    const hours = Math.floor(totalSeconds / (60 * 60));
-    const remainingMinutes = Math.ceil((totalSeconds % (60 * 60)) / 60);
-    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-  }
-
-  const days = Math.floor(totalSeconds / (60 * 60 * 24));
-  const remainingHours = Math.floor((totalSeconds % (60 * 60 * 24)) / (60 * 60));
-  const dayLabel = days === 1 ? "day" : "days";
-  return remainingHours > 0 ? `${days} ${dayLabel} ${remainingHours}h` : `${days} ${dayLabel}`;
+interface AIChatHeaderProps {
+    onOpenSettings: () => void;
 }
 
 /**
- * Header component for the chat interface
- * Shows session switcher, token information, and action buttons
+ * Header component for the chat interface.
+ * Left: AuthProviderChip | Right: New Chat (SessionSwitcher) + Settings
  */
-const AIChatHeader: React.FC = () => {
-  const {
-    rpcClient,
-    tokenInfo,
-    backendRequestTriggered,
-    // Session management
-    currentSessionId,
-    currentSessionTitle,
-    sessions,
-    isSessionsLoading,
-    refreshSessions,
-    switchToSession,
-    createNewSession,
-    deleteSession
-  } = useMICopilotContext();
-  const [hasApiKey, setHasApiKey] = useState(false);
-  const [isAwsBedrock, setIsAwsBedrock] = useState(false);
+const AIChatHeader: React.FC<AIChatHeaderProps> = ({ onOpenSettings }) => {
+    const {
+        rpcClient,
+        tokenInfo,
+        backendRequestTriggered,
+        currentSessionId,
+        currentSessionTitle,
+        sessions,
+        isSessionsLoading,
+        refreshSessions,
+        switchToSession,
+        createNewSession,
+        deleteSession,
+    } = useMICopilotContext();
+    const [hasApiKey, setHasApiKey] = useState(false);
+    const [isAwsBedrock, setIsAwsBedrock] = useState(false);
 
-  const handleLogout = async () => {
-    await rpcClient?.getMiDiagramRpcClient().logoutFromMIAccount();
-  };
+    const checkApiKey = async () => {
+        const apiKeyPresent = await rpcClient?.getMiAiPanelRpcClient().hasAnthropicApiKey();
+        setHasApiKey(apiKeyPresent);
+        const machineView = await rpcClient?.getAIVisualizerState();
+        setIsAwsBedrock(machineView?.loginMethod === LoginMethod.AWS_BEDROCK);
+    };
 
-  const checkApiKey = async () => {
-    const hasApiKey = await rpcClient?.getMiAiPanelRpcClient().hasAnthropicApiKey();
-    setHasApiKey(hasApiKey);
-    // Check if specifically using AWS Bedrock
-    const machineView = await rpcClient?.getAIVisualizerState();
-    setIsAwsBedrock(machineView?.loginMethod === LoginMethod.AWS_BEDROCK);
-  };
+    useEffect(() => {
+        checkApiKey();
+    }, [rpcClient]);
 
-  // Check for API key on component mount
-  useEffect(() => {
-    checkApiKey();
-  }, [rpcClient]);
+    const isLoading = backendRequestTriggered || isSessionsLoading;
 
-  const isLoading = backendRequestTriggered || isSessionsLoading;
+    return (
+        <header
+            className="flex justify-between items-center px-3 py-2 shrink-0"
+            style={{
+                borderBottom: "1px solid var(--vscode-panel-border)",
+                backgroundColor: "var(--vscode-sideBar-background)",
+            }}
+        >
+            {/* Left: Auth provider chip */}
+            <AuthProviderChip
+                hasApiKey={hasApiKey}
+                isAwsBedrock={isAwsBedrock}
+                remainingPercentage={tokenInfo.remainingPercentage}
+                isLessThanOne={tokenInfo.isLessThanOne}
+                timeToReset={tokenInfo.timeToReset}
+            />
 
-  return (
-      <Header>
-          <Badge>
-              {hasApiKey ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Codicon name="key" />
-                          {isAwsBedrock ? "Copilot is using your AWS Bedrock Account" : "Copilot is using your API Key"}
-                      </div>
-                      <ResetsInBadge>{isAwsBedrock ? "Logout to clear the credentials" : "Logout to clear the API key"}</ResetsInBadge>
-                  </div>
-              ) : (
-                  <>
-                      Remaining Free Usage:{" "}
-                      {tokenInfo.remainingPercentage === -1
-                          ? "Unlimited"
-                          : tokenInfo.isLessThanOne
-                          ? "<1%"
-                          : `${tokenInfo.remainingPercentage}%`}
-                      <br />
-                      <ResetsInBadge>
-                          {tokenInfo.remainingPercentage !== -1 &&
-                              `Resets in: ${formatResetTime(tokenInfo.timeToReset)}`}
-                      </ResetsInBadge>
-                  </>
-              )}
-          </Badge>
-          <HeaderButtons>
-              <SessionSwitcher
-                  currentSessionId={currentSessionId}
-                  sessions={sessions}
-                  currentSessionTitle={currentSessionTitle}
-                  isLoading={isLoading}
-                  disabled={ENABLE_SESSION_SWITCH_GUARD ? backendRequestTriggered : false}
-                  onSessionSwitch={switchToSession}
-                  onNewSession={createNewSession}
-                  onDeleteSession={deleteSession}
-                  onRefresh={refreshSessions}
-              />
-              <ModelSettingsMenu isLoading={isLoading} isByok={hasApiKey} />
-              <Button appearance="icon" onClick={handleLogout} tooltip="Logout" disabled={isLoading}>
-                  <Codicon name="sign-out" />
-                  &nbsp;&nbsp;Logout
-              </Button>
-          </HeaderButtons>
-      </Header>
-  );
+            {/* Right: New Chat + Settings */}
+            <div className="flex items-center gap-1">
+                <SessionSwitcher
+                    currentSessionId={currentSessionId}
+                    sessions={sessions}
+                    currentSessionTitle={currentSessionTitle}
+                    isLoading={isLoading}
+                    disabled={ENABLE_SESSION_SWITCH_GUARD ? backendRequestTriggered : false}
+                    onSessionSwitch={switchToSession}
+                    onNewSession={createNewSession}
+                    onDeleteSession={deleteSession}
+                    onRefresh={refreshSessions}
+                />
+                <button
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors"
+                    style={{ color: "var(--vscode-foreground)", opacity: 0.8 }}
+                    onClick={onOpenSettings}
+                    onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor = "var(--vscode-list-hoverBackground)";
+                    }}
+                    onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                    }}
+                    title="Settings"
+                >
+                    <Codicon name="settings-gear" />
+                    <span>Settings</span>
+                </button>
+            </div>
+        </header>
+    );
 };
 
 export default AIChatHeader;

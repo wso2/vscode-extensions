@@ -76,7 +76,7 @@ export function createValidateCodeExecute(projectPath: string): ValidateCodeExec
                 if (!r.validation) {
                     parts.push(`${r.file}: skipped (not XML or validation unavailable)`);
                 } else {
-                    const formatted = formatValidationMessage(r.validation);
+                    const formatted = formatValidationMessage(r.validation, Infinity);
                     parts.push(`${r.file}:${formatted || ' No issues found.'}`);
                 }
             }
