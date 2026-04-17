@@ -227,6 +227,7 @@ import { getCurrentBallerinaProject } from "../../utils/project-utils";
 import { getUsername } from "../../utils/bi";
 import { Messenger } from "vscode-messenger";
 import { CollaborationLockManager } from '../../features/collaboration/lock-manager';
+import { getOctClientId } from '../collaboration/rpc-handler';
 import { CommonRpcManager } from "../common/rpc-manager";
 import * as toml from "@iarna/toml";
 import { readOrWriteReadmeContent } from "./utils";
@@ -2645,7 +2646,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
 
     async isCollaborationActive(): Promise<IsCollaborationActiveResponse> {
         const lockManager = CollaborationLockManager.getInstance();
-        const { getOctClientId } = await import('../collaboration/rpc-handler');
         return {
             isActive: lockManager.isCollaborationActive(),
             clientId: getOctClientId()

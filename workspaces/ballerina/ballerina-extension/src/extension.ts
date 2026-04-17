@@ -59,6 +59,7 @@ import { activate as activateNPFeatures } from './features/natural-programming/a
 import { activateAgentChatPanel } from './views/agent-chat/activate';
 import { activateTracing } from './features/tracing';
 import { UriCache } from './utils/remote-fs/uri-cache';
+import { RemoteDiagnosticsBridge } from './utils/remote-fs/diagnostics-bridge';
 import { registerGlobalHelpers } from './features/collaboration/oct-helper';
 import { buildProjectsStructure } from './utils/project-artifacts';
 import { activateICP } from './features/icp';
@@ -68,6 +69,7 @@ let langClient: ExtendedLangClient;
 export let isPluginStartup = true;
 export let uriCache: UriCache;
 const remoteFileVersions = new Map<string, number>();
+let remoteDiagnosticsBridge: RemoteDiagnosticsBridge;
 
 
 const collaborationState: {
@@ -196,6 +198,9 @@ export async function activate(context: ExtensionContext) {
     
     uriCache = UriCache.getInstance();
     debug('Initialized URI cache for non-file schemes');
+
+    remoteDiagnosticsBridge = new RemoteDiagnosticsBridge(uriCache);
+    context.subscriptions.push(remoteDiagnosticsBridge.start());
     
     // Watch for changes in remote workspaces and update cache
     const workspaceFolders = workspace.workspaceFolders;
@@ -227,8 +232,7 @@ export async function activate(context: ExtensionContext) {
                                 contentChanges: [{ text: textContent }]
                             });
                         }
-                        // Give the LS event loop a brief settle window before querying
-                        // project structure to avoid stale positions after remote deletes.
+                        remoteDiagnosticsBridge.syncForLocalPath(localPath);
                         await new Promise((resolve) => setTimeout(resolve, 150));
                         // Trigger webview update whenever this file matches the current context.
                         const smContext = StateMachine.context();
@@ -290,10 +294,6 @@ export async function activate(context: ExtensionContext) {
                                     console.error('[FileSync] Retry failed to refresh project structure:', e);
                                 }
                             }
-                            // Guard against firing updateView mid-operation (e.g. during updateSourceCode's
-                            // startBatchOperation … commitBatchOperation window). A spurious updateView here
-                            // reads stale project structure, potentially unmounting the FlowDiagram component
-                            // and disposing the OCT presence listeners, which stops remote cursor syncing.
                             if (!undoRedoManager?.isBatchInProgress()) {
                                 updateView(false);
                             }
@@ -304,15 +304,43 @@ export async function activate(context: ExtensionContext) {
                         console.error(`[FileSync] Failed to sync changed file: ${error}`);
                     }
                 });
-                
                 watcher.onDidCreate(async (uri) => {
                     try {
                         debug(`[FileSync] Remote file created: ${uri.toString()}`);
-                        await uriCache.cacheRemoteFile(uri);
-                        // Trigger diagram refresh — adding a new Automation/Service/Connection
-                        // in the BI diagram can create new .bal files on the host that must
-                        // be reflected in the collaborator's diagram.
+                        const localPath = await uriCache.cacheRemoteFile(uri);
+                        const localFileUri = Uri.file(localPath).toString();
+
+                        const langClient = extension.ballerinaExtInstance?.langClient;
+                        if (langClient) {
+                            const content = await workspace.fs.readFile(uri);
+                            const textContent = Buffer.from(content).toString('utf-8');
+                            const languageId = localPath.endsWith('.toml') ? 'toml' : 'ballerina';
+                            remoteFileVersions.set(localFileUri, 1);
+                            langClient.didOpen({
+                                textDocument: { uri: localFileUri, languageId, version: 1, text: textContent },
+                            });
+                        }
+                        remoteDiagnosticsBridge.syncForLocalPath(localPath);
+                        await new Promise((resolve) => setTimeout(resolve, 150));
+                        const smContext = StateMachine.context();
+                        const projectInfo = smContext.projectInfo;
+                        const lsClient = extension.ballerinaExtInstance?.langClient;
                         const { updateView, undoRedoManager } = await import('./stateMachine');
+                        if (projectInfo && lsClient) {
+                            try {
+                                await buildProjectsStructure(projectInfo, lsClient, false);
+                            } catch (e) {
+                                console.error('[FileSync] Failed to refresh project structure on create:', e);
+                            }
+                        }
+                        await new Promise((resolve) => setTimeout(resolve, 250));
+                        if (projectInfo && lsClient) {
+                            try {
+                                await buildProjectsStructure(projectInfo, lsClient, true);
+                            } catch (e) {
+                                console.error('[FileSync] Retry failed to refresh project structure on create:', e);
+                            }
+                        }
                         if (!undoRedoManager?.isBatchInProgress()) {
                             updateView(false);
                         }
@@ -325,13 +353,42 @@ export async function activate(context: ExtensionContext) {
                     try {
                         debug(`[FileSync] Remote file deleted: ${uri.toString()}`);
                         const localPath = uriCache.getLocalPath(uri);
+                        const localFileUri = Uri.file(localPath).toString();
+
+                        const langClient = extension.ballerinaExtInstance?.langClient;
+                        if (langClient) {
+                            langClient.didClose({ textDocument: { uri: localFileUri } });
+                            remoteFileVersions.delete(localFileUri);
+                        }
+
+                        remoteDiagnosticsBridge.clearForRemoteUri(uri);
+                        remoteDiagnosticsBridge.clearForLocalPath(localPath);
+
                         const fs = await import('fs');
                         if (fs.existsSync(localPath)) {
                             await fs.promises.unlink(localPath);
                         }
-                        // Trigger diagram refresh — deleting an Automation/Service removes
-                        // its .bal file; collaborator's diagram must reflect the deletion.
+
+                        // Refresh project structure so LS re-analyses without the deleted file.
+                        const smContext = StateMachine.context();
+                        const projectInfo = smContext.projectInfo;
+                        const lsClient = extension.ballerinaExtInstance?.langClient;
                         const { updateView, undoRedoManager } = await import('./stateMachine');
+                        if (projectInfo && lsClient) {
+                            try {
+                                await buildProjectsStructure(projectInfo, lsClient, false);
+                            } catch (e) {
+                                console.error('[FileSync] Failed to refresh project structure on delete:', e);
+                            }
+                        }
+                        await new Promise((resolve) => setTimeout(resolve, 250));
+                        if (projectInfo && lsClient) {
+                            try {
+                                await buildProjectsStructure(projectInfo, lsClient, true);
+                            } catch (e) {
+                                console.error('[FileSync] Retry failed to refresh project structure on delete:', e);
+                            }
+                        }
                         if (!undoRedoManager?.isBatchInProgress()) {
                             updateView(false);
                         }

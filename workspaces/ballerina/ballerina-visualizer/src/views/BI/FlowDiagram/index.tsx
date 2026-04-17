@@ -204,6 +204,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     // stored under the original ID, so release must use the same ID.
     const lockedNodeIdRef = useRef<string>();
     const lockedPositionKeyRef = useRef<string>();
+    const lockedFileRef = useRef<string | undefined>();
     const pinnedCursorRef = useRef<{ x: number; y: number; nodeId: string }>();
     const lastBroadcastCursorRef = useRef<{ x: number; y: number; nodeId?: string }>();
     const clickedCursorAnchorNodeIdRef = useRef<string>();
@@ -619,8 +620,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     // Cleanup locks on unmount or when file changes
     useEffect(() => {
         return () => {
-            // Release all locks when component unmounts.
-            // Prefer the key stored at acquire time; fall back to the current ref.
+            // Release all locks when component unmounts or the file changes.
+            // releaseNodeLock closes over the model from this render, so it uses
+            // the correct filePath (lockedFileRef captures the same value explicitly).
             const nodeKey = lockedNodeIdRef.current || selectedNodeRef.current?.id;
             if (nodeKey) {
                 releaseNodeLock(nodeKey);
@@ -631,8 +633,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 releaseNodeLock(posKey);
                 lockedPositionKeyRef.current = undefined;
             }
+            lockedFileRef.current = undefined;
         };
-    }, []);
+    }, [model?.fileName]);
 
     // Handle visibility changes to release locks when window loses focus
     useEffect(() => {
@@ -1434,6 +1437,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 // Remember the exact key stored in Y.Map so release always uses the
                 // same ID even if the model refreshes and reassigns node IDs.
                 lockedNodeIdRef.current = nodeId;
+                lockedFileRef.current = model?.fileName;
                 if (isCollaborationActive) {
                     sendSelectionUpdate([nodeId]);
                 }
@@ -1726,6 +1730,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 
                 console.log('[Lock Frontend] Lock acquired successfully, proceeding to add draft node');
                 lockedPositionKeyRef.current = positionLockKey;
+                lockedFileRef.current = model?.fileName;
 
                 // Now that lock is acquired, add draft node and update model
                 const modelWithDraft = addDraftNode(parent, target);

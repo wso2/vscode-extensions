@@ -16,7 +16,8 @@
  * under the License.
  */
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
+import throttle from "lodash/throttle";
 import { css, Global } from "@emotion/react";
 import styled from "@emotion/styled";
 import "../resources/assets/font/fonts.css";
@@ -82,39 +83,46 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     const { color, background, children } = props;
     const { lockCanvas, onCursorMove, isCollaborationActive, diagramEngine, selectedNodeId, menuOpenNodeId } = useDiagramContext();
 
+    const onCursorMoveRef = useRef(onCursorMove);
+    const isCollaborationActiveRef = useRef(isCollaborationActive);
+    const diagramEngineRef = useRef(diagramEngine);
+    const selectedNodeIdRef = useRef(selectedNodeId);
+    const menuOpenNodeIdRef = useRef(menuOpenNodeId);
+    onCursorMoveRef.current = onCursorMove;
+    isCollaborationActiveRef.current = isCollaborationActive;
+    diagramEngineRef.current = diagramEngine;
+    selectedNodeIdRef.current = selectedNodeId;
+    menuOpenNodeIdRef.current = menuOpenNodeId;
+
+    const throttledEmitRef = useRef(throttle((x: number, y: number, nodeId?: string) => {
+        onCursorMoveRef.current?.(x, y, nodeId);
+    }, 50));
+
+    useEffect(() => {
+        return () => throttledEmitRef.current.cancel();
+    }, []);
+
     const handleMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-        if (onCursorMove && isCollaborationActive) {
-            const rect = event.currentTarget.getBoundingClientRect();
-            const viewportX = event.clientX - rect.left;
-            const viewportY = event.clientY - rect.top;
-            
-            // Convert viewport coordinates to diagram coordinates
-            const diagramPos = screenToDiagramPosition(diagramEngine, viewportX, viewportY);
-            
-            console.log('[DiagramCanvas] Mouse move:', {
-                viewport: { x: viewportX, y: viewportY },
-                diagram: diagramPos,
-                zoom: diagramEngine?.getModel()?.getZoomLevel(),
-                offset: { 
-                    x: diagramEngine?.getModel()?.getOffsetX(), 
-                    y: diagramEngine?.getModel()?.getOffsetY() 
-                }
-            });
-            
-            const anchorNodeId = menuOpenNodeId || selectedNodeId;
-            if (anchorNodeId) {
-                const anchor = getPreferredCursorAnchor(diagramEngine, anchorNodeId);
-                if (anchor) {
-                    onCursorMove(anchor.x, anchor.y, anchorNodeId);
-                    return;
-                }
-                onCursorMove(diagramPos.x, diagramPos.y, anchorNodeId);
+        if (!onCursorMoveRef.current || !isCollaborationActiveRef.current) return;
+
+        const rect = event.currentTarget.getBoundingClientRect();
+        const viewportX = event.clientX - rect.left;
+        const viewportY = event.clientY - rect.top;
+        const diagramPos = screenToDiagramPosition(diagramEngineRef.current, viewportX, viewportY);
+
+        const anchorNodeId = menuOpenNodeIdRef.current || selectedNodeIdRef.current;
+        if (anchorNodeId) {
+            const anchor = getPreferredCursorAnchor(diagramEngineRef.current, anchorNodeId);
+            if (anchor) {
+                throttledEmitRef.current(anchor.x, anchor.y, anchorNodeId);
                 return;
             }
-
-            onCursorMove(diagramPos.x, diagramPos.y);
+            throttledEmitRef.current(diagramPos.x, diagramPos.y, anchorNodeId);
+            return;
         }
-    }, [onCursorMove, isCollaborationActive, diagramEngine, selectedNodeId, menuOpenNodeId]);
+
+        throttledEmitRef.current(diagramPos.x, diagramPos.y);
+    }, []);
 
     return (
         <>
