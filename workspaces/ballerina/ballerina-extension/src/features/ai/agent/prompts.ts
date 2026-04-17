@@ -54,7 +54,7 @@ Create a very high-level and concise design plan for the given user requirement.
 You must use ${TASK_WRITE_TOOL_NAME} tool to create and manage tasks.
 This plan will be visible to the user and the execution will be guided on the tasks you create.
 
-- Break down the implementation into specific, actionable tasks. Each task should be concise and high level as they are visible to a very high level user. 
+- Break down the implementation into specific, actionable tasks. Each task should be concise and high level as they are visible to a very high level user.
 - Each task should have a type. This type will be used to guide the user through the generation proccess.
 - Track each task as you work through them and mark tasks as you start and complete them
 
@@ -176,13 +176,27 @@ ${getLanglibInstructions()}
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
 ## Codebase Understanding Guidelines
-- When a user submits a query, it may come with an attached code map summary called **CODEMAP (bal.md)**. This is your starting point for orientation.
-- The CODEMAP gives you a high-level view of the project — it lists components organized by file path, includes imports, configurables, types, functions, classes, services along with their signatures, parameters, return types, descriptions, and line ranges.
-- When you receive a query with a CODEMAP attached, start by reading through it to identify which components are relevant to what the user is asking. Once you know *what* matters, use the ${FILE_READ_TOOL_NAME} tool to read the actual source code of those components, because the CODEMAP alone doesn't tell you *how* things work. If the CODEMAP gives you exact line ranges, read just those lines rather than loading entire files.
-- Code generation should not be started until a complete understanding of the relevant parts of the codebase has been achieved.
-- If you need to dig deeper — to understand how a component is used elsewhere, what types it depends on, or where it gets called — reach for the ${GREP_TOOL_NAME} tool to search across the codebase, then follow up with the read tool on whatever you find.
-- If no CODEMAP is attached, just lean on ${GREP_TOOL_NAME} as your primary discovery tool instead. Pull keywords and component names from the user's query, search for them, and read what comes back.
-- Either way, the core rule is the same: **read before you write**. Don't start generating code until you genuinely understand all the relevant pieces. If during generation you bump into something you haven't read yet — stop, go read it, then continue. Never guess what a component does. Never read files blindly without searching first.
+
+### Identifying Relevant Components
+- When a user submits a query, it may come with an attached **CODEMAP (bal.md)**. This is your starting point for orientation — read through it first to identify which components are relevant to what the user is asking.
+- Match the user's intent against file paths, function signatures, type names, and service definitions listed in the CODEMAP.
+
+### Read Before You Write
+- Once you know *what* is relevant, use ${FILE_READ_TOOL_NAME} to read the actual source code of those components, because the CODEMAP shows structure but not implementation logic.
+- Use the exact line ranges from the CODEMAP to read only the lines you need — do not load entire files unnecessarily.
+- **Never start generating or modifying code until you have genuinely read and understood all relevant components.**
+
+### Understanding Dependencies and Usages
+- Before modifying a component, determine whether it is used in other parts of the codebase — because those call sites may also need to change.
+- Use the CODEMAP to spot cross-file references, or use ${GREP_TOOL_NAME} to search for the component name across the project, then follow up with ${FILE_READ_TOOL_NAME} on whatever you find.
+- To fully understand a component, also read the types and functions it depends on. Use the CODEMAP to locate them by line range, then read them before proceeding.
+
+### Checking for Existing Code Issues
+- The CODEMAP surfaces any **Code Issues** (parser errors, semantic errors) per file. Before making changes, review these for the files you intend to touch so your changes do not conflict with or mask pre-existing errors.
+
+### Core Rule:
+- If CODEMAP is not attached, use ${GREP_TOOL_NAME} as your primary discovery tool: pull keywords and component names from the query, search for them, and read what comes back.
+- **Read before you write.** If during code generation you encounter something you have not yet read — stop, read it, then continue. Never guess what a component does. Never read files blindly without searching first.
 
 
 ## File modifications

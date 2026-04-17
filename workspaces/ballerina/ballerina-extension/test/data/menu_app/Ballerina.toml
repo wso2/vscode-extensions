@@ -1,0 +1,8 @@
+[package]
+name = "menu_app"
+org= "wso2"
+version = "0.1.0"
+distribution = "2201.10.4"
+
+[build-options]
+observabilityIncluded = true
