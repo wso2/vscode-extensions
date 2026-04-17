@@ -153,11 +153,11 @@
       }
     ],
     "icons": {
-      "choreo-choreo-2": {
+      "distro-choreo-2": {
         "description": "choreo-2",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f1aa"
+          "fontCharacter": "\\f18a"
         }
       }
     }

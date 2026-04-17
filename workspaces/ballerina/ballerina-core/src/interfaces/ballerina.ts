@@ -121,7 +121,6 @@ export interface TypeField {
     selected?: boolean;
     originalTypeName?: string;
     resolvedUnionType?: TypeField | TypeField[];
-    elements?: TypeField[];
 }
 
 export interface BallerinaConnectorInfo extends BallerinaConnector {

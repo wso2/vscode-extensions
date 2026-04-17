@@ -222,7 +222,6 @@ export function convertFunctionCategoriesToSidePanelCategories(
     functionType: FUNCTION_TYPE
 ): PanelCategory[] {
     const panelCategories = normalizeFunctionSearchCategories(categories)
-        .filter((category) => category.metadata.label !== "Agent Tools")
         .map((category) => convertDiagramCategoryToSidePanelCategory(category, functionType))
         .filter((category) => category !== undefined);
     const functionCategory = findCurrentIntegrationCategory(panelCategories);
@@ -238,14 +237,12 @@ export function convertModelProviderCategoriesToSidePanelCategories(categories: 
         category.items?.forEach((item) => {
             if ((item as PanelNode).metadata?.codedata) {
                 const codedata = (item as PanelNode).metadata.codedata;
-                const iconUrl = (item as PanelNode)?.metadata?.metadata?.icon;
                 const iconType = codedata?.module == "ai" ? codedata.object : codedata?.module;
-                item.icon = <AIModelIcon type={iconType} codedata={codedata} iconUrl={iconUrl} />;
+                item.icon = <AIModelIcon type={iconType} codedata={codedata} />;
             } else if (((item as PanelCategory).items.at(0) as PanelNode)?.metadata?.codedata) {
                 const codedata = ((item as PanelCategory).items.at(0) as PanelNode)?.metadata.codedata;
-                const iconUrl = ((item as PanelCategory).items.at(0) as PanelNode)?.metadata?.metadata?.icon;
                 const iconType = codedata?.module == "ai" ? codedata.object : codedata?.module;
-                item.icon = <AIModelIcon type={iconType} codedata={codedata} iconUrl={iconUrl} />;
+                item.icon = <AIModelIcon type={iconType} codedata={codedata} />;
             }
         });
     });
@@ -253,8 +250,8 @@ export function convertModelProviderCategoriesToSidePanelCategories(categories: 
 }
 
 export function convertVectorStoreCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
-    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata, iconUrl) => {
-        return <AIModelIcon type={codedata?.module} codedata={codedata} iconUrl={iconUrl} />;
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => {
+        return <AIModelIcon type={codedata?.module} codedata={codedata} />;
     });
 }
 
@@ -263,29 +260,27 @@ export function convertEmbeddingProviderCategoriesToSidePanelCategories(categori
 }
 
 export function convertKnowledgeBaseCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
-    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata, iconUrl) => {
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => {
         if ((codedata?.module as string).includes("azure")) {
-            return <AIModelIcon type="ai.azure" iconUrl={iconUrl} />;
+            return <AIModelIcon type="ai.azure" />;
         }
-        return <AIModelIcon type={codedata?.module} codedata={codedata} iconUrl={iconUrl} />;
+        return <NodeIcon type={codedata?.node} size={24} />
     });
 }
 
 export function convertCategoriesToSidePanelCategoriesWithIcon(
     categories: Category[],
-    iconFactory: (codedata: any, iconUrl?: string) => React.ReactElement
+    iconFactory: (codedata: any) => React.ReactElement
 ): PanelCategory[] {
     const panelCategories = categories.map((category) => convertDiagramCategoryToSidePanelCategory(category));
     panelCategories.forEach((category) => {
         category.items?.forEach((item) => {
             if ((item as PanelNode).metadata?.codedata) {
                 const codedata = (item as PanelNode).metadata.codedata;
-                const iconUrl = (item as PanelNode)?.metadata?.metadata?.icon;
-                item.icon = iconFactory(codedata, iconUrl);
+                item.icon = iconFactory(codedata);
             } else if (((item as PanelCategory).items.at(0) as PanelNode)?.metadata?.codedata) {
                 const codedata = ((item as PanelCategory).items.at(0) as PanelNode)?.metadata.codedata;
-                const iconUrl = ((item as PanelCategory).items.at(0) as PanelNode)?.metadata?.metadata?.icon;
-                item.icon = iconFactory(codedata, iconUrl);
+                item.icon = iconFactory(codedata);
             }
         });
     });
@@ -293,23 +288,21 @@ export function convertCategoriesToSidePanelCategoriesWithIcon(
 }
 
 export function convertDataLoaderCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
-    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata, iconUrl) => {
-        if (iconUrl && codedata?.module !== "ai" && codedata?.module !== "ai.devant") return <img src={iconUrl} style={{ width: 24, height: 24 }} />;
-        return <NodeIcon type={codedata?.node} size={24} />;
-    });
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => (
+        <NodeIcon type={codedata?.node} size={24} />
+    ));
 }
 
 export function convertChunkerCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
-    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata, iconUrl) => {
-        if (iconUrl && codedata?.module !== "ai" && codedata?.module !== "ai.devant") return <img src={iconUrl} style={{ width: 24, height: 24 }} />;
-        return <NodeIcon type={codedata?.node} size={24} />;
-    });
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => (
+        <NodeIcon type={codedata?.node} size={24} />
+    ));
 }
 
 export function convertMemoryStoreCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
-    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata, iconUrl) => {
-        return <AIModelIcon type={codedata?.module} codedata={codedata} iconUrl={iconUrl} />;
-    });
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => (
+        <NodeIcon type={codedata?.node} size={24} />
+    ));
 }
 
 import {
@@ -368,10 +361,8 @@ export function getContainerTitle(view: SidePanelView, activeNode: FlowNode, cli
             return `Select ${getConnectionDisplayName(connectionKind)}`;
         case SidePanelView.CONNECTION_CREATE:
             return `Create ${getConnectionDisplayName(connectionKind)}`;
-        case SidePanelView.ERROR:
+        case SidePanelView.CONNECTOR_ERROR:
             return "Error";
-        case SidePanelView.LOADING:
-            return "";
         case SidePanelView.AGENT_MEMORY_MANAGER:
             return "Configure Memory";
         case SidePanelView.AGENT_TOOL:

@@ -17,7 +17,7 @@
  */
 
 import { LineRange } from "../../interfaces/common";
-import { DIRECTORY_MAP, Flow, FlowNode, OverviewFlow } from "../../interfaces/bi";
+import { DIRECTORY_MAP, Flow, OverviewFlow } from "../../interfaces/bi";
 import { BallerinaProjectComponents } from "../../interfaces/extended-lang-client";
 import { RemoteFunction, ServiceType } from "../../interfaces/ballerina";
 import { ImportInfo } from "../ai-panel/interfaces";
@@ -30,10 +30,8 @@ export interface ProjectRequest {
     createAsWorkspace?: boolean;
     workspaceName?: string;
     orgName?: string;
-    orgHandle?: string;
     version?: string;
     isLibrary?: boolean;
-    projectHandle?: string;
 }
 
 export interface AddProjectToWorkspaceRequest {
@@ -43,10 +41,8 @@ export interface AddProjectToWorkspaceRequest {
     convertToWorkspace?: boolean;
     workspaceName?: string;
     orgName?: string;
-    orgHandle?: string;
     version?: string;
     isLibrary?: boolean;
-    projectHandle?: string;
 }
 
 export interface WorkspacesResponse {
@@ -169,12 +165,6 @@ export interface AIChatRequest {
     planMode: boolean;
 }
 
-export interface InlineAgentChatRequest {
-    agentVarName: string;
-    filePath: string;
-    agentNode?: FlowNode;
-}
-
 export interface ImportStatements {
     filePath: string;
     statements: ImportInfo[];
@@ -236,13 +226,6 @@ export interface ValidateProjectFormRequest {
     createAsWorkspace?: boolean;
 }
 
-export interface SuggestedProjectDefaultsResponse {
-    projectName: string;
-    projectHandle: string;
-    integrationName: string;
-    packageName: string;
-}
-
 export interface ValidateProjectFormResponse {
     isValid: boolean;
     errorMessage?: string;
@@ -252,14 +235,4 @@ export interface ValidateProjectFormResponse {
 export enum ValidateProjectFormErrorField {
     PATH = 'path',
     NAME = 'name'
-}
-
-export interface UpdateProjectTitleRequest {
-    projectPath: string;
-    title: string;
-}
-
-export interface UpdatePackageTitleRequest {
-    packagePath: string;
-    title: string;
 }

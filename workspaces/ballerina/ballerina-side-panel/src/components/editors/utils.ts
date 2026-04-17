@@ -179,7 +179,7 @@ export const getMapSubFormFieldFromTypes = (formId: string, types: InputType[]):
             editable: true,
             documentation: "",
             value: "",
-            types: types.map(type => ({ ...type })),
+            types: types,
             enabled: true
         }
     ]

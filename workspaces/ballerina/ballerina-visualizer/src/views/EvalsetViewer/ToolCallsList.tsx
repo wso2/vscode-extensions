@@ -205,11 +205,9 @@ const ActionButton = styled.button<{ $danger?: boolean }>`
 // --- HELPER ---
 
 const formatArgs = (args: any) => {
-    if (args == null) return "";
-    if (typeof args === 'boolean' || typeof args === 'number') return String(args);
+    if (!args) return "()";
     if (typeof args === 'string') return args;
     try {
-        if (typeof args === 'object' && Object.keys(args).length === 0) return "";
         return JSON.stringify(args).replace(/"/g, '').replace(/:/g, ': ').replace(/,/g, ', ');
     } catch (e) {
         return "Invalid arguments";
@@ -248,8 +246,6 @@ const SortableToolCallItem: React.FC<SortableToolCallItemProps> = ({
         transition,
     };
 
-    const formattedArgs = formatArgs(toolCall.arguments);
-
     return (
         <div ref={setNodeRef} style={style}>
             <ToolCard $isDragging={isDragging} $isEditMode={isEditMode} className="tool-card-row">
@@ -268,11 +264,9 @@ const SortableToolCallItem: React.FC<SortableToolCallItemProps> = ({
                     onClick={isEditMode && onEdit ? onEdit : undefined}
                 >
                     <ToolName>{toolCall.name}</ToolName>
-                    {formattedArgs && (
-                        <ArgumentsPreview>
-                            {formattedArgs}
-                        </ArgumentsPreview>
-                    )}
+                    <ArgumentsPreview>
+                        {formatArgs(toolCall.arguments)}
+                    </ArgumentsPreview>
                 </ToolInfo>
 
                 {isEditMode && onDelete && (

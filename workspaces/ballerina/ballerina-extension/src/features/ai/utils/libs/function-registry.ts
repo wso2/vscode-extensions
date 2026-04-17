@@ -33,46 +33,25 @@ import { GenerationType } from "./libraries";
 // import { getRequiredTypesFromLibJson } from "../healthcare/healthcare";
 import { langClient } from "../../activator";
 
-export interface ModelUsage {
-    model: string;
-    inputTokens: number;
-    outputTokens: number;
-}
-
-export function mergeUsage(...usages: ModelUsage[]): ModelUsage[] {
-    const map = new Map<string, ModelUsage>();
-    for (const u of usages) {
-        const existing = map.get(u.model);
-        if (existing) {
-            existing.inputTokens += u.inputTokens;
-            existing.outputTokens += u.outputTokens;
-        } else {
-            map.set(u.model, { ...u });
-        }
-    }
-    return Array.from(map.values());
-}
-
 // Constants for type definitions
 const TYPE_RECORD = 'Record';
 const TYPE_UNION = 'Union';
 const TYPE_CONSTRUCTOR = 'Constructor';
 
-export async function selectRequiredFunctions(prompt: string, selectedLibNames: string[], generationType: GenerationType): Promise<{ libraries: Library[], usage: ModelUsage[] }> {
+export async function selectRequiredFunctions(prompt: string, selectedLibNames: string[], generationType: GenerationType): Promise<Library[]> {
     const selectedLibs: Library[] = await getMaximizedSelectedLibs(selectedLibNames);
-    const { functionsResponse, usage: functionsUsage } = await getRequiredFunctions(selectedLibNames, prompt, selectedLibs, generationType);
+    const functionsResponse: GetFunctionResponse[] = await getRequiredFunctions(selectedLibNames, prompt, selectedLibs, generationType);
     let typeLibraries: Library[] = [];
-    const allUsages: ModelUsage[] = [...functionsUsage];
     if (generationType === GenerationType.HEALTHCARE_GENERATION) {
-        const { types: resp, usage } = await getRequiredTypesFromLibJson(selectedLibNames, prompt, selectedLibs);
+        const resp: GetTypeResponse[] = await getRequiredTypesFromLibJson(selectedLibNames, prompt, selectedLibs);
         typeLibraries = toTypesToLibraries(resp, selectedLibs);
-        allUsages.push(usage);
     }
     const maximizedLibraries: Library[] = await toMaximizedLibrariesFromLibJson(functionsResponse, selectedLibs);
+
+    // Merge typeLibraries and maximizedLibraries without duplicates
     const mergedLibraries = mergeLibrariesWithoutDuplicates(maximizedLibraries, typeLibraries);
 
-    const result = { libraries: mergedLibraries, usage: mergeUsage(...allUsages) };
-    return result;
+    return mergedLibraries;
 }
 
 function getClientFunctionCount(clients: MinifiedClient[]): number {
@@ -141,9 +120,9 @@ async function getRequiredFunctions(
     prompt: string,
     librariesJson: Library[],
     generationType: GenerationType
-): Promise<{ functionsResponse: GetFunctionResponse[], usage: ModelUsage[] }> {
+): Promise<GetFunctionResponse[]> {
     if (librariesJson.length === 0) {
-        return { functionsResponse: [], usage: [] };
+        return [];
     }
     const startTime = Date.now();
 
@@ -166,13 +145,13 @@ async function getRequiredFunctions(
     );
 
     // Create promises for large libraries (each processed individually)
-    const largeLiberiesPromises = largeLibs.map((funcItem) =>
+    const largeLiberiesPromises: Promise<GetFunctionResponse[]>[] = largeLibs.map((funcItem) =>
         getSuggestedFunctions(prompt, [funcItem])
     );
 
     // Create promise for small libraries (processed in bulk)
     const smallLibrariesPromise =
-        smallLibs.length !== 0 ? getSuggestedFunctions(prompt, smallLibs) : Promise.resolve({ libraries: [] as GetFunctionResponse[], usage: { model: ANTHROPIC_HAIKU, inputTokens: 0, outputTokens: 0 } });
+        smallLibs.length !== 0 ? getSuggestedFunctions(prompt, smallLibs) : Promise.resolve([]);
 
     console.log(
         `[Parallel Execution Start] Starting ${largeLiberiesPromises.length} large library requests + 1 small libraries bulk request`
@@ -180,8 +159,7 @@ async function getRequiredFunctions(
     const parallelStartTime = Date.now();
 
     // Wait for all promises to complete
-    const allResults = await Promise.all([smallLibrariesPromise, ...largeLiberiesPromises]);
-    const [smallLibResult, ...largeLibResults] = allResults;
+    const [smallLibResults, ...largeLibResults] = await Promise.all([smallLibrariesPromise, ...largeLiberiesPromises]);
 
     const parallelEndTime = Date.now();
     const parallelDuration = (parallelEndTime - parallelStartTime) / 1000;
@@ -189,11 +167,9 @@ async function getRequiredFunctions(
     console.log(`[Parallel Execution Complete] Total parallel execution time: ${parallelDuration}s`);
 
     // Flatten the results
-    const collectiveResp: GetFunctionResponse[] = [...smallLibResult.libraries, ...largeLibResults.flatMap(r => r.libraries)];
+    const collectiveResp: GetFunctionResponse[] = [...smallLibResults, ...largeLibResults.flat()];
     const endTime = Date.now();
     const totalDuration = (endTime - startTime) / 1000;
-
-    const aggregatedUsage = mergeUsage(...allResults.map(r => r.usage));
 
     console.log(
         `[getRequiredFunctions Complete] Total function count: ${collectiveResp.reduce(
@@ -204,17 +180,17 @@ async function getRequiredFunctions(
             0
         )}, Total duration: ${totalDuration}s, Preparation time: ${
             (parallelStartTime - startTime) / 1000
-        }s, Parallel time: ${parallelDuration}s, Usage:`, aggregatedUsage
+        }s, Parallel time: ${parallelDuration}s`
     );
 
-    return { functionsResponse: collectiveResp, usage: aggregatedUsage };
+    return collectiveResp;
 }
 
 
 async function getSuggestedFunctions(
     prompt: string,
     libraryList: GetFunctionsRequest[]
-): Promise<{ libraries: GetFunctionResponse[], usage: ModelUsage }> {
+): Promise<GetFunctionResponse[]> {
     const startTime = Date.now();
     const libraryNames = libraryList.map((lib) => lib.name).join(", ");
     const functionCount = libraryList.reduce(
@@ -266,7 +242,7 @@ Now, based on the provided libraries, clients, and functions, and the user query
         { role: "user", content: getLibUserPrompt },
     ];
     try {
-        const { object, usage } = await generateObject({
+        const { object } = await generateObject({
             model: await getAnthropicClient(ANTHROPIC_HAIKU),
             maxOutputTokens: 8192,
             temperature: 0,
@@ -284,7 +260,6 @@ Now, based on the provided libraries, clients, and functions, and the user query
             libraryList.some((inputLib) => inputLib.name === lib.name)
         );
 
-        const callUsage: ModelUsage = { model: ANTHROPIC_HAIKU, inputTokens: usage.inputTokens || 0, outputTokens: usage.outputTokens || 0 };
         console.log(
             `[AI Request Complete] Libraries: [${libraryNames}], Duration: ${duration}s, Selected Functions: ${libList.libraries.reduce(
                 (total, lib) =>
@@ -292,11 +267,11 @@ Now, based on the provided libraries, clients, and functions, and the user query
                     (lib.clients?.reduce((clientTotal, client) => clientTotal + client.functions.length, 0) || 0) +
                     (lib.functions?.length || 0),
                 0
-            )}, Usage:`, callUsage
+            )}`
         );
 
         printSelectedFunctions(filteredLibList);
-        return { libraries: filteredLibList, usage: callUsage };
+        return filteredLibList;
     } catch (error) {
         const endTime = Date.now();
         const duration = (endTime - startTime) / 1000;
@@ -377,7 +352,6 @@ export async function getMaximizedSelectedLibs(libNames: string[]): Promise<Libr
                 typeDefs: lib.typeDefs ? lib.typeDefs : [],
                 services: lib.services ? lib.services : [],
                 instructions: lib.instructions ? lib.instructions : null,
-                readme: lib.readme ? lib.readme : null,
             };
         });
 
@@ -410,7 +384,6 @@ export async function toMaximizedLibrariesFromLibJson(
             typeDefs: getOwnTypeDefsForLib(filteredClients, filteredFunctions, originalLib.typeDefs, originalLib.services),
             services: originalLib.services ? originalLib.services : null,
             instructions: originalLib.instructions ? originalLib.instructions : null,
-            readme: originalLib.readme ? originalLib.readme : null,
         };
 
         minifiedLibrariesWithoutRecords.push(maximizedLib);
@@ -851,10 +824,9 @@ export async function getRequiredTypesFromLibJson(
     libraries: string[],
     prompt: string,
     librariesJson: Library[]
-): Promise<{ types: GetTypeResponse[], usage: ModelUsage }> {
-    const emptyUsage: ModelUsage = { model: ANTHROPIC_HAIKU, inputTokens: 0, outputTokens: 0 };
+): Promise<GetTypeResponse[]> {
     if (librariesJson.length === 0) {
-        return { types: [], usage: emptyUsage };
+        return [];
     }
 
     const typeDefs: GetTypesRequest[] = librariesJson
@@ -866,7 +838,7 @@ export async function getRequiredTypesFromLibJson(
         }));
 
     if (typeDefs.length === 0) {
-        return { types: [], usage: emptyUsage };
+        return [];
     }
 
     const getLibSystemPrompt = `You are an assistant tasked with selecting the Ballerina types needed to solve a given question based on a set of Ballerina libraries given in the context as a JSON.
@@ -911,7 +883,7 @@ Think step-by-step to choose the required types in order to solve the given ques
         { role: "user", content: getLibUserPrompt },
     ];
     try {
-        const { object, usage } = await generateObject({
+        const { object } = await generateObject({
             model: await getAnthropicClient(ANTHROPIC_HAIKU),
             maxOutputTokens: 8192,
             temperature: 0,
@@ -920,11 +892,8 @@ Think step-by-step to choose the required types in order to solve the given ques
             abortSignal: new AbortController().signal,
         });
 
-        const callUsage: ModelUsage = { model: ANTHROPIC_HAIKU, inputTokens: usage.inputTokens || 0, outputTokens: usage.outputTokens || 0 };
-        console.log(`[getRequiredTypesFromLibJson] Usage:`, callUsage);
-
         const libList = object as GetTypesResponse;
-        return { types: libList.libraries, usage: callUsage };
+        return libList.libraries;
     } catch (error) {
         throw new Error(`Failed to parse bulk functions response: ${error}`);
     }

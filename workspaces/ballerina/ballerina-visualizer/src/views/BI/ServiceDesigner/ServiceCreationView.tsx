@@ -25,7 +25,7 @@ import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { FormField, FormImports, FormValues } from "@wso2/ballerina-side-panel";
 import { EVENT_TYPE, getPrimaryInputType, LineRange, Property, PropertyModel, RecordTypeField, ServiceInitModel } from "@wso2/ballerina-core";
 import { FormHeader } from "../../../components/FormHeader";
-import ArtifactForm from "../Forms/ArtifactForm";
+import FormGeneratorNew from "../Forms/FormGeneratorNew";
 import styled from "@emotion/styled";
 import { getImportsForProperty } from "../../../utils/bi";
 import { DownloadIcon } from "../../../components/DownloadIcon";
@@ -580,7 +580,7 @@ export function ServiceCreationView(props: ServiceCreationViewProps) {
                                     <FormContainer>
                                         <FormHeader title={`Create ${model.displayName}`} />
                                         {filePath && targetLineRange && (
-                                            <ArtifactForm
+                                            <FormGeneratorNew
                                                 fileName={filePath}
                                                 targetLineRange={targetLineRange}
                                                 fields={formFields}

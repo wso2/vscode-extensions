@@ -31,7 +31,6 @@ interface RefinementBarProps {
     onVersionNavigate: (index: number) => void;
     showDiff: boolean;
     onToggleDiff: () => void;
-    isGeneration?: boolean;
 }
 
 const BarContainer = styled.div`
@@ -174,7 +173,6 @@ export const RefinementBar: React.FC<RefinementBarProps> = ({
     onVersionNavigate,
     showDiff,
     onToggleDiff,
-    isGeneration = false,
 }) => {
     const [refineText, setRefineText] = useState("");
 
@@ -198,7 +196,7 @@ export const RefinementBar: React.FC<RefinementBarProps> = ({
                 <InputWrapper>
                     <RefineInput
                         type="text"
-                        placeholder="Describe how to refine the prompt..."
+                        placeholder="Describe how to refine... (e.g., 'Make it more concise')"
                         value={refineText}
                         onChange={(e) => setRefineText(e.target.value)}
                         onKeyDown={handleKeyDown}
@@ -234,7 +232,7 @@ export const RefinementBar: React.FC<RefinementBarProps> = ({
                                 <Icon name="chevron-left" isCodicon sx={{ fontSize: "14px" }} />
                             </NavButton>
                             <span>
-                                {currentVersionIndex === 0 ? (isGeneration ? "Generated" : "Original") : `Version ${currentVersionIndex}`} / {versionCount - 1}
+                                {currentVersionIndex === 0 ? "Original" : `Version ${currentVersionIndex}`} / {versionCount - 1}
                             </span>
                             <NavButton
                                 onClick={() => onVersionNavigate(currentVersionIndex + 1)}
@@ -244,7 +242,7 @@ export const RefinementBar: React.FC<RefinementBarProps> = ({
                             </NavButton>
                         </>
                     ) : (
-                        <span>{isGeneration ? "Generated Version" : "Original Version"}</span>
+                        <span>Original Version</span>
                     )}
                 </VersionControl>
 

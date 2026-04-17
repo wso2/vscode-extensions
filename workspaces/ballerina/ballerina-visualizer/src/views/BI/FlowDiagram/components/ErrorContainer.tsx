@@ -24,7 +24,7 @@ const ErrorViewContainer = styled.div`
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 16px;
+    gap: 12px;
     padding: 24px 16px;
     text-align: center;
     height: 100%;
@@ -38,12 +38,9 @@ const ErrorHeader = styled.div`
     justify-content: center;
 
     & .codicon {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 18px;
-        line-height: 1;
-        position: relative;
     }
     & h4, & h3, & .typography-h4 {
         margin: 0;
@@ -51,19 +48,19 @@ const ErrorHeader = styled.div`
     }
 `;
 
-export function ConnectorErrorView({ errorMessage, onRetry }: { errorMessage?: string; onRetry?: () => void }) {
+export function ConnectorErrorView({ errorMessage, onBack }: { errorMessage?: string; onBack?: () => void }) {
     return (
         <ErrorViewContainer role="alert" aria-live="polite">
             <ErrorHeader>
-                <Codicon name="error" iconSx={{ fontSize: "18px", color: ThemeColors.ERROR, display: "flex" }} />
+                <Codicon name="error" iconSx={{ fontSize: "20px", color: ThemeColors.ERROR }} />
                 <Typography variant="h4" sx={{ margin: 0 }}>Error</Typography>
             </ErrorHeader>
             <Typography variant="body2" sx={{ color: ThemeColors.ON_SURFACE_VARIANT }}>
                 {errorMessage || "An error occurred while fetching connection information."}
             </Typography>
-            {onRetry && (
-                <Button appearance="secondary" onClick={onRetry}>
-                    Retry
+            {onBack && (
+                <Button appearance="secondary" onClick={onBack}>
+                    Go Back
                 </Button>
             )}
         </ErrorViewContainer>

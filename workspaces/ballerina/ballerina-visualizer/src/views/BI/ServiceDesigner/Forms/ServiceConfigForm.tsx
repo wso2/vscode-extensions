@@ -22,7 +22,7 @@ import { FormField, FormImports, FormValues, StringTemplateEditorConfig } from "
 import { getPrimaryInputType, LineRange, Property, RecordTypeField, ServiceModel, SubPanel, SubPanelView } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { URI, Utils } from "vscode-uri";
-import { ArtifactForm } from "../../Forms/ArtifactForm";
+import { FormGeneratorNew } from "../../Forms/FormGeneratorNew";
 import { FormHeader } from "../../../../components/FormHeader";
 import { getImportsForProperty } from "../../../../utils/bi";
 import { isValueEqual, removeForwardSlashes, sanitizedHttpPath } from "../utils";
@@ -238,7 +238,7 @@ export function ServiceConfigForm(props: ServiceConfigFormProps) {
                     {serviceFields.length > 0 &&
                         <FormContainer>
                             {filePath && targetLineRange &&
-                                <ArtifactForm
+                                <FormGeneratorNew
                                     fileName={filePath}
                                     targetLineRange={targetLineRange}
                                     nestedForm={true}

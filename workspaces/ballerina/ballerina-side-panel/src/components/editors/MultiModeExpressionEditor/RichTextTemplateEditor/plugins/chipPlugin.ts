@@ -204,10 +204,10 @@ function createChipElement(
     return span;
 }
 
-function findDocPosition(doc: any, textOffset: number, bias: 'start' | 'end' = 'end'): number {
+function findDocPosition(doc: any, textOffset: number): number {
     // Clamp offset to valid range
     if (textOffset <= 0) return 0;
-    if (textOffset > doc.textContent.length) return doc.content.size;
+    if (textOffset >= doc.textContent.length) return doc.content.size;
 
     let charCount = 0;
     let docPos = 0;
@@ -219,13 +219,7 @@ function findDocPosition(doc: any, textOffset: number, bias: 'start' | 'end' = '
         if (node.isText) {
             const textLength = node.text.length;
 
-            // 'start' bias: prefer next text node at paragraph boundaries
-            // 'end' bias: stay in current text node
-            const found = bias === 'start'
-                ? charCount + textLength > textOffset
-                : charCount + textLength >= textOffset;
-
-            if (found) {
+            if (charCount + textLength >= textOffset) {
                 // This text node contains our target offset
                 docPos = pos + (textOffset - charCount);
                 return false;
@@ -291,8 +285,8 @@ function replaceTextWithChips(
                     diagnostic: null
                 });
 
-                const startDocPos = findDocPosition(tr.doc, compound.start, 'start');
-                const endDocPos = findDocPosition(tr.doc, compound.end, 'end');
+                const startDocPos = findDocPosition(tr.doc, compound.start);
+                const endDocPos = findDocPosition(tr.doc, compound.end);
 
                 replacements.push({ from: startDocPos, to: endDocPos, node: chipNode });
             }
@@ -329,8 +323,8 @@ function replaceTextWithChips(
             diagnostic: null
         });
 
-        const startDocPos = findDocPosition(tr.doc, token.start, 'start');
-        const endDocPos = findDocPosition(tr.doc, token.end, 'end');
+        const startDocPos = findDocPosition(tr.doc, token.start);
+        const endDocPos = findDocPosition(tr.doc, token.end);
 
         replacements.push({ from: startDocPos, to: endDocPos, node: chipNode });
     }
@@ -376,11 +370,6 @@ export function createChipPlugin(
                             lastProcessedTokens: tokensKey
                         };
                     }
-                }
-
-                // Clear stale chip data on user edits so chips get re-created at correct positions
-                if ((tr as any).docChanged && tr.getMeta('addToHistory') !== false) {
-                    return { tokenUpdate: null, lastProcessedTokens: null };
                 }
 
                 return value;

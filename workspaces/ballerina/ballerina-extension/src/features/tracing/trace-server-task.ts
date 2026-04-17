@@ -46,7 +46,7 @@ export function createTraceServerTask(): vscode.Task {
 
     // Configure task presentation
     task.presentationOptions = {
-        reveal: vscode.TaskRevealKind.Never,
+        reveal: vscode.TaskRevealKind.Always,
         panel: vscode.TaskPanelKind.New,
         showReuseMessage: false,
         clear: false,

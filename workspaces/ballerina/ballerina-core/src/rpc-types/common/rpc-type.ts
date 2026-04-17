@@ -68,5 +68,3 @@ export const downloadSelectedSampleFromGithub: RequestType<SampleDownloadRequest
 export const getDefaultOrgName: RequestType<void, { orgName: string }> = { method: `${_preFix}/getDefaultOrgName` };
 export const publishToCentral: RequestType<void, PublishToCentralResponse> = { method: `${_preFix}/publishToCentral` };
 export const hasCentralPATConfigured: RequestType<void, boolean> = { method: `${_preFix}/hasCentralPATConfigured` };
-export const getPreferredTryItOption: RequestType<void, string | undefined> = { method: `${_preFix}/getPreferredTryItOption` };
-export const setPreferredTryItOption: RequestType<string, void> = { method: `${_preFix}/setPreferredTryItOption` };

@@ -156,6 +156,8 @@ export function TypeEditor(props: TypeEditorProps) {
         // Trigger actions on blur
         await onBlur?.();
         setShowDefaultCompletion(undefined);
+        // Clean up memory
+        cursorPositionRef.current = undefined;
         // Trigger the on Blur from parent
         await props.onBlur?.();
     };

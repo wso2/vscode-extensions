@@ -20,14 +20,17 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import { BallerinaExtension } from '../../core';
 import { resolveICPPath } from './detect';
-import { provisionICPSecret } from './setup';
-import { getICPUrl } from './index';
+import { provisionICPSecret, getStoredICPSecret, writeSecretToConfigToml } from './setup';
 
 const ICP_START_COMMAND = 'ballerina.icp.start';
 const ICP_STOP_COMMAND = 'ballerina.icp.stop';
 const ICP_FOCUS_COMMAND = 'ballerina.icp.focus';
 const ICP_TASK_NAME = 'ICP Server';
 const ICP_TASK_SOURCE = 'ballerina-icp';
+
+function getICPUrl(): string {
+    return vscode.workspace.getConfiguration('ballerina').get<string>('icpUrl') || 'https://localhost:9445';
+}
 
 function getICPCredentials(): { username: string; password: string } {
     const config = vscode.workspace.getConfiguration('ballerina');
@@ -71,12 +74,17 @@ export function isICPServerRunning(): boolean {
  * Returns true if the run should proceed, false if cancelled.
  */
 export async function ensureICPServerRunning(projectPath?: string): Promise<boolean> {
-    if (isRunning && !projectPath) {
+    const storedSecret = projectPath ? await getStoredICPSecret(projectPath) : undefined;
+    if (projectPath && storedSecret) {
+        writeSecretToConfigToml(projectPath, storedSecret);
+    }
+
+    if (isRunning && (!projectPath || storedSecret)) {
         return true;
     }
 
-    // Server is running — validate and provision secret if needed
-    if (isRunning && projectPath) {
+    // Server is running but this project has no secret — provision it now
+    if (isRunning && projectPath && !storedSecret) {
         const secret = await provisionICPSecret(projectPath);
         if (!secret) {
             vscode.window.showErrorMessage('Failed to provision ICP secret. The project may not connect to ICP at runtime.');
@@ -85,8 +93,13 @@ export async function ensureICPServerRunning(projectPath?: string): Promise<bool
         return true;
     }
 
+    const hasSecret = projectPath ? !!storedSecret : true;
+    const message = hasSecret
+        ? 'ICP is enabled for this project but the ICP server is not running.'
+        : 'ICP is enabled but not configured. Start ICP server to set up?';
+
     const action = await vscode.window.showWarningMessage(
-        'ICP is enabled but the ICP server is not running.',
+        message,
         'Start & Setup',
         'Run Anyway'
     );
@@ -97,28 +110,37 @@ export async function ensureICPServerRunning(projectPath?: string): Promise<bool
             return false;
         }
 
-        if (projectPath) {
-            const secret = await provisionICPSecret(projectPath);
-            if (!secret) {
-                vscode.window.showErrorMessage('Failed to provision ICP secret. The project may not connect to ICP at runtime.');
-                return false;
-            }
-        }
-
         const icpUrl = getICPUrl();
         const { username, password } = getICPCredentials();
         const credentialsHint = (username === 'admin' && password === 'admin')
             ? ' (default credentials: admin/admin)'
             : '';
 
-        vscode.window.showInformationMessage(
-            `ICP server started and configured. Access it at ${icpUrl}${credentialsHint}`,
-            'Open in Browser'
-        ).then((selection) => {
-            if (selection === 'Open in Browser') {
-                vscode.env.openExternal(vscode.Uri.parse(icpUrl));
+        // Provision the secret if we have a project path and no stored secret
+        if (projectPath && !hasSecret) {
+            const secret = await provisionICPSecret(projectPath);
+            if (!secret) {
+                vscode.window.showErrorMessage('Failed to provision ICP secret. The project may not connect to ICP at runtime.');
+                return false;
             }
-        });
+            vscode.window.showInformationMessage(
+                `ICP server started and configured. Access it at ${icpUrl}${credentialsHint}`,
+                'Open in Browser'
+            ).then((selection) => {
+                if (selection === 'Open in Browser') {
+                    vscode.env.openExternal(vscode.Uri.parse(icpUrl));
+                }
+            });
+        } else {
+            vscode.window.showInformationMessage(
+                `ICP server started. Access it at ${icpUrl}${credentialsHint}`,
+                'Open in Browser'
+            ).then((selection) => {
+                if (selection === 'Open in Browser') {
+                    vscode.env.openExternal(vscode.Uri.parse(icpUrl));
+                }
+            });
+        }
 
         return isRunning;
     }
@@ -196,17 +218,11 @@ function createICPTask(icpPath: string): vscode.Task {
             onDidWrite: writeEmitter.event,
             onDidClose: closeEmitter.event,
             open: () => {
-                icpProcess = process.platform === 'win32'
-                    ? cp.spawn(icpPath, [], {
-                        shell: true,
-                        detached: true,
-                        windowsHide: true,
-                        env: { ...process.env },
-                    })
-                    : cp.spawn('sh', [icpPath], {
-                        detached: true,
-                        env: { ...process.env },
-                    });
+                icpProcess = cp.spawn(icpPath, [], {
+                    shell: true,
+                    detached: true,
+                    env: { ...process.env },
+                });
 
                 icpProcess.on('error', (err) => {
                     writeEmitter.fire(`Failed to start ICP: ${err.message}\r\n`);

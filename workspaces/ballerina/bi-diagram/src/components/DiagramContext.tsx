@@ -107,7 +107,6 @@ export interface DiagramContextState {
         goToTool: (tool: ToolData, node: FlowNode) => void;
         onSelectMemoryManager: (node: FlowNode) => void;
         onDeleteMemoryManager: (node: FlowNode) => void;
-        onChatWithAgent?: (node: FlowNode) => void;
     };
     aiNodes?: {
         onModelSelect: (node: FlowNode) => void;

@@ -44,24 +44,24 @@ export const getMigrationProgressHeaderData = (state: MigrationDisplayState, isM
 
     if (state.isSuccess) {
         if (isMultiProject) {
-            headerText = "Static Migration Completed";
+            headerText = "Migration Completed Successfully!";
             headerDesc =
-                "Your integration project has been successfully migrated through static mapping. You can now move on to configuring your project, with the option to enhance it further using AI.";
+                "Your project with multiple integrations has been successfully migrated. You can now proceed to the final step to create and open your project.";
         } else {
-            headerText = "Static Migration Completed";
+            headerText = "Migration Completed Successfully!";
             headerDesc =
-                "Your integration project has been successfully migrated through static mapping. You can now move on to configuring your project, with the option to enhance it further using AI.";
+                "Your integration has been successfully migrated. You can now proceed to the final step to create and open your integration.";
         }
     } else if (state.isFailed) {
         headerText = "Migration Failed";
         headerDesc = "The migration process encountered errors and could not be completed.";
     } else if (state.isInProgress) {
         if (isMultiProject) {
-            headerText = "Static Migration in Progress...";
+            headerText = "Migration in Progress...";
             headerDesc = "Please wait while we migrate your multi-project integration.";
         } else {
-            headerText = "Static Migration in Progress...";
-            headerDesc = "Please wait while we set up your new integration project.";
+            headerText = "Migration in Progress...";
+            headerDesc = "Please wait while we set up your new integration.";
         }
     }
 

@@ -142,11 +142,11 @@ const TypeHelperEl = (props: TypeHelperProps) => {
                         searchKind: 'TYPE'
                     });
 
-                    const workspaceTypes = getFilteredTypesByKind(searchResponse.categories, [functionKinds.CURRENT]);
+                    const workspaceTypes = getFilteredTypesByKind(searchResponse.categories, functionKinds.CURRENT);
                     setWorkspaceTypes(workspaceTypes);
                     // Additionally fetch imported types 
                     if (!isGraphQLContext) {
-                        const importedTypes = getFilteredTypesByKind(searchResponse.categories, [functionKinds.IMPORTED]);
+                        const importedTypes = getFilteredTypesByKind(searchResponse.categories, functionKinds.IMPORTED);
                         setImportedTypes(importedTypes);
                     }
 
@@ -170,8 +170,8 @@ const TypeHelperEl = (props: TypeHelperProps) => {
                         searchKind: 'TYPE'
                     });
 
-                    const importedTypes = getFilteredTypesByKind(response.categories, [functionKinds.IMPORTED]);
-                    const workspaceTypes = getFilteredTypesByKind(response.categories, [functionKinds.CURRENT]);
+                    const importedTypes = getFilteredTypesByKind(response.categories, functionKinds.IMPORTED);
+                    const workspaceTypes = getFilteredTypesByKind(response.categories, functionKinds.CURRENT);
                     setImportedTypes(importedTypes);
                     setWorkspaceTypes(workspaceTypes);
                 } catch (error) {
@@ -243,12 +243,10 @@ const TypeHelperEl = (props: TypeHelperProps) => {
         const response = await addFunction(item);
 
         if (response) {
-            if (response.prefix && response.moduleId) {
-                const importStatement = {
-                    [response.prefix]: response.moduleId
-                };
-                updateImports(fieldKey, importStatement, item.codedata);
-            }
+            const importStatement = {
+                [response.prefix]: response.moduleId
+            };
+            updateImports(fieldKey, importStatement, item.codedata);
             return response.template;
         }
 

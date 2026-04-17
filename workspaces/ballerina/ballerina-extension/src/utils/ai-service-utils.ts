@@ -106,11 +106,7 @@ export const handleAIAgentServiceDeletion = async (
     }
 
     // Remove agent definitions first
-    // Skip for test chat services (_agent_chat.bal) — they wrap existing agents that shouldn't be deleted
-    const isTestChatService = component.path?.endsWith('_agent_chat.bal');
-    if (!isTestChatService) {
-        await removeAgentNodesForServiceArtifact(component, rpcClient);
-    }
+    await removeAgentNodesForServiceArtifact(component, rpcClient);
 
     // Delete the service using the correct service-level position
     const componentInfo: ComponentInfo = {

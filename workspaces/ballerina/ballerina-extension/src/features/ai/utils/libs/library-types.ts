@@ -163,7 +163,6 @@ export interface Library {
     functions?: RemoteFunction[];
     services?: Service[];
     instructions?: string;
-    readme?: string;
 }
 
 

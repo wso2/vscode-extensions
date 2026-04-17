@@ -75,36 +75,6 @@ const Circle = styled.div<NodeStyleProp>`
     color: ${ThemeColors.ON_SURFACE};
 `;
 
-const DashedCircle = styled.div<NodeStyleProp>`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: ${LISTENER_NODE_HEIGHT}px;
-    height: ${LISTENER_NODE_HEIGHT}px;
-    border: 2.5px dashed
-        ${(props: NodeStyleProp) => (props.hovered ? ThemeColors.HIGHLIGHT : ThemeColors.OUTLINE_VARIANT)};
-    border-radius: 50%;
-    background-color: ${ThemeColors.SURFACE_DIM};
-    color: ${ThemeColors.ON_SURFACE};
-    position: relative;
-`;
-
-const IconWithBadge = styled.div`
-    position: relative;
-    padding: 4px;
-    svg {
-        fill: ${ThemeColors.ON_SURFACE};
-    }
-`;
-
-const BeakerBadge = styled.span`
-    position: absolute;
-    bottom: -2px;
-    right: -6px;
-    font-size: 8px;
-    color: var(--vscode-editorWarning-foreground, #cca700);
-`;
-
 const LeftPortWidget = styled(PortWidget)`
     margin-top: -3px;
 `;
@@ -157,11 +127,6 @@ interface ListenerNodeWidgetProps {
 }
 
 export interface NodeWidgetProps extends Omit<ListenerNodeWidgetProps, "children"> { }
-
-const isTestListener = (model: ListenerNodeModel): boolean => {
-    const filePath = (model.node as CDListener)?.location?.filePath || '';
-    return filePath.endsWith('_agent_chat.bal');
-};
 
 export function ListenerNodeWidget(props: ListenerNodeWidgetProps) {
     const { model, engine } = props;
@@ -225,9 +190,6 @@ export function ListenerNodeWidget(props: ListenerNodeWidgetProps) {
             : [])
     ];
 
-    const isTest = isTestListener(model);
-    const CircleComponent = isTest ? DashedCircle : Circle;
-
     return (
         <Node>
             <ClickableArea
@@ -237,20 +199,14 @@ export function ListenerNodeWidget(props: ListenerNodeWidgetProps) {
                 onMouseUp={!readonly ? handleMouseUp : undefined}
                 readonly={readonly}
             >
-                <CircleComponent hovered={isHovered}>
+                <Circle hovered={isHovered}>
                     <LeftPortWidget port={model.getPort("in")!} engine={engine} />
-                    {isTest ? (
-                        <IconWithBadge>
-                            {getNodeIcon()}
-                            <BeakerBadge className="codicon codicon-beaker" />
-                        </IconWithBadge>
-                    ) : (
-                        <Icon>{getNodeIcon()}</Icon>
-                    )}
+                    <Icon>{getNodeIcon()}</Icon>
+
                     <RightPortWidget port={model.getPort("out")!} engine={engine} />
-                </CircleComponent>
-                <MenuButton
-                    appearance="icon"
+                </Circle>
+                <MenuButton 
+                    appearance="icon" 
                     onClick={handleOnMenuClick}
                     onMouseDown={!readonly ? handleMenuMouseDown : undefined}
                     onMouseUp={!readonly ? handleMenuMouseUp : undefined}

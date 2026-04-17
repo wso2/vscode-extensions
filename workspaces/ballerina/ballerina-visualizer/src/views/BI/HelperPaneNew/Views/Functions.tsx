@@ -36,7 +36,6 @@ import { FunctionFormStatic } from "../../FunctionFormStatic";
 import { POPUP_IDS, useModalStack } from "../../../../Context";
 import { HelperPaneIconType, getHelperPaneIcon } from "../utils/iconUtils";
 import { HelperPaneListItem } from "../Components/HelperPaneListItem";
-import { ResolvedType } from "../../Forms/FlowNodeForm";
 
 type FunctionsPageProps = {
     fieldKey: string;
@@ -46,7 +45,7 @@ type FunctionsPageProps = {
     onClose: () => void;
     onChange: (insertText: CompletionInsertText | string) => void;
     updateImports: (key: string, imports: { [key: string]: string }) => void;
-    selectedType?: ResolvedType;
+    selectedType?: CompletionItem;
     inputMode?: InputMode;
 };
 
@@ -140,12 +139,10 @@ export const FunctionsPage = ({
 
         setIsLoading(false)
         if (response) {
-            if (response.prefix && response.moduleId) {
-                const importStatement = {
-                    [response.prefix]: response.moduleId
-                };
-                updateImports(fieldKey, importStatement);
-            }
+            const importStatement = {
+                [response.prefix]: response.moduleId
+            };
+            updateImports(fieldKey, importStatement);
             return extractFunctionInsertText(response.template);
         }
 
@@ -192,7 +189,7 @@ export const FunctionsPage = ({
                 handleSubmit={handleFunctionSave}
                 functionName={undefined}
                 isDataMapper={false}
-                defaultType={selectedType?.value}
+                defaultType={selectedType?.label}
             />, POPUP_IDS.FUNCTION, "New Function", 500, 400);
         onClose();
     }

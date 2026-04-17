@@ -18,7 +18,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
-import { NodeList, Category as PanelCategory, FormField, FormImports, FormValues } from "@wso2/ballerina-side-panel";
+import { NodeList, Category as PanelCategory, FormField, FormValues } from "@wso2/ballerina-side-panel";
 import {
     BIAvailableNodesRequest,
     Category,
@@ -41,8 +41,6 @@ import {
     ToolParameterItem,
     NodeProperties,
     Diagnostic,
-    RecordTypeField,
-    getPrimaryInputType,
 } from "@wso2/ballerina-core";
 
 import {
@@ -50,10 +48,9 @@ import {
     convertConfig,
     convertFunctionCategoriesToSidePanelCategories,
     convertNodePropertyToFormField,
-    filterToolInputSymbolDiagnostics,
-    getImportsForProperty
+    filterToolInputSymbolDiagnostics
 } from "../../../utils/bi";
-import ArtifactForm from "../Forms/ArtifactForm";
+import FormGeneratorNew from "../Forms/FormGeneratorNew";
 import { RelativeLoader } from "../../../components/RelativeLoader";
 import styled from "@emotion/styled";
 import { URI, Utils } from "vscode-uri";
@@ -68,23 +65,6 @@ const LoaderContainer = styled.div`
     justify-content: center;
     align-items: center;
     height: 100%;
-`;
-
-const ImplementationBadge = styled.div`
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background-color: var(--vscode-input-background);
-    border: 1px solid var(--vscode-editorWidget-border);
-    border-radius: 4px;
-    padding: 6px 10px;
-    font-size: 12px;
-    color: var(--vscode-foreground);
-    margin-bottom: 4px;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 `;
 
 const ImplementationInfoContainer = styled.div`
@@ -105,12 +85,8 @@ const ImplementationInfo = styled.div`
     padding: 10px 10px;
     border-radius: 4px;
     margin-top: 4px;
-    overflow: hidden;
     p {
         margin: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
     }
 `;
 
@@ -136,27 +112,6 @@ export interface BIFlowDiagramProps {
 export interface ExtendedAgentToolRequest extends AgentToolRequest {
     functionNode?: FunctionNode;
     flowNode?: FlowNode;
-    parameterImports?: { [prefix: string]: string };
-}
-
-// Ensure "io", "log", and "time" module functions always appear under "Standard Library",
-// even if they've been imported (which moves them to "Imported Functions" from the LS)
-const STANDARD_LIB_MODULES = ["io", "log", "time"];
-function ensureStandardLibModules(categories: PanelCategory[]): PanelCategory[] {
-    const stdLib = categories.find((cat) => cat.title === "Standard Library");
-    const imported = categories.find((cat) => cat.title?.includes("Imported"));
-    if (!stdLib || !imported) return categories;
-
-    const isCategoryItem = (item: unknown): item is PanelCategory => typeof item === "object" && item !== null && "title" in item;
-    const existingModules = new Set(stdLib.items.filter(isCategoryItem).map((item) => item.title));
-
-    for (const name of STANDARD_LIB_MODULES) {
-        if (existingModules.has(name)) continue;
-        const match = imported.items.find((item) => isCategoryItem(item) && item.title === name);
-        if (match) stdLib.items.push({ ...match });
-    }
-
-    return categories;
 }
 
 // Reorder function categories: move "Imported Functions" to the end
@@ -208,7 +163,6 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
 
     const [loading, setLoading] = useState<boolean>(false);
     const [fields, setFields] = useState<FormField[]>(INITIAL_FIELDS);
-    const [recordTypeFields, setRecordTypeFields] = useState<RecordTypeField[]>([]);
     const [showOAuthConfig, setShowOAuthConfig] = useState<boolean>(false);
 
     const targetRef = useRef<LineRange>({ startLine: { line: 0, offset: 0 }, endLine: { line: 0, offset: 0 } });
@@ -400,32 +354,13 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
         }
 
         if (isSearching && searchText) {
-            setCategories(ensureStandardLibModules(reorderFunctionCategories(convertFunctionCategoriesToSidePanelCategories(filteredResponse, functionType))));
+            setCategories(reorderFunctionCategories(convertFunctionCategoriesToSidePanelCategories(filteredResponse, functionType)));
             return;
         }
         if (!response || !filteredResponse) {
             return [];
         }
-        return ensureStandardLibModules(convertFunctionCategoriesToSidePanelCategories(filteredResponse, functionType));
-    };
-
-    const extractRecordTypeFieldsFromEntries = (entries: { key: string; property: Property }[]): RecordTypeField[] => {
-        return entries
-            .filter(({ property }) => {
-                const primaryInputType = getPrimaryInputType(property?.types);
-                return primaryInputType?.typeMembers &&
-                    primaryInputType?.typeMembers.some(member => member.kind === "RECORD_TYPE");
-            })
-            .map(({ key, property }) => ({
-                key,
-                property,
-                recordTypeMembers: getPrimaryInputType(property?.types)?.typeMembers.filter(member => member.kind === "RECORD_TYPE")
-            }));
-    };
-
-    const extractRecordTypeFields = (properties: NodeProperties): RecordTypeField[] => {
-        const entries = Object.entries(properties).map(([key, property]) => ({ key, property }));
-        return extractRecordTypeFieldsFromEntries(entries);
+        return convertFunctionCategoriesToSidePanelCategories(filteredResponse, functionType);
     };
 
     const loadFunctionCallFields = async (node: AvailableNode): Promise<void> => {
@@ -452,16 +387,6 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
                 id: node.codedata,
             });
 
-            // Remove imports from optional+advanced properties to avoid unnecessary imports in genTool
-            if (functionNodeTemplate.flowNode?.properties) {
-                for (const key of Object.keys(functionNodeTemplate.flowNode.properties)) {
-                    const prop = (functionNodeTemplate.flowNode.properties as Record<string, any>)[key];
-                    if (prop.optional && prop.advanced && prop.imports) {
-                        delete prop.imports;
-                    }
-                }
-            }
-
             let functionParameterFields: FormField[] = [];
             if (toolInputFields.length === 0 && functionNodeTemplate.flowNode?.properties) {
                 functionParameterFields = convertConfig(functionNodeTemplate.flowNode.properties, ["variable"], false);
@@ -470,20 +395,16 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
             } else if (functionNodeTemplate.flowNode?.properties) {
                 functionParameterFields = convertConfig(functionNodeTemplate.flowNode.properties, ["variable"], false);
                 functionParameterFields.forEach((field, idx) => {
-                    if (getPrimaryInputType(field.types)?.fieldType === "TYPE") {
+                    if (field.key === "type") {
                         functionParameterFields[idx].documentation = "The data type this tool will return to the agent.";
                         return;
                     }
                     field.label = `${field.label} Mapping`;
-                    if (field.optional == false) {
-                        field.value = getPrimaryInputType(field.types)?.fieldType === "REPEATABLE_LIST"
-                            ? `[${field.key}]` : field.key;
-                    }
+                    if (field.optional == false) field.value = field.key;
                 });
             }
 
-            const templateDescription = (functionNodeTemplate.flowNode?.metadata?.description || "")
-                .replace(/```[\s\S]*?```/g, "").trim();
+            const templateDescription = functionNodeTemplate.flowNode?.metadata?.description || "";
 
             let oauthFields: FormField[] = [];
             const position = funcDef?.codedata.lineRange.startLine || { line: 0, offset: 0 };
@@ -494,21 +415,12 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
             );
             setShowOAuthConfig(oauthFields.length > 0);
 
-            const nodeRecordTypeFields = functionNodeTemplate.flowNode?.properties
-                ? extractRecordTypeFields(functionNodeTemplate.flowNode.properties)
-                : [];
-            const oauthRecordTypeFields = extractRecordTypeFieldsFromEntries(oauthProperties);
-            setRecordTypeFields([...nodeRecordTypeFields, ...oauthRecordTypeFields]);
-
             setFields((prevFields) => [
                 ...prevFields.map((field) =>
                     field.key === "description" ? { ...field, value: templateDescription } : field
                 ),
                 ...toolInputFields,
-                ...functionParameterFields.map(field => ({
-                    ...field,
-                    value: typeof field.value === 'string' ? field.value.replace(/^\$/, '') : field.value
-                })),
+                ...functionParameterFields,
                 ...oauthFields,
             ]);
         } catch (error) {
@@ -525,15 +437,6 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
             });
 
             if (nodeTemplate.flowNode) {
-                // Remove imports from optional+advanced properties to avoid unnecessary imports in genTool
-                if (nodeTemplate.flowNode.properties) {
-                    for (const key of Object.keys(nodeTemplate.flowNode.properties)) {
-                        const prop = (nodeTemplate.flowNode.properties as Record<string, any>)[key];
-                        if (prop.optional && prop.advanced && prop.imports) {
-                            delete prop.imports;
-                        }
-                    }
-                }
                 flowNode.current = nodeTemplate.flowNode;
             } else {
                 console.error("Node template flowNode not found");
@@ -544,8 +447,7 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
                 : [];
 
             const toolInputFields = createToolInputFields(prepareToolInputFields(nodeParameterFields));
-            const templateDescription = (nodeTemplate.flowNode?.metadata?.description || "")
-                .replace(/```[\s\S]*?```/g, "").trim();
+            const templateDescription = nodeTemplate.flowNode?.metadata?.description || "";
             let oauthFields: FormField[] = [];
             const oauthProperties = await fetchOAuthConfigProperties(rpcClient, agentFilePath.current);
             oauthConfigPropertiesRef.current = oauthProperties;
@@ -554,21 +456,12 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
             );
             setShowOAuthConfig(oauthFields.length > 0);
 
-            const nodeRecordTypeFields = nodeTemplate.flowNode?.properties
-                ? extractRecordTypeFields(nodeTemplate.flowNode.properties)
-                : [];
-            const oauthRecordTypeFields = extractRecordTypeFieldsFromEntries(oauthProperties);
-            setRecordTypeFields([...nodeRecordTypeFields, ...oauthRecordTypeFields]);
-
             setFields((prevFields) => [
                 ...prevFields.map((field) =>
                     field.key === "description" ? { ...field, value: templateDescription } : field
                 ),
                 ...toolInputFields,
-                ...nodeParameterFields.map(field => ({
-                    ...field,
-                    value: typeof field.value === 'string' ? field.value.replace(/^\$/, '') : field.value
-                })),
+                ...nodeParameterFields,
                 ...oauthFields,
             ]);
         } catch (error) {
@@ -646,14 +539,14 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
         return newToolParameters;
     };
 
-    const handleToolSubmit = (data: FormValues, formImports?: FormImports) => {
+    const handleToolSubmit = (data: FormValues) => {
         // Safely convert name to camelCase, handling any input
         const name = data["name"] || "";
         const cleanName = name.trim().replace(/[^a-zA-Z0-9]/g, "") || "newTool";
 
-        // HACK: Remove code blocks and new lines from description fields
+        // HACK: Remove new lines from description fields
         if (data.description) {
-            data.description = data.description.replace(/```[\s\S]*?```/g, "").replace(/\n/g, " ").trim();
+            data.description = data.description.replace(/\n/g, " ");
         }
 
         console.log(">>> handleToolSubmit", { data });
@@ -686,18 +579,6 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
                 // so inject the constructed toolParameters so genTool can read it
                 (clonedFunctionNode.properties as any).parameters = toolParameters;
             }
-
-            // Update mapping field values from form data into the function node properties
-            if (clonedFunctionNode?.properties) {
-                const props = clonedFunctionNode.properties as Record<string, Property>;
-                Object.keys(props).forEach((key) => {
-                    if (key === "parameters") return; // already handled above
-                    const formValue = data[key];
-                    if (formValue !== undefined && props[key]) {
-                        props[key] = { ...props[key], value: formValue };
-                    }
-                });
-            }
         } else if ((toolNodeId === REMOTE_ACTION_CALL || toolNodeId === RESOURCE_ACTION_CALL || toolNodeId === METHOD_CALL) && Array.isArray(data["parameters"])) {
             clonedFlowNode = flowNode.current ? cloneDeep(flowNode.current) : null;
             toolParameters = updateToolParameters(data["parameters"]);
@@ -718,7 +599,7 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
                         const resourcePathProperty = newProperties["resourcePath"];
                         if (resourcePathProperty) {
                             const path = resourcePathProperty.value;
-                            const updatedPath = typeof path === "string" ? path.replace(`[${key}]`, `[${paramValue}]`) : path;
+                            const updatedPath = typeof path === "string" ? path.replace(key, paramValue) : path;
                             newProperties["resourcePath"] = {
                                 ...resourcePathProperty,
                                 codedata: resourcePathProperty.codedata ? {
@@ -762,9 +643,6 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
         console.log(">>> clonedFunctionNode", { clonedFunctionNode });
         console.log(">>> clonedFlowNode", { clonedFlowNode });
 
-        // Extract parameter type imports so they can be added after genTool
-        const paramImports = formImports ? getImportsForProperty("parameters", formImports) : undefined;
-
         const toolModel: ExtendedAgentToolRequest = {
             toolName: cleanName,
             description: data["description"],
@@ -772,7 +650,6 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
             toolParameters: toolParameters,
             functionNode: clonedFunctionNode,
             flowNode: clonedFlowNode,
-            parameterImports: paramImports,
         };
         console.log("New Agent Tool:", toolModel);
         onSubmit(toolModel);
@@ -798,7 +675,7 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
                     onSelect={handleOnSelectNode}
                     onAddConnection={handleOnAddConnection}
                     onAddFunction={() => handleOnAddFunction(MACHINE_VIEW.BIFunctionForm, DIRECTORY_MAP.FUNCTION)}
-                    onSearchTextChange={mode !== NewToolSelectionMode.CONNECTION ? (searchText) => handleSearchFunction(searchText, FUNCTION_TYPE.REGULAR, true) : undefined}
+                    onSearchTextChange={(searchText) => handleSearchFunction(searchText, FUNCTION_TYPE.REGULAR, true)}
                     title={"Functions"}
                     searchPlaceholder={searchPlaceholder}
                     panelBodySx={{ height: "calc(100vh - 140px)" }}
@@ -806,12 +683,11 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
                 />
             )}
             {sidePanelView === SidePanelView.TOOL_FORM && (
-                <ArtifactForm
+                <FormGeneratorNew
                     preserveFieldOrder={false}
                     fileName={agentFilePath.current}
                     targetLineRange={{ startLine: { line: 0, offset: 0 }, endLine: { line: 0, offset: 0 } }}
                     fields={fields}
-                    recordTypeFields={recordTypeFields}
                     onSubmit={handleToolSubmit}
                     submitText={"Save Tool"}
                     helperPaneSide="left"
@@ -825,25 +701,10 @@ export function AIAgentSidePanel(props: BIFlowDiagramProps) {
                     injectedComponents={[
                         {
                             component: (
-                                <ImplementationBadge title={getImplementationString(selectedNodeRef.current.codedata)}>
-                                    {selectedNodeRef.current.metadata?.icon && (
-                                        <img
-                                            src={selectedNodeRef.current.metadata.icon}
-                                            style={{ width: 14, height: 14 }}
-                                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                        />
-                                    )}
-                                    {getImplementationString(selectedNodeRef.current.codedata)}
-                                </ImplementationBadge>
-                            ),
-                            index: 0,
-                        },
-                        {
-                            component: (
                                 <ImplementationInfoContainer>
                                     <p style={{ margin: "0px", fontWeight: "bold" }}>Implementation</p>
                                     <ImplementationDescription>Configure how tool inputs map to the {mode === NewToolSelectionMode.CONNECTION ? "connection" : "function"}.</ImplementationDescription>
-                                    <ImplementationInfo title={getImplementationString(selectedNodeRef.current.codedata)}>
+                                    <ImplementationInfo>
                                         <p>{getImplementationString(selectedNodeRef.current.codedata)}</p>
                                     </ImplementationInfo>
                                 </ImplementationInfoContainer>

@@ -19,11 +19,11 @@ import { GenerationType, getAllLibraries } from "../../utils/libs/libraries";
 import { LIBRARY_GET_TOOL } from "./library-get";
 import { jsonSchema } from "ai";
 import { Library } from "../../utils/libs/library-types";
-import { selectRequiredFunctions, ModelUsage, mergeUsage } from "../../utils/libs/function-registry";
+import { selectRequiredFunctions } from "../../utils/libs/function-registry";
 import { MinifiedLibrary } from "@wso2/ballerina-core";
 import { ANTHROPIC_SONNET_4, getAnthropicClient, getProviderCacheControl } from "../../utils/ai-client";
 import { z } from "zod";
-import { CopilotEventHandler, emitModelUsage, ToolModelUsage } from "../../utils/events";
+import { CopilotEventHandler } from "../../utils/events";
 
 export const HEALTHCARE_LIBRARY_PROVIDER_TOOL = "HealthcareLibraryProviderTool";
 
@@ -57,8 +57,7 @@ const HealthcareLibraryProviderToolSchema = jsonSchema<{
 
 export async function HealthcareLibraryProviderTool(
     params: { userPrompt: string },
-    eventHandler: CopilotEventHandler,
-    toolModelUsage: ToolModelUsage
+    eventHandler: CopilotEventHandler
 ): Promise<Library[]> {
     try {
         // Emit tool_call event
@@ -69,15 +68,13 @@ export async function HealthcareLibraryProviderTool(
 
         const startTime = Date.now();
 
-        const { libraries, usage } = await getRelevantLibrariesAndFunctions(params.userPrompt, GenerationType.HEALTHCARE_GENERATION);
+        const libraries = await getRelevantLibrariesAndFunctions(params.userPrompt, GenerationType.HEALTHCARE_GENERATION);
 
         console.log(
             `[HealthcareLibraryProviderTool] Fetched ${libraries.length} libraries: ${libraries
                 .map((lib) => lib.name)
-                .join(", ")}, took ${(Date.now() - startTime) / 1000}s, Usage:`, usage
+                .join(", ")}, took ${(Date.now() - startTime) / 1000}s`
         );
-
-        emitModelUsage(eventHandler, usage, toolModelUsage);
 
         // Emit tool_result event with all library names (no filtering)
         emitHealthcareLibraryToolResult(eventHandler, libraries);
@@ -99,8 +96,7 @@ export async function HealthcareLibraryProviderTool(
 
 //TODO: Improve this description
 export function getHealthcareLibraryProviderTool(
-    eventHandler: CopilotEventHandler,
-    toolModelUsage: ToolModelUsage
+    eventHandler: CopilotEventHandler
 ) {
     return tool({
         description: `Fetches detailed information about healthcare-specific Ballerina libraries along with their API documentation, including services, clients, functions, and filtered type definitions.
@@ -131,7 +127,7 @@ You should only use this tool if the user query mentions,
             console.log(
                 `[HealthcareLibraryProviderTool] Called with prompt: ${input.userPrompt}`
             );
-            return await HealthcareLibraryProviderTool(input, eventHandler, toolModelUsage);
+            return await HealthcareLibraryProviderTool(input, eventHandler);
         },
     });
 }
@@ -160,17 +156,17 @@ const LibraryListSchema = z.object({
 export async function getRelevantLibrariesAndFunctions(
     query: string,
     generationType: GenerationType
-): Promise<{ libraries: Library[], usage: ModelUsage[] }> {
-    const { libraries: selectedLibs, usage: selectionUsage } = await getSelectedLibraries(query, generationType);
+): Promise<Library[]> {
+    const selectedLibs: string[] = await getSelectedLibraries(query, generationType);
     const allLibraries = ensureMandatoryHealthcareLibraries(selectedLibs);
-    const { libraries, usage: filteringUsage } = await selectRequiredFunctions(query, allLibraries, generationType);
-    return { libraries, usage: mergeUsage(selectionUsage, ...filteringUsage) };
+    const relevantTrimmedFuncs: Library[] = await selectRequiredFunctions(query, allLibraries, generationType);
+    return relevantTrimmedFuncs;
 }
 
-export async function getSelectedLibraries(prompt: string, libraryType: GenerationType): Promise<{ libraries: string[], usage: ModelUsage }> {
+export async function getSelectedLibraries(prompt: string, libraryType: GenerationType): Promise<string[]> {
     const allLibraries = await getAllLibraries(libraryType);
     if (allLibraries.length === 0) {
-        return { libraries: [], usage: { model: ANTHROPIC_SONNET_4, inputTokens: 0, outputTokens: 0 } };
+        return [];
     }
     const cacheOptions = await getProviderCacheControl();
     const messages: ModelMessage[] = [
@@ -187,7 +183,7 @@ export async function getSelectedLibraries(prompt: string, libraryType: Generati
 
     //TODO: Add thinking and test with claude haiku
     const startTime = Date.now();
-    const { object, usage } = await generateObject({
+    const { object } = await generateObject({
         model: await getAnthropicClient(ANTHROPIC_SONNET_4),
         maxOutputTokens: 4096,
         temperature: 0,
@@ -196,11 +192,10 @@ export async function getSelectedLibraries(prompt: string, libraryType: Generati
         abortSignal: new AbortController().signal,
     });
     const endTime = Date.now();
-    const callUsage: ModelUsage = { model: ANTHROPIC_SONNET_4, inputTokens: usage.inputTokens || 0, outputTokens: usage.outputTokens || 0 };
-    console.log(`Library selection took ${endTime - startTime}ms, Usage:`, callUsage);
+    console.log(`Library selection took ${endTime - startTime}ms`);
 
     console.log("Selected libraries:", object.libraries);
-    return { libraries: object.libraries, usage: callUsage };
+    return object.libraries;
 }
 
 function getSystemPrompt(libraryList: MinifiedLibrary[]): string {
