@@ -52,7 +52,7 @@ import { log } from '../util/logger';
 import { getJavaHomeFromConfig, getProjectSetupDetails, isMISetup, isJavaSetup } from '../util/onboardingUtils';
 import { SELECTED_SERVER_PATH } from '../debugger/constants';
 import { extension } from '../MIExtensionContext';
-import { extractCAppDependenciesAsProjects } from '../visualizer/activate';
+import { loadCAppResources } from '../visualizer/activate';
 import vscode from "vscode";
 const exec = util.promisify(require('child_process').exec);
 
@@ -330,8 +330,8 @@ export class MILanguageClient {
                 this.languageClient = new ExtendedLanguageClient('synapseXML', 'Synapse Language Server', this.projectUri,
                     serverOptions, clientOptions);
                 await this.languageClient.start();
-                await extractCAppDependenciesAsProjects(this.projectUri);
-                await this.languageClient?.loadDependentCAppResources();
+                await this.languageClient?.updateConnectorDependencies();
+                await loadCAppResources(this.projectUri, this.languageClient!);
 
                 //Setup autoCloseTags
                 let tagProvider: (document: TextDocument, position: Position) => Thenable<AutoCloseResult> = (document: TextDocument, position: Position) => {

@@ -90,7 +90,7 @@ import { copy } from 'fs-extra';
 const fs = require('fs');
 import { TextEdit } from "vscode-languageclient";
 import { downloadJavaFromMI, downloadMI, getProjectSetupDetails, getSupportedMIVersionsHigherThan, setPathsInWorkSpace, updateRuntimeVersionsInPom, getMIVersionFromPom, isConsolidatedProject } from '../../util/onboardingUtils';
-import { extractCAppDependenciesAsProjects } from "../../visualizer/activate";
+import { extractCAppDependenciesAsProjects, loadCAppResources } from "../../visualizer/activate";
 import { findMultiModuleProjectsInWorkspaceDir } from "../../util/migrationUtils";
 import { MILanguageClient } from "../../lang-client/activator";
 import { reorderModulesByBuildOrder } from "../../debugger/pomResolver";
@@ -206,23 +206,6 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     }
 
     /**
-     * Extracts CApp dependencies as projects and loads dependent CApp resources.
-     *
-     * @param langClient - The language client instance.
-     */
-    private async _loadCAppResources(langClient: Awaited<ReturnType<typeof MILanguageClient.getInstance>>): Promise<void> {
-        try {
-            await extractCAppDependenciesAsProjects(this.projectUri);
-            const loadResult = await langClient?.loadDependentCAppResources();
-            if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
-                await window.showWarningMessage(loadResult, { modal: true });
-            }
-        } catch (error) {
-            console.error("Failed to load CApp resources:", error);
-        }
-    }
-
-    /**
      * Reloads the dependencies for the current integration project.
      *
      * @param params - An object containing the parameters for reloading dependencies.
@@ -335,7 +318,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 }
             }
 
-            await this._loadCAppResources(langClient);
+            await loadCAppResources(this.projectUri, langClient);
             const parentDir = path.dirname(this.projectUri)
             if (isConsolidatedProject(parentDir) && params?.isProjectDependenciesUpdated) {
                 await reorderModulesByBuildOrder(path.join(parentDir, 'pom.xml'));
@@ -455,7 +438,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     async refetchIntegrationProjectDependencies(): Promise<string> {
         const langClient = await MILanguageClient.getInstance(this.projectUri);
         const res = await langClient.refetchIntegrationProjectDependencies();
-        await this._loadCAppResources(langClient);
+        await loadCAppResources(this.projectUri, langClient);
         return res;
     }
 
