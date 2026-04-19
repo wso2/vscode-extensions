@@ -10,6 +10,7 @@ import (
 
 	"github.com/wso2/arazzo-designer-cli/internal/mcpserver"
 	"github.com/wso2/arazzo-designer-cli/internal/models"
+	"github.com/wso2/arazzo-designer-cli/internal/telemetry"
 )
 
 func main() {
@@ -37,6 +38,7 @@ func serveCmd(args []string) {
 	bearerToken := fs.String("bearer-token", "", "Bearer token for API authentication")
 	apiKey := fs.String("api-key", "", "API key for authentication")
 	apiKeyHeader := fs.String("api-key-header", "X-API-Key", "Header name for API key")
+	traceEndpoint := fs.String("trace-endpoint", "", "URL of the tracer server to receive span events (e.g. http://127.0.0.1:59600/span-events)")
 
 	fs.Parse(args)
 
@@ -60,8 +62,18 @@ func serveCmd(args []string) {
 		AuthHeaders:  make(map[string]string),
 	}
 
+	// Create trace sink
+	var sink telemetry.SpanEventSink
+	if *traceEndpoint != "" {
+		log.Printf("Tracing enabled → %s", *traceEndpoint)
+		sink = telemetry.NewHTTPSink(*traceEndpoint)
+	} else {
+		sink = &telemetry.NoopSink{}
+	}
+	defer sink.Shutdown()
+
 	// Create and start MCP server
-	srv, err := mcpserver.NewMCPServer(*filePath, *port, runtimeParams)
+	srv, err := mcpserver.NewMCPServer(*filePath, *port, runtimeParams, sink)
 	if err != nil {
 		log.Fatalf("Failed to create MCP server: %v", err)
 	}
