@@ -21,6 +21,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { ChildProcess, spawn } from 'child_process';
 import * as yaml from 'js-yaml';
+import { TracerServer } from './tracing';
+import { executeTraceServerTask } from './tracing/traceServerTask';
 
 let mcpServerProcess: ChildProcess | undefined;
 let mcpOutputChannel: vscode.OutputChannel | undefined;
@@ -245,6 +247,16 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
 
     const args = ['serve', '-f', arazzoFilePath, '-p', port.toString()];
 
+    // Start tracer server via VS Code Task so the Go runner can post span events
+    let tracerPort: number | undefined;
+    try {
+        tracerPort = await executeTraceServerTask();
+        args.push('-trace-endpoint', `http://127.0.0.1:${tracerPort}/span-events`);
+        output.appendLine(`  Tracer: http://127.0.0.1:${tracerPort}/span-events`);
+    } catch (e: any) {
+        output.appendLine(`Warning: Could not start tracer server: ${e.message}`);
+    }
+
     mcpServerProcess = spawn(binaryPath, args, {
         cwd: path.dirname(arazzoFilePath)
     });
@@ -339,6 +351,7 @@ export function stopMCPServer(): void {
         output.appendLine('MCP server stopped.');
         notifyStateChange();
     }
+    TracerServer.getInstance().stop();
 }
 
 /**
@@ -346,5 +359,6 @@ export function stopMCPServer(): void {
  */
 export function disposeMCPServer(): void {
     stopMCPServer();
+    TracerServer.getInstance().dispose();
     mcpOutputChannel?.dispose();
 }
