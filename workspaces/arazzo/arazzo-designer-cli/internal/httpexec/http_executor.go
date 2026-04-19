@@ -12,26 +12,30 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/wso2/arazzo-designer-cli/internal/telemetry"
 )
 
 // HTTPExecutor executes HTTP requests for Arazzo workflows.
 type HTTPExecutor struct {
 	Client *http.Client
+	Sink   telemetry.SpanEventSink
 }
 
 // NewHTTPExecutor creates a new HTTPExecutor with default settings.
-func NewHTTPExecutor() *HTTPExecutor {
+func NewHTTPExecutor(sink telemetry.SpanEventSink) *HTTPExecutor {
 	return &HTTPExecutor{
 		Client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		Sink: sink,
 	}
 }
 
 // ExecuteRequest executes an HTTP request and returns the response.
 // parameters should contain: "path" (map), "query" (map), "header" (map), "cookie" (map)
 // requestBody should contain: "contentType" (string), "payload" (interface{})
-func (h *HTTPExecutor) ExecuteRequest(method, requestURL string, parameters map[string]interface{}, requestBody map[string]interface{}) (map[string]interface{}, error) {
+func (h *HTTPExecutor) ExecuteRequest(method, requestURL string, parameters map[string]interface{}, requestBody map[string]interface{}, traceID, parentSpanID string) (map[string]interface{}, error) {
 	// Replace path parameters in the URL
 	pathParams := toStringMap(parameters["path"])
 	for name, value := range pathParams {
@@ -93,9 +97,44 @@ func (h *HTTPExecutor) ExecuteRequest(method, requestURL string, parameters map[
 	// Log request
 	log.Printf("Making %s request to %s", strings.ToUpper(method), requestURL)
 
+	// --- Telemetry: HTTP span start ---
+	httpSpanID := telemetry.GenerateSpanID()
+	httpStart := time.Now()
+	h.Sink.Send(telemetry.TraceEvent{
+		Lifecycle:    telemetry.LifecycleStart,
+		TraceID:      traceID,
+		SpanID:       httpSpanID,
+		ParentSpanID: parentSpanID,
+		SpanName:     strings.ToUpper(method) + " " + requestURL,
+		SpanKind:     telemetry.SpanKindHTTP,
+		Timestamp:    httpStart,
+		Status:       telemetry.SpanStatusUnset,
+		Attributes: map[string]string{
+			"http.method": strings.ToUpper(method),
+			"http.url":    requestURL,
+		},
+	})
+
 	// Execute the request
 	resp, err := h.Client.Do(req)
 	if err != nil {
+		dur := float64(time.Since(httpStart).Milliseconds())
+		h.Sink.Send(telemetry.TraceEvent{
+			Lifecycle:    telemetry.LifecycleEnd,
+			TraceID:      traceID,
+			SpanID:       httpSpanID,
+			ParentSpanID: parentSpanID,
+			SpanName:     strings.ToUpper(method) + " " + requestURL,
+			SpanKind:     telemetry.SpanKindHTTP,
+			Timestamp:    time.Now(),
+			DurationMs:   &dur,
+			Status:       telemetry.SpanStatusError,
+			ErrorMessage: err.Error(),
+			Attributes: map[string]string{
+				"http.method": strings.ToUpper(method),
+				"http.url":    requestURL,
+			},
+		})
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
@@ -129,6 +168,29 @@ func (h *HTTPExecutor) ExecuteRequest(method, requestURL string, parameters map[
 			headers[k] = v[0]
 		}
 	}
+
+	// --- Telemetry: HTTP span end ---
+	dur := float64(time.Since(httpStart).Milliseconds())
+	httpStatus := telemetry.SpanStatusOK
+	if resp.StatusCode >= 400 {
+		httpStatus = telemetry.SpanStatusError
+	}
+	h.Sink.Send(telemetry.TraceEvent{
+		Lifecycle:    telemetry.LifecycleEnd,
+		TraceID:      traceID,
+		SpanID:       httpSpanID,
+		ParentSpanID: parentSpanID,
+		SpanName:     strings.ToUpper(method) + " " + requestURL,
+		SpanKind:     telemetry.SpanKindHTTP,
+		Timestamp:    time.Now(),
+		DurationMs:   &dur,
+		Status:       httpStatus,
+		Attributes: map[string]string{
+			"http.method":      strings.ToUpper(method),
+			"http.url":         requestURL,
+			"http.status_code": fmt.Sprintf("%d", resp.StatusCode),
+		},
+	})
 
 	return map[string]interface{}{
 		"status_code": resp.StatusCode,

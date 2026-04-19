@@ -14,6 +14,7 @@ import (
 	"github.com/wso2/arazzo-designer-cli/internal/loader"
 	"github.com/wso2/arazzo-designer-cli/internal/models"
 	"github.com/wso2/arazzo-designer-cli/internal/runner/executor"
+	"github.com/wso2/arazzo-designer-cli/internal/telemetry"
 )
 
 // ArazzoRunner executes Arazzo workflows.
@@ -23,10 +24,11 @@ type ArazzoRunner struct {
 	Workflows          []interface{}
 	RuntimeParams      *models.RuntimeParams
 	StepExecutor       *executor.StepExecutor
+	Sink               telemetry.SpanEventSink
 }
 
 // NewArazzoRunner creates a new ArazzoRunner from an Arazzo document path.
-func NewArazzoRunner(arazzoFilePath string, runtimeParams *models.RuntimeParams) (*ArazzoRunner, error) {
+func NewArazzoRunner(arazzoFilePath string, runtimeParams *models.RuntimeParams, sink telemetry.SpanEventSink) (*ArazzoRunner, error) {
 	// Load the typed Arazzo document (for source description loading)
 	typedDoc, err := loader.LoadArazzoDoc(arazzoFilePath)
 	if err != nil {
@@ -54,7 +56,7 @@ func NewArazzoRunner(arazzoFilePath string, runtimeParams *models.RuntimeParams)
 	log.Printf("Loaded Arazzo document with %d workflows", len(workflows))
 
 	// Create step executor
-	stepExec := executor.NewStepExecutor(arazzoDoc, sourceDescs, runtimeParams)
+	stepExec := executor.NewStepExecutor(arazzoDoc, sourceDescs, runtimeParams, sink)
 
 	return &ArazzoRunner{
 		ArazzoDoc:          arazzoDoc,
@@ -62,6 +64,7 @@ func NewArazzoRunner(arazzoFilePath string, runtimeParams *models.RuntimeParams)
 		Workflows:          workflows,
 		RuntimeParams:      runtimeParams,
 		StepExecutor:       stepExec,
+		Sink:               sink,
 	}, nil
 }
 
@@ -166,8 +169,46 @@ func (r *ArazzoRunner) GetWorkflowDetails(workflowID string) map[string]interfac
 func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]interface{}) *models.WorkflowExecutionResult {
 	log.Printf("=== Starting workflow execution: %s ===", workflowID)
 
+	// --- Telemetry: workflow start ---
+	traceID := telemetry.GenerateTraceID()
+	workflowSpanID := telemetry.GenerateSpanID()
+	workflowStart := time.Now()
+	r.Sink.Send(telemetry.TraceEvent{
+		Lifecycle: telemetry.LifecycleStart,
+		TraceID:   traceID,
+		SpanID:    workflowSpanID,
+		SpanName:  workflowID,
+		SpanKind:  telemetry.SpanKindWorkflow,
+		Timestamp: workflowStart,
+		Status:    telemetry.SpanStatusUnset,
+		Attributes: map[string]string{
+			"workflow.id": workflowID,
+		},
+	})
+
+	// Helper to emit workflow end span
+	endWorkflow := func(status telemetry.SpanStatus, errMsg string) {
+		dur := float64(time.Since(workflowStart).Milliseconds())
+		ev := telemetry.TraceEvent{
+			Lifecycle:    telemetry.LifecycleEnd,
+			TraceID:      traceID,
+			SpanID:       workflowSpanID,
+			SpanName:     workflowID,
+			SpanKind:     telemetry.SpanKindWorkflow,
+			Timestamp:    time.Now(),
+			DurationMs:   &dur,
+			Status:       status,
+			ErrorMessage: errMsg,
+			Attributes: map[string]string{
+				"workflow.id": workflowID,
+			},
+		}
+		r.Sink.Send(ev)
+	}
+
 	wf := r.GetWorkflow(workflowID)
 	if wf == nil {
+		endWorkflow(telemetry.SpanStatusError, fmt.Sprintf("Workflow '%s' not found", workflowID))
 		return &models.WorkflowExecutionResult{
 			Status:     models.WorkflowStatusError,
 			WorkflowID: workflowID,
@@ -178,6 +219,7 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 	// Execute dependencies first
 	depOutputs, err := r.executeDependencies(wf)
 	if err != nil {
+		endWorkflow(telemetry.SpanStatusError, fmt.Sprintf("Dependency execution failed: %v", err))
 		return &models.WorkflowExecutionResult{
 			Status:     models.WorkflowStatusError,
 			WorkflowID: workflowID,
@@ -190,10 +232,13 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 
 	// Create execution state
 	state := models.NewExecutionState(workflowID, inputs, depOutputs, r.RuntimeParams)
+	state.TraceID = traceID
+	state.WorkflowSpanID = workflowSpanID
 
 	// Get steps
 	steps := toSlice(wf["steps"])
 	if len(steps) == 0 {
+		endWorkflow(telemetry.SpanStatusError, "Workflow has no steps")
 		return &models.WorkflowExecutionResult{
 			Status:     models.WorkflowStatusError,
 			WorkflowID: workflowID,
@@ -250,6 +295,11 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 					status = models.WorkflowStatusError
 				}
 				outputs := r.resolveWorkflowOutputs(wf, state)
+				if result.Success {
+					endWorkflow(telemetry.SpanStatusOK, "")
+				} else {
+					endWorkflow(telemetry.SpanStatusError, "step failed")
+				}
 				return &models.WorkflowExecutionResult{
 					Status:      status,
 					WorkflowID:  workflowID,
@@ -262,6 +312,7 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 				if result.NextAction.WorkflowID != "" {
 					// Goto another workflow
 					log.Printf("Goto workflow: %s", result.NextAction.WorkflowID)
+					endWorkflow(telemetry.SpanStatusOK, "")
 					gotoResult := r.ExecuteWorkflow(result.NextAction.WorkflowID, result.NextAction.Inputs)
 					return gotoResult
 				}
@@ -295,6 +346,7 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 					case models.ActionTypeEnd:
 						log.Printf("Workflow ended by fallback action after retry exhaustion at step %s", stepID)
 						outputs := r.resolveWorkflowOutputs(wf, state)
+						endWorkflow(telemetry.SpanStatusError, "retry exhausted")
 						return &models.WorkflowExecutionResult{
 							Status:      models.WorkflowStatusError,
 							WorkflowID:  workflowID,
@@ -305,6 +357,7 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 					case models.ActionTypeGoto:
 						if fallbackAction.WorkflowID != "" {
 							log.Printf("Fallback goto workflow: %s", fallbackAction.WorkflowID)
+							endWorkflow(telemetry.SpanStatusError, "retry exhausted, goto workflow")
 							gotoResult := r.ExecuteWorkflow(fallbackAction.WorkflowID, fallbackAction.Inputs)
 							return gotoResult
 						}
@@ -335,6 +388,7 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 	outputs := r.resolveWorkflowOutputs(wf, state)
 
 	log.Printf("=== Workflow %s completed ===", workflowID)
+	endWorkflow(telemetry.SpanStatusOK, "")
 
 	return &models.WorkflowExecutionResult{
 		Status:      models.WorkflowStatusWorkflowComplete,
