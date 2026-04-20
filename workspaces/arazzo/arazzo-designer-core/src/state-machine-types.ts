@@ -121,3 +121,27 @@ export const showInputBox: RequestType<ShowWebviewInputBoxReq, string | undefine
 export const getPopupVisualizerState: RequestType<void, PopupVisualizerLocation> = { method: 'getPopupVisualizerState' };
 export const popupStateChanged: NotificationType<PopupMachineStateValue> = { method: 'popupStateChanged' };
 export const onParentPopupSubmitted: NotificationType<ParentPopupData> = { method: `onParentPopupSubmitted` };
+
+// ------------> Trace Event Types <-----------
+/** Trace event forwarded from the tracer server to the webview. */
+export interface WebviewTraceEvent {
+    lifecycle: 'start' | 'end';
+    traceId: string;
+    spanId: string;
+    parentSpanId?: string;
+    spanName: string;
+    spanKind: 'workflow' | 'step' | 'http';
+    timestamp: string;
+    durationMs?: number;
+    status: 'unset' | 'ok' | 'error';
+    errorMessage?: string;
+    attributes: Record<string, string>;
+}
+
+/** Per-step trace status used by the workflow view UI. */
+export interface StepTraceStatus {
+    state: 'running' | 'passed' | 'failed';
+    durationMs?: number;
+}
+
+export const onTraceEvent: NotificationType<WebviewTraceEvent> = { method: 'onTraceEvent' };

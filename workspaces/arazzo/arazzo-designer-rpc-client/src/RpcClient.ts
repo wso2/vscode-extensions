@@ -17,7 +17,7 @@
  */
 
 import { Messenger } from "vscode-messenger-webview";
-import { MachineStateValue, stateChanged, vscode, getVisualizerState, VisualizerLocation, webviewReady, onFileContentUpdate, PopupMachineStateValue, popupStateChanged, PopupVisualizerLocation, getPopupVisualizerState, onParentPopupSubmitted, ParentPopupData, VisualizerAPI, SelectQuickPickItemReq, WebviewQuickPickItem, selectQuickPickItem, selectQuickPickItems, showConfirmMessage, ShowConfirmBoxReq, showInputBox, ShowWebviewInputBoxReq, showInfoNotification, showErrorNotification } from "@wso2/arazzo-designer-core";
+import { MachineStateValue, stateChanged, vscode, getVisualizerState, VisualizerLocation, webviewReady, onFileContentUpdate, PopupMachineStateValue, popupStateChanged, PopupVisualizerLocation, getPopupVisualizerState, onParentPopupSubmitted, ParentPopupData, VisualizerAPI, SelectQuickPickItemReq, WebviewQuickPickItem, selectQuickPickItem, selectQuickPickItems, showConfirmMessage, ShowConfirmBoxReq, showInputBox, ShowWebviewInputBoxReq, showInfoNotification, showErrorNotification, onTraceEvent, WebviewTraceEvent } from "@wso2/arazzo-designer-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { VisualizerRpcClient } from "./rpc-clients/visualizer/rpc-client";
 
@@ -86,6 +86,10 @@ export class RpcClient {
 
     showErrorNotification(message: string): void {
         this.messenger.sendNotification(showErrorNotification, HOST_EXTENSION, message);
+    }
+
+    onTraceEvent(callback: (event: WebviewTraceEvent) => void): void {
+        this.messenger.onNotification(onTraceEvent, callback);
     }
 }
 

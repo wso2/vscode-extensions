@@ -19,7 +19,8 @@
 import { WebviewView, WebviewPanel, window, QuickPickItem } from 'vscode';
 import { Messenger } from 'vscode-messenger';
 import { StateMachine } from './stateMachine';
-import { stateChanged, getVisualizerState, VisualizerLocation, getPopupVisualizerState, PopupVisualizerLocation, popupStateChanged, selectQuickPickItem, WebviewQuickPickItem, selectQuickPickItems, showConfirmMessage, showInputBox, showInfoNotification, showErrorNotification } from '@wso2/arazzo-designer-core';
+import { stateChanged, getVisualizerState, VisualizerLocation, getPopupVisualizerState, PopupVisualizerLocation, popupStateChanged, selectQuickPickItem, WebviewQuickPickItem, selectQuickPickItems, showConfirmMessage, showInputBox, showInfoNotification, showErrorNotification, onTraceEvent } from '@wso2/arazzo-designer-core';
+import { TracerServer } from './mcp/tracing';
 import { VisualizerWebview } from './visualizer/webview';
 import { StateMachinePopup } from './stateMachinePopup';
 import path = require('path');
@@ -74,6 +75,11 @@ export class RPCLayer {
         });
         RPCLayer._messenger.onNotification(showErrorNotification, (message) => {
             window.showErrorMessage(message);
+        });
+
+        // Forward trace events from the tracer server to the webview
+        TracerServer.getInstance().onEvent((event) => {
+            RPCLayer._messenger.sendNotification(onTraceEvent, { type: 'webview', webviewType: VisualizerWebview.viewType }, event as any);
         });
     }
 
