@@ -18,7 +18,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useVisualizerContext } from "@wso2/arazzo-designer-rpc-client";
-import { ArazzoDefinition, ArazzoWorkflow, EVENT_TYPE, MACHINE_VIEW, MachineStateValue } from "@wso2/arazzo-designer-core";
+import { ArazzoDefinition, ArazzoWorkflow, EVENT_TYPE, MACHINE_VIEW, MachineStateValue, WebviewTraceEvent, StepTraceStatus } from "@wso2/arazzo-designer-core";
 import {
     ReactFlow,
     Background,
@@ -31,6 +31,7 @@ import {
     addEdge,
     Connection,
 } from '@xyflow/react';
+// @ts-ignore
 import '@xyflow/react/dist/style.css';
 import { buildGraphFromWorkflow } from './graphBuilder';
 import { nodeTypes } from '../../components/nodes';
@@ -157,6 +158,39 @@ export function WorkflowView(props: WorkflowViewProps) {
     rpcClient?.onStateChanged((newState: MachineStateValue) => {
         if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
             fetchData();
+        }
+    });
+
+    // Listen for trace events and update step node overlays
+    rpcClient?.onTraceEvent((event: WebviewTraceEvent) => {
+        if (event.spanKind === 'workflow' && event.lifecycle === 'start') {
+            // New workflow run started — clear all trace statuses
+            setNodes(prev => prev.map(node => {
+                if (node.type === 'stepNode') {
+                    return { ...node, data: { ...node.data, traceStatus: undefined } };
+                }
+                return node;
+            }));
+        } else if (event.spanKind === 'step') {
+            const stepId = event.attributes?.['step.id'] || event.spanName;
+            if (event.lifecycle === 'start') {
+                setNodes(prev => prev.map(node => {
+                    if (node.id === stepId && node.type === 'stepNode') {
+                        const traceStatus: StepTraceStatus = { state: 'running' };
+                        return { ...node, data: { ...node.data, traceStatus } };
+                    }
+                    return node;
+                }));
+            } else if (event.lifecycle === 'end') {
+                const state = event.status === 'ok' ? 'passed' : 'failed';
+                setNodes(prev => prev.map(node => {
+                    if (node.id === stepId && node.type === 'stepNode') {
+                        const traceStatus: StepTraceStatus = { state, durationMs: event.durationMs };
+                        return { ...node, data: { ...node.data, traceStatus } };
+                    }
+                    return node;
+                }));
+            }
         }
     });
 

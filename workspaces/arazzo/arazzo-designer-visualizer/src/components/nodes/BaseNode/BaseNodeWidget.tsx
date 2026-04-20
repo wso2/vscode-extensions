@@ -52,6 +52,7 @@ export namespace NodeStyles {
     `;
 
     export const Node = styled.div<NodeStyleProp>`
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: space-between;

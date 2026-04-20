@@ -20,6 +20,56 @@ import React from 'react';
 import { Position, NodeProps } from '@xyflow/react';
 import { BaseNodeWidget, NodeStyles } from '../BaseNode/BaseNodeWidget';
 import { StepNodeData } from './StepNodeModel';
+import styled from '@emotion/styled';
+import { keyframes } from '@emotion/react';
+
+// ---- Trace status overlay styles ----
+
+const pulse = keyframes`
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
+`;
+
+type TraceIndicatorProps = { traceState: 'running' | 'passed' | 'failed' };
+
+const TraceIndicator = styled.div<TraceIndicatorProps>`
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    background-color: ${({ traceState }: TraceIndicatorProps) =>
+        traceState === 'running' ? '#1976d2'
+        : traceState === 'passed' ? '#2e7d32'
+        : '#d32f2f'};
+    animation: ${({ traceState }: TraceIndicatorProps) => traceState === 'running' ? pulse : 'none'} 1s ease-in-out infinite;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+`;
+
+const IndicatorIcon = styled.span`
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    line-height: 1;
+`;
+
+const DurationLabel = styled.div`
+    position: absolute;
+    bottom: 2px;
+    right: 6px;
+    font-size: 10px;
+    font-family: monospace;
+    color: var(--vscode-descriptionForeground);
+    opacity: 0.85;
+    z-index: 10;
+    pointer-events: none;
+`;
 
 /**
  * StepNodeWidget - React component for step nodes
@@ -27,9 +77,26 @@ import { StepNodeData } from './StepNodeModel';
  */
 export const StepNodeWidget: React.FC<NodeProps<StepNodeData>> = (props) => {
     const { id, data, selected, isConnectable } = props;
+    const traceStatus = data.traceStatus;
 
     return (
         <BaseNodeWidget {...props} leftAligned>
+            {/* Trace status indicator */}
+            {traceStatus && (
+                <TraceIndicator traceState={traceStatus.state}>
+                    <IndicatorIcon>
+                        {traceStatus.state === 'running' ? '' : traceStatus.state === 'passed' ? '\u2713' : '\u2717'}
+                    </IndicatorIcon>
+                </TraceIndicator>
+            )}
+            {/* Duration label */}
+            {traceStatus && traceStatus.durationMs !== undefined && (
+                <DurationLabel>
+                    {traceStatus.durationMs < 1000
+                        ? `${Math.round(traceStatus.durationMs)}ms`
+                        : `${(traceStatus.durationMs / 1000).toFixed(1)}s`}
+                </DurationLabel>
+            )}
             {/* Additional handles for step nodes - ensure both sides have correct source/target roles */}
             <NodeStyles.StyledHandle
                 type="target"
