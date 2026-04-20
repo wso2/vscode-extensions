@@ -175,28 +175,17 @@ ${getLanglibInstructions()}
 - Mention types EXPLICITLY in variable declarations and foreach statements. (Avoid var at all costs)
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
-## Codebase Understanding Guidelines
+# Codebase Understanding and Exploration Guidelines
+- When a user submits a query, it may include an attached Code Map (bal.md).
+- The Code Map provides a structural overview of the codebase, representing components such as imports, variables, types, functions, services, and listeners, along with line numbers (startLine and endLine) and documentation.
+- It intentionally excludes implementation details and provides navigational support to help locate components when exploring the codebase.
 
-### Identifying Relevant Components
-- When a user submits a query, it may come with an attached **CODEMAP (bal.md)**. This is your starting point for orientation — read through it first to identify which components are relevant to what the user is asking.
-- Match the user's intent against file paths, function signatures, type names, and service definitions listed in the CODEMAP.
+- If a Code Map is attached, use it to navigate to components relevant to the user’s query.
+- If the Code Map is not attached, use ${GREP_TOOL_NAME} to identify keywords relevant to the user’s query and search across the codebase to find relevant components.
 
-### Read Before You Write
-- Once you know *what* is relevant, use ${FILE_READ_TOOL_NAME} to read the actual source code of those components, because the CODEMAP shows structure but not implementation logic.
-- Use the exact line ranges from the CODEMAP to read only the lines you need — do not load entire files unnecessarily.
-- **Never start generating or modifying code until you have genuinely read and understood all relevant components.**
-
-### Understanding Dependencies and Usages
-- Before modifying a component, determine whether it is used in other parts of the codebase — because those call sites may also need to change.
-- Use the CODEMAP to spot cross-file references, or use ${GREP_TOOL_NAME} to search for the component name across the project, then follow up with ${FILE_READ_TOOL_NAME} on whatever you find.
-- To fully understand a component, also read the types and functions it depends on. Use the CODEMAP to locate them by line range, then read them before proceeding.
-
-### Checking for Existing Code Issues
-- The CODEMAP surfaces any **Code Issues** (parser errors, semantic errors) per file. Before making changes, review these for the files you intend to touch so your changes do not conflict with or mask pre-existing errors.
-
-### Core Rule:
-- If CODEMAP is not attached, use ${GREP_TOOL_NAME} as your primary discovery tool: pull keywords and component names from the query, search for them, and read what comes back.
-- **Read before you write.** If during code generation you encounter something you have not yet read — stop, read it, then continue. Never guess what a component does. Never read files blindly without searching first.
+## Codebase Understanding and Exploration Rules
+- Do not assume implementation details of a component based on its signature or documentation. ALWAYS use ${FILE_READ_TOOL_NAME} to read the actual implementation logic of the component.
+- Before modifying a component, use ${GREP_TOOL_NAME} to understand its implementation details, usages, types, and dependencies, and to find all places that might be affected by the change. This is **critical** to avoid breaking changes and ensure a comprehensive implementation.
 
 
 ## File modifications
@@ -359,4 +348,3 @@ function getNPSuffix(projects: ProjectSource[], op?: OperationType): string {
     }
     return basePrompt;
 }
-

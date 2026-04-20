@@ -387,10 +387,10 @@ export const codeIndexingTestCasesForSinglePackage = [
 //   prompt: "Rename the process lead function name into isLeadAllowed", // refactor function name
 //   projectPath: "salesforce-lead-conversion-slack-notification"
 // },
-// {
-//   prompt: "Can you rename the dinner request record name to DodMealRequest", // refactor record name
-//   projectPath: "menu_app"
-// },
+{
+  prompt: "Can you rename the dinner request record name to DodMealRequest", // refactor record name
+  projectPath: "menu_app"
+},
 // {
 //   prompt: "Can you merge the get dinner req by email and get dinner req by id function into one?", // merger two components
 //   projectPath: "menu_app"
@@ -419,10 +419,10 @@ export const codeIndexingTestCasesForSinglePackage = [
 //   prompt: "Delete the job role field from the employee record", // delete a field
 //   projectPath: "menu_app",
 // },
-{
-  prompt: "I want to add a maximum booking limit on dinner requests so once it is reached for a given date any new requests get rejected, the limit should be configurable.", // add new feature
-  projectPath: "menu_app"
-},
+// {
+//   prompt: "I want to add a maximum booking limit on dinner requests so once it is reached for a given date any new requests get rejected, the limit should be configurable.", // add new feature
+//   projectPath: "menu_app"
+// },
 // {
 //   prompt: "We're moving away from syncing dinner orders to Google Sheets, remove the sheet sync from the dinner flow so requests only get saved to the database.", // delete a feature
 //   projectPath: "menu_app"
