@@ -1,0 +1,113 @@
+arazzo: "1.0.0"
+info:
+  title: "Test 10 - Parameter Types"
+  version: "1.0.0"
+  description: >
+    Tests all parameter locations and types:
+    - Path parameters (getProduct with expression from prior step output)
+    - Query parameters (searchProduct with $inputs expression)
+    - Multiple query parameters (getProducts with by_brand + sort)
+    - Complex query parameters (price range filter)
+    - Parameters with expression resolution across steps
+
+sourceDescriptions:
+  - name: toolshop
+    url: ./toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: parameter_tests
+    summary: Test different parameter types
+    inputs:
+      type: object
+      properties:
+        searchTerm:
+          type: string
+          default: "hammer"
+        sortOrder:
+          type: string
+          default: "name,asc"
+        priceRange:
+          type: string
+          default: "price,1,100"
+    steps:
+      # Step 1: Get brands to find a brand ID for filtering
+      - stepId: getBrands
+        description: "Get brands list for subsequent parameter testing"
+        operationId: getBrands
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          firstBrandId: "$response.body#/0/id"
+          firstBrandName: "$response.body#/0/name"
+
+      # Step 2: Test query parameter with expression from $inputs
+      - stepId: queryParamTest
+        description: "Test query parameter with $inputs expression"
+        operationId: searchProduct
+        parameters:
+          - name: q
+            in: query
+            value: "$inputs.searchTerm"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          searchTotal: "$response.body#/total"
+          firstSearchProductId: "$response.body#/data/0/id"
+          queryStatus: "$statusCode"
+
+      # Step 3: Test path parameter with expression from prior step output
+      - stepId: pathParamTest
+        description: "Test path parameter resolved from step output expression"
+        operationId: getProduct
+        parameters:
+          - name: productId
+            in: path
+            value: "$steps.queryParamTest.outputs.firstSearchProductId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          retrievedName: "$response.body#/name"
+          retrievedId: "$response.body#/id"
+
+      # Step 4: Test multiple query parameters with mixed expressions
+      - stepId: multiQueryTest
+        description: "Test multiple query parameters including cross-step expression"
+        operationId: getProducts
+        parameters:
+          - name: by_brand
+            in: query
+            value: "$steps.getBrands.outputs.firstBrandId"
+          - name: sort
+            in: query
+            value: "$inputs.sortOrder"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          filteredTotal: "$response.body#/total"
+          multiQueryStatus: "$statusCode"
+
+      # Step 5: Test complex query parameter (price range filter)
+      - stepId: complexQueryTest
+        description: "Test complex query parameter (price range filter)"
+        operationId: getProducts
+        parameters:
+          - name: between
+            in: query
+            value: "$inputs.priceRange"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          priceFilterTotal: "$response.body#/total"
+          priceFilterStatus: "$statusCode"
+
+    outputs:
+      firstBrandId: "$steps.getBrands.outputs.firstBrandId"
+      firstBrandName: "$steps.getBrands.outputs.firstBrandName"
+      searchTotal: "$steps.queryParamTest.outputs.searchTotal"
+      queryStatus: "$steps.queryParamTest.outputs.queryStatus"
+      retrievedName: "$steps.pathParamTest.outputs.retrievedName"
+      retrievedId: "$steps.pathParamTest.outputs.retrievedId"
+      filteredTotal: "$steps.multiQueryTest.outputs.filteredTotal"
+      multiQueryStatus: "$steps.multiQueryTest.outputs.multiQueryStatus"
+      priceFilterTotal: "$steps.complexQueryTest.outputs.priceFilterTotal"

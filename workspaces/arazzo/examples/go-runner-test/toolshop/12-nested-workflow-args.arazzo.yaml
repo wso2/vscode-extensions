@@ -1,0 +1,108 @@
+arazzo: "1.0.0"
+info:
+  title: "Test 12 - Nested Workflow with Arguments"
+  version: "1.0.0"
+  description: >
+    Tests passing arguments (via parameters) to nested workflow calls.
+    The calling workflow passes input values to the nested workflow,
+    which uses them as $inputs within its own execution.
+
+sourceDescriptions:
+  - name: toolshop
+    url: ./toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: get_products_by_page
+    summary: A reusable workflow that fetches products for a given page
+    inputs:
+      type: object
+      properties:
+        page:
+          type: integer
+          default: 1
+    steps:
+      - stepId: fetchProducts
+        operationId: getProducts
+        parameters:
+          - name: page
+            in: query
+            value: "$inputs.page"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          currentPage: "$response.body#/current_page"
+          totalProducts: "$response.body#/total"
+          firstProductName: "$response.body#/data/0/name"
+          lastPage: "$response.body#/last_page"
+
+    outputs:
+      currentPage: "$steps.fetchProducts.outputs.currentPage"
+      totalProducts: "$steps.fetchProducts.outputs.totalProducts"
+      firstProductName: "$steps.fetchProducts.outputs.firstProductName"
+      lastPage: "$steps.fetchProducts.outputs.lastPage"
+
+  - workflowId: get_brand_products
+    summary: A reusable workflow to get products filtered by brand
+    inputs:
+      type: object
+      properties:
+        brandId:
+          type: string
+    steps:
+      - stepId: fetchBrandProducts
+        operationId: getProducts
+        parameters:
+          - name: by_brand
+            in: query
+            value: "$inputs.brandId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          brandProductCount: "$response.body#/total"
+          firstBrandProduct: "$response.body#/data/0/name"
+
+    outputs:
+      brandProductCount: "$steps.fetchBrandProducts.outputs.brandProductCount"
+      firstBrandProduct: "$steps.fetchBrandProducts.outputs.firstBrandProduct"
+
+  - workflowId: orchestrate_with_arguments
+    summary: Calls nested workflows with dynamic arguments
+    steps:
+      - stepId: fetchPage1
+        description: "Call get_products_by_page with page=1"
+        workflowId: get_products_by_page
+        parameters:
+          - name: page
+            value: "1"
+
+      - stepId: fetchPage2
+        description: "Call get_products_by_page with page=2"
+        workflowId: get_products_by_page
+        parameters:
+          - name: page
+            value: "2"
+
+      - stepId: getBrands
+        operationId: getBrands
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          firstBrandId: "$response.body#/0/id"
+          firstBrandName: "$response.body#/0/name"
+
+      - stepId: fetchBrandProducts
+        description: "Call get_brand_products with dynamic brand ID from previous step"
+        workflowId: get_brand_products
+        parameters:
+          - name: brandId
+            value: "$steps.getBrands.outputs.firstBrandId"
+
+    outputs:
+      page1Product: "$steps.fetchPage1.outputs.firstProductName"
+      page1Page: "$steps.fetchPage1.outputs.currentPage"
+      page2Product: "$steps.fetchPage2.outputs.firstProductName"
+      page2Page: "$steps.fetchPage2.outputs.currentPage"
+      brandName: "$steps.getBrands.outputs.firstBrandName"
+      brandProductCount: "$steps.fetchBrandProducts.outputs.brandProductCount"
+      brandFirstProduct: "$steps.fetchBrandProducts.outputs.firstBrandProduct"

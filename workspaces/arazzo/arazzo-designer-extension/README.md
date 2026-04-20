@@ -1,6 +1,6 @@
 # Arazzo Visualizer for VS Code
 
-The Arazzo Visualizer VS Code extension offers the ability to **visualize and navigate [Arazzo Specification](https://www.openapis.org/arazzo-specification) workflows** through an interactive graphical visualizer with live updates powered by GitHub Copilot.
+The Arazzo Visualizer VS Code extension offers the ability to **visualize and navigate [Arazzo Specification](https://www.openapis.org/arazzo-specification) workflows** through an interactive graphical interface with live updates powered by GitHub Copilot.
 
 Beyond the visual features, the extension enhances the Arazzo authoring experience with syntax highlighting, intelligent code completions, and real-time validation provided by a built-in language server.
 

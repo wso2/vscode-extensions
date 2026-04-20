@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "arazzo": {
+      "type": "http",
+      "url": "http://localhost:18571/mcp"
+    }
+  }
+}

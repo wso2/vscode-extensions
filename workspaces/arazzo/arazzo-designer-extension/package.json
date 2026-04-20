@@ -98,6 +98,17 @@
         "command": "arazzo.openDesigner",
         "title": "Open Arazzo Visualizer",
         "category": "Arazzo"
+      },
+      {
+        "command": "arazzo.startMCPServer",
+        "title": "Start MCP Server",
+        "category": "Arazzo",
+        "icon": "$(play)"
+      },
+      {
+        "command": "arazzo.runWorkflow",
+        "title": "Run Arazzo Workflow",
+        "category": "Arazzo"
       }
     ],
     "menus": {
@@ -112,6 +123,11 @@
           "command": "ArazzoDesigner.showCode",
           "group": "navigation",
           "when": "isViewOpenAPI || isViewArazzo"
+        },
+        {
+          "when": "isFileArazzo",
+          "command": "arazzo.startMCPServer",
+          "group": "navigation"
         }
       ],
       "explorer/context": [

@@ -1,0 +1,92 @@
+arazzo: "1.0.0"
+info:
+  title: "Test 05 - Nested Workflow and Dependencies"
+  version: "1.0.0"
+  description: >
+    Tests nested workflow execution (step with workflowId) and
+    workflow dependencies (dependsOn).
+
+sourceDescriptions:
+  - name: petstore
+    url: ./petstore-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: setup_pet
+    summary: Creates a pet and returns its ID
+    steps:
+      - stepId: createPet
+        operationId: addPet
+        requestBody:
+          contentType: application/json
+          payload:
+            id: 77701
+            name: "NestedTestPet"
+            photoUrls:
+              - "https://example.com/photo.jpg"
+            status: "available"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          petId: "$response.body#/id"
+          petName: "$response.body#/name"
+
+    outputs:
+      createdPetId: "$steps.createPet.outputs.petId"
+      createdPetName: "$steps.createPet.outputs.petName"
+
+  - workflowId: verify_and_cleanup_pet
+    summary: Verifies and cleans up a pet created by nested workflow
+    steps:
+      - stepId: setupPetWorkflow
+        description: "Calls the setup_pet workflow as a nested call"
+        workflowId: setup_pet
+        outputs:
+          nestedPetId: "$steps.setupPetWorkflow.outputs.createdPetId"
+
+      - stepId: verifyPet
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: "$steps.setupPetWorkflow.outputs.createdPetId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          verifiedName: "$response.body#/name"
+
+      - stepId: cleanupPet
+        operationId: deletePet
+        parameters:
+          - name: petId
+            in: path
+            value: "$steps.setupPetWorkflow.outputs.createdPetId"
+
+    outputs:
+      nestedPetId: "$steps.setupPetWorkflow.outputs.createdPetId"
+      verifiedPetName: "$steps.verifyPet.outputs.verifiedName"
+
+  - workflowId: order_with_dependency
+    summary: Places an order - depends on setup_pet
+    dependsOn:
+      - setup_pet
+    steps:
+      - stepId: placeOrderStep
+        operationId: placeOrder
+        requestBody:
+          contentType: application/json
+          payload:
+            id: 10
+            petId: "$dependencies.setup_pet.createdPetId"
+            quantity: 1
+            status: "placed"
+            complete: false
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          orderId: "$response.body#/id"
+          orderStatus: "$response.body#/status"
+
+    outputs:
+      orderId: "$steps.placeOrderStep.outputs.orderId"
+      orderStatus: "$steps.placeOrderStep.outputs.orderStatus"

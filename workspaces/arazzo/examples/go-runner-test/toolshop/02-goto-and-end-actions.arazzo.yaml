@@ -1,0 +1,106 @@
+arazzo: 1.0.0
+info:
+  title: "Test 02 - Goto Step and Workflow End Actions"
+  version: "1.0.0"
+  description: >
+    Tests explicit goto step handling and end actions.
+    Workflow 1: Gets brands, uses onSuccess goto to skip to search.
+    Workflow 2: Uses onSuccess end to stop the workflow early.
+    Workflow 3: Uses onFailure goto for error handling on a non-existent product.
+
+sourceDescriptions:
+  - name: toolshop
+    url: ./toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: goto_on_success
+    summary: Test goto step on success
+    steps:
+      - stepId: getBrandsList
+        operationId: getBrands
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          firstBrandId: "$response.body#/0/id"
+          firstBrandName: "$response.body#/0/name"
+        onSuccess:
+          - name: skip_to_search
+            type: goto
+            stepId: searchBrands
+            criteria:
+              - condition: "$statusCode == 200"
+
+      - stepId: shouldBeSkipped
+        description: "This step should be skipped by goto"
+        operationId: getCategories
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          categories: "$response.body"
+
+      - stepId: searchBrands
+        operationId: searchBrand
+        parameters:
+          - name: q
+            in: query
+            value: "$steps.getBrandsList.outputs.firstBrandName"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          searchResults: "$statusCode"
+
+    outputs:
+      firstBrandId: "$steps.getBrandsList.outputs.firstBrandId"
+      categoriesWereSkipped: "$steps.shouldBeSkipped.outputs.categories"
+
+  - workflowId: end_on_success
+    summary: Test end action on success
+    steps:
+      - stepId: getBrands
+        operationId: getBrands
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          brandCount: "$statusCode"
+        onSuccess:
+          - name: end_workflow
+            type: end
+
+      - stepId: shouldNotRun
+        description: "This step should not run due to end action"
+        operationId: getCategories
+
+    outputs:
+      brandStatus: "$steps.getBrands.outputs.brandCount"
+
+  - workflowId: goto_on_failure
+    summary: Test goto step on failure
+    steps:
+      - stepId: tryGetNonExistentProduct
+        operationId: getProduct
+        parameters:
+          - name: productId
+            in: path
+            value: "non-existent-product-id-99999"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        onFailure:
+          - name: handle_not_found
+            type: goto
+            stepId: fallbackStep
+
+      - stepId: shouldBeSkipped
+        operationId: getCategories
+        outputs:
+          categories: "$response.body"
+
+      - stepId: fallbackStep
+        operationId: getBrands
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          fallbackResult: "$statusCode"
+
+    outputs:
+      fallbackResult: "$steps.fallbackStep.outputs.fallbackResult"

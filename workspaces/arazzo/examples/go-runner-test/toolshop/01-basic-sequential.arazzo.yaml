@@ -1,0 +1,70 @@
+arazzo: 1.0.0
+info:
+  title: "Test 01 - Basic Sequential Workflow"
+  version: "1.0.0"
+  description: >
+    Tests implicit next step execution (sequential flow).
+    Gets products, creates a cart, adds a product to the cart, and retrieves the cart.
+    Validates: step outputs, $response.body expressions, path params, request body, $inputs.
+
+sourceDescriptions:
+  - name: toolshop
+    url: ./toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: shopping_cart_flow
+    summary: Browse products, create a cart, add an item, and verify the cart. If quantity is not provided, ask the user for the desired quantity.
+    inputs:
+      type: object
+      properties:
+        quantity:
+          type: integer
+          default: 2
+    steps:
+      - stepId: listProducts
+        operationId: getProducts
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          firstProductId: "$response.body#/data/0/id"
+          firstProductName: "$response.body#/data/0/name"
+          totalProducts: "$response.body#/total"
+
+      - stepId: createCart
+        operationId: createCart
+        outputs:
+          cartId: "$response.body#/id"
+
+      - stepId: addProductToCart
+        operationId: addItem
+        parameters:
+          - name: cartId
+            in: path
+            value: "$steps.createCart.outputs.cartId"
+        requestBody:
+          contentType: application/json
+          payload:
+            product_id: "$steps.listProducts.outputs.firstProductId"
+            quantity: "$inputs.quantity"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          addResult: "$response.body#/result"
+
+      - stepId: verifyCart
+        operationId: getCart
+        parameters:
+          - name: cartId
+            in: path
+            value: "$steps.createCart.outputs.cartId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          cartData: "$response.body"
+
+    outputs:
+      productId: "$steps.listProducts.outputs.firstProductId"
+      productName: "$steps.listProducts.outputs.firstProductName"
+      cartId: "$steps.createCart.outputs.cartId"
+      addResult: "$steps.addProductToCart.outputs.addResult"

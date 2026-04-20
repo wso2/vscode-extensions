@@ -1,0 +1,122 @@
+arazzo: 1.0.0
+info:
+  title: "Test 02 - Goto Step and Workflow End Actions"
+  version: "1.0.0"
+  description: >
+    Tests explicit goto step handling and end actions.
+    Workflow 1: Creates a pet, checks status, and uses onSuccess goto to skip to cleanup.
+    Workflow 2: Uses onFailure goto to jump to an error-handling step.
+
+sourceDescriptions:
+  - name: petstore
+    url: ./petstore-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: goto_on_success
+    summary: Test goto step on success
+    steps:
+      - stepId: createPet
+        operationId: addPet
+        requestBody:
+          contentType: application/json
+          payload:
+            id: 55501
+            name: "GotoTestPet"
+            photoUrls:
+              - "https://example.com/photo.jpg"
+            status: "available"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          petId: "$response.body#/id"
+        onSuccess:
+          - name: skip_to_cleanup
+            type: goto
+            stepId: cleanupPet
+            criteria:
+              - condition: "$statusCode == 200"
+
+      - stepId: shouldBeSkipped
+        description: "This step should be skipped by goto"
+        operationId: getInventory
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          inventory: "$response.body"
+
+      - stepId: cleanupPet
+        operationId: deletePet
+        parameters:
+          - name: petId
+            in: path
+            value: "$steps.createPet.outputs.petId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+
+    outputs:
+      createdPetId: "$steps.createPet.outputs.petId"
+      inventoryWasSkipped: "$steps.shouldBeSkipped.outputs.inventory"
+
+  - workflowId: end_on_success
+    summary: Test end action on success
+    steps:
+      - stepId: createPet
+        operationId: addPet
+        requestBody:
+          contentType: application/json
+          payload:
+            id: 55502
+            name: "EndTestPet"
+            photoUrls:
+              - "https://example.com/photo.jpg"
+            status: "available"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          petId: "$response.body#/id"
+        onSuccess:
+          - name: end_workflow
+            type: end
+
+      - stepId: shouldNotRun
+        description: "This step should not run due to end action"
+        operationId: getInventory
+
+    outputs:
+      petId: "$steps.createPet.outputs.petId"
+
+  - workflowId: goto_on_failure
+    summary: Test goto step on failure
+    steps:
+      - stepId: tryGetNonExistent
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: "999999999"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        onFailure:
+          - name: handle_not_found
+            type: goto
+            stepId: fallbackStep
+
+      - stepId: shouldBeSkipped
+        operationId: getInventory
+        outputs:
+          inventory: "$response.body"
+
+      - stepId: fallbackStep
+        operationId: findPetsByStatus
+        parameters:
+          - name: status
+            in: query
+            value: "available"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          foundPets: "$statusCode"
+
+    outputs:
+      fallbackResult: "$steps.fallbackStep.outputs.foundPets"
