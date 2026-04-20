@@ -147,21 +147,21 @@ function validateFilePath(filePath: string): ValidationResult {
 }
 
 function validateLineRange(
-  offset: number,
-  limit: number,
+  startLine: number,
+  endLine: number,
   totalLines: number
 ): ValidationResult {
-  if (offset < 1 || offset > totalLines) {
+  if (startLine < 1 || startLine > totalLines) {
     return {
       valid: false,
-      error: `Invalid offset ${offset}. File has ${totalLines} lines.`
+      error: `Invalid startLine ${startLine}. File has ${totalLines} lines.`
     };
   }
 
-  if (limit < 1) {
+  if (endLine < startLine || endLine > totalLines) {
     return {
       valid: false,
-      error: `Invalid limit ${limit}. Must be at least 1.`
+      error: `Invalid endLine ${endLine}. Must be >= startLine (${startLine}) and <= ${totalLines}.`
     };
   }
 
@@ -690,10 +690,10 @@ export function createReadExecute(
 ) {
   return async (args: {
     file_path: string;
-    offset?: number;
-    limit?: number;
+    startLine?: number;
+    endLine?: number;
   }): Promise<TextEditorResult> => {
-    const { file_path, offset, limit } = args;
+    const { file_path, startLine, endLine } = args;
 
     // Validate file path
     const pathValidation = validateFilePath(file_path);
@@ -748,10 +748,10 @@ export function createReadExecute(
     const totalLines = lines.length;
 
     // Handle ranged read
-    if (offset !== undefined && limit !== undefined) {
-      const validation = validateLineRange(offset, limit, totalLines);
+    if (startLine !== undefined && endLine !== undefined) {
+      const validation = validateLineRange(startLine, endLine, totalLines);
       if (!validation.valid) {
-        console.error(`[FileReadTool] Invalid line range for file: ${file_path}, offset: ${offset}, limit: ${limit}`);
+        console.error(`[FileReadTool] Invalid line range for file: ${file_path}, startLine: ${startLine}, endLine: ${endLine}`);
         const result = {
           success: false,
           message: validation.error!,
@@ -761,15 +761,15 @@ export function createReadExecute(
         return result;
       }
 
-      const startIndex = offset - 1; // Convert to 0-based index
-      const endIndex = Math.min(startIndex + limit, totalLines);
+      const startIndex = startLine - 1; // Convert to 0-based index
+      const endIndex = Math.min(endLine, totalLines);
       const rangedLines = lines.slice(startIndex, endIndex);
       const rangedContent = truncateLongLines(rangedLines.join('\n'));
 
-      console.log(`[FileReadTool] Read lines ${offset} to ${endIndex} from file: ${file_path}`);
+      console.log(`[FileReadTool] Read lines ${startLine} to ${endIndex} from file: ${file_path}`);
       const result = {
         success: true,
-        message: `Read lines ${offset} to ${endIndex} from '${file_path}' (${endIndex - startIndex} lines). \nContent:${rangedContent}`,
+        message: `Read lines ${startLine} to ${endIndex} from '${file_path}' (${endIndex - startIndex} lines). \nContent:${rangedContent}`,
       };
       emitFileToolResult(eventHandler, FILE_READ_TOOL_NAME, result, file_path);
       return result;
@@ -821,8 +821,8 @@ type MultiEditExecute = (args: {
 
 type ReadExecute = (args: {
   file_path: string;
-  offset?: number;
-  limit?: number;
+  startLine?: number;
+  endLine?: number;
 }) => Promise<any>;
 
 // 1. Write Tool
@@ -921,23 +921,19 @@ export function createBatchEditTool(execute: MultiEditExecute) {
 export function createReadTool(execute: ReadExecute) {
   return tool({
     description: `Reads a file from the local filesystem.
-    ALWAYS prefer reading files mentioned in the user’s message in the chat history first. Only use this tool if you need to read a file that is not present in the chat history.
     NOTE: The following files are restricted and cannot be read: ${RESTRICTED_READ_FILES.join(", ")}.
     Usage:
     - For workspace projects, include the package directory prefix in the file path (e.g., "myPackage/main.bal").
-    - You can optionally specify a line offset and limit (especially handy for long files).
+    - If you know the exact line range of a specific component, ALWAYS use the startLine and endLine parameters to read just that line range. Otherwise, read the entire file to ensure you have full context.
+    - You can optionally specify a startLine and endLine to read a specific range (especially handy for long files).
     - Any lines longer than 2000 characters will be truncated
+    - If you don't know the line ranges of components and if the file is very large (more than 2000 characters), consider using the startLine and endLine parameters to read it in chunks.
     - The file content will be returned as string
-    - If the file is very large, consider using the offset and limit parameters to read it in chunks.
-    - If you know the exact line range of a specific COMPONENT and only that isolated component is relevant, you may read just that line range to save context.
-    - However, if you need to understand the full context of a file (e.g., multiple components are related, the file is a config/entry-point file, or you need to understand existing patterns), read the entire file instead.
-    - If you dont know the line range to read, always start by reading the entire file.
-    - If the file is very large, consider using the offset and limit parameters to read it in chunks.
     - If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents.`,
     inputSchema: z.object({
       file_path: z.string().describe(getFilePathDescription("read")),
-      offset: z.number().optional().describe("The line number to start reading from. Only provide if the file is too large to read at once"),
-      limit: z.number().optional().describe("The number of lines to read. Only provide if the file is too large to read at once.")
+      startLine: z.number().optional().describe("The line number to start reading from. Only provide if the file is too large to read at once"),
+      endLine: z.number().optional().describe("The line number to stop reading at (inclusive). Only provide if the file is too large to read at once.")
     }),
     execute
   });
