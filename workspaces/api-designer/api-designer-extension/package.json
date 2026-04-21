@@ -205,12 +205,6 @@
         "icon": "$(code)"
       },
       {
-        "command": "APIDesigner.manageSpectralRulesets",
-        "title": "Manage Spectral Rulesets",
-        "category": "API Designer",
-        "icon": "$(settings-gear)"
-      },
-      {
         "command": "api-designer.createOpenAPIFromPanel",
         "title": "Create OpenAPI",
         "category": "API Designer",

@@ -28,7 +28,6 @@ import {
     GetWorkspaceFileTreeResponse,
     WorkspaceFileNode
 } from '@wso2/api-designer-core';
-import { ProjectConfigService } from '../../../services/project-config-service';
 import { VisualizerWebview } from '../../../visualizer/webview';
 import { BaseRpcManager } from './base-rpc-manager';
 import { handleError, createError, ErrorCode } from '../../../util/error-utils';
@@ -145,15 +144,6 @@ export class FileManager extends BaseRpcManager {
     async getWorkspaceFileTree(params: GetWorkspaceFileTreeRequest): Promise<GetWorkspaceFileTreeResponse> {
         try {
             this.logInfo(`Getting workspace file tree for ${params.workspaceUri}${params.filterType ? ` (filter: ${params.filterType})` : ''}`);
-
-            // If filtering is requested, use the ProjectConfigService
-            if (params.filterType) {
-                const filteredTree = await ProjectConfigService.getFilteredFileTree({
-                    workspaceUri: params.workspaceUri,
-                    filterType: params.filterType
-                });
-                return { files: filteredTree };
-            }
 
             // Otherwise, return full tree (existing logic)
             const workspaceUri = vscode.Uri.file(params.workspaceUri);

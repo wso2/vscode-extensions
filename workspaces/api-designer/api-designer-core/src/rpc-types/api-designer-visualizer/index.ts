@@ -32,24 +32,8 @@ import {
     GetApplicableRulesetsResponse,
     GetAllSpectralRulesetsRequest,
     GetAllSpectralRulesetsResponse,
-    GenerateDeploymentArtifactRequest,
-    GenerateDeploymentArtifactResponse,
     ValidateAPISpecRequest,
     ValidateAPISpecResponse,
-    InitAPIProjectRequest,
-    InitAPIProjectResponse,
-    GetApiDefinitionRequest,
-    GetApiDefinitionResponse,
-    ReadDeploymentArtifactRequest,
-    ReadDeploymentArtifactResponse,
-    GetApiPlatformConfigRequest,
-    GetApiPlatformConfigResponse,
-    UpdateApiPlatformConfigRequest,
-    UpdateApiPlatformConfigResponse,
-    SaveProjectConfigRequest,
-    SaveProjectConfigResponse,
-    GetProjectDetailsRequest,
-    GetProjectDetailsResponse,
     ReadFileRequest,
     ReadFileResponse,
     WriteFileRequest,
@@ -62,10 +46,6 @@ import {
     CheckAIAvailabilityRequest,
     CheckAIAvailabilityResponse,
 } from "./types";
-import type {
-    GenerateTestsFromOpenAPIRequest,
-    GenerateTestsFromOpenAPIResponse,
-} from "./test";
 
 // Re-export validation types for direct use
 export type {
@@ -95,12 +75,7 @@ export interface APIDesignerVisualizerAPI {
     writeAPISpecContent: (params: WriteAPISpecContentRequest) => Promise<WriteAPISpecContentResponse>;
     importJSON: () => Promise<Schema | undefined>;
     getGovernance: (params: GetGovernanceRequest) => Promise<GetGovernanceResponse>;
-    generateDeploymentArtifact: (params: GenerateDeploymentArtifactRequest) => Promise<GenerateDeploymentArtifactResponse>;
     validateAPISpec: (params: ValidateAPISpecRequest) => Promise<ValidateAPISpecResponse>;
-    initApiProject: (params: InitAPIProjectRequest) => Promise<InitAPIProjectResponse>;
-    getApiPlatformConfig: (params: GetApiPlatformConfigRequest) => Promise<GetApiPlatformConfigResponse>;
-    getApiDefinition: (params: GetApiDefinitionRequest) => Promise<GetApiDefinitionResponse>;
-    updateApiPlatformConfig: (params: UpdateApiPlatformConfigRequest) => Promise<UpdateApiPlatformConfigResponse>;
     /** List YAML rulesets discovered under a folder URL or workspace path (GitHub or local). */
     fetchRulesetsFromFolder: (params: FetchRulesetsFromFolderRequest) => Promise<FetchRulesetsFromFolderResponse>;
     /**
@@ -112,15 +87,11 @@ export interface APIDesignerVisualizerAPI {
      * All rulesets stored in VS Code settings (global), including disabled — used when seeding project config from user selection.
      */
     getAllSpectralRulesets: (params: GetAllSpectralRulesetsRequest) => Promise<GetAllSpectralRulesetsResponse>;
-    readDeploymentArtifact: (params: ReadDeploymentArtifactRequest) => Promise<ReadDeploymentArtifactResponse>;
-    saveProjectConfig: (params: SaveProjectConfigRequest) => Promise<SaveProjectConfigResponse>;
-    getProjectDetails: (params: GetProjectDetailsRequest) => Promise<GetProjectDetailsResponse>;
     readFile: (params: ReadFileRequest) => Promise<ReadFileResponse>;
     writeFile: (params: WriteFileRequest) => Promise<WriteFileResponse>;
     deleteFile: (params: DeleteFileRequest) => Promise<DeleteFileResponse>;
     getWorkspaceFileTree: (params: GetWorkspaceFileTreeRequest) => Promise<GetWorkspaceFileTreeResponse>;
     checkAIAvailability: (params: CheckAIAvailabilityRequest) => Promise<CheckAIAvailabilityResponse>;
-    generateTestsFromOpenAPI: (params: GenerateTestsFromOpenAPIRequest) => Promise<GenerateTestsFromOpenAPIResponse>;
 }
 
 export type {
@@ -133,28 +104,12 @@ export type {
     Schema,
     GetGovernanceRequest,
     GetGovernanceResponse,
-    GenerateDeploymentArtifactRequest,
-    GenerateDeploymentArtifactResponse,
     ValidateAPISpecRequest,
     ValidateAPISpecResponse,
-    InitAPIProjectRequest,
-    InitAPIProjectResponse,
-    GetApiPlatformConfigRequest,
-    GetApiPlatformConfigResponse,
-    GetApiDefinitionRequest,
-    GetApiDefinitionResponse,
-    UpdateApiPlatformConfigRequest,
-    UpdateApiPlatformConfigResponse,
     FetchRulesetsFromFolderRequest,
     FetchRulesetsFromFolderResponse,
     GetApplicableRulesetsRequest,
     GetApplicableRulesetsResponse,
-    ReadDeploymentArtifactRequest,
-    ReadDeploymentArtifactResponse,
-    SaveProjectConfigRequest,
-    SaveProjectConfigResponse,
-    GetProjectDetailsRequest,
-    GetProjectDetailsResponse,
     ReadFileRequest,
     ReadFileResponse,
     WriteFileRequest,
@@ -168,6 +123,4 @@ export type {
     CheckAIAvailabilityResponse,
     GetAllSpectralRulesetsRequest,
     GetAllSpectralRulesetsResponse,
-    GenerateTestsFromOpenAPIRequest,
-    GenerateTestsFromOpenAPIResponse,
 };

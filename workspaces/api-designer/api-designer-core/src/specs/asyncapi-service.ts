@@ -167,19 +167,8 @@ export class AsyncAPIService extends SpecificationService {
         return '.yaml';
     }
 
-    canGenerateMockServer(): boolean {
-        return true;
-    }
-
-    canGenerateTests(): boolean {
-        return true;
-    }
-
     getSupportedFeatures(): SpecFeature[] {
         return [
-            SpecFeature.MOCK_SERVER,
-            SpecFeature.TEST_GENERATION,
-            SpecFeature.DOC_GENERATION,
             SpecFeature.AI_GENERATION,
             SpecFeature.VALIDATION,
             SpecFeature.GOVERNANCE
@@ -243,55 +232,5 @@ export class AsyncAPIService extends SpecificationService {
         return 'AsyncAPI';
     }
 
-    // ============================================================================
-    // Mock Server-specific methods
-    // ============================================================================
-
-    getSupportedMockTools(): string[] {
-        // Support Mokapi and AI-generated mock server for AsyncAPI
-        // Mokapi is a simple standalone mock server with visual dashboard
-        // AI-generated server works standalone without additional services
-        return ['MOKAPI', 'AI_GENERATED_JS'];
-    }
-
-    getDefaultMockTool(): string {
-        // Default to Mokapi - simple standalone mock server with visual dashboard
-        return 'MOKAPI';
-    }
-
-    getMockServerDefaults(): { port: number; host: string } {
-        return { port: 3000, host: 'localhost' };
-    }
-
-    // ============================================================================
-    // Test Generation-specific methods
-    // ============================================================================
-
-    generateTests(
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        _spec: ApiSpecification,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        _options?: {
-            includeExamples?: boolean;
-            includeErrorCases?: boolean;
-            operationIds?: string[];
-        }
-    ): unknown[] {
-        // AsyncAPI test generation not yet implemented
-        // Will generate tests for channels/operations
-        throw new Error('Test generation for AsyncAPI is not yet implemented');
-    }
-
-    // ============================================================================
-    // Documentation-specific methods
-    // ============================================================================
-
-    getDefaultDocsFolder(): string {
-        return 'docs';
-    }
-
-    canGenerateDocs(): boolean {
-        return true;
-    }
 }
 

@@ -29,7 +29,6 @@ import { logDebug, logError, logInfo, logWarning } from '../util/logger';
 import { validateAPISpec } from '../utils/validation-utils';
 import { SpecContentManager } from '../rpc-managers/api-designer-visualizer/managers/spec-content-manager';
 import { GovernanceManager } from '../rpc-managers/api-designer-visualizer/managers/governance-manager';
-import { ProjectManager } from '../rpc-managers/api-designer-visualizer/managers/project-manager';
 import { RPCLayer } from '../RPCLayer';
 import { 
     detectSpecType, 
@@ -72,7 +71,6 @@ export class ApiDesignerPanel {
     private _isProgrammaticDisposal: boolean = false;
     private _isDisposed: boolean = false;
     private readonly specContentManager = new SpecContentManager();
-    private readonly projectManager = new ProjectManager(this.specContentManager);
     private readonly governanceManager = new GovernanceManager();
     private _lastSavedContent: string | null = null;
     private _isSavingFromWebview: boolean = false;

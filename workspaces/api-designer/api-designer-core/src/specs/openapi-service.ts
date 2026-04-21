@@ -217,53 +217,5 @@ export class OpenAPIService extends SpecificationService {
         return 'OpenAPI';
     }
 
-    // ============================================================================
-    // Mock Server-specific methods
-    // ============================================================================
-
-    getSupportedMockTools(): string[] {
-        return ['PRISM', 'AI_GENERATED_JS'];
-    }
-
-    getDefaultMockTool(): string {
-        return 'PRISM';
-    }
-
-    getMockServerDefaults(): { port: number; host: string } {
-        return { port: 4010, host: '0.0.0.0' };
-    }
-
-    // ============================================================================
-    // Test Generation-specific methods
-    // ============================================================================
-
-    generateTests(
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        _spec: ApiSpecification,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        _options?: {
-            includeExamples?: boolean;
-            includeErrorCases?: boolean;
-            operationIds?: string[];
-        }
-    ): unknown[] {
-        // Delegate to TestGenerator in extension
-        // This method signature is defined here for interface compliance
-        // Actual implementation will be in the extension's TestGenerator class
-        // which will call the OpenAPI-specific logic
-        throw new Error('generateTests should be called through TestGenerator.generateFromSpec in the extension');
-    }
-
-    // ============================================================================
-    // Documentation-specific methods
-    // ============================================================================
-
-    getDefaultDocsFolder(): string {
-        return 'docs';
-    }
-
-    canGenerateDocs(): boolean {
-        return true;
-    }
 }
 

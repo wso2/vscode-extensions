@@ -41,7 +41,7 @@ class CategoryNode extends vscode.TreeItem {
     
     constructor(
         public readonly label: string,
-        public readonly category: 'create' | 'design' | 'analyze' | 'mock' | 'test' | 'document' | 'manage',
+        public readonly category: 'create' | 'design' | 'analyze',
         public readonly fileUri: vscode.Uri
     ) {
         super(label, vscode.TreeItemCollapsibleState.None);
@@ -57,11 +57,7 @@ class CategoryNode extends vscode.TreeItem {
         const viewTypeMap: Record<string, string> = {
             'create': 'create',
             'design': 'design',
-            'analyze': 'analyze',
-            'mock': 'mock',
-            'test': 'test',
-            'document': 'document',
-            'manage': 'manage'
+            'analyze': 'analyze'
         };
         
         const viewType = viewTypeMap[category] || 'design';
@@ -85,22 +81,14 @@ class CategoryNode extends vscode.TreeItem {
     private getCategoryIcon(category: string): vscode.ThemeIcon {
         const iconMap: Record<string, string> = {
             'design': 'wand',
-            'analyze': 'graph',
-            'mock': 'beaker',
-            'test': 'pass',
-            'document': 'book',
-            'manage': 'gear'
+            'analyze': 'graph'
         };
         return new vscode.ThemeIcon(iconMap[category] || 'folder');
     }
 
     private getCategoryIntent(category: string): string {
         const intentMap: Record<string, string> = {
-            'analyze': 'governance',
-            'mock': 'mocking',
-            'test': 'testing',
-            'document': 'documentation',
-            'manage': 'manage'
+            'analyze': 'governance'
         };
         return intentMap[category] || 'overview';
     }
@@ -217,11 +205,7 @@ class ApiProjectsTreeProvider implements vscode.TreeDataProvider<ApiProjectNode>
             if (!categories) {
                 categories = [
                     new CategoryNode('Design', 'design', element.uri),
-                    new CategoryNode('Analyze', 'analyze', element.uri),
-                    new CategoryNode('Mock', 'mock', element.uri),
-                    new CategoryNode('Test', 'test', element.uri),
-                    new CategoryNode('Document', 'document', element.uri),
-                    new CategoryNode('Manage', 'manage', element.uri)
+                    new CategoryNode('Analyze', 'analyze', element.uri)
                 ];
                 this.categoryNodesByFile.set(key, categories);
             }
@@ -273,7 +257,7 @@ function panelViewTypeToTreeCategory(viewType: string): TreeCategory | null {
     if (v === 'preview' || v === 'design') {
         return 'design';
     }
-    if (v === 'analyze' || v === 'mock' || v === 'test' || v === 'document' || v === 'manage') {
+    if (v === 'analyze') {
         return v;
     }
     return null;

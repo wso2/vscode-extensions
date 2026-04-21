@@ -19,6 +19,3 @@
 export * from "./common";
 export * from "./design";
 export * from "./analyze";
-export * from "./manage";
-export * from "./mock";
-export * from "./test";

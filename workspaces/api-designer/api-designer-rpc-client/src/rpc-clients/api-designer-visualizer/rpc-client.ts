@@ -33,28 +33,12 @@ import {
     Schema,
     GetGovernanceRequest,
     GetGovernanceResponse,
-    GenerateDeploymentArtifactRequest,
-    GenerateDeploymentArtifactResponse,
     ValidateAPISpecRequest,
     ValidateAPISpecResponse,
-    InitAPIProjectRequest,
-    InitAPIProjectResponse,
-    GetApiPlatformConfigRequest,
-    GetApiPlatformConfigResponse,
-    GetApiDefinitionRequest,
-    GetApiDefinitionResponse,
-    UpdateApiPlatformConfigRequest,
-    UpdateApiPlatformConfigResponse,
     FetchRulesetsFromFolderRequest,
     FetchRulesetsFromFolderResponse,
     GetApplicableRulesetsRequest,
     GetApplicableRulesetsResponse,
-    ReadDeploymentArtifactRequest,
-    ReadDeploymentArtifactResponse,
-    SaveProjectConfigRequest,
-    SaveProjectConfigResponse,
-    GetProjectDetailsRequest,
-    GetProjectDetailsResponse,
     ReadFileRequest,
     ReadFileResponse,
     WriteFileRequest,
@@ -66,17 +50,9 @@ import {
     CheckAIAvailabilityRequest,
     CheckAIAvailabilityResponse,
     getGovernance,
-    generateDeploymentArtifact,
     validateAPISpec,
-    initApiProject,
-    getApiPlatformConfig,
-    getApiDefinition,
-    updateApiPlatformConfig,
     fetchRulesetsFromFolder,
     getApplicableRulesets,
-    readDeploymentArtifact,
-    saveProjectConfig,
-    getProjectDetails,
     readFile,
     writeFile,
     deleteFile,
@@ -85,9 +61,6 @@ import {
     getAllSpectralRulesets,
     GetAllSpectralRulesetsRequest,
     GetAllSpectralRulesetsResponse,
-    generateTestsFromOpenAPI,
-    GenerateTestsFromOpenAPIRequest,
-    GenerateTestsFromOpenAPIResponse,
 } from "@wso2/api-designer-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -123,28 +96,8 @@ export class ApiDesignerVisualizerRpcClient implements APIDesignerVisualizerAPI 
         return this._messenger.sendRequest(getGovernance, HOST_EXTENSION, params);
     }
 
-    generateDeploymentArtifact(params: GenerateDeploymentArtifactRequest): Promise<GenerateDeploymentArtifactResponse> {
-        return this._messenger.sendRequest(generateDeploymentArtifact, HOST_EXTENSION, params);
-    }
-
     validateAPISpec(params: ValidateAPISpecRequest): Promise<ValidateAPISpecResponse> {
         return this._messenger.sendRequest(validateAPISpec, HOST_EXTENSION, params);
-    }
-
-    initApiProject(params: InitAPIProjectRequest): Promise<InitAPIProjectResponse> {
-        return this._messenger.sendRequest(initApiProject, HOST_EXTENSION, params);
-    }
-
-    getApiPlatformConfig(params: GetApiPlatformConfigRequest): Promise<GetApiPlatformConfigResponse> {
-        return this._messenger.sendRequest(getApiPlatformConfig, HOST_EXTENSION, params);
-    }
-
-    getApiDefinition(params: GetApiDefinitionRequest): Promise<GetApiDefinitionResponse> {
-        return this._messenger.sendRequest(getApiDefinition, HOST_EXTENSION, params);
-    }
-
-    updateApiPlatformConfig(params: UpdateApiPlatformConfigRequest): Promise<UpdateApiPlatformConfigResponse> {
-        return this._messenger.sendRequest(updateApiPlatformConfig, HOST_EXTENSION, params);
     }
 
     fetchRulesetsFromFolder(params: FetchRulesetsFromFolderRequest): Promise<FetchRulesetsFromFolderResponse> {
@@ -153,18 +106,6 @@ export class ApiDesignerVisualizerRpcClient implements APIDesignerVisualizerAPI 
 
     getApplicableRulesets(params: GetApplicableRulesetsRequest): Promise<GetApplicableRulesetsResponse> {
         return this._messenger.sendRequest(getApplicableRulesets, HOST_EXTENSION, params);
-    }
-
-    readDeploymentArtifact(params: ReadDeploymentArtifactRequest): Promise<ReadDeploymentArtifactResponse> {
-        return this._messenger.sendRequest(readDeploymentArtifact, HOST_EXTENSION, params);
-    }
-
-    saveProjectConfig(params: SaveProjectConfigRequest): Promise<SaveProjectConfigResponse> {
-        return this._messenger.sendRequest(saveProjectConfig, HOST_EXTENSION, params);
-    }
-
-    getProjectDetails(params: GetProjectDetailsRequest): Promise<GetProjectDetailsResponse> {
-        return this._messenger.sendRequest(getProjectDetails, HOST_EXTENSION, params);
     }
 
     readFile(params: ReadFileRequest): Promise<ReadFileResponse> {
@@ -191,7 +132,4 @@ export class ApiDesignerVisualizerRpcClient implements APIDesignerVisualizerAPI 
         return this._messenger.sendRequest(getAllSpectralRulesets, HOST_EXTENSION, params);
     }
 
-    generateTestsFromOpenAPI(params: GenerateTestsFromOpenAPIRequest): Promise<GenerateTestsFromOpenAPIResponse> {
-        return this._messenger.sendRequest(generateTestsFromOpenAPI, HOST_EXTENSION, params);
-    }
 }

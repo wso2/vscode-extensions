@@ -23,17 +23,9 @@ import {
     OpenViewRequest,
     WriteAPISpecContentRequest,
     GetGovernanceRequest,
-    GenerateDeploymentArtifactRequest,
     ValidateAPISpecRequest,
-    InitAPIProjectRequest,
-    GetApiPlatformConfigRequest,
-    GetApiDefinitionRequest,
-    UpdateApiPlatformConfigRequest,
     FetchRulesetsFromFolderRequest,
     GetApplicableRulesetsRequest,
-    ReadDeploymentArtifactRequest,
-    SaveProjectConfigRequest,
-    GetProjectDetailsRequest,
     GetWorkspaceFileTreeRequest,
     ReadFileRequest,
     WriteFileRequest,
@@ -46,17 +38,9 @@ import {
     openView,
     writeAPISpecContent,
     getGovernance,
-    generateDeploymentArtifact,
     validateAPISpec,
-    initApiProject,
-    getApiPlatformConfig,
-    getApiDefinition,
-    updateApiPlatformConfig,
     fetchRulesetsFromFolder,
     getApplicableRulesets,
-    readDeploymentArtifact,
-    saveProjectConfig,
-    getProjectDetails,
     getWorkspaceFileTree,
     readFile,
     writeFile,
@@ -74,14 +58,12 @@ const CONTEXT = 'RpcHandler';
 // Import managers
 import { SpecContentManager } from './managers/spec-content-manager';
 import { GovernanceManager } from './managers/governance-manager';
-import { ProjectManager } from './managers/project-manager';
 import { FileManager } from './managers/file-manager';
 import { AIRpcManager } from './managers/ai-manager';
 
 export function registerApiDesignerVisualizerRpcHandlers(messenger: Messenger) {
     // Create managers (with dependencies)
     const specContentManager = new SpecContentManager();
-    const projectManager = new ProjectManager(specContentManager);
     const governanceManager = new GovernanceManager();
     const fileManager = new FileManager();
     const aiManager = new AIRpcManager();
@@ -121,25 +103,6 @@ export function registerApiDesignerVisualizerRpcHandlers(messenger: Messenger) {
         governanceManager.validateAPISpec(args)
     );
     
-    // Deployment artifacts (moved from GovernanceManager to ProjectManager)
-    messenger.onRequest(generateDeploymentArtifact, (args: GenerateDeploymentArtifactRequest) => 
-        projectManager.generateDeploymentArtifact(args)
-    );
-    
-    // API Project management
-    messenger.onRequest(initApiProject, (args: InitAPIProjectRequest) => 
-        projectManager.initApiProject(args)
-    );
-    messenger.onRequest(getApiPlatformConfig, (args: GetApiPlatformConfigRequest) => 
-        projectManager.getApiPlatformConfig(args)
-    );
-    messenger.onRequest(getApiDefinition, (args: GetApiDefinitionRequest) => 
-        projectManager.getApiDefinition(args)
-    );
-    messenger.onRequest(updateApiPlatformConfig, (args: UpdateApiPlatformConfigRequest) => 
-        projectManager.updateApiPlatformConfig(args)
-    );
-    
     // Spectral rulesets (now part of GovernanceManager)
     messenger.onRequest(fetchRulesetsFromFolder, (args: FetchRulesetsFromFolderRequest) => 
         governanceManager.fetchRulesetsFromFolder(args)
@@ -149,19 +112,6 @@ export function registerApiDesignerVisualizerRpcHandlers(messenger: Messenger) {
     );
     messenger.onRequest(getAllSpectralRulesets, (args: GetAllSpectralRulesetsRequest) => 
         governanceManager.getAllSpectralRulesets(args)
-    );
-    
-    // Deployment artifacts (consolidated in ProjectManager)
-    messenger.onRequest(readDeploymentArtifact, (args: ReadDeploymentArtifactRequest) => 
-        projectManager.readDeploymentArtifact(args)
-    );
-    
-    // Project configuration (new unified methods)
-    messenger.onRequest(saveProjectConfig, (args: SaveProjectConfigRequest) => 
-        projectManager.saveProjectConfig(args)
-    );
-    messenger.onRequest(getProjectDetails, (args: GetProjectDetailsRequest) => 
-        projectManager.getProjectDetails(args)
     );
     
     // File operations (getWorkspaceFileTree now supports filtering)

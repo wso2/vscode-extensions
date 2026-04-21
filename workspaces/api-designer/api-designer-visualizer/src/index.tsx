@@ -27,10 +27,6 @@ import { CreateOpenAPIPanel } from "./views/CreateView/CreateOpenAPIPanel";
 
 // Import views directly instead of lazy loading to avoid initialization issues
 import { AnalyzeView } from "./views/AnalyzeView/AnalyzeView";
-import { MockView } from "./views/MockView/MockView";
-import { TestView } from "./views/TestView/TestView";
-import { DocumentView } from "./views/DocumentView/DocumentView";
-import { ManageView } from "./views/ManageView/ManageView";
 import { LoadingOverlay } from "./components/common/LoadingOverlay";
 
 // Loading component
@@ -123,12 +119,10 @@ function UnifiedWebview({
         return () => window.removeEventListener('message', messageHandler);
     }, []);
 
-    // Use the viewType directly - no automatic conversion
-    // All 7 views (create, design, analyze, mock, test, document, manage) are handled in this unified panel
     const effectiveViewType = viewType;
     
     // Views that require fileUri
-    const viewsRequiringFileUri = ['analyze', 'mock', 'test', 'document', 'manage', 'preview', 'design'];
+    const viewsRequiringFileUri = ['analyze', 'preview', 'design'];
     const requiresFileUri = viewsRequiringFileUri.includes(effectiveViewType);
     
     // For views that require fileUri, show loading state if fileUri is not available
@@ -157,46 +151,6 @@ function UnifiedWebview({
                 <ErrorBoundary errorMsg="An error occurred in the Analyze view">
                     <QueryClientProvider client={queryClient}>
                         <AnalyzeView fileUri={fileUri} />
-                    </QueryClientProvider>
-                </ErrorBoundary>
-            </VisualizerContextProvider>
-        );
-    } else if (effectiveViewType === 'mock') {
-        return (
-            <VisualizerContextProvider>
-                <ErrorBoundary errorMsg="An error occurred in the Mock view">
-                    <QueryClientProvider client={queryClient}>
-                        <MockView fileUri={fileUri} />
-                    </QueryClientProvider>
-                </ErrorBoundary>
-            </VisualizerContextProvider>
-        );
-    } else if (effectiveViewType === 'test') {
-        return (
-            <VisualizerContextProvider>
-                <ErrorBoundary errorMsg="An error occurred in the Test view">
-                    <QueryClientProvider client={queryClient}>
-                        <TestView fileUri={fileUri} />
-                    </QueryClientProvider>
-                </ErrorBoundary>
-            </VisualizerContextProvider>
-        );
-    } else if (effectiveViewType === 'document') {
-        return (
-            <VisualizerContextProvider>
-                <ErrorBoundary errorMsg="An error occurred in the Document view">
-                    <QueryClientProvider client={queryClient}>
-                        <DocumentView fileUri={fileUri} />
-                    </QueryClientProvider>
-                </ErrorBoundary>
-            </VisualizerContextProvider>
-        );
-    } else if (effectiveViewType === 'manage') {
-        return (
-            <VisualizerContextProvider>
-                <ErrorBoundary errorMsg="An error occurred in the Manage view">
-                    <QueryClientProvider client={queryClient}>
-                        <ManageView fileUri={fileUri} />
                     </QueryClientProvider>
                 </ErrorBoundary>
             </VisualizerContextProvider>

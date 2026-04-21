@@ -22,7 +22,6 @@ import { extension } from './APIDesignerExtensionContext';
 import { activate as activateHistory } from './history';
 import { activateVisualizer, updatePanelContent } from './visualizer/activate';
 import { RPCLayer } from './RPCLayer';
-import { manageSpectralRulesets, editRulesetConfiguration, addRulesetFolder } from './commands/manage-spectral-rulesets';
 import { initLogger, logInfo, disposeLogger } from './util/logger';
 import { ApiDesignerPanel } from './visualizer/api-designer-panel';
 import { initializeSpectralRulesetAutomation } from './spectral/rulesetAutomation';
@@ -98,13 +97,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		return openApiDesigner(uri, viewType);
 	});
 	context.subscriptions.push(openApiDesignerDisposable);
-
-	// Register spectral ruleset management commands
-	context.subscriptions.push(
-		vscode.commands.registerCommand('APIDesigner.manageSpectralRulesets', manageSpectralRulesets),
-		vscode.commands.registerCommand('APIDesigner.editRulesetConfiguration', editRulesetConfiguration),
-		vscode.commands.registerCommand('APIDesigner.addRulesetFolder', addRulesetFolder)
-	);
 
 	// Register custom agents management command
 	context.subscriptions.push(

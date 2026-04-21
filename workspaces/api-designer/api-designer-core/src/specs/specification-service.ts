@@ -22,9 +22,6 @@ import { ApiSpecType, ApiSpecification, SpecInfo, SpecParseResult, SpecValidatio
  * Supported features for a specification type
  */
 export enum SpecFeature {
-    MOCK_SERVER = 'mock-server',
-    TEST_GENERATION = 'test-generation',
-    DOC_GENERATION = 'doc-generation',
     AI_GENERATION = 'ai-generation',
     VALIDATION = 'validation',
     GOVERNANCE = 'governance'
@@ -134,50 +131,5 @@ export abstract class SpecificationService {
      */
     abstract getDefaultValidationRulesetName(): string;
 
-    // ============================================================================
-    // Mock Server-specific methods
-    // ============================================================================
-
-    /**
-     * Get list of supported mock server tools for this spec type
-     * Returns array of MockServerTool enum values
-     */
-    abstract getSupportedMockTools(): string[];
-
-    /**
-     * Get the default mock server tool for this spec type
-     */
-    abstract getDefaultMockTool(): string;
-
-    /**
-     * Get default mock server configuration for this spec type
-     */
-    abstract getMockServerDefaults(): { port: number; host: string };
-
-    // ============================================================================
-    // Test Generation-specific methods
-    // ============================================================================
-
-    /**
-     * Generate test requests from specification
-     * Returns array of test requests that can be executed
-     */
-    abstract generateTests(
-        spec: ApiSpecification,
-        options?: {
-            includeExamples?: boolean;
-            includeErrorCases?: boolean;
-            operationIds?: string[];
-        }
-    ): unknown[]; // Returns TestRequest[] - using unknown[] to avoid circular dependency
-
-    // ============================================================================
-    // Documentation-specific methods
-    // ============================================================================
-
-    /**
-     * Get default documentation folder name for this spec type
-     */
-    abstract getDefaultDocsFolder(): string;
 }
 

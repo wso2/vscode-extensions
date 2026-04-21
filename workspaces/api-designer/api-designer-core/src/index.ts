@@ -31,15 +31,8 @@ export {
     getAPISpecContent,
     writeAPISpecContent,
     validateAPISpec,
-    saveProjectConfig,
-    getProjectDetails,
-    initApiProject,
-    getApiPlatformConfig,
-    updateApiPlatformConfig,
-    getApiDefinition,
     fetchRulesetsFromFolder,
     getApplicableRulesets,
-    readDeploymentArtifact,
     readFile,
     writeFile,
     deleteFile,
@@ -47,15 +40,7 @@ export {
     checkAIAvailability,
     getAllSpectralRulesets,
     getGovernance,
-    generateDeploymentArtifact,
 } from "./rpc-types/api-designer-visualizer/rpc-type";
-export * from "./rpc-types/api-designer-visualizer/mock";
-export * from "./rpc-types/api-designer-visualizer/test";
-
-// Postman import/export
-export * from "./postman/postman-types";
-export { exportToPostman as exportToPostmanConverter } from "./postman/export-to-postman";
-export { importFromPostman as importFromPostmanConverter } from "./postman/import-from-postman";
 
 // ------ Copilot RPC types -------->
 export * from "./utils/ai-readiness";
@@ -76,16 +61,10 @@ export {
 export * from "./utils/ai-prompts";
 // Explicit exports for new prompt functions to ensure they're available
 export {
-    buildMockServerPrompt,
-    buildTestGenerationPrompt,
-    buildIntegrationTestPrompt,
     buildFixValidationIssuesPrompt,
     buildGenericEditPrompt
 } from "./utils/ai-prompts";
 export type {
-    MockServerContext,
-    TestGenerationContext,
-    TestCollectionContext,
     ValidationFixContext,
     GenericEditContext
 } from "./utils/ai-prompts";

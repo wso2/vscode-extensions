@@ -26,8 +26,6 @@ import { AIManager } from './ai/ai-manager';
 import { extension } from './APIDesignerExtensionContext';
 import path = require('path');
 import { registerApiDesignerVisualizerRpcHandlers } from './rpc-managers/api-designer-visualizer/rpc-handler';
-import { registerMockRpcHandlers } from './rpc-managers/api-designer-visualizer/mock-rpc-handlers';
-import { registerTestRpcHandlers } from './rpc-managers/api-designer-visualizer/test-rpc-handlers';
 
 export class RPCLayer {
     static _messenger: Messenger = new Messenger();
@@ -62,8 +60,6 @@ export class RPCLayer {
         // ----- Main Webview RPC Methods
         RPCLayer._messenger.onRequest(getVisualizerState, () => getContext());
         registerApiDesignerVisualizerRpcHandlers(RPCLayer._messenger);
-        registerMockRpcHandlers(RPCLayer._messenger);
-        registerTestRpcHandlers(RPCLayer._messenger);
 
         // ----- Popup Views RPC Methods
         RPCLayer._messenger.onRequest(getPopupVisualizerState, () => getPopupContext());
