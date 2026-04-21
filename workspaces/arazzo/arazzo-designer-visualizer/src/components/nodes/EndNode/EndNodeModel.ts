@@ -17,6 +17,7 @@
  */
 
 import { Node } from '@xyflow/react';
+import { StepTraceStatus } from '@wso2/arazzo-designer-core';
 import { BaseNodeModel, BaseNodeData } from '../BaseNode/BaseNodeModel';
 
 /**
@@ -24,7 +25,7 @@ import { BaseNodeModel, BaseNodeData } from '../BaseNode/BaseNodeModel';
  */
 export interface EndNodeData extends BaseNodeData {
     endType?: string;
-    // Add any end-specific data here
+    traceStatus?: StepTraceStatus;
 }
 
 /**

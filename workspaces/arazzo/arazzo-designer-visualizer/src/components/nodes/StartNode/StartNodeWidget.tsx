@@ -25,7 +25,7 @@ import * as C from '../../../constants/nodeConstants';
 import { StartNodeData } from './StartNodeModel';
 import { MODERN } from '../../../constants';
 
-const StartNodeContainer = styled.div<{ selected?: boolean }>`
+const StartNodeContainer = styled.div<{ selected?: boolean; tracePassed?: boolean }>`
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -37,7 +37,12 @@ const StartNodeContainer = styled.div<{ selected?: boolean }>`
     color: ${MODERN ? ThemeColors.ON_SURFACE : 'var(--vscode-editor-foreground)'};
     position: relative;
     box-shadow: ${MODERN ? '0 2px 6px rgba(0, 0, 0, 0.12)' : 'none'};
-    border: ${C.NODE_BORDER_WIDTH}px solid ${(props: { selected?: boolean }) => (props.selected ? (MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)') : (MODERN ? ThemeColors.OUTLINE_VARIANT : 'var(--vscode-editor-foreground)'))};
+    border: ${C.NODE_BORDER_WIDTH}px solid ${(props: { selected?: boolean; tracePassed?: boolean }) =>
+        props.tracePassed
+            ? (ThemeColors as any).TESTING_PASSED
+            : props.selected
+            ? (MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)')
+            : (MODERN ? ThemeColors.OUTLINE_VARIANT : 'var(--vscode-editor-foreground)')};
     transition: all 0.15s ease;
 
     &:hover {
@@ -81,6 +86,7 @@ const StyledHandle = styled(Handle)`
  * StartNodeWidget - React component for start nodes
  */
 export const StartNodeWidget: React.FC<NodeProps<StartNodeData>> = ({ data, isConnectable, selected }) => {
+    const tracePassed = data.traceStatus?.state === 'passed';
     return (
         <StartNodeRoot>
             <StyledHandle
@@ -97,7 +103,7 @@ export const StartNodeWidget: React.FC<NodeProps<StartNodeData>> = ({ data, isCo
                 isConnectable={isConnectable}
             />
 
-            <StartNodeContainer selected={selected}>
+            <StartNodeContainer selected={selected} tracePassed={tracePassed}>
                 <StartNodeLabel>{data.label || 'Start'}</StartNodeLabel>
             </StartNodeContainer>
         </StartNodeRoot>

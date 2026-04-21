@@ -39,6 +39,8 @@ export enum DefaultColors {
     ERROR = "#ED2633",
 
     DEBUGGER_BREAKPOINT_BACKGROUND = "#ffcc004d",
+
+    TESTING_PASSED = "#4caf50",
 }
 
 export enum VSCodeColors {
@@ -73,7 +75,9 @@ export enum VSCodeColors {
 
     CHARTS_GREEN = "var(--vscode-charts-green)",
     CHARTS_RED = "var(--vscode-charts-red)",
-    CHARTS_BLUE = "var(--vscode-charts-blue)"
+    CHARTS_BLUE = "var(--vscode-charts-blue)",
+
+    TESTING_PASSED = "var(--vscode-testing-iconPassed, var(--vscode-debugIcon-breakpointForeground))",
 }
 
 export const ThemeColors = {
@@ -101,4 +105,6 @@ export const ThemeColors = {
     HIGHLIGHT: VSCodeColors.HIGHLIGHT,
 
     DEBUGGER_BREAKPOINT_BACKGROUND: DefaultColors.DEBUGGER_BREAKPOINT_BACKGROUND,
+
+    TESTING_PASSED: VSCodeColors.TESTING_PASSED || DefaultColors.TESTING_PASSED,
 };

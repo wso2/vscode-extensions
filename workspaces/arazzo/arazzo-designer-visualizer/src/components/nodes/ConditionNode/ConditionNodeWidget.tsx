@@ -26,7 +26,7 @@ import { ConditionNodeData } from './ConditionNodeModel';
 import * as C from '../../../constants/nodeConstants';
 import { MODERN } from '../../../constants';
 
-const ConditionNodeContainer = styled.div<{ selected?: boolean }>`
+const ConditionNodeContainer = styled.div<{ selected?: boolean; traceState?: string }>`
     width: ${DIAMOND_SIZE}px;
     height: ${DIAMOND_SIZE}px;
     box-sizing: border-box;
@@ -36,7 +36,12 @@ const ConditionNodeContainer = styled.div<{ selected?: boolean }>`
     justify-content: center;
     position: relative;
     background-color: ${MODERN ? ThemeColors.SURFACE_DIM : 'var(--vscode-editor-background)'};
-    border: ${C.NODE_BORDER_WIDTH}px solid ${(props: { selected?: boolean }) => (props.selected ? (MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)') : (MODERN ? ThemeColors.OUTLINE_VARIANT : 'var(--vscode-editor-foreground)'))};
+    border: ${C.NODE_BORDER_WIDTH}px solid ${(props: { selected?: boolean; traceState?: string }) => {
+        if (props.traceState === 'passed') return (ThemeColors as any).TESTING_PASSED;
+        if (props.traceState === 'failed') return ThemeColors.ERROR;
+        if (props.traceState === 'running') return ThemeColors.PRIMARY;
+        return props.selected ? (MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)') : (MODERN ? ThemeColors.OUTLINE_VARIANT : 'var(--vscode-editor-foreground)');
+    }};
     border-radius: ${C.CONDITION_NODE_BORDER_RADIUS}px; /* rounded ends for diamond */
     box-shadow: ${MODERN ? '0 2px 6px rgba(0,0,0,0.12)' : 'none'};
     transition: all 0.2s ease;
@@ -89,8 +94,9 @@ const StyledHandle = styled(Handle)`
 `;
 
 export const ConditionNodeWidget: React.FC<NodeProps<ConditionNodeData>> = ({ data, isConnectable, selected }) => {
+    const traceState = (data as any).traceStatus?.state;
     return (
-        <ConditionNodeContainer selected={selected}>
+        <ConditionNodeContainer selected={selected} traceState={traceState}>
             <ConditionNodeContent>
                 <BranchIcon />
             </ConditionNodeContent>

@@ -43,6 +43,7 @@ export namespace NodeStyles {
         isSelected?: boolean;
         alignLeft?: boolean;
         flash?: boolean;
+        traceState?: 'running' | 'passed' | 'failed';
     };
 
     const flashAnim = keyframes`
@@ -67,6 +68,10 @@ export namespace NodeStyles {
         border: ${(props: NodeStyleProp) => (props.disabled ? 2 : C.NODE_BORDER_WIDTH)}px;
         border-style: ${(props: NodeStyleProp) => (props.disabled ? 'dashed' : 'solid')};
         border-color: ${(props: NodeStyleProp) => {
+            // Trace state takes highest priority for border color
+            if (props.traceState === 'passed') return (ThemeColors as any).TESTING_PASSED;
+            if (props.traceState === 'failed') return ThemeColors.ERROR;
+            if (props.traceState === 'running') return ThemeColors.PRIMARY;
             if (!MODERN) {
                 return props.hasError ? 'var(--vscode-errorForeground)' : 'var(--vscode-editor-foreground)';
             }
@@ -179,6 +184,7 @@ export const BaseNodeWidget: React.FC<BaseNodeWidgetProps> = ({
             hasError={data.hasError}
             isSelected={selected}
             alignLeft={Boolean(leftAligned)}
+            traceState={(data as any).traceStatus?.state}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
         >

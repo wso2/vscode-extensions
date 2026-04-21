@@ -22,6 +22,7 @@ import { BaseNodeWidget, NodeStyles } from '../BaseNode/BaseNodeWidget';
 import { StepNodeData } from './StepNodeModel';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
+import { ThemeColors } from '@wso2/ui-toolkit';
 
 // ---- Trace status overlay styles ----
 
@@ -45,9 +46,9 @@ const TraceIndicator = styled.div<TraceIndicatorProps>`
     justify-content: center;
     z-index: 10;
     background-color: ${({ traceState }: TraceIndicatorProps) =>
-        traceState === 'running' ? '#1976d2'
-        : traceState === 'passed' ? '#2e7d32'
-        : '#d32f2f'};
+        traceState === 'running' ? ThemeColors.PRIMARY
+        : traceState === 'passed' ? (ThemeColors as any).TESTING_PASSED
+        : ThemeColors.ERROR};
     animation: ${({ traceState }: TraceIndicatorProps) => traceState === 'running' ? pulse : 'none'} 1s ease-in-out infinite;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 `;
