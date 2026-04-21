@@ -101,14 +101,14 @@ func (h *HTTPExecutor) ExecuteRequest(method, requestURL string, parameters map[
 	httpSpanID := telemetry.GenerateSpanID()
 	httpStart := time.Now()
 	h.Sink.Send(telemetry.TraceEvent{
-		Lifecycle:    telemetry.LifecycleStart,
-		TraceID:      traceID,
-		SpanID:       httpSpanID,
-		ParentSpanID: parentSpanID,
-		SpanName:     strings.ToUpper(method) + " " + requestURL,
-		SpanKind:     telemetry.SpanKindHTTP,
-		Timestamp:    httpStart,
-		Status:       telemetry.SpanStatusUnset,
+		Lifecycle:  telemetry.LifecycleStart,
+		Context:    telemetry.SpanContext{TraceID: traceID, SpanID: httpSpanID},
+		ParentID:   parentSpanID,
+		Name:       strings.ToUpper(method) + " " + requestURL,
+		Kind:       telemetry.OTelSpanKindClient,
+		ArazzoKind: telemetry.SpanKindHTTP,
+		StartTime:  httpStart,
+		StatusCode: telemetry.SpanStatusUnset,
 		Attributes: map[string]string{
 			"http.method": strings.ToUpper(method),
 			"http.url":    requestURL,
@@ -119,17 +119,19 @@ func (h *HTTPExecutor) ExecuteRequest(method, requestURL string, parameters map[
 	resp, err := h.Client.Do(req)
 	if err != nil {
 		dur := float64(time.Since(httpStart).Milliseconds())
+		httpErrEnd := time.Now()
 		h.Sink.Send(telemetry.TraceEvent{
-			Lifecycle:    telemetry.LifecycleEnd,
-			TraceID:      traceID,
-			SpanID:       httpSpanID,
-			ParentSpanID: parentSpanID,
-			SpanName:     strings.ToUpper(method) + " " + requestURL,
-			SpanKind:     telemetry.SpanKindHTTP,
-			Timestamp:    time.Now(),
-			DurationMs:   &dur,
-			Status:       telemetry.SpanStatusError,
-			ErrorMessage: err.Error(),
+			Lifecycle:     telemetry.LifecycleEnd,
+			Context:       telemetry.SpanContext{TraceID: traceID, SpanID: httpSpanID},
+			ParentID:      parentSpanID,
+			Name:          strings.ToUpper(method) + " " + requestURL,
+			Kind:          telemetry.OTelSpanKindClient,
+			ArazzoKind:    telemetry.SpanKindHTTP,
+			StartTime:     httpStart,
+			EndTime:       &httpErrEnd,
+			DurationMs:    &dur,
+			StatusCode:    telemetry.SpanStatusError,
+			StatusMessage: err.Error(),
 			Attributes: map[string]string{
 				"http.method": strings.ToUpper(method),
 				"http.url":    requestURL,
@@ -175,16 +177,18 @@ func (h *HTTPExecutor) ExecuteRequest(method, requestURL string, parameters map[
 	if resp.StatusCode >= 400 {
 		httpStatus = telemetry.SpanStatusError
 	}
+	httpEnd := time.Now()
 	h.Sink.Send(telemetry.TraceEvent{
-		Lifecycle:    telemetry.LifecycleEnd,
-		TraceID:      traceID,
-		SpanID:       httpSpanID,
-		ParentSpanID: parentSpanID,
-		SpanName:     strings.ToUpper(method) + " " + requestURL,
-		SpanKind:     telemetry.SpanKindHTTP,
-		Timestamp:    time.Now(),
-		DurationMs:   &dur,
-		Status:       httpStatus,
+		Lifecycle:  telemetry.LifecycleEnd,
+		Context:    telemetry.SpanContext{TraceID: traceID, SpanID: httpSpanID},
+		ParentID:   parentSpanID,
+		Name:       strings.ToUpper(method) + " " + requestURL,
+		Kind:       telemetry.OTelSpanKindClient,
+		ArazzoKind: telemetry.SpanKindHTTP,
+		StartTime:  httpStart,
+		EndTime:    &httpEnd,
+		DurationMs: &dur,
+		StatusCode: httpStatus,
 		Attributes: map[string]string{
 			"http.method":      strings.ToUpper(method),
 			"http.url":         requestURL,

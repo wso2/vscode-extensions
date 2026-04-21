@@ -106,7 +106,7 @@ func (s *HTTPSink) post(event TraceEvent) {
 	resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		log.Printf("[telemetry] Tracer server returned %d for span %s", resp.StatusCode, event.SpanID)
+		log.Printf("[telemetry] Tracer server returned %d for span %s", resp.StatusCode, event.Context.SpanID)
 	}
 }
 

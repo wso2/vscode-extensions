@@ -61,14 +61,14 @@ func (se *StepExecutor) ExecuteStep(step map[string]interface{}, workflow map[st
 	stepSpanID := telemetry.GenerateSpanID()
 	stepStart := time.Now()
 	se.Sink.Send(telemetry.TraceEvent{
-		Lifecycle:    telemetry.LifecycleStart,
-		TraceID:      state.TraceID,
-		SpanID:       stepSpanID,
-		ParentSpanID: state.WorkflowSpanID,
-		SpanName:     stepID,
-		SpanKind:     telemetry.SpanKindStep,
-		Timestamp:    stepStart,
-		Status:       telemetry.SpanStatusUnset,
+		Lifecycle:  telemetry.LifecycleStart,
+		Context:    telemetry.SpanContext{TraceID: state.TraceID, SpanID: stepSpanID},
+		ParentID:   state.WorkflowSpanID,
+		Name:       stepID,
+		Kind:       telemetry.OTelSpanKindInternal,
+		ArazzoKind: telemetry.SpanKindStep,
+		StartTime:  stepStart,
+		StatusCode: telemetry.SpanStatusUnset,
 		Attributes: map[string]string{
 			"step.id":     stepID,
 			"workflow.id": state.WorkflowID,
@@ -91,18 +91,20 @@ func (se *StepExecutor) ExecuteStep(step map[string]interface{}, workflow map[st
 		if result.StatusCode > 0 {
 			attrs["http.status_code"] = fmt.Sprintf("%d", result.StatusCode)
 		}
+		stepEnd := time.Now()
 		se.Sink.Send(telemetry.TraceEvent{
-			Lifecycle:    telemetry.LifecycleEnd,
-			TraceID:      state.TraceID,
-			SpanID:       stepSpanID,
-			ParentSpanID: state.WorkflowSpanID,
-			SpanName:     stepID,
-			SpanKind:     telemetry.SpanKindStep,
-			Timestamp:    time.Now(),
-			DurationMs:   &dur,
-			Status:       status,
-			ErrorMessage: errMsg,
-			Attributes:   attrs,
+			Lifecycle:     telemetry.LifecycleEnd,
+			Context:       telemetry.SpanContext{TraceID: state.TraceID, SpanID: stepSpanID},
+			ParentID:      state.WorkflowSpanID,
+			Name:          stepID,
+			Kind:          telemetry.OTelSpanKindInternal,
+			ArazzoKind:    telemetry.SpanKindStep,
+			StartTime:     stepStart,
+			EndTime:       &stepEnd,
+			DurationMs:    &dur,
+			StatusCode:    status,
+			StatusMessage: errMsg,
+			Attributes:    attrs,
 		})
 		return result
 	}

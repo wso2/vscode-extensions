@@ -183,9 +183,9 @@ export class TracerServer {
 
     private logEvent(event: TraceEvent): void {
         const dir = event.lifecycle === 'start' ? '▶' : '■';
-        const dur = event.durationMs !== undefined ? ` (${event.durationMs}ms)` : '';
-        const status = event.lifecycle === 'end' ? ` [${event.status}]` : '';
-        this.log(`${dir} ${event.spanKind}:${event.spanName}${status}${dur}`);
+        const dur = event.duration_ms !== undefined ? ` (${event.duration_ms}ms)` : '';
+        const status = event.lifecycle === 'end' ? ` [${event.status_code}]` : '';
+        this.log(`${dir} ${event.arazzo_span_kind}:${event.name}${status}${dur}`);
     }
 
     private log(msg: string): void {

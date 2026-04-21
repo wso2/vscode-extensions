@@ -125,17 +125,21 @@ export const onParentPopupSubmitted: NotificationType<ParentPopupData> = { metho
 // ------------> Trace Event Types <-----------
 /** Trace event forwarded from the tracer server to the webview. */
 export interface WebviewTraceEvent {
-    lifecycle: 'start' | 'end';
-    traceId: string;
-    spanId: string;
-    parentSpanId?: string;
-    spanName: string;
-    spanKind: 'workflow' | 'step' | 'http';
-    timestamp: string;
-    durationMs?: number;
-    status: 'unset' | 'ok' | 'error';
-    errorMessage?: string;
+    // OTel standard fields
+    name: string;
+    context: { trace_id: string; span_id: string };
+    parent_id?: string;
+    kind: 'SPAN_KIND_INTERNAL' | 'SPAN_KIND_CLIENT';
+    start_time: string;
+    end_time?: string;
+    status_code: 'STATUS_CODE_UNSET' | 'STATUS_CODE_OK' | 'STATUS_CODE_ERROR';
+    status_message?: string;
     attributes: Record<string, string>;
+    // Custom streaming extension
+    lifecycle: 'start' | 'end';
+    // Custom Arazzo span classification
+    arazzo_span_kind: 'workflow' | 'step' | 'http';
+    duration_ms?: number;
 }
 
 /** Per-step trace status used by the workflow view UI. */

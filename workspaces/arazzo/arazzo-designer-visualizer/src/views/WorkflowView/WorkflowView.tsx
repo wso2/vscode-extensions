@@ -17,6 +17,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { Global, css } from "@emotion/react";
 import { useVisualizerContext } from "@wso2/arazzo-designer-rpc-client";
 import { ArazzoDefinition, ArazzoWorkflow, EVENT_TYPE, MACHINE_VIEW, MachineStateValue, WebviewTraceEvent, StepTraceStatus } from "@wso2/arazzo-designer-core";
 import {
@@ -163,16 +164,24 @@ export function WorkflowView(props: WorkflowViewProps) {
 
     // Listen for trace events and update step node overlays
     rpcClient?.onTraceEvent((event: WebviewTraceEvent) => {
-        if (event.spanKind === 'workflow' && event.lifecycle === 'start') {
-            // New workflow run started — clear all trace statuses
+        if (event.arazzo_span_kind === 'workflow' && event.lifecycle === 'start') {
+            // New workflow run started — clear all trace statuses on nodes and edges
             setNodes(prev => prev.map(node => {
-                if (node.type === 'stepNode') {
+                if (node.type === 'stepNode' || node.type === 'conditionNode' || node.type === 'endNode') {
                     return { ...node, data: { ...node.data, traceStatus: undefined } };
+                }
+                if (node.type === 'startNode') {
+                    return { ...node, data: { ...node.data, traceStatus: { state: 'passed' } } };
                 }
                 return node;
             }));
-        } else if (event.spanKind === 'step') {
-            const stepId = event.attributes?.['step.id'] || event.spanName;
+            setEdges(prev => prev.map(edge => ({
+                ...edge,
+                zIndex: 0,
+                data: { ...edge.data, traceHighlight: undefined },
+            })));
+        } else if (event.arazzo_span_kind === 'step') {
+            const stepId = event.attributes?.['step.id'] || event.name;
             if (event.lifecycle === 'start') {
                 setNodes(prev => prev.map(node => {
                     if (node.id === stepId && node.type === 'stepNode') {
@@ -182,14 +191,92 @@ export function WorkflowView(props: WorkflowViewProps) {
                     return node;
                 }));
             } else if (event.lifecycle === 'end') {
-                const state = event.status === 'ok' ? 'passed' : 'failed';
-                setNodes(prev => prev.map(node => {
-                    if (node.id === stepId && node.type === 'stepNode') {
-                        const traceStatus: StepTraceStatus = { state, durationMs: event.durationMs };
-                        return { ...node, data: { ...node.data, traceStatus } };
-                    }
-                    return node;
-                }));
+                const state = event.status_code === 'STATUS_CODE_OK' ? 'passed' : 'failed';
+                const highlight = state; // 'passed' | 'failed'
+
+                // 1. Update the step node's border
+                setNodes(prev => {
+                    const updated = prev.map(node => {
+                        if (node.id === stepId && node.type === 'stepNode') {
+                            const traceStatus: StepTraceStatus = { state, durationMs: event.duration_ms };
+                            return { ...node, data: { ...node.data, traceStatus } };
+                        }
+                        return node;
+                    });
+
+                    // 2. Highlight edges whose TARGET is this stepId (or an intermediate condition node)
+                    //    Walk backwards from the completed step through condition nodes to find connecting edges.
+                    setEdges(prevEdges => {
+                        const newEdges = [...prevEdges];
+                        // Find all edges that directly target this step node
+                        const edgesToStep = newEdges.filter(e => e.target === stepId);
+                        for (const edge of edgesToStep) {
+                            edge.data = { ...edge.data, traceHighlight: highlight };
+                            edge.zIndex = 10;
+                        }
+
+                        // Walk backwards through condition nodes:
+                        // If edge source is a condition node, highlight it and its incoming edges
+                        const conditionNodeIds = new Set(
+                            updated.filter(n => n.type === 'conditionNode').map(n => n.id)
+                        );
+
+                        const visited = new Set<string>();
+                        const queue = edgesToStep.map(e => e.source).filter(id => conditionNodeIds.has(id));
+
+                        while (queue.length > 0) {
+                            const condId = queue.shift()!;
+                            if (visited.has(condId)) continue;
+                            visited.add(condId);
+
+                            // Highlight this condition node's border
+                            const condIdx = updated.findIndex(n => n.id === condId);
+                            if (condIdx >= 0) {
+                                updated[condIdx] = {
+                                    ...updated[condIdx],
+                                    data: { ...updated[condIdx].data, traceStatus: { state } },
+                                };
+                            }
+
+                            // Find edges targeting this condition node and highlight them
+                            const edgesToCond = newEdges.filter(e => e.target === condId);
+                            for (const edge of edgesToCond) {
+                                edge.data = { ...edge.data, traceHighlight: highlight };
+                                edge.zIndex = 10;
+                                // If this edge's source is also a condition node, continue walking
+                                if (conditionNodeIds.has(edge.source) && !visited.has(edge.source)) {
+                                    queue.push(edge.source);
+                                }
+                            }
+                        }
+
+                        // 3. If the completed step connects to an endNode, highlight that edge too.
+                        //    This lights up the final arrow into the END bubble when the path terminates.
+                        if (highlight === 'passed') {
+                            const endNodes = updated.filter(n => n.type === 'endNode');
+                            const endNodeIds = new Set(endNodes.map(n => n.id));
+                            const edgesToEnd = newEdges.filter(
+                                e => e.source === stepId && endNodeIds.has(e.target)
+                            );
+                            for (const edge of edgesToEnd) {
+                                edge.data = { ...edge.data, traceHighlight: 'passed' };
+                                edge.zIndex = 10;
+                                // Mark the end node itself green
+                                const endIdx = updated.findIndex(n => n.id === edge.target);
+                                if (endIdx >= 0) {
+                                    updated[endIdx] = {
+                                        ...updated[endIdx],
+                                        data: { ...updated[endIdx].data, traceStatus: { state: 'passed' } },
+                                    };
+                                }
+                            }
+                        }
+
+                        return newEdges;
+                    });
+
+                    return updated;
+                });
             }
         }
     });
@@ -352,6 +439,11 @@ export function WorkflowView(props: WorkflowViewProps) {
     }
 
     return (
+        <>
+        {/* Ensure edge labels always render above highlighted (z-index≥1) SVG edges */}
+        <Global styles={css`
+            .react-flow__edgelabel-renderer { z-index: 1000 !important; }
+        `} />
         <div
             ref={reactFlowWrapper}
             style={{
@@ -457,5 +549,6 @@ export function WorkflowView(props: WorkflowViewProps) {
                 </SidePanelBody>
             </SidePanel>
         </div>
+        </>
     );
 }

@@ -18,22 +18,36 @@
 /**
  * Mirrors the Go telemetry.TraceEvent struct. The Go runner POSTs these
  * JSON events to the tracer server during workflow execution.
+ *
+ * Field names follow the OpenTelemetry span standard:
+ * https://opentelemetry.io/docs/concepts/signals/traces/
+ * Custom extensions: `lifecycle` (streaming) and `arazzo_span_kind` (routing).
  */
 
 export type SpanKind = 'workflow' | 'step' | 'http';
+export type OTelSpanKind = 'SPAN_KIND_INTERNAL' | 'SPAN_KIND_CLIENT';
 export type Lifecycle = 'start' | 'end';
-export type SpanStatus = 'unset' | 'ok' | 'error';
+export type SpanStatus = 'STATUS_CODE_UNSET' | 'STATUS_CODE_OK' | 'STATUS_CODE_ERROR';
+
+export interface SpanContext {
+    trace_id: string;
+    span_id: string;
+}
 
 export interface TraceEvent {
-    lifecycle: Lifecycle;
-    traceId: string;
-    spanId: string;
-    parentSpanId?: string;
-    spanName: string;
-    spanKind: SpanKind;
-    timestamp: string;          // ISO-8601
-    durationMs?: number;
-    status: SpanStatus;
-    errorMessage?: string;
+    // OTel standard fields
+    name: string;
+    context: SpanContext;
+    parent_id?: string;
+    kind: OTelSpanKind;
+    start_time: string;         // ISO-8601
+    end_time?: string;          // ISO-8601
+    status_code: SpanStatus;
+    status_message?: string;
     attributes: Record<string, string>;
+    // Custom streaming extension
+    lifecycle: Lifecycle;
+    // Custom Arazzo span classification
+    arazzo_span_kind: SpanKind;
+    duration_ms?: number;
 }

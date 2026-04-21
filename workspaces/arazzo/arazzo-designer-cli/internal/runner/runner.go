@@ -174,13 +174,13 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 	workflowSpanID := telemetry.GenerateSpanID()
 	workflowStart := time.Now()
 	r.Sink.Send(telemetry.TraceEvent{
-		Lifecycle: telemetry.LifecycleStart,
-		TraceID:   traceID,
-		SpanID:    workflowSpanID,
-		SpanName:  workflowID,
-		SpanKind:  telemetry.SpanKindWorkflow,
-		Timestamp: workflowStart,
-		Status:    telemetry.SpanStatusUnset,
+		Lifecycle:  telemetry.LifecycleStart,
+		Context:    telemetry.SpanContext{TraceID: traceID, SpanID: workflowSpanID},
+		Name:       workflowID,
+		Kind:       telemetry.OTelSpanKindInternal,
+		ArazzoKind: telemetry.SpanKindWorkflow,
+		StartTime:  workflowStart,
+		StatusCode: telemetry.SpanStatusUnset,
 		Attributes: map[string]string{
 			"workflow.id": workflowID,
 		},
@@ -189,16 +189,18 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 	// Helper to emit workflow end span
 	endWorkflow := func(status telemetry.SpanStatus, errMsg string) {
 		dur := float64(time.Since(workflowStart).Milliseconds())
+		workflowEnd := time.Now()
 		ev := telemetry.TraceEvent{
-			Lifecycle:    telemetry.LifecycleEnd,
-			TraceID:      traceID,
-			SpanID:       workflowSpanID,
-			SpanName:     workflowID,
-			SpanKind:     telemetry.SpanKindWorkflow,
-			Timestamp:    time.Now(),
-			DurationMs:   &dur,
-			Status:       status,
-			ErrorMessage: errMsg,
+			Lifecycle:     telemetry.LifecycleEnd,
+			Context:       telemetry.SpanContext{TraceID: traceID, SpanID: workflowSpanID},
+			Name:          workflowID,
+			Kind:          telemetry.OTelSpanKindInternal,
+			ArazzoKind:    telemetry.SpanKindWorkflow,
+			StartTime:     workflowStart,
+			EndTime:       &workflowEnd,
+			DurationMs:    &dur,
+			StatusCode:    status,
+			StatusMessage: errMsg,
 			Attributes: map[string]string{
 				"workflow.id": workflowID,
 			},
