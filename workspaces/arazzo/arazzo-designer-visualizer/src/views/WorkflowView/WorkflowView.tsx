@@ -337,7 +337,9 @@ export function WorkflowView(props: WorkflowViewProps) {
                                 }
                             }
 
-                            // Inject a visible portal → target edge for each portal on the path
+                            // Inject a visible portal → target edge for each portal on the path.
+                            // Styled as a dashed line (same as the on-hover preview edge) so it is
+                            // visually distinct from regular flow edges.
                             for (const { portalId, targetId } of path.portalLinks) {
                                 const injectedId = `trace_portal_${portalId}_${targetId}`;
                                 if (!newEdges.some(e => e.id === injectedId)) {
@@ -351,7 +353,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                                         sourceHandle: 'h-top',
                                         targetHandle: 'goto-top-target',
                                         type: 'smoothstep',
-                                        style: { stroke: color, strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' as const },
+                                        style: { stroke: color, strokeDasharray: '4 4', strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' as const },
                                         markerEnd: { type: MarkerType.ArrowClosed, color },
                                         zIndex: 10,
                                         data: { traceHighlight: highlight },
