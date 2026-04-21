@@ -24,7 +24,7 @@
  * Custom extensions: `lifecycle` (streaming) and `arazzo_span_kind` (routing).
  */
 
-export type SpanKind = 'workflow' | 'step' | 'http';
+export type SpanKind = 'workflow' | 'step' | 'http' | 'retry';
 export type OTelSpanKind = 'SPAN_KIND_INTERNAL' | 'SPAN_KIND_CLIENT';
 export type Lifecycle = 'start' | 'end';
 export type SpanStatus = 'STATUS_CODE_UNSET' | 'STATUS_CODE_OK' | 'STATUS_CODE_ERROR';

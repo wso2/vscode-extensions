@@ -138,7 +138,7 @@ export interface WebviewTraceEvent {
     // Custom streaming extension
     lifecycle: 'start' | 'end';
     // Custom Arazzo span classification
-    arazzo_span_kind: 'workflow' | 'step' | 'http';
+    arazzo_span_kind: 'workflow' | 'step' | 'http' | 'retry';
     duration_ms?: number;
 }
 
