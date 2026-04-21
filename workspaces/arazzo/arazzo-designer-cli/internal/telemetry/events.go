@@ -20,6 +20,7 @@ const (
 	SpanKindWorkflow SpanKind = "workflow"
 	SpanKindStep     SpanKind = "step"
 	SpanKindHTTP     SpanKind = "http"
+	SpanKindRetry    SpanKind = "retry"
 )
 
 // OTelSpanKind is the standard OpenTelemetry span kind value.

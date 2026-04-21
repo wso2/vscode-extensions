@@ -7,6 +7,7 @@ package runner
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -334,6 +335,21 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 				if retryCount[key] < result.NextAction.RetryLimit {
 					retryCount[key]++
 					log.Printf("Retrying step %s (attempt %d/%d)", stepID, retryCount[key], result.NextAction.RetryLimit)
+					r.Sink.Send(telemetry.TraceEvent{
+						Lifecycle:  telemetry.LifecycleStart,
+						Context:    telemetry.SpanContext{TraceID: traceID, SpanID: telemetry.GenerateSpanID()},
+						ParentID:   workflowSpanID,
+						Name:       stepID,
+						Kind:       telemetry.OTelSpanKindInternal,
+						ArazzoKind: telemetry.SpanKindRetry,
+						StartTime:  time.Now(),
+						StatusCode: telemetry.SpanStatusUnset,
+						Attributes: map[string]string{
+							"step.id":       stepID,
+							"retry.attempt": strconv.Itoa(retryCount[key]),
+							"retry.limit":   strconv.Itoa(result.NextAction.RetryLimit),
+						},
+					})
 					if result.NextAction.RetryAfter > 0 {
 						time.Sleep(time.Duration(result.NextAction.RetryAfter*1000) * time.Millisecond)
 					}
