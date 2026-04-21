@@ -17,6 +17,7 @@
  */
 
 // export * from "./rpc";
+export * from "./constants/default-spectral-rulesets";
 export * from "./state-machine-types";
 export * from "./vscode";
 // ------ History class and interface -------->
@@ -25,3 +26,138 @@ export * from "./history";
 export * from "./rpc-types/api-designer-visualizer/index";
 export * from "./rpc-types/api-designer-visualizer/rpc-type";
 export * from "./rpc-types/api-designer-visualizer/types";
+// Explicit exports for RPC method names
+export {
+    getAPISpecContent,
+    writeAPISpecContent,
+    validateAPISpec,
+    saveProjectConfig,
+    getProjectDetails,
+    initApiProject,
+    getApiPlatformConfig,
+    updateApiPlatformConfig,
+    getApiDefinition,
+    fetchRulesetsFromFolder,
+    getApplicableRulesets,
+    readDeploymentArtifact,
+    readFile,
+    writeFile,
+    deleteFile,
+    getWorkspaceFileTree,
+    checkAIAvailability,
+    getAllSpectralRulesets,
+    getGovernance,
+    generateDeploymentArtifact,
+} from "./rpc-types/api-designer-visualizer/rpc-type";
+export * from "./rpc-types/api-designer-visualizer/mock";
+export * from "./rpc-types/api-designer-visualizer/test";
+
+// Postman import/export
+export * from "./postman/postman-types";
+export { exportToPostman as exportToPostmanConverter } from "./postman/export-to-postman";
+export { importFromPostman as importFromPostmanConverter } from "./postman/import-from-postman";
+
+// ------ Copilot RPC types -------->
+export * from "./utils/ai-readiness";
+export * from "./utils/yaml-utils";
+// Export error handling utilities with explicit exports to avoid conflicts
+export {
+    APIDesignerError,
+    FileOperationError,
+    APIDesignerValidationError,
+    RPCError,
+    getErrorMessage,
+    getErrorCode,
+    isAPIDesignerError,
+    withErrorHandling
+} from "./utils/error-handling";
+
+// ------ AI Prompts -------->
+export * from "./utils/ai-prompts";
+// Explicit exports for new prompt functions to ensure they're available
+export {
+    buildMockServerPrompt,
+    buildTestGenerationPrompt,
+    buildIntegrationTestPrompt,
+    buildFixValidationIssuesPrompt,
+    buildGenericEditPrompt
+} from "./utils/ai-prompts";
+export type {
+    MockServerContext,
+    TestGenerationContext,
+    TestCollectionContext,
+    ValidationFixContext,
+    GenericEditContext
+} from "./utils/ai-prompts";
+
+// ------ Core Utilities -------->
+export * from "./utils/spec-type-utils";
+export * from "./utils/spec-helpers";
+
+// ------ API Specification Support (OpenAPI & AsyncAPI) -------->
+export * from "./specs/constants";
+export * from "./specs/detector";
+export * from "./specs/specification-service";
+export * from "./specs/openapi-service";
+export * from "./specs/asyncapi-service";
+export * from "./specs/specification-factory";
+export * from "./specs/specification-service";
+// Explicit exports for commonly used functions and types
+export { detectSpecType, detectSpecTypeFromPath } from "./specs/detector";
+export { ApiSpecType } from "./specs/constants";
+// Export types with explicit re-exports to avoid conflicts
+export type {
+    ApiSpecification,
+    SpecInfo,
+    SpecParseResult,
+    SpecValidationResult,
+    SpecComparisonResult,
+    SpecDifference
+} from "./specs/types";
+export type {
+    Info,
+    Contact,
+    License,
+    Server,
+    ServerVariable,
+    Schema,
+    ReferenceObject,
+    SecurityScheme,
+    OAuthFlows,
+    OAuthFlow,
+    SpecMetadata
+} from "./specs/common-types";
+export type {
+    OpenAPISpec,
+    Paths,
+    PathItem,
+    Operation as OpenAPIOperation,
+    Parameter as OpenAPIParameter,
+    RequestBody,
+    Responses,
+    Response,
+    MediaType,
+    Example,
+    Header,
+    Link,
+    EncodingProperty,
+    Components,
+    Callback,
+    SecurityRequirement,
+    Tag as OpenAPITag,
+    ExternalDocumentation as OpenAPIExternalDocumentation
+} from "./specs/openapi-types";
+export type {
+    AsyncAPISpec,
+    Channels,
+    ChannelItem,
+    Operation as AsyncAPIOperation,
+    Message,
+    MessageTrait,
+    OperationTrait,
+    Parameter as AsyncAPIParameter,
+    CorrelationId,
+    AsyncAPIComponents,
+    Tag as AsyncAPITag,
+    ExternalDocumentation as AsyncAPIExternalDocumentation
+} from "./specs/asyncapi-types";

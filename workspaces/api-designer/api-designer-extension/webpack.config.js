@@ -41,7 +41,10 @@ const extensionConfig = {
     vscode: 'commonjs vscode'
   },
   resolve: {
-    extensions: ['.ts', '.js']
+    extensions: ['.ts', '.js'],
+    extensionAlias: {
+      '.js': ['.js', '.ts']
+    }
   },
   module: {
     rules: [
@@ -53,6 +56,10 @@ const extensionConfig = {
             loader: 'ts-loader'
           }
         ]
+      },
+      {
+        test: /\.node$/,
+        loader: 'node-loader'
       }
     ]
   },
@@ -61,4 +68,5 @@ const extensionConfig = {
     level: "log",
   },
 };
+
 module.exports = [ extensionConfig ];

@@ -19,24 +19,75 @@
  */
 import {
     APIDesignerVisualizerAPI,
-    GetOpenAPIContentRequest,
-    GetOpenAPIContentResponse,
+    GetAPISpecContentRequest,
+    GetAPISpecContentResponse,
     GoToSourceRequest,
-    HistoryEntry,
-    HistoryEntryResponse,
     OpenViewRequest,
-    WriteOpenAPIContentRequest,
-    WriteOpenAPIContentResponse,
-    addToHistory,
-    getHistory,
-    getOpenApiContent,
-    goBack,
-    goHome,
+    WriteAPISpecContentRequest,
+    WriteAPISpecContentResponse,
+    getAPISpecContent,
     goToSource,
     importJSON,
     openView,
-    writeOpenApiContent,
-    Schema
+    writeAPISpecContent,
+    Schema,
+    GetGovernanceRequest,
+    GetGovernanceResponse,
+    GenerateDeploymentArtifactRequest,
+    GenerateDeploymentArtifactResponse,
+    ValidateAPISpecRequest,
+    ValidateAPISpecResponse,
+    InitAPIProjectRequest,
+    InitAPIProjectResponse,
+    GetApiPlatformConfigRequest,
+    GetApiPlatformConfigResponse,
+    GetApiDefinitionRequest,
+    GetApiDefinitionResponse,
+    UpdateApiPlatformConfigRequest,
+    UpdateApiPlatformConfigResponse,
+    FetchRulesetsFromFolderRequest,
+    FetchRulesetsFromFolderResponse,
+    GetApplicableRulesetsRequest,
+    GetApplicableRulesetsResponse,
+    ReadDeploymentArtifactRequest,
+    ReadDeploymentArtifactResponse,
+    SaveProjectConfigRequest,
+    SaveProjectConfigResponse,
+    GetProjectDetailsRequest,
+    GetProjectDetailsResponse,
+    ReadFileRequest,
+    ReadFileResponse,
+    WriteFileRequest,
+    WriteFileResponse,
+    DeleteFileRequest,
+    DeleteFileResponse,
+    GetWorkspaceFileTreeRequest,
+    GetWorkspaceFileTreeResponse,
+    CheckAIAvailabilityRequest,
+    CheckAIAvailabilityResponse,
+    getGovernance,
+    generateDeploymentArtifact,
+    validateAPISpec,
+    initApiProject,
+    getApiPlatformConfig,
+    getApiDefinition,
+    updateApiPlatformConfig,
+    fetchRulesetsFromFolder,
+    getApplicableRulesets,
+    readDeploymentArtifact,
+    saveProjectConfig,
+    getProjectDetails,
+    readFile,
+    writeFile,
+    deleteFile,
+    getWorkspaceFileTree,
+    checkAIAvailability,
+    getAllSpectralRulesets,
+    GetAllSpectralRulesetsRequest,
+    GetAllSpectralRulesetsResponse,
+    generateTestsFromOpenAPI,
+    GenerateTestsFromOpenAPIRequest,
+    GenerateTestsFromOpenAPIResponse,
 } from "@wso2/api-designer-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -52,35 +103,95 @@ export class ApiDesignerVisualizerRpcClient implements APIDesignerVisualizerAPI 
         return this._messenger.sendNotification(openView, HOST_EXTENSION, params);
     }
 
-    goBack(): void {
-        return this._messenger.sendNotification(goBack, HOST_EXTENSION);
-    }
-
-    getHistory(): Promise<HistoryEntryResponse> {
-        return this._messenger.sendRequest(getHistory, HOST_EXTENSION);
-    }
-
-    addToHistory(params: HistoryEntry): void {
-        return this._messenger.sendNotification(addToHistory, HOST_EXTENSION, params);
-    }
-
-    goHome(): void {
-        return this._messenger.sendNotification(goHome, HOST_EXTENSION);
-    }
-
     goToSource(params: GoToSourceRequest): void {
         return this._messenger.sendNotification(goToSource, HOST_EXTENSION, params);
     }
 
-    getOpenApiContent(params: GetOpenAPIContentRequest): Promise<GetOpenAPIContentResponse> {
-        return this._messenger.sendRequest(getOpenApiContent, HOST_EXTENSION, params);
+    getAPISpecContent(params: GetAPISpecContentRequest): Promise<GetAPISpecContentResponse> {
+        return this._messenger.sendRequest(getAPISpecContent, HOST_EXTENSION, params);
     }
 
-    writeOpenApiContent(params: WriteOpenAPIContentRequest): Promise<WriteOpenAPIContentResponse> {
-        return this._messenger.sendRequest(writeOpenApiContent, HOST_EXTENSION, params);
+    writeAPISpecContent(params: WriteAPISpecContentRequest): Promise<WriteAPISpecContentResponse> {
+        return this._messenger.sendRequest(writeAPISpecContent, HOST_EXTENSION, params);
     }
 
     importJSON(): Promise<Schema | undefined> {
         return this._messenger.sendRequest(importJSON, HOST_EXTENSION);
+    }
+
+    getGovernance(params: GetGovernanceRequest): Promise<GetGovernanceResponse> {
+        return this._messenger.sendRequest(getGovernance, HOST_EXTENSION, params);
+    }
+
+    generateDeploymentArtifact(params: GenerateDeploymentArtifactRequest): Promise<GenerateDeploymentArtifactResponse> {
+        return this._messenger.sendRequest(generateDeploymentArtifact, HOST_EXTENSION, params);
+    }
+
+    validateAPISpec(params: ValidateAPISpecRequest): Promise<ValidateAPISpecResponse> {
+        return this._messenger.sendRequest(validateAPISpec, HOST_EXTENSION, params);
+    }
+
+    initApiProject(params: InitAPIProjectRequest): Promise<InitAPIProjectResponse> {
+        return this._messenger.sendRequest(initApiProject, HOST_EXTENSION, params);
+    }
+
+    getApiPlatformConfig(params: GetApiPlatformConfigRequest): Promise<GetApiPlatformConfigResponse> {
+        return this._messenger.sendRequest(getApiPlatformConfig, HOST_EXTENSION, params);
+    }
+
+    getApiDefinition(params: GetApiDefinitionRequest): Promise<GetApiDefinitionResponse> {
+        return this._messenger.sendRequest(getApiDefinition, HOST_EXTENSION, params);
+    }
+
+    updateApiPlatformConfig(params: UpdateApiPlatformConfigRequest): Promise<UpdateApiPlatformConfigResponse> {
+        return this._messenger.sendRequest(updateApiPlatformConfig, HOST_EXTENSION, params);
+    }
+
+    fetchRulesetsFromFolder(params: FetchRulesetsFromFolderRequest): Promise<FetchRulesetsFromFolderResponse> {
+        return this._messenger.sendRequest(fetchRulesetsFromFolder, HOST_EXTENSION, params);
+    }
+
+    getApplicableRulesets(params: GetApplicableRulesetsRequest): Promise<GetApplicableRulesetsResponse> {
+        return this._messenger.sendRequest(getApplicableRulesets, HOST_EXTENSION, params);
+    }
+
+    readDeploymentArtifact(params: ReadDeploymentArtifactRequest): Promise<ReadDeploymentArtifactResponse> {
+        return this._messenger.sendRequest(readDeploymentArtifact, HOST_EXTENSION, params);
+    }
+
+    saveProjectConfig(params: SaveProjectConfigRequest): Promise<SaveProjectConfigResponse> {
+        return this._messenger.sendRequest(saveProjectConfig, HOST_EXTENSION, params);
+    }
+
+    getProjectDetails(params: GetProjectDetailsRequest): Promise<GetProjectDetailsResponse> {
+        return this._messenger.sendRequest(getProjectDetails, HOST_EXTENSION, params);
+    }
+
+    readFile(params: ReadFileRequest): Promise<ReadFileResponse> {
+        return this._messenger.sendRequest(readFile, HOST_EXTENSION, params);
+    }
+
+    writeFile(params: WriteFileRequest): Promise<WriteFileResponse> {
+        return this._messenger.sendRequest(writeFile, HOST_EXTENSION, params);
+    }
+
+    deleteFile(params: DeleteFileRequest): Promise<DeleteFileResponse> {
+        return this._messenger.sendRequest(deleteFile, HOST_EXTENSION, params);
+    }
+
+    getWorkspaceFileTree(params: GetWorkspaceFileTreeRequest): Promise<GetWorkspaceFileTreeResponse> {
+        return this._messenger.sendRequest(getWorkspaceFileTree, HOST_EXTENSION, params);
+    }
+
+    checkAIAvailability(params: CheckAIAvailabilityRequest): Promise<CheckAIAvailabilityResponse> {
+        return this._messenger.sendRequest(checkAIAvailability, HOST_EXTENSION, params);
+    }
+
+    getAllSpectralRulesets(params: GetAllSpectralRulesetsRequest): Promise<GetAllSpectralRulesetsResponse> {
+        return this._messenger.sendRequest(getAllSpectralRulesets, HOST_EXTENSION, params);
+    }
+
+    generateTestsFromOpenAPI(params: GenerateTestsFromOpenAPIRequest): Promise<GenerateTestsFromOpenAPIResponse> {
+        return this._messenger.sendRequest(generateTestsFromOpenAPI, HOST_EXTENSION, params);
     }
 }

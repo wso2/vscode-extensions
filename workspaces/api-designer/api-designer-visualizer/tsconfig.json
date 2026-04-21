@@ -7,8 +7,6 @@
     "module": "ESNext",
     "skipLibCheck": true,
     "outDir": "./lib",
-    "rootDir": "./src",
-
 
     "moduleResolution": "node",
     "resolveJsonModule": true,

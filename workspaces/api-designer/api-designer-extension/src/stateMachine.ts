@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { createMachine, assign, interpret } from 'xstate';
 import * as vscode from 'vscode';
-import { Uri, ViewColumn } from 'vscode';
+import { ViewColumn } from 'vscode';
 import { extension } from './APIDesignerExtensionContext';
 import {
     EVENT_TYPE,
@@ -14,11 +14,7 @@ import {
 import { VisualizerWebview } from './visualizer/webview';
 import { RPCLayer } from './RPCLayer';
 import { history } from './history/activator';
-import { COMMANDS } from './constants';
-import { activateProjectExplorer } from './project-explorer/activate';
 import { StateMachinePopup } from './stateMachinePopup';
-import { fileURLToPath } from 'url';
-import path = require('path');
 
 interface MachineContext extends VisualizerLocation {
     error?: any | null;
@@ -153,15 +149,25 @@ const stateMachine = createMachine<MachineContext>({
         openWebPanel: (context, event) => {
             // Get context values from the project storage so that we can restore the earlier state when user reopens vscode
             return new Promise((resolve, reject) => {
+                // Set up a timeout to prevent indefinite hanging
+                const timeout = setTimeout(() => {
+                    reject(new Error('Webview initialization timed out'));
+                }, 10000); // 10 second timeout
+                
+                const handleWebviewReady = () => {
+                    clearTimeout(timeout);
+                    resolve(true);
+                };
+                
                 if (!VisualizerWebview.currentPanel) {
                     VisualizerWebview.currentPanel = new VisualizerWebview(extension.webviewReveal);
-                    RPCLayer._messenger.onNotification(webviewReady, () => {
-                        resolve(true);
-                    });
+                    RPCLayer._messenger.onNotification(webviewReady, handleWebviewReady);
                 } else {
+                    // When reusing existing panel, also listen for webviewReady
+                    // The webview will send this notification when it reloads
+                    RPCLayer._messenger.onNotification(webviewReady, handleWebviewReady);
                     VisualizerWebview.currentPanel!.getWebview()?.reveal(ViewColumn.Active);
                     vscode.commands.executeCommand('setContext', 'isViewOpenAPI', true);
-                    resolve(true);
                 }
             });
         },

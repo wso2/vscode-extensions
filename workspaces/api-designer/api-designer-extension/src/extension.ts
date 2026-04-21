@@ -17,122 +17,147 @@
  */
 
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
 import { StateMachine } from './stateMachine';
 import { extension } from './APIDesignerExtensionContext';
 import { activate as activateHistory } from './history';
-import { activateVisualizer } from './visualizer/activate';
+import { activateVisualizer, updatePanelContent } from './visualizer/activate';
 import { RPCLayer } from './RPCLayer';
+import { manageSpectralRulesets, editRulesetConfiguration, addRulesetFolder } from './commands/manage-spectral-rulesets';
+import { initLogger, logInfo, disposeLogger } from './util/logger';
+import { ApiDesignerPanel } from './visualizer/api-designer-panel';
+import { initializeSpectralRulesetAutomation } from './spectral/rulesetAutomation';
+import { checkAndInstallCustomAgents, reinstallCustomAgents } from './util/customAgentsInstaller';
+import { registerApiProjects, syncApiDesignerTreeSelection } from './activity-bar/api-projects';
+import { registerMCPTools } from './tools/mcp-tools';
+import { detectSpecType, ApiSpecType } from '@wso2/api-designer-core';
 
 export async function activate(context: vscode.ExtensionContext) {
+	// Initialize logger first
+	initLogger();
+	logInfo('API Designer extension activating...');
+	
 	extension.context = context;
 
+	// Install custom agents to user profile (first-time or on update)
+	await checkAndInstallCustomAgents(context);
+
 	// Initial check for the active document
-	checkDocumentForOpenAPI(vscode.window.activeTextEditor?.document);
+	checkDocumentForApiSpec(vscode.window.activeTextEditor?.document);
 
 	// Add event listeners for document changes and focus
 	context.subscriptions.push(
-		vscode.workspace.onDidChangeTextDocument(event => checkDocumentForOpenAPI(event.document)),
-		vscode.window.onDidChangeActiveTextEditor(editor => checkDocumentForOpenAPI(editor?.document))
+		vscode.workspace.onDidChangeTextDocument(event => checkDocumentForApiSpec(event.document)),
+		vscode.window.onDidChangeActiveTextEditor(editor => {
+			checkDocumentForApiSpec(editor?.document);
+		})
 	);
 
 	RPCLayer.init();
 	activateHistory();
 	activateVisualizer(context);
 	StateMachine.initialize();
-
-	// Register the createOpenAPIFile command
-	let disposable = vscode.commands.registerCommand('APIDesigner.createOpenAPIFile', createOpenAPIFile);
-	context.subscriptions.push(disposable);
+	initializeSpectralRulesetAutomation(context);
+	
+	// Register new activity bar sections
+	registerApiProjects(context);
+	
+	// Register MCP tools for Language Model API
+	registerMCPTools(context);
+	
+	// Register command to open the Create OpenAPI panel - now uses unified panel
+	let createOpenAPIPanelDisposable = vscode.commands.registerCommand('api-designer.createOpenAPIFromPanel', () => {
+		// Use the unified panel with 'create' viewType
+		vscode.commands.executeCommand('APIDesigner.openApiDesigner', undefined, 'create');
+	});
+	context.subscriptions.push(createOpenAPIPanelDisposable);
 
 	// Register the showCode command
 	let showCodeDisposable = vscode.commands.registerCommand('APIDesigner.showCode', showCode);
 	context.subscriptions.push(showCodeDisposable);
+
+	// Register the openApiDesigner command with argument normalization
+	// VS Code may pass arguments from TreeItem commands in unexpected formats
+	let openApiDesignerDisposable = vscode.commands.registerCommand('APIDesigner.openApiDesigner', (...args: any[]) => {
+		let uri: vscode.Uri | undefined;
+		let viewType: string | undefined;
+		
+		if (args.length === 0) {
+			return openApiDesigner(undefined, undefined);
+		} else if (args.length === 1) {
+			if (args[0] instanceof vscode.Uri) {
+				uri = args[0];
+			} else if (Array.isArray(args[0]) && args[0].length > 0) {
+				uri = args[0][0] instanceof vscode.Uri ? args[0][0] : undefined;
+				viewType = typeof args[0][1] === 'string' ? args[0][1] : undefined;
+			}
+		} else {
+			uri = args[0] instanceof vscode.Uri ? args[0] : undefined;
+			viewType = typeof args[1] === 'string' ? args[1] : undefined;
+		}
+		
+		return openApiDesigner(uri, viewType);
+	});
+	context.subscriptions.push(openApiDesignerDisposable);
+
+	// Register spectral ruleset management commands
+	context.subscriptions.push(
+		vscode.commands.registerCommand('APIDesigner.manageSpectralRulesets', manageSpectralRulesets),
+		vscode.commands.registerCommand('APIDesigner.editRulesetConfiguration', editRulesetConfiguration),
+		vscode.commands.registerCommand('APIDesigner.addRulesetFolder', addRulesetFolder)
+	);
+
+	// Register custom agents management command
+	context.subscriptions.push(
+		vscode.commands.registerCommand('APIDesigner.reinstallCustomAgents', () => reinstallCustomAgents(context))
+	);
+
+	// Register API Preview commands
+	context.subscriptions.push(
+		vscode.commands.registerCommand('api-designer.openApiPreview', async (uri: vscode.Uri) => {
+			if (uri) {
+				await vscode.commands.executeCommand('APIDesigner.openApiDesigner', uri);
+			}
+		})
+	);
+
 }
 
-
-function checkDocumentForOpenAPI(document?: vscode.TextDocument) {
+function checkDocumentForApiSpec(document?: vscode.TextDocument) {
 	if (!document) {
 		vscode.commands.executeCommand('setContext', 'isFileOpenAPI', undefined);
 		return;
 	}
 
-	// Check if the document is a webview or not a YAML file
-	if (document.uri.scheme === 'webview' ||
-		!(document.languageId === 'yaml' || document.fileName.endsWith('.yaml') || document.fileName.endsWith('.yml'))) {
+	// Check if the document is a webview
+	if (document.uri.scheme === 'webview') {
 		vscode.commands.executeCommand('setContext', 'isFileOpenAPI', undefined);
 		return;
 	}
 
-	// At this point, we know it's a YAML file
-	const firstFewLines = document.getText(new vscode.Range(0, 0, 10, 0));
-	const isOpenAPI = /\bopenapi\s*:/i.test(firstFewLines);
-	vscode.commands.executeCommand('setContext', 'isFileOpenAPI', isOpenAPI);
+	// Check if it's an API spec file (OpenAPI or AsyncAPI) by detecting spec type
+	const content = document.getText();
+	const detection = detectSpecType(content);
+	const isApiSpec = detection.type === ApiSpecType.OPENAPI || detection.type === ApiSpecType.ASYNCAPI;
+	vscode.commands.executeCommand('setContext', 'isFileOpenAPI', isApiSpec);
 }
 
-
-
-async function createOpenAPIFile() {
-	const workspaceFolders = vscode.workspace.workspaceFolders;
-	if (!workspaceFolders) {
-		vscode.window.showErrorMessage('No workspace folder open');
-		return;
+/**
+ * Check if the current editor is an API spec file (OpenAPI or AsyncAPI)
+ */
+function isApiSpecificationFile(document?: vscode.TextDocument): boolean {
+	if (!document) {
+		return false;
 	}
 
-	// Ask for the file name
-	const fileName = await vscode.window.showInputBox({
-		prompt: 'Enter the name for your OpenAPI file',
-		placeHolder: 'api.yaml'
-	});
-
-	if (!fileName) {
-		return; // User cancelled the input
+	// Skip webview documents
+	if (document.uri.scheme === 'webview') {
+		return false;
 	}
 
-	// Ask for the file location
-	const fileLocation = await vscode.window.showOpenDialog({
-		canSelectFiles: false,
-		canSelectFolders: true,
-		canSelectMany: false,
-		openLabel: 'Select folder',
-		defaultUri: workspaceFolders[0].uri
-	});
-
-	if (!fileLocation || fileLocation.length === 0) {
-		return; // User cancelled the folder selection
-	}
-
-	const filePath = path.join(fileLocation[0].fsPath, fileName);
-
-	const initialContent = `openapi: 3.0.0
-info:
-  title: Sample API
-  description: A sample API to demonstrate OpenAPI
-  version: 1.0.0
-paths:
-  /hello:
-    get:
-      summary: Returns a greeting
-      responses:
-        '200':
-          description: A JSON object containing a greeting
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-`;
-
-	try {
-		fs.writeFileSync(filePath, initialContent, 'utf8');
-		const openedDocument = await vscode.workspace.openTextDocument(filePath);
-		await vscode.window.showTextDocument(openedDocument);
-	} catch (error) {
-		vscode.window.showErrorMessage(`Error creating OpenAPI file: ${error}`);
-	}
+	// Use the core detection utility to check content
+	const content = document.getText();
+	const detection = detectSpecType(content);
+	return detection.type === ApiSpecType.OPENAPI || detection.type === ApiSpecType.ASYNCAPI;
 }
 
 async function showCode() {
@@ -140,4 +165,102 @@ async function showCode() {
 	if (documentUri) {
 		await vscode.workspace.openTextDocument(documentUri).then(doc => vscode.window.showTextDocument(doc));
 	}
+}
+
+async function openApiDesigner(uri?: vscode.Uri, viewType?: string) {
+	// Handle 'create' view - no file needed
+	if (viewType === 'create') {
+		const currentPanel = ApiDesignerPanel.currentPanel;
+		
+		// If there's already a panel, just switch to create view
+		if (currentPanel && !currentPanel.isDisposed()) {
+			const panel = currentPanel.getWebview();
+			if (panel) {
+				panel.reveal();
+			}
+			currentPanel.updateViewType('create');
+			return;
+		}
+		
+		// Create new panel for create view (no filePath needed)
+		if (!ApiDesignerPanel.currentPanel) {
+			ApiDesignerPanel.currentPanel = new ApiDesignerPanel(undefined, undefined, 'create');
+		}
+		return;
+	}
+	
+	// For other views, we need a file
+	let document: vscode.TextDocument;
+	
+	// If URI is provided, open that document
+	if (uri) {
+		try {
+			document = await vscode.workspace.openTextDocument(uri);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to open file: ${error}`);
+			return;
+		}
+	} else {
+		// Otherwise, use the active editor
+		const activeEditor = vscode.window.activeTextEditor;
+		if (!activeEditor) {
+			vscode.window.showWarningMessage('No active editor found');
+			return;
+		}
+		document = activeEditor.document;
+	}
+
+	if (!isApiSpecificationFile(document)) {
+		vscode.window.showWarningMessage('The current file is not an API specification (OpenAPI or AsyncAPI)');
+		return;
+	}
+
+	const filePath = document.fileName;
+	
+	// Reset the closed status so the preview will show even if user previously closed it
+	ApiDesignerPanel.resetClosedStatus(filePath);
+	
+	const currentPanel = ApiDesignerPanel.currentPanel;
+	const currentFilePath = currentPanel?.getCurrentFilePath();
+	const isSameFile = currentPanel && !currentPanel.isDisposed() && currentFilePath === filePath;
+	
+	// If there's already a preview for this file, just update it
+	if (isSameFile) {
+		const panel = currentPanel.getWebview();
+		if (panel) {
+			panel.reveal();
+		}
+		updatePanelContent(document);
+		
+		// Update view type if it changed
+		if (viewType && currentPanel.getViewType() !== viewType) {
+			currentPanel.updateViewType(viewType);
+		}
+
+		void syncApiDesignerTreeSelection(vscode.Uri.file(filePath), currentPanel.getViewType());
+		return;
+	}
+	
+	// If there's an existing preview for a different file (or create view), close it
+	if (currentPanel && currentFilePath !== filePath) {
+		currentPanel.dispose();
+	}
+	
+	// Clean up disposed panel references
+	if (currentPanel && currentPanel.isDisposed()) {
+		ApiDesignerPanel.currentPanel = undefined;
+	}
+	
+	// Create new panel - only pass viewType if it was explicitly provided
+	if (!ApiDesignerPanel.currentPanel) {
+		ApiDesignerPanel.currentPanel = viewType 
+			? new ApiDesignerPanel(filePath, undefined, viewType)
+			: new ApiDesignerPanel(filePath);
+		updatePanelContent(document);
+	}
+}
+
+export function deactivate() {
+	logInfo('API Designer extension deactivating...');
+	disposeLogger();
 }

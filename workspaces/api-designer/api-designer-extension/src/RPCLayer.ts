@@ -22,11 +22,16 @@ import { StateMachine } from './stateMachine';
 import { stateChanged, getVisualizerState, VisualizerLocation, getPopupVisualizerState, PopupVisualizerLocation, popupStateChanged, selectQuickPickItem, WebviewQuickPickItem, selectQuickPickItems, showConfirmMessage, showInputBox, showInfoNotification, showErrorNotification } from '@wso2/api-designer-core';
 import { VisualizerWebview } from './visualizer/webview';
 import { StateMachinePopup } from './stateMachinePopup';
+import { AIManager } from './ai/ai-manager';
+import { extension } from './APIDesignerExtensionContext';
 import path = require('path');
 import { registerApiDesignerVisualizerRpcHandlers } from './rpc-managers/api-designer-visualizer/rpc-handler';
+import { registerMockRpcHandlers } from './rpc-managers/api-designer-visualizer/mock-rpc-handlers';
+import { registerTestRpcHandlers } from './rpc-managers/api-designer-visualizer/test-rpc-handlers';
 
 export class RPCLayer {
     static _messenger: Messenger = new Messenger();
+    static _aiManager: AIManager;
 
     constructor(webViewPanel: WebviewPanel | WebviewView) {
         if (isWebviewPanel(webViewPanel)) {
@@ -48,9 +53,17 @@ export class RPCLayer {
     }
 
     static init() {
+        // Initialize AI Manager (supports Copilot, Claude, OpenAI, etc.)
+        RPCLayer._aiManager = AIManager.getInstance(
+            RPCLayer._messenger,
+            extension.context
+        );
+
         // ----- Main Webview RPC Methods
         RPCLayer._messenger.onRequest(getVisualizerState, () => getContext());
         registerApiDesignerVisualizerRpcHandlers(RPCLayer._messenger);
+        registerMockRpcHandlers(RPCLayer._messenger);
+        registerTestRpcHandlers(RPCLayer._messenger);
 
         // ----- Popup Views RPC Methods
         RPCLayer._messenger.onRequest(getPopupVisualizerState, () => getPopupContext());
@@ -75,15 +88,41 @@ export class RPCLayer {
         RPCLayer._messenger.onNotification(showErrorNotification,  (message) => {
             window.showErrorMessage(message);
         });
+
+        // ----- AI Generation RPC Method (supports multiple AI providers)
+        const generateWithAIMethod = { method: 'ai/generateWithAI' };
+        RPCLayer._messenger.onRequest(generateWithAIMethod, async (params: any) => {
+            return await RPCLayer._aiManager.generateWithAI(
+                params.context,
+                params.prompt
+            );
+        });
     }
 
 }
 
+
 async function getContext(): Promise<VisualizerLocation> {
     const context = StateMachine.context();
+    // If state machine doesn't have documentUri, try to get it from ApiDesignerPanel
+    let documentUri = context.documentUri;
+    if (!documentUri) {
+        try {
+            const { ApiDesignerPanel } = await import('./visualizer/api-designer-panel');
+            const currentPanel = ApiDesignerPanel.getCurrentPanel();
+            if (currentPanel) {
+                const currentFilePath = currentPanel.getCurrentFilePath();
+                if (currentFilePath) {
+                    documentUri = currentFilePath;
+                }
+            }
+        } catch (error) {
+            // Ignore import errors
+        }
+    }
     return new Promise((resolve) => {
         resolve({
-            documentUri: context.documentUri,
+            documentUri: documentUri,
             view: context.view,
             identifier: context.identifier,
             projectUri: context.projectUri

@@ -26,14 +26,18 @@ import { RPCLayer } from '../RPCLayer';
 import { extension } from '../APIDesignerExtensionContext';
 import { debounce } from 'lodash';
 import { navigate, StateMachine } from '../stateMachine';
-import { MACHINE_VIEW } from '@wso2/api-designer-core';
-import { COMMANDS } from '../constants';
+import { onFileChanged, onDocumentFileChanged } from '@wso2/api-designer-core';
+import { logDebug } from '../util/logger';
 
 export class VisualizerWebview {
     public static currentPanel: VisualizerWebview | undefined;
     public static readonly viewType = 'api-designer.visualizer';
     private _panel: vscode.WebviewPanel | undefined;
     private _disposables: vscode.Disposable[] = [];
+    private _docsWatcher: vscode.FileSystemWatcher | undefined;
+    // Track which document files are being saved from webview to prevent circular updates
+    private _savingFromWebview: Map<string, boolean> = new Map();
+    private _changeDebounceTimers: Map<string, NodeJS.Timeout> = new Map();
 
     constructor(beside: boolean = false) {
         this._panel = VisualizerWebview.createWebview(beside);
@@ -43,7 +47,7 @@ export class VisualizerWebview {
 
         const sendUpdateNotificationToWebview = debounce(() => {
             if (this._panel) {
-                console.log('Sending update notification to webview');
+                logDebug('Sending update notification to webview');
             }
         }, 500);
 
@@ -54,17 +58,84 @@ export class VisualizerWebview {
             }
         }, 500);
 
-        vscode.workspace.onDidChangeTextDocument(async function (document) {
-            if (VisualizerWebview.currentPanel?.getWebview()?.active) {
-                await document.document.save();
-                refreshDiagram();
+        // Handle text document changes - for both OpenAPI files and document files
+        vscode.workspace.onDidChangeTextDocument(async (event) => {
+            const document = event.document;
+            const filePath = document.uri.fsPath;
+            const isDocumentFile = /\.(md|txt)$/i.test(filePath);
+            const isInDocsFolder = filePath.includes('/docs/') || filePath.includes('\\docs\\');
+            
+            // Handle document files (markdown, html, txt) in docs folder
+            if (isDocumentFile && isInDocsFolder) {
+                // Skip if this change came from the webview to prevent circular updates
+                if (VisualizerWebview.currentPanel?.isSavingFromWebview(filePath)) {
+                    return;
+                }
+                
+                // Debounce change notifications to avoid rapid updates during typing
+                const existingTimer = VisualizerWebview.currentPanel?._changeDebounceTimers.get(filePath);
+                if (existingTimer) {
+                    clearTimeout(existingTimer);
+                }
+                
+                const timer = setTimeout(() => {
+                    logDebug(`Document file changed (user edit): ${filePath}`);
+                    // Get current document content for real-time updates
+                    const currentContent = document.getText();
+                    RPCLayer._messenger.sendNotification(
+                        onDocumentFileChanged,
+                        { type: 'webview', webviewType: VisualizerWebview.viewType },
+                        { filePath, changeType: 'modified', timestamp: Date.now(), content: currentContent } as any
+                    );
+                    VisualizerWebview.currentPanel?._changeDebounceTimers.delete(filePath);
+                }, 500);
+                
+                VisualizerWebview.currentPanel?._changeDebounceTimers.set(filePath, timer);
+            } else {
+                // Handle OpenAPI files - original behavior
+                if (VisualizerWebview.currentPanel?.getWebview()?.active) {
+                    await document.save();
+                    refreshDiagram();
+                }
             }
-        }, extension.context);
+        }, null, extension.context.subscriptions);
 
         vscode.workspace.onDidSaveTextDocument(async function (document) {
             const projectUri = StateMachine.context().projectUri!;
+            
+            // Notify webview that the file has changed
+            if (document.uri.fsPath === projectUri) {
+                RPCLayer._messenger.sendNotification(
+                    onFileChanged, 
+                    { type: 'webview', webviewType: VisualizerWebview.viewType }, 
+                    { filePath: document.uri.fsPath, timestamp: Date.now() }
+                );
+            }
+            
+            // Check if the saved file is a document file (md, html, txt) in a docs folder
+            const filePath = document.uri.fsPath;
+            const isDocumentFile = /\.(md|txt)$/i.test(filePath);
+            const isInDocsFolder = filePath.includes('/docs/') || filePath.includes('\\docs\\');
+            
+            // Skip if this save came from the webview to prevent circular updates
+            if (isDocumentFile && isInDocsFolder && VisualizerWebview.currentPanel?.isSavingFromWebview(filePath)) {
+                return;
+            }
+            
+            if (isDocumentFile && isInDocsFolder) {
+                logDebug(`Document file saved: ${filePath}`);
+                RPCLayer._messenger.sendNotification(
+                    onDocumentFileChanged,
+                    { type: 'webview', webviewType: VisualizerWebview.viewType },
+                    { filePath, changeType: 'modified', timestamp: Date.now() }
+                );
+            }
+            
             refreshDiagram();
         }, extension.context);
+
+        // Set up file watcher for docs folder
+        this.setupDocsWatcher();
 
         this._panel.onDidChangeViewState((e) => {
             // Enable the Run and Build Project, Open AI Panel commands when the webview is active
@@ -142,6 +213,7 @@ export class VisualizerWebview {
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
           <meta name="theme-color" content="#000000">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: http:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:; style-src 'self' 'unsafe-inline' https: http:; img-src 'self' data: blob: https: http:; font-src 'self' data: https: http:; connect-src 'self' https: http: ws: wss:; frame-src 'self' blob: data: https: http:;">
           <title>Open API Designer</title>
          
           <style>
@@ -174,6 +246,12 @@ export class VisualizerWebview {
     public dispose() {
         VisualizerWebview.currentPanel = undefined;
         this._panel?.dispose();
+        this._docsWatcher?.dispose();
+
+        // Clear all debounce timers
+        this._changeDebounceTimers.forEach(timer => clearTimeout(timer));
+        this._changeDebounceTimers.clear();
+        this._savingFromWebview.clear();
 
         while (this._disposables.length) {
             const disposable = this._disposables.pop();
@@ -183,5 +261,60 @@ export class VisualizerWebview {
         }
 
         this._panel = undefined;
+    }
+
+    private setupDocsWatcher() {
+        // Watch for document files (md, html, txt) in any docs folder
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            return;
+        }
+
+        // Create a watcher for doc files
+        const pattern = new vscode.RelativePattern(
+            workspaceFolders[0],
+            '**/docs/**/*.{md,html,txt}'
+        );
+
+        this._docsWatcher = vscode.workspace.createFileSystemWatcher(pattern, false, false, false);
+
+        const sendDocumentNotification = (filePath: string, changeType: 'created' | 'modified' | 'deleted') => {
+            // Skip if this change came from the webview
+            if (this.isSavingFromWebview(filePath)) {
+                return;
+            }
+            logDebug(`Document file ${changeType}: ${filePath}`);
+            RPCLayer._messenger.sendNotification(
+                onDocumentFileChanged,
+                { type: 'webview', webviewType: VisualizerWebview.viewType },
+                { filePath, changeType, timestamp: Date.now() }
+            );
+        };
+
+        this._docsWatcher.onDidCreate((uri) => {
+            sendDocumentNotification(uri.fsPath, 'created');
+        });
+
+        this._docsWatcher.onDidChange((uri) => {
+            sendDocumentNotification(uri.fsPath, 'modified');
+        });
+
+        this._docsWatcher.onDidDelete((uri) => {
+            sendDocumentNotification(uri.fsPath, 'deleted');
+        });
+
+        this._disposables.push(this._docsWatcher);
+    }
+
+    public markSavingFromWebview(filePath: string) {
+        this._savingFromWebview.set(filePath, true);
+    }
+
+    public clearSavingFromWebview(filePath: string) {
+        this._savingFromWebview.delete(filePath);
+    }
+
+    public isSavingFromWebview(filePath: string): boolean {
+        return this._savingFromWebview.get(filePath) === true;
     }
 }

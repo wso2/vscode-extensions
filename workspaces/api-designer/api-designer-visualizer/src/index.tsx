@@ -16,10 +16,27 @@
  * under the License.
  */
 
+import React, { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
-import { VisualizerContextProvider } from "./Context";
+import { ErrorBoundary } from "@wso2/ui-toolkit";
+import { VisualizerContextProvider } from "./contexts/VisualizerContext";
 import { Visualizer } from "./Visualizer";
+import { APIEditor } from "./views/DesignView/APIEditor";
+import { CreateOpenAPIPanel } from "./views/CreateView/CreateOpenAPIPanel";
+
+// Import views directly instead of lazy loading to avoid initialization issues
+import { AnalyzeView } from "./views/AnalyzeView/AnalyzeView";
+import { MockView } from "./views/MockView/MockView";
+import { TestView } from "./views/TestView/TestView";
+import { DocumentView } from "./views/DocumentView/DocumentView";
+import { ManageView } from "./views/ManageView/ManageView";
+import { LoadingOverlay } from "./components/common/LoadingOverlay";
+
+// Loading component
+const ViewLoadingFallback = () => (
+    <LoadingOverlay message="Loading..." fullScreen />
+);
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -32,13 +49,187 @@ const queryClient = new QueryClient({
     },
   });
 
-export function renderWebview(target: HTMLElement, mode: string) {
+export interface WebviewProps {
+    viewType: 'create' | 'preview' | string;
+    /** Seeded from extension HTML so the first paint has the document path (postMessage can arrive before React attaches listeners). */
+    initialFileUri?: string;
+    [key: string]: any;
+}
+
+// Root component that manages view switching
+function UnifiedWebview({
+    initialViewType,
+    initialFileUri: seedFileUri = ''
+}: {
+    initialViewType: string;
+    initialFileUri?: string;
+}) {
+    const [viewType, setViewType] = useState<string>(initialViewType);
+    const [initialSpec, setInitialSpec] = useState<any>(null);
+    const [fileUri, setFileUri] = useState<string>(seedFileUri);
+
+    // Try to get fileUri from messages immediately on mount
+    // This handles the case where messages arrive before the component fully mounts
+    useEffect(() => {
+        const messageHandler = (event: MessageEvent) => {
+            const message = event.data;
+            switch (message.command) {
+                case 'openDesigner':
+                    if (message.filePath) {
+                        setFileUri(message.filePath);
+                    }
+                    if (Object.prototype.hasOwnProperty.call(message, 'spec')) {
+                        setInitialSpec(message.spec ?? null);
+                    }
+                    setViewType((prev) => (prev === 'create' ? 'preview' : prev));
+                    break;
+                case 'switchToEditor':
+                    if (message.filePath) {
+                        setFileUri(message.filePath);
+                    }
+                    if (message.spec) {
+                        setInitialSpec(message.spec);
+                    }
+                    // Only set to preview if we don't already have a different viewType
+                    // This prevents switchToEditor from overriding other views
+                    setViewType((prev) => prev === 'create' ? 'preview' : prev);
+                    break;
+                case 'switchView':
+                    // CRITICAL: Process switchView - set fileUri first, then viewType
+                    // This ensures fileUri is available when the view component mounts
+                    if (message.fileUri) {
+                        setFileUri(message.fileUri);
+                        // Use requestAnimationFrame to ensure state update happens before next render
+                        // This prevents views from rendering with empty fileUri
+                        if (message.viewType) {
+                            requestAnimationFrame(() => {
+                                setViewType(message.viewType);
+                            });
+                        }
+                    } else if (message.viewType) {
+                        // For views that don't need fileUri (like 'create'), set immediately
+                        setViewType(message.viewType);
+                    }
+                    break;
+                case 'setFileUri':
+                    if (message.data && message.data !== 'file:///placeholder') {
+                        setFileUri(message.data);
+                    }
+                    break;
+            }
+        };
+
+        window.addEventListener('message', messageHandler);
+        return () => window.removeEventListener('message', messageHandler);
+    }, []);
+
+    // Use the viewType directly - no automatic conversion
+    // All 7 views (create, design, analyze, mock, test, document, manage) are handled in this unified panel
+    const effectiveViewType = viewType;
+    
+    // Views that require fileUri
+    const viewsRequiringFileUri = ['analyze', 'mock', 'test', 'document', 'manage', 'preview', 'design'];
+    const requiresFileUri = viewsRequiringFileUri.includes(effectiveViewType);
+    
+    // For views that require fileUri, show loading state if fileUri is not available
+    if (requiresFileUri && !fileUri && effectiveViewType !== 'create') {
+        return (
+            <VisualizerContextProvider>
+                <QueryClientProvider client={queryClient}>
+                    <ViewLoadingFallback />
+                </QueryClientProvider>
+            </VisualizerContextProvider>
+        );
+    }
+    
+    if (effectiveViewType === 'create') {
+        return <CreateOpenAPIPanel />;
+    } else if (effectiveViewType === 'preview' || effectiveViewType === 'design') {
+        // Design view (preview)
+        return (
+            <VisualizerContextProvider>
+                <APIEditor initialSpec={initialSpec} fileUri={fileUri} />
+            </VisualizerContextProvider>
+        );
+    } else if (effectiveViewType === 'analyze') {
+        return (
+            <VisualizerContextProvider>
+                <ErrorBoundary errorMsg="An error occurred in the Analyze view">
+                    <QueryClientProvider client={queryClient}>
+                        <AnalyzeView fileUri={fileUri} />
+                    </QueryClientProvider>
+                </ErrorBoundary>
+            </VisualizerContextProvider>
+        );
+    } else if (effectiveViewType === 'mock') {
+        return (
+            <VisualizerContextProvider>
+                <ErrorBoundary errorMsg="An error occurred in the Mock view">
+                    <QueryClientProvider client={queryClient}>
+                        <MockView fileUri={fileUri} />
+                    </QueryClientProvider>
+                </ErrorBoundary>
+            </VisualizerContextProvider>
+        );
+    } else if (effectiveViewType === 'test') {
+        return (
+            <VisualizerContextProvider>
+                <ErrorBoundary errorMsg="An error occurred in the Test view">
+                    <QueryClientProvider client={queryClient}>
+                        <TestView fileUri={fileUri} />
+                    </QueryClientProvider>
+                </ErrorBoundary>
+            </VisualizerContextProvider>
+        );
+    } else if (effectiveViewType === 'document') {
+        return (
+            <VisualizerContextProvider>
+                <ErrorBoundary errorMsg="An error occurred in the Document view">
+                    <QueryClientProvider client={queryClient}>
+                        <DocumentView fileUri={fileUri} />
+                    </QueryClientProvider>
+                </ErrorBoundary>
+            </VisualizerContextProvider>
+        );
+    } else if (effectiveViewType === 'manage') {
+        return (
+            <VisualizerContextProvider>
+                <ErrorBoundary errorMsg="An error occurred in the Manage view">
+                    <QueryClientProvider client={queryClient}>
+                        <ManageView fileUri={fileUri} />
+                    </QueryClientProvider>
+                </ErrorBoundary>
+            </VisualizerContextProvider>
+        );
+    } else {
+        // Legacy mode handling for other visualizer modes
+        return (
+            <VisualizerContextProvider>
+                <QueryClientProvider client={queryClient}>
+                    <Visualizer mode={effectiveViewType} />
+                </QueryClientProvider>
+            </VisualizerContextProvider>
+        );
+    }
+}
+
+export function renderWebview(target: HTMLElement, props: WebviewProps | string) {
     const root = createRoot(target);
+    
+    // Handle legacy string mode parameter for backward compatibility
+    let viewType: string;
+    let initialFileUri = '';
+    if (typeof props === 'string') {
+        viewType = props;
+    } else {
+        viewType = props.viewType || 'preview';
+        initialFileUri = props.initialFileUri || '';
+    }
+    
     root.render(
-        <VisualizerContextProvider>
-            <QueryClientProvider client={queryClient}>
-                <Visualizer mode={mode} />
-            </QueryClientProvider>
-        </VisualizerContextProvider>
+        <React.StrictMode>
+            <UnifiedWebview initialViewType={viewType} initialFileUri={initialFileUri} />
+        </React.StrictMode>
     );
 }
+

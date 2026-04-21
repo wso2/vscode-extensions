@@ -29,3 +29,7 @@ export function getComposerJSFiles(context: ExtensionContext, componentName: str
 		isDevMode ? 'http://localhost:8097' : '' // For React Dev Tools
 	];
 }
+
+// Export logger utilities
+export * from './logger';
+export * from './github-utils';
