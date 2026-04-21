@@ -384,27 +384,6 @@ export function WorkflowView(props: WorkflowViewProps) {
                             }
                         }
 
-                        // If the step passed and has an edge to an endNode, highlight it
-                        if (highlight === 'passed') {
-                            const endNodeIds = new Set(updated.filter(n => n.type === 'endNode').map(n => n.id));
-                            for (let i = 0; i < newEdges.length; i++) {
-                                if (newEdges[i].source === stepId && endNodeIds.has(newEdges[i].target)) {
-                                    newEdges[i] = {
-                                        ...newEdges[i],
-                                        zIndex: 10,
-                                        data: { ...newEdges[i].data, traceHighlight: 'passed' },
-                                    };
-                                    const endIdx = updated.findIndex(n => n.id === newEdges[i].target);
-                                    if (endIdx >= 0) {
-                                        updated[endIdx] = {
-                                            ...updated[endIdx],
-                                            data: { ...updated[endIdx].data, traceStatus: { state: 'passed' } },
-                                        };
-                                    }
-                                }
-                            }
-                        }
-
                         return newEdges;
                     });
 
@@ -414,6 +393,23 @@ export function WorkflowView(props: WorkflowViewProps) {
                 // Advance the step pointer AFTER state is scheduled
                 prevStepRef.current = stepId;
             }
+        } else if (event.arazzo_span_kind === 'workflow' && event.lifecycle === 'end') {
+            // Workflow finished — colour every endNode green regardless of how the workflow ended
+            setNodes(prev => {
+                const endNodeIds = new Set(prev.filter(n => n.type === 'endNode').map(n => n.id));
+                setEdges(prevEdges => prevEdges.map(e =>
+                    endNodeIds.has(e.target)
+                        ? { ...e, zIndex: 10, data: { ...e.data, traceHighlight: 'passed' } }
+                        : e
+                ));
+                return prev.map(node => {
+                    if (node.type === 'endNode') {
+                        return { ...node, data: { ...node.data, traceStatus: { state: 'passed' } } };
+                    }
+                    return node;
+                });
+            });
+
         } else if (event.arazzo_span_kind === 'retry') {
             const stepId = event.attributes?.['step.id'] || event.name;
             const attempt = parseInt(event.attributes?.['retry.attempt'] || '1', 10);
