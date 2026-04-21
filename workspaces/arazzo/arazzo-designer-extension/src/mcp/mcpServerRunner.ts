@@ -96,7 +96,7 @@ function getCliBinaryName(): string {
  */
 function getOutputChannel(): vscode.OutputChannel {
     if (!mcpOutputChannel) {
-        mcpOutputChannel = vscode.window.createOutputChannel('Arazzo MCP Server');
+        mcpOutputChannel = vscode.window.createOutputChannel('Arazzo Server');
     }
     return mcpOutputChannel;
 }
@@ -239,7 +239,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
     }
 
     // Start the server
-    output.appendLine(`Starting Arazzo MCP server...`);
+    output.appendLine(`Starting Arazzo server...`);
     output.appendLine(`  Binary: ${binaryPath}`);
     output.appendLine(`  File: ${arazzoFilePath}`);
     output.appendLine(`  Port: ${port}`);
@@ -312,7 +312,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
 
         // Primary status message
         vscode.window.showInformationMessage(
-            `Arazzo MCP server started. Running on ${serverUrl}.${configNote}`
+            `Arazzo server started. Running on ${serverUrl}.${configNote}`
         );
 
         // Get first workflow name for the "Try Now" prompt
