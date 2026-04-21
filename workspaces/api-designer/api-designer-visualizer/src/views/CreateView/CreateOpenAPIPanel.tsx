@@ -18,7 +18,7 @@
 
 import React, { useState } from 'react';
 import styled from '@emotion/styled';
-import { Button, Typography, TextField, AutoResizeTextArea, FormActions, CheckBox } from '@wso2/ui-toolkit';
+import { Button, Typography, TextField, AutoResizeTextArea, FormActions } from '@wso2/ui-toolkit';
 import { LoadingOverlay } from '../../components/common/LoadingOverlay';
 import { ApiSpecType } from '@wso2/api-designer-core';
 
@@ -149,14 +149,6 @@ const FolderFieldGrow = styled.div`
     overflow: hidden;
 `;
 
-const WorkspaceCheckboxStack = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
-    width: 100%;
-`;
-
 export const CreateOpenAPIPanel: React.FC<CreateOpenAPIPanelProps> = () => {
     const [mode, setMode] = useState<'template' | 'copilot'>('copilot');
     const [isLoading, setIsLoading] = useState(false);
@@ -170,7 +162,6 @@ export const CreateOpenAPIPanel: React.FC<CreateOpenAPIPanelProps> = () => {
     
     // Copilot mode state
     const [description, setDescription] = useState('');
-    const [includeWorkspaceSpecs, setIncludeWorkspaceSpecs] = useState(true);
     const [additionalReferences, setAdditionalReferences] = useState('');
 
     // Listen for messages from the extension
@@ -247,7 +238,7 @@ export const CreateOpenAPIPanel: React.FC<CreateOpenAPIPanelProps> = () => {
                 description,
                 folderPath,
                 apiType: ApiSpecType.OPENAPI,
-                includeWorkspaceSpecs,
+                includeWorkspaceSpecs: true,
                 externalReferenceUrls
             }
         });
@@ -408,29 +399,6 @@ export const CreateOpenAPIPanel: React.FC<CreateOpenAPIPanelProps> = () => {
                                     Be as detailed as possible. Include information about endpoints, data models, and features you need.
                                 </Typography>
                             </FieldBlockGap>
-
-                            <FieldBlock>
-                                <WorkspaceCheckboxStack>
-                                    <CheckBox
-                                        checked={includeWorkspaceSpecs}
-                                        label="Include workspace API specs as context"
-                                        onChange={(checked) => setIncludeWorkspaceSpecs(checked)}
-                                    />
-                                    <Typography
-                                        variant="caption"
-                                        sx={{
-                                            display: 'block',
-                                            marginLeft: '22px',
-                                            color: 'var(--vscode-descriptionForeground)',
-                                            fontSize: '12px',
-                                            lineHeight: 1.45
-                                        }}
-                                    >
-                                        The AI is instructed to search this workspace for existing API specs and
-                                        schemas and reuse patterns where appropriate.
-                                    </Typography>
-                                </WorkspaceCheckboxStack>
-                            </FieldBlock>
 
                             <FieldBlockGap>
                                 <AutoResizeTextArea

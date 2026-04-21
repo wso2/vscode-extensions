@@ -55,22 +55,9 @@ export function getDefaultGovernanceSpectralRulesets(): SpectralRuleset[] {
  * Default AI readiness ruleset (Analyze view, separate from governance list).
  */
 export function getDefaultAiReadinessSpectralRuleset(): SpectralRuleset {
-    return ruleset('WSO2 REST API AI Readiness Guidelines', 'ai-readiness.yaml');
-}
-
-/**
- * Fallback rulesets written to `config.yaml` when the user has not enabled any rulesets in VS Code settings.
- */
-export function getDefaultProjectInitYamlFallbackRulesets(): SpectralRuleset[] {
-    return [
-        ...getDefaultGovernanceSpectralRulesets(),
-        ruleset('WSO2 API Management Guidelines', 'wso2_api_management_guidelines.yaml')
-    ];
-}
-
-/**
- * Rulesets shown in the Initialize Project wizard (includes AI readiness).
- */
-export function getDefaultWizardSpectralRulesets(): SpectralRuleset[] {
-    return [...getDefaultProjectInitYamlFallbackRulesets(), getDefaultAiReadinessSpectralRuleset()];
+    return ruleset(
+        'WSO2 REST API AI Readiness Guidelines',
+        'ai-readiness.yaml',
+        `${DEFAULT_SPECTRAL_RULESET_CATALOG_FOLDER_URL}/ai`
+    );
 }

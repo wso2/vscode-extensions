@@ -18,7 +18,7 @@
 
 import React from 'react';
 import styled from '@emotion/styled';
-import { Responses as Rs } from '../../../../definitions/ServiceDefinitions';
+import { Responses as Rs } from '../../../../Definitions/ServiceDefinitions';
 
 const MenuRoot = styled.div`
     position: absolute;

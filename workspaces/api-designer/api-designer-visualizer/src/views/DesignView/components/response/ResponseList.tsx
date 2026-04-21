@@ -18,7 +18,7 @@
 import React, { useState, useContext, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Button, Codicon, Tabs, Dropdown } from '@wso2/ui-toolkit';
-import { Responses as Rs, Response as ResponseType, ReferenceObject as Ro, OpenAPI } from '../../../../definitions/ServiceDefinitions';
+import { Responses as Rs, Response as ResponseType, ReferenceObject as Ro, OpenAPI } from '../../../../Definitions/ServiceDefinitions';
 import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 import { APIDesignerContext } from '../../../../contexts/APIDesignerContext';
 import { Response } from './Response';

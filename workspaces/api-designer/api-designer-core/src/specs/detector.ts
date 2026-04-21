@@ -107,7 +107,7 @@ export function detectSpecType(content: string): SpecDetectionResult {
                 }
             }
         }
-    } catch (error) {
+    } catch {
         // Parsing failed, return low confidence
         return { type: null, version: null, confidence: 'low' };
     }

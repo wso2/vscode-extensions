@@ -18,7 +18,7 @@
 
 import React from 'react';
 import styled from '@emotion/styled';
-import { Operation as O, OpenAPI } from '../../../../../definitions/ServiceDefinitions';
+import { Operation as O, OpenAPI } from '../../../../../Definitions/ServiceDefinitions';
 import { ResponseList } from '../../response/ResponseList';
 
 const ResponseSection = styled.div`

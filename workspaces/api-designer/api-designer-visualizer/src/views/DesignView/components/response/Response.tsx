@@ -18,7 +18,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { Button, Codicon, Typography, TextField, Dropdown, TextArea, AutoResizeTextArea } from '@wso2/ui-toolkit';
-import { Response as ResponseType, OpenAPI, MediaType as MediaTypeType, ReferenceObject } from '../../../../definitions/ServiceDefinitions';
+import { Response as ResponseType, OpenAPI, MediaType as MediaTypeType, ReferenceObject } from '../../../../Definitions/ServiceDefinitions';
 import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 import { MediaType } from '../media-type/MediaType';
 import { MediaTypes } from '../../../../constants';

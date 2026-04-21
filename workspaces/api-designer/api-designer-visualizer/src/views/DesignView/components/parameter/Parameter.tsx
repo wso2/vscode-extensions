@@ -17,7 +17,7 @@
  */
 import { Button, Codicon, Dropdown, TextField, Tooltip, OptionProps } from '@wso2/ui-toolkit';
 import styled from "@emotion/styled";
-import { Parameter as P, OpenAPI } from '../../../../definitions/ServiceDefinitions';
+import { Parameter as P, OpenAPI } from '../../../../Definitions/ServiceDefinitions';
 import { BaseTypes, ParameterSchemaTypes } from '../../../../constants';
 import { useMemo } from 'react';
 

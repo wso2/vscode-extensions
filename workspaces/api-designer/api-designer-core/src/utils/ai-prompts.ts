@@ -59,25 +59,6 @@ export interface AIExampleContext {
 }
 
 // ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Extract filename from a file path
- */
-const getFileName = (filePath?: string): string | undefined => {
-    return filePath ? filePath.split('/').pop() : undefined;
-};
-
-/**
- * Build file reference string (e.g., #filename.yaml)
- */
-const buildFileReference = (filePath?: string): string => {
-    const fileName = getFileName(filePath);
-    return fileName ? `#${fileName}` : '';
-};
-
-// ============================================================================
 // OpenAPI Generation Prompts
 // ============================================================================
 

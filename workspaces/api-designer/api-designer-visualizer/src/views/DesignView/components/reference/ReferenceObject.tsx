@@ -17,7 +17,7 @@
  */
 import { Button, Codicon, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
 import styled from "@emotion/styled";
-import { ReferenceObject as R } from '../../../../definitions/ServiceDefinitions';
+import { ReferenceObject as R } from '../../../../Definitions/ServiceDefinitions';
 import { useContext, useMemo } from 'react';
 import { APIDesignerContext } from '../../../../contexts/APIDesignerContext';
 import { getRefName } from '../../../../utils/schemaResolver';

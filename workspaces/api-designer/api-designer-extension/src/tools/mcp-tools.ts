@@ -21,6 +21,24 @@ import { validateAPISpec, validateWithSpectralRuleset, convertOpenAPIToWSO2YAML 
 import { logError, logDebug } from '../util/logger';
 import { loadYaml } from '@wso2/api-designer-core';
 
+type LanguageModelToolResultLike = { [key: string]: unknown };
+type VSCodeLMCompat = typeof vscode & {
+    lm?: { registerTool: (id: string, tool: unknown) => vscode.Disposable };
+    LanguageModelToolResult?: new (parts: unknown[]) => LanguageModelToolResultLike;
+    LanguageModelTextPart?: new (text: string) => unknown;
+};
+const vscodeLM = vscode as VSCodeLMCompat;
+
+const makeToolResult = (text: string): LanguageModelToolResultLike => {
+    if (vscodeLM.LanguageModelToolResult && vscodeLM.LanguageModelTextPart) {
+        return new vscodeLM.LanguageModelToolResult([
+            new vscodeLM.LanguageModelTextPart(text)
+        ]);
+    }
+
+    return { content: [{ type: 'text', value: text }] };
+};
+
 /**
  * Parameters for validateAPISpec tool
  */
@@ -32,11 +50,11 @@ interface IValidateAPISpecParameters {
 /**
  * Tool for validating API specifications (OpenAPI or AsyncAPI)
  */
-export class ValidateAPISpecTool implements vscode.LanguageModelTool<IValidateAPISpecParameters> {
+export class ValidateAPISpecTool {
     async invoke(
-        options: vscode.LanguageModelToolInvocationOptions<IValidateAPISpecParameters>,
+        options: any,
         _token: vscode.CancellationToken
-    ): Promise<vscode.LanguageModelToolResult> {
+    ): Promise<LanguageModelToolResultLike> {
         try {
             let spec: string | object | undefined = options.input.apiSpec;
 
@@ -55,9 +73,7 @@ export class ValidateAPISpecTool implements vscode.LanguageModelTool<IValidateAP
             }
 
             if (!spec) {
-                return new vscode.LanguageModelToolResult([
-                    new vscode.LanguageModelTextPart('Error: No API specification provided. Please provide either apiSpec or fileUri.')
-                ]);
+                return makeToolResult('Error: No API specification provided. Please provide either apiSpec or fileUri.');
             }
 
             // Directly import and use existing function
@@ -77,19 +93,15 @@ Full details:
 ${JSON.stringify(result, null, 2)}
 \`\`\``;
 
-            return new vscode.LanguageModelToolResult([
-                new vscode.LanguageModelTextPart(resultText)
-            ]);
+            return makeToolResult(resultText);
         } catch (error) {
             logError('Error in ValidateAPISpecTool:', error);
-            return new vscode.LanguageModelToolResult([
-                new vscode.LanguageModelTextPart(`Error validating API specification: ${(error as Error).message}`)
-            ]);
+            return makeToolResult(`Error validating API specification: ${(error as Error).message}`);
         }
     }
 
     async prepareInvocation(
-        options: vscode.LanguageModelToolInvocationPrepareOptions<IValidateAPISpecParameters>,
+        options: any,
         _token: vscode.CancellationToken
     ) {
         const source = options.input.fileUri 
@@ -120,11 +132,11 @@ interface IvalidateWithSpectralRulesetParameters {
 /**
  * Tool for validating API specifications (OpenAPI or AsyncAPI) against custom dynamic rulesets
  */
-export class validateWithSpectralRulesetTool implements vscode.LanguageModelTool<IvalidateWithSpectralRulesetParameters> {
+export class validateWithSpectralRulesetTool {
     async invoke(
-        options: vscode.LanguageModelToolInvocationOptions<IvalidateWithSpectralRulesetParameters>,
+        options: any,
         _token: vscode.CancellationToken
-    ): Promise<vscode.LanguageModelToolResult> {
+    ): Promise<LanguageModelToolResultLike> {
         try {
             let spec: string | undefined = options.input.apiSpec;
 
@@ -136,9 +148,7 @@ export class validateWithSpectralRulesetTool implements vscode.LanguageModelTool
             }
 
             if (!spec) {
-                return new vscode.LanguageModelToolResult([
-                    new vscode.LanguageModelTextPart('Error: No API specification provided. Please provide either apiSpec or fileUri.')
-                ]);
+                return makeToolResult('Error: No API specification provided. Please provide either apiSpec or fileUri.');
             }
 
             // Directly import and use existing function
@@ -168,19 +178,15 @@ Full details:
 ${JSON.stringify(result, null, 2)}
 \`\`\``;
 
-            return new vscode.LanguageModelToolResult([
-                new vscode.LanguageModelTextPart(resultText)
-            ]);
+            return makeToolResult(resultText);
         } catch (error) {
             logError('Error in validateWithSpectralRulesetTool:', error);
-            return new vscode.LanguageModelToolResult([
-                new vscode.LanguageModelTextPart(`Error validating with dynamic ruleset: ${(error as Error).message}`)
-            ]);
+            return makeToolResult(`Error validating with dynamic ruleset: ${(error as Error).message}`);
         }
     }
 
     async prepareInvocation(
-        options: vscode.LanguageModelToolInvocationPrepareOptions<IvalidateWithSpectralRulesetParameters>,
+        options: any,
         _token: vscode.CancellationToken
     ) {
         const source = options.input.fileUri 
@@ -211,11 +217,11 @@ interface IConvertOpenAPIToWSO2YAMLParameters {
 /**
  * Tool for converting OpenAPI specifications to WSO2 API Platform YAML format
  */
-export class ConvertOpenAPIToWSO2YAMLTool implements vscode.LanguageModelTool<IConvertOpenAPIToWSO2YAMLParameters> {
+export class ConvertOpenAPIToWSO2YAMLTool {
     async invoke(
-        options: vscode.LanguageModelToolInvocationOptions<IConvertOpenAPIToWSO2YAMLParameters>,
+        options: any,
         _token: vscode.CancellationToken
-    ): Promise<vscode.LanguageModelToolResult> {
+    ): Promise<LanguageModelToolResultLike> {
         try {
             let spec: string | object | undefined = options.input.apiSpec;
             let existingArtifact: any = options.input.existingArtifact;
@@ -244,9 +250,7 @@ export class ConvertOpenAPIToWSO2YAMLTool implements vscode.LanguageModelTool<IC
             }
 
             if (!spec) {
-                return new vscode.LanguageModelToolResult([
-                    new vscode.LanguageModelTextPart('Error: No API specification provided. Please provide either apiSpec or fileUri.')
-                ]);
+                return makeToolResult('Error: No API specification provided. Please provide either apiSpec or fileUri.');
             }
 
             // Directly import and use existing function
@@ -259,19 +263,15 @@ export class ConvertOpenAPIToWSO2YAMLTool implements vscode.LanguageModelTool<IC
                 options.input.userProvidedDescription
             );
 
-            return new vscode.LanguageModelToolResult([
-                new vscode.LanguageModelTextPart(`WSO2 API Platform YAML:\n\n\`\`\`yaml\n${result}\n\`\`\``)
-            ]);
+            return makeToolResult(`WSO2 API Platform YAML:\n\n\`\`\`yaml\n${result}\n\`\`\``);
         } catch (error) {
             logError('Error in ConvertOpenAPIToWSO2YAMLTool:', error);
-            return new vscode.LanguageModelToolResult([
-                new vscode.LanguageModelTextPart(`Error converting OpenAPI to WSO2 YAML: ${(error as Error).message}`)
-            ]);
+            return makeToolResult(`Error converting OpenAPI to WSO2 YAML: ${(error as Error).message}`);
         }
     }
 
     async prepareInvocation(
-        options: vscode.LanguageModelToolInvocationPrepareOptions<IConvertOpenAPIToWSO2YAMLParameters>,
+        options: any,
         _token: vscode.CancellationToken
     ) {
         const source = options.input.fileUri 
@@ -292,16 +292,21 @@ export class ConvertOpenAPIToWSO2YAMLTool implements vscode.LanguageModelTool<IC
 export function registerMCPTools(context: vscode.ExtensionContext): void {
     logDebug('Registering MCP tools...');
 
+    if (!vscodeLM.lm) {
+        logDebug('Language Model API not available; skipping MCP tool registration');
+        return;
+    }
+
     context.subscriptions.push(
-        vscode.lm.registerTool('api-designer_validateAPISpec', new ValidateAPISpecTool())
+        vscodeLM.lm.registerTool('api-designer_validateAPISpec', new ValidateAPISpecTool())
     );
 
     context.subscriptions.push(
-        vscode.lm.registerTool('api-designer_validateWithSpectralRuleset', new validateWithSpectralRulesetTool())
+        vscodeLM.lm.registerTool('api-designer_validateWithSpectralRuleset', new validateWithSpectralRulesetTool())
     );
 
     context.subscriptions.push(
-        vscode.lm.registerTool('api-designer_convertOpenAPIToWSO2YAML', new ConvertOpenAPIToWSO2YAMLTool())
+        vscodeLM.lm.registerTool('api-designer_convertOpenAPIToWSO2YAML', new ConvertOpenAPIToWSO2YAMLTool())
     );
 
     logDebug('MCP tools registered successfully');

@@ -17,7 +17,7 @@
  */
 import { Button, Codicon, Dropdown, TextField, Tooltip } from '@wso2/ui-toolkit';
 import styled from "@emotion/styled";
-import { HeaderDefinition } from '../../../../definitions/ServiceDefinitions';
+import { HeaderDefinition } from '../../../../Definitions/ServiceDefinitions';
 import { BaseTypes, ParameterSchemaTypes } from '../../../../constants';
 
 import { postMessage as postVSCodeMessage } from '../../../../utils/vscode-api';

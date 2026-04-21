@@ -19,7 +19,6 @@
 import { readFile } from 'fs/promises';
 import * as vscode from 'vscode';
 import {
-    ApiPlatformConfig,
     FetchRulesetsFromFolderRequest,
     FetchRulesetsFromFolderResponse,
     GetAllSpectralRulesetsRequest,
@@ -42,6 +41,11 @@ import {
 } from '../../../utils/validation-utils';
 import { getAllSpectralRulesets as getAllSpectralRulesetsFromConfig } from '../../../spectral/rulesetAutomation';
 import { BaseRpcManager } from './base-rpc-manager';
+
+type ApiPlatformConfigLike = {
+    spectralRulesets?: unknown[];
+    api?: { wso2Artifact?: string };
+};
 
 /**
  * Manager for governance and validation operations
@@ -403,11 +407,11 @@ export class GovernanceManager extends BaseRpcManager {
             // Look for config.yaml in the same directory as the API file (not workspace root)
             const apiFileDir = vscode.Uri.joinPath(fileUri, '..');
             const configPath = vscode.Uri.joinPath(apiFileDir, '.api-platform', 'config.yaml');
-            let config: ApiPlatformConfig | null = null;
+            let config: ApiPlatformConfigLike | null = null;
 
             try {
                 const configContent = await readFile(configPath.fsPath, 'utf-8');
-                config = loadYaml(configContent) as ApiPlatformConfig;
+                config = loadYaml(configContent) as ApiPlatformConfigLike;
                 this.logInfo(`Loaded API Platform config from ${configPath.fsPath}`);
             } catch (error) {
                 this.logInfo(`No API Platform config found at ${configPath.fsPath}. Using default governance rulesets`);

@@ -19,7 +19,7 @@
 import React, { useState } from 'react';
 import styled from '@emotion/styled';
 import { Tabs } from '@wso2/ui-toolkit';
-import { Operation as O, OpenAPI } from '../../../../../definitions/ServiceDefinitions';
+import { Operation as O, OpenAPI } from '../../../../../Definitions/ServiceDefinitions';
 import { ParameterList } from '../../parameter/ParameterList';
 import { RequestBody } from '../../request-body/RequestBody';
 

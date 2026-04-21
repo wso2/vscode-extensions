@@ -23,6 +23,9 @@ import {
 } from '@wso2/api-designer-core';
 import { BaseRpcManager } from './base-rpc-manager';
 
+type VSCodeWithLM = typeof vscode & { lm?: unknown };
+const vscodeWithLM = vscode as VSCodeWithLM;
+
 /**
  * Manager for AI-related RPC operations
  * Handles AI availability checks
@@ -35,7 +38,7 @@ export class AIRpcManager extends BaseRpcManager {
     async checkAIAvailability(params: CheckAIAvailabilityRequest): Promise<CheckAIAvailabilityResponse> {
         try {
             // Check if Language Model API is available
-            if (!vscode.lm) {
+            if (!vscodeWithLM.lm) {
                 this.logDebug('Language Model API not available');
                 return { available: false };
             }

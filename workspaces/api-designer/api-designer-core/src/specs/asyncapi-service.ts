@@ -180,10 +180,13 @@ export class AsyncAPIService extends SpecificationService {
         if (!asyncApiSpec.servers) {
             return [];
         }
-        return Object.values(asyncApiSpec.servers).map((server: Server) => ({
+        return Object.keys(asyncApiSpec.servers).map((name) => {
+            const server = asyncApiSpec.servers?.[name] as Server;
+            return {
             url: server.url,
             description: server.description
-        }));
+            };
+        });
     }
 
     getOperations(spec: ApiSpecification): Array<{ path: string; method?: string; operationId?: string }> {

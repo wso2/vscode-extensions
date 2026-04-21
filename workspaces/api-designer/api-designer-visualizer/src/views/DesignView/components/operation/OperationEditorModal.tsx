@@ -31,7 +31,7 @@ import {
     ViewItem
 } from '@wso2/ui-toolkit';
 import { EntityModal, TabConfig } from '../../../../components/common/EntityModal';
-import { Operation as O, OpenAPI } from '../../../../definitions/ServiceDefinitions';
+import { Operation as O, OpenAPI } from '../../../../Definitions/ServiceDefinitions';
 import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 import { APIDesignerContext } from '../../../../contexts/APIDesignerContext';
 import { useAIPrompt } from '../../../../hooks/useAIPrompt';

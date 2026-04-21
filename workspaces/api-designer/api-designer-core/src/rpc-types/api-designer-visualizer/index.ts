@@ -51,8 +51,6 @@ import {
 export type {
     ValidationError,
     SpectralRuleset,
-    ApiPlatformConfig,
-    ApiDefinition,
     FileTreeNode,
     RulesetMetadata,
     AiReadinessMetrics,

@@ -19,7 +19,7 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import { Button, Codicon, Dropdown, Typography, TextArea } from '@wso2/ui-toolkit';
-import { ReferenceObject as RO } from '../../../../definitions/ServiceDefinitions';
+import { ReferenceObject as RO } from '../../../../Definitions/ServiceDefinitions';
 import SectionHeader from '../shared/SpecSectionHeader';
 import { logger } from '../../../../utils/logger';
 

@@ -111,9 +111,7 @@ export interface DeleteFileResponse {
     message?: string;
 }
 
-export interface CheckAIAvailabilityRequest {
-    // No parameters needed
-}
+export type CheckAIAvailabilityRequest = Record<string, never>;
 
 export interface CheckAIAvailabilityResponse {
     available: boolean;
@@ -122,12 +120,12 @@ export interface CheckAIAvailabilityResponse {
 /**
  * @deprecated Use CheckAIAvailabilityRequest instead
  */
-export interface CheckCopilotAvailabilityRequest extends CheckAIAvailabilityRequest {}
+export type CheckCopilotAvailabilityRequest = CheckAIAvailabilityRequest;
 
 /**
  * @deprecated Use CheckAIAvailabilityResponse instead
  */
-export interface CheckCopilotAvailabilityResponse extends CheckAIAvailabilityResponse {}
+export type CheckCopilotAvailabilityResponse = CheckAIAvailabilityResponse;
 
 export interface OpenFileInBrowserRequest {
     filePath: string;

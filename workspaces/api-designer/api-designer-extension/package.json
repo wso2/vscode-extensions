@@ -186,7 +186,7 @@
       },
       {
         "view": "apiDesignerProjects",
-        "contents": "No OpenAPI files found in this workspace.\n[Create New API](command:api-designer.createOpenAPIFromPanel)",
+        "contents": "No OpenAPI files found in this workspace.\n[Create New API](command:api-designer.createAPIFromPanel)",
         "when": "workbenchState != empty"
       }
     ],
@@ -205,8 +205,8 @@
         "icon": "$(code)"
       },
       {
-        "command": "api-designer.createOpenAPIFromPanel",
-        "title": "Create OpenAPI",
+        "command": "api-designer.createAPIFromPanel",
+        "title": "Create API Specification",
         "category": "API Designer",
         "icon": "$(add)"
       },
@@ -232,7 +232,7 @@
       ],
       "view/title": [
         {
-          "command": "api-designer.createOpenAPIFromPanel",
+          "command": "api-designer.createAPIFromPanel",
           "when": "view == apiDesignerProjects",
           "group": "navigation@1"
         },
@@ -265,10 +265,12 @@
           "type": "string",
           "default": "copilot",
           "enum": [
-            "copilot"
+            "copilot",
+            "claude"
           ],
           "enumDescriptions": [
-            "GitHub Copilot (requires GitHub Copilot extension)"
+            "GitHub Copilot (requires GitHub Copilot extension)",
+            "Claude Code (requires Claude Code extension)"
           ],
           "description": "AI provider to use for code generation and assistance",
           "order": 1
@@ -382,6 +384,13 @@
     "cors-anywhere": "0.4.4",
     "@apidevtools/json-schema-ref-parser": "11.6.1",
     "adm-zip": "0.5.14",
-    "js-yaml": "4.1.1"
+    "js-yaml": "4.1.1",
+    "jsonc-parser": "^3.3.1",
+    "yaml": "^2.6.0",
+    "@stoplight/spectral-core": "^1.20.0",
+    "@stoplight/spectral-formats": "^1.8.0",
+    "@stoplight/spectral-functions": "^1.8.0",
+    "@stoplight/spectral-parsers": "^1.0.5",
+    "@stoplight/spectral-rulesets": "^1.19.1"
   }
 }

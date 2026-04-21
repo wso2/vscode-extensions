@@ -26,7 +26,7 @@ import { useAIPrompt } from '../../../../hooks/useAIPrompt';
 import { AIButton } from '../../../../components/ai/AIButton';
 import { postMessage as postVSCodeMessage } from '../../../../utils/vscode-api';
 import { APIDesignerContext } from '../../../../contexts/APIDesignerContext';
-import { OpenAPI } from '../../../../definitions/ServiceDefinitions';
+import { OpenAPI } from '../../../../Definitions/ServiceDefinitions';
 import { useBidirectionalSync } from '../../../../hooks/useBidirectionalSync';
 import { generateExampleFromSchema } from '../../../../utils/schemaExampleGenerator';
 import {

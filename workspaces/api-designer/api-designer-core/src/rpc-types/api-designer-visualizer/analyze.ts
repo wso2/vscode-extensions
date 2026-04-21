@@ -193,9 +193,7 @@ export interface GetApplicableRulesetsResponse {
 /**
  * Request: list Spectral rulesets stored in **VS Code settings** (`apiDesigner.spectral.selectedRulesets`).
  */
-export interface GetAllSpectralRulesetsRequest {
-    // No parameters needed
-}
+export type GetAllSpectralRulesetsRequest = Record<string, never>;
 
 /**
  * All rulesets the user has configured globally (Manage command / settings), including disabled entries.

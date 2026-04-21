@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { OpenAPI, Operation, Param, Parameter, PathItem, Schema, Response, Header } from '../definitions/ServiceDefinitions';
+import { OpenAPI, Operation, Param, Parameter, PathItem, Schema, Response, Header } from '../Definitions/ServiceDefinitions';
 import { colors, darkerColors } from '../constants';
 import { loadYaml } from '@wso2/api-designer-core';
 

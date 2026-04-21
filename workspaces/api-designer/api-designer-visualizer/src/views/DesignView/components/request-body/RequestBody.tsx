@@ -16,7 +16,7 @@
  * under the License.
  */
 import { Button, Codicon, Dropdown, Typography, TextArea, AutoResizeTextArea, TextField } from '@wso2/ui-toolkit';
-import { RequestBody as R, MediaType as M, ReferenceObject as RO } from '../../../../definitions/ServiceDefinitions';
+import { RequestBody as R, MediaType as M, ReferenceObject as RO } from '../../../../Definitions/ServiceDefinitions';
 import SectionHeader from '../shared/SpecSectionHeader';
 import { ReactNode, useContext, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';

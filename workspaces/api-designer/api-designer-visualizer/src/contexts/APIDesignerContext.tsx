@@ -16,7 +16,7 @@
  * under the License.
  */
 import { createContext } from "react"
-import { APIDesignerContext as APIDesignerContextDef } from "../definitions/Context";
+import { APIDesignerContext as APIDesignerContextDef } from "../Definitions/Context";
 import { PathID } from "../constants";
 
 const defaultContext: APIDesignerContextDef = {

@@ -20,6 +20,9 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { AIProvider, AIRequest, AIResponse, IAIProvider } from '../types';
 
+type VSCodeWithLM = typeof vscode & { lm?: { selectChatModels: (query: { vendor: string }) => Promise<unknown[]> } };
+const vscodeWithLM = vscode as VSCodeWithLM;
+
 /**
  * GitHub Copilot AI Provider
  * Uses VS Code's Language Model API to interact with GitHub Copilot
@@ -30,12 +33,12 @@ export class CopilotProvider implements IAIProvider {
     constructor(private context: vscode.ExtensionContext) {}
 
     async isAvailable(): Promise<boolean> {
-        if (!vscode.lm) {
+        if (!vscodeWithLM.lm) {
             return false;
         }
 
         try {
-            const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
+            const models = await vscodeWithLM.lm.selectChatModels({ vendor: 'copilot' });
             return models && models.length > 0;
         } catch {
             return false;
@@ -45,7 +48,15 @@ export class CopilotProvider implements IAIProvider {
     async generate(request: AIRequest): Promise<AIResponse> {
         try {
             // Ensure Copilot is available
-            const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
+            if (!vscodeWithLM.lm) {
+                return {
+                    success: false,
+                    error: 'Language Model API is not available in this VS Code runtime.',
+                    provider: AIProvider.COPILOT
+                };
+            }
+
+            const models = await vscodeWithLM.lm.selectChatModels({ vendor: 'copilot' });
             if (models.length === 0) {
                 return {
                     success: false,

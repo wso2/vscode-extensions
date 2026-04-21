@@ -17,7 +17,7 @@
  */
 import { useContext, useState } from 'react';
 import styled from '@emotion/styled';
-import { MediaType as M } from '../../../../definitions/ServiceDefinitions';
+import { MediaType as M } from '../../../../Definitions/ServiceDefinitions';
 import { APIDesignerContext } from '../../../../contexts/APIDesignerContext';
 import { SchemaEditor } from '../schema/SchemaEditor';
 import { Button, Codicon, TextArea, Typography, Dropdown } from '@wso2/ui-toolkit';

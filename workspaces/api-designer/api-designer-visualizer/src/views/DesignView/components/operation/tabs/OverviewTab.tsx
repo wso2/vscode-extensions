@@ -19,7 +19,7 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import { Button, Codicon, Typography, TextField, TextArea, CheckBox, Dropdown } from '@wso2/ui-toolkit';
-import { Operation as O, OpenAPI } from '../../../../../definitions/ServiceDefinitions';
+import { Operation as O, OpenAPI } from '../../../../../Definitions/ServiceDefinitions';
 import { AIButton } from '../../../../../components/ai/AIButton';
 
 const Container = styled.div`
