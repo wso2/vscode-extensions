@@ -169,6 +169,17 @@ function findTracePath(
             .filter(n => n.type === 'portalNode' && (n.data as any).gotoNodeId)
             .map(n => [n.id, (n.data as any).gotoNodeId as string]),
     );
+    const retryMap = new Map<string, string>(
+        nodes
+            .filter(n => n.type === 'retryNode' && (n.data as any).gotoNodeId)
+            .map(n => [n.id, (n.data as any).gotoNodeId as string]),
+    );
+
+    // Special case: fromId itself is a portal/retry node that jumps directly to toId
+    const fromLogicalTarget = portalMap.get(fromId) ?? retryMap.get(fromId);
+    if (fromLogicalTarget === toId) {
+        return { edgeIds: [], intermediateNodeIds: [], portalLinks: [{ portalId: fromId, targetId: toId }] };
+    }
 
     type QueueItem = {
         nodeId: string;
@@ -208,18 +219,17 @@ function findTracePath(
                 continue;
             }
 
-            // Route through a portal node
-            const portalTarget = portalMap.get(target);
-            if (portalTarget !== undefined) {
-                if (portalTarget === toId) {
-                    // Portal leads straight to the destination
+            // Route through a portal or retry node (logical link via gotoNodeId)
+            const logicalTarget = portalMap.get(target) ?? retryMap.get(target);
+            if (logicalTarget !== undefined) {
+                if (logicalTarget === toId) {
                     return {
                         edgeIds: [...cur.edgeIds, edge.id],
                         intermediateNodeIds: cur.intermediateNodeIds,
-                        portalLinks: [...cur.portalLinks, { portalId: target, targetId: portalTarget }],
+                        portalLinks: [...cur.portalLinks, { portalId: target, targetId: logicalTarget }],
                     };
                 }
-                // Portal leads somewhere else — skip, it is not on this path
+                // Portal/retry leads somewhere else — skip, not on this path
             }
         }
     }
@@ -269,6 +279,9 @@ export function WorkflowView(props: WorkflowViewProps) {
             setNodes(prev => prev.map(node => {
                 if (node.type === 'stepNode' || node.type === 'conditionNode' || node.type === 'endNode') {
                     return { ...node, data: { ...node.data, traceStatus: undefined } };
+                }
+                if (node.type === 'retryNode') {
+                    return { ...node, data: { ...node.data, retryAttempt: undefined } };
                 }
                 if (node.type === 'startNode') {
                     return { ...node, data: { ...node.data, traceStatus: { state: 'passed' } } };
@@ -337,28 +350,36 @@ export function WorkflowView(props: WorkflowViewProps) {
                                 }
                             }
 
-                            // Inject a visible portal → target edge for each portal on the path.
+                            // Inject a visible portal/retry → target edge for each logical link on the path.
                             // Styled as a dashed line (same as the on-hover preview edge) so it is
-                            // visually distinct from regular flow edges.
+                            // visually distinct from regular flow edges. Re-inject if already present
+                            // so the color is updated to the current pass/fail state.
                             for (const { portalId, targetId } of path.portalLinks) {
                                 const injectedId = `trace_portal_${portalId}_${targetId}`;
-                                if (!newEdges.some(e => e.id === injectedId)) {
-                                    const color = highlight === 'passed'
-                                        ? (ThemeColors as any).TESTING_PASSED
-                                        : 'var(--vscode-testing-iconFailed, red)';
-                                    newEdges.push({
-                                        id: injectedId,
-                                        source: portalId,
-                                        target: targetId,
-                                        sourceHandle: 'h-top',
-                                        targetHandle: 'goto-top-target',
-                                        type: 'smoothstep',
-                                        style: { stroke: color, strokeDasharray: '4 4', strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' as const },
-                                        markerEnd: { type: MarkerType.ArrowClosed, color },
-                                        zIndex: 10,
-                                        data: { traceHighlight: highlight },
-                                        animated: false,
-                                    });
+                                const color = highlight === 'passed'
+                                    ? (ThemeColors as any).TESTING_PASSED
+                                    : 'var(--vscode-testing-iconFailed, red)';
+                                // Retry nodes use the left handle; portal nodes use the top handle
+                                const sourceNode = updated.find(n => n.id === portalId);
+                                const sourceHandle = sourceNode?.type === 'retryNode' ? 'h-left-source' : 'h-top';
+                                const injectedEdge = {
+                                    id: injectedId,
+                                    source: portalId,
+                                    target: targetId,
+                                    sourceHandle,
+                                    targetHandle: 'goto-top-target',
+                                    type: 'smoothstep',
+                                    style: { stroke: color, strokeDasharray: '4 4', strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' as const },
+                                    markerEnd: { type: MarkerType.ArrowClosed, color },
+                                    zIndex: 10,
+                                    data: { traceHighlight: highlight },
+                                    animated: false,
+                                };
+                                const existingIdx = newEdges.findIndex(e => e.id === injectedId);
+                                if (existingIdx >= 0) {
+                                    newEdges[existingIdx] = injectedEdge;
+                                } else {
+                                    newEdges.push(injectedEdge);
                                 }
                             }
                         }
@@ -393,6 +414,80 @@ export function WorkflowView(props: WorkflowViewProps) {
                 // Advance the step pointer AFTER state is scheduled
                 prevStepRef.current = stepId;
             }
+        } else if (event.arazzo_span_kind === 'retry') {
+            const stepId = event.attributes?.['step.id'] || event.name;
+            const attempt = parseInt(event.attributes?.['retry.attempt'] || '1', 10);
+
+            setNodes(prev => {
+                let retryNodeId: string | undefined;
+                const updated = prev.map(node => {
+                    if (node.type === 'retryNode' && (node.data as any).gotoNodeId === stepId) {
+                        retryNodeId = node.id;
+                        return { ...node, data: { ...node.data, retryAttempt: attempt } };
+                    }
+                    return node;
+                });
+
+                if (retryNodeId) {
+                    // Advance prevStepRef to the retry node so the next step:end can find the path
+                    prevStepRef.current = retryNodeId;
+                    const capturedRetryNodeId = retryNodeId;
+
+                    setEdges(prevEdges => {
+                        const newEdges = [...prevEdges];
+
+                        // Highlight the path from the failed step to this retry node
+                        // (goes through onFailure condition nodes)
+                        const pathToRetry = findTracePath(stepId, capturedRetryNodeId, newEdges, updated);
+                        if (pathToRetry) {
+                            const highlightSet = new Set(pathToRetry.edgeIds);
+                            for (let i = 0; i < newEdges.length; i++) {
+                                if (highlightSet.has(newEdges[i].id)) {
+                                    newEdges[i] = {
+                                        ...newEdges[i],
+                                        zIndex: 10,
+                                        data: { ...newEdges[i].data, traceHighlight: 'failed' },
+                                    };
+                                }
+                            }
+                            for (const condId of pathToRetry.intermediateNodeIds) {
+                                const idx = updated.findIndex(n => n.id === condId);
+                                if (idx >= 0) {
+                                    updated[idx] = {
+                                        ...updated[idx],
+                                        data: { ...updated[idx].data, traceStatus: { state: 'failed' } },
+                                    };
+                                }
+                            }
+                        }
+
+                        const injectedId = `trace_portal_${capturedRetryNodeId}_${stepId}`;
+                        const color = (ThemeColors as any).SECONDARY;
+                        const retryEdge = {
+                            id: injectedId,
+                            source: capturedRetryNodeId,
+                            target: stepId,
+                            sourceHandle: 'h-left-source',
+                            targetHandle: 'goto-top-target',
+                            type: 'smoothstep',
+                            style: { stroke: color, strokeDasharray: '4 4', strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' as const },
+                            markerEnd: { type: MarkerType.ArrowClosed, color },
+                            zIndex: 10,
+                            data: { traceHighlight: 'retry' as any },
+                            animated: false,
+                        };
+                        const existingIdx = newEdges.findIndex(e => e.id === injectedId);
+                        if (existingIdx >= 0) {
+                            newEdges[existingIdx] = retryEdge;
+                        } else {
+                            newEdges.push(retryEdge);
+                        }
+                        return newEdges;
+                    });
+                }
+
+                return updated;
+            });
         }
     });
 
