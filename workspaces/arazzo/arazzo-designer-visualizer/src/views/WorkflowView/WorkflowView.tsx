@@ -31,6 +31,7 @@ import {
     Edge,
     addEdge,
     Connection,
+    MarkerType,
 } from '@xyflow/react';
 // @ts-ignore
 import '@xyflow/react/dist/style.css';
@@ -134,6 +135,100 @@ const LoaderText = styled.div`
     font-size: 14px;
 `;
 
+// ---------------------------------------------------------------------------
+// Path-finding utility (pure, no React dependency)
+// ---------------------------------------------------------------------------
+
+interface TracePathResult {
+    /** Edge IDs that form the path and should be highlighted. */
+    edgeIds: string[];
+    /** Intermediate conditionNode IDs whose borders should be highlighted. */
+    intermediateNodeIds: string[];
+    /** Portal nodes on the path: a visible edge portalId→targetId must be injected. */
+    portalLinks: Array<{ portalId: string; targetId: string }>;
+}
+
+/**
+ * BFS from `fromId` to `toId` routing through conditionNode and portalNode intermediaries.
+ * Step nodes are never traversed through — if a path requires crossing a step node it means
+ * that step executed separately and should not be part of this path.
+ *
+ * Portal nodes have no real edge to their target; their `data.gotoNodeId` is the logical
+ * destination. When a portal is on the path it is returned in `portalLinks` so the caller
+ * can inject a temporary visible edge.
+ */
+function findTracePath(
+    fromId: string,
+    toId: string,
+    edges: Edge[],
+    nodes: Node[],
+): TracePathResult | null {
+    const condNodeIds = new Set(nodes.filter(n => n.type === 'conditionNode').map(n => n.id));
+    const portalMap = new Map<string, string>(
+        nodes
+            .filter(n => n.type === 'portalNode' && (n.data as any).gotoNodeId)
+            .map(n => [n.id, (n.data as any).gotoNodeId as string]),
+    );
+
+    type QueueItem = {
+        nodeId: string;
+        edgeIds: string[];
+        intermediateNodeIds: string[];
+        portalLinks: Array<{ portalId: string; targetId: string }>;
+    };
+
+    const visited = new Set<string>([fromId]);
+    const queue: QueueItem[] = [{ nodeId: fromId, edgeIds: [], intermediateNodeIds: [], portalLinks: [] }];
+
+    while (queue.length > 0) {
+        const cur = queue.shift()!;
+        for (const edge of edges.filter(e => e.source === cur.nodeId)) {
+            const { target } = edge;
+
+            // Direct edge to destination
+            if (target === toId) {
+                return {
+                    edgeIds: [...cur.edgeIds, edge.id],
+                    intermediateNodeIds: cur.intermediateNodeIds,
+                    portalLinks: cur.portalLinks,
+                };
+            }
+
+            if (visited.has(target)) continue;
+            visited.add(target);
+
+            // Route through a condition node
+            if (condNodeIds.has(target)) {
+                queue.push({
+                    nodeId: target,
+                    edgeIds: [...cur.edgeIds, edge.id],
+                    intermediateNodeIds: [...cur.intermediateNodeIds, target],
+                    portalLinks: cur.portalLinks,
+                });
+                continue;
+            }
+
+            // Route through a portal node
+            const portalTarget = portalMap.get(target);
+            if (portalTarget !== undefined) {
+                if (portalTarget === toId) {
+                    // Portal leads straight to the destination
+                    return {
+                        edgeIds: [...cur.edgeIds, edge.id],
+                        intermediateNodeIds: cur.intermediateNodeIds,
+                        portalLinks: [...cur.portalLinks, { portalId: target, targetId: portalTarget }],
+                    };
+                }
+                // Portal leads somewhere else — skip, it is not on this path
+            }
+        }
+    }
+
+    return null;
+}
+
+// ---------------------------------------------------------------------------
+
 export function WorkflowView(props: WorkflowViewProps) {
     const { fileUri, workflowId } = props;
     console.log('WorkflowView rendered with props:', { fileUri, workflowId });
@@ -141,6 +236,10 @@ export function WorkflowView(props: WorkflowViewProps) {
     const [arazzoDefinition, setArazzoDefinition] = useState<ArazzoDefinition | undefined>(undefined);
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
     const reactFlowInstanceRef = useRef<any>(null);
+    // Tracks the step that completed just before the current one, used to identify
+    // which edge to highlight when a step ends. Initialized to 'virtual_start' so
+    // the first step highlights the Start → Step edge.
+    const prevStepRef = useRef<string>('virtual_start');
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [graphKey, setGraphKey] = useState(0);
@@ -165,7 +264,8 @@ export function WorkflowView(props: WorkflowViewProps) {
     // Listen for trace events and update step node overlays
     rpcClient?.onTraceEvent((event: WebviewTraceEvent) => {
         if (event.arazzo_span_kind === 'workflow' && event.lifecycle === 'start') {
-            // New workflow run started — clear all trace statuses on nodes and edges
+            // New workflow run started — reset step tracking and clear all highlights
+            prevStepRef.current = 'virtual_start';
             setNodes(prev => prev.map(node => {
                 if (node.type === 'stepNode' || node.type === 'conditionNode' || node.type === 'endNode') {
                     return { ...node, data: { ...node.data, traceStatus: undefined } };
@@ -175,27 +275,30 @@ export function WorkflowView(props: WorkflowViewProps) {
                 }
                 return node;
             }));
-            setEdges(prev => prev.map(edge => ({
-                ...edge,
-                zIndex: 0,
-                data: { ...edge.data, traceHighlight: undefined },
-            })));
+            setEdges(prev => prev
+                .filter(e => !e.id.startsWith('trace_portal_'))
+                .map(e => ({ ...e, zIndex: 0, data: { ...e.data, traceHighlight: undefined } }))
+            );
+
         } else if (event.arazzo_span_kind === 'step') {
             const stepId = event.attributes?.['step.id'] || event.name;
+
             if (event.lifecycle === 'start') {
                 setNodes(prev => prev.map(node => {
                     if (node.id === stepId && node.type === 'stepNode') {
-                        const traceStatus: StepTraceStatus = { state: 'running' };
-                        return { ...node, data: { ...node.data, traceStatus } };
+                        return { ...node, data: { ...node.data, traceStatus: { state: 'running' } } };
                     }
                     return node;
                 }));
+
             } else if (event.lifecycle === 'end') {
                 const state = event.status_code === 'STATUS_CODE_OK' ? 'passed' : 'failed';
-                const highlight = state; // 'passed' | 'failed'
+                const highlight = state;
+                // Capture source before any async state update
+                const prevId = prevStepRef.current;
 
-                // 1. Update the step node's border
                 setNodes(prev => {
+                    // Update the completed step node's status
                     const updated = prev.map(node => {
                         if (node.id === stepId && node.type === 'stepNode') {
                             const traceStatus: StepTraceStatus = { state, durationMs: event.duration_ms };
@@ -204,70 +307,77 @@ export function WorkflowView(props: WorkflowViewProps) {
                         return node;
                     });
 
-                    // 2. Highlight edges whose TARGET is this stepId (or an intermediate condition node)
-                    //    Walk backwards from the completed step through condition nodes to find connecting edges.
                     setEdges(prevEdges => {
                         const newEdges = [...prevEdges];
-                        // Find all edges that directly target this step node
-                        const edgesToStep = newEdges.filter(e => e.target === stepId);
-                        for (const edge of edgesToStep) {
-                            edge.data = { ...edge.data, traceHighlight: highlight };
-                            edge.zIndex = 10;
-                        }
 
-                        // Walk backwards through condition nodes:
-                        // If edge source is a condition node, highlight it and its incoming edges
-                        const conditionNodeIds = new Set(
-                            updated.filter(n => n.type === 'conditionNode').map(n => n.id)
-                        );
+                        // Find the path prevId → stepId through conditions and/or portals
+                        const path = findTracePath(prevId, stepId, newEdges, updated);
 
-                        const visited = new Set<string>();
-                        const queue = edgesToStep.map(e => e.source).filter(id => conditionNodeIds.has(id));
-
-                        while (queue.length > 0) {
-                            const condId = queue.shift()!;
-                            if (visited.has(condId)) continue;
-                            visited.add(condId);
-
-                            // Highlight this condition node's border
-                            const condIdx = updated.findIndex(n => n.id === condId);
-                            if (condIdx >= 0) {
-                                updated[condIdx] = {
-                                    ...updated[condIdx],
-                                    data: { ...updated[condIdx].data, traceStatus: { state } },
-                                };
+                        if (path) {
+                            // Highlight each edge on the path
+                            const highlightSet = new Set(path.edgeIds);
+                            for (let i = 0; i < newEdges.length; i++) {
+                                if (highlightSet.has(newEdges[i].id)) {
+                                    newEdges[i] = {
+                                        ...newEdges[i],
+                                        zIndex: 10,
+                                        data: { ...newEdges[i].data, traceHighlight: highlight },
+                                    };
+                                }
                             }
 
-                            // Find edges targeting this condition node and highlight them
-                            const edgesToCond = newEdges.filter(e => e.target === condId);
-                            for (const edge of edgesToCond) {
-                                edge.data = { ...edge.data, traceHighlight: highlight };
-                                edge.zIndex = 10;
-                                // If this edge's source is also a condition node, continue walking
-                                if (conditionNodeIds.has(edge.source) && !visited.has(edge.source)) {
-                                    queue.push(edge.source);
+                            // Highlight borders of any intermediate condition nodes
+                            for (const condId of path.intermediateNodeIds) {
+                                const idx = updated.findIndex(n => n.id === condId);
+                                if (idx >= 0) {
+                                    updated[idx] = {
+                                        ...updated[idx],
+                                        data: { ...updated[idx].data, traceStatus: { state } },
+                                    };
+                                }
+                            }
+
+                            // Inject a visible portal → target edge for each portal on the path
+                            for (const { portalId, targetId } of path.portalLinks) {
+                                const injectedId = `trace_portal_${portalId}_${targetId}`;
+                                if (!newEdges.some(e => e.id === injectedId)) {
+                                    const color = highlight === 'passed'
+                                        ? (ThemeColors as any).TESTING_PASSED
+                                        : 'var(--vscode-testing-iconFailed, red)';
+                                    newEdges.push({
+                                        id: injectedId,
+                                        source: portalId,
+                                        target: targetId,
+                                        sourceHandle: 'h-top',
+                                        targetHandle: 'goto-top-target',
+                                        type: 'smoothstep',
+                                        style: { stroke: color, strokeWidth: C.STROKE_WIDTH, strokeLinecap: 'round' as const },
+                                        markerEnd: { type: MarkerType.ArrowClosed, color },
+                                        zIndex: 10,
+                                        data: { traceHighlight: highlight },
+                                        animated: false,
+                                    });
                                 }
                             }
                         }
 
-                        // 3. If the completed step connects to an endNode, highlight that edge too.
-                        //    This lights up the final arrow into the END bubble when the path terminates.
+                        // If the step passed and has an edge to an endNode, highlight it
                         if (highlight === 'passed') {
-                            const endNodes = updated.filter(n => n.type === 'endNode');
-                            const endNodeIds = new Set(endNodes.map(n => n.id));
-                            const edgesToEnd = newEdges.filter(
-                                e => e.source === stepId && endNodeIds.has(e.target)
-                            );
-                            for (const edge of edgesToEnd) {
-                                edge.data = { ...edge.data, traceHighlight: 'passed' };
-                                edge.zIndex = 10;
-                                // Mark the end node itself green
-                                const endIdx = updated.findIndex(n => n.id === edge.target);
-                                if (endIdx >= 0) {
-                                    updated[endIdx] = {
-                                        ...updated[endIdx],
-                                        data: { ...updated[endIdx].data, traceStatus: { state: 'passed' } },
+                            const endNodeIds = new Set(updated.filter(n => n.type === 'endNode').map(n => n.id));
+                            for (let i = 0; i < newEdges.length; i++) {
+                                if (newEdges[i].source === stepId && endNodeIds.has(newEdges[i].target)) {
+                                    newEdges[i] = {
+                                        ...newEdges[i],
+                                        zIndex: 10,
+                                        data: { ...newEdges[i].data, traceHighlight: 'passed' },
                                     };
+                                    const endIdx = updated.findIndex(n => n.id === newEdges[i].target);
+                                    if (endIdx >= 0) {
+                                        updated[endIdx] = {
+                                            ...updated[endIdx],
+                                            data: { ...updated[endIdx].data, traceStatus: { state: 'passed' } },
+                                        };
+                                    }
                                 }
                             }
                         }
@@ -277,6 +387,9 @@ export function WorkflowView(props: WorkflowViewProps) {
 
                     return updated;
                 });
+
+                // Advance the step pointer AFTER state is scheduled
+                prevStepRef.current = stepId;
             }
         }
     });
