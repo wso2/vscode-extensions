@@ -47,7 +47,7 @@ workflows:
             type: goto
             stepId: fetchProductSpecs
             criteria:
-              - condition: "$.data" # Satisfied if the data array exists and is not empty
+              - condition: "$.datas" # Satisfied if the data array exists and is not empty
                 context: "$response.body"
                 type: jsonpath
           # BRANCH C: Brand Discovery Track
@@ -55,7 +55,7 @@ workflows:
             type: goto
             stepId: getAvailableBrands
             criteria:
-              - condition: "$statusCode == 201"
+              - condition: "$statusCode == 200"
           # BRANCH D: General Categories Track
           - name: branch_categories
             type: goto
