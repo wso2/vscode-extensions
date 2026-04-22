@@ -29,6 +29,16 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
     private _onDidChangeCodeLenses = new vscode.EventEmitter<void>();
     public readonly onDidChangeCodeLenses = this._onDidChangeCodeLenses.event;
 
+    private _fileDirty = false;
+
+    /**
+     * Mark the active file as dirty (saved since last server start).
+     * The CodeLens title switches from "▶ Run" to "↺ Rerun".
+     */
+    public setFileDirty(dirty: boolean): void {
+        this._fileDirty = dirty;
+    }
+
     /**
      * Call this to force a refresh of the Code Lenses (e.g. when the
      * MCP server starts or stops).
@@ -86,8 +96,8 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
                 const range = new vscode.Range(i, 0, i, line.length);
 
                 lenses.push(new vscode.CodeLens(range, {
-                    title: '▶ Run',
-                    command: 'arazzo.runWorkflow',
+                    title: this._fileDirty ? '↺ Rerun' : '▶ Run',
+                    command: this._fileDirty ? 'arazzo.rerunWorkflow' : 'arazzo.runWorkflow',
                     arguments: [{
                         workflowId,
                         uri: document.uri.toString()

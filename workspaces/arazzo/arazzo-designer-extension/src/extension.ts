@@ -87,8 +87,35 @@ export async function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
-	// Refresh CodeLenses whenever the MCP server starts or stops
-	onMCPServerStateChange(() => runCodeLensProvider.refresh());
+	// Refresh CodeLenses whenever the MCP server starts or stops.
+	// Also reset the dirty flag so the lens reverts from "Rerun" to "Run".
+	onMCPServerStateChange(() => {
+		runCodeLensProvider.setFileDirty(false);
+		runCodeLensProvider.refresh();
+	});
+
+	// When the active file is saved and the MCP server is serving it, switch
+	// the CodeLens from "Run" to "Rerun" to signal the server needs restarting.
+	context.subscriptions.push(
+		vscode.workspace.onDidSaveTextDocument(document => {
+			const activeFile = getMCPActiveFilePath();
+			if (activeFile && document.uri.fsPath === activeFile) {
+				runCodeLensProvider.setFileDirty(true);
+				runCodeLensProvider.refresh();
+			}
+		})
+	);
+
+	// Register the Rerun-workflow command — triggered when the CodeLens shows
+	// "↺ Rerun" (i.e. the file was saved since the last server start).
+	// Restart the server (like the play button) then run the workflow (like the Run lens).
+	context.subscriptions.push(
+		vscode.commands.registerCommand('arazzo.rerunWorkflow', async (args?: any) => {
+			await vscode.commands.executeCommand('arazzo.startMCPServer', args);
+			await new Promise(resolve => setTimeout(resolve, 2000));
+			await vscode.commands.executeCommand('arazzo.runWorkflow', args);
+		})
+	);
 
 	// Initialize Arazzo Language Server for procode features
 	initializeLanguageServer(context);
